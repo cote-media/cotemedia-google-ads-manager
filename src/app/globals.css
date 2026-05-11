@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Playfair Display', serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: #C8412B;
+  color: #F5F2EC;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #EDEAE3; }
+::-webkit-scrollbar-thumb { background: #D4CFC6; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #8A8580; }
+
+@layer components {
+  .btn-primary {
+    @apply bg-ink text-paper px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-accent transition-colors duration-200;
+  }
+  .btn-secondary {
+    @apply border border-border text-ink px-5 py-2.5 text-sm font-medium tracking-wide hover:border-ink transition-colors duration-200 bg-transparent;
+  }
+  .card {
+    @apply bg-white border border-border p-6;
+  }
+  .metric-value {
+    @apply font-display text-3xl text-ink;
+  }
+  .metric-label {
+    @apply text-xs text-muted uppercase tracking-widest font-mono;
+  }
+  .table-row {
+    @apply border-b border-border hover:bg-surface transition-colors duration-100;
+  }
+  .badge-good {
+    @apply inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 border border-green-200;
+  }
+  .badge-warn {
+    @apply inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .badge-bad {
+    @apply inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-red-50 text-red-700 border border-red-200;
+  }
+}
