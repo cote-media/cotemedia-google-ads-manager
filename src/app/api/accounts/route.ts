@@ -1,14 +1,15 @@
+
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { listAccessibleAccounts } from '@/lib/google-ads'
 
 export async function GET() {
-  const session = await getServerSession()
+  const session = await getServerSession() as any
   if (!session?.accessToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {
-    const accounts = await listAccessibleAccounts(session.accessToken as string)
+    const accounts = await listAccessibleAccounts(session.accessToken)
     return NextResponse.json({ accounts })
   } catch (error: any) {
     console.error('Accounts error:', error)

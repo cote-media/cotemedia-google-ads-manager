@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { getKeywords } from '@/lib/google-ads'
 
 export async function GET(request: Request) {
-  const session = await getServerSession()
+  const session = await getServerSession() as any
   if (!session?.accessToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'accountId required' }, { status: 400 })
   }
   try {
-    const keywords = await getKeywords(session.accessToken as string, accountId)
+    const keywords = await getKeywords(session.accessToken, accountId)
     return NextResponse.json({ keywords })
   } catch (error: any) {
     console.error('Keywords error:', error)
