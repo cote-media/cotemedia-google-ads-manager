@@ -21,7 +21,7 @@ const handler = NextAuth({
             'profile',
             'https://www.googleapis.com/auth/adwords',
           ].join(' '),
-          access_type: 'offline',
+          access_token_type: 'offline',
           prompt: 'consent',
         },
       },
@@ -36,7 +36,6 @@ const handler = NextAuth({
       return token
     },
     async session({ session, token }) {
-      session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string
       return session
     },

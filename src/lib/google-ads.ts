@@ -13,24 +13,20 @@ export function getGoogleAdsClient() {
   return client
 }
 
-export function getCustomer(accessToken: string, customerId: string): Customer {
+export function getCustomer(refreshToken: string, customerId: string): Customer {
   const client = getGoogleAdsClient()
   return client.Customer({
     customer_id: customerId,
-    refresh_token: '',
+    refresh_token: refreshToken,
     login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID,
-    access_token: accessToken,
   })
 }
 
-// ─── Account helpers ────────────────────────────────────────────────────────
-
-export async function listAccessibleAccounts(accessToken: string) {
+export async function listAccessibleAccounts(refreshToken: string) {
   const client = getGoogleAdsClient()
   const customer = client.Customer({
     customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
-    refresh_token: '',
-    access_token: accessToken,
+    refresh_token: refreshToken,
     login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID,
   })
 
@@ -54,10 +50,8 @@ export async function listAccessibleAccounts(accessToken: string) {
   }))
 }
 
-// ─── Campaign helpers ────────────────────────────────────────────────────────
-
-export async function getCampaigns(accessToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
-  const customer = getCustomer(accessToken, customerId)
+export async function getCampaigns(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+  const customer = getCustomer(refreshToken, customerId)
 
   const campaigns = await customer.query(`
     SELECT
@@ -86,11 +80,9 @@ export async function getCampaigns(accessToken: string, customerId: string, date
     status: row.campaign.status,
     type: row.campaign.advertising_channel_type,
     biddingStrategy: row.campaign.bidding_strategy_type,
-    budgetMicros: row.campaign_budget?.amount_micros,
     budget: row.campaign_budget ? (row.campaign_budget.amount_micros / 1_000_000).toFixed(2) : null,
     impressions: row.metrics.impressions,
     clicks: row.metrics.clicks,
-    costMicros: row.metrics.cost_micros,
     cost: (row.metrics.cost_micros / 1_000_000).toFixed(2),
     conversions: row.metrics.conversions,
     conversionValue: row.metrics.conversions_value?.toFixed(2),
@@ -102,10 +94,8 @@ export async function getCampaigns(accessToken: string, customerId: string, date
   }))
 }
 
-// ─── Keyword helpers ─────────────────────────────────────────────────────────
-
-export async function getKeywords(accessToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
-  const customer = getCustomer(accessToken, customerId)
+export async function getKeywords(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+  const customer = getCustomer(refreshToken, customerId)
 
   const keywords = await customer.query(`
     SELECT
@@ -144,10 +134,8 @@ export async function getKeywords(accessToken: string, customerId: string, dateR
   }))
 }
 
-// ─── Search terms helper ─────────────────────────────────────────────────────
-
-export async function getSearchTerms(accessToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
-  const customer = getCustomer(accessToken, customerId)
+export async function getSearchTerms(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+  const customer = getCustomer(refreshToken, customerId)
 
   const terms = await customer.query(`
     SELECT
@@ -179,10 +167,8 @@ export async function getSearchTerms(accessToken: string, customerId: string, da
   }))
 }
 
-// ─── Account summary ─────────────────────────────────────────────────────────
-
-export async function getAccountSummary(accessToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
-  const campaigns = await getCampaigns(accessToken, customerId, dateRange)
+export async function getAccountSummary(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+  const campaigns = await getCampaigns(refreshToken, customerId, dateRange)
 
   const totalCost = campaigns.reduce((sum, c) => sum + parseFloat(c.cost), 0)
   const totalClicks = campaigns.reduce((sum, c) => sum + c.clicks, 0)
