@@ -78,32 +78,7 @@ export default function Dashboard() {
   function downloadChat() {
     const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
     const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'CMAM Chat Export
-Account: ' + accountName + '
-Date: ' + new Date().toLocaleDateString() + '
-
-'
-    const blob = new Blob([header + text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'cmam-' + accountName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function uploadChat(e) {
-    const file = e.target.files && e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const text = ev.target && ev.target.result
-      if (!text) return
-      const lines = text.split('
-
----
-
-')
+    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n')
       const messages = []
       for (const line of lines) {
         const trimmed = line.trim()
