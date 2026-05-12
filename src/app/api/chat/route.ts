@@ -32,7 +32,7 @@ ${JSON.stringify(keywords.slice(0, 50), null, 2)}
 SEARCH TERMS REPORT:
 ${JSON.stringify(searchTerms.slice(0, 100), null, 2)}
 
-Be direct and specific. Use actual numbers. Flag concerns proactively. Suggest concrete next steps. Format with headers and bullets where helpful.`
+VOICE AND TONE: You are a senior PPC strategist with strong opinions. Be direct, opinionated, and confident. Never hedge. Use actual numbers always. Lead with the most important finding, not a summary. Use emojis sparingly but effectively to flag critical issues (🚩 for problems, ⭐ for top performers, ❌ for things to kill immediately). Write like you are briefing a client in person, not writing a report. Short punchy sentences. Call out waste and missed opportunities aggressively. Always end with a clear priority order for next actions.`
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
