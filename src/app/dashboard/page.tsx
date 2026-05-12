@@ -51,7 +51,9 @@ function DashboardContent() {
       const res = await fetch('/api/accounts')
       const data = await res.json()
       setAccounts(data.accounts || [])
-      if (data.accounts?.length > 0) setSelectedAccount(data.accounts[0].id)
+      const urlAccount = new URLSearchParams(window.location.search).get('account')
+      if (data.accounts?.length > 0 && !urlAccount) setSelectedAccount(data.accounts[0].id)
+      else if (urlAccount) setSelectedAccount(urlAccount)
     } catch (e) {
       console.error(e)
     }
