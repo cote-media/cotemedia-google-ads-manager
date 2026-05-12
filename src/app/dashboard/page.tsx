@@ -121,11 +121,7 @@ function DashboardContent() {
   function downloadChat() {
     const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
     const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'CMAM Chat Export
-Account: ' + accountName + '
-Date: ' + new Date().toLocaleDateString() + '
-
-'
+    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
     const blob = new Blob([header + text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
