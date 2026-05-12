@@ -21,7 +21,7 @@ async function getAccessToken(refreshToken: string): Promise<string> {
 
 async function gadsRequest(accessToken: string, customerId: string, query: string) {
   const res = await fetch(
-    'https://googleads.googleapis.com/v18/customers/' + customerId + '/googleAds:search',
+    'https://googleads.googleapis.com/v19/customers/' + customerId + '/googleAds:search',
     {
       method: 'POST',
       headers: {
@@ -41,7 +41,7 @@ async function gadsRequest(accessToken: string, customerId: string, query: strin
 export async function listAccessibleAccounts(refreshToken: string) {
   const accessToken = await getAccessToken(refreshToken)
   const res = await fetch(
-    'https://googleads.googleapis.com/v18/customers/' + MANAGER_ID + '/googleAds:search',
+    'https://googleads.googleapis.com/v19/customers/' + MANAGER_ID + '/googleAds:search',
     {
       method: 'POST',
       headers: {

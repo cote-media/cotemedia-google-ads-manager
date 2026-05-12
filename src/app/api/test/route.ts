@@ -22,7 +22,7 @@ export async function GET() {
     return NextResponse.json({ error: 'token failed', details: tokenData })
   }
   const apiRes = await fetch(
-    'https://googleads.googleapis.com/v18/customers/' + process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID + '/googleAds:search',
+    'https://googleads.googleapis.com/v19/customers/' + process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID + '/googleAds:search',
     {
       method: 'POST',
       headers: {
