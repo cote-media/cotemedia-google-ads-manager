@@ -1,49 +1,19 @@
 'use client'
-import { useSession, signOut } from "next-auth/react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-import type { Components } from "react-markdown"
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, Suspense } from 'react'
+import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-const DATE_RANGES = [
-  { label: 'Last 7 days', value: 'LAST_7_DAYS' },
-  { label: 'Last 14 days', value: 'LAST_14_DAYS' },
-  { label: 'Last 30 days', value: 'LAST_30_DAYS' },
-  { label: 'This month', value: 'THIS_MONTH' },
-  { label: 'Last month', value: 'LAST_MONTH' },
-  { label: 'Last 90 days', value: 'LAST_90_DAYS' },
-]
-
-const CAMPAIGN_TYPES: Record<string, string> = {
-  '1': 'Search', '2': 'Search', '3': 'Display', '4': 'Shopping',
-  '5': 'Hotel', '6': 'Video', '7': 'Multi-Channel', '8': 'Local',
-  '9': 'Smart', '10': 'Performance Max', '11': 'Discovery', '12': 'Travel',
-  'SEARCH': 'Search', 'DISPLAY': 'Display', 'SHOPPING': 'Shopping',
-  'VIDEO': 'Video', 'MULTI_CHANNEL': 'Multi-Channel', 'LOCAL': 'Local',
-  'SMART': 'Smart', 'PERFORMANCE_MAX': 'Performance Max',
-  'DISCOVERY': 'Discovery', 'DEMAND_GEN': 'Demand Gen',
-}
-
-const CAMPAIGN_STATUSES: Record<string, string> = {
-  '2': 'Active', '3': 'Paused', '4': 'Removed',
-  'ENABLED': 'Active', 'PAUSED': 'Paused', 'REMOVED': 'Removed',
-}
-
-function DashboardContent() {
+export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const searchParams = useSearchParams()
-
   const [accounts, setAccounts] = useState<any[]>([])
-  const [selectedAccount, setSelectedAccount] = useState<string>('')
-  const [dateRange, setDateRange] = useState<string>('LAST_30_DAYS')
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>((searchParams.get('tab') as any) || 'overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/')
@@ -53,47 +23,32 @@ function DashboardContent() {
     if (session) fetchAccounts()
   }, [session])
 
-  // Restore account and dateRange from URL params
   useEffect(() => {
-    const acc = searchParams.get('account')
-    const dr = searchParams.get('range')
-    if (acc) setSelectedAccount(acc)
-    if (dr) setDateRange(dr)
-  }, [searchParams])
-
-  useEffect(() => {
-    if (selectedAccount) {
-      fetchSummary(selectedAccount, dateRange)
-      // Persist to URL
-      const params = new URLSearchParams()
-      params.set('account', selectedAccount)
-      params.set('range', dateRange)
-      params.set('tab', activeTab)
-      router.replace(`/dashboard?${params.toString()}`, { scroll: false })
-    }
-  }, [selectedAccount, dateRange])
+    if (selectedAccount) fetchSummary(selectedAccount)
+  }, [selectedAccount])
 
   async function fetchAccounts() {
     try {
       const res = await fetch('/api/accounts')
       const data = await res.json()
       setAccounts(data.accounts || [])
-      // Only set default if no account in URL
-      if (data.accounts?.length > 0 && !searchParams.get('account')) {
-        setSelectedAccount(data.accounts[0].id)
-      }
-    } catch (e) { console.error(e) }
+      if (data.accounts?.length > 0) setSelectedAccount(data.accounts[0].id)
+    } catch (e) {
+      console.error(e)
+    }
   }
 
-  async function fetchSummary(accountId: string, dr: string) {
+  async function fetchSummary(accountId: string) {
     setLoading(true)
-    setSummary(null)
     try {
-      const res = await fetch(`/api/campaigns?accountId=${accountId}&dateRange=${dr}`)
+      const res = await fetch(`/api/campaigns?accountId=${accountId}`)
       const data = await res.json()
       setSummary(data)
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function sendChat() {
@@ -115,13 +70,23 @@ function DashboardContent() {
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
     } catch (e) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
-    } finally { setChatLoading(false) }
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   function downloadChat() {
     const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
-    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
+    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('
+
+---
+
+')
+    const header = 'CMAM Chat Export
+Account: ' + accountName + '
+Date: ' + new Date().toLocaleDateString() + '
+
+'
     const blob = new Blob([header + text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -131,12 +96,40 @@ function DashboardContent() {
     URL.revokeObjectURL(url)
   }
 
-  if (status === 'loading') return <LoadingScreen />
+  function uploadChat(e) {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target && ev.target.result
+      if (!text) return
+      const lines = text.split('
 
-  const selectedAccountName = accounts.find(a => a.id === selectedAccount)?.name || ''
+---
+
+')
+      const messages = []
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('You: ')) {
+          messages.push({ role: 'user', content: trimmed.replace('You: ', '') })
+        } else if (trimmed.startsWith('Claude: ')) {
+          messages.push({ role: 'assistant', content: trimmed.replace('Claude: ', '') })
+        }
+      }
+      if (messages.length > 0) {
+        setChatMessages([...messages, { role: 'assistant', content: 'Your previous conversation has been restored. I have the full context from your earlier analysis — continue where you left off or ask something new.' }])
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  if (status === 'loading') return <LoadingScreen />
 
   return (
     <div className="min-h-screen bg-paper flex flex-col">
+      {/* Nav */}
       <nav className="border-b border-border px-8 py-4 flex items-center justify-between bg-white">
         <div className="flex items-center gap-6">
           <span className="font-display text-lg text-ink">Cote Media</span>
@@ -146,7 +139,7 @@ function DashboardContent() {
         <div className="flex items-center gap-4">
           {accounts.length > 0 && (
             <select
-              value={selectedAccount}
+              value={selectedAccount || ''}
               onChange={e => setSelectedAccount(e.target.value)}
               className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-ink"
             >
@@ -155,49 +148,72 @@ function DashboardContent() {
               ))}
             </select>
           )}
-          <select
-            value={dateRange}
-            onChange={e => setDateRange(e.target.value)}
-            className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-ink"
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="text-xs font-mono text-muted hover:text-ink transition-colors"
           >
-            {DATE_RANGES.map(dr => (
-              <option key={dr.value} value={dr.value}>{dr.label}</option>
-            ))}
-          </select>
-          <button onClick={() => signOut({ callbackUrl: '/' })} className="text-xs font-mono text-muted hover:text-ink transition-colors">
             Sign out
           </button>
         </div>
       </nav>
 
+      {/* Tabs */}
       <div className="border-b border-border bg-white px-8">
         <div className="flex gap-0">
           {(['overview', 'campaigns', 'keywords', 'chat'] as const).map(tab => (
-            <button key={tab} onClick={() => { setActiveTab(tab); const p = new URLSearchParams(window.location.search); p.set("tab", tab); window.history.replaceState(null, "", "/dashboard?" + p.toString()) }}
-              className={`px-5 py-3 text-xs font-mono uppercase tracking-widest border-b-2 transition-colors ${activeTab === tab ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-3 text-xs font-mono uppercase tracking-widest border-b-2 transition-colors ${
+                activeTab === tab
+                  ? 'border-ink text-ink'
+                  : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
               {tab}
             </button>
           ))}
         </div>
       </div>
 
+      {/* Content */}
       <main className="flex-1 px-8 py-8 max-w-7xl mx-auto w-full">
         {loading && (
           <div className="flex items-center gap-2 text-muted text-sm font-mono mb-6">
             <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-            Loading {selectedAccountName}...
+            Loading account data...
           </div>
         )}
 
-        {activeTab === 'overview' && summary && <OverviewTab summary={summary} />}
-        {activeTab === 'campaigns' && summary && <CampaignsTab campaigns={summary.campaigns || []} />}
-        {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
-        {activeTab === 'chat' && (
-          <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading}
-            onInputChange={setChatInput} onSend={sendChat} accountSelected={!!selectedAccount}
-            onDownload={downloadChat} exchangeCount={Math.floor(chatMessages.length / 2)} />
+        {activeTab === 'overview' && summary && (
+          <OverviewTab summary={summary} />
         )}
-        {!summary && !loading && <EmptyState />}
+
+        {activeTab === 'campaigns' && summary && (
+          <CampaignsTab campaigns={summary.campaigns || []} />
+        )}
+
+        {activeTab === 'keywords' && selectedAccount && (
+          <KeywordsTab accountId={selectedAccount} />
+        )}
+
+        {activeTab === 'chat' && (
+          <ChatTab
+            messages={chatMessages}
+            input={chatInput}
+            loading={chatLoading}
+            onInputChange={setChatInput}
+            onSend={sendChat}
+            accountSelected={!!selectedAccount}
+            onDownload={downloadChat}
+            onUpload={uploadChat}
+            exchangeCount={Math.floor(chatMessages.length / 2)}
+          />
+        )}
+
+        {!summary && !loading && (
+          <EmptyState />
+        )}
       </main>
     </div>
   )
@@ -212,11 +228,12 @@ function OverviewTab({ summary }: { summary: any }) {
     { label: 'ROAS', value: `${summary.roas}x` },
     { label: 'Avg CTR', value: `${summary.avgCtr}%` },
   ]
+
   return (
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl text-ink mb-1">Account Overview</h2>
-        <p className="text-sm text-muted font-mono">{DATE_RANGES.find(d => d.value === 'LAST_30_DAYS')?.label} · {summary.activeCampaigns} active campaigns</p>
+        <p className="text-sm text-muted font-mono">Last 30 days · {summary.activeCampaigns} active campaigns</p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border mb-8">
         {metrics.map(m => (
@@ -226,9 +243,39 @@ function OverviewTab({ summary }: { summary: any }) {
           </div>
         ))}
       </div>
+
       <div>
         <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Campaigns by Spend</h3>
-        <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} />
+        <div className="bg-white border border-border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface">
+                <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
+                <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
+                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
+                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>
+                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>
+                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">ROAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(summary.campaigns || []).slice(0, 10).map((c: any) => (
+                <tr key={c.id} className="table-row">
+                  <td className="px-4 py-3 text-ink font-medium max-w-xs truncate">{c.name}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge status={c.status} />
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-sm">${Number(c.cost).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.clicks).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm">{c.ctr}%</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm font-medium">
+                    {c.roas ? `${c.roas}x` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
@@ -239,65 +286,58 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
-        <p className="text-sm text-muted font-mono">{campaigns.length} campaigns</p>
+        <p className="text-sm text-muted font-mono">{campaigns.length} campaigns · Last 30 days</p>
       </div>
-      <CampaignTable campaigns={campaigns} showBudget />
-    </div>
-  )
-}
-
-function CampaignTable({ campaigns, showBudget }: { campaigns: any[], showBudget?: boolean }) {
-  return (
-    <div className="bg-white border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-surface">
-            <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-            <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Type</th>
-            <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
-            {showBudget && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Budget/day</th>}
-            <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
-            <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>
-            <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>
-            <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">ROAS</th>
-          </tr>
-        </thead>
-        <tbody>
-          {campaigns.map((c: any) => (
-            <tr key={c.id} className="table-row">
-              <td className="px-4 py-3 font-medium max-w-xs truncate">{c.name}</td>
-              <td className="px-4 py-3 text-xs font-mono text-muted">{CAMPAIGN_TYPES[c.type] || c.type}</td>
-              <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-              {showBudget && <td className="px-4 py-3 text-right font-mono text-sm">{c.budget ? `$${c.budget}` : '—'}</td>}
-              <td className="px-4 py-3 text-right font-mono text-sm">${Number(c.cost).toLocaleString()}</td>
-              <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.clicks).toLocaleString()}</td>
-              <td className="px-4 py-3 text-right font-mono text-sm">{c.ctr}%</td>
-              <td className="px-4 py-3 text-right font-mono text-sm font-medium">{c.roas ? `${c.roas}x` : '—'}</td>
+      <div className="bg-white border border-border overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
+              <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Type</th>
+              <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
+              <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Budget/day</th>
+              <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
+              <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>
+              <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Conv.</th>
+              <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">ROAS</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {campaigns.map((c: any) => (
+              <tr key={c.id} className="table-row">
+                <td className="px-4 py-3 font-medium max-w-xs truncate">{c.name}</td>
+                <td className="px-4 py-3 text-xs font-mono text-muted">{c.type?.replace('_', ' ')}</td>
+                <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                <td className="px-4 py-3 text-right font-mono text-sm">{c.budget ? `$${c.budget}` : '—'}</td>
+                <td className="px-4 py-3 text-right font-mono text-sm">${Number(c.cost).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.clicks).toLocaleString()}</td>
+                <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.conversions).toFixed(1)}</td>
+                <td className="px-4 py-3 text-right font-mono text-sm font-medium">{c.roas ? `${c.roas}x` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
 
-function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: string }) {
+function KeywordsTab({ accountId }: { accountId: string }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    fetch(`/api/keywords?accountId=${accountId}&dateRange=${dateRange}`)
+    fetch(`/api/keywords?accountId=${accountId}`)
       .then(r => r.json())
       .then(d => { setKeywords(d.keywords || []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [accountId, dateRange])
+  }, [accountId])
 
   return (
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl text-ink mb-1">Keywords</h2>
-        <p className="text-sm text-muted font-mono">Top 200 by spend</p>
+        <p className="text-sm text-muted font-mono">Top 200 by spend · Last 30 days</p>
       </div>
       {loading ? (
         <div className="text-muted text-sm font-mono">Loading keywords...</div>
@@ -312,6 +352,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
                 <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
                 <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>
                 <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>
+                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">QS</th>
               </tr>
             </thead>
             <tbody>
@@ -323,6 +364,13 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
                   <td className="px-4 py-3 text-right font-mono text-sm">${k.cost}</td>
                   <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks}</td>
                   <td className="px-4 py-3 text-right font-mono text-sm">{k.ctr}%</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm">
+                    {k.qualityScore ? (
+                      <span className={k.qualityScore >= 7 ? 'text-green-600' : k.qualityScore >= 4 ? 'text-amber-600' : 'text-red-600'}>
+                        {k.qualityScore}
+                      </span>
+                    ) : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -333,7 +381,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
   )
 }
 
-function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, exchangeCount }: any) {
+function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount }: any) {
   return (
     <div className="max-w-5xl">
       <div className="mb-4 flex items-start justify-between">
@@ -341,13 +389,20 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
           <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
         </div>
-        {messages.length > 0 && <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">↓ Save chat</button>}
+        <div className="flex gap-2">
+          <label className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors cursor-pointer">
+            ↑ Resume chat
+            <input type="file" accept=".txt" onChange={onUpload} className="hidden" />
+          </label>
+          {messages.length > 0 && <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">↓ Save chat</button>}
+        </div>
       </div>
       {exchangeCount >= 3 && exchangeCount % 4 === 3 && (
         <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
-          <p className="text-sm text-red-700 font-semibold">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline font-medium">Save transcript</button> to keep this analysis.</p>
+          <p className="text-sm text-red-700 font-semibold">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline">Save transcript</button> to keep this analysis.</p>
         </div>
       )}
+
       <div className="bg-white border border-border min-h-96 flex flex-col">
         <div className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[500px]">
           {messages.length === 0 && (
@@ -360,8 +415,12 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           )}
           {messages.map((m: any, i: number) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`w-full px-6 py-5 text-sm leading-7 ${m.role === 'user' ? 'bg-ink text-paper' : 'bg-surface text-ink border border-border chat-response'}`}>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+              <div className={`max-w-xl px-4 py-3 text-sm leading-relaxed ${
+                m.role === 'user'
+                  ? 'bg-ink text-paper'
+                  : 'bg-surface text-ink border border-border'
+              }`}>
+                {m.content}
               </div>
             </div>
           ))}
@@ -377,13 +436,22 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             </div>
           )}
         </div>
+
         <div className="border-t border-border p-4 flex gap-3">
-          <input type="text" value={input} onChange={e => onInputChange(e.target.value)}
+          <input
+            type="text"
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && onSend()}
             placeholder={accountSelected ? "Ask about this account..." : "Select an account first"}
             disabled={!accountSelected}
-            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-ink font-sans disabled:opacity-50" />
-          <button onClick={onSend} disabled={!accountSelected || loading} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-ink font-sans disabled:opacity-50"
+          />
+          <button
+            onClick={onSend}
+            disabled={!accountSelected || loading}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Send
           </button>
         </div>
@@ -393,10 +461,9 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const label = CAMPAIGN_STATUSES[status] || status
-  if (label === 'Active') return <span className="badge-good">● Active</span>
-  if (label === 'Paused') return <span className="badge-warn">● Paused</span>
-  return <span className="badge-bad">● {label}</span>
+  if (status === 'ENABLED') return <span className="badge-good">● Active</span>
+  if (status === 'PAUSED') return <span className="badge-warn">● Paused</span>
+  return <span className="badge-bad">● {status}</span>
 }
 
 function LoadingScreen() {
@@ -416,13 +483,5 @@ function EmptyState() {
       <p className="font-display text-2xl text-ink mb-2">No data yet</p>
       <p className="text-sm text-muted font-mono">Select an account to load campaign data</p>
     </div>
-  )
-}
-
-export default function Dashboard() {
-  return (
-    <Suspense fallback={<LoadingScreen />}>
-      <DashboardContent />
-    </Suspense>
   )
 }
