@@ -1,6 +1,7 @@
 'use client'
 import { useSession, signOut } from "next-auth/react"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import type { Components } from "react-markdown"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
@@ -335,7 +336,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           {messages.map((m: any, i: number) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-xl px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'bg-ink text-paper' : 'bg-surface text-ink border border-border'}`}>
-                <ReactMarkdown>{m.content}</ReactMarkdown>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
               </div>
             </div>
           ))}
