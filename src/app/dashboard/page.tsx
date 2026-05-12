@@ -1,6 +1,7 @@
 'use client'
 import { useSession, signOut } from "next-auth/react"
 import ReactMarkdown from "react-markdown"
+import type { Components } from "react-markdown"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 
