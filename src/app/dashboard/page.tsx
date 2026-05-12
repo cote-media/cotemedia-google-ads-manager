@@ -2,6 +2,8 @@
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 function DashboardContent() {
   const { data: session, status } = useSession()
@@ -450,8 +452,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
               <div className={`max-w-xl px-4 py-3 text-sm leading-relaxed ${
                 m.role === 'user'
                   ? 'bg-ink text-paper'
-                  : 'bg-surface text-ink border border-border'
-              }`}>
+              }`}>: 'bg-surface text-ink border border-border chat-response'
                 {m.content}
               </div>
             </div>
