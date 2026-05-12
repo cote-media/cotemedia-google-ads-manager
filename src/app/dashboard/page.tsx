@@ -42,7 +42,7 @@ function DashboardContent() {
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>((searchParams.get('tab') as any) || 'overview')
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/')
@@ -67,6 +67,7 @@ function DashboardContent() {
       const params = new URLSearchParams()
       params.set('account', selectedAccount)
       params.set('range', dateRange)
+      params.set('tab', activeTab)
       router.replace(`/dashboard?${params.toString()}`, { scroll: false })
     }
   }, [selectedAccount, dateRange])
@@ -155,7 +156,7 @@ function DashboardContent() {
       <div className="border-b border-border bg-white px-8">
         <div className="flex gap-0">
           {(['overview', 'campaigns', 'keywords', 'chat'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)}
+            <button key={tab} onClick={() => { setActiveTab(tab); const p = new URLSearchParams(window.location.search); p.set("tab", tab); window.history.replaceState(null, "", "/dashboard?" + p.toString()) }}
               className={`px-5 py-3 text-xs font-mono uppercase tracking-widest border-b-2 transition-colors ${activeTab === tab ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink'}`}>
               {tab}
             </button>
