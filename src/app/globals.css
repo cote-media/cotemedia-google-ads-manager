@@ -52,3 +52,20 @@
     @apply inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-red-50 text-red-700 border border-red-200;
   }
 }
+
+/* Chat markdown styling */
+.chat-response h1, .chat-response h2, .chat-response h3 {
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.chat-response h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8A8580; }
+.chat-response h3 { font-size: 0.95rem; }
+.chat-response p { margin-bottom: 0.75rem; }
+.chat-response ul, .chat-response ol { margin-left: 1.25rem; margin-bottom: 0.75rem; }
+.chat-response li { margin-bottom: 0.35rem; }
+.chat-response table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.8rem; }
+.chat-response th { text-align: left; padding: 0.4rem 0.75rem; background: #EDEAE3; font-family: monospace; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+.chat-response td { padding: 0.4rem 0.75rem; border-bottom: 1px solid #D4CFC6; }
+.chat-response strong { font-weight: 600; }
+.chat-response hr { border: none; border-top: 1px solid #D4CFC6; margin: 1rem 0; }

@@ -318,7 +318,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
 
 function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected }: any) {
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <div className="mb-6">
         <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
         <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
@@ -335,7 +335,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           )}
           {messages.map((m: any, i: number) => (
             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-xl px-4 py-3 text-sm leading-relaxed ${m.role === 'user' ? 'bg-ink text-paper' : 'bg-surface text-ink border border-border'}`}>
+              <div className={`w-full px-6 py-5 text-sm leading-7 ${m.role === 'user' ? 'bg-ink text-paper' : 'bg-surface text-ink border border-border chat-response'}`}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
               </div>
             </div>
