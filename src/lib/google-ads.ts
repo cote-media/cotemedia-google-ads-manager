@@ -130,7 +130,7 @@ export async function getAccountSummary(refreshToken: string, customerId: string
     totalConversionValue: totalConversionValue.toFixed(2),
     roas: totalCost > 0 ? (totalConversionValue / totalCost).toFixed(2) : '0',
     avgCtr: totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0',
-    activeCampaigns: campaigns.filter((c: any) => c.status === 'ENABLED').length,
+    activeCampaigns: campaigns.filter((c: any) => c.status === 'ENABLED' || c.status === '2').length,
     campaigns,
   }
 }
