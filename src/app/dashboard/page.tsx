@@ -137,6 +137,18 @@ export default function Dashboard() {
               ))}
             </select>
           )}
+          <select
+            value={dateRange}
+            onChange={e => setDateRange(e.target.value)}
+            className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-ink"
+          >
+            <option value="LAST_7_DAYS">Last 7 days</option>
+            <option value="LAST_14_DAYS">Last 14 days</option>
+            <option value="LAST_30_DAYS">Last 30 days</option>
+            <option value="THIS_MONTH">This month</option>
+            <option value="LAST_MONTH">Last month</option>
+            <option value="LAST_90_DAYS">Last 90 days</option>
+          </select>
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
             className="text-xs font-mono text-muted hover:text-ink transition-colors"
