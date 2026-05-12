@@ -493,8 +493,9 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
 }
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === 'ENABLED') return <span className="badge-good">● Active</span>
-  if (status === 'PAUSED') return <span className="badge-warn">● Paused</span>
+  if (status === 'ENABLED' || status === '2') return <span className="badge-good">● Active</span>
+  if (status === 'PAUSED' || status === '3') return <span className="badge-warn">● Paused</span>
+  if (status === 'REMOVED' || status === '4') return <span className="badge-bad">● Removed</span>
   return <span className="badge-bad">● {status}</span>
 }
 
@@ -516,6 +517,18 @@ function EmptyState() {
       <p className="text-sm text-muted font-mono">Select an account to load campaign data</p>
     </div>
   )
+}
+
+const CAMPAIGN_TYPES: Record<string, string> = {
+  '2': 'Search', '3': 'Display', '4': 'Shopping', '6': 'Video',
+  '9': 'Smart', '10': 'Performance Max', '11': 'Discovery',
+  'SEARCH': 'Search', 'DISPLAY': 'Display', 'SHOPPING': 'Shopping',
+  'VIDEO': 'Video', 'SMART': 'Smart', 'PERFORMANCE_MAX': 'Performance Max',
+}
+
+const CAMPAIGN_STATUSES: Record<string, string> = {
+  '2': 'Active', '3': 'Paused', '4': 'Removed',
+  'ENABLED': 'Active', 'PAUSED': 'Paused', 'REMOVED': 'Removed',
 }
 
 export default function Dashboard() {
