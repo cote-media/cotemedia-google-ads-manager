@@ -47,7 +47,7 @@ export async function getCampaigns(refreshToken: string, customerId: string, dat
     ORDER BY metrics.cost_micros DESC
   `)
   return rows.map((row: any) => ({
-    id: row.campaign.id,
+    id: String(row.campaign.id),
     name: row.campaign.name,
     status: row.campaign.status,
     type: row.campaign.advertising_channel_type,
