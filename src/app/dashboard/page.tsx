@@ -8,6 +8,7 @@ export default function Dashboard() {
   const router = useRouter()
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
+  const [dateRange, setDateRange] = useState<string>('LAST_30_DAYS')
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [chatInput, setChatInput] = useState('')
@@ -78,25 +79,42 @@ export default function Dashboard() {
   function downloadChat() {
     const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
     const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n')
+    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
+    const blob = new Blob([header + text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cmam-' + accountName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function uploadChat(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target ? (ev.target.result as string) : null
+      if (!text) return
+      const lines = text.split('\n\n---\n\n')
       const messages = []
       for (const line of lines) {
         const trimmed = line.trim()
         if (trimmed.startsWith('You: ')) {
-          messages.push({ role: 'user', content: trimmed.replace('You: ', '') })
+          messages.push({ role: 'user', content: trimmed.slice(5) })
         } else if (trimmed.startsWith('Claude: ')) {
-          messages.push({ role: 'assistant', content: trimmed.replace('Claude: ', '') })
+          messages.push({ role: 'assistant', content: trimmed.slice(8) })
         }
       }
       if (messages.length > 0) {
-        setChatMessages([...messages, { role: 'assistant', content: 'Your previous conversation has been restored. I have the full context from your earlier analysis — continue where you left off or ask something new.' }])
+        setChatMessages([...messages, { role: 'assistant', content: 'Your previous conversation has been restored. Continue where you left off or ask something new.' }])
       }
     }
     reader.readAsText(file)
     e.target.value = ''
   }
 
-  if (status === 'loading') return <LoadingScreen />
+    if (status === 'loading') return <LoadingScreen />
 
   return (
     <div className="min-h-screen bg-paper flex flex-col">
