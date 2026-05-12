@@ -188,7 +188,7 @@ function DashboardContent() {
           {(['overview', 'campaigns', 'keywords', 'chat'] as const).map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { setActiveTab(tab); const p = new URLSearchParams(window.location.search); p.set('tab', tab); window.history.replaceState(null, '', '/dashboard?' + p.toString()) }}
               className={`px-5 py-3 text-xs font-mono uppercase tracking-widest border-b-2 transition-colors ${
                 activeTab === tab
                   ? 'border-ink text-ink'
