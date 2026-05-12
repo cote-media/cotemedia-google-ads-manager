@@ -318,7 +318,7 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
           <thead>
             <tr className="border-b border-border bg-surface">
               <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-              <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Type</th>
+              
               <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
               <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Budget/day</th>
               <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
@@ -384,7 +384,7 @@ function KeywordsTab({ accountId }: { accountId: string }) {
               {keywords.map((k: any, i: number) => (
                 <tr key={i} className="table-row">
                   <td className="px-4 py-3 font-medium">{k.text}</td>
-                  <td className="px-4 py-3 text-xs font-mono text-muted">{k.matchType}</td>
+                  <td className="px-4 py-3 text-xs font-mono text-muted">{k.matchType === "4" || k.matchType === "BROAD" ? "Broad" : k.matchType === "3" || k.matchType === "PHRASE" ? "Phrase" : k.matchType === "2" || k.matchType === "EXACT" ? "Exact" : k.matchType}</td>
                   <td className="px-4 py-3 text-xs text-muted truncate max-w-xs">{k.campaign}</td>
                   <td className="px-4 py-3 text-right font-mono text-sm">${k.cost}</td>
                   <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks}</td>
