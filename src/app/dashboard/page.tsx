@@ -107,7 +107,7 @@ export default function Dashboard() {
         }
       }
       if (messages.length > 0) {
-        setChatMessages([...messages, { role: 'assistant', content: 'Your previous conversation has been restored. Continue where you left off or ask something new.' }])
+        setChatMessages([...messages, { role: 'assistant', content: "I've read through our previous conversation and have full context. What would you like to tackle next?" }])
       }
     }
     reader.readAsText(file)
@@ -398,9 +398,16 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           {messages.length > 0 && <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">↓ Save chat</button>}
         </div>
       </div>
-      {exchangeCount >= 3 && exchangeCount % 4 === 3 && (
+      {exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0 && (
         <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
-          <p className="text-sm text-red-700 font-semibold">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline">Save transcript</button> to keep this analysis.</p>
+          <p className="text-sm text-red-700 font-semibold">⚠️ 1 exchange remaining. <button onClick={onDownload} className="underline font-bold">Save transcript</button> now so you can continue this analysis.</p>
+        </div>
+      )}
+      {exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0 && (
+        <div className="mb-4 bg-ink border-2 border-ink px-6 py-5 text-center">
+          <p className="text-paper font-semibold mb-1">You've used all 4 exchanges.</p>
+          <p className="text-paper text-sm mb-4 opacity-80">Download your transcript, then re-upload it to start a fresh 4-pack with full context.</p>
+          <button onClick={onDownload} className="bg-paper text-ink text-sm font-mono px-5 py-2 hover:bg-surface transition-colors">↓ Download transcript</button>
         </div>
       )}
 
@@ -445,12 +452,12 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && onSend()}
             placeholder={accountSelected ? "Ask about this account..." : "Select an account first"}
-            disabled={!accountSelected}
+            disabled={!accountSelected || (exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0)}
             className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-ink font-sans disabled:opacity-50"
           />
           <button
             onClick={onSend}
-            disabled={!accountSelected || loading}
+            disabled={!accountSelected || loading || (exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0)}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Send
