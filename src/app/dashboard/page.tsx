@@ -1,12 +1,23 @@
 'use client'
 import { useSession, signOut } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
 
-export default function Dashboard() {
+function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [accounts, setAccounts] = useState<any[]>([])
+
+  // Restore from URL on load
+  useEffect(() => {
+    const acc = searchParams.get('account')
+    const dr = searchParams.get('range')
+    const tab = searchParams.get('tab')
+    if (acc) setSelectedAccount(acc)
+    if (dr) setDateRange(dr)
+    if (tab) setActiveTab(tab as any)
+  }, [])
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<string>('LAST_30_DAYS')
   const [summary, setSummary] = useState<any>(null)
@@ -26,8 +37,14 @@ export default function Dashboard() {
   }, [session])
 
   useEffect(() => {
-    if (selectedAccount) fetchSummary(selectedAccount)
-  }, [selectedAccount])
+    if (selectedAccount) {
+      fetchSummary(selectedAccount)
+      const params = new URLSearchParams()
+      params.set('account', selectedAccount)
+      params.set('range', dateRange)
+      router.replace('/dashboard?' + params.toString(), { scroll: false })
+    }
+  }, [selectedAccount, dateRange])
 
   async function fetchAccounts() {
     try {
@@ -497,4 +514,8 @@ function EmptyState() {
       <p className="text-sm text-muted font-mono">Select an account to load campaign data</p>
     </div>
   )
+}
+
+export default function Dashboard() {
+  return <Suspense fallback={<div>Loading...</div>}><DashboardContent /></Suspense>
 }
