@@ -12,8 +12,8 @@ export async function POST(request: Request) {
   const { message, accountId, summary, dateRange } = await request.json()
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-  let keywords = []
-  let searchTerms = []
+  let keywords: any[] = []
+  let searchTerms: any[] = []
   try {
     keywords = await getKeywords(session.refreshToken, accountId, dateRange || 'LAST_30_DAYS')
     searchTerms = await getSearchTerms(session.refreshToken, accountId, dateRange || 'LAST_30_DAYS')
