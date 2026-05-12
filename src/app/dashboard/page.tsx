@@ -331,7 +331,7 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
             {campaigns.map((c: any) => (
               <tr key={c.id} className="table-row">
                 <td className="px-4 py-3 font-medium max-w-xs truncate">{c.name}</td>
-                <td className="px-4 py-3 text-xs font-mono text-muted">{c.type?.replace('_', ' ')}</td>
+
                 <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                 <td className="px-4 py-3 text-right font-mono text-sm">{c.budget ? `$${c.budget}` : '—'}</td>
                 <td className="px-4 py-3 text-right font-mono text-sm">${Number(c.cost).toLocaleString()}</td>
