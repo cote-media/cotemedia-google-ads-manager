@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export async function POST(request: Request) {
-  const session = await getServerSession()
-  if (!session?.accessToken) {
+  const session = await getServerSession(authOptions) as any
+  if (!session?.refreshToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -20,9 +21,9 @@ ${summary ? JSON.stringify(summary, null, 2) : 'No account data loaded yet.'}
 
 Answer the user's questions about this account clearly and concisely. 
 - Provide specific numbers and insights from the data
-- Flag any concerning metrics (high CPC, low CTR, poor ROAS, etc.)
+- Flag any concerning metrics (high CPC, low CTR, poor ROAS, learning phase issues, etc.)
 - Suggest actionable optimizations where relevant
-- Be direct and professional — you're talking to an experienced marketer
+- Be direct and professional
 - Format numbers clearly (e.g. $1,234.56, 3.2x ROAS, 4.5% CTR)
 - If asked about something not in the data, say so clearly`
 
