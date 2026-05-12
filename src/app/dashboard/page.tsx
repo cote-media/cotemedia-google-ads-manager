@@ -344,8 +344,8 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
         {messages.length > 0 && <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">↓ Save chat</button>}
       </div>
       {exchangeCount >= 3 && exchangeCount % 4 === 3 && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 px-4 py-3">
-          <p className="text-xs text-amber-700 font-mono">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline font-medium">Save transcript</button> to keep this analysis.</p>
+        <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
+          <p className="text-sm text-red-700 font-semibold">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline font-medium">Save transcript</button> to keep this analysis.</p>
         </div>
       )}
       <div className="bg-white border border-border min-h-96 flex flex-col">
