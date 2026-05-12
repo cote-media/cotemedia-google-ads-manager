@@ -69,3 +69,6 @@
 .chat-response td { padding: 0.4rem 0.75rem; border-bottom: 1px solid #D4CFC6; }
 .chat-response strong { font-weight: 600; }
 .chat-response hr { border: none; border-top: 1px solid #D4CFC6; margin: 1rem 0; }
+
+.chat-response ol { list-style-type: decimal; }
+.chat-response ul { list-style-type: disc; }
