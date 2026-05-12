@@ -14,6 +14,7 @@ export default function Dashboard() {
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([])
   const [chatLoading, setChatLoading] = useState(false)
+  const [sessionStart, setSessionStart] = useState(0)
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
 
   useEffect(() => {
@@ -107,7 +108,9 @@ export default function Dashboard() {
         }
       }
       if (messages.length > 0) {
-        setChatMessages([...messages, { role: 'assistant', content: "I've read through our previous conversation and have full context. What would you like to tackle next?" }])
+        const restored = [...messages, { role: 'assistant', content: "I've read through our previous conversation and have full context. What would you like to tackle next?" }]
+        setChatMessages(restored)
+        setSessionStart(restored.length)
       }
     }
     reader.readAsText(file)
@@ -208,7 +211,7 @@ export default function Dashboard() {
             accountSelected={!!selectedAccount}
             onDownload={downloadChat}
             onUpload={uploadChat}
-            exchangeCount={Math.floor(chatMessages.length / 2)}
+            exchangeCount={Math.floor((chatMessages.length - sessionStart) / 2)}
           />
         )}
 
