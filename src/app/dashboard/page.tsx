@@ -100,19 +100,43 @@ function DashboardContent() {
     if (!chatInput.trim() || !selectedAccount) return
     const userMsg = chatInput.trim()
     setChatInput('')
-    setChatMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    const newMessages = [...chatMessages, { role: 'user', content: userMsg }]
+    setChatMessages(newMessages)
     setChatLoading(true)
+    const history = newMessages.slice(-8).map(m => ({ role: m.role, content: m.content }))
+    const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, accountId: selectedAccount, summary }),
+        body: JSON.stringify({ message: userMsg, accountId: selectedAccount, summary, dateRange, history: history.slice(0, -1), accountName }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
     } catch (e) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally { setChatLoading(false) }
+  }
+
+  function downloadChat() {
+    const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
+    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('
+
+---
+
+')
+    const header = 'CMAM Chat Export
+Account: ' + accountName + '
+Date: ' + new Date().toLocaleDateString() + '
+
+'
+    const blob = new Blob([header + text], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cmam-' + accountName.replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   if (status === 'loading') return <LoadingScreen />
@@ -178,7 +202,8 @@ function DashboardContent() {
         {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
         {activeTab === 'chat' && (
           <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading}
-            onInputChange={setChatInput} onSend={sendChat} accountSelected={!!selectedAccount} />
+            onInputChange={setChatInput} onSend={sendChat} accountSelected={!!selectedAccount}
+            onDownload={downloadChat} exchangeCount={Math.floor(chatMessages.length / 2)} />
         )}
         {!summary && !loading && <EmptyState />}
       </main>
@@ -316,13 +341,21 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
   )
 }
 
-function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected }: any) {
+function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, exchangeCount }: any) {
   return (
     <div className="max-w-5xl">
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
-        <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
+          <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
+        </div>
+        {messages.length > 0 && <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">↓ Save chat</button>}
       </div>
+      {exchangeCount >= 3 && exchangeCount % 4 === 3 && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 px-4 py-3">
+          <p className="text-xs text-amber-700 font-mono">Claude's memory resets after one more exchange. <button onClick={onDownload} className="underline font-medium">Save transcript</button> to keep this analysis.</p>
+        </div>
+      )}
       <div className="bg-white border border-border min-h-96 flex flex-col">
         <div className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[500px]">
           {messages.length === 0 && (

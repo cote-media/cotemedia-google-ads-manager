@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { message, accountId, summary, dateRange } = await request.json()
+  const { message, accountId, summary, dateRange, history, accountName } = await request.json()
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
   let keywords: any[] = []
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     console.error('Error fetching additional data:', e)
   }
 
-  const systemPrompt = `You are an expert Google Ads analyst for Cote Media agency.
+  const systemPrompt = `You are a senior PPC strategist analyzing Google Ads data for the client account: ${accountName || accountId}.
 
 ACCOUNT SUMMARY:
 ${JSON.stringify(summary, null, 2)}
@@ -34,6 +34,12 @@ ${JSON.stringify(searchTerms.slice(0, 100), null, 2)}
 
 VOICE AND TONE: You are a senior PPC strategist with strong opinions. Be direct, opinionated, and confident. Never hedge. Use actual numbers always. Lead with the most important finding, not a summary. Use emojis sparingly but effectively to flag critical issues (🚩 for problems, ⭐ for top performers, ❌ for things to kill immediately). Write like you are briefing a client in person, not writing a report. Short punchy sentences. Call out waste and missed opportunities aggressively. Always end with a clear priority order for next actions.`
 
+  // Build messages array with history
+  const messages = [
+    ...(history || []),
+    { role: 'user', content: message }
+  ]
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -44,9 +50,9 @@ VOICE AND TONE: You are a senior PPC strategist with strong opinions. Be direct,
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
+        max_tokens: 8000,
         system: systemPrompt,
-        messages: [{ role: 'user', content: message }],
+        messages,
       }),
     })
     const data = await response.json()
