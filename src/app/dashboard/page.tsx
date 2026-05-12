@@ -70,6 +70,7 @@ export default function Dashboard() {
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
     } catch (e) {
       setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
@@ -111,6 +112,7 @@ export default function Dashboard() {
         const restored = [...messages, { role: 'assistant', content: "I've read through our previous conversation and have full context. What would you like to tackle next?" }]
         setChatMessages(restored)
         setSessionStart(restored.length)
+        setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
       }
     }
     reader.readAsText(file)
@@ -415,7 +417,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
       )}
 
       <div className="bg-white border border-border min-h-96 flex flex-col">
-        <div className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[500px]">
+        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto max-h-[500px]">
           {messages.length === 0 && (
             <div className="text-muted text-sm font-mono space-y-2">
               <p>Try asking:</p>
