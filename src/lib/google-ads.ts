@@ -118,11 +118,11 @@ export async function getSearchTerms(refreshToken: string, customerId: string, d
 
 export async function getAccountSummary(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
   const campaigns = await getCampaigns(refreshToken, customerId, dateRange)
-  const totalCost = campaigns.reduce((sum, c) => sum + parseFloat(c.cost), 0)
-  const totalClicks = campaigns.reduce((sum, c) => sum + Number(c.clicks), 0)
-  const totalImpressions = campaigns.reduce((sum, c) => sum + Number(c.impressions), 0)
-  const totalConversions = campaigns.reduce((sum, c) => sum + Number(c.conversions), 0)
-  const totalConversionValue = campaigns.reduce((sum, c) => sum + parseFloat(c.conversionValue || '0'), 0)
+  const totalCost = campaigns.reduce((sum: number, c: any) => sum + parseFloat(c.cost), 0)
+  const totalClicks = campaigns.reduce((sum: number, c: any) => sum + Number(c.clicks), 0)
+  const totalImpressions = campaigns.reduce((sum: number, c: any) => sum + Number(c.impressions), 0)
+  const totalConversions = campaigns.reduce((sum: number, c: any) => sum + Number(c.conversions), 0)
+  const totalConversionValue = campaigns.reduce((sum: number, c: any) => sum + parseFloat(c.conversionValue || '0'), 0)
   return {
     totalCost: totalCost.toFixed(2),
     totalClicks,
