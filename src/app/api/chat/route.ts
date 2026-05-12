@@ -9,40 +9,31 @@ export async function POST(request: Request) {
   }
 
   const { message, accountId, summary } = await request.json()
+  if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-  if (!message) {
-    return NextResponse.json({ error: 'message required' }, { status: 400 })
-  }
-
-  const systemPrompt = `You are an expert Google Ads analyst and strategist for Cote Media, a digital marketing agency. 
-You have access to the following account data for account ID ${accountId}:
-
-${summary ? JSON.stringify(summary, null, 2) : 'No account data loaded yet.'}
-
-Answer the user's questions about this account clearly and concisely. 
-- Provide specific numbers and insights from the data
-- Flag any concerning metrics (high CPC, low CTR, poor ROAS, learning phase issues, etc.)
-- Suggest actionable optimizations where relevant
-- Be direct and professional
-- Format numbers clearly (e.g. $1,234.56, 3.2x ROAS, 4.5% CTR)
-- If asked about something not in the data, say so clearly`
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  console.log('API key present:', !!apiKey, 'length:', apiKey?.length)
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': apiKey!,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1000,
-        system: systemPrompt,
+        system: `You are an expert Google Ads analyst for Cote Media. Account data: ${JSON.stringify(summary)}`,
         messages: [{ role: 'user', content: message }],
       }),
     })
 
     const data = await response.json()
+    console.log('Anthropic response status:', response.status)
+    console.log('Anthropic response:', JSON.stringify(data).substring(0, 200))
+    
     const responseText = data.content?.[0]?.text || 'No response generated.'
     return NextResponse.json({ response: responseText })
   } catch (error: any) {
