@@ -77,11 +77,7 @@ export default function Dashboard() {
 
   function downloadChat() {
     const accountName = accounts.find((a) => a.id === selectedAccount)?.name || selectedAccount
-    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('
-
----
-
-')
+    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
     const header = 'CMAM Chat Export
 Account: ' + accountName + '
 Date: ' + new Date().toLocaleDateString() + '
