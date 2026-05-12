@@ -23,7 +23,7 @@ const CAMPAIGN_TYPES: Record<string, string> = {
 }
 
 const CAMPAIGN_STATUSES: Record<string, string> = {
-  '1': 'Active', '2': 'Paused', '3': 'Removed',
+  '2': 'Active', '3': 'Paused', '4': 'Removed',
   'ENABLED': 'Active', 'PAUSED': 'Paused', 'REMOVED': 'Removed',
 }
 
