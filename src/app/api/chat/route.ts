@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     console.error('Error fetching additional data:', e)
   }
 
-  const systemPrompt = `You are a senior PPC strategist analyzing Google Ads data for the client account: ${accountName || accountId}.
+  const systemPrompt = `You are a senior PPC strategist at Cote Media agency, analyzing Google Ads data for your client: ${accountName || accountId}. Always refer to this account by name (${accountName || accountId}) when discussing their data. Never say 'Cote Media' when referring to the advertiser — Cote Media is the agency, ${accountName || accountId} is the client.
 
 ACCOUNT SUMMARY:
 ${JSON.stringify(summary, null, 2)}
