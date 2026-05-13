@@ -72,3 +72,6 @@
 
 .chat-response ol { list-style-type: decimal; }
 .chat-response ul { list-style-type: disc; }
+
+.chat-response a { color: #2563eb; text-decoration: underline; }
+.chat-response a:hover { color: #1d4ed8; }

@@ -210,7 +210,7 @@ function DashboardContent() {
             <select
               value={selectedAccount || ''}
               onChange={e => setSelectedAccount(e.target.value)}
-              className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-ink max-w-[220px]"
+              className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-accent max-w-[220px]"
             >
               {accounts.map((a: any) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
@@ -220,7 +220,7 @@ function DashboardContent() {
           <select
             value={dateRange}
             onChange={e => setDateRange(e.target.value)}
-            className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-ink"
+            className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-accent"
           >
             {DATE_RANGES.map(dr => (
               <option key={dr.value} value={dr.value}>{dr.label}</option>
@@ -300,7 +300,7 @@ function OverviewTab({ summary }: { summary: any }) {
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-5">
             <div className="metric-label mb-2">{m.label}</div>
-            <div className="metric-value">{m.value}</div>
+            <div className="metric-value text-accent">{m.value}</div>
           </div>
         ))}
       </div>
@@ -524,7 +524,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
             placeholder={accountSelected ? (atLimit ? 'Download transcript and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
             disabled={!accountSelected || atLimit}
-            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-ink font-sans disabled:opacity-50"
+            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50"
           />
           <button
             onClick={onSend}
