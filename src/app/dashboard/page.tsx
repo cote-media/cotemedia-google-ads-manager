@@ -201,9 +201,7 @@ function DashboardContent() {
     <div className="min-h-screen bg-paper flex flex-col">
       <nav className="border-b border-border px-8 py-4 flex items-center justify-between bg-white">
         <div className="flex items-center gap-6">
-          <span className="font-display text-lg text-ink">Cote Media</span>
-          <span className="text-border">|</span>
-          <span className="font-mono text-xs tracking-widest uppercase text-muted">Advar</span>
+          <span className="font-display text-lg text-ink">Advar</span>
         </div>
         <div className="flex items-center gap-3">
           {accounts.length > 0 && (
