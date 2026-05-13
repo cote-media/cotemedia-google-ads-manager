@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'CMAM — Cote Media Ads Manager',
+  title: 'Advar',
   description: 'AI-powered Google Ads management for agencies and businesses',
 }
 

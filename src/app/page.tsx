@@ -16,7 +16,7 @@ export default function Home() {
       {/* Nav */}
       <div className="border-b border-border px-8 py-4 flex items-center justify-between">
         <span className="font-mono text-xs tracking-widest uppercase text-muted">Cote Media</span>
-        <span className="font-mono text-xs tracking-widest uppercase text-muted">Ads Manager</span>
+        <span className="font-mono text-xs tracking-widest uppercase text-muted">Advar</span>
       </div>
 
       {/* Hero */}

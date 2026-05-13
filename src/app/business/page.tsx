@@ -6,7 +6,7 @@ export default function BusinessPage() {
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
       <div className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <a href="/" className="font-mono text-xs tracking-widest uppercase text-muted hover:text-ink transition-colors">← Cote Media Ads Manager</a>
+        <a href="/" className="font-mono text-xs tracking-widest uppercase text-muted hover:text-ink transition-colors">← Advar</a>
         <span className="font-mono text-xs tracking-widest uppercase text-accent">For Business Owners</span>
       </div>
 
@@ -19,7 +19,7 @@ export default function BusinessPage() {
             <em>ads strategist.</em>
           </h1>
           <p className="text-muted text-lg leading-relaxed">
-            CMAM connects to your Google Ads account and gives you a senior strategist on demand — one that knows your campaigns inside out and tells you exactly what to do next.
+            Advar connects to your Google Ads account and gives you a senior strategist on demand — one that knows your campaigns inside out and tells you exactly what to do next.
           </p>
         </div>
 
@@ -29,7 +29,7 @@ export default function BusinessPage() {
           <div className="space-y-6">
             {[
               { icon: '💬', title: 'Ask anything in plain English', desc: 'No more decoding Google Ads dashboards. Just ask — "Which keywords are wasting my budget?" — and get a straight answer.' },
-              { icon: '🔍', title: 'Deep account analysis', desc: 'CMAM reads your campaigns, keywords, and search terms to surface what\'s working and what\'s not — instantly.' },
+              { icon: '🔍', title: 'Deep account analysis', desc: 'Advar reads your campaigns, keywords, and search terms to surface what\'s working and what\'s not — instantly.' },
               { icon: '🚩', title: 'Proactive problem spotting', desc: 'Claude flags wasted spend, underperforming campaigns, and missed opportunities before they cost you more.' },
               { icon: '✅', title: 'Actionable next steps', desc: 'Every analysis ends with a clear priority list. No vague advice — specific actions ranked by impact.' },
             ].map(f => (
@@ -50,7 +50,7 @@ export default function BusinessPage() {
           <ul className="space-y-2 text-sm text-ink">
             <li className="flex items-center gap-2"><span className="text-green-600">✓</span> A Google account linked to your Google Ads account</li>
             <li className="flex items-center gap-2"><span className="text-green-600">✓</span> An active Google Ads account (any size)</li>
-            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> That's it — CMAM connects automatically</li>
+            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> That's it — Advar connects automatically</li>
           </ul>
         </div>
 

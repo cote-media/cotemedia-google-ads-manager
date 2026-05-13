@@ -152,7 +152,7 @@ function DashboardContent() {
   function downloadChat() {
     const accountName = accounts.find((a: any) => a.id === selectedAccount)?.name || selectedAccount
     const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'CMAM Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
+    const header = 'Advar Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
     const blob = new Blob([header + text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -203,7 +203,7 @@ function DashboardContent() {
         <div className="flex items-center gap-6">
           <span className="font-display text-lg text-ink">Cote Media</span>
           <span className="text-border">|</span>
-          <span className="font-mono text-xs tracking-widest uppercase text-muted">Ads Manager</span>
+          <span className="font-mono text-xs tracking-widest uppercase text-muted">Advar</span>
         </div>
         <div className="flex items-center gap-3">
           {accounts.length > 0 && (

@@ -6,7 +6,7 @@ export default function AgencyPage() {
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
       <div className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <a href="/" className="font-mono text-xs tracking-widest uppercase text-muted hover:text-ink transition-colors">← Cote Media Ads Manager</a>
+        <a href="/" className="font-mono text-xs tracking-widest uppercase text-muted hover:text-ink transition-colors">← Advar</a>
         <span className="font-mono text-xs tracking-widest uppercase text-accent">For Agencies</span>
       </div>
 
@@ -19,7 +19,7 @@ export default function AgencyPage() {
             <em>managing multiple clients.</em>
           </h1>
           <p className="text-muted text-lg leading-relaxed">
-            CMAM connects to your Google Ads MCC and gives you an AI strategist that knows every client account — and tells you exactly what to fix, in plain English.
+            Advar connects to your Google Ads MCC and gives you an AI strategist that knows every client account — and tells you exactly what to fix, in plain English.
           </p>
         </div>
 
@@ -30,7 +30,7 @@ export default function AgencyPage() {
             {[
               { icon: '⚡', title: 'Instant account analysis', desc: 'Switch to any client account and ask Claude to analyze performance. Get a senior strategist\'s take in seconds, not hours.' },
               { icon: '🎯', title: 'Cross-client intelligence', desc: 'Compare performance across accounts, spot patterns, and surface opportunities you\'d otherwise miss.' },
-              { icon: '✅', title: 'Approve changes in one click', desc: 'Claude recommends specific actions — pause this keyword, increase that budget. You review and execute without leaving CMAM.' },
+              { icon: '✅', title: 'Approve changes in one click', desc: 'Claude recommends specific actions — pause this keyword, increase that budget. You review and execute without leaving Advar.' },
               { icon: '📄', title: 'Client-ready reporting', desc: 'Download full analysis transcripts to share with clients or use in strategy meetings.' },
             ].map(f => (
               <div key={f.title} className="flex gap-4 p-6 bg-white border border-border">
@@ -50,7 +50,7 @@ export default function AgencyPage() {
           <ul className="space-y-2 text-sm text-ink">
             <li className="flex items-center gap-2"><span className="text-green-600">✓</span> A Google account with access to Google Ads</li>
             <li className="flex items-center gap-2"><span className="text-green-600">✓</span> A Google Ads MCC (manager account) with your clients linked</li>
-            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> That's it — CMAM connects automatically</li>
+            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> That's it — Advar connects automatically</li>
           </ul>
         </div>
 
