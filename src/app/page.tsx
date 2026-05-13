@@ -34,11 +34,11 @@ export default function Home() {
             <span className="font-mono text-xs tracking-widest uppercase text-accent">Beta</span>
           </div>
           <h1 className="font-display text-6xl text-ink leading-tight mb-6">
-            Google Ads,<br />
+            Your ads,<br />
             <em>reimagined.</em>
           </h1>
           <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
-            Manage campaigns, pull reports, and optimize performance across every client account — through natural conversation with Claude.
+            Manage campaigns, analyze performance, and execute changes across every platform and client account — through natural conversation with Claude.
           </p>
 
           <button
@@ -59,9 +59,9 @@ export default function Home() {
       <div className="border-t border-border">
         <div className="grid grid-cols-3 divide-x divide-border">
           {[
-            { label: 'Campaign Management', desc: 'Create, pause, and optimize campaigns across all accounts' },
-            { label: 'AI-Powered Reporting', desc: 'Ask questions in plain English, get instant answers' },
-            { label: 'Keyword Intelligence', desc: 'Surface opportunities and cut waste automatically' },
+            { label: 'Multi-Platform Intelligence', desc: 'Google, Meta, and more in one place. Ask questions, get answers across all your accounts.' },
+            { label: 'AI-Powered Execution', desc: 'Claude recommends specific changes you can approve and push live in one click.' },
+            { label: 'Agency-Ready', desc: 'Manage every client from a single dashboard. Switch accounts in seconds, never lose context.' },
           ].map((f) => (
             <div key={f.label} className="px-8 py-6">
               <div className="metric-label mb-2">{f.label}</div>
