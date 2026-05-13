@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const DATE_RANGES = [
   { label: 'Last 7 days', value: 'LAST_7_DAYS' },
@@ -193,7 +194,7 @@ function CampaignTable({ campaigns, activeCols }: {
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ summary }: { summary: any }) {
+function OverviewTab({ summary, accountId, dateRange }: { summary: any; accountId: string; dateRange: string }) {
   const metrics = [
     { label: 'Total Spend', value: '$' + Number(summary.totalCost).toLocaleString() },
     { label: 'Clicks', value: Number(summary.totalClicks).toLocaleString() },
@@ -217,6 +218,7 @@ function OverviewTab({ summary }: { summary: any }) {
           </div>
         ))}
       </div>
+      <PerformanceChart accountId={accountId} dateRange={dateRange} />
       <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Campaigns by Spend</h3>
       <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} activeCols={defaultCols} />
     </div>
@@ -708,7 +710,7 @@ function DashboardContent() {
           )}
         </div>
         <main className="flex-1 px-8 py-8">
-          {activeTab === 'overview' && summary && <OverviewTab summary={summary} />}
+          {activeTab === 'overview' && summary && selectedAccount && <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} />}
           {activeTab === 'campaigns' && summary && <CampaignsTab campaigns={summary.campaigns || []} />}
           {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
           {activeTab === 'chat' && (

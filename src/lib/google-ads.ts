@@ -134,3 +134,22 @@ export async function getAccountSummary(refreshToken: string, customerId: string
     campaigns,
   }
 }
+
+export async function getDailyMetrics(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+  const customer = getCustomer(refreshToken, customerId)
+  const rows = await customer.query(`
+    SELECT segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros,
+    metrics.conversions, metrics.conversions_value
+    FROM customer
+    WHERE segments.date DURING ${dateRange}
+    ORDER BY segments.date ASC
+  `)
+  return rows.map((row: any) => ({
+    date: String(row.segments?.date || ''),
+    impressions: Number(row.metrics?.impressions || 0),
+    clicks: Number(row.metrics?.clicks || 0),
+    cost: parseFloat((Number(row.metrics?.cost_micros || 0) / 1e6).toFixed(2)),
+    conversions: parseFloat(Number(row.metrics?.conversions || 0).toFixed(1)),
+    conversionValue: parseFloat((Number(row.metrics?.conversions_value || 0)).toFixed(2)),
+  }))
+}
