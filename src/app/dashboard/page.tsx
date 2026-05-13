@@ -203,6 +203,12 @@ function DashboardContent() {
               <option key={dr.value} value={dr.value}>{dr.label}</option>
             ))}
           </select>
+          <button
+            onClick={() => selectedAccount && fetchSummary(selectedAccount, dateRange)}
+            className="text-xs font-mono text-muted hover:text-ink transition-colors border border-border px-3 py-1.5"
+          >
+            ↻ Refresh
+          </button>
           <button onClick={() => signOut({ callbackUrl: '/' })} className="text-xs font-mono text-muted hover:text-ink transition-colors">
             Sign out
           </button>
