@@ -117,6 +117,34 @@ function CampaignTable({ campaigns, activeCols }: {
   activeCols: string[]
 }) {
   const has = (id: string) => activeCols.includes(id)
+  const [sortCol, setSortCol] = useState<string>('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
+  function handleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  const sorted = [...campaigns].sort((a, b) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.cost); bv = Number(b.cost) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    else if (sortCol === 'conversions') { av = Number(a.conversions); bv = Number(b.conversions) }
+    else if (sortCol === 'roas') { av = Number(a.roas || 0); bv = Number(b.roas || 0) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
+    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
+    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost)/Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost)/Number(b.conversions) : 0 }
+    else if (sortCol === 'convRate') { av = Number(a.clicks) > 0 ? Number(a.conversions)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.conversions)/Number(b.clicks) : 0 }
+    else if (sortCol === 'budget') { av = Number(a.budget || 0); bv = Number(b.budget || 0) }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+
+  const SortTh = ({ id, label, left }: { id: string, label: string, left?: boolean }) => (
+    <th onClick={() => handleSort(id)} className={`${left ? 'text-left' : 'text-right'} px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none`}>
+      {label} {sortCol === id ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+    </th>
+  )
   return (
     <div className="bg-white border border-border overflow-x-auto">
       <table className="w-full text-sm">
@@ -137,7 +165,7 @@ function CampaignTable({ campaigns, activeCols }: {
           </tr>
         </thead>
         <tbody>
-          {campaigns.map((c: any) => {
+          {sorted.map((c: any) => {
             const cost = Number(c.cost)
             const convs = Number(c.conversions)
             const clicks = Number(c.clicks)
@@ -244,6 +272,19 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     if (typeof window !== 'undefined') localStorage.setItem('advar-keyword-cols', JSON.stringify(cols))
   }
   const has = (id: string) => activeCols.includes(id)
+  const [sortCol, setSortCol] = useState<string>('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
+  function handleKwSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  const KwSortTh = ({ id, label, left }: { id: string, label: string, left?: boolean }) => (
+    <th onClick={() => handleKwSort(id)} className={`${left ? 'text-left' : 'text-right'} px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none`}>
+      {label} {sortCol === id ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+    </th>
+  )
 
   useEffect(() => {
     setLoading(true)
@@ -267,6 +308,19 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     return 'text-red-600'
   }
 
+  const sortedKw = [...keywords].sort((a, b) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.cost); bv = Number(b.cost) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    else if (sortCol === 'qs') { av = Number(a.qualityScore || 0); bv = Number(b.qualityScore || 0) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
+    else if (sortCol === 'avgCpc') { av = Number(acks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
+    else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
+    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost)/Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost)/Number(b.conversions) : 0 }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -286,18 +340,18 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Keyword</th>
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Match</th>
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-                {has('impressions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Impressions</th>}
-                {has('spend') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>}
-                {has('clicks') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>}
-                {has('avgCpc') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Avg CPC</th>}
-                {has('ctr') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>}
-                {has('conversions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Conv.</th>}
-                {has('costPerConv') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Cost/Conv</th>}
-                {has('qs') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider" title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks.">QS</th>}
+                {has('impressions') && <KwSortTh id="impressions" label="Impressions" />}
+                {has('spend') && <KwSortTh id="spend" label="Spend" />}
+                {has('clicks') && <KwSortTh id="clicks" label="Clicks" />}
+                {has('avgCpc') && <KwSortTh id="avgCpc" label="Avg CPC" />}
+                {has('ctr') && <KwSortTh id="ctr" label="CTR" />}
+                {has('conversions') && <KwSortTh id="conversions" label="Conv." />}
+                {has('costPerConv') && <KwSortTh id="costPerConv" label="Cost/Conv" />}
+                {has('qs') && <KwSortTh id="qs" label="QS" />}
               </tr>
             </thead>
             <tbody>
-              {keywords.map((k: any, i: number) => (
+              {sortedKw.map((k: any, i: number) => (
                 <tr key={i} className="table-row">
                   <td className="px-4 py-3 font-medium">{k.text}</td>
                   <td className="px-4 py-3 text-xs font-mono text-muted">{matchLabel(k.matchType)}</td>
