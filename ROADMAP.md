@@ -168,3 +168,13 @@ Every Claude recommendation should eventually be executable from within CMAM.
 - [ ] Fix back navigation — replace "← Cote Media Ads Manager" with cleaner "← Back" or logo
 - [ ] Add testimonial/social proof section (populate after beta feedback)
 - [ ] Add pricing teaser at bottom ("Free during beta — paid plans coming soon")
+
+## 🏷 Naming Candidates (Trademark Research Complete)
+All four names below appear clear of trademark conflicts in software/AI/advertising:
+- **Merali** — premium, Italian feel, tightest
+- **Loravi** — most distinctive, nothing like it in tech
+- **Lorami** — warmest, most conversational
+- **Advar** — has "ad" built in, sharp, currently in use as working title
+
+Current working title: **Advar** (replacing CMAM/Cote Media Ads Manager references)
+Final name TBD before launch — recommend filing trademark on chosen name before going public.
