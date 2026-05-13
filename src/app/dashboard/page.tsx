@@ -396,14 +396,88 @@ function OverviewTab({ summary }: { summary: any }) {
   )
 }
 
+
+const CAMPAIGN_COLUMNS = [
+  { id: 'spend', label: 'Spend', defaultOn: true },
+  { id: 'clicks', label: 'Clicks', defaultOn: true },
+  { id: 'ctr', label: 'CTR', defaultOn: true },
+  { id: 'conversions', label: 'Conv.', defaultOn: true },
+  { id: 'roas', label: 'ROAS', defaultOn: true },
+  { id: 'impressions', label: 'Impressions', defaultOn: false },
+  { id: 'avgCpc', label: 'Avg CPC', defaultOn: false },
+  { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
+  { id: 'convRate', label: 'Conv Rate', defaultOn: false },
+  { id: 'budget', label: 'Budget/day', defaultOn: false },
+]
+
+const KEYWORD_COLUMNS = [
+  { id: 'spend', label: 'Spend', defaultOn: true },
+  { id: 'clicks', label: 'Clicks', defaultOn: true },
+  { id: 'ctr', label: 'CTR', defaultOn: true },
+  { id: 'qs', label: 'QS', defaultOn: true },
+  { id: 'impressions', label: 'Impressions', defaultOn: false },
+  { id: 'avgCpc', label: 'Avg CPC', defaultOn: false },
+  { id: 'conversions', label: 'Conv.', defaultOn: false },
+  { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
+]
+
+function ColumnPicker({ columns, active, onChange }: { columns: typeof CAMPAIGN_COLUMNS, active: string[], onChange: (cols: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors flex items-center gap-1"
+      >
+        ⊞ Columns
+      </button>
+      {open && (
+        <div className="absolute right-0 top-8 bg-white border border-border shadow-lg z-20 p-4 w-48">
+          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
+          {columns.map(col => (
+            <label key={col.id} classNa="flex items-center gap-2 py-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={active.includes(col.id)}
+                onChange={e => {
+                  if (e.target.checked) onChange([...active, col.id])
+                  else onChange(active.filter(c => c !== col.id))
+                }}
+                className="accent-accent"
+              />
+              <span className="text-xs text-ink">{col.label}</span>
+            </label>
+          ))}
+          <button onClick={() => setOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">Done</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CampaignsTab({ campaigns }: { campaigns: any[] }) {
+  const defaultCols = CAMPAIGN_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
+  const [activeCols, setActiveCols] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('advar-campaign-cols')
+      return saved ? JSON.parse(saved) : defaultCols
+    }
+    return defaultCols
+  })
+  const updateCols = (cols: string[]) => {
+    setActiveCols(cols)
+    localStorage.setItem('advar-campaign-cols', JSON.stringify(cols))
+  }
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
-        <p className="text-sm text-muted font-mono">{campaigns.length} campaigns</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
+          <p className="text-sm text-muted font-mono">{campaigns.length} campaigns</p>
+        </div>
+        <ColumnPicker columns={CAMPAIGN_COLUMNS} active={activeCols} onChange={updateCols} />
       </div>
-      <CampaignTable campaigns={campaigns} showBudget />
+      <CampaignTable campaigns={campaigns} activeCols={activeCols} />
     </div>
   )
 }
@@ -446,6 +520,19 @@ function CampaignTable({ campaigns, showBudget }: { campaigns: any[], showBudget
 function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: string }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const defaultKwCols = KEYWORD_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
+  const [activeCols, setActiveCols] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('advar-keyword-cols')
+      return saved ? JSON.parse(saved) : defaultKwCols
+    }
+    return defaultKwCols
+  })
+  const updateCols = (cols: string[]) => {
+    setActiveCols(cols)
+    localStorage.setItem('advar-keyword-cols', JSON.stringify(cols))
+  }
+  const has = (id: string) => activeCols.includes(id)
 
   useEffect(() => {
     setLoading(true)
@@ -471,9 +558,12 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
 
   return (
     <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink mb-1">Keywords</h2>
-        <p className="text-sm text-muted font-mono">Top 200 by spend</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl text-ink mb-1">Keywords</h2>
+          <p className="text-sm text-muted font-mono">Top 200 by spend</p>
+        </div>
+        <ColumnPicker columns={KEYWORD_COLUMNS} active={activeCols} onChange={updateCols} />
       </div>
       {loading ? (
         <div className="text-muted text-sm font-mono">Loading keywords...</div>
@@ -485,10 +575,14 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Keyword</th>
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Match</th>
                 <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>
-                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>
-                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>
-                <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider" title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks.">QS</th>
+                {has('impressions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Impressions</th>}
+                {has('spend') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>}
+                {has('clicks') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>}
+                {has('avgCpc') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Avg CPC</th>}
+                {has('ctr') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>}
+                {has('conversions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Conv.</th>}
+                {has('costPerConv') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Cost/Conv</th>}
+                {has('qs') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider" title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks.">QS</th>}
               </tr>
             </thead>
             <tbody>
@@ -497,19 +591,302 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string, dateRange: s
                   <td className="px-4 py-3 font-medium">{k.text}</td>
                   <td className="px-4 py-3 text-xs font-mono text-muted">{matchLabel(k.matchType)}</td>
                   <td className="px-4 py-3 text-xs text-muted truncate max-w-xs">{k.campaign}</td>
-                  <td className="px-4 py-3 text-right font-mono text-sm">${k.cost}</td>
-                  <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks}</td>
-                  <td className="px-4 py-3 text-right font-mono text-sm">{k.ctr}%</td>
-                  <td className="px-4 py-3 text-right font-mono text-sm font-medium">
+                  {has('impressions') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(k.impressions || 0).toLocaleString()}</td>}
+                  {has('spend') && <td className="px-4 py-3 text-right font-mono text-sm">${k.cost}</td>}
+                  {has('clicks') && <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks}</td>}
+                  {has('avgCpc') && <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks > 0 ? '
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount }: any) {
+  const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
+  const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
+
+  return (
+    <div className="max-w-4xl">
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
+          <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
+        </div>
+        <div className="flex gap-2">
+          <label className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors cursor-pointer">
+            ↑ Resume chat
+            <input type="file" accept=".txt" onChange={onUpload} className="hidden" />
+          </label>
+          {messages.length > 0 && (
+            <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
+              ↓ Save chat
+            </button>
+          )}
+        </div>
+      </div>
+
+      {warningNext && (
+        <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
+          <p className="text-sm text-red-700 font-semibold">
+            ⚠️ 1 exchange remaining.{' '}
+            <button onClick={onDownload} className="underline font-bold">Save transcript</button>
+            {' '}now so you can continue this analysis.
+          </p>
+        </div>
+      )}
+
+      {atLimit && (
+        <div className="mb-4 bg-ink border-2 border-ink px-6 py-5 text-center">
+          <p className="text-paper font-semibold mb-1">You've used all 4 exchanges.</p>
+          <p className="text-paper text-sm mb-4 opacity-80">
+            Download your transcript, then re-upload it to start a fresh 4 exchanges with full context.
+          </p>
+          <button onClick={onDownload} className="bg-paper text-ink text-sm font-mono px-5 py-2 hover:bg-surface transition-colors">
+            ↓ Download transcript
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
+        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto">
+          {messages.length === 0 && (
+            <div className="text-muted text-sm font-mono space-y-2">
+              <p>Try asking:</p>
+              <p className="text-ink">"Which campaigns have the best ROAS?"</p>
+              <p className="text-ink">"What keywords are wasting budget?"</p>
+              <p className="text-ink">"Summarize this account's performance"</p>
+            </div>
+          )}
+          {messages.map((m: any, i: number) => (
+            <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+              <div className={
+                'px-6 py-4 text-sm leading-7 ' +
+                (m.role === 'user'
+                  ? 'bg-ink text-paper max-w-xl'
+                  : 'bg-surface text-ink border border-border w-full chat-response')
+              }>
+                {m.role === 'user' ? m.content : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                )}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-surface border border-border px-4 py-3">
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-border p-4 flex gap-3">
+          <input
+            type="text"
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
+            placeholder={accountSelected ? (atLimit ? 'Download transcript and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
+            disabled={!accountSelected || atLimit}
+            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50"
+          />
+          <button
+            onClick={onSend}
+            disabled={!accountSelected || loading || atLimit}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const label = CAMPAIGN_STATUSES[status] || status
+  if (label === 'Active') return <span className="badge-good">● Active</span>
+  if (label === 'Paused') return <span className="badge-warn">● Paused</span>
+  return <span className="badge-bad">● {label}</span>
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-1 h-8 bg-ink animate-pulse mx-auto mb-4" />
+        <p className="font-mono text-xs text-muted tracking-widest uppercase">Loading</p>
+      </div>
+    </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+ + (Number(k.cost) / Number(k.clicks)).toFixed(2) : '—'}</td>}
+                  {has('ctr') && <td className="px-4 py-3 text-right font-mono text-sm">{k.ctr}%</td>}
+                  {has('conversions') && <td className="px-4 py-3 text-right font-mono text-sm">{k.conversions || '—'}</td>}
+                  {has('costPerConv') && <td className="px-4 py-3 text-right font-mono text-sm">{krsions > 0 ? '
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount }: any) {
+  const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
+  const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
+
+  return (
+    <div className="max-w-4xl">
+      <div className="mb-4 flex items-start justify-between">
+        <div>
+          <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
+          <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
+        </div>
+        <div className="flex gap-2">
+          <label className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors cursor-pointer">
+            ↑ Resume chat
+            <input type="file" accept=".txt" onChange={onUpload} className="hidden" />
+          </label>
+          {messages.length > 0 && (
+            <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
+              ↓ Save chat
+            </button>
+          )}
+        </div>
+      </div>
+
+      {warningNext && (
+        <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
+          <p className="text-sm text-red-700 font-semibold">
+            ⚠️ 1 exchange remaining.{' '}
+            <button onClick={onDownload} className="underline font-bold">Save transcript</button>
+            {' '}now so you can continue this analysis.
+          </p>
+        </div>
+      )}
+
+      {atLimit && (
+        <div className="mb-4 bg-ink border-2 border-ink px-6 py-5 text-center">
+          <p className="text-paper font-semibold mb-1">You've used all 4 exchanges.</p>
+          <p className="text-paper text-sm mb-4 opacity-80">
+            Download your transcript, then re-upload it to start a fresh 4 exchanges with full context.
+          </p>
+          <button onClick={onDownload} className="bg-paper text-ink text-sm font-mono px-5 py-2 hover:bg-surface transition-colors">
+            ↓ Download transcript
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
+        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto">
+          {messages.length === 0 && (
+            <div className="text-muted text-sm font-mono space-y-2">
+              <p>Try asking:</p>
+              <p className="text-ink">"Which campaigns have the best ROAS?"</p>
+              <p className="text-ink">"What keywords are wasting budget?"</p>
+              <p className="text-ink">"Summarize this account's performance"</p>
+            </div>
+          )}
+          {messages.map((m: any, i: number) => (
+            <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+              <div className={
+                'px-6 py-4 text-sm leading-7 ' +
+                (m.role === 'user'
+                  ? 'bg-ink text-paper max-w-xl'
+                  : 'bg-surface text-ink border border-border w-full chat-response')
+              }>
+                {m.role === 'user' ? m.content : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                )}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-surface border border-border px-4 py-3">
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-border p-4 flex gap-3">
+          <input
+            type="text"
+            value={input}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
+            placeholder={accountSelected ? (atLimit ? 'Download transcript and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
+            disabled={!accountSelected || atLimit}
+            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50"
+          />
+          <button
+            onClick={onSend}
+            disabled={!accountSelected || loading || atLimit}
+            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const label = CAMPAIGN_STATUSES[status] || status
+  if (label === 'Active') return <span className="badge-good">● Active</span>
+  if (label === 'Paused') return <span className="badge-warn">● Paused</span>
+  return <span className="badge-bad">● {label}</span>
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-paper flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-1 h-8 bg-ink animate-pulse mx-auto mb-4" />
+        <p className="font-mono text-xs text-muted tracking-widest uppercase">Loading</p>
+      </div>
+    </div>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <DashboardContent />
+    </Suspense>
+  )
+}
+ + (Number(k.cost) / Number(k.conversions)).toFixed(2) : '—'}</td>}
+                  {has('qs') && <td className="px-4 py-3 text-right font-mono text-sm font-medium">
                     {k.qualityScore ? (
-                      <span
-                        title="Quality Score: Google's 1-10 rating of keyword relevance. Higher = cheaper clicks."
-                        className={'cursor-help ' + qsColor(k.qualityScore)}
-                      >
+                      <span title="Quality Score: Google's 1-10 rating of keyword relevance. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>
                         {k.qualityScore}
                       </span>
                     ) : <span className="text-muted">—</span>}
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
