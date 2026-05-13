@@ -30,9 +30,24 @@ function DashboardContent() {
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [chatInput, setChatInput] = useState('')
-  const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([])
+  const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cmam-chat-messages')
+        return saved ? JSON.parse(saved) : []
+      } catch { return [] }
+    }
+    return []
+  })
   const [chatLoading, setChatLoading] = useState(false)
   const [sessionStart, setSessionStart] = useState(0)
+
+  // Persist chat to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && chatMessages.length > 0) {
+      localStorage.setItem('cmam-chat-messages', JSON.stringify(chatMessages))
+    }
+  }, [chatMessages])
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
 
   // Restore from URL on load
@@ -55,6 +70,14 @@ function DashboardContent() {
 
   useEffect(() => {
     if (selectedAccount) {
+      // Clear chat when switching accounts
+      const savedAccount = localStorage.getItem('cmam-active-account')
+      if (savedAccount && savedAccount !== selectedAccount) {
+        setChatMessages([])
+        setSessionStart(0)
+        localStorage.removeItem('cmam-chat-messages')
+      }
+      localStorage.setItem('cmam-active-account', selectedAccount)
       fetchSummary(selectedAccount, dateRange)
       const params = new URLSearchParams()
       params.set('account', selectedAccount)
