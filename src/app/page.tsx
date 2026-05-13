@@ -61,7 +61,7 @@ export default function Home() {
           </div>
           <button
             onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-            className="flex items-center gap-3 mt-4 text-sm text-muted hover:text-ink transition-colors font-mono"
+            className="btn-primary flex items-center gap-3 mt-4 w-fit"
           >
             <GoogleIcon />
             Sign in with Google
