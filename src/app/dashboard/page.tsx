@@ -152,16 +152,16 @@ function CampaignTable({ campaigns, activeCols }: {
           <tr className="border-b border-border bg-surface">
             <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
             <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
-            {has('budget') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Budget/day</th>}
-            {has('impressions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Impressions</th>}
-            {has('spend') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Spend</th>}
-            {has('clicks') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Clicks</th>}
-            {has('avgCpc') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Avg CPC</th>}
-            {has('ctr') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">CTR</th>}
-            {has('conversions') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Conv.</th>}
-            {has('costPerConv') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Cost/Conv</th>}
-            {has('convRate') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">Conv Rate</th>}
-            {has('roas') && <th className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider">ROAS</th>}
+            {has('budget') && <SortTh id="budget" label="Budget/day" />}
+            {has('impressions') && <SortTh id="impressions" label="Impressions" />}
+            {has('spend') && <SortTh id="spend" label="Spend" />}
+            {has('clicks') && <SortTh id="clicks" label="Clicks" />}
+            {has('avgCpc') && <SortTh id="avgCpc" label="Avg CPC" />}
+            {has('ctr') && <SortTh id="ctr" label="CTR" />}
+            {has('conversions') && <SortTh id="conversions" label="Conv." />}
+            {has('costPerConv') && <SortTh id="costPerConv" label="Cost/Conv" />}
+            {has('convRate') && <SortTh id="convRate" label="Conv Rate" />}
+            {has('roas') && <SortTh id="roas" label="ROAS" />}
           </tr>
         </thead>
         <tbody>
