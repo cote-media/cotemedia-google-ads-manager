@@ -163,3 +163,8 @@ Every Claude recommendation should eventually be executable from within CMAM.
 - [ ] Conversation persists as you navigate between tabs
 - [ ] Context updates automatically as you switch tabs or accounts
 - [ ] Full page view = current Chat tab (kept for transcript download/upload)
+
+## 🎨 Explainer Page Polish
+- [ ] Fix back navigation — replace "← Cote Media Ads Manager" with cleaner "← Back" or logo
+- [ ] Add testimonial/social proof section (populate after beta feedback)
+- [ ] Add pricing teaser at bottom ("Free during beta — paid plans coming soon")
