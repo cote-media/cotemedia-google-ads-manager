@@ -25,7 +25,7 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-ink text-paper px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-accent transition-colors duration-200;
+    @apply bg-accent text-white px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-blue-700 transition-colors duration-200;
   }
   .btn-secondary {
     @apply border border-border text-ink px-5 py-2.5 text-sm font-medium tracking-wide hover:border-ink transition-colors duration-200 bg-transparent;
