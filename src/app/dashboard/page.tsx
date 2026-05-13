@@ -51,6 +51,13 @@ const KEYWORD_COLUMNS = [
   { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
 ]
 
+const CHART_METRICS = [
+  { id: 'cost', label: 'Spend', color: '#2563eb' },
+  { id: 'clicks', label: 'Clicks', color: '#16a34a' },
+  { id: 'impressions', label: 'Impressions', color: '#9333ea' },
+  { id: 'conversions', label: 'Conversions', color: '#ea580c' },
+]
+
 // ─── Column Picker ────────────────────────────────────────────────────────────
 function ColumnPicker({ columns, active, onChange }: {
   columns: { id: string; label: string; defaultOn: boolean }[]
@@ -60,10 +67,7 @@ function ColumnPicker({ columns, active, onChange }: {
   const [open, setOpen] = useState(false)
   return (
     <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors"
-      >
+      <button onClick={() => setOpen(!open)} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
         ⊞ Columns
       </button>
       {open && (
@@ -71,21 +75,13 @@ function ColumnPicker({ columns, active, onChange }: {
           <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
           {columns.map(col => (
             <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={active.includes(col.id)}
-                onChange={e => {
-                  if (e.target.checked) onChange([...active, col.id])
-                  else onChange(active.filter(c => c !== col.id))
-                }}
-                className="accent-accent"
-              />
+              <input type="checkbox" checked={active.includes(col.id)}
+                onChange={e => { if (e.target.checked) onChange([...active, col.id]); else onChange(active.filter(c => c !== col.id)) }}
+                className="accent-accent" />
               <span className="text-xs text-ink">{col.label}</span>
             </label>
           ))}
-          <button onClick={() => setOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">
-            Done
-          </button>
+          <button onClick={() => setOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">Done</button>
         </div>
       )}
     </div>
@@ -112,11 +108,61 @@ function LoadingScreen() {
   )
 }
 
+// ─── Performance Chart ────────────────────────────────────────────────────────
+function PerformanceChart({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost', 'clicks'])
+
+  useEffect(() => {
+    setLoading(true)
+    fetch('/api/daily?accountId=' + accountId + '&dateRange=' + dateRange)
+      .then(r => r.json())
+      .then(d => {
+        setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) })))
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [accountId, dateRange])
+
+  const toggleMetric = (id: string) => {
+    setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  }
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-8">Loading chart...</div>
+  if (!data.length) return null
+
+  return (
+    <div className="bg-white border border-border p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+        <div className="flex gap-2">
+          {CHART_METRICS.map(m => (
+            <button key={m.id} onClick={() => toggleMetric(m.id)}
+              className={'text-xs font-mono px-3 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={240}>
+        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 10, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          {CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+            <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // ─── Campaign Table ───────────────────────────────────────────────────────────
-function CampaignTable({ campaigns, activeCols }: {
-  campaigns: any[]
-  activeCols: string[]
-}) {
+function CampaignTable({ campaigns, activeCols }: { campaigns: any[]; activeCols: string[] }) {
   const has = (id: string) => activeCols.includes(id)
   const [sortCol, setSortCol] = useState<string>('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
@@ -134,18 +180,19 @@ function CampaignTable({ campaigns, activeCols }: {
     else if (sortCol === 'conversions') { av = Number(a.conversions); bv = Number(b.conversions) }
     else if (sortCol === 'roas') { av = Number(a.roas || 0); bv = Number(b.roas || 0) }
     else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
-    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
-    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost)/Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost)/Number(b.conversions) : 0 }
-    else if (sortCol === 'convRate') { av = Number(a.clicks) > 0 ? Number(a.conversions)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.conversions)/Number(b.clicks) : 0 }
+    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost) / Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost) / Number(b.clicks) : 0 }
+    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost) / Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost) / Number(b.conversions) : 0 }
+    else if (sortCol === 'convRate') { av = Number(a.clicks) > 0 ? Number(a.conversions) / Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.conversions) / Number(b.clicks) : 0 }
     else if (sortCol === 'budget') { av = Number(a.budget || 0); bv = Number(b.budget || 0) }
     return sortDir === 'desc' ? bv - av : av - bv
   })
 
-  const SortTh = ({ id, label, left }: { id: string, label: string, left?: boolean }) => (
-    <th onClick={() => handleSort(id)} className={`${left ? 'text-left' : 'text-right'} px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none`}>
-      {label} {sortCol === id ? (sortDir === 'desc' ? '↓' : '↑') : ''}
+  const SortTh = ({ id, label }: { id: string; label: string }) => (
+    <th onClick={() => handleSort(id)} className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none">
+      {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
     </th>
   )
+
   return (
     <div className="bg-white border border-border overflow-x-auto">
       <table className="w-full text-sm">
@@ -230,10 +277,7 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
   const defaultCols = CAMPAIGN_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('advar-campaign-cols')
-        return saved ? JSON.parse(saved) : defaultCols
-      } catch { return defaultCols }
+      try { return JSON.parse(localStorage.getItem('advar-campaign-cols') || 'null') || defaultCols } catch { return defaultCols }
     }
     return defaultCols
   })
@@ -262,31 +306,18 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
   const defaultCols = KEYWORD_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('advar-keyword-cols')
-        return saved ? JSON.parse(saved) : defaultCols
-      } catch { return defaultCols }
+      try { return JSON.parse(localStorage.getItem('advar-keyword-cols') || 'null') || defaultCols } catch { return defaultCols }
     }
     return defaultCols
   })
+  const [sortCol, setSortCol] = useState<string>('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
   const updateCols = (cols: string[]) => {
     setActiveCols(cols)
     if (typeof window !== 'undefined') localStorage.setItem('advar-keyword-cols', JSON.stringify(cols))
   }
   const has = (id: string) => activeCols.includes(id)
-  const [sortCol, setSortCol] = useState<string>('spend')
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
-
-  function handleKwSort(col: string) {
-    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortCol(col); setSortDir('desc') }
-  }
-
-  const KwSortTh = ({ id, label, left }: { id: string, label: string, left?: boolean }) => (
-    <th onClick={() => handleKwSort(id)} className={`${left ? 'text-left' : 'text-right'} px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none`}>
-      {label} {sortCol === id ? (sortDir === 'desc' ? '↓' : '↑') : ''}
-    </th>
-  )
 
   useEffect(() => {
     setLoading(true)
@@ -295,6 +326,30 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
       .then(d => { setKeywords(d.keywords || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [accountId, dateRange])
+
+  function handleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  const sortedKw = [...keywords].sort((a, b) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.cost); bv = Number(b.cost) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    else if (sortCol === 'qs') { av = Number(a.qualityScore || 0); bv = Number(b.qualityScore || 0) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
+    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost) / Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost) / Number(b.clicks) : 0 }
+    else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
+    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost) / Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost) / Number(b.conversions) : 0 }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+
+  const KwSortTh = ({ id, label }: { id: string; label: string }) => (
+    <th onClick={() => handleSort(id)} className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none">
+      {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+    </th>
+  )
 
   const matchLabel = (mt: string) => {
     if (mt === '4' || mt === 'BROAD') return 'Broad'
@@ -309,19 +364,6 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     if (n >= 4) return 'text-amber-500'
     return 'text-red-600'
   }
-
-  const sortedKw = [...keywords].sort((a, b) => {
-    let av = 0, bv = 0
-    if (sortCol === 'spend') { av = Number(a.cost); bv = Number(b.cost) }
-    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
-    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
-    else if (sortCol === 'qs') { av = Number(a.qualityScore || 0); bv = Number(b.qualityScore || 0) }
-    else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
-    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
-    else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
-    else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost)/Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost)/Number(b.conversions) : 0 }
-    return sortDir === 'desc' ? bv - av : av - bv
-  })
 
   return (
     <div>
@@ -368,7 +410,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
                   {has('qs') && (
                     <td className="px-4 py-3 text-right font-mono text-sm font-medium">
                       {k.qualityScore ? (
-                        <span title="Quality Score: Google's 1-10 rating of keyword relevance. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>
+                        <span title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>
                           {k.qualityScore}
                         </span>
                       ) : <span className="text-muted">—</span>}
@@ -418,7 +460,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
       )}
       {atLimit && (
         <div className="mb-4 bg-ink px-6 py-5 text-center">
-          <p className="text-paper font-semibold mb-1">You've used all 4 exchanges.</p>
+          <p className="text-paper font-semibold mb-1">You have used all 4 exchanges.</p>
           <p className="text-paper text-sm mb-4 opacity-80">Download your transcript, then re-upload it to start a fresh 4 exchanges with full context.</p>
           <button onClick={onDownload} className="bg-paper text-ink text-sm font-mono px-5 py-2 hover:bg-surface transition-colors">↓ Download transcript</button>
         </div>
@@ -453,15 +495,11 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           )}
         </div>
         <div className="border-t border-border p-4 flex gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={e => onInputChange(e.target.value)}
+          <input type="text" value={input} onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
             placeholder={accountSelected ? (atLimit ? 'Download transcript and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
             disabled={!accountSelected || atLimit}
-            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50"
-          />
+            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
           <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
             Send
           </button>
@@ -500,7 +538,6 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  // Restore from URL
   useEffect(() => {
     const acc = searchParams.get('account')
     const dr = searchParams.get('range')
@@ -645,7 +682,6 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper flex">
-      {/* Sidebar */}
       <div className={`flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
@@ -694,14 +730,12 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="border-b border-border px-8 py-3 flex items-center justify-between bg-white sticky top-0 z-10">
           <p className="text-xs text-muted font-mono">
             {loading
               ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
-              : summary ? selectedAccountName + ' · ' + (DATE_RANGES.find(d => d.value === dateRange)?.label || '') : ''
-            }
+              : summary ? selectedAccountName + ' · ' + (DATE_RANGES.find(d => d.value === dateRange)?.label || '') : ''}
           </p>
           {sidebarCollapsed && (
             <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
