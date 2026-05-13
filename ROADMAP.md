@@ -114,3 +114,29 @@
 - [x] Hard stop after 4 exchanges with download prompt
 - [x] Campaign status labels (Active/Paused/Removed)
 - [x] Campaign type labels (Search/Display/etc)
+
+---
+
+## ⚡ Execution Layer (High Priority Feature)
+The ability to execute changes Claude recommends directly inside CMAM — no switching to Google Ads.
+
+### Keyword Actions
+- [ ] Pause/enable keywords (one-click toggle on keyword table)
+- [ ] Adjust keyword bids
+- [ ] Add negative keywords
+- [ ] Delete keywords
+
+### Campaign Actions  
+- [ ] Pause/enable campaigns
+- [ ] Adjust daily budgets
+- [ ] Change bidding strategy
+
+### "Claude Recommends" Workflow
+- [ ] Claude surfaces specific action list after analysis
+- [ ] User reviews with checkboxes (approve/skip each action)
+- [ ] Single "Execute Selected" button pushes all approved changes to Google
+- [ ] Confirmation summary of what changed
+
+### Philosophy
+Every Claude recommendation should eventually be executable from within CMAM.
+"Here's what's wrong" → "Want me to fix it?" is a fundamentally different product.
