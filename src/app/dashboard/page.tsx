@@ -714,7 +714,6 @@ function DashboardContent() {
 
   function applyCustomRange() {
     if (customStart && customEnd && selectedAccount) {
-      setShowCustomPicker(false)
       fetchSummaryCustom(selectedAccount, customStart, customEnd)
     }
   }
