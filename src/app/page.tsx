@@ -36,7 +36,7 @@ export default function Home() {
           {/* Split cards */}
           <div className="grid grid-cols-2 gap-4 mb-8 max-w-lg">
             <button
-              onClick={() => signIn('google', { callbackUrl: '/dashboard?type=agency' })}
+              onClick={() => window.location.href = '/agency'}
               className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏢</div>
@@ -44,7 +44,7 @@ export default function Home() {
               <p className="text-xs text-muted leading-relaxed">Managing ads for multiple clients</p>
             </button>
             <button
-              onClick={() => signIn('google', { callbackUrl: '/dashboard?type=business' })}
+              onClick={() => window.location.href = '/business'}
               className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏪</div>
