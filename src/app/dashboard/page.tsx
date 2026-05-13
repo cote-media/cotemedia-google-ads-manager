@@ -391,7 +391,7 @@ function OverviewTab({ summary }: { summary: any }) {
         ))}
       </div>
       <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Campaigns by Spend</h3>
-      <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} />
+      <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} activeCols={['spend','clicks','ctr','conversions','roas']} />
     </div>
   )
 }
@@ -482,7 +482,7 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
   )
 }
 
-function CampaignTable({ campaigns, showBudget }: { campaigns: any[], showBudget?: boolean }) {
+function CampaignTable({ campaigns, activeCols }: { campaigns: any[], activeCols?: string[] }) {
   return (
     <div className="bg-white border border-border overflow-hidden">
       <table className="w-full text-sm">
