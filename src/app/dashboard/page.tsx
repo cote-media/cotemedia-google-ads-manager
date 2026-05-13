@@ -7,6 +7,8 @@ import remarkGfm from 'remark-gfm'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const DATE_RANGES = [
+  { label: 'Today', value: 'TODAY' },
+  { label: 'Yesterday', value: 'YESTERDAY' },
   { label: 'Last 7 days', value: 'LAST_7_DAYS' },
   { label: 'Last 14 days', value: 'LAST_14_DAYS' },
   { label: 'Last 30 days', value: 'LAST_30_DAYS' },
