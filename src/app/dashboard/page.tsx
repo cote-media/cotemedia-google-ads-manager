@@ -70,14 +70,14 @@ function DashboardContent() {
 
   useEffect(() => {
     if (selectedAccount) {
-      // Clear chat when switching accounts
+      // Clear chat only when actively switching to a different account
       const savedAccount = localStorage.getItem('cmam-active-account')
-      if (savedAccount && savedAccount !== selectedAccount) {
+      if (savedAccount && savedAccount !== selectedAccount && savedAccount !== 'null') {
         setChatMessages([])
         setSessionStart(0)
         localStorage.removeItem('cmam-chat-messages')
       }
-      localStorage.setItem('cmam-active-account', selectedAccount)
+      if (selectedAccount) localStorage.setItem('cmam-active-account', selectedAccount)
       fetchSummary(selectedAccount, dateRange)
       const params = new URLSearchParams()
       params.set('account', selectedAccount)
