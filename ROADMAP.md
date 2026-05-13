@@ -178,3 +178,25 @@ All four names below appear clear of trademark conflicts in software/AI/advertis
 
 Current working title: **Advar** (replacing CMAM/Cote Media Ads Manager references)
 Final name TBD before launch — recommend filing trademark on chosen name before going public.
+
+## 🎨 UX/Design Overhaul (Next Priority)
+### Layout Redesign — Left Sidebar Navigation
+- [ ] Move from top tab navigation to left sidebar (familiar to Meta/Google Ads users)
+- [ ] Client/account selector near top left (Meta-style)
+- [ ] Sidebar nav items: Overview, Campaigns, Keywords, Chat, Settings
+- [ ] Sidebar collapses to icons on smaller screens
+- [ ] Keep top bar for date range picker and sign out
+
+### Column Customization (Google/Meta parity)
+- [ ] Campaigns table: let users add/remove/reorder metric columns
+- [ ] Keywords table: same column customization
+- [ ] Save column preferences per user (localStorage to start, database later)
+- [ ] Column options to add: Impressions, Avg CPC, Avg CPM, Search Impression Share, Quality Score avg, Conversion Rate, Cost per Conversion, View-through Conversions, All Conversions, Phone Calls, and more
+- [ ] "Columns" button above each table (like Google Ads UI)
+- [ ] Drag to reorder columns
+
+### General Design Polish
+- [ ] Overvisual refresh of dashboard interior
+- [ ] Better empty states
+- [ ] Loading skeletons instead of plain "Loading..."
+- [ ] Metric cards redesign on Overview tab
