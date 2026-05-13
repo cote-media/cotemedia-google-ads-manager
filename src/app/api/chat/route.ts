@@ -21,13 +21,30 @@ export async function POST(request: Request) {
     console.error('Error fetching additional data:', e)
   }
 
+
+  // Clean status codes before sending to Claude
+  const cleanedSummary = summary ? {
+    ...summary,
+    campaigns: (summary.campaigns || []).map((c: any) => ({
+      ...c,
+      status: c.status === '2' ? 'Active' : c.status === '3' ? 'Paused' : c.status === '4' ? 'Removed' : c.status,
+      type: c.type === '2' ? 'Search' : c.type === '9' ? 'Smart' : c.type === '10' ? 'Performance Max' : c.type === '3' ? 'Display' : c.type === '4' ? 'Shopping' : c.type === '6' ? 'Video' : c.type
+    }))
+  } : summary;
+
+  const cleanedKeywords = keywords.map((k: any) => ({
+    ...k,
+    matchType: k.matchType === '4' ? 'Broad' : k.matchType === '3' ? 'Phrase' : k.matchType === '2' ? 'Exact' : k.matchType,
+    status: k.status === '2' ? 'Active' : k.status === '3' ? 'Paused' : k.status === '4' ? 'Removed' : k.status,
+  }));
+
   const systemPrompt = `You are a senior PPC strategist at Cote Media agency, analyzing Google Ads data for your client: ${accountName || accountId}. Always refer to this account by name (${accountName || accountId}) when discussing their data. Never say 'Cote Media' when referring to the advertiser — Cote Media is the agency, ${accountName || accountId} is the client.
 
 ACCOUNT SUMMARY:
-${JSON.stringify(summary, null, 2)}
+${JSON.stringify(cleanedSummary, null, 2)}
 
 TOP KEYWORDS (by spend):
-${JSON.stringify(keywords.slice(0, 50), null, 2)}
+${JSON.stringify(cleanedKeywords.slice(0, 50), null, 2)}
 
 SEARCH TERMS REPORT:
 ${JSON.stringify(searchTerms.slice(0, 100), null, 2)}
