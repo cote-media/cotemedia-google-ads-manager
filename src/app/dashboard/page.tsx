@@ -279,7 +279,7 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
   )
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
+// --- Overview Tab ---
 function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: {
   summary: any; accountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -291,14 +291,61 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
     { label: 'ROAS', value: summary.roas + 'x' },
     { label: 'Avg CTR', value: summary.avgCtr + '%' },
   ]
-  const defaultCols = ['spend', 'clicks', 'ctr', 'conversions', 'roas']
+
+  const campaigns = summary.campaigns || []
+  const topByCost = [...campaigns].sort((a: any, b: any) => Number(b.cost) - Number(a.cost)).slice(0, 5)
+  const topByConv = [...campaigns].filter((c: any) => Number(c.conversions) > 0).sort((a: any, b: any) => Number(b.conversions) - Number(a.conversions)).slice(0, 5)
+  const maxCost = topByCost.length > 0 ? Number(topByCost[0].cost) : 1
+  const campaignsWithBudget = campaigns.filter((c: any) => c.budget && Number(c.budget) > 0).slice(0, 5)
+
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  const anomalies: string[] = []
+  if (Number(summary.roas) < 0.5 && Number(summary.totalCost) > 100) {
+    anomalies.push('ROAS is critically low at ' + summary.roas + 'x')
+  }
+  const pausedWithSpend = campaigns.filter((c: any) => (c.status === '3' || c.status === 'PAUSED') && Number(c.cost) > 0)
+  if (pausedWithSpend.length > 0) {
+    anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
+  }
+  const zeroConvHighSpend = campaigns.filter((c: any) => Number(c.conversions) === 0 && Number(c.cost) > 50)
+  if (zeroConvHighSpend.length > 0) {
+    anomalies.push(zeroConvHighSpend.length + ' campaign(s) spent $50+ with zero conversions')
+  }
+
+  const hasAnomalies = anomalies.length > 0
+  const totalCostStr = '$' + Number(summary.totalCost).toLocaleString()
+  const cpaStr = '$' + (Number(summary.totalCost) / Math.max(Number(summary.totalConversions), 1)).toFixed(2)
+
   return (
-    <div>
-      <div className="mb-6">
-        <h2 className="font-display text-2xl text-ink mb-1">Account Overview</h2>
-        <p className="text-sm text-muted font-mono">{summary.activeCampaigns} active campaigns</p>
+    <div className="space-y-6">
+
+      <div className={`border px-6 py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${hasAnomalies ? 'text-amber-600' : 'text-accent'}`}>
+              {hasAnomalies ? '\u26a0 Attention needed' : '\u2726 Account snapshot'}
+            </p>
+            {hasAnomalies ? (
+              <div className="space-y-1">
+                {anomalies.map((a, i) => (
+                  <p key={i} className="text-sm text-amber-800 font-medium">&bull; {a}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink">
+                {greeting}. Your account is running normally &mdash; <strong>{totalCostStr}</strong> spent,{' '}
+                <strong>{summary.totalConversions}</strong> conversions at <strong>{cpaStr}</strong> per conversion.{' '}
+                {summary.activeCampaigns} active campaigns.
+              </p>
+            )}
+          </div>
+          <span className="text-xs font-mono text-muted ml-6 mt-0.5 whitespace-nowrap">AI analysis coming soon</span>
+        </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border mb-8">
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-5">
             <div className="metric-label mb-2">{m.label}</div>
@@ -306,12 +353,114 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           </div>
         ))}
       </div>
+
+      <div className="grid grid-cols-2 gap-6">
+
+        <div className="bg-white border border-border p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
+          <div className="space-y-3">
+            {topByCost.map((c: any) => (
+              <div key={c.id}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
+                  <span className="text-xs font-mono text-muted">${Number(c.cost).toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                  <div className="h-full bg-accent rounded-full" style={{ width: (Number(c.cost) / maxCost * 100) + '%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-border p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
+          {topByConv.length === 0 ? (
+            <p className="text-xs text-muted font-mono">No conversions recorded</p>
+          ) : (
+            <div className="space-y-2">
+              {topByConv.map((c: any) => {
+                const cpa = Number(c.conversions) > 0 ? (Number(c.cost) / Number(c.conversions)).toFixed(2) : null
+                return (
+                  <div key={c.id} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+                    <span className="text-xs text-ink truncate max-w-[55%]">{c.name}</span>
+                    <div className="text-right">
+                      <span className="text-xs font-mono text-accent font-medium">{Number(c.conversions).toFixed(1)} conv</span>
+                      {cpa && <span className="text-xs font-mono text-muted ml-2">${cpa}/conv</span>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white border border-border p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
+          <TopKeywordsCard accountId={accountId} dateRange={dateRange} />
+        </div>
+
+        <div className="bg-white border border-border p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
+          {campaignsWithBudget.length === 0 ? (
+            <p className="text-xs text-muted font-mono">No budget data available</p>
+          ) : (
+            <div className="space-y-3">
+              {campaignsWithBudget.map((c: any) => {
+                const dailyBudget = Number(c.budget)
+                const spent = Number(c.cost)
+                const pct = Math.min((spent / (dailyBudget * 30)) * 100, 100)
+                const barColor = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#2563eb'
+                return (
+                  <div key={c.id}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
+                      <span className="text-xs font-mono text-muted">${dailyBudget}/day</span>
+                    </div>
+                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: barColor }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+      </div>
+
       <PerformanceChart accountId={accountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
-      <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Campaigns by Spend</h3>
-      <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} activeCols={defaultCols} />
+
     </div>
   )
 }
+
+function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+  const [keywords, setKeywords] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
+      .then(r => r.json())
+      .then(d => { setKeywords((d.keywords || []).slice(0, 5)); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [accountId, dateRange])
+
+  if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
+  if (!keywords.length) return <p className="text-xs text-muted font-mono">No keyword data</p>
+
+  return (
+    <div className="space-y-2">
+      {keywords.map((k: any, i: number) => (
+        <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+          <span className="text-xs text-ink truncate max-w-[60%]">{k.text}</span>
+          <span className="text-xs font-mono text-muted">${k.cost}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
 function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd }: {
