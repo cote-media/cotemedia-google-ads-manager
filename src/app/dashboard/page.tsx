@@ -19,6 +19,13 @@ const CAMPAIGN_STATUSES: Record<string, string> = {
   'ENABLED': 'Active', 'PAUSED': 'Paused', 'REMOVED': 'Removed',
 }
 
+const NAV_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: '▦' },
+  { id: 'campaigns', label: 'Campaigns', icon: '◈' },
+  { id: 'keywords', label: 'Keywords', icon: '⌖' },
+  { id: 'chat', label: 'Ask Claude', icon: '✦' },
+]
+
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -33,7 +40,7 @@ function DashboardContent() {
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const saved = localStorage.getItem('cmam-chat-messages')
+        const saved = localStorage.getItem('advar-chat-messages')
         return saved ? JSON.parse(saved) : []
       } catch { return [] }
     }
@@ -42,27 +49,14 @@ function DashboardContent() {
   const [chatLoading, setChatLoading] = useState(false)
   const [sessionStart, setSessionStart] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('cmam-session-start')
+      const saved = localStorage.getItem('advar-session-start')
       return saved ? parseInt(saved) : 0
     }
     return 0
   })
-
-  // Persist chat to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined' && chatMessages.length > 0) {
-      localStorage.setItem('cmam-chat-messages', JSON.stringify(chatMessages))
-    }
-  }, [chatMessages])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('cmam-session-start', String(sessionStart))
-    }
-  }, [sessionStart])
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
-  // Restore from URL on load
   useEffect(() => {
     const acc = searchParams.get('account')
     const dr = searchParams.get('range')
@@ -82,14 +76,14 @@ function DashboardContent() {
 
   useEffect(() => {
     if (selectedAccount) {
-      // Clear chat only when actively switching to a different account
-      const savedAccount = localStorage.getItem('cmam-active-account')
+      const savedAccount = localStorage.getItem('advar-active-account')
       if (savedAccount && savedAccount !== selectedAccount && savedAccount !== 'null') {
         setChatMessages([])
         setSessionStart(0)
-        localStorage.removeItem('cmam-chat-messages')
+        localStorage.removeItem('advar-chat-messages')
+        localStorage.removeItem('advar-session-start')
       }
-      if (selectedAccount) localStorage.setItem('cmam-active-account', selectedAccount)
+      if (selectedAccount) localStorage.setItem('advar-active-account', selectedAccount)
       fetchSummary(selectedAccount, dateRange)
       const params = new URLSearchParams()
       params.set('account', selectedAccount)
@@ -98,6 +92,18 @@ function DashboardContent() {
       router.replace('/dashboard?' + params.toString(), { scroll: false })
     }
   }, [selectedAccount, dateRange])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && chatMessages.length > 0) {
+      localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages))
+    }
+  }, [chatMessages])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('advar-session-start', String(sessionStart))
+    }
+  }, [sessionStart])
 
   function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
     setActiveTab(tab)
@@ -169,7 +175,7 @@ function DashboardContent() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'cmam-' + String(accountName).replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
+    a.download = 'advar-' + String(accountName).replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -208,85 +214,155 @@ function DashboardContent() {
   if (status === 'loading') return <LoadingScreen />
 
   const exchangeCount = Math.floor((chatMessages.length - sessionStart) / 2)
+  const selectedAccountName = accounts.find((a: any) => a.id === selectedAccount)?.name || 'Select account'
 
   return (
-    <div className="min-h-screen bg-paper flex flex-col">
-      <nav className="border-b border-border px-8 py-4 flex items-center justify-between bg-white">
-        <div className="flex items-center gap-6">
-          <span className="font-display text-lg text-ink">Advar</span>
+    <div className="min-h-screen bg-paper flex">
+      {/* Sidebar */}
+      <div className={`flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
+        {/* Logo + collapse toggle */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+          {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="text-muted hover:text-ink transition-colors text-sm ml-auto"
+            title={sidebarCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {sidebarCollapsed ? '→' : '←'}
+          </button>
         </div>
-        <div className="flex items-center gap-3">
-          {accounts.length > 0 && (
+
+        {/* Account selector */}
+        <div className="px-3 py-3 border-b border-border">
+          {sidebarCollapsed ? (
+            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center text-white text-xs font-bold mx-auto" title={selectedAccountName}>
+              {selectedAccountName.charAt(0)}
+            </div>
+          ) : (
             <select
               value={selectedAccount || ''}
               onChange={e => setSelectedAccount(e.target.value)}
-              className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-accent max-w-[220px]"
+              className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent"
             >
               {accounts.map((a: any) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           )}
-          <select
-            value={dateRange}
-            onChange={e => setDateRange(e.target.value)}
-            className="text-sm border border-border bg-paper px-3 py-1.5 font-mono text-xs text-ink focus:outline-none focus:border-accent"
-          >
-            {DATE_RANGES.map(dr => (
-              <option key={dr.value} value={dr.value}>{dr.label}</option>
-            ))}
-          </select>
-          <button
-            onClick={() => selectedAccount && fetchSummary(selectedAccount, dateRange)}
-            className="text-xs font-mono text-muted hover:text-ink transition-colors border border-border px-3 py-1.5"
-          >
-            ↻ Refresh
-          </button>
-          <button onClick={() => signOut({ callbackUrl: '/' })} className="text-xs font-mono text-muted hover:text-ink transition-colors">
-            Sign out
-          </button>
         </div>
-      </nav>
 
-      <div className="border-b border-border bg-white px-8">
-        <div className="flex gap-0">
-          {(['overview', 'campaigns', 'keywords', 'chat'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => switchTab(tab)}
-              className={'px-5 py-3 text-xs font-mono uppercase tracking-widest border-b-2 transition-colors ' + (activeTab === tab ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink')}
+        {/* Date range */}
+        {!sidebarCollapsed && (
+          <div className="px-3 py-2 border-b border-border">
+            <select
+              value={dateRange}
+              onChange={e => setDateRange(e.target.value)}
+              className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent"
             >
-              {tab}
+              {DATE_RANGES.map(dr => (
+                <option key={dr.value} value={dr.value}>{dr.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Nav */}
+        <nav className="flex-1 py-2">
+          {NAV_ITEMS.map(item => (
+            <button
+              key={item.id}
+              onClick={() => switchTab(item.id as any)}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                activeTab === item.id
+                  ? 'bg-accent text-white'
+                  : 'text-muted hover:text-ink hover:bg-surface'
+              }`}
+              title={sidebarCollapsed ? item.label : undefined}
+            >
+              <span className="text-base leading-none w-4 text-center">{item.icon}</span>
+              {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">{item.label}</span>}
             </button>
           ))}
+        </nav>
+
+        {/* Bottom actions */}
+        <div className="border-t border-border py-2">
+          <button
+            onClick={() => selectedAccount && fetchSummary(selectedAccount, dateRange)}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors"
+            title="Refresh data"
+          >
+            <span className="text-base w-4 text-center">↻</span>
+            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
+          </button>
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors"
+            title="Sign out"
+          >
+            <span className="text-base w-4 text-center">⇥</span>
+            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Sign out</span>}
+          </button>
         </div>
       </div>
 
-      <main className="flex-1 px-8 py-8 max-w-7xl mx-auto w-full">
-        {loading && (
-          <div className="flex items-center gap-2 text-muted text-sm font-mono mb-6">
-            <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-            Loading...
-          </div>
-        )}
-        {activeTab === 'overview' && summary && <OverviewTab summary={summary} />}
-        {activeTab === 'campaigns' && summary && <CampaignsTab campaigns={summary.campaigns || []} />}
-        {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
-        {activeTab === 'chat' && (
-          <ChatTab
-            messages={chatMessages}
-            input={chatInput}
-            loading={chatLoading}
-            onInputChange={setChatInput}
-            onSend={sendChat}
-            accountSelected={!!selectedAccount}
-            onDownload={downloadChat}
-            onUpload={uploadChat}
-            exchangeCount={exchangeCount}
-          />
-        )}
-        {!summary && !loading && <EmptyState />}
-      </main>
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar */}
+        <div className="border-b border-border px-8 py-3 flex items-center justify-between bg-white sticky top-0 z-10">
+          <p className="text-xs text-muted font-mono">
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />
+                Loading...
+              </span>
+            ) : summary ? (
+              selectedAccountName + ' · ' + (DATE_RANGES.find(d => d.value === dateRange)?.label || '')
+            ) : ''}
+          </p>
+          {sidebarCollapsed && (
+            <select
+              value={dateRange}
+              onChange={e => setDateRange(e.target.value)}
+              className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent"
+            >
+              {DATE_RANGES.map(dr => (
+                <option key={dr.value} value={dr.value}>{dr.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Page content */}
+        <main className="flex-1 px-8 py-8">
+          {activeTab === 'overview' && summary && <OverviewTab summary={summary} />}
+          {activeTab === 'campaigns' && summary && <CampaignsTab campaigns={summary.campaigns || []} />}
+          {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
+          {activeTab === 'chat' && (
+            <ChatTab
+              messages={chatMessages}
+              input={chatInput}
+              loading={chatLoading}
+              onInputChange={setChatInput}
+              onSend={sendChat}
+              accountSelected={!!selectedAccount}
+              onDownload={downloadChat}
+              onUpload={uploadChat}
+              exchangeCount={exchangeCount}
+            />
+          )}
+          {!summary && !loading && selectedAccount && (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-muted font-mono text-sm">Loading account data...</p>
+            </div>
+          )}
+          {!selectedAccount && (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-muted font-mono text-sm">Select an account to get started</p>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   )
 }
@@ -449,7 +525,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
   const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
@@ -490,8 +566,8 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
         </div>
       )}
 
-      <div className="bg-white border border-border flex flex-col" style={{ minHeight: '500px' }}>
-        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto" style={{ maxHeight: '600px' }}>
+      <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
+        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto">
           {messages.length === 0 && (
             <div className="text-muted text-sm font-mono space-y-2">
               <p>Try asking:</p>
@@ -563,15 +639,6 @@ function LoadingScreen() {
         <div className="w-1 h-8 bg-ink animate-pulse mx-auto mb-4" />
         <p className="font-mono text-xs text-muted tracking-widest uppercase">Loading</p>
       </div>
-    </div>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="text-center py-24">
-      <p className="font-display text-2xl text-ink mb-2">No data yet</p>
-      <p className="text-sm text-muted font-mono">Select an account to load campaign data</p>
     </div>
   )
 }
