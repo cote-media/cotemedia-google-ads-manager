@@ -140,3 +140,17 @@ The ability to execute changes Claude recommends directly inside CMAM — no swi
 ### Philosophy
 Every Claude recommendation should eventually be executable from within CMAM.
 "Here's what's wrong" → "Want me to fix it?" is a fundamentally different product.
+
+## 🗂 Multi-Platform Client View
+- [ ] Redesign navigation: Client-first, then Platform (not Platform-first)
+- [ ] Per-client unified view with tabs: Google | Meta | Combined
+- [ ] Cross-platform metrics in Combined view (total spend, total conversions across all platforms)
+- [ ] Platform toggle on all data tables
+
+## 🤖 Persistent Claude Sidebar
+- [ ] Replace Chat tab with persistent Claude panel (right side, always available)
+- [ ] Claude icon visible on every tab — click to open/collapse
+- [ ] Context-aware: Claude knows which tab you're on and what data is visible
+- [ ] Conversation persists as you navigate between tabs
+- [ ] Inline ask: hover over a campaign/keyword row, Claude icon appears, click to ask about that specific item
+- [ ] "Ask Claude about this campaign" → pre-filled context with that campaign's data
