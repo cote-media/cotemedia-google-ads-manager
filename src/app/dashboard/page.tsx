@@ -113,12 +113,7 @@ function LoadingScreen() {
 
 // ─── Performance Chart ────────────────────────────────────────────────────────
 function PerformanceChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
-  accountId: string
-  dateRange: string
-  campaignId?: string
-  campaignName?: string
-  customStart?: string
-  customEnd?: string
+  accountId: string; dateRange: string; campaignId?: string; campaignName?: string; customStart?: string; customEnd?: string
 }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -133,39 +128,32 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName, cust
     if (customEnd) url += '&customEnd=' + customEnd
     fetch(url)
       .then(r => r.json())
-      .then(d => {
-        setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) })))
-        setLoading(false)
-      })
+      .then(d => { setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) }))); setLoading(false) })
       .catch(() => setLoading(false))
   }, [accountId, dateRange, campaignId, granularity, customStart, customEnd])
 
-  const toggleMetric = (id: string) => {
-    setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
-  }
+  const toggleMetric = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
 
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
           {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
         </div>
-        <div className="flex items-center gap-3">
-          {/* Granularity toggle */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex border border-border">
             {(['day', 'week', 'month'] as const).map(g => (
               <button key={g} onClick={() => setGranularity(g)}
-                className={'text-xs font-mono px-3 py-1 transition-colors ' + (granularity === g ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                className={'text-xs font-mono px-2 py-1 transition-colors ' + (granularity === g ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
                 {g.charAt(0).toUpperCase() + g.slice(1)}
               </button>
             ))}
           </div>
-          {/* Metric toggles */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {CHART_METRICS.map(m => (
               <button key={m.id} onClick={() => toggleMetric(m.id)}
                 className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
@@ -176,11 +164,11 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName, cust
           </div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={data} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 10, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 10, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
           {CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
@@ -193,10 +181,7 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName, cust
 
 // ─── Campaign Table ───────────────────────────────────────────────────────────
 function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCampaign }: {
-  campaigns: any[]
-  activeCols: string[]
-  selectedCampaignId?: string
-  onSelectCampaign?: (id: string, name: string) => void
+  campaigns: any[]; activeCols: string[]; selectedCampaignId?: string; onSelectCampaign?: (id: string, name: string) => void
 }) {
   const has = (id: string) => activeCols.includes(id)
   const [sortCol, setSortCol] = useState<string>('spend')
@@ -223,7 +208,7 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
   })
 
   const SortTh = ({ id, label }: { id: string; label: string }) => (
-    <th onClick={() => handleSort(id)} className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none">
+    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
       {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
     </th>
   )
@@ -233,8 +218,8 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-surface">
-            <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-            <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
+            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Campaign</th>
+            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Status</th>
             {has('budget') && <SortTh id="budget" label="Budget/day" />}
             {has('impressions') && <SortTh id="impressions" label="Impressions" />}
             {has('spend') && <SortTh id="spend" label="Spend" />}
@@ -257,21 +242,21 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
               <tr key={c.id}
                 onClick={() => onSelectCampaign && onSelectCampaign(isSelected ? '' : c.id, c.name)}
                 className={'table-row ' + (onSelectCampaign ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : '')}>
-                <td className="px-4 py-3 font-medium max-w-xs truncate">
+                <td className={'px-3 py-3 font-medium max-w-[140px] md:max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
                   {isSelected && <span className="text-accent mr-1">▸</span>}
                   {c.name}
                 </td>
-                <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                {has('budget') && <td className="px-4 py-3 text-right font-mono text-sm">{c.budget ? '$' + c.budget : '—'}</td>}
-                {has('impressions') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.impressions || 0).toLocaleString()}</td>}
-                {has('spend') && <td className="px-4 py-3 text-right font-mono text-sm">${cost.toLocaleString()}</td>}
-                {has('clicks') && <td className="px-4 py-3 text-right font-mono text-sm">{clicks.toLocaleString()}</td>}
-                {has('avgCpc') && <td className="px-4 py-3 text-right font-mono text-sm">{clicks > 0 ? '$' + (cost / clicks).toFixed(2) : '—'}</td>}
-                {has('ctr') && <td className="px-4 py-3 text-right font-mono text-sm">{c.ctr}%</td>}
-                {has('conversions') && <td className="px-4 py-3 text-right font-mono text-sm">{convs.toFixed(1)}</td>}
-                {has('costPerConv') && <td className="px-4 py-3 text-right font-mono text-sm">{convs > 0 ? '$' + (cost / convs).toFixed(2) : '—'}</td>}
-                {has('convRate') && <td className="px-4 py-3 text-right font-mono text-sm">{clicks > 0 ? (convs / clicks * 100).toFixed(2) + '%' : '—'}</td>}
-                {has('roas') && <td className="px-4 py-3 text-right font-mono text-sm font-medium">{c.roas ? c.roas + 'x' : '—'}</td>}
+                <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={c.status} /></td>
+                {has('budget') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{c.budget ? '$' + c.budget : '—'}</td>}
+                {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(c.impressions || 0).toLocaleString()}</td>}
+                {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">${cost.toLocaleString()}</td>}
+                {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{clicks.toLocaleString()}</td>}
+                {has('avgCpc') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{clicks > 0 ? '$' + (cost / clicks).toFixed(2) : '—'}</td>}
+                {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{c.ctr}%</td>}
+                {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{convs.toFixed(1)}</td>}
+                {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{convs > 0 ? '$' + (cost / convs).toFixed(2) : '—'}</td>}
+                {has('convRate') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{clicks > 0 ? (convs / clicks * 100).toFixed(2) + '%' : '—'}</td>}
+                {has('roas') && <td className="px-3 py-3 text-right font-mono text-sm font-medium whitespace-nowrap">{c.roas ? c.roas + 'x' : '—'}</td>}
               </tr>
             )
           })}
@@ -281,7 +266,7 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
   )
 }
 
-// --- Overview Tab ---
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: {
   summary: any; accountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -293,78 +278,66 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
     { label: 'ROAS', value: summary.roas + 'x' },
     { label: 'Avg CTR', value: summary.avgCtr + '%' },
   ]
-
   const campaigns = summary.campaigns || []
   const topByCost = [...campaigns].sort((a: any, b: any) => Number(b.cost) - Number(a.cost)).slice(0, 5)
   const topByConv = [...campaigns].filter((c: any) => Number(c.conversions) > 0).sort((a: any, b: any) => Number(b.conversions) - Number(a.conversions)).slice(0, 5)
   const maxCost = topByCost.length > 0 ? Number(topByCost[0].cost) : 1
   const campaignsWithBudget = campaigns.filter((c: any) => c.budget && Number(c.budget) > 0).slice(0, 5)
-
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
   const anomalies: string[] = []
-  if (Number(summary.roas) < 0.5 && Number(summary.totalCost) > 100) {
-    anomalies.push('ROAS is critically low at ' + summary.roas + 'x')
-  }
+  if (Number(summary.roas) < 0.5 && Number(summary.totalCost) > 100) anomalies.push('ROAS is critically low at ' + summary.roas + 'x')
   const pausedWithSpend = campaigns.filter((c: any) => (c.status === '3' || c.status === 'PAUSED') && Number(c.cost) > 0)
-  if (pausedWithSpend.length > 0) {
-    anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
-  }
+  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
   const zeroConvHighSpend = campaigns.filter((c: any) => Number(c.conversions) === 0 && Number(c.cost) > 50)
-  if (zeroConvHighSpend.length > 0) {
-    anomalies.push(zeroConvHighSpend.length + ' campaign(s) spent $50+ with zero conversions')
-  }
-
+  if (zeroConvHighSpend.length > 0) anomalies.push(zeroConvHighSpend.length + ' campaign(s) spent $50+ with zero conversions')
   const hasAnomalies = anomalies.length > 0
   const totalCostStr = '$' + Number(summary.totalCost).toLocaleString()
   const cpaStr = '$' + (Number(summary.totalCost) / Math.max(Number(summary.totalConversions), 1)).toFixed(2)
 
   return (
-    <div className="space-y-6">
-
-      <div className={`border px-6 py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
+    <div className="space-y-4 md:space-y-6">
+      {/* Insight banner */}
+      <div className={`border px-4 md:px-6 py-4 md:py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${hasAnomalies ? 'text-amber-600' : 'text-accent'}`}>
-              {hasAnomalies ? '\u26a0 Attention needed' : '\u2726 Account snapshot'}
+              {hasAnomalies ? '⚠ Attention needed' : '✦ Account snapshot'}
             </p>
             {hasAnomalies ? (
-              <div className="space-y-1">
-                {anomalies.map((a, i) => (
-                  <p key={i} className="text-sm text-amber-800 font-medium">&bull; {a}</p>
-                ))}
-              </div>
+              <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
             ) : (
               <p className="text-sm text-ink">
-                {greeting}. Your account is running normally &mdash; <strong>{totalCostStr}</strong> spent,{' '}
+                {greeting}. Your account is running normally — <strong>{totalCostStr}</strong> spent,{' '}
                 <strong>{summary.totalConversions}</strong> conversions at <strong>{cpaStr}</strong> per conversion.{' '}
                 {summary.activeCampaigns} active campaigns.
               </p>
             )}
           </div>
-          <span className="text-xs font-mono text-muted ml-6 mt-0.5 whitespace-nowrap">AI analysis coming soon</span>
+          <span className="text-xs font-mono text-muted ml-4 mt-0.5 whitespace-nowrap hidden md:block">AI analysis coming soon</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-px bg-border">
+      {/* Metric tiles */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
-          <div key={m.label} className="bg-white p-5">
-            <div className="metric-label mb-2">{m.label}</div>
-            <div className="metric-value text-accent">{m.value}</div>
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-
-        <div className="bg-white border border-border p-5">
+      {/* Cards grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        {/* Campaign Performance */}
+        <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
           <div className="space-y-3">
             {topByCost.map((c: any) => (
               <div key={c.id}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
+                  <span className="text-xs text-ink truncate max-w-[65%]">{c.name}</span>
                   <span className="text-xs font-mono text-muted">${Number(c.cost).toLocaleString()}</span>
                 </div>
                 <div className="h-1.5 bg-surface rounded-full overflow-hidden">
@@ -375,7 +348,8 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           </div>
         </div>
 
-        <div className="bg-white border border-border p-5">
+        {/* Conversion Leaders */}
+        <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
           {topByConv.length === 0 ? (
             <p className="text-xs text-muted font-mono">No conversions recorded</p>
@@ -397,27 +371,27 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           )}
         </div>
 
-        <div className="bg-white border border-border p-5">
+        {/* Top Keywords */}
+        <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
           <TopKeywordsCard accountId={accountId} dateRange={dateRange} />
         </div>
 
-        <div className="bg-white border border-border p-5">
+        {/* Budget Utilization */}
+        <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
           {campaignsWithBudget.length === 0 ? (
             <p className="text-xs text-muted font-mono">No budget data available</p>
           ) : (
             <div className="space-y-3">
               {campaignsWithBudget.map((c: any) => {
-                const dailyBudget = Number(c.budget)
-                const spent = Number(c.cost)
-                const pct = Math.min((spent / (dailyBudget * 30)) * 100, 100)
+                const pct = Math.min((Number(c.cost) / (Number(c.budget) * 30)) * 100, 100)
                 const barColor = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#2563eb'
                 return (
                   <div key={c.id}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
-                      <span className="text-xs font-mono text-muted">${dailyBudget}/day</span>
+                      <span className="text-xs font-mono text-muted">${c.budget}/day</span>
                     </div>
                     <div className="h-1.5 bg-surface rounded-full overflow-hidden">
                       <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: barColor }} />
@@ -428,11 +402,9 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
             </div>
           )}
         </div>
-
       </div>
 
       <PerformanceChart accountId={accountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
-
     </div>
   )
 }
@@ -440,17 +412,14 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
 function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRange: string }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
   useEffect(() => {
     fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
       .then(r => r.json())
       .then(d => { setKeywords((d.keywords || []).slice(0, 5)); setLoading(false) })
       .catch(() => setLoading(false))
   }, [accountId, dateRange])
-
   if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
   if (!keywords.length) return <p className="text-xs text-muted font-mono">No keyword data</p>
-
   return (
     <div className="space-y-2">
       {keywords.map((k: any, i: number) => (
@@ -462,7 +431,6 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
     </div>
   )
 }
-
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
 function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd }: {
@@ -477,44 +445,23 @@ function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd 
   })
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
   const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
-
-  const updateCols = (cols: string[]) => {
-    setActiveCols(cols)
-    if (typeof window !== 'undefined') localStorage.setItem('advar-campaign-cols', JSON.stringify(cols))
-  }
-
-  const handleSelectCampaign = (id: string, name: string) => {
-    setSelectedCampaignId(id)
-    setSelectedCampaignName(id ? name : '')
-  }
-
+  const updateCols = (cols: string[]) => { setActiveCols(cols); if (typeof window !== 'undefined') localStorage.setItem('advar-campaign-cols', JSON.stringify(cols)) }
+  const handleSelectCampaign = (id: string, name: string) => { setSelectedCampaignId(id); setSelectedCampaignName(id ? name : '') }
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
+          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
           <p className="text-sm text-muted font-mono">
             {campaigns.length} campaigns
-            {!selectedCampaignName && <span className="text-muted"> · Click a row to view its trend</span>}
+            {!selectedCampaignName && <span className="hidden md:inline text-muted"> · Click a row to view its trend</span>}
             {selectedCampaignName && <span className="text-accent"> · {selectedCampaignName}</span>}
           </p>
         </div>
         <ColumnPicker columns={CAMPAIGN_COLUMNS} active={activeCols} onChange={updateCols} />
       </div>
-      <PerformanceChart
-        accountId={accountId}
-        dateRange={dateRange}
-        campaignId={selectedCampaignId || undefined}
-        campaignName={selectedCampaignName || undefined}
-        customStart={customStart}
-        customEnd={customEnd}
-      />
-      <CampaignTable
-        campaigns={campaigns}
-        activeCols={activeCols}
-        selectedCampaignId={selectedCampaignId}
-        onSelectCampaign={handleSelectCampaign}
-      />
+      <PerformanceChart accountId={accountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignName || undefined} customStart={customStart} customEnd={customEnd} />
+      <CampaignTable campaigns={campaigns} activeCols={activeCols} selectedCampaignId={selectedCampaignId} onSelectCampaign={handleSelectCampaign} />
     </div>
   )
 }
@@ -532,11 +479,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
   })
   const [sortCol, setSortCol] = useState<string>('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
-
-  const updateCols = (cols: string[]) => {
-    setActiveCols(cols)
-    if (typeof window !== 'undefined') localStorage.setItem('advar-keyword-cols', JSON.stringify(cols))
-  }
+  const updateCols = (cols: string[]) => { setActiveCols(cols); if (typeof window !== 'undefined') localStorage.setItem('advar-keyword-cols', JSON.stringify(cols)) }
   const has = (id: string) => activeCols.includes(id)
 
   useEffect(() => {
@@ -566,7 +509,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
   })
 
   const KwSortTh = ({ id, label }: { id: string; label: string }) => (
-    <th onClick={() => handleSort(id)} className="text-right px-4 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none">
+    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
       {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
     </th>
   )
@@ -589,7 +532,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-2xl text-ink mb-1">Keywords</h2>
+          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Keywords</h2>
           <p className="text-sm text-muted font-mono">Top 200 by spend</p>
         </div>
         <ColumnPicker columns={KEYWORD_COLUMNS} active={activeCols} onChange={updateCols} />
@@ -601,10 +544,10 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface">
-                <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Keyword</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Match</th>
-                <th className="text-left px-4 py-3 font-mono text-xs text-muted tracking-wider">Campaign</th>
-                {has('impressions') && <KwSortTh id="impressions" label="Impressions" />}
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface whitespace-nowrap">Keyword</th>
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Match</th>
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider hidden md:table-cell whitespace-nowrap">Campaign</th>
+                {has('impressions') && <KwSortTh id="impressions" label="Impr." />}
                 {has('spend') && <KwSortTh id="spend" label="Spend" />}
                 {has('clicks') && <KwSortTh id="clicks" label="Clicks" />}
                 {has('avgCpc') && <KwSortTh id="avgCpc" label="Avg CPC" />}
@@ -617,22 +560,20 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
             <tbody>
               {sortedKw.map((k: any, i: number) => (
                 <tr key={i} className="table-row">
-                  <td className="px-4 py-3 font-medium">{k.text}</td>
-                  <td className="px-4 py-3 text-xs font-mono text-muted">{matchLabel(k.matchType)}</td>
-                  <td className="px-4 py-3 text-xs text-muted truncate max-w-xs">{k.campaign}</td>
-                  {has('impressions') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(k.impressions || 0).toLocaleString()}</td>}
-                  {has('spend') && <td className="px-4 py-3 text-right font-mono text-sm">${k.cost}</td>}
-                  {has('clicks') && <td className="px-4 py-3 text-right font-mono text-sm">{k.clicks}</td>}
-                  {has('avgCpc') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(k.clicks) > 0 ? '$' + (Number(k.cost) / Number(k.clicks)).toFixed(2) : '—'}</td>}
-                  {has('ctr') && <td className="px-4 py-3 text-right font-mono text-sm">{k.ctr}%</td>}
-                  {has('conversions') && <td className="px-4 py-3 text-right font-mono text-sm">{k.conversions || '—'}</td>}
-                  {has('costPerConv') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(k.conversions) > 0 ? '$' + (Number(k.cost) / Number(k.conversions)).toFixed(2) : '—'}</td>}
+                  <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-[120px] truncate">{k.text}</td>
+                  <td className="px-3 py-3 text-xs font-mono text-muted whitespace-nowrap">{matchLabel(k.matchType)}</td>
+                  <td className="px-3 py-3 text-xs text-muted truncate max-w-xs hidden md:table-cell">{k.campaign}</td>
+                  {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(k.impressions || 0).toLocaleString()}</td>}
+                  {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">${k.cost}</td>}
+                  {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{k.clicks}</td>}
+                  {has('avgCpc') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(k.clicks) > 0 ? '$' + (Number(k.cost) / Number(k.clicks)).toFixed(2) : '—'}</td>}
+                  {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{k.ctr}%</td>}
+                  {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{k.conversions || '—'}</td>}
+                  {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(k.conversions) > 0 ? '$' + (Number(k.cost) / Number(k.conversions)).toFixed(2) : '—'}</td>}
                   {has('qs') && (
-                    <td className="px-4 py-3 text-right font-mono text-sm font-medium">
+                    <td className="px-3 py-3 text-right font-mono text-sm font-medium whitespace-nowrap">
                       {k.qualityScore ? (
-                        <span title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>
-                          {k.qualityScore}
-                        </span>
+                        <span title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span>
                       ) : <span className="text-muted">—</span>}
                     </td>
                   )}
@@ -654,17 +595,17 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
     <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="font-display text-2xl text-ink mb-1">Ask Claude</h2>
-          <p className="text-sm text-muted font-mono">Ask questions about your campaigns in plain English</p>
+          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Claude</h2>
+          <p className="text-sm text-muted font-mono">Ask questions about your campaigns</p>
         </div>
         <div className="flex gap-2">
-          <label className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors cursor-pointer">
-            ↑ Resume chat
+          <label className="text-xs font-mono text-muted hover:text-ink border border-border px-2 md:px-3 py-1.5 transition-colors cursor-pointer">
+            ↑ <span className="hidden md:inline">Resume chat</span>
             <input type="file" accept=".txt" onChange={onUpload} className="hidden" />
           </label>
           {messages.length > 0 && (
-            <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
-              ↓ Save chat
+            <button onClick={onDownload} className="text-xs font-mono text-muted hover:text-ink border border-border px-2 md:px-3 py-1.5 transition-colors">
+              ↓ <span className="hidden md:inline">Save chat</span>
             </button>
           )}
         </div>
@@ -674,19 +615,19 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           <p className="text-sm text-red-700 font-semibold">
             ⚠️ 1 exchange remaining.{' '}
             <button onClick={onDownload} className="underline font-bold">Save transcript</button>
-            {' '}now so you can continue this analysis.
+            {' '}now.
           </p>
         </div>
       )}
       {atLimit && (
         <div className="mb-4 bg-ink px-6 py-5 text-center">
           <p className="text-paper font-semibold mb-1">You have used all 4 exchanges.</p>
-          <p className="text-paper text-sm mb-4 opacity-80">Download your transcript, then re-upload it to start a fresh 4 exchanges with full context.</p>
+          <p className="text-paper text-sm mb-4 opacity-80">Download your transcript, then re-upload to continue.</p>
           <button onClick={onDownload} className="bg-paper text-ink text-sm font-mono px-5 py-2 hover:bg-surface transition-colors">↓ Download transcript</button>
         </div>
       )}
-      <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
-        <div id="chat-messages" className="flex-1 p-6 space-y-4 overflow-y-auto">
+      <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
+        <div id="chat-messages" className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
           {messages.length === 0 && (
             <div className="text-muted text-sm font-mono space-y-2">
               <p>Try asking:</p>
@@ -697,7 +638,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
           )}
           {messages.map((m: any, i: number) => (
             <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
-              <div className={'px-6 py-4 text-sm leading-7 ' + (m.role === 'user' ? 'bg-ink text-paper max-w-xl' : 'bg-surface text-ink border border-border w-full chat-response')}>
+              <div className={'px-4 md:px-6 py-3 md:py-4 text-sm leading-7 ' + (m.role === 'user' ? 'bg-ink text-paper max-w-xs md:max-w-xl' : 'bg-surface text-ink border border-border w-full chat-response')}>
                 {m.role === 'user' ? m.content : <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>}
               </div>
             </div>
@@ -714,12 +655,12 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             </div>
           )}
         </div>
-        <div className="border-t border-border p-4 flex gap-3">
+        <div className="border-t border-border p-3 md:p-4 flex gap-2 md:gap-3">
           <input type="text" value={input} onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
-            placeholder={accountSelected ? (atLimit ? 'Download transcript and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
+            placeholder={accountSelected ? (atLimit ? 'Download and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
             disabled={!accountSelected || atLimit}
-            className="flex-1 border border-border px-4 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
+            className="flex-1 border border-border px-3 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
           <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
             Send
           </button>
@@ -760,6 +701,8 @@ function DashboardContent() {
   })
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
 
   useEffect(() => {
     const acc = searchParams.get('account')
@@ -770,20 +713,14 @@ function DashboardContent() {
     if (acc) setSelectedAccount(acc)
   }, [])
 
-  useEffect(() => {
-    if (status === 'unauthenticated') router.push('/')
-  }, [status, router])
-
-  useEffect(() => {
-    if (session) fetchAccounts()
-  }, [session])
+  useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
+  useEffect(() => { if (session) fetchAccounts() }, [session])
 
   useEffect(() => {
     if (!selectedAccount) return
     const savedAccount = localStorage.getItem('advar-active-account')
     if (savedAccount && savedAccount !== selectedAccount && savedAccount !== 'null') {
-      setChatMessages([])
-      setSessionStart(0)
+      setChatMessages([]); setSessionStart(0)
       localStorage.removeItem('advar-chat-messages')
       localStorage.removeItem('advar-session-start')
     }
@@ -800,21 +737,14 @@ function DashboardContent() {
     router.replace('/dashboard?' + params.toString(), { scroll: false })
   }, [selectedAccount, dateRange, customStart, customEnd])
 
-  useEffect(() => {
-    if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages))
-  }, [chatMessages])
-
-  useEffect(() => {
-    localStorage.setItem('advar-session-start', String(sessionStart))
-  }, [sessionStart])
+  useEffect(() => { if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
+  useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
 
   function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
     setActiveTab(tab)
     if (selectedAccount) {
       const params = new URLSearchParams()
-      params.set('account', selectedAccount)
-      params.set('range', dateRange)
-      params.set('tab', tab)
+      params.set('account', selectedAccount); params.set('range', dateRange); params.set('tab', tab)
       router.replace('/dashboard?' + params.toString(), { scroll: false })
     }
   }
@@ -831,42 +761,31 @@ function DashboardContent() {
   }
 
   async function fetchSummary(accountId: string, dr: string) {
-    setLoading(true)
-    setSummary(null)
+    setLoading(true); setSummary(null)
     try {
       const res = await fetch('/api/campaigns?accountId=' + accountId + '&dateRange=' + dr)
-      const data = await res.json()
-      setSummary(data)
+      setSummary(await res.json())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
   async function fetchSummaryCustom(accountId: string, start: string, end: string) {
-    setLoading(true)
-    setSummary(null)
+    setLoading(true); setSummary(null)
     try {
       const res = await fetch('/api/campaigns?accountId=' + accountId + '&dateRange=LAST_30_DAYS&customStart=' + start + '&customEnd=' + end)
-      const data = await res.json()
-      setSummary(data)
+      setSummary(await res.json())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
   function handleDateRangeChange(val: string) {
     setDateRange(val)
-    if (val === 'CUSTOM') {
-      setShowCustomPicker(true)
-    } else {
-      setShowCustomPicker(false)
-      setCustomStart('')
-      setCustomEnd('')
-    }
+    if (val === 'CUSTOM') setShowCustomPicker(true)
+    else { setCustomStart(''); setCustomEnd('') }
   }
 
   function applyCustomRange() {
-    if (customStart && customEnd && selectedAccount) {
-      fetchSummaryCustom(selectedAccount, customStart, customEnd)
-    }
+    if (customStart && customEnd && selectedAccount) fetchSummaryCustom(selectedAccount, customStart, customEnd)
   }
 
   async function sendChat() {
@@ -880,16 +799,14 @@ function DashboardContent() {
     const accountName = accounts.find((a: any) => a.id === selectedAccount)?.name || selectedAccount
     try {
       const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, accountId: selectedAccount, summary, dateRange, history: history.slice(0, -1), accountName }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
       setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
-    } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
-    } finally { setChatLoading(false) }
+    } catch { setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }]) }
+    finally { setChatLoading(false) }
   }
 
   function downloadChat() {
@@ -937,8 +854,9 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper flex">
-      {/* Sidebar */}
-      <div className={`flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
+
+      {/* ─── Desktop Sidebar ─── */}
+      <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto" title={sidebarCollapsed ? 'Expand' : 'Collapse'}>
@@ -963,14 +881,9 @@ function DashboardContent() {
             </select>
             {showCustomPicker && (
               <div className="mt-2 space-y-1">
-                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
-                  className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
-                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
-                  className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
-                <button onClick={applyCustomRange} disabled={!customStart || !customEnd}
-                  className="w-full btn-primary text-xs py-1.5 disabled:opacity-50">
-                  Apply
-                </button>
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
+                <button onClick={applyCustomRange} disabled={!customStart || !customEnd} className="w-full btn-primary text-xs py-1.5 disabled:opacity-50">Apply</button>
               </div>
             )}
           </div>
@@ -985,7 +898,7 @@ function DashboardContent() {
           ))}
         </nav>
         <div className="border-t border-border py-2">
-          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchSummary(selectedAccount, dateRange))} title="Refresh data"
+          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchSummary(selectedAccount, dateRange))} title="Refresh"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <span className="text-base w-4 text-center">↻</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
@@ -998,9 +911,11 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Main */}
+      {/* ─── Main content ─── */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="border-b border-border px-8 py-3 flex items-center justify-between bg-white sticky top-0 z-10">
+
+        {/* Desktop top bar */}
+        <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
           <p className="text-xs text-muted font-mono">
             {loading
               ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
@@ -1013,15 +928,53 @@ function DashboardContent() {
               </select>
               {showCustomPicker && (
                 <>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none" />
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none" />
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono" />
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono" />
                   <button onClick={applyCustomRange} className="btn-primary text-xs py-1.5 px-3">Apply</button>
                 </>
               )}
             </div>
           )}
         </div>
-        <main className="flex-1 px-8 py-8">
+
+        {/* Mobile top bar */}
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-border sticky top-0 z-10">
+          <span className="font-display text-base text-ink">Advar</span>
+          <select value={selectedAccount || ''} onChange={e => setSelectedAccount(e.target.value)}
+            className="flex-1 mx-3 text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none">
+            {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted hover:text-ink p-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Mobile hamburger menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-border px-4 py-3 space-y-2 sticky top-14 z-10">
+            <select value={dateRange} onChange={e => { handleDateRangeChange(e.target.value); }} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono text-ink">
+              {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
+            </select>
+            {showCustomPicker && (
+              <div className="space-y-1">
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono" />
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono" />
+                <button onClick={() => { applyCustomRange(); setMobileMenuOpen(false) }} className="w-full btn-primary text-xs py-2">Apply</button>
+              </div>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => { selectedAccount && fetchSummary(selectedAccount, dateRange); setMobileMenuOpen(false) }}
+                className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">↻ Refresh</button>
+              <button onClick={() => signOut({ callbackUrl: '/' })}
+                className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">Sign out</button>
+            </div>
+          </div>
+        )}
+
+        {/* Page content */}
+        <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
           {activeTab === 'overview' && summary && selectedAccount && (
             <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
           )}
@@ -1036,6 +989,31 @@ function DashboardContent() {
           {!summary && !loading && selectedAccount && <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading account data...</p></div>}
           {!selectedAccount && <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Select an account to get started</p></div>}
         </main>
+
+        {/* Mobile bottom tab bar */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-20">
+          <div className="flex">
+            {NAV_ITEMS.map(item => (
+              <button key={item.id} onClick={() => { switchTab(item.id as any); setMobileMenuOpen(false) }}
+                className={'flex-1 flex flex-col items-center py-2 px-1 transition-colors ' + (activeTab === item.id ? 'text-accent' : 'text-muted hover:text-ink')}>
+                <span className="text-lg leading-none mb-0.5">{item.icon}</span>
+                <span className="font-mono text-[10px] uppercase tracking-wide">{item.label === 'Ask Claude' ? 'Claude' : item.label}</span>
+              </button>
+            ))}
+            <button onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
+              className={'flex-1 flex flex-col items-center py-2 px-1 transition-colors ' + (mobileMoreOpen ? 'text-accent' : 'text-muted hover:text-ink')}>
+              <span className="text-lg leading-none mb-0.5">•••</span>
+              <span className="font-mono text-[10px] uppercase tracking-wide">More</span>
+            </button>
+          </div>
+          {mobileMoreOpen && (
+            <div className="border-t border-border bg-white px-4 py-3 space-y-2">
+              <p className="font-mono text-xs text-muted uppercase tracking-wider">Coming soon</p>
+              <p className="text-xs text-muted">Settings · Billing · Support</p>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
