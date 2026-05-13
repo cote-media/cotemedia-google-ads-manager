@@ -315,7 +315,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
     else if (sortCol === 'qs') { av = Number(a.qualityScore || 0); bv = Number(b.qualityScore || 0) }
     else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
-    else if (sortCol === 'avgCpc') { av = Number(acks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
+    else if (sortCol === 'avgCpc') { av = Number(a.clicks) > 0 ? Number(a.cost)/Number(a.clicks) : 0; bv = Number(b.clicks) > 0 ? Number(b.cost)/Number(b.clicks) : 0 }
     else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
     else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost)/Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost)/Number(b.conversions) : 0 }
     return sortDir === 'desc' ? bv - av : av - bv
