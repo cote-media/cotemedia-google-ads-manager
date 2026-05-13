@@ -135,13 +135,16 @@ export async function getAccountSummary(refreshToken: string, customerId: string
   }
 }
 
-export async function getDailyMetrics(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+export async function getDailyMetrics(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS', campaignId?: string) {
   const customer = getCustomer(refreshToken, customerId)
+  const campaignFilter = campaignId ? `AND campaign.id = ${campaignId}` : ''
+  const resource = campaignId ? 'campaign' : 'customer'
   const rows = await customer.query(`
     SELECT segments.date, metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.conversions_value
-    FROM customer
+    FROM ${resource}
     WHERE segments.date DURING ${dateRange}
+    ${campaignFilter}
     ORDER BY segments.date ASC
   `)
   return rows.map((row: any) => ({

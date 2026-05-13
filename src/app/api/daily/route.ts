@@ -11,11 +11,12 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const accountId = searchParams.get('accountId')
   const dateRange = searchParams.get('dateRange') || 'LAST_30_DAYS'
+  const campaignId = searchParams.get('campaignId') || undefined
   if (!accountId) {
     return NextResponse.json({ error: 'accountId required' }, { status: 400 })
   }
   try {
-    const data = await getDailyMetrics(session.refreshToken, accountId, dateRange)
+    const data = await getDailyMetrics(session.refreshToken, accountId, dateRange, campaignId)
     return NextResponse.json({ daily: data })
   } catch (error: any) {
     console.error('Daily metrics error:', error)

@@ -109,33 +109,44 @@ function LoadingScreen() {
 }
 
 // ─── Performance Chart ────────────────────────────────────────────────────────
-function PerformanceChart({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+function PerformanceChart({ accountId, dateRange, campaignId, campaignName }: {
+  accountId: string
+  dateRange: string
+  campaignId?: string
+  campaignName?: string
+}) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost', 'clicks'])
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/daily?accountId=' + accountId + '&dateRange=' + dateRange)
+    const url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + (campaignId ? '&campaignId=' + campaignId : '')
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) })))
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [accountId, dateRange])
+  }, [accountId, dateRange, campaignId])
 
   const toggleMetric = (id: string) => {
     setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
   }
 
-  if (loading) return <div className="text-muted text-sm font-mono mb-8">Loading chart...</div>
+  const title = campaignName ? campaignName : 'Account Performance'
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-6 mb-8">
+    <div className="bg-white border border-border p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+        <div>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+          {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
+        </div>
         <div className="flex gap-2">
           {CHART_METRICS.map(m => (
             <button key={m.id} onClick={() => toggleMetric(m.id)}
@@ -162,7 +173,12 @@ function PerformanceChart({ accountId, dateRange }: { accountId: string; dateRan
 }
 
 // ─── Campaign Table ───────────────────────────────────────────────────────────
-function CampaignTable({ campaigns, activeCols }: { campaigns: any[]; activeCols: string[] }) {
+function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCampaign }: {
+  campaigns: any[]
+  activeCols: string[]
+  selectedCampaignId?: string
+  onSelectCampaign?: (id: string, name: string) => void
+}) {
   const has = (id: string) => activeCols.includes(id)
   const [sortCol, setSortCol] = useState<string>('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
@@ -217,9 +233,15 @@ function CampaignTable({ campaigns, activeCols }: { campaigns: any[]; activeCols
             const cost = Number(c.cost)
             const convs = Number(c.conversions)
             const clicks = Number(c.clicks)
+            const isSelected = selectedCampaignId === c.id
             return (
-              <tr key={c.id} className="table-row">
-                <td className="px-4 py-3 font-medium max-w-xs truncate">{c.name}</td>
+              <tr key={c.id}
+                onClick={() => onSelectCampaign && onSelectCampaign(isSelected ? '' : c.id, c.name)}
+                className={'table-row ' + (onSelectCampaign ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : '')}>
+                <td className="px-4 py-3 font-medium max-w-xs truncate">
+                  {isSelected && <span className="text-accent mr-1">▸</span>}
+                  {c.name}
+                </td>
                 <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                 {has('budget') && <td className="px-4 py-3 text-right font-mono text-sm">{c.budget ? '$' + c.budget : '—'}</td>}
                 {has('impressions') && <td className="px-4 py-3 text-right font-mono text-sm">{Number(c.impressions || 0).toLocaleString()}</td>}
@@ -273,7 +295,7 @@ function OverviewTab({ summary, accountId, dateRange }: { summary: any; accountI
 }
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
-function CampaignsTab({ campaigns }: { campaigns: any[] }) {
+function CampaignsTab({ campaigns, accountId, dateRange }: { campaigns: any[]; accountId: string; dateRange: string }) {
   const defaultCols = CAMPAIGN_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -281,20 +303,44 @@ function CampaignsTab({ campaigns }: { campaigns: any[] }) {
     }
     return defaultCols
   })
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
+  const [selectedCampaignName, setSelectedCampaignName] = useState<string>('')
+
   const updateCols = (cols: string[]) => {
     setActiveCols(cols)
     if (typeof window !== 'undefined') localStorage.setItem('advar-campaign-cols', JSON.stringify(cols))
   }
+
+  const handleSelectCampaign = (id: string, name: string) => {
+    setSelectedCampaignId(id)
+    setSelectedCampaignName(id ? name : '')
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
-          <p className="text-sm text-muted font-mono">{campaigns.length} campaigns</p>
+          <p className="text-sm text-muted font-mono">
+            {campaigns.length} campaigns
+            {selectedCampaignName && <span className="text-accent"> · Click a row to view its trend</span>}
+            {!selectedCampaignName && <span className="text-muted"> · Click a row to view its trend</span>}
+          </p>
         </div>
         <ColumnPicker columns={CAMPAIGN_COLUMNS} active={activeCols} onChange={updateCols} />
       </div>
-      <CampaignTable campaigns={campaigns} activeCols={activeCols} />
+      <PerformanceChart
+        accountId={accountId}
+        dateRange={dateRange}
+        campaignId={selectedCampaignId || undefined}
+        campaignName={selectedCampaignName || undefined}
+      />
+      <CampaignTable
+        campaigns={campaigns}
+        activeCols={activeCols}
+        selectedCampaignId={selectedCampaignId}
+        onSelectCampaign={handleSelectCampaign}
+      />
     </div>
   )
 }
@@ -745,7 +791,7 @@ function DashboardContent() {
         </div>
         <main className="flex-1 px-8 py-8">
           {activeTab === 'overview' && summary && selectedAccount && <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} />}
-          {activeTab === 'campaigns' && summary && <CampaignsTab campaigns={summary.campaigns || []} />}
+          {activeTab === 'campaigns' && summary && selectedAccount && <CampaignsTab campaigns={summary.campaigns || []} accountId={selectedAccount} dateRange={dateRange} />}
           {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
