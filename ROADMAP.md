@@ -5,15 +5,15 @@
 ---
 
 ## 🔥 Immediate (This Week)
-- [ ] Fix Match type showing numbers (4=Broad, 3=Phrase, 2=Exact)
-- [ ] Fix QS column — color code green/yellow/red, add tooltip explanation
-- [ ] Verify Vercel auto-deploy triggering from GitHub pushes
-- [ ] Fix Claude saying "Cote Media" instead of client name in chat
+- [x] Fix Match type showing numbers (4=Broad, 3=Phrase, 2=Exact)
+- [x] Fix QS column — color code green/yellow/red, add tooltip explanation
+- [x] Verify Vercel auto-deploy triggering from GitHub pushes
+- [x] Fix Claude saying "Cote Media" instead of client name in chat
 
 ---
 
 ## 🛠 2-Week Beta Sprint
-- [ ] localStorage to persist chat history across browser refreshes
+- [x] localStorage to persist chat history across browser refreshes
 - [ ] PDF and Word download options for chat transcripts
 - [ ] Agency vs. business owner onboarding flow
 - [ ] Mobile layout
