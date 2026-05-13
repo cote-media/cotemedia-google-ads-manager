@@ -200,3 +200,20 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Better empty states
 - [ ] Loading skeletons instead of plain "Loading..."
 - [ ] Metric cards redesign on Overview tab
+
+## 🛒 E-Commerce Data Layer
+- [ ] Shopify integration — connect store data to AdVar
+- [ ] WooCommerce integration
+- [ ] Data points to pull: revenue by product, AOV, abandoned cart rate, checkout rate, return rate, inventory
+- [ ] Claude uses e-commerce data to distinguish ad performance issues from pricing/product issues
+- [ ] Only shown for e-commerce clients (toggle by account type)
+- [ ] This closes the gap Triple Whale leaves — aggregation + diagnosis in one tool
+
+## 🌐 Web Search for Claude
+- [ ] Enable Claude to search web during analysis (competitor pricing, industry benchmarks, market context)
+- [ ] Cost: ~$0.01 per exchange — negligible
+- [ ] Smart trigger: Claude decides when web search adds value vs always-on
+- [ ] Use cases: competitor CPC benchmarks, industry average ROAS by vertical, pricing vs market, seasonal trends
+- [ ] Example insight enabled: "Your CPC is 40% above industry average for auto glass in Georgia" or "Competitor pricing in your marks $89 vs your $149"
+- [ ] Phase 1: on-demand (user asks for market context)
+- [ ] Phase 2: Claude auto-triggers when it detects a gap in its analysis
