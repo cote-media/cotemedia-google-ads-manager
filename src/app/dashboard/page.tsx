@@ -40,7 +40,13 @@ function DashboardContent() {
     return []
   })
   const [chatLoading, setChatLoading] = useState(false)
-  const [sessionStart, setSessionStart] = useState(0)
+  const [sessionStart, setSessionStart] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cmam-session-start')
+      return saved ? parseInt(saved) : 0
+    }
+    return 0
+  })
 
   // Persist chat to localStorage
   useEffect(() => {
@@ -48,6 +54,12 @@ function DashboardContent() {
       localStorage.setItem('cmam-chat-messages', JSON.stringify(chatMessages))
     }
   }, [chatMessages])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cmam-session-start', String(sessionStart))
+    }
+  }, [sessionStart])
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>('overview')
 
   // Restore from URL on load
