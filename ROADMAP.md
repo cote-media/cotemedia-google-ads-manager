@@ -154,3 +154,12 @@ Every Claude recommendation should eventually be executable from within CMAM.
 - [ ] Conversation persists as you navigate between tabs
 - [ ] Inline ask: hover over a campaign/keyword row, Claude icon appears, click to ask about that specific item
 - [ ] "Ask Claude about this campaign" → pre-filled context with that campaign's data
+
+## 💬 Floating Claude Assistant (Replaces Chat Tab long-term)
+- [ ] Persistent Claude bubble — bottom right corner, every page
+- [ ] Click to open compact popup (400x500px) with current page context pre-loaded
+- [ ] Hover over any campaign/keyword row → inline Claude icon appears → click opens popup with that row's data pre-filled
+- [ ] Expand options: inline below view / snap to sidebar / full page
+- [ ] Conversation persists as you navigate between tabs
+- [ ] Context updates automatically as you switch tabs or accounts
+- [ ] Full page view = current Chat tab (kept for transcript download/upload)
