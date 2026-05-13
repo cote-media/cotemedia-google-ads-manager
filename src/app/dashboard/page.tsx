@@ -13,6 +13,7 @@ const DATE_RANGES = [
   { label: 'This month', value: 'THIS_MONTH' },
   { label: 'Last month', value: 'LAST_MONTH' },
   { label: 'Last 90 days', value: 'LAST_90_DAYS' },
+  { label: 'Custom range', value: 'CUSTOM' },
 ]
 
 const CAMPAIGN_STATUSES: Record<string, string> = {
@@ -109,19 +110,25 @@ function LoadingScreen() {
 }
 
 // ─── Performance Chart ────────────────────────────────────────────────────────
-function PerformanceChart({ accountId, dateRange, campaignId, campaignName }: {
+function PerformanceChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
   accountId: string
   dateRange: string
   campaignId?: string
   campaignName?: string
+  customStart?: string
+  customEnd?: string
 }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost', 'clicks'])
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
 
   useEffect(() => {
     setLoading(true)
-    const url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + (campaignId ? '&campaignId=' + campaignId : '')
+    let url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&granularity=' + granularity
+    if (campaignId) url += '&campaignId=' + campaignId
+    if (customStart) url += '&customStart=' + customStart
+    if (customEnd) url += '&customEnd=' + customEnd
     fetch(url)
       .then(r => r.json())
       .then(d => {
@@ -129,13 +136,11 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName }: {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [accountId, dateRange, campaignId])
+  }, [accountId, dateRange, campaignId, granularity, customStart, customEnd])
 
   const toggleMetric = (id: string) => {
     setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
   }
-
-  const title = campaignName ? campaignName : 'Account Performance'
 
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
@@ -147,14 +152,26 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName }: {
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
           {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
         </div>
-        <div className="flex gap-2">
-          {CHART_METRICS.map(m => (
-            <button key={m.id} onClick={() => toggleMetric(m.id)}
-              className={'text-xs font-mono px-3 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
-              {m.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          {/* Granularity toggle */}
+          <div className="flex border border-border">
+            {(['day', 'week', 'month'] as const).map(g => (
+              <button key={g} onClick={() => setGranularity(g)}
+                className={'text-xs font-mono px-3 py-1 transition-colors ' + (granularity === g ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                {g.charAt(0).toUpperCase() + g.slice(1)}
+              </button>
+            ))}
+          </div>
+          {/* Metric toggles */}
+          <div className="flex gap-1">
+            {CHART_METRICS.map(m => (
+              <button key={m.id} onClick={() => toggleMetric(m.id)}
+                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={240}>
@@ -263,7 +280,9 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ summary, accountId, dateRange }: { summary: any; accountId: string; dateRange: string }) {
+function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: {
+  summary: any; accountId: string; dateRange: string; customStart?: string; customEnd?: string
+}) {
   const metrics = [
     { label: 'Total Spend', value: '$' + Number(summary.totalCost).toLocaleString() },
     { label: 'Clicks', value: Number(summary.totalClicks).toLocaleString() },
@@ -287,7 +306,7 @@ function OverviewTab({ summary, accountId, dateRange }: { summary: any; accountI
           </div>
         ))}
       </div>
-      <PerformanceChart accountId={accountId} dateRange={dateRange} />
+      <PerformanceChart accountId={accountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
       <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Campaigns by Spend</h3>
       <CampaignTable campaigns={(summary.campaigns || []).slice(0, 10)} activeCols={defaultCols} />
     </div>
@@ -295,7 +314,9 @@ function OverviewTab({ summary, accountId, dateRange }: { summary: any; accountI
 }
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
-function CampaignsTab({ campaigns, accountId, dateRange }: { campaigns: any[]; accountId: string; dateRange: string }) {
+function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd }: {
+  campaigns: any[]; accountId: string; dateRange: string; customStart?: string; customEnd?: string
+}) {
   const defaultCols = CAMPAIGN_COLUMNS.filter(c => c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -323,8 +344,8 @@ function CampaignsTab({ campaigns, accountId, dateRange }: { campaigns: any[]; a
           <h2 className="font-display text-2xl text-ink mb-1">Campaigns</h2>
           <p className="text-sm text-muted font-mono">
             {campaigns.length} campaigns
-            {selectedCampaignName && <span className="text-accent"> · Click a row to view its trend</span>}
             {!selectedCampaignName && <span className="text-muted"> · Click a row to view its trend</span>}
+            {selectedCampaignName && <span className="text-accent"> · {selectedCampaignName}</span>}
           </p>
         </div>
         <ColumnPicker columns={CAMPAIGN_COLUMNS} active={activeCols} onChange={updateCols} />
@@ -334,6 +355,8 @@ function CampaignsTab({ campaigns, accountId, dateRange }: { campaigns: any[]; a
         dateRange={dateRange}
         campaignId={selectedCampaignId || undefined}
         campaignName={selectedCampaignName || undefined}
+        customStart={customStart}
+        customEnd={customEnd}
       />
       <CampaignTable
         campaigns={campaigns}
@@ -564,6 +587,9 @@ function DashboardContent() {
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<string>('LAST_30_DAYS')
+  const [customStart, setCustomStart] = useState<string>('')
+  const [customEnd, setCustomEnd] = useState<string>('')
+  const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [summary, setSummary] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [chatInput, setChatInput] = useState('')
@@ -611,13 +637,17 @@ function DashboardContent() {
       localStorage.removeItem('advar-session-start')
     }
     localStorage.setItem('advar-active-account', selectedAccount)
-    fetchSummary(selectedAccount, dateRange)
+    if (dateRange === 'CUSTOM') {
+      if (customStart && customEnd) fetchSummaryCustom(selectedAccount, customStart, customEnd)
+    } else {
+      fetchSummary(selectedAccount, dateRange)
+    }
     const params = new URLSearchParams()
     params.set('account', selectedAccount)
     params.set('range', dateRange)
     params.set('tab', activeTab)
     router.replace('/dashboard?' + params.toString(), { scroll: false })
-  }, [selectedAccount, dateRange])
+  }, [selectedAccount, dateRange, customStart, customEnd])
 
   useEffect(() => {
     if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages))
@@ -658,6 +688,35 @@ function DashboardContent() {
       setSummary(data)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
+  }
+
+  async function fetchSummaryCustom(accountId: string, start: string, end: string) {
+    setLoading(true)
+    setSummary(null)
+    try {
+      const res = await fetch('/api/campaigns?accountId=' + accountId + '&dateRange=LAST_30_DAYS&customStart=' + start + '&customEnd=' + end)
+      const data = await res.json()
+      setSummary(data)
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  function handleDateRangeChange(val: string) {
+    setDateRange(val)
+    if (val === 'CUSTOM') {
+      setShowCustomPicker(true)
+    } else {
+      setShowCustomPicker(false)
+      setCustomStart('')
+      setCustomEnd('')
+    }
+  }
+
+  function applyCustomRange() {
+    if (customStart && customEnd && selectedAccount) {
+      setShowCustomPicker(false)
+      fetchSummaryCustom(selectedAccount, customStart, customEnd)
+    }
   }
 
   async function sendChat() {
@@ -728,6 +787,7 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper flex">
+      {/* Sidebar */}
       <div className={`flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
@@ -748,9 +808,21 @@ function DashboardContent() {
         </div>
         {!sidebarCollapsed && (
           <div className="px-3 py-2 border-b border-border">
-            <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
+            <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
               {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
             </select>
+            {showCustomPicker && (
+              <div className="mt-2 space-y-1">
+                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                  className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
+                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                  className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
+                <button onClick={applyCustomRange} disabled={!customStart || !customEnd}
+                  className="w-full btn-primary text-xs py-1.5 disabled:opacity-50">
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         )}
         <nav className="flex-1 py-2">
@@ -763,7 +835,7 @@ function DashboardContent() {
           ))}
         </nav>
         <div className="border-t border-border py-2">
-          <button onClick={() => selectedAccount && fetchSummary(selectedAccount, dateRange)} title="Refresh data"
+          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchSummary(selectedAccount, dateRange))} title="Refresh data"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <span className="text-base w-4 text-center">↻</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
@@ -776,22 +848,36 @@ function DashboardContent() {
         </div>
       </div>
 
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="border-b border-border px-8 py-3 flex items-center justify-between bg-white sticky top-0 z-10">
           <p className="text-xs text-muted font-mono">
             {loading
               ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
-              : summary ? selectedAccountName + ' · ' + (DATE_RANGES.find(d => d.value === dateRange)?.label || '') : ''}
+              : summary ? selectedAccountName + ' · ' + (dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (DATE_RANGES.find(d => d.value === dateRange)?.label || '')) : ''}
           </p>
           {sidebarCollapsed && (
-            <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
-              {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
-            </select>
+            <div className="flex items-center gap-2">
+              <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
+                {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
+              </select>
+              {showCustomPicker && (
+                <>
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none" />
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none" />
+                  <button onClick={applyCustomRange} className="btn-primary text-xs py-1.5 px-3">Apply</button>
+                </>
+              )}
+            </div>
           )}
         </div>
         <main className="flex-1 px-8 py-8">
-          {activeTab === 'overview' && summary && selectedAccount && <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} />}
-          {activeTab === 'campaigns' && summary && selectedAccount && <CampaignsTab campaigns={summary.campaigns || []} accountId={selectedAccount} dateRange={dateRange} />}
+          {activeTab === 'overview' && summary && selectedAccount && (
+            <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+          )}
+          {activeTab === 'campaigns' && summary && selectedAccount && (
+            <CampaignsTab campaigns={summary.campaigns || []} accountId={selectedAccount} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+          )}
           {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
