@@ -49,7 +49,12 @@ export default function ClientsPage() {
   async function fetchGoogleAccounts() {
     const res = await fetch('/api/accounts')
     const data = await res.json()
-    setGoogleAccounts(data.accounts || [])
+    const accounts = data.accounts || []
+    setGoogleAccounts(accounts)
+    // Pre-fill mappings with account names as defaults
+    const defaultMappings: Record<string, string> = {}
+    accounts.forEach((a: any) => { defaultMappings[a.id] = a.name })
+    setMappings(defaultMappings)
   }
 
   async function createClient(name: string, googleAccountId?: string, googleAccountName?: string) {
