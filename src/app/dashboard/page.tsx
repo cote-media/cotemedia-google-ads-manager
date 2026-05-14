@@ -61,6 +61,17 @@ const CHART_METRICS = [
   { id: 'conversions', label: 'Conversions', color: '#ea580c' },
 ]
 
+type Client = {
+  id: string
+  name: string
+  platform_connections: {
+    id: string
+    platform: string
+    account_id: string
+    account_name: string
+  }[]
+}
+
 // ─── Column Picker ────────────────────────────────────────────────────────────
 function ColumnPicker({ columns, active, onChange }: {
   columns: { id: string; label: string; defaultOn: boolean }[]
@@ -106,6 +117,55 @@ function LoadingScreen() {
       <div className="text-center">
         <div className="w-1 h-8 bg-ink animate-pulse mx-auto mb-4" />
         <p className="font-mono text-xs text-muted tracking-widest uppercase">Loading</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Platform Tabs ────────────────────────────────────────────────────────────
+function PlatformTabs({ client, activePlatform, onChange }: {
+  client: Client
+  activePlatform: string
+  onChange: (platform: string) => void
+}) {
+  const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
+  const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
+  const hasBoth = hasGoogle && hasMeta
+
+  return (
+    <div className="flex items-center gap-1 mb-6">
+      {hasGoogle && (
+        <button onClick={() => onChange('google')}
+          className={'text-xs font-mono px-4 py-1.5 border transition-colors ' + (activePlatform === 'google' ? 'bg-ink text-white border-ink' : 'text-muted border-border hover:text-ink')}>
+          🔵 Google Ads
+        </button>
+      )}
+      {hasMeta && (
+        <button onClick={() => onChange('meta')}
+          className={'text-xs font-mono px-4 py-1.5 border transition-colors ' + (activePlatform === 'meta' ? 'bg-ink text-white border-ink' : 'text-muted border-border hover:text-ink')}>
+          🔷 Meta Ads
+        </button>
+      )}
+      {hasBoth && (
+        <button onClick={() => onChange('combined')}
+          className={'text-xs font-mono px-4 py-1.5 border transition-colors ' + (activePlatform === 'combined' ? 'bg-ink text-white border-ink' : 'text-muted border-border hover:text-ink')}>
+          ⊕ Combined
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Meta Placeholder ─────────────────────────────────────────────────────────
+function MetaPlaceholder({ clientName }: { clientName: string }) {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-center">
+        <p className="font-display text-xl text-ink mb-2">Meta Ads coming soon</p>
+        <p className="text-sm text-muted font-mono">Connect a Meta ad account to {clientName} to see data here.</p>
+        <a href="/clients" className="inline-block mt-4 text-xs font-mono text-accent hover:underline">
+          Manage connections →
+        </a>
       </div>
     </div>
   )
@@ -297,7 +357,6 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Insight banner */}
       <div className={`border px-4 md:px-6 py-4 md:py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -317,8 +376,6 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           <span className="text-xs font-mono text-muted ml-4 mt-0.5 whitespace-nowrap hidden md:block">AI analysis coming soon</span>
         </div>
       </div>
-
-      {/* Metric tiles */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
@@ -327,10 +384,7 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           </div>
         ))}
       </div>
-
-      {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        {/* Campaign Performance */}
         <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
           <div className="space-y-3">
@@ -347,8 +401,6 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
             ))}
           </div>
         </div>
-
-        {/* Conversion Leaders */}
         <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
           {topByConv.length === 0 ? (
@@ -370,14 +422,10 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
             </div>
           )}
         </div>
-
-        {/* Top Keywords */}
         <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
           <TopKeywordsCard accountId={accountId} dateRange={dateRange} />
         </div>
-
-        {/* Budget Utilization */}
         <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
           {campaignsWithBudget.length === 0 ? (
@@ -403,7 +451,6 @@ function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: 
           )}
         </div>
       </div>
-
       <PerformanceChart accountId={accountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
     </div>
   )
@@ -454,7 +501,6 @@ function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd 
           <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
           <p className="text-sm text-muted font-mono">
             {campaigns.length} campaigns
-            {!selectedCampaignName && <span className="hidden md:inline text-muted"> · Click a row to view its trend</span>}
             {selectedCampaignName && <span className="text-accent"> · {selectedCampaignName}</span>}
           </p>
         </div>
@@ -573,7 +619,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
                   {has('qs') && (
                     <td className="px-3 py-3 text-right font-mono text-sm font-medium whitespace-nowrap">
                       {k.qualityScore ? (
-                        <span title="Quality Score: Google's 1-10 rating. Higher = cheaper clicks." className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span>
+                        <span title="Quality Score" className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span>
                       ) : <span className="text-muted">—</span>}
                     </td>
                   )}
@@ -658,12 +704,10 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
         <div className="border-t border-border p-3 md:p-4 flex gap-2 md:gap-3">
           <input type="text" value={input} onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !atLimit && onSend()}
-            placeholder={accountSelected ? (atLimit ? 'Download and re-upload to continue...' : 'Ask about this account...') : 'Select an account first'}
+            placeholder={accountSelected ? (atLimit ? 'Download and re-upload to continue...' : 'Ask about this account...') : 'Select a client first'}
             disabled={!accountSelected || atLimit}
             className="flex-1 border border-border px-3 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
-          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
-            Send
-          </button>
+          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Send</button>
         </div>
       </div>
     </div>
@@ -676,8 +720,9 @@ function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [accounts, setAccounts] = useState<any[]>([])
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null)
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [activePlatform, setActivePlatform] = useState<string>('google')
   const [dateRange, setDateRange] = useState<string>('LAST_30_DAYS')
   const [customStart, setCustomStart] = useState<string>('')
   const [customEnd, setCustomEnd] = useState<string>('')
@@ -705,59 +750,52 @@ function DashboardContent() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
 
   useEffect(() => {
-    const acc = searchParams.get('account')
     const dr = searchParams.get('range')
     const tab = searchParams.get('tab')
     if (dr) setDateRange(dr)
     if (tab) setActiveTab(tab as any)
-    if (acc) setSelectedAccount(acc)
   }, [])
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
-  useEffect(() => { if (session) fetchAccounts() }, [session])
+  useEffect(() => { if (session) fetchClients() }, [session])
 
-  useEffect(() => {
-    if (!selectedAccount) return
-    const savedAccount = localStorage.getItem('advar-active-account')
-    if (savedAccount && savedAccount !== selectedAccount && savedAccount !== 'null') {
-      setChatMessages([]); setSessionStart(0)
+  async function fetchClients() {
+    try {
+      const res = await fetch('/api/clients')
+      const data = await res.json()
+      const clientList = data.clients || []
+      setClients(clientList)
+      // Auto-select first client
+      const savedClientId = localStorage.getItem('advar-active-client')
+      const saved = clientList.find((c: Client) => c.id === savedClientId)
+      const toSelect = saved || clientList[0] || null
+      if (toSelect) selectClient(toSelect)
+    } catch (e) { console.error(e) }
+  }
+
+  function selectClient(client: Client) {
+    setSelectedClient(client)
+    localStorage.setItem('advar-active-client', client.id)
+    // Reset chat if switching clients
+    const savedClient = localStorage.getItem('advar-active-client')
+    if (savedClient && savedClient !== client.id) {
+      setChatMessages([])
+      setSessionStart(0)
       localStorage.removeItem('advar-chat-messages')
       localStorage.removeItem('advar-session-start')
     }
-    localStorage.setItem('advar-active-account', selectedAccount)
-    if (dateRange === 'CUSTOM') {
-      if (customStart && customEnd) fetchSummaryCustom(selectedAccount, customStart, customEnd)
-    } else {
-      fetchSummary(selectedAccount, dateRange)
+    // Default to google if available
+    const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
+    setActivePlatform(hasGoogle ? 'google' : 'meta')
+    // Load data
+    const googleConn = client.platform_connections.find(p => p.platform === 'google')
+    if (googleConn) {
+      if (dateRange === 'CUSTOM' && customStart && customEnd) {
+        fetchSummaryCustom(googleConn.account_id, customStart, customEnd)
+      } else {
+        fetchSummary(googleConn.account_id, dateRange)
+      }
     }
-    const params = new URLSearchParams()
-    params.set('account', selectedAccount)
-    params.set('range', dateRange)
-    params.set('tab', activeTab)
-    router.replace('/dashboard?' + params.toString(), { scroll: false })
-  }, [selectedAccount, dateRange, customStart, customEnd])
-
-  useEffect(() => { if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
-  useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
-
-  function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
-    setActiveTab(tab)
-    if (selectedAccount) {
-      const params = new URLSearchParams()
-      params.set('account', selectedAccount); params.set('range', dateRange); params.set('tab', tab)
-      router.replace('/dashboard?' + params.toString(), { scroll: false })
-    }
-  }
-
-  async function fetchAccounts() {
-    try {
-      const res = await fetch('/api/accounts')
-      const data = await res.json()
-      setAccounts(data.accounts || [])
-      const urlAccount = new URLSearchParams(window.location.search).get('account')
-      if (data.accounts?.length > 0 && !urlAccount) setSelectedAccount(data.accounts[0].id)
-      else if (urlAccount) setSelectedAccount(urlAccount)
-    } catch (e) { console.error(e) }
   }
 
   async function fetchSummary(accountId: string, dr: string) {
@@ -781,26 +819,42 @@ function DashboardContent() {
   function handleDateRangeChange(val: string) {
     setDateRange(val)
     if (val === 'CUSTOM') setShowCustomPicker(true)
-    else { setCustomStart(''); setCustomEnd('') }
+    else {
+      setCustomStart(''); setCustomEnd('')
+      const googleConn = selectedClient?.platform_connections.find(p => p.platform === 'google')
+      if (googleConn) fetchSummary(googleConn.account_id, val)
+    }
   }
 
   function applyCustomRange() {
-    if (customStart && customEnd && selectedAccount) fetchSummaryCustom(selectedAccount, customStart, customEnd)
+    if (customStart && customEnd && selectedClient) {
+      const googleConn = selectedClient.platform_connections.find(p => p.platform === 'google')
+      if (googleConn) fetchSummaryCustom(googleConn.account_id, customStart, customEnd)
+    }
+  }
+
+  useEffect(() => {
+    if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages))
+  }, [chatMessages])
+  useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
+
+  function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
+    setActiveTab(tab)
   }
 
   async function sendChat() {
-    if (!chatInput.trim() || !selectedAccount) return
+    if (!chatInput.trim() || !selectedClient) return
     const userMsg = chatInput.trim()
     setChatInput('')
     const newMessages = [...chatMessages, { role: 'user', content: userMsg }]
     setChatMessages(newMessages)
     setChatLoading(true)
     const history = newMessages.slice(-8).map(m => ({ role: m.role, content: m.content }))
-    const accountName = accounts.find((a: any) => a.id === selectedAccount)?.name || selectedAccount
+    const googleConn = selectedClient.platform_connections.find(p => p.platform === 'google')
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, accountId: selectedAccount, summary, dateRange, history: history.slice(0, -1), accountName }),
+        body: JSON.stringify({ message: userMsg, accountId: googleConn?.account_id, summary, dateRange, history: history.slice(0, -1), accountName: selectedClient.name }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
@@ -810,14 +864,13 @@ function DashboardContent() {
   }
 
   function downloadChat() {
-    const accountName = accounts.find((a: any) => a.id === selectedAccount)?.name || selectedAccount
     const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
-    const header = 'Advar Chat Export\nAccount: ' + accountName + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
+    const header = 'Advar Chat Export\nClient: ' + (selectedClient?.name || '') + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
     const blob = new Blob([header + text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'advar-' + String(accountName).replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
+    a.download = 'advar-' + (selectedClient?.name || 'chat').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '-' + new Date().toISOString().split('T')[0] + '.txt'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -850,7 +903,8 @@ function DashboardContent() {
   if (status === 'loading') return <LoadingScreen />
 
   const exchangeCount = Math.floor((chatMessages.length - sessionStart) / 2)
-  const selectedAccountName = accounts.find((a: any) => a.id === selectedAccount)?.name || 'Select account'
+  const googleConn = selectedClient?.platform_connections.find(p => p.platform === 'google')
+  const activeAccountId = googleConn?.account_id || ''
 
   return (
     <div className="min-h-screen bg-paper flex">
@@ -859,21 +913,12 @@ function DashboardContent() {
       <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
-          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto" title={sidebarCollapsed ? 'Expand' : 'Collapse'}>
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto">
             {sidebarCollapsed ? '→' : '←'}
           </button>
         </div>
-        <div className="px-3 py-3 border-b border-border">
-          {sidebarCollapsed ? (
-            <div className="w-8 h-8 bg-accent rounded flex items-center justify-center text-white text-xs font-bold mx-auto" title={selectedAccountName}>
-              {selectedAccountName.charAt(0)}
-            </div>
-          ) : (
-            <select value={selectedAccount || ''} onChange={e => setSelectedAccount(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
-              {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          )}
-        </div>
+
+        {/* Date range */}
         {!sidebarCollapsed && (
           <div className="px-3 py-2 border-b border-border">
             <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
@@ -888,6 +933,8 @@ function DashboardContent() {
             )}
           </div>
         )}
+
+        {/* Nav */}
         <nav className="flex-1 py-2">
           {NAV_ITEMS.map(item => (
             <button key={item.id} onClick={() => switchTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
@@ -897,12 +944,31 @@ function DashboardContent() {
             </button>
           ))}
         </nav>
+
+        {/* Client list */}
+        <div className="border-t border-border">
+          {!sidebarCollapsed && (
+            <div className="px-4 py-2 flex items-center justify-between">
+              <span className="font-mono text-xs text-muted uppercase tracking-wider">Clients</span>
+              <a href="/clients" className="text-xs text-accent hover:underline font-mono">+ Edit</a>
+            </div>
+          )}
+          <div className="pb-2 max-h-48 overflow-y-auto">
+            {clients.map(client => (
+              <button key={client.id} onClick={() => selectClient(client)} title={sidebarCollapsed ? client.name : undefined}
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (selectedClient?.id === client.id ? 'bg-surface text-ink font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <span className="w-4 h-4 rounded-full bg-accent flex-shrink-0 flex items-center justify-center text-white text-xs">
+                  {client.name.charAt(0).toUpperCase()}
+                </span>
+                {!sidebarCollapsed && <span className="text-xs truncate">{client.name}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom actions */}
         <div className="border-t border-border py-2">
-          <a href="/clients" className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
-            <span className="text-base w-4 text-center">⊕</span>
-            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Clients</span>}
-          </a>
-          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchSummary(selectedAccount, dateRange))} title="Refresh"
+          <button onClick={() => { const conn = selectedClient?.platform_connections.find(p => p.platform === 'google'); if (conn) { dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(conn.account_id, customStart, customEnd) : fetchSummary(conn.account_id, dateRange) } }} title="Refresh"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <span className="text-base w-4 text-center">↻</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
@@ -920,33 +986,21 @@ function DashboardContent() {
 
         {/* Desktop top bar */}
         <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
-          <p className="text-xs text-muted font-mono">
-            {loading
-              ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
-              : summary ? selectedAccountName + ' · ' + (dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (DATE_RANGES.find(d => d.value === dateRange)?.label || '')) : ''}
-          </p>
-          {sidebarCollapsed && (
-            <div className="flex items-center gap-2">
-              <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
-                {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
-              </select>
-              {showCustomPicker && (
-                <>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono" />
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="text-xs border border-border bg-paper px-2 py-1.5 font-mono" />
-                  <button onClick={applyCustomRange} className="btn-primary text-xs py-1.5 px-3">Apply</button>
-                </>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted font-mono">
+              {loading
+                ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
+                : selectedClient ? selectedClient.name + ' · ' + (dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (DATE_RANGES.find(d => d.value === dateRange)?.label || '')) : ''}
+            </p>
+          </div>
         </div>
 
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-border sticky top-0 z-10">
           <span className="font-display text-base text-ink">Advar</span>
-          <select value={selectedAccount || ''} onChange={e => setSelectedAccount(e.target.value)}
+          <select value={selectedClient?.id || ''} onChange={e => { const c = clients.find(cl => cl.id === e.target.value); if (c) selectClient(c) }}
             className="flex-1 mx-3 text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none">
-            {accounts.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-muted hover:text-ink p-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -958,7 +1012,7 @@ function DashboardContent() {
         {/* Mobile hamburger menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-b border-border px-4 py-3 space-y-2 sticky top-14 z-10">
-            <select value={dateRange} onChange={e => { handleDateRangeChange(e.target.value); }} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono text-ink">
+            <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono text-ink">
               {DATE_RANGES.map(dr => <option key={dr.value} value={dr.value}>{dr.label}</option>)}
             </select>
             {showCustomPicker && (
@@ -969,7 +1023,7 @@ function DashboardContent() {
               </div>
             )}
             <div className="flex gap-2 pt-1">
-              <button onClick={() => { selectedAccount && fetchSummary(selectedAccount, dateRange); setMobileMenuOpen(false) }}
+              <button onClick={() => { const conn = selectedClient?.platform_connections.find(p => p.platform === 'google'); if (conn) fetchSummary(conn.account_id, dateRange); setMobileMenuOpen(false) }}
                 className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">↻ Refresh</button>
               <button onClick={() => signOut({ callbackUrl: '/' })}
                 className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">Sign out</button>
@@ -979,19 +1033,38 @@ function DashboardContent() {
 
         {/* Page content */}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
-          {activeTab === 'overview' && summary && selectedAccount && (
-            <OverviewTab summary={summary} accountId={selectedAccount} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+          {selectedClient && (
+            <div className="mb-2">
+              <h1 className="font-display text-2xl md:text-3xl text-ink mb-3">{selectedClient.name}</h1>
+              <PlatformTabs client={selectedClient} activePlatform={activePlatform} onChange={setActivePlatform} />
+            </div>
           )}
-          {activeTab === 'campaigns' && summary && selectedAccount && (
-            <CampaignsTab campaigns={summary.campaigns || []} accountId={selectedAccount} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+
+          {activePlatform === 'meta' && selectedClient && <MetaPlaceholder clientName={selectedClient.name} />}
+
+          {activePlatform === 'google' && (
+            <>
+              {activeTab === 'overview' && summary && activeAccountId && (
+                <OverviewTab summary={summary} accountId={activeAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+              )}
+              {activeTab === 'campaigns' && summary && activeAccountId && (
+                <CampaignsTab campaigns={summary.campaigns || []} accountId={activeAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+              )}
+              {activeTab === 'keywords' && activeAccountId && <KeywordsTab accountId={activeAccountId} dateRange={dateRange} />}
+              {activeTab === 'chat' && (
+                <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
+                  onSend={sendChat} accountSelected={!!activeAccountId} onDownload={downloadChat} onUpload={uploadChat} exchangeCount={exchangeCount} />
+              )}
+              {!summary && !loading && activeAccountId && <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading account data...</p></div>}
+            </>
           )}
-          {activeTab === 'keywords' && selectedAccount && <KeywordsTab accountId={selectedAccount} dateRange={dateRange} />}
-          {activeTab === 'chat' && (
-            <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
-              onSend={sendChat} accountSelected={!!selectedAccount} onDownload={downloadChat} onUpload={uploadChat} exchangeCount={exchangeCount} />
+
+          {!selectedClient && clients.length === 0 && (
+            <div className="flex items-center justify-center h-64 flex-col gap-4">
+              <p className="text-muted font-mono text-sm">No clients set up yet.</p>
+              <a href="/clients" className="btn-primary text-sm">Set up clients →</a>
+            </div>
           )}
-          {!summary && !loading && selectedAccount && <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading account data...</p></div>}
-          {!selectedAccount && <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Select an account to get started</p></div>}
         </main>
 
         {/* Mobile bottom tab bar */}
@@ -1017,7 +1090,6 @@ function DashboardContent() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   )
