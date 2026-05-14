@@ -156,20 +156,114 @@ function PlatformTabs({ client, activePlatform, onChange }: {
   )
 }
 
-// ─── Meta Placeholder ─────────────────────────────────────────────────────────
-function MetaPlaceholder({ clientName }: { clientName: string }) {
+// --- Meta Tab ---
+function MetaTab({ accountId, dateRange, clientName }: { accountId: string; dateRange: string; clientName: string }) {
+  const [summary, setSummary] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>('')
+  const [sortCol, setSortCol] = useState('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    fetch('/api/meta/campaigns?accountId=' + accountId + '&dateRange=' + dateRange)
+      .then(r => r.json())
+      .then(d => { if (d.error) setError(d.error); else setSummary(d); setLoading(false) })
+      .catch(() => { setError('Failed to load Meta data'); setLoading(false) })
+  }, [accountId, dateRange])
+
+  if (loading) return <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading Meta data...</p></div>
+  if (error) return <div className="flex items-center justify-center h-64 flex-col gap-3"><p className="text-muted font-mono text-sm">Error: {error}</p><a href="/clients" className="text-xs font-mono text-accent hover:underline">Check Meta connection</a></div>
+  if (!summary) return null
+
+  const metrics = [
+    { label: 'Total Spend', value: '$' + Number(summary.totalCost).toLocaleString() },
+    { label: 'Clicks', value: Number(summary.totalClicks).toLocaleString() },
+    { label: 'Impressions', value: Number(summary.totalImpressions).toLocaleString() },
+    { label: 'Conversions', value: summary.totalConversions },
+    { label: 'ROAS', value: summary.roas + 'x' },
+    { label: 'Avg CTR', value: summary.avgCtr + '%' },
+  ]
+
+  const campaigns = summary.campaigns || []
+  const sorted = [...campaigns].sort((a: any, b: any) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.spend); bv = Number(b.spend) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions); bv = Number(b.impressions) }
+    else if (sortCol === 'conversions') { av = Number(a.conversions); bv = Number(b.conversions) }
+    else if (sortCol === 'roas') { av = Number(a.roas || 0); bv = Number(b.roas || 0) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+
+  function handleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  const SortTh = ({ id, label }: { id: string; label: string }) => (
+    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
+      {label}{sortCol === id ? (sortDir === 'desc' ? ' v' : ' ^') : ''}
+    </th>
+  )
+
+  const statusBadge = (s: string) => {
+    if (s === 'ACTIVE') return <span className="badge-good">Active</span>
+    if (s === 'PAUSED') return <span className="badge-warn">Paused</span>
+    return <span className="badge-bad">{s}</span>
+  }
+
   return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-center">
-        <p className="font-display text-xl text-ink mb-2">Meta Ads coming soon</p>
-        <p className="text-sm text-muted font-mono">Connect a Meta ad account to {clientName} to see data here.</p>
-        <a href="/clients" className="inline-block mt-4 text-xs font-mono text-accent hover:underline">
-          Manage connections →
-        </a>
+    <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 px-6 py-4">
+        <p className="font-mono text-xs uppercase tracking-widest text-accent mb-1">Meta Ads - {clientName}</p>
+        <p className="text-sm text-ink">{summary.activeCampaigns} active campaigns. {summary.totalConversions} conversions recorded.</p>
+      </div>
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="metric-label mb-1 text-xs">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white border border-border overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Campaign</th>
+              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
+              <SortTh id="spend" label="Spend" />
+              <SortTh id="clicks" label="Clicks" />
+              <SortTh id="impressions" label="Impressions" />
+              <SortTh id="ctr" label="CTR" />
+              <SortTh id="conversions" label="Conv." />
+              <SortTh id="roas" label="ROAS" />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((c: any) => (
+              <tr key={c.id} className="table-row">
+                <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-xs truncate">{c.name}</td>
+                <td className="px-3 py-3">{statusBadge(c.status)}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm">${Number(c.spend).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm">{Number(c.clicks).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm">{Number(c.impressions).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm">{c.ctr}%</td>
+                <td className="px-3 py-3 text-right font-mono text-sm">{c.conversions}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm font-medium">{c.roas ? c.roas + 'x' : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
+
+
 
 // ─── Performance Chart ────────────────────────────────────────────────────────
 function PerformanceChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
@@ -1040,7 +1134,11 @@ function DashboardContent() {
             </div>
           )}
 
-          {activePlatform === 'meta' && selectedClient && <MetaPlaceholder clientName={selectedClient.name} />}
+          {activePlatform === 'meta' && selectedClient && (() => {
+    const metaConn = selectedClient.platform_connections.find((p: any) => p.platform === 'meta')
+    if (!metaConn) return <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">No Meta account connected. <a href="/clients" className="text-accent hover:underline">Connect Meta</a></p></div>
+    return <MetaTab accountId={metaConn.account_id} dateRange={dateRange} clientName={selectedClient.name} />
+  })()}
 
           {activePlatform === 'google' && (
             <>
