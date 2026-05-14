@@ -898,7 +898,11 @@ function DashboardContent() {
           ))}
         </nav>
         <div className="border-t border-border py-2">
-          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchSummary(selectedAccount, dateRange))} title="Refresh"
+          <a href="/clients" className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
+            <span className="text-base w-4 text-center">⊕</span>
+            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Clients</span>}
+          </a>
+          <button onClick={() => selectedAccount && (dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(selectedAccount, customStart, customEnd) : fetchmmary(selectedAccount, dateRange))} title="Refresh"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <span className="text-base w-4 text-center">↻</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
