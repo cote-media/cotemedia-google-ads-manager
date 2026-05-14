@@ -23,7 +23,7 @@ async function getAllMetaAccounts(accessToken: string): Promise<any[]> {
     // Owned accounts
     let ownedUrl: string | null = `https://graph.facebook.com/v18.0/${biz.id}/owned_ad_accounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`
     while (ownedUrl) {
-      const res = await fetch(ownedUrl)
+      const res: Response = await fetch(ownedUrl)
       const data = await res.json()
       if (data.data) accounts.push(...data.data)
       ownedUrl = data.paging?.next || null
@@ -32,7 +32,7 @@ async function getAllMetaAccounts(accessToken: string): Promise<any[]> {
     // Client accounts
     let clientUrl: string | null = `https://graph.facebook.com/v18.0/${biz.id}/client_ad_accounts?fields=id,name,account_status&limit=100&access_token=${accessToken}`
     while (clientUrl) {
-      const res = await fetch(clientUrl)
+      const res: Response = await fetch(clientUrl)
       const data = await res.json()
       if (data.data) accounts.push(...data.data)
       clientUrl = data.paging?.next || null
