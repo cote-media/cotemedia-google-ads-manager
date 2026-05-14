@@ -7,7 +7,7 @@ async function getAllMetaAccounts(accessToken: string): Promise<any[]> {
   // 1. Get direct ad accounts
   let url: string | null = `https://graph.facebook.com/v18.0/me/adaccounts?fields=id,name,account_status,business&limit=100&access_token=${accessToken}`
   while (url) {
-    const res = await fetch(url)
+    const res: Response = await fetch(url)
     const data = await res.json()
     if (data.data) accounts.push(...data.data)
     url = data.paging?.next || null
