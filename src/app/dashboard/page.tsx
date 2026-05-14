@@ -72,7 +72,6 @@ type Client = {
   }[]
 }
 
-// ─── Column Picker ────────────────────────────────────────────────────────────
 function ColumnPicker({ columns, active, onChange }: {
   columns: { id: string; label: string; defaultOn: boolean }[]
   active: string[]
@@ -102,7 +101,6 @@ function ColumnPicker({ columns, active, onChange }: {
   )
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const label = CAMPAIGN_STATUSES[status] || status
   if (label === 'Active') return <span className="badge-good">● Active</span>
@@ -110,7 +108,6 @@ function StatusBadge({ status }: { status: string }) {
   return <span className="badge-bad">● {label}</span>
 }
 
-// ─── Loading Screen ───────────────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center">
@@ -122,16 +119,12 @@ function LoadingScreen() {
   )
 }
 
-// ─── Platform Tabs ────────────────────────────────────────────────────────────
 function PlatformTabs({ client, activePlatform, onChange }: {
-  client: Client
-  activePlatform: string
-  onChange: (platform: string) => void
+  client: Client; activePlatform: string; onChange: (platform: string) => void
 }) {
   const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
   const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
   const hasBoth = hasGoogle && hasMeta
-
   return (
     <div className="flex items-center gap-1 mb-6">
       {hasGoogle && (
@@ -156,116 +149,6 @@ function PlatformTabs({ client, activePlatform, onChange }: {
   )
 }
 
-// --- Meta Tab ---
-function MetaTab({ accountId, dateRange, clientName }: { accountId: string; dateRange: string; clientName: string }) {
-  const [summary, setSummary] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>('')
-  const [sortCol, setSortCol] = useState('spend')
-  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
-
-  useEffect(() => {
-    setLoading(true)
-    setError('')
-    fetch('/api/meta/campaigns?accountId=' + accountId + '&dateRange=' + dateRange)
-      .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else setSummary(d); setLoading(false) })
-      .catch(() => { setError('Failed to load Meta data'); setLoading(false) })
-  }, [accountId, dateRange])
-
-  if (loading) return <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading Meta data...</p></div>
-  if (error) return <div className="flex items-center justify-center h-64 flex-col gap-3"><p className="text-muted font-mono text-sm">Error: {error}</p><a href="/clients" className="text-xs font-mono text-accent hover:underline">Check Meta connection</a></div>
-  if (!summary) return null
-
-  const metrics = [
-    { label: 'Total Spend', value: '$' + Number(summary.totalCost).toLocaleString() },
-    { label: 'Clicks', value: Number(summary.totalClicks).toLocaleString() },
-    { label: 'Impressions', value: Number(summary.totalImpressions).toLocaleString() },
-    { label: 'Conversions', value: summary.totalConversions },
-    { label: 'ROAS', value: summary.roas + 'x' },
-    { label: 'Avg CTR', value: summary.avgCtr + '%' },
-  ]
-
-  const campaigns = summary.campaigns || []
-  const sorted = [...campaigns].sort((a: any, b: any) => {
-    let av = 0, bv = 0
-    if (sortCol === 'spend') { av = Number(a.spend); bv = Number(b.spend) }
-    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
-    else if (sortCol === 'impressions') { av = Number(a.impressions); bv = Number(b.impressions) }
-    else if (sortCol === 'conversions') { av = Number(a.conversions); bv = Number(b.conversions) }
-    else if (sortCol === 'roas') { av = Number(a.roas || 0); bv = Number(b.roas || 0) }
-    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
-    return sortDir === 'desc' ? bv - av : av - bv
-  })
-
-  function handleSort(col: string) {
-    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortCol(col); setSortDir('desc') }
-  }
-
-  const SortTh = ({ id, label }: { id: string; label: string }) => (
-    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
-      {label}{sortCol === id ? (sortDir === 'desc' ? ' v' : ' ^') : ''}
-    </th>
-  )
-
-  const statusBadge = (s: string) => {
-    if (s === 'ACTIVE') return <span className="badge-good">Active</span>
-    if (s === 'PAUSED') return <span className="badge-warn">Paused</span>
-    return <span className="badge-bad">{s}</span>
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 px-6 py-4">
-        <p className="font-mono text-xs uppercase tracking-widest text-accent mb-1">Meta Ads - {clientName}</p>
-        <p className="text-sm text-ink">{summary.activeCampaigns} active campaigns. {summary.totalConversions} conversions recorded.</p>
-      </div>
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
-        {metrics.map(m => (
-          <div key={m.label} className="bg-white p-3 md:p-5">
-            <div className="metric-label mb-1 text-xs">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
-          </div>
-        ))}
-      </div>
-      <div className="bg-white border border-border overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-surface">
-              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Campaign</th>
-              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider">Status</th>
-              <SortTh id="spend" label="Spend" />
-              <SortTh id="clicks" label="Clicks" />
-              <SortTh id="impressions" label="Impressions" />
-              <SortTh id="ctr" label="CTR" />
-              <SortTh id="conversions" label="Conv." />
-              <SortTh id="roas" label="ROAS" />
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((c: any) => (
-              <tr key={c.id} className="table-row">
-                <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-xs truncate">{c.name}</td>
-                <td className="px-3 py-3">{statusBadge(c.status)}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm">${Number(c.spend).toLocaleString()}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm">{Number(c.clicks).toLocaleString()}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm">{Number(c.impressions).toLocaleString()}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm">{c.ctr}%</td>
-                <td className="px-3 py-3 text-right font-mono text-sm">{c.conversions}</td>
-                <td className="px-3 py-3 text-right font-mono text-sm font-medium">{c.roas ? c.roas + 'x' : '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-
-
-// ─── Performance Chart ────────────────────────────────────────────────────────
 function PerformanceChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
   accountId: string; dateRange: string; campaignId?: string; campaignName?: string; customStart?: string; customEnd?: string
 }) {
@@ -333,7 +216,6 @@ function PerformanceChart({ accountId, dateRange, campaignId, campaignName, cust
   )
 }
 
-// ─── Campaign Table ───────────────────────────────────────────────────────────
 function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCampaign }: {
   campaigns: any[]; activeCols: string[]; selectedCampaignId?: string; onSelectCampaign?: (id: string, name: string) => void
 }) {
@@ -396,9 +278,8 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
               <tr key={c.id}
                 onClick={() => onSelectCampaign && onSelectCampaign(isSelected ? '' : c.id, c.name)}
                 className={'table-row ' + (onSelectCampaign ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : '')}>
-                <td className={'px-3 py-3 font-medium max-w-[140px] md:max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
-                  {isSelected && <span className="text-accent mr-1">▸</span>}
-                  {c.name}
+                <td className={'px-3 py-3 font-medium max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
+                  {isSelected && <span className="text-accent mr-1">▸</span>}{c.name}
                 </td>
                 <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={c.status} /></td>
                 {has('budget') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{c.budget ? '$' + c.budget : '—'}</td>}
@@ -420,7 +301,121 @@ function CampaignTable({ campaigns, activeCols, selectedCampaignId, onSelectCamp
   )
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
+function MetaTab({ accountId, dateRange, clientName }: { accountId: string; dateRange: string; clientName: string }) {
+  const [summary, setSummary] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>('')
+  const [sortCol, setSortCol] = useState('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    fetch('/api/meta/campaigns?accountId=' + accountId + '&dateRange=' + dateRange)
+      .then(r => r.json())
+      .then(d => { if (d.error) setError(d.error); else setSummary(d); setLoading(false) })
+      .catch(() => { setError('Failed to load Meta data'); setLoading(false) })
+  }, [accountId, dateRange])
+
+  function handleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+
+  if (loading) return <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading Meta data...</p></div>
+  if (error) return (
+    <div className="flex items-center justify-center h-64 flex-col gap-3">
+      <p className="text-muted font-mono text-sm">Error: {error}</p>
+      <a href="/clients" className="text-xs font-mono text-accent hover:underline">Check Meta connection</a>
+    </div>
+  )
+  if (!summary) return null
+
+  const metrics = [
+    { label: 'Total Spend', value: '$' + Number(summary.totalCost).toLocaleString() },
+    { label: 'Clicks', value: Number(summary.totalClicks).toLocaleString() },
+    { label: 'Impressions', value: Number(summary.totalImpressions).toLocaleString() },
+    { label: 'Conversions', value: summary.totalConversions },
+    { label: 'ROAS', value: summary.roas + 'x' },
+    { label: 'Avg CTR', value: summary.avgCtr + '%' },
+  ]
+
+  const campaigns = summary.campaigns || []
+  const sorted = [...campaigns].sort((a: any, b: any) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.spend); bv = Number(b.spend) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions); bv = Number(b.impressions) }
+    else if (sortCol === 'conversions') { av = Number(a.conversions); bv = Number(b.conversions) }
+    else if (sortCol === 'roas') { av = Number(a.roas || 0); bv = Number(b.roas || 0) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+
+  const SortTh = ({ id, label }: { id: string; label: string }) => (
+    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
+      {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+    </th>
+  )
+
+  const metaStatusBadge = (s: string) => {
+    if (s === 'ACTIVE') return <span className="badge-good">● Active</span>
+    if (s === 'PAUSED') return <span className="badge-warn">● Paused</span>
+    return <span className="badge-bad">● {s}</span>
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 px-6 py-4">
+        <p className="font-mono text-xs uppercase tracking-widest text-accent mb-1">✦ Meta Ads · {clientName}</p>
+        <p className="text-sm text-ink">
+          <strong>${Number(summary.totalCost).toLocaleString()}</strong> spent across{' '}
+          <strong>{summary.activeCampaigns}</strong> active campaigns.{' '}
+          <strong>{summary.totalConversions}</strong> conversions recorded.
+        </p>
+      </div>
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="metric-label mb-1 text-xs">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="bg-white border border-border overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Campaign</th>
+              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Status</th>
+              <SortTh id="spend" label="Spend" />
+              <SortTh id="clicks" label="Clicks" />
+              <SortTh id="impressions" label="Impressions" />
+              <SortTh id="ctr" label="CTR" />
+              <SortTh id="conversions" label="Conv." />
+              <SortTh id="roas" label="ROAS" />
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((c: any) => (
+              <tr key={c.id} className="table-row">
+                <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-xs truncate">{c.name}</td>
+                <td className="px-3 py-3 whitespace-nowrap">{metaStatusBadge(c.status)}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">${Number(c.spend).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(c.clicks).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(c.impressions).toLocaleString()}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{c.ctr}%</td>
+                <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{c.conversions}</td>
+                <td className="px-3 py-3 text-right font-mono text-sm font-medium whitespace-nowrap">{c.roas ? c.roas + 'x' : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 function OverviewTab({ summary, accountId, dateRange, customStart, customEnd }: {
   summary: any; accountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -573,7 +568,6 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
   )
 }
 
-// ─── Campaigns Tab ────────────────────────────────────────────────────────────
 function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd }: {
   campaigns: any[]; accountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -606,7 +600,6 @@ function CampaignsTab({ campaigns, accountId, dateRange, customStart, customEnd 
   )
 }
 
-// ─── Keywords Tab ─────────────────────────────────────────────────────────────
 function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: string }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -712,9 +705,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
                   {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">{Number(k.conversions) > 0 ? '$' + (Number(k.cost) / Number(k.conversions)).toFixed(2) : '—'}</td>}
                   {has('qs') && (
                     <td className="px-3 py-3 text-right font-mono text-sm font-medium whitespace-nowrap">
-                      {k.qualityScore ? (
-                        <span title="Quality Score" className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span>
-                      ) : <span className="text-muted">—</span>}
+                      {k.qualityScore ? <span title="Quality Score" className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span> : <span className="text-muted">—</span>}
                     </td>
                   )}
                 </tr>
@@ -727,7 +718,6 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
   )
 }
 
-// ─── Chat Tab ─────────────────────────────────────────────────────────────────
 function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount }: any) {
   const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
   const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
@@ -752,11 +742,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
       </div>
       {warningNext && (
         <div className="mb-4 bg-red-50 border-2 border-red-400 px-4 py-3">
-          <p className="text-sm text-red-700 font-semibold">
-            ⚠️ 1 exchange remaining.{' '}
-            <button onClick={onDownload} className="underline font-bold">Save transcript</button>
-            {' '}now.
-          </p>
+          <p className="text-sm text-red-700 font-semibold">⚠️ 1 exchange remaining. <button onClick={onDownload} className="underline font-bold">Save transcript</button> now.</p>
         </div>
       )}
       {atLimit && (
@@ -808,7 +794,6 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
   )
 }
 
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -859,7 +844,6 @@ function DashboardContent() {
       const data = await res.json()
       const clientList = data.clients || []
       setClients(clientList)
-      // Auto-select first client
       const savedClientId = localStorage.getItem('advar-active-client')
       const saved = clientList.find((c: Client) => c.id === savedClientId)
       const toSelect = saved || clientList[0] || null
@@ -870,25 +854,12 @@ function DashboardContent() {
   function selectClient(client: Client) {
     setSelectedClient(client)
     localStorage.setItem('advar-active-client', client.id)
-    // Reset chat if switching clients
-    const savedClient = localStorage.getItem('advar-active-client')
-    if (savedClient && savedClient !== client.id) {
-      setChatMessages([])
-      setSessionStart(0)
-      localStorage.removeItem('advar-chat-messages')
-      localStorage.removeItem('advar-session-start')
-    }
-    // Default to google if available
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     setActivePlatform(hasGoogle ? 'google' : 'meta')
-    // Load data
     const googleConn = client.platform_connections.find(p => p.platform === 'google')
     if (googleConn) {
-      if (dateRange === 'CUSTOM' && customStart && customEnd) {
-        fetchSummaryCustom(googleConn.account_id, customStart, customEnd)
-      } else {
-        fetchSummary(googleConn.account_id, dateRange)
-      }
+      if (dateRange === 'CUSTOM' && customStart && customEnd) fetchSummaryCustom(googleConn.account_id, customStart, customEnd)
+      else fetchSummary(googleConn.account_id, dateRange)
     }
   }
 
@@ -927,14 +898,10 @@ function DashboardContent() {
     }
   }
 
-  useEffect(() => {
-    if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages))
-  }, [chatMessages])
+  useEffect(() => { if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
   useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
 
-  function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
-    setActiveTab(tab)
-  }
+  function switchTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') { setActiveTab(tab) }
 
   async function sendChat() {
     if (!chatInput.trim() || !selectedClient) return
@@ -998,12 +965,12 @@ function DashboardContent() {
 
   const exchangeCount = Math.floor((chatMessages.length - sessionStart) / 2)
   const googleConn = selectedClient?.platform_connections.find(p => p.platform === 'google')
+  const metaConn = selectedClient?.platform_connections.find(p => p.platform === 'meta')
   const activeAccountId = googleConn?.account_id || ''
 
   return (
     <div className="min-h-screen bg-paper flex">
-
-      {/* ─── Desktop Sidebar ─── */}
+      {/* Desktop Sidebar */}
       <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0 }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
@@ -1011,8 +978,6 @@ function DashboardContent() {
             {sidebarCollapsed ? '→' : '←'}
           </button>
         </div>
-
-        {/* Date range */}
         {!sidebarCollapsed && (
           <div className="px-3 py-2 border-b border-border">
             <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
@@ -1027,8 +992,6 @@ function DashboardContent() {
             )}
           </div>
         )}
-
-        {/* Nav */}
         <nav className="flex-1 py-2">
           {NAV_ITEMS.map(item => (
             <button key={item.id} onClick={() => switchTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
@@ -1038,8 +1001,6 @@ function DashboardContent() {
             </button>
           ))}
         </nav>
-
-        {/* Client list */}
         <div className="border-t border-border">
           {!sidebarCollapsed && (
             <div className="px-4 py-2 flex items-center justify-between">
@@ -1059,11 +1020,9 @@ function DashboardContent() {
             ))}
           </div>
         </div>
-
-        {/* Bottom actions */}
         <div className="border-t border-border py-2">
-          <button onClick={() => { const conn = selectedClient?.platform_connections.find(p => p.platform === 'google'); if (conn) { dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(conn.account_id, customStart, customEnd) : fetchSummary(conn.account_id, dateRange) } }} title="Refresh"
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
+          <button onClick={() => { const conn = selectedClient?.platform_connections.find(p => p.platform === 'google'); if (conn) { dateRange === 'CUSTOM' && customStart && customEnd ? fetchSummaryCustom(conn.account_id, customStart, customEnd) : fetchSummary(conn.account_id, dateRange) } }}
+            title="Refresh" className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <span className="text-base w-4 text-center">↻</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
           </button>
@@ -1075,18 +1034,15 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* ─── Main content ─── */}
+      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-
         {/* Desktop top bar */}
         <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-muted font-mono">
-              {loading
-                ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
-                : selectedClient ? selectedClient.name + ' · ' + (dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (DATE_RANGES.find(d => d.value === dateRange)?.label || '')) : ''}
-            </p>
-          </div>
+          <p className="text-xs text-muted font-mono">
+            {loading
+              ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
+              : selectedClient ? selectedClient.name + ' · ' + (dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (DATE_RANGES.find(d => d.value === dateRange)?.label || '')) : ''}
+          </p>
         </div>
 
         {/* Mobile top bar */}
@@ -1103,7 +1059,7 @@ function DashboardContent() {
           </button>
         </div>
 
-        {/* Mobile hamburger menu */}
+        {/* Mobile hamburger */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-white border-b border-border px-4 py-3 space-y-2 sticky top-14 z-10">
             <select value={dateRange} onChange={e => handleDateRangeChange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono text-ink">
@@ -1119,8 +1075,7 @@ function DashboardContent() {
             <div className="flex gap-2 pt-1">
               <button onClick={() => { const conn = selectedClient?.platform_connections.find(p => p.platform === 'google'); if (conn) fetchSummary(conn.account_id, dateRange); setMobileMenuOpen(false) }}
                 className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">↻ Refresh</button>
-              <button onClick={() => signOut({ callbackUrl: '/' })}
-                className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">Sign out</button>
+              <button onClick={() => signOut({ callbackUrl: '/' })} className="flex-1 text-xs font-mono text-muted border border-border py-2 hover:text-ink">Sign out</button>
             </div>
           </div>
         )}
@@ -1134,11 +1089,14 @@ function DashboardContent() {
             </div>
           )}
 
-          {activePlatform === 'meta' && selectedClient && (() => {
-    const metaConn = selectedClient.platform_connections.find((p: any) => p.platform === 'meta')
-    if (!metaConn) return <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">No Meta account connected. <a href="/clients" className="text-accent hover:underline">Connect Meta</a></p></div>
-    return <MetaTab accountId={metaConn.account_id} dateRange={dateRange} clientName={selectedClient.name} />
-  })()}
+          {activePlatform === 'meta' && selectedClient && (
+            metaConn
+              ? <MetaTab accountId={metaConn.account_id} dateRange={dateRange} clientName={selectedClient.name} />
+              : <div className="flex items-center justify-center h-64 flex-col gap-3">
+                  <p className="text-muted font-mono text-sm">No Meta account connected to this client.</p>
+                  <a href="/clients" className="text-xs font-mono text-accent hover:underline">Connect Meta →</a>
+                </div>
+          )}
 
           {activePlatform === 'google' && (
             <>
