@@ -690,16 +690,16 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
 
-// ─── Color Palette ─────────────────────────────────────────────────────────── 
+// ─── Color Palette ────────────────────────────────────────────────────────────
 const CHART_COLORS = [
   '#2563eb', '#16a34a', '#ea580c', '#9333ea',
   '#0891b2', '#dc2626', '#ca8a04', '#db2777',
   '#65a30d', '#7c3aed',
 ]
 
-// ─── Multi-Line Ad Group Chart ────────────────────────────────────────────────
-function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId, customStart, customEnd }: {
-  adGroups: any[]
+// ─── Multi-Line Ad Group / Ad Set Chart ───────────────────────────────────────
+function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountId, customStart, customEnd }: {
+  campaignId: string
   accountId: string
   dateRange: string
   platform: Platform
@@ -709,54 +709,78 @@ function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId,
 }) {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
   const [activeMetric, setActiveMetric] = useState<'cost' | 'clicks' | 'impressions' | 'conversions'>('cost')
-  const [allData, setAllData] = useState<Record<string, any[]>>({})
+  const [adGroupSeries, setAdGroupSeries] = useState<{ id: string; name: string; spend: number; daily: any[] }[]>([])
   const [loading, setLoading] = useState(true)
-
-  // Top 5 by spend visible by default
-  const sortedBySpend = [...adGroups].sort((a, b) => (b.spend || 0) - (a.spend || 0))
-  const [visibleIds, setVisibleIds] = useState<Set<string>>(
-    new Set(sortedBySpend.slice(0, 5).map(ag => ag.id))
-  )
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
 
   const metricLabels = { cost: 'Spend', clicks: 'Clicks', impressions: 'Impressions', conversions: 'Conversions' }
   const metricColors = { cost: '#2563eb', clicks: '#16a34a', impressions: '#9333ea', conversions: '#ea580c' }
 
   useEffect(() => {
-    if (adGroups.length === 0) return
+    if (!campaignId) return
     setLoading(true)
 
-    const fetchOne = async (ag: any) => {
-      try {
-        let url: string
-        if (platform === 'google') {
-          url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&granularity=' + granularity + '&campaignId=' + ag.id
-        } else {
-          url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&dateRange=' + dateRange + '&campaignId=' + ag.id
-        }
-        if (customStart) url += '&customStart=' + customStart
-        if (customEnd) url += '&customEnd=' + customEnd
-        const res = await fetch(url)
+    const fetchData = async () => {
+      if (platform === 'google') {
+        const params = new URLSearchParams({ accountId, campaignId, dateRange, granularity })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/google/adgroups/daily?' + params.toString())
         const d = await res.json()
-        return { id: ag.id, data: (d.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }
-      } catch { return { id: ag.id, data: [] } }
+        const series = (d.adGroups || []).map((ag: any) => ({
+          id: ag.id,
+          name: ag.name,
+          spend: ag.daily.reduce((s: number, r: any) => s + (r.cost || 0), 0),
+          daily: ag.daily.map((r: any) => ({ ...r, date: String(r.date).slice(5) })),
+        })).sort((a: any, b: any) => b.spend - a.spend)
+        setAdGroupSeries(series)
+        // Default top 5 visible
+        setVisibleIds(new Set(series.slice(0, 5).map((s: any) => s.id)))
+      } else if (platform === 'meta' && metaAccountId) {
+        // For Meta, fetch ad sets and their daily data
+        const params = new URLSearchParams({ campaignId, dateRange })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/meta/adsets?' + params.toString())
+        const d = await res.json()
+        const adSets = d.adSets || []
+
+        // Fetch daily data for each ad set
+        const withDaily = await Promise.all(adSets.map(async (as: any) => {
+          const dParams = new URLSearchParams({ accountId: metaAccountId, dateRange })
+          dParams.set('campaignId', as.id)
+          if (customStart) dParams.set('customStart', customStart)
+          if (customEnd) dParams.set('customEnd', customEnd)
+          const dRes = await fetch('/api/meta/daily?' + dParams.toString())
+          const dd = await dRes.json()
+          return {
+            id: as.id,
+            name: as.name,
+            spend: as.spend || 0,
+            daily: (dd.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })),
+          }
+        }))
+
+        const sorted = withDaily.sort((a, b) => b.spend - a.spend)
+        setAdGroupSeries(sorted)
+        setVisibleIds(new Set(sorted.slice(0, 5).map(s => s.id)))
+      }
+      setLoading(false)
     }
 
-    Promise.all(adGroups.map(fetchOne)).then(results => {
-      const map: Record<string, any[]> = {}
-      results.forEach(r => { map[r.id] = r.data })
-      setAllData(map)
-      setLoading(false)
-    })
-  }, [adGroups, dateRange, granularity, platform, accountId, metaAccountId, customStart, customEnd])
+    fetchData().catch(() => setLoading(false))
+  }, [campaignId, accountId, dateRange, granularity, platform, metaAccountId, customStart, customEnd])
 
-  // Merge all visible data by date
+  const colorMap: Record<string, string> = {}
+  adGroupSeries.forEach((s, i) => { colorMap[s.id] = CHART_COLORS[i % CHART_COLORS.length] })
+
+  // Build merged chart data
   const mergedData = (() => {
     const dateMap: Record<string, any> = {}
-    visibleIds.forEach(id => {
-      const rows = allData[id] || []
-      rows.forEach(row => {
+    adGroupSeries.filter(s => visibleIds.has(s.id)).forEach(s => {
+      s.daily.forEach((row: any) => {
         if (!dateMap[row.date]) dateMap[row.date] = { date: row.date }
-        dateMap[row.date][id] = row[activeMetric] ?? 0
+        dateMap[row.date][s.id] = row[activeMetric] ?? 0
       })
     })
     return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date))
@@ -772,17 +796,12 @@ function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId,
   }
 
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
-  if (adGroups.length === 0) return null
-
-  const colorMap: Record<string, string> = {}
-  sortedBySpend.forEach((ag, i) => { colorMap[ag.id] = CHART_COLORS[i % CHART_COLORS.length] })
+  if (adGroupSeries.length === 0) return null
 
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col gap-3 mb-4">
-        {/* Controls row */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Granularity — Google only */}
           {platform === 'google' && (
             <div className="flex border border-border">
               {(['day', 'week', 'month'] as const).map(g => (
@@ -793,7 +812,6 @@ function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId,
               ))}
             </div>
           )}
-          {/* Metric selector */}
           <div className="flex gap-1">
             {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map(m => (
               <button key={m} onClick={() => setActiveMetric(m)}
@@ -804,34 +822,31 @@ function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId,
             ))}
           </div>
         </div>
-
-        {/* Ad group toggles */}
-        <div className="flex flex-wrap gap-2">
-          {sortedBySpend.map(ag => {
-            const isVisible = visibleIds.has(ag.id)
-            const color = colorMap[ag.id]
+        <div className="flex flex-wrap gap-1.5">
+          {adGroupSeries.map(s => {
+            const isVisible = visibleIds.has(s.id)
+            const color = colorMap[s.id]
             return (
-              <button key={ag.id} onClick={() => toggleVisible(ag.id)}
-                className={'flex items-center gap-1.5 text-xs font-mono px-2 py-1 border rounded-full transition-colors ' + (isVisible ? 'text-white' : 'text-muted border-border hover:text-ink')}
-                style={isVisible ? { backgroundColor: color, borderColor: color } : {}}>
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isVisible ? 'white' : color }} />
-                <span className="truncate max-w-[120px]">{ag.name}</span>
-                <span className="opacity-70">${(ag.spend || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              <button key={s.id} onClick={() => toggleVisible(s.id)}
+                className={'flex items-center gap-1.5 text-xs font-mono px-2 py-1 border rounded-full transition-all ' + (isVisible ? 'text-white' : 'text-muted border-border hover:text-ink')}
+                style={isVisible ? { backgroundColor: color, borderColor: color } : { borderColor: color }}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                <span className="truncate max-w-[100px]">{s.name}</span>
+                <span className="opacity-70">${(s.spend || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
               </button>
             )
           })}
         </div>
       </div>
-
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={mergedData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
-          {sortedBySpend.filter(ag => visibleIds.has(ag.id)).map(ag => (
-            <Line key={ag.id} type="monotone" dataKey={ag.id} stroke={colorMap[ag.id]}
-              strokeWidth={2} dot={false} name={ag.name} connectNulls />
+          {adGroupSeries.filter(s => visibleIds.has(s.id)).map(s => (
+            <Line key={s.id} type="monotone" dataKey={s.id} stroke={colorMap[s.id]}
+              strokeWidth={2} dot={false} name={s.name} connectNulls />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -839,7 +854,7 @@ function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId,
   )
 }
 
-// ─── Ad Performance Bar Chart ──────────────────────────────────────────────────
+// ─── Ad Performance Bar Chart ─────────────────────────────────────────────────
 function AdBarChart({ ads }: { ads: any[] }) {
   const [activeMetric, setActiveMetric] = useState<'spend' | 'clicks' | 'conversions' | 'ctr'>('spend')
   const metricLabels = { spend: 'Spend', clicks: 'Clicks', conversions: 'Conversions', ctr: 'CTR' }
@@ -851,9 +866,11 @@ function AdBarChart({ ads }: { ads: any[] }) {
     .sort((a, b) => (b[activeMetric] || 0) - (a[activeMetric] || 0))
     .slice(0, 10)
     .map(ad => ({
-      name: ad.name?.length > 30 ? ad.name.slice(0, 30) + '…' : (ad.name || 'Ad'),
+      name: (ad.name || 'Ad').length > 35 ? (ad.name || 'Ad').slice(0, 35) + '…' : (ad.name || 'Ad'),
       value: ad[activeMetric] || 0,
     }))
+
+  const max = chartData[0]?.value || 1
 
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
@@ -871,19 +888,18 @@ function AdBarChart({ ads }: { ads: any[] }) {
       </div>
       <div className="space-y-2">
         {chartData.map((d, i) => {
-          const max = chartData[0].value || 1
           const pct = (d.value / max) * 100
-          const fmt_val = activeMetric === 'spend' ? '$' + d.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          const fmtVal = activeMetric === 'spend' ? '$' + d.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
             : activeMetric === 'ctr' ? d.value.toFixed(2) + '%'
             : d.value.toLocaleString(undefined, { maximumFractionDigits: 1 })
           return (
             <div key={i}>
               <div className="flex items-center justify-between mb-0.5">
                 <span className="text-xs text-ink truncate max-w-[70%]">{d.name}</span>
-                <span className="text-xs font-mono text-muted">{fmt_val}</span>
+                <span className="text-xs font-mono text-muted">{fmtVal}</span>
               </div>
               <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: pct + '%', backgroundColor: metricColors[activeMetric] }} />
+                <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: metricColors[activeMetric] }} />
               </div>
             </div>
           )
@@ -1014,8 +1030,8 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
       {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && (
         <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
       )}
-      {drill.level === 'adgroups' && subRows.length > 0 && (
-        <AdGroupChart adGroups={subRows} accountId={googleAccountId || metaAccountId}
+      {drill.level === 'adgroups' && drill.campaign && (
+        <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId}
           dateRange={dateRange} platform={platform}
           metaAccountId={metaAccountId}
           customStart={customStart} customEnd={customEnd} />
