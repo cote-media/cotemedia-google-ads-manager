@@ -684,16 +684,13 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
-          <p className="text-sm text-muted font-mono">
-            {campaigns.length} campaigns
-            {selectedName && <span className="text-accent"> · {selectedName}</span>}
-            {!selectedName && platform === 'google' && <span className="text-muted"> · Click a row to view its trend</span>}
-          </p>
-        </div>
-        <ColumnPicker platform={platform} active={activeCols} onChange={updateCols} />
+      <div className="mb-4">
+        <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
+        <p className="text-sm text-muted font-mono">
+          {campaigns.length} campaigns
+          {selectedName && <span className="text-accent"> · {selectedName}</span>}
+          {!selectedName && platform === 'google' && <span className="text-muted"> · Click a row to view its trend</span>}
+        </p>
       </div>
 
       {/* Chart - show appropriate chart based on platform */}
@@ -718,6 +715,10 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
         <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
       )}
 
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-mono text-muted">{campaigns.length} campaigns · {activeCols.length} columns shown</p>
+        <ColumnPicker platform={platform} active={activeCols} onChange={updateCols} />
+      </div>
       <CampaignsTable campaigns={campaigns} platform={platform} activeCols={activeCols}
         selectedCampaignId={selectedId} onSelectCampaign={handleSelect} />
     </div>
