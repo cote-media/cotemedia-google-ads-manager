@@ -1331,7 +1331,10 @@ function DashboardContent() {
     return 'google'
   })
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>(() => {
-    if (typeof window !== 'undefined') return (localStorage.getItem('advar-active-tab') as any) || 'overview'
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('advar-active-tab') as any
+      return saved || 'overview'
+    }
     return 'overview'
   })
   const [dateRange, setDateRange] = useState<string>(() => {
@@ -1384,6 +1387,9 @@ function DashboardContent() {
   function selectClient(client: Client, overridePlatform?: Platform) {
     setSelectedClient(client)
     localStorage.setItem('advar-active-client', client.id)
+    // Restore saved tab when switching clients
+    const savedTab = localStorage.getItem('advar-active-tab') as any
+    if (savedTab) setActiveTab(savedTab)
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
     const savedPlatform = overridePlatform || (localStorage.getItem('advar-active-platform') as Platform) || 'google'
