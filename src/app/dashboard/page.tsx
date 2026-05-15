@@ -315,20 +315,62 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
   )
 }
 
-// ─── Campaigns Table with Totals ──────────────────────────────────────────────
-function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, onSelectCampaign }: {
-  campaigns: Campaign[]
+// ─── Campaigns Tab with Drill-down ───────────────────────────────────────────
+type DrillLevel = 'campaigns' | 'adgroups' | 'ads'
+
+type DrillState = {
+  level: DrillLevel
+  campaign: { id: string; name: string; platform: 'google' | 'meta' } | null
+  adGroup: { id: string; name: string } | null
+}
+
+function Breadcrumb({ drill, onNavigate }: {
+  drill: DrillState
+  onNavigate: (level: DrillLevel) => void
+}) {
+  if (drill.level === 'campaigns') return null
+  return (
+    <div className="flex items-center gap-2 mb-4 text-xs font-mono">
+      <button onClick={() => onNavigate('campaigns')} className="text-accent hover:underline">
+        Campaigns
+      </button>
+      {drill.campaign && (
+        <>
+          <span className="text-muted">›</span>
+          {drill.level === 'adgroups' ? (
+            <span className="text-ink font-medium truncate max-w-xs">{drill.campaign.name}</span>
+          ) : (
+            <button onClick={() => onNavigate('adgroups')} className="text-accent hover:underline truncate max-w-xs">
+              {drill.campaign.name}
+            </button>
+          )}
+        </>
+      )}
+      {drill.adGroup && drill.level === 'ads' && (
+        <>
+          <span className="text-muted">›</span>
+          <span className="text-muted">{drill.campaign?.platform === 'google' ? 'Ad Groups' : 'Ad Sets'}</span>
+          <span className="text-muted">›</span>
+          <span className="text-ink font-medium truncate max-w-xs">{drill.adGroup.name}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
+  rows: any[]
+  level: DrillLevel
   platform: Platform
   activeCols: string[]
-  selectedCampaignId?: string
-  onSelectCampaign?: (id: string, name: string) => void
+  onRowClick: (row: any) => void
 }) {
   const [sortCol, setSortCol] = useState('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   const visibleCols = COLUMN_DEFS.filter(c => c.platforms.includes(platform) && activeCols.includes(c.id))
 
-  const sorted = [...campaigns].sort((a, b) => {
+  const sorted = [...rows].sort((a, b) => {
     const col = COLUMN_DEFS.find(c => c.id === sortCol)
     if (!col) return 0
     const av = Number(col.getValue(a) ?? 0)
@@ -341,26 +383,19 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
     else { setSortCol(id); setSortDir('desc') }
   }
 
-  // Compute totals row
   const totals = {
-    spend: campaigns.reduce((s, c) => s + c.spend, 0),
-    clicks: campaigns.reduce((s, c) => s + c.clicks, 0),
-    impressions: campaigns.reduce((s, c) => s + c.impressions, 0),
-    conversions: campaigns.reduce((s, c) => s + c.conversions, 0),
-    conversionValue: campaigns.reduce((s, c) => s + c.conversionValue, 0),
+    spend: rows.reduce((s, r) => s + (r.spend || 0), 0),
+    clicks: rows.reduce((s, r) => s + (r.clicks || 0), 0),
+    impressions: rows.reduce((s, r) => s + (r.impressions || 0), 0),
+    conversions: rows.reduce((s, r) => s + (r.conversions || 0), 0),
+    conversionValue: rows.reduce((s, r) => s + (r.conversionValue || 0), 0),
   }
   const totalsCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
   const totalsRoas = totals.spend > 0 && totals.conversionValue > 0 ? totals.conversionValue / totals.spend : null
   const totalsCostPerConv = totals.conversions > 0 ? totals.spend / totals.conversions : null
   const totalsAvgCpc = totals.clicks > 0 ? totals.spend / totals.clicks : null
-  const totalsConvRate = totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : null
 
   function getTotalValue(colId: string): string {
-    const totalAtc = campaigns.reduce((s, c) => s + (c.addToCart || 0), 0)
-    const totalIc = campaigns.reduce((s, c) => s + (c.initiateCheckout || 0), 0)
-    const totalPurch = campaigns.reduce((s, c) => s + (c.purchases || 0), 0)
-    const totalVc = campaigns.reduce((s, c) => s + (c.viewContent || 0), 0)
-    const totalAtw = campaigns.reduce((s, c) => s + (c.addToWishlist || 0), 0)
     switch (colId) {
       case 'spend': return fmt(totals.spend, 'currency')
       case 'clicks': return fmt(totals.clicks)
@@ -370,94 +405,93 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
       case 'roas': return totalsRoas ? fmt(totalsRoas, 'multiplier') : '—'
       case 'costPerConv': return totalsCostPerConv ? fmt(totalsCostPerConv, 'currency') : '—'
       case 'avgCpc': return totalsAvgCpc ? fmt(totalsAvgCpc, 'currency') : '—'
-      case 'convRate': return totalsConvRate ? fmt(totalsConvRate, 'percent') : '—'
-      case 'budget': return '—'
-      case 'cpm': return totals.impressions > 0 ? fmt((totals.spend / totals.impressions) * 1000, 'currency') : '—'
-      case 'reach': return '—'
-      case 'frequency': return '—'
-      case 'addToCart': return fmt(totalAtc)
-      case 'initiateCheckout': return fmt(totalIc)
-      case 'purchases': return fmt(totalPurch)
-      case 'viewContent': return fmt(totalVc)
-      case 'addToWishlist': return fmt(totalAtw)
-      case 'costPerAddToCart': return totalAtc > 0 ? fmt(totals.spend / totalAtc, 'currency') : '—'
-      case 'costPerInitiateCheckout': return totalIc > 0 ? fmt(totals.spend / totalIc, 'currency') : '—'
-      case 'costPerPurchase': return totalPurch > 0 ? fmt(totals.spend / totalPurch, 'currency') : '—'
       default: return '—'
     }
   }
 
-  function formatValue(col: typeof COLUMN_DEFS[0], c: Campaign): string {
-    const val = col.getValue(c)
+  function formatValue(colId: string, val: any): string {
     if (val === null || val === undefined) return '—'
     const n = Number(val)
     const currencyCols = ['spend', 'costPerConv', 'avgCpc', 'cpm', 'budget', 'costPerAddToCart', 'costPerInitiateCheckout', 'costPerPurchase']
-    const percentCols = ['ctr', 'convRate']
-    const multiplierCols = ['roas']
-    const decimalCols = ['frequency']
-    const intCols = ['clicks', 'impressions', 'reach', 'addToCart', 'initiateCheckout', 'purchases', 'viewContent', 'addToWishlist']
-    const oneDecCols = ['conversions']
-    if (currencyCols.includes(col.id)) return fmt(n, 'currency')
-    if (percentCols.includes(col.id)) return fmt(n, 'percent')
-    if (multiplierCols.includes(col.id)) return fmt(n, 'multiplier')
-    if (decimalCols.includes(col.id)) return n.toFixed(2)
-    if (intCols.includes(col.id)) return fmt(n)
-    if (oneDecCols.includes(col.id)) return n.toFixed(1)
+    if (currencyCols.includes(colId)) return fmt(n, 'currency')
+    if (['ctr', 'convRate'].includes(colId)) return fmt(n, 'percent')
+    if (['roas'].includes(colId)) return fmt(n, 'multiplier')
+    if (['frequency'].includes(colId)) return n.toFixed(2)
+    if (['clicks', 'impressions', 'reach'].includes(colId)) return fmt(n)
+    if (['conversions'].includes(colId)) return n.toFixed(1)
     return String(val)
   }
+
+  const isClickable = level !== 'ads'
+  const nameLabel = level === 'campaigns' ? 'Campaign'
+    : level === 'adgroups' ? (platform === 'meta' ? 'Ad Set' : 'Ad Group')
+    : 'Ad'
 
   return (
     <div className="bg-white border border-border overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-surface">
-            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Campaign</th>
-            {platform === 'combined' && <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Platform</th>}
+            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">{nameLabel}</th>
+            {platform === 'combined' && level === 'campaigns' && (
+              <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Platform</th>
+            )}
             <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Status</th>
+            {level === 'ads' && <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider hidden md:table-cell">Copy</th>}
             {visibleCols.map(col => (
               <th key={col.id} onClick={() => handleSort(col.id)}
                 className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
                 {col.label}{sortCol === col.id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </th>
             ))}
+            {isClickable && <th className="px-3 py-3 w-6" />}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((c: Campaign) => {
-            const isSelected = selectedCampaignId === c.id
-            return (
-              <tr key={c.id + c.platform}
-                onClick={() => onSelectCampaign && onSelectCampaign(isSelected ? '' : c.id, c.name)}
-                className={'table-row ' + (onSelectCampaign ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : '')}>
-                <td className={'px-3 py-3 font-medium max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
-                  {isSelected && <span className="text-accent mr-1">▸</span>}{c.name}
+          {sorted.map((row: any) => (
+            <tr key={row.id}
+              onClick={() => isClickable && onRowClick(row)}
+              className={'table-row ' + (isClickable ? 'cursor-pointer hover:bg-surface' : '')}>
+              <td className="px-3 py-3 font-medium max-w-xs truncate sticky left-0 bg-white">
+                {row.name}
+              </td>
+              {platform === 'combined' && level === 'campaigns' && (
+                <td className="px-3 py-3 whitespace-nowrap">
+                  <span className="text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</span>
                 </td>
-                {platform === 'combined' && (
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    <span className="text-xs font-mono text-muted">{c.platform === 'google' ? '🔵' : '🔷'}</span>
-                  </td>
-                )}
-                <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={c.status} /></td>
-                {visibleCols.map(col => (
-                  <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">
-                    {formatValue(col, c)}
-                  </td>
-                ))}
-              </tr>
-            )
-          })}
+              )}
+              <td className="px-3 py-3 whitespace-nowrap">
+                <StatusBadge status={row.status} />
+              </td>
+              {level === 'ads' && (
+                <td className="px-3 py-3 text-xs text-muted max-w-xs hidden md:table-cell">
+                  <p className="truncate">{row.description || row.body || ''}</p>
+                </td>
+              )}
+              {visibleCols.map(col => (
+                <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">
+                  {formatValue(col.id, col.getValue(row))}
+                </td>
+              ))}
+              {isClickable && (
+                <td className="px-3 py-3 text-right text-muted text-xs">›</td>
+              )}
+            </tr>
+          ))}
         </tbody>
-        {campaigns.length > 1 && (
+        {rows.length > 1 && (
           <tfoot>
             <tr className="border-t-2 border-border bg-surface font-medium">
               <td className="px-3 py-3 font-mono text-xs text-muted sticky left-0 bg-surface">Total</td>
-              {platform === 'combined' && <td className="px-3 py-3" />}
+              {platform === 'combined' && level === 'campaigns' && <td className="px-3 py-3" />}
               <td className="px-3 py-3" />
+              {level === 'ads' && <td className="px-3 py-3 hidden md:table-cell" />}
               {visibleCols.map(col => (
                 <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap text-ink">
                   {getTotalValue(col.id)}
                 </td>
               ))}
+              {isClickable && <td className="px-3 py-3" />}
             </tr>
           </tfoot>
         )}
@@ -466,196 +500,6 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
   )
 }
 
-// ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
-}) {
-  const { totals, campaigns, platform } = data
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
-  const metrics = [
-    { label: 'Total Spend', value: fmt(totals.spend, 'currency') },
-    { label: 'Clicks', value: fmt(totals.clicks) },
-    { label: 'Impressions', value: fmt(totals.impressions) },
-    { label: 'Conversions', value: fmt(totals.conversions, 'decimal') },
-    { label: 'ROAS', value: totals.roas ? fmt(totals.roas, 'multiplier') : '—' },
-    { label: 'Avg CTR', value: fmt(totals.avgCtr, 'percent') },
-  ]
-
-  const anomalies: string[] = []
-  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
-  const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
-  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
-  const hasAnomalies = anomalies.length > 0
-
-  const topByCost = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5)
-  const topByConv = [...campaigns].filter(c => c.conversions > 0).sort((a, b) => b.conversions - a.conversions).slice(0, 5)
-  const maxCost = topByCost.length > 0 ? topByCost[0].spend : 1
-  const campaignsWithBudget = campaigns.filter(c => c.budget && c.budget > 0).slice(0, 5)
-
-  return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Insight banner */}
-      <div className={`border px-4 md:px-6 py-4 md:py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${hasAnomalies ? 'text-amber-600' : 'text-accent'}`}>
-              {hasAnomalies ? '⚠ Attention needed' : '✦ Account snapshot'}
-            </p>
-            {hasAnomalies ? (
-              <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
-            ) : (
-              <p className="text-sm text-ink">
-                {greeting}. <strong>{fmt(totals.spend, 'currency')}</strong> spent,{' '}
-                <strong>{fmt(totals.conversions, 'decimal')}</strong> conversions.{' '}
-                {totals.activeCampaigns} active campaigns.
-              </p>
-            )}
-          </div>
-          <span className="text-xs font-mono text-muted ml-4 mt-0.5 whitespace-nowrap hidden md:block">AI analysis coming soon</span>
-        </div>
-      </div>
-
-      {/* Combined platform breakdown */}
-      {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white border border-border p-4">
-            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals.googleSpend, 'currency')}</p>
-          </div>
-          <div className="bg-white border border-border p-4">
-            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals.metaSpend, 'currency')}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Metric tiles */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
-        {metrics.map(m => (
-          <div key={m.label} className="bg-white p-3 md:p-5">
-            <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Chart */}
-      {platform === 'google' && googleAccountId && (
-        <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
-      )}
-      {platform === 'meta' && metaAccountId && (
-        <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
-      )}
-      {platform === 'combined' && googleAccountId && metaAccountId && (
-        <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
-      )}
-
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
-          <div className="space-y-3">
-            {topByCost.map(c => (
-              <div key={c.id + c.platform}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-ink truncate max-w-[65%]">
-                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
-                    {c.name}
-                  </span>
-                  <span className="text-xs font-mono text-muted">{fmt(c.spend, 'currency')}</span>
-                </div>
-                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                  <div className="h-full bg-accent rounded-full" style={{ width: (c.spend / maxCost * 100) + '%' }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
-          {topByConv.length === 0 ? (
-            <p className="text-xs text-muted font-mono">No conversions recorded</p>
-          ) : (
-            <div className="space-y-2">
-              {topByConv.map(c => (
-                <div key={c.id + c.platform} className="flex items-center justify-between py-1 border-b border-border last:border-0">
-                  <span className="text-xs text-ink truncate max-w-[55%]">
-                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
-                    {c.name}
-                  </span>
-                  <div className="text-right">
-                    <span className="text-xs font-mono text-accent font-medium">{c.conversions.toFixed(1)} conv</span>
-                    {c.costPerConv && <span className="text-xs font-mono text-muted ml-2">{fmt(c.costPerConv, 'currency')}/conv</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {platform === 'google' && googleAccountId && (
-          <div className="bg-white border border-border p-4 md:p-5">
-            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
-            <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
-          </div>
-        )}
-
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
-          {campaignsWithBudget.length === 0 ? (
-            <p className="text-xs text-muted font-mono">No budget data available</p>
-          ) : (
-            <div className="space-y-3">
-              {campaignsWithBudget.map(c => {
-                const pct = Math.min((c.spend / (c.budget! * 30)) * 100, 100)
-                const barColor = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#2563eb'
-                return (
-                  <div key={c.id + c.platform}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
-                      <span className="text-xs font-mono text-muted">{fmt(c.budget!, 'currency')}/day</span>
-                    </div>
-                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: barColor }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRange: string }) {
-  const [keywords, setKeywords] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  useEffect(() => {
-    fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
-      .then(r => r.json())
-      .then(d => { setKeywords((d.keywords || []).slice(0, 5)); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [accountId, dateRange])
-  if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
-  if (!keywords.length) return <p className="text-xs text-muted font-mono">No keyword data</p>
-  return (
-    <div className="space-y-2">
-      {keywords.map((k: any, i: number) => (
-        <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
-          <span className="text-xs text-ink truncate max-w-[60%]">{k.text}</span>
-          <span className="text-xs font-mono text-muted">${k.cost}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Campaigns Tab ────────────────────────────────────────────────────────────
 function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -668,62 +512,140 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
     }
     return defaultCols
   })
-  const [selectedId, setSelectedId] = useState('')
-  const [selectedName, setSelectedName] = useState('')
+
+  const [drill, setDrill] = useState<DrillState>({ level: 'campaigns', campaign: null, adGroup: null })
+  const [subRows, setSubRows] = useState<any[]>([])
+  const [subLoading, setSubLoading] = useState(false)
+  const [chartCampaignId, setChartCampaignId] = useState('')
+  const [chartCampaignName, setChartCampaignName] = useState('')
 
   const updateCols = (cols: string[]) => {
     setActiveCols(cols)
     if (typeof window !== 'undefined') localStorage.setItem(storageKey, JSON.stringify(cols))
   }
 
-  const handleSelect = (id: string, name: string) => { setSelectedId(id); setSelectedName(id ? name : '') }
+  async function drillIntoCampaign(campaign: any) {
+    // Update chart selection
+    setChartCampaignId(campaign.id)
+    setChartCampaignName(campaign.name)
 
-  // Find the platform of the selected campaign for chart routing
-  const selectedCampaign = campaigns.find(c => c.id === selectedId)
-  const selectedPlatform = selectedCampaign?.platform || platform
+    // Only drill if it's a single platform
+    if (platform === 'combined') return
+
+    setSubLoading(true)
+    setDrill({ level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaign.platform || platform as 'google' | 'meta' }, adGroup: null })
+    setSubRows([])
+
+    try {
+      if (platform === 'google') {
+        const params = new URLSearchParams({ accountId: googleAccountId, campaignId: campaign.id, dateRange })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/google/adgroups?' + params.toString())
+        const d = await res.json()
+        setSubRows(d.adGroups || [])
+      } else if (platform === 'meta') {
+        const params = new URLSearchParams({ campaignId: campaign.id, dateRange })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/meta/adsets?' + params.toString())
+        const d = await res.json()
+        setSubRows(d.adSets || [])
+      }
+    } catch (e) { console.error(e) }
+    finally { setSubLoading(false) }
+  }
+
+  async function drillIntoAdGroup(adGroup: any) {
+    setSubLoading(true)
+    setDrill(prev => ({ ...prev, level: 'ads', adGroup: { id: adGroup.id, name: adGroup.name } }))
+    setSubRows([])
+
+    try {
+      if (platform === 'google') {
+        const params = new URLSearchParams({ accountId: googleAccountId, adGroupId: adGroup.id, dateRange })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/google/ads?' + params.toString())
+        const d = await res.json()
+        setSubRows(d.ads || [])
+      } else if (platform === 'meta') {
+        const params = new URLSearchParams({ adSetId: adGroup.id, dateRange })
+        if (customStart) params.set('customStart', customStart)
+        if (customEnd) params.set('customEnd', customEnd)
+        const res = await fetch('/api/meta/ads?' + params.toString())
+        const d = await res.json()
+        setSubRows(d.ads || [])
+      }
+    } catch (e) { console.error(e) }
+    finally { setSubLoading(false) }
+  }
+
+  function navigateTo(level: DrillLevel) {
+    if (level === 'campaigns') {
+      setDrill({ level: 'campaigns', campaign: null, adGroup: null })
+      setSubRows([])
+      setChartCampaignId('')
+      setChartCampaignName('')
+    } else if (level === 'adgroups' && drill.campaign) {
+      drillIntoCampaign(drill.campaign)
+    }
+  }
+
+  const currentRows = drill.level === 'campaigns' ? campaigns : subRows
+  const levelLabel = drill.level === 'campaigns' ? `${campaigns.length} campaigns`
+    : drill.level === 'adgroups' ? `${subRows.length} ${platform === 'meta' ? 'ad sets' : 'ad groups'}`
+    : `${subRows.length} ads`
 
   return (
     <div>
       <div className="mb-4">
         <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
-        <p className="text-sm text-muted font-mono">
-          {campaigns.length} campaigns
-          {selectedName && <span className="text-accent"> · {selectedName}</span>}
-          {!selectedName && platform === 'google' && <span className="text-muted"> · Click a row to view its trend</span>}
-        </p>
+        <p className="text-sm text-muted font-mono">{levelLabel}</p>
       </div>
 
-      {/* Chart - show appropriate chart based on platform */}
-      {platform === 'google' && googleAccountId && (
+      <Breadcrumb drill={drill} onNavigate={navigateTo} />
+
+      {/* Chart — only show at campaign level or when a campaign is selected */}
+      {drill.level === 'campaigns' && platform === 'google' && googleAccountId && (
         <GoogleChart accountId={googleAccountId} dateRange={dateRange}
-          campaignId={selectedId || undefined} campaignName={selectedName || undefined}
+          campaignId={chartCampaignId || undefined} campaignName={chartCampaignName || undefined}
           customStart={customStart} customEnd={customEnd} />
       )}
-      {platform === 'meta' && metaAccountId && (
+      {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && (
         <MetaChart accountId={metaAccountId} dateRange={dateRange}
-          campaignId={selectedId || undefined} campaignName={selectedName || undefined}
+          campaignId={chartCampaignId || undefined} campaignName={chartCampaignName || undefined}
           customStart={customStart} customEnd={customEnd} />
       )}
-      {platform === 'combined' && selectedId && (
-        selectedPlatform === 'google' && googleAccountId
-          ? <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedId} campaignName={selectedName} customStart={customStart} customEnd={customEnd} />
-          : selectedPlatform === 'meta' && metaAccountId
-          ? <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedId} campaignName={selectedName} customStart={customStart} customEnd={customEnd} />
-          : null
-      )}
-      {platform === 'combined' && !selectedId && googleAccountId && metaAccountId && (
+      {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && (
         <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
       )}
 
+      {/* Columns button above table */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-mono text-muted">{campaigns.length} campaigns · {activeCols.length} columns shown</p>
+        <p className="text-xs font-mono text-muted">{levelLabel} · {activeCols.length} columns</p>
         <ColumnPicker platform={platform} active={activeCols} onChange={updateCols} />
       </div>
-      <CampaignsTable campaigns={campaigns} platform={platform} activeCols={activeCols}
-        selectedCampaignId={selectedId} onSelectCampaign={handleSelect} />
+
+      {subLoading ? (
+        <div className="flex items-center justify-center h-32">
+          <div className="flex items-center gap-2 text-muted font-mono text-sm">
+            <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading...
+          </div>
+        </div>
+      ) : (
+        <DrillTable
+          rows={currentRows}
+          level={drill.level}
+          platform={platform}
+          activeCols={activeCols}
+          onRowClick={drill.level === 'campaigns' ? drillIntoCampaign : drillIntoAdGroup}
+        />
+      )}
     </div>
   )
 }
+
 
 // ─── Keywords Tab ─────────────────────────────────────────────────────────────
 function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: string }) {
