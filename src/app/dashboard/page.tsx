@@ -923,8 +923,23 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
     return defaultCols
   })
 
-  const [drill, setDrill] = useState<DrillState>({ level: 'campaigns', campaign: null, adGroup: null })
+  const [drill, setDrill] = useState<DrillState>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('advar-drill-state')
+        if (saved) return JSON.parse(saved)
+      } catch {}
+    }
+    return { level: 'campaigns', campaign: null, adGroup: null }
+  })
   const [subRows, setSubRows] = useState<any[]>([])
+
+  function updateDrill(newDrill: DrillState) {
+    setDrill(newDrill)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('advar-drill-state', JSON.stringify(newDrill))
+    }
+  }
   const [subLoading, setSubLoading] = useState(false)
   const [chartCampaignId, setChartCampaignId] = useState('')
   const [chartCampaignName, setChartCampaignName] = useState('')
@@ -943,7 +958,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
     if (platform === 'combined') return
 
     setSubLoading(true)
-    setDrill({ level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaign.platform || platform as 'google' | 'meta' }, adGroup: null })
+    updateDrill({ level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaign.platform || platform as 'google' | 'meta' }, adGroup: null })
     setSubRows([])
 
     try {
@@ -968,7 +983,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
   async function drillIntoAdGroup(adGroup: any) {
     setSubLoading(true)
-    setDrill(prev => ({ ...prev, level: 'ads', adGroup: { id: adGroup.id, name: adGroup.name } }))
+    updateDrill({ ...drill, level: 'ads', adGroup: { id: adGroup.id, name: adGroup.name } })
     setSubRows([])
 
     try {
@@ -993,7 +1008,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
   function navigateTo(level: DrillLevel) {
     if (level === 'campaigns') {
-      setDrill({ level: 'campaigns', campaign: null, adGroup: null })
+      updateDrill({ level: 'campaigns', campaign: null, adGroup: null })
       setSubRows([])
       setChartCampaignId('')
       setChartCampaignName('')
@@ -1367,6 +1382,15 @@ function DashboardContent() {
   })
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
+
+  // Restore drill data on mount if drill state was persisted
+  useEffect(() => {
+    if (drill.level === 'adgroups' && drill.campaign && selectedClient) {
+      drillIntoCampaign(drill.campaign)
+    } else if (drill.level === 'ads' && drill.campaign && drill.adGroup && selectedClient) {
+      drillIntoAdGroup(drill.adGroup)
+    }
+  }, [selectedClient])
   useEffect(() => { if (session) fetchClients() }, [session])
   useEffect(() => { if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
   useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
@@ -1390,6 +1414,9 @@ function DashboardContent() {
     // Restore saved tab when switching clients
     const savedTab = localStorage.getItem('advar-active-tab') as any
     if (savedTab) setActiveTab(savedTab)
+    // Reset drill state when switching clients
+    updateDrill({ level: 'campaigns', campaign: null, adGroup: null })
+    setSubRows([])
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
     const savedPlatform = overridePlatform || (localStorage.getItem('advar-active-platform') as Platform) || 'google'
