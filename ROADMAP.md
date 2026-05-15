@@ -234,3 +234,11 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Core metrics (Spend, Clicks, Impressions, Conversions) always available on chart regardless of column selection
 - [ ] Platform-aware: Meta-only columns (CPM, Reach, Frequency) only appear as chart options on Meta view
 - [ ] This makes the table and chart feel like one unified analysis tool rather than two separate components
+
+## 🔒 Full UI State Persistence
+- [ ] Chart metric selection (Spend/Clicks/Impressions/Conversions) persists on refresh
+- [ ] Chart granularity (Day/Week/Month) persists on refresh  
+- [ ] Ad group chart visible lines persist on refresh
+- [ ] Ad bar chart metric selection persists on refresh
+- [ ] Sort column and direction persists per table per platform
+- [ ] All state restored from localStorage on mount, cleared only on explicit user action
