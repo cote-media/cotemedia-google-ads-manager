@@ -27,7 +27,6 @@ export async function fetchMetaCampaigns(
 
   const fields = `name,status,effective_status,objective,daily_budget,lifetime_budget,${dateParam}{${insightFields}}`
 
-  // Fetch all pages
   const allRaw: any[] = []
   let nextUrl: string | null = `https://graph.facebook.com/v18.0/${id}/campaigns?fields=${fields}&limit=100&access_token=${accessToken}`
   while (nextUrl) {
@@ -50,6 +49,9 @@ export async function fetchMetaCampaigns(
     const conversions = actions.filter(a => convTypes.includes(a.action_type)).reduce((s, a) => s + parseFloat(a.value || '0'), 0)
     const convValue = actionValues.filter(a => a.action_type === 'purchase').reduce((s, a) => s + parseFloat(a.value || '0'), 0)
 
+    // Meta CTR is already a percentage (e.g. 5.74 means 5.74%), do NOT multiply by 100
+    const ctr = ins.ctr ? parseFloat(ins.ctr) : (impressions > 0 ? (clicks / impressions) * 100 : 0)
+
     return {
       id: c.id,
       name: c.name,
@@ -58,7 +60,7 @@ export async function fetchMetaCampaigns(
       spend,
       clicks,
       impressions,
-      ctr: ins.ctr ? parseFloat(ins.ctr) * 100 : 0,
+      ctr,
       conversions,
       conversionValue: convValue,
       roas: spend > 0 && convValue > 0 ? convValue / spend : null,
@@ -77,7 +79,6 @@ export async function fetchMetaCampaigns(
     }
   })
 
-  // Only campaigns with spend in the period
   const campaigns = allCampaigns.filter(c => c.spend > 0)
   const totals = buildTotals(campaigns)
   return { platform: 'meta', campaigns, totals, dateRange, accountId }
