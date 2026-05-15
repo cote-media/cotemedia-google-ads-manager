@@ -690,6 +690,210 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
 
+// ─── Color Palette ─────────────────────────────────────────────────────────── 
+const CHART_COLORS = [
+  '#2563eb', '#16a34a', '#ea580c', '#9333ea',
+  '#0891b2', '#dc2626', '#ca8a04', '#db2777',
+  '#65a30d', '#7c3aed',
+]
+
+// ─── Multi-Line Ad Group Chart ────────────────────────────────────────────────
+function AdGroupChart({ adGroups, accountId, dateRange, platform, metaAccountId, customStart, customEnd }: {
+  adGroups: any[]
+  accountId: string
+  dateRange: string
+  platform: Platform
+  metaAccountId?: string
+  customStart?: string
+  customEnd?: string
+}) {
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
+  const [activeMetric, setActiveMetric] = useState<'cost' | 'clicks' | 'impressions' | 'conversions'>('cost')
+  const [allData, setAllData] = useState<Record<string, any[]>>({})
+  const [loading, setLoading] = useState(true)
+
+  // Top 5 by spend visible by default
+  const sortedBySpend = [...adGroups].sort((a, b) => (b.spend || 0) - (a.spend || 0))
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(
+    new Set(sortedBySpend.slice(0, 5).map(ag => ag.id))
+  )
+
+  const metricLabels = { cost: 'Spend', clicks: 'Clicks', impressions: 'Impressions', conversions: 'Conversions' }
+  const metricColors = { cost: '#2563eb', clicks: '#16a34a', impressions: '#9333ea', conversions: '#ea580c' }
+
+  useEffect(() => {
+    if (adGroups.length === 0) return
+    setLoading(true)
+
+    const fetchOne = async (ag: any) => {
+      try {
+        let url: string
+        if (platform === 'google') {
+          url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&granularity=' + granularity + '&campaignId=' + ag.id
+        } else {
+          url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&dateRange=' + dateRange + '&campaignId=' + ag.id
+        }
+        if (customStart) url += '&customStart=' + customStart
+        if (customEnd) url += '&customEnd=' + customEnd
+        const res = await fetch(url)
+        const d = await res.json()
+        return { id: ag.id, data: (d.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }
+      } catch { return { id: ag.id, data: [] } }
+    }
+
+    Promise.all(adGroups.map(fetchOne)).then(results => {
+      const map: Record<string, any[]> = {}
+      results.forEach(r => { map[r.id] = r.data })
+      setAllData(map)
+      setLoading(false)
+    })
+  }, [adGroups, dateRange, granularity, platform, accountId, metaAccountId, customStart, customEnd])
+
+  // Merge all visible data by date
+  const mergedData = (() => {
+    const dateMap: Record<string, any> = {}
+    visibleIds.forEach(id => {
+      const rows = allData[id] || []
+      rows.forEach(row => {
+        if (!dateMap[row.date]) dateMap[row.date] = { date: row.date }
+        dateMap[row.date][id] = row[activeMetric] ?? 0
+      })
+    })
+    return Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date))
+  })()
+
+  const toggleVisible = (id: string) => {
+    setVisibleIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) { if (next.size > 1) next.delete(id) }
+      else next.add(id)
+      return next
+    })
+  }
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
+  if (adGroups.length === 0) return null
+
+  const colorMap: Record<string, string> = {}
+  sortedBySpend.forEach((ag, i) => { colorMap[ag.id] = CHART_COLORS[i % CHART_COLORS.length] })
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col gap-3 mb-4">
+        {/* Controls row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Granularity — Google only */}
+          {platform === 'google' && (
+            <div className="flex border border-border">
+              {(['day', 'week', 'month'] as const).map(g => (
+                <button key={g} onClick={() => setGranularity(g)}
+                  className={'text-xs font-mono px-2 py-1 transition-colors ' + (granularity === g ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                  {g.charAt(0).toUpperCase() + g.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Metric selector */}
+          <div className="flex gap-1">
+            {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map(m => (
+              <button key={m} onClick={() => setActiveMetric(m)}
+                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+                {metricLabels[m]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Ad group toggles */}
+        <div className="flex flex-wrap gap-2">
+          {sortedBySpend.map(ag => {
+            const isVisible = visibleIds.has(ag.id)
+            const color = colorMap[ag.id]
+            return (
+              <button key={ag.id} onClick={() => toggleVisible(ag.id)}
+                className={'flex items-center gap-1.5 text-xs font-mono px-2 py-1 border rounded-full transition-colors ' + (isVisible ? 'text-white' : 'text-muted border-border hover:text-ink')}
+                style={isVisible ? { backgroundColor: color, borderColor: color } : {}}>
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: isVisible ? 'white' : color }} />
+                <span className="truncate max-w-[120px]">{ag.name}</span>
+                <span className="opacity-70">${(ag.spend || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={mergedData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          {sortedBySpend.filter(ag => visibleIds.has(ag.id)).map(ag => (
+            <Line key={ag.id} type="monotone" dataKey={ag.id} stroke={colorMap[ag.id]}
+              strokeWidth={2} dot={false} name={ag.name} connectNulls />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Ad Performance Bar Chart ──────────────────────────────────────────────────
+function AdBarChart({ ads }: { ads: any[] }) {
+  const [activeMetric, setActiveMetric] = useState<'spend' | 'clicks' | 'conversions' | 'ctr'>('spend')
+  const metricLabels = { spend: 'Spend', clicks: 'Clicks', conversions: 'Conversions', ctr: 'CTR' }
+  const metricColors = { spend: '#2563eb', clicks: '#16a34a', conversions: '#ea580c', ctr: '#9333ea' }
+
+  if (ads.length === 0) return null
+
+  const chartData = [...ads]
+    .sort((a, b) => (b[activeMetric] || 0) - (a[activeMetric] || 0))
+    .slice(0, 10)
+    .map(ad => ({
+      name: ad.name?.length > 30 ? ad.name.slice(0, 30) + '…' : (ad.name || 'Ad'),
+      value: ad[activeMetric] || 0,
+    }))
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
+        <div className="flex gap-1">
+          {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map(m => (
+            <button key={m} onClick={() => setActiveMetric(m)}
+              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+              style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+              {metricLabels[m]}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {chartData.map((d, i) => {
+          const max = chartData[0].value || 1
+          const pct = (d.value / max) * 100
+          const fmt_val = activeMetric === 'spend' ? '$' + d.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+            : activeMetric === 'ctr' ? d.value.toFixed(2) + '%'
+            : d.value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+          return (
+            <div key={i}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span className="text-xs text-ink truncate max-w-[70%]">{d.name}</span>
+                <span className="text-xs font-mono text-muted">{fmt_val}</span>
+              </div>
+              <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: pct + '%', backgroundColor: metricColors[activeMetric] }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+
 function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -796,7 +1000,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
-      {/* Chart — only show at campaign level or when a campaign is selected */}
+      {/* Chart — adapts to current drill level */}
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && (
         <GoogleChart accountId={googleAccountId} dateRange={dateRange}
           campaignId={chartCampaignId || undefined} campaignName={chartCampaignName || undefined}
@@ -809,6 +1013,15 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
       )}
       {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && (
         <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+      {drill.level === 'adgroups' && subRows.length > 0 && (
+        <AdGroupChart adGroups={subRows} accountId={googleAccountId || metaAccountId}
+          dateRange={dateRange} platform={platform}
+          metaAccountId={metaAccountId}
+          customStart={customStart} customEnd={customEnd} />
+      )}
+      {drill.level === 'ads' && subRows.length > 0 && (
+        <AdBarChart ads={subRows} />
       )}
 
       {/* Columns button above table */}
