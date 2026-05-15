@@ -1383,14 +1383,6 @@ function DashboardContent() {
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
 
-  // Restore drill data on mount if drill state was persisted
-  useEffect(() => {
-    if (drill.level === 'adgroups' && drill.campaign && selectedClient) {
-      drillIntoCampaign(drill.campaign)
-    } else if (drill.level === 'ads' && drill.campaign && drill.adGroup && selectedClient) {
-      drillIntoAdGroup(drill.adGroup)
-    }
-  }, [selectedClient])
   useEffect(() => { if (session) fetchClients() }, [session])
   useEffect(() => { if (chatMessages.length > 0) localStorage.setItem('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
   useEffect(() => { localStorage.setItem('advar-session-start', String(sessionStart)) }, [sessionStart])
