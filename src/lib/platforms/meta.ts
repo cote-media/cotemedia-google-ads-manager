@@ -39,6 +39,11 @@ export async function fetchMetaCampaigns(
 
   const convTypes = ['purchase', 'lead', 'complete_registration', 'offsite_conversion', 'submit_application']
 
+  function getAction(actions: any[], type: string): number | null {
+    const match = actions.find(a => a.action_type === type)
+    return match ? parseFloat(match.value || '0') : null
+  }
+
   const allCampaigns: Campaign[] = allRaw.map((c: any) => {
     const ins = c.insights?.data?.[0] || {}
     const spend = parseFloat(ins.spend || '0')
@@ -46,11 +51,23 @@ export async function fetchMetaCampaigns(
     const impressions = parseInt(ins.impressions || '0')
     const actions: any[] = ins.actions || []
     const actionValues: any[] = ins.action_values || []
-    const conversions = actions.filter(a => convTypes.includes(a.action_type)).reduce((s, a) => s + parseFloat(a.value || '0'), 0)
-    const convValue = actionValues.filter(a => a.action_type === 'purchase').reduce((s, a) => s + parseFloat(a.value || '0'), 0)
 
-    // Meta CTR is already a percentage (e.g. 5.74 means 5.74%), do NOT multiply by 100
+    const conversions = actions
+      .filter(a => convTypes.includes(a.action_type))
+      .reduce((s, a) => s + parseFloat(a.value || '0'), 0)
+    const convValue = actionValues
+      .filter(a => a.action_type === 'purchase')
+      .reduce((s, a) => s + parseFloat(a.value || '0'), 0)
+
+    // Meta CTR is already a percentage — do NOT multiply by 100
     const ctr = ins.ctr ? parseFloat(ins.ctr) : (impressions > 0 ? (clicks / impressions) * 100 : 0)
+
+    // E-commerce actions
+    const addToCart = getAction(actions, 'add_to_cart')
+    const initiateCheckout = getAction(actions, 'initiate_checkout')
+    const purchases = getAction(actions, 'purchase')
+    const viewContent = getAction(actions, 'view_content')
+    const addToWishlist = getAction(actions, 'add_to_wishlist')
 
     return {
       id: c.id,
@@ -76,6 +93,15 @@ export async function fetchMetaCampaigns(
       reach: parseInt(ins.reach || '0'),
       frequency: ins.frequency ? parseFloat(ins.frequency) : null,
       objective: c.objective || '',
+      // E-commerce
+      addToCart,
+      initiateCheckout,
+      purchases,
+      viewContent,
+      addToWishlist,
+      costPerAddToCart: addToCart && addToCart > 0 ? spend / addToCart : null,
+      costPerInitiateCheckout: initiateCheckout && initiateCheckout > 0 ? spend / initiateCheckout : null,
+      costPerPurchase: purchases && purchases > 0 ? spend / purchases : null,
     }
   })
 

@@ -63,23 +63,37 @@ function ColumnPicker({ platform, active, onChange }: {
 }) {
   const [open, setOpen] = useState(false)
   const available = COLUMN_DEFS.filter(c => c.platforms.includes(platform))
+  const categories = [
+    { id: 'core', label: 'Core Metrics' },
+    { id: 'ecommerce', label: 'E-Commerce' },
+    { id: 'meta', label: 'Meta Only' },
+    { id: 'google', label: 'Google Only' },
+  ]
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
         ⊞ Columns
       </button>
       {open && (
-        <div className="absolute right-0 top-9 bg-white border border-border shadow-lg z-20 p-4 w-52">
-          <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
-          {available.map(col => (
-            <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
-              <input type="checkbox" checked={active.includes(col.id)}
-                onChange={e => { if (e.target.checked) onChange([...active, col.id]); else onChange(active.filter(c => c !== col.id)) }}
-                className="accent-accent" />
-              <span className="text-xs text-ink">{col.label}</span>
-            </label>
-          ))}
-          <button onClick={() => setOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">Done</button>
+        <div className="absolute right-0 top-9 bg-white border border-border shadow-lg z-20 p-4 w-56 max-h-96 overflow-y-auto">
+          {categories.map(cat => {
+            const cols = available.filter(c => c.category === cat.id)
+            if (cols.length === 0) return null
+            return (
+              <div key={cat.id} className="mb-3">
+                <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">{cat.label}</p>
+                {cols.map(col => (
+                  <label key={col.id} className="flex items-center gap-2 py-0.5 cursor-pointer">
+                    <input type="checkbox" checked={active.includes(col.id)}
+                      onChange={e => { if (e.target.checked) onChange([...active, col.id]); else onChange(active.filter(c => c !== col.id)) }}
+                      className="accent-accent" />
+                    <span className="text-xs text-ink">{col.label}</span>
+                  </label>
+                ))}
+              </div>
+            )
+          })}
+          <button onClick={() => setOpen(false)} className="mt-2 text-xs text-muted hover:text-ink font-mono border-t border-border pt-2 w-full text-left">Done</button>
         </div>
       )}
     </div>
@@ -342,6 +356,11 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
   const totalsConvRate = totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : null
 
   function getTotalValue(colId: string): string {
+    const totalAtc = campaigns.reduce((s, c) => s + (c.addToCart || 0), 0)
+    const totalIc = campaigns.reduce((s, c) => s + (c.initiateCheckout || 0), 0)
+    const totalPurch = campaigns.reduce((s, c) => s + (c.purchases || 0), 0)
+    const totalVc = campaigns.reduce((s, c) => s + (c.viewContent || 0), 0)
+    const totalAtw = campaigns.reduce((s, c) => s + (c.addToWishlist || 0), 0)
     switch (colId) {
       case 'spend': return fmt(totals.spend, 'currency')
       case 'clicks': return fmt(totals.clicks)
@@ -356,6 +375,14 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
       case 'cpm': return totals.impressions > 0 ? fmt((totals.spend / totals.impressions) * 1000, 'currency') : '—'
       case 'reach': return '—'
       case 'frequency': return '—'
+      case 'addToCart': return fmt(totalAtc)
+      case 'initiateCheckout': return fmt(totalIc)
+      case 'purchases': return fmt(totalPurch)
+      case 'viewContent': return fmt(totalVc)
+      case 'addToWishlist': return fmt(totalAtw)
+      case 'costPerAddToCart': return totalAtc > 0 ? fmt(totals.spend / totalAtc, 'currency') : '—'
+      case 'costPerInitiateCheckout': return totalIc > 0 ? fmt(totals.spend / totalIc, 'currency') : '—'
+      case 'costPerPurchase': return totalPurch > 0 ? fmt(totals.spend / totalPurch, 'currency') : '—'
       default: return '—'
     }
   }
@@ -364,12 +391,18 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
     const val = col.getValue(c)
     if (val === null || val === undefined) return '—'
     const n = Number(val)
-    if (['spend', 'costPerConv', 'avgCpc', 'cpm', 'budget'].includes(col.id)) return fmt(n, 'currency')
-    if (['ctr', 'convRate'].includes(col.id)) return fmt(n, 'percent')
-    if (['roas'].includes(col.id)) return fmt(n, 'multiplier')
-    if (['frequency'].includes(col.id)) return n.toFixed(2)
-    if (['clicks', 'impressions', 'reach'].includes(col.id)) return fmt(n)
-    if (['conversions'].includes(col.id)) return n.toFixed(1)
+    const currencyCols = ['spend', 'costPerConv', 'avgCpc', 'cpm', 'budget', 'costPerAddToCart', 'costPerInitiateCheckout', 'costPerPurchase']
+    const percentCols = ['ctr', 'convRate']
+    const multiplierCols = ['roas']
+    const decimalCols = ['frequency']
+    const intCols = ['clicks', 'impressions', 'reach', 'addToCart', 'initiateCheckout', 'purchases', 'viewContent', 'addToWishlist']
+    const oneDecCols = ['conversions']
+    if (currencyCols.includes(col.id)) return fmt(n, 'currency')
+    if (percentCols.includes(col.id)) return fmt(n, 'percent')
+    if (multiplierCols.includes(col.id)) return fmt(n, 'multiplier')
+    if (decimalCols.includes(col.id)) return n.toFixed(2)
+    if (intCols.includes(col.id)) return fmt(n)
+    if (oneDecCols.includes(col.id)) return n.toFixed(1)
     return String(val)
   }
 

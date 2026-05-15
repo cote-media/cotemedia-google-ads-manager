@@ -29,6 +29,15 @@ export type Campaign = {
   reach?: number
   frequency?: number | null
   objective?: string
+  // Meta e-commerce actions
+  addToCart?: number | null
+  initiateCheckout?: number | null
+  purchases?: number | null
+  viewContent?: number | null
+  addToWishlist?: number | null
+  costPerAddToCart?: number | null
+  costPerInitiateCheckout?: number | null
+  costPerPurchase?: number | null
 }
 
 export type PlatformTotals = {
@@ -41,9 +50,7 @@ export type PlatformTotals = {
   roas: number | null
   avgCtr: number
   activeCampaigns: number
-  // Meta-specific
   reach?: number
-  // Combined
   googleSpend?: number
   metaSpend?: number
 }
@@ -60,31 +67,40 @@ export type PlatformData = {
 export type ColumnDef = {
   id: string
   label: string
-  platforms: Platform[]  // which platforms this column applies to
+  platforms: Platform[]
   defaultOn: boolean
-  getValue: (c: Campaign) => string | number | null
+  getValue: (c: Campaign) => string | number | null | undefined
   align: 'left' | 'right'
+  category?: 'core' | 'ecommerce' | 'meta' | 'google'
 }
 
-// ─── Shared column definitions ────────────────────────────────────────────────
 export const COLUMN_DEFS: ColumnDef[] = [
-  // Shared
-  { id: 'spend', label: 'Spend', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.spend, align: 'right' },
-  { id: 'clicks', label: 'Clicks', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.clicks, align: 'right' },
-  { id: 'impressions', label: 'Impressions', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.impressions, align: 'right' },
-  { id: 'ctr', label: 'CTR', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.ctr, align: 'right' },
-  { id: 'conversions', label: 'Conv.', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.conversions, align: 'right' },
-  { id: 'roas', label: 'ROAS', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.roas, align: 'right' },
-  { id: 'costPerConv', label: 'Cost/Conv', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.costPerConv, align: 'right' },
-  { id: 'avgCpc', label: 'Avg CPC', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.avgCpc, align: 'right' },
-  { id: 'convRate', label: 'Conv Rate', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.convRate, align: 'right' },
-  { id: 'budget', label: 'Budget/day', platforms: ['google', 'meta'], defaultOn: false, getValue: c => c.budget, align: 'right' },
-  // Google-only
-  { id: 'qualityScore', label: 'QS', platforms: ['google'], defaultOn: false, getValue: c => c.qualityScore ?? null, align: 'right' },
-  // Meta-only
-  { id: 'cpm', label: 'CPM', platforms: ['meta'], defaultOn: false, getValue: c => c.cpm ?? null, align: 'right' },
-  { id: 'reach', label: 'Reach', platforms: ['meta'], defaultOn: false, getValue: c => c.reach ?? null, align: 'right' },
-  { id: 'frequency', label: 'Frequency', platforms: ['meta'], defaultOn: false, getValue: c => c.frequency ?? null, align: 'right' },
+  // ── Core shared ──
+  { id: 'spend', label: 'Spend', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.spend, align: 'right', category: 'core' },
+  { id: 'clicks', label: 'Clicks', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.clicks, align: 'right', category: 'core' },
+  { id: 'impressions', label: 'Impressions', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.impressions, align: 'right', category: 'core' },
+  { id: 'ctr', label: 'CTR', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.ctr, align: 'right', category: 'core' },
+  { id: 'conversions', label: 'Conv.', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.conversions, align: 'right', category: 'core' },
+  { id: 'roas', label: 'ROAS', platforms: ['google', 'meta', 'combined'], defaultOn: true, getValue: c => c.roas, align: 'right', category: 'core' },
+  { id: 'costPerConv', label: 'Cost/Conv', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.costPerConv, align: 'right', category: 'core' },
+  { id: 'avgCpc', label: 'Avg CPC', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.avgCpc, align: 'right', category: 'core' },
+  { id: 'convRate', label: 'Conv Rate', platforms: ['google', 'meta', 'combined'], defaultOn: false, getValue: c => c.convRate, align: 'right', category: 'core' },
+  { id: 'budget', label: 'Budget/day', platforms: ['google', 'meta'], defaultOn: false, getValue: c => c.budget, align: 'right', category: 'core' },
+  // ── Google-only ──
+  { id: 'qualityScore', label: 'QS', platforms: ['google'], defaultOn: false, getValue: c => c.qualityScore ?? null, align: 'right', category: 'google' },
+  // ── Meta-only core ──
+  { id: 'cpm', label: 'CPM', platforms: ['meta'], defaultOn: false, getValue: c => c.cpm ?? null, align: 'right', category: 'meta' },
+  { id: 'reach', label: 'Reach', platforms: ['meta'], defaultOn: false, getValue: c => c.reach ?? null, align: 'right', category: 'meta' },
+  { id: 'frequency', label: 'Frequency', platforms: ['meta'], defaultOn: false, getValue: c => c.frequency ?? null, align: 'right', category: 'meta' },
+  // ── Meta e-commerce ──
+  { id: 'viewContent', label: 'View Content', platforms: ['meta'], defaultOn: false, getValue: c => c.viewContent ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'addToCart', label: 'Add to Cart', platforms: ['meta'], defaultOn: false, getValue: c => c.addToCart ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'initiateCheckout', label: 'Initiate Checkout', platforms: ['meta'], defaultOn: false, getValue: c => c.initiateCheckout ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'purchases', label: 'Purchases', platforms: ['meta'], defaultOn: false, getValue: c => c.purchases ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'addToWishlist', label: 'Add to Wishlist', platforms: ['meta'], defaultOn: false, getValue: c => c.addToWishlist ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerAddToCart', label: 'Cost/ATC', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerAddToCart ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerInitiateCheckout', label: 'Cost/Checkout', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerInitiateCheckout ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerPurchase', label: 'Cost/Purchase', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerPurchase ?? null, align: 'right', category: 'ecommerce' },
 ]
 
 // ─── Status normalization ─────────────────────────────────────────────────────
