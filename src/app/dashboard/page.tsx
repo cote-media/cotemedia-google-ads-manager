@@ -1407,8 +1407,9 @@ function DashboardContent() {
     const savedTab = localStorage.getItem('advar-active-tab') as any
     if (savedTab) setActiveTab(savedTab)
     // Reset drill state when switching clients
-    updateDrill({ level: 'campaigns', campaign: null, adGroup: null })
-    setSubRows([])
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
+    }
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
     const savedPlatform = overridePlatform || (localStorage.getItem('advar-active-platform') as Platform) || 'google'
