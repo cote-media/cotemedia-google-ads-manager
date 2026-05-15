@@ -217,3 +217,12 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Example insight enabled: "Your CPC is 40% above industry average for auto glass in Georgia" or "Competitor pricing in your marks $89 vs your $149"
 - [ ] Phase 1: on-demand (user asks for market context)
 - [ ] Phase 2: Claude auto-triggers when it detects a gap in its analysis
+
+## 📱 Mobile QA & Polish Session
+- [ ] Platform selector (Google/Meta/Combined) accessible from mobile hamburger menu
+- [ ] Client list accessible on mobile
+- [ ] Column picker opens upward on mobile to avoid going off-screen
+- [ ] Test all new features on actual device: combined view, ecommerce columns, totals row, charts
+- [ ] Charts responsive at small screen sizes
+- [ ] Overview cards stack properly on mobile
+- [ ] Dedicated QA session: go through every screen on phone and fix systematically
