@@ -652,13 +652,78 @@ function Breadcrumb({ drill, onNavigate }: { drill: DrillState; onNavigate: (lev
   )
 }
 
+// ─── Insight Banner with Claude ───────────────────────────────────────────────
+function InsightBanner({ data, clientName, dateRange }: { data: PlatformData; clientName: string; dateRange: string }) {
+  const { totals, campaigns, platform } = data
+  const cacheKey = 'advar-insight-' + clientName + '-' + platform + '-' + dateRange
+  const [insight, setInsight] = useState<string>(() => {
+    try {
+      const cached = lsJson(cacheKey, null) as any
+      if (cached && cached.text && cached.ts && (Date.now() - cached.ts) < 3600000) return cached.text
+    } catch {}
+    return ''
+  })
+  const [loading, setLoading] = useState(!insight)
+
+  // Anomaly detection (always run, used as fallback)
+  const anomalies: string[] = []
+  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
+  const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
+  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
+  const hasAnomalies = anomalies.length > 0
+
+  useEffect(() => {
+    // Always fetch fresh insight in background (show cached immediately)
+    fetch('/api/insight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ totals, campaigns, platform, dateRange, clientName }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.insight) {
+          setInsight(d.insight)
+          lsSet(cacheKey, JSON.stringify({ text: d.insight, ts: Date.now() }))
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [clientName, platform, dateRange])
+
+  if (hasAnomalies) {
+    return (
+      <div className="border px-4 md:px-6 py-4 md:py-5 bg-amber-50 border-amber-300">
+        <p className="font-mono text-xs uppercase tracking-widest mb-2 text-amber-600">⚠ Attention needed</p>
+        <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="border px-4 md:px-6 py-4 md:py-5 bg-blue-50 border-blue-200">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
+          {loading && !insight ? (
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
+              <span className="text-sm text-muted font-mono">Analyzing account...</span>
+            </div>
+          ) : (
+            <p className="text-sm text-ink leading-relaxed">{insight}</p>
+          )}
+        </div>
+        {loading && insight && <span className="text-xs font-mono text-muted ml-4 flex-shrink-0 animate-pulse">Refreshing...</span>}
+      </div>
+    </div>
+  )
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientName, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientName: string; customStart?: string; customEnd?: string
 }) {
   const { totals, campaigns, platform } = data
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const metrics = [
     { label: 'Total Spend', value: fmt(totals.spend, 'currency') },
     { label: 'Clicks', value: fmt(totals.clicks) },
@@ -667,11 +732,6 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customSt
     { label: 'ROAS', value: totals.roas ? fmt(totals.roas, 'multiplier') : '—' },
     { label: 'Avg CTR', value: fmt(totals.avgCtr, 'percent') },
   ]
-  const anomalies: string[] = []
-  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
-  const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
-  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
-  const hasAnomalies = anomalies.length > 0
   const topByCost = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5)
   const topByConv = [...campaigns].filter(c => c.conversions > 0).sort((a, b) => b.conversions - a.conversions).slice(0, 5)
   const maxCost = topByCost.length > 0 ? topByCost[0].spend : 1
@@ -679,20 +739,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customSt
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className={`border px-4 md:px-6 py-4 md:py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${hasAnomalies ? 'text-amber-600' : 'text-accent'}`}>
-              {hasAnomalies ? '⚠ Attention needed' : '✦ Account snapshot'}
-            </p>
-            {hasAnomalies
-              ? <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
-              : <p className="text-sm text-ink">{greeting}. <strong>{fmt(totals.spend, 'currency')}</strong> spent, <strong>{fmt(totals.conversions, 'decimal')}</strong> conversions. {totals.activeCampaigns} active campaigns.</p>
-            }
-          </div>
-          <span className="text-xs font-mono text-muted ml-4 mt-0.5 whitespace-nowrap hidden md:block">AI analysis coming soon</span>
-        </div>
-      </div>
+      <InsightBanner data={data} clientName={clientName} dateRange={dateRange} />
 
       {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
@@ -1493,7 +1540,7 @@ function DashboardContent() {
             </div>
           )}
           {!loading && platformData && activeTab === 'overview' && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
