@@ -29,7 +29,7 @@ export type Campaign = {
   reach?: number
   frequency?: number | null
   objective?: string
-  // Meta e-commerce actions
+  // E-commerce actions (Meta; Google shows — for most)
   addToCart?: number | null
   initiateCheckout?: number | null
   purchases?: number | null
@@ -90,17 +90,17 @@ export const COLUMN_DEFS: ColumnDef[] = [
   { id: 'qualityScore', label: 'QS', platforms: ['google'], defaultOn: false, getValue: c => c.qualityScore ?? null, align: 'right', category: 'google' },
   // ── Meta-only core ──
   { id: 'cpm', label: 'CPM', platforms: ['meta'], defaultOn: false, getValue: c => c.cpm ?? null, align: 'right', category: 'meta' },
-  { id: 'reach', label: 'Reach', platforms: ['meta'], defaultOn: false, getValue: c => c.reach ?? null, align: 'right', category: 'meta' },
+  { id: 'reach', label: 'Reach', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.reach ?? null, align: 'right', category: 'meta' },
   { id: 'frequency', label: 'Frequency', platforms: ['meta'], defaultOn: false, getValue: c => c.frequency ?? null, align: 'right', category: 'meta' },
-  // ── Meta e-commerce ──
-  { id: 'viewContent', label: 'View Content', platforms: ['meta'], defaultOn: false, getValue: c => c.viewContent ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'addToCart', label: 'Add to Cart', platforms: ['meta'], defaultOn: false, getValue: c => c.addToCart ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'initiateCheckout', label: 'Initiate Checkout', platforms: ['meta'], defaultOn: false, getValue: c => c.initiateCheckout ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'purchases', label: 'Purchases', platforms: ['meta'], defaultOn: false, getValue: c => c.purchases ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'addToWishlist', label: 'Add to Wishlist', platforms: ['meta'], defaultOn: false, getValue: c => c.addToWishlist ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'costPerAddToCart', label: 'Cost/ATC', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerAddToCart ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'costPerInitiateCheckout', label: 'Cost/Checkout', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerInitiateCheckout ?? null, align: 'right', category: 'ecommerce' },
-  { id: 'costPerPurchase', label: 'Cost/Purchase', platforms: ['meta'], defaultOn: false, getValue: c => c.costPerPurchase ?? null, align: 'right', category: 'ecommerce' },
+  // ── E-commerce (Meta + Combined) ──
+  { id: 'viewContent', label: 'View Content', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.viewContent ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'addToCart', label: 'Add to Cart', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.addToCart ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'initiateCheckout', label: 'Initiate Checkout', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.initiateCheckout ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'purchases', label: 'Purchases', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.purchases ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'addToWishlist', label: 'Add to Wishlist', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.addToWishlist ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerAddToCart', label: 'Cost/ATC', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.costPerAddToCart ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerInitiateCheckout', label: 'Cost/Checkout', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.costPerInitiateCheckout ?? null, align: 'right', category: 'ecommerce' },
+  { id: 'costPerPurchase', label: 'Cost/Purchase', platforms: ['meta', 'combined'], defaultOn: false, getValue: c => c.costPerPurchase ?? null, align: 'right', category: 'ecommerce' },
 ]
 
 // ─── Status normalization ─────────────────────────────────────────────────────
