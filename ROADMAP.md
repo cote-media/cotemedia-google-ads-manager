@@ -226,3 +226,11 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Charts responsive at small screen sizes
 - [ ] Overview cards stack properly on mobile
 - [ ] Dedicated QA session: go through every screen on phone and fix systematically
+
+## 📊 Chart-Table Column Sync
+- [ ] When user adds a column via the column picker (e.g. "Conversion Rate"), that metric automatically appears as a toggleable line option on the chart above
+- [ ] Chart metric options should mirror whatever columns are currently active in the table
+- [ ] Applies to all levels: campaigns, ad groups, ads
+- [ ] Core metrics (Spend, Clicks, Impressions, Conversions) always available on chart regardless of column selection
+- [ ] Platform-aware: Meta-only columns (CPM, Reach, Frequency) only appear as chart options on Meta view
+- [ ] This makes the table and chart feel like one unified analysis tool rather than two separate components
