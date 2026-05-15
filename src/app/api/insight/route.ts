@@ -46,7 +46,7 @@ Account Summary:
 Top Campaigns by Spend:
 ${topCampaigns.map((c: any) => `- ${c.name}${c.platform ? ' (' + c.platform + ')' : ''}: $${c.spend} spend, ${c.conversions} conv, ROAS ${c.roas || 'N/A'}x, CTR ${c.ctr}%, Status: ${c.status}`).join('\n')}
 
-Write a 2-3 sentence insight for a busy agency owner. Be specific and actionable — mention actual campaign names and numbers. Focus on the most important thing they should know or act on. Do not start with "Your" or "The account". Do not use markdown. Be direct and confident.`
+Write a 1-2 sentence insight for a busy agency owner. Be specific — mention actual campaign names and numbers. Focus on the single most important thing to know or act on. No markdown. No fluff. Direct and confident. Maximum 50 words.`
 
   try {
     const response = await anthropic.messages.create({
