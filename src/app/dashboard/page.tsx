@@ -500,6 +500,196 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
   )
 }
 
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+}) {
+  const { totals, campaigns, platform } = data
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  const metrics = [
+    { label: 'Total Spend', value: fmt(totals.spend, 'currency') },
+    { label: 'Clicks', value: fmt(totals.clicks) },
+    { label: 'Impressions', value: fmt(totals.impressions) },
+    { label: 'Conversions', value: fmt(totals.conversions, 'decimal') },
+    { label: 'ROAS', value: totals.roas ? fmt(totals.roas, 'multiplier') : '—' },
+    { label: 'Avg CTR', value: fmt(totals.avgCtr, 'percent') },
+  ]
+
+  const anomalies: string[] = []
+  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
+  const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
+  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
+  const hasAnomalies = anomalies.length > 0
+
+  const topByCost = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5)
+  const topByConv = [...campaigns].filter(c => c.conversions > 0).sort((a, b) => b.conversions - a.conversions).slice(0, 5)
+  const maxCost = topByCost.length > 0 ? topByCost[0].spend : 1
+  const campaignsWithBudget = campaigns.filter(c => c.budget && c.budget > 0).slice(0, 5)
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {/* Insight banner */}
+      <div className={`border px-4 md:px-6 py-4 md:py-5 ${hasAnomalies ? 'bg-amber-50 border-amber-300' : 'bg-blue-50 border-blue-200'}`}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className={`font-mono text-xs uppercase tracking-widest mb-2 ${hasAnomalies ? 'text-amber-600' : 'text-accent'}`}>
+              {hasAnomalies ? '⚠ Attention needed' : '✦ Account snapshot'}
+            </p>
+            {hasAnomalies ? (
+              <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
+            ) : (
+              <p className="text-sm text-ink">
+                {greeting}. <strong>{fmt(totals.spend, 'currency')}</strong> spent,{' '}
+                <strong>{fmt(totals.conversions, 'decimal')}</strong> conversions.{' '}
+                {totals.activeCampaigns} active campaigns.
+              </p>
+            )}
+          </div>
+          <span className="text-xs font-mono text-muted ml-4 mt-0.5 whitespace-nowrap hidden md:block">AI analysis coming soon</span>
+        </div>
+      </div>
+
+      {/* Combined platform breakdown */}
+      {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white border border-border p-4">
+            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
+            <p className="text-2xl font-display text-accent">{fmt(totals.googleSpend, 'currency')}</p>
+          </div>
+          <div className="bg-white border border-border p-4">
+            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
+            <p className="text-2xl font-display text-accent">{fmt(totals.metaSpend, 'currency')}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Metric tiles */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart */}
+      {platform === 'google' && googleAccountId && (
+        <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+      {platform === 'meta' && metaAccountId && (
+        <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+      {platform === 'combined' && googleAccountId && metaAccountId && (
+        <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+
+      {/* Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
+          <div className="space-y-3">
+            {topByCost.map(c => (
+              <div key={c.id + c.platform}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-ink truncate max-w-[65%]">
+                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
+                    {c.name}
+                  </span>
+                  <span className="text-xs font-mono text-muted">{fmt(c.spend, 'currency')}</span>
+                </div>
+                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                  <div className="h-full bg-accent rounded-full" style={{ width: (c.spend / maxCost * 100) + '%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
+          {topByConv.length === 0 ? (
+            <p className="text-xs text-muted font-mono">No conversions recorded</p>
+          ) : (
+            <div className="space-y-2">
+              {topByConv.map(c => (
+                <div key={c.id + c.platform} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+                  <span className="text-xs text-ink truncate max-w-[55%]">
+                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
+                    {c.name}
+                  </span>
+                  <div className="text-right">
+                    <span className="text-xs font-mono text-accent font-medium">{c.conversions.toFixed(1)} conv</span>
+                    {c.costPerConv && <span className="text-xs font-mono text-muted ml-2">{fmt(c.costPerConv, 'currency')}/conv</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {platform === 'google' && googleAccountId && (
+          <div className="bg-white border border-border p-4 md:p-5">
+            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
+            <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
+          </div>
+        )}
+
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
+          {campaignsWithBudget.length === 0 ? (
+            <p className="text-xs text-muted font-mono">No budget data available</p>
+          ) : (
+            <div className="space-y-3">
+              {campaignsWithBudget.map(c => {
+                const pct = Math.min((c.spend / (c.budget! * 30)) * 100, 100)
+                const barColor = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#2563eb'
+                return (
+                  <div key={c.id + c.platform}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-ink truncate max-w-[60%]">{c.name}</span>
+                      <span className="text-xs font-mono text-muted">{fmt(c.budget!, 'currency')}/day</span>
+                    </div>
+                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: barColor }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+  const [keywords, setKeywords] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
+      .then(r => r.json())
+      .then(d => { setKeywords((d.keywords || []).slice(0, 5)); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [accountId, dateRange])
+  if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
+  if (!keywords.length) return <p className="text-xs text-muted font-mono">No keyword data</p>
+  return (
+    <div className="space-y-2">
+      {keywords.map((k: any, i: number) => (
+        <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+          <span className="text-xs text-ink truncate max-w-[60%]">{k.text}</span>
+          <span className="text-xs font-mono text-muted">${k.cost}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Campaigns Tab ────────────────────────────────────────────────────────────
+
 function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
