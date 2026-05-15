@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
 
@@ -27,24 +27,18 @@ const NAV_ITEMS = [
   { id: 'chat', label: 'Ask Claude', icon: '✦' },
 ]
 
-const CHART_METRICS = [
-  { id: 'cost', label: 'Spend', color: '#2563eb' },
-  { id: 'clicks', label: 'Clicks', color: '#16a34a' },
-  { id: 'impressions', label: 'Impressions', color: '#9333ea' },
-  { id: 'conversions', label: 'Conversions', color: '#ea580c' },
-]
-
 type Client = {
   id: string
   name: string
   platform_connections: { id: string; platform: string; account_id: string; account_name: string }[]
 }
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
-function fmt(n: number, type: 'currency' | 'number' | 'percent' | 'decimal' = 'number'): string {
+function fmt(n: number | null | undefined, type: 'currency' | 'number' | 'percent' | 'decimal' | 'multiplier' = 'number'): string {
+  if (n === null || n === undefined) return '—'
   if (type === 'currency') return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   if (type === 'percent') return n.toFixed(2) + '%'
   if (type === 'decimal') return n.toFixed(2)
+  if (type === 'multiplier') return n.toFixed(2) + 'x'
   return n.toLocaleString()
 }
 
@@ -92,9 +86,16 @@ function ColumnPicker({ platform, active, onChange }: {
   )
 }
 
-// ─── Performance Chart ────────────────────────────────────────────────────────
-function PerformanceChart({ accountId, dateRange, platform, campaignId, campaignName, customStart, customEnd }: {
-  accountId: string; dateRange: string; platform: string; campaignId?: string; campaignName?: string; customStart?: string; customEnd?: string
+// ─── Performance Chart (Google) ───────────────────────────────────────────────
+const GOOGLE_CHART_METRICS = [
+  { id: 'cost', label: 'Spend', color: '#2563eb' },
+  { id: 'clicks', label: 'Clicks', color: '#16a34a' },
+  { id: 'impressions', label: 'Impressions', color: '#9333ea' },
+  { id: 'conversions', label: 'Conversions', color: '#ea580c' },
+]
+
+function GoogleChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
+  accountId: string; dateRange: string; campaignId?: string; campaignName?: string; customStart?: string; customEnd?: string
 }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,7 +103,6 @@ function PerformanceChart({ accountId, dateRange, platform, campaignId, campaign
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
 
   useEffect(() => {
-    if (platform !== 'google') { setLoading(false); return }
     setLoading(true)
     let url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&granularity=' + granularity
     if (campaignId) url += '&campaignId=' + campaignId
@@ -112,11 +112,10 @@ function PerformanceChart({ accountId, dateRange, platform, campaignId, campaign
       .then(r => r.json())
       .then(d => { setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) }))); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [accountId, dateRange, campaignId, granularity, customStart, customEnd, platform])
+  }, [accountId, dateRange, campaignId, granularity, customStart, customEnd])
 
   const toggleMetric = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
 
-  if (platform !== 'google') return null
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
 
@@ -137,7 +136,7 @@ function PerformanceChart({ accountId, dateRange, platform, campaignId, campaign
             ))}
           </div>
           <div className="flex gap-1 flex-wrap">
-            {CHART_METRICS.map(m => (
+            {GOOGLE_CHART_METRICS.map(m => (
               <button key={m.id} onClick={() => toggleMetric(m.id)}
                 className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
                 style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
@@ -153,7 +152,7 @@ function PerformanceChart({ accountId, dateRange, platform, campaignId, campaign
           <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
-          {CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+          {GOOGLE_CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
           ))}
         </LineChart>
@@ -162,7 +161,147 @@ function PerformanceChart({ accountId, dateRange, platform, campaignId, campaign
   )
 }
 
-// ─── Campaigns Table ──────────────────────────────────────────────────────────
+// ─── Meta Chart ───────────────────────────────────────────────────────────────
+const META_CHART_METRICS = [
+  { id: 'cost', label: 'Spend', color: '#0ea5e9' },
+  { id: 'clicks', label: 'Clicks', color: '#10b981' },
+  { id: 'impressions', label: 'Impressions', color: '#8b5cf6' },
+  { id: 'conversions', label: 'Conversions', color: '#f97316' },
+]
+
+function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart, customEnd }: {
+  accountId: string; dateRange: string; campaignId?: string; campaignName?: string; customStart?: string; customEnd?: string
+}) {
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost', 'clicks'])
+
+  useEffect(() => {
+    setLoading(true)
+    let url = '/api/meta/daily?accountId=' + accountId + '&dateRange=' + dateRange
+    if (campaignId) url += '&campaignId=' + campaignId
+    if (customStart) url += '&customStart=' + customStart
+    if (customEnd) url += '&customEnd=' + customEnd
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { setData((d.daily || []).map((row: any) => ({ ...row, date: String(row.date).slice(5) }))); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [accountId, dateRange, campaignId, customStart, customEnd])
+
+  const toggleMetric = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
+  if (!data.length) return null
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+          {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {META_CHART_METRICS.map(m => (
+            <button key={m.id} onClick={() => toggleMetric(m.id)}
+              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          {META_CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+            <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Combined Chart ───────────────────────────────────────────────────────────
+function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
+  googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+}) {
+  const [googleData, setGoogleData] = useState<any[]>([])
+  const [metaData, setMetaData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost'])
+
+  useEffect(() => {
+    setLoading(true)
+    const gUrl = '/api/daily?accountId=' + googleAccountId + '&dateRange=' + dateRange + (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
+    const mUrl = '/api/meta/daily?accountId=' + metaAccountId + '&dateRange=' + dateRange + (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
+
+    Promise.all([
+      fetch(gUrl).then(r => r.json()),
+      fetch(mUrl).then(r => r.json()),
+    ]).then(([gd, md]) => {
+      setGoogleData((gd.daily || []).map((r: any) => ({ date: String(r.date).slice(5), google_cost: r.cost, google_clicks: r.clicks, google_conversions: r.conversions })))
+      setMetaData((md.daily || []).map((r: any) => ({ date: String(r.date).slice(5), meta_cost: r.cost, meta_clicks: r.clicks, meta_conversions: r.conversions })))
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [googleAccountId, metaAccountId, dateRange, customStart, customEnd])
+
+  // Merge by date
+  const merged = (() => {
+    const map: Record<string, any> = {}
+    googleData.forEach(r => { map[r.date] = { ...map[r.date], date: r.date, google_cost: r.google_cost, google_clicks: r.google_clicks, google_conversions: r.google_conversions } })
+    metaData.forEach(r => { map[r.date] = { ...map[r.date], date: r.date, meta_cost: r.meta_cost, meta_clicks: r.meta_clicks, meta_conversions: r.meta_conversions } })
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
+  })()
+
+  const COMBINED_METRICS = [
+    { id: 'cost', label: 'Spend', googleKey: 'google_cost', metaKey: 'meta_cost', googleColor: '#2563eb', metaColor: '#0ea5e9' },
+    { id: 'clicks', label: 'Clicks', googleKey: 'google_clicks', metaKey: 'meta_clicks', googleColor: '#16a34a', metaColor: '#10b981' },
+    { id: 'conversions', label: 'Conversions', googleKey: 'google_conversions', metaKey: 'meta_conversions', googleColor: '#ea580c', metaColor: '#f97316' },
+  ]
+
+  const toggleMetric = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
+  if (!merged.length) return null
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Combined Performance</h3>
+          <p className="text-xs text-muted font-mono mt-0.5">🔵 Google · 🔷 Meta</p>
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {COMBINED_METRICS.map(m => (
+            <button key={m.id} onClick={() => toggleMetric(m.id)}
+              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'bg-ink text-white border-ink' : 'text-muted border-border hover:text-ink')}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <Legend iconType="line" wrapperStyle={{ fontSize: 10, fontFamily: 'monospace' }} />
+          {COMBINED_METRICS.filter(m => activeMetrics.includes(m.id)).flatMap(m => [
+            <Line key={m.id + '_google'} type="monotone" dataKey={m.googleKey} stroke={m.googleColor} strokeWidth={2} dot={false} name={'🔵 ' + m.label} />,
+            <Line key={m.id + '_meta'} type="monotone" dataKey={m.metaKey} stroke={m.metaColor} strokeWidth={2} dot={false} strokeDasharray="4 2" name={'🔷 ' + m.label} />,
+          ])}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// ─── Campaigns Table with Totals ──────────────────────────────────────────────
 function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, onSelectCampaign }: {
   campaigns: Campaign[]
   platform: Platform
@@ -188,15 +327,48 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
     else { setSortCol(id); setSortDir('desc') }
   }
 
+  // Compute totals row
+  const totals = {
+    spend: campaigns.reduce((s, c) => s + c.spend, 0),
+    clicks: campaigns.reduce((s, c) => s + c.clicks, 0),
+    impressions: campaigns.reduce((s, c) => s + c.impressions, 0),
+    conversions: campaigns.reduce((s, c) => s + c.conversions, 0),
+    conversionValue: campaigns.reduce((s, c) => s + c.conversionValue, 0),
+  }
+  const totalsCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
+  const totalsRoas = totals.spend > 0 && totals.conversionValue > 0 ? totals.conversionValue / totals.spend : null
+  const totalsCostPerConv = totals.conversions > 0 ? totals.spend / totals.conversions : null
+  const totalsAvgCpc = totals.clicks > 0 ? totals.spend / totals.clicks : null
+  const totalsConvRate = totals.clicks > 0 ? (totals.conversions / totals.clicks) * 100 : null
+
+  function getTotalValue(colId: string): string {
+    switch (colId) {
+      case 'spend': return fmt(totals.spend, 'currency')
+      case 'clicks': return fmt(totals.clicks)
+      case 'impressions': return fmt(totals.impressions)
+      case 'conversions': return fmt(totals.conversions, 'decimal')
+      case 'ctr': return fmt(totalsCtr, 'percent')
+      case 'roas': return totalsRoas ? fmt(totalsRoas, 'multiplier') : '—'
+      case 'costPerConv': return totalsCostPerConv ? fmt(totalsCostPerConv, 'currency') : '—'
+      case 'avgCpc': return totalsAvgCpc ? fmt(totalsAvgCpc, 'currency') : '—'
+      case 'convRate': return totalsConvRate ? fmt(totalsConvRate, 'percent') : '—'
+      case 'budget': return '—'
+      case 'cpm': return totals.impressions > 0 ? fmt((totals.spend / totals.impressions) * 1000, 'currency') : '—'
+      case 'reach': return '—'
+      case 'frequency': return '—'
+      default: return '—'
+    }
+  }
+
   function formatValue(col: typeof COLUMN_DEFS[0], c: Campaign): string {
     const val = col.getValue(c)
     if (val === null || val === undefined) return '—'
     const n = Number(val)
-    if (['spend', 'costPerConv', 'avgCpc', 'cpm', 'budget'].includes(col.id)) return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    if (['ctr', 'convRate'].includes(col.id)) return n.toFixed(2) + '%'
-    if (['roas'].includes(col.id)) return n.toFixed(2) + 'x'
+    if (['spend', 'costPerConv', 'avgCpc', 'cpm', 'budget'].includes(col.id)) return fmt(n, 'currency')
+    if (['ctr', 'convRate'].includes(col.id)) return fmt(n, 'percent')
+    if (['roas'].includes(col.id)) return fmt(n, 'multiplier')
     if (['frequency'].includes(col.id)) return n.toFixed(2)
-    if (['clicks', 'impressions', 'reach'].includes(col.id)) return n.toLocaleString()
+    if (['clicks', 'impressions', 'reach'].includes(col.id)) return fmt(n)
     if (['conversions'].includes(col.id)) return n.toFixed(1)
     return String(val)
   }
@@ -229,7 +401,7 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
                 </td>
                 {platform === 'combined' && (
                   <td className="px-3 py-3 whitespace-nowrap">
-                    <span className="text-xs font-mono text-muted">{c.platform === 'google' ? '🔵' : '🔷'} {c.platform === 'google' ? 'Google' : 'Meta'}</span>
+                    <span className="text-xs font-mono text-muted">{c.platform === 'google' ? '🔵' : '🔷'}</span>
                   </td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={c.status} /></td>
@@ -242,14 +414,28 @@ function CampaignsTable({ campaigns, platform, activeCols, selectedCampaignId, o
             )
           })}
         </tbody>
+        {campaigns.length > 1 && (
+          <tfoot>
+            <tr className="border-t-2 border-border bg-surface font-medium">
+              <td className="px-3 py-3 font-mono text-xs text-muted sticky left-0 bg-surface">Total</td>
+              {platform === 'combined' && <td className="px-3 py-3" />}
+              <td className="px-3 py-3" />
+              {visibleCols.map(col => (
+                <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap text-ink">
+                  {getTotalValue(col.id)}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   )
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, dateRange, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
   const { totals, campaigns, platform } = data
   const hour = new Date().getHours()
@@ -260,16 +446,14 @@ function OverviewTab({ data, googleAccountId, dateRange, customStart, customEnd 
     { label: 'Clicks', value: fmt(totals.clicks) },
     { label: 'Impressions', value: fmt(totals.impressions) },
     { label: 'Conversions', value: fmt(totals.conversions, 'decimal') },
-    { label: 'ROAS', value: totals.roas ? totals.roas.toFixed(2) + 'x' : '—' },
+    { label: 'ROAS', value: totals.roas ? fmt(totals.roas, 'multiplier') : '—' },
     { label: 'Avg CTR', value: fmt(totals.avgCtr, 'percent') },
   ]
 
   const anomalies: string[] = []
-  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + totals.roas.toFixed(2) + 'x')
+  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
   const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
   if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
-  const zeroConvHighSpend = campaigns.filter(c => c.conversions === 0 && c.spend > 50)
-  if (zeroConvHighSpend.length > 0) anomalies.push(zeroConvHighSpend.length + ' campaign(s) spent $50+ with zero conversions')
   const hasAnomalies = anomalies.length > 0
 
   const topByCost = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5)
@@ -324,6 +508,17 @@ function OverviewTab({ data, googleAccountId, dateRange, customStart, customEnd 
         ))}
       </div>
 
+      {/* Chart */}
+      {platform === 'google' && googleAccountId && (
+        <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+      {platform === 'meta' && metaAccountId && (
+        <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+      {platform === 'combined' && googleAccountId && metaAccountId && (
+        <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+
       {/* Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-white border border-border p-4 md:p-5">
@@ -368,7 +563,7 @@ function OverviewTab({ data, googleAccountId, dateRange, customStart, customEnd 
           )}
         </div>
 
-        {platform === 'google' && (
+        {platform === 'google' && googleAccountId && (
           <div className="bg-white border border-border p-4 md:p-5">
             <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
@@ -400,10 +595,6 @@ function OverviewTab({ data, googleAccountId, dateRange, customStart, customEnd 
           )}
         </div>
       </div>
-
-      {platform === 'google' && googleAccountId && (
-        <PerformanceChart accountId={googleAccountId} dateRange={dateRange} platform={platform} customStart={customStart} customEnd={customEnd} />
-      )}
     </div>
   )
 }
@@ -432,8 +623,8 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
 }
 
 // ─── Campaigns Tab ────────────────────────────────────────────────────────────
-function CampaignsTab({ data, googleAccountId, dateRange, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
   const { campaigns, platform } = data
   const storageKey = 'advar-cols-' + platform
@@ -454,6 +645,10 @@ function CampaignsTab({ data, googleAccountId, dateRange, customStart, customEnd
 
   const handleSelect = (id: string, name: string) => { setSelectedId(id); setSelectedName(id ? name : '') }
 
+  // Find the platform of the selected campaign for chart routing
+  const selectedCampaign = campaigns.find(c => c.id === selectedId)
+  const selectedPlatform = selectedCampaign?.platform || platform
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -462,15 +657,34 @@ function CampaignsTab({ data, googleAccountId, dateRange, customStart, customEnd
           <p className="text-sm text-muted font-mono">
             {campaigns.length} campaigns
             {selectedName && <span className="text-accent"> · {selectedName}</span>}
+            {!selectedName && platform === 'google' && <span className="text-muted"> · Click a row to view its trend</span>}
           </p>
         </div>
         <ColumnPicker platform={platform} active={activeCols} onChange={updateCols} />
       </div>
+
+      {/* Chart - show appropriate chart based on platform */}
       {platform === 'google' && googleAccountId && (
-        <PerformanceChart accountId={googleAccountId} dateRange={dateRange} platform={platform}
+        <GoogleChart accountId={googleAccountId} dateRange={dateRange}
           campaignId={selectedId || undefined} campaignName={selectedName || undefined}
           customStart={customStart} customEnd={customEnd} />
       )}
+      {platform === 'meta' && metaAccountId && (
+        <MetaChart accountId={metaAccountId} dateRange={dateRange}
+          campaignId={selectedId || undefined} campaignName={selectedName || undefined}
+          customStart={customStart} customEnd={customEnd} />
+      )}
+      {platform === 'combined' && selectedId && (
+        selectedPlatform === 'google' && googleAccountId
+          ? <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedId} campaignName={selectedName} customStart={customStart} customEnd={customEnd} />
+          : selectedPlatform === 'meta' && metaAccountId
+          ? <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedId} campaignName={selectedName} customStart={customStart} customEnd={customEnd} />
+          : null
+      )}
+      {platform === 'combined' && !selectedId && googleAccountId && metaAccountId && (
+        <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
+
       <CampaignsTable campaigns={campaigns} platform={platform} activeCols={activeCols}
         selectedCampaignId={selectedId} onSelectCampaign={handleSelect} />
     </div>
@@ -493,12 +707,14 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     { id: 'conversions', label: 'Conv.', defaultOn: false },
     { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
   ]
+  const defaultKwCols = kwCols.filter(c => c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
-      try { return JSON.parse(localStorage.getItem('advar-kw-cols') || 'null') || kwCols.filter(c => c.defaultOn).map(c => c.id) } catch { return kwCols.filter(c => c.defaultOn).map(c => c.id) }
+      try { return JSON.parse(localStorage.getItem('advar-kw-cols') || 'null') || defaultKwCols } catch { return defaultKwCols }
     }
-    return kwCols.filter(c => c.defaultOn).map(c => c.id)
+    return defaultKwCols
   })
+  const [colPickerOpen, setColPickerOpen] = useState(false)
   const has = (id: string) => activeCols.includes(id)
   const updateCols = (cols: string[]) => { setActiveCols(cols); if (typeof window !== 'undefined') localStorage.setItem('advar-kw-cols', JSON.stringify(cols)) }
 
@@ -548,6 +764,15 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
     return 'text-red-600'
   }
 
+  // Totals
+  const totalSpend = keywords.reduce((s, k) => s + Number(k.cost), 0)
+  const totalClicks = keywords.reduce((s, k) => s + Number(k.clicks), 0)
+  const totalImpressions = keywords.reduce((s, k) => s + Number(k.impressions || 0), 0)
+  const totalConversions = keywords.reduce((s, k) => s + Number(k.conversions || 0), 0)
+  const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
+  const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0
+  const costPerConv = totalConversions > 0 ? totalSpend / totalConversions : 0
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -556,23 +781,23 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
           <p className="text-sm text-muted font-mono">Top 200 by spend</p>
         </div>
         <div className="relative">
-          <button onClick={() => {
-            const open = document.getElementById('kw-col-picker')
-            if (open) open.classList.toggle('hidden')
-          }} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
+          <button onClick={() => setColPickerOpen(!colPickerOpen)} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">
             ⊞ Columns
           </button>
-          <div id="kw-col-picker" className="hidden absolute right-0 top-9 bg-white border border-border shadow-lg z-20 p-4 w-48">
-            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
-            {kwCols.map(col => (
-              <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                <input type="checkbox" checked={activeCols.includes(col.id)}
-                  onChange={e => { if (e.target.checked) updateCols([...activeCols, col.id]); else updateCols(activeCols.filter(c => c !== col.id)) }}
-                  className="accent-accent" />
-                <span className="text-xs text-ink">{col.label}</span>
-              </label>
-            ))}
-          </div>
+          {colPickerOpen && (
+            <div className="absolute right-0 top-9 bg-white border border-border shadow-lg z-20 p-4 w-48">
+              <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
+              {kwCols.map(col => (
+                <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                  <input type="checkbox" checked={activeCols.includes(col.id)}
+                    onChange={e => { if (e.target.checked) updateCols([...activeCols, col.id]); else updateCols(activeCols.filter(c => c !== col.id)) }}
+                    className="accent-accent" />
+                  <span className="text-xs text-ink">{col.label}</span>
+                </label>
+              ))}
+              <button onClick={() => setColPickerOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">Done</button>
+            </div>
+          )}
         </div>
       </div>
       {loading ? (
@@ -616,6 +841,23 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
                 </tr>
               ))}
             </tbody>
+            {keywords.length > 1 && (
+              <tfoot>
+                <tr className="border-t-2 border-border bg-surface font-medium">
+                  <td className="px-3 py-3 font-mono text-xs text-muted sticky left-0 bg-surface">Total</td>
+                  <td className="px-3 py-3" />
+                  <td className="px-3 py-3 hidden md:table-cell" />
+                  {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalImpressions.toLocaleString()}</td>}
+                  {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm">${totalSpend.toFixed(2)}</td>}
+                  {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm">{totalClicks.toLocaleString()}</td>}
+                  {has('avgCpc') && <td className="px-3 py-3 text-right font-mono text-sm">{avgCpc > 0 ? '$' + avgCpc.toFixed(2) : '—'}</td>}
+                  {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm">{avgCtr.toFixed(2)}%</td>}
+                  {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalConversions.toFixed(1)}</td>}
+                  {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm">{costPerConv > 0 ? '$' + costPerConv.toFixed(2) : '—'}</td>}
+                  {has('qs') && <td className="px-3 py-3 text-right font-mono text-sm text-muted">avg</td>}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}
@@ -633,7 +875,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Claude</h2>
-          <p className="text-sm text-muted font-mono">Asking about {clientName} · {platformLabel}</p>
+          <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}</p>
         </div>
         <div className="flex gap-2">
           <label className="text-xs font-mono text-muted hover:text-ink border border-border px-2 md:px-3 py-1.5 transition-colors cursor-pointer">
@@ -730,7 +972,6 @@ function DashboardContent() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
 
-  // Chat state
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>(() => {
     if (typeof window !== 'undefined') {
@@ -761,22 +1002,22 @@ function DashboardContent() {
       const savedId = localStorage.getItem('advar-active-client')
       const saved = list.find(c => c.id === savedId)
       const toSelect = saved || list[0] || null
-      if (toSelect) selectClient(toSelect, activePlatform)
+      if (toSelect) selectClient(toSelect)
     } catch (e) { console.error(e) }
   }
 
-  function selectClient(client: Client, platform?: Platform) {
+  function selectClient(client: Client, overridePlatform?: Platform) {
     setSelectedClient(client)
     localStorage.setItem('advar-active-client', client.id)
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
-    const savedPlatform = platform || (localStorage.getItem('advar-active-platform') as Platform) || 'google'
-    const resolvedPlatform = (savedPlatform === 'google' && hasGoogle) ? 'google'
+    const savedPlatform = overridePlatform || (localStorage.getItem('advar-active-platform') as Platform) || 'google'
+    const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
       : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
-    setActivePlatform(resolvedPlatform)
-    loadData(client, resolvedPlatform, dateRange, customStart, customEnd)
+    setActivePlatform(resolved)
+    loadData(client, resolved, dateRange, customStart, customEnd)
   }
 
   function changePlatform(platform: Platform) {
@@ -835,14 +1076,7 @@ function DashboardContent() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg,
-          accountId: googleConn?.account_id,
-          summary: platformData,
-          dateRange, history: history.slice(0, -1),
-          accountName: selectedClient.name,
-          platform: activePlatform,
-        }),
+        body: JSON.stringify({ message: userMsg, accountId: googleConn?.account_id, summary: platformData, dateRange, history: history.slice(0, -1), accountName: selectedClient.name, platform: activePlatform }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
@@ -897,8 +1131,8 @@ function DashboardContent() {
   const hasMeta = !!metaConn
   const hasBoth = hasGoogle && hasMeta
   const googleAccountId = googleConn?.account_id || ''
+  const metaAccountId = metaConn?.account_id || ''
 
-  // Platform-aware nav — hide keywords on meta/combined
   const visibleNavItems = NAV_ITEMS.filter(item => {
     if (item.googleOnly && activePlatform !== 'google') return false
     return true
@@ -912,7 +1146,6 @@ function DashboardContent() {
     <div className="min-h-screen bg-paper flex">
       {/* Desktop Sidebar */}
       <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
-        {/* Logo */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto">
@@ -941,33 +1174,30 @@ function DashboardContent() {
           <div className="border-b border-border flex-shrink-0">
             {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 font-mono text-xs text-muted uppercase tracking-wider">Platform</p>}
             {hasGoogle && (
-              <button onClick={() => changePlatform('google')}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}
-                title={sidebarCollapsed ? 'Google Ads' : undefined}>
-                <span className="text-sm">🔵</span>
+              <button onClick={() => changePlatform('google')} title={sidebarCollapsed ? 'Google Ads' : undefined}
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <span className="text-sm flex-shrink-0">🔵</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Google Ads</span>}
               </button>
             )}
             {hasMeta && (
-              <button onClick={() => changePlatform('meta')}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}
-                title={sidebarCollapsed ? 'Meta Ads' : undefined}>
-                <span className="text-sm">🔷</span>
+              <button onClick={() => changePlatform('meta')} title={sidebarCollapsed ? 'Meta Ads' : undefined}
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <span className="text-sm flex-shrink-0">🔷</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Meta Ads</span>}
               </button>
             )}
             {hasBoth && (
-              <button onClick={() => changePlatform('combined')}
-                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}
-                title={sidebarCollapsed ? 'Combined' : undefined}>
-                <span className="text-sm">⊕</span>
+              <button onClick={() => changePlatform('combined')} title={sidebarCollapsed ? 'Combined' : undefined}
+                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <span className="text-sm flex-shrink-0">⊕</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Combined</span>}
               </button>
             )}
           </div>
         )}
 
-        {/* Nav items */}
+        {/* Nav */}
         <nav className="py-2 flex-shrink-0">
           {visibleNavItems.map(item => (
             <button key={item.id} onClick={() => changeTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
@@ -1014,7 +1244,7 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Desktop top bar */}
         <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
@@ -1073,13 +1303,21 @@ function DashboardContent() {
             <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">{selectedClient.name}</h1>
           )}
 
-          {platformData && activeTab === 'overview' && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+          {loading && (
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center gap-2 text-muted font-mono text-sm">
+                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading...
+              </div>
+            </div>
           )}
-          {platformData && activeTab === 'campaigns' && (
-            <CampaignsTab data={platformData} googleAccountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+
+          {!loading && platformData && activeTab === 'overview' && (
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
           )}
-          {activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
+          {!loading && platformData && activeTab === 'campaigns' && (
+            <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+          )}
+          {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
             <KeywordsTab accountId={googleAccountId} dateRange={dateRange} />
           )}
           {activeTab === 'chat' && (
@@ -1087,20 +1325,10 @@ function DashboardContent() {
               onSend={sendChat} accountSelected={!!selectedClient} onDownload={downloadChat} onUpload={uploadChat}
               exchangeCount={exchangeCount} platform={activePlatform} clientName={selectedClient?.name || ''} />
           )}
-          {!platformData && !loading && selectedClient && activeTab !== 'keywords' && activeTab !== 'chat' && (
-            <div className="flex items-center justify-center h-64"><p className="text-muted font-mono text-sm">Loading...</p></div>
-          )}
-          {!selectedClient && clients.length === 0 && (
+          {!selectedClient && clients.length === 0 && !loading && (
             <div className="flex items-center justify-center h-64 flex-col gap-4">
               <p className="text-muted font-mono text-sm">No clients set up yet.</p>
               <a href="/clients" className="btn-primary text-sm">Set up clients →</a>
-            </div>
-          )}
-          {loading && (
-            <div className="flex items-center justify-center h-64">
-              <div className="flex items-center gap-2 text-muted font-mono text-sm">
-                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading...
-              </div>
             </div>
           )}
         </main>
