@@ -338,14 +338,13 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
   campaignId: string; accountId: string; dateRange: string; platform: Platform; metaAccountId?: string; customStart?: string; customEnd?: string
 }) {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
-  const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost'])
+  const [activeMetric, setActiveMetric] = useState<'cost' | 'clicks' | 'impressions' | 'conversions'>('cost')
   const [series, setSeries] = useState<{ id: string; name: string; spend: number; daily: any[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
 
   const metricLabels: Record<string, string> = { cost: 'Spend', clicks: 'Clicks', impressions: 'Impressions', conversions: 'Conversions' }
   const metricColors: Record<string, string> = { cost: '#2563eb', clicks: '#16a34a', impressions: '#9333ea', conversions: '#ea580c' }
-  const toggleMetric = (m: string) => setActiveMetrics(prev => prev.includes(m) ? (prev.length > 1 ? prev.filter(x => x !== m) : prev) : [...prev, m])
 
   useEffect(() => {
     if (!campaignId) return
@@ -389,9 +388,7 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
     series.filter(s => visibleIds.has(s.id)).forEach(s => {
       s.daily.forEach((row: any) => {
         if (!map[row.date]) map[row.date] = { date: row.date }
-        activeMetrics.forEach(metric => {
-          map[row.date][s.id + '_' + metric] = row[metric] ?? 0
-        })
+        map[row.date][s.id] = row[activeMetric] ?? 0
       })
     })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
@@ -422,9 +419,9 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
           )}
           <div className="flex gap-1">
             {(Object.keys(metricLabels)).map(m => (
-              <button key={m} onClick={() => toggleMetric(m)}
-                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-                style={activeMetrics.includes(m) ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+              <button key={m} onClick={() => setActiveMetric(m as any)}
+                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
                 {metricLabels[m]}
               </button>
             ))}
@@ -452,15 +449,9 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
           <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
-          {series.filter(s => visibleIds.has(s.id)).flatMap(s =>
-            activeMetrics.map(metric => (
-              <Line key={s.id + '_' + metric} type="monotone" dataKey={s.id + '_' + metric}
-                stroke={colorMap[s.id]}
-                strokeWidth={2}
-                strokeDasharray={activeMetrics.indexOf(metric) > 0 ? '4 2' : undefined}
-                dot={false} name={s.name + ' ' + metricLabels[metric]} connectNulls />
-            ))
-          )}
+          {series.filter(s => visibleIds.has(s.id)).map(s => (
+            <Line key={s.id} type="monotone" dataKey={s.id} stroke={colorMap[s.id]} strokeWidth={2} dot={false} name={s.name} connectNulls />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -577,6 +568,16 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
 
   const nameLabel = level === 'campaigns' ? 'Campaign' : level === 'adgroups' ? (platform === 'meta' ? 'Ad Set' : 'Ad Group') : 'Ad'
 
+  function normalizeStatus(s: string): CampaignStatus {
+    const u = String(s || '').toUpperCase()
+    if (u === 'ACTIVE' || u === 'ENABLED' || u === '2') return 'active'
+    if (u === 'PAUSED' || u === '3' || u === 'CAMPAIGN_PAUSED' || u === 'ADSET_PAUSED') return 'paused'
+    if (u === 'COMPLETED') return 'completed'
+    if (u === 'ARCHIVED') return 'archived'
+    if (u === 'DELETED' || u === 'REMOVED' || u === '4') return 'deleted'
+    return 'unknown'
+  }
+
   return (
     <div className="bg-white border border-border overflow-x-auto">
       <table className="w-full text-sm">
@@ -616,7 +617,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                 {platform === 'combined' && level === 'campaigns' && (
                   <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</td>
                 )}
-                <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={row.status} /></td>
+                <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={normalizeStatus(row.status)} /></td>
                 {level === 'ads' && <td className="px-3 py-3 text-xs text-muted max-w-xs truncate hidden md:table-cell">{row.description || row.body || ''}</td>}
                 {visibleCols.map(col => (
                   <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">
@@ -665,7 +666,9 @@ function Breadcrumb({ drill, onNavigate }: { drill: DrillState; onNavigate: (lev
       {drill.adGroup && drill.level === 'ads' && (
         <>
           <span className="text-muted">›</span>
-          <span className="text-muted">{drill.campaign?.platform === 'meta' ? 'Ad Sets' : 'Ad Groups'}</span>
+          <button onClick={() => onNavigate('adgroups')} className="text-accent hover:underline">
+            {drill.campaign?.platform === 'meta' ? 'Ad Sets' : 'Ad Groups'}
+          </button>
           <span className="text-muted">›</span>
           <span className="text-ink font-medium truncate max-w-xs">{drill.adGroup.name}</span>
         </>
