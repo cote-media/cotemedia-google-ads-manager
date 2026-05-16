@@ -158,7 +158,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
@@ -231,7 +231,7 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
@@ -302,7 +302,7 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
   if (!merged.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Combined Performance</h3>
@@ -404,7 +404,7 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
   if (!series.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2">
           {platform === 'google' && (
@@ -534,7 +534,7 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
   const max = barData[0]?.[activeMetric] || 1
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
@@ -693,7 +693,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
   }
 
   return (
-    <div className="bg-white border border-border overflow-x-auto">
+    <div className="bg-white border border-border overflow-x-auto rounded-xl shadow-sm">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-surface">
@@ -831,7 +831,7 @@ function InsightBanner({ data, clientName, dateRange }: { data: PlatformData; cl
 
   if (hasAnomalies) {
     return (
-      <div className="border px-4 md:px-6 py-4 md:py-5 bg-amber-50 border-amber-300">
+      <div className="border px-4 md:px-6 py-4 md:py-5 bg-amber-50 border-amber-300 rounded-xl">
         <p className="font-mono text-xs uppercase tracking-widest mb-2 text-amber-600">⚠ Attention needed</p>
         <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
       </div>
@@ -839,7 +839,7 @@ function InsightBanner({ data, clientName, dateRange }: { data: PlatformData; cl
   }
 
   return (
-    <div className="border px-4 md:px-6 py-4 md:py-5 bg-blue-50 border-blue-200">
+    <div className="border px-4 md:px-6 py-4 md:py-5 bg-blue-50 border-blue-200 rounded-xl">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
@@ -882,11 +882,11 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
 
       {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white border border-border p-4">
+          <div className="bg-white border border-border p-4 rounded-xl shadow-sm">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
             <p className="text-2xl font-display text-accent">{fmt(totals.googleSpend, 'currency')}</p>
           </div>
-          <div className="bg-white border border-border p-4">
+          <div className="bg-white border border-border p-4 rounded-xl shadow-sm">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
             <p className="text-2xl font-display text-accent">{fmt(totals.metaSpend, 'currency')}</p>
           </div>
@@ -895,7 +895,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
-          <div key={m.label} className="bg-white p-3 md:p-5">
+          <div key={m.label} className="bg-white p-3 md:p-5 first:rounded-l-xl last:rounded-r-xl">
             <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
             <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
           </div>
@@ -907,8 +907,8 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
       {platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Campaign Performance</h3>
           <div className="space-y-3">
             {topByCost.map(c => (
               <div key={c.id + c.platform}>
@@ -926,8 +926,8 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
             ))}
           </div>
         </div>
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Conversion Leaders</h3>
           {topByConv.length === 0 ? <p className="text-xs text-muted font-mono">No conversions recorded</p> : (
             <div className="space-y-2">
               {topByConv.map(c => (
@@ -946,13 +946,13 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
           )}
         </div>
         {platform === 'google' && googleAccountId && (
-          <div className="bg-white border border-border p-4 md:p-5">
-            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
+          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Top Keywords by Spend</h3>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
           </div>
         )}
-        <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Budget Utilization</h3>
           {campaignsWithBudget.length === 0 ? <p className="text-xs text-muted font-mono">No budget data available</p> : (
             <div className="space-y-3">
               {campaignsWithBudget.map(c => {
@@ -1239,7 +1239,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
         </div>
       </div>
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
-        <div className="bg-white border border-border overflow-x-auto">
+        <div className="bg-white border border-border overflow-x-auto rounded-xl shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface">
@@ -1367,7 +1367,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             placeholder={accountSelected ? (atLimit ? 'Download and re-upload to continue...' : 'Ask about ' + clientName + '...') : 'Select a client first'}
             disabled={!accountSelected || atLimit}
             className="flex-1 border border-border px-3 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
-          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Send</button>
+          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed rounded-lg">Send</button>
         </div>
       </div>
     </div>
@@ -1560,7 +1560,7 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-paper flex">
       {/* Desktop Sidebar */}
-      <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
+      <div className={`hidden md:flex flex-col border-r border-border bg-white shadow-sm transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto">
@@ -1586,21 +1586,21 @@ function DashboardContent() {
             {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 font-mono text-xs text-muted uppercase tracking-wider">Platform</p>}
             {hasGoogle && (
               <button onClick={() => changePlatform('google')} title={sidebarCollapsed ? 'Google Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">🔵</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Google Ads</span>}
               </button>
             )}
             {hasMeta && (
               <button onClick={() => changePlatform('meta')} title={sidebarCollapsed ? 'Meta Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">🔷</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Meta Ads</span>}
               </button>
             )}
             {hasBoth && (
               <button onClick={() => changePlatform('combined')} title={sidebarCollapsed ? 'Combined' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">⊕</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Combined</span>}
               </button>
@@ -1610,7 +1610,7 @@ function DashboardContent() {
         <nav className="py-2 flex-shrink-0">
           {visibleNavItems.map(item => (
             <button key={item.id} onClick={() => changeTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
-              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent text-white' : 'text-muted hover:text-ink hover:bg-surface')}>
+              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent text-white rounded-lg mx-1' : 'text-muted hover:text-ink hover:bg-surface rounded-lg mx-1')}>
               <span className="text-base leading-none w-4 text-center">{item.icon}</span>
               {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">{item.label}</span>}
             </button>
@@ -1649,7 +1649,7 @@ function DashboardContent() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
+        <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white/95 backdrop-blur-sm sticky top-0 z-10">
           <p className="text-xs text-muted font-mono">
             {loading
               ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
@@ -1695,7 +1695,7 @@ function DashboardContent() {
           </div>
         )}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
-          {selectedClient && <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">{selectedClient.name}</h1>}
+          {selectedClient && <h1 className="font-display text-2xl md:text-3xl text-ink mb-6 tracking-tight">{selectedClient.name}</h1>}
           {loading && (
             <div className="flex items-center justify-center h-64">
               <div className="flex items-center gap-2 text-muted font-mono text-sm">
