@@ -882,18 +882,18 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
   const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet(storageKey, JSON.stringify(cols)) }
 
   async function drillIntoCampaign(campaign: any) {
-    if (platform === 'combined') return
-    const newDrill: DrillState = { level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaign.platform || platform as 'google' | 'meta' }, adGroup: null }
+    const campaignPlatform: 'google' | 'meta' = campaign.platform || (platform === 'combined' ? 'google' : platform as 'google' | 'meta')
+    const newDrill: DrillState = { level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaignPlatform }, adGroup: null }
     saveDrill(newDrill)
     setSubLoading(true)
     setSubRows([])
     try {
       const base = (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
-      if (platform === 'google') {
+      if (campaignPlatform === 'google') {
         const res = await fetch('/api/google/adgroups?accountId=' + googleAccountId + '&campaignId=' + campaign.id + '&dateRange=' + dateRange + base)
         const d = await res.json()
         setSubRows(d.adGroups || [])
-      } else if (platform === 'meta') {
+      } else if (campaignPlatform === 'meta') {
         const res = await fetch('/api/meta/adsets?campaignId=' + campaign.id + '&dateRange=' + dateRange + base)
         const d = await res.json()
         setSubRows(d.adSets || [])
@@ -909,11 +909,12 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
     setSubRows([])
     try {
       const base = (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
-      if (platform === 'google') {
+      const campaignPlatform = drill.campaign?.platform || (platform === 'combined' ? 'google' : platform as 'google' | 'meta')
+      if (campaignPlatform === 'google') {
         const res = await fetch('/api/google/ads?accountId=' + googleAccountId + '&adGroupId=' + adGroup.id + '&dateRange=' + dateRange + base)
         const d = await res.json()
         setSubRows(d.ads || [])
-      } else if (platform === 'meta') {
+      } else if (campaignPlatform === 'meta') {
         const res = await fetch('/api/meta/ads?adSetId=' + adGroup.id + '&dateRange=' + dateRange + base)
         const d = await res.json()
         setSubRows(d.ads || [])
@@ -1244,6 +1245,13 @@ function DashboardContent() {
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
   useEffect(() => { if (session) fetchClients() }, [session])
+
+  // Prevent auto-refresh when switching back to this browser tab
+  useEffect(() => {
+    const handleVisibility = (e: Event) => { e.stopImmediatePropagation() }
+    document.addEventListener('visibilitychange', handleVisibility, true)
+    return () => document.removeEventListener('visibilitychange', handleVisibility, true)
+  }, [])
   useEffect(() => { if (chatMessages.length > 0) lsSet('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
   useEffect(() => { lsSet('advar-session-start', String(sessionStart)) }, [sessionStart])
 
