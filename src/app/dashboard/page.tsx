@@ -1340,14 +1340,13 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
   const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
   const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
   const platformLabel = platform === 'google' ? 'Google Ads' : platform === 'meta' ? 'Meta Ads' : 'all platforms'
-  const levelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
-  const levelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
+  const chatLevelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
   return (
     <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Claude</h2>
-          <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}{levelLabel}</p>
+          <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}{chatLevelLabel}</p>
         </div>
         <div className="flex gap-2">
           <label className="text-xs font-mono text-muted hover:text-ink border border-border px-2 md:px-3 py-1.5 transition-colors cursor-pointer">
