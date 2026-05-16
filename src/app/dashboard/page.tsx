@@ -1336,16 +1336,18 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
 }
 
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
-function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount, platform, clientName }: any) {
+function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount, platform, clientName, drillLevel }: any) {
   const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
   const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
   const platformLabel = platform === 'google' ? 'Google Ads' : platform === 'meta' ? 'Meta Ads' : 'all platforms'
+  const levelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
+  const levelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
   return (
     <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
           <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Claude</h2>
-          <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}</p>
+          <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}{levelLabel}</p>
         </div>
         <div className="flex gap-2">
           <label className="text-xs font-mono text-muted hover:text-ink border border-border px-2 md:px-3 py-1.5 transition-colors cursor-pointer">
@@ -1538,10 +1540,30 @@ function DashboardContent() {
     setChatLoading(true)
     const history = newMessages.slice(-8).map(m => ({ role: m.role, content: m.content }))
     const googleConn = selectedClient.platform_connections.find(p => p.platform === 'google')
+    const metaConn = selectedClient.platform_connections.find(p => p.platform === 'meta')
+
+    // Read current drill state from localStorage
+    const drillState = lsJson('advar-drill-state', { level: 'campaigns', campaign: null, adGroup: null }) as any
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, accountId: googleConn?.account_id, summary: platformData, dateRange, history: history.slice(0, -1), accountName: selectedClient.name, platform: activePlatform }),
+        body: JSON.stringify({
+          message: userMsg,
+          history: history.slice(0, -1),
+          // Platform context
+          platform: activePlatform,
+          platformData,
+          dateRange,
+          // Client context
+          clientId: selectedClient.id,
+          clientName: selectedClient.name,
+          accountId: googleConn?.account_id,
+          // Drill context
+          drillLevel: drillState.level,
+          drillCampaign: drillState.campaign,
+          drillAdGroup: drillState.adGroup,
+        }),
       })
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
@@ -1754,7 +1776,8 @@ function DashboardContent() {
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
               onSend={sendChat} accountSelected={!!selectedClient} onDownload={downloadChat} onUpload={uploadChat}
-              exchangeCount={exchangeCount} platform={activePlatform} clientName={selectedClient?.name || ''} />
+              exchangeCount={exchangeCount} platform={activePlatform} clientName={selectedClient?.name || ''}
+              drillLevel={lsJson('advar-drill-state', { level: 'campaigns' } as any).level} />
           )}
           {!selectedClient && clients.length === 0 && !loading && (
             <div className="flex items-center justify-center h-64 flex-col gap-4">

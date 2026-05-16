@@ -1,82 +1,138 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getKeywords, getSearchTerms } from '@/lib/google-ads'
+import { supabaseAdmin } from '@/lib/supabase'
+import Anthropic from '@anthropic-ai/sdk'
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const OBJECTIVE_LABELS: Record<string, string> = {
+  OUTCOME_AWARENESS: 'Brand Awareness', OUTCOME_ENGAGEMENT: 'Engagement',
+  OUTCOME_LEADS: 'Lead Generation', OUTCOME_SALES: 'Sales',
+  OUTCOME_TRAFFIC: 'Traffic', REACH: 'Reach', LEAD_GENERATION: 'Lead Gen',
+  CONVERSIONS: 'Conversions', LINK_CLICKS: 'Traffic', VIDEO_VIEWS: 'Video Views',
+  SEARCH: 'Search', DISPLAY: 'Display', PERFORMANCE_MAX: 'Performance Max',
+  SHOPPING: 'Shopping', VIDEO: 'Video', DISCOVERY: 'Discovery/Demand Gen',
+}
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
-  if (!session?.refreshToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const {
+    message,
+    history,
+    // Platform context
+    platform,
+    platformData,
+    dateRange,
+    // Client context
+    clientId,
+    clientName,
+    accountId,
+    // Drill context
+    drillLevel,
+    drillCampaign,
+    drillAdGroup,
+    // Sub-level data
+    subRows,
+  } = await request.json()
+
+  // Fetch client context from Supabase
+  let clientContext: any = null
+  if (clientId) {
+    const { data } = await supabaseAdmin
+      .from('client_context')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('user_email', session.user.email)
+      .single()
+    clientContext = data
   }
 
-  const { message, accountId, summary, dateRange, history, accountName } = await request.json()
-  if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
+  const platformLabel = platform === 'google' ? 'Google Ads'
+    : platform === 'meta' ? 'Meta Ads'
+    : 'Google Ads + Meta Ads (combined view)'
 
-  let keywords: any[] = []
-  let searchTerms: any[] = []
-  try {
-    keywords = await getKeywords(session.refreshToken, accountId, dateRange || 'LAST_30_DAYS')
-    searchTerms = await getSearchTerms(session.refreshToken, accountId, dateRange || 'LAST_30_DAYS')
-  } catch (e) {
-    console.error('Error fetching additional data:', e)
-  }
+  // Build drill context description
+  const drillContext = (() => {
+    if (drillLevel === 'adgroups' && drillCampaign) {
+      return `The user is currently viewing AD GROUPS within campaign: "${drillCampaign.name}" (${drillCampaign.platform || platform})`
+    }
+    if (drillLevel === 'ads' && drillCampaign && drillAdGroup) {
+      return `The user is currently viewing ADS within ad group/set: "${drillAdGroup.name}" → campaign: "${drillCampaign.name}"`
+    }
+    return 'The user is viewing the CAMPAIGNS list'
+  })()
 
+  // Build data summary based on what's visible
+  const totals = platformData?.totals
+  const campaigns = platformData?.campaigns || []
+  const currentRows = (drillLevel !== 'campaigns' && subRows?.length > 0) ? subRows : campaigns
 
-  // Clean status codes before sending to Claude
-  const cleanedSummary = summary ? {
-    ...summary,
-    campaigns: (summary.campaigns || []).map((c: any) => ({
-      ...c,
-      status: c.status === '2' ? 'Active' : c.status === '3' ? 'Paused' : c.status === '4' ? 'Removed' : c.status,
-      type: c.type === '2' ? 'Search' : c.type === '9' ? 'Smart' : c.type === '10' ? 'Performance Max' : c.type === '3' ? 'Display' : c.type === '4' ? 'Shopping' : c.type === '6' ? 'Video' : c.type
-    }))
-  } : summary;
+  const topRows = [...currentRows]
+    .sort((a: any, b: any) => (b.spend || 0) - (a.spend || 0))
+    .slice(0, 10)
+    .map((row: any) => {
+      const obj = row.objective || ''
+      const objLabel = OBJECTIVE_LABELS[obj] ? ` [${OBJECTIVE_LABELS[obj]}]` : ''
+      const platform_tag = row.platform ? ` (${row.platform})` : ''
+      return `- ${row.name}${platform_tag}${objLabel}: $${Number(row.spend || 0).toFixed(2)} spend, ${Number(row.clicks || 0).toLocaleString()} clicks, CTR ${Number(row.ctr || 0).toFixed(2)}%, ${Number(row.conversions || 0).toFixed(1)} conv, ROAS ${row.roas ? Number(row.roas).toFixed(2) + 'x' : 'N/A'}, Status: ${row.status || 'unknown'}`
+    })
+    .join('\n')
 
-  const cleanedKeywords = keywords.map((k: any) => ({
-    ...k,
-    matchType: k.matchType === '4' ? 'Broad' : k.matchType === '3' ? 'Phrase' : k.matchType === '2' ? 'Exact' : k.matchType,
-    status: k.status === '2' ? 'Active' : k.status === '3' ? 'Paused' : k.status === '4' ? 'Removed' : k.status,
-  }));
+  const clientProfileContext = clientContext ? `
+Client Profile:
+- Business type: ${clientContext.business_type || 'not specified'}
+- Primary KPI: ${clientContext.primary_kpi || 'not specified'}
+- Notes: ${clientContext.user_notes || 'none'}
+${clientContext.funnel_notes ? '- Funnel context: ' + clientContext.funnel_notes : ''}` : ''
 
-  const systemPrompt = `You are a senior PPC strategist at Cote Media agency, analyzing Google Ads data for your client: ${accountName || accountId}. Always refer to this account by name (${accountName || accountId}) when discussing their data. Never say 'Cote Media' when referring to the advertiser — Cote Media is the agency, ${accountName || accountId} is the client.
+  const systemPrompt = `You are Claude, an expert digital advertising analyst built into Advar — an ads management platform for marketing agencies. You are having a conversation with an agency professional about their client's ad performance.
 
-ACCOUNT SUMMARY:
-${JSON.stringify(cleanedSummary, null, 2)}
+Current context:
+- Client: ${clientName}
+- Platform: ${platformLabel}
+- Date range: ${dateRange?.replace(/_/g, ' ').toLowerCase() || 'last 30 days'}
+- Current view: ${drillContext}
+${clientProfileContext}
 
-TOP KEYWORDS (by spend):
-${JSON.stringify(cleanedKeywords.slice(0, 50), null, 2)}
+${totals ? `Account totals for this period:
+- Total Spend: $${Number(totals.spend || 0).toLocaleString()}
+- Clicks: ${Number(totals.clicks || 0).toLocaleString()}
+- Impressions: ${Number(totals.impressions || 0).toLocaleString()}
+- Conversions: ${totals.conversions || 0}
+- ROAS: ${totals.roas ? Number(totals.roas).toFixed(2) + 'x' : 'N/A'}
+- Avg CTR: ${Number(totals.avgCtr || 0).toFixed(2)}%
+- Active campaigns: ${totals.activeCampaigns || 0}` : ''}
 
-SEARCH TERMS REPORT:
-${JSON.stringify(searchTerms.slice(0, 100), null, 2)}
+Current ${drillLevel === 'ads' ? 'ads' : drillLevel === 'adgroups' ? 'ad groups/sets' : 'campaigns'} data (top by spend):
+${topRows || 'No data available'}
 
-VOICE AND TONE: You are a senior PPC strategist with strong opinions. Be direct, opinionated, and confident. Never hedge. Use actual numbers always. Lead with the most important finding, not a summary. Use emojis sparingly but effectively to flag critical issues (🚩 for problems, ⭐ for top performers, ❌ for things to kill immediately). Write like you are briefing a client in person, not writing a report. Short punchy sentences. Call out waste and missed opportunities aggressively. Always end with a clear priority order for next actions.`
+CRITICAL RULES:
+- Always respect campaign objectives — never criticize CTR for awareness campaigns, never demand ROAS from lead gen campaigns
+- Be specific — use actual names and numbers from the data
+- You are talking to an experienced agency professional, not a beginner
+- If the user gives you context about a client (goals, industry, funnel stage), incorporate it and remember it for this conversation
+- Be conversational and direct — no unnecessary preamble
+- When suggesting actions, be specific and realistic`
 
-  // Build messages array with history
   const messages = [
-    ...(history || []),
-    { role: 'user', content: message }
+    ...(history || []).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+    { role: 'user' as const, content: message }
   ]
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 8000,
-        system: systemPrompt,
-        messages,
-      }),
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages,
     })
-    const data = await response.json()
-    const responseText = data.content?.[0]?.text || 'No response generated.'
+    const responseText = (response.content[0] as any).text?.trim() || ''
     return NextResponse.json({ response: responseText })
-  } catch (error: any) {
-    console.error('Chat error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (e: any) {
+    console.error('Chat error:', e)
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
