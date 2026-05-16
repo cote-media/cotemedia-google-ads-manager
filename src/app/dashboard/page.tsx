@@ -981,7 +981,16 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
-      {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {drill.level === 'campaigns' && platform === 'combined' && (() => {
+        const selCampaign = campaigns.find(c => c.id === selectedCampaignId)
+        if (selCampaign?.platform === 'google' && googleAccountId) {
+          return <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selCampaign.id} campaignName={selCampaign.name} customStart={customStart} customEnd={customEnd} />
+        }
+        if (selCampaign?.platform === 'meta' && metaAccountId) {
+          return <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selCampaign.id} campaignName={selCampaign.name} customStart={customStart} customEnd={customEnd} />
+        }
+        return googleAccountId && metaAccountId ? <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} /> : null
+      })()}
       {drill.level === 'adgroups' && drill.campaign && (
         <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={drill.campaign.platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
       )}
