@@ -158,7 +158,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
@@ -231,7 +231,7 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
   if (!data.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
@@ -302,7 +302,7 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
   if (!merged.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Combined Performance</h3>
@@ -404,7 +404,7 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
   if (!series.length) return null
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2">
           {platform === 'google' && (
@@ -534,7 +534,7 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
   const max = barData[0]?.[activeMetric] || 1
 
   return (
-    <div className="bg-white border border-border p-4 md:p-6 mb-6 rounded-xl shadow-sm">
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
@@ -693,7 +693,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
   }
 
   return (
-    <div className="bg-white border border-border overflow-x-auto rounded-xl shadow-sm">
+    <div className="bg-white border border-border overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-surface">
@@ -791,43 +791,51 @@ function Breadcrumb({ drill, onNavigate }: { drill: DrillState; onNavigate: (lev
   )
 }
 
-// ─── Insight Banner with Claude ───────────────────────────────────────────────
-function InsightBanner({ data, clientName, dateRange }: { data: PlatformData; clientName: string; dateRange: string }) {
+// ─── Insight Chat Component ───────────────────────────────────────────────────
+type InsightMessage = { role: 'user' | 'assistant'; content: string }
+
+function InsightChat({ data, clientId, clientName, dateRange, location }: {
+  data: PlatformData; clientId: string; clientName: string; dateRange: string; location?: string
+}) {
   const { totals, campaigns, platform } = data
-  const cacheKey = 'advar-insight-' + clientName + '-' + platform + '-' + dateRange
+  const cacheKey = 'advar-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
   const [insight, setInsight] = useState<string>(() => {
-    try {
-      const cached = lsJson(cacheKey, null) as any
-      if (cached && cached.text && cached.ts && (Date.now() - cached.ts) < 3600000) return cached.text
-    } catch {}
-    return ''
+    try { const c = lsJson(cacheKey, null) as any; if (c?.text && c?.ts && (Date.now() - c.ts) < 3600000) return c.text } catch {} return ''
   })
   const [loading, setLoading] = useState(!insight)
+  const [expanded, setExpanded] = useState(false)
+  const [messages, setMessages] = useState<InsightMessage[]>([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
 
-  // Anomaly detection (always run, used as fallback)
   const anomalies: string[] = []
   if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
   const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
   if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
   const hasAnomalies = anomalies.length > 0
 
+  async function fetchInsight(history: InsightMessage[] = []) {
+    try {
+      const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totals, campaigns, platform, dateRange, clientName, clientId, conversationHistory: history, location }) })
+      const d = await res.json(); return d.insight || ''
+    } catch { return '' }
+  }
+
   useEffect(() => {
-    // Always fetch fresh insight in background (show cached immediately)
-    fetch('/api/insight', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ totals, campaigns, platform, dateRange, clientName }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.insight) {
-          setInsight(d.insight)
-          lsSet(cacheKey, JSON.stringify({ text: d.insight, ts: Date.now() }))
-        }
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [clientName, platform, dateRange])
+    fetchInsight().then(text => { if (text) { setInsight(text); lsSet(cacheKey, JSON.stringify({ text, ts: Date.now() })) } setLoading(false) })
+  }, [clientId, platform, dateRange, location])
+
+  async function sendMessage() {
+    if (!input.trim()) return
+    const userMsg = input.trim(); setInput(''); setSending(true)
+    const history: InsightMessage[] = [{ role: 'assistant', content: insight }, ...messages, { role: 'user', content: userMsg }]
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    const reply = await fetchInsight(history)
+    setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    setSending(false)
+    setTimeout(() => { const el = document.getElementById('it-' + cacheKey); if (el) el.scrollTop = el.scrollHeight }, 100)
+  }
 
   if (hasAnomalies) {
     return (
@@ -839,28 +847,59 @@ function InsightBanner({ data, clientName, dateRange }: { data: PlatformData; cl
   }
 
   return (
-    <div className="border px-4 md:px-6 py-4 md:py-5 bg-blue-50 border-blue-200 rounded-xl">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
-          {loading && !insight ? (
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
-              <span className="text-sm text-muted font-mono">Analyzing account...</span>
-            </div>
-          ) : (
-            <p className="text-sm text-ink leading-relaxed">{insight}</p>
+    <div className="border bg-blue-50 border-blue-200 rounded-xl overflow-hidden">
+      <div className="px-4 md:px-6 py-4 md:py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
+            {loading && !insight
+              ? <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" /><span className="text-sm text-muted font-mono">Analyzing account...</span></div>
+              : <p className="text-sm text-ink leading-relaxed">{insight}</p>}
+          </div>
+          {insight && !loading && (
+            <button onClick={() => setExpanded(!expanded)}
+              className="flex-shrink-0 text-xs font-mono text-accent hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg bg-white transition-colors whitespace-nowrap">
+              {expanded ? '↑ Close' : messages.length > 0 ? '↓ ' + Math.floor(messages.length / 2) + ' replies' : '↓ Reply'}
+            </button>
           )}
         </div>
-        {loading && insight && <span className="text-xs font-mono text-muted ml-4 flex-shrink-0 animate-pulse">Refreshing...</span>}
       </div>
+      {expanded && (
+        <div className="border-t border-blue-200 bg-white">
+          {messages.length > 0 && (
+            <div id={'it-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
+              {messages.map((m, i) => (
+                <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={'text-sm px-3 py-2 rounded-xl max-w-[85%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-blue-50 text-ink border border-blue-100')}>{m.content}</div>
+                </div>
+              ))}
+              {sending && (
+                <div className="flex justify-start"><div className="bg-blue-50 border border-blue-100 px-3 py-2 rounded-xl">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div></div>
+              )}
+            </div>
+          )}
+          <div className="px-4 py-3 flex gap-2 border-t border-blue-100">
+            <input type="text" value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !sending && sendMessage()}
+              placeholder="Add context or ask a follow-up..." disabled={sending}
+              className="flex-1 text-sm border border-blue-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-accent disabled:opacity-50" />
+            <button onClick={sendMessage} disabled={sending || !input.trim()} className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed">Send</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientName, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientName: string; customStart?: string; customEnd?: string
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
 }) {
   const { totals, campaigns, platform } = data
   const metrics = [
@@ -878,15 +917,15 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <InsightBanner data={data} clientName={clientName} dateRange={dateRange} />
+      <InsightChat data={data} clientId={clientId} clientName={clientName} dateRange={dateRange} location="overview" />
 
       {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white border border-border p-4 rounded-xl shadow-sm">
+          <div className="bg-white border border-border p-4">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
             <p className="text-2xl font-display text-accent">{fmt(totals.googleSpend, 'currency')}</p>
           </div>
-          <div className="bg-white border border-border p-4 rounded-xl shadow-sm">
+          <div className="bg-white border border-border p-4">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
             <p className="text-2xl font-display text-accent">{fmt(totals.metaSpend, 'currency')}</p>
           </div>
@@ -895,7 +934,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
-          <div key={m.label} className="bg-white p-3 md:p-5 first:rounded-l-xl last:rounded-r-xl">
+          <div key={m.label} className="bg-white p-3 md:p-5">
             <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
             <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
           </div>
@@ -907,8 +946,8 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
       {platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Campaign Performance</h3>
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
           <div className="space-y-3">
             {topByCost.map(c => (
               <div key={c.id + c.platform}>
@@ -926,8 +965,8 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
             ))}
           </div>
         </div>
-        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Conversion Leaders</h3>
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
           {topByConv.length === 0 ? <p className="text-xs text-muted font-mono">No conversions recorded</p> : (
             <div className="space-y-2">
               {topByConv.map(c => (
@@ -946,13 +985,13 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientNa
           )}
         </div>
         {platform === 'google' && googleAccountId && (
-          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Top Keywords by Spend</h3>
+          <div className="bg-white border border-border p-4 md:p-5">
+            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
           </div>
         )}
-        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Budget Utilization</h3>
+        <div className="bg-white border border-border p-4 md:p-5">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
           {campaignsWithBudget.length === 0 ? <p className="text-xs text-muted font-mono">No budget data available</p> : (
             <div className="space-y-3">
               {campaignsWithBudget.map(c => {
@@ -1239,7 +1278,7 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
         </div>
       </div>
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
-        <div className="bg-white border border-border overflow-x-auto rounded-xl shadow-sm">
+        <div className="bg-white border border-border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface">
@@ -1367,7 +1406,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
             placeholder={accountSelected ? (atLimit ? 'Download and re-upload to continue...' : 'Ask about ' + clientName + '...') : 'Select a client first'}
             disabled={!accountSelected || atLimit}
             className="flex-1 border border-border px-3 py-2.5 text-sm bg-paper focus:outline-none focus:border-accent font-sans disabled:opacity-50" />
-          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed rounded-lg">Send</button>
+          <button onClick={onSend} disabled={!accountSelected || loading || atLimit} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">Send</button>
         </div>
       </div>
     </div>
@@ -1560,7 +1599,7 @@ function DashboardContent() {
   return (
     <div className="min-h-screen bg-paper flex">
       {/* Desktop Sidebar */}
-      <div className={`hidden md:flex flex-col border-r border-border bg-white shadow-sm transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
+      <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">Advar</span>}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto">
@@ -1586,21 +1625,21 @@ function DashboardContent() {
             {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 font-mono text-xs text-muted uppercase tracking-wider">Platform</p>}
             {hasGoogle && (
               <button onClick={() => changePlatform('google')} title={sidebarCollapsed ? 'Google Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">🔵</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Google Ads</span>}
               </button>
             )}
             {hasMeta && (
               <button onClick={() => changePlatform('meta')} title={sidebarCollapsed ? 'Meta Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">🔷</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Meta Ads</span>}
               </button>
             )}
             {hasBoth && (
               <button onClick={() => changePlatform('combined')} title={sidebarCollapsed ? 'Combined' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-muted hover:text-ink hover:bg-surface')}>
+                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
                 <span className="text-sm flex-shrink-0">⊕</span>
                 {!sidebarCollapsed && <span className="text-xs font-mono">Combined</span>}
               </button>
@@ -1610,7 +1649,7 @@ function DashboardContent() {
         <nav className="py-2 flex-shrink-0">
           {visibleNavItems.map(item => (
             <button key={item.id} onClick={() => changeTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
-              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent text-white rounded-lg mx-1' : 'text-muted hover:text-ink hover:bg-surface rounded-lg mx-1')}>
+              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent text-white' : 'text-muted hover:text-ink hover:bg-surface')}>
               <span className="text-base leading-none w-4 text-center">{item.icon}</span>
               {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">{item.label}</span>}
             </button>
@@ -1649,7 +1688,7 @@ function DashboardContent() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white/95 backdrop-blur-sm sticky top-0 z-10">
+        <div className="hidden md:flex border-b border-border px-8 py-3 items-center justify-between bg-white sticky top-0 z-10">
           <p className="text-xs text-muted font-mono">
             {loading
               ? <span className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse inline-block" />Loading...</span>
@@ -1695,7 +1734,7 @@ function DashboardContent() {
           </div>
         )}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
-          {selectedClient && <h1 className="font-display text-2xl md:text-3xl text-ink mb-6 tracking-tight">{selectedClient.name}</h1>}
+          {selectedClient && <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">{selectedClient.name}</h1>}
           {loading && (
             <div className="flex items-center justify-center h-64">
               <div className="flex items-center gap-2 text-muted font-mono text-sm">
@@ -1704,7 +1743,7 @@ function DashboardContent() {
             </div>
           )}
           {!loading && platformData && activeTab === 'overview' && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
