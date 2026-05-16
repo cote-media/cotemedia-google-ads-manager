@@ -338,13 +338,14 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
   campaignId: string; accountId: string; dateRange: string; platform: Platform; metaAccountId?: string; customStart?: string; customEnd?: string
 }) {
   const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
-  const [activeMetric, setActiveMetric] = useState<'cost' | 'clicks' | 'impressions' | 'conversions'>('cost')
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['cost'])
   const [series, setSeries] = useState<{ id: string; name: string; spend: number; daily: any[] }[]>([])
   const [loading, setLoading] = useState(true)
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set())
 
-  const metricLabels = { cost: 'Spend', clicks: 'Clicks', impressions: 'Impressions', conversions: 'Conversions' }
-  const metricColors = { cost: '#2563eb', clicks: '#16a34a', impressions: '#9333ea', conversions: '#ea580c' }
+  const metricLabels: Record<string, string> = { cost: 'Spend', clicks: 'Clicks', impressions: 'Impressions', conversions: 'Conversions' }
+  const metricColors: Record<string, string> = { cost: '#2563eb', clicks: '#16a34a', impressions: '#9333ea', conversions: '#ea580c' }
+  const toggleMetric = (m: string) => setActiveMetrics(prev => prev.includes(m) ? (prev.length > 1 ? prev.filter(x => x !== m) : prev) : [...prev, m])
 
   useEffect(() => {
     if (!campaignId) return
@@ -388,7 +389,9 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
     series.filter(s => visibleIds.has(s.id)).forEach(s => {
       s.daily.forEach((row: any) => {
         if (!map[row.date]) map[row.date] = { date: row.date }
-        map[row.date][s.id] = row[activeMetric] ?? 0
+        activeMetrics.forEach(metric => {
+          map[row.date][s.id + '_' + metric] = row[metric] ?? 0
+        })
       })
     })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
@@ -418,10 +421,10 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
             </div>
           )}
           <div className="flex gap-1">
-            {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map(m => (
-              <button key={m} onClick={() => setActiveMetric(m)}
-                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-                style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+            {(Object.keys(metricLabels)).map(m => (
+              <button key={m} onClick={() => toggleMetric(m)}
+                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                style={activeMetrics.includes(m) ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
                 {metricLabels[m]}
               </button>
             ))}
@@ -449,9 +452,15 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
           <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
           <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
-          {series.filter(s => visibleIds.has(s.id)).map(s => (
-            <Line key={s.id} type="monotone" dataKey={s.id} stroke={colorMap[s.id]} strokeWidth={2} dot={false} name={s.name} connectNulls />
-          ))}
+          {series.filter(s => visibleIds.has(s.id)).flatMap(s =>
+            activeMetrics.map(metric => (
+              <Line key={s.id + '_' + metric} type="monotone" dataKey={s.id + '_' + metric}
+                stroke={colorMap[s.id]}
+                strokeWidth={2}
+                strokeDasharray={activeMetrics.indexOf(metric) > 0 ? '4 2' : undefined}
+                dot={false} name={s.name + ' ' + metricLabels[metric]} connectNulls />
+            ))
+          )}
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -503,8 +512,11 @@ function AdBarChart({ ads }: { ads: any[] }) {
 }
 
 // ─── Drill Table ──────────────────────────────────────────────────────────────
-function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
-  rows: any[]; level: DrillLevel; platform: Platform; activeCols: string[]; onRowClick: (row: any) => void
+function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect, selectedId }: {
+  rows: any[]; level: DrillLevel; platform: Platform; activeCols: string[]
+  onRowClick: (row: any) => void
+  onRowSelect?: (row: any) => void
+  selectedId?: string
 }) {
   const [sortCol, setSortCol] = useState('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
@@ -563,7 +575,6 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
     return String(val)
   }
 
-  const isClickable = level !== 'ads'
   const nameLabel = level === 'campaigns' ? 'Campaign' : level === 'adgroups' ? (platform === 'meta' ? 'Ad Set' : 'Ad Group') : 'Ad'
 
   return (
@@ -581,28 +592,39 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
                 {col.label}{sortCol === col.id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </th>
             ))}
-            {isClickable && <th className="px-3 py-3 w-6" />}
+            {level !== 'ads' && <th className="px-3 py-3 w-8 text-right font-mono text-xs text-muted">›</th>}
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row: any) => (
-            <tr key={row.id + (row.platform || '')}
-              onClick={() => isClickable && onRowClick(row)}
-              className={'table-row ' + (isClickable ? 'cursor-pointer hover:bg-surface' : '')}>
-              <td className="px-3 py-3 font-medium max-w-xs truncate sticky left-0 bg-white">{row.name}</td>
-              {platform === 'combined' && level === 'campaigns' && (
-                <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</td>
-              )}
-              <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={row.status} /></td>
-              {level === 'ads' && <td className="px-3 py-3 text-xs text-muted max-w-xs truncate hidden md:table-cell">{row.description || row.body || ''}</td>}
-              {visibleCols.map(col => (
-                <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">
-                  {formatValue(col.id, col.getValue(row))}
+          {sorted.map((row: any) => {
+            const isSelected = selectedId === row.id
+            return (
+              <tr key={row.id + (row.platform || '')}
+                onClick={() => onRowSelect && onRowSelect(row)}
+                className={'table-row cursor-pointer ' + (isSelected ? 'bg-blue-50' : 'hover:bg-surface')}>
+                <td className={'px-3 py-3 font-medium max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
+                  {isSelected && <span className="text-accent mr-1">▸</span>}{row.name}
                 </td>
-              ))}
-              {isClickable && <td className="px-3 py-3 text-right text-muted text-xs">›</td>}
-            </tr>
-          ))}
+                {platform === 'combined' && level === 'campaigns' && (
+                  <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</td>
+                )}
+                <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={row.status} /></td>
+                {level === 'ads' && <td className="px-3 py-3 text-xs text-muted max-w-xs truncate hidden md:table-cell">{row.description || row.body || ''}</td>}
+                {visibleCols.map(col => (
+                  <td key={col.id} className="px-3 py-3 text-right font-mono text-sm whitespace-nowrap">
+                    {formatValue(col.id, col.getValue(row))}
+                  </td>
+                ))}
+                {level !== 'ads' && (
+                  <td className="px-3 py-3 text-right w-8">
+                    <button
+                      onClick={e => { e.stopPropagation(); onRowClick(row) }}
+                      className="text-muted hover:text-accent text-sm px-1">›</button>
+                  </td>
+                )}
+              </tr>
+            )
+          })}
         </tbody>
         {rows.length > 1 && (
           <tfoot>
@@ -616,7 +638,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick }: {
                   {getTotalValue(col.id)}
                 </td>
               ))}
-              {isClickable && <td className="px-3 py-3" />}
+              {level !== 'ads' && <td className="px-3 py-3" />}
             </tr>
           </tfoot>
         )}
@@ -873,6 +895,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
   const [drill, setDrill] = useState<DrillState>(() => lsJson('advar-drill-state', { level: 'campaigns', campaign: null, adGroup: null }))
   const [subRows, setSubRows] = useState<any[]>([])
   const [subLoading, setSubLoading] = useState(false)
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
 
   function saveDrill(d: DrillState) {
     setDrill(d)
@@ -956,8 +979,8 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
-      {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
-      {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
+      {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'adgroups' && drill.campaign && (
         <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={drill.campaign.platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
@@ -977,7 +1000,9 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
         </div>
       ) : (
         <DrillTable rows={currentRows} level={drill.level} platform={platform} activeCols={activeCols}
-          onRowClick={drill.level === 'campaigns' ? drillIntoCampaign : drillIntoAdGroup} />
+          onRowClick={drill.level === 'campaigns' ? drillIntoCampaign : drillIntoAdGroup}
+          onRowSelect={drill.level === 'campaigns' ? (row) => setSelectedCampaignId(prev => prev === row.id ? '' : row.id) : undefined}
+          selectedId={drill.level === 'campaigns' ? selectedCampaignId : undefined} />
       )}
     </div>
   )
