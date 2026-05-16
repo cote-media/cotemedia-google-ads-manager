@@ -254,3 +254,12 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] "Sign up for real access" banner at top
 - [ ] Shareable URL for sales/demos — no Zoom call needed
 - [ ] Static JSON demo data file with fictional but realistic campaigns
+
+## 📎 Document Upload for Client Context
+- [ ] Support PDF, DOCX, TXT, CSV uploads per client
+- [ ] Extract text content server-side, store in client_context (no file storage needed)
+- [ ] All file types supported — size limit enforced by tier
+- [ ] Tier limits: Free = ~2,000 words, Pro = ~10,000 words, Agency = unlimited
+- [ ] Uploaded content injected into all Claude calls for that client automatically
+- [ ] Multiple docs per client — oldest replaced when limit hit on lower tiers
+- [ ] Build on top of client profile form
