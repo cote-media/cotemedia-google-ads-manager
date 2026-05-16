@@ -242,3 +242,8 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Ad bar chart metric selection persists on refresh
 - [ ] Sort column and direction persists per table per platform
 - [ ] All state restored from localStorage on mount, cleared only on explicit user action
+
+## 🐛 Known Bugs to Fix
+- [ ] Combined mode drill-down — clicking campaign rows does nothing; should drill using the campaign's own platform (google/meta)
+- [ ] Window focus auto-refresh — app refetches data every time you switch back to the browser tab; disable Next.js focus revalidation
+- [ ] Chart metric selection doesn't persist on refresh (see UI State Persistence section)
