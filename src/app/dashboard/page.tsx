@@ -592,7 +592,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                 {col.label}{sortCol === col.id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
               </th>
             ))}
-            {level !== 'ads' && <th className="px-3 py-3 w-8 text-right font-mono text-xs text-muted">›</th>}
+            {level !== 'ads' && <th className="px-3 py-3 w-8 text-left font-mono text-xs text-muted">↳</th>}
           </tr>
         </thead>
         <tbody>
@@ -601,9 +601,17 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
             return (
               <tr key={row.id + (row.platform || '')}
                 onClick={() => onRowSelect && onRowSelect(row)}
-                className={'table-row cursor-pointer ' + (isSelected ? 'bg-blue-50' : 'hover:bg-surface')}>
+                className={'table-row ' + (onRowSelect ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : 'hover:bg-surface')}>
                 <td className={'px-3 py-3 font-medium max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
-                  {isSelected && <span className="text-accent mr-1">▸</span>}{row.name}
+                  {level !== 'ads' ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); onRowClick(row) }}
+                      className="text-accent hover:underline text-left truncate max-w-full font-medium">
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span>{row.name}</span>
+                  )}
                 </td>
                 {platform === 'combined' && level === 'campaigns' && (
                   <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</td>
@@ -615,13 +623,6 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                     {formatValue(col.id, col.getValue(row))}
                   </td>
                 ))}
-                {level !== 'ads' && (
-                  <td className="px-3 py-3 text-right w-8">
-                    <button
-                      onClick={e => { e.stopPropagation(); onRowClick(row) }}
-                      className="text-muted hover:text-accent text-sm px-1">›</button>
-                  </td>
-                )}
               </tr>
             )
           })}
@@ -638,8 +639,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                   {getTotalValue(col.id)}
                 </td>
               ))}
-              {level !== 'ads' && <td className="px-3 py-3" />}
-            </tr>
+              {level !== 'ads' && <td className="px-3 py-3" />}            </tr>
           </tfoot>
         )}
       </table>
