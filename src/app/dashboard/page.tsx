@@ -960,7 +960,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
       {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'adgroups' && drill.campaign && (
-        <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
+        <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={drill.campaign.platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
       )}
       {drill.level === 'ads' && subRows.length > 0 && <AdBarChart ads={subRows} />}
 
