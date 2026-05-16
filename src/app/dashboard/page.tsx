@@ -483,35 +483,41 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
     setLineLoading(true)
     const base = (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
 
-    const fetchAll = async () => {
-      const results = await Promise.all(ads.map(async (ad: any) => {
-        let url: string
-        if (platform === 'google') {
-          url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&campaignId=' + ad.id + base
-        } else {
-          url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&dateRange=' + dateRange + '&campaignId=' + ad.id + base
+    const fetchParentTrend = async () => {
+      // Fetch the parent ad group/ad set daily trend
+      // This gives context for the time period while viewing ads
+      let url: string
+      if (platform === 'google') {
+        url = '/api/google/adgroups/daily?accountId=' + accountId + '&campaignId=' + adGroupId + '&dateRange=' + dateRange + base
+        const res = await fetch(url)
+        const d = await res.json()
+        // Use the ad group that matches adGroupId, or aggregate all
+        const groups = d.adGroups || []
+        const matchingGroup = groups.find((g: any) => g.id === adGroupId) || groups[0]
+        if (matchingGroup) {
+          setLineData([{ id: matchingGroup.id, name: matchingGroup.name, daily: matchingGroup.daily.map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }])
         }
-        try {
-          const res = await fetch(url)
-          const d = await res.json()
-          return { id: ad.id, name: ad.name, daily: (d.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }
-        } catch { return { id: ad.id, name: ad.name, daily: [] } }
-      }))
-      setLineData(results)
+      } else {
+        // For Meta, fetch ad set daily data
+        url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&campaignId=' + adGroupId + '&dateRange=' + dateRange + base
+        const res = await fetch(url)
+        const d = await res.json()
+        setLineData([{ id: adGroupId, name: 'Ad Set Trend', daily: (d.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }])
+      }
       setLineLoading(false)
     }
-    fetchAll()
-  }, [viewMode, ads, platform, accountId, metaAccountId, dateRange, customStart, customEnd])
+    fetchParentTrend().catch(() => setLineLoading(false))
+  }, [viewMode, adGroupId, platform, accountId, metaAccountId, dateRange, customStart, customEnd])
 
   const colorMap: Record<string, string> = {}
   ads.forEach((ad, i) => { colorMap[ad.id] = CHART_COLORS[i % CHART_COLORS.length] })
 
   const merged = (() => {
     const map: Record<string, any> = {}
-    lineData.filter(s => visibleIds.has(s.id)).forEach(s => {
+    lineData.forEach(s => {
       s.daily.forEach((row: any) => {
         if (!map[row.date]) map[row.date] = { date: row.date }
-        map[row.date][s.id] = row[activeMetric] ?? 0
+        map[row.date]['value'] = row[activeMetric] ?? 0
       })
     })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
@@ -559,23 +565,9 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
           </div>
         </div>
 
-        {/* Line view: ad toggles */}
-        {viewMode === 'line' && ads.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {ads.map((ad, i) => {
-              const on = visibleIds.has(ad.id)
-              const color = colorMap[ad.id]
-              return (
-                <button key={ad.id} onClick={() => toggleVisible(ad.id)}
-                  className={'flex items-center gap-1.5 text-xs font-mono px-2 py-1 border rounded-full transition-all ' + (on ? 'text-white' : 'text-muted border-border')}
-                  style={on ? { backgroundColor: color, borderColor: color } : { borderColor: color }}>
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                  <span className="truncate max-w-[120px]">{ad.name}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+      {viewMode === 'line' && lineData.length > 0 && (
+        <p className="text-xs text-muted font-mono mb-3">Showing {lineData[0]?.name} daily trend for context</p>
+      )}
       </div>
 
       {/* Bar view */}
@@ -613,9 +605,9 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
               <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
               <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
-              {ads.filter(ad => visibleIds.has(ad.id)).map(ad => (
-                <Line key={ad.id} type="monotone" dataKey={ad.id} stroke={colorMap[ad.id]} strokeWidth={2} dot={false} name={ad.name} connectNulls />
-              ))}
+              {lineData.length > 0 && (
+                <Line type="monotone" dataKey="value" stroke={metricColors[activeMetric]} strokeWidth={2} dot={false} name={metricLabels[activeMetric]} connectNulls />
+              )}
             </LineChart>
           </ResponsiveContainer>
         )
