@@ -247,3 +247,10 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Combined mode drill-down — clicking campaign rows does nothing; should drill using the campaign's own platform (google/meta)
 - [ ] Window focus auto-refresh — app refetches data every time you switch back to the browser tab; disable Next.js focus revalidation
 - [ ] Chart metric selection doesn't persist on refresh (see UI State Persistence section)
+
+## 🎭 Demo Mode
+- [ ] /demo route with realistic fake client data — no login required
+- [ ] Shows full UI including Claude analysis, charts, drill-down
+- [ ] "Sign up for real access" banner at top
+- [ ] Shareable URL for sales/demos — no Zoom call needed
+- [ ] Static JSON demo data file with fictional but realistic campaigns
