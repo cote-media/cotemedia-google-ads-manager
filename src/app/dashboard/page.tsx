@@ -458,46 +458,168 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
   )
 }
 
-// ─── Ad Bar Chart ─────────────────────────────────────────────────────────────
-function AdBarChart({ ads }: { ads: any[] }) {
+// ─── Ad Chart (bar for multiple ads, line for single ad, toggleable) ──────────
+function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange, customStart, customEnd }: {
+  ads: any[]
+  adGroupId: string
+  platform: 'google' | 'meta'
+  accountId: string
+  metaAccountId?: string
+  dateRange: string
+  customStart?: string
+  customEnd?: string
+}) {
+  const [viewMode, setViewMode] = useState<'bar' | 'line'>(ads.length === 1 ? 'line' : 'bar')
   const [activeMetric, setActiveMetric] = useState<'spend' | 'clicks' | 'conversions' | 'ctr'>('spend')
-  const metricColors = { spend: '#2563eb', clicks: '#16a34a', conversions: '#ea580c', ctr: '#9333ea' }
-  const metricLabels = { spend: 'Spend', clicks: 'Clicks', conversions: 'Conversions', ctr: 'CTR' }
-  if (!ads.length) return null
-  const chartData = [...ads].sort((a, b) => (b[activeMetric] || 0) - (a[activeMetric] || 0)).slice(0, 10)
-    .map(ad => ({ name: (ad.name || 'Ad').slice(0, 35), value: ad[activeMetric] || 0 }))
-  const max = chartData[0]?.value || 1
+  const [lineData, setLineData] = useState<{ id: string; name: string; daily: any[] }[]>([])
+  const [lineLoading, setLineLoading] = useState(false)
+  const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set(ads.map(a => a.id)))
+
+  const metricColors: Record<string, string> = { spend: '#2563eb', clicks: '#16a34a', conversions: '#ea580c', ctr: '#9333ea' }
+  const metricLabels: Record<string, string> = { spend: 'Spend', clicks: 'Clicks', conversions: 'Conversions', ctr: 'CTR' }
+
+  useEffect(() => {
+    if (viewMode !== 'line') return
+    setLineLoading(true)
+    const base = (customStart ? '&customStart=' + customStart : '') + (customEnd ? '&customEnd=' + customEnd : '')
+
+    const fetchAll = async () => {
+      const results = await Promise.all(ads.map(async (ad: any) => {
+        let url: string
+        if (platform === 'google') {
+          url = '/api/daily?accountId=' + accountId + '&dateRange=' + dateRange + '&campaignId=' + ad.id + base
+        } else {
+          url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&dateRange=' + dateRange + '&campaignId=' + ad.id + base
+        }
+        try {
+          const res = await fetch(url)
+          const d = await res.json()
+          return { id: ad.id, name: ad.name, daily: (d.daily || []).map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }
+        } catch { return { id: ad.id, name: ad.name, daily: [] } }
+      }))
+      setLineData(results)
+      setLineLoading(false)
+    }
+    fetchAll()
+  }, [viewMode, ads, platform, accountId, metaAccountId, dateRange, customStart, customEnd])
+
+  const colorMap: Record<string, string> = {}
+  ads.forEach((ad, i) => { colorMap[ad.id] = CHART_COLORS[i % CHART_COLORS.length] })
+
+  const merged = (() => {
+    const map: Record<string, any> = {}
+    lineData.filter(s => visibleIds.has(s.id)).forEach(s => {
+      s.daily.forEach((row: any) => {
+        if (!map[row.date]) map[row.date] = { date: row.date }
+        map[row.date][s.id] = row[activeMetric] ?? 0
+      })
+    })
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
+  })()
+
+  const toggleVisible = (id: string) => setVisibleIds(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) { if (next.size > 1) next.delete(id) } else next.add(id)
+    return next
+  })
+
+  // Bar chart data
+  const barData = [...ads].sort((a, b) => (b[activeMetric] || 0) - (a[activeMetric] || 0)).slice(0, 10)
+  const max = barData[0]?.[activeMetric] || 1
+
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
-        <div className="flex gap-1">
-          {(Object.keys(metricLabels) as Array<keyof typeof metricLabels>).map(m => (
-            <button key={m} onClick={() => setActiveMetric(m)}
-              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-              style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
-              {metricLabels[m]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="space-y-2">
-        {chartData.map((d, i) => {
-          const pct = (d.value / max) * 100
-          const fv = activeMetric === 'spend' ? fmt(d.value, 'currency') : activeMetric === 'ctr' ? fmt(d.value, 'percent') : d.value.toLocaleString(undefined, { maximumFractionDigits: 1 })
-          return (
-            <div key={i}>
-              <div className="flex items-center justify-between mb-0.5">
-                <span className="text-xs text-ink truncate max-w-[70%]">{d.name}</span>
-                <span className="text-xs font-mono text-muted">{fv}</span>
-              </div>
-              <div className="h-1.5 bg-surface rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: metricColors[activeMetric] }} />
-              </div>
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
+          <div className="flex items-center gap-2">
+            {/* Metric selector */}
+            <div className="flex gap-1">
+              {(Object.keys(metricLabels)).map(m => (
+                <button key={m} onClick={() => setActiveMetric(m as any)}
+                  className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                  style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+                  {metricLabels[m]}
+                </button>
+              ))}
             </div>
-          )
-        })}
+            {/* View toggle — only show if multiple ads */}
+            {ads.length > 1 && (
+              <div className="flex border border-border">
+                <button onClick={() => setViewMode('bar')}
+                  className={'text-xs font-mono px-2 py-1 transition-colors ' + (viewMode === 'bar' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                  ▦ Bar
+                </button>
+                <button onClick={() => setViewMode('line')}
+                  className={'text-xs font-mono px-2 py-1 transition-colors ' + (viewMode === 'line' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                  ∿ Line
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Line view: ad toggles */}
+        {viewMode === 'line' && ads.length > 1 && (
+          <div className="flex flex-wrap gap-1.5">
+            {ads.map((ad, i) => {
+              const on = visibleIds.has(ad.id)
+              const color = colorMap[ad.id]
+              return (
+                <button key={ad.id} onClick={() => toggleVisible(ad.id)}
+                  className={'flex items-center gap-1.5 text-xs font-mono px-2 py-1 border rounded-full transition-all ' + (on ? 'text-white' : 'text-muted border-border')}
+                  style={on ? { backgroundColor: color, borderColor: color } : { borderColor: color }}>
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                  <span className="truncate max-w-[120px]">{ad.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Bar view */}
+      {viewMode === 'bar' && (
+        <div className="space-y-2">
+          {barData.map((ad: any, i: number) => {
+            const val = ad[activeMetric] || 0
+            const pct = (val / max) * 100
+            const fv = activeMetric === 'spend' ? fmt(val, 'currency') : activeMetric === 'ctr' ? fmt(val, 'percent') : val.toLocaleString(undefined, { maximumFractionDigits: 1 })
+            return (
+              <div key={ad.id}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-xs text-ink truncate max-w-[70%]">{ad.name}</span>
+                  <span className="text-xs font-mono text-muted">{fv}</span>
+                </div>
+                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: metricColors[activeMetric] }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Line view */}
+      {viewMode === 'line' && (
+        lineLoading ? (
+          <div className="flex items-center justify-center h-32 text-muted font-mono text-sm">
+            <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse mr-2" />Loading...
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+              {ads.filter(ad => visibleIds.has(ad.id)).map(ad => (
+                <Line key={ad.id} type="monotone" dataKey={ad.id} stroke={colorMap[ad.id]} strokeWidth={2} dot={false} name={ad.name} connectNulls />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        )
+      )}
     </div>
   )
 }
@@ -997,7 +1119,12 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
       {drill.level === 'adgroups' && drill.campaign && (
         <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={drill.campaign.platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
       )}
-      {drill.level === 'ads' && subRows.length > 0 && <AdBarChart ads={subRows} />}
+      {drill.level === 'ads' && subRows.length > 0 && drill.adGroup && (
+        <AdChart ads={subRows} adGroupId={drill.adGroup.id}
+          platform={drill.campaign?.platform || (platform === 'combined' ? 'google' : platform as 'google' | 'meta')}
+          accountId={googleAccountId} metaAccountId={metaAccountId}
+          dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+      )}
 
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-mono text-muted">{levelLabel} · {activeCols.length} columns</p>
