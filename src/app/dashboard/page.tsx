@@ -1040,8 +1040,8 @@ function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRang
 }
 
 // ─── Campaigns Tab with Drill-down ────────────────────────────────────────────
-function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
-  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
+function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd }: {
+  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
 }) {
   const { campaigns, platform } = data
   const storageKey = 'advar-cols-' + platform
@@ -1135,6 +1135,35 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
+      {/* InsightChat — adapts to current drill level */}
+      {clientId && (() => {
+        const rows = drill.level === 'campaigns' ? campaigns : subRows
+        if (!rows.length) return null
+        const spend = rows.reduce((s: number, r: any) => s + (r.spend || 0), 0)
+        const clicks = rows.reduce((s: number, r: any) => s + (r.clicks || 0), 0)
+        const impressions = rows.reduce((s: number, r: any) => s + (r.impressions || 0), 0)
+        const conversions = rows.reduce((s: number, r: any) => s + (r.conversions || 0), 0)
+        const convValue = rows.reduce((s: number, r: any) => s + (r.conversionValue || 0), 0)
+        const miniData: PlatformData = {
+          platform: drill.campaign?.platform || platform,
+          campaigns: rows as Campaign[],
+          totals: {
+            spend, clicks, impressions,
+            ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+            conversions, conversionValue: convValue,
+            roas: spend > 0 && convValue > 0 ? convValue / spend : null,
+            avgCtr: impressions > 0 ? (clicks / impressions) * 100 : 0,
+            activeCampaigns: rows.filter((r: any) => r.status === 'active').length,
+          },
+          dateRange,
+          accountId: googleAccountId || metaAccountId,
+        }
+        const location = drill.level === 'campaigns' ? 'campaigns'
+          : drill.level === 'adgroups' ? 'adgroups:' + (drill.campaign?.name || '')
+          : 'ads:' + (drill.adGroup?.name || '')
+        return <InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location={location} />
+      })()}
+
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'combined' && (() => {
@@ -1179,7 +1208,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, customS
 }
 
 // ─── Keywords Tab ─────────────────────────────────────────────────────────────
-function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+function KeywordsTab({ accountId, dateRange, clientId, clientName }: { accountId: string; dateRange: string; clientId: string; clientName: string }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState('spend')
@@ -1277,6 +1306,18 @@ function KeywordsTab({ accountId, dateRange }: { accountId: string; dateRange: s
           )}
         </div>
       </div>
+      {clientId && keywords.length > 0 && (() => {
+        const spend = keywords.reduce((s, k) => s + Number(k.cost || 0), 0)
+        const clicks = keywords.reduce((s, k) => s + Number(k.clicks || 0), 0)
+        const impressions = keywords.reduce((s, k) => s + Number(k.impressions || 0), 0)
+        const miniData: PlatformData = {
+          platform: 'google',
+          campaigns: keywords.map((k: any) => ({ id: k.text, name: k.text, status: 'active', platform: 'google', spend: Number(k.cost || 0), clicks: Number(k.clicks || 0), impressions: Number(k.impressions || 0), ctr: Number(k.ctr || 0), conversions: Number(k.conversions || 0), conversionValue: 0, roas: null, costPerConv: Number(k.conversions) > 0 ? Number(k.cost) / Number(k.conversions) : null, convRate: null, avgCpc: Number(k.avgCpc || 0), budget: null })) as Campaign[],
+          totals: { spend, clicks, impressions, ctr: impressions > 0 ? (clicks / impressions) * 100 : 0, conversions: totalConversions, conversionValue: 0, roas: null, avgCtr: avgCtr, activeCampaigns: keywords.length },
+          dateRange, accountId,
+        }
+        return <div className="mb-4"><InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="keywords" /></div>
+      })()}
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
         <div className="bg-white border border-border overflow-x-auto">
           <table className="w-full text-sm">
@@ -1767,10 +1808,10 @@ function DashboardContent() {
             <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
-            <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+            <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
           )}
           {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
-            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} />
+            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} />
           )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
