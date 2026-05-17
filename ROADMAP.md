@@ -263,3 +263,11 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Uploaded content injected into all Claude calls for that client automatically
 - [ ] Multiple docs per client — oldest replaced when limit hit on lower tiers
 - [ ] Build on top of client profile form
+
+## 🔒 Client Profile Word Limits by Tier
+- [ ] Enforce in /api/context POST route: count words in user_notes before saving
+- [ ] Free tier: 500 words max
+- [ ] Pro tier: 2,000 words max  
+- [ ] Agency tier: 10,000 words max
+- [ ] Return clear error message when limit exceeded
+- [ ] Show word count and limit in UI textarea
