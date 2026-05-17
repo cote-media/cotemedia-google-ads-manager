@@ -797,6 +797,7 @@ type InsightMessage = { role: 'user' | 'assistant'; content: string }
 function InsightChat({ data, clientId, clientName, dateRange, location }: {
   data: PlatformData; clientId: string; clientName: string; dateRange: string; location?: string
 }) {
+  if (!data || !data.totals || !data.campaigns) return null
   const { totals, campaigns, platform } = data
   const cacheKey = 'advar-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
   const [insight, setInsight] = useState<string>(() => {
@@ -809,8 +810,8 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
   const [sending, setSending] = useState(false)
 
   const anomalies: string[] = []
-  if (totals.roas !== null && totals.roas < 0.5 && totals.spend > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
-  const pausedWithSpend = campaigns.filter(c => c.status === 'paused' && c.spend > 0)
+  if (totals?.roas !== null && totals?.roas !== undefined && totals.roas < 0.5 && (totals.spend || 0) > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
+  const pausedWithSpend = (campaigns || []).filter(c => c?.status === 'paused' && (c?.spend || 0) > 0)
   if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
   const hasAnomalies = anomalies.length > 0
 
