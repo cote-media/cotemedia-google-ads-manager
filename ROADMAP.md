@@ -271,3 +271,9 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Agency tier: 10,000 words max
 - [ ] Return clear error message when limit exceeded
 - [ ] Show word count and limit in UI textarea
+
+## 🎯 Multi-KPI Selection
+- [ ] Allow users to select multiple KPIs per client (e.g. Purchases AND Leads for hybrid clients)
+- [ ] Store as array in client_context.primary_kpi (change from TEXT to JSONB or comma-separated)
+- [ ] Update insight prompts to reference all selected KPIs
+- [ ] UI: checkbox group instead of single select dropdown
