@@ -1135,36 +1135,28 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
-      {/* InsightChat — adapts to current drill level */}
-      {clientId && (() => {
-        const rows = drill.level === 'campaigns' ? campaigns : subRows
-        if (!rows || rows.length === 0) return null
-        // Safety: ensure all rows have numeric spend before building miniData
-        const safeRows = rows.filter((r: any) => r && typeof r.spend === 'number')
-        if (safeRows.length === 0) return null
-        const spend = safeRows.reduce((s: number, r: any) => s + (r.spend || 0), 0)
-        const clicks = safeRows.reduce((s: number, r: any) => s + (r.clicks || 0), 0)
-        const impressions = safeRows.reduce((s: number, r: any) => s + (r.impressions || 0), 0)
-        const conversions = safeRows.reduce((s: number, r: any) => s + (r.conversions || 0), 0)
-        const convValue = safeRows.reduce((s: number, r: any) => s + (r.conversionValue || 0), 0)
+      {/* InsightChat — campaigns level only for now */}
+      {clientId && drill.level === 'campaigns' && campaigns.length > 0 && (() => {
+        const spend = campaigns.reduce((s: number, r: Campaign) => s + (r.spend || 0), 0)
+        const clicks = campaigns.reduce((s: number, r: Campaign) => s + (r.clicks || 0), 0)
+        const impressions = campaigns.reduce((s: number, r: Campaign) => s + (r.impressions || 0), 0)
+        const conversions = campaigns.reduce((s: number, r: Campaign) => s + (r.conversions || 0), 0)
+        const convValue = campaigns.reduce((s: number, r: Campaign) => s + (r.conversionValue || 0), 0)
         const miniData: PlatformData = {
           platform: drill.campaign?.platform || platform,
-          campaigns: safeRows as Campaign[],
+          campaigns,
           totals: {
             spend, clicks, impressions,
             ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
             conversions, conversionValue: convValue,
             roas: spend > 0 && convValue > 0 ? convValue / spend : null,
             avgCtr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            activeCampaigns: safeRows.filter((r: any) => r.status === 'active').length,
+            activeCampaigns: campaigns.filter(r => r.status === 'active').length,
           },
           dateRange,
           accountId: googleAccountId || metaAccountId,
         }
-        const location = drill.level === 'campaigns' ? 'campaigns'
-          : drill.level === 'adgroups' ? 'adgroups:' + (drill.campaign?.name || '')
-          : 'ads:' + (drill.adGroup?.name || '')
-        return <InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location={location} />
+        return <InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="campaigns" />
       })()}
 
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
