@@ -1135,30 +1135,6 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
-      {/* InsightChat — campaigns level only for now */}
-      {clientId && drill.level === 'campaigns' && campaigns.length > 0 && (() => {
-        const spend = campaigns.reduce((s: number, r: Campaign) => s + (r.spend || 0), 0)
-        const clicks = campaigns.reduce((s: number, r: Campaign) => s + (r.clicks || 0), 0)
-        const impressions = campaigns.reduce((s: number, r: Campaign) => s + (r.impressions || 0), 0)
-        const conversions = campaigns.reduce((s: number, r: Campaign) => s + (r.conversions || 0), 0)
-        const convValue = campaigns.reduce((s: number, r: Campaign) => s + (r.conversionValue || 0), 0)
-        const miniData: PlatformData = {
-          platform: drill.campaign?.platform || platform,
-          campaigns,
-          totals: {
-            spend, clicks, impressions,
-            ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            conversions, conversionValue: convValue,
-            roas: spend > 0 && convValue > 0 ? convValue / spend : null,
-            avgCtr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            activeCampaigns: campaigns.filter(r => r.status === 'active').length,
-          },
-          dateRange,
-          accountId: googleAccountId || metaAccountId,
-        }
-        return <InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="campaigns" />
-      })()}
-
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'combined' && (() => {
@@ -1301,46 +1277,6 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName }: { accountId
           )}
         </div>
       </div>
-      {clientId && keywords.length > 0 && (() => {
-        const spend = keywords.reduce((s: number, k: any) => s + Number(k.cost || 0), 0)
-        const clicks = keywords.reduce((s: number, k: any) => s + Number(k.clicks || 0), 0)
-        const impressions = keywords.reduce((s: number, k: any) => s + Number(k.impressions || 0), 0)
-        const topKeywords = [...keywords].sort((a: any, b: any) => Number(b.cost || 0) - Number(a.cost || 0)).slice(0, 8)
-        // Build a minimal PlatformData using top keywords as pseudo-campaigns
-        const miniCampaigns = topKeywords.map((k: any, i: number) => ({
-          id: String(i),
-          name: k.text || 'Keyword ' + i,
-          status: 'active' as const,
-          platform: 'google' as const,
-          spend: Number(k.cost || 0),
-          clicks: Number(k.clicks || 0),
-          impressions: Number(k.impressions || 0),
-          ctr: Number(k.ctr || 0),
-          conversions: Number(k.conversions || 0),
-          conversionValue: 0,
-          roas: null,
-          costPerConv: Number(k.conversions) > 0 ? Number(k.cost) / Number(k.conversions) : null,
-          convRate: null,
-          avgCpc: Number(k.avgCpc || 0),
-          budget: null,
-        }))
-        const miniData: PlatformData = {
-          platform: 'google',
-          campaigns: miniCampaigns,
-          totals: {
-            spend, clicks, impressions,
-            ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
-            conversions: totalConversions,
-            conversionValue: 0,
-            roas: null,
-            avgCtr: avgCtr,
-            activeCampaigns: keywords.length,
-          },
-          dateRange,
-          accountId,
-        }
-        return <div className="mb-4"><InsightChat data={miniData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="keywords" /></div>
-      })()}
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
         <div className="bg-white border border-border overflow-x-auto">
           <table className="w-full text-sm">
