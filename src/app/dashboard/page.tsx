@@ -16,7 +16,6 @@ const DATE_RANGES = [
   { label: 'Last 30 days', value: 'LAST_30_DAYS' },
   { label: 'This month', value: 'THIS_MONTH' },
   { label: 'Last month', value: 'LAST_MONTH' },
-  { label: 'Last 90 days', value: 'LAST_90_DAYS' },
   { label: 'Custom range', value: 'CUSTOM' },
 ]
 
