@@ -16,6 +16,7 @@ const DATE_RANGES = [
   { label: 'Last 30 days', value: 'LAST_30_DAYS' },
   { label: 'This month', value: 'THIS_MONTH' },
   { label: 'Last month', value: 'LAST_MONTH' },
+  { label: 'Last 90 days', value: 'LAST_90_DAYS' },
   { label: 'Custom range', value: 'CUSTOM' },
 ]
 
@@ -1135,6 +1136,22 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 
       <Breadcrumb drill={drill} onNavigate={navigateTo} />
 
+      {clientId && (
+        <div className="mb-4">
+          <InsightChat
+            data={data}
+            clientId={clientId}
+            clientName={clientName}
+            dateRange={dateRange}
+            location={
+              drill.level === 'campaigns' ? 'campaigns' :
+              drill.level === 'adgroups' ? 'adgroups:' + (drill.campaign?.name || '') :
+              'ads:' + (drill.adGroup?.name || '')
+            }
+          />
+        </div>
+      )}
+
       {drill.level === 'campaigns' && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} campaignId={selectedCampaignId || undefined} campaignName={selectedCampaignId ? (campaigns.find(c => c.id === selectedCampaignId)?.name) : undefined} customStart={customStart} customEnd={customEnd} />}
       {drill.level === 'campaigns' && platform === 'combined' && (() => {
@@ -1179,7 +1196,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 }
 
 // ─── Keywords Tab ─────────────────────────────────────────────────────────────
-function KeywordsTab({ accountId, dateRange, clientId, clientName }: { accountId: string; dateRange: string; clientId: string; clientName: string }) {
+function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData }: { accountId: string; dateRange: string; clientId: string; clientName: string; platformData: PlatformData | null }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState('spend')
@@ -1277,6 +1294,11 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName }: { accountId
           )}
         </div>
       </div>
+      {clientId && platformData && (
+        <div className="mb-4">
+          <InsightChat data={platformData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="keywords" />
+        </div>
+      )}
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
         <div className="bg-white border border-border overflow-x-auto">
           <table className="w-full text-sm">
@@ -1770,7 +1792,7 @@ function DashboardContent() {
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} />
           )}
           {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
-            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} />
+            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} platformData={platformData} />
           )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
