@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     if (dateRange === 'LAST_90_DAYS') {
       const end = new Date(); end.setDate(end.getDate() - 1);
       const start = new Date(); start.setDate(start.getDate() - 90);
-      const fmt = (d) => d.toISOString().split('T')[0];
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
       dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
     } else {
       dateFilter = `segments.date DURING ${dateRange}`;
