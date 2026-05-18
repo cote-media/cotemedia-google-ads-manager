@@ -34,7 +34,14 @@ async function fetchGoogleData(
   if (customStart && customEnd) {
     dateFilter = `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
   } else {
-    dateFilter = `segments.date DURING ${dateRange}`
+    if (dateRange === 'LAST_90_DAYS') {
+      const end = new Date(); end.setDate(end.getDate() - 1);
+      const start = new Date(); start.setDate(start.getDate() - 90);
+      const fmt = (d: Date) => d.toISOString().split('T')[0];
+      dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
+    } else {
+      dateFilter = `segments.date DURING ${dateRange}`;
+    }
   }
 
   const rows = await customer.query(`
