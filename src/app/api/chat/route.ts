@@ -22,20 +22,17 @@ export async function POST(request: Request) {
   const {
     message,
     history,
-    // Platform context
     platform,
     platformData,
     dateRange,
-    // Client context
     clientId,
     clientName,
     accountId,
-    // Drill context
     drillLevel,
     drillCampaign,
     drillAdGroup,
-    // Sub-level data
     subRows,
+    rowContext, // Specific row data from AskClaudeButton
   } = await request.json()
 
   // Fetch client context from Supabase
@@ -95,6 +92,7 @@ Current context:
 - Platform: ${platformLabel}
 - Date range: ${dateRange?.replace(/_/g, ' ').toLowerCase() || 'last 30 days'}
 - Current view: ${drillContext}
+${rowContext ? '- Specific item being asked about: ' + rowContext : ''}
 ${clientProfileContext}
 
 ${totals ? `Account totals for this period:

@@ -1,7 +1,7 @@
 'use client'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, Suspense } from 'react'
+import React, { useEffect, useState, useRef, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -617,11 +617,157 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
 }
 
 // ─── Drill Table ──────────────────────────────────────────────────────────────
-function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect, selectedId }: {
+// ─── Ask Claude Button + Popover ──────────────────────────────────────────────
+function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange }: {
+  row: any
+  level: DrillLevel
+  platform: Platform
+  clientId: string
+  clientName: string
+  dateRange: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const levelLabel = level === 'campaigns' ? 'Campaign' : level === 'adgroups' ? (platform === 'meta' ? 'Ad Set' : 'Ad Group') : 'Ad'
+  const rowContext = `${levelLabel}: ${row.name} · $${Number(row.spend || 0).toFixed(2)} spend · ${Number(row.clicks || 0).toLocaleString()} clicks · CTR ${Number(row.ctr || 0).toFixed(2)}% · ${Number(row.conversions || 0).toFixed(1)} conv · Status: ${row.status || 'unknown'}${row.roas ? ' · ROAS ' + Number(row.roas).toFixed(2) + 'x' : ''}`
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  async function sendMessage(msg?: string) {
+    const userMsg = msg || input.trim()
+    if (!userMsg) return
+    setInput('')
+    setLoading(true)
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }]
+    setMessages(newMessages)
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          history: newMessages.slice(0, -1),
+          platform,
+          dateRange,
+          clientId,
+          clientName,
+          // Pass row data as context
+          rowContext,
+          drillLevel: level,
+        }),
+      })
+      const d = await res.json()
+      setMessages(prev => [...prev, { role: 'assistant', content: d.response || 'Something went wrong.' }])
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
+    } finally { setLoading(false) }
+  }
+
+  const suggestContinue = messages.length >= 4
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(!open) }}
+        title={'Ask Claude about this ' + levelLabel.toLowerCase()}
+        className={'text-xs transition-colors rounded px-1 py-0.5 ' + (open ? 'text-accent bg-blue-50' : 'text-muted hover:text-accent hover:bg-blue-50')}>
+        ✦
+      </button>
+      {open && (
+        <div className="absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50"
+          onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
+              <p className="text-xs text-muted truncate mt-0.5">{row.name}</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="text-muted hover:text-ink ml-2 text-base leading-none">×</button>
+          </div>
+
+          {/* Quick prompts — only show before conversation starts */}
+          {messages.length === 0 && (
+            <div className="px-3 py-2 border-b border-border space-y-1">
+              {[
+                'Why is this underperforming?',
+                'What should I do with this?',
+                'How does this compare to account average?',
+              ].map(q => (
+                <button key={q} onClick={() => sendMessage(q)}
+                  className="w-full text-left text-xs text-muted hover:text-accent hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors">
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
+          {messages.length > 0 && (
+            <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
+              {messages.map((m, i) => (
+                <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-surface px-2.5 py-1.5 rounded-xl flex gap-1">
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Suggest continuing in chat tab */}
+          {suggestContinue && (
+            <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-xs text-accent font-mono">
+              ↳ For a deeper conversation, use the Ask Claude tab
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="px-3 py-2 border-t border-border flex gap-2">
+            <input type="text" value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !loading && sendMessage()}
+              placeholder="Ask anything..." disabled={loading}
+              className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 bg-paper focus:outline-none focus:border-accent disabled:opacity-50" />
+            <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
+              className="text-xs bg-accent text-white px-2.5 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              ↑
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect, selectedId, clientId, clientName, dateRange }: {
   rows: any[]; level: DrillLevel; platform: Platform; activeCols: string[]
   onRowClick: (row: any) => void
   onRowSelect?: (row: any) => void
   selectedId?: string
+  clientId?: string
+  clientName?: string
+  dateRange?: string
 }) {
   const [sortCol, setSortCol] = useState('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
@@ -708,6 +854,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
               </th>
             ))}
             {level !== 'ads' && <th className="px-3 py-3 w-8 text-left font-mono text-xs text-muted">↳</th>}
+            {clientId && <th className="px-2 py-3 w-6" title="Ask Claude">✦</th>}
           </tr>
         </thead>
         <tbody>
@@ -738,6 +885,12 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                     {formatValue(col.id, col.getValue(row))}
                   </td>
                 ))}
+                {clientId && (
+                  <td className="px-2 py-3" onClick={e => e.stopPropagation()}>
+                    <AskClaudeButton row={row} level={level} platform={platform}
+                      clientId={clientId} clientName={clientName || ''} dateRange={dateRange || 'LAST_30_DAYS'} />
+                  </td>
+                )}
               </tr>
             )
           })}
@@ -754,7 +907,8 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                   {getTotalValue(col.id)}
                 </td>
               ))}
-              {level !== 'ads' && <td className="px-3 py-3" />}            </tr>
+              {level !== 'ads' && <td className="px-3 py-3" />}
+              {clientId && <td className="px-2 py-3" />}            </tr>
           </tfoot>
         )}
       </table>
@@ -1368,7 +1522,8 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
         <DrillTable rows={currentRows} level={drill.level} platform={platform} activeCols={activeCols}
           onRowClick={drill.level === 'campaigns' ? drillIntoCampaign : drillIntoAdGroup}
           onRowSelect={drill.level === 'campaigns' ? (row) => setSelectedCampaignId(prev => prev === row.id ? '' : row.id) : undefined}
-          selectedId={drill.level === 'campaigns' ? selectedCampaignId : undefined} />
+          selectedId={drill.level === 'campaigns' ? selectedCampaignId : undefined}
+          clientId={clientId} clientName={clientName} dateRange={dateRange} />
       )}
     </div>
   )
