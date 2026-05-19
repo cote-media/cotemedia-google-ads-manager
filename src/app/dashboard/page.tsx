@@ -645,6 +645,25 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
+  const conversationKey = 'row:' + row.id + ':' + level + ':' + platform
+
+  async function saveRowConversation(updatedMessages: { role: 'user' | 'assistant'; content: string }[]) {
+    if (!clientId) return
+    try {
+      const r = await fetch('/api/context?clientId=' + clientId)
+      const d = await r.json()
+      const existing = d.context?.conversations || {}
+      await fetch('/api/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          updates: { conversations: { ...existing, [conversationKey]: updatedMessages } }
+        })
+      })
+    } catch {}
+  }
+
   async function sendMessage(msg?: string) {
     const userMsg = msg || input.trim()
     if (!userMsg) return
@@ -664,13 +683,15 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
           dateRange,
           clientId,
           clientName,
-          // Pass row data as context
           rowContext,
           drillLevel: level,
         }),
       })
       const d = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: d.response || 'Something went wrong.' }])
+      const finalMessages = [...newMessages, { role: 'assistant' as const, content: d.response || 'Something went wrong.' }]
+      setMessages(finalMessages)
+      // Save to Supabase so it feeds the central Claude brain
+      saveRowConversation(finalMessages)
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally { setLoading(false) }
