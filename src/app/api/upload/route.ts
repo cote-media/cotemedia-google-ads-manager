@@ -35,11 +35,13 @@ export async function POST(request: Request) {
       const preview = lines.slice(0, 51).join('\n')
       extractedText = `CSV File: ${file.name}\nColumns: ${headers}\nTotal rows: ${rowCount}\n\nData:\n${preview}`
     } else if (fileType === 'pdf') {
-      const pdf = await import('pdf-parse')
-      const data = await pdf.default(buffer)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const pdfParse = require('pdf-parse')
+      const data = await pdfParse(buffer)
       extractedText = data.text
     } else if (fileType === 'docx') {
-      const mammoth = await import('mammoth')
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mammoth = require('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       extractedText = result.value
     } else {
