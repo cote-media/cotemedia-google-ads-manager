@@ -277,3 +277,9 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Store as array in client_context.primary_kpi (change from TEXT to JSONB or comma-separated)
 - [ ] Update insight prompts to reference all selected KPIs
 - [ ] UI: checkbox group instead of single select dropdown
+
+## 🎯 Conversion Action Visibility
+- [ ] New /api/google/conversions route — fetch all conversion actions, include_in_conversions flag, category, count
+- [ ] Pass conversion action breakdown to Claude context so it can diagnose inflated conversion counts
+- [ ] Optional: Conversion Setup card on overview page showing which actions are counting
+- [ ] Helps identify micro-conversions (page views, time on site) accidentally inflating CPL/CPA
