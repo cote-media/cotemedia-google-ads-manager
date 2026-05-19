@@ -47,6 +47,9 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ fileName: string; preview: string; charCount: number; truncated: boolean } | null>(null)
+  const [uploadError, setUploadError] = useState('')
 
   useEffect(() => {
     fetch('/api/context?clientId=' + client.id)
@@ -77,6 +80,32 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
       setTimeout(() => setSaved(false), 3000)
       onSave()
     } finally { setSaving(false) }
+  }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true); setUploadError(''); setUploadResult(null)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('clientId', client.id)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const d = await res.json()
+      if (d.error) { setUploadError(d.error); return }
+      setUploadResult(d)
+      // Refresh the notes field to show updated content
+      const ctxRes = await fetch('/api/context?clientId=' + client.id)
+      const ctxData = await ctxRes.json()
+      if (ctxData.context?.user_notes) {
+        setContext(p => ({ ...p, user_notes: ctxData.context.user_notes }))
+      }
+    } catch (err: any) {
+      setUploadError('Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
   }
 
   if (loading) return <p className="text-xs text-muted font-mono">Loading profile...</p>
@@ -127,6 +156,27 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
           rows={4} placeholder="e.g. This client is a boutique pet food brand targeting dog owners 35+. They run seasonal sales in October. Their target CPA is $45. Don't focus on ROAS for awareness campaigns — they measure those by reach and CPM only."
           className="w-full text-sm border border-border bg-paper px-3 py-2 focus:outline-none focus:border-accent rounded-lg resize-none" />
         <p className="text-xs text-muted mt-1">{context.user_notes.length} characters</p>
+      </div>
+
+      {/* Document Upload */}
+      <div className="border border-border rounded-xl p-4 bg-slate-50">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <p className="text-xs font-medium text-ink">Upload Document</p>
+            <p className="text-xs text-muted mt-0.5">PDF, DOCX, TXT, or CSV — strategy docs, sales data, brand briefs</p>
+          </div>
+          <label className={'text-xs font-mono border px-3 py-1.5 rounded-lg cursor-pointer transition-colors ' + (uploading ? 'opacity-50 cursor-not-allowed border-border text-muted' : 'border-accent text-accent hover:bg-accent hover:text-white')}>
+            {uploading ? '⏳ Processing...' : '↑ Upload'}
+            <input type="file" accept=".pdf,.docx,.txt,.csv" onChange={handleUpload} disabled={uploading} className="hidden" />
+          </label>
+        </div>
+        {uploadError && <p className="text-xs text-red-600 mt-2">{uploadError}</p>}
+        {uploadResult && (
+          <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs font-medium text-green-700 mb-1">✓ {uploadResult.fileName} uploaded ({uploadResult.charCount.toLocaleString()} characters{uploadResult.truncated ? ', truncated' : ''})</p>
+            <p className="text-xs text-green-600 font-mono">{uploadResult.preview}</p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
