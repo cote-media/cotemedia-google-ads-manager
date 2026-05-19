@@ -864,6 +864,51 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
     } catch {} finally { setPersisting(false) }
   }
 
+  const [profileSuggestion, setProfileSuggestion] = useState<string>('')
+  const [profileSaved, setProfileSaved] = useState(false)
+
+  async function extractProfileContext(conversation: InsightMessage[]) {
+    // Ask Claude to extract any persistent context from the conversation
+    try {
+      const res = await fetch('/api/insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          totals, campaigns, platform, dateRange, clientName, clientId,
+          conversationHistory: [
+            ...conversation,
+            { role: 'user', content: 'Based on what the user just told you, extract any persistent facts about this client that should always inform your future analysis. Examples: "ignore ROAS", "focus on MoF conversions", "target CPA is $45", "this is a top-of-funnel brand awareness account". Reply with ONLY the key facts as a single short sentence, or reply with exactly "none" if there is nothing new worth saving.' }
+          ],
+          location,
+        }),
+      })
+      const d = await res.json()
+      const suggestion = (d.insight || '').trim()
+      if (suggestion && suggestion.toLowerCase() !== 'none' && suggestion.length > 5) {
+        setProfileSuggestion(suggestion)
+      }
+    } catch {}
+  }
+
+  async function saveToProfile() {
+    if (!profileSuggestion) return
+    try {
+      // Fetch existing notes and append
+      const r = await fetch('/api/context?clientId=' + clientId)
+      const d = await r.json()
+      const existing = d.context?.user_notes || ''
+      const updated = existing ? existing + '\n' + profileSuggestion : profileSuggestion
+      await fetch('/api/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, updates: { user_notes: updated } })
+      })
+      setProfileSuggestion('')
+      setProfileSaved(true)
+      setTimeout(() => setProfileSaved(false), 3000)
+    } catch {}
+  }
+
   async function sendMessage() {
     if (!input.trim()) return
     const userMsg = input.trim(); setInput(''); setSending(true)
@@ -875,8 +920,9 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
     const finalMessages = [...newMessages, { role: 'assistant' as const, content: reply }]
     setMessages(finalMessages)
     setSending(false)
-    // Save to Supabase
     saveConversation(finalMessages)
+    // Check if user shared anything worth saving to profile
+    extractProfileContext(finalMessages)
     setTimeout(() => {
       const el = document.getElementById('it-' + cacheKey) || document.getElementById('it-amber-' + cacheKey)
       if (el) el.scrollTop = el.scrollHeight
@@ -928,6 +974,23 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
                 Send
               </button>
             </div>
+            {profileSuggestion && (
+              <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <p className="text-xs font-mono text-amber-700 mb-0.5">✦ Save to client profile?</p>
+                  <p className="text-xs text-ink">"{profileSuggestion}"</p>
+                </div>
+                <div className="flex gap-2 flex-shrink-0">
+                  <button onClick={saveToProfile} className="text-xs font-mono bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition-colors">Save</button>
+                  <button onClick={() => setProfileSuggestion('')} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 rounded-lg transition-colors">Dismiss</button>
+                </div>
+              </div>
+            )}
+            {profileSaved && (
+              <div className="px-4 py-2 bg-green-50 border-t border-green-100">
+                <p className="text-xs font-mono text-green-600">✓ Saved to client profile — Claude will use this for all future analyses</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -991,6 +1054,23 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
               className="flex-1 text-sm border border-blue-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-accent disabled:opacity-50" />
             <button onClick={sendMessage} disabled={sending || !input.trim()} className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed">Send</button>
           </div>
+          {profileSuggestion && (
+            <div className="px-4 py-3 bg-blue-50 border-t border-blue-100 flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-xs font-mono text-accent mb-0.5">✦ Save to client profile?</p>
+                <p className="text-xs text-ink">"{profileSuggestion}"</p>
+              </div>
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={saveToProfile} className="text-xs font-mono bg-accent text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">Save</button>
+                <button onClick={() => setProfileSuggestion('')} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 rounded-lg transition-colors">Dismiss</button>
+              </div>
+            </div>
+          )}
+          {profileSaved && (
+            <div className="px-4 py-2 bg-green-50 border-t border-green-100">
+              <p className="text-xs font-mono text-green-600">✓ Saved to client profile — Claude will use this for all future analyses</p>
+            </div>
+          )}
         </div>
       )}
     </div>
