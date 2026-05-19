@@ -800,6 +800,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
   if (!data || !data.totals || !data.campaigns) return null
   const { totals, campaigns, platform } = data
   const cacheKey = 'advar-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
+  const locationKey = (location || 'overview') + '-' + platform
   const [insight, setInsight] = useState<string>(() => {
     try { const c = lsJson(cacheKey, null) as any; if (c?.text && c?.ts && (Date.now() - c.ts) < 3600000) return c.text } catch {} return ''
   })
@@ -808,6 +809,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
   const [messages, setMessages] = useState<InsightMessage[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [persisting, setPersisting] = useState(false)
 
   const anomalies: string[] = []
   if (totals?.roas !== null && totals?.roas !== undefined && totals.roas < 0.5 && (totals.spend || 0) > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
@@ -823,20 +825,58 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
     } catch { return '' }
   }
 
+  // Load saved conversation from Supabase on mount
+  useEffect(() => {
+    if (!clientId) return
+    fetch('/api/context?clientId=' + clientId)
+      .then(r => r.json())
+      .then(d => {
+        if (d.context?.conversations?.[locationKey]?.length > 0) {
+          setMessages(d.context.conversations[locationKey])
+          setExpanded(true)
+        }
+      })
+      .catch(() => {})
+  }, [clientId, locationKey])
+
   useEffect(() => {
     fetchInsight().then(text => { if (text) { setInsight(text); lsSet(cacheKey, JSON.stringify({ text, ts: Date.now() })) } setLoading(false) })
   }, [clientId, platform, dateRange, location])
 
+  async function saveConversation(updatedMessages: InsightMessage[]) {
+    if (!clientId) return
+    setPersisting(true)
+    try {
+      // Fetch current conversations first to merge
+      const r = await fetch('/api/context?clientId=' + clientId)
+      const d = await r.json()
+      const existing = d.context?.conversations || {}
+      await fetch('/api/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId,
+          updates: {
+            conversations: { ...existing, [locationKey]: updatedMessages }
+          }
+        })
+      })
+    } catch {} finally { setPersisting(false) }
+  }
+
   async function sendMessage() {
     if (!input.trim()) return
     const userMsg = input.trim(); setInput(''); setSending(true)
-    // Use either the Claude analysis or the anomaly alerts as opening context
     const openingMessage = insight || anomalies.map(a => '⚠ ' + a).join('. ')
     const history: InsightMessage[] = [{ role: 'assistant', content: openingMessage }, ...messages, { role: 'user', content: userMsg }]
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }]
+    setMessages(newMessages)
     const reply = await fetchInsight(history)
-    setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+    const finalMessages = [...newMessages, { role: 'assistant' as const, content: reply }]
+    setMessages(finalMessages)
     setSending(false)
+    // Save to Supabase
+    saveConversation(finalMessages)
     setTimeout(() => {
       const el = document.getElementById('it-' + cacheKey) || document.getElementById('it-amber-' + cacheKey)
       if (el) el.scrollTop = el.scrollHeight
@@ -905,15 +945,27 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
               : <p className="text-sm text-ink leading-relaxed">{insight}</p>}
           </div>
           {insight && !loading && (
-            <button onClick={() => setExpanded(!expanded)}
-              className="flex-shrink-0 text-xs font-mono text-accent hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg bg-white transition-colors whitespace-nowrap">
-              {expanded ? '↑ Close' : messages.length > 0 ? '↓ ' + Math.floor(messages.length / 2) + ' replies' : '↓ Reply'}
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {persisting && <span className="text-xs font-mono text-muted animate-pulse">saving...</span>}
+              <button onClick={() => setExpanded(!expanded)}
+                className="text-xs font-mono text-accent hover:text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg bg-white transition-colors whitespace-nowrap">
+                {expanded ? '↑ Close' : messages.length > 0 ? '↓ ' + Math.floor(messages.length / 2) + ' replies' : '↓ Reply'}
+              </button>
+            </div>
           )}
         </div>
       </div>
       {expanded && (
         <div className="border-t border-blue-200 bg-white">
+          <div className="px-4 py-2 flex items-center justify-between border-b border-blue-100">
+            <span className="text-xs font-mono text-muted">{Math.floor(messages.length / 2)} exchange{Math.floor(messages.length / 2) !== 1 ? 's' : ''}</span>
+            {messages.length > 0 && (
+              <button onClick={() => { setMessages([]); saveConversation([]) }}
+                className="text-xs font-mono text-muted hover:text-red-500 transition-colors">
+                × Clear
+              </button>
+            )}
+          </div>
           {messages.length > 0 && (
             <div id={'it-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
               {messages.map((m, i) => (
