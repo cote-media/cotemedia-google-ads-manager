@@ -1252,6 +1252,145 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
   )
 }
 
+// ─── Ask Claude Card Button ───────────────────────────────────────────────────
+function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platform, dateRange }: {
+  cardTitle: string
+  cardData: string
+  clientId: string
+  clientName: string
+  platform: Platform
+  dateRange: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const conversationKey = 'card:' + cardTitle.toLowerCase().replace(/\s+/g, '-') + ':' + platform
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
+  async function saveConversation(msgs: { role: 'user' | 'assistant'; content: string }[]) {
+    try {
+      const r = await fetch('/api/context?clientId=' + clientId)
+      const d = await r.json()
+      const existing = d.context?.conversations || {}
+      await fetch('/api/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, updates: { conversations: { ...existing, [conversationKey]: msgs } } })
+      })
+    } catch {}
+  }
+
+  async function sendMessage(msg?: string) {
+    const userMsg = msg || input.trim()
+    if (!userMsg) return
+    setInput(''); setLoading(true)
+    const newMessages = [...messages, { role: 'user' as const, content: userMsg }]
+    setMessages(newMessages)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          history: newMessages.slice(0, -1),
+          platform, dateRange, clientId, clientName,
+          rowContext: cardTitle + ' card data:\n' + cardData,
+        }),
+      })
+      const d = await res.json()
+      const finalMessages = [...newMessages, { role: 'assistant' as const, content: d.response || 'Something went wrong.' }]
+      setMessages(finalMessages)
+      saveConversation(finalMessages)
+    } catch {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong.' }])
+    } finally { setLoading(false) }
+  }
+
+  const quickPrompts: Record<string, string[]> = {
+    'Campaign Performance': ['Which campaign should get more budget?', 'What\'s underperforming here?', 'Any quick wins?'],
+    'Conversion Leaders': ['Why is the top campaign converting so well?', 'How do I replicate this?', 'Is my CPA healthy?'],
+    'Budget Utilization': ['Am I overspending anywhere?', 'Should I adjust any budgets?', 'Where should I reallocate?'],
+    'Top Keywords by Spend': ['Any wasted spend here?', 'Which keywords should I pause?', 'What\'s my best keyword?'],
+  }
+  const prompts = quickPrompts[cardTitle] || ['Tell me more about this', 'Any recommendations?', 'What should I do next?']
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(!open)}
+        title={'Ask Claude about ' + cardTitle}
+        className={'text-xs transition-colors px-1.5 py-0.5 rounded ' + (open ? 'text-accent bg-blue-50' : 'text-muted hover:text-accent hover:bg-blue-50')}>
+        ✦
+      </button>
+      {open && (
+        <div className="absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50">
+          <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
+            <div>
+              <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
+              <p className="text-xs text-muted mt-0.5">{cardTitle}</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="text-muted hover:text-ink text-base leading-none ml-2">×</button>
+          </div>
+          {messages.length === 0 && (
+            <div className="px-3 py-2 border-b border-border space-y-1">
+              {prompts.map(q => (
+                <button key={q} onClick={() => sendMessage(q)}
+                  className="w-full text-left text-xs text-muted hover:text-accent hover:bg-blue-50 px-2 py-1 rounded-lg transition-colors">
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+          {messages.length > 0 && (
+            <div className="max-h-48 overflow-y-auto px-3 py-2 space-y-2">
+              {messages.map((m, i) => (
+                <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="bg-surface px-2.5 py-1.5 rounded-xl flex gap-1">
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {messages.length >= 4 && (
+            <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-xs text-accent font-mono">
+              ↳ For a deeper conversation, use the Ask Claude tab
+            </div>
+          )}
+          <div className="px-3 py-2 border-t border-border flex gap-2">
+            <input type="text" value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && !loading && sendMessage()}
+              placeholder="Ask anything..." disabled={loading}
+              className="flex-1 text-xs border border-border rounded-lg px-2 py-1.5 bg-paper focus:outline-none focus:border-accent disabled:opacity-50" />
+            <button onClick={() => sendMessage()} disabled={loading || !input.trim()}
+              className="text-xs bg-accent text-white px-2.5 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+              ↑
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd }: {
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
@@ -1302,7 +1441,12 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Campaign Performance</h3>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+              Campaign Performance
+              <AskClaudeCardButton cardTitle="Campaign Performance"
+                cardData={topByCost.map(c => `${c.name}: $${c.spend.toFixed(2)} spend, ${c.conversions.toFixed(1)} conv, ROAS ${c.roas ? c.roas.toFixed(2) + 'x' : 'N/A'}, CTR ${c.ctr?.toFixed(2)}%`).join('\n')}
+                clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} />
+            </h3>
           <div className="space-y-3">
             {topByCost.map(c => (
               <div key={c.id + c.platform}>
@@ -1321,7 +1465,12 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           </div>
         </div>
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Conversion Leaders</h3>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+              Conversion Leaders
+              <AskClaudeCardButton cardTitle="Conversion Leaders"
+                cardData={topByConv.map(c => `${c.name}: ${c.conversions.toFixed(1)} conv, CPA ${c.costPerConv ? '$' + c.costPerConv.toFixed(2) : 'N/A'}, ROAS ${c.roas ? c.roas.toFixed(2) + 'x' : 'N/A'}`).join('\n')}
+                clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} />
+            </h3>
           {topByConv.length === 0 ? <p className="text-xs text-muted font-mono">No conversions recorded</p> : (
             <div className="space-y-2">
               {topByConv.map(c => (
@@ -1341,12 +1490,20 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         </div>
         {platform === 'google' && googleAccountId && (
           <div className="bg-white border border-border p-4 md:p-5">
-            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Top Keywords by Spend</h3>
+            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+              Top Keywords by Spend
+              {clientId && <AskClaudeCardButton cardTitle="Top Keywords by Spend" cardData="See keyword data below" clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} />}
+            </h3>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
           </div>
         )}
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">Budget Utilization</h3>
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+              Budget Utilization
+              <AskClaudeCardButton cardTitle="Budget Utilization"
+                cardData={campaignsWithBudget.map(c => `${c.name}: $${c.spend.toFixed(2)} spent of $${c.budget?.toFixed(2)}/day budget (${((c.spend / (c.budget! * 30)) * 100).toFixed(0)}% utilized)`).join('\n')}
+                clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} />
+            </h3>
           {campaignsWithBudget.length === 0 ? <p className="text-xs text-muted font-mono">No budget data available</p> : (
             <div className="space-y-3">
               {campaignsWithBudget.map(c => {
