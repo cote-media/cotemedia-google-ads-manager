@@ -720,7 +720,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
               <div className={'text-sm px-3 py-2.5 rounded-xl max-w-[90%] leading-relaxed ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink border border-border')}>
                 {m.role === 'user'
                   ? m.content
-                  : <ReactMarkdown remarkPlugins={[remarkGfm]} className="chat-response">{m.content}</ReactMarkdown>
+                  : <div className="chat-response"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
                 }
               </div>
             </div>
