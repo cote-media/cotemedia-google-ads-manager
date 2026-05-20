@@ -57,8 +57,8 @@ export async function GET(request: Request) {
     let url: string | null = `${SHOPIFY_API}/orders.json?status=any&created_at_min=${start}T00:00:00Z&created_at_max=${end}T23:59:59Z&limit=250&fields=id,created_at,total_price,financial_status,line_items`
     
     while (url) {
-      const res = await fetch(url, { headers })
-      const data = await res.json()
+      const res: Response = await fetch(url, { headers })
+      const data: any = await res.json()
       allOrders = allOrders.concat(data.orders || [])
       // Check for next page link header
       const linkHeader = res.headers.get('link') || ''
