@@ -1447,7 +1447,67 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   )
 }
 
-// ─── Ask Claude Card Button ───────────────────────────────────────────────────
+// ─── Shopify Chart ────────────────────────────────────────────────────────────
+const SHOPIFY_METRICS = [
+  { id: 'revenue', label: 'Revenue', color: '#16a34a' },
+  { id: 'orders', label: 'Orders', color: '#2563eb' },
+  { id: 'avgOrderValue', label: 'AOV', color: '#9333ea' },
+]
+
+function ShopifyChart({ clientId, dateRange, customStart, customEnd }: {
+  clientId: string; dateRange: string; customStart?: string; customEnd?: string
+}) {
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['revenue', 'orders'])
+
+  useEffect(() => {
+    if (!clientId) return
+    setLoading(true)
+    let url = `/api/shopify/daily?clientId=${clientId}&dateRange=${dateRange}`
+    if (customStart) url += '&customStart=' + customStart
+    if (customEnd) url += '&customEnd=' + customEnd
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { setData(d.daily || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [clientId, dateRange, customStart, customEnd])
+
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
+  if (!data.length) return null
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Store Performance Over Time</h3>
+        <div className="flex gap-1 flex-wrap">
+          {SHOPIFY_METRICS.map(m => (
+            <button key={m.id} onClick={() => toggle(m.id)}
+              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          {SHOPIFY_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+            <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+
 function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platform, dateRange, openPanel }: {
   cardTitle: string; cardData: string
   clientId: string; clientName: string; platform: Platform; dateRange: string
@@ -1645,6 +1705,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {hasAdData && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {hasAdData && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {hasAdData && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {shopify?.connected && clientId && <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
 
       {hasAdData && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -2300,6 +2361,9 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Revenue over time chart */}
+      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} />
+
       {/* Metric tiles */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
         {metrics.map(m => (
