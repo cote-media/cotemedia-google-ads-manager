@@ -879,7 +879,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
-                    {m.content}
+                    {m.role === 'user' ? m.content : <div className="chat-response prose-xs"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
                   </div>
                 </div>
               ))}
@@ -1496,7 +1496,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
-                    {m.content}
+                    {m.role === 'user' ? m.content : <div className="chat-response prose-xs"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
                   </div>
                 </div>
               ))}
@@ -1637,10 +1637,10 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         </div>
         {platform === 'google' && googleAccountId && (
           <div className="bg-white border border-border p-4 md:p-5">
-            <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
-              Top Keywords by Spend
-              {clientId && <AskClaudeCardButton cardTitle="Top Keywords by Spend" cardData={keywordCardData} clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />}
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Top Keywords</h3>
+              {clientId && <AskClaudeCardButton cardTitle="Top Keywords" cardData={keywordCardData} clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />}
+            </div>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} onDataLoaded={setKeywordCardData} />
           </div>
         )}
@@ -1679,28 +1679,59 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
 function TopKeywordsCard({ accountId, dateRange, onDataLoaded }: { accountId: string; dateRange: string; onDataLoaded?: (data: string) => void }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [sortBy, setSortBy] = useState<'cost' | 'clicks' | 'ctr' | 'conversions' | 'qualityScore'>('cost')
+
+  const sortOptions = [
+    { value: 'cost', label: 'Spend' },
+    { value: 'clicks', label: 'Clicks' },
+    { value: 'ctr', label: 'CTR' },
+    { value: 'conversions', label: 'Conversions' },
+    { value: 'qualityScore', label: 'Quality Score' },
+  ]
+
   useEffect(() => {
     fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
       .then(r => r.json()).then(d => {
-        const kws = (d.keywords || []).slice(0, 5)
-        setKeywords(kws)
+        setKeywords(d.keywords || [])
         setLoading(false)
-        if (onDataLoaded && kws.length > 0) {
-          onDataLoaded(kws.map((k: any) => `${k.text}: $${k.cost} spend, ${k.clicks} clicks, ${k.ctr}% CTR, QS ${k.qualityScore || 'N/A'}`).join('\n'))
-        }
       })
       .catch(() => setLoading(false))
   }, [accountId, dateRange])
+
+  const sorted = [...keywords].sort((a, b) => Number(b[sortBy] || 0) - Number(a[sortBy] || 0)).slice(0, 5)
+
+  useEffect(() => {
+    if (onDataLoaded && sorted.length > 0) {
+      onDataLoaded(sorted.map((k: any) => `${k.text}: $${k.cost} spend, ${k.clicks} clicks, ${k.ctr}% CTR, QS ${k.qualityScore || 'N/A'}`).join('\n'))
+    }
+  }, [sortBy, keywords])
+
+  const formatValue = (k: any) => {
+    if (sortBy === 'cost') return '$' + k.cost
+    if (sortBy === 'ctr') return k.ctr + '%'
+    if (sortBy === 'qualityScore') return k.qualityScore || '—'
+    return k[sortBy] || '—'
+  }
+
   if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
   if (!keywords.length) return <p className="text-xs text-muted font-mono">No keyword data</p>
   return (
-    <div className="space-y-2">
-      {keywords.map((k: any, i: number) => (
-        <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
-          <span className="text-xs text-ink truncate max-w-[60%]">{k.text}</span>
-          <span className="text-xs font-mono text-muted">${k.cost}</span>
-        </div>
-      ))}
+    <div>
+      <div className="flex items-center gap-1.5 mb-3">
+        <span className="text-xs text-muted font-mono">Sort by</span>
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+          className="text-xs border border-border rounded px-1.5 py-0.5 bg-paper text-ink font-mono focus:outline-none focus:border-accent">
+          {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      <div className="space-y-2">
+        {sorted.map((k: any, i: number) => (
+          <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+            <span className="text-xs text-ink truncate max-w-[60%]">{k.text}</span>
+            <span className="text-xs font-mono text-muted">{formatValue(k)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
