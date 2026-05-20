@@ -203,6 +203,9 @@ function ClientsContent() {
   const [newClientName, setNewClientName] = useState('')
   const [showNewClient, setShowNewClient] = useState(false)
   const [expandedProfile, setExpandedProfile] = useState<string | null>(null)
+  const [shopifyModal, setShopifyModal] = useState<string | null>(null) // clientId
+  const [shopifyDomain, setShopifyDomain] = useState('')
+  const [shopifySuccess, setShopifySuccess] = useState(false)
 
   // Meta modal state
   const [metaModal, setMetaModal] = useState<{ clientId: string; accounts: MetaAccount[] } | null>(null)
@@ -221,7 +224,18 @@ function ClientsContent() {
     const metaAccounts = searchParams.get('meta_accounts')
     const clientId = searchParams.get('client_id')
     const metaErr = searchParams.get('meta_error')
+    const shopifyConnected = searchParams.get('shopify_connected')
+    const shopifyError = searchParams.get('shopify_error')
+
     if (metaErr) { setMetaError('Meta connection failed: ' + metaErr); return }
+    if (shopifyError) { setMetaError('Shopify connection failed: ' + shopifyError); return }
+    if (shopifyConnected === 'true') {
+      setShopifySuccess(true)
+      fetchClients()
+      router.replace('/clients')
+      setTimeout(() => setShopifySuccess(false), 4000)
+      return
+    }
     if (metaAccounts && clientId) {
       try {
         const accounts: MetaAccount[] = JSON.parse(decodeURIComponent(metaAccounts))
@@ -336,6 +350,7 @@ function ClientsContent() {
               {clients.map(client => {
                 const googleConn = client.platform_connections.find(p => p.platform === 'google')
                 const metaConn = client.platform_connections.find(p => p.platform === 'meta')
+                const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
                 const isExpanded = expandedProfile === client.id
                 return (
                   <div key={client.id} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
@@ -355,12 +370,17 @@ function ClientsContent() {
                                 🔷 Meta · {metaConn.account_name}
                               </span>
                             )}
+                            {shopifyConn && (
+                              <span className="text-xs font-mono text-muted bg-surface px-2 py-1 rounded-full">
+                                🛍 Shopify · {shopifyConn.account_name}
+                              </span>
+                            )}
                             {client.platform_connections.length === 0 && (
                               <span className="text-xs font-mono text-muted">No accounts connected</span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                        <div className="flex items-center gap-2 ml-4 flex-shrink-0 flex-wrap justify-end">
                           {!metaConn && (
                             <a href={'/api/meta/auth?clientId=' + client.id}
                               className="text-xs font-mono text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
@@ -371,6 +391,21 @@ function ClientsContent() {
                             <button onClick={() => disconnectMeta(client.id, metaConn.id)}
                               className="text-xs font-mono text-red-400 hover:text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
                               Disconnect Meta
+                            </button>
+                          )}
+                          {!shopifyConn && (
+                            <button onClick={() => { setShopifyModal(client.id); setShopifyDomain('') }}
+                              className="text-xs font-mono text-green-600 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors">
+                              + Shopify
+                            </button>
+                          )}
+                          {shopifyConn && (
+                            <button onClick={async () => {
+                              await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
+                              fetchClients()
+                            }}
+                              className="text-xs font-mono text-red-400 hover:text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
+                              Disconnect Shopify
                             </button>
                           )}
                           <button onClick={() => setExpandedProfile(isExpanded ? null : client.id)}
@@ -495,6 +530,41 @@ function ClientsContent() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Shopify connect modal */}
+      {shopifyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl">
+            <h3 className="font-display text-xl text-ink mb-2">Connect Shopify Store</h3>
+            <p className="text-sm text-muted font-mono mb-6">Enter the store's myshopify.com domain to connect.</p>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-ink mb-1.5">Store Domain</label>
+              <input type="text" value={shopifyDomain} onChange={e => setShopifyDomain(e.target.value)}
+                placeholder="your-store.myshopify.com"
+                className="w-full text-sm border border-border rounded-lg px-3 py-2 focus:outline-none focus:border-accent" />
+              <p className="text-xs text-muted mt-1 font-mono">Must end in .myshopify.com</p>
+            </div>
+            <div className="flex gap-3">
+              <a href={shopifyDomain.includes('.myshopify.com') ? `/api/shopify/auth?clientId=${shopifyModal}&shop=${shopifyDomain}` : '#'}
+                onClick={e => { if (!shopifyDomain.includes('.myshopify.com')) e.preventDefault() }}
+                className={'btn-primary text-center ' + (!shopifyDomain.includes('.myshopify.com') ? 'opacity-50 pointer-events-none' : '')}>
+                Connect Shopify
+              </a>
+              <button onClick={() => setShopifyModal(null)}
+                className="text-xs font-mono text-muted hover:text-ink border border-border rounded-lg px-4 py-2">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shopify success notification */}
+      {shopifySuccess && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-6 py-3 rounded-xl shadow-xl z-50 font-mono text-sm">
+          ✓ Shopify connected successfully
         </div>
       )}
     </div>
