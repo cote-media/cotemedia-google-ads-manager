@@ -1743,7 +1743,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
               <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Revenue</h3>
               <AskClaudeCardButton cardTitle="Shopify Revenue"
                 cardData={`Shopify: $${(shopify.totalRevenue || 0).toFixed(2)} revenue, ${shopify.totalOrders || 0} orders, $${(shopify.avgOrderValue || 0).toFixed(2)} AOV`}
-                clientId={clientId} clientName={clientName} platform={data.platform} dateRange={dateRange} openPanel={openPanel} />
+                clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
             </div>
             <div className="space-y-2">
               {[
@@ -1763,7 +1763,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
               <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Customers</h3>
               <AskClaudeCardButton cardTitle="Shopify Customers"
                 cardData={`Shopify customers: ${shopify.newCustomers || 0} new, ${shopify.returningCustomers || 0} returning`}
-                clientId={clientId} clientName={clientName} platform={data.platform} dateRange={dateRange} openPanel={openPanel} />
+                clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
             </div>
             <div className="space-y-2">
               {[
