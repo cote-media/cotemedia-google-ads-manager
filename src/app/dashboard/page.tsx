@@ -22,7 +22,8 @@ const DATE_RANGES = [
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '▦' },
-  { id: 'campaigns', label: 'Campaigns', icon: '◈' },
+  { id: 'campaigns', label: 'Campaigns', icon: '◈', hideForShopifyOnly: true },
+  { id: 'shopify', label: 'Shopify', icon: '🛍', shopifyOnly: true },
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
   { id: 'chat', label: 'Ask Claude', icon: '✦' },
 ]
@@ -2178,6 +2179,234 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
+// ─── Shopify Tab Component ────────────────────────────────────────────────────
+// Displays Shopify store data: revenue, orders, products, customers
+// Used when a client has Shopify connected (with or without ad platforms)
+
+interface ShopifyData {
+  connected: boolean
+  totalOrders?: number
+  totalRevenue?: number
+  avgOrderValue?: number
+  newCustomers?: number
+  returningCustomers?: number
+  topProducts?: { id: string; name: string; revenue: number; units: number }[]
+  adAttributedRevenue?: number
+  adAttributedOrders?: number
+}
+
+function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel }: {
+  shopify: ShopifyData
+  clientId: string
+  clientName: string
+  dateRange: string
+  platform: Platform
+  openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+}) {
+  if (!shopify?.connected) {
+    return (
+      <div className="flex items-center justify-center h-64 flex-col gap-4">
+        <p className="text-2xl">🛍</p>
+        <p className="text-ink font-medium">Shopify data unavailable</p>
+        <p className="text-muted font-mono text-sm">Could not fetch store data. Check your Shopify connection.</p>
+        <a href="/clients" className="btn-primary text-sm">Manage connections →</a>
+      </div>
+    )
+  }
+
+  const metrics = [
+    { label: 'Total Revenue', value: shopify.totalRevenue != null ? fmt(shopify.totalRevenue, 'currency') : '—' },
+    { label: 'Total Orders', value: shopify.totalOrders != null ? fmt(shopify.totalOrders) : '—' },
+    { label: 'Avg Order Value', value: shopify.avgOrderValue != null ? fmt(shopify.avgOrderValue, 'currency') : '—' },
+    { label: 'New Customers', value: shopify.newCustomers != null ? fmt(shopify.newCustomers) : '—' },
+    { label: 'Returning', value: shopify.returningCustomers != null ? fmt(shopify.returningCustomers) : '—' },
+    { label: 'Return Rate', value: shopify.totalOrders && shopify.returningCustomers != null ? fmt((shopify.returningCustomers / shopify.totalOrders) * 100, 'percent') : '—' },
+  ]
+
+  const topProducts = shopify.topProducts || []
+  const maxRevenue = topProducts[0]?.revenue || 1
+  const shopifyContext = `Shopify store data for ${clientName}:
+Total Revenue: ${shopify.totalRevenue != null ? '$' + shopify.totalRevenue.toFixed(2) : 'N/A'}
+Total Orders: ${shopify.totalOrders || 0}
+Avg Order Value: ${shopify.avgOrderValue != null ? '$' + shopify.avgOrderValue.toFixed(2) : 'N/A'}
+New Customers: ${shopify.newCustomers || 0}
+Returning Customers: ${shopify.returningCustomers || 0}
+${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => `- ${p.name}: $${p.revenue.toFixed(2)} revenue, ${p.units} units`).join('\n') : ''}`
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {/* Metric tiles */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="text-xs font-medium text-muted uppercase tracking-widest mb-1 md:mb-2">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Top Products */}
+      {topProducts.length > 0 && (
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Top Products by Revenue</h3>
+            <AskClaudeCardButton
+              cardTitle="Top Products"
+              cardData={shopifyContext}
+              clientId={clientId}
+              clientName={clientName}
+              platform={platform}
+              dateRange={dateRange}
+              openPanel={openPanel}
+            />
+          </div>
+          <div className="space-y-3">
+            {topProducts.slice(0, 8).map((product, i) => (
+              <div key={product.id}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-ink truncate max-w-[60%]">{product.name}</span>
+                  <div className="text-right">
+                    <span className="text-xs font-mono text-accent">{fmt(product.revenue, 'currency')}</span>
+                    <span className="text-xs font-mono text-muted ml-2">{product.units} units</span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                  <div className="h-full rounded-full bg-green-500"
+                    style={{ width: (product.revenue / maxRevenue * 100) + '%' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Customer breakdown */}
+      {(shopify.newCustomers != null || shopify.returningCustomers != null) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Customer Mix</h3>
+              <AskClaudeCardButton
+                cardTitle="Customer Mix"
+                cardData={shopifyContext}
+                clientId={clientId}
+                clientName={clientName}
+                platform={platform}
+                dateRange={dateRange}
+                openPanel={openPanel}
+              />
+            </div>
+            <div className="space-y-3">
+              {[
+                { label: 'New customers', value: shopify.newCustomers || 0, color: '#2563eb' },
+                { label: 'Returning customers', value: shopify.returningCustomers || 0, color: '#16a34a' },
+              ].map(item => {
+                const total = (shopify.newCustomers || 0) + (shopify.returningCustomers || 0)
+                const pct = total > 0 ? (item.value / total) * 100 : 0
+                return (
+                  <div key={item.label}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-ink">{item.label}</span>
+                      <span className="text-xs font-mono text-muted">{item.value} ({pct.toFixed(0)}%)</span>
+                    </div>
+                    <div className="h-1.5 bg-surface rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', backgroundColor: item.color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Revenue summary card */}
+          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Revenue Summary</h3>
+              <AskClaudeCardButton
+                cardTitle="Revenue Summary"
+                cardData={shopifyContext}
+                clientId={clientId}
+                clientName={clientName}
+                platform={platform}
+                dateRange={dateRange}
+                openPanel={openPanel}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between py-1 border-b border-border">
+                <span className="text-xs text-muted">Total revenue</span>
+                <span className="text-xs font-mono text-ink">{shopify.totalRevenue != null ? fmt(shopify.totalRevenue, 'currency') : '—'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-border">
+                <span className="text-xs text-muted">Total orders</span>
+                <span className="text-xs font-mono text-ink">{shopify.totalOrders || '—'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-border">
+                <span className="text-xs text-muted">Avg order value</span>
+                <span className="text-xs font-mono text-ink">{shopify.avgOrderValue != null ? fmt(shopify.avgOrderValue, 'currency') : '—'}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-xs text-muted">Revenue per customer</span>
+                <span className="text-xs font-mono text-ink">
+                  {shopify.totalRevenue && (shopify.newCustomers || 0) + (shopify.returningCustomers || 0) > 0
+                    ? fmt(shopify.totalRevenue / ((shopify.newCustomers || 0) + (shopify.returningCustomers || 0)), 'currency')
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ─── Shopify Tab Wrapper ──────────────────────────────────────────────────────
+function ShopifyTabWrapper({ clientId, clientName, dateRange, platform, openPanel, customStart, customEnd }: {
+  clientId: string; clientName: string; dateRange: string; platform: Platform
+  openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+  customStart?: string; customEnd?: string
+}) {
+  const [shopifyData, setShopifyData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!clientId) return
+    setLoading(true)
+    const params = new URLSearchParams({ clientId, dateRange })
+    if (customStart) params.set('customStart', customStart)
+    if (customEnd) params.set('customEnd', customEnd)
+    fetch('/api/intelligence?' + params.toString())
+      .then(r => r.json())
+      .then(d => {
+        if (d.intelligence?.shopify) {
+          setShopifyData(d.intelligence.shopify)
+        } else {
+          setError('No Shopify data available')
+        }
+        setLoading(false)
+      })
+      .catch(e => { setError(e.message); setLoading(false) })
+  }, [clientId, dateRange, customStart, customEnd])
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex items-center gap-2 text-muted font-mono text-sm">
+        <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading Shopify data...
+      </div>
+    </div>
+  )
+  if (error) return (
+    <div className="flex items-center justify-center h-64 flex-col gap-2">
+      <p className="text-muted font-mono text-sm">Could not load Shopify data</p>
+      <p className="text-xs text-red-500">{error}</p>
+    </div>
+  )
+  return <ShopifyTab shopify={shopifyData} clientId={clientId} clientName={clientName} dateRange={dateRange} platform={platform} openPanel={openPanel} />
+}
+
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -2186,7 +2415,7 @@ function DashboardContent() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('advar-active-platform') as Platform) || 'google')
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat'>(() => (ls('advar-active-tab') as any) || 'overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify'>(() => (ls('advar-active-tab') as any) || 'overview')
   const [dateRange, setDateRange] = useState<string>(() => ls('advar-date-range') || 'LAST_30_DAYS')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -2401,10 +2630,16 @@ function DashboardContent() {
   const metaConn = selectedClient?.platform_connections.find(p => p.platform === 'meta')
   const hasGoogle = !!googleConn
   const hasMeta = !!metaConn
+  const hasShopify = !!selectedClient?.platform_connections.find(p => p.platform === 'shopify')
   const hasBoth = hasGoogle && hasMeta
   const googleAccountId = googleConn?.account_id || ''
   const metaAccountId = metaConn?.account_id || ''
-  const visibleNavItems = NAV_ITEMS.filter(item => !(item.googleOnly && activePlatform !== 'google'))
+  const visibleNavItems = NAV_ITEMS.filter(item => {
+    if (item.googleOnly && activePlatform !== 'google') return false
+    if (item.shopifyOnly && !hasShopify) return false
+    if (item.hideForShopifyOnly && !hasGoogle && !hasMeta && hasShopify) return false
+    return true
+  })
   const dateLabel = dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : DATE_RANGES.find(d => d.value === dateRange)?.label || ''
 
   return (
@@ -2562,6 +2797,9 @@ function DashboardContent() {
           {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
             <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} platformData={platformData} />
           )}
+          {activeTab === 'shopify' && hasShopify && (
+            <ShopifyTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
+          )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
               onSend={sendChat} accountSelected={!!selectedClient} onDownload={downloadChat} onUpload={uploadChat}
@@ -2577,8 +2815,8 @@ function DashboardContent() {
           {selectedClient && !loading && !platformData && !selectedClient.platform_connections.some(p => p.platform === 'google') && !selectedClient.platform_connections.some(p => p.platform === 'meta') && selectedClient.platform_connections.some(p => p.platform === 'shopify') && (
             <div className="flex items-center justify-center h-64 flex-col gap-4">
               <p className="text-2xl">🛍</p>
-              <p className="text-ink font-medium">Shopify connected</p>
-              <p className="text-muted font-mono text-sm text-center max-w-sm">Connect Google Ads or Meta Ads to see campaign performance. Shopify data is available to Claude when analyzing this client.</p>
+              <p className="text-ink font-medium">{selectedClient.name} — Shopify connected</p>
+              <p className="text-muted font-mono text-sm text-center max-w-sm">Shopify data is available to Claude. Full Shopify dashboard coming soon — connect Google Ads or Meta Ads to see ad performance now.</p>
               <a href="/clients" className="btn-primary text-sm">Connect ad platform →</a>
             </div>
           )}
