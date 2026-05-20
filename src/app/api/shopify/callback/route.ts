@@ -70,6 +70,7 @@ export async function GET(request: Request) {
     .from('platform_connections')
     .insert({
       client_id: clientId,
+      user_email: userEmail,
       platform: 'shopify',
       account_id: shop,
       account_name: shopName,
