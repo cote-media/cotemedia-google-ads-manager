@@ -717,8 +717,11 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
           )}
           {messages.map((m, i) => (
             <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
-              <div className={'text-sm px-3 py-2.5 rounded-xl max-w-[85%] leading-relaxed ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink border border-border')}>
-                {m.content}
+              <div className={'text-sm px-3 py-2.5 rounded-xl max-w-[90%] leading-relaxed ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink border border-border')}>
+                {m.role === 'user'
+                  ? m.content
+                  : <ReactMarkdown remarkPlugins={[remarkGfm]} className="chat-response">{m.content}</ReactMarkdown>
+                }
               </div>
             </div>
           ))}
@@ -2126,20 +2129,20 @@ function DashboardContent() {
   const [sessionStart, setSessionStart] = useState<number>(() => parseInt(ls('advar-session-start') || '0'))
 
   // Right panel state — shared across all AskClaude buttons
-  const [panelOpen, setPanelOpen] = useState(false)
-  const [panelMinimized, setPanelMinimized] = useState(false)
-  const [panelMessages, setPanelMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [panelContext, setPanelContext] = useState('')
-  const [panelTitle, setPanelTitle] = useState('')
+  const [panelOpen, setPanelOpen] = useState(() => ls('advar-panel-open') === 'true')
+  const [panelMinimized, setPanelMinimized] = useState(() => ls('advar-panel-minimized') === 'true')
+  const [panelMessages, setPanelMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>(() => lsJson('advar-panel-messages', []))
+  const [panelContext, setPanelContext] = useState(() => ls('advar-panel-context') || '')
+  const [panelTitle, setPanelTitle] = useState(() => ls('advar-panel-title') || '')
   const [panelInput, setPanelInput] = useState('')
   const [panelLoading, setPanelLoading] = useState(false)
 
   function openPanel(title: string, context: string, existingMessages: { role: 'user' | 'assistant'; content: string }[] = []) {
-    setPanelTitle(title)
-    setPanelContext(context)
-    setPanelMessages(existingMessages)
-    setPanelOpen(true)
-    setPanelMinimized(false)
+    setPanelTitle(title); lsSet('advar-panel-title', title)
+    setPanelContext(context); lsSet('advar-panel-context', context)
+    setPanelMessages(existingMessages); lsSet('advar-panel-messages', JSON.stringify(existingMessages))
+    setPanelOpen(true); lsSet('advar-panel-open', 'true')
+    setPanelMinimized(false); lsSet('advar-panel-minimized', 'false')
   }
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
@@ -2518,7 +2521,7 @@ function DashboardContent() {
           {panelMinimized ? (
             // Minimized tab — sits at bottom right
             <button
-              onClick={() => setPanelMinimized(false)}
+              onClick={() => { setPanelMinimized(false); lsSet('advar-panel-minimized', 'false') }}
               className="fixed bottom-20 right-0 z-50 bg-accent text-white text-xs font-mono px-3 py-2 rounded-l-lg shadow-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
               ✦ {panelTitle.slice(0, 20)}{panelTitle.length > 20 ? '…' : ''}
               {panelMessages.length > 0 && <span className="bg-white text-accent rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">{Math.floor(panelMessages.length / 2)}</span>}
@@ -2526,12 +2529,12 @@ function DashboardContent() {
           ) : (
             <RightPanel
               open={panelOpen}
-              onClose={() => { setPanelOpen(false); setPanelMinimized(false) }}
-              onMinimize={() => setPanelMinimized(true)}
+              onClose={() => { setPanelOpen(false); setPanelMinimized(false); lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false') }}
+              onMinimize={() => { setPanelMinimized(true); lsSet('advar-panel-minimized', 'true') }}
               title={panelTitle}
               context={panelContext}
               messages={panelMessages}
-              setMessages={setPanelMessages}
+              setMessages={(msgs) => { setPanelMessages(msgs); lsSet('advar-panel-messages', JSON.stringify(msgs)) }}
               input={panelInput}
               setInput={setPanelInput}
               loading={panelLoading}
