@@ -2574,7 +2574,7 @@ function DashboardContent() {
               <a href="/clients" className="btn-primary text-sm">Set up clients →</a>
             </div>
           )}
-          {selectedClient && !loading && !platformData && activePlatform === 'shopify' && (
+          {selectedClient && !loading && !platformData && !selectedClient.platform_connections.some(p => p.platform === 'google') && !selectedClient.platform_connections.some(p => p.platform === 'meta') && selectedClient.platform_connections.some(p => p.platform === 'shopify') && (
             <div className="flex items-center justify-center h-64 flex-col gap-4">
               <p className="text-2xl">🛍</p>
               <p className="text-ink font-medium">Shopify connected</p>
