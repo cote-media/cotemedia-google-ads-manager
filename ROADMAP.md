@@ -283,3 +283,35 @@ Final name TBD before launch — recommend filing trademark on chosen name befor
 - [ ] Pass conversion action breakdown to Claude context so it can diagnose inflated conversion counts
 - [ ] Optional: Conversion Setup card on overview page showing which actions are counting
 - [ ] Helps identify micro-conversions (page views, time on site) accidentally inflating CPL/CPA
+
+## 📊 Deeper Meta & Google Data for Claude Context
+- [ ] Meta placement breakdown — fetch publisher_platform breakdown (Feed, Reels, Stories, etc.) per campaign/ad set via Insights API breakdown parameter
+- [ ] Meta audience details — fetch targeting spec from ad set (lookalike, interest, retargeting) and pass to Claude
+- [ ] Meta bid strategy — fetch bid_strategy field from campaign/ad set and include in context
+- [ ] Google bid strategy — fetch bidding_strategy_type from campaign and include in context
+- [ ] Conversion event details — fetch conversion action names/types from Google (/api/google/conversions) and Meta so Claude knows what's actually being counted
+- [ ] Ad creative details — fetch creative type (image/video/carousel), headline, description for ads and pass to Claude at ad level
+- [ ] All of the above to be injected into AskClaudeButton rowContext so Claude can actually answer "why is this working?" questions
+EOFs/cotemedia-ads-manager && git add ROADMAP.md && git commit -m "Add deeper API data roadmap items" && git push
+cp ~/Downloads/dashboard-final.tsx ~/Downloads/cotemedia-ads-manager/src/app/dashboard/page.tsx && cd ~/Downloads/cotemedia-ads-manager && npm run build 2>&1 | tail -5 && git add . && git commit -m "Enrich AskClaudeButton rowContext with all available fields - objective, budget, CPM, reach, frequency, ecommerce actions, ad copy" && git push
+eof
+
+## 📊 Deeper Meta & Google Data for Claude Context
+- [ ] Meta placement breakdown — fetch publisher_platform breakdown (Feed, Reels, Stories, etc.) per campaign/ad set via Insights API breakdown parameter
+- [ ] Meta audience details — fetch targeting spec from ad set (lookalike, interest, retargeting) and pass to Claude
+- [ ] Meta bid strategy — fetch bid_strategy field from campaign/ad set and include in context
+- [ ] Google bid strategy — fetch bidding_strategy_type from campaign and include in context
+- [ ] Conversion event details — fetch conversion action names/types from Google (/api/google/conversions) and Meta so Claude knows what's actually being counted
+- [ ] Ad creative details — fetch creative type (image/video/carousel), headline, description for ads and pass to Claude at ad level
+- [ ] All of the above to be injected into AskClaudeButton rowContext so Claude can actually answer "why is this working?" questions
+EOds/cotemedia-ads-manager && git add ROADMAP.md && git commit -m "Add deeper API data roadmap items" && git push
+cat >> ~/Downloads/cotemedia-ads-manager/ROADMAP.md << 'EOF'
+
+## 📊 Deeper Meta & Google Data for Claude Context
+- [ ] Meta placement breakdown — fetch publisher_platform breakdown (Feed, Reels, Stories, etc.) per campaign/ad set via Insights API breakdown parameter
+- [ ] Meta audience details — fetch targeting spec from ad set (lookalike, interest, retargeting) and pass to Claude
+- [ ] Meta bid strategy — fetch bid_strategy field from campaign/ad set and include in context
+- [ ] Google bid strategy — fetch bidding_strategy_type from campaign and include in context
+- [ ] Conversion event details — fetch conversion action names/types from Google and Meta so Claude knows what's actually being counted
+- [ ] Ad creative details — fetch creative type, headline, description for ads and pass to Claude at ad level
+- [ ] All of above injected into AskClaudeButton rowContext so Claude can answer "why is this working?" questions
