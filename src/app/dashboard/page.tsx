@@ -1440,15 +1440,17 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
           message: userMsg,
           history: newMessages.slice(0, -1),
           platform, dateRange, clientId, clientName,
-          rowContext: cardTitle + ' card data:\n' + cardData,
+          rowContext: 'Overview page — ' + cardTitle + ' card:\n' + cardData,
+          drillLevel: 'overview',
         }),
       })
       const d = await res.json()
       const finalMessages = [...newMessages, { role: 'assistant' as const, content: d.response || 'Something went wrong.' }]
       setMessages(finalMessages)
       saveConversation(finalMessages)
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong.' }])
+    } catch (e: any) {
+      console.error('AskClaudeCardButton error:', e)
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Error: ' + (e?.message || 'Something went wrong. Please try again.') }])
     } finally { setLoading(false) }
   }
 
