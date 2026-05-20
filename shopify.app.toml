@@ -1,0 +1,20 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "e267bc00f955d9d4ea9843d5d79c4692"
+name = "Advar"
+application_url = "https://cotemedia-google-ads-manager.vercel.app"
+embedded = false
+
+[webhooks]
+api_version = "2026-04"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,read_orders,read_products"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://cotemedia-google-ads-manager.vercel.app/api/shopify/callback"
+]

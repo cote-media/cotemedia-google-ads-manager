@@ -59,14 +59,21 @@ export async function GET(request: Request) {
   const shopName = shopData.shop?.name || shop
 
   // Store connection in platform_connections
+  // First delete any existing Shopify connection for this client, then insert fresh
   await supabaseAdmin
     .from('platform_connections')
-    .upsert({
+    .delete()
+    .eq('client_id', clientId)
+    .eq('platform', 'shopify')
+
+  await supabaseAdmin
+    .from('platform_connections')
+    .insert({
       client_id: clientId,
       platform: 'shopify',
       account_id: shop,
       account_name: shopName,
-    }, { onConflict: 'client_id,platform' })
+    })
 
   // Store access token in shopify_tokens table
   await supabaseAdmin
