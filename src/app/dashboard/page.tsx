@@ -618,8 +618,8 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
 
 // ─── Drill Table ──────────────────────────────────────────────────────────────
 // ─── Right Panel ─────────────────────────────────────────────────────────────
-function RightPanel({ open, onClose, title, context, messages, setMessages, input, setInput, loading, setLoading, clientId, clientName, platform, dateRange }: {
-  open: boolean; onClose: () => void
+function RightPanel({ open, onClose, onMinimize, title, context, messages, setMessages, input, setInput, loading, setLoading, clientId, clientName, platform, dateRange }: {
+  open: boolean; onClose: () => void; onMinimize: () => void
   title: string; context: string
   messages: { role: 'user' | 'assistant'; content: string }[]
   setMessages: (msgs: { role: 'user' | 'assistant'; content: string }[]) => void
@@ -679,8 +679,8 @@ function RightPanel({ open, onClose, title, context, messages, setMessages, inpu
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+      {/* Backdrop — no click to close */}
+      <div className="fixed inset-0 z-40 pointer-events-none" />
       {/* Panel */}
       <div className="fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-border shadow-2xl z-50 flex flex-col">
         {/* Header */}
@@ -689,7 +689,16 @@ function RightPanel({ open, onClose, title, context, messages, setMessages, inpu
             <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
             <p className="text-sm font-medium text-ink truncate">{title}</p>
           </div>
-          <button onClick={onClose} className="text-muted hover:text-ink transition-colors text-xl leading-none ml-3">×</button>
+          <div className="flex items-center gap-1 ml-3">
+            <button onClick={onMinimize} title="Minimize"
+              className="text-muted hover:text-ink transition-colors text-base leading-none px-1.5 py-0.5 hover:bg-surface rounded">
+              −
+            </button>
+            <button onClick={onClose} title="Close"
+              className="text-muted hover:text-ink transition-colors text-base leading-none px-1.5 py-0.5 hover:bg-surface rounded">
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Context pill */}
@@ -2108,6 +2117,7 @@ function DashboardContent() {
 
   // Right panel state — shared across all AskClaude buttons
   const [panelOpen, setPanelOpen] = useState(false)
+  const [panelMinimized, setPanelMinimized] = useState(false)
   const [panelMessages, setPanelMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [panelContext, setPanelContext] = useState('')
   const [panelTitle, setPanelTitle] = useState('')
@@ -2119,6 +2129,7 @@ function DashboardContent() {
     setPanelContext(context)
     setPanelMessages(existingMessages)
     setPanelOpen(true)
+    setPanelMinimized(false)
   }
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
@@ -2492,22 +2503,37 @@ function DashboardContent() {
       </div>
 
       {/* Global Right Panel */}
-      <RightPanel
-        open={panelOpen}
-        onClose={() => setPanelOpen(false)}
-        title={panelTitle}
-        context={panelContext}
-        messages={panelMessages}
-        setMessages={setPanelMessages}
-        input={panelInput}
-        setInput={setPanelInput}
-        loading={panelLoading}
-        setLoading={setPanelLoading}
-        clientId={selectedClient?.id || ''}
-        clientName={selectedClient?.name || ''}
-        platform={activePlatform}
-        dateRange={dateRange}
-      />
+      {panelOpen && (
+        <>
+          {panelMinimized ? (
+            // Minimized tab — sits at bottom right
+            <button
+              onClick={() => setPanelMinimized(false)}
+              className="fixed bottom-20 right-0 z-50 bg-accent text-white text-xs font-mono px-3 py-2 rounded-l-lg shadow-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
+              ✦ {panelTitle.slice(0, 20)}{panelTitle.length > 20 ? '…' : ''}
+              {panelMessages.length > 0 && <span className="bg-white text-accent rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">{Math.floor(panelMessages.length / 2)}</span>}
+            </button>
+          ) : (
+            <RightPanel
+              open={panelOpen}
+              onClose={() => { setPanelOpen(false); setPanelMinimized(false) }}
+              onMinimize={() => setPanelMinimized(true)}
+              title={panelTitle}
+              context={panelContext}
+              messages={panelMessages}
+              setMessages={setPanelMessages}
+              input={panelInput}
+              setInput={setPanelInput}
+              loading={panelLoading}
+              setLoading={setPanelLoading}
+              clientId={selectedClient?.id || ''}
+              clientName={selectedClient?.name || ''}
+              platform={activePlatform}
+              dateRange={dateRange}
+            />
+          )}
+        </>
+      )}
     </div>
   )
 }
