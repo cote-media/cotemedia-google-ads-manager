@@ -64,11 +64,12 @@ async function fetchAll(url: string, token: string): Promise<any[]> {
   let nextUrl: string | null = url
   while (nextUrl) {
     const sep = nextUrl.includes('?') ? '&' : '?'
-    const res = await fetch(nextUrl + sep + 'access_token=' + token)
-    const d = await res.json()
+    const fullUrl = nextUrl + sep + 'access_token=' + token
+    const res: Response = await fetch(fullUrl)
+    const d: any = await res.json()
     if (d.data) results.push(...d.data)
     nextUrl = d.paging?.next || null
-    if (results.length > 500) break // Safety limit
+    if (results.length > 500) break
   }
   return results
 }
