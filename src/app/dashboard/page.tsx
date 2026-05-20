@@ -1149,11 +1149,17 @@ function Breadcrumb({ drill, onNavigate }: { drill: DrillState; onNavigate: (lev
 // ─── Insight Chat Component ───────────────────────────────────────────────────
 type InsightMessage = { role: 'user' | 'assistant'; content: string }
 
-function InsightChat({ data, clientId, clientName, dateRange, location }: {
-  data: PlatformData; clientId: string; clientName: string; dateRange: string; location?: string
+function InsightChat({ data, clientId, clientName, dateRange, location, shopify }: {
+  data?: PlatformData | null; clientId: string; clientName: string; dateRange: string; location?: string; shopify?: any
 }) {
-  if (!data || !data.totals || !data.campaigns) return null
-  const { totals, campaigns, platform } = data
+  // Work with whatever data we have — ads, shopify, or both
+  const hasAdData = !!(data?.totals && data?.campaigns)
+  const hasShopifyData = !!(shopify?.connected)
+  if (!hasAdData && !hasShopifyData) return null
+
+  const totals = data?.totals
+  const campaigns = data?.campaigns || []
+  const platform = data?.platform || 'google'
   const cacheKey = 'advar-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
   const locationKey = (location || 'overview') + '-' + platform
   const [insight, setInsight] = useState<string>(() => {
@@ -1167,15 +1173,20 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
   const [persisting, setPersisting] = useState(false)
 
   const anomalies: string[] = []
-  if (totals?.roas !== null && totals?.roas !== undefined && totals.roas < 0.5 && (totals.spend || 0) > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
-  const pausedWithSpend = (campaigns || []).filter(c => c?.status === 'paused' && (c?.spend || 0) > 0)
-  if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
+  if (hasAdData) {
+    if (totals?.roas !== null && totals?.roas !== undefined && totals.roas < 0.5 && (totals.spend || 0) > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
+    const pausedWithSpend = campaigns.filter(c => c?.status === 'paused' && (c?.spend || 0) > 0)
+    if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
+  }
+  if (hasShopifyData && shopify?.totalOrders === 0) anomalies.push('No orders recorded in this date range')
   const hasAnomalies = anomalies.length > 0
 
   async function fetchInsight(history: InsightMessage[] = []) {
     try {
       const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ totals, campaigns, platform, dateRange, clientName, clientId, conversationHistory: history, location }) })
+        body: JSON.stringify({ clientId, clientName, dateRange, location, conversationHistory: history,
+          // Pass ad data if available for backwards compat
+          totals: totals || null, campaigns: campaigns || [], platform }) })
       const d = await res.json(); return d.insight || ''
     } catch { return '' }
   }
@@ -1581,19 +1592,22 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify }: {
-  data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
+  data?: PlatformData | null; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
   shopify?: any
 }) {
-  const { totals, campaigns, platform } = data
-  const metrics = [
-    { label: 'Total Spend', value: fmt(totals.spend, 'currency') },
-    { label: 'Clicks', value: fmt(totals.clicks) },
-    { label: 'Impressions', value: fmt(totals.impressions) },
-    { label: 'Conversions', value: fmt(totals.conversions, 'decimal') },
-    { label: 'ROAS', value: totals.roas ? fmt(totals.roas, 'multiplier') : '—' },
-    { label: 'Avg CTR', value: fmt(totals.avgCtr, 'percent') },
-  ]
+  const totals = data?.totals
+  const campaigns = data?.campaigns || []
+  const platform = data?.platform || 'google'
+  const hasAdData = !!(data?.totals && data?.campaigns?.length)
+  const metrics = hasAdData ? [
+    { label: 'Total Spend', value: fmt(totals!.spend, 'currency') },
+    { label: 'Clicks', value: fmt(totals!.clicks) },
+    { label: 'Impressions', value: fmt(totals!.impressions) },
+    { label: 'Conversions', value: fmt(totals!.conversions, 'decimal') },
+    { label: 'ROAS', value: totals!.roas ? fmt(totals!.roas, 'multiplier') : '—' },
+    { label: 'Avg CTR', value: fmt(totals!.avgCtr, 'percent') },
+  ] : []
   const topByCost = [...campaigns].sort((a, b) => b.spend - a.spend).slice(0, 5)
   const topByConv = [...campaigns].filter(c => c.conversions > 0).sort((a, b) => b.conversions - a.conversions).slice(0, 5)
   const maxCost = topByCost.length > 0 ? topByCost[0].spend : 1
@@ -1602,21 +1616,22 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <InsightChat data={data} clientId={clientId} clientName={clientName} dateRange={dateRange} location="overview" />
+      <InsightChat data={data} clientId={clientId} clientName={clientName} dateRange={dateRange} location="overview" shopify={shopify} />
 
-      {platform === 'combined' && totals.googleSpend !== undefined && totals.metaSpend !== undefined && (
+      {hasAdData && platform === 'combined' && totals!.googleSpend !== undefined && totals!.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals.googleSpend, 'currency')}</p>
+            <p className="text-2xl font-display text-accent">{fmt(totals!.googleSpend, 'currency')}</p>
           </div>
           <div className="bg-white border border-border p-4">
             <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals.metaSpend, 'currency')}</p>
+            <p className="text-2xl font-display text-accent">{fmt(totals!.metaSpend, 'currency')}</p>
           </div>
         </div>
       )}
 
+      {hasAdData && metrics.length > 0 && (
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border">
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
@@ -1625,11 +1640,13 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           </div>
         ))}
       </div>
+      )}
 
-      {platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
-      {platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
-      {platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {hasAdData && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {hasAdData && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {hasAdData && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
 
+      {hasAdData && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-white border border-border p-4 md:p-5">
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
@@ -1716,6 +1733,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           )}
         </div>
       </div>
+      )} {/* end hasAdData */}
 
       {/* Shopify summary cards — show when Shopify is connected */}
       {shopify?.connected && (
@@ -2551,24 +2569,38 @@ function DashboardContent() {
       setActiveTab('shopify')
       lsSet('advar-active-tab', 'shopify')
     }
-    // Only load ad platform data if Google or Meta is connected
+    // Load ad platform data if Google or Meta is connected
     if (hasGoogle || hasMeta) {
       loadData(client, resolved, dateRange, customStart, customEnd)
     } else {
       setPlatformData(null)
       setLoading(false)
     }
+    // Always fetch Shopify data if Shopify is connected (regardless of ad platforms)
+    if (hasShopifyLocal) {
+      loadShopifyData(client.id, dateRange, customStart, customEnd)
+    }
+  }
+
+  async function loadShopifyData(clientId: string, dr: string, cs?: string, ce?: string) {
+    try {
+      const params = new URLSearchParams({ clientId, dateRange: dr })
+      if (cs) params.set('customStart', cs)
+      if (ce) params.set('customEnd', ce)
+      const res = await fetch('/api/intelligence?' + params.toString())
+      const d = await res.json()
+      if (d.intelligence?.shopify) setShopifyData(d.intelligence.shopify)
+    } catch (e) { console.error('Shopify data fetch error:', e) }
   }
 
   function changePlatform(platform: Platform) {
     setActivePlatform(platform)
     lsSet('advar-active-platform', platform)
-    // Reset drill when switching platforms
     lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
     if (selectedClient) loadData(selectedClient, platform, dateRange, customStart, customEnd)
   }
 
-  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat') {
+  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify') {
     setActiveTab(tab)
     lsSet('advar-active-tab', tab)
   }
@@ -2578,17 +2610,35 @@ function DashboardContent() {
     lsSet('advar-date-range', val)
     if (val === 'CUSTOM') { setShowCustomPicker(true); return }
     setShowCustomPicker(false); setCustomStart(''); setCustomEnd('')
-    if (selectedClient) loadData(selectedClient, activePlatform, val, '', '')
+    if (selectedClient) {
+      const hasGoogleOrMeta = selectedClient.platform_connections.some(p => p.platform === 'google' || p.platform === 'meta')
+      const hasShopifyOnly = !hasGoogleOrMeta && selectedClient.platform_connections.some(p => p.platform === 'shopify')
+      if (hasShopifyOnly) {
+        // Shopify-only client — only refresh Shopify data, reset to shopify tab
+        setActiveTab('shopify'); lsSet('advar-active-tab', 'shopify')
+        loadShopifyData(selectedClient.id, val, '', '')
+      } else {
+        loadData(selectedClient, activePlatform, val, '', '')
+        if (selectedClient.platform_connections.some(p => p.platform === 'shopify')) {
+          loadShopifyData(selectedClient.id, val, '', '')
+        }
+      }
+    }
   }
 
   function applyCustomRange() {
-    if (customStart && customEnd && selectedClient) loadData(selectedClient, activePlatform, 'CUSTOM', customStart, customEnd)
+    if (customStart && customEnd && selectedClient) {
+      const hasGoogleOrMeta = selectedClient.platform_connections.some(p => p.platform === 'google' || p.platform === 'meta')
+      if (hasGoogleOrMeta) loadData(selectedClient, activePlatform, 'CUSTOM', customStart, customEnd)
+      if (selectedClient.platform_connections.some(p => p.platform === 'shopify')) {
+        loadShopifyData(selectedClient.id, 'CUSTOM', customStart, customEnd)
+      }
+    }
   }
 
   async function loadData(client: Client, platform: Platform, dr: string, cs: string, ce: string) {
     const googleConn = client.platform_connections.find(p => p.platform === 'google')
     const metaConn = client.platform_connections.find(p => p.platform === 'meta')
-    const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
     const params = new URLSearchParams()
     params.set('platform', platform)
     if (googleConn) params.set('googleAccountId', googleConn.account_id)
@@ -2598,17 +2648,8 @@ function DashboardContent() {
     if (ce) params.set('customEnd', ce)
     setLoading(true); setPlatformData(null)
     try {
-      // Fetch ad platform data and Shopify intelligence in parallel
-      const [platformRes] = await Promise.all([
-        fetch('/api/platform?' + params.toString()),
-        shopifyConn
-          ? fetch(`/api/intelligence?clientId=${client.id}&dateRange=${dr}${cs ? '&customStart=' + cs : ''}${ce ? '&customEnd=' + ce : ''}`)
-              .then(r => r.json())
-              .then(d => { if (d.intelligence?.shopify) setShopifyData(d.intelligence.shopify) })
-              .catch(() => {})
-          : Promise.resolve(),
-      ])
-      setPlatformData(await platformRes.json())
+      const res = await fetch('/api/platform?' + params.toString())
+      setPlatformData(await res.json())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -2852,7 +2893,8 @@ function DashboardContent() {
               </div>
             </div>
           )}
-          {!loading && platformData && activeTab === 'overview' && (
+          {/* Overview — works with ad data, shopify data, or both */}
+          {!loading && activeTab === 'overview' && (platformData || shopifyData) && (
             <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
