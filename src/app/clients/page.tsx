@@ -412,7 +412,7 @@ function ClientsContent() {
                             className={'text-xs font-mono border px-3 py-1.5 rounded-lg transition-colors ' + (isExpanded ? 'bg-accent text-white border-accent' : 'text-muted border-border hover:text-ink')}>
                             {isExpanded ? '↑ Close' : '✦ Claude Profile'}
                           </button>
-                          {googleConn && (
+                          {(googleConn || metaConn || shopifyConn) && (
                             <button onClick={() => router.push('/dashboard')}
                               className="text-xs font-mono text-accent hover:underline">
                               Open →
