@@ -325,3 +325,9 @@ cat >> ~/Downloads/cotemedia-ads-manager/ROADMAP.md << 'EOF'
 - [ ] Meta placement breakdown already in adapter — verify it's surfacing correctly
 - [ ] Historical trend data — week over week / month over month comparisons
 - [ ] All of above to be added to google-intelligence.ts and meta-intelligence.ts adapters
+
+## 🏢 Agency Intelligence (Future)
+- [ ] Cross-client insights — spot patterns across all clients (e.g. "3 of your clients have low Quality Scores")
+- [ ] Agency benchmark view — compare client performance against each other
+- [ ] Best practice sharing — "Client A's audience strategy is working well, apply to Client B?"
+- [ ] Panel clears on client switch (implemented) — each client has their own isolated Claude brain
