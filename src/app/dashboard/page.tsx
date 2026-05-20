@@ -1702,7 +1702,8 @@ function TopKeywordsCard({ accountId, dateRange, onDataLoaded }: { accountId: st
 
   useEffect(() => {
     if (onDataLoaded && sorted.length > 0) {
-      onDataLoaded(sorted.map((k: any) => `${k.text}: $${k.cost} spend, ${k.clicks} clicks, ${k.ctr}% CTR, QS ${k.qualityScore || 'N/A'}`).join('\n'))
+      const sortLabel = sortOptions.find(o => o.value === sortBy)?.label || 'Spend'
+      onDataLoaded(`Top keywords by ${sortLabel}:\n` + sorted.map((k: any) => `${k.text}: $${k.cost} spend, ${k.clicks} clicks, ${k.ctr}% CTR, QS ${k.qualityScore || 'N/A'}, conv: ${k.conversions || 0}`).join('\n'))
     }
   }, [sortBy, keywords])
 
