@@ -1549,6 +1549,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
   const topByConv = [...campaigns].filter(c => c.conversions > 0).sort((a, b) => b.conversions - a.conversions).slice(0, 5)
   const maxCost = topByCost.length > 0 ? topByCost[0].spend : 1
   const campaignsWithBudget = campaigns.filter(c => c.budget && c.budget > 0).slice(0, 5)
+  const [keywordCardData, setKeywordCardData] = useState('Loading keyword data...')
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -1633,9 +1634,9 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           <div className="bg-white border border-border p-4 md:p-5">
             <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
               Top Keywords by Spend
-              {clientId && <AskClaudeCardButton cardTitle="Top Keywords by Spend" cardData="See keyword data below" clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />}
+              {clientId && <AskClaudeCardButton cardTitle="Top Keywords by Spend" cardData={keywordCardData} clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />}
             </h3>
-            <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} />
+            <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} onDataLoaded={setKeywordCardData} />
           </div>
         )}
         <div className="bg-white border border-border p-4 md:p-5">
@@ -1670,12 +1671,19 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
   )
 }
 
-function TopKeywordsCard({ accountId, dateRange }: { accountId: string; dateRange: string }) {
+function TopKeywordsCard({ accountId, dateRange, onDataLoaded }: { accountId: string; dateRange: string; onDataLoaded?: (data: string) => void }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
-      .then(r => r.json()).then(d => { setKeywords((d.keywords || []).slice(0, 5)); setLoading(false) })
+      .then(r => r.json()).then(d => {
+        const kws = (d.keywords || []).slice(0, 5)
+        setKeywords(kws)
+        setLoading(false)
+        if (onDataLoaded && kws.length > 0) {
+          onDataLoaded(kws.map((k: any) => `${k.text}: $${k.cost} spend, ${k.clicks} clicks, ${k.ctr}% CTR, QS ${k.qualityScore || 'N/A'}`).join('\n'))
+        }
+      })
       .catch(() => setLoading(false))
   }, [accountId, dateRange])
   if (loading) return <p className="text-xs text-muted font-mono">Loading...</p>
