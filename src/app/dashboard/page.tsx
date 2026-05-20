@@ -2679,7 +2679,6 @@ function DashboardContent() {
       const hasShopifyOnly = !hasGoogleOrMeta && selectedClient.platform_connections.some(p => p.platform === 'shopify')
       if (hasShopifyOnly) {
         // Shopify-only client — only refresh Shopify data, reset to shopify tab
-        setActiveTab('shopify'); lsSet('loramer-active-tab', 'shopify')
         loadShopifyData(selectedClient.id, val, '', '')
       } else {
         loadData(selectedClient, activePlatform, val, '', '')
