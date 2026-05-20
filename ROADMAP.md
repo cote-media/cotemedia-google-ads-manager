@@ -315,3 +315,13 @@ cat >> ~/Downloads/cotemedia-ads-manager/ROADMAP.md << 'EOF'
 - [ ] Conversion event details — fetch conversion action names/types from Google and Meta so Claude knows what's actually being counted
 - [ ] Ad creative details — fetch creative type, headline, description for ads and pass to Claude at ad level
 - [ ] All of above injected into AskClaudeButton rowContext so Claude can answer "why is this working?" questions
+
+## 🔍 Intelligence Layer — Depth Improvements
+- [ ] Google search term report — what queries are triggering ads
+- [ ] Google auction insights — impression share, overlap rate, outranking share
+- [ ] Device breakdown — mobile vs desktop vs tablet performance split
+- [ ] Geographic performance — top locations by spend/conversions
+- [ ] Google asset-level performance — individual RSA headlines/descriptions
+- [ ] Meta placement breakdown already in adapter — verify it's surfacing correctly
+- [ ] Historical trend data — week over week / month over month comparisons
+- [ ] All of above to be added to google-intelligence.ts and meta-intelligence.ts adapters
