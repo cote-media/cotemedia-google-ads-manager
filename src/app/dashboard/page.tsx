@@ -2898,6 +2898,13 @@ function DashboardContent() {
             <span className="text-base w-4 text-center">⇥</span>
             {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Sign out</span>}
           </button>
+          {!sidebarCollapsed && (
+            <div className="px-4 py-3 flex gap-3">
+              <a href="/privacy" target="_blank" className="text-xs font-mono text-muted hover:text-ink transition-colors">Privacy</a>
+              <span className="text-xs text-muted">·</span>
+              <a href="/terms" target="_blank" className="text-xs font-mono text-muted hover:text-ink transition-colors">Terms</a>
+            </div>
+          )}
         </div>
       </div>
 

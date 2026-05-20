@@ -1,6 +1,13 @@
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-white">
+      <nav className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <a href="/" className="text-sm font-mono font-semibold text-gray-900">Advar</a>
+        <div className="flex gap-4">
+          <a href="/terms" className="text-xs font-mono text-gray-500 hover:text-gray-900">Terms</a>
+          <a href="/dashboard" className="text-xs font-mono text-blue-600 hover:underline">Back to app →</a>
+        </div>
+      </nav>
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
