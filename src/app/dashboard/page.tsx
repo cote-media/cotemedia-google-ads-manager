@@ -2253,7 +2253,7 @@ function DashboardContent() {
     const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
-      : hasGoogle ? 'google' : hasMeta ? 'meta' : 'shopify'
+      : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
     setActivePlatform(resolved)
     // Restore saved tab
     const savedTab = ls('advar-active-tab') as any
