@@ -15,8 +15,8 @@ export default function Home() {
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
       <div className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <span className="font-mono text-xs tracking-widest uppercase text-muted">Advar</span>
-        <span className="font-mono text-xs tracking-widest uppercase text-muted">Advar</span>
+        <span className="font-mono text-xs tracking-widest uppercase text-muted">LoraMer</span>
+        <span className="font-mono text-xs tracking-widest uppercase text-muted">LoraMer</span>
       </div>
 
       {/* Hero */}

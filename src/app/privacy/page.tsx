@@ -2,7 +2,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-white">
       <nav className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <a href="/" className="text-sm font-mono font-semibold text-gray-900">Advar</a>
+        <a href="/" className="text-sm font-mono font-semibold text-gray-900">LoraMer</a>
         <div className="flex gap-4">
           <a href="/terms" className="text-xs font-mono text-gray-500 hover:text-gray-900">Terms</a>
           <a href="/dashboard" className="text-xs font-mono text-blue-600 hover:underline">Back to app →</a>
@@ -11,19 +11,19 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
-          <p className="text-gray-500 text-sm">Advar by Cote Media · Last updated: May 20, 2026</p>
+          <p className="text-gray-500 text-sm">LoraMer by Cote Media · Last updated: May 20, 2026</p>
         </div>
 
         <div className="prose prose-gray max-w-none space-y-8 text-gray-700 text-sm leading-relaxed">
 
           <section>
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">1. About Advar</h2>
-            <p>Advar is a business intelligence platform built by Cote Media that helps marketing agencies and businesses analyze advertising and ecommerce performance data. Advar connects to Google Ads, Meta Ads, and Shopify to surface insights and recommendations powered by Claude AI (Anthropic).</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">1. About LoraMer</h2>
+            <p>LoraMer is a business intelligence platform built by Cote Media that helps marketing agencies and businesses analyze advertising and ecommerce performance data. LoraMer connects to Google Ads, Meta Ads, and Shopify to surface insights and recommendations powered by Claude AI (Anthropic).</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">2. Data We Access</h2>
-            <p className="mb-3">Advar accesses the following data solely to provide its analytics and intelligence features:</p>
+            <p className="mb-3">LoraMer accesses the following data solely to provide its analytics and intelligence features:</p>
             <div className="space-y-3">
               <div>
                 <p className="font-medium text-gray-900">Google Ads</p>
@@ -44,17 +44,17 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-3">3. How We Use Data</h2>
             <p className="mb-3">We use the data described above exclusively to:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Display performance dashboards and analytics within the Advar platform</li>
+              <li>Display performance dashboards and analytics within the LoraMer platform</li>
               <li>Generate AI-powered insights and recommendations using Anthropic's Claude AI</li>
               <li>Identify performance trends, anomalies, and optimization opportunities</li>
               <li>Enable cross-platform analysis (e.g. connecting ad spend to ecommerce revenue)</li>
             </ul>
-            <p className="mt-3">We do not sell, share, or use your data for any purpose other than providing Advar's services to you.</p>
+            <p className="mt-3">We do not sell, share, or use your data for any purpose other than providing LoraMer's services to you.</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">4. Data Storage and Retention</h2>
-            <p className="mb-3">Advar stores the following data in our secure database (Supabase, hosted on AWS):</p>
+            <p className="mb-3">LoraMer stores the following data in our secure database (Supabase, hosted on AWS):</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Client profiles and notes</strong> — stored until you delete the client or your account</li>
               <li><strong>Platform connection tokens</strong> — stored until you disconnect the platform or uninstall the app</li>
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">6. Third-Party Services</h2>
-            <p className="mb-3">Advar integrates with the following third-party services to provide its functionality:</p>
+            <p className="mb-3">LoraMer integrates with the following third-party services to provide its functionality:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Anthropic Claude AI</strong> — analytics data is sent to Anthropic's API to generate insights. Anthropic's privacy policy applies to data processed by Claude. We do not send personally identifiable customer data to Claude.</li>
               <li><strong>Google Ads API</strong> — accessed via OAuth with your authorization</li>
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">8. Shopify Merchant Data</h2>
-            <p className="mb-3">For merchants using Advar via the Shopify App Store:</p>
+            <p className="mb-3">For merchants using LoraMer via the Shopify App Store:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>We process only the data scopes you authorize during installation: <code className="bg-gray-100 px-1 rounded">read_orders</code>, <code className="bg-gray-100 px-1 rounded">read_products</code>, <code className="bg-gray-100 px-1 rounded">read_customers</code>, <code className="bg-gray-100 px-1 rounded">read_analytics</code>, <code className="bg-gray-100 px-1 rounded">read_inventory</code>, <code className="bg-gray-100 px-1 rounded">read_price_rules</code></li>
               <li>We respect Shopify's mandatory data deletion webhooks. Upon receiving a shop/redact webhook, all store data is deleted within 30 days</li>
@@ -107,7 +107,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">9. GDPR and CCPA</h2>
-            <p>Advar is committed to compliance with applicable data protection regulations including GDPR (EU) and CCPA (California). We act as a data processor on behalf of our users (merchants and agencies), who are the data controllers for their customer data. We do not sell personal data. We do not use personal data for automated decision-making that would have legal or significant effects on individuals.</p>
+            <p>LoraMer is committed to compliance with applicable data protection regulations including GDPR (EU) and CCPA (California). We act as a data processor on behalf of our users (merchants and agencies), who are the data controllers for their customer data. We do not sell personal data. We do not use personal data for automated decision-making that would have legal or significant effects on individuals.</p>
           </section>
 
           <section>
@@ -121,7 +121,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">11. Changes to This Policy</h2>
-            <p>We may update this privacy policy from time to time. We will notify active users of material changes via email or in-app notification. Continued use of Advar after changes constitutes acceptance of the updated policy.</p>
+            <p>We may update this privacy policy from time to time. We will notify active users of material changes via email or in-app notification. Continued use of LoraMer after changes constitutes acceptance of the updated policy.</p>
           </section>
 
         </div>

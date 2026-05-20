@@ -139,7 +139,7 @@ export function buildClaudeContext(
   const lines: string[] = []
 
   // ── Identity ───────────────────────────────────────────────────────────────
-  lines.push(`You are an expert digital advertising analyst embedded in Advar, an ads management platform for marketing agencies.`)
+  lines.push(`You are an expert digital advertising analyst embedded in LoraMer, an ads management platform for marketing agencies.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
   lines.push(`Date range: ${intelligence.dateRange?.replace(/_/g, ' ').toLowerCase()}`)
   lines.push(`Current view: ${focus}`)

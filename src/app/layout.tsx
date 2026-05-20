@@ -3,7 +3,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'Advar',
+  title: 'LoraMer',
   description: 'AI-powered Google Ads management for agencies and businesses',
 }
 

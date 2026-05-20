@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "e267bc00f955d9d4ea9843d5d79c4692"
-name = "Advar"
+client_id = "61d59d89231bb2adfe4312adb9a87bc7"
+name = "LoraMer"
 application_url = "https://cotemedia-google-ads-manager.vercel.app"
 embedded = false
 

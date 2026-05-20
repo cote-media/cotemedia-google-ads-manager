@@ -2,7 +2,7 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-white">
       <nav className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <a href="/" className="text-sm font-mono font-semibold text-gray-900">Advar</a>
+        <a href="/" className="text-sm font-mono font-semibold text-gray-900">LoraMer</a>
         <div className="flex gap-4">
           <a href="/privacy" className="text-xs font-mono text-gray-500 hover:text-gray-900">Privacy</a>
           <a href="/dashboard" className="text-xs font-mono text-blue-600 hover:underline">Back to app →</a>
@@ -11,19 +11,19 @@ export default function TermsPage() {
       <div className="max-w-3xl mx-auto px-6 py-16">
         <div className="mb-12">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Terms of Service</h1>
-          <p className="text-gray-500 text-sm">Advar by Cote Media · Last updated: May 20, 2026</p>
+          <p className="text-gray-500 text-sm">LoraMer by Cote Media · Last updated: May 20, 2026</p>
         </div>
 
         <div className="prose prose-gray max-w-none space-y-8 text-gray-700 text-sm leading-relaxed">
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">1. Acceptance of Terms</h2>
-            <p>By accessing or using Advar ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service. These terms apply to all users, including marketing agencies, businesses, and individuals accessing the Service.</p>
+            <p>By accessing or using LoraMer ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service. These terms apply to all users, including marketing agencies, businesses, and individuals accessing the Service.</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">2. Description of Service</h2>
-            <p>Advar is a business intelligence platform that connects to advertising platforms (Google Ads, Meta Ads) and ecommerce platforms (Shopify) to provide analytics, reporting, and AI-powered insights. The Service is provided by Cote Media.</p>
+            <p>LoraMer is a business intelligence platform that connects to advertising platforms (Google Ads, Meta Ads) and ecommerce platforms (Shopify) to provide analytics, reporting, and AI-powered insights. The Service is provided by Cote Media.</p>
           </section>
 
           <section>
@@ -45,17 +45,17 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">5. Third-Party Integrations</h2>
-            <p>The Service integrates with third-party platforms including Google Ads, Meta Ads, and Shopify. Your use of these integrations is subject to the respective terms of service of those platforms. We are not responsible for the availability, accuracy, or policies of third-party services. Connecting a third-party account grants Advar access only to the data scopes you authorize.</p>
+            <p>The Service integrates with third-party platforms including Google Ads, Meta Ads, and Shopify. Your use of these integrations is subject to the respective terms of service of those platforms. We are not responsible for the availability, accuracy, or policies of third-party services. Connecting a third-party account grants LoraMer access only to the data scopes you authorize.</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">6. AI-Powered Features</h2>
-            <p>Advar uses Anthropic's Claude AI to generate insights and recommendations. AI-generated content is provided for informational purposes only and does not constitute professional financial, legal, or marketing advice. You are responsible for evaluating and acting on any AI-generated recommendations. We do not guarantee the accuracy or completeness of AI-generated insights.</p>
+            <p>LoraMer uses Anthropic's Claude AI to generate insights and recommendations. AI-generated content is provided for informational purposes only and does not constitute professional financial, legal, or marketing advice. You are responsible for evaluating and acting on any AI-generated recommendations. We do not guarantee the accuracy or completeness of AI-generated insights.</p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900 mb-3">7. Data and Privacy</h2>
-            <p>Your use of the Service is also governed by our <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>, which is incorporated into these Terms by reference. You represent that you have the right to connect the accounts and data sources you link to Advar, and that doing so does not violate any third-party rights or agreements.</p>
+            <p>Your use of the Service is also governed by our <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>, which is incorporated into these Terms by reference. You represent that you have the right to connect the accounts and data sources you link to LoraMer, and that doing so does not violate any third-party rights or agreements.</p>
           </section>
 
           <section>

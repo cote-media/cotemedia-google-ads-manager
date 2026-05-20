@@ -329,7 +329,7 @@ function ClientsContent() {
         <div className="flex items-center gap-4">
           <button onClick={() => router.push('/dashboard')} className="text-muted hover:text-ink transition-colors font-mono text-xs">← Dashboard</button>
           <span className="text-border">|</span>
-          <span className="font-display text-lg text-ink">Advar</span>
+          <span className="font-display text-lg text-ink">LoraMer</span>
         </div>
         <span className="font-mono text-xs text-muted uppercase tracking-widest">Client Manager</span>
       </div>
