@@ -782,7 +782,32 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
   const ref = useRef<HTMLDivElement>(null)
 
   const levelLabel = level === 'campaigns' ? 'Campaign' : level === 'adgroups' ? (platform === 'meta' ? 'Ad Set' : 'Ad Group') : 'Ad'
-  const rowContext = `${levelLabel}: ${row.name} · $${Number(row.spend || 0).toFixed(2)} spend · ${Number(row.clicks || 0).toLocaleString()} clicks · CTR ${Number(row.ctr || 0).toFixed(2)}% · ${Number(row.conversions || 0).toFixed(1)} conv · Status: ${row.status || 'unknown'}${row.roas ? ' · ROAS ' + Number(row.roas).toFixed(2) + 'x' : ''}`
+  const rowContext = [
+    `${levelLabel}: ${row.name}`,
+    row.platform ? `Platform: ${row.platform}` : null,
+    row.status ? `Status: ${row.status}` : null,
+    row.objective ? `Objective: ${row.objective}` : null,
+    row.spend != null ? `Spend: $${Number(row.spend).toFixed(2)}` : null,
+    row.budget != null ? `Daily budget: $${Number(row.budget).toFixed(2)}` : null,
+    row.clicks != null ? `Clicks: ${Number(row.clicks).toLocaleString()}` : null,
+    row.impressions != null ? `Impressions: ${Number(row.impressions).toLocaleString()}` : null,
+    row.ctr != null ? `CTR: ${Number(row.ctr).toFixed(2)}%` : null,
+    row.avgCpc != null ? `Avg CPC: $${Number(row.avgCpc).toFixed(2)}` : null,
+    row.cpm != null ? `CPM: $${Number(row.cpm).toFixed(2)}` : null,
+    row.reach != null ? `Reach: ${Number(row.reach).toLocaleString()}` : null,
+    row.frequency != null ? `Frequency: ${Number(row.frequency).toFixed(2)}` : null,
+    row.conversions != null ? `Conversions: ${Number(row.conversions).toFixed(1)}` : null,
+    row.conversionValue != null && row.conversionValue > 0 ? `Conv value: $${Number(row.conversionValue).toFixed(2)}` : null,
+    row.roas != null ? `ROAS: ${Number(row.roas).toFixed(2)}x` : null,
+    row.costPerConv != null ? `Cost per conv: $${Number(row.costPerConv).toFixed(2)}` : null,
+    row.convRate != null ? `Conv rate: ${Number(row.convRate).toFixed(2)}%` : null,
+    row.purchases != null ? `Purchases: ${row.purchases}` : null,
+    row.addToCart != null ? `Add to cart: ${row.addToCart}` : null,
+    row.initiateCheckout != null ? `Initiate checkout: ${row.initiateCheckout}` : null,
+    row.costPerPurchase != null ? `Cost per purchase: $${Number(row.costPerPurchase).toFixed(2)}` : null,
+    row.description ? `Ad copy: ${row.description}` : null,
+    row.body ? `Ad body: ${row.body}` : null,
+  ].filter(Boolean).join(' · ')
 
   // Close on outside click
   useEffect(() => {
