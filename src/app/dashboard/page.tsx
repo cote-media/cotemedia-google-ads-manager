@@ -2270,7 +2270,7 @@ function DashboardContent() {
     lsSet('advar-active-client-prev', client.id)
     // Only load ad platform data if Google or Meta is connected
     if (hasGoogle || hasMeta) {
-      loadData(client, resolved === 'shopify' ? (hasGoogle ? 'google' : 'meta') : resolved, dateRange, customStart, customEnd)
+      loadData(client, resolved, dateRange, customStart, customEnd)
     } else {
       setPlatformData(null)
       setLoading(false)
