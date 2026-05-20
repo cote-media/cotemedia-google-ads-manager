@@ -70,6 +70,16 @@ export async function fetchShopifyIntelligence(
     }
   } catch (e) {
     console.error('Shopify intelligence error:', e)
-    return { connected: false }
+    // Return connected:true with zeros rather than connected:false
+    // so the UI shows empty data rather than an error state
+    return {
+      connected: true,
+      totalOrders: 0,
+      totalRevenue: 0,
+      avgOrderValue: 0,
+      newCustomers: 0,
+      returningCustomers: 0,
+      topProducts: [],
+    }
   }
 }

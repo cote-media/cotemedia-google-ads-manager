@@ -1580,9 +1580,10 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel }: {
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify }: {
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+  shopify?: any
 }) {
   const { totals, campaigns, platform } = data
   const metrics = [
@@ -1715,6 +1716,52 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           )}
         </div>
       </div>
+
+      {/* Shopify summary cards — show when Shopify is connected */}
+      {shopify?.connected && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Revenue</h3>
+              <AskClaudeCardButton cardTitle="Shopify Revenue"
+                cardData={`Shopify: $${(shopify.totalRevenue || 0).toFixed(2)} revenue, ${shopify.totalOrders || 0} orders, $${(shopify.avgOrderValue || 0).toFixed(2)} AOV`}
+                clientId={clientId} clientName={clientName} platform={data.platform} dateRange={dateRange} openPanel={openPanel} />
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: 'Total Revenue', value: fmt(shopify.totalRevenue || 0, 'currency') },
+                { label: 'Total Orders', value: fmt(shopify.totalOrders || 0) },
+                { label: 'Avg Order Value', value: fmt(shopify.avgOrderValue || 0, 'currency') },
+              ].map(m => (
+                <div key={m.label} className="flex justify-between py-1 border-b border-border last:border-0">
+                  <span className="text-xs text-muted">{m.label}</span>
+                  <span className="text-xs font-mono text-ink">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Customers</h3>
+              <AskClaudeCardButton cardTitle="Shopify Customers"
+                cardData={`Shopify customers: ${shopify.newCustomers || 0} new, ${shopify.returningCustomers || 0} returning`}
+                clientId={clientId} clientName={clientName} platform={data.platform} dateRange={dateRange} openPanel={openPanel} />
+            </div>
+            <div className="space-y-2">
+              {[
+                { label: 'New Customers', value: fmt(shopify.newCustomers || 0) },
+                { label: 'Returning Customers', value: fmt(shopify.returningCustomers || 0) },
+                { label: 'Return Rate', value: shopify.totalOrders > 0 ? fmt(((shopify.returningCustomers || 0) / shopify.totalOrders) * 100, 'percent') : '—' },
+              ].map(m => (
+                <div key={m.label} className="flex justify-between py-1 border-b border-border last:border-0">
+                  <span className="text-xs text-muted">{m.label}</span>
+                  <span className="text-xs font-mono text-ink">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2203,7 +2250,7 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
   platform: Platform
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
 }) {
-  if (!shopify?.connected) {
+  if (!shopify) {
     return (
       <div className="flex items-center justify-center h-64 flex-col gap-4">
         <p className="text-2xl">🛍</p>
@@ -2421,6 +2468,7 @@ function DashboardContent() {
   const [customEnd, setCustomEnd] = useState('')
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [platformData, setPlatformData] = useState<PlatformData | null>(null)
+  const [shopifyData, setShopifyData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -2478,6 +2526,7 @@ function DashboardContent() {
     lsSet('advar-active-client', client.id)
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
+    const hasShopifyLocal = client.platform_connections.some(p => p.platform === 'shopify')
     const savedPlatform = overridePlatform || (ls('advar-active-platform') as Platform) || 'google'
     const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
@@ -2492,11 +2541,16 @@ function DashboardContent() {
     if (previousClientId && previousClientId !== client.id) {
       lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
       setPanelOpen(false); setPanelMinimized(false); setPanelMessages([])
-      setPanelTitle(''); setPanelContext('')
+      setPanelTitle(''); setPanelContext(''); setShopifyData(null)
       lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false')
       lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
     lsSet('advar-active-client-prev', client.id)
+    // Default to shopify tab for Shopify-only clients
+    if (!hasGoogle && !hasMeta && hasShopifyLocal) {
+      setActiveTab('shopify')
+      lsSet('advar-active-tab', 'shopify')
+    }
     // Only load ad platform data if Google or Meta is connected
     if (hasGoogle || hasMeta) {
       loadData(client, resolved, dateRange, customStart, customEnd)
@@ -2534,6 +2588,7 @@ function DashboardContent() {
   async function loadData(client: Client, platform: Platform, dr: string, cs: string, ce: string) {
     const googleConn = client.platform_connections.find(p => p.platform === 'google')
     const metaConn = client.platform_connections.find(p => p.platform === 'meta')
+    const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
     const params = new URLSearchParams()
     params.set('platform', platform)
     if (googleConn) params.set('googleAccountId', googleConn.account_id)
@@ -2543,8 +2598,17 @@ function DashboardContent() {
     if (ce) params.set('customEnd', ce)
     setLoading(true); setPlatformData(null)
     try {
-      const res = await fetch('/api/platform?' + params.toString())
-      setPlatformData(await res.json())
+      // Fetch ad platform data and Shopify intelligence in parallel
+      const [platformRes] = await Promise.all([
+        fetch('/api/platform?' + params.toString()),
+        shopifyConn
+          ? fetch(`/api/intelligence?clientId=${client.id}&dateRange=${dr}${cs ? '&customStart=' + cs : ''}${ce ? '&customEnd=' + ce : ''}`)
+              .then(r => r.json())
+              .then(d => { if (d.intelligence?.shopify) setShopifyData(d.intelligence.shopify) })
+              .catch(() => {})
+          : Promise.resolve(),
+      ])
+      setPlatformData(await platformRes.json())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -2789,7 +2853,7 @@ function DashboardContent() {
             </div>
           )}
           {!loading && platformData && activeTab === 'overview' && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} />
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} />
@@ -2810,14 +2874,6 @@ function DashboardContent() {
             <div className="flex items-center justify-center h-64 flex-col gap-4">
               <p className="text-muted font-mono text-sm">No clients set up yet.</p>
               <a href="/clients" className="btn-primary text-sm">Set up clients →</a>
-            </div>
-          )}
-          {selectedClient && !loading && !platformData && !selectedClient.platform_connections.some(p => p.platform === 'google') && !selectedClient.platform_connections.some(p => p.platform === 'meta') && selectedClient.platform_connections.some(p => p.platform === 'shopify') && (
-            <div className="flex items-center justify-center h-64 flex-col gap-4">
-              <p className="text-2xl">🛍</p>
-              <p className="text-ink font-medium">{selectedClient.name} — Shopify connected</p>
-              <p className="text-muted font-mono text-sm text-center max-w-sm">Shopify data is available to Claude. Full Shopify dashboard coming soon — connect Google Ads or Meta Ads to see ad performance now.</p>
-              <a href="/clients" className="btn-primary text-sm">Connect ad platform →</a>
             </div>
           )}
         </main>
