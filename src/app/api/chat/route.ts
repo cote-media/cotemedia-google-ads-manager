@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     rowContext, // Specific row data from AskClaudeButton
   } = await request.json()
 
-  // Fetch client context from Supabase
+  // Fetch client context including ALL conversation threads for cross-box cohesion
   let clientContext: any = null
   if (clientId) {
     const { data } = await supabaseAdmin
@@ -46,6 +46,18 @@ export async function POST(request: Request) {
       .single()
     clientContext = data
   }
+
+  // Build cross-page conversation context — same as insight route
+  const allConversations = clientContext?.conversations || {}
+  const crossPageContext = (() => {
+    const threads = Object.entries(allConversations)
+      .filter(([, msgs]: [string, any]) => Array.isArray(msgs) && msgs.length > 0)
+    if (!threads.length) return ''
+    return '\nPrevious conversations across the app for this client:\n' + threads.map(([key, msgs]: [string, any]) => {
+      const lastFew = (msgs as any[]).slice(-4)
+      return `[${key}]: ` + lastFew.map((m: any) => `${m.role === 'user' ? 'User' : 'Claude'}: ${m.content}`).join(' | ')
+    }).join('\n')
+  })()
 
   const platformLabel = platform === 'google' ? 'Google Ads'
     : platform === 'meta' ? 'Meta Ads'
@@ -92,7 +104,9 @@ Current context:
 - Platform: ${platformLabel}
 - Date range: ${dateRange?.replace(/_/g, ' ').toLowerCase() || 'last 30 days'}
 - Current view: ${drillContext}
-${rowContext ? '- Specific item being asked about: ' + rowContext : ''}
+${rowContext ? '- Specific item: ' + rowContext : ''}
+${clientProfileContext}
+${crossPageContext}
 ${clientProfileContext}
 
 ${totals ? `Account totals for this period:
