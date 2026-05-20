@@ -58,6 +58,16 @@ function lsJson<T>(key: string, fallback: T): T {
   try { const v = ls(key); return v ? JSON.parse(v) : fallback } catch { return fallback }
 }
 
+// Invalidate all insight caches for a client so every InsightChat re-fetches
+// with the latest conversations after any box saves a new message
+function invalidateInsightCaches(clientId: string) {
+  if (typeof window === 'undefined') return
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('advar-insight-' + clientId + '-'))
+    keys.forEach(k => localStorage.removeItem(k))
+  } catch {}
+}
+
 function fmt(n: number | null | undefined, type: 'currency' | 'number' | 'percent' | 'decimal' | 'multiplier' = 'number'): string {
   if (n === null || n === undefined) return '—'
   if (type === 'currency') return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -645,6 +655,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, updates: { conversations: { ...existing, [key]: msgs } } })
       })
+      invalidateInsightCaches(clientId)
     } catch {}
   }
 
@@ -799,6 +810,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
           updates: { conversations: { ...existing, [conversationKey]: updatedMessages } }
         })
       })
+      invalidateInsightCaches(clientId)
     } catch {}
   }
 
@@ -1164,7 +1176,6 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
     if (!clientId) return
     setPersisting(true)
     try {
-      // Fetch current conversations first to merge
       const r = await fetch('/api/context?clientId=' + clientId)
       const d = await r.json()
       const existing = d.context?.conversations || {}
@@ -1173,11 +1184,16 @@ function InsightChat({ data, clientId, clientName, dateRange, location }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
-          updates: {
-            conversations: { ...existing, [locationKey]: updatedMessages }
-          }
+          updates: { conversations: { ...existing, [locationKey]: updatedMessages } }
         })
       })
+      // Invalidate other insight caches so they re-fetch with this new context
+      // but keep THIS box's cache since we just updated it
+      if (typeof window !== 'undefined') {
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('advar-insight-' + clientId + '-') && k !== cacheKey)
+          .forEach(k => localStorage.removeItem(k))
+      }
     } catch {} finally { setPersisting(false) }
   }
 
@@ -1426,6 +1442,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, updates: { conversations: { ...existing, [conversationKey]: msgs } } })
       })
+      invalidateInsightCaches(clientId)
     } catch {}
   }
 
