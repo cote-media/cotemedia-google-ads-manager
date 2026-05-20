@@ -2253,7 +2253,7 @@ function DashboardContent() {
     const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
-      : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
+      : hasGoogle ? 'google' : hasMeta ? 'meta' : 'shopify'
     setActivePlatform(resolved)
     // Restore saved tab
     const savedTab = ls('advar-active-tab') as any
@@ -2262,20 +2262,19 @@ function DashboardContent() {
     const previousClientId = ls('advar-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
       lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
-      // Clear panel — each client has their own conversation context
-      setPanelOpen(false)
-      setPanelMinimized(false)
-      setPanelMessages([])
-      setPanelTitle('')
-      setPanelContext('')
-      lsSet('advar-panel-open', 'false')
-      lsSet('advar-panel-minimized', 'false')
-      lsSet('advar-panel-messages', '[]')
-      lsSet('advar-panel-title', '')
-      lsSet('advar-panel-context', '')
+      setPanelOpen(false); setPanelMinimized(false); setPanelMessages([])
+      setPanelTitle(''); setPanelContext('')
+      lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false')
+      lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
     lsSet('advar-active-client-prev', client.id)
-    loadData(client, resolved, dateRange, customStart, customEnd)
+    // Only load ad platform data if Google or Meta is connected
+    if (hasGoogle || hasMeta) {
+      loadData(client, resolved === 'shopify' ? (hasGoogle ? 'google' : 'meta') : resolved, dateRange, customStart, customEnd)
+    } else {
+      setPlatformData(null)
+      setLoading(false)
+    }
   }
 
   function changePlatform(platform: Platform) {
@@ -2573,6 +2572,14 @@ function DashboardContent() {
             <div className="flex items-center justify-center h-64 flex-col gap-4">
               <p className="text-muted font-mono text-sm">No clients set up yet.</p>
               <a href="/clients" className="btn-primary text-sm">Set up clients →</a>
+            </div>
+          )}
+          {selectedClient && !loading && !platformData && activePlatform === 'shopify' && (
+            <div className="flex items-center justify-center h-64 flex-col gap-4">
+              <p className="text-2xl">🛍</p>
+              <p className="text-ink font-medium">Shopify connected</p>
+              <p className="text-muted font-mono text-sm text-center max-w-sm">Connect Google Ads or Meta Ads to see campaign performance. Shopify data is available to Claude when analyzing this client.</p>
+              <a href="/clients" className="btn-primary text-sm">Connect ad platform →</a>
             </div>
           )}
         </main>
