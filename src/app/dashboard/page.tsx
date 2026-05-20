@@ -2258,10 +2258,21 @@ function DashboardContent() {
     // Restore saved tab
     const savedTab = ls('advar-active-tab') as any
     if (savedTab) setActiveTab(savedTab)
-    // Only reset drill state when switching to a different client
+    // Only reset drill state and panel when switching to a different client
     const previousClientId = ls('advar-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
       lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
+      // Clear panel — each client has their own conversation context
+      setPanelOpen(false)
+      setPanelMinimized(false)
+      setPanelMessages([])
+      setPanelTitle('')
+      setPanelContext('')
+      lsSet('advar-panel-open', 'false')
+      lsSet('advar-panel-minimized', 'false')
+      lsSet('advar-panel-messages', '[]')
+      lsSet('advar-panel-title', '')
+      lsSet('advar-panel-context', '')
     }
     lsSet('advar-active-client-prev', client.id)
     loadData(client, resolved, dateRange, customStart, customEnd)
