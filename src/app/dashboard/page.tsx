@@ -1173,7 +1173,6 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   const [sending, setSending] = useState(false)
   const [persisting, setPersisting] = useState(false)
   const [userNotes, setUserNotes] = useState<string>("")
-  const [userNotes, setUserNotes] = useState<string>("")
 
   const anomalies: string[] = []
   if (hasAdData) {
