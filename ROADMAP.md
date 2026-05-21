@@ -469,3 +469,126 @@ The upload feature is *also* a fundamental piece of activation. Today's onboardi
 Better onboarding: connect platforms → "upload your brand doc, customer persona, goals" → Claude has rich context from minute one. Lower time-to-aha, higher activation.
 
 **Roadmap for onboarding (separate work item):** rewrite the post-OAuth flow to make doc upload step 2, not an afterthought.
+
+---
+
+## 🚨 PROJECT 11 — Unified Attention Surface (Alerts + Insights)
+
+Today the dashboard has two competing UI elements: the yellow ATTENTION NEEDED box (hardcoded heuristics) and the blue Claude insight (AI narrative). They serve overlapping purposes, can contradict each other, and create visual noise. Unify them into one surface that handles both — without losing the distinction between "hard alert" and "interpretive analysis."
+
+### Design
+
+Single attention card per panel, two visual layers stacked inside:
+
+```
+┌──────────────────────────────────────────────────┐
+│  ⚠ Hard alerts (when present)                    │  ← Alert styling (amber/red)
+│      • 1 paused campaign recorded spend          │
+│      • Frequency exceeded 3x on Brand campaign   │
+│                                                   │
+│  💡 Claude analysis                              │  ← Calm styling, neutral bg
+│      Performance Max is your only converter      │
+│      at 1.96% rate. Reallocate budget away from  │
+│      Search and Awareness.                       │
+│                                                   │
+│  [Ask follow-up ↓]                               │
+└──────────────────────────────────────────────────┘
+```
+
+### Rules
+
+- If alerts present AND insight present → show both, alerts first
+- If only alerts → show alerts, hide insight section
+- If only insight → show insight, hide alerts section
+- If neither → hide the entire card
+- Claude's analysis should reference alerts when relevant ("as the alert flags, your paused campaign is still spending...")
+
+### Implementation tasks
+
+- [ ] Combine `anomalies` array and Claude `insight` string into a single component
+- [ ] Update prompt builder to include current alerts in Claude's context so it can reference them
+- [ ] Refactor `InsightChat` into `AttentionCard` with alerts + insight + chat layers
+- [ ] Apply consistent across Overview, Campaigns, Keywords, and drill-down panels
+- [ ] Mobile: same layout, stacks naturally on narrow screens
+
+### Why this matters
+
+Two boxes is two decisions about where to look first. One box, two layers means one place to look, with clear hierarchy. Also lets Claude's analysis naturally incorporate the alerts — which makes the AI feel more aware and less like a parallel narrator.
+
+---
+
+## 🎚 PROJECT 12 — User-Defined Alert Rules
+
+The yellow box's hardcoded rules (low ROAS, paused with spend, zero orders) are decent generic defaults but can never serve every operator. Every user has their own version of "this needs my attention NOW." Let high-tier users define their own.
+
+### The deeper architecture point
+
+User-defined alert rules ARE the operator model. Same data that says "alert me when X happens" is the data that should weight X higher in Claude's analysis. Alert rules, memory directives, and learned patterns are three angles on the same thing — the user's representation of what matters in their account.
+
+**Tightly connected to Project 9 (Memory & Learning).** The two systems share storage and logic:
+- Alert rules go into `client_memory` as explicit preferences
+- Triggered alerts go into `client_memory` as observed events
+- Claude reads both when building context for any response
+
+### Core mechanic
+
+A rule has three parts:
+1. **Trigger** — when does this fire? (metric + operator + threshold + window)
+2. **Severity** — how loud? (info, warning, critical)
+3. **Action** — what happens? (show alert, email digest, inject into Claude context, trigger agent automation)
+
+Example rule definitions:
+- "ALERT critical when any campaign's CPL increases >20% week-over-week"
+- "ALERT warning when frequency exceeds 3x for any active campaign"
+- "ALERT info when a new ad spent >$50 and got zero conversions"
+- "ALERT critical when any campaign has zero spend for 2+ days but is active"
+
+### Schema
+
+New table: `alert_rules`
+- `id`, `client_id`, `user_email`
+- `name` (user-friendly: "High frequency on Brand")
+- `metric` (CPL, ROAS, frequency, conversions, spend, etc.)
+- `operator` (>, <, >=, <=, =, change_pct)
+- `threshold` (numeric)
+- `window` (today, 7-day, 30-day, week-over-week, etc.)
+- `severity` (info/warning/critical)
+- `actions` (JSONB: which actions fire)
+- `scope` (account-wide, campaign-level, ad-group-level)
+- `enabled` (boolean)
+- `created_by` (user), `created_at`
+
+New table: `alert_events`
+- `id`, `rule_id`, `client_id`
+- `triggered_at`
+- `payload` (JSONB: what actually triggered it)
+- `dismissed_by_user` (boolean — feeds learning loop)
+- `dismissed_at`
+
+### UI
+
+`/dashboard/[client]/alerts` — alert center per client:
+- List of active rules with on/off toggles
+- "Triggered today" panel showing current firing alerts
+- Rule builder: dropdown + field UI (no SQL, no code)
+- "Suggested rules" panel populated by Claude based on user's questions and account patterns (Scale tier)
+
+### Tier mechanics
+
+| Tier | Alert capabilities |
+|------|-------|
+| **Free** | Default hardcoded alerts only |
+| **Solo** | Default + 3 custom rules |
+| **Agency** | Default + 25 custom rules per client + email digest delivery |
+| **Scale** | Unlimited custom rules + AI-suggested rules + agent automations triggered by rules + Slack/SMS delivery options |
+
+### Phased build
+
+- **Phase 1 (post-launch, ~2 weeks):** schema + simple rule builder UI for Solo/Agency. No Claude-suggested rules yet. Rules can fire dashboard alerts only.
+- **Phase 2 (~30 days later):** email digest delivery + daily/weekly summary of triggered alerts. Agency tier feature.
+- **Phase 3 (Scale-tier launch):** Claude proposes rules based on observed patterns. "I noticed you've asked about frequency 4 times this month — want me to alert when it exceeds 3x?" One-click accept.
+- **Phase 4:** rules can trigger agent automations. "When CPL increases >20% on Brand, automatically pause and notify."
+
+### Why this is the real moat
+
+When the system can propose alert rules based on observed user behavior, you've crossed the line from "AI that answers questions" to "AI that actively learns what its operator cares about." That's the thing competitors can't ship by adding a feature. It requires accumulated per-customer data that compounds over months.
