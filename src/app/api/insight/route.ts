@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd } = await request.json()
+  const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd, activeAlerts } = await request.json()
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
   // Fetch complete intelligence for this client.
@@ -39,7 +39,12 @@ export async function POST(request: Request) {
   const intelligence: ClientIntelligence = intelligenceData.intelligence
   if (!intelligence) return NextResponse.json({ error: 'Could not fetch intelligence' }, { status: 500 })
 
-  const systemPrompt = buildClaudeContext(intelligence, location || 'overview')
+  let systemPrompt = buildClaudeContext(intelligence, location || 'overview')
+  if (Array.isArray(activeAlerts) && activeAlerts.length > 0) {
+    systemPrompt += '\n\n=== ACTIVE ALERTS CURRENTLY VISIBLE TO THE USER ===\n'
+    systemPrompt += '(These alerts are showing in the user-facing UI right now. If they ask a follow-up question, they may be referring to one of these. Reference them by content when relevant.)\n'
+    activeAlerts.forEach((a) => { systemPrompt += '  • ' + a + '\n' })
+  }
   const isInitial = !conversationHistory || conversationHistory.length === 0
 
   const messages = isInitial

@@ -1186,7 +1186,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   async function fetchInsight(history: InsightMessage[] = []) {
     try {
       const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientName, dateRange, location, conversationHistory: history,
+        body: JSON.stringify({ clientId, clientName, dateRange, location, conversationHistory: history, activeAlerts: filteredAnomalies,
           // Pass ad data if available for backwards compat
           totals: totals || null, campaigns: campaigns || [], platform }) })
       const d = await res.json(); return d.insight || ''
