@@ -1177,7 +1177,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   const anomalies: string[] = []
   if (hasAdData) {
     if (totals?.roas !== null && totals?.roas !== undefined && totals.roas < 0.5 && (totals.spend || 0) > 100) anomalies.push('ROAS is critically low at ' + fmt(totals.roas, 'multiplier'))
-    const pausedWithSpend = campaigns.filter(c => c?.status === 'paused' && (c?.spend || 0) > 0)
+    const pausedWithSpend = campaigns.filter(c => c?.status === 'paused' && (c?.spend || 0) > 500)
     if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
   }
   if (hasShopifyData && shopify?.totalOrders === 0) anomalies.push('No orders recorded in this date range')
@@ -1301,79 +1301,17 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     }, 100)
   }
 
-  if (hasAnomalies) {
-    return (
-      <div className="border bg-amber-50 border-amber-300 rounded-xl overflow-hidden">
-        <div className="px-4 md:px-6 py-4 md:py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <p className="font-mono text-xs uppercase tracking-widest mb-2 text-amber-600">⚠ Attention needed</p>
-              <div className="space-y-1">{filteredAnomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
-            </div>
-            <button onClick={() => setExpanded(!expanded)}
-              className="flex-shrink-0 text-xs font-mono text-amber-700 hover:text-amber-900 border border-amber-300 px-3 py-1.5 rounded-lg bg-white transition-colors whitespace-nowrap">
-              {expanded ? '↑ Close' : messages.length > 0 ? '↓ ' + Math.floor(messages.length / 2) + ' replies' : '↓ Reply'}
-            </button>
-          </div>
-        </div>
-        {expanded && (
-          <div className="border-t border-amber-200 bg-white">
-            {messages.length > 0 && (
-              <div id={'it-amber-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
-                {messages.map((m, i) => (
-                  <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                    <div className={'text-sm px-3 py-2 rounded-xl max-w-[85%] ' + (m.role === 'user' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-ink border border-amber-100')}>{m.content}</div>
-                  </div>
-                ))}
-                {sending && (
-                  <div className="flex justify-start"><div className="bg-amber-50 border border-amber-100 px-3 py-2 rounded-xl">
-                    <div className="flex gap-1">
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div></div>
-                )}
-              </div>
-            )}
-            <div className="px-4 py-3 flex gap-2 border-t border-amber-100">
-              <input type="text" value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !sending && sendMessage()}
-                placeholder="Add context — e.g. ignore ROAS, focus on MoF conversions..." disabled={sending}
-                className="flex-1 text-sm border border-amber-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-amber-400 disabled:opacity-50" />
-              <button onClick={sendMessage} disabled={sending || !input.trim()}
-                className="bg-amber-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                Send
-              </button>
-            </div>
-            {profileSuggestion && (
-              <div className="px-4 py-3 bg-amber-50 border-t border-amber-100 flex items-center justify-between gap-3">
-                <div className="flex-1">
-                  <p className="text-xs font-mono text-amber-700 mb-0.5">✦ Save to client profile?</p>
-                  <p className="text-xs text-ink">"{profileSuggestion}"</p>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={saveToProfile} className="text-xs font-mono bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 transition-colors">Save</button>
-                  <button onClick={() => setProfileSuggestion('')} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 rounded-lg transition-colors">Dismiss</button>
-                </div>
-              </div>
-            )}
-            {profileSaved && (
-              <div className="px-4 py-2 bg-green-50 border-t border-green-100">
-                <p className="text-xs font-mono text-green-600">✓ Saved to client profile — Claude will use this for all future analyses</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="border bg-blue-50 border-blue-200 rounded-xl overflow-hidden">
       <div className="px-4 md:px-6 py-4 md:py-5">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
+            {hasAnomalies && (
+              <div className="mb-3 pb-3 border-b border-blue-200">
+                <p className="font-mono text-xs uppercase tracking-widest mb-1.5 text-amber-600">⚠ Attention needed</p>
+                <div className="space-y-0.5">{filteredAnomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
+              </div>
+            )}
             <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
             {loading && !insight
               ? <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" /><span className="text-sm text-muted font-mono">Analyzing account...</span></div>
