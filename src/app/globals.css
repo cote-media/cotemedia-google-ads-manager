@@ -12,6 +12,10 @@
 
 * { box-sizing: border-box; }
 
+html, body {
+  font-family: 'Instrument Sans', sans-serif;
+}
+
 ::selection { background: #2563eb; color: #ffffff; }
 
 /* Scrollbar */
@@ -83,6 +87,35 @@
 .chat-response a { color: #2563eb; text-decoration: underline; }
 .chat-response a:hover { color: #1d4ed8; }
 
-input, select, textarea, button {
-  font-family: var(--font-body);
+/* Force form elements to inherit body font (override user-agent stylesheet) */
+input,
+select,
+textarea,
+button,
+optgroup,
+option {
+  font-family: 'Instrument Sans', sans-serif !important;
+  font-size: inherit;
+}
+
+/* Placeholders too */
+input::placeholder,
+textarea::placeholder {
+  font-family: 'Instrument Sans', sans-serif;
+}
+
+/* Safari date/time inputs are stubborn */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"],
+input[type="number"],
+input[type="email"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+input[type="text"] {
+  font-family: 'Instrument Sans', sans-serif !important;
 }
