@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getValidShopifyToken } from '@/lib/shopify-token'
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -26,15 +27,16 @@ export async function GET(request: Request) {
 
   if (!conn) return NextResponse.json({ error: 'No Shopify connection' }, { status: 404 })
 
-  // Get token
-  const { data: tokenRow } = await supabaseAdmin
-    .from('shopify_tokens')
-    .select('access_token')
-    .eq('user_email', session.user.email)
-    .eq('shop_domain', conn.account_id)
-    .single()
-
-  if (!tokenRow?.access_token) return NextResponse.json({ error: 'No token' }, { status: 401 })
+  // Get a valid token (auto-refreshes if expired)
+  const tokenResult = await getValidShopifyToken(session.user.email, conn.account_id)
+  if (!tokenResult.ok) {
+    const status = tokenResult.reason === 'refresh_expired' ? 401 : 401
+    return NextResponse.json(
+      { error: 'Shopify auth required', reason: tokenResult.reason, detail: tokenResult.detail },
+      { status }
+    )
+  }
+  const accessToken = tokenResult.accessToken
 
   // Build date range
   const end = customEnd || new Date().toISOString().split('T')[0]
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
   })()
 
   const SHOPIFY_API = `https://${conn.account_id}/admin/api/2024-01`
-  const headers = { 'X-Shopify-Access-Token': tokenRow.access_token }
+  const headers = { 'X-Shopify-Access-Token': accessToken }
 
   try {
     // Fetch all orders in range with line items
@@ -60,17 +62,15 @@ export async function GET(request: Request) {
       const res: Response = await fetch(url, { headers })
       const data: any = await res.json()
       allOrders = allOrders.concat(data.orders || [])
-      // Check for next page link header
       const linkHeader = res.headers.get('link') || ''
       const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
       url = nextMatch ? nextMatch[1] : null
-      if (allOrders.length > 1000) break // Safety limit
+      if (allOrders.length > 1000) break
     }
 
     // Aggregate by date
     const byDate: Record<string, { date: string; orders: number; revenue: number; avgOrderValue: number }> = {}
 
-    // Initialize all dates in range
     const startDate = new Date(start)
     const endDate = new Date(end)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -86,7 +86,6 @@ export async function GET(request: Request) {
       }
     })
 
-    // Calculate AOV
     Object.values(byDate).forEach(d => {
       d.avgOrderValue = d.orders > 0 ? d.revenue / d.orders : 0
       d.revenue = parseFloat(d.revenue.toFixed(2))
