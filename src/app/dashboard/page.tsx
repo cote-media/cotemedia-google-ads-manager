@@ -1,4 +1,5 @@
 'use client'
+import { filterAnomalies } from '@/lib/anomaly-filter'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useEffect, useState, useRef, Suspense } from 'react'
@@ -1171,6 +1172,8 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [persisting, setPersisting] = useState(false)
+  const [userNotes, setUserNotes] = useState<string>("")
+  const [userNotes, setUserNotes] = useState<string>("")
 
   const anomalies: string[] = []
   if (hasAdData) {
@@ -1179,7 +1182,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     if (pausedWithSpend.length > 0) anomalies.push(pausedWithSpend.length + ' paused campaign(s) recorded spend')
   }
   if (hasShopifyData && shopify?.totalOrders === 0) anomalies.push('No orders recorded in this date range')
-  const hasAnomalies = anomalies.length > 0
+  const filteredAnomalies = filterAnomalies(anomalies, userNotes); const hasAnomalies = filteredAnomalies.length > 0
 
   async function fetchInsight(history: InsightMessage[] = []) {
     try {
@@ -1197,7 +1200,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     fetch('/api/context?clientId=' + clientId)
       .then(r => r.json())
       .then(d => {
-        if (d.context?.conversations?.[locationKey]?.length > 0) {
+        setUserNotes(d.context?.user_notes || ""); if (d.context?.conversations?.[locationKey]?.length > 0) {
           setMessages(d.context.conversations[locationKey])
           setExpanded(true)
         }
@@ -1282,7 +1285,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   async function sendMessage() {
     if (!input.trim()) return
     const userMsg = input.trim(); setInput(''); setSending(true)
-    const openingMessage = insight || anomalies.map(a => '⚠ ' + a).join('. ')
+    const openingMessage = insight || filteredAnomalies.map(a => '⚠ ' + a).join('. ')
     const history: InsightMessage[] = [{ role: 'assistant', content: openingMessage }, ...messages, { role: 'user', content: userMsg }]
     const newMessages = [...messages, { role: 'user' as const, content: userMsg }]
     setMessages(newMessages)
@@ -1306,7 +1309,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="font-mono text-xs uppercase tracking-widest mb-2 text-amber-600">⚠ Attention needed</p>
-              <div className="space-y-1">{anomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
+              <div className="space-y-1">{filteredAnomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
             </div>
             <button onClick={() => setExpanded(!expanded)}
               className="flex-shrink-0 text-xs font-mono text-amber-700 hover:text-amber-900 border border-amber-300 px-3 py-1.5 rounded-lg bg-white transition-colors whitespace-nowrap">
