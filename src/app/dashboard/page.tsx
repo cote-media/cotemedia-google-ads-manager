@@ -3049,9 +3049,11 @@ function DashboardContent() {
   )
 }
 
+import { DashboardErrorBoundary } from "@/components/DashboardErrorBoundary"
+
 export default function Dashboard() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
+    <DashboardErrorBoundary><Suspense fallback={<LoadingScreen />}>
       <DashboardContent />
     </Suspense>
   )
