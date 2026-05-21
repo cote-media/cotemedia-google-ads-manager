@@ -331,3 +331,9 @@ cat >> ~/Downloads/cotemedia-ads-manager/ROADMAP.md << 'EOF'
 - [ ] Agency benchmark view — compare client performance against each other
 - [ ] Best practice sharing — "Client A's audience strategy is working well, apply to Client B?"
 - [ ] Panel clears on client switch (implemented) — each client has their own isolated Claude brain
+
+## 🎨 Font/UI Polish (IN PROGRESS)
+- [ ] Form elements (select, input, button) not inheriting Instrument Sans — needs font-family: inherit or explicit declaration in globals.css
+- [ ] Check all native browser UI elements are using correct fonts
+- [ ] Georgia displaying correctly for display/heading elements?
+- [ ] Verify Instrument Serif is loading and being used somewhere
