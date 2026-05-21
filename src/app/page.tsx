@@ -14,30 +14,30 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
-      <div className="border-b border-border px-8 py-4 flex items-center justify-between">
+      <div className="border-b border-border px-6 md:px-8 py-4 flex items-center justify-between">
         <span className="font-display text-lg text-ink">LoraMer</span>
         <span className="font-mono text-xs tracking-widest uppercase text-muted">Beta</span>
       </div>
 
       {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-24">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-8 py-10 md:py-24">
         <div className="max-w-xl w-full">
           <div className="mb-2">
             <span className="font-mono text-xs tracking-widest uppercase text-accent">Business intelligence, reimagined</span>
           </div>
-          <h1 className="font-display text-6xl text-ink leading-tight mb-6">
+          <h1 className="font-display text-4xl md:text-6xl text-ink leading-tight mb-6">
             Your whole business,<br />
             <em>in one conversation.</em>
           </h1>
-          <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
+          <p className="text-muted text-base md:text-lg leading-relaxed mb-8 md:mb-10 max-w-md">
             Connect every data source you use — ads, sales, customers, products — and ask Claude anything. LoraMer reads across all of it to surface what&apos;s working, what&apos;s broken, and what to do next.
           </p>
 
           {/* Split cards */}
-          <div className="grid grid-cols-2 gap-4 mb-8 max-w-lg">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-8 max-w-lg">
             <button
               onClick={() => window.location.href = '/agency'}
-              className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
+              className="border-2 border-border hover:border-accent p-4 md:p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏢</div>
               <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I&apos;m an Agency</div>
@@ -45,7 +45,7 @@ export default function Home() {
             </button>
             <button
               onClick={() => window.location.href = '/business'}
-              className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
+              className="border-2 border-border hover:border-accent p-4 md:p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏪</div>
               <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I&apos;m a Business</div>
@@ -71,17 +71,27 @@ export default function Home() {
 
       {/* Feature strip */}
       <div className="border-t border-border">
-        <div className="grid grid-cols-3 divide-x divide-border">
+        <div className="grid grid-cols-1 md:grid-cols-3 md:divide-x divide-border">
           {[
             { label: 'Unified Intelligence', desc: 'Google, Meta, Shopify, and more — Claude reasons across every data source, not just one.' },
             { label: 'Always-On Analyst', desc: 'Persistent memory means Claude remembers your goals, your KPIs, and what you told it last week.' },
             { label: 'Agency-Ready', desc: 'Manage every client from one dashboard. Switch accounts in seconds, keep context per client.' },
-          ].map((f) => (
-            <div key={f.label} className="px-8 py-6">
+          ].map((f, i) => (
+            <div key={f.label} className={'px-6 md:px-8 py-5 md:py-6 ' + (i > 0 ? 'border-t md:border-t-0 border-border' : '')}>
               <div className="metric-label mb-2">{f.label}</div>
               <p className="text-sm text-muted leading-relaxed">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t border-border px-6 md:px-8 py-5 flex flex-col md:flex-row items-center justify-between gap-3">
+        <span className="text-xs font-mono text-muted">© 2026 LoraMer</span>
+        <div className="flex items-center gap-5">
+          <a href="/privacy" className="text-xs font-mono text-muted hover:text-ink transition-colors">Privacy</a>
+          <a href="/terms" className="text-xs font-mono text-muted hover:text-ink transition-colors">Terms</a>
+          <a href="mailto:support@cotemedia.com" className="text-xs font-mono text-muted hover:text-ink transition-colors">Support</a>
         </div>
       </div>
     </main>
