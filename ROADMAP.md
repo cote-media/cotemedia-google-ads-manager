@@ -583,6 +583,79 @@ Other candidates evaluated and rejected: Merali, Loravi, Lorami, Advar (working 
 
 ---
 
+## 💬 PROJECT 14 — Unified Conversation Surface
+
+Right now Claude lives in three places: tiny diamond bubbles on rows, the right-side expanded panel, and the standalone Ask Claude tab. Each currently behaves like a separate Claude with no memory of what the user said in another surface. From the user's perspective, that's confusing and wasteful.
+
+**Conceptual model:** there is ONE Claude per client. The surfaces are doorways into the same ongoing relationship, not separate Claudes. Users don't say "I told the diamond on row X" — they say "I told Claude." Product behavior must match how users talk about it.
+
+**Connected to Project 9 (Memory & Learning).** Storage unification is the precondition for memory working correctly. Without it, the memory layer ends up with weird seams.
+
+### Architecture
+
+**Layer 1 — Storage (one table, scoped by client).**
+All Claude conversations live in a single `client_conversations` table. Each message records:
+- `surface` (diamond, right panel, ask-claude tab)
+- `scope` (specific row, campaign, client-wide)
+- `timestamp`
+- `role` + `content`
+
+Replaces the current `client_context.conversations` JSONB blob that silos by panel key.
+
+**Layer 2 — Context selection (smart, not dump-everything).**
+When any surface opens, Claude pulls the conversation log and selects relevant slices:
+- **Diamond on a row** → that row's exchanges first, plus summary of broader context
+- **Right panel** → whatever was just discussed plus expanded context
+- **Ask Claude tab** → full recent conversation sorted by recency
+
+Selection logic is the smart part. NOT "everything in every prompt" — "the right slice for the surface."
+
+**Layer 3 — Continuity hooks (user-controlled).**
+- Right panel auto-loads diamond's prior exchanges (already works — preserve)
+- Ask Claude tab shows subtle banner when recent conversations exist: *"Continue from your last conversation about Performance Max?"* with one-tap options [Continue] / [Start fresh] / [See all recent]
+- Default is fresh; continuity is opt-in but one tap away
+- Diamond on row X shows "we discussed this row 2 days ago" if applicable
+
+### Tradeoffs to manage
+
+- **Context bloat over time.** A 200-exchange history can't all fit in a prompt. Mitigate with last-N selection + summarization of older exchanges.
+- **Spatial mnemonic loss.** "I asked on the campaigns table" was a useful memory anchor. Keep surface metadata visible so users can navigate by where they were.
+- **Scope confusion.** Row-level question vs. account-level question have different default scopes. Claude needs to know which mode it's in.
+- **Performance.** Every surface load fetches conversation history → more Supabase roundtrips. Solvable with caching.
+
+### Phased build
+
+**Phase 1 — Storage unification (pre-launch, 1-2 days)**
+- [ ] Create `client_conversations` table (id, client_id, user_email, surface, scope, role, content, timestamp)
+- [ ] Migration script: pull existing `client_context.conversations` blob into the new table
+- [ ] Update all read sites in dashboard to query new table
+- [ ] Update all write sites to insert into new table
+- [ ] Invisible to users — sets up everything else
+
+**Phase 2 — Verify right-panel "continue from diamond"**
+- [ ] Confirm diamond → right panel flow still works post-unification
+- [ ] No regression on the most-used continuity path
+
+**Phase 3 — Ask Claude tab continuity prompt (3-5 days post Phase 1)**
+- [ ] Detect recent conversations (last 24h) for current client when Ask Claude tab opens
+- [ ] Show subtle banner: "Continue from [surface] [time ago]?"
+- [ ] One tap to load, one tap to dismiss, or type to start fresh
+- [ ] Banner doesn't block input — non-modal
+
+**Phase 4 — Cross-context references (post-launch)**
+- [ ] Claude naturally references earlier exchanges when relevant
+- [ ] "Earlier you mentioned Brand campaigns are your heroes — still consistent with what you're seeing here"
+- [ ] No new UI; better context selection in prompts
+
+### Why this is important pre-launch
+
+Phase 1 is small enough to ship before App Store submission. Doing it now means:
+- Memory & Learning (Project 9) can build on top of clean storage instead of a messy migration later
+- Users on day one experience continuity, not silos — better first impression
+- Cleaner data model for usage analytics and Anthropic spend tracking
+
+---
+
 ## ✅ Completed Archive
 
 ### Core platform
