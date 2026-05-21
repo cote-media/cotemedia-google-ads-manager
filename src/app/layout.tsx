@@ -5,6 +5,9 @@ import { Providers } from './providers'
 export const metadata: Metadata = {
   title: 'LoraMer',
   description: 'Business intelligence across every data source you use — with AI built in.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({

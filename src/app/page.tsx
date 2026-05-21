@@ -15,7 +15,10 @@ export default function Home() {
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
       <div className="border-b border-border px-6 md:px-8 py-4 flex items-center justify-between">
-        <span className="font-display text-lg text-ink">LoraMer</span>
+        <div className="flex items-center gap-3">
+          <LoraMerIcon />
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif" }} className="text-xl text-ink">LoraMer</span>
+        </div>
         <span className="font-mono text-xs tracking-widest uppercase text-muted">Beta</span>
       </div>
 
@@ -25,7 +28,7 @@ export default function Home() {
           <div className="mb-2">
             <span className="font-mono text-xs tracking-widest uppercase text-accent">Business intelligence, reimagined</span>
           </div>
-          <h1 className="font-display text-4xl md:text-6xl text-ink leading-tight mb-6">
+          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif" }} className="text-4xl md:text-6xl text-ink leading-tight mb-6">
             Your whole business,<br />
             <em>in one conversation.</em>
           </h1>
@@ -95,6 +98,15 @@ export default function Home() {
         </div>
       </div>
     </main>
+  )
+}
+
+function LoraMerIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-label="LoraMer">
+      <rect width="32" height="32" rx="6.4" fill="#0f172a"/>
+      <text x="16" y="21.9" fontFamily="Georgia, 'Times New Roman', serif" fontSize="19.2" fontWeight="400" fill="#ffffff" textAnchor="middle">LM</text>
+    </svg>
   )
 }
 

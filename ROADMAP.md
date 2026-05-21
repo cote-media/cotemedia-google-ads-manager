@@ -656,6 +656,27 @@ Phase 1 is small enough to ship before App Store submission. Doing it now means:
 
 ---
 
+## 🎨 BRAND NOTES (parking spot for design decisions)
+
+### Logo
+- **Final v1 logo:** "LM" in Georgia, white-on-navy (#0f172a) rounded square
+- **Wordmark:** "LoraMer" plain Georgia, no italics
+- **Backup variant:** "LoraMer" with blue (#2563eb) "Mer" — held for potential use later; user noted blue is the Cote Media signature color (used since 2011)
+- Icon used at 1024×1024 for Shopify App Store, 32×32 favicon, 16×16 (deferred — SVG scales)
+- Logo files live at `public/icon-1024.svg` and `public/favicon.svg`
+
+### Open question: Cote Media ↔ LoraMer relationship
+- LoraMer was developed by Cote Media but is positioned as a standalone product
+- Blue accent is shared visual heritage from Cote Media (since 2011)
+- **Decisions needed (defer):**
+  - Should LoraMer credit "By Cote Media" anywhere on the homepage / footer?
+  - Should the Cote Media legal entity own LoraMer, or should LoraMer be a separate entity?
+  - Does mixing brands complicate eventual sale, fundraise, or licensing of LoraMer?
+  - What's the right "from the agency that built this" story for credibility vs. "this is its own thing" story for product positioning?
+- Revisit after App Store launch and first customer feedback
+
+---
+
 ## ✅ Completed Archive
 
 ### Core platform
