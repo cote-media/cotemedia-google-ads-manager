@@ -665,6 +665,35 @@ Phase 1 is small enough to ship before App Store submission. Doing it now means:
 - Icon used at 1024×1024 for Shopify App Store, 32×32 favicon, 16×16 (deferred — SVG scales)
 - Logo files live at `public/icon-1024.svg` and `public/favicon.svg`
 
+### Name & Story — IMPORTANT
+
+**LoraMer is a coined word for "deep knowledge" or "deep understanding."**
+
+- *Lora* — from "lore" — the body of accumulated knowledge about something built up over time
+- *Mer* — sea / depth (French/Latin root)
+- Together: knowledge that goes deep, accumulates, compounds — exactly what the product is
+
+There is also a personal layer (combination of Russ's daughters' names) but that is private — not customer-facing. The story we tell the world is the etymology / product mission alignment.
+
+**Why this matters strategically:**
+- The name and the product mission are the same thing. The Claude that "actually knows your business" — that goes deeper than surface metrics, accumulates context across months, builds real understanding — IS LoraMer.
+- This differentiates against generic BI tools that report numbers. LoraMer's promise is depth and accumulated understanding, not faster dashboards.
+- Project 9 (Memory & Learning) is the literal product expression of the name. Anything that compounds depth over time ladders directly to brand. Anything that's surface-level — prettier charts, more KPIs at a glance — is hygiene, not brand-aligned moat work.
+
+**Implications for copy and marketing:**
+- Lean into "deep," "knowledge," "understanding," "compounds over time," "accumulates," "actually knows," "goes deeper."
+- Avoid generic BI language: "insights," "analytics," "data-driven" — these are commodity.
+- The Always-On Analyst feature card is the voice template — "Persistent memory means Claude remembers your goals, your KPIs, and what you told it last week."
+- Hero copy could evolve toward this: "Deep knowledge for your business" / "The AI that actually knows your business" / "Lore + sea — AI that goes deeper." (Defer to post-launch, but file as direction.)
+- Pitch decks, investor conversations, customer onboarding should all reference the etymology — gives the name a real story instead of "we coined it."
+
+**Implications for future design work:**
+- The blue accent on "Mer" emphasizes the depth half of the name — visually meaningful, not just decorative. Worth reconsidering whether v1 mono wordmark is correct.
+- Future logo evolutions could play with depth visually — M extending below baseline, layered marks, etc. Not v1, but a creative direction filed.
+
+**For any future Claude handoff:**
+The etymology and the "deep knowledge" positioning is not a fun-fact about the name — it is the brand. Any new instance of Claude working on this project needs to know: LoraMer = depth + accumulated knowledge, and product decisions should be evaluated against that promise.
+
 ### Open question: Cote Media ↔ LoraMer relationship
 - LoraMer was developed by Cote Media but is positioned as a standalone product
 - Blue accent is shared visual heritage from Cote Media (since 2011)
