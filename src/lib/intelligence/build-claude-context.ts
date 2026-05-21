@@ -3,6 +3,17 @@
 // Every Claude call uses this — InsightChat, AskClaudeButton, chat tab, everything.
 // The `focus` parameter tells Claude what the user is currently looking at,
 // but Claude always has access to ALL data regardless of focus.
+//
+// Conversation memory:
+//   - ALL conversations across ALL panels for the client are merged together
+//     (the user is the same user, talking about the same client — silo by panel
+//     was wrong)
+//   - Last 20 messages kept (was 6) so directives from earlier sessions aren't lost
+//   - Per-message char limit raised to 800 (was 200) so directives buried in
+//     longer messages aren't truncated
+//   - Heuristic scan for "directive-like" statements ("ignore X", "focus on Y",
+//     "don't recommend Z") — these are pulled into a dedicated DIRECTIVES section
+//     at the top of the prompt so Claude can't miss them
 
 import type { ClientIntelligence, PlatformIntelligence } from './intelligence-types'
 
@@ -20,6 +31,28 @@ const OBJECTIVE_RULES: Record<string, string> = {
   SHOPPING: 'Shopping — ROAS and CPA primary.',
   DISCOVERY: 'Discovery/Demand Gen — upper funnel. Do not expect high conversion volume.',
 }
+
+// Phrases that suggest the user is giving Claude a standing instruction.
+// We use these to extract probable directives from chat history and surface
+// them prominently in the system prompt.
+const DIRECTIVE_PATTERNS: RegExp[] = [
+  /\bignore\b/i,
+  /\bdon'?t\s+(?:focus|worry|mention|recommend|suggest|talk\s+about|pay\s+attention|use|consider|include)/i,
+  /\bdo\s+not\s+(?:focus|worry|mention|recommend|suggest|talk\s+about|pay\s+attention|use|consider|include)/i,
+  /\bstop\s+(?:mentioning|recommending|suggesting|focusing|talking)/i,
+  /\bfocus\s+on\b/i,
+  /\bprioriti[sz]e\b/i,
+  /\b(?:we|i)\s+(?:only|just)\s+care\s+about/i,
+  /\bnot\s+important\b/i,
+  /\binstead\s+of\b/i,
+  /\bremember\s+that\b/i,
+  /\bkeep\s+in\s+mind\b/i,
+  /\bnever\s+(?:mention|recommend|suggest|focus|use|include)/i,
+  /\balways\s+(?:mention|recommend|suggest|focus|use|include|consider)/i,
+  /\btarget\s+(?:is|for)\b.*\$/i,  // "target CPL is $35"
+  /\bfor\s+now\b/i,
+  /\bdeprioriti[sz]e\b/i,
+]
 
 function formatMetrics(m: any, indent = ''): string {
   const lines = []
@@ -113,20 +146,81 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string): str
   return lines.join('\n')
 }
 
+// Returns a flat array of user messages across all panel/location keys,
+// sorted by timestamp (most recent last) so when we slice the tail we get the
+// latest activity regardless of which panel it came from.
+function flattenConversations(conversations: Record<string, any[]>): Array<{
+  panelKey: string
+  role: string
+  content: string
+  timestamp?: number | string
+}> {
+  const all: Array<{ panelKey: string; role: string; content: string; timestamp?: number | string }> = []
+  Object.entries(conversations || {}).forEach(([panelKey, msgs]) => {
+    if (!Array.isArray(msgs)) return
+    msgs.forEach((m: any) => {
+      if (m && typeof m === 'object' && m.content) {
+        all.push({
+          panelKey,
+          role: m.role || 'user',
+          content: String(m.content),
+          timestamp: m.timestamp || m.ts || m.createdAt,
+        })
+      }
+    })
+  })
+  // If timestamps exist, sort by them. Otherwise keep insertion order.
+  const hasTs = all.every(m => m.timestamp != null)
+  if (hasTs) {
+    all.sort((a, b) => {
+      const ta = new Date(a.timestamp as any).getTime()
+      const tb = new Date(b.timestamp as any).getTime()
+      return ta - tb
+    })
+  }
+  return all
+}
+
+// Scan all USER messages for directive-like statements. Returns an array of
+// short excerpts (the matched message, trimmed) for surfacing prominently.
+function extractDirectives(flat: Array<{ role: string; content: string }>): string[] {
+  const directives: string[] = []
+  const seen = new Set<string>()
+  flat.forEach(m => {
+    if (m.role !== 'user') return
+    const content = m.content.trim()
+    if (!content) return
+    const matches = DIRECTIVE_PATTERNS.some(re => re.test(content))
+    if (matches) {
+      // Trim to first sentence or 300 chars, whichever shorter
+      let snippet = content
+      const sentenceEnd = snippet.search(/[.!?](?:\s|$)/)
+      if (sentenceEnd > 0 && sentenceEnd < 300) snippet = snippet.slice(0, sentenceEnd + 1)
+      else if (snippet.length > 300) snippet = snippet.slice(0, 297) + '...'
+      const key = snippet.toLowerCase().replace(/\s+/g, ' ')
+      if (!seen.has(key)) {
+        seen.add(key)
+        directives.push(snippet)
+      }
+    }
+  })
+  return directives
+}
+
 function buildConversationContext(conversations: Record<string, any[]>): string {
   if (!conversations || Object.keys(conversations).length === 0) return ''
-  const entries = Object.entries(conversations)
-    .filter(([, msgs]) => Array.isArray(msgs) && msgs.length > 0)
-  if (!entries.length) return ''
+  const flat = flattenConversations(conversations)
+  if (!flat.length) return ''
 
-  const lines = ['\n=== PREVIOUS CONVERSATIONS ===']
-  lines.push('(Everything the user has discussed across all boxes in this app)')
-  entries.forEach(([key, msgs]) => {
-    const lastFew = msgs.slice(-6) // Last 3 exchanges
-    lines.push(`\n[${key}]:`)
-    lastFew.forEach((m: any) => {
-      lines.push(`  ${m.role === 'user' ? 'User' : 'Claude'}: ${m.content.slice(0, 200)}${m.content.length > 200 ? '...' : ''}`)
-    })
+  const lines = ['\n=== PREVIOUS CONVERSATIONS (across all panels for this client) ===']
+  lines.push('(All discussions the user has had about this client. Treat these as binding context.)')
+
+  // Keep the most recent 20 messages — wide enough to capture multi-session history,
+  // tight enough to not blow context budget.
+  const recent = flat.slice(-20)
+  recent.forEach((m) => {
+    const truncated = m.content.length > 800 ? m.content.slice(0, 797) + '...' : m.content
+    lines.push(`  [${m.panelKey}] ${m.role === 'user' ? 'User' : 'Claude'}: ${truncated}`)
   })
   return lines.join('\n')
 }
@@ -134,7 +228,7 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
 export function buildClaudeContext(
   intelligence: ClientIntelligence,
   focus: string = 'overview',
-  focusData?: string  // Extra context about what the user is specifically looking at
+  focusData?: string
 ): string {
   const lines: string[] = []
 
@@ -145,8 +239,17 @@ export function buildClaudeContext(
   lines.push(`Current view: ${focus}`)
   if (focusData) lines.push(`Specifically looking at: ${focusData}`)
 
-  // ── Client Profile ─────────────────────────────────────────────────────────
+  // ── DIRECTIVES (top priority — surfaces standing instructions from prior chats) ──
   const p = intelligence.profile
+  const flatConversations = p.conversations ? flattenConversations(p.conversations) : []
+  const directives = extractDirectives(flatConversations)
+  if (directives.length > 0) {
+    lines.push('\n=== STANDING DIRECTIVES FROM USER ===')
+    lines.push('(The user previously said these things. Treat them as binding for this entire response. Do NOT contradict or ignore them.)')
+    directives.forEach((d, i) => lines.push(`  ${i + 1}. "${d}"`))
+  }
+
+  // ── Client Profile ─────────────────────────────────────────────────────────
   if (p.businessType || p.primaryKpi || p.userNotes) {
     lines.push('\n=== CLIENT PROFILE ===')
     if (p.businessType) lines.push(`Business type: ${p.businessType}`)
@@ -179,13 +282,13 @@ export function buildClaudeContext(
     }
   }
 
-  // ── Previous Conversations ─────────────────────────────────────────────────
+  // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
 
   // ── Rules ──────────────────────────────────────────────────────────────────
   lines.push('\n=== ANALYSIS RULES ===')
-  lines.push('CRITICAL: Always respect campaign objectives. Never criticize a metric irrelevant to the objective.')
-  lines.push('If the user previously told you something (e.g. "ignore ROAS"), ALWAYS respect that in every response.')
+  lines.push('CRITICAL: STANDING DIRECTIVES (above) override every other instruction. If the user said "ignore ROAS", do not mention ROAS as a problem, even in the insight banner. If they said "focus on lead volume", lead volume is your primary lens.')
+  lines.push('Always respect campaign objectives. Never criticize a metric irrelevant to the objective.')
   lines.push('Be specific — use actual campaign names, ad names, and numbers.')
   lines.push('You are talking to an experienced agency professional. Skip basics.')
   lines.push('If you can see the data needed to answer a question, answer it directly without asking for more info.')
