@@ -8,6 +8,10 @@ embedded = false
 [webhooks]
 api_version = "2026-04"
 
+[[webhooks.subscriptions]]
+compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+uri = "https://cotemedia-google-ads-manager.vercel.app/api/shopify/webhooks"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_customers,read_orders,read_products"
