@@ -7,6 +7,20 @@ import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// The initial-insight user prompt. We bake the HARD CONSTRAINTS reminder
+// directly into the user message because Haiku in 50-word mode tends to
+// follow the dominant data signal over the system prompt constraints.
+// Naming this thing here also means it's grep-able when we want to tune it.
+const INITIAL_INSIGHT_PROMPT = `Generate a 1-2 sentence insight (50 words max) about this account.
+
+CRITICAL RULES for this insight:
+1. If there are HARD CONSTRAINTS at the top of your context, OBEY THEM. Do NOT mention any metric the user told you to ignore — not even to compare against, not even to dismiss. Pretend that metric does not exist in the data for the purposes of this insight.
+2. Find a different angle. If ROAS is off-limits, talk about conversion volume, CTR patterns, budget concentration, campaign mix, or whatever else is meaningful given the user's stated priorities.
+3. Be specific with actual campaign names and numbers — but only for metrics that aren't off-limits.
+4. No markdown. Plain text only.
+
+Write the insight now.`
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,21 +28,22 @@ export async function POST(request: Request) {
   const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd } = await request.json()
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
-  // Fetch complete intelligence for this client
+  // Fetch complete intelligence for this client.
+  // forceRefresh=true so we always get the latest conversations/user_notes
+  // — the 15-min server-side cache could otherwise serve stale directives.
   const intelligenceRes = await fetch(
-    `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
+    `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}&refresh=true`,
     { headers: { Cookie: request.headers.get('cookie') || '' } }
   )
   const intelligenceData = await intelligenceRes.json()
   const intelligence: ClientIntelligence = intelligenceData.intelligence
-
   if (!intelligence) return NextResponse.json({ error: 'Could not fetch intelligence' }, { status: 500 })
 
   const systemPrompt = buildClaudeContext(intelligence, location || 'overview')
-
   const isInitial = !conversationHistory || conversationHistory.length === 0
+
   const messages = isInitial
-    ? [{ role: 'user' as const, content: 'Give me a brief analysis of this account. 1-2 sentences max, 50 words max. Be specific with actual names and numbers. No markdown.' }]
+    ? [{ role: 'user' as const, content: INITIAL_INSIGHT_PROMPT }]
     : conversationHistory.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
   try {

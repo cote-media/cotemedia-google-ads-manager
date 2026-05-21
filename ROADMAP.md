@@ -337,3 +337,135 @@ cat >> ~/Downloads/cotemedia-ads-manager/ROADMAP.md << 'EOF'
 - [ ] Check all native browser UI elements are using correct fonts
 - [ ] Georgia displaying correctly for display/heading elements?
 - [ ] Verify Instrument Serif is loading and being used somewhere
+
+---
+
+## 🧠 PROJECT 9 — Persistent Memory & Learning
+
+The biggest single moat. The reason Scale-tier customers don't churn after month 6.
+
+**Core insight:** any competitor can copy the dashboard in a quarter. They can copy persistent memory in 2 weeks. They cannot copy 6 months of accumulated learning per customer. By the time competitors are feature-matched, Scale customers have a Claude that understands their specific accounts better than any AI on the market — because no other AI has been watching their data and incorporating their feedback for that long.
+
+**Memory vs. Learning — the distinction matters.**
+
+- **Memory** is lookup: "the user said X 3 weeks ago, recall it now." That's what Phase 1/1.5 above started building.
+- **Learning** is something different. Claude forms hypotheses from observation, updates them over time as data accumulates, notices recurring patterns across sessions, distinguishes signal from noise, builds a model of *the user* — not just the data.
+
+The "model of the user" piece is what nobody else is doing. Triple Whale shows data. Northbeam shows attribution. LoraMer's Scale tier can be the first BI tool that learns *how the operator thinks about their business* and serves them in that frame.
+
+### Architecture (as if every tier got the full thing)
+
+**1. `client_memory` table — Supabase.**
+Per-client persistent facts and observations.
+- Facts the user told us (explicit): "Ignore ROAS," "Target CPL is $35," "Brand is our hero," "Q3 rebrand in progress."
+- Patterns Claude observed: "User asks about Brand 3x more than other questions," "User dismissed 'high CPM' as actionable 4 times."
+- Hypotheses with confidence scores: "Brand drives lower CPL than Generic (confidence: 0.85, observed 6 weeks)."
+- Dismissed insights: "Don't surface 'high CPM' as an issue for this client."
+
+**2. Nightly learning loop — background agent.**
+Per client, runs once daily:
+- Reviews the day's data
+- Reviews the day's user interactions
+- Updates `client_memory`: new facts learned, hypotheses confirmed/falsified/refined, dismissed insights tracked
+- Outputs a "Daily Learning Log" the user can read
+
+**3. Memory injection — prompt layer.**
+Every Claude call across the app reads from `client_memory` and injects relevant facts into the system prompt. Not all of it — just what's relevant to the current question. Replaces the heuristic directive extraction with structured, scored facts.
+
+**4. Memory editing UI — `/dashboard/[client]/memory`.**
+Shows everything Claude believes about this client. User can:
+- Edit facts directly ("CPL target is $30, not $35")
+- Delete things Claude got wrong
+- Promote things to "always cite this" status
+- See Claude's hypotheses + confidence scores
+
+Critical for trust. AI that learns silently is creepy. AI that shows its work is magic.
+
+**5. `user_preferences` table — operator-level personalization.**
+Separate from per-client memory. Learns the operator's communication preferences, level of detail, what they dismiss vs engage with.
+
+### Tier mechanics
+
+| Tier | Memory model |
+|------|--------------|
+| **Free** | Session-only. Nothing persists across sessions. |
+| **Solo** | Persistent per-client memory, 50 facts max, no learning loop. |
+| **Agency** | Persistent memory + dismissed-insights tracking. 500 facts/client. No nightly learning loop. |
+| **Scale** | Full system: unlimited memory, nightly learning loop, hypotheses, daily learning logs, memory editing UI. |
+
+**Memory Credits (overage product, applies to Solo and Agency):**
+Solo and Agency users who hit the cap can buy memory credit packs ($X for 100 additional facts, $Y to unlock the nightly learning loop on ONE client). Same pattern as Anthropic API metering. Monetizes outliers without forcing tier upgrade — but softens the upgrade path because they're already paying.
+
+### Phased rollout
+
+- **Phase 1** ✅ Per-conversation directive extraction (shipped May 21)
+- **Phase 1.5** ✅ HARD CONSTRAINTS block at top of prompt (shipped May 21)
+- **Phase 2 — pre-launch (next 2 weeks):** structured `client_memory` table with explicit facts. User can write/edit in UI. NO learning loop yet — manually curated memory. Ships with App Store launch.
+- **Phase 3 — post-launch (~6 weeks out):** dismissed-insights tracking + basic pattern observation. Claude starts noticing things, with low-confidence hypotheses.
+- **Phase 4 — after first paying Scale customer:** full nightly learning loop with daily learning logs. Don't build until someone is paying for it.
+
+---
+
+## 📂 PROJECT 10 — Data Ingestion (User-Uploaded Business Data)
+
+Lets owners and agencies feed Claude business signals that no API provides — sales pipelines, customer LTV, brand guidelines, persona docs, profit margins, return rates. This is where LoraMer becomes irreplaceable.
+
+**The big idea:** Triple Whale can show ad spend and Shopify revenue. They cannot tell you "your Meta CAC is $42 but your average LTV for Meta-acquired customers is $85 vs $140 from Google — you're paying too much for inferior customers." That requires data living in the operator's head, in their CRM, in a Google Sheet. If LoraMer can ingest that and reason across it + Google + Meta + Shopify, you've built something nobody else has.
+
+**Three versions, ordered by complexity:**
+
+### Version 1 — Static reference docs (pre-launch, ~2 days)
+
+- PDF, DOCX, TXT, MD upload per client
+- Extract text on upload (mammoth for docx, pdf-parse for pdf, etc.)
+- Store in `client_context.uploaded_docs` as text blob
+- Inject into Claude system prompt on every call (with token budget)
+- Tier limits: Free 500 words, Solo 5K, Agency 25K, Scale unlimited
+
+**Use cases:** brand guidelines, brand voice, positioning, persona decks, last quarter's strategy memo. Stuff that doesn't change but gives Claude human context about WHO the client is.
+
+**Why this matters:** turns "Claude analyzing data" into "Claude analyzing data in the context of the business." Brand campaigns winning CPL might trigger "scale Brand" — but if the brand doc says "premium positioning, never compete on price," Claude can say "Brand wins CPL but watch frequency >3x weekly; that conflicts with positioning."
+
+### Version 2 — Structured operational data (30 days post-launch)
+
+- CSV / XLSX upload per client
+- Parse structurally (columns, types)
+- User maps columns to meaning ("this is monthly revenue by product", "this is LTV by acquisition channel")
+- Store as queryable structured data with schema
+- Claude gets the schema in system prompt, can reason across uploaded data + API data
+
+**Use cases:** sales pipeline, lead source attribution from CRM, LTV by segment, return rates by product, profit margins by SKU, refund reasons. Stuff that lives in operator spreadsheets.
+
+**This is where the Agency tier earns its keep.** Agencies already have this data scattered across client folders. Letting them pull it into one place where Claude reasons on it is the upsell.
+
+**Build approach:** ship for two early customers as design partners first. See what columns they actually have and what queries they actually want. Then generalize. Don't build for hypotheticals.
+
+### Version 3 — Live-updating data feeds (Scale tier, post-launch on demand)
+
+- Google Sheets connector — Claude reads sheet daily
+- Notion database connector
+- Custom webhook receiver for CRMs (HubSpot, Pipedrive)
+- Scheduled fetcher per customer, pulls latest into intelligence layer
+
+**Edge cases:** schema changes, auth failures, rate limits. Probably 4-6 weeks to do properly.
+
+**Build trigger:** only after a paying Scale customer specifically asks for it. Build for the most-requested feed type first, generalize later.
+
+### Critical foundations (build once, before any of the above ships)
+
+- **Encryption at rest** for uploaded docs (Supabase has this — verify enabled)
+- **Per-user access controls** — agency teammates shouldn't see each other's clients by default
+- **Data deletion mechanism** — client offboards, docs gone in 30 days
+- **Privacy policy update** — explain what we do and don't do with uploaded data (already on App Store checklist)
+- **No-training assertion** — explicit statement to customers that uploaded data isn't used for model training
+- **Audit log** for uploads, edits, deletions
+
+Once handling business-critical data, liability profile changes. Do this once, properly, before any ingestion features ship. Not bolted on later.
+
+### Onboarding integration
+
+The upload feature is *also* a fundamental piece of activation. Today's onboarding: connect Google/Meta/Shopify, Claude has no human context, first meaningful insight requires Russ to manually fill profile or have a conversation that creates directives.
+
+Better onboarding: connect platforms → "upload your brand doc, customer persona, goals" → Claude has rich context from minute one. Lower time-to-aha, higher activation.
+
+**Roadmap for onboarding (separate work item):** rewrite the post-OAuth flow to make doc upload step 2, not an afterthought.
