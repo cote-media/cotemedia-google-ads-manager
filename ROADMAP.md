@@ -279,6 +279,11 @@ Features that justify the Agency tier and above.
 - [ ] Unify the three caches (localStorage insight 1hr, drill-state, server intelligence 15min) under one invalidation strategy
 - [ ] Request deduplication on `/api/intelligence` — fast tab switching fires multiple parallel calls
 - [ ] Tier-gate or batch the `extractProfileContext` Claude call (currently runs per chat exchange, expensive at scale)
+- [ ] **AUDIT FIND:** `layout.tsx` has hardcoded `fontFamily: Georgia` inline style on `<body>` that overrides globals.css — this is the root cause of every font fight. Fix: remove inline style entirely.
+- [ ] **AUDIT FIND:** `dashboard/page.tsx` line ~1212 — insight useEffect deps don't include `userNotes`, causing race where directive may not be respected on first load
+- [ ] **AUDIT FIND:** Landing page (`app/page.tsx`) copy still says "ads, reimagined" / "Google Ads management" — outdated vs BI repositioning
+- [ ] **AUDIT FIND:** Landing page nav had duplicate "LoraMer" text (now fixed but worth a styling pass)
+- [ ] Architectural audit pass: re-read all `/api/*` routes for similar copy-paste/inheritance issues
 
 ---
 
@@ -342,7 +347,20 @@ Lets owners and agencies feed Claude business signals that no API provides — s
 
 **The big idea:** Triple Whale can show ad spend and Shopify revenue. They cannot tell you "your Meta CAC is $42 but your average LTV for Meta-acquired customers is $85 vs $140 from Google." That requires data living in the operator's head, in their CRM, in a Google Sheet.
 
-### Version 1 — Static reference docs (pre-launch, ~2 days)
+### Version 1 — Static reference docs ✅ SHIPPED
+
+V1 is live. PDF, DOCX, TXT, CSV upload works on the client profile page. Text extracts on upload via pdf-parse and mammoth, then appends to `client_context.user_notes`. 8,000 char limit per file.
+
+**Known gap to fix before V2:** uploaded doc content currently lives in the same `user_notes` field as user-typed directives. If a brand doc mentions ROAS in passing, the directive extraction regex could falsely match it as a user instruction. Needs to be split into a separate `uploaded_docs` field, kept distinct from `user_notes`.
+
+#### Tasks remaining for V1
+- [ ] Migrate to separate `uploaded_docs` field (Supabase schema + upload route + context builder)
+- [ ] Update build-claude-context.ts to include uploaded_docs as its own section, separate from user_notes
+- [ ] Tier-based word/page limits enforced (Free 500 / Solo 5K / Agency 25K / Scale unlimited)
+- [ ] Show currently-uploaded docs in client profile with delete capability
+- [ ] Replace-vs-append UX when uploading new file
+
+### Version 1 original spec (preserved for reference)
 
 - PDF, DOCX, TXT, MD upload per client
 - Extract text on upload (mammoth for docx, pdf-parse for pdf)
@@ -604,6 +622,11 @@ Other candidates evaluated and rejected: Merali, Loravi, Lorami, Advar (working 
 - [x] Form element font fix
 - [x] Dashboard error boundary catches client-side crashes
 - [x] Unified attention surface v1 (Project 11)
+
+### Data ingestion
+- [x] Doc upload V1 — PDF/DOCX/TXT/CSV extract to text, append to client context
+- [x] Upload UI on client profile page
+- [x] 8,000 char per-file limit
 
 ### Shopify (App Store readiness)
 - [x] Rebrand to LoraMer everywhere

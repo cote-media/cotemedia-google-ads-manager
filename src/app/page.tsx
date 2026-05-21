@@ -15,22 +15,22 @@ export default function Home() {
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
       <div className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <span className="font-mono text-xs tracking-widest uppercase text-muted">LoraMer</span>
-        <span className="font-mono text-xs tracking-widest uppercase text-muted">LoraMer</span>
+        <span className="font-display text-lg text-ink">LoraMer</span>
+        <span className="font-mono text-xs tracking-widest uppercase text-muted">Beta</span>
       </div>
 
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-8 py-24">
         <div className="max-w-xl w-full">
           <div className="mb-2">
-            <span className="font-mono text-xs tracking-widest uppercase text-accent">Beta</span>
+            <span className="font-mono text-xs tracking-widest uppercase text-accent">Business intelligence, reimagined</span>
           </div>
           <h1 className="font-display text-6xl text-ink leading-tight mb-6">
-            Your ads,<br />
-            <em>reimagined.</em>
+            Your whole business,<br />
+            <em>in one conversation.</em>
           </h1>
           <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
-            Manage campaigns, analyze performance, and execute changes across every platform and client account — through natural conversation with Claude.
+            Connect every data source you use — ads, sales, customers, products — and ask Claude anything. LoraMer reads across all of it to surface what&apos;s working, what&apos;s broken, and what to do next.
           </p>
 
           {/* Split cards */}
@@ -40,16 +40,16 @@ export default function Home() {
               className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏢</div>
-              <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I'm an Agency</div>
-              <p className="text-xs text-muted leading-relaxed">Managing ads for multiple clients</p>
+              <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I&apos;m an Agency</div>
+              <p className="text-xs text-muted leading-relaxed">Managing multiple clients across platforms</p>
             </button>
             <button
               onClick={() => window.location.href = '/business'}
               className="border-2 border-border hover:border-accent p-6 text-left transition-all duration-200 group bg-white"
             >
               <div className="text-2xl mb-3">🏪</div>
-              <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I'm a Business</div>
-              <p className="text-xs text-muted leading-relaxed">Managing my own advertising accounts</p>
+              <div className="font-semibold text-ink mb-1 group-hover:text-accent transition-colors">I&apos;m a Business</div>
+              <p className="text-xs text-muted leading-relaxed">Running my own store and accounts</p>
             </button>
           </div>
 
@@ -73,9 +73,9 @@ export default function Home() {
       <div className="border-t border-border">
         <div className="grid grid-cols-3 divide-x divide-border">
           {[
-            { label: 'Multi-Platform Intelligence', desc: 'Google, Meta, and more in one place. Ask questions, get answers across all your accounts.' },
-            { label: 'AI-Powered Execution', desc: 'Claude recommends specific changes you can approve and push live in one click.' },
-            { label: 'Agency-Ready', desc: 'Manage every client from a single dashboard. Switch accounts in seconds, never lose context.' },
+            { label: 'Unified Intelligence', desc: 'Google, Meta, Shopify, and more — Claude reasons across every data source, not just one.' },
+            { label: 'Always-On Analyst', desc: 'Persistent memory means Claude remembers your goals, your KPIs, and what you told it last week.' },
+            { label: 'Agency-Ready', desc: 'Manage every client from one dashboard. Switch accounts in seconds, keep context per client.' },
           ].map((f) => (
             <div key={f.label} className="px-8 py-6">
               <div className="metric-label mb-2">{f.label}</div>

@@ -4,7 +4,7 @@ import { Providers } from './providers'
 
 export const metadata: Metadata = {
   title: 'LoraMer',
-  description: 'AI-powered Google Ads management for agencies and businesses',
+  description: 'Business intelligence across every data source you use — with AI built in.',
 }
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-paper text-ink antialiased" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+      <body className="bg-paper text-ink antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>
