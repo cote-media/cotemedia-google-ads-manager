@@ -3055,6 +3055,6 @@ export default function Dashboard() {
   return (
     <DashboardErrorBoundary><Suspense fallback={<LoadingScreen />}>
       <DashboardContent />
-    </Suspense>
+    </Suspense></DashboardErrorBoundary>
   )
 }
