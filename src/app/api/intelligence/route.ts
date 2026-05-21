@@ -15,6 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
+import { getValidShopifyToken } from '@/lib/shopify-token'
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
@@ -137,24 +138,20 @@ export async function GET(request: Request) {
           })
       : Promise.resolve(null),
 
-    // Shopify
+    // Shopify — uses getValidShopifyToken which auto-refreshes expired tokens
     shopifyConn
-      ? supabaseAdmin
-          .from('shopify_tokens')
-          .select('access_token')
-          .eq('user_email', session.user.email)
-          .eq('shop_domain', shopifyConn.account_id)
-          .single()
-          .then(({ data: tokenRow }) => {
-            if (!tokenRow?.access_token) throw new Error('No Shopify token found')
-            return fetchShopifyIntelligence(
-              tokenRow.access_token,
-              shopifyConn.account_id,
-              dateRange,
-              customStart,
-              customEnd
-            )
-          })
+      ? getValidShopifyToken(session.user.email, shopifyConn.account_id).then(tokenResult => {
+          if (!tokenResult.ok) {
+            throw new Error(`Shopify token unavailable: ${tokenResult.reason}${tokenResult.detail ? ' - ' + tokenResult.detail : ''}`)
+          }
+          return fetchShopifyIntelligence(
+            tokenResult.accessToken,
+            shopifyConn.account_id,
+            dateRange,
+            customStart,
+            customEnd
+          )
+        })
       : Promise.resolve(null),
   ])
 
