@@ -8,9 +8,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-body)'],
-        display: ['var(--font-display)'],
-        mono: ['var(--font-mono)'],
+        sans: ['Instrument Sans', 'sans-serif'],
+        display: ['Georgia', 'Times New Roman', 'serif'],
+        mono: ['Instrument Sans', 'sans-serif'],
       },
       colors: {
         ink: '#0f172a',
