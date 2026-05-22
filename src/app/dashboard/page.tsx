@@ -1383,7 +1383,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
   const totals = data?.totals
   const campaigns = data?.campaigns || []
   const platform = data?.platform || 'google'
-  const hasAdData = !!(data?.totals && data?.campaigns?.length)
+  const hasAdData = !!(data?.totals && data?.campaigns)  // empty array = zero-spend, render zeros
   const metrics = hasAdData ? [
     { label: 'Total Spend', value: fmt(totals!.spend, 'currency') },
     { label: 'Clicks', value: fmt(totals!.clicks) },
