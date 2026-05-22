@@ -277,6 +277,7 @@ Features that justify the Agency tier and above.
 
 ## 🏗 PROJECT 8 — Tech Debt & Operational
 
+- [ ] **Admin page for user management (logged May 22)** — currently the only way to add a beta tester, change a user's tier, or see who is in the system is via Supabase SQL. Build a simple `/admin` route (gated to Russ's email or a super_admin tier) that lists every user, their tier, signup date, last login, and spend-to-date. Allow tier changes, beta_unlimited toggle, and a one-click "invite new tester" flow that adds their email. Foundation for everything from manual support to the eventual "talk to a human" workflow.
 - [ ] **Refresh connection UX (found May 22):** one-click "Refresh connection" buttoatform for when tokens expire, OAuth scopes change, MCC permissions are revoked, or Meta Business Manager access changes. Today the only path is disconnect + reconnect. Surface in client profile expansion. Should re-trigger OAuth without losing client_context or analysis history.
 - [ ] Upgrade Next.js 14.2.3 (security vulnerability)
 - [ ] Fix npm deprecation warnings
