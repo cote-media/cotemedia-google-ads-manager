@@ -1051,7 +1051,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
 
   return (
     <div className="bg-white border border-border overflow-x-auto">
-      <table className="min-w-full md:w-full text-sm" style={{ minWidth: '640px' }}>
+      <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-surface">
             <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface" style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}>{nameLabel}</th>
