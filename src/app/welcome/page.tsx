@@ -29,7 +29,7 @@ export default function WelcomePage() {
         <h1 className="text-center text-2xl font-bold text-ink mb-2" style={{ fontFamily: 'Georgia, serif' }}>
           Welcome to LoraMer
         </h1>
-        <p className="text-center text-muted text-sm mb-8">
+        <p className="text-center text-xs uppercase tracking-wider text-muted mb-8 font-sans font-medium">
           Deep knowledge for your business.
         </p>
 
@@ -42,7 +42,7 @@ export default function WelcomePage() {
             <p className="text-xs uppercase tracking-wider text-muted mb-3 font-medium">
               Your free plan includes
             </p>
-            <ul className="space-y-2.5 text-sm text-ink">
+            <ul className="space-y-2.5 text-sm text-ink font-sans">
               <li className="flex items-start gap-2.5">
                 <span className="text-accent mt-0.5">&#10022;</span>
                 <span>1 workspace</span>
@@ -66,12 +66,12 @@ export default function WelcomePage() {
         <button
           onClick={handleGetStarted}
           disabled={loading}
-          className="w-full bg-ink text-white rounded-xl py-3.5 font-medium text-base shadow-card hover:bg-ink/90 active:bg-ink/80 disabled:opacity-60 transition"
+          className="w-full bg-ink text-white rounded-xl py-3.5 font-sans font-medium text-base shadow-card hover:bg-ink/90 active:bg-ink/80 disabled:opacity-60 transition"
         >
           {loading ? 'Loading...' : "Let's go \u2192"}
         </button>
 
-        <p className="text-center text-xs text-muted mt-6">
+        <p className="text-center text-xs text-muted mt-6 font-sans">
           You can upgrade anytime to add Meta Ads, Shopify, more workspaces, and unlimited questions.
         </p>
       </div>
