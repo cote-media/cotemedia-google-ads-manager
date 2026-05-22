@@ -1258,6 +1258,11 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
       const d = await res.json()
       const suggestion = (d.insight || '').trim()
       if (suggestion && suggestion.toLowerCase() !== 'none' && suggestion.length > 5) {
+        // Don't surface a suggestion if it's already in user_notes (case-insensitive, normalized)
+        const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+        const existingNorm = norm(userNotes || '')
+        const suggestionNorm = norm(suggestion)
+        if (existingNorm.includes(suggestionNorm)) return
         setProfileSuggestion(suggestion)
       }
     } catch {}
@@ -1270,6 +1275,18 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
       const r = await fetch('/api/context?clientId=' + clientId)
       const d = await r.json()
       const existing = d.context?.user_notes || ''
+      // Dedup: if the suggestion (or close match) is already in user_notes, skip the write.
+      // Normalize both sides — case-insensitive, collapse whitespace — to catch near-duplicates.
+      const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim()
+      const existingNorm = norm(existing)
+      const suggestionNorm = norm(profileSuggestion)
+      if (suggestionNorm && existingNorm.includes(suggestionNorm)) {
+        // Already saved — just dismiss the suggestion UI
+        setProfileSuggestion('')
+        setProfileSaved(true)
+        setTimeout(() => setProfileSaved(false), 3000)
+        return
+      }
       const updated = existing ? existing + '\n' + profileSuggestion : profileSuggestion
       await fetch('/api/context', {
         method: 'POST',
