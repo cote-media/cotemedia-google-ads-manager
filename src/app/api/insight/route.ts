@@ -30,10 +30,11 @@ export async function POST(request: Request) {
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
   // Fetch complete intelligence for this client.
-  // forceRefresh=true so we always get the latest conversations/user_notes
-  // — the 15-min server-side cache could otherwise serve stale directives.
+  // We use the hybrid cache: platform data is cached 15 min, but user_notes
+  // and conversations are always re-read fresh (see /api/ielligence line 71).
+  // forceRefresh removed May 22 — was costing ~10x per insight load.
   const intelligenceRes = await fetch(
-    `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}&refresh=true`,
+    `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
     { headers: { Cookie: request.headers.get('cookie') || '' } }
   )
   const intelligenceData = await intelligenceRes.json()
