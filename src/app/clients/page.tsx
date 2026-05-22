@@ -391,7 +391,7 @@ function ClientsContent() {
                                 Meta
                               </span>
                             ) : (
-                              
+                              <a
                                 href={'/api/meta/auth?clientId=' + client.id}
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
