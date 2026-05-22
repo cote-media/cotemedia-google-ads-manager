@@ -1,6 +1,6 @@
 # LoraMer — Product Roadmap
 
-*Last updated: May 21, 2026*
+*Last updated: May 22, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -54,6 +54,15 @@ The single highest-priority project. Everything else waits on this getting submi
 - [x] Uses Shopify APIs
 - [x] No flagged scopes requested
 - [ ] Build is green at time of submission
+
+### LAUNCH BLOCKER: Zero-spend date range renders empty (found May 22)
+- [ ] Dashboard currently shows blank when a client has zero Google Ads spend in the selected date range
+- [ ] Should render fully with $0 / 0 clicks / 0 impressions / 0 conversions across all tiles, charts, and tables
+- [ ] Root cause: Google Ads route returns no rows; UI conflates "no rows" with "no data fetched"
+- [ ] Fix at data layer: normalize "no rows" to an explicit zeroed PlatformData in the API route, OR
+- [ ] Fix at UI layer: detect successful fetch + empty result and render zeroed shell
+- [ ] Same logic needed for Meta Ads, Shopify
+- [ ] Reproduce: pick a client whose Google account has zero spend last 30 days, observe blank dashboard
 
 ---
 
@@ -268,6 +277,7 @@ Features that justify the Agency tier and above.
 
 ## 🏗 PROJECT 8 — Tech Debt & Operational
 
+- [ ] **Refresh connection UX (found May 22):** one-click "Refresh connection" buttoatform for when tokens expire, OAuth scopes change, MCC permissions are revoked, or Meta Business Manager access changes. Today the only path is disconnect + reconnect. Surface in client profile expansion. Should re-trigger OAuth without losing client_context or analysis history.
 - [ ] Upgrade Next.js 14.2.3 (security vulnerability)
 - [ ] Fix npm deprecation warnings
 - [ ] Add error boundaries with user-friendly error messages
