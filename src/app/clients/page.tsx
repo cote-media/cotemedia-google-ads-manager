@@ -205,6 +205,7 @@ function ClientsContent() {
   const [expandedProfile, setExpandedProfile] = useState<string | null>(null)
   const [shopifyModal, setShopifyModal] = useState<string | null>(null) // clientId
   const [shopifyDomain, setShopifyDomain] = useState('')
+  const [profiledClientIds, setProfiledClientIds] = useState<Set<string>>(new Set())
   const [shopifySuccess, setShopifySuccess] = useState(false)
 
   // Meta modal state
@@ -247,6 +248,9 @@ function ClientsContent() {
 
   async function fetchClients() {
     const res = await fetch('/api/clients')
+    fetch('/api/clients/profiles').then(r => r.json()).then(d => {
+      setProfiledClientIds(new Set<string>(d.profiledClientIds || []))
+    }).catch(() => {})
     const data = await res.json()
     setClients(data.clients || [])
   }
@@ -354,71 +358,102 @@ function ClientsContent() {
                 const isExpanded = expandedProfile === client.id
                 return (
                   <div key={client.id} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
-                    {/* Client header */}
-                    <div className="px-6 py-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-ink mb-2">{client.name}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {googleConn && (
-                              <span className="text-xs font-mono text-muted bg-surface px-2 py-1 rounded-full">
-                                🔵 Google · {googleConn.account_name}
+                    {/* LORAMER_PILL_ROW_V1 - Linear-style client row */}
+                    <div className="px-4 sm:px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => {
+                            const hasConn = !!(googleConn || metaConn || shopifyConn)
+                            if (hasConn) {
+                              router.push('/dashboard')
+                            } else {
+                              setExpandedProfile(isExpanded ? null : client.id)
+                            }
+                          }}
+                        >
+                          <p className="font-display text-base sm:text-lg text-ink mb-2 truncate">{client.name}</p>
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {/* Google pill */}
+                            {googleConn ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white" style={{ background: '#4285F4' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                                Google
                               </span>
+                            ) : (
+                              <span className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted">+ Google</span>
                             )}
-                            {metaConn && (
-                              <span className="text-xs font-mono text-muted bg-surface px-2 py-1 rounded-full">
-                                🔷 Meta · {metaConn.account_name}
+
+                            {/* Meta pill */}
+                            {metaConn ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white" style={{ background: '#0866FF' }}>
+                                <svg width="11" height="11" viewBox="0 0 36 24" fill="white" aria-hidden="true"><path d="M10.5 0C4.7 0 0 5.4 0 12s4.7 12 10.5 12c3.2 0 5.6-1.6 7.5-4.3 1.9 2.7 4.3 4.3 7.5 4.3C31.3 24 36 18.6 36 12S31.3 0 25.5 0c-3.2 0-5.6 1.6-7.5 4.3C16.1 1.6 13.7 0 10.5 0zm0 4c2.2 0 3.7 1.3 5.1 3.5L18 11l2.4-3.5C21.8 5.3 23.3 4 25.5 4 29.1 4 32 7.6 32 12s-2.9 8-6.5 8c-2.2 0-3.7-1.3-5.1-3.5L18 13l-2.4 3.5C14.2 18.7 12.7 20 10.5 20 6.9 20 4 16.4 4 12s2.9-8 6.5-8z"/></svg>
+                                Meta
                               </span>
+                            ) : (
+                              
+                                href={'/api/meta/auth?clientId=' + client.id}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                              >
+                                + Meta
+                              </a>
+                            )}
+
+                            {/* Shopify pill */}
+                            {shopifyConn ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white" style={{ background: '#95BF47' }}>
+                                <svg width="9" height="11" viewBox="0 0 109 124" fill="white" aria-hidden="true"><path d="M74.7 14.8c-.1 0-1.6.1-4.1.9-2.4-7-6.7-13.4-14.2-13.4h-.7C53.5.8 50.9 0 48.7 0c-17 0-25.1 21.2-27.7 32-6.6 2-11.3 3.5-11.9 3.7-3.7 1.2-3.8 1.3-4.3 4.7C4.4 42.9 0 78.3 0 78.3l71.9 13.5L111 83 86.3 17.5c-.7-1.9-2.4-2.8-4.1-2.7H74.7zM58.6 18.6c-1.3.4-2.8.9-4.4 1.3 0-1-.1-2-.2-2.9-.3-3.3-1.1-6-2.4-7.9 4.4.6 7.3 5.6 7 9.5zm-9.8 0c-3.2 1-6.7 2-10.2 3.1.9-3.7 2.6-7.3 4.7-9.7 1-1.1 2.4-2.3 4-3 1.6 3.4 1.6 8.2 1.5 9.6z"/></svg>
+                                Shopify
+                              </span>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShopifyModal(client.id); setShopifyDomain('') }}
+                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                              >
+                                + Shopify
+                              </button>
+                            )}
+
+                            {/* Claude profile pill */}
+                            {profiledClientIds.has(client.id) ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setExpandedProfile(isExpanded ? null : client.id) }}
+                                className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white"
+                                style={{ background: '#2563eb' }}
+                              >
+                                <span style={{ fontSize: '10px' }}>&#10022;</span>
+                                Claude
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setExpandedProfile(isExpanded ? null : client.id) }}
+                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                              >
+                                + Claude
+                              </button>
+                            )}
+
+                            {/* Temporary inline disconnect buttons (moved to profile in Script B) */}
+                            {metaConn && (
+                              <button onClick={(e) => { e.stopPropagation(); disconnectMeta(client.id, metaConn.id) }}
+                                className="text-[10px] sm:text-xs font-sans text-red-400 hover:text-red-600 underline ml-1">
+                                disconnect Meta
+                              </button>
                             )}
                             {shopifyConn && (
-                              <span className="text-xs font-mono text-muted bg-surface px-2 py-1 rounded-full">
-                                🛍 Shopify · {shopifyConn.account_name}
-                              </span>
-                            )}
-                            {client.platform_connections.length === 0 && (
-                              <span className="text-xs font-mono text-muted">No accounts connected</span>
+                              <button onClick={async (e) => {
+                                e.stopPropagation()
+                                await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
+                                fetchClients()
+                              }}
+                                className="text-[10px] sm:text-xs font-sans text-red-400 hover:text-red-600 underline ml-1">
+                                disconnect Shopify
+                              </button>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 ml-4 flex-shrink-0 flex-wrap justify-end">
-                          {!metaConn && (
-                            <a href={'/api/meta/auth?clientId=' + client.id}
-                              className="text-xs font-mono text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors">
-                              + Meta
-                            </a>
-                          )}
-                          {metaConn && (
-                            <button onClick={() => disconnectMeta(client.id, metaConn.id)}
-                              className="text-xs font-mono text-red-400 hover:text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                              Disconnect Meta
-                            </button>
-                          )}
-                          {!shopifyConn && (
-                            <button onClick={() => { setShopifyModal(client.id); setShopifyDomain('') }}
-                              className="text-xs font-mono text-green-600 border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors">
-                              + Shopify
-                            </button>
-                          )}
-                          {shopifyConn && (
-                            <button onClick={async () => {
-                              await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
-                              fetchClients()
-                            }}
-                              className="text-xs font-mono text-red-400 hover:text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">
-                              Disconnect Shopify
-                            </button>
-                          )}
-                          <button onClick={() => setExpandedProfile(isExpanded ? null : client.id)}
-                            className={'text-xs font-mono border px-3 py-1.5 rounded-lg transition-colors ' + (isExpanded ? 'bg-accent text-white border-accent' : 'text-muted border-border hover:text-ink')}>
-                            {isExpanded ? '↑ Close' : '✦ Claude Profile'}
-                          </button>
-                          {(googleConn || metaConn || shopifyConn) && (
-                            <button onClick={() => router.push('/dashboard')}
-                              className="text-xs font-mono text-accent hover:underline">
-                              Open →
-                            </button>
-                          )}
-                        </div>
+                        <div className="text-muted text-base sm:text-lg flex-shrink-0">&#8594;</div>
                       </div>
                     </div>
 
