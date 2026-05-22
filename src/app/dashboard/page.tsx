@@ -779,6 +779,15 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [openAbove, setOpenAbove] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  function toggleOpen() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      setOpenAbove(window.innerHeight - rect.bottom < 380)
+    }
+    setOpen(!open)
+  }
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
