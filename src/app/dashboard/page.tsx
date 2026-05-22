@@ -1042,10 +1042,10 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
 
   return (
     <div className="bg-white border border-border overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="min-w-full md:w-full text-sm" style={{ minWidth: '640px' }}>
         <thead>
           <tr className="border-b border-border bg-surface">
-            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">{nameLabel}</th>
+            <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface" style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}>{nameLabel}</th>
             {platform === 'combined' && level === 'campaigns' && <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Platform</th>}
             <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Status</th>
             {level === 'ads' && <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider hidden md:table-cell">Copy</th>}
@@ -1066,7 +1066,8 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
               <tr key={row.id + (row.platform || '')}
                 onClick={() => onRowSelect && onRowSelect(row)}
                 className={'table-row ' + (onRowSelect ? 'cursor-pointer ' : '') + (isSelected ? 'bg-blue-50' : 'hover:bg-surface')}>
-                <td className={'px-3 py-3 font-medium max-w-xs truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}>
+                <td className={'px-3 py-3 font-medium truncate sticky left-0 ' + (isSelected ? 'bg-blue-50' : 'bg-white')}
+                  style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}>
                   {level !== 'ads' ? (
                     <button
                       onClick={e => { e.stopPropagation(); onRowClick(row) }}
