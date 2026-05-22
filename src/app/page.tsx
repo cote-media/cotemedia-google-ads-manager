@@ -76,9 +76,9 @@ export default function Home() {
       <div className="border-t border-border">
         <div className="grid grid-cols-1 md:grid-cols-3 md:divide-x divide-border">
           {[
-            { label: 'Unified Intelligence', desc: 'Google, Meta, Shopify, and more — Claude reasons across every data source, not just one.' },
-            { label: 'Always-On Analyst', desc: 'Persistent memory means Claude remembers your goals, your KPIs, and what you told it last week.' },
-            { label: 'Agency-Ready', desc: 'Manage every client from one dashboard. Switch accounts in seconds, keep context per client.' },
+            { label: 'Deep Knowledge', desc: 'Google, Meta, Shopify and more — Claude reads across every data source and remembers what you told it last week.' },
+            { label: 'A Real Human, Always', desc: 'Every customer can reach a real person, on every plan. No bot-only support. No phone trees. Ever.' },
+            { label: 'Built for Real Operators', desc: 'Whether you manage one store or fifty client accounts, LoraMer keeps context separate per account and answers in plain language.' },
           ].map((f, i) => (
             <div key={f.label} className={'px-6 md:px-8 py-5 md:py-6 ' + (i > 0 ? 'border-t md:border-t-0 border-border' : '')}>
               <div className="metric-label mb-2">{f.label}</div>

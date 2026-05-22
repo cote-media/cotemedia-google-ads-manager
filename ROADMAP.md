@@ -694,6 +694,17 @@ There is also a personal layer (combination of Russ's daughters' names) but that
 **For any future Claude handoff:**
 The etymology and the "deep knowledge" positioning is not a fun-fact about the name — it is the brand. Any new instance of Claude working on this project needs to know: LoraMer = depth + accumulated knowledge, and product decisions should be evaluated against that promise.
 
+
+### Non-Negotiable Brand Commitments
+
+Two things are NOT product features. They are foundational brand commitments that all product and marketing decisions must respect. Any future Claude working on this project must treat these as binding:
+
+1. **Deep knowledge.** LoraMer means "deep knowledge" — the product accumulates understanding of each customer's business over time. Every feature is evaluated against whether it makes Claude know the customer better. See "Name & Story" section above.
+
+2. **A real human, always.** Every customer can reach a real person, on every plan, every time they need one. This is operational, not just marketing. See Project 15 for the full commitment, SLAs, and tier mechanics.
+
+If these two commitments ever conflict with a product decision, the commitments win. Product changes to either of these require explicit user (Russ) approval.
+
 ### Open question: Cote Media ↔ LoraMer relationship
 - LoraMer was developed by Cote Media but is positioned as a standalone product
 - Blue accent is shared visual heritage from Cote Media (since 2011)
@@ -703,6 +714,70 @@ The etymology and the "deep knowledge" positioning is not a fun-fact about the n
   - Does mixing brands complicate eventual sale, fundraise, or licensing of LoraMer?
   - What's the right "from the agency that built this" story for credibility vs. "this is its own thing" story for product positioning?
 - Revisit after App Store launch and first customer feedback
+
+---
+
+## 🤝 PROJECT 15 — Human Support Commitment
+
+**Non-negotiable brand promise:** every LoraMer customer can reach a real person, on every plan, every time they need one. No bot-only support. No phone trees. Ever.
+
+This is both a product requirement (visible in the app) and an operational commitment (we actually staff it).
+
+### Why this is a moat
+
+AI companies dropping users into bot-only support has become a market failure. Customers know they're being held hostage by chatbots designed to deflect, not solve. The backlash is real and growing. Any company willing to publicly commit to "humans always available" gets a defensible customer-experience moat.
+
+**This connects to the brand story.** The "deep knowledge" promise is fundamentally about LoraMer being a real partner, not a vending machine. A real partner is reachable. A vending machine isn't. The human-always-available commitment is brand consistency with everything else.
+
+### What we commit to publicly
+
+> "Every LoraMer customer can reach a human, on every plan, every time they need one. No phone tree. No 'sorry, I'm just a bot.'"
+
+### What that means operationally
+
+- AI bot tries first for known issues (password resets, billing, common how-tos) — this is OK
+- A permanent, visible "Talk to a human" button on every support surface — one click, no friction
+- Human channel = email + live chat during defined hours, with response-time SLAs per tier
+- After-hours = email queue with first-response by morning
+
+### Tier-based SLAs (update Project 2 pricing to reflect these)
+
+| Tier | Human support |
+|------|---------------|
+| Free | Email, 24-48hr first response |
+| Solo ($49) | Email + in-app chat, 8hr first response |
+| Agency ($199) | Email + in-app chat, 4hr first response, priority queue |
+| Scale ($999) | Email + in-app chat + Slack channel + phone, 1hr first response, named contact |
+| Enterprise | Dedicated support, SLAs in contract |
+
+### Product surfaces to build
+
+- [ ] "Talk to a human" link visible in app (Settings → Support → Talk to a human)
+- [ ] In any AI support chat, permanent "Get a human" button always visible in UI
+- [ ] Response-time promise shown next to the button, tier-appropriate
+- [ ] App Store listing and pricing page explicitly call out the human commitment
+- [ ] Footer link from every page leads to support, support page leads to a human path within 1 click
+
+### Marketing surfaces
+
+- [x] Homepage feature strip: "A Real Human, Always" (one of three columns)
+- [ ] Agency page: callout about reaching humans when campaigns break
+- [ ] Business page: callout about never getting stuck with a bot
+- [ ] Pricing page: human-support SLAs visible per tier
+- [ ] App Store listing copy: include in the differentiation section
+
+### Operational planning
+
+- **Today (10 customers):** Russ handles support directly. Fine.
+- **At 50 customers:** Russ part-time on support. Set up help desk software (Intercom, Plain, etc.). Defined response hours.
+- **At 200 customers:** First support hire. Russ off the front line, on escalations only.
+- **At 1000+ customers:** Support team. Tier-1 handles common issues, Tier-2 handles complex, Russ on strategic only.
+
+Pricing must fund this from the start. The Solo/Agency/Scale tiers are designed with human-support cost baked into margin assumptions.
+
+### Risk to manage
+
+The promise is operational, not just marketing. If we ever break it — let a customer get genuinely stuck with bots, ignore a "talk to a human" request, fail to respond within the SLA — the brand damage is severe because we made the commitment loudly. **Don't promise it on the homepage until support tooling and process are in place.** Currently: Russ as a human is enough for the next 30-50 customers, then we revisit.
 
 ---
 
