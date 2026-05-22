@@ -1909,6 +1909,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
   data: PlatformData; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
 }) {
+  const dateLabel = dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (dateRange === 'LAST_7_DAYS' ? 'Last 7 days' : dateRange === 'LAST_14_DAYS' ? 'Last 14 days' : dateRange === 'LAST_30_DAYS' ? 'Last 30 days' : dateRange === 'LAST_90_DAYS' ? 'Last 90 days' : dateRange === 'THIS_MONTH' ? 'This month' : dateRange === 'LAST_MONTH' ? 'Last month' : dateRange)
   const { campaigns, platform } = data
   const storageKey = 'loramer-cols-' + platform
   const defaultCols = COLUMN_DEFS.filter(c => c.platforms.includes(platform) && c.defaultOn).map(c => c.id)
