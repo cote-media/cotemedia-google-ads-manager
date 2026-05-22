@@ -2294,7 +2294,12 @@ function DashboardContent() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('loramer-active-platform') as Platform) || 'google')
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify'>(() => (ls('loramer-active-tab') as any) || 'overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify'>(() => {
+    // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
+    const saved = ls('loramer-active-tab') as any
+    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify']
+    return valid.includes(saved) ? saved : 'overview'
+  })
   const [dateRange, setDateRange] = useState<string>(() => ls('loramer-date-range') || 'LAST_30_DAYS')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -2367,9 +2372,11 @@ function DashboardContent() {
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
       : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
     setActivePlatform(resolved)
-    // Restore saved tab
+    // Restore saved tab (LORAMER_DEFAULT_TAB_V1 - validate)
     const savedTab = ls('loramer-active-tab') as any
-    if (savedTab) setActiveTab(savedTab)
+    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify']
+    if (validTabs.includes(savedTab)) setActiveTab(savedTab)
+    else setActiveTab('overview')
     // Only reset drill state and panel when switching to a different client
     const previousClientId = ls('loramer-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
