@@ -942,7 +942,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
-                    {m.role === 'user' ? m.content : <div className="chat-response prose-xs"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
+                    {m.role === 'user' ? m.content : <div className="chat-response prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
                   </div>
                 </div>
               ))}
@@ -1632,7 +1632,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={'text-xs px-2.5 py-1.5 rounded-xl max-w-[90%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink')}>
-                    {m.role === 'user' ? m.content : <div className="chat-response prose-xs"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
+                    {m.role === 'user' ? m.content : <div className="chat-response prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
                   </div>
                 </div>
               ))}
