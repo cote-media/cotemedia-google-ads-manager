@@ -1401,7 +1401,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
             <div id={'it-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  <div className={'text-sm px-3 py-2 rounded-xl max-w-[85%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-blue-50 text-ink border border-blue-100')}>{m.content}</div>
+                  <div className={'text-sm px-3 py-2 rounded-xl max-w-[85%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-blue-50 text-ink border border-blue-100')}>{m.role === 'user' ? m.content : <div className="chat-response prose prose-sm max-w-none">{/* LORAMER_INSIGHTCHAT_MARKDOWN_V1 */}<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}</div>
                 </div>
               ))}
               {sending && (
