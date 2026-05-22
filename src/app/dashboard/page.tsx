@@ -879,14 +879,14 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={e => { e.stopPropagation(); setOpen(!open) }}
+      <button ref={buttonRef}
+        onClick={e => { e.stopPropagation(); toggleOpen() }}
         title={'Ask Claude about this ' + levelLabel.toLowerCase()}
         className={'text-xs transition-colors rounded px-1 py-0.5 ' + (open ? 'text-accent bg-blue-100' : 'text-accent hover:bg-blue-100')}>
         ✦
       </button>
       {open && (
-        <div className="absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50"
+        <div className={"absolute right-0 w-80 bg-white border border-border rounded-xl shadow-xl z-50 " + (openAbove ? "bottom-7" : "top-7")}
           onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
@@ -1121,7 +1121,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
 }
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
-function Breadcrumb({ drill, onNavigate, onBack }: { drill: DrillState; onNavigate: (level: DrillLevel) => void; onBack: () => void }) {
+function Breadcrumb({ drill, onNavigate, onBack, dateLabel }: { drill: DrillState; onNavigate: (level: DrillLevel) => void; onBack: () => void; dateLabel?: string }) {
   if (drill.level === 'campaigns') return null
   return (
     <div className="flex items-center gap-2 mb-4 text-xs font-mono flex-wrap">
@@ -1153,6 +1153,12 @@ function Breadcrumb({ drill, onNavigate, onBack }: { drill: DrillState; onNaviga
           </button>
           <span className="text-muted">›</span>
           <span className="text-ink font-medium truncate max-w-xs">{drill.adGroup.name}</span>
+        </>
+      )}
+      {dateLabel && (
+        <>
+          <span className="text-muted ml-auto">·</span>
+          <span className="text-muted">{dateLabel}</span>
         </>
       )}
     </div>
@@ -1483,11 +1489,25 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
 }) {
   const [open, setOpen] = useState(false)
+  const [openAbove, setOpenAbove] = useState(false)
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
   const conversationKey = 'card:' + cardTitle.toLowerCase().replace(/\s+/g, '-') + ':' + platform
+
+  // Decide whether to flip popover above the button based on available space
+  function toggleOpen() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const spaceBelow = viewportHeight - rect.bottom
+      const popoverEstimatedHeight = 380
+      setOpenAbove(spaceBelow < popoverEstimatedHeight)
+    }
+    setOpen(!open)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -1550,13 +1570,13 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)}
+      <button ref={buttonRef} onClick={toggleOpen}
         title={'Ask Claude about ' + cardTitle}
         className={'text-xs transition-colors px-1.5 py-0.5 rounded ' + (open ? 'text-accent bg-blue-100' : 'text-accent hover:bg-blue-100')}>
         ✦
       </button>
       {open && (
-        <div className="absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50">
+        <div className={"absolute right-0 w-80 bg-white border border-border rounded-xl shadow-xl z-50 " + (openAbove ? "bottom-7" : "top-7")}>
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
             <div>
               <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
@@ -1995,7 +2015,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
         <p className="text-sm text-muted font-mono">{levelLabel}</p>
       </div>
 
-      <Breadcrumb drill={drill} onNavigate={navigateTo} onBack={goBack} />
+      <Breadcrumb drill={drill} onNavigate={navigateTo} onBack={goBack} dateLabel={dateLabel} />
 
       {clientId && (
         <div className="mb-4">
