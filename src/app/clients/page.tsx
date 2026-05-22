@@ -207,6 +207,10 @@ function ClientsContent() {
   const [shopifyDomain, setShopifyDomain] = useState('')
   const [profiledClientIds, setProfiledClientIds] = useState<Set<string>>(new Set())
   const [shopifySuccess, setShopifySuccess] = useState(false)
+  // LORAMER_WOO_CONNECT_V1
+  const [wooModal, setWooModal] = useState<string | null>(null) // clientId
+  const [wooDomain, setWooDomain] = useState('')
+  const [wooSuccess, setWooSuccess] = useState(false)
 
   // Meta modal state
   const [metaModal, setMetaModal] = useState<{ clientId: string; accounts: MetaAccount[] } | null>(null)
@@ -235,6 +239,17 @@ function ClientsContent() {
       fetchClients()
       router.replace('/clients')
       setTimeout(() => setShopifySuccess(false), 4000)
+      return
+    }
+    // LORAMER_WOO_CONNECT_V1 - WooCommerce return params
+    const wooConnected = searchParams.get('woo_connected')
+    const wooErr = searchParams.get('woo_error')
+    if (wooErr) { setMetaError('WooCommerce connection failed: ' + wooErr); return }
+    if (wooConnected) {
+      setWooSuccess(true)
+      fetchClients()
+      router.replace('/clients')
+      setTimeout(() => setWooSuccess(false), 4000)
       return
     }
     if (metaAccounts && clientId) {
@@ -364,6 +379,7 @@ function ClientsContent() {
                 const googleConn = client.platform_connections.find(p => p.platform === 'google')
                 const metaConn = client.platform_connections.find(p => p.platform === 'meta')
                 const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
+                const wooConn = client.platform_connections.find(p => p.platform === 'woocommerce')  // LORAMER_WOO_CONNECT_V1
                 const isExpanded = expandedProfile === client.id
                 return (
                   <div key={client.id} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
@@ -373,7 +389,7 @@ function ClientsContent() {
                         <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => {
-                            const hasConn = !!(googleConn || metaConn || shopifyConn)
+                            const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn)
                             if (hasConn) {
                               goToDashboard(client)
                             } else {
@@ -423,6 +439,19 @@ function ClientsContent() {
                                 + Shopify
                               </button>
                             )}
+                            {/* WooCommerce pill - LORAMER_WOO_CONNECT_V1 */}
+                            {wooConn ? (
+                              <button onClick={(e) => { e.stopPropagation(); goToDashboard(client) }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#96588A' }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M2.4 4.8h19.2c1.32 0 2.4 1.08 2.4 2.4v10.32c0 1.32-1.08 2.4-2.4 2.4H14.4l3.36 5.04L8.4 19.92H2.4c-1.32 0-2.4-1.08-2.4-2.4V7.2c0-1.32 1.08-2.4 2.4-2.4zM3.84 6.6c-.6 0-.96.36-.96.84 0 .12 0 .24.12.48l3 9.6c.12.36.36.48.6.48.36 0 .48-.12.6-.48l1.32-5.28 1.92 5.04c.12.36.24.6.6.6s.48-.24.6-.6c1.32-3.6 2.04-5.4 2.04-5.4l1.32 4.8c.12.36.36.6.6.6.24 0 .48-.24.6-.48l3.12-9.6c.12-.24.12-.48.12-.6 0-.48-.36-.84-.96-.84-.48 0-.84.36-.96.84l-2.04 6.36-1.32-4.32c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.92 5.4-1.68-5.4c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.32 4.32-2.04-6.36c-.12-.48-.48-.84-.96-.84z"/></svg>
+                                WooCommerce
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setWooModal(client.id); setWooDomain('') }}
+                                className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-muted border border-dashed border-border hover:border-ink hover:text-ink transition-colors">
+                                + WooCommerce
+                              </button>
+                            )}
 
                             {/* Claude profile pill */}
                             {profiledClientIds.has(client.id) ? (
@@ -445,7 +474,7 @@ function ClientsContent() {
 
                           </div>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); const hasConn = !!(googleConn || metaConn || shopifyConn); if (hasConn) { goToDashboard(client) } else { setExpandedProfile(isExpanded ? null : client.id) } }} className="flex-shrink-0 text-muted hover:text-ink transition-colors font-sans">
+                        <button onClick={(e) => { e.stopPropagation(); const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn); if (hasConn) { goToDashboard(client) } else { setExpandedProfile(isExpanded ? null : client.id) } }} className="flex-shrink-0 text-muted hover:text-ink transition-colors font-sans">
                           <span className="hidden md:inline text-xs border border-border rounded-lg px-3 py-1.5 hover:border-ink/40">Open &#8594;</span>
                           <span className="md:hidden text-lg">&#8594;</span>
                         </button>
@@ -509,7 +538,26 @@ function ClientsContent() {
                                 </button>
                               </div>
                             )}
-                            {!googleConn && !metaConn && !shopifyConn && (
+                            {wooConn && (  /* LORAMER_WOO_CONNECT_V1 */
+                              <div className="flex items-center justify-between p-3 bg-surface rounded-lg">
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#96588A' }}>
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M2.4 4.8h19.2c1.32 0 2.4 1.08 2.4 2.4v10.32c0 1.32-1.08 2.4-2.4 2.4H14.4l3.36 5.04L8.4 19.92H2.4c-1.32 0-2.4-1.08-2.4-2.4V7.2c0-1.32 1.08-2.4 2.4-2.4z"/></svg>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-sans font-medium text-ink">WooCommerce</p>
+                                    <p className="text-xs text-muted font-sans truncate">{wooConn.account_name}</p>
+                                  </div>
+                                </div>
+                                <button onClick={async (e) => {
+                                  e.stopPropagation()
+                                  if (!confirm('Disconnect WooCommerce from this client?')) return
+                                  await fetch('/api/clients/connections?id=' + wooConn.id, { method: 'DELETE' })
+                                  fetchClients()
+                                }} className="text-xs text-muted hover:text-red-600 transition-colors font-sans">Disconnect</button>
+                              </div>
+                            )}
+                            {!googleConn && !metaConn && !shopifyConn && !wooConn && (
                               <p className="text-xs font-sans text-muted italic">No platforms connected yet. Use the pills above to connect Meta or Shopify, or finish Google MCC setup.</p>
                             )}
                           </div>
@@ -652,6 +700,38 @@ function ClientsContent() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* WooCommerce connect modal - LORAMER_WOO_CONNECT_V1 */}
+      {wooModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="font-display text-xl text-ink mb-2">Connect WooCommerce Store</h3>
+            <p className="text-sm text-muted font-mono mb-6">Enter the store URL. You'll be sent to WordPress to approve access, then bounced back here connected.</p>
+            <div className="mb-4">
+              <input type="text" value={wooDomain} onChange={e => setWooDomain(e.target.value)}
+                placeholder="https://yourstore.com"
+                className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-paper focus:outline-none focus:border-accent font-sans" />
+              <p className="text-xs text-muted mt-1 font-mono">Must be HTTPS. WooCommerce 3.4+ required.</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <a href={wooDomain.trim() ? '/api/woocommerce/auth?clientId=' + wooModal + '&shop=' + encodeURIComponent(wooDomain.trim()) : '#'}
+                onClick={e => { if (!wooDomain.trim()) e.preventDefault() }}
+                className={'btn-primary text-center ' + (!wooDomain.trim() ? 'opacity-50 pointer-events-none' : '')}>
+                Connect WooCommerce
+              </a>
+              <button onClick={() => setWooModal(null)}
+                className="text-sm text-muted hover:text-ink transition-colors font-sans">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WooCommerce success notification - LORAMER_WOO_CONNECT_V1 */}
+      {wooSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-sans" style={{ background: '#96588A' }}>
+          ✓ WooCommerce connected successfully
         </div>
       )}
 
