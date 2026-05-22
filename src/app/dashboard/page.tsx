@@ -1,5 +1,6 @@
 'use client'
 import { filterAnomalies } from '@/lib/anomaly-filter'
+import { DiamondCoachmark } from '@/components/DiamondCoachmark'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import React, { useEffect, useState, useRef, Suspense } from 'react'
@@ -881,7 +882,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
       <button
         onClick={e => { e.stopPropagation(); setOpen(!open) }}
         title={'Ask Claude about this ' + levelLabel.toLowerCase()}
-        className={'text-xs transition-colors rounded px-1 py-0.5 ' + (open ? 'text-accent bg-blue-50' : 'text-muted hover:text-accent hover:bg-blue-50')}>
+        className={'text-xs transition-colors rounded px-1 py-0.5 ' + (open ? 'text-accent bg-blue-100' : 'text-accent hover:bg-blue-100')}>
         ✦
       </button>
       {open && (
@@ -1315,7 +1316,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
             <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
             {loading && !insight
               ? <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" /><span className="text-sm text-muted font-mono">Analyzing account...</span></div>
-              : <p className="text-sm text-ink leading-relaxed">{insight}</p>}
+              : <div className="chat-response text-sm text-ink leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight}</ReactMarkdown></div>}
           </div>
           {insight && !loading && (
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1523,7 +1524,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen(!open)}
         title={'Ask Claude about ' + cardTitle}
-        className={'text-xs transition-colors px-1.5 py-0.5 rounded ' + (open ? 'text-accent bg-blue-50' : 'text-muted hover:text-accent hover:bg-blue-50')}>
+        className={'text-xs transition-colors px-1.5 py-0.5 rounded ' + (open ? 'text-accent bg-blue-100' : 'text-accent hover:bg-blue-100')}>
         ✦
       </button>
       {open && (
@@ -2995,6 +2996,7 @@ export default function Dashboard() {
   return (
     <DashboardErrorBoundary><Suspense fallback={<LoadingScreen />}>
       <DashboardContent />
+      <DiamondCoachmark />
     </Suspense></DashboardErrorBoundary>
   )
 }
