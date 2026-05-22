@@ -1120,10 +1120,20 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
 }
 
 // ─── Breadcrumb ───────────────────────────────────────────────────────────────
-function Breadcrumb({ drill, onNavigate }: { drill: DrillState; onNavigate: (level: DrillLevel) => void }) {
+function Breadcrumb({ drill, onNavigate, onBack }: { drill: DrillState; onNavigate: (level: DrillLevel) => void; onBack: () => void }) {
   if (drill.level === 'campaigns') return null
   return (
     <div className="flex items-center gap-2 mb-4 text-xs font-mono flex-wrap">
+      {/* Mobile-only explicit back button */}
+      <button
+        onClick={onBack}
+        className="md:hidden flex items-center gap-1 text-accent hover:bg-blue-50 px-2 py-1 -ml-2 rounded transition-colors"
+        aria-label="Back"
+      >
+        <span className="text-base leading-none">←</span>
+        <span className="font-medium">Back</span>
+      </button>
+      <span className="md:hidden text-muted">·</span>
       <button onClick={() => onNavigate('campaigns')} className="text-accent hover:underline">Campaigns</button>
       {drill.campaign && (
         <>
@@ -1886,10 +1896,13 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 
   const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet(storageKey, JSON.stringify(cols)) }
 
-  async function drillIntoCampaign(campaign: any) {
+  async function drillIntoCampaign(campaign: any, opts: { skipHistory?: boolean } = {}) {
     const campaignPlatform: 'google' | 'meta' = campaign.platform || (platform === 'combined' ? 'google' : platform as 'google' | 'meta')
     const newDrill: DrillState = { level: 'adgroups', campaign: { id: campaign.id, name: campaign.name, platform: campaignPlatform }, adGroup: null }
     saveDrill(newDrill)
+    if (!opts.skipHistory && typeof window !== 'undefined') {
+      window.history.pushState({ drillLevel: 'adgroups', campaignId: campaign.id }, '', window.location.pathname + window.location.search)
+    }
     setSubLoading(true)
     setSubRows([])
     try {
@@ -1907,9 +1920,12 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
     finally { setSubLoading(false) }
   }
 
-  async function drillIntoAdGroup(adGroup: any) {
+  async function drillIntoAdGroup(adGroup: any, opts: { skipHistory?: boolean } = {}) {
     const newDrill: DrillState = { ...drill, level: 'ads', adGroup: { id: adGroup.id, name: adGroup.name } }
     saveDrill(newDrill)
+    if (!opts.skipHistory && typeof window !== 'undefined') {
+      window.history.pushState({ drillLevel: 'ads', adGroupId: adGroup.id }, '', window.location.pathname + window.location.search)
+    }
     setSubLoading(true)
     setSubRows([])
     try {
@@ -1933,19 +1949,38 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
       saveDrill({ level: 'campaigns', campaign: null, adGroup: null })
       setSubRows([])
     } else if (level === 'adgroups' && drill.campaign) {
-      drillIntoCampaign(drill.campaign)
+      drillIntoCampaign(drill.campaign, { skipHistory: true })
     }
   }
 
-  // On mount, if drill state was persisted at adgroups/ads level, restore the data
+  // Back navigation — goes UP one drill level. Hooked to both the mobile back
+  // button and the iOS browser back gesture via popstate.
+  function goBack() {
+    if (drill.level === 'ads' && drill.campaign) {
+      // ads → adgroups
+      drillIntoCampaign(drill.campaign, { skipHistory: true })
+    } else if (drill.level === 'adgroups') {
+      // adgroups → campaigns
+      saveDrill({ level: 'campaigns', campaign: null, adGroup: null })
+      setSubRows([])
+    }
+  }
+
+  // On mount: restore data if drill state was persisted, and wire up popstate listener.
   useEffect(() => {
     if (drill.level === 'adgroups' && drill.campaign) {
-      drillIntoCampaign(drill.campaign)
+      drillIntoCampaign(drill.campaign, { skipHistory: true })
     } else if (drill.level === 'ads' && drill.campaign && drill.adGroup) {
-      // First restore adgroups level data isn't needed — just re-fetch ads
-      drillIntoAdGroup(drill.adGroup)
+      drillIntoAdGroup(drill.adGroup, { skipHistory: true })
     }
-  }, []) // eslint-disable-line
+
+    // popstate fires when user taps iOS browser back. Treat it as goBack.
+    function handlePopState() { goBack() }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', handlePopState)
+      return () => window.removeEventListener('popstate', handlePopState)
+    }
+  }, [drill.level]) // eslint-disable-line
 
   const currentRows = drill.level === 'campaigns' ? campaigns : subRows
   const levelLabel = drill.level === 'campaigns' ? campaigns.length + ' campaigns'
@@ -1959,7 +1994,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
         <p className="text-sm text-muted font-mono">{levelLabel}</p>
       </div>
 
-      <Breadcrumb drill={drill} onNavigate={navigateTo} />
+      <Breadcrumb drill={drill} onNavigate={navigateTo} onBack={goBack} />
 
       {clientId && (
         <div className="mb-4">
