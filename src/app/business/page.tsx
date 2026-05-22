@@ -5,36 +5,55 @@ export default function BusinessPage() {
   return (
     <main className="min-h-screen bg-paper flex flex-col">
       {/* Nav */}
-      <div className="border-b border-border px-8 py-4 flex items-center justify-between">
-        <a href="/" className="font-mono text-xs tracking-widest uppercase text-muted hover:text-ink transition-colors">← LoraMer</a>
+      <div className="border-b border-border px-6 md:px-8 py-4 flex items-center justify-between">
+        <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <LoraMerIcon />
+          <span style={{ fontFamily: "Georgia, 'Times New Roman', serif" }} className="text-lg md:text-xl text-ink">LoraMer</span>
+        </a>
         <span className="font-mono text-xs tracking-widest uppercase text-accent">For Business Owners</span>
       </div>
 
-      <div className="flex-1 max-w-2xl mx-auto px-8 py-20 w-full">
+      <div className="flex-1 max-w-2xl mx-auto px-6 md:px-8 py-10 md:py-20 w-full">
         {/* Hero */}
-        <div className="mb-16">
-          <div className="text-4xl mb-6">🏪</div>
-          <h1 className="font-display text-5xl text-ink leading-tight mb-6">
-            Your own AI<br />
-            <em>ads strategist.</em>
+        <div className="mb-12 md:mb-16">
+          <div className="text-3xl md:text-4xl mb-6">🏪</div>
+          <h1 style={{ fontFamily: "Georgia, 'Times New Roman', serif" }} className="text-3xl md:text-5xl text-ink leading-tight mb-6">
+            Finally — one place<br />
+            <em>that understands your whole business.</em>
           </h1>
-          <p className="text-muted text-lg leading-relaxed">
-            LoraMer connects to your Google Ads account and gives you a senior strategist on demand — one that knows your campaigns inside out and tells you exactly what to do next.
+          <p className="text-muted text-base md:text-lg leading-relaxed">
+            Stop switching between Shopify, Google Ads, Meta, and four other dashboards trying to piece things together. Connect them once. LoraMer reads across all of it and tells you what&apos;s working, what&apos;s broken, and what to do next — in plain language you don&apos;t have to be an analyst to read.
           </p>
         </div>
 
         {/* What you get */}
-        <div className="mb-16">
+        <div className="mb-12 md:mb-16">
           <h2 className="font-mono text-xs tracking-widest uppercase text-muted mb-6">What you get</h2>
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {[
-              { icon: '💬', title: 'Ask anything in plain English', desc: 'No more decoding Google Ads dashboards. Just ask — "Which keywords are wasting my budget?" — and get a straight answer.' },
-              { icon: '🔍', title: 'Deep account analysis', desc: 'LoraMer reads your campaigns, keywords, and search terms to surface what\'s working and what\'s not — instantly.' },
-              { icon: '🚩', title: 'Proactive problem spotting', desc: 'Claude flags wasted spend, underperforming campaigns, and missed opportunities before they cost you more.' },
-              { icon: '✅', title: 'Actionable next steps', desc: 'Every analysis ends with a clear priority list. No vague advice — specific actions ranked by impact.' },
+              {
+                icon: '🌊',
+                title: 'One view across every data source',
+                desc: 'Sales from Shopify, ad spend from Google and Meta, customers, products — all connected. See the patterns that only show up when you connect the dots.'
+              },
+              {
+                icon: '🧠',
+                title: 'AI that actually knows your business',
+                desc: 'Tell LoraMer your goals once. It remembers. The longer you use it, the more it understands what matters to you and the smarter the answers get.'
+              },
+              {
+                icon: '💬',
+                title: 'Ask anything in plain English',
+                desc: '"Why did revenue drop last week?" "Which Meta ads are actually working?" "What should I do about my abandoned cart rate?" Just ask. Get a straight answer.'
+              },
+              {
+                icon: '🤝',
+                title: 'A real human, always reachable',
+                desc: 'Stuck? Confused? Need to push back on what Claude said? You can reach a real person on every plan. No bot-only support. No phone trees. Ever.'
+              },
             ].map(f => (
-              <div key={f.title} className="flex gap-4 p-6 bg-white border border-border">
-                <div className="text-2xl">{f.icon}</div>
+              <div key={f.title} className="flex gap-4 p-5 md:p-6 bg-white border border-border">
+                <div className="text-2xl flex-shrink-0">{f.icon}</div>
                 <div>
                   <div className="font-semibold text-ink mb-1">{f.title}</div>
                   <p className="text-sm text-muted leading-relaxed">{f.desc}</p>
@@ -45,12 +64,12 @@ export default function BusinessPage() {
         </div>
 
         {/* What you need */}
-        <div className="mb-16 p-6 bg-surface border border-border">
-          <h2 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">What you'll need</h2>
+        <div className="mb-12 md:mb-16 p-5 md:p-6 bg-surface border border-border">
+          <h2 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">What you&apos;ll need</h2>
           <ul className="space-y-2 text-sm text-ink">
-            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> A Google account linked to your Google Ads account</li>
-            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> An active Google Ads account (any size)</li>
-            <li className="flex items-center gap-2"><span className="text-green-600">✓</span> That's it — LoraMer connects automatically</li>
+            <li className="flex items-start gap-2"><span className="text-green-600 flex-shrink-0">✓</span> A Google account to sign in</li>
+            <li className="flex items-start gap-2"><span className="text-green-600 flex-shrink-0">✓</span> Access to whichever platforms you actually use — Google Ads, Meta Ads, Shopify, or any combination. You don&apos;t need all of them.</li>
+            <li className="flex items-start gap-2"><span className="text-green-600 flex-shrink-0">✓</span> That&apos;s it. LoraMer connects automatically once you sign in.</li>
           </ul>
         </div>
 
@@ -67,6 +86,15 @@ export default function BusinessPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+function LoraMerIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-label="LoraMer">
+      <rect width="32" height="32" rx="6.4" fill="#0f172a"/>
+      <text x="16" y="21.9" fontFamily="Georgia, 'Times New Roman', serif" fontSize="19.2" fontWeight="400" fill="#ffffff" textAnchor="middle">LM</text>
+    </svg>
   )
 }
 
