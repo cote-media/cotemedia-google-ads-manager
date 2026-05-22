@@ -443,23 +443,6 @@ function ClientsContent() {
                               </button>
                             )}
 
-                            {/* Temporary inline disconnect buttons (moved to profile in Script B) */}
-                            {metaConn && (
-                              <button onClick={(e) => { e.stopPropagation(); disconnectMeta(client.id, metaConn.id) }}
-                                className="text-[10px] sm:text-xs font-sans text-red-400 hover:text-red-600 underline ml-1">
-                                disconnect Meta
-                              </button>
-                            )}
-                            {shopifyConn && (
-                              <button onClick={async (e) => {
-                                e.stopPropagation()
-                                await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
-                                fetchClients()
-                              }}
-                                className="text-[10px] sm:text-xs font-sans text-red-400 hover:text-red-600 underline ml-1">
-                                disconnect Shopify
-                              </button>
-                            )}
                           </div>
                         </div>
                         <button onClick={(e) => { e.stopPropagation(); const hasConn = !!(googleConn || metaConn || shopifyConn); if (hasConn) { goToDashboard(client) } else { setExpandedProfile(isExpanded ? null : client.id) } }} className="flex-shrink-0 text-muted hover:text-ink transition-colors font-sans">
@@ -469,14 +452,78 @@ function ClientsContent() {
                       </div>
                     </div>
 
-                    {/* Expandable Claude profile */}
+                    {/* LORAMONNECTIONS_SECTION_V1 - Client details: connections + Claude profile */}
                     {isExpanded && (
-                      <div className="border-t border-border bg-slate-50 px-6 py-5">
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="text-xs font-mono text-accent uppercase tracking-widest">✦ Claude Client Profile</span>
-                          <span className="text-xs text-muted font-mono">— helps Claude give better, more relevant analysis</span>
+                      <div className="border-t border-border bg-slate-50 px-4 sm:px-6 py-5 space-y-6">
+
+                        {/* Connections section */}
+                        <div>
+                          <p className="text-xs font-sans uppercase tracking-widest text-muted mb-3">Connections</p>
+                          <div className="space-y-2">
+                            {googleConn && (
+                              <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#4285F4' }}>
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-sans font-medium text-ink">Google Ads</p>
+                                    <p className="text-xs text-muted font-sans truncate">{googleConn.account_name}</p>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-sans text-muted">Connected</span>
+                              </div>
+                            )}
+                            {metaConn && (
+                              <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#0866FF' }}>
+                                    <svg width="10" height="10" viewBox="0 0 36 24" fill="white" aria-hidden="true"><path d="M10.5 0C4.7 0 0 5.4 0 12s4.7 12 10.5 12c3.2 0 5.6-1.6 7.5-4.3 1.9 2.7 4.3 4.3 7.5 4.3C31.3 24 36 18.6 36 12S31.3 0 25.5 0c-3.2 0-5.6 1.6-7.5 4.3C16.1 1.6 13.7 0 10.5 0zm0 4c2.2 0 3.7 1.3 5.1 3.5L18 11l2.4-3.5C21.8 5.3 23.3 4 25.5 4 29.1 4 32 7.6 32 12s-2.9 8-6.5 8c-2.2 0-3.7-1.3-5.1-3.5L18 13l-2.4 3.5C14.2 18.7 12.7 20 10.5 20 6.9 20 4 16.4 4 12s2.9-8 6.5-8z"/></svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-sans font-medium text-ink">Meta Ads</p>
+                                    <p className="text-xs text-muted font-sans truncate">{metaConn.account_name}</p>
+                                  </div>
+                                </div>
+                                <button onClick={() => disconnectMeta(client.id, metaConn.id)} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
+                                  Disconnect
+                                </button>
+                              </div>
+                            )}
+                            {shopifyConn && (
+                              <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#95BF47' }}>
+                                    <svg width="8" height="10" viewBox="0 0 109 124" fill="white" aria-hidden="true"><path d="M74.7 14.8c-.1 0-1.6.1-4.1.9-2.4-7-6.7-13.4-14.2-13.4h-.7C53.5.8 50.9 0 48.7 0c-17 0-25.1 21.2-27.7 32-6.6 2-11.3 3.5-11.9 3.7-3.7 1.2-3.8 1.3-4.3 4.7C4.4 42.9 0 78.3 0 78.3l71.9 13.5L111 83 86.3 17.5c-.7-1.9-2.4-2.8-4.1-2.7H74.7z"/></svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-sans font-medium text-ink">Shopify</p>
+                                    <p className="text-xs text-muted font-sans truncate">{shopifyConn.account_name}</p>
+                                  </div>
+                                </div>
+                                <button onClick={async () => {
+                                  await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
+                                  fetchClients()
+                                }} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
+                                  Disconnect
+                                </button>
+                              </div>
+                            )}
+                            {!googleConn && !metaConn && !shopifyConn && (
+                              <p className="text-xs font-sans text-muted italic">No platforms connected yet. Use the pills above to connect Meta or Shopify, or finish Google MCC setup.</p>
+                            )}
+                          </div>
                         </div>
-                        <ClientProfileForm client={client} onSave={() => {}} />
+
+                        {/* Claude profile section */}
+                        <div className="pt-2 border-t border-border">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs font-sans uppercase tracking-widest text-muted">&#10022; Claude Profile</span>
+                            <span className="text-xs text-muted font-sans">&mdash; helps Claude give better, more relevant analysis</span>
+                          </div>
+                          <ClientProfileForm client={client} onSave={() => { fetch('/api/clients/profiles').then(r => r.json()).then(d => setProfiledClientIds(new Set<string>(d.profiledClientIds || []))).catch(() => {}) }} />
+                        </div>
+
                       </div>
                     )}
                   </div>
