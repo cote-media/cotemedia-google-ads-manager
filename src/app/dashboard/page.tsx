@@ -895,7 +895,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
         ✦
       </button>
       {open && (
-        <div className={"absolute right-0 w-80 bg-white border border-border rounded-xl shadow-xl z-50 " + (openAbove ? "bottom-7" : "top-7")}
+        <div className={"fixed bottom-0 left-0 right-0 w-full rounded-t-xl rounded-b-none border-t border-x border-b-0 md:absolute md:bottom-auto md:left-auto md:top-7 md:right-0 md:w-80 md:border md:rounded-xl bg-white border-border shadow-xl z-50"}
           onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
@@ -1585,7 +1585,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
         ✦
       </button>
       {open && (
-        <div className={"absolute right-0 w-80 bg-white border border-border rounded-xl shadow-xl z-50 " + (openAbove ? "bottom-7" : "top-7")}>
+        <div className={"fixed bottom-0 left-0 right-0 w-full rounded-t-xl rounded-b-none border-t border-x border-b-0 md:absolute md:bottom-auto md:left-auto md:top-7 md:right-0 md:w-80 md:border md:rounded-xl bg-white border-border shadow-xl z-50"}>
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
             <div>
               <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
