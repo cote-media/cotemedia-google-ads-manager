@@ -781,6 +781,61 @@ The promise is operational, not just marketing. If we ever break it — let a cu
 
 ---
 
+## 🌐 PROJECT 16 — Global Preferences vs Per-Client Directives
+
+**Problem:** Directives (e.g. "ignore ROAS," "target CPL is $35," "this is a brand awareness account") are currently per-client. If an agency runs the same operating philosophy across 30 clients, they have to set the same directive 30 times. That's friction *and* an opportunity to make the product feel like it has deeper knowledge of the operator.
+
+**Direct connection to brand:** This is the "deep knowledge" promise made concrete. A real partner understands not just each client, but YOU — how you think, what you care about, what you ignore across all your work. LoraMer learning the operator (not just the data) is the moat.
+
+### Architecture: three layers of preferences
+
+1. **User-level defaults** — preferences that apply to ALL of a user's clients unless overridden. Stored in a new `user_preferences` table keyed on user_email.
+   - Examples: "I'm a brand-focused agency, ignore ROAS by default" / "I prioritize CPL over CPA across all accounts" / "Default funnel framing: ToF / MoF / BoF"
+   
+2. **Client-level directives** — existing per-client `user_notes`. Overrides user defaults when present.
+   - Examples: "This client cares ONLY about ROAS, override my default" / "This is the one exception — focus on conversion volume not CPA"
+   
+3. **Conversation-derived directives** — extracted from chat history via `extractProfileContext`. Currently writes to client-level. In Phase 3+ should be smart enough to ask "save to this client, or to all clients?"
+
+### Phased build
+
+**Phase 1 — User preferences table & UI (pre-launch if time, otherwise post)**
+- [ ] `user_preferences` table: user_email, business_context, default_directives (text), default_kpi
+- [ ] Profile/settings page where user enters their global preferences once
+- [ ] `build-claude-context.ts` reads user_prefs FIRST, then layers client directives on top
+- [ ] User preferences shown as "Default from your settings" tag in client profile, dimmed unless overridden
+
+**Phase 2 — Cross-client directive propagation (post-launch)**
+- [ ] When user saves a directive to one client, offer: "Apply this to all your other [X] clients too?"
+- [ ] One-click cross-propagation OR per-client cherry-pick
+- [ ] Track which directives are user-level vs client-level to prevent silent override
+
+**Phase 3 — Operator model (Scale tier, connected to Project 9 Memory & Learning)**
+- [ ] Claude observes patterns in operator behavior across clients
+- [ ] Suggests new user-level preferences: "You've ignored ROAS in 5 of your 6 clients. Make this a default?"
+- [ ] Daily learning log includes operator-level observations alongside per-client learning
+
+### Tier mechanics
+
+| Tier | Preference model |
+|------|------------------|
+| Free | Per-client only |
+| Solo | User-level defaults + per-client overrides |
+| Agency | + cross-client propagation prompts |
+| Scale | + operator model (Phase 3 / Project 9 integration) |
+
+### Connected projects
+
+- **Project 9 (Memory & Learning):** the operator model in Phase 3 IS the Project 9 nightly learning loop applied at the user level, not just per client
+- **Project 14 (Unified Conversation Surface):** when a user makes a statement in any chat, the directive can be saved at the right level (user vs client)
+- **Project 2 (Pricing):** Scale tier's operator model is one of the things that justifies the $999 price point
+
+### UX consideration
+
+Don't surface this complexity to Free/Solo users — they have one or two clients and don't need three layers. The "user-level defaults" feature only becomes valuable at 5+ clients. Show it conditionally based on client count, or surface it as an onboarding step for Agency-tier users only.
+
+---
+
 ## ✅ Completed Archive
 
 ### Core platform
