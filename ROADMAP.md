@@ -836,6 +836,51 @@ Don't surface this complexity to Free/Solo users — they have one or two client
 
 ---
 
+## 🐛 PROJECT 17 — Popover Positioning Regression (KNOWN BAD STATE)
+
+**Status:** Broken on both desktop and mobile as of May 21, 2026. Functional but visually wrong.
+
+### What's wrong
+
+Click any ✦ diamond (row-level or section-level) and the Ask Claude popover appears at JS-calculated viewport coordinates instead of being naturally anchored to the diamond. On desktop the popover used to appear with its top-right corner essentially touching the diamond — felt like the panel grew out of the button. Now it floats in the middle of the screen with no visual connection to the trigger. Mobile mirrors desktop behavior when it should be different (bottom sheet for thumb reach).
+
+### How we got here
+
+The original implementation was:
+```jsx
+<div className="absolute right-0 top-7 w-80 ...">
+```
+This positioned the popover relative to its `<div className="relative">` parent (the diamond's wrapper). Natural anchoring. Worked perfectly on desktop.
+
+The actual bug we tried to fix: the campaigns table's parent has `overflow-x-auto`. When the diamond is in a row near the right edge of the table, the absolutely-positioned popover would get clipped by that overflow container on desktop. Visible bug, real problem.
+
+**Wrong fix applied:** replaced natural CSS anchoring entirely with `position: fixed` and JS-computed viewport coordinates from `getBoundingClientRect()`. This escapes the clip container but destroys the visual anchoring.
+
+### The right fix (do this fresh)
+
+Three viable approaches, ranked:
+
+**Option A — React Portal (best).** Render the popover at the body root using `createPortal`, so it lives outside the `overflow-x-auto` container entirely. Calculate position from the trigger's `getBoundingClientRect()` once on open. Popover appears anchored to the diamond AND can't be clipped by any parent overflow. This is the standard solution for this exact problem in production React apps.
+
+**Option B — Conditional overflow override.** When the popover is open, switch the table parent from `overflow-x-auto` to `overflow-visible`. Trade-off: temporarily loses horizontal scroll capability while popover is open. Simpler than Portal but feels hacky.
+
+**Option C — Move the diamond outside the overflow container.** Restructure the table so the action column (with the diamond) is in a separate sibling element outside the scrollable area. Largest refactor.
+
+**My recommendation:** Option A. Standard library pattern, no compromises.
+
+### Mobile should differ from desktop
+
+Even with the desktop fix, mobile shouldn't mirror desktop. On mobile the popover should be a bottom sheet for thumb reach — slide up from bottom, full-width, easy to dismiss. Implementation: two completely separate rendered components, controlled by `hidden md:block` / `block md:hidden`. Never share a class string between them again (the source of every CSS bug tonight).
+
+### Lessons captured for future Claude
+
+- When fixing a positioning bug, identify the ROOT issue (overflow container clipping) before changing positioning fundamentals
+- Don't replace working CSS anchoring with JS calculations unless absolutely necessary
+- For mobile/desktop differences in popover behavior, use TWO components with `hidden md:block` / `block md:hidden`, not one component with `md:` overrides on `position` properties
+- `md:` Tailwind overrides work reliably for properties like `width`, `padding`, `display` — but NOT reliably for `position` mode changes (`fixed` ↔ `absolute`)
+
+---
+
 ## ✅ Completed Archive
 
 ### Core platform
