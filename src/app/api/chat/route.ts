@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
+import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext } from '@/lib/intelligence/build-claude-context'
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 
@@ -74,6 +75,14 @@ export async function POST(request: Request) {
       messages,
     })
     const responseText = (response.content[0] as any).text?.trim() || ''
+    logSpend({
+      userEmail: session.user.email,
+      clientId,
+      endpoint: 'chat',
+      model: 'claude-sonnet-4-6',
+      inputTokens: response.usage?.input_tokens || 0,
+      outputTokens: response.usage?.output_tokens || 0,
+    })
     return NextResponse.json({ response: responseText })
   } catch (e: any) {
     console.error('Chat error:', e)
