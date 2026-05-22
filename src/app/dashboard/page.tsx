@@ -780,11 +780,24 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
 }) {
   const [open, setOpen] = useState(false)
   const [openAbove, setOpenAbove] = useState(false)
+  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
   function toggleOpen() {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
-      setOpenAbove(window.innerHeight - rect.bottom < 380)
+      const popoverWidth = 320
+      const popoverHeight = 380
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      let left = rect.right - popoverWidth
+      if (left < 8) left = 8
+      if (left + popoverWidth > viewportWidth - 8) left = viewportWidth - popoverWidth - 8
+      let top = rect.bottom + 4
+      if (top + popoverHeight > viewportHeight - 8) {
+        top = rect.top - popoverHeight - 4
+        if (top < 8) top = 8
+      }
+      setPopoverPos({ left, top })
     }
     setOpen(!open)
   }
@@ -895,7 +908,8 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
         ✦
       </button>
       {open && (
-        <div className={"absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50"}
+        <div className="fixed w-80 bg-white border border-border rounded-xl shadow-xl z-50"
+          style={{ left: popoverPos.left, top: popoverPos.top }}
           onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
@@ -1499,6 +1513,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
 }) {
   const [open, setOpen] = useState(false)
   const [openAbove, setOpenAbove] = useState(false)
+  const [popoverPos, setPopoverPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 })
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -1510,10 +1525,19 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
   function toggleOpen() {
     if (!open && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
+      const popoverWidth = 320
+      const popoverHeight = 380
+      const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
-      const spaceBelow = viewportHeight - rect.bottom
-      const popoverEstimatedHeight = 380
-      setOpenAbove(spaceBelow < popoverEstimatedHeight)
+      let left = rect.right - popoverWidth
+      if (left < 8) left = 8
+      if (left + popoverWidth > viewportWidth - 8) left = viewportWidth - popoverWidth - 8
+      let top = rect.bottom + 4
+      if (top + popoverHeight > viewportHeight - 8) {
+        top = rect.top - popoverHeight - 4
+        if (top < 8) top = 8
+      }
+      setPopoverPos({ left, top })
     }
     setOpen(!open)
   }
@@ -1585,7 +1609,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
         ✦
       </button>
       {open && (
-        <div className={"absolute right-0 top-7 w-80 bg-white border border-border rounded-xl shadow-xl z-50"}>
+        <div className="fixed w-80 bg-white border border-border rounded-xl shadow-xl z-50" style={{ left: popoverPos.left, top: popoverPos.top }}>
           <div className="px-3 py-2.5 border-b border-border flex items-center justify-between">
             <div>
               <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
