@@ -566,6 +566,10 @@ Run in order, on real iPhone Safari, not desktop responsive mode.
 - [ ] Pull-to-refresh doesn't fire during chat scroll
 - [ ] Safe area insets respected
 
+### Right panel sizing on mobile (logged May 22)
+
+- [ ] **Mobile right-panel takes full screen (logged May 22)** — when a diamond is tapped on mobile, the RightPanel now opens full-width (`w-full md:w-96`). This was a quick mobile fix during the popover-to-panel migration. The full-screen takeover loses the dashboard context behind it and feels heavy. Likely better: panel takes maybe 85-90% of the viewport height as a bottom sheet, OR a slightly inset side panel (e.g. `w-[90vw] max-w-md`) so a sliver of the dashboard stays visible. Decide visual treatment, then implement as a single component (no `md:` position-mode toggles — same lesson from Project 17).
+
 ### Triggers for unscheduled mobile passes
 
 - After every Shopify reviewer rejection citing UI
