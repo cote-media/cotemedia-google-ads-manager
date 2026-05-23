@@ -264,8 +264,8 @@ function ClientsContent() {
   // LORAMER_PILL_ROUTING_V1
   function goToDashboard(client: Client, platform?: 'google' | 'meta' | 'shopify') {
     try {
-      localStorage.setItem('loramer-active-client', client.id)
-      if (platform) localStorage.setItem('loramer-active-platform', platform)
+      localStorage.setItem('advar-active-client', client.id)
+      if (platform) localStorage.setItem('advar-active-platform', platform)
     } catch {}
     router.push('/dashboard')
   }
