@@ -37,11 +37,17 @@ export async function POST(request: Request) {
   // (overview/campaigns/keywords) AND the user is drilling into ad data.
   // Avoids the bug where platform='google' (a default fallback) leaks
   // 'Google Ads campaigns' as the view for Shopify-only clients.
+  // LORAMER_FOCUS_LOCATION_V2
+  // V1 left location='chat' falling through to platform-based focus,
+  // which lies for Shopify-only clients (platform defaults to 'google').
+  // The Ask Claude tab is platform-agnostic - use a neutral focus.
   let focus: string
   if (location === 'shopify') {
     focus = 'Shopify store data'
   } else if (location === 'woocommerce') {
     focus = 'WooCommerce store data'
+  } else if (location === 'chat') {
+    focus = 'Ask Claude conversation (cross-platform)'
   } else if (drillLevel === 'adgroups' && drillCampaign) {
     focus = `ad groups within campaign: ${drillCampaign.name}`
   } else if (drillLevel === 'ads' && drillAdGroup) {
