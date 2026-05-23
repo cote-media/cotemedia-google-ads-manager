@@ -212,13 +212,14 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
   const flat = flattenConversations(conversations)
   if (!flat.length) return ''
 
-  const lines = ['\n=== PREVIOUS CONVERSATIONS (across all panels for this client) ===']
-  lines.push('(All discussions the user has had about this client. Treat these as binding context.)')
+  // LORAMER_PANEL_LEAK_FIX_V1 - strip internal panelKey from messages so 'shopify-google' style labels never leak to users
+  const lines = ['\n=== PREVIOUS CONVERSATIONS WITH THIS USER ===']
+  lines.push('(All earlier discussions about this client. Treat these as binding context. Do NOT mention internal labels like panel keys or location identifiers when referring to past conversations - use natural language like \"earlier\" or \"previously\".)')
 
   const recent = flat.slice(-20)
   recent.forEach((m) => {
     const truncated = m.content.length > 800 ? m.content.slice(0, 797) + '...' : m.content
-    lines.push(`  [${m.panelKey}] ${m.role === 'user' ? 'User' : 'Claude'}: ${truncated}`)
+    lines.push(`  ${m.role === 'user' ? 'User' : 'Claude'}: ${truncated}`)
   })
   return lines.join('\n')
 }
