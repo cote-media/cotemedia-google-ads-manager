@@ -427,7 +427,7 @@ function ClientsContent() {
 
                             {/* Shopify pill */}
                             {shopifyConn ? (
-                              <button onClick={(e) => { e.stopPropagation(); goToDashboard(client, 'shopify') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#95BF47' }}>
+                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-tab', 'shopify') } catch {}; goToDashboard(client, 'shopify') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#95BF47' }}>
                                 <svg width="9" height="11" viewBox="0 0 109 124" fill="white" aria-hidden="true"><path d="M74.7 14.8c-.1 0-1.6.1-4.1.9-2.4-7-6.7-13.4-14.2-13.4h-.7C53.5.8 50.9 0 48.7 0c-17 0-25.1 21.2-27.7 32-6.6 2-11.3 3.5-11.9 3.7-3.7 1.2-3.8 1.3-4.3 4.7C4.4 42.9 0 78.3 0 78.3l71.9 13.5L111 83 86.3 17.5c-.7-1.9-2.4-2.8-4.1-2.7H74.7zM58.6 18.6c-1.3.4-2.8.9-4.4 1.3 0-1-.1-2-.2-2.9-.3-3.3-1.1-6-2.4-7.9 4.4.6 7.3 5.6 7 9.5zm-9.8 0c-3.2 1-6.7 2-10.2 3.1.9-3.7 2.6-7.3 4.7-9.7 1-1.1 2.4-2.3 4-3 1.6 3.4 1.6 8.2 1.5 9.6z"/></svg>
                                 Shopify
                               </button>
