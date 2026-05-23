@@ -60,7 +60,7 @@ function ReviewerLoginForm() {
           disabled={loading || !token}
           className="w-full bg-ink text-white rounded-xl py-3 font-sans font-medium hover:opacity-90 transition-opacity disabled:opacity-40"
         >
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
     </div>
@@ -75,13 +75,13 @@ export default function ReviewerLoginPage() {
           <h1 className="font-display text-4xl text-ink mb-2">LoraMer</h1>
           <p className="text-muted text-sm font-sans">Reviewer access</p>
         </div>
-        <Suspense fallback={<div className="bg-white rounded-2xl shadow-card border border-border p-8 text-sm text-muted">Loading…</div>}>
+        <Suspense fallback={<div className="bg-white rounded-2xl shadow-card border border-border p-8 text-sm text-muted">Loading...</div>}>
           <ReviewerLoginForm />
         </Suspense>
         <p className="text-center text-xs text-muted font-sans mt-6">
           For Shopify App Store reviewers only.
         </p>
-     iv>
+      </div>
     </div>
   )
 }
