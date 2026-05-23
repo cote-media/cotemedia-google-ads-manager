@@ -1296,7 +1296,7 @@ const SHOPIFY_METRICS = [
 ]
 
 function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '/api/shopify/daily' }: {  // LORAMER_WOO_TAB_V1
-  clientId: string; dateRange: string; customStart?: string; customEnd?: string
+  clientId: string; dateRange: string; customStart?: string; customEnd?: string; apiPath?: string  // LORAMER_WOO_TAB_V1
 }) {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
