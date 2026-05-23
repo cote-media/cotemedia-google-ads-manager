@@ -441,7 +441,7 @@ function ClientsContent() {
                             )}
                             {/* WooCommerce pill - LORAMER_WOO_CONNECT_V1 */}
                             {wooConn ? (
-                              <button onClick={(e) => { e.stopPropagation(); goToDashboard(client) }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#96588A' }}>
+                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('loramer-active-tab', 'woocommerce') } catch {}; goToDashboard(client) }}  /* LORAMER_WOO_FIX_V2 */ className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#96588A' }}>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M2.4 4.8h19.2c1.32 0 2.4 1.08 2.4 2.4v10.32c0 1.32-1.08 2.4-2.4 2.4H14.4l3.36 5.04L8.4 19.92H2.4c-1.32 0-2.4-1.08-2.4-2.4V7.2c0-1.32 1.08-2.4 2.4-2.4zM3.84 6.6c-.6 0-.96.36-.96.84 0 .12 0 .24.12.48l3 9.6c.12.36.36.48.6.48.36 0 .48-.12.6-.48l1.32-5.28 1.92 5.04c.12.36.24.6.6.6s.48-.24.6-.6c1.32-3.6 2.04-5.4 2.04-5.4l1.32 4.8c.12.36.36.6.6.6.24 0 .48-.24.6-.48l3.12-9.6c.12-.24.12-.48.12-.6 0-.48-.36-.84-.96-.84-.48 0-.84.36-.96.84l-2.04 6.36-1.32-4.32c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.92 5.4-1.68-5.4c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.32 4.32-2.04-6.36c-.12-.48-.48-.84-.96-.84z"/></svg>
                                 WooCommerce
                               </button>

@@ -2115,7 +2115,8 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Revenue over time chart */}
-      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} apiPath={apiPath} />  // LORAMER_WOO_TAB_V1
+      {/* LORAMER_WOO_FIX_V2 */}
+      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} apiPath={apiPath} />
 
       {/* Metric tiles */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
