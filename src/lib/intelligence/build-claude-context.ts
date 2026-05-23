@@ -309,17 +309,18 @@ export function buildClaudeContext(
   // LORAMER_WOO_INTEL_V1
   if (intelligence.woocommerce?.connected) {
     const w = intelligence.woocommerce
-    sections.push(
-      '## WOOCOMMERCE STORE\n' +
-      'Total orders: ' + (w.totalOrders || 0) + '\n' +
-      'Total revenue: $' + (w.totalRevenue?.toFixed(2) || '0.00') + '\n' +
-      'Avg order value: $' + (w.avgOrderValue?.toFixed(2) || '0.00') + '\n' +
-      'New customers: ' + (w.newCustomers || 0) + '\n' +
-      'Returning customers: ' + (w.returningCustomers || 0) + '\n' +
-      (w.topProducts && w.topProducts.length
-        ? 'Top products: ' + w.topProducts.slice(0, 5).map(p => p.name + ' ($' + p.revenue.toFixed(0) + ')').join(', ')
-        : '')
-    )
+    lines.push('\n=== WOOCOMMERCE ===')
+    if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
+    if (w.totalOrders) lines.push(`Total Orders: ${w.totalOrders}`)
+    if (w.avgOrderValue) lines.push(`Avg Order Value: $${w.avgOrderValue.toFixed(2)}`)
+    if (w.newCustomers) lines.push(`New Customers: ${w.newCustomers}`)
+    if (w.returningCustomers) lines.push(`Returning Customers: ${w.returningCustomers}`)
+    if (w.topProducts?.length) {
+      lines.push('Top Products:')
+      w.topProducts.slice(0, 5).forEach(prod => {
+        lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units`)
+      })
+    }
   }
   // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
