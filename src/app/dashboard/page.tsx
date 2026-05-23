@@ -2620,7 +2620,7 @@ function DashboardContent() {
   const googleAccountId = googleConn?.account_id || ''
   const metaAccountId = metaConn?.account_id || ''
   const visibleNavItems = NAV_ITEMS.filter(item => {
-    if (item.googleOnly && activePlatform !== 'google') return false
+    if (item.googleOnly && !hasGoogle) return false  // LORAMER_KEYWORDS_NAV_GATE_V1
     if (item.shopifyOnly && !hasShopify) return false
     if (item.wooOnly && !hasWoo) return false  // LORAMER_WOO_TAB_V1
     if (item.hideForShopifyOnly && !hasGoogle && !hasMeta && (hasShopify || hasWoo)) return false  // LORAMER_WOO_TAB_V1
