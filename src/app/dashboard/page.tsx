@@ -2329,7 +2329,7 @@ function DashboardContent() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('loramer-active-platform') as Platform) || 'google')
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify'>(() => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce'>(() => {
     // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
     const saved = ls('loramer-active-tab') as any
     const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
