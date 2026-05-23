@@ -20,17 +20,36 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // LORAMER_DISCONNECT_FIX_V1
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { id } = await request.json()
+  const url = new URL(request.url)
+  let id = url.searchParams.get('id')
 
-  const { error } = await supabase
+  if (!id) {
+    try {
+      const body = await request.json()
+      id = body?.id
+    } catch {}
+  }
+
+  if (!id) {
+    return NextResponse.json({ error: 'connection id required' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
     .from('platform_connections')
     .delete()
     .eq('id', id)
     .eq('user_email', session.user.email)
+    .select()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+
+  if (!data || data.length === 0) {
+    return NextResponse.json({ error: 'connection not found' }, { status: 404 })
+  }
+
+  return NextResponse.json({ success: true, deleted: data.length })
 }
