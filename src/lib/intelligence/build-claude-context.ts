@@ -305,6 +305,22 @@ export function buildClaudeContext(
     }
   }
 
+
+  // LORAMER_WOO_INTEL_V1
+  if (intelligence.woocommerce?.connected) {
+    const w = intelligence.woocommerce
+    sections.push(
+      '## WOOCOMMERCE STORE\n' +
+      'Total orders: ' + (w.totalOrders || 0) + '\n' +
+      'Total revenue: $' + (w.totalRevenue?.toFixed(2) || '0.00') + '\n' +
+      'Avg order value: $' + (w.avgOrderValue?.toFixed(2) || '0.00') + '\n' +
+      'New customers: ' + (w.newCustomers || 0) + '\n' +
+      'Returning customers: ' + (w.returningCustomers || 0) + '\n' +
+      (w.topProducts && w.topProducts.length
+        ? 'Top products: ' + w.topProducts.slice(0, 5).map(p => p.name + ' ($' + p.revenue.toFixed(0) + ')').join(', ')
+        : '')
+    )
+  }
   // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
 

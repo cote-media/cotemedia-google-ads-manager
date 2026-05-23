@@ -15,6 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
+import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'  // LORAMER_WOO_INTEL_V1
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
@@ -101,9 +102,10 @@ export async function GET(request: Request) {
   const googleConn = connections.find(c => c.platform === 'google')
   const metaConn = connections.find(c => c.platform === 'meta')
   const shopifyConn = connections.find(c => c.platform === 'shopify')
+  const wooConn = connections.find(c => c.platform === 'woocommerce')  // LORAMER_WOO_INTEL_V1
 
   // ── Fetch all platforms in parallel ───────────────────────────────────────
-  const [googleResult, metaResult, shopifyResult] = await Promise.allSettled([
+  const [googleResult, metaResult, shopifyResult, wooResult] = await Promise.allSettled([
     // Google
     googleConn && session.refreshToken
       ? fetchGoogleIntelligence(
@@ -153,6 +155,28 @@ export async function GET(request: Request) {
           )
         })
       : Promise.resolve(null),
+    // LORAMER_WOO_INTEL_V1 - WooCommerce
+    wooConn
+      ? supabaseAdmin
+          .from('woocommerce_tokens')
+          .select('store_url, consumer_key, consumer_secret')
+          .eq('user_email', session.user.email)
+          .eq('client_id', wooConn.client_id)
+          .single()
+          .then(({ data: tok }) => {
+            if (!tok?.consumer_key || !tok?.consumer_secret || !tok?.store_url) {
+              throw new Error('No WooCommerce credentials found')
+            }
+            return fetchWooCommerceIntelligence(
+              tok.store_url,
+              tok.consumer_key,
+              tok.consumer_secret,
+              dateRange,
+              customStart,
+              customEnd
+            )
+          })
+      : Promise.resolve(null),
   ])
 
   // ── Process results — never crash on platform failure ──────────────────────
@@ -175,6 +199,13 @@ export async function GET(request: Request) {
   } else if (shopifyConn) {
     console.error('Shopify intelligence failed:', shopifyResult.status === 'rejected' ? shopifyResult.reason?.message : 'unknown')
     intelligence.shopify = { connected: false }
+  }
+  // LORAMER_WOO_INTEL_V1
+  if (wooResult.status === 'fulfilled' && wooResult.value) {
+    intelligence.woocommerce = wooResult.value
+  } else if (wooConn) {
+    console.error('WooCommerce intelligence failed:', wooResult.status === 'rejected' ? wooResult.reason?.message : 'unknown')
+    intelligence.woocommerce = { connected: false }
   }
 
   // ── Cache the result ───────────────────────────────────────────────────────

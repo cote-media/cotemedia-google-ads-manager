@@ -159,6 +159,7 @@ export interface ClientIntelligence {
   google?: PlatformIntelligence
   meta?: PlatformIntelligence
   shopify?: IntelligenceShopify
+  woocommerce?: IntelligenceShopify  // LORAMER_WOO_INTEL_V1 - same shape as Shopify
 
   // Future platforms plug in here:
   // tiktok?: PlatformIntelligence

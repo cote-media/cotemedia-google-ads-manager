@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { id: 'overview', label: 'Overview', icon: '▦' },
   { id: 'campaigns', label: 'Campaigns', icon: '◈', hideForShopifyOnly: true },
   { id: 'shopify', label: 'Shopify', icon: '🛍', shopifyOnly: true },
+  { id: 'woocommerce', label: 'WooCommerce', icon: '🛒', wooOnly: true },  // LORAMER_WOO_TAB_V1
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
   { id: 'chat', label: 'Ask Claude', icon: '✦' },
 ]
@@ -1294,7 +1295,7 @@ const SHOPIFY_METRICS = [
   { id: 'avgOrderValue', label: 'AOV', color: '#9333ea' },
 ]
 
-function ShopifyChart({ clientId, dateRange, customStart, customEnd }: {
+function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '/api/shopify/daily' }: {  // LORAMER_WOO_TAB_V1
   clientId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
   const [data, setData] = useState<any[]>([])
@@ -1304,7 +1305,7 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd }: {
   useEffect(() => {
     if (!clientId) return
     setLoading(true)
-    let url = `/api/shopify/daily?clientId=${clientId}&dateRange=${dateRange}`
+    let url = `${apiPath}?clientId=${clientId}&dateRange=${dateRange}`  // LORAMER_WOO_TAB_V1
     if (customStart) url += '&customStart=' + customStart
     if (customEnd) url += '&customEnd=' + customEnd
     fetch(url)
@@ -2071,20 +2072,22 @@ interface ShopifyData {
   adAttributedOrders?: number
 }
 
-function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel }: {
+function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel, platformLabel = 'Shopify', apiPath = '/api/shopify/daily' }: {  // LORAMER_WOO_TAB_V1
   shopify: ShopifyData
   clientId: string
   clientName: string
   dateRange: string
   platform: Platform
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+  platformLabel?: string  // LORAMER_WOO_TAB_V1
+  apiPath?: string  // LORAMER_WOO_TAB_V1
 }) {
   if (!shopify) {
     return (
       <div className="flex items-center justify-center h-64 flex-col gap-4">
         <p className="text-2xl">🛍</p>
-        <p className="text-ink font-medium">Shopify data unavailable</p>
-        <p className="text-muted font-mono text-sm">Could not fetch store data. Check your Shopify connection.</p>
+        <p className="text-ink font-medium">{platformLabel} data unavailable</p>
+        <p className="text-muted font-mono text-sm">Could not fetch store data. Check your {platformLabel} connection.</p>
         <a href="/clients" className="btn-primary text-sm">Manage connections →</a>
       </div>
     )
@@ -2101,7 +2104,7 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
 
   const topProducts = shopify.topProducts || []
   const maxRevenue = topProducts[0]?.revenue || 1
-  const shopifyContext = `Shopify store data for ${clientName}:
+  const shopifyContext = `${platformLabel} store data for ${clientName}:
 Total Revenue: ${shopify.totalRevenue != null ? '$' + shopify.totalRevenue.toFixed(2) : 'N/A'}
 Total Orders: ${shopify.totalOrders || 0}
 Avg Order Value: ${shopify.avgOrderValue != null ? '$' + shopify.avgOrderValue.toFixed(2) : 'N/A'}
@@ -2112,7 +2115,7 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Revenue over time chart */}
-      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} />
+      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} apiPath={apiPath} />  // LORAMER_WOO_TAB_V1
 
       {/* Metric tiles */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
@@ -2286,6 +2289,38 @@ function ShopifyTabWrapper({ clientId, clientName, dateRange, platform, openPane
   return <ShopifyTab shopify={shopifyData} clientId={clientId} clientName={clientName} dateRange={dateRange} platform={platform} openPanel={openPanel} />
 }
 
+// LORAMER_WOO_TAB_V1
+// ─── WooCommerce Tab Wrapper ──────────────────────────────────────────────────
+function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, openPanel, customStart, customEnd }: {
+  clientId: string; clientName: string; dateRange: string; platform: Platform
+  openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+  customStart?: string; customEnd?: string
+}) {
+  const [wooData, setWooData] = useState<any>(null)
+  useEffect(() => {
+    if (!clientId) return
+    const params = new URLSearchParams({ clientId, dateRange })
+    if (customStart) params.set('customStart', customStart)
+    if (customEnd) params.set('customEnd', customEnd)
+    fetch('/api/intelligence?' + params.toString())
+      .then(r => r.json())
+      .then(d => { if (d.intelligence?.woocommerce) setWooData(d.intelligence.woocommerce) })
+      .catch(() => {})
+  }, [clientId, dateRange, customStart, customEnd])
+  return (
+    <ShopifyTab
+      shopify={wooData}
+      clientId={clientId}
+      clientName={clientName}
+      dateRange={dateRange}
+      platform={platform}
+      openPanel={openPanel}
+      platformLabel="WooCommerce"
+      apiPath="/api/woocommerce/daily"
+    />
+  )
+}
+
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -2297,7 +2332,7 @@ function DashboardContent() {
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify'>(() => {
     // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
     const saved = ls('loramer-active-tab') as any
-    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify']
+    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
     return valid.includes(saved) ? saved : 'overview'
   })
   const [dateRange, setDateRange] = useState<string>(() => ls('loramer-date-range') || 'LAST_30_DAYS')
@@ -2374,7 +2409,7 @@ function DashboardContent() {
     setActivePlatform(resolved)
     // Restore saved tab (LORAMER_DEFAULT_TAB_V1 - validate)
     const savedTab = ls('loramer-active-tab') as any
-    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify']
+    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
     if (validTabs.includes(savedTab)) setActiveTab(savedTab)
     else setActiveTab('overview')
     // Only reset drill state and panel when switching to a different client
@@ -2558,13 +2593,15 @@ function DashboardContent() {
   const hasGoogle = !!googleConn
   const hasMeta = !!metaConn
   const hasShopify = !!selectedClient?.platform_connections.find(p => p.platform === 'shopify')
+  const hasWoo = !!selectedClient?.platform_connections.find(p => p.platform === 'woocommerce')  // LORAMER_WOO_TAB_V1
   const hasBoth = hasGoogle && hasMeta
   const googleAccountId = googleConn?.account_id || ''
   const metaAccountId = metaConn?.account_id || ''
   const visibleNavItems = NAV_ITEMS.filter(item => {
     if (item.googleOnly && activePlatform !== 'google') return false
     if (item.shopifyOnly && !hasShopify) return false
-    if (item.hideForShopifyOnly && !hasGoogle && !hasMeta && hasShopify) return false
+    if (item.wooOnly && !hasWoo) return false  // LORAMER_WOO_TAB_V1
+    if (item.hideForShopifyOnly && !hasGoogle && !hasMeta && (hasShopify || hasWoo)) return false  // LORAMER_WOO_TAB_V1
     return true
   })
   const dateLabel = dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : DATE_RANGES.find(d => d.value === dateRange)?.label || ''
@@ -2734,6 +2771,10 @@ function DashboardContent() {
           )}
           {activeTab === 'shopify' && hasShopify && (
             <ShopifyTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
+          )}
+          {/* LORAMER_WOO_TAB_V1 */}
+          {activeTab === 'woocommerce' && hasWoo && (
+            <WooCommerceTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
           )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
