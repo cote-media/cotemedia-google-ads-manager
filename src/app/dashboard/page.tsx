@@ -2114,6 +2114,16 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* LORAMER_SHOPIFY_INSIGHT_V1 - Claude analysis banner, matches Overview/Campaigns/Keywords pattern */}
+      {clientId && (
+        <InsightChat
+          clientId={clientId}
+          clientName={clientName}
+          dateRange={dateRange}
+          location={platformLabel.toLowerCase()}
+          shopify={shopify}
+        />
+      )}
       {/* Revenue over time chart */}
       {/* LORAMER_WOO_FIX_V2 */}
       <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} apiPath={apiPath} />
