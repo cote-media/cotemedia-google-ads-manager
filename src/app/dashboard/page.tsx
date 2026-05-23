@@ -2423,10 +2423,21 @@ function DashboardContent() {
       lsSet('loramer-panel-messages', '[]'); lsSet('loramer-panel-title', ''); lsSet('loramer-panel-context', '')
     }
     lsSet('loramer-active-client-prev', client.id)
-    // Default to shopify tab for Shopify-only clients
-    if (!hasGoogle && !hasMeta && hasShopifyLocal) {
-      setActiveTab('shopify')
-      lsSet('loramer-active-tab', 'shopify')
+    // LORAMER_ECOM_TAB_DEFAULT_V1
+    // Auto-default tab ONLY if the user hasn't explicitly chosen one for this session.
+    // hasWooLocal duplicates the hasWoo derivation but we don't have it in scope here.
+    const hasWooLocal = client.platform_connections.some(p => p.platform === 'woocommerce')
+    const explicitTab = ls('advar-active-tab')
+    const hasExplicitEcomChoice = explicitTab === 'shopify' || explicitTab === 'woocommerce'
+    if (!hasGoogle && !hasMeta && !hasExplicitEcomChoice) {
+      // Pick the ecommerce platform that exists
+      if (hasShopifyLocal) {
+        setActiveTab('shopify')
+        lsSet('advar-active-tab', 'shopify')
+      } else if (hasWooLocal) {
+        setActiveTab('woocommerce')
+        lsSet('advar-active-tab', 'woocommerce')
+      }
     }
     // Load ad platform data if Google or Meta is connected
     if (hasGoogle || hasMeta) {
