@@ -67,7 +67,7 @@ function lsJson<T>(key: string, fallback: T): T {
 function invalidateInsightCaches(clientId: string) {
   if (typeof window === 'undefined') return
   try {
-    const keys = Object.keys(localStorage).filter(k => k.startsWith('loramer-insight-' + clientId + '-'))
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('advar-insight-' + clientId + '-'))
     keys.forEach(k => localStorage.removeItem(k))
   } catch {}
 }
@@ -1045,7 +1045,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   const totals = data?.totals
   const campaigns = data?.campaigns || []
   const platform = data?.platform || 'google'
-  const cacheKey = 'loramer-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
+  const cacheKey = 'advar-insight-' + clientId + '-' + platform + '-' + dateRange + '-' + (location || 'overview')
   const locationKey = (location || 'overview') + '-' + platform
   const [insight, setInsight] = useState<string>(() => {
     try { const c = lsJson(cacheKey, null) as any; if (c?.text && c?.ts && (Date.now() - c.ts) < 3600000) return c.text } catch {} return ''
@@ -1114,7 +1114,7 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
       // but keep THIS box's cache since we just updated it
       if (typeof window !== 'undefined') {
         Object.keys(localStorage)
-          .filter(k => k.startsWith('loramer-insight-' + clientId + '-') && k !== cacheKey)
+          .filter(k => k.startsWith('advar-insight-' + clientId + '-') && k !== cacheKey)
           .forEach(k => localStorage.removeItem(k))
       }
     } catch {} finally { setPersisting(false) }
@@ -1638,18 +1638,18 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 }) {
   const dateLabel = dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : (dateRange === 'LAST_7_DAYS' ? 'Last 7 days' : dateRange === 'LAST_14_DAYS' ? 'Last 14 days' : dateRange === 'LAST_30_DAYS' ? 'Last 30 days' : dateRange === 'LAST_90_DAYS' ? 'Last 90 days' : dateRange === 'THIS_MONTH' ? 'This month' : dateRange === 'LAST_MONTH' ? 'Last month' : dateRange)
   const { campaigns, platform } = data
-  const storageKey = 'loramer-cols-' + platform
+  const storageKey = 'advar-cols-' + platform
   const defaultCols = COLUMN_DEFS.filter(c => c.platforms.includes(platform) && c.defaultOn).map(c => c.id)
   const [activeCols, setActiveCols] = useState<string[]>(() => lsJson(storageKey, defaultCols))
 
-  const [drill, setDrill] = useState<DrillState>(() => lsJson('loramer-drill-state', { level: 'campaigns', campaign: null, adGroup: null }))
+  const [drill, setDrill] = useState<DrillState>(() => lsJson('advar-drill-state', { level: 'campaigns', campaign: null, adGroup: null }))
   const [subRows, setSubRows] = useState<any[]>([])
   const [subLoading, setSubLoading] = useState(false)
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('')
 
   function saveDrill(d: DrillState) {
     setDrill(d)
-    lsSet('loramer-drill-state', JSON.stringify(d))
+    lsSet('advar-drill-state', JSON.stringify(d))
   }
 
   const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet(storageKey, JSON.stringify(cols)) }
@@ -1831,9 +1831,9 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData 
     { id: 'conversions', label: 'Conv.', defaultOn: false },
     { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
   ]
-  const [activeCols, setActiveCols] = useState<string[]>(() => lsJson('loramer-kw-cols', kwCols.filter(c => c.defaultOn).map(c => c.id)))
+  const [activeCols, setActiveCols] = useState<string[]>(() => lsJson('advar-kw-cols', kwCols.filter(c => c.defaultOn).map(c => c.id)))
   const has = (id: string) => activeCols.includes(id)
-  const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet('loramer-kw-cols', JSON.stringify(cols)) }
+  const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet('advar-kw-cols', JSON.stringify(cols)) }
 
   useEffect(() => {
     setLoading(true)
@@ -2329,14 +2329,14 @@ function DashboardContent() {
 
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('loramer-active-platform') as Platform) || 'google')
+  const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('advar-active-platform') as Platform) || 'google')
   const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce'>(() => {
     // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
-    const saved = ls('loramer-active-tab') as any
+    const saved = ls('advar-active-tab') as any
     const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
     return valid.includes(saved) ? saved : 'overview'
   })
-  const [dateRange, setDateRange] = useState<string>(() => ls('loramer-date-range') || 'LAST_30_DAYS')
+  const [dateRange, setDateRange] = useState<string>(() => ls('advar-date-range') || 'LAST_30_DAYS')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
   const [showCustomPicker, setShowCustomPicker] = useState(false)
@@ -2348,27 +2348,27 @@ function DashboardContent() {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
 
   const [chatInput, setChatInput] = useState('')
-  const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>(() => lsJson('loramer-chat-messages', []))
+  const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>(() => lsJson('advar-chat-messages', []))
   const [chatLoading, setChatLoading] = useState(false)
-  const [sessionStart, setSessionStart] = useState<number>(() => parseInt(ls('loramer-session-start') || '0'))
+  const [sessionStart, setSessionStart] = useState<number>(() => parseInt(ls('advar-session-start') || '0'))
 
   // Right panel state — shared across all AskClaude buttons
-  const [panelOpen, setPanelOpen] = useState(() => ls('loramer-panel-open') === 'true')
-  const [panelMinimized, setPanelMinimized] = useState(() => ls('loramer-panel-minimized') === 'true')
-  const [panelMessages, setPanelMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>(() => lsJson('loramer-panel-messages', []))
-  const [panelContext, setPanelContext] = useState(() => ls('loramer-panel-context') || '')
-  const [panelTitle, setPanelTitle] = useState(() => ls('loramer-panel-title') || '')
+  const [panelOpen, setPanelOpen] = useState(() => ls('advar-panel-open') === 'true')
+  const [panelMinimized, setPanelMinimized] = useState(() => ls('advar-panel-minimized') === 'true')
+  const [panelMessages, setPanelMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>(() => lsJson('advar-panel-messages', []))
+  const [panelContext, setPanelContext] = useState(() => ls('advar-panel-context') || '')
+  const [panelTitle, setPanelTitle] = useState(() => ls('advar-panel-title') || '')
   const [panelInput, setPanelInput] = useState('')
   const [panelLoading, setPanelLoading] = useState(false)
   const [panelQuickPrompts, setPanelQuickPrompts] = useState<string[]>([])  // LORAMER_PANEL_ONLY_V1
 
   function openPanel(title: string, context: string, existingMessages: { role: 'user' | 'assistant'; content: string }[] = [], quickPrompts: string[] = []) {  // LORAMER_PANEL_ONLY_V1
-    setPanelTitle(title); lsSet('loramer-panel-title', title)
-    setPanelContext(context); lsSet('loramer-panel-context', context)
-    setPanelMessages(existingMessages); lsSet('loramer-panel-messages', JSON.stringify(existingMessages))
+    setPanelTitle(title); lsSet('advar-panel-title', title)
+    setPanelContext(context); lsSet('advar-panel-context', context)
+    setPanelMessages(existingMessages); lsSet('advar-panel-messages', JSON.stringify(existingMessages))
     setPanelQuickPrompts(quickPrompts)  // LORAMER_PANEL_ONLY_V1
-    setPanelOpen(true); lsSet('loramer-panel-open', 'true')
-    setPanelMinimized(false); lsSet('loramer-panel-minimized', 'false')
+    setPanelOpen(true); lsSet('advar-panel-open', 'true')
+    setPanelMinimized(false); lsSet('advar-panel-minimized', 'false')
   }
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
@@ -2380,8 +2380,8 @@ function DashboardContent() {
     document.addEventListener('visibilitychange', handleVisibility, true)
     return () => document.removeEventListener('visibilitychange', handleVisibility, true)
   }, [])
-  useEffect(() => { if (chatMessages.length > 0) lsSet('loramer-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
-  useEffect(() => { lsSet('loramer-session-start', String(sessionStart)) }, [sessionStart])
+  useEffect(() => { if (chatMessages.length > 0) lsSet('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
+  useEffect(() => { lsSet('advar-session-start', String(sessionStart)) }, [sessionStart])
 
   async function fetchClients() {
     try {
@@ -2389,7 +2389,7 @@ function DashboardContent() {
       const data = await res.json()
       const list: Client[] = data.clients || []
       setClients(list)
-      const savedId = ls('loramer-active-client')
+      const savedId = ls('advar-active-client')
       const saved = list.find(c => c.id === savedId)
       const toSelect = saved || list[0] || null
       if (toSelect) selectClient(toSelect)
@@ -2398,31 +2398,31 @@ function DashboardContent() {
 
   function selectClient(client: Client, overridePlatform?: Platform) {
     setSelectedClient(client)
-    lsSet('loramer-active-client', client.id)
+    lsSet('advar-active-client', client.id)
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
     const hasShopifyLocal = client.platform_connections.some(p => p.platform === 'shopify')
-    const savedPlatform = overridePlatform || (ls('loramer-active-platform') as Platform) || 'google'
+    const savedPlatform = overridePlatform || (ls('advar-active-platform') as Platform) || 'google'
     const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
       : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
     setActivePlatform(resolved)
     // Restore saved tab (LORAMER_DEFAULT_TAB_V1 - validate)
-    const savedTab = ls('loramer-active-tab') as any
+    const savedTab = ls('advar-active-tab') as any
     const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
     if (validTabs.includes(savedTab)) setActiveTab(savedTab)
     else setActiveTab('overview')
     // Only reset drill state and panel when switching to a different client
-    const previousClientId = ls('loramer-active-client-prev')
+    const previousClientId = ls('advar-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
-      lsSet('loramer-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
+      lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
       setPanelOpen(false); setPanelMinimized(false); setPanelMessages([])
       setPanelTitle(''); setPanelContext(''); setShopifyData(null)
-      lsSet('loramer-panel-open', 'false'); lsSet('loramer-panel-minimized', 'false')
-      lsSet('loramer-panel-messages', '[]'); lsSet('loramer-panel-title', ''); lsSet('loramer-panel-context', '')
+      lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false')
+      lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
-    lsSet('loramer-active-client-prev', client.id)
+    lsSet('advar-active-client-prev', client.id)
     // LORAMER_ECOM_TAB_DEFAULT_V1
     // Auto-default tab ONLY if the user hasn't explicitly chosen one for this session.
     // hasWooLocal duplicates the hasWoo derivation but we don't have it in scope here.
@@ -2465,19 +2465,19 @@ function DashboardContent() {
 
   function changePlatform(platform: Platform) {
     setActivePlatform(platform)
-    lsSet('loramer-active-platform', platform)
-    lsSet('loramer-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
+    lsSet('advar-active-platform', platform)
+    lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
     if (selectedClient) loadData(selectedClient, platform, dateRange, customStart, customEnd)
   }
 
   function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify') {
     setActiveTab(tab)
-    lsSet('loramer-active-tab', tab)
+    lsSet('advar-active-tab', tab)
   }
 
   function changeDateRange(val: string) {
     setDateRange(val)
-    lsSet('loramer-date-range', val)
+    lsSet('advar-date-range', val)
     if (val === 'CUSTOM') { setShowCustomPicker(true); return }
     setShowCustomPicker(false); setCustomStart(''); setCustomEnd('')
     if (selectedClient) {
@@ -2535,7 +2535,7 @@ function DashboardContent() {
     const metaConn = selectedClient.platform_connections.find(p => p.platform === 'meta')
 
     // Read current drill state from localStorage
-    const drillState = lsJson('loramer-drill-state', { level: 'campaigns', campaign: null, adGroup: null }) as any
+    const drillState = lsJson('advar-drill-state', { level: 'campaigns', campaign: null, adGroup: null }) as any
 
     try {
       const res = await fetch('/api/chat', {
@@ -2792,7 +2792,7 @@ function DashboardContent() {
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
               onSend={sendChat} accountSelected={!!selectedClient} onDownload={downloadChat} onUpload={uploadChat}
               exchangeCount={exchangeCount} platform={activePlatform} clientName={selectedClient?.name || ''}
-              drillLevel={lsJson('loramer-drill-state', { level: 'campaigns' } as any).level} />
+              drillLevel={lsJson('advar-drill-state', { level: 'campaigns' } as any).level} />
           )}
           {!selectedClient && clients.length === 0 && !loading && (
             <div className="flex items-center justify-center h-64 flex-col gap-4">
@@ -2831,7 +2831,7 @@ function DashboardContent() {
           {panelMinimized ? (
             // Minimized tab — sits at bottom right
             <button
-              onClick={() => { setPanelMinimized(false); lsSet('loramer-panel-minimized', 'false') }}
+              onClick={() => { setPanelMinimized(false); lsSet('advar-panel-minimized', 'false') }}
               className="fixed bottom-20 right-0 z-50 bg-accent text-white text-xs font-mono px-3 py-2 rounded-l-lg shadow-lg flex items-center gap-2 hover:bg-blue-700 transition-colors">
               ✦ {panelTitle.slice(0, 20)}{panelTitle.length > 20 ? '…' : ''}
               {panelMessages.length > 0 && <span className="bg-white text-accent rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">{Math.floor(panelMessages.length / 2)}</span>}
@@ -2839,12 +2839,12 @@ function DashboardContent() {
           ) : (
             <RightPanel
               open={panelOpen}
-              onClose={() => { setPanelOpen(false); setPanelMinimized(false); lsSet('loramer-panel-open', 'false'); lsSet('loramer-panel-minimized', 'false') }}
-              onMinimize={() => { setPanelMinimized(true); lsSet('loramer-panel-minimized', 'true') }}
+              onClose={() => { setPanelOpen(false); setPanelMinimized(false); lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false') }}
+              onMinimize={() => { setPanelMinimized(true); lsSet('advar-panel-minimized', 'true') }}
               title={panelTitle}
               context={panelContext}
               messages={panelMessages}
-              setMessages={(msgs) => { setPanelMessages(msgs); lsSet('loramer-panel-messages', JSON.stringify(msgs)) }}
+              setMessages={(msgs) => { setPanelMessages(msgs); lsSet('advar-panel-messages', JSON.stringify(msgs)) }}
               input={panelInput}
               setInput={setPanelInput}
               loading={panelLoading}
