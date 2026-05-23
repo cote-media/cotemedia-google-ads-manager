@@ -262,7 +262,7 @@ function ClientsContent() {
   }, [searchParams])
 
   // LORAMER_PILL_ROUTING_V1
-  function goToDashboard(client: Client, platform?: 'google' | 'meta' | 'shopify') {
+  function goToDashboard(client: Client, platform?: 'google' | 'meta') {  // LORAMER_PILL_ROUTING_V2
     try {
       localStorage.setItem('advar-active-client', client.id)
       if (platform) localStorage.setItem('advar-active-platform', platform)
@@ -427,7 +427,7 @@ function ClientsContent() {
 
                             {/* Shopify pill */}
                             {shopifyConn ? (
-                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-tab', 'shopify') } catch {}; goToDashboard(client, 'shopify') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#95BF47' }}>
+                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-client', client.id); localStorage.setItem('advar-active-tab', 'shopify') } catch {}; router.push('/dashboard') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#95BF47' }}>
                                 <svg width="9" height="11" viewBox="0 0 109 124" fill="white" aria-hidden="true"><path d="M74.7 14.8c-.1 0-1.6.1-4.1.9-2.4-7-6.7-13.4-14.2-13.4h-.7C53.5.8 50.9 0 48.7 0c-17 0-25.1 21.2-27.7 32-6.6 2-11.3 3.5-11.9 3.7-3.7 1.2-3.8 1.3-4.3 4.7C4.4 42.9 0 78.3 0 78.3l71.9 13.5L111 83 86.3 17.5c-.7-1.9-2.4-2.8-4.1-2.7H74.7zM58.6 18.6c-1.3.4-2.8.9-4.4 1.3 0-1-.1-2-.2-2.9-.3-3.3-1.1-6-2.4-7.9 4.4.6 7.3 5.6 7 9.5zm-9.8 0c-3.2 1-6.7 2-10.2 3.1.9-3.7 2.6-7.3 4.7-9.7 1-1.1 2.4-2.3 4-3 1.6 3.4 1.6 8.2 1.5 9.6z"/></svg>
                                 Shopify
                               </button>
@@ -441,7 +441,7 @@ function ClientsContent() {
                             )}
                             {/* WooCommerce pill - LORAMER_WOO_CONNECT_V1 */}
                             {wooConn ? (
-                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-tab', 'woocommerce') } catch {}; goToDashboard(client) }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#96588A' }}>
+                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-client', client.id); localStorage.setItem('advar-active-tab', 'woocommerce') } catch {}; router.push('/dashboard') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#96588A' }}>
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M2.4 4.8h19.2c1.32 0 2.4 1.08 2.4 2.4v10.32c0 1.32-1.08 2.4-2.4 2.4H14.4l3.36 5.04L8.4 19.92H2.4c-1.32 0-2.4-1.08-2.4-2.4V7.2c0-1.32 1.08-2.4 2.4-2.4zM3.84 6.6c-.6 0-.96.36-.96.84 0 .12 0 .24.12.48l3 9.6c.12.36.36.48.6.48.36 0 .48-.12.6-.48l1.32-5.28 1.92 5.04c.12.36.24.6.6.6s.48-.24.6-.6c1.32-3.6 2.04-5.4 2.04-5.4l1.32 4.8c.12.36.36.6.6.6.24 0 .48-.24.6-.48l3.12-9.6c.12-.24.12-.48.12-.6 0-.48-.36-.84-.96-.84-.48 0-.84.36-.96.84l-2.04 6.36-1.32-4.32c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.92 5.4-1.68-5.4c-.12-.36-.36-.6-.72-.6s-.6.24-.72.6l-1.32 4.32-2.04-6.36c-.12-.48-.48-.84-.96-.84z"/></svg>
                                 WooCommerce
                               </button>
