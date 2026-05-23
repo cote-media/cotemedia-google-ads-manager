@@ -25,18 +25,36 @@ export async function POST(request: Request) {
     rowContext,
     customStart,
     customEnd,
+    location,  // LORAMER_FOCUS_LOCATION_V1
   } = await request.json()
 
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-  // Build focus description
-  const focus = drillLevel === 'adgroups' && drillCampaign
-    ? `ad groups within campaign: ${drillCampaign.name}`
-    : drillLevel === 'ads' && drillAdGroup
-    ? `ads within ad group: ${drillAdGroup.name}`
-    : platform === 'combined' ? 'combined Google + Meta view'
-    : platform === 'meta' ? 'Meta Ads campaigns'
-    : 'Google Ads campaigns'
+  // LORAMER_FOCUS_LOCATION_V1
+  // Build focus description. Honor `location` (the tab) first - that's
+  // the most reliable signal of what the user is looking at. Only fall
+  // back to platform-based focus when location indicates an ad-view
+  // (overview/campaigns/keywords) AND the user is drilling into ad data.
+  // Avoids the bug where platform='google' (a default fallback) leaks
+  // 'Google Ads campaigns' as the view for Shopify-only clients.
+  let focus: string
+  if (location === 'shopify') {
+    focus = 'Shopify store data'
+  } else if (location === 'woocommerce') {
+    focus = 'WooCommerce store data'
+  } else if (drillLevel === 'adgroups' && drillCampaign) {
+    focus = `ad groups within campaign: ${drillCampaign.name}`
+  } else if (drillLevel === 'ads' && drillAdGroup) {
+    focus = `ads within ad group: ${drillAdGroup.name}`
+  } else if (platform === 'combined') {
+    focus = 'combined Google + Meta view'
+  } else if (platform === 'meta') {
+    focus = 'Meta Ads campaigns'
+  } else if (platform === 'google') {
+    focus = 'Google Ads campaigns'
+  } else {
+    focus = location || 'overview'
+  }
 
   let systemPrompt = ''
 

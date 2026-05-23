@@ -680,6 +680,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
           history: newMessages.slice(0, -1),
           platform, dateRange, clientId, clientName,
           rowContext: context,
+          location,  // LORAMER_FOCUS_LOCATION_V1
         }),
       })
       const d = await res.json()
@@ -2565,6 +2566,8 @@ function DashboardContent() {
           drillLevel: drillState.level,
           drillCampaign: drillState.campaign,
           drillAdGroup: drillState.adGroup,
+          // LORAMER_FOCUS_LOCATION_V1 - tell the chat route which tab we're on
+          location: activeTab,
         }),
       })
       const data = await res.json()
