@@ -19,7 +19,8 @@ export async function fetchShopifyIntelligence(
   const endDate = customEnd || new Date().toISOString().split('T')[0]
   const startDate = customStart || (() => {
     const d = new Date()
-    const days: Record<string, number> = { LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30, THIS_MONTH: 30, LAST_MONTH: 60 }
+    // LORAMER_THIS_MONTH_FIX_V1 - THIS_MONTH means back to the 1st of the current month, matching /api/shopify/daily and woocommerce-intelligence
+    const days: Record<string, number> = { LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30, THIS_MONTH: new Date().getDate(), LAST_MONTH: 60 }
     d.setDate(d.getDate() - (days[dateRange] || 30))
     return d.toISOString().split('T')[0]
   })()
