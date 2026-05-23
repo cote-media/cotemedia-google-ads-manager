@@ -26,3 +26,9 @@ The Shopify tab "Return Rate" tile computes `returningCustomers / totalOrders * 
 
 ### Customer segmentation produces strange numbers on dev stores
 On dev stores where Bogus Gateway is the oyment method, all test orders attach to the same test customer, producing "100% returning customers / 0 new customers." This is a dev store artifact, not a code bug, but reviewers will see it. Logging in case it warrants a synthetic data approach for the reviewer demo store.
+
+### Left nav information architecture needs a rethink
+Sidebar nav was designed when LoraMer was ads-only — Overview / Campaigns / Keywords / Ask Claude. Now ecomm is in (Shopify, WooCommerce) and the roadmap includes Klaviyo, GA, Microsoft, TikTok, Amazon, LinkedIn. The current per-platform-tab pattern does not scale to 10+ integrations — the sidebar would become a long platform list. Question: should the nav be reorganized around function (Performance / Revenue / Audience / Ask) rather than platform? Or hybrid? Worth a focused thinking session before adding any more platform tabs.
+
+### Welcome page "Let's go" button has a hydration delay
+After landing on /welcome, clicking "Let's go" sometimes does nothing for a brief moment, then works on subsequent click. Likely React hydration completing async. Not blocking submit but creates a "is this broken?" moment for first-time users. Add a loading skeleton or disable the button until hydration finishes.

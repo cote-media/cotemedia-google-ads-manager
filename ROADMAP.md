@@ -898,6 +898,85 @@ Even with the desktop fix, mobile shouldn't mirror desktop. On mobile the popove
 
 ---
 
+
+---
+
+## 🎨 PROJECT 18 — Customizable Dashboards (Drag-Drop Cards)
+
+**The vision:** users build their own analytics views from a palette of cards, instead of consuming whatever fixed layout LoraMer happens to ship. Two distinct layers, both needed.
+
+**Inspiration:** Shopify's customizable home dashboard, where merchants drag analytics blocks to compose their own overview. That model proves the pattern works and users get it.
+
+### Why this matters
+
+A fixed dashboard always serves SOMEONE poorly. The ecomm operator and the lead-gen operator care about different things. The agency owner reviewing 30 clients wants a different shape than the business owner who lives in one account. Letting the user decide what they see is both a UX win AND a moat — every saved layout is one more piece of accumulated knowledge about how that operator thinks, h feeds Project 9 (Memory & Learning).
+
+### Two layers
+
+**Layer 1 — Per-platform customizable views.**
+Inside the Shopify tab, the Google tab, the Meta tab — the user chooses which cards appear, where they sit, and how big they are. Some cards are larger (full-width chart), some smaller (single metric tile), some medium (top-N list).
+
+**Layer 2 — Cross-platform unified dashboard.**
+A new "My Overview" type surface where the user drags cards from ANY connected platform onto one canvas. Shopify revenue card + Google CPL card + Meta ROAS card + Klaviyo subscriber count card — all on one screen, composed by the operator. This is the version that becomes the daily-driver screen for power users.
+
+### Card library (initial set)
+
+**Shopify / WooCommerce:** Revenue tile · Revenue trend chart · Orders tile · AOV tile · Top products list · Customer split · Conversion funnel · Inventory alerts
+
+**Google Ads:** Spend tile · ROAS tile · CPL tile · Top campaigns · Top keywords · Quality score distribution · Search terms list · Auction insights
+
+**Meta Ads:** Spend tile · ROAS tile · CPA tile · Top campaigns · Top ads · Frequency distribution · Audience overlap · Creative performance
+
+**Cross-platform:** Combined spend · Combined ROAS · Channel mix · Revenue attribution · Claude insight card (live AI analysis as a draggable widget)
+
+### Technical considerations
+
+- **Persistence model:** layouts saved per-user-per-client in Supabase. New table `dashboard_layouts` keyed on (user_email, client_id, layout_name) with JSONB column for grid state.
+- **Grid library:** evaluate react-grid-layout or DnD-Kit. React-grid-layout is the standard Shopify-style pattern.
+- **Templates:** ship 3–4 starter templates (Ecomm Operator / Agency Overview / Performance Marketer / Brand Manager) so first-time users don't face a blank canvas.
+- **AI suggestions (Scale tier):** Claude proposes cards based on observed user behavior — "You ask about CPL a lot, want to pin a CPL tile here?"
+
+### Tier mechanics
+
+| Tier | Customization |
+|------|---------------|
+| Free | Fixed default layout |
+| Solo | 3 saved layouts per client |
+| Agency | Unlimited per-client layouts, share layouts across clients |
+| Scale | + cross-platform unified dashboard, AI-suggested layouts, template publishing |
+
+### Phased build
+
+**Phase 1 — Architecture & per-platform Shopify view (~4 weeks):**
+- [ ] `dashboard_layouts` table
+- [ ] Card component abstraction (every existing tile/chart becomes a draggable Card)
+- [ ] React-grid-layout integration on the Shopify tab as the proving ground
+- [ ] Save / load / reset to default
+
+**Phase 2 — Roll out to all platform tabs (~2 weeks):**
+- [ ] Same pattern on Google, Meta, WooCommerce tabs
+- [ ] Starter templates per platform
+
+**Phase 3 — Cross-platform unified dashboard (~3 weeks):**
+- [ ] New "My Overview" route at top of sidebar
+- [ ] Drag from any platform's card library
+- [ ] Combined data fetching with the existing intelligence layer
+
+**Phase 4 — Claude integration (Scale tier):**
+- [ ] AI-suggested layouts
+- [ ] "Claude built this dashboard for you" onboarding flow
+- [ ] Layout patterns fed into Project 9 learning loop
+
+### Connected projects
+
+- **Project 9 (Memory & Learning):** saved layouts are accumulated operator-level knowledge. Layouts inform what Claude thinks the operator cares about.
+- **Project 14 (Unified Conversation Surface):** Claude insight cards embedded in custom layouts reference the same conversation history.
+- **Project 16 (Global Preferences):** layout templates can be user-level defaults applied across all clients.
+
+### Why this is a moat
+
+Triple Whale ships one dashboard. Northbeam ships one dashboard. Generic BI tools require analyst-level effort to compose custom views. LoraMer's pitch becomes: "build the dashboard YOU want, and Claude reads across whatever you put on it." Combined with persistent memory, every saved layout is one more way the product knows the customer specifically that no competitor can copy.
+
 ## ✅ Completed Archive
 
 ### Core platform
