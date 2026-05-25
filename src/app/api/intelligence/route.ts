@@ -51,15 +51,44 @@ export async function GET(request: Request) {
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
   // ── Fetch client data from Supabase ────────────────────────────────────────
-  const [connectionsResult, clientResult, contextResult] = await Promise.all([
+  // LORAMER_CONV_API_V1_INTELLIGENCE
+  // Conversations now live in client_conversations table (was client_context.conversations).
+  // We fetch ALL rows including hidden_at != null - hidden rows are still part of
+  // Claude's memory; only the UI hides them.
+  const [connectionsResult, clientResult, contextResult, conversationsResult] = await Promise.all([
     supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId),
     supabaseAdmin.from('clients').select('name').eq('id', clientId).single(),
     supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', session.user.email).single(),
+    supabaseAdmin
+      .from('client_conversations')
+      .select('surface, scope, role, content, created_at')
+      .eq('client_id', clientId)
+      .eq('user_email', session.user.email)
+      .order('created_at', { ascending: true })
+      .limit(500),
   ])
 
   const connections = connectionsResult.data || []
   const client = clientResult.data
   const context = contextResult.data
+  // Build conversations object keyed by "surface:scope" to match the
+  // JSONB shape that build-claude-context.ts expects.
+  // Falls back to legacy context.conversations blob if the new table is empty.
+  const conversationRows = conversationsResult.data || []
+  let conversations: Record<string, Array<{ role: string; content: string; timestamp: string }>> = {}
+  if (conversationRows.length > 0) {
+    for (const row of conversationRows) {
+      const key = row.scope ? `${row.surface}:${row.scope}` : row.surface
+      if (!conversations[key]) conversations[key] = []
+      conversations[key].push({
+        role: row.role,
+        content: row.content,
+        timestamp: row.created_at,
+      })
+    }
+  } else if (context?.conversations && typeof context.conversations === 'object') {
+    conversations = context.conversations as any
+  }
 
   // ── Check cache ────────────────────────────────────────────────────────────
   const cacheKey = `intelligence:${clientId}:${dateRange}:${customStart || ''}:${customEnd || ''}`
@@ -75,7 +104,7 @@ export async function GET(request: Request) {
           primaryKpi: context.primary_kpi,
           funnelNotes: context.funnel_notes,
           userNotes: context.user_notes,
-          conversations: context.conversations || {},
+          conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
         }
         return NextResponse.json({ intelligence: entry })
       }
@@ -95,7 +124,7 @@ export async function GET(request: Request) {
       primaryKpi: context?.primary_kpi,
       funnelNotes: context?.funnel_notes,
       userNotes: context?.user_notes,
-      conversations: context?.conversations || {},
+      conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
     },
   }
 
