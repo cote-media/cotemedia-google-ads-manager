@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import crypto from 'crypto'
 import { signInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
 
+const GRAPHQL_API_VERSION = '2025-01' // LORAMER_GRAPHQL_MIGRATION_V1
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
@@ -71,12 +73,23 @@ export async function GET(request: Request) {
     now + (tokenData.refresh_token_expires_in || 7776000) * 1000
   ).toISOString()
 
-  // Get shop details for account name (used by both branches)
-  const shopRes = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
-    headers: { 'X-Shopify-Access-Token': tokenData.access_token },
-  })
-  const shopData = await shopRes.json()
-  const shopName = shopData.shop?.name || shop
+  // LORAMER_GRAPHQL_MIGRATION_V1 — fetch shop name via GraphQL (was REST shop.json)
+  let shopName = shop
+  try {
+    const shopRes = await fetch(`https://${shop}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`, {
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': tokenData.access_token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ query: '{ shop { name } }' }),
+    })
+    const shopJson = await shopRes.json()
+    if (shopJson.data?.shop?.name) shopName = shopJson.data.shop.name
+  } catch (e) {
+    // Non-fatal — fall back to using the shop domain as the account name
+    console.error('Shop name GraphQL lookup failed:', e)
+  }
 
   // ─── BRANCH A: existing in-app flow ──────────────────────────────────────
   // Triggered by the "+ Shopify" modal in /clients. State has {clientId, userEmail}.
