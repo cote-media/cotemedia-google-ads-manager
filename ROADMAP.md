@@ -977,6 +977,67 @@ A new "My Overview" type surface where the user drags cards from ANY connected p
 
 Triple Whale ships one dashboard. Northbeam ships one dashboard. Generic BI tools require analyst-level effort to compose custom views. LoraMer's pitch becomes: "build the dashboard YOU want, and Claude reads across whatever you put on it." Combined with persistent memory, every saved layout is one more way the product knows the customer specifically that no competitor can copy.
 
+## 👥 PROJECT 20 — Multi-User Workspaces & Permissions
+
+**The need:** Higher-tier customers (Agency, Scale, Enterprise) aren't single operators — they're teams. Account managers, owners, virtual assistants, executives. Right now LoraMer is one user → many clients. We need many users → one workspace → many clients, with role-based permissions.
+
+**Connected to brand:** Real human commitment (Project 15) — for an agency to deliver service to their clients, multiple humans on their side need access. Single-seat ownership doesn't fit.
+
+### Architecture
+
+**`workspaces` table** — top-level container. Replaces the implicit "user_email is the workspace" model. Old `user_email` columns get backfilled to a `workspace_id` foreign key.
+
+**`workspace_members` table** — `(workspace_id, user_email, role, invited_by, joined_at)`. A user can belong to multiple workspaces (e.g. a freelancer working with two agencies).
+
+**Roles** — start with two, expand later:
+- **Owner** — full admin including billing, can invite/remove members, can delete workspace. Can do everything.
+- **Member** — can do everything inside the workspace EXCEPT manage other members, change billing, or delete workspace.
+
+Future roles to consider: **Viewer** (read-only — useful for clients to see their own dashboards), **Billing-only** (CFO seat).
+
+**Migration path:** every existing `user_email` becomes the Owner of a new workspace named after their email. All their `clients` and `client_context` rows get a `workspace_id` set.
+
+### Mechanics
+
+- Invitation flow: Owner enters email → invitation email sent → recipient signs in with Google or accepts via magic link → joins as Member
+- Member sees the same dashboard as Owner (clients sidebar, all data) — invisible UI difference
+- Member CAN'T see Settings → Team, Settings → Billing, or the "Delete workspace" button
+- Audit log per workspace: who invited whom, who removed whom, who connected what platform
+
+### Tier mechanics
+
+| Tier | Seats |
+|------|-------|
+| Free | 1 (single user, no team features) |
+| Solo | 1 |
+| Agency | Up to 5 seats |
+| Scale | Up to 25 seats |
+| Enterprise | Custom |
+
+Additional seats per tier purchasable as add-ons.
+
+### Phased build
+
+- **Phase 1 (post-launch, ~2 weeks):** Schema migration. `workspaces` + `workspace_members` tables. Backfill. UI invisible — every existing user becomes the sole Owner of their own workspace.
+- **Phase 2 (~30 days):** Invite UI in Settings. Two roles (Owner / Member). Tier-gated.
+- **Phase 3:** Audit log + member activity feed.
+- **Phase 4:** Additional roles (Viewer, Billing-only). Granular permissions.
+
+### Connected projects
+
+- **Project 2 (Pricing):** Seat counts become a real lever for tier upgrade
+- **Project 9 (Memory & Learning):** Memory should be workspace-scoped, not user-scoped, so the team learns together
+- **Project 14 (Unified Conversation Surface):** Conversations may need attribution (who asked Claude what) for audit purposes
+- **Project 16 (Global Preferences):** User-level preferences stay personal; workspace-level preferences are shared
+
+### Open questions
+
+- How does the Shopify-install auto-created user (`shopify+<handle>@loramer.app`) fit? It's already a workspace of one — does it stay that way forever, or can a Shopify-install merchant later "claim" the workspace via Google login and invite team members?
+- Billing implications: per-seat billing or flat-tier-includes-N-seats?
+- Single Sign-On (SSO) for Enterprise tier — separate sub-project later
+
+---
+
 ## ✅ Completed Archive
 
 ### Core platform
