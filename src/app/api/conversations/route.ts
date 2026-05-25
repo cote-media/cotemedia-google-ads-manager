@@ -8,6 +8,10 @@
 // POST { clientId, surface, scope, role, content }
 //   Appends a single message. Server stamps user_email from session and created_at.
 //
+// DELETE ?clientId=X&surface=Y&scope=Z
+//   Deletes all messages for that client+surface+scope. Used by Clear button.
+//   surface required. scope optional (if omitted, clears all scopes for the surface).
+//
 // Auth: requires session. All reads/writes scoped to session.user.email.
 
 import { NextResponse } from 'next/server'
@@ -92,4 +96,38 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ message: data })
+}
+
+export async function DELETE(request: Request) {
+  const session = await getServerSession(authOptions) as any
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const clientId = searchParams.get('clientId')
+  const surface = searchParams.get('surface')
+  const scope = searchParams.get('scope')
+
+  if (!clientId || !surface) {
+    return NextResponse.json({ error: 'clientId and surface required' }, { status: 400 })
+  }
+
+  let query = supabaseAdmin
+    .from('client_conversations')
+    .delete()
+    .eq('client_id', clientId)
+    .eq('user_email', session.user.email)
+    .eq('surface', surface)
+
+  if (scope) query = query.eq('scope', scope)
+
+  const { error } = await query
+
+  if (error) {
+    console.error('[conversations] DELETE error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
 }

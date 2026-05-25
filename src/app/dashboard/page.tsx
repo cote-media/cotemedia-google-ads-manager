@@ -1167,14 +1167,28 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     } catch { return '' }
   }
 
-  // Load saved conversation from Supabase on mount
+  // LORAMER_CONV_API_V1_INSIGHTCHAT
+  // Load saved conversation from client_conversations table on mount.
+  // user_notes still lives on client_context, fetched separately.
   useEffect(() => {
     if (!clientId) return
+    // Fetch user_notes from client_context
     fetch('/api/context?clientId=' + clientId)
       .then(r => r.json())
+      .then(d => { setUserNotes(d.context?.user_notes || "") })
+      .catch(() => {})
+    // Fetch conversation messages from client_conversations
+    const params = new URLSearchParams({
+      clientId,
+      surface: 'insight-chat',
+      scope: locationKey,
+    })
+    fetch('/api/conversations?' + params.toString())
+      .then(r => r.json())
       .then(d => {
-        setUserNotes(d.context?.user_notes || ""); if (d.context?.conversations?.[locationKey]?.length > 0) {
-          setMessages(d.context.conversations[locationKey])
+        const msgs = (d.messages || []).map((m: any) => ({ role: m.role, content: m.content }))
+        if (msgs.length > 0) {
+          setMessages(msgs)
           setExpanded(true)
         }
       })
@@ -1185,21 +1199,39 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     fetchInsight().then(text => { if (text) { setInsight(text); lsSet(cacheKey, JSON.stringify({ text, ts: Date.now() })) } setLoading(false) })
   }, [clientId, platform, dateRange, location])
 
+  // LORAMER_CONV_API_V1_INSIGHTCHAT
+  // Writes via /api/conversations (append new pair) or DELETE (clear all).
+  // Empty array = Clear button pressed; delete all messages for this surface+scope.
+  // Non-empty = append the last user+assistant pair to the table.
   async function saveConversation(updatedMessages: InsightMessage[]) {
     if (!clientId) return
     setPersisting(true)
     try {
-      const r = await fetch('/api/context?clientId=' + clientId)
-      const d = await r.json()
-      const existing = d.context?.conversations || {}
-      await fetch('/api/context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (updatedMessages.length === 0) {
+        // Clear button — delete everything for this surface+scope
+        const params = new URLSearchParams({
           clientId,
-          updates: { conversations: { ...existing, [locationKey]: updatedMessages } }
+          surface: 'insight-chat',
+          scope: locationKey,
         })
-      })
+        await fetch('/api/conversations?' + params.toString(), { method: 'DELETE' })
+      } else if (updatedMessages.length >= 2) {
+        // Append the latest user+assistant pair
+        const newPair = updatedMessages.slice(-2)
+        for (const m of newPair) {
+          await fetch('/api/conversations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientId,
+              surface: 'insight-chat',
+              scope: locationKey,
+              role: m.role,
+              content: m.content,
+            }),
+          })
+        }
+      }
       // Invalidate other insight caches so they re-fetch with this new context
       // but keep THIS box's cache since we just updated it
       if (typeof window !== 'undefined') {
