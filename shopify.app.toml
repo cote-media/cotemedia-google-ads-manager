@@ -2,7 +2,7 @@
 
 client_id = "61d59d89231bb2adfe4312adb9a87bc7"
 name = "LoraMer"
-application_url = "https://cotemedia-google-ads-manager.vercel.app"
+application_url = "https://cotemedia-google-ads-manager.vercel.app/api/shopify/install"
 embedded = false
 
 [webhooks]
