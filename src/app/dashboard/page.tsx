@@ -648,18 +648,29 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // LORAMER_CONV_API_V1_RIGHTPANEL
+  // Writes the latest user+assistant message pair to client_conversations table.
+  // Old behavior wrote the entire conversation blob to client_context.conversations
+  // on every save; new behavior is append-only via /api/conversations.
   async function saveToClient(msgs: { role: 'user' | 'assistant'; content: string }[]) {
-    if (!clientId) return
+    if (!clientId || msgs.length < 2) return
+    // The last two entries are always the new user msg + new Claude response
+    const newPair = msgs.slice(-2)
+    const scope = title.toLowerCase().replace(/\s+/g, '-') + ':' + platform
     try {
-      const r = await fetch('/api/context?clientId=' + clientId)
-      const d = await r.json()
-      const existing = d.context?.conversations || {}
-      const key = 'panel:' + title.toLowerCase().replace(/\s+/g, '-') + ':' + platform
-      await fetch('/api/context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, updates: { conversations: { ...existing, [key]: msgs } } })
-      })
+      for (const m of newPair) {
+        await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            surface: 'right-panel',
+            scope,
+            role: m.role,
+            content: m.content,
+          }),
+        })
+      }
       invalidateInsightCaches(clientId)
     } catch {}
   }
