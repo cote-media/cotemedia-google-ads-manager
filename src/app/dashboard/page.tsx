@@ -2525,6 +2525,32 @@ function DashboardContent() {
   useEffect(() => { if (chatMessages.length > 0) lsSet('advar-chat-messages', JSON.stringify(chatMessages)) }, [chatMessages])
   useEffect(() => { lsSet('advar-session-start', String(sessionStart)) }, [sessionStart])
 
+  // LORAMER_CONV_API_V1_CHATTAB
+  // On client switch, load that client's Ask Claude tab conversation from the API.
+  // localStorage stays as transition backup; cleared after API load completes.
+  useEffect(() => {
+    if (!selectedClient?.id) return
+    const params = new URLSearchParams({
+      clientId: selectedClient.id,
+      surface: 'ask-claude-tab',
+    })
+    fetch('/api/conversations?' + params.toString())
+      .then(r => r.json())
+      .then(d => {
+        const msgs = (d.messages || []).map((m: any) => ({ role: m.role, content: m.content }))
+        if (msgs.length > 0) {
+          setChatMessages(msgs)
+          setSessionStart(msgs.length)
+        } else {
+          // No messages in DB for this client - reset to empty (don't carry over
+          // localStorage state from a different client)
+          setChatMessages([])
+          setSessionStart(0)
+        }
+      })
+      .catch(() => {})
+  }, [selectedClient?.id])
+
   async function fetchClients() {
     try {
       const res = await fetch('/api/clients')
@@ -2704,6 +2730,31 @@ function DashboardContent() {
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
       setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
+      // LORAMER_CONV_API_V1_CHATTAB - persist user msg + assistant response to client_conversations
+      try {
+        await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: selectedClient.id,
+            surface: 'ask-claude-tab',
+            scope: null,
+            role: 'user',
+            content: userMsg,
+          }),
+        })
+        await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: selectedClient.id,
+            surface: 'ask-claude-tab',
+            scope: null,
+            role: 'assistant',
+            content: data.response,
+          }),
+        })
+      } catch {}
     } catch { setChatMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }]) }
     finally { setChatLoading(false) }
   }
