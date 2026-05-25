@@ -1,8 +1,22 @@
 // /api/shopify/daily — fetch daily orders/revenue for chart
+// LORAMER_GRAPHQL_MIGRATION_V1
+// Migrated from REST (/admin/api/2024-01/orders.json) to GraphQL Admin API
+// per Shopify App Store requirement 2.2.4.
+
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getValidShopifyToken } from '@/lib/shopify-token'
+
+const GRAPHQL_API_VERSION = '2025-01'
+const MAX_ORDERS = 1000
+
+type OrderNode = {
+  id: string
+  createdAt: string
+  totalPriceSet: { shopMoney: { amount: string } }
+}
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -26,15 +40,15 @@ export async function GET(request: Request) {
 
   if (!conn) return NextResponse.json({ error: 'No Shopify connection' }, { status: 404 })
 
-  // Get token
-  const { data: tokenRow } = await supabaseAdmin
-    .from('shopify_tokens')
-    .select('access_token')
-    .eq('user_email', session.user.email)
-    .eq('shop_domain', conn.account_id)
-    .single()
-
-  if (!tokenRow?.access_token) return NextResponse.json({ error: 'No token' }, { status: 401 })
+  // Get a valid token (auto-refreshes if expired)
+  const tokenResult = await getValidShopifyToken(session.user.email, conn.account_id)
+  if (!tokenResult.ok) {
+    return NextResponse.json(
+      { error: 'Shopify auth required', reason: tokenResult.reason, detail: tokenResult.detail },
+      { status: 401 }
+    )
+  }
+  const accessToken = tokenResult.accessToken
 
   // Build date range
   const end = customEnd || new Date().toISOString().split('T')[0]
@@ -48,29 +62,61 @@ export async function GET(request: Request) {
     return d.toISOString().split('T')[0]
   })()
 
-  const SHOPIFY_API = `https://${conn.account_id}/admin/api/2024-01`
-  const headers = { 'X-Shopify-Access-Token': tokenRow.access_token }
+  const endpoint = `https://${conn.account_id}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`
+  const headers = {
+    'X-Shopify-Access-Token': accessToken,
+    'Content-Type': 'application/json',
+  }
+
+  // Shopify GraphQL date filter syntax for the orders `query` arg
+  const queryString = `created_at:>=${start}T00:00:00Z AND created_at:<=${end}T23:59:59Z`
+
+  const gqlQuery = `
+    query OrdersDaily($query: String!, $cursor: String) {
+      orders(first: 250, after: $cursor, query: $query) {
+        edges {
+          cursor
+          node {
+            id
+            createdAt
+            totalPriceSet { shopMoney { amount } }
+          }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  `
 
   try {
-    // Fetch all orders in range with line items
-    let allOrders: any[] = []
-    let url: string | null = `${SHOPIFY_API}/orders.json?status=any&created_at_min=${start}T00:00:00Z&created_at_max=${end}T23:59:59Z&limit=250&fields=id,created_at,total_price,financial_status,line_items`
-    
-    while (url) {
-      const res: Response = await fetch(url, { headers })
-      const data: any = await res.json()
-      allOrders = allOrders.concat(data.orders || [])
-      // Check for next page link header
-      const linkHeader = res.headers.get('link') || ''
-      const nextMatch = linkHeader.match(/<([^>]+)>;\s*rel="next"/)
-      url = nextMatch ? nextMatch[1] : null
-      if (allOrders.length > 1000) break // Safety limit
+    // Fetch all orders in range with cursor-based pagination
+    const allOrders: OrderNode[] = []
+    let cursor: string | null = null
+
+    while (true) {
+      const res: Response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ query: gqlQuery, variables: { query: queryString, cursor } }),
+      })
+      const json: any = await res.json()
+
+      if (json.errors) {
+        console.error('Shopify GraphQL errors:', JSON.stringify(json.errors))
+        return NextResponse.json({ error: 'GraphQL query returned errors' }, { status: 500 })
+      }
+
+      const edges = json.data?.orders?.edges || []
+      for (const e of edges) allOrders.push(e.node)
+
+      const pageInfo = json.data?.orders?.pageInfo
+      if (!pageInfo?.hasNextPage || !pageInfo.endCursor) break
+      if (allOrders.length >= MAX_ORDERS) break
+
+      cursor = pageInfo.endCursor
     }
 
     // Aggregate by date
     const byDate: Record<string, { date: string; orders: number; revenue: number; avgOrderValue: number }> = {}
-
-    // Initialize all dates in range
     const startDate = new Date(start)
     const endDate = new Date(end)
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
@@ -78,15 +124,14 @@ export async function GET(request: Request) {
       byDate[key] = { date: key.slice(5), orders: 0, revenue: 0, avgOrderValue: 0 }
     }
 
-    allOrders.forEach((order: any) => {
-      const key = order.created_at.split('T')[0]
+    allOrders.forEach((order) => {
+      const key = order.createdAt.split('T')[0]
       if (byDate[key]) {
         byDate[key].orders += 1
-        byDate[key].revenue += parseFloat(order.total_price || '0')
+        byDate[key].revenue += parseFloat(order.totalPriceSet?.shopMoney?.amount || '0')
       }
     })
 
-    // Calculate AOV
     Object.values(byDate).forEach(d => {
       d.avgOrderValue = d.orders > 0 ? d.revenue / d.orders : 0
       d.revenue = parseFloat(d.revenue.toFixed(2))
