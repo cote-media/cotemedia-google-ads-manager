@@ -696,8 +696,10 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
 
   return (
     <>
+      {/* LORAMER_MOBILE_BOTTOM_SHEET_V1 */}
       <div className="fixed inset-0 z-40 pointer-events-none" />
-      <div className="fixed right-0 top-0 bottom-0 w-full md:w-96 bg-white border-l border-border shadow-2xl z-50 flex flex-col">
+      {/* Desktop: right-side panel (unchanged behavior) */}
+      <div className="hidden md:flex fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-border shadow-2xl z-50 flex-col">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-white flex-shrink-0">
           <div className="min-w-0 flex-1">
             <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
@@ -760,6 +762,82 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
           <div ref={messagesEndRef} />
         </div>
 
+        <div className="px-4 py-3 border-t border-border bg-white flex-shrink-0">
+          <div className="flex gap-2">
+            <input type="text" value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && send()}
+              placeholder="Ask anything..." disabled={loading}
+              className="flex-1 text-sm border border-border rounded-lg px-3 py-2 bg-paper focus:outline-none focus:border-accent disabled:opacity-50" />
+            <button onClick={() => send()} disabled={loading || !input.trim()}
+              className="bg-accent text-white text-sm px-3 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">↑</button>
+          </div>
+          {messages.length > 0 && (
+            <p className="text-xs text-muted font-mono mt-2 text-center">
+              {messages.length} messages · saved to client profile
+            </p>
+          )}
+        </div>
+      </div>
+      {/* Mobile: bottom sheet — covers bottom 75%, top 25% shows page underneath */}
+      <div className="flex md:hidden fixed left-0 right-0 bottom-0 top-[25%] bg-white border-t border-border shadow-2xl z-50 flex-col rounded-t-2xl">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-white flex-shrink-0 rounded-t-2xl">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
+            <p className="text-sm font-medium text-ink truncate">{title}</p>
+          </div>
+          <div className="flex items-center gap-1 ml-3">
+            <button onClick={onMinimize} title="Minimize"
+              className="text-muted hover:text-ink transition-colors text-base leading-none px-1.5 py-0.5 hover:bg-surface rounded">
+              −
+            </button>
+            <button onClick={onClose} title="Close"
+              className="text-muted hover:text-ink transition-colors text-base leading-none px-1.5 py-0.5 hover:bg-surface rounded">
+              ×
+            </button>
+          </div>
+        </div>
+        {context && (
+          <div className="px-4 py-2 bg-surface border-b border-border flex-shrink-0">
+            <p className="text-xs text-muted font-mono truncate">{context}</p>
+          </div>
+        )}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {messages.length === 0 && (!quickPrompts || quickPrompts.length === 0) && (
+            <div className="text-center py-8">
+              <p className="text-sm text-muted font-mono">Ask anything about {title}</p>
+            </div>
+          )}
+          {messages.length === 0 && quickPrompts && quickPrompts.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-mono text-muted uppercase tracking-wider mb-3">Try asking</p>
+              {quickPrompts.map(q => (
+                <button key={q} onClick={() => send(q)} disabled={loading}
+                  className="w-full text-left text-sm text-ink bg-surface hover:bg-blue-50 hover:text-accent border border-border rounded-lg px-3 py-2.5 transition-colors disabled:opacity-50">
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
+              <div className={'text-sm px-3 py-2.5 rounded-xl max-w-[90%] leading-relaxed ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-surface text-ink border border-border')}>
+                {m.role === 'user'
+                  ? m.content
+                  : <div className="chat-response prose prose-sm max-w-none"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                }
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-surface border border-border px-3 py-2.5 rounded-xl flex gap-1">
+                <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
+        </div>
         <div className="px-4 py-3 border-t border-border bg-white flex-shrink-0">
           <div className="flex gap-2">
             <input type="text" value={input} onChange={e => setInput(e.target.value)}
