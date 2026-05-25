@@ -1,16 +1,19 @@
-// LORAMER_CONV_API_V1
+// LORAMER_CONV_API_V1 + LORAMER_CONV_SOFT_DELETE_V1
 // /api/conversations
 //
-// GET  ?clientId=X&surface=Y&scope=Z&limit=N
-//   Returns messages for a specific surface+scope, oldest first.
-//   Defaults: limit=50, no scope filter unless provided.
+// GET  ?clientId=X&surface=Y&scope=Z&limit=N&includeHidden=true
+//   Returns messages oldest first. By default hidden rows (Clear-button rows)
+//   are filtered out — UI shouldn't see them. The prompt builder passes
+//   includeHidden=true to access them for Claude's memory.
 //
 // POST { clientId, surface, scope, role, content }
-//   Appends a single message. Server stamps user_email from session and created_at.
+//   Appends a single message.
 //
 // DELETE ?clientId=X&surface=Y&scope=Z
-//   Deletes all messages for that client+surface+scope. Used by Clear button.
-//   surface required. scope optional (if omitted, clears all scopes for the surface).
+//   SOFT DELETE — sets hidden_at = NOW() on matching rows. Rows stay in the
+//   table; UI stops showing them but Claude still remembers them for the
+//   intelligence layer. Matches LoraMer's brand promise that memory accumulates
+//   and is never silently lost.
 //
 // Auth: requires session. All reads/writes scoped to session.user.email.
 
@@ -29,6 +32,7 @@ export async function GET(request: Request) {
   const clientId = searchParams.get('clientId')
   const surface = searchParams.get('surface')
   const scope = searchParams.get('scope')
+  const includeHidden = searchParams.get('includeHidden') === 'true'
   const limitParam = searchParams.get('limit')
   const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 500) : 50
 
@@ -38,7 +42,7 @@ export async function GET(request: Request) {
 
   let query = supabaseAdmin
     .from('client_conversations')
-    .select('id, surface, scope, role, content, created_at')
+    .select('id, surface, scope, role, content, created_at, hidden_at')
     .eq('client_id', clientId)
     .eq('user_email', session.user.email)
     .order('created_at', { ascending: true })
@@ -46,6 +50,7 @@ export async function GET(request: Request) {
 
   if (surface) query = query.eq('surface', surface)
   if (scope) query = query.eq('scope', scope)
+  if (!includeHidden) query = query.is('hidden_at', null)
 
   const { data, error } = await query
 
@@ -99,6 +104,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  // LORAMER_CONV_SOFT_DELETE_V1
+  // SOFT DELETE — sets hidden_at instead of removing rows. Memory is preserved
+  // for Claude's intelligence layer; only the UI stops showing it.
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -115,17 +123,18 @@ export async function DELETE(request: Request) {
 
   let query = supabaseAdmin
     .from('client_conversations')
-    .delete()
+    .update({ hidden_at: new Date().toISOString() })
     .eq('client_id', clientId)
     .eq('user_email', session.user.email)
     .eq('surface', surface)
+    .is('hidden_at', null)
 
   if (scope) query = query.eq('scope', scope)
 
   const { error } = await query
 
   if (error) {
-    console.error('[conversations] DELETE error:', error)
+    console.error('[conversations] DELETE (soft) error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
