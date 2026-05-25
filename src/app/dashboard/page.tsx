@@ -1434,12 +1434,22 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[], quickPrompts?: string[]) => void
 }) {
   // LORAMER_PANEL_ONLY_V1 - thin wrapper, opens RightPanel with card context and quick prompts
+  // LORAMER_CARD_PROMPTS_V2
+  // NOTE: when adding a new platform (Amazon, TikTok, etc.) that introduces new
+  // dashboard card titles, add the card-specific quick prompts here. Without an
+  // entry, the card falls through to the generic prompts at the bottom.
   const quickPromptsByCard: Record<string, string[]> = {
+    // Google / Meta ad platform cards
     'Campaign Performance': ['Which campaign should get more budget?', "What's underperforming here?", 'Any quick wins?'],
     'Conversion Leaders': ['Why is the top campaign converting so well?', 'How do I replicate this?', 'Is my CPA healthy?'],
     'Budget Utilization': ['Am I overspending anywhere?', 'Should I adjust any budgets?', 'Where should I reallocate?'],
     'Top Keywords': ['Any wasted spend here?', 'Which keywords should I pause?', "What's my best keyword?"],
     'Top Keywords by Spend': ['Any wasted spend here?', 'Which keywords should I pause?', "What's my best keyword?"],
+    // Shopify / WooCommerce e-commerce cards (shared titles render on both tabs)
+    'Top Products': ['Which products are driving the most growth?', "What's underperforming and why?", 'Any product mix risks?'],
+    'Top Products by Revenue': ['Which products are driving the most growth?', "What's underperforming and why?", 'Any product mix risks?'],
+    'Customer Mix': ['Is my new vs returning ratio healthy?', 'How do I attract more new customers?', 'What does my retention say about my brand?'],
+    'Revenue Summary': ['Is my AOV trending in the right direction?', 'How does revenue per customer compare to industry?', 'Where is growth coming from?'],
   }
   const quickPrompts = quickPromptsByCard[cardTitle] || ['Tell me more about this', 'Any recommendations?', 'What should I do next?']
   const cardContext = 'Overview page — ' + cardTitle + ' card:\n' + cardData
