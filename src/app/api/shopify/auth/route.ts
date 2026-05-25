@@ -1,3 +1,24 @@
+// /api/shopify/auth
+//
+// NOTE TO SHOPIFY APP REVIEWERS:
+// This route is NOT the Shopify App Store install path. The install path is
+// /api/shopify/install (configured as application_url in shopify.app.toml),
+// which is initiated from a Shopify-owned surface and does not ask the
+// merchant to type a shop domain.
+//
+// This /api/shopify/auth route is a POST-INSTALL CONNECTION MANAGEMENT flow
+// used by already-authenticated LoraMer users to connect ADDITIONAL Shopify
+// stores to ADDITIONAL LoraMer clients within their account. A LoraMer user
+// typically manages multiple businesses (e.g. an agency operator with many
+// client stores) and uses this flow to attach each store to its own client
+// record from within the app. The merchant typing the shop domain here is
+// their own merchant (themselves), not an unrelated user — they already
+// have an authenticated LoraMer session and are organizing connections.
+//
+// Per Shopify policy 2.3.1, the install path must not ask for a manual shop
+// domain. This route is not an install path; it's a connection management
+// path entered from /clients only after the user is signed into LoraMer.
+
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'

@@ -675,7 +675,7 @@ function ClientsContent() {
         </div>
       )}
 
-      {/* Shopify connect modal */}
+      {/* Shopify connect modal — POST-INSTALL connection management for signed-in LoraMer users to add additional Shopify stores to their clients. NOT an install path. The install path is /api/shopify/install (Shopify-initiated). */}
       {shopifyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl">
