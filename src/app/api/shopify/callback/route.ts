@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import crypto from 'crypto'
+import { signInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -30,13 +31,12 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/clients?shopify_error=invalid_hmac', request.url))
   }
 
-  // Decode state
-  let clientId: string
-  let userEmail: string
+  // Decode state. We support TWO shapes:
+  //   A) Existing in-app flow:  { clientId, userEmail }
+  //   B) Shopify-initiated:     { shopify_initiated: true, shop, nonce }
+  let decodedState: any
   try {
-    const decoded = JSON.parse(Buffer.from(state, 'base64').toString())
-    clientId = decoded.clientId
-    userEmail = decoded.userEmail
+    decodedState = JSON.parse(Buffer.from(state, 'base64').toString())
   } catch {
     return NextResponse.redirect(new URL('/clients?shopify_error=invalid_state', request.url))
   }
@@ -60,55 +60,156 @@ export async function GET(request: Request) {
   const tokenData = await tokenRes.json()
   if (!tokenData.access_token) {
     console.error('Shopify token exchange failed:', tokenData)
-    return NextResponse.redirect(new URL('/clients?shopify_error=token_exchange_failed', request.url))
+    const errorTarget = decodedState?.shopify_initiated ? '/?install_error=token_exchange_failed' : '/clients?shopify_error=token_exchange_failed'
+    return NextResponse.redirect(new URL(errorTarget, request.url))
   }
 
   // Compute absolute expiration timestamps
-  // expires_in = 3600 (1 hour), refresh_token_expires_in = 7776000 (90 days)
   const now = Date.now()
   const expiresAt = new Date(now + (tokenData.expires_in || 3600) * 1000).toISOString()
   const refreshTokenExpiresAt = new Date(
     now + (tokenData.refresh_token_expires_in || 7776000) * 1000
   ).toISOString()
 
-  // Get shop details for account name
+  // Get shop details for account name (used by both branches)
   const shopRes = await fetch(`https://${shop}/admin/api/2024-01/shop.json`, {
     headers: { 'X-Shopify-Access-Token': tokenData.access_token },
   })
   const shopData = await shopRes.json()
   const shopName = shopData.shop?.name || shop
 
-  // Store connection in platform_connections
-  await supabaseAdmin
-    .from('platform_connections')
-    .delete()
-    .eq('client_id', clientId)
-    .eq('platform', 'shopify')
+  // ─── BRANCH A: existing in-app flow ──────────────────────────────────────
+  // Triggered by the "+ Shopify" modal in /clients. State has {clientId, userEmail}.
+  // Behavior preserved exactly as before.
+  if (decodedState?.clientId && decodedState?.userEmail) {
+    const clientId: string = decodedState.clientId
+    const userEmail: string = decodedState.userEmail
 
-  await supabaseAdmin.from('platform_connections').insert({
-    client_id: clientId,
-    user_email: userEmail,
-    platform: 'shopify',
-    account_id: shop,
-    account_name: shopName,
-  })
+    await supabaseAdmin
+      .from('platform_connections')
+      .delete()
+      .eq('client_id', clientId)
+      .eq('platform', 'shopify')
 
-  // Store tokens (access + refresh + expirations) in shopify_tokens table
-  await supabaseAdmin
-    .from('shopify_tokens')
-    .upsert(
-      {
-        user_email: userEmail,
-        shop_domain: shop,
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || null,
-        expires_at: expiresAt,
-        refresh_token_expires_at: refreshTokenExpiresAt,
-        scope: tokenData.scope,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_email,shop_domain' }
-    )
+    await supabaseAdmin.from('platform_connections').insert({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shop,
+      account_name: shopName,
+    })
 
-  return NextResponse.redirect(new URL('/clients?shopify_connected=true', request.url))
+    await supabaseAdmin
+      .from('shopify_tokens')
+      .upsert(
+        {
+          user_email: userEmail,
+          shop_domain: shop,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || null,
+          expires_at: expiresAt,
+          refresh_token_expires_at: refreshTokenExpiresAt,
+          scope: tokenData.scope,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_email,shop_domain' }
+      )
+
+    return NextResponse.redirect(new URL('/clients?shopify_connected=true', request.url))
+  }
+
+  // ─── BRANCH B: Shopify-initiated install (LORAMER_SHOPIFY_INSTALL_V1) ────
+  // Triggered by clicking "Install" in the Shopify App Store. State has
+  // {shopify_initiated: true, shop, nonce}. We auto-create the user + client
+  // if they don't exist yet, attach tokens, then sign a JWT and redirect to
+  // /install/complete which signs the user in client-side.
+  if (decodedState?.shopify_initiated === true) {
+    // Derive a stable userEmail from the shop handle.
+    // shop = "foo-bar.myshopify.com" → handle = "foo-bar"
+    const shopHandle = shop.replace(/\.myshopify\.com$/i, '').toLowerCase()
+    const userEmail = `shopify+${shopHandle}@loramer.app`
+
+    // Find-or-create the install mapping. If this shop has been installed
+    // before, we reuse the existing user/client; only the tokens get refreshed.
+    let clientId: string
+    const { data: existingInstall } = await supabaseAdmin
+      .from('shopify_installs')
+      .select('user_email, client_id')
+      .eq('shop_domain', shop)
+      .maybeSingle()
+
+    if (existingInstall?.client_id) {
+      clientId = existingInstall.client_id
+    } else {
+      // Brand new install — create a client row first
+      const { data: newClient, error: clientErr } = await supabaseAdmin
+        .from('clients')
+        .insert({ name: shopName, user_email: userEmail })
+        .select('id')
+        .single()
+
+      if (clientErr || !newClient?.id) {
+        console.error('Failed to create client for Shopify install:', clientErr)
+        return NextResponse.redirect(new URL('/?install_error=client_create_failed', request.url))
+      }
+
+      clientId = newClient.id
+
+      // Record the install mapping so future reinstalls are idempotent
+      const { error: installErr } = await supabaseAdmin
+        .from('shopify_installs')
+        .insert({
+          shop_domain: shop,
+          user_email: userEmail,
+          client_id: clientId,
+        })
+
+      if (installErr) {
+        console.error('Failed to record shopify_installs row:', installErr)
+        // Continue anyway — the install can still succeed even if mapping write failed
+      }
+    }
+
+    // Upsert platform_connections (replace any prior Shopify connection for this client)
+    await supabaseAdmin
+      .from('platform_connections')
+      .delete()
+      .eq('client_id', clientId)
+      .eq('platform', 'shopify')
+
+    await supabaseAdmin.from('platform_connections').insert({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shop,
+      account_name: shopName,
+    })
+
+    // Upsert tokens
+    await supabaseAdmin
+      .from('shopify_tokens')
+      .upsert(
+        {
+          user_email: userEmail,
+          shop_domain: shop,
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || null,
+          expires_at: expiresAt,
+          refresh_token_expires_at: refreshTokenExpiresAt,
+          scope: tokenData.scope,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_email,shop_domain' }
+      )
+
+    // Sign a short-lived install token and redirect to /install/complete,
+    // which calls signIn('shopify-install', { token }) to create the session.
+    const installToken = signInstallToken(userEmail)
+    const completeUrl = new URL('/install/complete', request.url)
+    completeUrl.searchParams.set('token', installToken)
+    return NextResponse.redirect(completeUrl)
+  }
+
+  // Unknown state shape — fail safe
+  return NextResponse.redirect(new URL('/clients?shopify_error=invalid_state', request.url))
 }
