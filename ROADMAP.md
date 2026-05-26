@@ -94,6 +94,23 @@ Once approved, ship the paid tiers within 30 days.
 
 ## 🧠 PROJECT 3 — Intelligence Layer Depth
 
+**Status (May 26, 2026):** Design doc filed at `docs/PROJECT_3_DESIGN.md`. Execution started.
+
+**North star:** answer "what combination of campaign × ad group × keyword × audience × asset × geo × demo drove this conversion?" — the question every operator asks that no platform answers cleanly.
+
+**Tier-aware caching (locked decision):**
+- Free: 4-hour cache minimum (Shopify-only tier; users upgrade for fresher data)
+- Solo: 1-hour cache
+- Agency: 15-min hot data, 1-hour cold data
+- Scale: 5-min hot data, 15-min cold data
+- Enterprise: tunable per contract
+
+Architecture passes tier into cache layer; same code path, different TTL values. While Project 2 (tiered pricing) hasn't shipped, the architecture defaults to current "15 min hot, 1 hour cold" — when Project 2 ships, dynamic tier lookup slots in cleanly.
+
+**Cross-link:** future user-customizable UI tables (pick what's always-visible vs. ask-Claude-for-it at higher tiers) tracked in **Project 18 — Customizable Dashboards**. Not in scope for Project 3 itself.
+
+---
+
 The actual moat. Everything that makes Claude's answers better and harder to copy.
 
 ### Already shipping
