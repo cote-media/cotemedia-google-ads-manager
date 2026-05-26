@@ -533,9 +533,11 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
         <div className="space-y-4">
           {grouped.map(group => (
             <div key={group.key}>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+              {/* LORAMER_MEMORY_CATEGORY_BLURB_V1 */}
+              <p className="text-xs font-medium uppercase tracking-wide text-muted">
                 {group.label} <span className="text-muted/60">({group.items.length})</span>
               </p>
+              <p className="text-xs text-muted/70 mb-1.5">{group.blurb}</p>
               <div className="space-y-1.5">
                 {group.items.map(fact => (
                   <div

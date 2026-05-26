@@ -352,6 +352,8 @@ Incremental fixes:
 - [ ] Sort options: pinned first → most recently referenced → most recent → oldest
 - [ ] Quick "pin all" / "archive all" bulk actions on category headers
 - [ ] Visual indicator when a fact was last referenced by Claude (so users see what's active vs. dormant)
+- [x] Inline blurb under each group header explaining what the category means (LORAMER_MEMORY_CATEGORY_BLURB_V1 — shipped May 26)
+- [ ] **Glossary/help popover** for memory categories (LORAMER_ROADMAP_MEMORY_GLOSSARY_V1) — "?" icon next to section title opens a popover with full definitions and examples for Directive / Fact / Context / Preference / Observation. Goes beyond the one-line blurbs to give new users a real reference. Connects to onboarding/tour system when one exists.
 
 Bigger evolution (likely Phase 2.5+):
 - [ ] **Merge similar facts** — when user adds "Ignore ROAS" and Claude observes "Don't focus on ROAS", offer to consolidate
