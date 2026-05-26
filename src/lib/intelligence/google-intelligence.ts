@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -294,6 +294,37 @@ export async function fetchGoogleIntelligence(
     value: Number(row.metrics?.conversions_value || 0),
   }))
 
+  // ── Audience Segments (LORAMER_PROJECT_3_STEP_2C_V1) ───────────────────────
+  // audience_view returns per-(audience, campaign, ad_group) performance.
+  // For accounts without audience targeting (pure search-keyword) returns [].
+  // For PMax / Display / Discovery accounts this is gold — reveals which
+  // audience signals (in-market, affinity, lookalike, custom) actually drive
+  // conversions vs. just spending.
+  const audienceRows = await customer.query(`
+    SELECT campaign.id, campaign.name,
+    ad_group.id, ad_group.name,
+    audience.id, audience.name, audience.description,
+    metrics.impressions, metrics.clicks, metrics.cost_micros,
+    metrics.conversions, metrics.conversions_value
+    FROM audience_view
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    AND metrics.cost_micros > 0
+    ORDER BY metrics.cost_micros DESC
+    LIMIT 200
+  `).catch(() => [])
+
+  const audiences: IntelligenceAudience[] = audienceRows.map((row: any) => ({
+    id: String(row.audience?.id || ''),
+    name: String(row.audience?.name || '(unnamed audience)'),
+    description: row.audience?.description ? String(row.audience.description) : undefined,
+    campaignId: String(row.campaign?.id || ''),
+    campaignName: String(row.campaign?.name || ''),
+    adGroupId: row.ad_group?.id ? String(row.ad_group.id) : undefined,
+    adGroupName: row.ad_group?.name ? String(row.ad_group.name) : undefined,
+    metrics: buildMetrics(row),
+  }))
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -327,6 +358,7 @@ export async function fetchGoogleIntelligence(
     searchTerms,  // LORAMER_PROJECT_3_STEP_2A_V1
     conversionActions,
     conversionsByCampaign,  // LORAMER_PROJECT_3_STEP_2B_V1
+    audiences,              // LORAMER_PROJECT_3_STEP_2C_V1
     totals,
   }
 }

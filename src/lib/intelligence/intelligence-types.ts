@@ -135,6 +135,22 @@ export interface IntelligenceConversionByCampaign {
   value: number
 }
 
+// LORAMER_PROJECT_3_STEP_2C_V1
+// Audience segment performance — which audience signals (in-market, affinity,
+// lookalikes, custom audiences, retargeting lists) are driving traffic and
+// conversions for each campaign. Critical for PMax analysis where audience
+// signals do a lot of the targeting work.
+export interface IntelligenceAudience {
+  id: string
+  name: string
+  description?: string
+  campaignId: string
+  campaignName: string
+  adGroupId?: string
+  adGroupName?: string
+  metrics: IntelligenceMetrics
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -167,6 +183,8 @@ export interface PlatformIntelligence {
   conversionActions?: IntelligenceConversionAction[]
   // LORAMER_PROJECT_3_STEP_2B_V1
   conversionsByCampaign?: IntelligenceConversionByCampaign[]
+  // LORAMER_PROJECT_3_STEP_2C_V1
+  audiences?: IntelligenceAudience[]
   totals: IntelligenceMetrics
 }
 

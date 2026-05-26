@@ -76,7 +76,7 @@ const DEFAULT_LIMITS: DataLimits = {
   topProducts: 5,
   // LORAMER_PROJECT_3_STEP_2A_V1 — search terms enabled
   searchTerms: 10,
-  audiences: 0,        // Step 2 (later sub-steps) fills this
+  audiences: 10,       // LORAMER_PROJECT_3_STEP_2C_V1
   assetGroups: 0,      // Step 2f fills this
   assetsPerGroup: 0,   // Step 2f fills this
   demographics: 0,     // Step 2d fills this
@@ -112,7 +112,7 @@ export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
       return { ...DEFAULT_LIMITS, campaigns: 15, adGroups: 20, ads: 20, keywords: 20 }
     case 'campaigns':
       // Campaigns tab — show ALL campaigns, fewer of the others
-      return { ...DEFAULT_LIMITS, campaigns: 50, adGroups: 10, ads: 10, keywords: 10, searchTerms: 15 }
+      return { ...DEFAULT_LIMITS, campaigns: 50, adGroups: 10, ads: 10, keywords: 10, searchTerms: 15, audiences: 20 }
     case 'adgroups':
       // Drilled into ad groups for one campaign — emphasize ad groups + ads
       return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 30, ads: 20, keywords: 10, searchTerms: 10 }
@@ -121,7 +121,7 @@ export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
       return { ...DEFAULT_LIMITS, campaigns: 3, adGroups: 5, ads: 30, keywords: 5, searchTerms: 5 }
     case 'keywords':
       // Keywords tab — full picture pairs keywords with search terms that triggered
-      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 10, ads: 5, keywords: 50, searchTerms: 30 }
+      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 10, ads: 5, keywords: 50, searchTerms: 30, audiences: 15 }
     case 'shopify':
     case 'woocommerce':
       return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 5, searchTerms: 5, topProducts: 20 }
@@ -129,7 +129,7 @@ export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
       // Step 2 will populate assetGroups + assetsPerGroup limits
       return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 5, ads: 10, keywords: 0 }
     case 'audience':
-      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 10, ads: 5, keywords: 5 }
+      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 10, ads: 5, keywords: 5, audiences: 30 }
     case 'search-terms':
       // Dedicated search terms focus — the deep dive
       return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 30, searchTerms: 50 }
