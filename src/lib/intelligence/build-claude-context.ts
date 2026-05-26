@@ -286,6 +286,17 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     })
   }
 
+  // LORAMER_PROJECT_3_STEP_2C_V1_RENDER — audience segment performance
+  if (platform.audiences && platform.audiences.length > 0 && limits.audiences > 0) {
+    lines.push(`\nAudience Segments (${platform.audiences.length} total, showing top ${Math.min(platform.audiences.length, limits.audiences)} by spend):`)
+    platform.audiences.slice(0, limits.audiences).forEach(a => {
+      const desc = a.description ? ` — ${a.description}` : ''
+      const adGroupPart = a.adGroupName ? ` → ${a.adGroupName}` : ''
+      lines.push(`  • ${a.name}${desc} — In: ${a.campaignName}${adGroupPart} — ${formatMetrics(a.metrics)}`)
+    })
+    lines.push(`  (Audiences here include in-market segments, affinity audiences, custom audiences, lookalikes, and remarketing lists. For PMax campaigns these are the audience SIGNALS the campaign uses — Google decides how to combine them.)`)
+  }
+
   return lines.join('\n')
 }
 
