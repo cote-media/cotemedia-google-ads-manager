@@ -219,6 +219,17 @@ const MEMORY_CATEGORIES: Array<{
   { key: 'observation',label: 'Observations', blurb: 'Patterns Claude has noted. Confirm to promote to a Fact.' },
 ]
 
+// LORAMER_MEMORY_BOOTSTRAP_V1
+type BootstrapCandidate = {
+  content: string
+  category: 'directive' | 'fact' | 'context' | 'preference'
+  source_description: string
+  confidence: number
+  // UI-only fields:
+  selected: boolean
+  edited: string
+}
+
 function ClientMemorySection({ clientId }: { clientId: string }) {
   const [memory, setMemory] = useState<MemoryFact[]>([])
   const [loading, setLoading] = useState(true)
@@ -228,7 +239,11 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
-
+  // LORAMER_MEMORY_BOOTSTRAP_V1
+  const [candidates, setCandidates] = useState<BootstrapCandidate[]>([])
+  const [showReview, setShowReview] = useState(false)
+  const [bootstrapDismissed, setBootstrapDismissed] = useState(false)
+  const [bootstrapping, setBootstrapping] = useState(false)
   async function reload() {
     setLoading(true)
     try {
@@ -237,8 +252,45 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
       setMemory(d.memory || [])
     } catch {} finally { setLoading(false) }
   }
-
+  // LORAMER_MEMORY_BOOTSTRAP_V1
+  async function loadCandidates() {
+    try {
+      const r = await fetch('/api/memory/bootstrap?clientId=' + clientId)
+      const d = await r.json()
+      const fetched: any[] = d.candidates || []
+      setCandidates(fetched.map(c => ({
+        content: c.content,
+        category: c.category,
+        source_description: c.source_description,
+        confidence: c.confidence,
+        selected: true,
+        edited: c.content,
+      })))
+    } catch {}
+  }
   useEffect(() => { if (clientId) reload() }, [clientId])
+  useEffect(() => { if (clientId) loadCandidates() }, [clientId])
+  async function importSelected() {
+    const toImport = candidates
+      .filter(c => c.selected && c.edited.trim().length > 0)
+      .map(c => ({ content: c.edited.trim(), category: c.category, confidence: c.confidence }))
+    if (toImport.length === 0) {
+      setShowReview(false)
+      setCandidates([])
+      return
+    }
+    setBootstrapping(true)
+    try {
+      await fetch('/api/memory/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, candidates: toImport }),
+      })
+      setShowReview(false)
+      setCandidates([])
+      await reload()
+    } catch {} finally { setBootstrapping(false) }
+  }
 
   async function addFact() {
     const content = newContent.trim()
@@ -311,8 +363,118 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
     items: memory.filter(m => m.category === c.key),
   })).filter(g => g.items.length > 0)
 
+  // LORAMER_MEMORY_BOOTSTRAP_V1
+  const hasCandidates = candidates.length > 0 && !bootstrapDismissed
+
   return (
     <div className="border border-border rounded-xl p-4 bg-white mt-4">
+      {/* LORAMER_MEMORY_BOOTSTRAP_V1 - banner shown when candidates from notes/chats are available */}
+      {hasCandidates && !showReview && (
+        <div className="flex items-start gap-3 border border-accent/30 bg-accent/5 rounded-lg p-3 mb-3">
+          <span className="text-base shrink-0">💡</span>
+          <div className="flex-1">
+            <p className="text-sm text-ink">
+              Found <span className="font-medium">{candidates.length}</span> potential {candidates.length === 1 ? 'fact' : 'facts'} in this client's existing context.
+            </p>
+            <p className="text-xs text-muted mt-0.5">Review and add to memory? Existing notes stay intact either way.</p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => setShowReview(true)}
+              className="text-xs font-mono bg-accent text-white px-3 py-1 rounded-lg hover:opacity-90"
+            >
+              Review
+            </button>
+            <button
+              onClick={() => setBootstrapDismissed(true)}
+              className="text-xs font-mono text-muted hover:text-ink px-2 py-1"
+              title="Dismiss"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LORAMER_MEMORY_BOOTSTRAP_V1 - review modal (inline expansion) */}
+      {showReview && (
+        <div className="border border-accent/40 bg-accent/5 rounded-lg p-3 mb-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink">Review proposed memory facts</p>
+              <p className="text-xs text-muted mt-0.5">Uncheck anything you don't want, edit text inline, then save.</p>
+            </div>
+            <button
+              onClick={() => setShowReview(false)}
+              className="text-xs font-mono text-muted hover:text-ink"
+            >
+              × Close
+            </button>
+          </div>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {candidates.map((c, i) => (
+              <div key={i} className="flex items-start gap-2 bg-white border border-border rounded-lg px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={c.selected}
+                  onChange={() => setCandidates(prev => prev.map((p, j) => j === i ? { ...p, selected: !p.selected } : p))}
+                  className="mt-1 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <textarea
+                    value={c.edited}
+                    onChange={e => setCandidates(prev => prev.map((p, j) => j === i ? { ...p, edited: e.target.value } : p))}
+                    className="w-full text-sm font-sans border border-border rounded px-2 py-1 min-h-[40px]"
+                    disabled={!c.selected}
+                  />
+                  <div className="flex items-center gap-2 mt-1">
+                    <select
+                      value={c.category}
+                      onChange={e => setCandidates(prev => prev.map((p, j) => j === i ? { ...p, category: e.target.value as BootstrapCandidate['category'] } : p))}
+                      className="text-xs font-mono border border-border rounded px-1.5 py-0.5"
+                      disabled={!c.selected}
+                    >
+                      <option value="directive">Directive</option>
+                      <option value="fact">Fact</option>
+                      <option value="context">Context</option>
+                      <option value="preference">Preference</option>
+                    </select>
+                    <span className="text-xs text-muted/80 font-mono">{c.source_description}</span>
+                    {c.confidence < 1.0 && (
+                      <span className="text-xs text-muted/60 font-mono">· confidence {Math.round(c.confidence * 100)}%</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCandidates(prev => prev.map(p => ({ ...p, selected: true })))}
+                className="text-xs font-mono text-muted hover:text-ink"
+              >
+                Select all
+              </button>
+              <span className="text-xs text-muted/40">·</span>
+              <button
+                onClick={() => setCandidates(prev => prev.map(p => ({ ...p, selected: false })))}
+                className="text-xs font-mono text-muted hover:text-ink"
+              >
+                Deselect all
+              </button>
+            </div>
+            <button
+              onClick={importSelected}
+              disabled={bootstrapping || candidates.filter(c => c.selected).length === 0}
+              className="text-xs font-mono bg-accent text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+            >
+              {bootstrapping ? 'Importing...' : `Add ${candidates.filter(c => c.selected).length} to memory`}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-sm font-medium text-ink">What Claude knows about this client</p>
