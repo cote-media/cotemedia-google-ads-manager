@@ -79,7 +79,7 @@ const DEFAULT_LIMITS: DataLimits = {
   audiences: 10,       // LORAMER_PROJECT_3_STEP_2C_V1
   assetGroups: 0,      // Step 2f fills this
   assetsPerGroup: 0,   // Step 2f fills this
-  demographics: 0,     // Step 2d fills this
+  demographics: 15,    // LORAMER_PROJECT_3_STEP_2D_V1
   geographic: 0,       // Step 3 fills this
 }
 
@@ -295,6 +295,31 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       lines.push(`  • ${a.name}${desc} — In: ${a.campaignName}${adGroupPart} — ${formatMetrics(a.metrics)}`)
     })
     lines.push(`  (Audiences here include in-market segments, affinity audiences, custom audiences, lookalikes, and remarketing lists. For PMax campaigns these are the audience SIGNALS the campaign uses — Google decides how to combine them.)`)
+  }
+
+  // LORAMER_PROJECT_3_STEP_2D_V1 — demographic breakdown (age + gender)
+  if (platform.demographics && platform.demographics.length > 0 && limits.demographics > 0) {
+    const ageDemos = platform.demographics.filter(d => d.dimension === 'age')
+    const genderDemos = platform.demographics.filter(d => d.dimension === 'gender')
+    const ageSlice = ageDemos.slice(0, Math.ceil(limits.demographics / 2))
+    const genderSlice = genderDemos.slice(0, Math.floor(limits.demographics / 2))
+    if (ageSlice.length > 0 || genderSlice.length > 0) {
+      lines.push(`\nDemographics (age + gender breakdowns per campaign):`)
+      if (ageSlice.length > 0) {
+        lines.push(`  Age (${ageDemos.length} total, showing top ${ageSlice.length} by spend):`)
+        ageSlice.forEach(d => {
+          const adGroupPart = d.adGroupName ? ` → ${d.adGroupName}` : ''
+          lines.push(`    • ${d.value} — ${d.campaignName}${adGroupPart} — ${formatMetrics(d.metrics)}`)
+        })
+      }
+      if (genderSlice.length > 0) {
+        lines.push(`  Gender (${genderDemos.length} total, showing top ${genderSlice.length} by spend):`)
+        genderSlice.forEach(d => {
+          const adGroupPart = d.adGroupName ? ` → ${d.adGroupName}` : ''
+          lines.push(`    • ${d.value} — ${d.campaignName}${adGroupPart} — ${formatMetrics(d.metrics)}`)
+        })
+      }
+    }
   }
 
   return lines.join('\n')

@@ -151,6 +151,20 @@ export interface IntelligenceAudience {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_PROJECT_3_STEP_2D_V1
+// Demographic performance — age buckets and gender splits per campaign.
+// Two GAQL views (age_range_view, gender_view) flatten into one type
+// distinguished by `dimension`.
+export interface IntelligenceDemographic {
+  dimension: 'age' | 'gender'
+  value: string                    // '25-34', '18-24', 'MALE', 'FEMALE', 'UNDETERMINED', etc.
+  campaignId: string
+  campaignName: string
+  adGroupId?: string
+  adGroupName?: string
+  metrics: IntelligenceMetrics
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -185,6 +199,8 @@ export interface PlatformIntelligence {
   conversionsByCampaign?: IntelligenceConversionByCampaign[]
   // LORAMER_PROJECT_3_STEP_2C_V1
   audiences?: IntelligenceAudience[]
+  // LORAMER_PROJECT_3_STEP_2D_V1
+  demographics?: IntelligenceDemographic[]
   totals: IntelligenceMetrics
 }
 

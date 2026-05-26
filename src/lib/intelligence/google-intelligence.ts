@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -325,6 +325,83 @@ export async function fetchGoogleIntelligence(
     metrics: buildMetrics(row),
   }))
 
+  // ── Demographics (LORAMER_PROJECT_3_STEP_2D_V1) ────────────────────────────
+  // Two GAQL views — age_range_view and gender_view — give us per-campaign
+  // demographic breakdowns. Both queried independently, results flattened
+  // into one demographics array distinguished by `dimension`.
+  const [ageRows, genderRows] = await Promise.all([
+    customer.query(`
+      SELECT campaign.id, campaign.name,
+      ad_group.id, ad_group.name,
+      ad_group_criterion.age_range.type,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM age_range_view
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+      AND metrics.cost_micros > 0
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 100
+    `).catch(() => []),
+    customer.query(`
+      SELECT campaign.id, campaign.name,
+      ad_group.id, ad_group.name,
+      ad_group_criterion.gender.type,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM gender_view
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+      AND metrics.cost_micros > 0
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 100
+    `).catch(() => []),
+  ])
+
+  // Normalize Google's enum-style age and gender labels for readability
+  const AGE_LABEL_MAP: Record<string, string> = {
+    AGE_RANGE_18_24: '18-24',
+    AGE_RANGE_25_34: '25-34',
+    AGE_RANGE_35_44: '35-44',
+    AGE_RANGE_45_54: '45-54',
+    AGE_RANGE_55_64: '55-64',
+    AGE_RANGE_65_UP: '65+',
+    AGE_RANGE_UNDETERMINED: 'Unknown age',
+  }
+  const GENDER_LABEL_MAP: Record<string, string> = {
+    MALE: 'Male',
+    FEMALE: 'Female',
+    UNDETERMINED: 'Unknown gender',
+  }
+
+  const ageDemos: IntelligenceDemographic[] = ageRows.map((row: any) => {
+    const raw = String(row.ad_group_criterion?.age_range?.type || '')
+    return {
+      dimension: 'age' as const,
+      value: AGE_LABEL_MAP[raw] || raw,
+      campaignId: String(row.campaign?.id || ''),
+      campaignName: String(row.campaign?.name || ''),
+      adGroupId: row.ad_group?.id ? String(row.ad_group.id) : undefined,
+      adGroupName: row.ad_group?.name ? String(row.ad_group.name) : undefined,
+      metrics: buildMetrics(row),
+    }
+  })
+
+  const genderDemos: IntelligenceDemographic[] = genderRows.map((row: any) => {
+    const raw = String(row.ad_group_criterion?.gender?.type || '')
+    return {
+      dimension: 'gender' as const,
+      value: GENDER_LABEL_MAP[raw] || raw,
+      campaignId: String(row.campaign?.id || ''),
+      campaignName: String(row.campaign?.name || ''),
+      adGroupId: row.ad_group?.id ? String(row.ad_group.id) : undefined,
+      adGroupName: row.ad_group?.name ? String(row.ad_group.name) : undefined,
+      metrics: buildMetrics(row),
+    }
+  })
+
+  const demographics: IntelligenceDemographic[] = [...ageDemos, ...genderDemos]
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -359,6 +436,7 @@ export async function fetchGoogleIntelligence(
     conversionActions,
     conversionsByCampaign,  // LORAMER_PROJECT_3_STEP_2B_V1
     audiences,              // LORAMER_PROJECT_3_STEP_2C_V1
+    demographics,           // LORAMER_PROJECT_3_STEP_2D_V1
     totals,
   }
 }
