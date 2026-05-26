@@ -122,6 +122,19 @@ export interface IntelligenceConversionAction {
   count: number
 }
 
+// LORAMER_PROJECT_3_STEP_2B_V1
+// Per-campaign conversion breakdown. Flat list of (campaign, conversion_action)
+// pairs with conversion counts and values. Lets Claude attribute conversions
+// to specific campaigns instead of just reporting account-level totals.
+export interface IntelligenceConversionByCampaign {
+  campaignId: string
+  campaignName: string
+  conversionActionName: string
+  conversionActionCategory: string  // PURCHASE, LEAD, SIGNUP, etc.
+  count: number
+  value: number
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -152,6 +165,8 @@ export interface PlatformIntelligence {
   // LORAMER_PROJECT_3_STEP_2A_V1
   searchTerms?: IntelligenceSearchTerm[]     // Google only — search term report
   conversionActions?: IntelligenceConversionAction[]
+  // LORAMER_PROJECT_3_STEP_2B_V1
+  conversionsByCampaign?: IntelligenceConversionByCampaign[]
   totals: IntelligenceMetrics
 }
 

@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -269,6 +269,31 @@ export async function fetchGoogleIntelligence(
     count: Number(row.metrics?.conversions || 0),
   }))
 
+  // ── Conversions × Campaign (LORAMER_PROJECT_3_STEP_2B_V1) ──────────────────
+  // Per-campaign breakdown of which conversion actions fired where.
+  // segments.conversion_action gives one row per (campaign, conv_action) pair.
+  // Filters out rows with 0 conversions to keep the payload tight.
+  const convByCampaignRows = await customer.query(`
+    SELECT campaign.id, campaign.name,
+    segments.conversion_action_name, segments.conversion_action_category,
+    metrics.conversions, metrics.conversions_value
+    FROM campaign
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    AND metrics.conversions > 0
+    ORDER BY metrics.conversions DESC
+    LIMIT 200
+  `).catch(() => [])
+
+  const conversionsByCampaign: IntelligenceConversionByCampaign[] = convByCampaignRows.map((row: any) => ({
+    campaignId: String(row.campaign?.id || ''),
+    campaignName: String(row.campaign?.name || ''),
+    conversionActionName: String(row.segments?.conversion_action_name || ''),
+    conversionActionCategory: String(row.segments?.conversion_action_category || ''),
+    count: Number(row.metrics?.conversions || 0),
+    value: Number(row.metrics?.conversions_value || 0),
+  }))
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -301,6 +326,7 @@ export async function fetchGoogleIntelligence(
     keywords,
     searchTerms,  // LORAMER_PROJECT_3_STEP_2A_V1
     conversionActions,
+    conversionsByCampaign,  // LORAMER_PROJECT_3_STEP_2B_V1
     totals,
   }
 }

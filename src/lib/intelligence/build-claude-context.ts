@@ -277,6 +277,15 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     })
   }
 
+  // LORAMER_PROJECT_3_STEP_2B_V1 — per-campaign conversion attribution
+  if (platform.conversionsByCampaign && platform.conversionsByCampaign.length > 0) {
+    lines.push(`\nConversion Attribution (which campaign drove which conversion action — ${platform.conversionsByCampaign.length} (campaign × action) pairs):`)
+    platform.conversionsByCampaign.forEach(c => {
+      const valuePart = c.value > 0 ? ` ($${c.value.toFixed(2)})` : ''
+      lines.push(`  • ${c.campaignName} → ${c.conversionActionName} [${c.conversionActionCategory}]: ${c.count.toFixed(1)} conv${valuePart}`)
+    })
+  }
+
   return lines.join('\n')
 }
 
