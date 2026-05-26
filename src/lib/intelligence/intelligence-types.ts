@@ -100,6 +100,19 @@ export interface IntelligenceKeyword {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_PROJECT_3_STEP_2A_V1
+// Search Term Report: what actual user queries triggered ads.
+// Independent of keywords — these are the queries users typed, not the
+// keywords we bid on. Reveals wasted spend at granular level.
+export interface IntelligenceSearchTerm {
+  text: string                    // the actual user query
+  matchType: string               // how it matched (BROAD, EXACT, PHRASE, NEAR_EXACT, NEAR_PHRASE)
+  status: string                  // NONE, ADDED, EXCLUDED, ADDED_EXCLUDED — has user already acted on it?
+  campaignName: string
+  adGroupName: string
+  metrics: IntelligenceMetrics
+}
+
 export interface IntelligenceConversionAction {
   id: string
   name: string
@@ -136,6 +149,8 @@ export interface PlatformIntelligence {
   adGroups: IntelligenceAdGroup[]
   ads: IntelligenceAd[]
   keywords?: IntelligenceKeyword[]           // Google only
+  // LORAMER_PROJECT_3_STEP_2A_V1
+  searchTerms?: IntelligenceSearchTerm[]     // Google only — search term report
   conversionActions?: IntelligenceConversionAction[]
   totals: IntelligenceMetrics
 }

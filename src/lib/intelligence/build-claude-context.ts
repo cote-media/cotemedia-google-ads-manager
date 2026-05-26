@@ -74,11 +74,12 @@ const DEFAULT_LIMITS: DataLimits = {
   keywords: 20,
   conversionActions: 50,
   topProducts: 5,
-  searchTerms: 0,      // Step 2 fills this
-  audiences: 0,        // Step 2 fills this
-  assetGroups: 0,      // Step 2 fills this
-  assetsPerGroup: 0,   // Step 2 fills this
-  demographics: 0,     // Step 2 fills this
+  // LORAMER_PROJECT_3_STEP_2A_V1 — search terms enabled
+  searchTerms: 10,
+  audiences: 0,        // Step 2 (later sub-steps) fills this
+  assetGroups: 0,      // Step 2f fills this
+  assetsPerGroup: 0,   // Step 2f fills this
+  demographics: 0,     // Step 2d fills this
   geographic: 0,       // Step 3 fills this
 }
 
@@ -111,25 +112,27 @@ export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
       return { ...DEFAULT_LIMITS, campaigns: 15, adGroups: 20, ads: 20, keywords: 20 }
     case 'campaigns':
       // Campaigns tab — show ALL campaigns, fewer of the others
-      return { ...DEFAULT_LIMITS, campaigns: 50, adGroups: 10, ads: 10, keywords: 10 }
+      return { ...DEFAULT_LIMITS, campaigns: 50, adGroups: 10, ads: 10, keywords: 10, searchTerms: 15 }
     case 'adgroups':
       // Drilled into ad groups for one campaign — emphasize ad groups + ads
-      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 30, ads: 20, keywords: 10 }
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 30, ads: 20, keywords: 10, searchTerms: 10 }
     case 'ads':
       // Drilled into ads for one ad group — maximize ad detail
-      return { ...DEFAULT_LIMITS, campaigns: 3, adGroups: 5, ads: 30, keywords: 5 }
+      return { ...DEFAULT_LIMITS, campaigns: 3, adGroups: 5, ads: 30, keywords: 5, searchTerms: 5 }
     case 'keywords':
-      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 10, ads: 5, keywords: 50 }
+      // Keywords tab — full picture pairs keywords with search terms that triggered
+      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 10, ads: 5, keywords: 50, searchTerms: 30 }
     case 'shopify':
     case 'woocommerce':
-      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 5, topProducts: 20 }
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 5, searchTerms: 5, topProducts: 20 }
     case 'asset-attribution':
       // Step 2 will populate assetGroups + assetsPerGroup limits
       return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 5, ads: 10, keywords: 0 }
     case 'audience':
       return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 10, ads: 5, keywords: 5 }
     case 'search-terms':
-      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 30 }
+      // Dedicated search terms focus — the deep dive
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 30, searchTerms: 50 }
     case 'health':
       return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 5, ads: 5, keywords: 5 }
     case 'row-context':
@@ -254,6 +257,17 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     platform.keywords.slice(0, limits.keywords).forEach(kw => {
       lines.push(`  • "${kw.text}" [${kw.matchType}] [QS: ${kw.qualityScore || 'N/A'}] — ${formatMetrics(kw.metrics)}`)
     })
+  }
+
+  // LORAMER_PROJECT_3_STEP_2A_V1 — Search Terms (what users actually typed)
+  if (platform.searchTerms && platform.searchTerms.length > 0 && limits.searchTerms > 0) {
+    lines.push(`\nSearch Terms — actual user queries that triggered ads (${platform.searchTerms.length} total, showing top ${Math.min(platform.searchTerms.length, limits.searchTerms)} by spend):`)
+    platform.searchTerms.slice(0, limits.searchTerms).forEach(st => {
+      const statusLabel = st.status && st.status !== 'unmapped' ? ` [${st.status}]` : ''
+      lines.push(`  • "${st.text}" [${st.matchType}]${statusLabel} — ${formatMetrics(st.metrics)}`)
+      lines.push(`    From: ${st.campaignName} → ${st.adGroupName}`)
+    })
+    lines.push(`  (Search terms with status "added & excluded" are negatives already in place. Status "added" = already a keyword. "unmapped" = no action taken yet.)`)
   }
 
   if (platform.conversionActions && platform.conversionActions.length > 0) {

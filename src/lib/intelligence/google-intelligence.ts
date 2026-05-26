@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceConversionAction } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -212,6 +212,44 @@ export async function fetchGoogleIntelligence(
     metrics: buildMetrics(row),
   }))
 
+  // ── Search Terms (LORAMER_PROJECT_3_STEP_2A_V1) ────────────────────────────
+  // The search term report — what users actually typed that triggered our ads.
+  // Independent of the keywords we bid on. Reveals where money is going.
+  // Cached for 15 min by the intelligence route; this query is relatively
+  // expensive so we cap at top 100 by spend.
+  const searchTermRows = await customer.query(`
+    SELECT search_term_view.search_term, search_term_view.status,
+    segments.search_term_match_type,
+    campaign.id, campaign.name,
+    ad_group.id, ad_group.name,
+    metrics.impressions, metrics.clicks, metrics.cost_micros,
+    metrics.conversions, metrics.conversions_value
+    FROM search_term_view
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT 100
+  `).catch(() => [])
+
+  const searchTerms: IntelligenceSearchTerm[] = searchTermRows.map((row: any) => {
+    const statusRaw = String(row.search_term_view?.status || '')
+    const statusMap: Record<string, string> = {
+      NONE: 'unmapped',
+      ADDED: 'added as keyword',
+      EXCLUDED: 'excluded',
+      ADDED_EXCLUDED: 'added & excluded',
+      UNKNOWN: 'unknown',
+    }
+    return {
+      text: String(row.search_term_view?.search_term || ''),
+      matchType: String(row.segments?.search_term_match_type || ''),
+      status: statusMap[statusRaw] || statusRaw.toLowerCase(),
+      campaignName: String(row.campaign?.name || ''),
+      adGroupName: String(row.ad_group?.name || ''),
+      metrics: buildMetrics(row),
+    }
+  })
+
   // ── Conversion Actions ─────────────────────────────────────────────────────
   const convRows = await customer.query(`
     SELECT conversion_action.id, conversion_action.name, conversion_action.category,
@@ -261,6 +299,7 @@ export async function fetchGoogleIntelligence(
     adGroups,
     ads,
     keywords,
+    searchTerms,  // LORAMER_PROJECT_3_STEP_2A_V1
     conversionActions,
     totals,
   }
