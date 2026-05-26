@@ -207,6 +207,69 @@ function extractDirectives(flat: Array<{ role: string; content: string }>): stri
   return directives
 }
 
+// LORAMER_MEMORY_V1
+// Memory facts come from the client_memory table via /api/intelligence.
+// Categories: 'directive' | 'fact' | 'observation' | 'preference' | 'context'.
+// Directive facts are folded into HARD CONSTRAINTS; the rest get their own
+// "WHAT YOU KNOW ABOUT" block.
+type MemoryFact = {
+  id: number
+  content: string
+  category: 'directive' | 'fact' | 'observation' | 'preference' | 'context'
+  confidence: number
+  pinned: boolean
+  source: string
+}
+
+function partitionMemory(memory: MemoryFact[]) {
+  const directives: MemoryFact[] = []
+  const facts: MemoryFact[] = []
+  const context: MemoryFact[] = []
+  const preferences: MemoryFact[] = []
+  const observations: MemoryFact[] = []
+  for (const m of memory) {
+    if (m.category === 'directive') directives.push(m)
+    else if (m.category === 'fact') facts.push(m)
+    else if (m.category === 'context') context.push(m)
+    else if (m.category === 'preference') preferences.push(m)
+    else if (m.category === 'observation' && m.confidence >= 0.7) observations.push(m)
+  }
+  return { directives, facts, context, preferences, observations }
+}
+
+function buildMemorySection(memory: MemoryFact[], clientName: string): string {
+  if (!memory || memory.length === 0) return ''
+  const { facts, context, preferences, observations } = partitionMemory(memory)
+  if (facts.length === 0 && context.length === 0 && preferences.length === 0 && observations.length === 0) {
+    return ''
+  }
+  const lines: string[] = []
+  lines.push(`\n=== WHAT YOU KNOW ABOUT ${clientName.toUpperCase()} ===`)
+  lines.push('(These are durable facts the user has confirmed about this client. Treat them as')
+  lines.push(' binding context. Reference them naturally when relevant — do not list them back.)')
+  if (facts.length > 0) {
+    lines.push('')
+    lines.push('FACTS:')
+    facts.forEach(f => lines.push(`  • ${f.content}`))
+  }
+  if (context.length > 0) {
+    lines.push('')
+    lines.push('CONTEXT:')
+    context.forEach(c => lines.push(`  • ${c.content}`))
+  }
+  if (preferences.length > 0) {
+    lines.push('')
+    lines.push('USER PREFERENCES (how the user wants Claude to respond):')
+    preferences.forEach(p => lines.push(`  • ${p.content}`))
+  }
+  if (observations.length > 0) {
+    lines.push('')
+    lines.push('OBSERVATIONS (high-confidence patterns Claude has noted; treat as likely true):')
+    observations.forEach(o => lines.push(`  • ${o.content}`))
+  }
+  return lines.join('\n')
+}
+
 function buildConversationContext(conversations: Record<string, any[]>): string {
   if (!conversations || Object.keys(conversations).length === 0) return ''
   const flat = flattenConversations(conversations)
@@ -236,6 +299,18 @@ export function buildClaudeContext(
   const flatConversations = p.conversations ? flattenConversations(p.conversations) : []
   const directives = extractDirectives(flatConversations)
   const userNotes = (p.userNotes || '').trim()
+
+  // LORAMER_MEMORY_V1
+  // Memory `directive` facts are durable user-confirmed rules. They join
+  // the regex-extracted directives in the HARD CONSTRAINTS block, with
+  // pinned facts surfaced first.
+  const memory: MemoryFact[] = Array.isArray((p as any).memory) ? (p as any).memory : []
+  const memoryDirectives = memory.filter(m => m.category === 'directive')
+  memoryDirectives.forEach(m => {
+    const key = m.content.trim().toLowerCase().replace(/\s+/g, ' ')
+    const exists = directives.some(d => d.toLowerCase().replace(/\s+/g, ' ') === key)
+    if (!exists) directives.unshift(m.content.trim())
+  })
 
   if (directives.length > 0 || userNotes) {
     lines.push('████████████████████████████████████████████████████████████████')
@@ -323,6 +398,10 @@ export function buildClaudeContext(
       })
     }
   }
+  // LORAMER_MEMORY_V1 — durable facts above conversation history
+  const memorySection = buildMemorySection(memory, intelligence.clientName)
+  if (memorySection) lines.push(memorySection)
+
   // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
 

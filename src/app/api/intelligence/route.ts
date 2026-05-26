@@ -55,7 +55,12 @@ export async function GET(request: Request) {
   // Conversations now live in client_conversations table (was client_context.conversations).
   // We fetch ALL rows including hidden_at != null - hidden rows are still part of
   // Claude's memory; only the UI hides them.
-  const [connectionsResult, clientResult, contextResult, conversationsResult] = await Promise.all([
+  // LORAMER_MEMORY_V1
+  // client_memory holds structured facts Claude knows about each client.
+  // Read active (non-archived) facts only; pinned first, then highest
+  // confidence, then most recent. The prompt builder uses these to inject
+  // a "WHAT YOU KNOW ABOUT [CLIENT]" block in Claude's system prompt.
+  const [connectionsResult, clientResult, contextResult, conversationsResult, memoryResult] = await Promise.all([
     supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId),
     supabaseAdmin.from('clients').select('name').eq('id', clientId).single(),
     supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', session.user.email).single(),
@@ -66,7 +71,18 @@ export async function GET(request: Request) {
       .eq('user_email', session.user.email)
       .order('created_at', { ascending: true })
       .limit(500),
+    supabaseAdmin
+      .from('client_memory')
+      .select('id, content, category, confidence, pinned, source')
+      .eq('client_id', clientId)
+      .eq('user_email', session.user.email)
+      .is('archived_at', null)
+      .order('pinned', { ascending: false })
+      .order('confidence', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(200),
   ])
+  const memory = memoryResult.data || []
 
   const connections = connectionsResult.data || []
   const client = clientResult.data
@@ -105,6 +121,7 @@ export async function GET(request: Request) {
           funnelNotes: context.funnel_notes,
           userNotes: context.user_notes,
           conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
+          memory, // LORAMER_MEMORY_V1
         }
         return NextResponse.json({ intelligence: entry })
       }
@@ -125,6 +142,7 @@ export async function GET(request: Request) {
       funnelNotes: context?.funnel_notes,
       userNotes: context?.user_notes,
       conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
+      memory, // LORAMER_MEMORY_V1
     },
   }
 
