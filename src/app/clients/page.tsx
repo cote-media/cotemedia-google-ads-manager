@@ -186,6 +186,277 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
         </button>
         {saved && <span className="text-xs text-green-600 font-mono">✓ Saved — Claude will use this context for all future analyses</span>}
       </div>
+      {/* LORAMER_MEMORY_V1_UI */}
+      <ClientMemorySection clientId={client.id} />
+    </div>
+  )
+}
+
+// LORAMER_MEMORY_V1_UI
+// Memory editor: structured facts Claude knows about this client.
+// Categories: directive | fact | observation | preference | context.
+// Soft delete (archive) only — facts never hard-deleted (brand commitment).
+type MemoryFact = {
+  id: number
+  content: string
+  category: 'directive' | 'fact' | 'observation' | 'preference' | 'context'
+  confidence: number
+  pinned: boolean
+  source: string
+  created_at?: string
+  updated_at?: string
+}
+
+const MEMORY_CATEGORIES: Array<{
+  key: MemoryFact['category']
+  label: string
+  blurb: string
+}> = [
+  { key: 'directive', label: 'Directives', blurb: 'Binding rules. Claude treats these as hard constraints.' },
+  { key: 'fact',      label: 'Facts',      blurb: 'Durable truths about the business.' },
+  { key: 'context',   label: 'Context',    blurb: 'Background that helps Claude reason about this client.' },
+  { key: 'preference',label: 'Preferences',blurb: 'How you want Claude to respond.' },
+  { key: 'observation',label: 'Observations', blurb: 'Patterns Claude has noted. Confirm to promote to a Fact.' },
+]
+
+function ClientMemorySection({ clientId }: { clientId: string }) {
+  const [memory, setMemory] = useState<MemoryFact[]>([])
+  const [loading, setLoading] = useState(true)
+  const [adding, setAdding] = useState(false)
+  const [newContent, setNewContent] = useState('')
+  const [newCategory, setNewCategory] = useState<MemoryFact['category']>('fact')
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editContent, setEditContent] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function reload() {
+    setLoading(true)
+    try {
+      const r = await fetch('/api/memory?clientId=' + clientId)
+      const d = await r.json()
+      setMemory(d.memory || [])
+    } catch {} finally { setLoading(false) }
+  }
+
+  useEffect(() => { if (clientId) reload() }, [clientId])
+
+  async function addFact() {
+    const content = newContent.trim()
+    if (!content) return
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, content, category: newCategory }),
+      })
+      setNewContent('')
+      setNewCategory('fact')
+      setAdding(false)
+      await reload()
+    } catch {} finally { setSaving(false) }
+  }
+
+  async function saveEdit(id: number) {
+    const content = editContent.trim()
+    if (!content) return
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, content }),
+      })
+      setEditingId(null)
+      setEditContent('')
+      await reload()
+    } catch {} finally { setSaving(false) }
+  }
+
+  async function togglePin(fact: MemoryFact) {
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fact.id, pinned: !fact.pinned }),
+      })
+      await reload()
+    } catch {} finally { setSaving(false) }
+  }
+
+  async function archiveFact(id: number) {
+    if (!confirm('Archive this memory? Claude will no longer reference it. (It stays in the database for audit.)')) return
+    setSaving(true)
+    try {
+      await fetch('/api/memory?id=' + id, { method: 'DELETE' })
+      await reload()
+    } catch {} finally { setSaving(false) }
+  }
+
+  async function changeCategory(id: number, category: MemoryFact['category']) {
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, category }),
+      })
+      await reload()
+    } catch {} finally { setSaving(false) }
+  }
+
+  const grouped = MEMORY_CATEGORIES.map(c => ({
+    ...c,
+    items: memory.filter(m => m.category === c.key),
+  })).filter(g => g.items.length > 0)
+
+  return (
+    <div className="border border-border rounded-xl p-4 bg-white mt-4">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="text-sm font-medium text-ink">What Claude knows about this client</p>
+          <p className="text-xs text-muted mt-0.5">
+            Structured facts Claude treats as durable knowledge. Edit anytime — Claude uses the latest on every response.
+          </p>
+        </div>
+        <button
+          onClick={() => setAdding(a => !a)}
+          className="text-xs font-mono border border-accent text-accent hover:bg-accent hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+        >
+          {adding ? '× Cancel' : '+ Add a fact'}
+        </button>
+      </div>
+
+      {adding && (
+        <div className="border border-accent/30 bg-accent/5 rounded-lg p-3 mb-4 space-y-2">
+          <textarea
+            value={newContent}
+            onChange={e => setNewContent(e.target.value)}
+            placeholder="e.g. 'Ignore ROAS — no purchase tracking on this site' or 'Primary KPI is CPL, target $35'"
+            className="w-full text-sm font-sans border border-border rounded-lg px-3 py-2 min-h-[60px]"
+            autoFocus
+          />
+          <div className="flex items-center gap-2">
+            <select
+              value={newCategory}
+              onChange={e => setNewCategory(e.target.value as MemoryFact['category'])}
+              className="text-xs font-mono border border-border rounded-lg px-2 py-1"
+            >
+              {MEMORY_CATEGORIES.filter(c => c.key !== 'observation').map(c => (
+                <option key={c.key} value={c.key}>{c.label.replace(/s$/, '')}</option>
+              ))}
+            </select>
+            <button
+              onClick={addFact}
+              disabled={saving || !newContent.trim()}
+              className="text-xs font-mono bg-accent text-white px-3 py-1 rounded-lg disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <span className="text-xs text-muted">
+              {MEMORY_CATEGORIES.find(c => c.key === newCategory)?.blurb}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-xs text-muted font-mono">Loading memory...</p>
+      ) : memory.length === 0 ? (
+        <p className="text-xs text-muted">
+          No memory yet. Add a fact, or tell Claude something in any chat surface (e.g. "remember that...") — durable knowledge will accumulate here.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {grouped.map(group => (
+            <div key={group.key}>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted mb-1.5">
+                {group.label} <span className="text-muted/60">({group.items.length})</span>
+              </p>
+              <div className="space-y-1.5">
+                {group.items.map(fact => (
+                  <div
+                    key={fact.id}
+                    className="flex items-start gap-2 border border-border rounded-lg px-3 py-2 hover:bg-slate-50"
+                  >
+                    <button
+                      onClick={() => togglePin(fact)}
+                      title={fact.pinned ? 'Unpin' : 'Pin (always include in Claude prompts)'}
+                      className={'text-base transition-opacity ' + (fact.pinned ? 'opacity-100' : 'opacity-30 hover:opacity-70')}
+                    >
+                      📌
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      {editingId === fact.id ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={editContent}
+                            onChange={e => setEditContent(e.target.value)}
+                            className="w-full text-sm font-sans border border-border rounded px-2 py-1 min-h-[50px]"
+                            autoFocus
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => saveEdit(fact.id)}
+                              disabled={saving}
+                              className="text-xs font-mono bg-accent text-white px-2 py-0.5 rounded disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => { setEditingId(null); setEditContent('') }}
+                              className="text-xs font-mono text-muted hover:text-ink"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm text-ink">{fact.content}</p>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-muted/80 font-mono">
+                            <span>{fact.source === 'user_explicit' ? 'added by you' : fact.source}</span>
+                            {fact.confidence < 1.0 && <span>· confidence {Math.round(fact.confidence * 100)}%</span>}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {editingId !== fact.id && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <select
+                          value={fact.category}
+                          onChange={e => changeCategory(fact.id, e.target.value as MemoryFact['category'])}
+                          className="text-xs font-mono border border-border rounded px-1.5 py-0.5"
+                          title="Change category"
+                        >
+                          {MEMORY_CATEGORIES.map(c => (
+                            <option key={c.key} value={c.key}>{c.label.replace(/s$/, '')}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => { setEditingId(fact.id); setEditContent(fact.content) }}
+                          className="text-xs font-mono text-muted hover:text-accent px-1"
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          onClick={() => archiveFact(fact.id)}
+                          className="text-xs font-mono text-muted hover:text-red-500 px-1"
+                          title="Archive (Claude stops referencing; row preserved in DB)"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
