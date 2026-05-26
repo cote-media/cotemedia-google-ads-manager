@@ -363,6 +363,67 @@ Bigger evolution (likely Phase 2.5+):
 
 Tier-gating opportunity: bulk operations + sub-grouping might be Agency-tier features (since they only matter at scale).
 
+### Phase 2.3 — Environmental Change Detection (LORAMER_ROADMAP_PHASE_2_3_V1)
+
+**The data-driven sibling of Phase 2.2.** Phase 2.2 handles "user changed their mind about a directive." Phase 2.3 handles "the data evolved against a standing directive."
+
+**Scenario:** User sets directive "Ignore ROAS — we're not measuring it." Six weeks later, e-commerce launches, purchase pixel starts firing, and ROAS climbs 0 → 2.3 → 4.1 over 14 days. A real analyst would say: "Side note — ROAS is meaningful now. Want to revisit that directive?" Claude should do the same.
+
+**The brand commitment:** Claude doesn't lie by omission. A directive doesn't blind Claude to reality — it tells Claude how to *interpret* reality. When reality changes meaningfully, the directive deserves a check-in.
+
+### Behavior
+
+When Claude generates an analysis response for a client where:
+- A directive bans a specific metric (e.g. "ignore ROAS")
+- That metric has crossed a meaningfulness threshold (e.g. ROAS > 1.5x sustained)
+- AND a trend is visible (e.g. growth from prior period)
+
+Claude adds a brief, non-intrusive note in its response: "Side note: ROAS has climbed from 0 to 2.3x over the last 14 days. I know you've asked me to ignore it, but worth a heads-up." User can then:
+- Reaffirm directive ("still ignore") → Claude suppresses the flag for some window (e.g. 14 days unless threshold jumps again)
+- Update directive ("track it now") → triggers Phase 2.2 supersession flow
+
+### Trajectory tracking
+
+Single data point = noise. Trend across days = signal. Use existing date-range comparison logic to compute meaningful deltas. Thresholds tuned per metric:
+- ROAS: > 1.5x sustained, OR jumped 50%+ in last week
+- Conversions: count crossed a meaningful absolute threshold (10+ in a week)
+- CPM/CTR: jumped to new range outside historical baseline
+
+Heuristics first; refine over time based on real signal/noise ratio.
+
+### Re-trigger logic (so it's not annoying)
+
+After user dismisses ("still ignore"), Claude shuts up about that metric for a window. BUT if the metric crosses a *new* threshold during that window (e.g. ROAS jumped from 2.3 to 4.1 — significantly stronger signal), Claude flags it again with the updated number. User can dismiss again or update directive.
+
+Pattern: Claude becomes more confident each time the data reasserts itself. By the third dismissal of an ever-growing signal, Claude might switch from "side note" to "I want to flag this more directly — ROAS is now 6.2x sustained over 30 days."
+
+### Architecture
+
+1. **Banned-metrics tracker.** When prompt is built, compute the list of metrics the user has directives against (use existing anomaly-filter's `extractBannedMetrics`).
+2. **Signal detector.** For each banned metric, compute current value + trend. If above threshold, add to a `environmentalFlags` array on intelligence object.
+3. **Prompt builder injection.** When `environmentalFlags` has entries, inject a section: "BANNED-METRIC SIGNAL: ROAS is currently 2.3x (was 0 last period). Briefly mention in your response that this metric is now showing meaningful signal, and ask if the user wants to revisit the directive."
+4. **Dismissal tracking.** New table `client_environmental_dismissals` or new field on `client_memory` — when user says "still ignore," record threshold value + timestamp. Detector re-fires only when value exceeds prior dismissal threshold by a meaningful delta.
+
+### Marketing implication
+
+This is one of the headline features for the LoraMer pitch. **"LoraMer's Claude doesn't just follow your rules — it tells you when your rules might be outdated."** That's a real differentiator vs. dashboards that just show numbers, and vs. AI tools that just execute the latest instruction.
+
+### Phased build (when we get to it)
+
+1. Banned-metric tracker + threshold logic (1 hr)
+2. `client_environmental_dismissals` table + dismissal API (30 min)
+3. Prompt builder injection (30 min)
+4. End-to-end test on a real client with a Shopify connection + a "ignore ROAS" directive (manual)
+5. Tune thresholds based on real signal/noise observations (ongoing)
+
+Estimated: 2-3 hours initial build, then weeks of tuning.
+
+### Connected projects
+
+- **Phase 2.2** — user-driven changes. Phase 2.3 surfaces lead naturally into Phase 2.2 (user says "actually track it now").
+- **Project 11 (Unified Attention Surface)** — environmental flags could surface in the alerts box AS WELL AS in Claude's analysis prose. Probably both, since some users won't read the long-form Claude response.
+- **Project 9 Phase 4 (Nightly Learning Loop)** — at Scale tier, this whole thing runs nightly and surfaces a digest: "Three of your clients have banned metrics that crossed thresholds this week. Review?"
+
 ---
 
 ## 📂 PROJECT 10 — Data Ingestion (User-Uploaded Business Data)
