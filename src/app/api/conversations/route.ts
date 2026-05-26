@@ -22,6 +22,62 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// LORAMER_MEMORY_AUTODETECT_V1
+// Patterns that suggest a user is stating something durable that belongs
+// in memory. Conservative — high-precision phrases only. Phase 2.5 will
+// layer a Haiku call for fuzzier detection.
+const MEMORY_TRIGGER_PATTERNS: Array<{ pattern: RegExp; suggestedCategory: 'directive' | 'fact' | 'preference' }> = [
+  // Explicit "remember this" phrasing → fact
+  { pattern: /\bremember\b\s*[:,]?\s*(?:that\s+)?/i, suggestedCategory: 'fact' },
+  // "Always X" / "Never X" → directive (binding rule)
+  { pattern: /^\s*always\b\s+(?:mention|recommend|suggest|focus|use|include|consider|treat|assume)/i, suggestedCategory: 'directive' },
+  { pattern: /^\s*never\b\s+(?:mention|recommend|suggest|focus|use|include|flag|surface|treat|assume)/i, suggestedCategory: 'directive' },
+  // "Ignore X" / "Don't focus on X" → directive
+  { pattern: /^\s*ignore\s+/i, suggestedCategory: 'directive' },
+  { pattern: /^\s*(?:don'?t|do\s+not)\s+(?:focus|worry|mention|recommend|suggest|flag|surface)/i, suggestedCategory: 'directive' },
+  // "I prefer X" / "I want X" → preference
+  { pattern: /^\s*i\s+(?:prefer|want|like)\s+/i, suggestedCategory: 'preference' },
+]
+
+function detectMemoryTrigger(content: string): { suggestedContent: string; suggestedCategory: 'directive' | 'fact' | 'preference'; confidence: number } | null {
+  const trimmed = content.trim()
+  if (!trimmed || trimmed.length < 6 || trimmed.length > 500) return null
+
+  for (const { pattern, suggestedCategory } of MEMORY_TRIGGER_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      // Truncate to first sentence if possible
+      let snippet = trimmed
+      const sentenceEnd = snippet.search(/[.!?](?:\s|$)/)
+      if (sentenceEnd > 0 && sentenceEnd < 300) snippet = snippet.slice(0, sentenceEnd + 1)
+      else if (snippet.length > 300) snippet = snippet.slice(0, 297) + '...'
+      // Strip the "Remember:" prefix if present so the saved fact reads naturally
+      let cleaned = snippet.replace(/^\s*remember\b\s*[:,]?\s*(?:that\s+)?/i, '').trim()
+      if (!cleaned) cleaned = snippet
+      return {
+        suggestedContent: cleaned,
+        suggestedCategory,
+        confidence: 0.8,
+      }
+    }
+  }
+  return null
+}
+
+async function isAlreadyInMemory(clientId: string, userEmail: string, content: string): Promise<boolean> {
+  const key = content.trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 200)
+  const { data } = await supabaseAdmin
+    .from('client_memory')
+    .select('content')
+    .eq('client_id', clientId)
+    .eq('user_email', userEmail)
+    .is('archived_at', null)
+  if (!data) return false
+  return data.some(m => {
+    const mk = (m.content || '').toLowerCase().replace(/\s+/g, ' ').slice(0, 200)
+    return mk === key || mk.includes(key) || key.includes(mk)
+  })
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) {
@@ -100,7 +156,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ message: data })
+  // LORAMER_MEMORY_AUTODETECT_V1
+  // For user-role messages, check if the content suggests a durable
+  // statement that belongs in memory. If yes, return a proposal alongside
+  // the saved message so the UI can offer "Save to memory?" inline.
+  let proposeMemory: { suggestedContent: string; suggestedCategory: string; confidence: number } | null = null
+  if (role === 'user') {
+    const detected = detectMemoryTrigger(content)
+    if (detected) {
+      const dup = await isAlreadyInMemory(clientId, session.user.email, detected.suggestedContent)
+      if (!dup) proposeMemory = detected
+    }
+  }
+
+  return NextResponse.json({ message: data, proposeMemory })
 }
 
 export async function DELETE(request: Request) {
