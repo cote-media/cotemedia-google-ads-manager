@@ -90,7 +90,8 @@ export async function GET(request: Request) {
   const scope = searchParams.get('scope')
   const includeHidden = searchParams.get('includeHidden') === 'true'
   const limitParam = searchParams.get('limit')
-  const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 500) : 50
+  // LORAMER_CONV_LIMIT_BUMP_V1 — default raised from 50 to 200
+  const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 200, 500) : 200
 
   if (!clientId) {
     return NextResponse.json({ error: 'clientId required' }, { status: 400 })
