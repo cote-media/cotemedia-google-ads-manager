@@ -153,6 +153,15 @@ export interface ClientIntelligence {
     funnelNotes?: string
     userNotes?: string
     conversations?: Record<string, any[]>
+    // LORAMER_MEMORY_V1 - structured facts from client_memory table
+    memory?: Array<{
+      id: number
+      content: string
+      category: 'directive' | 'fact' | 'observation' | 'preference' | 'context'
+      confidence: number
+      pinned: boolean
+      source: string
+    }>
   }
 
   // Platform data
