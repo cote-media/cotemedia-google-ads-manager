@@ -186,6 +186,7 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 - [ ] Better empty states
 - [ ] Metric cards redesign on Overview tab
 - [ ] Visual refresh of dashboard interior
+- [ ] **Explicit "Open client profile" affordance** (LORAMER_ROADMAP_OPEN_PROFILE_V1) — currently the Claude pill on a client card is the only way to expand the profile section (which now also contains the memory editor). Not discoverable for new users, especially Shopify-install users landing cold. Need a clear button or "Edit profile / Memory" link adjacent to each client. Maybe also a tour or coachmark on first visit that points to it.
 
 ### State persistence
 - [x] Active platform persists
