@@ -1,6 +1,7 @@
 # LoraMer — Product Roadmap
+<!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: May 22, 2026*
+*Last updated: May 26, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -8,9 +9,9 @@ This roadmap is organized by **active project**. Items marked `[?]` are uncertai
 
 ---
 
-## 🚀 PROJECT 1 — Production Launch (Shopify App Store)
+## 🚀 PROJECT 1 — Production Launch (Shopify App Store) ✅ SUBMITTED
 
-The single highest-priority project. Everything else waits on this getting submitted, approved, and live.
+**Status (May 25, 2026):** App Store listing submitted. Awaiting Shopify review (typical 2-3 weeks).
 
 ### Submission readiness
 - [x] Rebrand from Advar to LoraMer everywhere
@@ -18,51 +19,39 @@ The single highest-priority project. Everything else waits on this getting submi
 - [x] Shopify mandatory compliance webhooks (`customers/data_request`, `customers/redact`, `shop/redact`)
 - [x] HMAC verification on webhooks
 - [x] Custom Distribution disabled — using Public app track
-- [ ] Run `shopify app deploy` to sync compliance webhook subscription to Dev Dashboard
-- [ ] Confirm compliance webhook check turns green in Dev Dashboard (within ~24hr after deploy)
-- [ ] Confirm "Deprecated offline token" warning clears (within ~30 days, rolling window)
+- [x] `shopify app deploy` run (loramer-5 released May 25 with new application_url)
+- [x] Shopify-initiated install flow (LORAMER_SHOPIFY_INSTALL_V1) — satisfies 2.3.1 + 2.3.2 + 2.3.3
+- [x] REST → GraphQL Admin API migration (LORAMER_GRAPHQL_MIGRATION_V1) — satisfies 2.2.4
 
-### App Store listing content (drafted, not submitted)
-- [ ] App introduction copy — drafted, needs final approval
-- [ ] App details copy — drafted, needs final approval
-- [ ] 3-5 features copy — drafted, needs final approval
-- [ ] App card subtitle (62 char) — drafted
-- [ ] Search terms (5) — drafted
-- [ ] Title tag + meta description — drafted
-- [ ] Integrations list — drafted
-- [ ] Support email — DECISION NEEDED (probably `support@cotemedia.com`)
-- [ ] Privacy policy URL — confirm `/privacy` page is live
-- [ ] Feature media (1600×900 image or video) — needs to be created
-- [ ] 3 desktop screenshots with alt text — needs to be created
-  - [ ] Dashboard with AI insight banner
-  - [ ] Drill-down view (campaign → ad groups → ads)
-  - [ ] Cross-platform Combined view OR Ask Claude conversation
-- [ ] Mobile screenshots (optional, raises odds) — needs to be created
-- [ ] Demo store URL (optional, raises odds) — needs to be created
-- [ ] Screencast URL (3-8 min walkthrough) — needs to be created
-- [ ] Test account credentials for reviewers
-- [ ] Testing instructions
+### App Store listing content
+- [x] All listing copy submitted (intro, details, 3-5 features, subtitle, search terms, title, meta)
+- [x] Integrations list submitted
+- [x] Support email confirmed (`support@cotemedia.com`)
+- [x] Privacy policy URL live (`/privacy`)
+- [x] Feature media submitted (1600×900)
+- [x] Desktop + mobile screenshots submitted with alt text
+- [x] Screencast (Loom walkthrough) submitted
+- [x] Test account credentials for reviewers (reviewer-token bypass via `/reviewer-login`)
+- [x] Testing instructions submitted (explains in-app `+ Shopify` modal is post-install management, NOT an install path)
 
-### Submit as Free-only for v1
-- [ ] List only the Free plan in the App Store listing for initial approval
-- [ ] No billing code needed yet — Shopify Managed Pricing comes in v1.1
+### v1 = Free-only
+- [x] Listed Free plan only for initial approval
+- [x] No billing code in v1 — Managed Pricing comes in v1.1 (Project 2)
 
-### Review requirements verification
-- [x] App capabilities = "My app doesn't have any of these"
-- [x] Authenticates immediately after install (callback redirects to /clients)
-- [x] Web-based app
-- [x] Uses Shopify APIs
-- [x] No flagged scopes requested
-- [ ] Build is green at time of submission
+### Review-requirements outcome (AI Toolkit re-run May 25)
+- 27 ✅ passing
+- 1 ❌ flagged but addressable in submission notes (2.3.1 false positive on the in-app modal — explained to reviewer)
+- 3 ⚠️ needs review (1.1.1, 1.2.1, 2.2.3) — all N/A for non-embedded free-only app, addressed in submission notes
+- 10 ⏭️ skipped (app extensions not used)
 
-### LAUNCH BLOCKER: Zero-spend date range renders empty (found May 22)
-- [ ] Dashboard currently shows blank when a client has zero Google Ads spend in the selected date range
-- [ ] Should render fully with $0 / 0 clicks / 0 impressions / 0 conversions across all tiles, charts, and tables
-- [ ] Root cause: Google Ads route returns no rows; UI conflates "no rows" with "no data fetched"
-- [ ] Fix at data layer: normalize "no rows" to an explicit zeroed PlatformData in the API route, OR
-- [ ] Fix at UI layer: detect successful fetch + empty result and render zeroed shell
-- [ ] Same logic needed for Meta Ads, Shopify
-- [ ] Reproduce: pick a client whose Google account has zero spend last 30 days, observe blank dashboard
+### LAUNCH BLOCKER → resolved: Zero-spend date range renders empty
+- [x] Dashboard now renders with $0 / 0 across all tiles when Google account has zero spend
+- [x] Fixed at UI layer: zeroed-shell render when intelligence returns empty platform data
+
+### Post-submission watch items
+- [ ] Confirm "Deprecated offline token" warning clears (rolling 30-day window)
+- [ ] Address any Shopify reviewer feedback when it arrives
+- [ ] Resubmit if revisions requested
 
 ---
 
@@ -642,27 +631,30 @@ Selection logic is the smart part. NOT "everything in every prompt" — "the rig
 
 ### Phased build
 
-**Phase 1 — Storage unification (pre-launch, 1-2 days)**
-- [ ] Create `client_conversations` table (id, client_id, user_email, surface, scope, role, content, timestamp)
-- [ ] Migration script: pull existing `client_context.conversations` blob into the new table
-- [ ] Update all read sites in dashboard to query new table
-- [ ] Update all write sites to insert into new table
-- [ ] Invisible to users — sets up everything else
+**Phase 1 — Storage unification ✅ SHIPPED (May 25, 2026)**
+- [x] `client_conversations` table created (migration 002)
+- [x] One-time data migration: 102 messages flattened from JSONB blob into the new table
+- [x] Three surfaces switched to new API (`/api/conversations`):
+  - [x] 4a: RightPanel (slide-out from ✦) — LORAMER_CONV_API_V1_RIGHTPANEL
+  - [x] 4b: InsightChat (blue analysis banner) — LORAMER_CONV_API_V1_INSIGHTCHAT
+  - [x] 4c: Intelligence route reads all conversations for Claude memory — LORAMER_CONV_API_V1_INTELLIGENCE
+  - [x] 4d: ChatTab (left-sidebar ASK CLAUDE tab) — LORAMER_CONV_API_V1_CHATTAB
+  - [x] 4e: openPanel re-fetches history on client switch — LORAMER_CONV_API_V1_OPENPANEL
+- [x] **Soft delete semantics** (LORAMER_CONV_SOFT_DELETE_V1, migration 003) — Clear button hides UI but Claude memory is preserved. Matches "deep knowledge accumulates" brand promise.
+- [x] End-to-end verified: write on one surface → Claude reads it on another surface for the same client
+- [ ] Drop legacy `client_context.conversations` JSONB column (defer ~1 week after soak)
+- [ ] Update `extractProfileContext` to query new table directly (currently still works via shaped JSONB)
 
-**Phase 2 — Verify right-panel "continue from diamond"**
-- [ ] Confirm diamond → right panel flow still works post-unification
-- [ ] No regression on the most-used continuity path
+**Phase 2 — Cross-context references (next; mostly already enabled by Phase 1 4c)**
+- [ ] Claude naturally references earlier exchanges across surfaces in its prose
+- [ ] "Earlier you mentioned Brand campaigns are your heroes — still consistent here"
+- [ ] No new UI; just tighter context selection in prompts (improve buildConversationContext)
 
-**Phase 3 — Ask Claude tab continuity prompt (3-5 days post Phase 1)**
+**Phase 3 — Ask Claude tab continuity prompt**
 - [ ] Detect recent conversations (last 24h) for current client when Ask Claude tab opens
 - [ ] Show subtle banner: "Continue from [surface] [time ago]?"
 - [ ] One tap to load, one tap to dismiss, or type to start fresh
 - [ ] Banner doesn't block input — non-modal
-
-**Phase 4 — Cross-context references (post-launch)**
-- [ ] Claude naturally references earlier exchanges when relevant
-- [ ] "Earlier you mentioned Brand campaigns are your heroes — still consistent with what you're seeing here"
-- [ ] No new UI; better context selection in prompts
 
 ### Why this is important pre-launch
 
@@ -853,48 +845,22 @@ Don't surface this complexity to Free/Solo users — they have one or two client
 
 ---
 
-## 🐛 PROJECT 17 — Popover Positioning Regression (KNOWN BAD STATE)
+## 🐛 PROJECT 17 — Popover Positioning ✅ RESOLVED (May 25, 2026)
 
-**Status:** Broken on both desktop and mobile as of May 21, 2026. Functional but visually wrong.
+**Resolution:** The popover no longer exists. The ✦ diamond click now opens the RightPanel (existing slide-out from the right) on desktop and a bottom sheet on mobile. Both are anchored, neither floats.
 
-### What's wrong
+### How it was resolved
 
-Click any ✦ diamond (row-level or section-level) and the Ask Claude popover appears at JS-calculated viewport coordinates instead of being naturally anchored to the diamond. On desktop the popover used to appear with its top-right corner essentially touching the diamond — felt like the panel grew out of the button. Now it floats in the middle of the screen with no visual connection to the trigger. Mobile mirrors desktop behavior when it should be different (bottom sheet for thumb reach).
-
-### How we got here
-
-The original implementation was:
-```jsx
-<div className="absolute right-0 top-7 w-80 ...">
-```
-This positioned the popover relative to its `<div className="relative">` parent (the diamond's wrapper). Natural anchoring. Worked perfectly on desktop.
-
-The actual bug we tried to fix: the campaigns table's parent has `overflow-x-auto`. When the diamond is in a row near the right edge of the table, the absolutely-positioned popover would get clipped by that overflow container on desktop. Visible bug, real problem.
-
-**Wrong fix applied:** replaced natural CSS anchoring entirely with `position: fixed` and JS-computed viewport coordinates from `getBoundingClientRect()`. This escapes the clip container but destroys the visual anchoring.
-
-### The right fix (do this fresh)
-
-Three viable approaches, ranked:
-
-**Option A — React Portal (best).** Render the popover at the body root using `createPortal`, so it lives outside the `overflow-x-auto` container entirely. Calculate position from the trigger's `getBoundingClientRect()` once on open. Popover appears anchored to the diamond AND can't be clipped by any parent overflow. This is the standard solution for this exact problem in production React apps.
-
-**Option B — Conditional overflow override.** When the popover is open, switch the table parent from `overflow-x-auto` to `overflow-visible`. Trade-off: temporarily loses horizontal scroll capability while popover is open. Simpler than Portal but feels hacky.
-
-**Option C — Move the diamond outside the overflow container.** Restructure the table so the action column (with the diamond) is in a separate sibling element outside the scrollable area. Largest refactor.
-
-**My recommendation:** Option A. Standard library pattern, no compromises.
-
-### Mobile should differ from desktop
-
-Even with the desktop fix, mobile shouldn't mirror desktop. On mobile the popover should be a bottom sheet for thumb reach — slide up from bottom, full-width, easy to dismiss. Implementation: two completely separate rendered components, controlled by `hidden md:block` / `block md:hidden`. Never share a class string between them again (the source of every CSS bug tonight).
+- **Desktop:** Diamond click opens the existing RightPanel — slide-out anchored to the right edge of the viewport. Same component used for the row-level diamond, the card-level diamond, and the InsightChat Reply button. No floating popover.
+- **Mobile (LORAMER_MOBILE_BOTTOM_SHEET_V1, May 25):** Same RightPanel component, but rendered as a bottom sheet on screens below `md:` breakpoint. Covers bottom ~75% of viewport with `top-[25%]`, so the user can still see what they tapped on. Rounded top corners. Two separately-rendered divs with `hidden md:flex` and `flex md:hidden` — never `md:` overrides on `position` (the rule that broke things in the original popover attempt).
 
 ### Lessons captured for future Claude
 
-- When fixing a positioning bug, identify the ROOT issue (overflow container clipping) before changing positioning fundamentals
-- Don't replace working CSS anchoring with JS calculations unless absolutely necessary
-- For mobile/desktop differences in popover behavior, use TWO components with `hidden md:block` / `block md:hidden`, not one component with `md:` overrides on `position` properties
-- `md:` Tailwind overrides work reliably for properties like `width`, `padding`, `display` — but NOT reliably for `position` mode changes (`fixed` ↔ `absolute`)
+- When fixing a positioning bug, identify the ROOT issue (overflow container clipping) before changing positioning fundamentals.
+- Don't replace working CSS anchoring with JS calculations unless absolutely necessary.
+- For mobile/desktop differences in popover/panel behavior, use TWO components with `hidden md:block` / `block md:hidden`, not one component with `md:` overrides on `position` properties.
+- `md:` Tailwind overrides work reliably for `width`, `padding`, `display` — but NOT reliably for `position` mode changes (`fixed` ↔ `absolute`).
+- The cheapest fix is sometimes to remove the problematic component entirely and use one that already works.
 
 ---
 
