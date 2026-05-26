@@ -28,6 +28,119 @@ const OBJECTIVE_RULES: Record<string, string> = {
   DISCOVERY: 'Discovery/Demand Gen — upper funnel. Do not expect high conversion volume.',
 }
 
+// LORAMER_PROJECT_3_STEP_1_V1 ─────────────────────────────────────────────────
+// Focus-aware data slicing. Each surface that calls buildClaudeContext passes
+// a focus string. We normalize it to a typed FocusMode and use the mode to
+// decide how much of each platform's data to render in the prompt.
+//
+// Step 1 sets up the scaffolding with current behavior as the default.
+// Step 2 will add new data sections (search terms, asset performance, audience
+// segments, etc.) that respect these same limits.
+
+export type FocusMode =
+  | 'overview'           // main dashboard, broad analysis
+  | 'campaigns'          // campaigns tab, full campaign list visible
+  | 'adgroups'           // drilled into ad groups under a campaign
+  | 'ads'                // drilled into ads under an ad group
+  | 'keywords'           // keywords tab (Google)
+  | 'shopify'            // shopify tab
+  | 'woocommerce'        // woocommerce tab
+  | 'asset-attribution'  // PMax / asset-level analysis (Step 2+)
+  | 'audience'           // audience-segment analysis (Step 2+)
+  | 'search-terms'       // search-term report drill (Step 2+)
+  | 'health'             // account-health focus (Step 4+)
+  | 'row-context'        // ✦ diamond on a specific row — uses row scope to pick limits
+
+export type DataLimits = {
+  campaigns: number          // how many campaigns to render
+  adGroups: number           // how many ad groups
+  ads: number                // how many ads
+  keywords: number           // how many keywords
+  conversionActions: number  // how many conversion actions
+  topProducts: number        // how many shopify/woo products
+  // Step 2+ fields (placeholders for now, default 0)
+  searchTerms: number
+  audiences: number
+  assetGroups: number
+  assetsPerGroup: number
+  demographics: number
+  geographic: number
+}
+
+const DEFAULT_LIMITS: DataLimits = {
+  campaigns: 15,
+  adGroups: 20,
+  ads: 20,
+  keywords: 20,
+  conversionActions: 50,
+  topProducts: 5,
+  searchTerms: 0,      // Step 2 fills this
+  audiences: 0,        // Step 2 fills this
+  assetGroups: 0,      // Step 2 fills this
+  assetsPerGroup: 0,   // Step 2 fills this
+  demographics: 0,     // Step 2 fills this
+  geographic: 0,       // Step 3 fills this
+}
+
+// Normalize any incoming focus string (which may be a label, a drill key like
+// "adgroups:Campaign Name", a platform name like "google", etc.) into a
+// typed FocusMode plus the original string for the prompt's "Current view"
+// label.
+export function normalizeFocus(focus: string | undefined): { mode: FocusMode; label: string } {
+  const f = (focus || 'overview').toLowerCase().trim()
+  // Drill keys arrive as "adgroups:..." or "ads:..."
+  if (f.startsWith('adgroups')) return { mode: 'adgroups', label: focus || 'adgroups' }
+  if (f.startsWith('ads')) return { mode: 'ads', label: focus || 'ads' }
+  if (f === 'campaigns') return { mode: 'campaigns', label: focus || 'campaigns' }
+  if (f === 'keywords') return { mode: 'keywords', label: focus || 'keywords' }
+  if (f === 'shopify') return { mode: 'shopify', label: focus || 'shopify' }
+  if (f === 'woocommerce') return { mode: 'woocommerce', label: focus || 'woocommerce' }
+  if (f === 'asset-attribution' || f.startsWith('asset')) return { mode: 'asset-attribution', label: focus || 'asset-attribution' }
+  if (f === 'audience' || f.startsWith('audience')) return { mode: 'audience', label: focus || 'audience' }
+  if (f === 'search-terms' || f === 'searchterms') return { mode: 'search-terms', label: focus || 'search-terms' }
+  if (f === 'health') return { mode: 'health', label: focus || 'health' }
+  // Platform labels: google/meta/combined act like overview
+  if (f === 'google' || f === 'meta' || f === 'combined' || f === 'overview') return { mode: 'overview', label: focus || 'overview' }
+  // Anything else (e.g. row clicks with custom strings) gets row-context
+  return { mode: 'row-context', label: focus || 'row-context' }
+}
+
+export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
+  switch (mode) {
+    case 'overview':
+      return { ...DEFAULT_LIMITS, campaigns: 15, adGroups: 20, ads: 20, keywords: 20 }
+    case 'campaigns':
+      // Campaigns tab — show ALL campaigns, fewer of the others
+      return { ...DEFAULT_LIMITS, campaigns: 50, adGroups: 10, ads: 10, keywords: 10 }
+    case 'adgroups':
+      // Drilled into ad groups for one campaign — emphasize ad groups + ads
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 30, ads: 20, keywords: 10 }
+    case 'ads':
+      // Drilled into ads for one ad group — maximize ad detail
+      return { ...DEFAULT_LIMITS, campaigns: 3, adGroups: 5, ads: 30, keywords: 5 }
+    case 'keywords':
+      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 10, ads: 5, keywords: 50 }
+    case 'shopify':
+    case 'woocommerce':
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 5, topProducts: 20 }
+    case 'asset-attribution':
+      // Step 2 will populate assetGroups + assetsPerGroup limits
+      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 5, ads: 10, keywords: 0 }
+    case 'audience':
+      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 10, ads: 5, keywords: 5 }
+    case 'search-terms':
+      return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 30 }
+    case 'health':
+      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 5, ads: 5, keywords: 5 }
+    case 'row-context':
+      return { ...DEFAULT_LIMITS, campaigns: 10, adGroups: 15, ads: 15, keywords: 15 }
+    default:
+      return DEFAULT_LIMITS
+  }
+}
+// ── end LORAMER_PROJECT_3_STEP_1_V1 ───────────────────────────────────────────
+
+
 const DIRECTIVE_PATTERNS: RegExp[] = [
   /\bignore\b/i,
   /\bdon'?t\s+(?:focus|worry|mention|recommend|suggest|talk\s+about|pay\s+attention|use|consider|include|flag|highlight|surface)/i,
@@ -85,15 +198,16 @@ function formatMetrics(m: any, indent = ''): string {
   return lines.map(l => indent + l).join(', ')
 }
 
-function buildPlatformSection(platform: PlatformIntelligence, name: string): string {
+// LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
+function buildPlatformSection(platform: PlatformIntelligence, name: string, limits: DataLimits = DEFAULT_LIMITS): string {
   if (!platform?.connected || !platform.campaigns?.length) return ''
   const lines: string[] = []
   lines.push(`\n=== ${name.toUpperCase()} ADS ===`)
   lines.push(`Account Totals: ${formatMetrics(platform.totals)}`)
 
-  if (platform.campaigns.length > 0) {
-    lines.push(`\nCampaigns (${platform.campaigns.length} total):`)
-    platform.campaigns.slice(0, 15).forEach(c => {
+  if (platform.campaigns.length > 0 && limits.campaigns > 0) {
+    lines.push(`\nCampaigns (${platform.campaigns.length} total, showing top ${Math.min(platform.campaigns.length, limits.campaigns)}):`)
+    platform.campaigns.slice(0, limits.campaigns).forEach(c => {
       const rule = OBJECTIVE_RULES[c.objective || ''] || ''
       lines.push(`  • ${c.name} [${c.objective || c.channelType || 'unknown'}] [${c.status}]`)
       if (c.bidStrategy) lines.push(`    Bid strategy: ${c.bidStrategy}`)
@@ -103,9 +217,9 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string): str
     })
   }
 
-  if (platform.adGroups && platform.adGroups.length > 0) {
-    lines.push(`\nAd Groups/Sets (top ${Math.min(platform.adGroups.length, 20)}):`)
-    platform.adGroups.slice(0, 20).forEach(ag => {
+  if (platform.adGroups && platform.adGroups.length > 0 && limits.adGroups > 0) {
+    lines.push(`\nAd Groups/Sets (top ${Math.min(platform.adGroups.length, limits.adGroups)}):`)
+    platform.adGroups.slice(0, limits.adGroups).forEach(ag => {
       lines.push(`  • ${ag.name} [${ag.campaignName}] [${ag.status}]`)
       if (ag.bidStrategy) lines.push(`    Bid: ${ag.bidStrategy}`)
       if (ag.optimizationGoal) lines.push(`    Optimizing for: ${ag.optimizationGoal}`)
@@ -124,9 +238,9 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string): str
     })
   }
 
-  if (platform.ads && platform.ads.length > 0) {
-    lines.push(`\nAds (top ${Math.min(platform.ads.length, 20)} by spend):`)
-    platform.ads.slice(0, 20).forEach(ad => {
+  if (platform.ads && platform.ads.length > 0 && limits.ads > 0) {
+    lines.push(`\nAds (top ${Math.min(platform.ads.length, limits.ads)} by spend):`)
+    platform.ads.slice(0, limits.ads).forEach(ad => {
       lines.push(`  • ${ad.name} [${ad.creativeType || 'unknown'}] [${ad.status}]`)
       if (ad.headline) lines.push(`    Headline: "${ad.headline}"`)
       if (ad.body) lines.push(`    Body: "${ad.body.slice(0, 100)}${ad.body.length > 100 ? '...' : ''}"`)
@@ -135,9 +249,9 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string): str
     })
   }
 
-  if (platform.keywords && platform.keywords.length > 0) {
-    lines.push(`\nTop Keywords (${platform.keywords.length} total):`)
-    platform.keywords.slice(0, 20).forEach(kw => {
+  if (platform.keywords && platform.keywords.length > 0 && limits.keywords > 0) {
+    lines.push(`\nTop Keywords (${platform.keywords.length} total, showing top ${Math.min(platform.keywords.length, limits.keywords)}):`)
+    platform.keywords.slice(0, limits.keywords).forEach(kw => {
       lines.push(`  • "${kw.text}" [${kw.matchType}] [QS: ${kw.qualityScore || 'N/A'}] — ${formatMetrics(kw.metrics)}`)
     })
   }
@@ -359,11 +473,14 @@ export function buildClaudeContext(
   }
 
   // ── Platform Data ──────────────────────────────────────────────────────────
+  // LORAMER_PROJECT_3_STEP_1_V1 — focus-aware slicing
+  const { mode: focusMode } = normalizeFocus(focus)
+  const limits = getDataLimitsForFocus(focusMode)
   lines.push('\n=== COMPLETE ACCOUNT DATA ===')
   lines.push('(You have access to ALL data from ALL platforms. Use all of it to answer questions.)')
 
-  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google'))
-  if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta'))
+  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
+  if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
 
   if (intelligence.shopify?.connected) {
     const s = intelligence.shopify
@@ -374,8 +491,8 @@ export function buildClaudeContext(
     if (s.newCustomers) lines.push(`New Customers: ${s.newCustomers}`)
     if (s.returningCustomers) lines.push(`Returning Customers: ${s.returningCustomers}`)
     if (s.topProducts?.length) {
-      lines.push('Top Products:')
-      s.topProducts.slice(0, 5).forEach(prod => {
+      lines.push(`Top Products (showing top ${Math.min(s.topProducts.length, limits.topProducts)}):`)
+      s.topProducts.slice(0, limits.topProducts).forEach(prod => {
         lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units`)
       })
     }
@@ -392,8 +509,8 @@ export function buildClaudeContext(
     if (w.newCustomers) lines.push(`New Customers: ${w.newCustomers}`)
     if (w.returningCustomers) lines.push(`Returning Customers: ${w.returningCustomers}`)
     if (w.topProducts?.length) {
-      lines.push('Top Products:')
-      w.topProducts.slice(0, 5).forEach(prod => {
+      lines.push(`Top Products (showing top ${Math.min(w.topProducts.length, limits.topProducts)}):`)
+      w.topProducts.slice(0, limits.topProducts).forEach(prod => {
         lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units`)
       })
     }
