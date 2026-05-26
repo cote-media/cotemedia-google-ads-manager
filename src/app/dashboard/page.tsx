@@ -648,18 +648,14 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // LORAMER_CONV_API_V1_RIGHTPANEL
-  // Writes the latest user+assistant message pair to client_conversations table.
-  // Old behavior wrote the entire conversation blob to client_context.conversations
-  // on every save; new behavior is append-only via /api/conversations.
+  // LORAMER_CONV_API_V1_RIGHTPANEL + LORAMER_MEMORY_AUTODETECT_V1
   async function saveToClient(msgs: { role: 'user' | 'assistant'; content: string }[]) {
     if (!clientId || msgs.length < 2) return
-    // The last two entries are always the new user msg + new Claude response
     const newPair = msgs.slice(-2)
     const scope = title.toLowerCase().replace(/\s+/g, '-') + ':' + platform
     try {
       for (const m of newPair) {
-        await fetch('/api/conversations', {
+        const r = await fetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -670,6 +666,14 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
             content: m.content,
           }),
         })
+        if (m.role === 'user') {
+          const d = await r.json().catch(() => ({}))
+          if (d?.proposeMemory && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('loramer-memory-proposal', {
+              detail: { clientId, proposal: d.proposeMemory, originalMessage: m.content },
+            }))
+          }
+        }
       }
       invalidateInsightCaches(clientId)
     } catch {}
@@ -1199,16 +1203,12 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
     fetchInsight().then(text => { if (text) { setInsight(text); lsSet(cacheKey, JSON.stringify({ text, ts: Date.now() })) } setLoading(false) })
   }, [clientId, platform, dateRange, location])
 
-  // LORAMER_CONV_API_V1_INSIGHTCHAT
-  // Writes via /api/conversations (append new pair) or DELETE (clear all).
-  // Empty array = Clear button pressed; delete all messages for this surface+scope.
-  // Non-empty = append the last user+assistant pair to the table.
+  // LORAMER_CONV_API_V1_INSIGHTCHAT + LORAMER_MEMORY_AUTODETECT_V1
   async function saveConversation(updatedMessages: InsightMessage[]) {
     if (!clientId) return
     setPersisting(true)
     try {
       if (updatedMessages.length === 0) {
-        // Clear button — delete everything for this surface+scope
         const params = new URLSearchParams({
           clientId,
           surface: 'insight-chat',
@@ -1216,10 +1216,9 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
         })
         await fetch('/api/conversations?' + params.toString(), { method: 'DELETE' })
       } else if (updatedMessages.length >= 2) {
-        // Append the latest user+assistant pair
         const newPair = updatedMessages.slice(-2)
         for (const m of newPair) {
-          await fetch('/api/conversations', {
+          const r = await fetch('/api/conversations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1230,6 +1229,14 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
               content: m.content,
             }),
           })
+          if (m.role === 'user') {
+            const d = await r.json().catch(() => ({}))
+            if (d?.proposeMemory && typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('loramer-memory-proposal', {
+                detail: { clientId, proposal: d.proposeMemory, originalMessage: m.content },
+              }))
+            }
+          }
         }
       }
       // Invalidate other insight caches so they re-fetch with this new context
@@ -2464,6 +2471,81 @@ function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, open
   )
 }
 
+// LORAMER_MEMORY_AUTODETECT_V1
+function MemoryProposalToast() {
+  const [proposal, setProposal] = useState<null | { clientId: string; suggestedContent: string; suggestedCategory: 'directive' | 'fact' | 'preference'; confidence: number; originalMessage: string }>(null)
+  const [saving, setSaving] = useState(false)
+  const [savedFlash, setSavedFlash] = useState(false)
+  useEffect(() => {
+    function handle(e: Event) {
+      const ce = e as CustomEvent
+      const d = ce.detail
+      if (!d?.proposal?.suggestedContent) return
+      setProposal({
+        clientId: d.clientId,
+        originalMessage: d.originalMessage || '',
+        ...d.proposal,
+      })
+      setSavedFlash(false)
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('loramer-memory-proposal', handle as EventListener)
+      return () => window.removeEventListener('loramer-memory-proposal', handle as EventListener)
+    }
+  }, [])
+  async function saveAs(category: 'directive' | 'fact' | 'preference') {
+    if (!proposal) return
+    setSaving(true)
+    try {
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: proposal.clientId,
+          content: proposal.suggestedContent,
+          category,
+          source: 'user_conversation',
+          confidence: proposal.confidence,
+        }),
+      })
+      setSavedFlash(true)
+      setTimeout(() => { setProposal(null); setSavedFlash(false) }, 1800)
+    } catch {} finally { setSaving(false) }
+  }
+  if (!proposal) return null
+  return (
+    <div className="fixed bottom-6 right-6 z-[60] max-w-sm border border-accent/40 bg-white rounded-xl shadow-card-hover p-3">
+      {savedFlash ? (
+        <div className="flex items-center gap-2 text-sm text-green-700">
+          <span>✓</span>
+          <span className="font-medium">Saved to memory</span>
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-muted mb-1 font-mono uppercase tracking-wide">Save to memory?</p>
+          <p className="text-sm text-ink mb-3 break-words">{proposal.suggestedContent}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => saveAs(proposal.suggestedCategory)}
+              disabled={saving}
+              className="text-xs font-mono bg-accent text-white px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : `Save as ${proposal.suggestedCategory}`}
+            </button>
+            {proposal.suggestedCategory !== 'directive' && (
+              <button onClick={() => saveAs('directive')} disabled={saving} className="text-xs font-mono border border-border text-muted hover:text-ink hover:border-ink px-2 py-1.5 rounded-lg">or directive</button>
+            )}
+            {proposal.suggestedCategory !== 'fact' && (
+              <button onClick={() => saveAs('fact')} disabled={saving} className="text-xs font-mono border border-border text-muted hover:text-ink hover:border-ink px-2 py-1.5 rounded-lg">or fact</button>
+            )}
+            <button onClick={() => setProposal(null)} className="text-xs font-mono text-muted hover:text-ink ml-auto px-1">dismiss</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -2754,9 +2836,9 @@ function DashboardContent() {
       const data = await res.json()
       setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
       setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
-      // LORAMER_CONV_API_V1_CHATTAB - persist user msg + assistant response to client_conversations
+      // LORAMER_CONV_API_V1_CHATTAB + LORAMER_MEMORY_AUTODETECT_V1
       try {
-        await fetch('/api/conversations', {
+        const userR = await fetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2767,6 +2849,12 @@ function DashboardContent() {
             content: userMsg,
           }),
         })
+        const userD = await userR.json().catch(() => ({}))
+        if (userD?.proposeMemory && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('loramer-memory-proposal', {
+            detail: { clientId: selectedClient.id, proposal: userD.proposeMemory, originalMessage: userMsg },
+          }))
+        }
         await fetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2839,6 +2927,8 @@ function DashboardContent() {
 
   return (
     <div className="min-h-screen bg-paper flex">
+      {/* LORAMER_MEMORY_AUTODETECT_V1 */}
+      <MemoryProposalToast />
       {/* Desktop Sidebar */}
       <div className={`hidden md:flex flex-col border-r border-border bg-white transition-all duration-200 ${sidebarCollapsed ? 'w-14' : 'w-56'}`} style={{ minHeight: '100vh', position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto' }}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
