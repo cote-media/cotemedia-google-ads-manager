@@ -2504,13 +2504,37 @@ function DashboardContent() {
   const [panelLoading, setPanelLoading] = useState(false)
   const [panelQuickPrompts, setPanelQuickPrompts] = useState<string[]>([])  // LORAMER_PANEL_ONLY_V1
 
-  function openPanel(title: string, context: string, existingMessages: { role: 'user' | 'assistant'; content: string }[] = [], quickPrompts: string[] = []) {  // LORAMER_PANEL_ONLY_V1
+  // LORAMER_CONV_API_V1_OPENPANEL
+  // Loads prior conversation from /api/conversations for the panel's surface+scope.
+  // Fixes the "panel empty after client switch" bug: conversation stays in DB but
+  // in-memory state clears on client switch, so we re-fetch on each open.
+  async function openPanel(title: string, context: string, existingMessages: { role: 'user' | 'assistant'; content: string }[] = [], quickPrompts: string[] = []) {  // LORAMER_PANEL_ONLY_V1
     setPanelTitle(title); lsSet('advar-panel-title', title)
     setPanelContext(context); lsSet('advar-panel-context', context)
-    setPanelMessages(existingMessages); lsSet('advar-panel-messages', JSON.stringify(existingMessages))
-    setPanelQuickPrompts(quickPrompts)  // LORAMER_PANEL_ONLY_V1
+    setPanelQuickPrompts(quickPrompts)
     setPanelOpen(true); lsSet('advar-panel-open', 'true')
     setPanelMinimized(false); lsSet('advar-panel-minimized', 'false')
+
+    // Show whatever caller passed in immediately so the panel doesn't flash empty.
+    setPanelMessages(existingMessages); lsSet('advar-panel-messages', JSON.stringify(existingMessages))
+
+    // Then fetch prior history from the DB and overlay if we find any.
+    if (!selectedClient?.id) return
+    const scope = title.toLowerCase().replace(/\s+/g, '-') + ':' + activePlatform
+    try {
+      const params = new URLSearchParams({
+        clientId: selectedClient.id,
+        surface: 'right-panel',
+        scope,
+      })
+      const r = await fetch('/api/conversations?' + params.toString())
+      const d = await r.json()
+      const prior = (d.messages || []).map((m: any) => ({ role: m.role, content: m.content }))
+      if (prior.length > 0) {
+        setPanelMessages(prior)
+        lsSet('advar-panel-messages', JSON.stringify(prior))
+      }
+    } catch {}
   }
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
