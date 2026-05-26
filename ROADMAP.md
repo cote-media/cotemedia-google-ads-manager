@@ -342,6 +342,25 @@ Separate from per-client memory.
 - **Phase 3 — post-launch (~6 weeks out):** dismissed-insights tracking + basic pattern observation
 - **Phase 4 — after first paying Scale customer:** full nightly learning loop with daily learning logs
 
+### Phase 2.1 — Memory editor UX evolution (LORAMER_ROADMAP_MEMORY_UX_V1)
+
+As fact count grows, the inline list will get unwieldy. Real concern flagged after Phase 2 shipped (May 26) — at 5 facts the editor is fine, at 50 it's a wall of text, at 200 unusable.
+
+Incremental fixes:
+- [ ] Collapsible category groups (collapsed by default with count badge — user expands what they need)
+- [ ] Search/filter input at the top of the memory section
+- [ ] Sort options: pinned first → most recently referenced → most recent → oldest
+- [ ] Quick "pin all" / "archive all" bulk actions on category headers
+- [ ] Visual indicator when a fact was last referenced by Claude (so users see what's active vs. dormant)
+
+Bigger evolution (likely Phase 2.5+):
+- [ ] **Merge similar facts** — when user adds "Ignore ROAS" and Claude observes "Don't focus on ROAS", offer to consolidate
+- [ ] **Decay / auto-archive stale facts** — if Claude hasn't referenced a fact in N months, suggest archiving with one click
+- [ ] **Sub-grouping within categories** — facts about budget vs. targeting vs. creative auto-cluster
+- [ ] **Dedicated `/memory` route per client** for power users with 100+ facts (alternative to inline UI; profile keeps the most pinned/recent)
+
+Tier-gating opportunity: bulk operations + sub-grouping might be Agency-tier features (since they only matter at scale).
+
 ---
 
 ## 📂 PROJECT 10 — Data Ingestion (User-Uploaded Business Data)
