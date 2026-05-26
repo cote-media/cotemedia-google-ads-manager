@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -402,6 +402,40 @@ export async function fetchGoogleIntelligence(
 
   const demographics: IntelligenceDemographic[] = [...ageDemos, ...genderDemos]
 
+  // ── RSA Asset Performance (LORAMER_PROJECT_3_STEP_2E_V1) ───────────────────
+  // Per-asset headlines and descriptions for Responsive Search Ads, with
+  // Google's BEST/GOOD/LOW performance labels. Filters to text assets only
+  // (HEADLINE or DESCRIPTION field types). PMax asset-group assets handled
+  // separately in 2f.
+  const adAssetRows = await customer.query(`
+    SELECT campaign.name,
+    ad_group.name,
+    ad_group_ad.ad.id,
+    ad_group_ad_asset_view.field_type,
+    ad_group_ad_asset_view.performance_label,
+    asset.text_asset.text
+    FROM ad_group_ad_asset_view
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    AND ad_group_ad.status != 'REMOVED'
+    AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')
+    LIMIT 500
+  `).catch(() => [])
+
+  const adAssets: IntelligenceAdAsset[] = adAssetRows.map((row: any) => {
+    const ft = String(row.ad_group_ad_asset_view?.field_type || '')
+    const fieldType: 'HEADLINE' | 'DESCRIPTION' | 'OTHER' =
+      ft === 'HEADLINE' ? 'HEADLINE' : ft === 'DESCRIPTION' ? 'DESCRIPTION' : 'OTHER'
+    return {
+      adId: String(row.ad_group_ad?.ad?.id || ''),
+      campaignName: String(row.campaign?.name || ''),
+      adGroupName: String(row.ad_group?.name || ''),
+      fieldType,
+      text: String(row.asset?.text_asset?.text || ''),
+      performanceLabel: String(row.ad_group_ad_asset_view?.performance_label || ''),
+    }
+  })
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -437,6 +471,7 @@ export async function fetchGoogleIntelligence(
     conversionsByCampaign,  // LORAMER_PROJECT_3_STEP_2B_V1
     audiences,              // LORAMER_PROJECT_3_STEP_2C_V1
     demographics,           // LORAMER_PROJECT_3_STEP_2D_V1
+    adAssets,               // LORAMER_PROJECT_3_STEP_2E_V1
     totals,
   }
 }

@@ -165,6 +165,20 @@ export interface IntelligenceDemographic {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_PROJECT_3_STEP_2E_V1
+// Asset-level RSA performance. Each Responsive Search Ad has up to 15
+// headlines and 4 descriptions. Google reports per-asset performance
+// labels (BEST/GOOD/LOW/PENDING/UNRATED) not raw metrics. The label IS
+// the signal for asset-level analysis.
+export interface IntelligenceAdAsset {
+  adId: string
+  campaignName: string
+  adGroupName: string
+  fieldType: 'HEADLINE' | 'DESCRIPTION' | 'OTHER'
+  text: string
+  performanceLabel: string  // 'BEST' | 'GOOD' | 'LOW' | 'PENDING' | 'UNRATED' | ''
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -201,6 +215,8 @@ export interface PlatformIntelligence {
   audiences?: IntelligenceAudience[]
   // LORAMER_PROJECT_3_STEP_2D_V1
   demographics?: IntelligenceDemographic[]
+  // LORAMER_PROJECT_3_STEP_2E_V1
+  adAssets?: IntelligenceAdAsset[]
   totals: IntelligenceMetrics
 }
 

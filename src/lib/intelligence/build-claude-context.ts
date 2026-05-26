@@ -78,7 +78,7 @@ const DEFAULT_LIMITS: DataLimits = {
   searchTerms: 10,
   audiences: 10,       // LORAMER_PROJECT_3_STEP_2C_V1
   assetGroups: 0,      // Step 2f fills this
-  assetsPerGroup: 0,   // Step 2f fills this
+  assetsPerGroup: 25,  // LORAMER_PROJECT_3_STEP_2E_V1
   demographics: 15,    // LORAMER_PROJECT_3_STEP_2D_V1
   geographic: 0,       // Step 3 fills this
 }
@@ -319,6 +319,38 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
           lines.push(`    • ${d.value} — ${d.campaignName}${adGroupPart} — ${formatMetrics(d.metrics)}`)
         })
       }
+    }
+  }
+
+  // LORAMER_PROJECT_3_STEP_2E_V1 — RSA asset-level performance
+  if (platform.adAssets && platform.adAssets.length > 0 && limits.assetsPerGroup > 0) {
+    // Group by ad, show top performers (BEST/GOOD prioritized over LOW/PENDING)
+    const labelPriority: Record<string, number> = { BEST: 0, GOOD: 1, LOW: 2, PENDING: 3, UNRATED: 4 }
+    const sorted = [...platform.adAssets].sort((a, b) => {
+      const ap = labelPriority[a.performanceLabel] ?? 5
+      const bp = labelPriority[b.performanceLabel] ?? 5
+      return ap - bp
+    })
+    const slice = sorted.slice(0, limits.assetsPerGroup)
+    const headlines = slice.filter(a => a.fieldType === 'HEADLINE')
+    const descriptions = slice.filter(a => a.fieldType === 'DESCRIPTION')
+    if (headlines.length > 0 || descriptions.length > 0) {
+      lines.push(`\nRSA Asset Performance (Google performance labels — ${platform.adAssets.length} total assets, showing top ${slice.length}):`)
+      if (headlines.length > 0) {
+        lines.push(`  Headlines (${headlines.length}):`)
+        headlines.forEach(a => {
+          const label = a.performanceLabel || 'UNRATED'
+          lines.push(`    [${label}] "${a.text}" — ${a.campaignName} → ${a.adGroupName}`)
+        })
+      }
+      if (descriptions.length > 0) {
+        lines.push(`  Descriptions (${descriptions.length}):`)
+        descriptions.forEach(a => {
+          const label = a.performanceLabel || 'UNRATED'
+          lines.push(`    [${label}] "${a.text}" — ${a.campaignName} → ${a.adGroupName}`)
+        })
+      }
+      lines.push(`  (BEST = high performer Google rotates heavily; GOOD = solid; LOW = rarely used; PENDING = too new to rate; UNRATED = insufficient data. No per-asset metrics — labels are the analysis input.)`)
     }
   }
 
