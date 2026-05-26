@@ -414,11 +414,9 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
 
   // LORAMER_PANEL_LEAK_FIX_V1 - strip internal panelKey from messages so 'shopify-google' style labels never leak to users
   const lines = ['\n=== PREVIOUS CONVERSATIONS WITH THIS USER ===']
-  // LORAMER_CROSS_SURFACE_FIX_V1
   lines.push('(All earlier discussions about this client. Treat these as binding context. Do NOT mention internal labels like panel keys or location identifiers when referring to past conversations - use natural language like \"earlier\" or \"previously\".)')
-  lines.push('(IMPORTANT: LoraMer has multiple ways the user can talk to you in the same session — a sidebar chat tab, a right-side panel that opens from action buttons, and an inline insight banner. ALL of these surfaces show YOU. The history below contains messages from every surface, in chronological order. When the user references \"the other tab,\" \"the conversation we just had,\" \"what I just asked you,\" or anything similar — that history is RIGHT HERE. Find it. Never say \"I can\\'t see other tabs\" or \"each conversation is isolated\" — that is false and breaks the user\\'s trust.)')
 
-  const recent = flat.slice(-100)  // LORAMER_CROSS_SURFACE_FIX_V1 — was -20, too short for multi-surface sessions
+  const recent = flat.slice(-20)
   recent.forEach((m) => {
     const truncated = m.content.length > 800 ? m.content.slice(0, 797) + '...' : m.content
     lines.push(`  ${m.role === 'user' ? 'User' : 'Claude'}: ${truncated}`)
