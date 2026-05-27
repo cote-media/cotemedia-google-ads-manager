@@ -136,6 +136,8 @@ export async function GET(request: Request) {
     clientName: client?.name || '',
     fetchedAt: new Date().toISOString(),
     dateRange,
+    customStart,  // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1
+    customEnd,    // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1
     profile: {
       businessType: context?.business_type,
       primaryKpi: context?.primary_kpi,

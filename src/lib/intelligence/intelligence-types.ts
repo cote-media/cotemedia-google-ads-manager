@@ -259,6 +259,9 @@ export interface ClientIntelligence {
   clientName: string
   fetchedAt: string
   dateRange: string
+  // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1 - actual start/end when custom range used
+  customStart?: string
+  customEnd?: string
 
   // Client profile
   profile: {

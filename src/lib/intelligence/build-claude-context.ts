@@ -594,7 +594,12 @@ export function buildClaudeContext(
   // ── Identity ───────────────────────────────────────────────────────────────
   lines.push(`You are an expert digital advertising analyst embedded in LoraMer, a business intelligence platform for marketing agencies.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
-  lines.push(`Date range: ${intelligence.dateRange?.replace(/_/g, ' ').toLowerCase()}`)
+  // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1 - use actual dates when available
+  if (intelligence.customStart && intelligence.customEnd) {
+    lines.push(`Date range: ${intelligence.customStart} to ${intelligence.customEnd}`)
+  } else {
+    lines.push(`Date range: ${intelligence.dateRange?.replace(/_/g, ' ').toLowerCase()}`)
+  }
   lines.push(`Current view: ${focus}`)
   if (focusData) lines.push(`Specifically looking at: ${focusData}`)
 
