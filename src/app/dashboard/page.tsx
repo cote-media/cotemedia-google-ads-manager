@@ -632,7 +632,7 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
 
 // ─── Drill Table ──────────────────────────────────────────────────────────────
 // ─── Right Panel ─────────────────────────────────────────────────────────────
-function RightPanel({ open, onClose, onMinimize, title, context, messages, setMessages, input, setInput, loading, setLoading, clientId, clientName, platform, dateRange, quickPrompts }: {
+function RightPanel({ open, onClose, onMinimize, title, context, messages, setMessages, input, setInput, loading, setLoading, clientId, clientName, platform, dateRange, customStart, customEnd, quickPrompts }: {
   open: boolean; onClose: () => void; onMinimize: () => void
   title: string; context: string
   messages: { role: 'user' | 'assistant'; content: string }[]
@@ -640,6 +640,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
   input: string; setInput: (v: string) => void
   loading: boolean; setLoading: (v: boolean) => void
   clientId: string; clientName: string; platform: Platform; dateRange: string
+  customStart?: string; customEnd?: string  // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
   quickPrompts?: string[]  // LORAMER_PANEL_ONLY_V1
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -693,9 +694,9 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
         body: JSON.stringify({
           message: userMsg,
           history: newMessages.slice(0, -1),
-          platform, dateRange, clientId, clientName,
+          platform, dateRange, customStart, customEnd, clientId, clientName,
           rowContext: context,
-          location,  // LORAMER_FOCUS_LOCATION_V1
+          location,  // LORAMER_FOCUS_LOCATION_V1 + LORAMER_CUSTOM_DATE_RANGE_FIX_V2
         }),
       })
       const d = await res.json()
@@ -1128,8 +1129,8 @@ function Breadcrumb({ drill, onNavigate, onBack, dateLabel }: { drill: DrillStat
 // ─── Insight Chat Component ───────────────────────────────────────────────────
 type InsightMessage = { role: 'user' | 'assistant'; content: string }
 
-function InsightChat({ data, clientId, clientName, dateRange, location, shopify }: {
-  data?: PlatformData | null; clientId: string; clientName: string; dateRange: string; location?: string; shopify?: any
+function InsightChat({ data, clientId, clientName, dateRange, customStart, customEnd, location, shopify }: {
+  data?: PlatformData | null; clientId: string; clientName: string; dateRange: string; customStart?: string; customEnd?: string; location?: string; shopify?: any  // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
 }) {
   // Work with whatever data we have — ads, shopify, or both
   const hasAdData = !!(data?.totals && data?.campaigns)
@@ -1164,9 +1165,9 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   async function fetchInsight(history: InsightMessage[] = []) {
     try {
       const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientName, dateRange, location, conversationHistory: history, activeAlerts: filteredAnomalies,
+        body: JSON.stringify({ clientId, clientName, dateRange, customStart, customEnd, location, conversationHistory: history, activeAlerts: filteredAnomalies,
           // Pass ad data if available for backwards compat
-          totals: totals || null, campaigns: campaigns || [], platform }) })
+          totals: totals || null, campaigns: campaigns || [], platform }) }) // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
       const d = await res.json(); return d.insight || ''
     } catch { return '' }
   }
@@ -1259,12 +1260,13 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          totals, campaigns, platform, dateRange, clientName, clientId,
+          totals, campaigns, platform, dateRange, customStart, customEnd, clientName, clientId,
           conversationHistory: [
             ...conversation,
             { role: 'user', content: 'Based on what the user just told you, extract any persistent facts about this client that should always inform your future analysis. Examples: "ignore ROAS", "focus on MoF conversions", "target CPA is $45", "this is a top-of-funnel brand awareness account". Reply with ONLY the key facts as a single short sentence, or reply with exactly "none" if there is nothing new worth saving.' }
           ],
           location,
+          // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
         }),
       })
       const d = await res.json()
@@ -1540,7 +1542,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <InsightChat data={data} clientId={clientId} clientName={clientName} dateRange={dateRange} location="overview" shopify={shopify} />
+      <InsightChat data={data} clientId={clientId} clientName={clientName} dateRange={dateRange} customStart={customStart} customEnd={customEnd} location="overview" shopify={shopify} />
 
       {hasAdData && platform === 'combined' && totals!.googleSpend !== undefined && totals!.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
@@ -1900,6 +1902,8 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
             clientId={clientId}
             clientName={clientName}
             dateRange={dateRange}
+            customStart={customStart}
+            customEnd={customEnd}
             location={
               drill.level === 'campaigns' ? 'campaigns' :
               drill.level === 'adgroups' ? 'adgroups:' + (drill.campaign?.name || '') :
@@ -1954,7 +1958,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
 }
 
 // ─── Keywords Tab ─────────────────────────────────────────────────────────────
-function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData }: { accountId: string; dateRange: string; clientId: string; clientName: string; platformData: PlatformData | null }) {
+function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData, customStart, customEnd }: { accountId: string; dateRange: string; clientId: string; clientName: string; platformData: PlatformData | null; customStart?: string; customEnd?: string  /* LORAMER_CUSTOM_DATE_RANGE_FIX_V2 */ }) {
   const [keywords, setKeywords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sortCol, setSortCol] = useState('spend')
@@ -2054,7 +2058,7 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData 
       </div>
       {clientId && platformData && (
         <div className="mb-4">
-          <InsightChat data={platformData} clientId={clientId} clientName={clientName} dateRange={dateRange} location="keywords" />
+          <InsightChat data={platformData} clientId={clientId} clientName={clientName} dateRange={dateRange} customStart={customStart} customEnd={customEnd} location="keywords" />
         </div>
       )}
       {loading ? <div className="text-muted text-sm font-mono">Loading keywords...</div> : (
@@ -2211,7 +2215,7 @@ interface ShopifyData {
   adAttributedOrders?: number
 }
 
-function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel, platformLabel = 'Shopify', apiPath = '/api/shopify/daily' }: {  // LORAMER_WOO_TAB_V1
+function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel, platformLabel = 'Shopify', apiPath = '/api/shopify/daily', customStart, customEnd }: {  // LORAMER_WOO_TAB_V1 + LORAMER_CUSTOM_DATE_RANGE_FIX_V2
   shopify: ShopifyData
   clientId: string
   clientName: string
@@ -2259,6 +2263,8 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
           clientId={clientId}
           clientName={clientName}
           dateRange={dateRange}
+          customStart={customStart}
+          customEnd={customEnd}
           location={platformLabel.toLowerCase()}
           shopify={shopify}
         />
@@ -2436,7 +2442,7 @@ function ShopifyTabWrapper({ clientId, clientName, dateRange, platform, openPane
       <p className="text-xs text-red-500">{error}</p>
     </div>
   )
-  return <ShopifyTab shopify={shopifyData} clientId={clientId} clientName={clientName} dateRange={dateRange} platform={platform} openPanel={openPanel} />
+  return <ShopifyTab shopify={shopifyData} clientId={clientId} clientName={clientName} dateRange={dateRange} platform={platform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
 }
 
 // LORAMER_WOO_TAB_V1
@@ -2467,6 +2473,8 @@ function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, open
       openPanel={openPanel}
       platformLabel="WooCommerce"
       apiPath="/api/woocommerce/daily"
+      customStart={customStart}
+      customEnd={customEnd}
     />
   )
 }
@@ -2821,6 +2829,9 @@ function DashboardContent() {
           platform: activePlatform,
           platformData,
           dateRange,
+          customStart,
+          customEnd,
+          // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
           // Client context
           clientId: selectedClient.id,
           clientName: selectedClient.name,
@@ -3088,7 +3099,7 @@ function DashboardContent() {
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} />
           )}
           {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
-            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} platformData={platformData} />
+            <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} platformData={platformData} customStart={customStart} customEnd={customEnd} />
           )}
           {activeTab === 'shopify' && hasShopify && (
             <ShopifyTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
@@ -3162,6 +3173,8 @@ function DashboardContent() {
               clientName={selectedClient?.name || ''}
               platform={activePlatform}
               dateRange={dateRange}
+              customStart={customStart}
+              customEnd={customEnd}
               quickPrompts={panelQuickPrompts}
             />
           )}
