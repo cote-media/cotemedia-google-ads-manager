@@ -316,7 +316,7 @@ export async function fetchGoogleIntelligence(
 
   const audiences: IntelligenceAudience[] = audienceRows.map((row: any) => ({
     id: String(row.audience?.id || ''),
-    name: String(row.audience?.name || '(unnamed audience)'),
+    name: resolveAudienceName(String(row.audience?.name || '')),  // LORAMER_AUDIENCE_CRITERION_ID_MAP_V1
     description: row.audience?.description ? String(row.audience.description) : undefined,
     campaignId: String(row.campaign?.id || ''),
     campaignName: String(row.campaign?.name || ''),
@@ -372,6 +372,32 @@ export async function fetchGoogleIntelligence(
     MALE: 'Male',
     FEMALE: 'Female',
     UNDETERMINED: 'Unknown gender',
+  }
+  // LORAMER_AUDIENCE_CRITERION_ID_MAP_V1
+  // When audience_view returns criterion-based audiences (e.g. age range targeting on
+  // a Search campaign), audience.name may be the raw criterion ID. Map known IDs to
+  // human-readable labels. Pass through anything that doesn't match (e.g. real
+  // in-market or custom audience names).
+  const CRITERION_ID_MAP: Record<string, string> = {
+    '503001': 'Age 18-24',
+    '503002': 'Age 25-34',
+    '503003': 'Age 35-44',
+    '503004': 'Age 45-54',
+    '503005': 'Age 55-64',
+    '503006': 'Age 65+',
+    '503999': 'Age undetermined',
+    '10': 'Male',
+    '11': 'Female',
+    '20': 'Gender undetermined',
+  }
+  function resolveAudienceName(raw: string): string {
+    if (!raw) return '(unnamed audience)'
+    // Only attempt mapping if the name is purely numeric — real audience names
+    // (e.g. "In-market: Travel & Tourism") should pass through untouched.
+    if (/^\d+$/.test(raw) && CRITERION_ID_MAP[raw]) {
+      return CRITERION_ID_MAP[raw]
+    }
+    return raw
   }
 
   const ageDemos: IntelligenceDemographic[] = ageRows.map((row: any) => {
