@@ -179,6 +179,37 @@ export interface IntelligenceAdAsset {
   performanceLabel: string  // 'BEST' | 'GOOD' | 'LOW' | 'PENDING' | 'UNRATED' | ''
 }
 
+// LORAMER_PROJECT_3_STEP_2F_V1
+// Performance Max asset groups. Each PMax campaign has 1+ asset groups,
+// each a themed collection of creative + audience signals. Asset groups
+// have their own metrics (Google exposes these), while individual assets
+// within only have performance labels.
+export interface IntelligenceAssetGroup {
+  id: string
+  name: string
+  campaignId: string
+  campaignName: string
+  status: string
+  adStrength?: string  // EXCELLENT, GOOD, AVERAGE, POOR, PENDING, NO_ADS
+  metrics: IntelligenceMetrics
+}
+
+// LORAMER_PROJECT_3_STEP_2F_V1
+// Individual assets within PMax asset groups. Field types include
+// HEADLINE, LONG_HEADLINE, DESCRIPTION, BUSINESS_NAME, MARKETING_IMAGE,
+// SQUARE_MARKETING_IMAGE, LOGO, LANDSCAPE_LOGO, YOUTUBE_VIDEO, etc.
+// Image/video assets have no text but carry performance labels.
+export interface IntelligenceAssetGroupAsset {
+  assetGroupId: string
+  assetGroupName: string
+  campaignName: string
+  fieldType: string  // see comment above
+  text?: string  // present for text assets
+  isImage: boolean  // marketing image, square marketing image, logo, etc.
+  isVideo: boolean  // youtube video
+  performanceLabel: string  // BEST, GOOD, LOW, PENDING, UNRATED
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -217,6 +248,9 @@ export interface PlatformIntelligence {
   demographics?: IntelligenceDemographic[]
   // LORAMER_PROJECT_3_STEP_2E_V1
   adAssets?: IntelligenceAdAsset[]
+  // LORAMER_PROJECT_3_STEP_2F_V1 - PMax asset groups + assets
+  assetGroups?: IntelligenceAssetGroup[]
+  assetGroupAssets?: IntelligenceAssetGroupAsset[]
   totals: IntelligenceMetrics
 }
 

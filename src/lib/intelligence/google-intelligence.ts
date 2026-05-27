@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -436,6 +436,64 @@ export async function fetchGoogleIntelligence(
     }
   })
 
+  // ── PMax Asset Groups + Assets (LORAMER_PROJECT_3_STEP_2F_V1) ──────────────
+  // THE NORTH STAR — lets Claude answer "which asset combination drove this
+  // conversion?" for Performance Max campaigns. Two queries in parallel:
+  // asset_group_view (per-group metrics) and asset_group_asset_view (per-asset
+  // performance labels). Combined render shows asset groups with their assets
+  // grouped beneath them.
+  const [assetGroupRows, assetGroupAssetRows] = await Promise.all([
+    customer.query(`
+      SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.ad_strength,
+      campaign.id, campaign.name,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM asset_group
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+      AND asset_group.status != 'REMOVED'
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 100
+    `).catch(() => []),
+    customer.query(`
+      SELECT asset_group.id, asset_group.name,
+      campaign.name,
+      asset_group_asset.field_type, asset_group_asset.performance_label,
+      asset.type, asset.text_asset.text
+      FROM asset_group_asset
+      WHERE asset_group_asset.status != 'REMOVED'
+      AND campaign.status != 'REMOVED'
+      LIMIT 500
+    `).catch(() => []),
+  ])
+
+  const assetGroups: IntelligenceAssetGroup[] = assetGroupRows.map((row: any) => ({
+    id: String(row.asset_group?.id || ''),
+    name: String(row.asset_group?.name || ''),
+    campaignId: String(row.campaign?.id || ''),
+    campaignName: String(row.campaign?.name || ''),
+    status: normalizeStatus(String(row.asset_group?.status || '')),
+    adStrength: row.asset_group?.ad_strength ? String(row.asset_group.ad_strength) : undefined,
+    metrics: buildMetrics(row),
+  }))
+
+  const assetGroupAssets: IntelligenceAssetGroupAsset[] = assetGroupAssetRows.map((row: any) => {
+    const fieldType = String(row.asset_group_asset?.field_type || '')
+    const assetType = String(row.asset?.type || '')
+    const isImage = fieldType.includes('IMAGE') || fieldType.includes('LOGO') || assetType === 'IMAGE'
+    const isVideo = fieldType.includes('VIDEO') || assetType === 'YOUTUBE_VIDEO'
+    return {
+      assetGroupId: String(row.asset_group?.id || ''),
+      assetGroupName: String(row.asset_group?.name || ''),
+      campaignName: String(row.campaign?.name || ''),
+      fieldType,
+      text: row.asset?.text_asset?.text ? String(row.asset.text_asset.text) : undefined,
+      isImage,
+      isVideo,
+      performanceLabel: String(row.asset_group_asset?.performance_label || ''),
+    }
+  })
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -472,6 +530,8 @@ export async function fetchGoogleIntelligence(
     audiences,              // LORAMER_PROJECT_3_STEP_2C_V1
     demographics,           // LORAMER_PROJECT_3_STEP_2D_V1
     adAssets,               // LORAMER_PROJECT_3_STEP_2E_V1
+    assetGroups,            // LORAMER_PROJECT_3_STEP_2F_V1
+    assetGroupAssets,       // LORAMER_PROJECT_3_STEP_2F_V1
     totals,
   }
 }

@@ -77,7 +77,7 @@ const DEFAULT_LIMITS: DataLimits = {
   // LORAMER_PROJECT_3_STEP_2A_V1 — search terms enabled
   searchTerms: 10,
   audiences: 10,       // LORAMER_PROJECT_3_STEP_2C_V1
-  assetGroups: 0,      // Step 2f fills this
+  assetGroups: 8,      // LORAMER_PROJECT_3_STEP_2F_V1
   assetsPerGroup: 25,  // LORAMER_PROJECT_3_STEP_2E_V1
   demographics: 15,    // LORAMER_PROJECT_3_STEP_2D_V1
   geographic: 0,       // Step 3 fills this
@@ -127,7 +127,7 @@ export function getDataLimitsForFocus(mode: FocusMode): DataLimits {
       return { ...DEFAULT_LIMITS, campaigns: 5, adGroups: 5, ads: 5, keywords: 5, searchTerms: 5, topProducts: 20 }
     case 'asset-attribution':
       // Step 2 will populate assetGroups + assetsPerGroup limits
-      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 5, ads: 10, keywords: 0 }
+      return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 5, ads: 10, keywords: 0, assetGroups: 15, assetsPerGroup: 50 }
     case 'audience':
       return { ...DEFAULT_LIMITS, campaigns: 8, adGroups: 10, ads: 5, keywords: 5, audiences: 30 }
     case 'search-terms':
@@ -352,6 +352,47 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       }
       lines.push(`  (BEST = high performer Google rotates heavily; GOOD = solid; LOW = rarely used; PENDING = too new to rate; UNRATED = insufficient data. No per-asset metrics — labels are the analysis input.)`)
     }
+  }
+
+  // LORAMER_PROJECT_3_STEP_2F_V1 — PMax asset groups + assets (THE north star)
+  if (platform.assetGroups && platform.assetGroups.length > 0 && limits.assetGroups > 0) {
+    const groupSlice = platform.assetGroups.slice(0, limits.assetGroups)
+    lines.push(`\nPMax Asset Groups (the north-star data for "which combination drove this conversion?"):`)
+    lines.push(`  ${platform.assetGroups.length} total asset groups, showing top ${groupSlice.length} by spend.`)
+    lines.push(`  Each asset group has its own metrics (Google exposes these) AND a set of assets (Google exposes performance LABELS not raw metrics at the asset level — labels are the analysis signal).`)
+    groupSlice.forEach(g => {
+      const adStrengthPart = g.adStrength ? ` [Ad Strength: ${g.adStrength}]` : ''
+      lines.push(`  ━━━ ${g.name} (in ${g.campaignName})${adStrengthPart} ━━━`)
+      lines.push(`    Group metrics: ${formatMetrics(g.metrics)}`)
+      if (platform.assetGroupAssets && platform.assetGroupAssets.length > 0 && limits.assetsPerGroup > 0) {
+        const groupAssets = platform.assetGroupAssets.filter(a => a.assetGroupId === g.id)
+        if (groupAssets.length > 0) {
+          const labelPriority: Record<string, number> = { BEST: 0, GOOD: 1, LOW: 2, PENDING: 3, UNRATED: 4 }
+          const sortedAssets = [...groupAssets].sort((a, b) => {
+            const ap = labelPriority[a.performanceLabel] ?? 5
+            const bp = labelPriority[b.performanceLabel] ?? 5
+            return ap - bp
+          })
+          const assetSlice = sortedAssets.slice(0, limits.assetsPerGroup)
+          assetSlice.forEach(a => {
+            const label = a.performanceLabel || 'UNRATED'
+            if (a.isVideo) {
+              lines.push(`    [VIDEO - ${label}] (${a.fieldType})`)
+            } else if (a.isImage) {
+              lines.push(`    [IMAGE - ${label}] (${a.fieldType})`)
+            } else if (a.text) {
+              lines.push(`    [${a.fieldType} - ${label}] "${a.text}"`)
+            } else {
+              lines.push(`    [${a.fieldType} - ${label}] (no preview available)`)
+            }
+          })
+          if (groupAssets.length > assetSlice.length) {
+            lines.push(`    (...and ${groupAssets.length - assetSlice.length} more assets in this group)`)
+          }
+        }
+      }
+    })
+    lines.push(`  (For each asset group: combine group-level metrics with asset-level labels to identify the working creative pattern. BEST-rated text + GOOD-rated images in a high-converting group = the winning combination Google is rotating heavily.)`)
   }
 
   return lines.join('\n')
