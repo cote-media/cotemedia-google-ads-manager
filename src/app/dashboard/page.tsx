@@ -693,10 +693,9 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
         body: JSON.stringify({
           message: userMsg,
           history: newMessages.slice(0, -1),
-          platform, dateRange, customStart, customEnd, clientId, clientName,
+          platform, dateRange, clientId, clientName,
           rowContext: context,
           location,  // LORAMER_FOCUS_LOCATION_V1
-          // LORAMER_CUSTOM_DATE_RANGE_FIX_V1
         }),
       })
       const d = await res.json()
@@ -1165,9 +1164,9 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
   async function fetchInsight(history: InsightMessage[] = []) {
     try {
       const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId, clientName, dateRange, customStart, customEnd, location, conversationHistory: history, activeAlerts: filteredAnomalies,
+        body: JSON.stringify({ clientId, clientName, dateRange, location, conversationHistory: history, activeAlerts: filteredAnomalies,
           // Pass ad data if available for backwards compat
-          totals: totals || null, campaigns: campaigns || [], platform }) }) // LORAMER_CUSTOM_DATE_RANGE_FIX_V1
+          totals: totals || null, campaigns: campaigns || [], platform }) })
       const d = await res.json(); return d.insight || ''
     } catch { return '' }
   }
@@ -1260,13 +1259,12 @@ function InsightChat({ data, clientId, clientName, dateRange, location, shopify 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          totals, campaigns, platform, dateRange, customStart, customEnd, clientName, clientId,
+          totals, campaigns, platform, dateRange, clientName, clientId,
           conversationHistory: [
             ...conversation,
             { role: 'user', content: 'Based on what the user just told you, extract any persistent facts about this client that should always inform your future analysis. Examples: "ignore ROAS", "focus on MoF conversions", "target CPA is $45", "this is a top-of-funnel brand awareness account". Reply with ONLY the key facts as a single short sentence, or reply with exactly "none" if there is nothing new worth saving.' }
           ],
           location,
-          // LORAMER_CUSTOM_DATE_RANGE_FIX_V1
         }),
       })
       const d = await res.json()
@@ -2823,9 +2821,6 @@ function DashboardContent() {
           platform: activePlatform,
           platformData,
           dateRange,
-          customStart,
-          customEnd,
-          // LORAMER_CUSTOM_DATE_RANGE_FIX_V1
           // Client context
           clientId: selectedClient.id,
           clientName: selectedClient.name,
