@@ -2121,8 +2121,10 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
 
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
 function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount, platform, clientName, drillLevel }: any) {
-  const atLimit = exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0
-  const warningNext = exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0
+  // LORAMER_LIFT_CHAT_EXCHANGE_LIMIT_V1 - temporarily lifted until tier gating ships; original: `exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0`
+  const atLimit = false
+  // LORAMER_LIFT_CHAT_EXCHANGE_LIMIT_V1 - temporarily lifted; original: `exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0`
+  const warningNext = false
   const platformLabel = platform === 'google' ? 'Google Ads' : platform === 'meta' ? 'Meta Ads' : 'all platforms'
   const chatLevelLabel = drillLevel === 'adgroups' ? ' · ad groups' : drillLevel === 'ads' ? ' · ads' : ''
   return (
