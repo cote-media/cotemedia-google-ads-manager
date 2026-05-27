@@ -480,7 +480,7 @@ export async function fetchGoogleIntelligence(
       AND asset_group.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
-    `).catch(() => []),
+    `).catch((e: any) => { console.error('[PMax asset_group query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
     customer.query(`
       SELECT asset_group.id, asset_group.name,
       campaign.name,
@@ -490,7 +490,7 @@ export async function fetchGoogleIntelligence(
       WHERE asset_group_asset.status != 'REMOVED'
       AND campaign.status != 'REMOVED'
       LIMIT 500
-    `).catch(() => []),
+    `).catch((e: any) => { console.error('[PMax asset_group_asset query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
   ])
 
   const assetGroups: IntelligenceAssetGroup[] = assetGroupRows.map((row: any) => ({
