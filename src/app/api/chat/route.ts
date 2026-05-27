@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
+      max_tokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
       system: systemPrompt,
       messages,
     })
