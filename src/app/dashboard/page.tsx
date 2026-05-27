@@ -2224,6 +2224,8 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
   platformLabel?: string  // LORAMER_WOO_TAB_V1
   apiPath?: string  // LORAMER_WOO_TAB_V1
+  customStart?: string  // LORAMER_CUSTOM_DATE_RANGE_FIX_V2_SHOPIFY_TYPE
+  customEnd?: string  // LORAMER_CUSTOM_DATE_RANGE_FIX_V2_SHOPIFY_TYPE
 }) {
   if (!shopify) {
     return (
