@@ -61,6 +61,8 @@ Every patch we ship adds to our institutional knowledge of failure modes. Docume
 
 **8. Silent `.catch(() => [])` hiding GAQL errors.** Always instrument silent catches with `console.error(...)` before assuming the data isn't available. The PMax asset-level bug was silently failing for HOURS until we instrumented and saw the actual error message in Vercel logs.
 
+**11. Prompt-as-mirror — user-facing claims about API limitations get parroted back at users (LORAMER_HANDOFF_STEP2G_CLOSEOUT_V1).** When the PMax prompt v1 included the user-narrated sentence "Per-asset performance labels are NOT available via the API (UI-only) — do not infer or invent them," Claude began LEADING user responses with "Google's API does not expose per-asset metrics" — even when the actually-relevant data (combinations) was populated and was the real answer to the user's question. The instruction was intended as Claude's internal grounding, but because it was in the user-rendered narrative it got mirrored to the user. **Fix pattern:** put grounding/constraint instructions in code comments marked `INTERNAL_GROUNDING (do not narrate to user)` rather than in the prompt text Claude renders. Put what you WANT Claude to say in the prompt text; put what you don't want Claude to say in comments only Claude (the developer) sees. This is the same discipline as the rest of "right > fast" — be precise about which words are for Claude vs. for the user.
+
 **9. Cache invalidation can hide deployed fixes.** The 15-min intelligence cache means a deployed change may not be visible for up to 15 min, OR a query that was cached as empty may stay empty. To force a cache miss: change the date range to something never used before.
 
 **10. Whitespace differences in anchors.** Markdown files sometimes have blank lines around `---` dividers. Bytes matter. When an anchor fails, ask Russ for `python3 -c "..."` to dump the exact bytes around the anchor point.
@@ -244,7 +246,7 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 - localStorage keys use `advar-` prefix (legacy from working title; migration not done yet)
 - Platform type: `'google' | 'meta' | 'combined'` — no Shopify/WooCommerce member
 - Shopify GraphQL API version: '2025-01'
-- Google Ads API v23 — `asset_group_asset.performance_label` is NOT *selectable* from the `asset_group_asset` resource (validator-confirmed May 28, 2026). Per-asset BEST/GOOD/LOW labels are UI-only in v23. For asset-performance intelligence via API, use the `asset_group_top_combination_view` resource (validator-confirmed valid) — it returns top-performing asset *combinations*, not per-asset labels. See CONTINUE_HERE.md for the full diagnosis.
+- Google Ads API v23 — `asset_group_asset.performance_label` is NOT *selectable* from the `asset_group_asset` resource (validator-confirmed May 28, 2026). Per-asset BEST/GOOD/LOW labels are UI-only in v23. The Combinations report (`asset_group_top_combination_view`) is the asset-level performance signal via API. **Step 2g shipped May 28, 2026** (LORAMER_PROJECT_3_STEP_2G_V1 + PROMPT_V2): combinations query (date-filtered, instrumented .catch) joined to readable asset text via `asset_group_asset.asset` as the join key; dead `performance_label` read removed; prompt rewritten with diagnostic empty-state. **Both branches verified in production:** populated case (My Vacation Network, 58 conv, AS=1 → empty combos diagnosed as Ad Strength upstream); zero-conversion case (Escential Group, 1 conv → empty combos diagnosed as conversion tracking upstream).
 
 ---
 
@@ -267,13 +269,13 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 
 ### Currently working / open
 
-- **PMax Step 2 (deferred to tomorrow):** Add `asset_group_top_combination_view` query for the proper per-combination performance data. Russ chose "do it right tomorrow with fresh execution" over "rush it tonight." Documented in ROADMAP and LAUNCH_PARKING.
+- **PMax Step 2g ✅ SHIPPED May 28, 2026 (LORAMER_HANDOFF_STEP2G_CLOSEOUT_V1):** `asset_group_top_combination_view` combinations query shipped, joined to readable asset text, dead `performance_label` read removed, prompt v2 with diagnostic empty-state, both populated and zero-conversion cases verified in production. ROADMAP / LAUNCH_PARKING updated. North-star asset-performance feature is live.
 - **Project 14 Phase 4** — Cross-surface attribution (per-message surface labels + chronology). Design doc in `docs/PROJECT_14_PHASE_4_DESIGN.md`.
 - **Project 9 Phase 2.2** — Changed circumstances detection. Design doc in `docs/PROJECT_9_PHASE_2_2_DESIGN.md`. 3 open questions pending Russ.
 
 ### Open items from real-world testing
 
-- PMax asset-level BEST/GOOD/LOW labels may only be UI-exposed. Step 2 will determine via testing.
+- ✅ RESOLVED (May 28, 2026 — LORAMER_HANDOFF_STEP2G_CLOSEOUT_V1): PMax asset-level BEST/GOOD/LOW labels confirmed UI-only in v23 (validator-confirmed). Combinations report (`asset_group_top_combination_view`) is the API path and shipped in Step 2g.
 - Performance briefings now complete in one shot (16k max_tokens). Confirmed working for full-year My Vacation Network analysis.
 - Tier gating system itself doesn't exist yet — needed before Project 2 pricing tiers can launch.
 - **`/api/context` verified present & correctly scoped (May 28, 2026)** — the audit flagged it as possibly missing; it exists, GET/POST both scoped to (client_id, user_email), handles PGRST116 cleanly. False alarm from a zip omission, not a bug. (LORAMER_HANDOFF_CONTEXT_VERIFIED_V1)
