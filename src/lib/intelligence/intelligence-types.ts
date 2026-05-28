@@ -216,6 +216,24 @@ export interface IntelligenceImpressionShare {
   hasData: boolean
 }
 
+// LORAMER_PROJECT_3_STEP_3E_V1
+// Google's own optimization recommendations. Claude evaluates against client
+// data rather than rubber-stamping — see operator-bias grounding in prompt.
+// Base = current state metrics. Potential = Google's projection if applied.
+export interface IntelligenceRecommendation {
+  resourceName: string
+  type: string  // e.g. "KEYWORD", "CAMPAIGN_BUDGET", "USE_BROAD_MATCH_KEYWORD", "TARGET_CPA_OPT_IN"
+  campaignResourceName?: string
+  baseImpressions: number
+  baseClicks: number
+  baseCost: number
+  baseConversions: number
+  potentialImpressions: number
+  potentialClicks: number
+  potentialCost: number
+  potentialConversions: number
+}
+
 // LORAMER_PROJECT_3_STEP_2E_V1
 // Asset-level RSA performance. Each Responsive Search Ad has up to 15
 // headlines and 4 descriptions. Google reports per-asset performance
@@ -324,6 +342,8 @@ export interface PlatformIntelligence {
   hourly?: IntelligenceHourly[]
   // LORAMER_PROJECT_3_STEP_3D_V1
   impressionShares?: IntelligenceImpressionShare[]
+  // LORAMER_PROJECT_3_STEP_3E_V1 — Google's own optimization suggestions
+  recommendations?: IntelligenceRecommendation[]
   totals: IntelligenceMetrics
 }
 

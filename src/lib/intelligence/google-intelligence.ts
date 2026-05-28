@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -698,6 +698,38 @@ export async function fetchGoogleIntelligence(
     })
     .filter((x: IntelligenceImpressionShare) => x.hasData)
 
+  // ── Google Recommendations (LORAMER_PROJECT_3_STEP_3E_V1) ─────────────────
+  // Google's own optimization suggestions. Bias-warning: these are calibrated
+  // for Google's revenue, not the operator's outcomes. Claude evaluates each
+  // against the client's actual data (see prompt section).
+  const recommendationRows = await customer.query(`
+    SELECT recommendation.resource_name, recommendation.type, recommendation.campaign, recommendation.impact, recommendation.dismissed
+    FROM recommendation
+    WHERE recommendation.dismissed = FALSE
+    LIMIT 200
+  `).catch((e: any) => { console.error('[Recommendations query failed]', e?.message, e?.errors); return [] })
+
+  const microsToDollars = (v: any): number => Number(v || 0) / 1e6
+  const recommendations: IntelligenceRecommendation[] = recommendationRows.map((row: any) => {
+    const r = row.recommendation || {}
+    const impact = r.impact || {}
+    const base = impact.base_metrics || {}
+    const potential = impact.potential_metrics || {}
+    return {
+      resourceName: String(r.resource_name || ''),
+      type: String(r.type || ''),
+      campaignResourceName: r.campaign ? String(r.campaign) : undefined,
+      baseImpressions: Number(base.impressions || 0),
+      baseClicks: Number(base.clicks || 0),
+      baseCost: microsToDollars(base.cost_micros),
+      baseConversions: Number(base.conversions || 0),
+      potentialImpressions: Number(potential.impressions || 0),
+      potentialClicks: Number(potential.clicks || 0),
+      potentialCost: microsToDollars(potential.cost_micros),
+      potentialConversions: Number(potential.conversions || 0),
+    }
+  })
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -741,6 +773,7 @@ export async function fetchGoogleIntelligence(
     devices,                // LORAMER_PROJECT_3_STEP_3B_V1
     hourly,                 // LORAMER_PROJECT_3_STEP_3C_V1
     impressionShares,       // LORAMER_PROJECT_3_STEP_3D_V1
+    recommendations,        // LORAMER_PROJECT_3_STEP_3E_V1
     totals,
   }
 }

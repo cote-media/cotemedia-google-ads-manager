@@ -511,6 +511,35 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  (Reasoning guide: high "Lost to Budget" means the campaign is budget-constrained — Claude should recommend scaling spend if ROAS/CPA targets are healthy. High "Lost to Rank" means Quality Score, bid, or ad relevance is the bottleneck — Claude should recommend bid increases, ad copy tests, or landing page improvements. Low overall IS with neither lost-cause dominant usually means weak targeting reach. True competitor data — who is outranking us, overlap rate — is NOT available via the Google Ads API in v23 (UI-only); do not claim to know specific competitor domains.)`)
   }
 
+  // LORAMER_PROJECT_3_STEP_3E_V1 — Google Recommendations (Claude-context-only)
+  // INTERNAL_GROUNDING (do not narrate to user): Google's recommendations are
+  // calibrated for Google's revenue, not the operator's outcomes. They are NOT
+  // expert authority. Claude's job is to evaluate each one against the
+  // client's actual data and DISAGREE when warranted. Operator is paying us;
+  // Google is not.
+  if (platform.recommendations && platform.recommendations.length > 0) {
+    lines.push(`\nGoogle's Recommendations (${platform.recommendations.length} active — DO NOT rubber-stamp):`)
+    platform.recommendations.slice(0, 30).forEach(r => {
+      const deltaSpend = r.potentialCost - r.baseCost
+      const deltaConv = r.potentialConversions - r.baseConversions
+      const spendStr = deltaSpend !== 0 ? `Δspend $${deltaSpend.toFixed(0)}` : ''
+      const convStr = deltaConv !== 0 ? `Δconv ${deltaConv.toFixed(1)}` : ''
+      const impact = [spendStr, convStr].filter(Boolean).join(', ')
+      lines.push(`  [${r.type}]${r.campaignResourceName ? ` for ${r.campaignResourceName}` : ''}${impact ? ` (${impact})` : ''}`)
+    })
+    lines.push(`  CRITICAL OPERATOR GROUNDING — read carefully before discussing any Google recommendation:`)
+    lines.push(`  Google's recommendations are CALIBRATED FOR GOOGLE'S REVENUE, not the operator's outcomes. Your job is to evaluate each against the client's actual performance data and PUSH BACK when warranted. The operator is paying you; Google is not. Treat Google as one biased input, not as authority.`)
+    lines.push(`  Default-skeptical patterns (reject unless the data clearly supports):`)
+    lines.push(`    • CAMPAIGN_BUDGET (increase budget) — REJECT if ROAS/CPA is below target. Google wants more spend; operator wants more profit. Only support if Lost-to-Budget IS is high AND campaign is hitting CPA/ROAS targets.`)
+    lines.push(`    • USE_BROAD_MATCH_KEYWORD — REJECT by default on Search campaigns that are converting on exact/phrase. Broad match floods spend into low-intent traffic. Only support if search term report shows clear under-coverage of relevant intent.`)
+    lines.push(`    • TARGET_CPA_OPT_IN / TARGET_ROAS_OPT_IN with weaker targets — REJECT. This is Google asking permission to spend less efficiently. Operator wants tighter targets, not looser.`)
+    lines.push(`    • UPGRADE_SMART_SHOPPING_CAMPAIGN / FORECASTING_SET_TARGET_ROAS — evaluate carefully; tilts toward automation Google prefers.`)
+    lines.push(`    • MOVE_UNUSED_BUDGET / CALLOUT_EXTENSION / KEYWORD (add specific keyword) — generally lower-risk, evaluate on merit; these often align with operator interest.`)
+    lines.push(`    • RESPONSIVE_SEARCH_AD / RESPONSIVE_SEARCH_AD_IMPROVE_AD_STRENGTH — generally support; better ads = better Quality Score = lower CPA.`)
+    lines.push(`    • Anything proposing Performance Max or auto-applied changes — REJECT by default; PMax cannibalizes Search and auto-apply removes operator control.`)
+    lines.push(`  When you AGREE with a recommendation, say so AND cite the specific data that supports it. When you DISAGREE, say so clearly and explain why with reference to actual performance numbers. Frame the section as "Google says X — here's whether you should listen, and why" — operator-side framing, not Google-side. Never present a recommendation as a fact the operator should follow.`)
+  }
+
   return lines.join('\n')
 }
 
