@@ -484,7 +484,7 @@ export async function fetchGoogleIntelligence(
     customer.query(`
       SELECT asset_group.id, asset_group.name,
       campaign.name,
-      asset_group_asset.field_type, asset_group_asset.performance_label,
+      asset_group_asset.field_type,
       asset.type, asset.text_asset.text
       FROM asset_group_asset
       WHERE asset_group_asset.status != 'REMOVED'
