@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -468,7 +468,14 @@ export async function fetchGoogleIntelligence(
   // asset_group_view (per-group metrics) and asset_group_asset_view (per-asset
   // performance labels). Combined render shows asset groups with their assets
   // grouped beneath them.
-  const [assetGroupRows, assetGroupAssetRows] = await Promise.all([
+  // LORAMER_PROJECT_3_STEP_2G_V1 — three parallel PMax queries:
+  //   1) asset_group        — per-group metrics
+  //   2) asset_group_asset  — asset text/type (+ asset id as the join key)
+  //   3) asset_group_top_combination_view — Google's Combinations report:
+  //      which assets actually served TOGETHER as a top combination. This is
+  //      the real north-star signal. Per-asset BEST/GOOD/LOW labels are UI-only
+  //      in v23 (validator-confirmed), so we do NOT attempt to read them.
+  const [assetGroupRows, assetGroupAssetRows, assetCombinationRows] = await Promise.all([
     customer.query(`
       SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.ad_strength,
       campaign.id, campaign.name,
@@ -484,6 +491,7 @@ export async function fetchGoogleIntelligence(
     customer.query(`
       SELECT asset_group.id, asset_group.name,
       campaign.name,
+      asset_group_asset.asset,
       asset_group_asset.field_type,
       asset.type, asset.text_asset.text
       FROM asset_group_asset
@@ -491,6 +499,14 @@ export async function fetchGoogleIntelligence(
       AND campaign.status != 'REMOVED'
       LIMIT 500
     `).catch((e: any) => { console.error('[PMax asset_group_asset query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    customer.query(`
+      SELECT campaign.id, campaign.name,
+      asset_group.id, asset_group.name, asset_group.ad_strength,
+      asset_group_top_combination_view.asset_group_top_combinations
+      FROM asset_group_top_combination_view
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+    `).catch((e: any) => { console.error('[PMax asset_group_top_combination_view query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
   ])
 
   const assetGroups: IntelligenceAssetGroup[] = assetGroupRows.map((row: any) => ({
@@ -516,8 +532,49 @@ export async function fetchGoogleIntelligence(
       text: row.asset?.text_asset?.text ? String(row.asset.text_asset.text) : undefined,
       isImage,
       isVideo,
-      performanceLabel: String(row.asset_group_asset?.performance_label || ''),
+      assetId: String(row.asset_group_asset?.asset || ''),  // LORAMER_PROJECT_3_STEP_2G_V1 — join key for combinations
     }
+  })
+
+  // LORAMER_PROJECT_3_STEP_2G_V1 — resolve combination asset references (which
+  // come back as asset RESOURCE NAMES like "customers/X/assets/123") to
+  // readable text/type using the assets we just fetched. Then flatten each
+  // top combination into a human-readable list of its served assets.
+  const assetTextById: Record<string, string> = {}
+  assetGroupAssets.forEach(a => {
+    if (!a.assetId) return
+    const idNum = a.assetId.split('/').pop() || a.assetId
+    let label: string
+    if (a.text) label = `${a.fieldType}: "${a.text}"`
+    else if (a.isVideo) label = `VIDEO (${a.fieldType})`
+    else if (a.isImage) label = `IMAGE (${a.fieldType})`
+    else label = a.fieldType || 'asset'
+    assetTextById[idNum] = label
+  })
+
+  const assetCombinations: IntelligenceAssetCombination[] = []
+  assetCombinationRows.forEach((row: any) => {
+    const view = row.asset_group_top_combination_view
+    const combos = view?.asset_group_top_combinations || []
+    combos.forEach((combo: any) => {
+      const served = combo?.asset_combination_data?.served_assets
+        ?? combo?.served_assets
+        ?? []
+      const assetDescriptions: string[] = served.map((u: any) => {
+        const ref = String(u?.asset || '')
+        const idNum = ref.split('/').pop() || ref
+        return assetTextById[idNum] || `asset ${idNum}`
+      }).filter(Boolean)
+      if (assetDescriptions.length > 0) {
+        assetCombinations.push({
+          assetGroupId: String(row.asset_group?.id || ''),
+          assetGroupName: String(row.asset_group?.name || ''),
+          campaignName: String(row.campaign?.name || ''),
+          adStrength: row.asset_group?.ad_strength ? String(row.asset_group.ad_strength) : undefined,
+          assets: assetDescriptions,
+        })
+      }
+    })
   })
 
   // ── Totals ─────────────────────────────────────────────────────────────────
@@ -558,6 +615,7 @@ export async function fetchGoogleIntelligence(
     adAssets,               // LORAMER_PROJECT_3_STEP_2E_V1
     assetGroups,            // LORAMER_PROJECT_3_STEP_2F_V1
     assetGroupAssets,       // LORAMER_PROJECT_3_STEP_2F_V1
+    assetCombinations,      // LORAMER_PROJECT_3_STEP_2G_V1
     totals,
   }
 }

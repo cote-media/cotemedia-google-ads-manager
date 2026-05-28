@@ -207,7 +207,21 @@ export interface IntelligenceAssetGroupAsset {
   text?: string  // present for text assets
   isImage: boolean  // marketing image, square marketing image, logo, etc.
   isVideo: boolean  // youtube video
-  performanceLabel: string  // BEST, GOOD, LOW, PENDING, UNRATED
+  assetId: string  // LORAMER_PROJECT_3_STEP_2G_V1 — asset resource name, join key for combinations
+}
+
+// LORAMER_PROJECT_3_STEP_2G_V1
+// A top-performing asset COMBINATION from Google's Combinations report
+// (asset_group_top_combination_view). These are the actual sets of assets that
+// served together and performed well — the real answer to "which combination
+// drove this conversion?". Per-asset BEST/GOOD/LOW labels are UI-only in v23,
+// so combinations (not labels) are the asset-level performance signal via API.
+export interface IntelligenceAssetCombination {
+  assetGroupId: string
+  assetGroupName: string
+  campaignName: string
+  adStrength?: string
+  assets: string[]  // readable descriptions of the assets in this combination
 }
 
 // Shopify — ready to plug in
@@ -251,6 +265,8 @@ export interface PlatformIntelligence {
   // LORAMER_PROJECT_3_STEP_2F_V1 - PMax asset groups + assets
   assetGroups?: IntelligenceAssetGroup[]
   assetGroupAssets?: IntelligenceAssetGroupAsset[]
+  // LORAMER_PROJECT_3_STEP_2G_V1 - PMax top asset combinations
+  assetCombinations?: IntelligenceAssetCombination[]
   totals: IntelligenceMetrics
 }
 

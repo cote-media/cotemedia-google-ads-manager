@@ -115,7 +115,7 @@ The actual moat. Everything that makes Claude's answers better and harder to cop
 
 ### Project 3 Step 2 status (shipped May 26, 2026)
 
-Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b), audience segments (2c), demographics (2d), RSA asset-level (2e), PMax asset groups (2f). Note: 2c and 2d never had granular checkboxes in the list below — they shipped as part of the broader intelligence work. **One open gap:** PMax individual asset-level labels (BEST/GOOD/LOW) are not yet surfacing — tracked in LAUNCH_PARKING.md (LORAMER_PARKING_END_OF_MAY26_V1). (LORAMER_ROADMAP_STEP2_STATUS_V1)
+Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b), audience segments (2c), demographics (2d), RSA asset-level (2e), PMax asset groups (2f). Note: 2c and 2d never had granular checkboxes in the list below — they shipped as part of the broader intelligence work. **Step 2g shipped (May 28, 2026):** PMax top asset combinations now surface via `asset_group_top_combination_view` (Google's Combinations report), joined to readable asset text. Validator-confirmed that per-asset BEST/GOOD/LOW labels are NOT API-selectable in v23 (UI-only) — so combinations, not labels, are the asset-level performance signal. Dead `performance_label` read and the prompt scaffolding that implied labels existed were removed. (LORAMER_ROADMAP_STEP2G_V1)
 
 ### Already shipping
 - [x] Universal Intelligence Layer architecture (`build-claude-context.ts`)

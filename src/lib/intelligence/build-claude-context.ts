@@ -354,45 +354,55 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     }
   }
 
-  // LORAMER_PROJECT_3_STEP_2F_V1 — PMax asset groups + assets (THE north star)
+  // LORAMER_PROJECT_3_STEP_2G_V1 — PMax asset groups + top combinations (THE north star)
+  // NOTE: Google's API does NOT expose per-asset BEST/GOOD/LOW labels in v23
+  // (UI-only). The real asset-level performance signal is the Combinations
+  // report: which assets served TOGETHER as a top combination.
   if (platform.assetGroups && platform.assetGroups.length > 0 && limits.assetGroups > 0) {
     const groupSlice = platform.assetGroups.slice(0, limits.assetGroups)
-    lines.push(`\nPMax Asset Groups (the north-star data for "which combination drove this conversion?"):`)
+    lines.push(`\nPMax Asset Groups (which combinations drove performance):`)
     lines.push(`  ${platform.assetGroups.length} total asset groups, showing top ${groupSlice.length} by spend.`)
-    lines.push(`  Each asset group has its own metrics (Google exposes these) AND a set of assets (Google exposes performance LABELS not raw metrics at the asset level — labels are the analysis signal).`)
+    lines.push(`  Google exposes group-level metrics and Ad Strength, the full list of assets in each group, and the top-performing COMBINATIONS of assets that served together. Per-asset performance labels are NOT available via the API (UI-only) — do not infer or invent them. Reason from group metrics + which assets appear in winning combinations.`)
     groupSlice.forEach(g => {
       const adStrengthPart = g.adStrength ? ` [Ad Strength: ${g.adStrength}]` : ''
       lines.push(`  ━━━ ${g.name} (in ${g.campaignName})${adStrengthPart} ━━━`)
       lines.push(`    Group metrics: ${formatMetrics(g.metrics)}`)
+
+      // Top combinations for this group (the real performance signal)
+      if (platform.assetCombinations && platform.assetCombinations.length > 0) {
+        const groupCombos = platform.assetCombinations.filter(c => c.assetGroupId === g.id)
+        if (groupCombos.length > 0) {
+          lines.push(`    Top asset combinations that served together (Google's Combinations report):`)
+          groupCombos.slice(0, 5).forEach((c, i) => {
+            lines.push(`      Combination ${i + 1}: ${c.assets.join(' + ')}`)
+          })
+        }
+      }
+
+      // Full asset inventory for this group (text/type, no fabricated labels)
       if (platform.assetGroupAssets && platform.assetGroupAssets.length > 0 && limits.assetsPerGroup > 0) {
         const groupAssets = platform.assetGroupAssets.filter(a => a.assetGroupId === g.id)
         if (groupAssets.length > 0) {
-          const labelPriority: Record<string, number> = { BEST: 0, GOOD: 1, LOW: 2, PENDING: 3, UNRATED: 4 }
-          const sortedAssets = [...groupAssets].sort((a, b) => {
-            const ap = labelPriority[a.performanceLabel] ?? 5
-            const bp = labelPriority[b.performanceLabel] ?? 5
-            return ap - bp
-          })
-          const assetSlice = sortedAssets.slice(0, limits.assetsPerGroup)
+          lines.push(`    Assets in this group (${groupAssets.length} total):`)
+          const assetSlice = groupAssets.slice(0, limits.assetsPerGroup)
           assetSlice.forEach(a => {
-            const label = a.performanceLabel || 'UNRATED'
             if (a.isVideo) {
-              lines.push(`    [VIDEO - ${label}] (${a.fieldType})`)
+              lines.push(`      [VIDEO] (${a.fieldType})`)
             } else if (a.isImage) {
-              lines.push(`    [IMAGE - ${label}] (${a.fieldType})`)
+              lines.push(`      [IMAGE] (${a.fieldType})`)
             } else if (a.text) {
-              lines.push(`    [${a.fieldType} - ${label}] "${a.text}"`)
+              lines.push(`      [${a.fieldType}] "${a.text}"`)
             } else {
-              lines.push(`    [${a.fieldType} - ${label}] (no preview available)`)
+              lines.push(`      [${a.fieldType}] (no preview available)`)
             }
           })
           if (groupAssets.length > assetSlice.length) {
-            lines.push(`    (...and ${groupAssets.length - assetSlice.length} more assets in this group)`)
+            lines.push(`      (...and ${groupAssets.length - assetSlice.length} more assets in this group)`)
           }
         }
       }
     })
-    lines.push(`  (For each asset group: combine group-level metrics with asset-level labels to identify the working creative pattern. BEST-rated text + GOOD-rated images in a high-converting group = the winning combination Google is rotating heavily.)`)
+    lines.push(`  (To find the working creative pattern: look at which assets recur across the top combinations in a high-converting, high-Ad-Strength group. Recurring assets in winning combinations are what Google is rotating most heavily.)`)
   }
 
   return lines.join('\n')
