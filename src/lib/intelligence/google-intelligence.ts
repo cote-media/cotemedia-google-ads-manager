@@ -2,7 +2,7 @@
 // Fetches ALL available Google Ads data for a client account.
 // Output conforms to PlatformIntelligence schema.
 
-import { GoogleAdsApi } from 'google-ads-api'
+import { GoogleAdsApi, enums } from 'google-ads-api'
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
@@ -710,6 +710,24 @@ export async function fetchGoogleIntelligence(
   `).catch((e: any) => { console.error('[Recommendations query failed]', e?.message, e?.errors); return [] })
 
   const microsToDollars = (v: any): number => Number(v || 0) / 1e6
+  // LORAMER_PROJECT_3_STEP_3E_HOTFIX_V1 — recommendation.type comes back as
+  // an integer enum value from the npm lib. Invert the exported enum into a
+  // number→name map at module init so we can resolve to human labels.
+  const RECOMMENDATION_TYPE_BY_VALUE: Record<number, string> = (() => {
+    const m: Record<number, string> = {}
+    const e: any = (enums as any)?.RecommendationType || {}
+    Object.entries(e).forEach(([k, v]) => {
+      if (typeof v === 'number' && typeof k === 'string') m[v] = k
+    })
+    return m
+  })()
+  const resolveRecommendationType = (raw: any): string => {
+    if (raw === null || raw === undefined) return ''
+    if (typeof raw === 'string' && raw && !/^\d+$/.test(raw)) return raw
+    const n = Number(raw)
+    if (Number.isFinite(n) && RECOMMENDATION_TYPE_BY_VALUE[n]) return RECOMMENDATION_TYPE_BY_VALUE[n]
+    return String(raw)
+  }
   const recommendations: IntelligenceRecommendation[] = recommendationRows.map((row: any) => {
     const r = row.recommendation || {}
     const impact = r.impact || {}
@@ -717,7 +735,7 @@ export async function fetchGoogleIntelligence(
     const potential = impact.potential_metrics || {}
     return {
       resourceName: String(r.resource_name || ''),
-      type: String(r.type || ''),
+      type: resolveRecommendationType(r.type),
       campaignResourceName: r.campaign ? String(r.campaign) : undefined,
       baseImpressions: Number(base.impressions || 0),
       baseClicks: Number(base.clicks || 0),
