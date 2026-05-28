@@ -540,6 +540,27 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  When you AGREE with a recommendation, say so AND cite the specific data that supports it. When you DISAGREE, say so clearly and explain why with reference to actual performance numbers. Frame the section as "Google says X — here's whether you should listen, and why" — operator-side framing, not Google-side. Never present a recommendation as a fact the operator should follow.`)
   }
 
+  // LORAMER_PROJECT_3_STEP_4A_V1 — Meta Placement Breakdown (Claude-context-only)
+  // INTERNAL_GROUNDING: Meta-only signal. publisher_platform = facebook /
+  // instagram / audience_network / messenger / etc. platform_position = feed /
+  // reels / stories / marketplace. Conversions are NOT broken out per
+  // placement at this query level — only spend, clicks, impressions. CPC and
+  // CTR by placement are still useful for spotting wasted spend.
+  if (platform.placements && platform.placements.length > 0) {
+    const totalSpend = platform.placements.reduce((s, p) => s + p.spend, 0)
+    lines.push(`\nMeta Placement Breakdown (publisher × position, ${platform.placements.length} placements):`)
+    platform.placements.slice(0, 20).forEach(p => {
+      const pct = totalSpend > 0 ? ((p.spend / totalSpend) * 100).toFixed(1) : '0.0'
+      const ctr = p.impressions > 0 ? ((p.clicks / p.impressions) * 100).toFixed(2) : '0.00'
+      const cpc = p.clicks > 0 ? (p.spend / p.clicks).toFixed(2) : 'n/a'
+      const label = p.publisherPlatform && p.platformPosition
+        ? `${p.publisherPlatform} / ${p.platformPosition}`
+        : p.publisherPlatform || p.platformPosition || 'unknown'
+      lines.push(`  ${label}: $${p.spend.toFixed(2)} (${pct}%), ${p.clicks} clicks, ${p.impressions} impr, CTR ${ctr}%, CPC $${cpc}`)
+    })
+    lines.push(`  (Placement signal: outsized spend % on a placement with high CPC and low CTR is wasted budget. Common pattern: Audience Network burning spend with poor CTR — exclude it. Conversion data is NOT broken out per placement here; if conversions matter, recommend Meta's UI Breakdown view to confirm before turning placements off.)`)
+  }
+
   return lines.join('\n')
 }
 

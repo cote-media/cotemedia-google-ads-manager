@@ -2,7 +2,7 @@
 // Fetches ALL available Meta Ads data for a client account.
 // Output conforms to PlatformIntelligence schema.
 
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceConversionAction } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceConversionAction, IntelligencePlacement } from './intelligence-types'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 
@@ -206,12 +206,30 @@ export async function fetchMetaIntelligence(
     accessToken
   ).catch(() => [])
 
-  // Aggregate placement data
-  const placements: Record<string, number> = {}
+  // LORAMER_PROJECT_3_STEP_4A_V1 — aggregate Meta placement data into a typed
+  // array with full metrics, not just a spend record. Each row is a
+  // (publisher_platform × platform_position) combination — e.g. Facebook Feed,
+  // Instagram Reels, Audience Network Native.
+  const placementMap: Record<string, IntelligencePlacement> = {}
   placementInsights.forEach((p: any) => {
-    const key = `${p.publisher_platform}_${p.platform_position}`.toLowerCase().replace(/\s+/g, '_')
-    placements[key] = (placements[key] || 0) + parseFloat(p.spend || '0')
+    const publisher = String(p.publisher_platform || '').toLowerCase()
+    const position = String(p.platform_position || '').toLowerCase()
+    const key = `${publisher}|${position}`
+    if (!placementMap[key]) {
+      placementMap[key] = {
+        publisherPlatform: publisher,
+        platformPosition: position,
+        spend: 0,
+        clicks: 0,
+        impressions: 0,
+      }
+    }
+    placementMap[key].spend += parseFloat(p.spend || '0')
+    placementMap[key].clicks += parseFloat(p.clicks || '0')
+    placementMap[key].impressions += parseFloat(p.impressions || '0')
   })
+  const placements: IntelligencePlacement[] = Object.values(placementMap)
+    .sort((a, b) => b.spend - a.spend)
 
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
@@ -245,6 +263,7 @@ export async function fetchMetaIntelligence(
     adGroups,
     ads,
     conversionActions: [],
+    placements,  // LORAMER_PROJECT_3_STEP_4A_V1
     totals,
   }
 }

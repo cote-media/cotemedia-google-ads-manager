@@ -344,7 +344,21 @@ export interface PlatformIntelligence {
   impressionShares?: IntelligenceImpressionShare[]
   // LORAMER_PROJECT_3_STEP_3E_V1 — Google's own optimization suggestions
   recommendations?: IntelligenceRecommendation[]
+  // LORAMER_PROJECT_3_STEP_4A_V1 — Meta-only: placement breakdown
+  placements?: IntelligencePlacement[]
   totals: IntelligenceMetrics
+}
+
+// LORAMER_PROJECT_3_STEP_4A_V1
+// Meta placement breakdown: (publisher_platform × platform_position) aggregated.
+// publisherPlatform: facebook, instagram, audience_network, messenger, etc.
+// platformPosition: feed, reels, stories, marketplace, etc.
+export interface IntelligencePlacement {
+  publisherPlatform: string
+  platformPosition: string
+  spend: number
+  clicks: number
+  impressions: number
 }
 
 export interface ClientIntelligence {
