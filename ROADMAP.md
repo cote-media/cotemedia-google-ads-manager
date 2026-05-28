@@ -204,6 +204,7 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 
 ### Open items
 - [ ] Better loading states (skeletons instead of "Loading...")
+- [ ] **Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1):** On page refresh the Ask Claude panel scrolls to the FIRST message instead of the latest. User has to scroll all the way back down. Should default to scroll-to-bottom (latest message visible) on mount.
 - [ ] Better empty states
 - [ ] Metric cards redesign on Overview tab
 - [ ] Visual refresh of dashboard interior

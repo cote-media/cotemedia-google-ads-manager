@@ -519,7 +519,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
   // Google is not.
   if (platform.recommendations && platform.recommendations.length > 0) {
     lines.push(`\nGoogle's Recommendations (${platform.recommendations.length} active — DO NOT rubber-stamp):`)
-    platform.recommendations.slice(0, 30).forEach(r => {
+    platform.recommendations.slice(0, 100).forEach(r => {  // LORAMER_STEP3E_SLICE_BUMP_V1
       const deltaSpend = r.potentialCost - r.baseCost
       const deltaConv = r.potentialConversions - r.baseConversions
       const spendStr = deltaSpend !== 0 ? `Δspend $${deltaSpend.toFixed(0)}` : ''
