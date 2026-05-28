@@ -197,6 +197,25 @@ export interface IntelligenceHourly {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_PROJECT_3_STEP_3D_V1
+// Impression share intelligence — the API-accessible auction signal.
+// All values are decimals 0.0-1.0 (e.g. 0.62 = 62%). null when API returns
+// -1.0 (campaign not eligible for that metric). True Auction Insights with
+// competitor domains, overlap rate, outranking share is UI-only in v23.
+export interface IntelligenceImpressionShare {
+  campaignId: string
+  campaignName: string
+  channelType: string
+  impressionShare: number | null
+  topImpressionShare: number | null
+  absoluteTopImpressionShare: number | null
+  lostToBudget: number | null
+  lostToRank: number | null
+  lostTopToBudget: number | null
+  lostTopToRank: number | null
+  hasData: boolean
+}
+
 // LORAMER_PROJECT_3_STEP_2E_V1
 // Asset-level RSA performance. Each Responsive Search Ad has up to 15
 // headlines and 4 descriptions. Google reports per-asset performance
@@ -303,6 +322,8 @@ export interface PlatformIntelligence {
   geographics?: IntelligenceGeographic[]
   devices?: IntelligenceDeviceSplit[]
   hourly?: IntelligenceHourly[]
+  // LORAMER_PROJECT_3_STEP_3D_V1
+  impressionShares?: IntelligenceImpressionShare[]
   totals: IntelligenceMetrics
 }
 

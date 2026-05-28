@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -650,6 +650,54 @@ export async function fetchGoogleIntelligence(
     }
   })
 
+  // ── Impression Share (LORAMER_PROJECT_3_STEP_3D_V1) ───────────────────────
+  // The API-accessible auction signal: how much of available impressions are
+  // captured, and how much is lost to budget vs. rank. True Auction Insights
+  // (competitor domains, overlap rate, outranking share) is UI-only in v23.
+  const impressionShareRows = await customer.query(`
+    SELECT campaign.id, campaign.name, campaign.advertising_channel_type,
+    metrics.search_impression_share,
+    metrics.search_top_impression_share,
+    metrics.search_absolute_top_impression_share,
+    metrics.search_budget_lost_impression_share,
+    metrics.search_rank_lost_impression_share,
+    metrics.search_budget_lost_top_impression_share,
+    metrics.search_rank_lost_top_impression_share,
+    metrics.cost_micros
+    FROM campaign
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT 200
+  `).catch((e: any) => { console.error('[Impression Share query failed]', e?.message, e?.errors); return [] })
+
+  const impressionShares: IntelligenceImpressionShare[] = impressionShareRows
+    .map((row: any) => {
+      const is = Number(row.metrics?.search_impression_share || 0)
+      const topIs = Number(row.metrics?.search_top_impression_share || 0)
+      const absTopIs = Number(row.metrics?.search_absolute_top_impression_share || 0)
+      const lostBudget = Number(row.metrics?.search_budget_lost_impression_share || 0)
+      const lostRank = Number(row.metrics?.search_rank_lost_impression_share || 0)
+      const lostBudgetTop = Number(row.metrics?.search_budget_lost_top_impression_share || 0)
+      const lostRankTop = Number(row.metrics?.search_rank_lost_top_impression_share || 0)
+      // The API returns -1.0 for non-eligible/unavailable; filter those out
+      const hasData = is >= 0 || topIs >= 0 || absTopIs >= 0
+      return {
+        campaignId: String(row.campaign?.id || ''),
+        campaignName: String(row.campaign?.name || ''),
+        channelType: String(row.campaign?.advertising_channel_type || ''),
+        impressionShare: is >= 0 ? is : null,
+        topImpressionShare: topIs >= 0 ? topIs : null,
+        absoluteTopImpressionShare: absTopIs >= 0 ? absTopIs : null,
+        lostToBudget: lostBudget >= 0 ? lostBudget : null,
+        lostToRank: lostRank >= 0 ? lostRank : null,
+        lostTopToBudget: lostBudgetTop >= 0 ? lostBudgetTop : null,
+        lostTopToRank: lostRankTop >= 0 ? lostRankTop : null,
+        hasData,
+      }
+    })
+    .filter((x: IntelligenceImpressionShare) => x.hasData)
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -692,6 +740,7 @@ export async function fetchGoogleIntelligence(
     geographics,            // LORAMER_PROJECT_3_STEP_3A_V1
     devices,                // LORAMER_PROJECT_3_STEP_3B_V1
     hourly,                 // LORAMER_PROJECT_3_STEP_3C_V1
+    impressionShares,       // LORAMER_PROJECT_3_STEP_3D_V1
     totals,
   }
 }

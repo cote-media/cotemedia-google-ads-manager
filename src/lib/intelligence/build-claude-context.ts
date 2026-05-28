@@ -488,6 +488,29 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  (Dayparting signal: concentrated conversion hours suggest ad-schedule bid modifiers. Concentrated days suggest weekly budget pacing.)`)
   }
 
+  // LORAMER_PROJECT_3_STEP_3D_V1 — Impression Share (Claude-context-only)
+  // INTERNAL_GROUNDING (do not narrate to user): true Auction Insights with
+  // competitor domains and overlap rates is UI-only in v23 — not available
+  // via the API. Do NOT claim to know specific competitors. What we DO have
+  // is impression share: how much of available auction inventory we're
+  // capturing, and how much is lost to budget vs rank. That maps to clear
+  // recommendations: lost-to-budget → scale spend; lost-to-rank → improve
+  // Quality Score / bid / ad relevance. Decimals are 0.0–1.0.
+  if (platform.impressionShares && platform.impressionShares.length > 0) {
+    lines.push(`\nImpression Share (per-campaign — what fraction of available auction inventory we are capturing):`)
+    const pct = (v: number | null): string => v === null ? 'n/a' : `${(v * 100).toFixed(0)}%`
+    platform.impressionShares.forEach(s => {
+      const parts: string[] = []
+      parts.push(`IS ${pct(s.impressionShare)}`)
+      if (s.topImpressionShare !== null) parts.push(`Top ${pct(s.topImpressionShare)}`)
+      if (s.absoluteTopImpressionShare !== null) parts.push(`Abs.Top ${pct(s.absoluteTopImpressionShare)}`)
+      if (s.lostToBudget !== null) parts.push(`Lost→Budget ${pct(s.lostToBudget)}`)
+      if (s.lostToRank !== null) parts.push(`Lost→Rank ${pct(s.lostToRank)}`)
+      lines.push(`  ${s.campaignName} [${s.channelType}]: ${parts.join(', ')}`)
+    })
+    lines.push(`  (Reasoning guide: high "Lost to Budget" means the campaign is budget-constrained — Claude should recommend scaling spend if ROAS/CPA targets are healthy. High "Lost to Rank" means Quality Score, bid, or ad relevance is the bottleneck — Claude should recommend bid increases, ad copy tests, or landing page improvements. Low overall IS with neither lost-cause dominant usually means weak targeting reach. True competitor data — who is outranking us, overlap rate — is NOT available via the Google Ads API in v23 (UI-only); do not claim to know specific competitor domains.)`)
+  }
+
   return lines.join('\n')
 }
 
