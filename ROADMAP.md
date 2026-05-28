@@ -1,7 +1,7 @@
 # LoraMer — Product Roadmap
 <!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: May 26, 2026*
+*Last updated: May 28, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -9,9 +9,9 @@ This roadmap is organized by **active project**. Items marked `[?]` are uncertai
 
 ---
 
-## 🚀 PROJECT 1 — Production Launch (Shopify App Store) ✅ SUBMITTED
+## 🚀 PROJECT 1 — Production Launch (Shopify App Store) ✅ APPROVED & LIVE
 
-**Status (May 25, 2026):** App Store listing submitted. Awaiting Shopify review (typical 2-3 weeks).
+**Status (May 26, 2026):** ✅ APPROVED & LIVE on the Shopify App Store (approved May 26, 2026).
 
 ### Submission readiness
 - [x] Rebrand from Advar to LoraMer everywhere
@@ -113,6 +113,10 @@ Architecture passes tier into cache layer; same code path, different TTL values.
 
 The actual moat. Everything that makes Claude's answers better and harder to copy.
 
+### Project 3 Step 2 status (shipped May 26, 2026)
+
+Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b), audience segments (2c), demographics (2d), RSA asset-level (2e), PMax asset groups (2f). Note: 2c and 2d never had granular checkboxes in the list below — they shipped as part of the broader intelligence work. **One open gap:** PMax individual asset-level labels (BEST/GOOD/LOW) are not yet surfacing — tracked in LAUNCH_PARKING.md (LORAMER_PARKING_END_OF_MAY26_V1). (LORAMER_ROADMAP_STEP2_STATUS_V1)
+
 ### Already shipping
 - [x] Universal Intelligence Layer architecture (`build-claude-context.ts`)
 - [x] `/api/intelligence` master endpoint
@@ -127,11 +131,11 @@ The actual moat. Everything that makes Claude's answers better and harder to cop
 - [x] Active alerts injected into Claude's context so Reply works with alert references
 
 ### Deeper data for Claude context
-- [ ] Google search term report — what queries are triggering ads
+- [x] Google search term report — what queries are triggering ads (shipped — Step 2a)
 - [ ] Google auction insights — impression share, overlap rate, outranking share
-- [ ] Google asset-level performance — individual RSA headlines/descriptions
+- [x] Google asset-level performance — individual RSA headlines/descriptions (shipped — Step 2e)
 - [ ] Google bid strategy — fetch `bidding_strategy_type`
-- [ ] Google conversion action breakdown — `/api/google/conversions` route
+- [x] Google conversion action breakdown — `/api/google/conversions` route (shipped — Step 2b)
 - [ ] Meta placement breakdown — `publisher_platform` via Insights API breakdown
 - [ ] Meta audience targeting — lookalike/interest/retargeting from ad set targeting spec
 - [ ] Meta bid strategy — fetch `bid_strategy` field
@@ -355,7 +359,7 @@ Separate from per-client memory.
 
 - **Phase 1** ✅ Per-conversation directive extraction (shipped May 21)
 - **Phase 1.5** ✅ HARD CONSTRAINTS block at top of prompt (shipped May 21)
-- **Phase 2 — pre-launch (next 2 weeks):** structured `client_memory` table with explicit facts. User can write/edit in UI. NO learning loop yet — manually curated memory. Ships with App Store launch.
+- **Phase 2** ✅ SHIPPED (May 26, 2026) — structured `client_memory` table with explicit facts. User can write/edit in UI. NO learning loop yet — manually curated memory. Shipped with App Store launch.
 - **Phase 3 — post-launch (~6 weeks out):** dismissed-insights tracking + basic pattern observation
 - **Phase 4 — after first paying Scale customer:** full nightly learning loop with daily learning logs
 

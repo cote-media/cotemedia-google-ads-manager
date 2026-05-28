@@ -97,6 +97,8 @@ EXCEPTION: when Russ is on the laptop and doesn't have `.env.local`, the local b
 
 5. **100% green Vercel deployments.** Every git push should result in a successful Vercel deploy. If we know a push will fail Vercel's build, we don't push. The local `npm run build` step is how we know.
 
+6. **Docs move with code, in the same `&&` chain.** Every patch that ships a feature or fixes a bug ALSO flips its own ROADMAP.md checkbox and/or moves its own LAUNCH_PARKING.md item, in the SAME commit. Done is not done until the doc reflects it. This is how the docs stay current instead of drifting -- the drift only ever happened because doc updates were a separate step that got skipped under pressure. (LORAMER_HANDOFF_DOCS_WITH_CODE_V1)
+
 ### Dry run is sacred
 
 Always always always dry-run multi-edit patches before running them for real. Dry runs are free. Broken builds are expensive. Even when Russ is in a hurry, the dry run takes seconds and prevents real damage.
@@ -274,6 +276,7 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 - PMax asset-level BEST/GOOD/LOW labels may only be UI-exposed. Step 2 will determine via testing.
 - Performance briefings now complete in one shot (16k max_tokens). Confirmed working for full-year My Vacation Network analysis.
 - Tier gating system itself doesn't exist yet — needed before Project 2 pricing tiers can launch.
+- **`/api/context` verified present & correctly scoped (May 28, 2026)** — the audit flagged it as possibly missing; it exists, GET/POST both scoped to (client_id, user_email), handles PGRST116 cleanly. False alarm from a zip omission, not a bug. (LORAMER_HANDOFF_CONTEXT_VERIFIED_V1)
 
 ---
 

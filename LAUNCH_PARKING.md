@@ -7,8 +7,14 @@ Three buckets, in priority order.
 
 ## 🔴 BLOCKER — must fix before submitting
 
-### "This month" date range returns blank tiles on Shopify tab
-Selecting "This month" on the Shopify tab shows the chart correctly but ALL metric tiles are blank. "Last 7 days" and "Last 30 days" work fine. Root cause: `shopify-intelligence.ts` line 22 maps `THIS_MONTH` to a 30-day lookback while `shopify/daily/route.ts` line 47 maps it to `new Date().getDate()` (back to the 1st of the month). The two endpoints return data for different windows and one returns nothing, leaving the UI blank. A user picking "this month" and seeing zero tiles will assume the product is broken. Fix: make both endpoints use the same lookback (back to the 1st of the current month is the conventional meaning of "this month").
+*(none — all blockers resolved; app approved & live May 26, 2026)*
+
+---
+
+## ✅ Resolved
+
+### "This month" date range blank tiles on Shopify tab — FIXED (LORAMER_THIS_MONTH_FIX_V1)
+Both `shopify-intelligence.ts` and `shopify/daily/route.ts` now map `THIS_MONTH` to `new Date().getDate()` (back to the 1st of the current month), matching `woocommerce-intelligence`. Verified in code May 28, 2026. The two endpoints previously disagreed on the window, leaving metric tiles blank; they are now unified.
 
 ---
 
