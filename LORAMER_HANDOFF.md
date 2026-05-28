@@ -244,7 +244,7 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 - localStorage keys use `advar-` prefix (legacy from working title; migration not done yet)
 - Platform type: `'google' | 'meta' | 'combined'` — no Shopify/WooCommerce member
 - Shopify GraphQL API version: '2025-01'
-- Google Ads API v23 — `asset_group_asset.performance_label` does NOT exist; that field is UI-only or lives on a different resource
+- Google Ads API v23 — `asset_group_asset.performance_label` is NOT *selectable* from the `asset_group_asset` resource (validator-confirmed May 28, 2026). Per-asset BEST/GOOD/LOW labels are UI-only in v23. For asset-performance intelligence via API, use the `asset_group_top_combination_view` resource (validator-confirmed valid) — it returns top-performing asset *combinations*, not per-asset labels. See CONTINUE_HERE.md for the full diagnosis.
 
 ---
 
