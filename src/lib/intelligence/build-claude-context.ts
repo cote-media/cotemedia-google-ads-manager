@@ -354,28 +354,40 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     }
   }
 
-  // LORAMER_PROJECT_3_STEP_2G_V1 — PMax asset groups + top combinations (THE north star)
-  // NOTE: Google's API does NOT expose per-asset BEST/GOOD/LOW labels in v23
-  // (UI-only). The real asset-level performance signal is the Combinations
-  // report: which assets served TOGETHER as a top combination.
+  // LORAMER_PROJECT_3_STEP_2G_PROMPT_V2 — PMax asset groups + top combinations (THE north star)
+  // INTERNAL_GROUNDING (do not narrate to user): Google v23 API does NOT expose per-asset
+  // BEST/GOOD/LOW performance labels (UI-only). Per-asset raw metrics also not exposed.
+  // What IS exposed: group-level metrics, Ad Strength, the asset inventory, and the
+  // Combinations report (asset_group_top_combination_view) — which sets of assets
+  // served together as winners. Combinations ARE the asset-level performance signal.
   if (platform.assetGroups && platform.assetGroups.length > 0 && limits.assetGroups > 0) {
     const groupSlice = platform.assetGroups.slice(0, limits.assetGroups)
-    lines.push(`\nPMax Asset Groups (which combinations drove performance):`)
+    lines.push(`\nPMax Asset Groups — combinations are the asset-level performance signal:`)
     lines.push(`  ${platform.assetGroups.length} total asset groups, showing top ${groupSlice.length} by spend.`)
-    lines.push(`  Google exposes group-level metrics and Ad Strength, the full list of assets in each group, and the top-performing COMBINATIONS of assets that served together. Per-asset performance labels are NOT available via the API (UI-only) — do not infer or invent them. Reason from group metrics + which assets appear in winning combinations.`)
+    lines.push(`  When the user asks which combinations / assets / creative drove performance: ANSWER with the Top Asset Combinations below (the assets Google actually served together as winners). DO NOT lead with "the API doesn't expose per-asset metrics" — that is a known limitation, not a user-facing answer. Combinations ARE the answer. If combinations are empty for a group, use the empty-state guidance shown inline.`)
     groupSlice.forEach(g => {
       const adStrengthPart = g.adStrength ? ` [Ad Strength: ${g.adStrength}]` : ''
       lines.push(`  ━━━ ${g.name} (in ${g.campaignName})${adStrengthPart} ━━━`)
       lines.push(`    Group metrics: ${formatMetrics(g.metrics)}`)
 
-      // Top combinations for this group (the real performance signal)
-      if (platform.assetCombinations && platform.assetCombinations.length > 0) {
-        const groupCombos = platform.assetCombinations.filter(c => c.assetGroupId === g.id)
-        if (groupCombos.length > 0) {
-          lines.push(`    Top asset combinations that served together (Google's Combinations report):`)
-          groupCombos.slice(0, 5).forEach((c, i) => {
-            lines.push(`      Combination ${i + 1}: ${c.assets.join(' + ')}`)
-          })
+      // Top combinations for this group (the real performance signal — render FIRST)
+      const allCombos = platform.assetCombinations || []
+      const groupCombos = allCombos.filter(c => c.assetGroupId === g.id)
+      if (groupCombos.length > 0) {
+        lines.push(`    Top Asset Combinations (Google's Combinations report — these are the winners):`)
+        groupCombos.slice(0, 5).forEach((c, i) => {
+          lines.push(`      Combination ${i + 1}: ${c.assets.join(' + ')}`)
+        })
+      } else {
+        // Empty-state: diagnose WHY combinations are missing (Russ-approved framing).
+        // Threshold heuristic: Google needs conversion signal to populate the Combinations report.
+        const conv = g.metrics.conversions || 0
+        if (conv < 5) {
+          lines.push(`    Top Asset Combinations: NONE AVAILABLE for this group.`)
+          lines.push(`      Diagnostic: this group has ${conv} conversions in the selected period. Google generates the Combinations report only after enough served-data WITH conversion signal — it has no winners to report because the campaign is not converting. If the user asks about combinations for this group, lead with: conversion tracking / volume is the upstream fix. Without conversion signal Google is optimizing toward clicks, not sales, and can't tell us which combinations close.`)
+        } else {
+          lines.push(`    Top Asset Combinations: NONE AVAILABLE for this group (despite ${conv} conversions).`)
+          lines.push(`      Diagnostic: Google has conversion data but hasn't surfaced a Combinations report. Most common causes: Ad Strength too low (under 3) so Google isn't confident in any combination yet, asset inventory too narrow for meaningful rotation, or the date range is too short for Google's threshold. Suggest the user check Ad Strength and asset variety.`)
         }
       }
 
@@ -383,7 +395,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       if (platform.assetGroupAssets && platform.assetGroupAssets.length > 0 && limits.assetsPerGroup > 0) {
         const groupAssets = platform.assetGroupAssets.filter(a => a.assetGroupId === g.id)
         if (groupAssets.length > 0) {
-          lines.push(`    Assets in this group (${groupAssets.length} total):`)
+          lines.push(`    Assets in this group (${groupAssets.length} total — for reference, NOT a performance signal):`)
           const assetSlice = groupAssets.slice(0, limits.assetsPerGroup)
           assetSlice.forEach(a => {
             if (a.isVideo) {
@@ -402,7 +414,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
         }
       }
     })
-    lines.push(`  (To find the working creative pattern: look at which assets recur across the top combinations in a high-converting, high-Ad-Strength group. Recurring assets in winning combinations are what Google is rotating most heavily.)`)
+    lines.push(`  (Reasoning guide: when combinations exist, the recurring assets across them are what Google is rotating most heavily — that is the working creative pattern. When combinations are empty, do not invent a pattern from the inventory list; instead diagnose using the inline empty-state guidance above. Ad Strength is the upstream lever for asset variety; conversion tracking is the upstream lever for combinations existing at all.)`)
   }
 
   return lines.join('\n')
