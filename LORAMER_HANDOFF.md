@@ -123,6 +123,10 @@ Common verification commands to ask for:
 - He hates apologies — they don't help him. Action helps.
 - "Did nothing" or "back to the prompt" means a command executed successfully with no output. Not an error.
 
+### Think hard, type less (LORAMER_HANDOFF_TYPE_LESS_V1)
+
+Russ does NOT want Claude to think less. Think as long and hard as needed to get it right the first time. But the output to Russ should be terse. Done thinking → efficient delivery. Rule of thumb: if you can say it in 10 words, don't use 30. Skip the recaps, skip the 'here's what I'm going to do,' skip the explanation of why a step is safe — just deliver the step. Russ will ask if he needs the reasoning. The internal thinking budget is unlimited; the typed output is rationed.
+
 ---
 
 ## Brand & Product Mission — The North Star
