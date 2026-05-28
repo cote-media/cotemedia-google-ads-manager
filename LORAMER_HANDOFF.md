@@ -280,6 +280,7 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 ### Open items from real-world testing
 
 - ✅ RESOLVED (May 28, 2026 — LORAMER_HANDOFF_STEP2G_CLOSEOUT_V1): PMax asset-level BEST/GOOD/LOW labels confirmed UI-only in v23 (validator-confirmed). Combinations report (`asset_group_top_combination_view`) is the API path and shipped in Step 2g.
+- ✅ SHIPPED May 28, 2026 (LORAMER_PROJECT_3_STEP_3A_V1 / 3B_V1 / 3C_V1): Geographic + Device + Hour-of-day into Claude context. Verified in production: device split correctly identified desktop-only conversions on Search campaign, dayparting identified 12pm-5pm sweet spot with concrete bid-adjustment recommendations. Pure Claude-context addition, no UI surfaces (per directive: maximize what Claude sees, dashboard surfacing deferred).
 - Performance briefings now complete in one shot (16k max_tokens). Confirmed working for full-year My Vacation Network analysis.
 - Tier gating system itself doesn't exist yet — needed before Project 2 pricing tiers can launch.
 - **`/api/context` verified present & correctly scoped (May 28, 2026)** — the audit flagged it as possibly missing; it exists, GET/POST both scoped to (client_id, user_email), handles PGRST116 cleanly. False alarm from a zip omission, not a bug. (LORAMER_HANDOFF_CONTEXT_VERIFIED_V1)
