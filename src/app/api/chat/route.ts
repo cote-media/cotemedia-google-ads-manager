@@ -41,23 +41,24 @@ export async function POST(request: Request) {
   // V1 left location='chat' falling through to platform-based focus,
   // which lies for Shopify-only clients (platform defaults to 'google').
   // The Ask Claude tab is platform-agnostic - use a neutral focus.
+  // LORAMER_CROSS_CLAUDE_FOCUS_V1 — emit mode KEYS that normalizeFocus accepts,
+  // not human-readable labels. Drill specifics flow through rowContext, not focus.
+  // This makes /api/chat and /api/insight produce the same intelligence context
+  // for the same question — fixing the cross-surface answer inconsistency where
+  // insight bar, right panel, and Ask Claude tab gave different responses.
   let focus: string
   if (location === 'shopify') {
-    focus = 'Shopify store data'
+    focus = 'shopify'
   } else if (location === 'woocommerce') {
-    focus = 'WooCommerce store data'
+    focus = 'woocommerce'
   } else if (location === 'chat') {
-    focus = 'Ask Claude conversation (cross-platform)'
+    focus = 'overview'  // Ask Claude tab is cross-platform; overview gives full context
   } else if (drillLevel === 'adgroups' && drillCampaign) {
-    focus = `ad groups within campaign: ${drillCampaign.name}`
+    focus = 'adgroups'  // campaign name flows via rowContext
   } else if (drillLevel === 'ads' && drillAdGroup) {
-    focus = `ads within ad group: ${drillAdGroup.name}`
-  } else if (platform === 'combined') {
-    focus = 'combined Google + Meta view'
-  } else if (platform === 'meta') {
-    focus = 'Meta Ads campaigns'
-  } else if (platform === 'google') {
-    focus = 'Google Ads campaigns'
+    focus = 'ads'       // ad group name flows via rowContext
+  } else if (platform === 'combined' || platform === 'meta' || platform === 'google') {
+    focus = 'overview'  // platform top-level views all get full overview context
   } else {
     focus = location || 'overview'
   }
