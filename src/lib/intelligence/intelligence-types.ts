@@ -165,6 +165,38 @@ export interface IntelligenceDemographic {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_PROJECT_3_STEP_3A_V1
+// Geographic performance from geographic_view. country_criterion_id and
+// location_type are what the API exposes; further resolution to readable
+// country/region names is deferred (Google's geo_target_constant lookup).
+export interface IntelligenceGeographic {
+  campaignId: string
+  campaignName: string
+  countryCriterionId?: string
+  locationType?: string
+  metrics: IntelligenceMetrics
+}
+
+// LORAMER_PROJECT_3_STEP_3B_V1
+// Per-campaign device split: Mobile / Desktop / Tablet / Connected TV / Other.
+export interface IntelligenceDeviceSplit {
+  campaignId: string
+  campaignName: string
+  device: string
+  metrics: IntelligenceMetrics
+}
+
+// LORAMER_PROJECT_3_STEP_3C_V1
+// Per-campaign hour-of-day + day-of-week performance. hour is 0-23 in the
+// account timezone. dayOfWeek is a short label (Mon/Tue/...).
+export interface IntelligenceHourly {
+  campaignId: string
+  campaignName: string
+  hour: number
+  dayOfWeek: string
+  metrics: IntelligenceMetrics
+}
+
 // LORAMER_PROJECT_3_STEP_2E_V1
 // Asset-level RSA performance. Each Responsive Search Ad has up to 15
 // headlines and 4 descriptions. Google reports per-asset performance
@@ -267,6 +299,10 @@ export interface PlatformIntelligence {
   assetGroupAssets?: IntelligenceAssetGroupAsset[]
   // LORAMER_PROJECT_3_STEP_2G_V1 - PMax top asset combinations
   assetCombinations?: IntelligenceAssetCombination[]
+  // LORAMER_PROJECT_3_STEP_3A_V1 / 3B_V1 / 3C_V1 — Tier 2 Claude-context-only
+  geographics?: IntelligenceGeographic[]
+  devices?: IntelligenceDeviceSplit[]
+  hourly?: IntelligenceHourly[]
   totals: IntelligenceMetrics
 }
 

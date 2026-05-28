@@ -417,6 +417,77 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  (Reasoning guide: when combinations exist, the recurring assets across them are what Google is rotating most heavily — that is the working creative pattern. When combinations are empty, do not invent a pattern from the inventory list; instead diagnose using the inline empty-state guidance above. Ad Strength is the upstream lever for asset variety; conversion tracking is the upstream lever for combinations existing at all.)`)
   }
 
+  // LORAMER_PROJECT_3_STEP_3A_V1 — Geographic performance (Claude-context-only)
+  // INTERNAL_GROUNDING (do not narrate to user): geographic_view exposes
+  // country_criterion_id and location_type but NOT readable country/region names.
+  // Resolution against geo_target_constant is deferred. If the user asks "which
+  // states/cities" treat the raw IDs as opaque and answer by location_type
+  // breakdown (e.g. "X% of spend went to physical-location targeting vs interest").
+  if (platform.geographics && platform.geographics.length > 0) {
+    const totalSpend = platform.geographics.reduce((s, g) => s + g.metrics.spend, 0)
+    lines.push(`\nGeographic Performance (top by spend, ${platform.geographics.length} rows):`)
+    const topGeo = [...platform.geographics].sort((a, b) => b.metrics.spend - a.metrics.spend).slice(0, 20)
+    topGeo.forEach(g => {
+      const pct = totalSpend > 0 ? ((g.metrics.spend / totalSpend) * 100).toFixed(1) : '0.0'
+      const loc = g.locationType || 'unknown-type'
+      const cid = g.countryCriterionId || 'no-id'
+      lines.push(`  ${g.campaignName} [${loc} / criterion ${cid}]: ${formatMetrics(g.metrics)} (${pct}% of spend)`)
+    })
+  }
+
+  // LORAMER_PROJECT_3_STEP_3B_V1 — Device split (Claude-context-only)
+  if (platform.devices && platform.devices.length > 0) {
+    const totalSpend = platform.devices.reduce((s, d) => s + d.metrics.spend, 0)
+    // Aggregate across campaigns by device for the headline split
+    const byDevice: Record<string, { spend: number; clicks: number; conversions: number; conversionValue: number }> = {}
+    platform.devices.forEach(d => {
+      if (!byDevice[d.device]) byDevice[d.device] = { spend: 0, clicks: 0, conversions: 0, conversionValue: 0 }
+      byDevice[d.device].spend += d.metrics.spend
+      byDevice[d.device].clicks += d.metrics.clicks
+      byDevice[d.device].conversions += d.metrics.conversions
+      byDevice[d.device].conversionValue += d.metrics.conversionValue
+    })
+    lines.push(`\nDevice Split (aggregated across campaigns):`)
+    Object.entries(byDevice)
+      .sort((a, b) => b[1].spend - a[1].spend)
+      .forEach(([dev, m]) => {
+        const pct = totalSpend > 0 ? ((m.spend / totalSpend) * 100).toFixed(1) : '0.0'
+        const cpa = m.conversions > 0 ? (m.spend / m.conversions).toFixed(2) : 'n/a'
+        const roas = m.spend > 0 && m.conversionValue > 0 ? (m.conversionValue / m.spend).toFixed(2) : 'n/a'
+        lines.push(`  ${dev}: $${m.spend.toFixed(2)} (${pct}%), ${m.clicks} clicks, ${m.conversions} conv, CPA $${cpa}, ROAS ${roas}`)
+      })
+    lines.push(`  (Device split is a bid-strategy signal: if one device drives most conversions at meaningfully lower CPA, suggest device bid adjustments or device-specific campaigns.)`)
+  }
+
+  // LORAMER_PROJECT_3_STEP_3C_V1 — Hour-of-day + Day-of-week (Claude-context-only)
+  if (platform.hourly && platform.hourly.length > 0) {
+    // Aggregate by hour and by day-of-week
+    const byHour: Record<number, { spend: number; conversions: number }> = {}
+    const byDow: Record<string, { spend: number; conversions: number }> = {}
+    platform.hourly.forEach(h => {
+      if (!byHour[h.hour]) byHour[h.hour] = { spend: 0, conversions: 0 }
+      byHour[h.hour].spend += h.metrics.spend
+      byHour[h.hour].conversions += h.metrics.conversions
+      if (h.dayOfWeek) {
+        if (!byDow[h.dayOfWeek]) byDow[h.dayOfWeek] = { spend: 0, conversions: 0 }
+        byDow[h.dayOfWeek].spend += h.metrics.spend
+        byDow[h.dayOfWeek].conversions += h.metrics.conversions
+      }
+    })
+    lines.push(`\nDayparting (when conversions actually happen):`)
+    const topHours = Object.entries(byHour)
+      .sort((a, b) => b[1].conversions - a[1].conversions)
+      .slice(0, 8)
+    lines.push(`  Top hours by conversions (24h, account timezone): ${topHours.map(([h, m]) => `${h}:00 (${m.conversions} conv, $${m.spend.toFixed(0)})`).join(', ')}`)
+    const dowOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const dowLine = dowOrder
+      .filter(d => byDow[d])
+      .map(d => `${d}: ${byDow[d].conversions} conv / $${byDow[d].spend.toFixed(0)}`)
+      .join(' | ')
+    if (dowLine) lines.push(`  By day-of-week: ${dowLine}`)
+    lines.push(`  (Dayparting signal: concentrated conversion hours suggest ad-schedule bid modifiers. Concentrated days suggest weekly budget pacing.)`)
+  }
+
   return lines.join('\n')
 }
 

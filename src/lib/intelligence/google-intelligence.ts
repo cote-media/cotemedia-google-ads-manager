@@ -3,7 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi } from 'google-ads-api'
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
   if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
@@ -577,6 +577,79 @@ export async function fetchGoogleIntelligence(
     })
   })
 
+  // ── Geographic + Device + Hour (LORAMER_PROJECT_3_STEP_3A_V1 / 3B_V1 / 3C_V1) ─
+  // Three Tier-2 segmentations of campaign performance, batched. No UI surfaces;
+  // these flow into Claude's context only.
+  const [geoRows, deviceRows, hourRows] = await Promise.all([
+    customer.query(`
+      SELECT campaign.id, campaign.name,
+      geographic_view.country_criterion_id, geographic_view.location_type,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM geographic_view
+      WHERE ${dateFilter}
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 200
+    `).catch((e: any) => { console.error('[Geographic query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    customer.query(`
+      SELECT campaign.id, campaign.name, segments.device,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM campaign
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 500
+    `).catch((e: any) => { console.error('[Device query failed]', e?.message, e?.errors); return [] }),
+    customer.query(`
+      SELECT campaign.id, campaign.name, segments.hour, segments.day_of_week,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value
+      FROM campaign
+      WHERE ${dateFilter}
+      AND campaign.status != 'REMOVED'
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 1000
+    `).catch((e: any) => { console.error('[Hour query failed]', e?.message, e?.errors); return [] }),
+  ])
+
+  const geographics: IntelligenceGeographic[] = geoRows.map((row: any) => ({
+    campaignId: String(row.campaign?.id || ''),
+    campaignName: String(row.campaign?.name || ''),
+    countryCriterionId: row.geographic_view?.country_criterion_id ? String(row.geographic_view.country_criterion_id) : undefined,
+    locationType: row.geographic_view?.location_type ? String(row.geographic_view.location_type) : undefined,
+    metrics: buildMetrics(row),
+  }))
+
+  const DEVICE_LABEL_MAP: Record<string, string> = {
+    'MOBILE': 'Mobile', 'DESKTOP': 'Desktop', 'TABLET': 'Tablet',
+    'CONNECTED_TV': 'Connected TV', 'OTHER': 'Other', 'UNKNOWN': 'Unknown',
+  }
+  const devices: IntelligenceDeviceSplit[] = deviceRows.map((row: any) => {
+    const raw = String(row.segments?.device || '')
+    return {
+      campaignId: String(row.campaign?.id || ''),
+      campaignName: String(row.campaign?.name || ''),
+      device: DEVICE_LABEL_MAP[raw] || raw || 'Unknown',
+      metrics: buildMetrics(row),
+    }
+  })
+
+  const DOW_LABEL_MAP: Record<string, string> = {
+    'MONDAY': 'Mon', 'TUESDAY': 'Tue', 'WEDNESDAY': 'Wed', 'THURSDAY': 'Thu',
+    'FRIDAY': 'Fri', 'SATURDAY': 'Sat', 'SUNDAY': 'Sun',
+  }
+  const hourly: IntelligenceHourly[] = hourRows.map((row: any) => {
+    const dow = String(row.segments?.day_of_week || '')
+    return {
+      campaignId: String(row.campaign?.id || ''),
+      campaignName: String(row.campaign?.name || ''),
+      hour: Number(row.segments?.hour || 0),
+      dayOfWeek: DOW_LABEL_MAP[dow] || dow || '',
+      metrics: buildMetrics(row),
+    }
+  })
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -616,6 +689,9 @@ export async function fetchGoogleIntelligence(
     assetGroups,            // LORAMER_PROJECT_3_STEP_2F_V1
     assetGroupAssets,       // LORAMER_PROJECT_3_STEP_2F_V1
     assetCombinations,      // LORAMER_PROJECT_3_STEP_2G_V1
+    geographics,            // LORAMER_PROJECT_3_STEP_3A_V1
+    devices,                // LORAMER_PROJECT_3_STEP_3B_V1
+    hourly,                 // LORAMER_PROJECT_3_STEP_3C_V1
     totals,
   }
 }
