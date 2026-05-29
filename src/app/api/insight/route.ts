@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
-import { buildClaudeContext } from '@/lib/intelligence/build-claude-context'
+import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -41,12 +41,21 @@ export async function POST(request: Request) {
   const intelligence: ClientIntelligence = intelligenceData.intelligence
   if (!intelligence) return NextResponse.json({ error: 'Could not fetch intelligence' }, { status: 500 })
 
-  let systemPrompt = buildClaudeContext(intelligence, location || 'overview')
+  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+  // Build prefix/suffix from intelligence. Active alerts are per-call dynamic
+  // content so they go in the suffix (NOT the cached prefix), keeping the
+  // cacheable block stable across calls for the same client+dateRange.
+  const { prefix, suffix: baseSuffix } = buildClaudeContextCacheable(intelligence, location || 'overview')
+  let suffix = baseSuffix
   if (Array.isArray(activeAlerts) && activeAlerts.length > 0) {
-    systemPrompt += '\n\n=== ACTIVE ALERTS CURRENTLY VISIBLE TO THE USER ===\n'
-    systemPrompt += '(These alerts are showing in the user-facing UI right now. If they ask a follow-up question, they may be referring to one of these. Reference them by content when relevant.)\n'
-    activeAlerts.forEach((a) => { systemPrompt += '  • ' + a + '\n' })
+    suffix += '\n\n=== ACTIVE ALERTS CURRENTLY VISIBLE TO THE USER ===\n'
+    suffix += '(These alerts are showing in the user-facing UI right now. If they ask a follow-up question, they may be referring to one of these. Reference them by content when relevant.)\n'
+    activeAlerts.forEach((a) => { suffix += '  • ' + a + '\n' })
   }
+  const systemArr: any = [
+    { type: 'text', text: prefix, cache_control: { type: 'ephemeral' } },
+    ...(suffix ? [{ type: 'text', text: suffix }] : []),
+  ]
   const isInitial = !conversationHistory || conversationHistory.length === 0
 
   const messages = isInitial
@@ -57,10 +66,18 @@ export async function POST(request: Request) {
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: isInitial ? 150 : 600,
-      system: systemPrompt,
+      system: systemArr,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
       messages,
     })
     const insight = (response.content[0] as any).text?.trim() || ''
+    // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — surface cache metrics
+    const usage = response.usage as any
+    console.log('[insight] cache:', {
+      input: usage?.input_tokens || 0,
+      cache_create: usage?.cache_creation_input_tokens || 0,
+      cache_read: usage?.cache_read_input_tokens || 0,
+      output: usage?.output_tokens || 0,
+    })
     logSpend({
       userEmail: session.user.email,
       clientId,

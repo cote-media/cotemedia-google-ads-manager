@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
-import { buildClaudeContext } from '@/lib/intelligence/build-claude-context'
+import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -87,6 +87,34 @@ export async function POST(request: Request) {
     systemPrompt = `You are an expert digital advertising analyst in LoraMer. Client: ${clientName}. Platform: ${platform}. Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
   }
 
+  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+  // Build a typed system array with cache_control on the prefix block so
+  // Anthropic caches the stable parts (hard constraints, identity, profile,
+  // platform data, memory) across turns. Conversation history + rules stay
+  // dynamic in the suffix and rebuild each call. Falls back to the plain
+  // string `systemPrompt` (Phase-1 wrapper output) if intelligence fetch
+  // failed — keeps the existing error path working unchanged.
+  let systemArr: any = undefined
+  if (clientId) {
+    try {
+      const intelligenceRes2 = await fetch(
+        `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
+        { headers: { Cookie: request.headers.get('cookie') || '' } }
+      )
+      const intelligenceData2 = await intelligenceRes2.json()
+      const intelligence2: ClientIntelligence = intelligenceData2.intelligence
+      if (intelligence2) {
+        const { prefix, suffix } = buildClaudeContextCacheable(intelligence2, focus, rowContext)
+        systemArr = [
+          { type: 'text', text: prefix, cache_control: { type: 'ephemeral' } },
+          ...(suffix ? [{ type: 'text', text: suffix }] : []),
+        ]
+      }
+    } catch (e) {
+      console.error('Cacheable intelligence rebuild error:', e)
+    }
+  }
+
   const messages = [
     ...(history || []).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user' as const, content: message }
@@ -96,10 +124,18 @@ export async function POST(request: Request) {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
-      system: systemPrompt,
+      system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
       messages,
     })
     const responseText = (response.content[0] as any).text?.trim() || ''
+    // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — surface cache metrics
+    const usage = response.usage as any
+    console.log('[chat] cache:', {
+      input: usage?.input_tokens || 0,
+      cache_create: usage?.cache_creation_input_tokens || 0,
+      cache_read: usage?.cache_read_input_tokens || 0,
+      output: usage?.output_tokens || 0,
+    })
     logSpend({
       userEmail: session.user.email,
       clientId,
