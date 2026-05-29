@@ -346,10 +346,12 @@ export interface PlatformIntelligence {
   recommendations?: IntelligenceRecommendation[]
   // LORAMER_PROJECT_3_STEP_4A_V1 — Meta-only: placement breakdown
   placements?: IntelligencePlacement[]
-  // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — temporary diagnostic fields (remove after diag complete)
+  // LORAMER_META_PLACEMENT_RAW_DEBUG_V1 — temporary diagnostic fields
   placementRawRowCount?: number
   placementSample?: any[]
   placementError?: string
+  placementRawStatus?: number
+  placementRawBodyPreview?: string
   totals: IntelligenceMetrics
 }
 
