@@ -110,11 +110,13 @@ This is a derived layer on top of Option B, not a separate query. Ships once Opt
 
 ## Phased rollout
 
-### Phase 2.1 — Abandoned cart rate
-- Add one additional GraphQL query to shopify-intelligence.ts for abandoned checkouts in the date range
-- New type fields: `abandonedCheckoutCount`, `abandonedCheckoutRate`
-- Render in build-claude-context as a line under Shopify section
-- Estimated: 1-2 hours, low risk
+### Phase 2.1 — Abandoned cart rate ✅ SHIPPED May 29, 2026 (LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1)
+- [x] Added `abandonedCheckouts` GraphQL query to shopify-intelligence.ts for the date range, via a separate fail-soft helper `fetchAbandonedCheckoutCount()` with its own try/catch.
+- [x] **Decision change from this design doc:** shipped COUNT only, not `abandonedCheckoutRate`. The design doc proposed `abandonedCheckouts / (abandonedCheckouts + completedCheckouts)` but full checkout-funnel data isn't available via API — any rate we baked in would be misleading. The prompt now hands Claude the raw count alongside completed-order count and an instruction to reason about the count directly rather than asserting a precise rate. New type field is `abandonedCheckoutCount?: number` only.
+- [x] PII guarantee: helper requests ONLY the `id` field — no customer name, email, addresses, or line items pass through the intelligence layer.
+- [x] Permission fail-soft: if merchant didn't grant `manage_abandoned_checkouts`, helper returns `undefined` (NOT 0). The renderer skips the line entirely in that case, so Claude doesn't see a misleading zero.
+- [x] Verified in production: Claude correctly quoted "16 abandoned checkouts in this date range (compared to 49 completed orders)" verbatim from context on a tested Shopify client (25% rough abandonment ratio).
+- [x] Cost: one additional GraphQL query per intelligence refresh. Within the existing 15-min cache, so negligible additional Shopify API load.
 
 ### Phase 2.2 — Customer-level LTV (Option B)
 - New `fetchShopifyCustomers()` function, paginated
