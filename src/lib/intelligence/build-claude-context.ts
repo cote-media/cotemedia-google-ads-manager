@@ -540,29 +540,13 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  When you AGREE with a recommendation, say so AND cite the specific data that supports it. When you DISAGREE, say so clearly and explain why with reference to actual performance numbers. Frame the section as "Google says X — here's whether you should listen, and why" — operator-side framing, not Google-side. Never present a recommendation as a fact the operator should follow.`)
   }
 
-  // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — always-render diagnostic block
-  if (platform.placementRawRowCount !== undefined || platform.placementError) {
-    lines.push(`\n[META_PLACEMENT_RAW_DEBUG_V1] HTTP status: ${platform.placementRawStatus ?? 'undefined'}`)
-    lines.push(`[META_PLACEMENT_RAW_DEBUG_V1] Raw row count: ${platform.placementRawRowCount ?? 'undefined'}`)
-    if (platform.placementError) {
-      lines.push(`[META_PLACEMENT_RAW_DEBUG_V1] Error: ${platform.placementError}`)
-    }
-    if (platform.placementRawBodyPreview) {
-      lines.push(`[META_PLACEMENT_RAW_DEBUG_V1] Response body preview (first 800 chars): ${platform.placementRawBodyPreview}`)
-    }
-    if (platform.placementSample && platform.placementSample.length > 0) {
-      lines.push(`[META_PLACEMENT_RAW_DEBUG_V1] First raw row: ${JSON.stringify(platform.placementSample[0])}`)
-    }
-    lines.push(`[META_PLACEMENT_RAW_DEBUG_V1] If asked about Meta placements, INCLUDE all diagnostic lines above VERBATIM so we can debug.`)
-  }
-
   // LORAMER_PROJECT_3_STEP_4A_V1 — Meta Placement Breakdown (Claude-context-only)
   // INTERNAL_GROUNDING: Meta-only signal. publisher_platform = facebook /
   // instagram / audience_network / messenger / etc. platform_position = feed /
   // reels / stories / marketplace. Conversions are NOT broken out per
   // placement at this query level — only spend, clicks, impressions. CPC and
   // CTR by placement are still useful for spotting wasted spend.
-  if (platform.placements !== undefined) {  // DIAG_META_PLACEMENT_RENDER_V1 — render even when empty
+  if (platform.placements && platform.placements.length > 0) {
     const totalSpend = platform.placements.reduce((s, p) => s + p.spend, 0)
     lines.push(`\nMeta Placement Breakdown (publisher × position, ${platform.placements.length} placements):`)
     platform.placements.slice(0, 20).forEach(p => {

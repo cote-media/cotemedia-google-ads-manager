@@ -281,12 +281,6 @@ export async function fetchMetaIntelligence(
     ads,
     conversionActions: [],
     placements,  // LORAMER_PROJECT_3_STEP_4A_V1
-    // LORAMER_META_PLACEMENT_RAW_DEBUG_V1 — temporary diagnostic fields
-    placementRawRowCount: placementInsights.length,
-    placementSample: placementInsights.slice(0, 3),
-    placementError,
-    placementRawStatus,
-    placementRawBodyPreview,
     totals,
   }
 }
