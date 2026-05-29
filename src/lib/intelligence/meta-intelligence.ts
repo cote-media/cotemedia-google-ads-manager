@@ -201,27 +201,15 @@ export async function fetchMetaIntelligence(
   })
 
   // ── Placement Breakdown ────────────────────────────────────────────────────
-  // LORAMER_META_PLACEMENT_RAW_DEBUG_V1 — direct fetch, capture full response
-  let placementError: string | undefined
-  let placementRawStatus: number | undefined
-  let placementRawBodyPreview: string | undefined
-  let placementInsights: any[] = []
-  try {
-    const debugUrl = `${META_API}/${actId}/insights?level=campaign&${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200&access_token=${accessToken}`
-    const debugRes = await fetch(debugUrl)
-    placementRawStatus = debugRes.status
-    const debugText = await debugRes.text()
-    placementRawBodyPreview = debugText.slice(0, 800)
-    try {
-      const debugJson = JSON.parse(debugText)
-      if (Array.isArray(debugJson.data)) placementInsights = debugJson.data
-      if (debugJson.error) placementError = `Meta error: ${debugJson.error.message || JSON.stringify(debugJson.error).slice(0, 200)}`
-    } catch (parseErr: any) {
-      placementError = `JSON parse failed: ${parseErr?.message || 'unknown'}`
-    }
-  } catch (fetchErr: any) {
-    placementError = `Fetch threw: ${fetchErr?.message || 'unknown'}`
-  }
+  // LORAMER_INTELLIGENCE_HONESTY_V1 — removed RAW_DEBUG_V1 instrumentation.
+  // Underlying bug (breakdowns in fields param) was fixed in
+  // LORAMER_META_PLACEMENT_FIELDS_FIX_V1; the raw response capture was
+  // diagnostic only and per Lesson 15 should never linger in the prompt path.
+  // This call now matches the same fetchAll pattern used for campaigns/ad sets/ads.
+  const placementInsights = await fetchAll(
+    `${META_API}/${actId}/insights?level=campaign&${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200`,
+    accessToken
+  )
 
   // LORAMER_PROJECT_3_STEP_4A_V1 — aggregate Meta placement data into a typed
   // array with full metrics, not just a spend record. Each row is a

@@ -202,10 +202,22 @@ function formatMetrics(m: any, indent = ''): string {
 }
 
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
+// LORAMER_INTELLIGENCE_HONESTY_V1 — connected-but-empty no longer silently drops
 function buildPlatformSection(platform: PlatformIntelligence, name: string, limits: DataLimits = DEFAULT_LIMITS): string {
-  if (!platform?.connected || !platform.campaigns?.length) return ''
+  // Not connected at all → render nothing (intelligence.<platform> guard above means this is rare)
+  if (!platform?.connected) return ''
   const lines: string[] = []
   lines.push(`\n=== ${name.toUpperCase()} ADS ===`)
+  // Connected but no campaigns with spend in this date range → emit honest empty-state
+  // and stop. The Meta API hard-filters insights on spend > 0, so a quiet window
+  // looks identical to a disconnected account from the data shape's perspective.
+  // Without this branch, Claude reads the "ALL data" header and invents data to match
+  // (Lesson 11: prompt-as-mirror). With it, Claude can truthfully say the account
+  // had no spend in the selected window.
+  if (!platform.campaigns?.length) {
+    lines.push(`${name} is connected, but no campaigns had spend in this date range. No campaign / ad-set / ad / placement detail is available for this window. Do not infer or invent data for ${name} from prior turns — say so honestly if asked.`)
+    return lines.join('\n')
+  }
   lines.push(`Account Totals: ${formatMetrics(platform.totals)}`)
 
   if (platform.campaigns.length > 0 && limits.campaigns > 0) {
@@ -781,8 +793,30 @@ export function buildClaudeContext(
   // LORAMER_PROJECT_3_STEP_1_V1 — focus-aware slicing
   const { mode: focusMode } = normalizeFocus(focus)
   const limits = getDataLimitsForFocus(focusMode)
-  lines.push('\n=== COMPLETE ACCOUNT DATA ===')
-  lines.push('(You have access to ALL data from ALL platforms. Use all of it to answer questions.)')
+
+  // LORAMER_INTELLIGENCE_HONESTY_V1 — describe what's ACTUALLY in this prompt.
+  // The previous version unconditionally promised "ALL data from ALL platforms",
+  // which trained Claude to fabricate data for any platform that turned out
+  // empty (Lesson 11: prompt-as-mirror). The dynamic line below lists which
+  // platforms have populated data, which are connected but empty, and which
+  // aren't connected — so Claude has an accurate picture of the prompt.
+  const platformStatus: string[] = []
+  const platformIsPopulated = (p: PlatformIntelligence | undefined) => !!(p?.connected && p.campaigns?.length)
+  const platformIsEmpty = (p: PlatformIntelligence | undefined) => !!(p?.connected && !p.campaigns?.length)
+  if (platformIsPopulated(intelligence.google)) platformStatus.push('Google: populated')
+  else if (platformIsEmpty(intelligence.google)) platformStatus.push('Google: connected but no spend in this date range')
+  else platformStatus.push('Google: not connected')
+  if (platformIsPopulated(intelligence.meta)) platformStatus.push('Meta: populated')
+  else if (platformIsEmpty(intelligence.meta)) platformStatus.push('Meta: connected but no spend in this date range')
+  else platformStatus.push('Meta: not connected')
+  if (intelligence.shopify?.connected) platformStatus.push('Shopify: populated')
+  else platformStatus.push('Shopify: not connected')
+  if (intelligence.woocommerce?.connected) platformStatus.push('WooCommerce: populated')
+  else platformStatus.push('WooCommerce: not connected')
+
+  lines.push('\n=== ACCOUNT DATA IN THIS PROMPT ===')
+  lines.push(`Platforms: ${platformStatus.join(' | ')}`)
+  lines.push('Use the data that IS in this prompt. If a platform shows "connected but no spend in this date range" or "not connected", do NOT invent data for it — say so directly if the user asks about that platform.')
 
   if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
   if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
