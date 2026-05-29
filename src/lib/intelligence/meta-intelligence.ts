@@ -87,7 +87,7 @@ export async function fetchMetaIntelligence(
     : `date_preset=${buildDatePreset(dateRange)}`
 
   const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
-  const placementFields = 'spend,clicks,impressions,publisher_platform,platform_position'
+  const placementFields = 'spend,clicks,impressions'  // LORAMER_META_PLACEMENT_FIELDS_FIX_V1 — breakdowns go in &breakdowns=, NOT &fields=
 
   // ── Campaigns ──────────────────────────────────────────────────────────────
   const campaignInsights = await fetchAll(
