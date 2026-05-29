@@ -850,6 +850,12 @@ export function buildClaudeContextCacheable(
     if (s.returningCustomerAov != null && s.returningCustomerAov > 0) lines.push(`Returning customer AOV: $${s.returningCustomerAov.toFixed(2)}`)
     if (s.refundedOrderCount != null && s.totalOrders) lines.push(`Refunded orders: ${s.refundedOrderCount} (${s.refundRate?.toFixed(1)}% refund rate)`)
     if (s.revenueConcentration != null && s.totalOrders && s.totalOrders >= 10) lines.push(`Revenue concentration: top 10% of orders drove ${s.revenueConcentration.toFixed(1)}% of revenue`)
+    // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — only render when we have a count.
+    // undefined means the merchant didn't grant manage_abandoned_checkouts permission,
+    // or the query failed. Distinct from 0 (no abandoned in this window).
+    if (s.abandonedCheckoutCount != null) {
+      lines.push(`Abandoned checkouts: ${s.abandonedCheckoutCount} in this date range (compared to ${s.totalOrders ?? 0} completed orders). The "abandonment rate" depends on which denominator you use — full checkout funnel data isn't available via API, so reason about the count directly rather than asserting a precise rate.`)
+    }
     if (s.topProducts?.length) {
       lines.push(`Top Products (showing top ${Math.min(s.topProducts.length, limits.topProducts)}):`)
       s.topProducts.slice(0, limits.topProducts).forEach(prod => {

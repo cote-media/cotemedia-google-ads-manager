@@ -312,6 +312,12 @@ export interface IntelligenceShopify {
   newCustomerAov?: number          // average order value among first-time customer orders
   returningCustomerAov?: number    // average order value among returning customer orders
   revenueConcentration?: number    // % of revenue contributed by top 10% of orders by value (0-100)
+  // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — count only (no PII).
+  // undefined when the merchant hasn't granted manage_abandoned_checkouts
+  // permission, or when the query fails. Different from 0, which means
+  // "zero abandoned in this window". Claude is instructed to honor the
+  // distinction in build-claude-context.ts.
+  abandonedCheckoutCount?: number
   // Attribution (when connected to ad platforms)
   adAttributedRevenue?: number
   adAttributedOrders?: number

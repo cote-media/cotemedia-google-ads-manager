@@ -27,6 +27,44 @@ type GraphQLOrderNode = {
   }
 }
 
+// LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1
+// Separate query with its own try/catch. Returns undefined on any failure
+// (permission denied / network / GraphQL error) so the rest of the Shopify
+// intelligence fetch keeps working. Fetches ONLY the id field — no customer
+// data, no email, no addresses, no line items. PII never enters the
+// intelligence layer.
+async function fetchAbandonedCheckoutCount(
+  endpoint: string,
+  headers: Record<string, string>,
+  queryString: string,
+): Promise<number | undefined> {
+  const gql = `
+    query AbandonedInRange($query: String!) {
+      abandonedCheckouts(first: 250, query: $query) {
+        edges { node { id } }
+      }
+    }
+  `
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: gql, variables: { query: queryString } }),
+    })
+    const json = await res.json()
+    if (json.errors) {
+      console.warn('[abandonedCheckouts] GraphQL error (likely missing manage_abandoned_checkouts permission):',
+        JSON.stringify(json.errors).slice(0, 200))
+      return undefined
+    }
+    const nodes = json.data?.abandonedCheckouts?.edges || []
+    return nodes.length
+  } catch (e) {
+    console.warn('[abandonedCheckouts] fetch failed:', e)
+    return undefined
+  }
+}
+
 export async function fetchShopifyIntelligence(
   accessToken: string,
   shopDomain: string,   // e.g. "my-store.myshopify.com"
@@ -154,6 +192,11 @@ export async function fetchShopifyIntelligence(
       .slice(0, 10)
       .map(([id, data]) => ({ id, ...data }))
 
+    // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — separate fail-soft fetch.
+    // Reuses the same date queryString as the orders query so the count is
+    // scoped to the same window.
+    const abandonedCheckoutCount = await fetchAbandonedCheckoutCount(endpoint, headers, queryString)
+
     return {
       connected: true,
       totalOrders,
@@ -168,6 +211,8 @@ export async function fetchShopifyIntelligence(
       newCustomerAov,
       returningCustomerAov,
       revenueConcentration,
+      // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — undefined when permission/perm or network failed
+      abandonedCheckoutCount,
       topProducts,
     }
   } catch (e) {
