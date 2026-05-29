@@ -305,6 +305,13 @@ export interface IntelligenceShopify {
   // Customers
   newCustomers?: number
   returningCustomers?: number
+  // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived metrics
+  refundedOrderCount?: number
+  refundRate?: number              // percentage (0-100)
+  returningRate?: number           // percentage of orders from returning customers (0-100)
+  newCustomerAov?: number          // average order value among first-time customer orders
+  returningCustomerAov?: number    // average order value among returning customer orders
+  revenueConcentration?: number    // % of revenue contributed by top 10% of orders by value (0-100)
   // Attribution (when connected to ad platforms)
   adAttributedRevenue?: number
   adAttributedOrders?: number

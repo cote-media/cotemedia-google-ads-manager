@@ -108,6 +108,33 @@ export async function fetchShopifyIntelligence(
     const newCustomers = orderNodes.filter((o) => o.customer?.numberOfOrders === 1).length
     const returningCustomers = totalOrders - newCustomers
 
+    // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived metrics from existing query response
+    // Refund rate: any order where displayFinancialStatus indicates a refund.
+    const refundedOrderCount = orderNodes.filter(o => {
+      const s = (o.displayFinancialStatus || '').toUpperCase()
+      return s === 'REFUNDED' || s === 'PARTIALLY_REFUNDED'
+    }).length
+    const refundRate = totalOrders > 0 ? (refundedOrderCount / totalOrders) * 100 : 0
+    // Returning rate (% of orders from returning customers in this window)
+    const returningRate = totalOrders > 0 ? (returningCustomers / totalOrders) * 100 : 0
+    // New vs returning AOV split
+    const newOrderAmounts = orderNodes
+      .filter(o => o.customer?.numberOfOrders === 1)
+      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+    const returningOrderAmounts = orderNodes
+      .filter(o => o.customer && o.customer.numberOfOrders > 1)
+      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+    const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
+    const newCustomerAov = newOrderAmounts.length > 0 ? sum(newOrderAmounts) / newOrderAmounts.length : 0
+    const returningCustomerAov = returningOrderAmounts.length > 0 ? sum(returningOrderAmounts) / returningOrderAmounts.length : 0
+    // Revenue concentration: what % of total revenue comes from the top 10% of orders by value
+    const orderAmountsSorted = orderNodes
+      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+      .sort((a, b) => b - a)
+    const top10Count = Math.max(1, Math.ceil(orderAmountsSorted.length * 0.1))
+    const top10Revenue = sum(orderAmountsSorted.slice(0, top10Count))
+    const revenueConcentration = totalRevenue > 0 ? (top10Revenue / totalRevenue) * 100 : 0
+
     // Top products (aggregate line items across all orders)
     const productSales: Record<string, { name: string; revenue: number; units: number }> = {}
     for (const order of orderNodes) {
@@ -134,6 +161,13 @@ export async function fetchShopifyIntelligence(
       avgOrderValue,
       newCustomers,
       returningCustomers,
+      // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1
+      refundedOrderCount,
+      refundRate,
+      returningRate,
+      newCustomerAov,
+      returningCustomerAov,
+      revenueConcentration,
       topProducts,
     }
   } catch (e) {
@@ -147,6 +181,13 @@ export async function fetchShopifyIntelligence(
       avgOrderValue: 0,
       newCustomers: 0,
       returningCustomers: 0,
+      // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1
+      refundedOrderCount: 0,
+      refundRate: 0,
+      returningRate: 0,
+      newCustomerAov: 0,
+      returningCustomerAov: 0,
+      revenueConcentration: 0,
       topProducts: [],
     }
   }

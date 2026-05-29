@@ -844,6 +844,12 @@ export function buildClaudeContextCacheable(
     if (s.avgOrderValue) lines.push(`Avg Order Value: $${s.avgOrderValue.toFixed(2)}`)
     if (s.newCustomers) lines.push(`New Customers: ${s.newCustomers}`)
     if (s.returningCustomers) lines.push(`Returning Customers: ${s.returningCustomers}`)
+    // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived signals for Claude reasoning
+    if (s.returningRate != null && s.totalOrders) lines.push(`Returning-customer rate: ${s.returningRate.toFixed(1)}% of orders`)
+    if (s.newCustomerAov != null && s.newCustomerAov > 0) lines.push(`New customer AOV: $${s.newCustomerAov.toFixed(2)}`)
+    if (s.returningCustomerAov != null && s.returningCustomerAov > 0) lines.push(`Returning customer AOV: $${s.returningCustomerAov.toFixed(2)}`)
+    if (s.refundedOrderCount != null && s.totalOrders) lines.push(`Refunded orders: ${s.refundedOrderCount} (${s.refundRate?.toFixed(1)}% refund rate)`)
+    if (s.revenueConcentration != null && s.totalOrders && s.totalOrders >= 10) lines.push(`Revenue concentration: top 10% of orders drove ${s.revenueConcentration.toFixed(1)}% of revenue`)
     if (s.topProducts?.length) {
       lines.push(`Top Products (showing top ${Math.min(s.topProducts.length, limits.topProducts)}):`)
       s.topProducts.slice(0, limits.topProducts).forEach(prod => {
