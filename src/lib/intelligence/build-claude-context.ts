@@ -713,12 +713,27 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
   return lines.join('\n')
 }
 
-export function buildClaudeContext(
+// LORAMER_PROMPT_CACHING_PHASE_1_REFACTOR_V1
+// Internal helper that splits the prompt into cacheable prefix + dynamic suffix.
+// Behavior is unchanged from the previous single-string version: prefix and
+// suffix are joined with a newline for the string export below, which is
+// byte-identical to the prior output.
+//
+// Prefix (will become cacheable in Phase 2): hard constraints, identity,
+// client profile, platform data, memory.
+// Suffix (always fresh): conversation history, analysis rules.
+//
+// All push() calls below remain identical to the prior version. The only
+// structural change is `let lines` instead of `const lines` so we can swap
+// the target array at the dynamic-content boundary.
+export function buildClaudeContextCacheable(
   intelligence: ClientIntelligence,
   focus: string = 'overview',
   focusData?: string
-): string {
-  const lines: string[] = []
+): { prefix: string; suffix: string } {
+  const prefixLines: string[] = []
+  const suffixLines: string[] = []
+  let lines: string[] = prefixLines
 
   // ── HARD CONSTRAINTS FIRST (before identity, before anything) ──────────────
   const p = intelligence.profile
@@ -858,6 +873,13 @@ export function buildClaudeContext(
   const memorySection = buildMemorySection(memory, intelligence.clientName)
   if (memorySection) lines.push(memorySection)
 
+  // LORAMER_PROMPT_CACHING_PHASE_1_REFACTOR_V1
+  // Everything below this point varies per call: conversation history grows
+  // by 2 messages each turn, analysis rules are static but conventionally
+  // placed at the end. Switch the lines reference so they land in the
+  // suffix (dynamic) block. The eventual cache breakpoint in Phase 2 will
+  // sit right here — before this line.
+  lines = suffixLines
   // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
 
@@ -872,5 +894,23 @@ export function buildClaudeContext(
   lines.push('You are talking to an experienced agency professional. Skip basics.')
   lines.push('If you can see the data needed to answer a question, answer it directly without asking for more info.')
 
-  return lines.join('\n')
+  return {
+    prefix: prefixLines.join('\n'),
+    suffix: suffixLines.join('\n'),
+  }
+}
+
+// LORAMER_PROMPT_CACHING_PHASE_1_REFACTOR_V1
+// Backwards-compatible string wrapper. /api/chat and /api/insight still call
+// this and receive a single string, byte-identical to the previous behavior.
+// Phase 2 will switch the routes to call buildClaudeContextCacheable() and
+// pass the prefix and suffix as a typed system array with cache_control on
+// the prefix block.
+export function buildClaudeContext(
+  intelligence: ClientIntelligence,
+  focus: string = 'overview',
+  focusData?: string
+): string {
+  const { prefix, suffix } = buildClaudeContextCacheable(intelligence, focus, focusData)
+  return suffix ? prefix + '\n' + suffix : prefix
 }
