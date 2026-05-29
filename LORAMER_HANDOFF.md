@@ -101,6 +101,47 @@ Russ uses Cursor as his IDE but never edits files directly. Every change is deli
 
 Never tell Russ "add this line to file Y on line Z." Always deliver an executable command. Always use absolute paths starting with `~/Downloads/cotemedia-google-ads-manager/...`.
 
+### Multi-machine sync ritual (LORAMER_HANDOFF_MULTI_MACHINE_SYNC_V1)
+
+Russ works across two machines — iMac (`~/Downloads/cotemedia-ads-manager/`) and MacBook Air (`~/Downloads/cotemedia-google-ads-manager/`). GitHub is the single source of truth, but staying synced is NOT automatic — it requires discipline on both ends of every session.
+
+**Before starting work on either machine, ALWAYS run:**
+
+```
+cd ~/Downloads/<correct-path-for-this-machine> && git pull
+```
+
+- "Already up to date" → safe to start.
+- Clean fast-forward / rebase → safe to start.
+- Conflict → STOP and ask Claude before touching anything.
+
+**Before walking away from either machine, ALWAYS run:**
+
+```
+cd ~/Downloads/<correct-path-for-this-machine> && git status
+```
+
+Both of these must be true to walk away safely:
+- "nothing to commit, working tree clean"
+- "Your branch is up to date with 'origin/main'"
+
+If either is false, finish the work and push BEFORE leaving the machine. Uncommitted changes don't travel. Unpushed commits don't travel.
+
+**Don't switch machines mid-task.** Finish the patch on the machine you started it on. Push. Then move. This is the rule that prevents the kind of divergence we hit on May 29, 2026, where the iMac was 14 commits behind the laptop and a routine push triggered a rebase conflict on a stale commit.
+
+**When divergence happens anyway (recovery pattern):**
+
+If a `git push` is rejected and `git pull --rebase` produces conflicts because local-only commits already exist on origin via the other machine, do NOT try to resolve the conflicts manually. The cleaner path is:
+
+1. `git rebase --abort` — back to pre-pull state
+2. `git log origin/main..HEAD --oneline` — see which local commits are NOT on origin
+3. For any commit hash that's genuinely new (not a duplicate of work already on origin from the other machine):
+   - `git fetch origin && git reset --hard origin/main` — match origin exactly
+   - `git cherry-pick <commit-hash>` — replay just the genuinely new commit on top of fresh origin
+4. `git push` — should succeed cleanly
+
+The May 29 incident is the canonical example. The iMac had two local-only commits: a duplicate of a chat-route change already shipped from the laptop, AND today's genuine scroll-fix commit. Reset to origin + cherry-pick only the scroll commit. Clean push, no conflict resolution needed.
+
 ### Every patch script MUST include
 
 1. **`--dry-run` mode** that checks anchors WITHOUT modifying anything. If any anchor fails, Russ sees ✗ and pastes the output back, and we fix the patch BEFORE running it for real.
