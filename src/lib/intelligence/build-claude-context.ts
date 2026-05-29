@@ -546,7 +546,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
   // reels / stories / marketplace. Conversions are NOT broken out per
   // placement at this query level — only spend, clicks, impressions. CPC and
   // CTR by placement are still useful for spotting wasted spend.
-  if (platform.placements && platform.placements.length > 0) {
+  if (platform.placements !== undefined) {  // DIAG_META_PLACEMENT_RENDER_V1 — render even when empty
     const totalSpend = platform.placements.reduce((s, p) => s + p.spend, 0)
     lines.push(`\nMeta Placement Breakdown (publisher × position, ${platform.placements.length} placements):`)
     platform.placements.slice(0, 20).forEach(p => {
