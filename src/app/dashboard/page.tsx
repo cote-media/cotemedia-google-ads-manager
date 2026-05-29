@@ -3,7 +3,7 @@ import { filterAnomalies } from '@/lib/anomaly-filter'
 import { DiamondCoachmark } from '@/components/DiamondCoachmark'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import React, { useEffect, useState, useRef, Suspense } from 'react'
+import React, { useEffect, useLayoutEffect, useState, useRef, Suspense } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -2121,6 +2121,20 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
 
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
 function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount, platform, clientName, drillLevel }: any) {
+  // LORAMER_ASKCLAUDE_SCROLL_V1 — scroll to bottom on mount (refresh case) and on new messages.
+  // useLayoutEffect fires before paint so the user never sees the panel parked at the first message.
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const hasMountedRef = useRef(false)
+  useLayoutEffect(() => {
+    const el = chatScrollRef.current
+    if (!el) return
+    if (!hasMountedRef.current) {
+      el.scrollTop = el.scrollHeight
+      hasMountedRef.current = true
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [messages.length])
   // LORAMER_LIFT_CHAT_EXCHANGE_LIMIT_V1 - temporarily lifted until tier gating ships; original: `exchangeCount > 0 && exchangeCount % 4 === 0 && messages.length > 0`
   const atLimit = false
   // LORAMER_LIFT_CHAT_EXCHANGE_LIMIT_V1 - temporarily lifted; original: `exchangeCount % 4 === 3 && exchangeCount > 0 && messages.length > 0`
@@ -2159,7 +2173,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
         </div>
       )}
       <div className="bg-white border border-border flex flex-col" style={{ height: 'calc(100vh - 200px)' }}>
-        <div id="chat-messages" className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
+        <div ref={chatScrollRef} id="chat-messages" className="flex-1 p-4 md:p-6 space-y-4 overflow-y-auto">
           {messages.length === 0 && (
             <div className="text-muted text-sm font-mono space-y-2">
               <p>Try asking:</p>
