@@ -201,10 +201,11 @@ export async function fetchMetaIntelligence(
   })
 
   // ── Placement Breakdown ────────────────────────────────────────────────────
+  // LORAMER_META_PLACEMENT_CATCH_INSTRUMENTATION_V1 — log real failure cause
   const placementInsights = await fetchAll(
     `${META_API}/${actId}/insights?${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200`,
     accessToken
-  ).catch(() => [])
+  ).catch((e: any) => { console.error('[Meta placement query failed]', e?.message, e?.error, e?.response?.data); return [] })
 
   // LORAMER_PROJECT_3_STEP_4A_V1 — aggregate Meta placement data into a typed
   // array with full metrics, not just a spend record. Each row is a
