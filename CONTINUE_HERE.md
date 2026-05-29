@@ -1,85 +1,127 @@
-# CONTINUE_HERE — Ask Claude scroll-on-refresh (read after LORAMER_HANDOFF.md and ROADMAP.md)
+# CONTINUE_HERE — Resume point after May 29, 2026 marathon
 
-*Written at end of session May 28, 2026 — after a marathon day that shipped eight production-verified features. The next Claude should read LORAMER_HANDOFF.md first (especially the new lessons 11-15 and the "Claude.ai vs Claude Code" section), then ROADMAP.md, then this file.*
+*Written end-of-day May 29, 2026 (~5pm ET) before Russ switches from iMac to MacBook Air.*
 
----
-
-## Day's first ship for May 29: Ask Claude scroll-on-refresh
-
-**Marker:** `LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1`
-**Priority:** Russ explicitly flagged this as the day's first task. Ship it before anything else.
-
-**The bug:** On page refresh, the Ask Claude panel scrolls to the FIRST message in the conversation. User has to scroll all the way back down to see the latest exchange. Should default to scroll-to-bottom (latest message visible) on mount.
-
-**Where to look:** Ask Claude panel rendering. Most likely in one of:
-- `src/app/dashboard/page.tsx` — the Ask Claude tab is rendered inline here (per audit, dashboard is ~3000+ lines)
-- A dedicated component if one exists for the chat UI (grep for `messages.map` and `useRef` patterns)
-
-**Likely fix shape:**
-- Add a `useRef` on the chat-scroll container
-- `useEffect` on mount (and on `messages.length` change) that calls `scrollTo({ top: scrollRef.current.scrollHeight })` or `scrollIntoView` on the last message
-- The mount-time effect is what fixes the "scrolled to first message on refresh" symptom
-
-**Verification approach:**
-1. Open Ask Claude tab on a client with existing conversation history → confirm latest message visible immediately
-2. Send a new message → confirm auto-scrolls to new exchange
-3. Refresh page → confirm latest message still visible (the regression we're fixing)
-
-**Discipline reminders for this patch:**
-- Read the current Ask Claude render code FIRST before writing the patch (lesson 5 — stale anchors)
-- This is a `dashboard/page.tsx` edit which is enormous — grep for the existing render to anchor accurately
-- Russ may want to see the change preview before push since it's UX-visible. Ask
-- One-line change deserves single-edit patch with content-based idempotency
+The next Claude reads this AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before.
 
 ---
 
-## What got shipped May 28 (so you have context)
+## TL;DR — where we are right now
 
-Eight commits hit `main`, all green on Vercel, all production-verified by Russ:
+- 14 commits shipped to production today on `cotemedia-ads-manager`, all green
+- 4 commits shipped on the brand-new `loramer-landing` repo, live on a Vercel preview URL
+- The landing page collects waitlist emails to a real Mailchimp audience (verified working)
+- Cloudflare DNS for loramer.com is propagating but not yet pointed at the landing page
+- GA4 connector design doc is filed and locked, but ZERO GA code has been written yet
+- A connector architecture audit (Claude Code-driven, 30KB) recommends shipping GA in the current pattern, NOT refactoring first
 
-1. **PMax Step 2g** (`LORAMER_PROJECT_3_STEP_2G_V1` + `PROMPT_V2`) — top combinations via `asset_group_top_combination_view`. Per-asset BEST/GOOD/LOW labels confirmed UI-only in v23. Prompt has diagnostic empty-state branches. Verified on My Vacation Network (Ad Strength branch) AND Escential Group (conversion-tracking branch).
+## What shipped today (May 29, 2026)
 
-2. **Step 3 Patches 1+2+3 — Tier 2 intelligence rollout** (Claude-context only, no UI surfaces, per Russ directive):
-   - 3A/B/C: Geographic + Device + Hour (`LORAMER_PROJECT_3_STEP_3A/B/C_V1`)
-   - 3D: Impression Share with rank-vs-budget decomposition (`LORAMER_PROJECT_3_STEP_3D_V1`)
-   - 3E: Google Recommendations with operator-bias grounding + hotfix for enum integer→label resolution + slice bump 30→100 (`LORAMER_PROJECT_3_STEP_3E_V1` + `HOTFIX_V1` + `SLICE_BUMP_V1`)
+Order matters — the audit reshaped the second half of the day.
 
-3. **Cross-Claude consistency** (`LORAMER_CROSS_CLAUDE_FOCUS_V1`) — fixed real bug where `/api/chat` was emitting human-readable labels ("Meta Ads campaigns", "Ask Claude conversation (cross-platform)") that `normalizeFocus()` couldn't match, falling through to `row-context` mode. Insight bar passed correct mode keys. Result: same question on different surfaces gave different answers. Now all three surfaces (insight bar, right panel, Ask Claude tab) see identical context for the same question.
+### On cotemedia-ads-manager (the dashboard app)
 
-4. **Meta Placements** — multi-part marathon:
-   - Patch 4a (`LORAMER_PROJECT_3_STEP_4A_V1`) — surfaced existing placement aggregation through the type + return + prompt section
-   - **THE REAL BUG that had been silently broken for months** (`LORAMER_META_PLACEMENT_FIELDS_FIX_V1`): `placementFields` constant included `publisher_platform,platform_position` — those are breakdowns, not fields. Meta returned HTTP 400, `.catch(() => [])` swallowed it. The breakthrough was lesson 15 in action: instrumented a raw HTTP response capture directly into Claude's prompt, asked Claude to quote it verbatim, saw the exact error message in 60 seconds.
-   - Final verification on a Meta client returned 186 rows of real placement data with concrete recommendations: exclude FB Reels Overlay + Audience Network + FB Instream Video ($137 wasted), scale Instagram Reels at $0.15 CPC.
+1. **LORAMER_ASKCLAUDE_SCROLL_V1** — Ask Claude tab now auto-scrolls to the latest message on mount. ChatTab was missing the useLayoutEffect that RightPanel already had. Verified production-green.
 
-## Three lessons added to LORAMER_HANDOFF.md tonight
+2. **LORAMER_INTELLIGENCE_HONESTY_V1** — fixed the silent prompt-as-mirror class of hallucination. Connected-but-empty platforms now emit an honest empty-state header. The completeness header is dynamically generated per turn. Found via Claude Code audit (`docs/INTELLIGENCE_ARCHITECTURE_AUDIT_2026_05_29.md`). Also cleaned up leftover RAW_DEBUG instrumentation per Lesson 15.
 
-- **Lesson 13:** Same-line comments after commas can break webpack builds even when tsc passes
-- **Lesson 14:** `tsc --noEmit` is NOT `npm run build` — webpack's parser is stricter. Don't pretend the laptop's tsc-pass means Vercel will be green
-- **Lesson 15:** Surface raw API responses into Claude's prompt as the diagnostic of last resort when Vercel logs unavailable
-- Plus the new "Claude.ai vs Claude Code" section explaining that this Claude can't read the local repo directly — ask Russ for whole-file pastes rather than pinball-flipping sed slices
+3. **LORAMER_PROMPT_CACHING_PHASE_1_REFACTOR_V1** — pure restructure of `buildClaudeContext` into `{prefix, suffix}`. Zero behavior change, verified via three production read-back tests.
 
-## Pending work after the scroll fix
+4. **LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1** — wired `/api/chat` and `/api/insight` to use Anthropic's `cache_control: ephemeral` on the prefix block. Verified live: cache write at 13:17 UTC, cache read 42 seconds later. Saves roughly 25% on second-turn, 70% on multi-turn chats. Project 22 closed out.
 
-Order of priority (all in ROADMAP.md):
+5. **LORAMER_SHOPIFY_DEEPER_SIGNALS_V1** — six derived metrics from the existing Shopify GraphQL response (no new API calls): refundedOrderCount, refundRate, returningRate, newCustomerAov, returningCustomerAov, revenueConcentration. Claude correctly quoted all of them verbatim on a tested client.
 
-1. **🔥 Ask Claude scroll-on-refresh** (this file's focus)
-2. **Client-switch data refresh** (`LORAMER_ROADMAP_CLIENT_SWITCH_REFRESH_V1`) — when switching clients via left sidebar, full client data doesn't refresh consistently
-3. **Patch 4b — Meta adset targeting extraction + prompt rendering** — targeting field captured in adsets but not flowing to Claude
-4. **Patch 4c — Meta per-conversion-event breakdown query** (`action_breakdowns`)
-5. **Step 3 continuation — Shopify deeper signals** (LTV by segment, return rate by product, abandoned cart rate)
-6. **User-defined dashboard cards for Tier 2 signals** (`LORAMER_ROADMAP_DASHBOARD_CARDS_ONDEMAND_V1`) — let users optionally surface Geo/Device/Hour/IS/Recommendations/Placements as dashboard cards
-7. Project 14 Phase 4 — cross-surface attribution (design doc exists at `docs/PROJECT_14_PHASE_4_DESIGN.md`)
-8. Project 9 Phase 2.2 — changed circumstances detection (design doc with 3 open questions)
-9. Project 8 tech debt — hardcoded Georgia font in layout.tsx (audit-flagged root cause)
+6. **LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1** — Phase 2.1 from the LTV design doc. Added `abandonedCheckoutCount?: number` via a separate fail-soft GraphQL query helper. PII-free (only `id` field requested). Fail-soft on missing `manage_abandoned_checkouts` permission. Decision change from design doc: shipped COUNT only, not rate, since full funnel data isn't API-available. Verified: Claude quoted "16 abandoned checkouts vs 49 completed orders" verbatim.
 
-## Discipline reminder before starting
+7. **LORAMER_DOCS_CONNECTOR_AUDIT_V1** — committed the 30KB connector architecture audit from Claude Code. Three-part finding: (a) the four existing connectors are LESS uniform than expected (Google piggybacks on NextAuth, Meta has no refresh helper, WooCommerce isn't OAuth) so the "refactor before GA" idea is wrong; (b) ship GA in the current pattern, but do a small `<ConnectionPill>`/`<ConnectionRow>` extract on `/clients` first (~200 lines of JSX dedupe, zero token-layer risk); (c) the ROADMAP's mention of Unified.to/Merge.dev was wrong — those are B2B SaaS aggregators (CRM/HRIS), not ad networks. Native integrations are right for the top 6-8 ad platforms; marketing-ETL aggregators (Supermetrics, Improvado) are wrong shape for LoraMer's live 15-min intelligence and don't fit the data-depth moat.
 
-Russ has been explicit:
-- **Right is always better than fast.** Take the 30 minutes over the 5-minute shortcut.
-- **Think hard, type less.** Internal thinking budget is unlimited. Output to Russ is rationed. Brief paragraph of insight + next command/question. No recaps, no apologies, no "here's what I'll do."
-- **No same mistake twice.** Lessons 1-15 are in LORAMER_HANDOFF.md. Search them when uncertain.
-- **Always dry-run multi-edit patches.** Free check, expensive omission.
-- **Comments NEVER on the same line as commas or closing tokens.** Lesson 13. Burned us today.
-- **`tsc --noEmit` is not a real build.** Lesson 14. Vercel is the final check. Have `git revert HEAD --no-edit && git push` ready if a push breaks.
+8. **LORAMER_DOCS_GA_DESIGN_V1** — filed `docs/GA_CONNECTOR_DESIGN_2026_05_29.md`. V1 scope locked: 7 query buckets (account totals, top sources, top campaigns, top landing pages, top conversion events, geo+device, e-commerce). One GA property per LoraMer client (matches existing pattern). New OAuth client (cleaner than reusing the Google Ads one). Six-phase build sequence laid out.
 
-Today was a real day — eight production-shipped features. Don't squander tomorrow by skipping the discipline.
+9. **Docs closeouts** — three commits flipping ROADMAP/HANDOFF checkboxes for each major ship per the docs-with-code discipline rule.
+
+### On loramer-landing (brand new repo, separate Vercel project)
+
+This is a NEW repo: `cote-media/loramer-landing` on GitHub. Separate Vercel project. Lives at a Vercel preview URL until loramer.com DNS points at it.
+
+1. **Initial commit** — clean Next.js 14 single-page site. Tailwind config matches the dashboard's tokens (ink/paper/accent). Georgia (display) + Instrument Sans (body). Logo SVGs copied from dashboard. Three components: LogoMark (with breath animation), WaitlistForm, StickyCTA. One API route: `/api/waitlist` POSTs to Mailchimp via `PUT /lists/{audience_id}/members/{md5(email)}` (idempotent upsert).
+
+2. **Bad commit + revert** — a `mv` command pulled the wrong page.tsx (it grabbed the dashboard's 3000-line page.tsx that had ended up in Downloads). Vercel build failed loudly. Reverted via `git revert HEAD`. Lesson: when copying files into a project that has a same-named file in another project, give the source a unique filename (we used `landing-page-v2.tsx` afterward). NEW lesson candidate, see Lesson 17 below.
+
+3. **v2 ship** — center-aligned hero (was left), added "A real human, always" as the 4th differentiator, added Section 04 (Pricing with all 5 tiers split into "For business owners" and "For agencies" tracks). Solo renamed to **Business** at **$79/mo**. Updated section numbering throughout.
+
+4. **Free tier fix** — Free tier was wrongly showing "Shopify connection only". All tiers get all integrations; AI usage caps (questions/month, workspaces, retention) are the actual price differentiator.
+
+### Mailchimp setup
+- Audience created: "LoraMer Waitlist" (ID: see Vercel env vars)
+- API key: stored in Vercel as env var, NOT in repo
+- Data center: us6
+- Three env vars: MAILCHIMP_API_KEY, MAILCHIMP_AUDIENCE_ID, MAILCHIMP_DATA_CENTER
+- ⚠️ TODO: Russ should rotate the Mailchimp API key soon (standard hygiene since the key was pasted in chat). Vercel env vars will need to be updated afterward.
+
+### Cloudflare DNS
+- loramer.com nameservers have been changed at GoDaddy to point at Cloudflare
+- DNS propagation in flight as of ~3:30pm ET
+- Cloudflare Email Routing not yet configured (waiting for nameserver propagation)
+- Vercel DNS records not yet added to Cloudflare (waiting for same)
+
+## What's NOT done yet
+
+These were on the day's plan but didn't happen because the connector audit took priority + the landing page work consumed real time:
+
+- ❌ GA Phase 1 — Google Cloud Console setup (Russ does this manually): enable Analytics Data API on existing project, create NEW OAuth client (NOT reusing Google Ads OAuth), get client_id/secret, add to Vercel env vars
+- ❌ GA Phase 2-6 — none of the GA code has been written
+- ❌ `<ConnectionPill>`/`<ConnectionRow>` extract — the small pre-GA UI dedupe from the audit
+- ❌ loramer.com DNS pointed at Vercel — waiting for Cloudflare nameserver propagation
+- ❌ Cloudflare Email Routing — hello@loramer.com → russ's Gmail
+- ❌ ROADMAP fix for Unified.to/Merge.dev mention — audit caught this, hasn't been corrected yet
+- ❌ Mailchimp API key rotation — flagged but not done
+
+## NEW Lesson candidate from today
+
+**Lesson 17 — Same-named files across projects + `mv` is a disaster waiting to happen.** When copying a file from chat downloads into a project, never download with the same filename as an existing file in another project that might be in Downloads from an earlier session. Always give downloads unique names (e.g. `landing-page-v2.tsx`) and `mv` them into final location with the rename. Today we shipped a broken Vercel deploy because `~/Downloads/page.tsx` already existed (from an earlier dashboard session) and `mv ~/Downloads/page.tsx ~/Downloads/loramer-landing/src/app/page.tsx` moved the WRONG one. Spotted by Vercel error log mentioning `recharts` and `next-auth/react` — modules that don't belong in a landing page. Recovery: `git revert HEAD && git push`, then re-export with a unique name.
+
+This lesson should be added to LORAMER_HANDOFF.md when Russ has time tomorrow. Not in this docs ship.
+
+## What Russ does between machines
+
+**On iMac before walking away:**
+- Confirm `git status` is clean on BOTH repos: `cotemedia-ads-manager` AND `loramer-landing`
+- Confirm both are pushed (no "branch ahead of origin")
+- Note: Mailchimp credentials are NOT in any local file. They're in Vercel env vars only.
+
+**On Air after arriving:**
+1. Open Cursor on the Air
+2. Pull latest on the dashboard repo: `cd ~/Downloads/cotemedia-google-ads-manager && git pull origin main`
+   - Note the path difference: iMac has `cotemedia-ads-manager`, laptop has `cotemedia-google-ads-manager`. Same repo, different folder name. Documented in HANDOFF.
+3. Clone the landing page repo onto the laptop if it isn't there yet:
+   ```
+   cd ~/Downloads
+   git clone https://github.com/cote-media/loramer-landing.git
+   cd loramer-landing
+   npm install
+   ```
+4. Same Vercel project for landing page, no setup needed, env vars already in Vercel
+5. Read updated LORAMER_HANDOFF.md and this CONTINUE_HERE.md
+6. Pick up the resume options below
+
+## What to work on next (priority order)
+
+The audit recommended this sequence, and that's still the right answer:
+
+1. Cloudflare DNS finalization (~5 min, when propagation is done) — confirm nameservers active, add Vercel DNS records to point loramer.com at the loramer-landing Vercel project, configure Cloudflare Email Routing: hello@loramer.com → russ's Gmail, verify the landing page is live at loramer.com.
+2. `<ConnectionPill>`/`<ConnectionRow>` extract on `/clients` page (~30 min). Per the audit: highest-value/lowest-risk pre-GA dedupe. Touches NO OAuth or tokens, deletes ~200 lines of JSX. Makes GA's Connect button essentially free when we ship Phase 3. Marker: `LORAMER_CONNECTION_COMPONENTS_V1`.
+3. GA Phase 1 (Russ does Cloud Console manually first). Enable Analytics Data API on existing Cloud project. Create new OAuth client (NOT reusing Google Ads one — see GA design doc). Add three env vars to Vercel: GOOGLE_ANALYTICS_CLIENT_ID, GOOGLE_ANALYTICS_CLIENT_SECRET, GOOGLE_ANALYTICS_REDIRECT_URI. Run `ga_tokens` migration in Supabase (SQL in the design doc).
+4. GA Phases 2-6 — sequential commits per the design doc.
+5. ROADMAP correction — fix the Unified.to/Merge.dev mention in Project 6 architecture note; cite the audit's finding.
+
+## Discipline reminders going into the Air session
+
+- Lesson 16 (anchor discipline) — only use bytes from the user's CURRENT-turn paste
+- Lesson 17 (proposed, this session) — unique filenames when moving downloads
+- Right > fast — slow on the GA build, it's a real foundation
+- `tsc --noEmit` is NOT `npm run build`; Vercel is the final check
+- Comments NEVER on the same line as commas or closing tokens (Lesson 13)
+- Surface raw API responses into Claude's prompt as diagnostic of last resort (Lesson 15)
+- For Claude.ai (this chat): cannot read local repo. Ask for whole-file pastes. Use Claude Code for whole-repo audits.
+
+Good day. Keep going.
