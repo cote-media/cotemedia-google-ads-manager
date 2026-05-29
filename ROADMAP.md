@@ -118,6 +118,7 @@ The actual moat. Everything that makes Claude's answers better and harder to cop
 Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b), audience segments (2c), demographics (2d), RSA asset-level (2e), PMax asset groups (2f). Note: 2c and 2d never had granular checkboxes in the list below — they shipped as part of the broader intelligence work. **Step 2g shipped (May 28, 2026):** PMax top asset combinations now surface via `asset_group_top_combination_view` (Google's Combinations report), joined to readable asset text. Validator-confirmed that per-asset BEST/GOOD/LOW labels are NOT API-selectable in v23 (UI-only) — so combinations, not labels, are the asset-level performance signal. Dead `performance_label` read and the prompt scaffolding that implied labels existed were removed. (LORAMER_ROADMAP_STEP2G_V1)
 
 ### Already shipping
+- [x] **Intelligence honesty (May 29, 2026 — LORAMER_INTELLIGENCE_HONESTY_V1):** Connected-but-empty platforms now emit an honest empty-state line ("Meta is connected but had no spend in this date range") instead of vanishing. Completeness header replaced with a dynamic per-turn line listing each platform as populated / connected-but-empty / not-connected. Removes the prompt-as-mirror hallucination class (Lesson 11). Diagnosed via the May 29 architecture audit (`docs/INTELLIGENCE_ARCHITECTURE_AUDIT_2026_05_29.md`). Also removed leftover RAW_DEBUG instrumentation from meta-intelligence.ts (Lesson 15 cleanup).
 - [x] Universal Intelligence Layer architecture (`build-claude-context.ts`)
 - [x] `/api/intelligence` master endpoint
 - [x] 15-min cache per client+dateRange
@@ -306,6 +307,9 @@ Features that justify the Agency tier and above.
 - [ ] Unify the three caches (localStorage insight 1hr, drill-state, server intelligence 15min) under one invalidation strategy
 - [ ] Request deduplication on `/api/intelligence` — fast tab switching fires multiple parallel calls
 - [ ] Tier-gate or batch the `extractProfileContext` Claude call (currently runs per chat exchange, expensive at scale)
+- [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Stale intelligence cache can serve empty Meta payload (LORAMER_ROADMAP_STALE_INTEL_CACHE_V1). After LORAMER_INTELLIGENCE_HONESTY_V1 shipped, an Ask Claude test on Vet Mastermind / last 7 days returned "Meta: connected but no spend in this date range" on the first answer despite Meta having real spend in that window. Subsequent answers correctly said "Meta: populated." Self-healing implies either (a) the 15-min `client_context.intelligence_cache` row served a prior empty-Meta payload, or (b) the Meta fetch silently returned campaigns:[] from a transient failure. The new honest-empty branch is correctly reflecting whatever is in the cache — the bug is upstream. Fix path depends on which: H1 → invalidate cache on dateRange change OR include cache hash in response so the surface can detect stale-empty; H2 → instrument the Meta `.catch` blocks so transient failures don't poison the cache. Need to capture state at the moment it happens to know which.
+- [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Dead `platformData` payload in /api/chat (LORAMER_ROADMAP_DEAD_PLATFORMDATA_V1). dashboard `sendChat()` sends `platformData` in the request body (page.tsx ~line 2848) but `/api/chat` ignores it and re-fetches intelligence server-side. Wasted bandwidth on every chat call. Trivial cleanup: drop the field from the client-side body.
+- [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Meta spend>0 filter is invisible and surprising (LORAMER_ROADMAP_META_SPEND_FILTER_V1). meta-intelligence.ts filters campaigns / ad sets / ads on `spend > 0` (lines 94, 125, 168). Meaning: ad-set structure (targeting, names, optimization goals) vanishes whenever an account is quiet in the chosen date window, even though that data is static and doesn't depend on spend. For "what's my targeting?" questions this is actively wrong. Consider fetching ad-set STRUCTURE (no spend filter, no insights) alongside the insights query, so targeting questions work even in a quiet window. Performance metrics still come from the spend>0 filtered insights — they're separate concerns now conflated into one fetch.
 - [ ] **AUDIT FIND:** `layout.tsx` has hardcoded `fontFamily: Georgia` inline style on `<body>` that overrides globals.css — this is the root cause of every font fight. Fix: remove inline style entirely.
 - [ ] **AUDIT FIND:** `dashboard/page.tsx` line ~1212 — insight useEffect deps don't include `userNotes`, causing race where directive may not be respected on first load
 - [ ] **AUDIT FIND:** Landing page (`app/page.tsx`) copy still says "ads, reimagined" / "Google Ads management" — outdated vs BI repositioning
@@ -1175,6 +1179,35 @@ Russ generated a full year-long media briefing for My Vacation Network on May 27
 - HTML email export — do we send from a LoraMer domain, or use the user's own email auth (Gmail/Outlook integration)?
 - PDF templating — start with a clean default, or offer customizable templates from the start?
 - Should Scale-tier white-label include removing "Generated by LoraMer" footer, or just custom logo/colors?
+
+---
+
+## ⚡ PROJECT 22 — Prompt Caching
+*(LORAMER_ROADMAP_PROJECT_22_PROMPT_CACHE_V1)*
+
+**The cost lever Project 3 should have shipped alongside focus-aware slicing.** Per the May 29 intelligence architecture audit, the current Claude calls run ~18-20k input tokens at full context (Sonnet 4.6, ~$0.054-0.06 per message). Focus-aware slicing trims that by ~20-25% at most (~$0.012-0.015 saved). Anthropic prompt caching cuts cached input by ~90% (cached tokens at $0.30/M vs $3/M). For a multi-turn conversation — which is the dominant pattern in Ask Claude / right panel — caching saves dramatically more than slicing ever could.
+
+The system prompt is large and stable across turns: hard constraints, identity, client profile, memory, intelligence data — all largely unchanged between consecutive messages in the same chat. Marking the cacheable prefix with `cache_control: { type: 'ephemeral' }` would mean: first turn pays full price, subsequent turns within the cache TTL (5 min default) pay ~10% of input.
+
+### Why this matters strategically
+
+The intelligence audit recommended Option C (full context by default, narrow slice only for explicit single-row scope). The cost calculus only works at scale if prompt caching is in place — otherwise "always send everything" gets expensive fast. **Prompt caching unblocks the architectural shift toward honest, complete context.** It also is the right cost answer regardless of which architecture wins.
+
+### Tasks
+- [ ] Add `cache_control` markers to the system prompt in `/api/chat/route.ts`
+- [ ] Same for `/api/insight/route.ts`
+- [ ] Decide cache boundary: probably cache everything up to and including platform data; leave the user message + recent history uncached
+- [ ] Instrument cache hit rate so we can see real savings
+- [ ] Verify against Anthropic docs that ephemeral 5-min TTL is sufficient for typical chat session length (it should be — chats are bursty)
+- [ ] Phase 2: longer TTL (1 hr) for more stable parts (client profile, memory) using two-tier caching
+
+### Connected projects
+- **Project 3 (Intelligence Layer Depth):** Caching makes "Claude sees everything" affordable.
+- **Project 2 (Pricing):** Lowers cost-per-customer enough to revisit AI question caps per tier.
+
+### Acceptance
+- Cache hit rate > 50% on multi-turn chats
+- Input cost per message in a 5-message chat drops by 60%+ vs. pre-caching
 
 ---
 
