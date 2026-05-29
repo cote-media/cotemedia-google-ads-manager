@@ -201,11 +201,17 @@ export async function fetchMetaIntelligence(
   })
 
   // ── Placement Breakdown ────────────────────────────────────────────────────
-  // LORAMER_META_PLACEMENT_CATCH_INSTRUMENTATION_V1 — log real failure cause
+  // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — capture both the result and any error
+  let placementError: string | undefined
   const placementInsights = await fetchAll(
     `${META_API}/${actId}/insights?${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200`,
     accessToken
-  ).catch((e: any) => { console.error('[Meta placement query failed]', e?.message, e?.error, e?.response?.data); return [] })
+  ).catch((e: any) => {
+    const msg = `${e?.message || ''} | ${e?.error?.message || ''} | ${JSON.stringify(e?.response?.data || {}).slice(0, 300)}`
+    placementError = msg
+    console.error('[Meta placement query failed]', msg)
+    return []
+  })
 
   // LORAMER_PROJECT_3_STEP_4A_V1 — aggregate Meta placement data into a typed
   // array with full metrics, not just a spend record. Each row is a
@@ -265,6 +271,10 @@ export async function fetchMetaIntelligence(
     ads,
     conversionActions: [],
     placements,  // LORAMER_PROJECT_3_STEP_4A_V1
+    // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — temporary diagnostic fields
+    placementRawRowCount: placementInsights.length,
+    placementSample: placementInsights.slice(0, 3),
+    placementError,
     totals,
   }
 }

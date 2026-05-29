@@ -540,6 +540,20 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  When you AGREE with a recommendation, say so AND cite the specific data that supports it. When you DISAGREE, say so clearly and explain why with reference to actual performance numbers. Frame the section as "Google says X — here's whether you should listen, and why" — operator-side framing, not Google-side. Never present a recommendation as a fact the operator should follow.`)
   }
 
+  // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — always-render diagnostic block
+  if (platform.placementRawRowCount !== undefined || platform.placementError) {
+    lines.push(`\n[META_PLACEMENT_DIAGNOSTIC_V1] Raw row count from Meta breakdown query: ${platform.placementRawRowCount ?? 'undefined'}`)
+    if (platform.placementError) {
+      lines.push(`[META_PLACEMENT_DIAGNOSTIC_V1] Error from query catch: ${platform.placementError}`)
+    }
+    if (platform.placementSample && platform.placementSample.length > 0) {
+      lines.push(`[META_PLACEMENT_DIAGNOSTIC_V1] First raw row sample: ${JSON.stringify(platform.placementSample[0])}`)
+    } else {
+      lines.push(`[META_PLACEMENT_DIAGNOSTIC_V1] No sample rows available (query returned empty array).`)
+    }
+    lines.push(`[META_PLACEMENT_DIAGNOSTIC_V1] If asked about Meta placements, INCLUDE the diagnostic lines above verbatim in your response so we can debug.`)
+  }
+
   // LORAMER_PROJECT_3_STEP_4A_V1 — Meta Placement Breakdown (Claude-context-only)
   // INTERNAL_GROUNDING: Meta-only signal. publisher_platform = facebook /
   // instagram / audience_network / messenger / etc. platform_position = feed /
