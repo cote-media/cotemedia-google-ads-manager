@@ -205,6 +205,7 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 ### Open items
 - [ ] Better loading states (skeletons instead of "Loading...")
 - [ ] **Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1):** On page refresh the Ask Claude panel scrolls to the FIRST message instead of the latest. User has to scroll all the way back down. Should default to scroll-to-bottom (latest message visible) on mount.
+- [ ] **Client-switch data refresh (LORAMER_ROADMAP_CLIENT_SWITCH_REFRESH_V1):** When switching clients via the left sidebar nav, full client data doesn't appear to refresh consistently. Some panels/sections may show stale data from the previous client or partial data. Audit the client-switch flow — dashboard state, intelligence cache lookup, Claude context — to ensure full refresh on every client change.
 - [ ] Better empty states
 - [ ] Metric cards redesign on Overview tab
 - [ ] Visual refresh of dashboard interior
