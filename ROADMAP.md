@@ -204,8 +204,9 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 
 ### Open items
 - [ ] Better loading states (skeletons instead of "Loading...")
-- [ ] **Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1):** On page refresh the Ask Claude panel scrolls to the FIRST message instead of the latest. User has to scroll all the way back down. Should default to scroll-to-bottom (latest message visible) on mount.
+- [ ] **🔥 DO FIRST TOMORROW — Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1):** On page refresh the Ask Claude panel scrolls to the FIRST message instead of the latest. User has to scroll all the way back down. Should default to scroll-to-bottom (latest message visible) on mount. Russ flagged this as the day's first ship for May 29, 2026.
 - [ ] **Client-switch data refresh (LORAMER_ROADMAP_CLIENT_SWITCH_REFRESH_V1):** When switching clients via the left sidebar nav, full client data doesn't appear to refresh consistently. Some panels/sections may show stale data from the previous client or partial data. Audit the client-switch flow — dashboard state, intelligence cache lookup, Claude context — to ensure full refresh on every client change.
+- [ ] **User-defined dashboard cards for Tier 2 signals (LORAMER_ROADMAP_DASHBOARD_CARDS_ONDEMAND_V1):** Step 3 Tier 2 intelligence (Geographic, Device, Hour-of-day, Impression Share, Recommendations, Meta Placements) is currently Claude-context only — no UI surfaces. Users should be able to optionally display any of these metrics as dashboard cards on-demand, configured per their preferences. Aligns with the user-defined dashboard concept (similar to how Shopify panels work). Each Tier 2 signal already has a clean typed shape in PlatformIntelligence — straightforward to surface.
 - [ ] Better empty states
 - [ ] Metric cards redesign on Overview tab
 - [ ] Visual refresh of dashboard interior
