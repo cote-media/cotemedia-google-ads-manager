@@ -204,7 +204,7 @@ export async function fetchMetaIntelligence(
   // LORAMER_META_PLACEMENT_DIAGNOSTIC_V1 — capture both the result and any error
   let placementError: string | undefined
   const placementInsights = await fetchAll(
-    `${META_API}/${actId}/insights?level=campaign&${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200`  // LORAMER_META_PLACEMENT_LEVEL_FIX_V1,
+    `${META_API}/${actId}/insights?level=campaign&${dateParam}&breakdowns=publisher_platform,platform_position&fields=${placementFields}&limit=200`,  // LORAMER_META_PLACEMENT_LEVEL_FIX_V1
     accessToken
   ).catch((e: any) => {
     const msg = `${e?.message || ''} | ${e?.error?.message || ''} | ${JSON.stringify(e?.response?.data || {}).slice(0, 300)}`
