@@ -1,7 +1,7 @@
 # LoraMer — Product Roadmap
 <!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: May 28, 2026*
+*Last updated: June 2, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -120,6 +120,9 @@ Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b)
 ### Already shipping
 - [x] **Shopify abandoned checkouts (May 29, 2026 — LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1):** Phase 2.1 from the LTV design doc. Adds `abandonedCheckoutCount` (count only, no rate) to IntelligenceShopify via a separate fail-soft helper with its own try/catch. PII-free: query requests `id` only. Fail-soft on missing `manage_abandoned_checkouts` permission — undefined skips the prompt line entirely so Claude isn't shown a misleading zero. Verified live: 16 abandoned in the test client's window correctly surfaced.
 - [x] **Shopify deeper signals (May 29, 2026 — LORAMER_SHOPIFY_DEEPER_SIGNALS_V1):** Six new derived metrics surfaced to Claude, all computable from the existing GraphQL response — no new API calls. Fields: refundedOrderCount, refundRate, returningRate, newCustomerAov, returningCustomerAov, revenueConcentration (% of revenue from top 10% of orders by value). Verified in production: Claude correctly quoted refund rate (0% on a tested client), returning customer AOV ($9,745.94), and revenue concentration (61.5%) verbatim from context. Phase 2 (true LTV, abandoned cart, cohort retention) requires additional API calls — design doc filed at `docs/SHOPIFY_LTV_DESIGN_2026_05_29.md`.
+- [x] **Shopify net sales revenue (June 2, 2026 — LORAMER_SHOPIFY_NET_SALES_V1):** Headline Shopify revenue switched from gross order totals to **net sales** — uses `currentSubtotalPriceSet` (after refunds, excludes shipping/tax) and surfaces `refundedAmount`. Old code summed gross original totals including refunded/cancelled orders, producing phantom revenue. Verified: Escential May = $45.00, matching Shopify Analytics Net sales.
+- [x] **Canonical date windows (June 2, 2026 — LORAMER_DATE_RANGE_CANONICAL_V1):** New `src/lib/date-range.ts` is the single source of truth. LAST_MONTH = previous calendar month; rolling 7/14/30/90 = complete days ending yesterday; THIS_MONTH = 1st-of-month through today. Wired into Shopify/GA/Woo intelligence + `/api/shopify/daily` + `/api/woocommerce/daily` + `/api/intelligence`. Fixed the old "LAST_MONTH = 60 days" bug. Meta LAST_90_DAYS preset mapped to `last_90d`.
+- [x] **GA4 connector V1 (June 2, 2026 — LORAMER_GA_OAUTH_V1 through LORAMER_GA_OVERVIEW_COMBINED_V1):** Full end-to-end GA connector shipped. OAuth (`/api/ga/start`, `/api/ga/callback`), property picker (`/api/ga/properties`, `/api/ga/connect`), intelligence adapter (`ga-intelligence.ts`, 7 query buckets), Claude context render + GA-vs-Shopify reconciliation, Analytics dashboard tab, sessions chart, property-name cleanup, Day/Week/Month chart granularity, compact GA on Overview + Combined. **Phase 6 disconnect still pending** (`/api/ga/disconnect` + UI button).
 - [x] **Intelligence honesty (May 29, 2026 — LORAMER_INTELLIGENCE_HONESTY_V1):** Connected-but-empty platforms now emit an honest empty-state line ("Meta is connected but had no spend in this date range") instead of vanishing. Completeness header replaced with a dynamic per-turn line listing each platform as populated / connected-but-empty / not-connected. Removes the prompt-as-mirror hallucination class (Lesson 11). Diagnosed via the May 29 architecture audit (`docs/INTELLIGENCE_ARCHITECTURE_AUDIT_2026_05_29.md`). Also removed leftover RAW_DEBUG instrumentation from meta-intelligence.ts (Lesson 15 cleanup).
 - [x] Universal Intelligence Layer architecture (`build-claude-context.ts`)
 - [x] `/api/intelligence` master endpoint
@@ -206,6 +209,7 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 - [x] Paused-with-spend threshold raised to $500 (was $0, too noisy)
 
 ### Open items
+- [ ] **Site-wide info tooltips (LORAMER_ROADMAP_INFO_TOOLTIPS_V1):** Cross-cutting UX — add ("i") explainers across the app wherever metrics or terms may confuse users. Examples: "Net sales = product revenue after refunds, excl shipping & tax"; ROAS vs CPA; impression share decomposition. Not one screen — many surfaces, one consistent tooltip pattern.
 - [ ] Better loading states (skeletons instead of "Loading...")
 - [x] **Coming-soon landing page at loramer.com LIVE (May 29, 2026 — LORAMER_LANDING_V1+V2+V3):** Separate repo `cote-media/loramer-landing`, separate Vercel project. Live at https://loramer.com (apex, no www redirect). DNS via Cloudflare (propagated, nameservers active), SSL provisioned by Vercel + Let's Encrypt, Cloudflare SSL mode Full. Next.js 14 single-page: center hero with phrase-by-phrase reveal, 5 differentiators (including "A real human, always" and "Knows what only you know" — uploads), pricing section with 5 tiers across two tracks (Free / Business $79 / Agency $199 / Scale $999 / Enterprise), brand-aligned /privacy and /terms pages covering waitlist + Mailchimp + app data + Shopify merchant data + GDPR/CCPA/CAN-SPAM. Mailchimp waitlist end-to-end working with double opt-in. REMAINING: Cloudflare Email Routing for hello@loramer.com; rotate Mailchimp API key; eventual launch consolidation (see docs/LAUNCH_CONSOLIDATION_DESIGN_2026_05_29.md).
 - [x] **Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1) — SHIPPED May 29, 2026:** ChatTab was missing the scroll ref + effect that RightPanel already had. Added `chatScrollRef` + `useLayoutEffect` that instant-scrolls to bottom on mount (refresh case) and smooth-scrolls on new messages. Verified in production.
@@ -215,6 +219,7 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 - [ ] Metric cards redesign on Overview tab
 - [ ] Visual refresh of dashboard interior
 - [ ] **Explicit "Open client profile" affordance** (LORAMER_ROADMAP_OPEN_PROFILE_V1) — currently the Claude pill on a client card is the only way to expand the profile section (which now also contains the memory editor). Not discoverable for new users, especially Shopify-install users landing cold. Need a clear button or "Edit profile / Memory" link adjacent to each client. Maybe also a tour or coachmark on first visit that points to it.
+- [x] **Platform-nav fix (June 2, 2026 — LORAMER_PLATFORM_NAV_FIX_V1):** Clicking Google/Meta/Combined while on a non-ad tab (e.g. Shopify, Analytics) now switches to Overview. Previously platform buttons felt dead because platform selector and tab nav were separate controls — changing platform never changed the active tab.
 
 ### State persistence
 - [x] Active platform persists
@@ -273,7 +278,7 @@ Order of priority for additional integrations beyond Google/Meta/Shopify.
 
 ### Other systems
 - [ ] Klaviyo (email marketing)
-- [ ] Google Analytics
+- [x] **Google Analytics 4 (June 2, 2026 — GA connector V1):** OAuth, property picker, intelligence adapter, Claude context, Analytics tab + chart + granularity, Overview/Combined surfaces. See Project 3 "Already shipping" for commit markers. **Remaining:** Phase 6 disconnect route + UI button.
 - [ ] Stripe (payment data for non-Shopify clients)
 
 ---
@@ -282,6 +287,7 @@ Order of priority for additional integrations beyond Google/Meta/Shopify.
 
 Features that justify the Agency tier and above.
 
+- [ ] **Agency client-list management (LORAMER_ROADMAP_CLIENT_LIST_MGMT_V1):** Sort and filter the `/clients` list; drag-and-drop client cards into a custom order the operator prefers. Fits Project 18 customizable-dashboard philosophy applied to the client roster. Agency-tier UX that compounds with warm-start onboarding (see Project 9 / warm-start brain item below).
 - [ ] Cross-client insights — "3 of your clients have low Quality Scores"
 - [ ] Agency benchmark view — compare client performance against each other
 - [ ] Best practice sharing — "Client A's audience strategy is working well, apply to Client B?"
@@ -310,6 +316,7 @@ Features that justify the Agency tier and above.
 - [ ] Unify the three caches (localStorage insight 1hr, drill-state, server intelligence 15min) under one invalidation strategy
 - [ ] Request deduplication on `/api/intelligence` — fast tab switching fires multiple parallel calls
 - [ ] Tier-gate or batch the `extractProfileContext` Claude call (currently runs per chat exchange, expensive at scale)
+- [ ] **Google date-path consolidation (June 2, 2026 — LORAMER_ROADMAP_GOOGLE_DATE_CANONICAL_V1):** Route ALL Google date paths through `resolveDateWindow` from `src/lib/date-range.ts`. Remove dead duplicated `LAST_90_DAYS` blocks in `src/lib/platforms/google.ts` and `src/app/api/google/adgroups/daily/route.ts`. Migrate `platform/route.ts` and `google-intelligence.ts` `buildDateFilter` to the canonical resolver so every Google path shares one date source. Partial fix shipped today (`getDailyMetrics` in `google-ads.ts` — LORAMER_GOOGLE_DAILY_90DAY_FIX_V1); remainder is cleanup to prevent the next date drift bug.
 - [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Stale intelligence cache can serve empty Meta payload (LORAMER_ROADMAP_STALE_INTEL_CACHE_V1). After LORAMER_INTELLIGENCE_HONESTY_V1 shipped, an Ask Claude test on Vet Mastermind / last 7 days returned "Meta: connected but no spend in this date range" on the first answer despite Meta having real spend in that window. Subsequent answers correctly said "Meta: populated." Self-healing implies either (a) the 15-min `client_context.intelligence_cache` row served a prior empty-Meta payload, or (b) the Meta fetch silently returned campaigns:[] from a transient failure. The new honest-empty branch is correctly reflecting whatever is in the cache — the bug is upstream. Fix path depends on which: H1 → invalidate cache on dateRange change OR include cache hash in response so the surface can detect stale-empty; H2 → instrument the Meta `.catch` blocks so transient failures don't poison the cache. Need to capture state at the moment it happens to know which.
 - [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Dead `platformData` payload in /api/chat (LORAMER_ROADMAP_DEAD_PLATFORMDATA_V1). dashboard `sendChat()` sends `platformData` in the request body (page.tsx ~line 2848) but `/api/chat` ignores it and re-fetches intelligence server-side. Wasted bandwidth on every chat call. Trivial cleanup: drop the field from the client-side body.
 - [ ] **AUDIT FIND (May 29, 2026 — intelligence audit):** Meta spend>0 filter is invisible and surprising (LORAMER_ROADMAP_META_SPEND_FILTER_V1). meta-intelligence.ts filters campaigns / ad sets / ads on `spend > 0` (lines 94, 125, 168). Meaning: ad-set structure (targeting, names, optimization goals) vanishes whenever an account is quiet in the chosen date window, even though that data is static and doesn't depend on spend. For "what's my targeting?" questions this is actively wrong. Consider fetching ad-set STRUCTURE (no spend filter, no insights) alongside the insights query, so targeting questions work even in a quiet window. Performance metrics still come from the spend>0 filtered insights — they're separate concerns now conflated into one fetch.
@@ -364,6 +371,10 @@ Separate from per-client memory.
 | **Scale** | Full system: unlimited memory, nightly learning loop, hypotheses, daily learning logs, memory editing UI |
 
 **Memory Credits:** Solo/Agency users who hit caps can buy credit packs. Anthropic-style metering.
+
+### Warm-start "agency brain" (LORAMER_ROADMAP_WARM_START_BRAIN_V1 — to be scoped)
+
+A Claude experience pre-loaded with the agency's clients + uploaded docs so new users hit the ground running, not cold. Mechanism = **persistent memory + document RAG + bulk onboarding** — NOT literal model fine-tuning. Extends Project 9 (Memory/Learning), Project 10 (Data Ingestion), and Project 16 (operator knowledge). Scope TBD; file here so it doesn't get lost between sessions.
 
 ### Phased rollout
 
@@ -458,6 +469,9 @@ Estimated: 2-3 hours initial build, then weeks of tuning.
 ---
 
 ## 📂 PROJECT 10 — Data Ingestion (User-Uploaded Business Data)
+<!-- LORAMER_ROADMAP_UPLOAD_LAUNCH_V1 -->
+
+**Design hardened + launch-scoped June 2, 2026 — see `docs/UPLOAD_FEATURE_DESIGN.md` (LORAMER_DOCS_UPLOAD_DESIGN_V1). Launch-critical. Four decisions locked: 25MB/file; ~20-25K words/client + ~5-10K curated agency-level (technical caps, not tiers at launch); managed scan API now / ClamAV later; text-only storage; agency+client hierarchy at launch with bulk import flagged launch-adjacent.**
 
 Lets owners and agencies feed Claude business signals that no API provides — sales pipelines, customer LTV, brand guidelines, persona docs, profit margins, return rates. This is where LoraMer becomes irreplaceable.
 
@@ -467,7 +481,18 @@ Lets owners and agencies feed Claude business signals that no API provides — s
 
 V1 is live. PDF, DOCX, TXT, CSV upload works on the client profile page. Text extracts on upload via pdf-parse and mammoth, then appends to `client_context.user_notes`. 8,000 char limit per file.
 
-**Known gap to fix before V2:** uploaded doc content currently lives in the same `user_notes` field as user-typed directives. If a brand doc mentions ROAS in passing, the directive extraction regex could falsely match it as a user instruction. Needs to be split into a separate `uploaded_docs` field, kept distinct from `user_notes`.
+**Known gap (fix locked June 2, 2026):** uploaded doc content currently lives in the same `user_notes` field as user-typed directives. If a brand doc mentions ROAS in passing, the directive extraction regex could falsely match it as a user instruction. **Fix locked:** separate `uploaded_docs` storage (field/table), kept distinct from `user_notes` — see `docs/UPLOAD_FEATURE_DESIGN.md`.
+
+### Launch scope (must-have)
+<!-- LORAMER_ROADMAP_UPLOAD_LAUNCH_V1 -->
+
+- [ ] Multi-format upload (PDF/DOCX/TXT/MD/CSV/XLSX) with validation + malware scan + size limits
+- [ ] Separate `uploaded_docs` storage (not `user_notes`)
+- [ ] Budgeted doc injection into Claude, prompt-injection-safe (delimited untrusted data)
+- [ ] Agency + client knowledge hierarchy
+- [ ] Encryption at rest, access scoping, delete, audit log, privacy/no-training language
+- [ ] Client-shell knowledge panel + agency-level knowledge area
+- [ ] Onboarding upload prompt + contextual empty-states
 
 #### Tasks remaining for V1
 - [ ] Migrate to separate `uploaded_docs` field (Supabase schema + upload route + context builder)
@@ -682,6 +707,12 @@ Run in order, on real iPhone Safari, not desktop responsive mode.
 - After any change to layout primitives
 - After adding a new modal or overlay
 - After any change to dashboard tabs
+
+---
+
+## 📣 Cross-cutting — In-app message / nudge layer *(deserves its own project — scope TBD)*
+
+Onboarding coachmarks, token-expired prompts, tier nudges, upload prompts. Broader than uploads; multiple features need it. Launch minimum: contextual empty-states + dismissible banner. Full notification system is a fast-follow. Surfaced from upload/knowledge design (June 2, 2026 — `docs/UPLOAD_FEATURE_DESIGN.md`).
 
 ---
 
@@ -993,8 +1024,10 @@ A fixed dashboard always serves SOMEONE poorly. The ecomm operator and the lead-
 
 ### Two layers
 
+**Scope expansion (June 2, 2026):** Drag-and-drop + expandable/resizable metric cards should apply to **EVERY dashboard tab** — Overview, Google, Meta, Combined, Shopify, WooCommerce, AND the new Analytics tab — not just Overview. The original Phase 1 proving ground (Shopify tab) still makes sense as the first implementation, but the vision is all tabs.
+
 **Layer 1 — Per-platform customizable views.**
-Inside the Shopify tab, the Google tab, the Meta tab — the user chooses which cards appear, where they sit, and how big they are. Some cards are larger (full-width chart), some smaller (single metric tile), some medium (top-N list).
+Inside each platform tab (Shopify, Google, Meta, WooCommerce, Analytics) — the user chooses which cards appear, where they sit, and how big they are. Some cards are larger (full-width chart), some smaller (single metric tile), some medium (top-N list).
 
 **Layer 2 — Cross-platform unified dashboard.**
 A new "My Overview" type surface where the user drags cards from ANY connected platform onto one canvas. Shopify revenue card + Google CPL card + Meta ROAS card + Klaviyo subscriber count card — all on one screen, composed by the operator. This is the version that becomes the daily-driver screen for power users.
@@ -1006,6 +1039,8 @@ A new "My Overview" type surface where the user drags cards from ANY connected p
 **Google Ads:** Spend tile · ROAS tile · CPL tile · Top campaigns · Top keywords · Quality score distribution · Search terms list · Auction insights
 
 **Meta Ads:** Spend tile · ROAS tile · CPA tile · Top campaigns · Top ads · Frequency distribution · Audience overlap · Creative performance
+
+**Google Analytics:** Sessions tile · Sessions trend chart · Users · Page views · Top pages · Traffic sources · GA-vs-Shopify reconciliation card
 
 **Cross-platform:** Combined spend · Combined ROAS · Channel mix · Revenue attribution · Claude insight card (live AI analysis as a draggable widget)
 
@@ -1034,7 +1069,8 @@ A new "My Overview" type surface where the user drags cards from ANY connected p
 - [ ] Save / load / reset to default
 
 **Phase 2 — Roll out to all platform tabs (~2 weeks):**
-- [ ] Same pattern on Google, Meta, WooCommerce tabs
+- [ ] Same pattern on Google, Meta, WooCommerce, Analytics tabs
+- [ ] Overview and Combined tabs included (not just platform-specific tabs)
 - [ ] Starter templates per platform
 
 **Phase 3 — Cross-platform unified dashboard (~3 weeks):**
@@ -1220,8 +1256,11 @@ The intelligence audit recommended Option C (full context by default, narrow sli
 
 ### Core platform
 - [x] Google Ads API connected (OAuth, campaigns, keywords, search terms, ad groups, ads)
+- [x] Google Analytics 4 connector V1 (June 2, 2026 — OAuth, property picker, intelligence, Claude context, Analytics tab + chart, Overview/Combined; Phase 6 disconnect pending)
+- [x] Canonical date windows via `src/lib/date-range.ts` (June 2, 2026 — LORAMER_DATE_RANGE_CANONICAL_V1)
 - [x] Meta Ads integration (OAuth via Business Manager, campaigns, ad sets, ads, e-commerce actions)
 - [x] Shopify integration v1 (OAuth, orders, products, customers via Admin API)
+- [x] Shopify net sales revenue (June 2, 2026 — LORAMER_SHOPIFY_NET_SALES_V1)
 - [x] Universal Intelligence Layer (`build-claude-context.ts`, `/api/intelligence`)
 - [x] Combined cross-platform view
 - [x] Drill-down: campaigns → ad groups/ad sets → ads
