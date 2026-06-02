@@ -11,7 +11,12 @@
 //   - Directives are also re-stated as hard constraints in the rules section
 //     so 50-word insight outputs can't drop them
 
-import type { ClientIntelligence, PlatformIntelligence } from './intelligence-types'
+import type {
+  ClientIntelligence,
+  IntelligenceGa,
+  IntelligenceShopify,
+  PlatformIntelligence,
+} from './intelligence-types'
 
 const OBJECTIVE_RULES: Record<string, string> = {
   OUTCOME_AWARENESS: 'Brand Awareness — evaluate CPM/reach ONLY. NEVER mention CTR or ROAS.',
@@ -199,6 +204,161 @@ function formatMetrics(m: any, indent = ''): string {
   if (m.addToCart != null && m.addToCart > 0) lines.push(`Add to Cart: ${m.addToCart}`)
   if (m.costPerPurchase != null) lines.push(`Cost/Purchase: $${m.costPerPurchase.toFixed(2)}`)
   return lines.map(l => indent + l).join(', ')
+}
+
+// LORAMER_GA_CLAUDE_CONTEXT_V1
+function formatGaRate(value: number | undefined): string {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  const pct = value <= 1 ? value * 100 : value
+  return `${pct.toFixed(2)}%`
+}
+
+function buildGaSection(ga: IntelligenceGa | undefined, limits: DataLimits): string {
+  if (!ga?.connected) return ''
+  const lines: string[] = []
+  const listLimit = 10
+
+  lines.push('\n=== GOOGLE ANALYTICS ===')
+  if (ga.propertyName || ga.propertyId) {
+    const idPart = ga.propertyId ? ` (${ga.propertyId})` : ''
+    lines.push(`Property: ${ga.propertyName || ga.propertyId || 'Unknown'}${idPart}`)
+  }
+
+  const hasData = (ga.sessions ?? 0) > 0
+  if (!hasData) {
+    lines.push(
+      'Google Analytics is connected, but no session data is available for this date range. Do not infer or invent GA metrics from prior turns — say so honestly if asked.'
+    )
+    return lines.join('\n')
+  }
+
+  const totalUsers = ga.totalUsers ?? 0
+  const newUsers = ga.newUsers ?? 0
+  const returningUsers = Math.max(0, totalUsers - newUsers)
+
+  lines.push('Account totals:')
+  lines.push(`  Sessions: ${(ga.sessions ?? 0).toLocaleString()}`)
+  lines.push(`  Total users: ${totalUsers.toLocaleString()}`)
+  lines.push(`  New users: ${newUsers.toLocaleString()}`)
+  lines.push(`  Returning users (total − new): ${returningUsers.toLocaleString()}`)
+  lines.push(`  Engagement rate: ${formatGaRate(ga.engagementRate)}`)
+  lines.push(`  Conversions: ${(ga.conversions ?? 0).toFixed(1)}`)
+  lines.push(`  Revenue: $${(ga.totalRevenue ?? 0).toFixed(2)}`)
+  lines.push(`  Transactions: ${(ga.transactions ?? 0).toLocaleString()}`)
+
+  if (ga.topTrafficSources?.length) {
+    lines.push(`\nTop traffic sources (top ${Math.min(ga.topTrafficSources.length, listLimit)} by sessions):`)
+    ga.topTrafficSources.slice(0, listLimit).forEach((row) => {
+      lines.push(
+        `  • ${row.source} / ${row.medium}: ${row.sessions.toLocaleString()} sessions, ${row.conversions.toFixed(1)} conv, $${row.totalRevenue.toFixed(2)} revenue`
+      )
+    })
+  }
+
+  if (ga.topCampaigns?.length) {
+    lines.push(`\nTop campaigns (top ${Math.min(ga.topCampaigns.length, listLimit)} by sessions):`)
+    ga.topCampaigns.slice(0, listLimit).forEach((row) => {
+      lines.push(
+        `  • ${row.campaignName}: ${row.sessions.toLocaleString()} sessions, ${row.conversions.toFixed(1)} conv, $${row.totalRevenue.toFixed(2)} revenue`
+      )
+    })
+  }
+
+  if (ga.topLandingPages?.length) {
+    lines.push(`\nTop landing pages (top ${Math.min(ga.topLandingPages.length, listLimit)} by sessions):`)
+    ga.topLandingPages.slice(0, listLimit).forEach((row) => {
+      lines.push(
+        `  • ${row.landingPage}: ${row.sessions.toLocaleString()} sessions, session conv rate ${formatGaRate(row.sessionConversionRate)}`
+      )
+    })
+  }
+
+  if (ga.conversionEvents?.length) {
+    lines.push(`\nTop conversion events (top ${Math.min(ga.conversionEvents.length, listLimit)} by count):`)
+    ga.conversionEvents.slice(0, listLimit).forEach((row) => {
+      const valuePart = row.eventValue > 0 ? `, $${row.eventValue.toFixed(2)} value` : ''
+      lines.push(`  • ${row.eventName}: ${row.eventCount.toLocaleString()} events${valuePart}`)
+    })
+  }
+
+  if (ga.topCountries?.length) {
+    lines.push(`\nTop countries by sessions:`)
+    ga.topCountries.slice(0, 10).forEach((row) => {
+      lines.push(`  • ${row.country}: ${row.sessions.toLocaleString()} sessions`)
+    })
+  }
+
+  if (ga.deviceSplit?.length) {
+    lines.push(`\nDevice split (sessions):`)
+    ga.deviceSplit.forEach((row) => {
+      lines.push(`  • ${row.deviceCategory}: ${row.sessions.toLocaleString()} sessions`)
+    })
+  }
+
+  const hasEcommerce =
+    (ga.topProducts?.length ?? 0) > 0 ||
+    (ga.transactionsBySource?.length ?? 0) > 0 ||
+    (ga.cartToPurchaseRate ?? 0) > 0 ||
+    (ga.purchaserConversionRate ?? 0) > 0 ||
+    (ga.refundAmount ?? 0) > 0
+
+  if (hasEcommerce) {
+    lines.push('\nE-commerce:')
+    if (ga.topProducts?.length) {
+      lines.push(`  Top products (top ${Math.min(ga.topProducts.length, limits.topProducts)} by revenue):`)
+      ga.topProducts.slice(0, limits.topProducts).forEach((row) => {
+        lines.push(
+          `    • ${row.itemName}: $${row.itemRevenue.toFixed(2)} revenue, ${row.itemsPurchased.toLocaleString()} purchased`
+        )
+      })
+    }
+    if (ga.transactionsBySource?.length) {
+      lines.push(`  Transactions by source / medium:`)
+      ga.transactionsBySource.slice(0, listLimit).forEach((row) => {
+        lines.push(`    • ${row.source} / ${row.medium}: ${row.transactions.toLocaleString()} transactions`)
+      })
+    }
+    if (ga.cartToPurchaseRate != null && ga.cartToPurchaseRate > 0) {
+      lines.push(`  Cart-to-purchase rate: ${formatGaRate(ga.cartToPurchaseRate)}`)
+    }
+    if (ga.purchaserConversionRate != null && ga.purchaserConversionRate > 0) {
+      lines.push(`  Purchaser conversion rate: ${formatGaRate(ga.purchaserConversionRate)}`)
+    }
+    if (ga.refundAmount != null && ga.refundAmount > 0) {
+      lines.push(`  Refund amount: $${ga.refundAmount.toFixed(2)}`)
+    }
+  }
+
+  return lines.join('\n')
+}
+
+// LORAMER_GA_CLAUDE_CONTEXT_V1
+// INTERNAL_GROUNDING: GA4 revenue and transaction counts often differ from Shopify
+// because of attribution windows, refund timing, tax/shipping, and purchase-event
+// tagging. Zero GA conversions with healthy Shopify orders usually indicates a
+// GA4 tracking gap — reason from the side-by-side numbers; do not open with a
+// blanket claim that GA is broken unless the data supports it.
+function buildGaShopifyReconciliation(ga: IntelligenceGa, shopify: IntelligenceShopify): string {
+  const lines: string[] = []
+  lines.push('\n=== GA4 vs SHOPIFY (same date range) ===')
+  const gaRev = ga.totalRevenue ?? 0
+  const shopRev = shopify.totalRevenue ?? 0
+  const gaTx = ga.transactions ?? 0
+  const shopOrders = shopify.totalOrders ?? 0
+  lines.push(`GA4 total revenue: $${gaRev.toFixed(2)} | Shopify total revenue: $${shopRev.toFixed(2)}`)
+  const revDelta = shopRev - gaRev
+  if (shopRev > 0) {
+    const pct = ((revDelta / shopRev) * 100).toFixed(1)
+    lines.push(`Revenue delta (Shopify minus GA4): $${revDelta.toFixed(2)} (${pct}% of Shopify revenue)`)
+  } else {
+    lines.push(`Revenue delta (Shopify minus GA4): $${revDelta.toFixed(2)}`)
+  }
+  lines.push(`GA4 transactions: ${gaTx.toLocaleString()} | Shopify orders: ${shopOrders.toLocaleString()}`)
+  lines.push(`Order/transaction delta (Shopify minus GA4): ${(shopOrders - gaTx).toLocaleString()}`)
+  lines.push(
+    'When asked to reconcile ecommerce totals, use these figures and explain the gap with attribution, refunds, or tracking — do not invent alternate revenue or order counts.'
+  )
+  return lines.join('\n')
 }
 
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
@@ -828,10 +988,20 @@ export function buildClaudeContextCacheable(
   else platformStatus.push('Shopify: not connected')
   if (intelligence.woocommerce?.connected) platformStatus.push('WooCommerce: populated')
   else platformStatus.push('WooCommerce: not connected')
+  // LORAMER_GA_CLAUDE_CONTEXT_V1
+  if (intelligence.ga?.connected && (intelligence.ga.sessions ?? 0) > 0) {
+    platformStatus.push('GA: populated')
+  } else if (intelligence.ga?.connected) {
+    platformStatus.push('GA: connected but no data')
+  } else {
+    platformStatus.push('GA: not connected')
+  }
 
   lines.push('\n=== ACCOUNT DATA IN THIS PROMPT ===')
   lines.push(`Platforms: ${platformStatus.join(' | ')}`)
-  lines.push('Use the data that IS in this prompt. If a platform shows "connected but no spend in this date range" or "not connected", do NOT invent data for it — say so directly if the user asks about that platform.')
+  lines.push(
+    'Use the data that IS in this prompt. If a platform shows "connected but no spend in this date range", "connected but no data", or "not connected", do NOT invent data for it — say so directly if the user asks about that platform.'
+  )
 
   if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
   if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
@@ -881,6 +1051,14 @@ export function buildClaudeContextCacheable(
       })
     }
   }
+
+  // LORAMER_GA_CLAUDE_CONTEXT_V1
+  const gaSection = buildGaSection(intelligence.ga, limits)
+  if (gaSection) lines.push(gaSection)
+  if (intelligence.ga?.connected && intelligence.shopify?.connected) {
+    lines.push(buildGaShopifyReconciliation(intelligence.ga, intelligence.shopify))
+  }
+
   // LORAMER_MEMORY_V1 — durable facts above conversation history
   const memorySection = buildMemorySection(memory, intelligence.clientName)
   if (memorySection) lines.push(memorySection)
