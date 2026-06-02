@@ -6,6 +6,7 @@
 // Output shape conforms to IntelligenceShopify schema — unchanged from REST version.
 // One GraphQL query replaces what was two REST calls.
 
+import { resolveDateWindow } from '@/lib/date-range'
 import type { IntelligenceShopify } from './intelligence-types'
 
 const GRAPHQL_API_VERSION = '2025-01'
@@ -78,15 +79,8 @@ export async function fetchShopifyIntelligence(
     'Content-Type': 'application/json',
   }
 
-  // Build date filter
-  const endDate = customEnd || new Date().toISOString().split('T')[0]
-  const startDate = customStart || (() => {
-    const d = new Date()
-    // LORAMER_THIS_MONTH_FIX_V1 - THIS_MONTH means back to the 1st of the current month, matching /api/shopify/daily and woocommerce-intelligence
-    const days: Record<string, number> = { LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30, THIS_MONTH: new Date().getDate(), LAST_MONTH: 60 }
-    d.setDate(d.getDate() - (days[dateRange] || 30))
-    return d.toISOString().split('T')[0]
-  })()
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
 
   // Shopify GraphQL date filter syntax for the orders `query` arg.
   const queryString = `created_at:>=${startDate}T00:00:00Z AND created_at:<=${endDate}T23:59:59Z`

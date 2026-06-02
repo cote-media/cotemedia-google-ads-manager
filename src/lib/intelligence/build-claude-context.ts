@@ -947,8 +947,16 @@ export function buildClaudeContextCacheable(
   // ── Identity ───────────────────────────────────────────────────────────────
   lines.push(`You are an expert digital advertising analyst embedded in LoraMer, a business intelligence platform for marketing agencies.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
-  // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1 - use actual dates when available
-  if (intelligence.customStart && intelligence.customEnd) {
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  if (intelligence.resolvedStartDate && intelligence.resolvedEndDate) {
+    const label =
+      intelligence.dateRange === 'CUSTOM'
+        ? 'custom'
+        : intelligence.dateRange?.replace(/_/g, ' ').toLowerCase()
+    lines.push(
+      `Date range: ${label} (${intelligence.resolvedStartDate} to ${intelligence.resolvedEndDate})`
+    )
+  } else if (intelligence.customStart && intelligence.customEnd) {
     lines.push(`Date range: ${intelligence.customStart} to ${intelligence.customEnd}`)
   } else {
     lines.push(`Date range: ${intelligence.dateRange?.replace(/_/g, ' ').toLowerCase()}`)

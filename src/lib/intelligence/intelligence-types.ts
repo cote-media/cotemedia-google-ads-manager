@@ -456,6 +456,9 @@ export interface ClientIntelligence {
   // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1 - actual start/end when custom range used
   customStart?: string
   customEnd?: string
+  // LORAMER_DATE_RANGE_CANONICAL_V1 - resolved window for all platforms
+  resolvedStartDate?: string
+  resolvedEndDate?: string
 
   // Client profile
   profile: {

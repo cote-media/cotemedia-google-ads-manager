@@ -19,6 +19,7 @@ import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-int
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
+import { resolveDateWindow } from '@/lib/date-range'
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
@@ -49,6 +50,13 @@ export async function GET(request: Request) {
   const customStart = searchParams.get('customStart') || undefined
   const customEnd = searchParams.get('customEnd') || undefined
   const forceRefresh = searchParams.get('refresh') === 'true'
+
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate: resolvedStartDate, endDate: resolvedEndDate } = resolveDateWindow(
+    dateRange,
+    customStart,
+    customEnd
+  )
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
@@ -125,6 +133,8 @@ export async function GET(request: Request) {
           conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
           memory, // LORAMER_MEMORY_V1
         }
+        entry.resolvedStartDate = resolvedStartDate
+        entry.resolvedEndDate = resolvedEndDate
         return NextResponse.json({ intelligence: entry })
       }
     } catch (e) {
@@ -140,6 +150,8 @@ export async function GET(request: Request) {
     dateRange,
     customStart,  // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1
     customEnd,    // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1
+    resolvedStartDate,
+    resolvedEndDate,
     profile: {
       businessType: context?.business_type,
       primaryKpi: context?.primary_kpi,

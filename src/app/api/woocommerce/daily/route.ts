@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { resolveDateWindow } from '@/lib/date-range'
 import { supabaseAdmin } from '@/lib/supabase'
 
 function basicAuth(k: string, s: string): string {
@@ -38,22 +39,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'No WooCommerce credentials' }, { status: 404 })
   }
 
-  const end = customEnd || new Date().toISOString().split('T')[0]
-  const start =
-    customStart ||
-    (() => {
-      const d = new Date()
-      const days: Record<string, number> = {
-        LAST_7_DAYS: 7,
-        LAST_14_DAYS: 14,
-        LAST_30_DAYS: 30,
-        THIS_MONTH: new Date().getDate(),
-        LAST_MONTH: 60,
-        LAST_90_DAYS: 90,
-      }
-      d.setDate(d.getDate() - (days[dateRange] || 30))
-      return d.toISOString().split('T')[0]
-    })()
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate: start, endDate: end } = resolveDateWindow(
+    dateRange,
+    customStart || undefined,
+    customEnd || undefined
+  )
 
   const base = tok.store_url.replace(/\/+$/, '') + '/wp-json/wc/v3'
   const headers = {

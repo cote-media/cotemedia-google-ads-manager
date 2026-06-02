@@ -3,6 +3,7 @@
 // Fetches seven GA4 Data API runReport buckets for a property.
 // Output conforms to IntelligenceGa schema.
 
+import { resolveDateWindow } from '@/lib/date-range'
 import type {
   IntelligenceGa,
   IntelligenceGaCampaign,
@@ -25,30 +26,6 @@ type GaReportRow = {
 type GaRunReportResponse = {
   rows?: GaReportRow[]
   error?: { message?: string }
-}
-
-function resolveDateRange(
-  dateRange: string,
-  customStart?: string,
-  customEnd?: string
-): { startDate: string; endDate: string } {
-  const endDate = customEnd || new Date().toISOString().split('T')[0]
-  const startDate =
-    customStart ||
-    (() => {
-      const d = new Date()
-      const days: Record<string, number> = {
-        LAST_7_DAYS: 7,
-        LAST_14_DAYS: 14,
-        LAST_30_DAYS: 30,
-        THIS_MONTH: new Date().getDate(),
-        LAST_MONTH: 60,
-        LAST_90_DAYS: 90,
-      }
-      d.setDate(d.getDate() - (days[dateRange] || 30))
-      return d.toISOString().split('T')[0]
-    })()
-  return { startDate, endDate }
 }
 
 function normalizePropertyId(propertyId: string): string {
@@ -419,7 +396,8 @@ export async function fetchGaIntelligence(
   customStart?: string,
   customEnd?: string
 ): Promise<IntelligenceGa> {
-  const { startDate, endDate } = resolveDateRange(dateRange, customStart, customEnd)
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
 
   const [
     totals,

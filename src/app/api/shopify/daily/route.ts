@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { resolveDateWindow } from '@/lib/date-range'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 
 const GRAPHQL_API_VERSION = '2025-01'
@@ -50,17 +51,12 @@ export async function GET(request: Request) {
   }
   const accessToken = tokenResult.accessToken
 
-  // Build date range
-  const end = customEnd || new Date().toISOString().split('T')[0]
-  const start = customStart || (() => {
-    const d = new Date()
-    const days: Record<string, number> = {
-      LAST_7_DAYS: 7, LAST_14_DAYS: 14, LAST_30_DAYS: 30,
-      THIS_MONTH: new Date().getDate(), LAST_MONTH: 60,
-    }
-    d.setDate(d.getDate() - (days[dateRange] || 30))
-    return d.toISOString().split('T')[0]
-  })()
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate: start, endDate: end } = resolveDateWindow(
+    dateRange,
+    customStart || undefined,
+    customEnd || undefined
+  )
 
   const endpoint = `https://${conn.account_id}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`
   const headers = {

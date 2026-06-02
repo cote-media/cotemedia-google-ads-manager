@@ -2,30 +2,11 @@
 // WooCommerce Intelligence Adapter
 // Mirrors fetchShopifyIntelligence: same output shape (IntelligenceShopify)
 // so the dashboard and Claude can treat both ecommerce platforms identically.
+import { resolveDateWindow } from '@/lib/date-range'
 import type { IntelligenceShopify } from './intelligence-types'
 
 function basicAuth(consumerKey: string, consumerSecret: string): string {
   return 'Basic ' + Buffer.from(consumerKey + ':' + consumerSecret).toString('base64')
-}
-
-function resolveDateRange(dateRange: string, customStart?: string, customEnd?: string) {
-  const endDate = customEnd || new Date().toISOString().split('T')[0]
-  const startDate =
-    customStart ||
-    (() => {
-      const d = new Date()
-      const days: Record<string, number> = {
-        LAST_7_DAYS: 7,
-        LAST_14_DAYS: 14,
-        LAST_30_DAYS: 30,
-        THIS_MONTH: new Date().getDate(),
-        LAST_MONTH: 60,
-        LAST_90_DAYS: 90,
-      }
-      d.setDate(d.getDate() - (days[dateRange] || 30))
-      return d.toISOString().split('T')[0]
-    })()
-  return { startDate, endDate }
 }
 
 export async function fetchWooCommerceIntelligence(
@@ -36,7 +17,8 @@ export async function fetchWooCommerceIntelligence(
   customStart?: string,
   customEnd?: string
 ): Promise<IntelligenceShopify> {
-  const { startDate, endDate } = resolveDateRange(dateRange, customStart, customEnd)
+  // LORAMER_DATE_RANGE_CANONICAL_V1
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
 
   const base = storeUrl.replace(/\/+$/, '') + '/wp-json/wc/v3'
   const headers = {
