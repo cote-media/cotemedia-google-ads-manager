@@ -1,4 +1,5 @@
 import { GoogleAdsApi } from 'google-ads-api'
+import { resolveDateWindow } from '@/lib/date-range'
 
 const client = new GoogleAdsApi({
   client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -148,13 +149,8 @@ export async function getDailyMetrics(
   const campaignFilter = campaignId ? `AND campaign.id = ${campaignId}` : ''
   const resource = campaignId ? 'campaign' : 'customer'
 
-  // Build date filter
-  let dateFilter: string
-  if (customStart && customEnd) {
-    dateFilter = `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-  } else {
-    dateFilter = `segments.date DURING ${dateRange}`
-  }
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 
   // Build segment field
   const segmentField = granularity === 'week' ? 'segments.week' : granularity === 'month' ? 'segments.month' : 'segments.date'
