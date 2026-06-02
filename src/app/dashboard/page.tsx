@@ -2499,6 +2499,108 @@ function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, open
   )
 }
 
+// LORAMER_GA_CHART_V1
+// ─── Google Analytics Chart ───────────────────────────────────────────────────
+const GA_CHART_METRICS = [
+  { id: 'sessions', label: 'Sessions', color: '#2563eb' },
+  { id: 'totalUsers', label: 'Total Users', color: '#16a34a' },
+  { id: 'newUsers', label: 'New Users', color: '#ea580c' },
+  { id: 'keyEvents', label: 'Key Events', color: '#9333ea' },
+  { id: 'engagedSessions', label: 'Engaged Sessions', color: '#0891b2' },
+  { id: 'eventCount', label: 'Event Count', color: '#dc2626' },
+  { id: 'screenPageViews', label: 'Pageviews', color: '#ca8a04' },
+  { id: 'averageSessionDuration', label: 'Avg Session Duration', color: '#db2777' },
+]
+
+function GaChart({ clientId, dateRange, customStart, customEnd }: {
+  clientId: string
+  dateRange: string
+  customStart?: string
+  customEnd?: string
+}) {
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['sessions', 'totalUsers', 'newUsers'])
+
+  useEffect(() => {
+    if (!clientId) return
+    setLoading(true)
+    let url = '/api/ga/daily?clientId=' + clientId + '&dateRange=' + dateRange
+    if (customStart) url += '&customStart=' + customStart
+    if (customEnd) url += '&customEnd=' + customEnd
+    fetch(url)
+      .then(r => r.json())
+      .then(d => { setData(d.daily || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [clientId, dateRange, customStart, customEnd])
+
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+
+  if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
+  if (!data.length) {
+    return (
+      <div className="bg-white border border-border p-4 md:p-6 mb-6">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-2">Performance Over Time</h3>
+        <p className="text-sm font-mono text-muted">No daily Analytics data for this date range.</p>
+      </div>
+    )
+  }
+
+  const hasAnyValue = data.some((row: Record<string, number>) =>
+    GA_CHART_METRICS.some(m => (row[m.id] ?? 0) > 0)
+  )
+  if (!hasAnyValue) {
+    return (
+      <div className="bg-white border border-border p-4 md:p-6 mb-6">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-2">Performance Over Time</h3>
+        <p className="text-sm font-mono text-muted">No daily Analytics data for this date range.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white border border-border p-4 md:p-6 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+        <div className="flex gap-1 flex-wrap">
+          {GA_CHART_METRICS.map(m => (
+            <button key={m.id} onClick={() => toggle(m.id)}
+              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={200}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
+          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          {GA_CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+            <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// LORAMER_GA_TAB_PROPERTY_NAME_V1
+function isGaResourcePath(name: string): boolean {
+  const t = name.trim()
+  return /^properties\/\d+$/i.test(t) || /^\d{10,}$/.test(t)
+}
+
+function resolveGaDisplayName(ga: IntelligenceGa, connectionAccountName?: string): string {
+  const candidates = [connectionAccountName, ga.propertyName].filter(Boolean) as string[]
+  for (const c of candidates) {
+    if (!isGaResourcePath(c)) return c
+  }
+  return candidates[0] || 'Google Analytics'
+}
+
 // LORAMER_GA_DASHBOARD_TAB_V1
 // ─── Google Analytics Tab ─────────────────────────────────────────────────────
 function GaTable({ title, headers, rows }: {
@@ -2544,7 +2646,14 @@ function formatEngagementRate(rate: number | undefined): string {
   return fmt(pct, 'percent')
 }
 
-function GoogleAnalyticsTab({ ga }: { ga: IntelligenceGa | null }) {
+function GoogleAnalyticsTab({ ga, clientId, dateRange, customStart, customEnd, connectionAccountName }: {
+  ga: IntelligenceGa | null
+  clientId: string
+  dateRange: string
+  customStart?: string
+  customEnd?: string
+  connectionAccountName?: string
+}) {
   if (!ga || !ga.connected) {
     return (
       <div className="flex items-center justify-center h-64 flex-col gap-4">
@@ -2574,11 +2683,19 @@ function GoogleAnalyticsTab({ ga }: { ga: IntelligenceGa | null }) {
   const topProducts = ga.topProducts || []
   const transactionsBySource = ga.transactionsBySource || []
   const hasEcommerce = topProducts.length > 0 || transactionsBySource.length > 0 || ga.transactions != null
+  const propertyDisplayName = resolveGaDisplayName(ga, connectionAccountName)
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {ga.propertyName && (
-        <p className="text-xs font-mono text-muted">{ga.propertyName}{ga.propertyId ? ' · ' + ga.propertyId : ''}</p>
+      <p
+        className="text-xs font-mono text-muted"
+        title={ga.propertyId && isGaResourcePath(ga.propertyId) ? ga.propertyId : undefined}
+      >
+        {propertyDisplayName}
+      </p>
+
+      {clientId && (
+        <GaChart clientId={clientId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
       )}
 
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
@@ -2717,11 +2834,12 @@ function GoogleAnalyticsTab({ ga }: { ga: IntelligenceGa | null }) {
   )
 }
 
-function GoogleAnalyticsTabWrapper({ clientId, dateRange, customStart, customEnd }: {
+function GoogleAnalyticsTabWrapper({ clientId, dateRange, customStart, customEnd, connectionAccountName }: {
   clientId: string
   dateRange: string
   customStart?: string
   customEnd?: string
+  connectionAccountName?: string
 }) {
   const [gaData, setGaData] = useState<IntelligenceGa | null>(null)
   const [loading, setLoading] = useState(true)
@@ -2759,7 +2877,16 @@ function GoogleAnalyticsTabWrapper({ clientId, dateRange, customStart, customEnd
       <p className="text-xs text-red-500">{error}</p>
     </div>
   )
-  return <GoogleAnalyticsTab ga={gaData} />
+  return (
+    <GoogleAnalyticsTab
+      ga={gaData}
+      clientId={clientId}
+      dateRange={dateRange}
+      customStart={customStart}
+      customEnd={customEnd}
+      connectionAccountName={connectionAccountName}
+    />
+  )
 }
 
 // LORAMER_MEMORY_AUTODETECT_V1
@@ -3400,7 +3527,13 @@ function DashboardContent() {
           )}
           {/* LORAMER_GA_DASHBOARD_TAB_V1 */}
           {activeTab === 'ga' && hasGa && (
-            <GoogleAnalyticsTabWrapper clientId={selectedClient?.id || ''} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
+            <GoogleAnalyticsTabWrapper
+              clientId={selectedClient?.id || ''}
+              dateRange={dateRange}
+              customStart={customStart}
+              customEnd={customEnd}
+              connectionAccountName={selectedClient?.platform_connections.find(p => p.platform === 'ga')?.account_name}
+            />
           )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
