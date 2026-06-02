@@ -1518,11 +1518,89 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
     </button>
   )
 }
+
+function formatEngagementRate(rate: number | undefined): string {
+  if (rate == null) return '—'
+  const pct = rate <= 1 ? rate * 100 : rate
+  return fmt(pct, 'percent')
+}
+
+// LORAMER_GA_OVERVIEW_COMBINED_V1
+function GaCombinedMetrics({ ga }: { ga: IntelligenceGa }) {
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div className="bg-white border border-border p-4">
+        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">📊 GA Sessions</p>
+        <p className="text-2xl font-display text-accent">{ga.sessions != null ? fmt(ga.sessions) : '—'}</p>
+      </div>
+      <div className="bg-white border border-border p-4">
+        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">📊 GA Users</p>
+        <p className="text-2xl font-display text-accent">{ga.totalUsers != null ? fmt(ga.totalUsers) : '—'}</p>
+      </div>
+    </div>
+  )
+}
+
+// LORAMER_GA_OVERVIEW_COMBINED_V1
+function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, openPanel }: {
+  ga: IntelligenceGa
+  clientId: string
+  clientName: string
+  platform: Platform
+  dateRange: string
+  openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
+}) {
+  const metrics = [
+    { label: 'Sessions', value: ga.sessions != null ? fmt(ga.sessions) : '—' },
+    { label: 'Total Users', value: ga.totalUsers != null ? fmt(ga.totalUsers) : '—' },
+    { label: 'Engagement Rate', value: formatEngagementRate(ga.engagementRate) },
+    { label: 'Conversions', value: ga.conversions != null ? fmt(ga.conversions) : '—' },
+  ]
+  const topSources = (ga.topTrafficSources || []).slice(0, 5)
+  const gaContext = metrics.map(m => m.label + ': ' + m.value).join(', ')
+    + (topSources.length > 0
+      ? '\nTop sources:\n' + topSources.map(s => s.source + ' / ' + s.medium + ': ' + s.sessions + ' sessions').join('\n')
+      : '')
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-border">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+      {topSources.length > 0 && (
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-mono text-xs tracking-widest uppercase text-muted">📊 Top Traffic Sources</h3>
+            <AskClaudeCardButton cardTitle="Google Analytics Traffic Sources"
+              cardData={gaContext}
+              clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />
+          </div>
+          <div className="space-y-2">
+            {topSources.map((s, i) => (
+              <div key={i} className="flex items-center justify-between py-1 border-b border-border last:border-0">
+                <span className="text-xs text-ink truncate max-w-[60%]">{s.source} / {s.medium}</span>
+                <span className="text-xs font-mono text-muted">{fmt(s.sessions)} sessions</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify }: {
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify, ga, hasGa }: {
   data?: PlatformData | null; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
   shopify?: any
+  ga?: IntelligenceGa | null
+  hasGa?: boolean
 }) {
   const totals = data?.totals
   const campaigns = data?.campaigns || []
@@ -1557,6 +1635,11 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
             <p className="text-2xl font-display text-accent">{fmt(totals!.metaSpend, 'currency')}</p>
           </div>
         </div>
+      )}
+
+      {/* LORAMER_GA_OVERVIEW_COMBINED_V1 — compact GA alongside combined ad metrics */}
+      {hasGa && ga?.connected && hasAdData && platform === 'combined' && (
+        <GaCombinedMetrics ga={ga} />
       )}
 
       {hasAdData && metrics.length > 0 && (
@@ -1707,6 +1790,21 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* LORAMER_GA_OVERVIEW_COMBINED_V1 — summary GA section on Overview */}
+      {hasGa && ga?.connected && (
+        <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">📊 Google Analytics</h3>
+          <GaOverviewSummary
+            ga={ga}
+            clientId={clientId}
+            clientName={clientName}
+            platform={platform}
+            dateRange={dateRange}
+            openPanel={openPanel}
+          />
         </div>
       )}
     </div>
@@ -2652,12 +2750,6 @@ function GaTable({ title, headers, rows }: {
   )
 }
 
-function formatEngagementRate(rate: number | undefined): string {
-  if (rate == null) return '—'
-  const pct = rate <= 1 ? rate * 100 : rate
-  return fmt(pct, 'percent')
-}
-
 function GoogleAnalyticsTab({ ga, clientId, dateRange, customStart, customEnd, connectionAccountName }: {
   ga: IntelligenceGa | null
   clientId: string
@@ -2996,6 +3088,7 @@ function DashboardContent() {
   const [showCustomPicker, setShowCustomPicker] = useState(false)
   const [platformData, setPlatformData] = useState<PlatformData | null>(null)
   const [shopifyData, setShopifyData] = useState<any>(null)
+  const [gaData, setGaData] = useState<IntelligenceGa | null>(null)  // LORAMER_GA_OVERVIEW_COMBINED_V1
   const [loading, setLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -3122,7 +3215,7 @@ function DashboardContent() {
     if (previousClientId && previousClientId !== client.id) {
       lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
       setPanelOpen(false); setPanelMinimized(false); setPanelMessages([])
-      setPanelTitle(''); setPanelContext(''); setShopifyData(null)
+      setPanelTitle(''); setPanelContext(''); setShopifyData(null); setGaData(null)  // LORAMER_GA_OVERVIEW_COMBINED_V1
       lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false')
       lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
@@ -3154,6 +3247,11 @@ function DashboardContent() {
     if (hasShopifyLocal) {
       loadShopifyData(client.id, dateRange, customStart, customEnd)
     }
+    // LORAMER_GA_OVERVIEW_COMBINED_V1 — fetch GA intelligence when connected
+    const hasGaLocal = client.platform_connections.some(p => p.platform === 'ga')
+    if (hasGaLocal) {
+      loadGaData(client.id, dateRange, customStart, customEnd)
+    }
   }
 
   async function loadShopifyData(clientId: string, dr: string, cs?: string, ce?: string) {
@@ -3165,6 +3263,18 @@ function DashboardContent() {
       const d = await res.json()
       if (d.intelligence?.shopify) setShopifyData(d.intelligence.shopify)
     } catch (e) { console.error('Shopify data fetch error:', e) }
+  }
+
+  // LORAMER_GA_OVERVIEW_COMBINED_V1
+  async function loadGaData(clientId: string, dr: string, cs?: string, ce?: string) {
+    try {
+      const params = new URLSearchParams({ clientId, dateRange: dr })
+      if (cs) params.set('customStart', cs)
+      if (ce) params.set('customEnd', ce)
+      const res = await fetch('/api/intelligence?' + params.toString())
+      const d = await res.json()
+      if (d.intelligence?.ga) setGaData(d.intelligence.ga)
+    } catch (e) { console.error('GA data fetch error:', e) }
   }
 
   function changePlatform(platform: Platform) {
@@ -3200,6 +3310,9 @@ function DashboardContent() {
         if (selectedClient.platform_connections.some(p => p.platform === 'shopify')) {
           loadShopifyData(selectedClient.id, val, '', '')
         }
+        if (selectedClient.platform_connections.some(p => p.platform === 'ga')) {
+          loadGaData(selectedClient.id, val, '', '')
+        }
       }
     }
   }
@@ -3210,6 +3323,9 @@ function DashboardContent() {
       if (hasGoogleOrMeta) loadData(selectedClient, activePlatform, 'CUSTOM', customStart, customEnd)
       if (selectedClient.platform_connections.some(p => p.platform === 'shopify')) {
         loadShopifyData(selectedClient.id, 'CUSTOM', customStart, customEnd)
+      }
+      if (selectedClient.platform_connections.some(p => p.platform === 'ga')) {
+        loadGaData(selectedClient.id, 'CUSTOM', customStart, customEnd)
       }
     }
   }
@@ -3522,7 +3638,7 @@ function DashboardContent() {
           )}
           {/* Overview — works with ad data, shopify data, or both */}
           {!loading && activeTab === 'overview' && (platformData || shopifyData) && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} />
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} ga={gaData} hasGa={hasGa} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} />
