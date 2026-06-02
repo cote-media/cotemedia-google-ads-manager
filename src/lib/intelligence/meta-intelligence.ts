@@ -6,11 +6,13 @@ import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, I
 
 const META_API = 'https://graph.facebook.com/v21.0'
 
+// LORAMER_DATE_RANGE_CANONICAL_V1
 function buildDatePreset(dateRange: string): string {
   const map: Record<string, string> = {
     TODAY: 'today', YESTERDAY: 'yesterday', LAST_7_DAYS: 'last_7_days',
     LAST_14_DAYS: 'last_14d', LAST_30_DAYS: 'last_30_days',
     THIS_MONTH: 'this_month', LAST_MONTH: 'last_month',
+    LAST_90_DAYS: 'last_90d',
   }
   return map[dateRange] || 'last_30_days'
 }
