@@ -952,7 +952,7 @@ function ClientsContent() {
 
                             {/* GA pill - LORAMER_GA_PROPERTY_PICKER_V1 */}
                             {gaConn ? (
-                              <button onClick={(e) => { e.stopPropagation(); goToDashboard(client) }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#E8710A' }}>
+                              <button onClick={(e) => { e.stopPropagation(); try { localStorage.setItem('advar-active-client', client.id); localStorage.setItem('advar-active-tab', 'ga') } catch {}; router.push('/dashboard') }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#E8710A' }}>
                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M5 9.2h3V19H5zM10.5 5h3v14h-3zM16 13h3v6h-3z"/></svg>
                                 Analytics
                               </button>

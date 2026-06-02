@@ -8,6 +8,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
+import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
 
 const DATE_RANGES = [
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { id: 'campaigns', label: 'Campaigns', icon: '◈', hideForShopifyOnly: true },
   { id: 'shopify', label: 'Shopify', icon: '🛍', shopifyOnly: true },
   { id: 'woocommerce', label: 'WooCommerce', icon: '🛒', wooOnly: true },  // LORAMER_WOO_TAB_V1
+  { id: 'ga', label: 'Analytics', icon: '📊', gaOnly: true },  // LORAMER_GA_DASHBOARD_TAB_V1
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
   { id: 'chat', label: 'Ask Claude', icon: '✦' },
 ]
@@ -2497,6 +2499,269 @@ function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, open
   )
 }
 
+// LORAMER_GA_DASHBOARD_TAB_V1
+// ─── Google Analytics Tab ─────────────────────────────────────────────────────
+function GaTable({ title, headers, rows }: {
+  title: string
+  headers: { label: string; align?: 'left' | 'right' }[]
+  rows: React.ReactNode[][]
+}) {
+  if (rows.length === 0) return null
+  return (
+    <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">{title}</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              {headers.map((h, i) => (
+                <th key={i} className={'px-3 py-3 font-mono text-xs text-muted tracking-wider ' + (h.align === 'right' ? 'text-right' : 'text-left')}>
+                  {h.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((cells, i) => (
+              <tr key={i} className="table-row">
+                {cells.map((cell, j) => (
+                  <td key={j} className={'px-3 py-3 ' + (headers[j]?.align === 'right' ? 'text-right font-mono text-sm' : 'text-sm')}>
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function formatEngagementRate(rate: number | undefined): string {
+  if (rate == null) return '—'
+  const pct = rate <= 1 ? rate * 100 : rate
+  return fmt(pct, 'percent')
+}
+
+function GoogleAnalyticsTab({ ga }: { ga: IntelligenceGa | null }) {
+  if (!ga || !ga.connected) {
+    return (
+      <div className="flex items-center justify-center h-64 flex-col gap-4">
+        <p className="text-2xl">📊</p>
+        <p className="text-ink font-medium">Google Analytics data unavailable</p>
+        <p className="text-muted font-mono text-sm">Could not fetch Analytics data. Check your Google Analytics connection.</p>
+        <a href="/clients" className="btn-primary text-sm">Manage connections →</a>
+      </div>
+    )
+  }
+
+  const metrics = [
+    { label: 'Sessions', value: ga.sessions != null ? fmt(ga.sessions) : '—' },
+    { label: 'Total Users', value: ga.totalUsers != null ? fmt(ga.totalUsers) : '—' },
+    { label: 'New Users', value: ga.newUsers != null ? fmt(ga.newUsers) : '—' },
+    { label: 'Engagement Rate', value: formatEngagementRate(ga.engagementRate) },
+    { label: 'Conversions', value: ga.conversions != null ? fmt(ga.conversions) : '—' },
+    { label: 'Revenue', value: ga.totalRevenue != null ? fmt(ga.totalRevenue, 'currency') : '—' },
+  ]
+
+  const trafficSources = ga.topTrafficSources || []
+  const topCampaigns = ga.topCampaigns || []
+  const landingPages = ga.topLandingPages || []
+  const conversionEvents = ga.conversionEvents || []
+  const topCountries = ga.topCountries || []
+  const devices = ga.deviceSplit || []
+  const topProducts = ga.topProducts || []
+  const transactionsBySource = ga.transactionsBySource || []
+  const hasEcommerce = topProducts.length > 0 || transactionsBySource.length > 0 || ga.transactions != null
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {ga.propertyName && (
+        <p className="text-xs font-mono text-muted">{ga.propertyName}{ga.propertyId ? ' · ' + ga.propertyId : ''}</p>
+      )}
+
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
+        {metrics.map(m => (
+          <div key={m.label} className="bg-white p-3 md:p-5">
+            <div className="text-xs font-medium text-muted uppercase tracking-widest mb-1 md:mb-2">{m.label}</div>
+            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <GaTable
+        title="Top Traffic Sources"
+        headers={[
+          { label: 'Source / Medium' },
+          { label: 'Sessions', align: 'right' },
+          { label: 'Conversions', align: 'right' },
+          { label: 'Revenue', align: 'right' },
+        ]}
+        rows={trafficSources.map(s => [
+          <span key="src" className="font-medium">{s.source} / {s.medium}</span>,
+          fmt(s.sessions),
+          fmt(s.conversions),
+          fmt(s.totalRevenue, 'currency'),
+        ])}
+      />
+
+      <GaTable
+        title="Top Campaigns"
+        headers={[
+          { label: 'Campaign' },
+          { label: 'Sessions', align: 'right' },
+          { label: 'Conversions', align: 'right' },
+          { label: 'Revenue', align: 'right' },
+        ]}
+        rows={topCampaigns.map(c => [
+          <span key="camp" className="font-medium truncate max-w-xs inline-block">{c.campaignName}</span>,
+          fmt(c.sessions),
+          fmt(c.conversions),
+          fmt(c.totalRevenue, 'currency'),
+        ])}
+      />
+
+      <GaTable
+        title="Top Landing Pages"
+        headers={[
+          { label: 'Landing Page' },
+          { label: 'Sessions', align: 'right' },
+          { label: 'Conv. Rate', align: 'right' },
+        ]}
+        rows={landingPages.map(p => [
+          <span key="page" className="font-medium truncate max-w-md inline-block">{p.landingPage}</span>,
+          fmt(p.sessions),
+          formatEngagementRate(p.sessionConversionRate),
+        ])}
+      />
+
+      <GaTable
+        title="Conversion Events"
+        headers={[
+          { label: 'Event' },
+          { label: 'Count', align: 'right' },
+          { label: 'Value', align: 'right' },
+        ]}
+        rows={conversionEvents.map(e => [
+          <span key="evt" className="font-medium">{e.eventName}</span>,
+          fmt(e.eventCount),
+          fmt(e.eventValue, 'currency'),
+        ])}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <GaTable
+          title="Top Countries"
+          headers={[
+            { label: 'Country' },
+            { label: 'Sessions', align: 'right' },
+          ]}
+          rows={topCountries.map(c => [
+            c.country,
+            fmt(c.sessions),
+          ])}
+        />
+
+        <GaTable
+          title="Devices"
+          headers={[
+            { label: 'Device' },
+            { label: 'Sessions', align: 'right' },
+          ]}
+          rows={devices.map(d => [
+            d.deviceCategory,
+            fmt(d.sessions),
+          ])}
+        />
+      </div>
+
+      {hasEcommerce && (
+        <div className="space-y-4">
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">E-commerce</h3>
+          {ga.transactions != null && (
+            <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
+              <div className="flex justify-between py-1">
+                <span className="text-xs text-muted">Total transactions</span>
+                <span className="text-xs font-mono text-ink">{fmt(ga.transactions)}</span>
+              </div>
+            </div>
+          )}
+          <GaTable
+            title="Top Products"
+            headers={[
+              { label: 'Product' },
+              { label: 'Purchased', align: 'right' },
+              { label: 'Revenue', align: 'right' },
+            ]}
+            rows={topProducts.map(p => [
+              <span key="prod" className="font-medium truncate max-w-xs inline-block">{p.itemName}</span>,
+              fmt(p.itemsPurchased),
+              fmt(p.itemRevenue, 'currency'),
+            ])}
+          />
+          <GaTable
+            title="Transactions by Source"
+            headers={[
+              { label: 'Source / Medium' },
+              { label: 'Transactions', align: 'right' },
+            ]}
+            rows={transactionsBySource.map(t => [
+              `${t.source} / ${t.medium}`,
+              fmt(t.transactions),
+            ])}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function GoogleAnalyticsTabWrapper({ clientId, dateRange, customStart, customEnd }: {
+  clientId: string
+  dateRange: string
+  customStart?: string
+  customEnd?: string
+}) {
+  const [gaData, setGaData] = useState<IntelligenceGa | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!clientId) return
+    setLoading(true)
+    const params = new URLSearchParams({ clientId, dateRange })
+    if (customStart) params.set('customStart', customStart)
+    if (customEnd) params.set('customEnd', customEnd)
+    fetch('/api/intelligence?' + params.toString())
+      .then(r => r.json())
+      .then(d => {
+        if (d.intelligence?.ga) {
+          setGaData(d.intelligence.ga)
+        } else {
+          setError('No Google Analytics data available')
+        }
+        setLoading(false)
+      })
+      .catch(e => { setError(e.message); setLoading(false) })
+  }, [clientId, dateRange, customStart, customEnd])
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex items-center gap-2 text-muted font-mono text-sm">
+        <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading Analytics data...
+      </div>
+    </div>
+  )
+  if (error && !gaData) return (
+    <div className="flex items-center justify-center h-64 flex-col gap-2">
+      <p className="text-muted font-mono text-sm">Could not load Google Analytics data</p>
+      <p className="text-xs text-red-500">{error}</p>
+    </div>
+  )
+  return <GoogleAnalyticsTab ga={gaData} />
+}
+
 // LORAMER_MEMORY_AUTODETECT_V1
 function MemoryProposalToast() {
   const [proposal, setProposal] = useState<null | { clientId: string; suggestedContent: string; suggestedCategory: 'directive' | 'fact' | 'preference'; confidence: number; originalMessage: string }>(null)
@@ -2580,10 +2845,10 @@ function DashboardContent() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('advar-active-platform') as Platform) || 'google')
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce'>(() => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce' | 'ga'>(() => {
     // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
     const saved = ls('advar-active-tab') as any
-    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
+    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
     return valid.includes(saved) ? saved : 'overview'
   })
   const [dateRange, setDateRange] = useState<string>(() => ls('advar-date-range') || 'LAST_30_DAYS')
@@ -2710,7 +2975,7 @@ function DashboardContent() {
     setActivePlatform(resolved)
     // Restore saved tab (LORAMER_DEFAULT_TAB_V1 - validate)
     const savedTab = ls('advar-active-tab') as any
-    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce']  // LORAMER_WOO_TAB_V1
+    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
     if (validTabs.includes(savedTab)) setActiveTab(savedTab)
     else setActiveTab('overview')
     // Only reset drill state and panel when switching to a different client
@@ -2775,7 +3040,7 @@ function DashboardContent() {
     if (selectedClient) loadData(selectedClient, platform, dateRange, customStart, customEnd)
   }
 
-  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify') {
+  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce' | 'ga') {
     setActiveTab(tab)
     lsSet('advar-active-tab', tab)
   }
@@ -2947,6 +3212,7 @@ function DashboardContent() {
   const hasMeta = !!metaConn
   const hasShopify = !!selectedClient?.platform_connections.find(p => p.platform === 'shopify')
   const hasWoo = !!selectedClient?.platform_connections.find(p => p.platform === 'woocommerce')  // LORAMER_WOO_TAB_V1
+  const hasGa = !!selectedClient?.platform_connections.find(p => p.platform === 'ga')  // LORAMER_GA_DASHBOARD_TAB_V1
   const hasBoth = hasGoogle && hasMeta
   const googleAccountId = googleConn?.account_id || ''
   const metaAccountId = metaConn?.account_id || ''
@@ -2954,6 +3220,7 @@ function DashboardContent() {
     if (item.googleOnly && !hasGoogle) return false  // LORAMER_KEYWORDS_NAV_GATE_V1
     if (item.shopifyOnly && !hasShopify) return false
     if (item.wooOnly && !hasWoo) return false  // LORAMER_WOO_TAB_V1
+    if (item.gaOnly && !hasGa) return false  // LORAMER_GA_DASHBOARD_TAB_V1
     if (item.hideForShopifyOnly && !hasGoogle && !hasMeta && (hasShopify || hasWoo)) return false  // LORAMER_WOO_TAB_V1
     return true
   })
@@ -3130,6 +3397,10 @@ function DashboardContent() {
           {/* LORAMER_WOO_TAB_V1 */}
           {activeTab === 'woocommerce' && hasWoo && (
             <WooCommerceTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />
+          )}
+          {/* LORAMER_GA_DASHBOARD_TAB_V1 */}
+          {activeTab === 'ga' && hasGa && (
+            <GoogleAnalyticsTabWrapper clientId={selectedClient?.id || ''} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
           )}
           {activeTab === 'chat' && (
             <ChatTab messages={chatMessages} input={chatInput} loading={chatLoading} onInputChange={setChatInput}
