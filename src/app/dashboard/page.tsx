@@ -2764,6 +2764,11 @@ function DashboardContent() {
   }
 
   function changePlatform(platform: Platform) {
+    // LORAMER_PLATFORM_NAV_FIX_V1
+    const adTabs: string[] = ['overview', 'campaigns', 'keywords']
+    if (!adTabs.includes(activeTab as string)) {
+      changeTab('overview')
+    }
     setActivePlatform(platform)
     lsSet('advar-active-platform', platform)
     lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
