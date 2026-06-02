@@ -2512,6 +2512,7 @@ const GA_CHART_METRICS = [
   { id: 'averageSessionDuration', label: 'Avg Session Duration', color: '#db2777' },
 ]
 
+// LORAMER_GA_CHART_GRANULARITY_V1
 function GaChart({ clientId, dateRange, customStart, customEnd }: {
   clientId: string
   dateRange: string
@@ -2521,18 +2522,19 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeMetrics, setActiveMetrics] = useState<string[]>(['sessions', 'totalUsers', 'newUsers'])
+  const [granularity, setGranularity] = useState<'day' | 'week' | 'month'>('day')
 
   useEffect(() => {
     if (!clientId) return
     setLoading(true)
-    let url = '/api/ga/daily?clientId=' + clientId + '&dateRange=' + dateRange
+    let url = '/api/ga/daily?clientId=' + clientId + '&dateRange=' + dateRange + '&granularity=' + granularity
     if (customStart) url += '&customStart=' + customStart
     if (customEnd) url += '&customEnd=' + customEnd
     fetch(url)
       .then(r => r.json())
       .then(d => { setData(d.daily || []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [clientId, dateRange, customStart, customEnd])
+  }, [clientId, dateRange, granularity, customStart, customEnd])
 
   const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
 
@@ -2562,14 +2564,24 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
-        <div className="flex gap-1 flex-wrap">
-          {GA_CHART_METRICS.map(m => (
-            <button key={m.id} onClick={() => toggle(m.id)}
-              className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-              style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
-              {m.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex border border-border">
+            {(['day', 'week', 'month'] as const).map(g => (
+              <button key={g} onClick={() => setGranularity(g)}
+                className={'text-xs font-mono px-2 py-1 transition-colors ' + (granularity === g ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
+                {g.charAt(0).toUpperCase() + g.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 flex-wrap">
+            {GA_CHART_METRICS.map(m => (
+              <button key={m.id} onClick={() => toggle(m.id)}
+                className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={200}>

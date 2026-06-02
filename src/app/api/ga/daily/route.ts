@@ -1,5 +1,6 @@
 // LORAMER_GA_CHART_V1
-// /api/ga/daily — fetch daily GA4 metrics for the Analytics tab chart
+// LORAMER_GA_CHART_GRANULARITY_V1
+// /api/ga/daily — fetch GA4 metrics for the Analytics tab chart (day / week / month)
 
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -63,8 +64,42 @@ function gaDateToIso(gaDate: string): string | null {
   return null
 }
 
+type Granularity = 'day' | 'week' | 'month'
+
+function parseGranularity(raw: string | null): Granularity {
+  if (raw === 'week' || raw === 'month') return raw
+  return 'day'
+}
+
+function gaTimeDimension(granularity: Granularity): string {
+  if (granularity === 'week') return 'isoYearIsoWeek'
+  if (granularity === 'month') return 'yearMonth'
+  return 'date'
+}
+
 function displayDate(isoDate: string): string {
   return isoDate.slice(5)
+}
+
+function periodSortKey(raw: string, granularity: Granularity): string | null {
+  const s = raw.trim()
+  if (granularity === 'day') return gaDateToIso(s)
+  if (granularity === 'week' || granularity === 'month') {
+    if (/^\d{6}$/.test(s)) return s
+    return s || null
+  }
+  return null
+}
+
+function displayPeriodLabel(sortKey: string, granularity: Granularity): string {
+  if (granularity === 'day') return displayDate(sortKey)
+  if (granularity === 'month' && /^\d{6}$/.test(sortKey)) {
+    return `${sortKey.slice(4, 6)}/${sortKey.slice(2, 4)}`
+  }
+  if (granularity === 'week' && /^\d{6}$/.test(sortKey)) {
+    return `W${sortKey.slice(4, 6)}`
+  }
+  return sortKey
 }
 
 async function runGaReport(
@@ -142,19 +177,50 @@ function applyRows(
   }
 }
 
-async function fetchDailyReport(
+async function fetchPeriodReport(
   propertyId: string,
   accessToken: string,
   startDate: string,
   endDate: string,
-  apiMetricNames: string[]
+  apiMetricNames: string[],
+  granularity: Granularity
 ): Promise<GaReportRow[]> {
+  const dimensionName = gaTimeDimension(granularity)
   return runGaReport(propertyId, accessToken, {
     dateRanges: [{ startDate, endDate }],
-    dimensions: [{ name: 'date' }],
+    dimensions: [{ name: dimensionName }],
     metrics: apiMetricNames.map((name) => ({ name })),
-    orderBys: [{ dimension: { dimensionName: 'date' } }],
+    orderBys: [{ dimension: { dimensionName } }],
   })
+}
+
+function rowToDailyEntry(row: GaReportRow, apiMetricNames: string[], label: string): DailyRow {
+  const entry = emptyDailyRow(label)
+  entry.date = label
+  apiMetricNames.forEach((name, i) => {
+    const outKey = (name === 'conversions' ? 'keyEvents' : name) as Exclude<keyof DailyRow, 'date'>
+    if (!DAILY_NUMERIC_KEYS.includes(outKey)) return
+    entry[outKey] = metricNum(row, i)
+  })
+  return entry
+}
+
+function buildPeriodSeries(
+  rows: GaReportRow[],
+  apiMetricNames: string[],
+  granularity: Granularity
+): DailyRow[] {
+  const byPeriod: Record<string, DailyRow> = {}
+  for (const row of rows) {
+    const raw = row.dimensionValues?.[0]?.value || ''
+    const sortKey = periodSortKey(raw, granularity)
+    if (!sortKey) continue
+    const label = displayPeriodLabel(sortKey, granularity)
+    byPeriod[sortKey] = rowToDailyEntry(row, apiMetricNames, label)
+  }
+  return Object.keys(byPeriod)
+    .sort()
+    .map((key) => byPeriod[key])
 }
 
 export async function GET(request: Request) {
@@ -166,6 +232,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('clientId')
   const dateRange = searchParams.get('dateRange') || 'LAST_30_DAYS'
+  const granularity = parseGranularity(searchParams.get('granularity'))
   const customStart = searchParams.get('customStart')
   const customEnd = searchParams.get('customEnd')
 
@@ -191,18 +258,31 @@ export async function GET(request: Request) {
   const accessToken = tokenResult.accessToken
 
   try {
-    const skeleton = buildDateSkeleton(startDate, endDate)
     const primaryMetrics = [...DAILY_METRICS] as string[]
     let rows: GaReportRow[] = []
     let apiMetricNames = primaryMetrics
 
     try {
-      rows = await fetchDailyReport(propertyId, accessToken, startDate, endDate, apiMetricNames)
+      rows = await fetchPeriodReport(
+        propertyId,
+        accessToken,
+        startDate,
+        endDate,
+        apiMetricNames,
+        granularity
+      )
     } catch (e) {
       console.error('[ga-daily] report with keyEvents failed:', e)
       apiMetricNames = primaryMetrics.map((m) => (m === 'keyEvents' ? 'conversions' : m))
       try {
-        rows = await fetchDailyReport(propertyId, accessToken, startDate, endDate, apiMetricNames)
+        rows = await fetchPeriodReport(
+          propertyId,
+          accessToken,
+          startDate,
+          endDate,
+          apiMetricNames,
+          granularity
+        )
         console.log('[ga-daily] using conversions metric as keyEvents fallback')
       } catch (fallbackErr) {
         console.error('[ga-daily] report with conversions fallback failed:', fallbackErr)
@@ -210,11 +290,16 @@ export async function GET(request: Request) {
       }
     }
 
-    applyRows(skeleton, rows, apiMetricNames)
-
-    const daily = Object.keys(skeleton)
-      .sort()
-      .map((iso) => skeleton[iso])
+    let daily: DailyRow[]
+    if (granularity === 'day') {
+      const skeleton = buildDateSkeleton(startDate, endDate)
+      applyRows(skeleton, rows, apiMetricNames)
+      daily = Object.keys(skeleton)
+        .sort()
+        .map((iso) => skeleton[iso])
+    } else {
+      daily = buildPeriodSeries(rows, apiMetricNames, granularity)
+    }
 
     return NextResponse.json({ daily })
   } catch (e: unknown) {
