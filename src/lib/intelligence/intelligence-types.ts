@@ -372,7 +372,9 @@ export interface IntelligenceShopify {
   connected: boolean
   // Orders
   totalOrders?: number
+  // LORAMER_SHOPIFY_NET_SALES_V1 — totalRevenue is net sales (after refunds, excludes shipping/tax)
   totalRevenue?: number
+  refundedAmount?: number
   avgOrderValue?: number
   // Products
   topProducts?: { id: string; name: string; revenue: number; units: number }[]

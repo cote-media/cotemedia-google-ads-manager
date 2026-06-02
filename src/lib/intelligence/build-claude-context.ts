@@ -332,26 +332,33 @@ function buildGaSection(ga: IntelligenceGa | undefined, limits: DataLimits): str
   return lines.join('\n')
 }
 
-// LORAMER_GA_CLAUDE_CONTEXT_V1
+// LORAMER_SHOPIFY_NET_SALES_V1
 // INTERNAL_GROUNDING: GA4 revenue and transaction counts often differ from Shopify
 // because of attribution windows, refund timing, tax/shipping, and purchase-event
-// tagging. Zero GA conversions with healthy Shopify orders usually indicates a
-// GA4 tracking gap — reason from the side-by-side numbers; do not open with a
-// blanket claim that GA is broken unless the data supports it.
+// tagging. Shopify totalRevenue in this prompt is net sales (currentSubtotalPriceSet),
+// not gross order total. Zero GA conversions with healthy Shopify orders usually
+// indicates a GA4 tracking gap — reason from the side-by-side numbers; do not open
+// with a blanket claim that GA is broken unless the data supports it.
 function buildGaShopifyReconciliation(ga: IntelligenceGa, shopify: IntelligenceShopify): string {
   const lines: string[] = []
   lines.push('\n=== GA4 vs SHOPIFY (same date range) ===')
   const gaRev = ga.totalRevenue ?? 0
   const shopRev = shopify.totalRevenue ?? 0
+  const shopRefunded = shopify.refundedAmount ?? 0
   const gaTx = ga.transactions ?? 0
   const shopOrders = shopify.totalOrders ?? 0
-  lines.push(`GA4 total revenue: $${gaRev.toFixed(2)} | Shopify total revenue: $${shopRev.toFixed(2)}`)
+  lines.push(
+    `GA4 total revenue: $${gaRev.toFixed(2)} | Shopify net sales (after refunds, excludes shipping & tax): $${shopRev.toFixed(2)}`
+  )
+  if (shopRefunded > 0) {
+    lines.push(`Shopify refunds in period: $${shopRefunded.toFixed(2)} (use with net sales to explain gross-to-net vs GA4)`)
+  }
   const revDelta = shopRev - gaRev
   if (shopRev > 0) {
     const pct = ((revDelta / shopRev) * 100).toFixed(1)
-    lines.push(`Revenue delta (Shopify minus GA4): $${revDelta.toFixed(2)} (${pct}% of Shopify revenue)`)
+    lines.push(`Revenue delta (Shopify net sales minus GA4): $${revDelta.toFixed(2)} (${pct}% of Shopify net sales)`)
   } else {
-    lines.push(`Revenue delta (Shopify minus GA4): $${revDelta.toFixed(2)}`)
+    lines.push(`Revenue delta (Shopify net sales minus GA4): $${revDelta.toFixed(2)}`)
   }
   lines.push(`GA4 transactions: ${gaTx.toLocaleString()} | Shopify orders: ${shopOrders.toLocaleString()}`)
   lines.push(`Order/transaction delta (Shopify minus GA4): ${(shopOrders - gaTx).toLocaleString()}`)
@@ -1017,7 +1024,13 @@ export function buildClaudeContextCacheable(
   if (intelligence.shopify?.connected) {
     const s = intelligence.shopify
     lines.push('\n=== SHOPIFY ===')
-    if (s.totalRevenue) lines.push(`Total Revenue: $${s.totalRevenue.toFixed(2)}`)
+    // LORAMER_SHOPIFY_NET_SALES_V1
+    if (s.totalRevenue != null) {
+      lines.push(`Net sales (after refunds, excludes shipping & tax): $${s.totalRevenue.toFixed(2)}`)
+    }
+    if (s.refundedAmount != null && s.refundedAmount > 0) {
+      lines.push(`Refunds in period: $${s.refundedAmount.toFixed(2)}`)
+    }
     if (s.totalOrders) lines.push(`Total Orders: ${s.totalOrders}`)
     if (s.avgOrderValue) lines.push(`Avg Order Value: $${s.avgOrderValue.toFixed(2)}`)
     if (s.newCustomers) lines.push(`New Customers: ${s.newCustomers}`)

@@ -13,10 +13,11 @@ import { getValidShopifyToken } from '@/lib/shopify-token'
 const GRAPHQL_API_VERSION = '2025-01'
 const MAX_ORDERS = 1000
 
+// LORAMER_SHOPIFY_NET_SALES_V1
 type OrderNode = {
   id: string
   createdAt: string
-  totalPriceSet: { shopMoney: { amount: string } }
+  currentSubtotalPriceSet: { shopMoney: { amount: string } }
 }
 
 export async function GET(request: Request) {
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
           node {
             id
             createdAt
-            totalPriceSet { shopMoney { amount } }
+            currentSubtotalPriceSet { shopMoney { amount } }
           }
         }
         pageInfo { hasNextPage endCursor }
@@ -124,7 +125,7 @@ export async function GET(request: Request) {
       const key = order.createdAt.split('T')[0]
       if (byDate[key]) {
         byDate[key].orders += 1
-        byDate[key].revenue += parseFloat(order.totalPriceSet?.shopMoney?.amount || '0')
+        byDate[key].revenue += parseFloat(order.currentSubtotalPriceSet?.shopMoney?.amount || '0')
       }
     })
 

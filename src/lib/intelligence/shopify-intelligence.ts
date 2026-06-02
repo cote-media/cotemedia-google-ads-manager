@@ -11,9 +11,11 @@ import type { IntelligenceShopify } from './intelligence-types'
 
 const GRAPHQL_API_VERSION = '2025-01'
 
+// LORAMER_SHOPIFY_NET_SALES_V1
 type GraphQLOrderNode = {
   id: string
-  totalPriceSet: { shopMoney: { amount: string } }
+  currentSubtotalPriceSet: { shopMoney: { amount: string } }
+  totalRefundedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
   customer: { id: string; numberOfOrders: number } | null
   lineItems: {
@@ -91,7 +93,8 @@ export async function fetchShopifyIntelligence(
         edges {
           node {
             id
-            totalPriceSet { shopMoney { amount } }
+            currentSubtotalPriceSet { shopMoney { amount } }
+            totalRefundedSet { shopMoney { amount } }
             displayFinancialStatus
             customer { id numberOfOrders }
             lineItems(first: 50) {
@@ -126,9 +129,13 @@ export async function fetchShopifyIntelligence(
 
     const orderNodes: GraphQLOrderNode[] = (json.data?.orders?.edges || []).map((e: any) => e.node)
 
-    // Totals
+    // LORAMER_SHOPIFY_NET_SALES_V1 — headline revenue = net sales (line-item subtotal after refunds, excludes shipping/tax)
     const totalRevenue = orderNodes.reduce(
-      (s, o) => s + parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'),
+      (s, o) => s + parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'),
+      0
+    )
+    const refundedAmount = orderNodes.reduce(
+      (s, o) => s + parseFloat(o.totalRefundedSet?.shopMoney?.amount || '0'),
       0
     )
     const totalOrders = orderNodes.length
@@ -152,22 +159,23 @@ export async function fetchShopifyIntelligence(
     // New vs returning AOV split
     const newOrderAmounts = orderNodes
       .filter(o => o.customer?.numberOfOrders === 1)
-      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+      .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
     const returningOrderAmounts = orderNodes
       .filter(o => o.customer && o.customer.numberOfOrders > 1)
-      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+      .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
     const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
     const newCustomerAov = newOrderAmounts.length > 0 ? sum(newOrderAmounts) / newOrderAmounts.length : 0
     const returningCustomerAov = returningOrderAmounts.length > 0 ? sum(returningOrderAmounts) / returningOrderAmounts.length : 0
     // Revenue concentration: what % of total revenue comes from the top 10% of orders by value
     const orderAmountsSorted = orderNodes
-      .map(o => parseFloat(o.totalPriceSet?.shopMoney?.amount || '0'))
+      .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
       .sort((a, b) => b - a)
     const top10Count = Math.max(1, Math.ceil(orderAmountsSorted.length * 0.1))
     const top10Revenue = sum(orderAmountsSorted.slice(0, top10Count))
     const revenueConcentration = totalRevenue > 0 ? (top10Revenue / totalRevenue) * 100 : 0
 
     // Top products (aggregate line items across all orders)
+    // LORAMER_SHOPIFY_NET_SALES_V1 — gross product mix from originalUnitPriceSet, not net sales
     const productSales: Record<string, { name: string; revenue: number; units: number }> = {}
     for (const order of orderNodes) {
       for (const lineEdge of order.lineItems?.edges || []) {
@@ -195,6 +203,7 @@ export async function fetchShopifyIntelligence(
       connected: true,
       totalOrders,
       totalRevenue,
+      refundedAmount,
       avgOrderValue,
       newCustomers,
       returningCustomers,
@@ -217,6 +226,7 @@ export async function fetchShopifyIntelligence(
       connected: true,
       totalOrders: 0,
       totalRevenue: 0,
+      refundedAmount: 0,
       avgOrderValue: 0,
       newCustomers: 0,
       returningCustomers: 0,
