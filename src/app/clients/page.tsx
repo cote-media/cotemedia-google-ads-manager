@@ -13,6 +13,14 @@ type Client = {
 
 type MetaAccount = { id: string; name: string; account_status: number }
 
+// LORAMER_GA_PROPERTY_PICKER_V1
+type GaProperty = {
+  account_id: string
+  account_name: string
+  property_id: string
+  property_name: string
+}
+
 type ClientContext = {
   business_type: string
   primary_kpi: string
@@ -647,6 +655,12 @@ function ClientsContent() {
   const [wooDomain, setWooDomain] = useState('')
   const [wooSuccess, setWooSuccess] = useState(false)
 
+  // LORAMER_GA_PROPERTY_PICKER_V1
+  const [gaPicker, setGaPicker] = useState<{ loading: boolean; properties: GaProperty[]; error: string } | null>(null)
+  const [gaSearch, setGaSearch] = useState('')
+  const [gaConnecting, setGaConnecting] = useState(false)
+  const [gaSuccess, setGaSuccess] = useState(false)
+
   // Meta modal state
   const [metaModal, setMetaModal] = useState<{ clientId: string; accounts: MetaAccount[] } | null>(null)
   const [selectedMetaAccounts, setSelectedMetaAccounts] = useState<string[]>([])
@@ -687,6 +701,12 @@ function ClientsContent() {
       setTimeout(() => setWooSuccess(false), 4000)
       return
     }
+    // LORAMER_GA_PROPERTY_PICKER_V1
+    const gaOauth = searchParams.get('ga_oauth')
+    if (gaOauth === 'success') { openGaPicker(); router.replace('/clients'); return }
+    if (gaOauth === 'denied') { setMetaError('Google Analytics connection was cancelled.'); return }
+    if (gaOauth === 'error') { setMetaError('Google Analytics connection failed. Please try again.'); return }
+
     if (metaAccounts && clientId) {
       try {
         const accounts: MetaAccount[] = JSON.parse(decodeURIComponent(metaAccounts))
@@ -773,6 +793,46 @@ function ClientsContent() {
     await fetchClients()
   }
 
+  // LORAMER_GA_PROPERTY_PICKER_V1
+  async function openGaPicker() {
+    setGaSearch('')
+    setGaPicker({ loading: true, properties: [], error: '' })
+    try {
+      const r = await fetch('/api/ga/properties')
+      const d = await r.json()
+      if (d.error) { setGaPicker({ loading: false, properties: [], error: d.error }); return }
+      setGaPicker({ loading: false, properties: d.properties || [], error: '' })
+    } catch {
+      setGaPicker({ loading: false, properties: [], error: 'Could not load Google Analytics properties.' })
+    }
+  }
+
+  async function connectGaProperty(p: GaProperty) {
+    setGaConnecting(true)
+    try {
+      const r = await fetch('/api/ga/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          property_id: p.property_id,
+          property_name: p.property_name,
+          account_id: p.account_id,
+          account_name: p.account_name,
+        }),
+      })
+      const d = await r.json()
+      if (d.error) { setGaPicker(prev => prev ? { ...prev, error: d.error } : prev); return }
+      setGaPicker(null)
+      setGaSuccess(true)
+      await fetchClients()
+      setTimeout(() => setGaSuccess(false), 4000)
+    } catch {
+      setGaPicker(prev => prev ? { ...prev, error: 'Connection failed. Please try again.' } : prev)
+    } finally {
+      setGaConnecting(false)
+    }
+  }
+
   const unmappedAccounts = googleAccounts.filter(acc =>
     !clients.some(c => c.platform_connections.some(p => p.account_id === acc.id && p.platform === 'google'))
   )
@@ -815,6 +875,8 @@ function ClientsContent() {
                 const metaConn = client.platform_connections.find(p => p.platform === 'meta')
                 const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
                 const wooConn = client.platform_connections.find(p => p.platform === 'woocommerce')  // LORAMER_WOO_CONNECT_V1
+                // LORAMER_GA_PROPERTY_PICKER_V1
+                const gaConn = client.platform_connections.find(p => p.platform === 'ga')
                 const isExpanded = expandedProfile === client.id
                 return (
                   <div key={client.id} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
@@ -824,7 +886,7 @@ function ClientsContent() {
                         <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => {
-                            const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn)
+                            const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn || gaConn)
                             if (hasConn) {
                               goToDashboard(client)
                             } else {
@@ -888,6 +950,22 @@ function ClientsContent() {
                               </button>
                             )}
 
+                            {/* GA pill - LORAMER_GA_PROPERTY_PICKER_V1 */}
+                            {gaConn ? (
+                              <button onClick={(e) => { e.stopPropagation(); goToDashboard(client) }} className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white hover:opacity-90 transition-opacity" style={{ background: '#E8710A' }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M5 9.2h3V19H5zM10.5 5h3v14h-3zM16 13h3v6h-3z"/></svg>
+                                Analytics
+                              </button>
+                            ) : (
+                              <a
+                                href={'/api/ga/start?clientId=' + client.id}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                              >
+                                + Analytics
+                              </a>
+                            )}
+
                             {/* Claude profile pill */}
                             {profiledClientIds.has(client.id) ? (
                               <button
@@ -909,7 +987,7 @@ function ClientsContent() {
 
                           </div>
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn); if (hasConn) { goToDashboard(client) } else { setExpandedProfile(isExpanded ? null : client.id) } }} className="flex-shrink-0 text-muted hover:text-ink transition-colors font-sans">
+                        <button onClick={(e) => { e.stopPropagation(); const hasConn = !!(googleConn || metaConn || shopifyConn || wooConn || gaConn); if (hasConn) { goToDashboard(client) } else { setExpandedProfile(isExpanded ? null : client.id) } }} className="flex-shrink-0 text-muted hover:text-ink transition-colors font-sans">
                           <span className="hidden md:inline text-xs border border-border rounded-lg px-3 py-1.5 hover:border-ink/40">Open &#8594;</span>
                           <span className="md:hidden text-lg">&#8594;</span>
                         </button>
@@ -992,7 +1070,21 @@ function ClientsContent() {
                                 }} className="text-xs text-muted hover:text-red-600 transition-colors font-sans">Disconnect</button>
                               </div>
                             )}
-                            {!googleConn && !metaConn && !shopifyConn && !wooConn && (
+                            {gaConn && (  /* LORAMER_GA_PROPERTY_PICKER_V1 */
+                              <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#E8710A' }}>
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="white" aria-hidden="true"><path d="M5 9.2h3V19H5zM10.5 5h3v14h-3zM16 13h3v6h-3z"/></svg>
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-sans font-medium text-ink">Google Analytics</p>
+                                    <p className="text-xs text-muted font-sans truncate">{gaConn.account_name}</p>
+                                  </div>
+                                </div>
+                                <span className="text-xs font-sans text-muted">Connected</span>
+                              </div>
+                            )}
+                            {!googleConn && !metaConn && !shopifyConn && !wooConn && !gaConn && (
                               <p className="text-xs font-sans text-muted italic">No platforms connected yet. Use the pills above to connect Meta or Shopify, or finish Google MCC setup.</p>
                             )}
                           </div>
@@ -1111,6 +1203,47 @@ function ClientsContent() {
       )}
 
       {/* Shopify connect modal — POST-INSTALL connection management for signed-in LoraMer users to add additional Shopify stores to their clients. NOT an install path. The install path is /api/shopify/install (Shopify-initiated). */}
+      {/* LORAMER_GA_PROPERTY_PICKER_V1 — Google Analytics property picker */}
+      {gaPicker && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg p-8 rounded-2xl shadow-xl">
+            <h3 className="font-display text-xl text-ink mb-2">Connect Google Analytics</h3>
+            <p className="text-sm text-muted font-mono mb-4">Pick the ONE property to connect to this client. LoraMer only reads the property you choose.</p>
+            {gaConnecting && <p className="text-xs text-accent font-mono mb-2">Connecting...</p>}
+            {gaPicker.loading ? (
+              <p className="text-sm text-muted font-mono">Loading your properties...</p>
+            ) : gaPicker.error ? (
+              <p className="text-sm text-red-600 font-mono mb-4">{gaPicker.error}</p>
+            ) : (
+              <>
+                <input type="text" value={gaSearch} onChange={e => setGaSearch(e.target.value)}
+                  placeholder="Search properties..."
+                  className="w-full text-sm border border-border bg-paper px-3 py-2 mb-3 rounded-lg focus:outline-none focus:border-accent" />
+                <div className="space-y-1.5 max-h-80 overflow-y-auto mb-2">
+                  {gaPicker.properties.filter(p => {
+                    const q = gaSearch.trim().toLowerCase()
+                    if (!q) return true
+                    return (p.property_name + ' ' + p.account_name).toLowerCase().includes(q)
+                  }).map(p => (
+                    <button key={p.property_id} onClick={() => connectGaProperty(p)} disabled={gaConnecting}
+                      className="w-full text-left border border-border rounded-lg px-3 py-2 hover:bg-surface disabled:opacity-50">
+                      <p className="text-sm text-ink">{p.property_name}</p>
+                      <p className="text-xs font-mono text-muted">{p.account_name} · {p.property_id}</p>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="flex justify-end pt-2">
+              <button onClick={() => setGaPicker(null)} disabled={gaConnecting}
+                className="text-xs font-mono text-muted hover:text-ink border border-border rounded-lg px-4 py-2">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {shopifyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl">
@@ -1167,6 +1300,13 @@ function ClientsContent() {
       {wooSuccess && (
         <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-sans" style={{ background: '#96588A' }}>
           ✓ WooCommerce connected successfully
+        </div>
+      )}
+
+      {/* GA success notification - LORAMER_GA_PROPERTY_PICKER_V1 */}
+      {gaSuccess && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm font-sans" style={{ background: '#E8710A' }}>
+          ✓ Google Analytics connected
         </div>
       )}
 
