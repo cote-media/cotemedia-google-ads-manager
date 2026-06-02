@@ -293,6 +293,80 @@ export interface IntelligenceAssetCombination {
   assets: string[]  // readable descriptions of the assets in this combination
 }
 
+// LORAMER_GA_INTELLIGENCE_V1
+export interface IntelligenceGaTrafficSource {
+  source: string
+  medium: string
+  sessions: number
+  conversions: number
+  totalRevenue: number
+}
+
+export interface IntelligenceGaCampaign {
+  campaignName: string
+  sessions: number
+  conversions: number
+  totalRevenue: number
+}
+
+export interface IntelligenceGaLandingPage {
+  landingPage: string
+  sessions: number
+  sessionConversionRate: number
+}
+
+export interface IntelligenceGaConversionEvent {
+  eventName: string
+  eventCount: number
+  eventValue: number
+}
+
+export interface IntelligenceGaCountry {
+  country: string
+  sessions: number
+}
+
+export interface IntelligenceGaDevice {
+  deviceCategory: string
+  sessions: number
+}
+
+export interface IntelligenceGaProduct {
+  itemName: string
+  itemsPurchased: number
+  itemRevenue: number
+}
+
+export interface IntelligenceGaTransactionSource {
+  source: string
+  medium: string
+  transactions: number
+}
+
+export interface IntelligenceGa {
+  connected: boolean
+  propertyId?: string
+  propertyName?: string
+  sessions?: number
+  totalUsers?: number
+  newUsers?: number
+  engagementRate?: number
+  conversions?: number
+  totalRevenue?: number
+  transactions?: number
+  topTrafficSources?: IntelligenceGaTrafficSource[]
+  topCampaigns?: IntelligenceGaCampaign[]
+  topLandingPages?: IntelligenceGaLandingPage[]
+  conversionEvents?: IntelligenceGaConversionEvent[]
+  topCountries?: IntelligenceGaCountry[]
+  deviceSplit?: IntelligenceGaDevice[]
+  topProducts?: IntelligenceGaProduct[]
+  transactionsBySource?: IntelligenceGaTransactionSource[]
+  cartToPurchaseRate?: number
+  purchaserConversionRate?: number
+  refundAmount?: number
+}
+
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
@@ -406,6 +480,8 @@ export interface ClientIntelligence {
   meta?: PlatformIntelligence
   shopify?: IntelligenceShopify
   woocommerce?: IntelligenceShopify  // LORAMER_WOO_INTEL_V1 - same shape as Shopify
+  // LORAMER_GA_INTELLIGENCE_V1
+  ga?: IntelligenceGa
 
   // Future platforms plug in here:
   // tiktok?: PlatformIntelligence

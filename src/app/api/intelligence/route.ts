@@ -17,6 +17,8 @@ import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'  // LORAMER_WOO_INTEL_V1
 import { getValidShopifyToken } from '@/lib/shopify-token'
+import { getValidGaToken } from '@/lib/ga-token'
+import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
@@ -154,7 +156,7 @@ export async function GET(request: Request) {
   const wooConn = connections.find(c => c.platform === 'woocommerce')  // LORAMER_WOO_INTEL_V1
 
   // ── Fetch all platforms in parallel ───────────────────────────────────────
-  const [googleResult, metaResult, shopifyResult, wooResult] = await Promise.allSettled([
+  const [googleResult, metaResult, shopifyResult, wooResult, gaResult] = await Promise.allSettled([
     // Google
     googleConn && session.refreshToken
       ? fetchGoogleIntelligence(
@@ -226,6 +228,32 @@ export async function GET(request: Request) {
             )
           })
       : Promise.resolve(null),
+
+    // LORAMER_GA_INTELLIGENCE_V1 — GA4 when ga_tokens row exists for this client
+    supabaseAdmin
+      .from('ga_tokens')
+      .select('ga_property_id, ga_property_name')
+      .eq('client_id', clientId)
+      .eq('user_email', session.user.email)
+      .maybeSingle()
+      .then(({ data: gaRow }) => {
+        if (!gaRow?.ga_property_id) return null
+        return getValidGaToken(clientId, session.user.email).then((tokenResult) => {
+          if (!tokenResult.ok) {
+            throw new Error(
+              `GA token unavailable: ${tokenResult.reason}${tokenResult.detail ? ' - ' + tokenResult.detail : ''}`
+            )
+          }
+          return fetchGaIntelligence(
+            tokenResult.gaPropertyId,
+            tokenResult.accessToken,
+            dateRange,
+            gaRow.ga_property_name || tokenResult.gaPropertyName,
+            customStart,
+            customEnd
+          )
+        })
+      }),
   ])
 
   // ── Process results — never crash on platform failure ──────────────────────
@@ -255,6 +283,19 @@ export async function GET(request: Request) {
   } else if (wooConn) {
     console.error('WooCommerce intelligence failed:', wooResult.status === 'rejected' ? wooResult.reason?.message : 'unknown')
     intelligence.woocommerce = { connected: false }
+  }
+
+  // LORAMER_GA_INTELLIGENCE_V1
+  if (gaResult.status === 'fulfilled' && gaResult.value) {
+    intelligence.ga = gaResult.value
+  } else {
+    if (gaResult.status === 'rejected') {
+      console.error(
+        'GA intelligence failed:',
+        gaResult.reason?.message || gaResult.reason
+      )
+    }
+    intelligence.ga = { connected: false }
   }
 
   // ── Cache the result ───────────────────────────────────────────────────────
