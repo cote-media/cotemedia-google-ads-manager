@@ -7,8 +7,12 @@ import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
+import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
+import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
+import { getValidGaToken } from '@/lib/ga-token'
 import type {
+  IntelligenceGa,
   IntelligenceMetrics,
   IntelligenceShopify,
   PlatformIntelligence,
@@ -274,6 +278,90 @@ function buildGoogleMetricsRows(
   return rows
 }
 
+function buildWooMetricsRows(
+  clientId: string,
+  userEmail: string,
+  captureDate: string,
+  storeUrl: string,
+  data: IntelligenceShopify
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+
+  rows.push({
+    client_id: clientId,
+    user_email: userEmail,
+    platform: 'woocommerce',
+    entity_level: 'account',
+    entity_id: storeUrl,
+    entity_name: storeUrl,
+    date: captureDate,
+    breakdown_type: '',
+    breakdown_value: '',
+    revenue: data.totalRevenue ?? 0,
+    conversions: data.totalOrders ?? 0,
+    extra: shopifyAccountExtra(data),
+  })
+
+  for (const product of data.topProducts || []) {
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'woocommerce',
+      entity_level: 'product',
+      entity_id: product.id,
+      entity_name: product.name,
+      parent_entity_id: storeUrl,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      revenue: product.revenue,
+      conversions: product.units,
+      extra: { units: product.units },
+    })
+  }
+
+  return rows
+}
+
+function gaExtra(data: IntelligenceGa): Record<string, unknown> {
+  const extra: Record<string, unknown> = {}
+  if (data.sessions != null) extra.sessions = data.sessions
+  if (data.totalUsers != null) extra.totalUsers = data.totalUsers
+  if (data.newUsers != null) extra.newUsers = data.newUsers
+  if (data.engagementRate != null) extra.engagementRate = data.engagementRate
+  if (data.transactions != null) extra.transactions = data.transactions
+  if (data.cartToPurchaseRate != null) extra.cartToPurchaseRate = data.cartToPurchaseRate
+  if (data.purchaserConversionRate != null) extra.purchaserConversionRate = data.purchaserConversionRate
+  if (data.refundAmount != null) extra.refundAmount = data.refundAmount
+  return extra
+}
+
+function buildGaMetricsRows(
+  clientId: string,
+  userEmail: string,
+  captureDate: string,
+  propertyId: string,
+  propertyName: string,
+  data: IntelligenceGa
+): Record<string, unknown>[] {
+  return [
+    {
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'ga',
+      entity_level: 'account',
+      entity_id: propertyId,
+      entity_name: propertyName,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      conversions: data.conversions ?? 0,
+      revenue: data.totalRevenue ?? 0,
+      extra: gaExtra(data),
+    },
+  ]
+}
+
 function serializeCaughtError(value: unknown): string {
   if (value instanceof Error) {
     return value.message
@@ -312,6 +400,8 @@ export async function GET(request: Request) {
     shopifyConnections: 0,
     metaConnections: 0,
     googleConnections: 0,
+    wooConnections: 0,
+    gaConnections: 0,
     rowsWritten: 0,
     errors: [] as SyncError[],
   }
@@ -578,6 +668,166 @@ export async function GET(request: Request) {
           message,
         })
       }
+    }
+  }
+
+  for (const client of clientRows) {
+    const connections = client.platform_connections || []
+    const wooConnections = connections.filter(c => c.platform === 'woocommerce')
+
+    if (wooConnections.length === 0) {
+      continue
+    }
+
+    summary.clientsProcessed += 1
+
+    for (const conn of wooConnections) {
+      summary.wooConnections += 1
+      const userEmail = conn.user_email || client.user_email
+
+      try {
+        const { data: tok, error: tokError } = await supabaseAdmin
+          .from('woocommerce_tokens')
+          .select('store_url, consumer_key, consumer_secret')
+          .eq('user_email', userEmail)
+          .eq('client_id', client.id)
+          .single()
+
+        if (tokError || !tok?.consumer_key || !tok?.consumer_secret || !tok?.store_url) {
+          throw new Error(tokError?.message || 'No WooCommerce credentials found')
+        }
+
+        const intel = await fetchWooCommerceIntelligence(
+          tok.store_url,
+          tok.consumer_key,
+          tok.consumer_secret,
+          'YESTERDAY',
+          captureDate,
+          captureDate
+        )
+
+        const rows = buildWooMetricsRows(
+          client.id,
+          userEmail,
+          captureDate,
+          tok.store_url,
+          intel
+        )
+
+        const { error: metricsError } = await supabaseAdmin
+          .from('metrics_daily')
+          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+
+        if (metricsError) {
+          throw metricsError
+        }
+
+        summary.rowsWritten += rows.length
+
+        const { error: syncError } = await supabaseAdmin
+          .from('sync_state')
+          .upsert(
+            {
+              client_id: client.id,
+              platform: 'woocommerce',
+              last_forward_sync_date: captureDate,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'client_id,platform' }
+          )
+
+        if (syncError) {
+          throw syncError
+        }
+      } catch (err) {
+        const message = serializeCaughtError(err)
+        console.error(
+          `[cron/sync] client=${client.id} platform=woocommerce:`,
+          message
+        )
+        summary.errors.push({
+          clientId: client.id,
+          platform: 'woocommerce',
+          message,
+        })
+      }
+    }
+  }
+
+  for (const client of clientRows) {
+    const userEmail = client.user_email
+
+    try {
+      const gaToken = await getValidGaToken(client.id, userEmail)
+
+      if (!gaToken.ok) {
+        if (gaToken.reason !== 'no_token') {
+          summary.errors.push({
+            clientId: client.id,
+            platform: 'ga',
+            message: `GA token unavailable: ${gaToken.reason}${gaToken.detail ? ' - ' + gaToken.detail : ''}`,
+          })
+        }
+        continue
+      }
+
+      summary.clientsProcessed += 1
+      summary.gaConnections += 1
+
+      const intel = await fetchGaIntelligence(
+        gaToken.gaPropertyId,
+        gaToken.accessToken,
+        'YESTERDAY',
+        gaToken.gaPropertyName,
+        captureDate,
+        captureDate
+      )
+
+      const rows = buildGaMetricsRows(
+        client.id,
+        userEmail,
+        captureDate,
+        gaToken.gaPropertyId,
+        gaToken.gaPropertyName,
+        intel
+      )
+
+      const { error: metricsError } = await supabaseAdmin
+        .from('metrics_daily')
+        .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+
+      if (metricsError) {
+        throw metricsError
+      }
+
+      summary.rowsWritten += rows.length
+
+      const { error: syncError } = await supabaseAdmin
+        .from('sync_state')
+        .upsert(
+          {
+            client_id: client.id,
+            platform: 'ga',
+            last_forward_sync_date: captureDate,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'client_id,platform' }
+        )
+
+      if (syncError) {
+        throw syncError
+      }
+    } catch (err) {
+      const message = serializeCaughtError(err)
+      console.error(
+        `[cron/sync] client=${client.id} platform=ga:`,
+        message
+      )
+      summary.errors.push({
+        clientId: client.id,
+        platform: 'ga',
+        message,
+      })
     }
   }
 
