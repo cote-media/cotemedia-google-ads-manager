@@ -89,9 +89,18 @@ function buildShopifyMetricsRows(
 }
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  const authHeader = request.headers.get('authorization')
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  const envSecret = (process.env.CRON_SECRET ?? '').trim()
+  const authHeader = request.headers.get('authorization') ?? ''
+  const gotToken = (
+    authHeader.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length)
+      : authHeader
+  ).trim()
+
+  if (!envSecret || gotToken !== envSecret) {
+    console.error(
+      `[cron] auth failed — envSecretSet: ${Boolean(process.env.CRON_SECRET)}, envLen: ${envSecret.length}, gotTokenLen: ${gotToken.length}`
+    )
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
