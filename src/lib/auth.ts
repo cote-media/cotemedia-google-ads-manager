@@ -2,6 +2,7 @@ import { NextAuthOptions, DefaultSession } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials' // LORAMER_REVIEWER_BYPASS_V1
 import { verifyInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
+import { supabaseAdmin } from '@/lib/supabase'
 
 declare module 'next-auth' {
   interface Session extends DefaultSession {
@@ -59,6 +60,32 @@ export const authOptions: NextAuthOptions = {
       if (account) {
         token.accessToken = account.access_token
         token.refreshToken = account.refresh_token
+
+        if (account.provider === 'google' && account.refresh_token && user?.email) {
+          try {
+            const row: Record<string, string | null> = {
+              user_email: user.email,
+              refresh_token: account.refresh_token,
+              updated_at: new Date().toISOString(),
+              expires_at: account.expires_at
+                ? new Date(account.expires_at * 1000).toISOString()
+                : null,
+            }
+            if (account.access_token) {
+              row.access_token = account.access_token
+            }
+
+            const { error } = await supabaseAdmin
+              .from('google_tokens')
+              .upsert(row, { onConflict: 'user_email' })
+
+            if (error) {
+              console.error('[auth] failed to persist google refresh token:', error)
+            }
+          } catch (err) {
+            console.error('[auth] failed to persist google refresh token:', err)
+          }
+        }
       }
       if (user?.email) { token.email = user.email }
       return token
