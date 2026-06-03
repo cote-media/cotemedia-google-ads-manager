@@ -88,6 +88,20 @@ function buildShopifyMetricsRows(
   return rows
 }
 
+function serializeCaughtError(value: unknown): string {
+  if (value instanceof Error) {
+    return value.message
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
@@ -187,10 +201,10 @@ export async function GET(request: Request) {
           throw syncError
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err)
+        const message = serializeCaughtError(err)
         console.error(
           `[cron/sync] client=${client.id} platform=shopify shop=${shopDomain}:`,
-          err
+          message
         )
         summary.errors.push({
           clientId: client.id,
