@@ -1,12 +1,17 @@
 // LORAMER_FORWARD_CAPTURE_CRON_V1
-// Nightly forward-capture: yesterday's Shopify metrics -> metrics_daily.
+// Nightly forward-capture: yesterday's Shopify + Meta metrics -> metrics_daily.
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
+import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
-import type { IntelligenceShopify } from '@/lib/intelligence/intelligence-types'
+import type {
+  IntelligenceMetrics,
+  IntelligenceShopify,
+  PlatformIntelligence,
+} from '@/lib/intelligence/intelligence-types'
 
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -91,6 +96,114 @@ function buildShopifyMetricsRows(
   return rows
 }
 
+function metaMetricsExtra(metrics: IntelligenceMetrics): Record<string, unknown> {
+  const extra: Record<string, unknown> = {
+    ctr: metrics.ctr,
+    cpc: metrics.cpc,
+    cpm: metrics.cpm,
+    roas: metrics.roas,
+    cpa: metrics.cpa,
+    convRate: metrics.convRate,
+  }
+  if (metrics.reach != null) extra.reach = metrics.reach
+  if (metrics.frequency != null) extra.frequency = metrics.frequency
+  if (metrics.purchases != null) extra.purchases = metrics.purchases
+  if (metrics.addToCart != null) extra.addToCart = metrics.addToCart
+  if (metrics.initiateCheckout != null) {
+    extra.initiateCheckout = metrics.initiateCheckout
+  }
+  if (metrics.viewContent != null) extra.viewContent = metrics.viewContent
+  if (metrics.costPerPurchase != null) {
+    extra.costPerPurchase = metrics.costPerPurchase
+  }
+  if (metrics.costPerAddToCart != null) {
+    extra.costPerAddToCart = metrics.costPerAddToCart
+  }
+  return extra
+}
+
+function buildMetaMetricsRows(
+  clientId: string,
+  userEmail: string,
+  captureDate: string,
+  accountId: string,
+  accountName: string | null | undefined,
+  data: PlatformIntelligence
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+  const totals = data.totals
+
+  const pushRow = (
+    entityLevel: string,
+    entityId: string,
+    entityName: string,
+    metrics: IntelligenceMetrics,
+    parentEntityId?: string
+  ) => {
+    const row: Record<string, unknown> = {
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'meta',
+      entity_level: entityLevel,
+      entity_id: entityId,
+      entity_name: entityName,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      spend: metrics.spend,
+      impressions: metrics.impressions,
+      clicks: metrics.clicks,
+      conversions: metrics.conversions,
+      conversion_value: metrics.conversionValue,
+      revenue: 0,
+      extra: metaMetricsExtra(metrics),
+    }
+    if (parentEntityId) {
+      row.parent_entity_id = parentEntityId
+    }
+    rows.push(row)
+  }
+
+  pushRow(
+    'account',
+    accountId,
+    accountName || accountId,
+    totals
+  )
+
+  for (const campaign of data.campaigns || []) {
+    pushRow(
+      'campaign',
+      campaign.id,
+      campaign.name,
+      campaign.metrics,
+      accountId
+    )
+  }
+
+  for (const adSet of data.adGroups || []) {
+    pushRow(
+      'ad_set',
+      adSet.id,
+      adSet.name,
+      adSet.metrics,
+      adSet.campaignId
+    )
+  }
+
+  for (const ad of data.ads || []) {
+    pushRow(
+      'ad',
+      ad.id,
+      ad.name,
+      ad.metrics,
+      ad.adGroupId
+    )
+  }
+
+  return rows
+}
+
 function serializeCaughtError(value: unknown): string {
   if (value instanceof Error) {
     return value.message
@@ -127,6 +240,7 @@ export async function GET(request: Request) {
     date: captureDate,
     clientsProcessed: 0,
     shopifyConnections: 0,
+    metaConnections: 0,
     rowsWritten: 0,
     errors: [] as SyncError[],
   }
@@ -218,6 +332,91 @@ export async function GET(request: Request) {
         summary.errors.push({
           clientId: client.id,
           platform: 'shopify',
+          message,
+        })
+      }
+    }
+  }
+
+  for (const client of clientRows) {
+    const connections = client.platform_connections || []
+    const metaConnections = connections.filter(c => c.platform === 'meta')
+
+    if (metaConnections.length === 0) {
+      continue
+    }
+
+    summary.clientsProcessed += 1
+
+    for (const conn of metaConnections) {
+      summary.metaConnections += 1
+      const accountId = conn.account_id
+      const userEmail = conn.user_email || client.user_email
+
+      try {
+        const { data: tokenRow, error: tokenError } = await supabaseAdmin
+          .from('meta_tokens')
+          .select('access_token')
+          .eq('user_email', userEmail)
+          .single()
+
+        if (tokenError || !tokenRow?.access_token) {
+          throw new Error(
+            tokenError?.message || 'No Meta token found'
+          )
+        }
+
+        const intel = await fetchMetaIntelligence(
+          tokenRow.access_token,
+          accountId,
+          'YESTERDAY',
+          captureDate,
+          captureDate
+        )
+
+        const rows = buildMetaMetricsRows(
+          client.id,
+          userEmail,
+          captureDate,
+          accountId,
+          conn.account_name,
+          intel
+        )
+
+        const { error: metricsError } = await supabaseAdmin
+          .from('metrics_daily')
+          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+
+        if (metricsError) {
+          throw metricsError
+        }
+
+        summary.rowsWritten += rows.length
+
+        const { error: syncError } = await supabaseAdmin
+          .from('sync_state')
+          .upsert(
+            {
+              client_id: client.id,
+              platform: 'meta',
+              last_forward_sync_date: captureDate,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'client_id,platform' }
+          )
+
+        if (syncError) {
+          throw syncError
+        }
+      } catch (err) {
+        const message = serializeCaughtError(err)
+        console.error(
+          `[cron/sync] client=${client.id} platform=meta account=${accountId}:`,
+          message
+        )
+        summary.errors.push({
+          clientId: client.id,
+          platform: 'meta',
           message,
         })
       }
