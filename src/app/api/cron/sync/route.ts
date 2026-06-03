@@ -1,11 +1,12 @@
 // LORAMER_FORWARD_CAPTURE_CRON_V1
-// Nightly forward-capture: yesterday's Shopify + Meta metrics -> metrics_daily.
+// Nightly forward-capture: yesterday's Shopify + Meta + Google metrics -> metrics_daily.
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
+import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import type {
   IntelligenceMetrics,
@@ -204,6 +205,75 @@ function buildMetaMetricsRows(
   return rows
 }
 
+function googleMetricsExtra(metrics: IntelligenceMetrics): Record<string, unknown> {
+  return {
+    ctr: metrics.ctr,
+    cpc: metrics.cpc,
+    cpm: metrics.cpm,
+    roas: metrics.roas,
+    cpa: metrics.cpa,
+    convRate: metrics.convRate,
+  }
+}
+
+function buildGoogleMetricsRows(
+  clientId: string,
+  userEmail: string,
+  captureDate: string,
+  customerId: string,
+  accountName: string | null | undefined,
+  data: PlatformIntelligence
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+
+  const pushRow = (
+    entityLevel: string,
+    entityId: string,
+    entityName: string,
+    metrics: IntelligenceMetrics,
+    parentEntityId?: string
+  ) => {
+    const row: Record<string, unknown> = {
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'google',
+      entity_level: entityLevel,
+      entity_id: entityId,
+      entity_name: entityName,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      spend: metrics.spend,
+      impressions: metrics.impressions,
+      clicks: metrics.clicks,
+      conversions: metrics.conversions,
+      conversion_value: metrics.conversionValue,
+      revenue: 0,
+      extra: googleMetricsExtra(metrics),
+    }
+    if (parentEntityId) {
+      row.parent_entity_id = parentEntityId
+    }
+    rows.push(row)
+  }
+
+  pushRow('account', customerId, accountName || customerId, data.totals)
+
+  for (const campaign of data.campaigns || []) {
+    pushRow('campaign', campaign.id, campaign.name, campaign.metrics, customerId)
+  }
+
+  for (const adGroup of data.adGroups || []) {
+    pushRow('ad_group', adGroup.id, adGroup.name, adGroup.metrics, adGroup.campaignId)
+  }
+
+  for (const ad of data.ads || []) {
+    pushRow('ad', ad.id, ad.name, ad.metrics, ad.adGroupId)
+  }
+
+  return rows
+}
+
 function serializeCaughtError(value: unknown): string {
   if (value instanceof Error) {
     return value.message
@@ -241,6 +311,7 @@ export async function GET(request: Request) {
     clientsProcessed: 0,
     shopifyConnections: 0,
     metaConnections: 0,
+    googleConnections: 0,
     rowsWritten: 0,
     errors: [] as SyncError[],
   }
@@ -417,6 +488,93 @@ export async function GET(request: Request) {
         summary.errors.push({
           clientId: client.id,
           platform: 'meta',
+          message,
+        })
+      }
+    }
+  }
+
+  for (const client of clientRows) {
+    const connections = client.platform_connections || []
+    const googleConnections = connections.filter(c => c.platform === 'google')
+
+    if (googleConnections.length === 0) {
+      continue
+    }
+
+    summary.clientsProcessed += 1
+
+    for (const conn of googleConnections) {
+      summary.googleConnections += 1
+      const customerId = conn.account_id
+      const userEmail = conn.user_email || client.user_email
+
+      try {
+        const { data: tokenRow, error: tokenError } = await supabaseAdmin
+          .from('google_tokens')
+          .select('refresh_token')
+          .eq('user_email', userEmail)
+          .single()
+
+        if (tokenError || !tokenRow?.refresh_token) {
+          throw new Error(tokenError?.message || 'No Google refresh token found')
+        }
+
+        const intel = await fetchGoogleIntelligence(
+          tokenRow.refresh_token,
+          customerId,
+          'YESTERDAY',
+          process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
+          process.env.GOOGLE_CLIENT_ID!,
+          process.env.GOOGLE_CLIENT_SECRET!,
+          process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
+          captureDate,
+          captureDate
+        )
+
+        const rows = buildGoogleMetricsRows(
+          client.id,
+          userEmail,
+          captureDate,
+          customerId,
+          conn.account_name,
+          intel
+        )
+
+        const { error: metricsError } = await supabaseAdmin
+          .from('metrics_daily')
+          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+
+        if (metricsError) {
+          throw metricsError
+        }
+
+        summary.rowsWritten += rows.length
+
+        const { error: syncError } = await supabaseAdmin
+          .from('sync_state')
+          .upsert(
+            {
+              client_id: client.id,
+              platform: 'google',
+              last_forward_sync_date: captureDate,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'client_id,platform' }
+          )
+
+        if (syncError) {
+          throw syncError
+        }
+      } catch (err) {
+        const message = serializeCaughtError(err)
+        console.error(
+          `[cron/sync] client=${client.id} platform=google customer=${customerId}:`,
+          message
+        )
+        summary.errors.push({
+          clientId: client.id,
+          platform: 'google',
           message,
         })
       }
