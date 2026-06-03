@@ -48,6 +48,7 @@ function shopifyAccountExtra(data: IntelligenceShopify): Record<string, unknown>
 
 function buildShopifyMetricsRows(
   clientId: string,
+  userEmail: string,
   captureDate: string,
   shopDomain: string,
   data: IntelligenceShopify
@@ -56,6 +57,7 @@ function buildShopifyMetricsRows(
 
   rows.push({
     client_id: clientId,
+    user_email: userEmail,
     platform: 'shopify',
     entity_level: 'account',
     entity_id: shopDomain,
@@ -71,6 +73,7 @@ function buildShopifyMetricsRows(
   for (const product of data.topProducts || []) {
     rows.push({
       client_id: clientId,
+      user_email: userEmail,
       platform: 'shopify',
       entity_level: 'product',
       entity_id: product.id,
@@ -173,7 +176,13 @@ export async function GET(request: Request) {
           captureDate
         )
 
-        const rows = buildShopifyMetricsRows(client.id, captureDate, shopDomain, intel)
+        const rows = buildShopifyMetricsRows(
+          client.id,
+          userEmail,
+          captureDate,
+          shopDomain,
+          intel
+        )
 
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
