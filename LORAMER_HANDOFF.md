@@ -397,10 +397,38 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 
 ### Open / urgent (June 2, 2026)
 
-- ⚠️ **SECURITY (HIGH — NOT DONE):** Secrets exposed in a screenshot of `.env.local` earlier today. Rotate: Google client secret, Google Ads developer token, NextAuth secret, Supabase keys, Meta app secret. Update Vercel env vars after rotation.
+- ✅ **SECURITY (HIGH):** ✅ DONE June 3 except one — rotated & verified NextAuth secret, Meta app secret, both Google OAuth client secrets, Shopify client secret, and Supabase keys (migrated to new sb_secret/sb_publishable system). STILL OUTSTANDING: Google Ads developer token (prerequisite for the Google sync adapter).
 - **GA Phase 6 disconnect** — `/api/ga/disconnect` + button on GA connection row (minor, closes V1)
 - **Google date-path tech debt** — finish migrating all Google routes to `resolveDateWindow` (Project 8)
 - **New roadmap items filed:** site-wide info tooltips, warm-start agency brain, client-list sort/filter/drag-drop, Project 18 scope expansion to all tabs — see ROADMAP.md
+
+### Session — June 3, 2026 (evening): Security rotation + Historical Data Engine (Phase 0a) launched
+
+**Security rotation (the June 2 exposed-secrets item) — DONE except one.** Rotated & verified: NextAuth secret, Meta app secret, both Google OAuth client secrets (login client + GA connector), Shopify client secret (gotcha: webhooks stay signed with the OLD secret until you revoke it — revoke to clear invalid_hmac on reconnect), and Supabase keys (migrated to the new sb_secret/sb_publishable key system; env var NAMES unchanged; legacy anon+service_role disabled). STILL OUTSTANDING: the Google Ads developer token — not yet rotated, and the prerequisite for the Google sync adapter below.
+
+**Meta "no spend" bug — FIXED (commit 65db1a8).** Root cause: meta-intelligence.ts buildDatePreset mapped LAST_7_DAYS/LAST_30_DAYS to invalid Meta enums; valid enums are last_7d/last_30d. fetchAll also swallowed Meta errors and returned [] while reporting connected:true. Fixed the enums and made fetchAll throw on d.error. Verified in-app Claude now matches the dashboard.
+
+**Historical Data Engine — Phase 0a built, deployed, VERIFIED.** The foundation for period-over-period / arbitrary historical analysis. Design: docs/HISTORICAL_DATA_ENGINE_DESIGN.md. Architecture: platform-agnostic daily-grain Supabase warehouse + nightly forward-capture cron + (later) backfill + (later) a Claude query layer.
+- 0a.1 Schema — DONE. Tables created in Supabase SQL Editor: metrics_daily (daily fact table; UNIQUE(client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value) for idempotent upserts; breakdown_type/value default ''), sync_state (forward + backfill progress per client×platform), google_tokens (user_email PK, refresh_token, access_token, expires_at). RLS enabled on all three, no policies (service-role only).
+- 0a.2 Google refresh-token persistence — DONE (commit 0e1dee7). auth.ts jwt callback upserts the Google refresh token into google_tokens on sign-in (writes refresh_token only when present; never blocks login). Verified stored for cotebrandmarketing@gmail.com. Lets the cron reach Google without a session.
+- 0a.3a Cron + Shopify adapter — LIVE & VERIFIED (commit a844ada + fixes). vercel.json cron "0 8 * * *" → GET /api/cron/sync. Bearer CRON_SECRET auth (trim-tolerant), resolveDateWindow('YESTERDAY') single-day capture, iterates clients × platform_connections, getValidShopifyToken → fetchShopifyIntelligence(single-day) → upserts metrics_daily (account + product rows) + sync_state, per-connection try/catch via serializeCaughtError, JSON summary. VERIFIED: influential-drones wrote account + product rows at $179.99 / 1 order for 2026-06-02, matching Shopify.
+- 0a.3b Meta adapter — LIVE & VERIFIED (commit 961e5c7). Mirrors Shopify: Meta token from meta_tokens by user_email, single-day fetchMetaIntelligence, buildMetaMetricsRows → account → campaign → ad_set → ad rows (parents set), spend/impressions/clicks/conversions + conversion_value (revenue 0 for ad platforms), extra jsonb for ctr/cpc/cpm/roas. VERIFIED: Veterinary Mastermind account $90.80 = exact sum of its 3 campaigns; full hierarchy reconciles.
+
+**CRON_SECRET** is set in Vercel (Production). A value was shared in plain text in chat during debugging — ROTATE it. Hard-won gotcha: it was first created as `CronSecret` (camelCase); the code reads process.env.CRON_SECRET, so the env var NAME must be exactly CRON_SECRET (case-sensitive).
+
+**Shopify token-refresh failures — INVESTIGATED & RESOLVED (no customer impact).** The cron's 'refresh_failed' errors were all DEV/REVIEWER stores. Two self-healed (transient one-time-refresh-token races). The stale one was a DUPLICATE token row for the App Store reviewer demo store, whose refresh token was rotated away by another row for the SAME store under a different email. Real customer store (influential-drones) is clean. Root cause: multiple shopify_tokens rows per store under different user_emails fight over Shopify's one-time-use refresh token.
+
+**Parked follow-ups (NOT urgent, no customer data at risk):**
+1. Harden getValidShopifyToken: post-refresh DB save is fire-and-forget (returns ok even if it fails / matches 0 rows); guard a missing refresh_token in Shopify's response + the cron-vs-dashboard race. Same path serves the live app.
+2. Dedupe shopify_tokens rows per store + reconcile the 3-way user_email keying (cron conn.user_email vs in-app session vs App Store shopify+{handle}@loramer.app).
+3. Cosmetic: cron clientsProcessed double-counts clients with both Shopify and Meta.
+
+**NEXT (where the next session picks up):**
+1. Rotate the Google Ads developer token (Google Ads API Center) — closes the last exposed secret and unblocks Google.
+2. Build 0a.3c — Google sync adapter (mirror the Meta adapter; GAQL daily pull per customer id; uses google_tokens refresh token + rotated dev token).
+3. Build 0a.3d — GA + WooCommerce adapters.
+4. Phase 0b — one-time backfill (races the ~37-month rolling purge on Google/Meta for old data).
+5. Phase 3 — Claude query layer (tools that pull warehouse slices per question).
 
 ---
 

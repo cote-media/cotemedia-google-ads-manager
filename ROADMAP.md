@@ -1318,3 +1318,15 @@ The intelligence audit recommended Option C (full context by default, narrow sli
 ### Misc
 - [x] Vercel auto-deploy from GitHub pushes
 - [x] Claude using client name (not "Cote Media") in chat
+
+## Historical Data Engine (foundational) — added June 3, 2026
+System of record for period-over-period and arbitrary historical analysis. Platform-agnostic daily-grain warehouse (metrics_daily) + nightly forward-capture cron + backfill + Claude query layer. Design: docs/HISTORICAL_DATA_ENGINE_DESIGN.md.
+- 0a.1 schema DONE. 0a.2 google_tokens DONE. 0a.3a Shopify LIVE/VERIFIED. 0a.3b Meta LIVE/VERIFIED.
+- Remaining: 0a.3c Google (needs Google Ads dev-token rotation), 0a.3d GA + Woo, 0b backfill, Phase 3 query layer.
+
+## Pre-launch requirements — added June 3, 2026
+- Google OAuth app verification (sensitive adwords scope; no CASA needed): consent screen + declared scopes, verified domains (loramer.com + Vercel), public homepage + privacy policy, scope justification + demo video, submit in Verification Center, publish.
+- Homepage unification: regularize loramer.com marketing homepage with the Vercel app landing; Sign-in-with-Google stays only on the Vercel app. On the critical path for Google verification.
+
+## Brand principle candidate — added June 3, 2026
+"LoraMer is your permanent system of record" — platforms purge granular history at ~37 months; LoraMer keeps it from connect-day forward. Honest framing: permanent from capture onward + bounded backfill; never claim recovery of already-purged data.
