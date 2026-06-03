@@ -9,8 +9,8 @@ const META_API = 'https://graph.facebook.com/v21.0'
 // LORAMER_DATE_RANGE_CANONICAL_V1
 function buildDatePreset(dateRange: string): string {
   const map: Record<string, string> = {
-    TODAY: 'today', YESTERDAY: 'yesterday', LAST_7_DAYS: 'last_7_days',
-    LAST_14_DAYS: 'last_14d', LAST_30_DAYS: 'last_30_days',
+    TODAY: 'today', YESTERDAY: 'yesterday', LAST_7_DAYS: 'last_7d',
+    LAST_14_DAYS: 'last_14d', LAST_30_DAYS: 'last_30d',
     THIS_MONTH: 'this_month', LAST_MONTH: 'last_month',
     LAST_90_DAYS: 'last_90d',
   }
@@ -69,6 +69,7 @@ async function fetchAll(url: string, token: string): Promise<any[]> {
     const fullUrl = nextUrl + sep + 'access_token=' + token
     const res: Response = await fetch(fullUrl)
     const d: any = await res.json()
+    if (d.error) throw new Error('Meta Graph error: ' + JSON.stringify(d.error))
     if (d.data) results.push(...d.data)
     nextUrl = d.paging?.next || null
     if (results.length > 500) break
