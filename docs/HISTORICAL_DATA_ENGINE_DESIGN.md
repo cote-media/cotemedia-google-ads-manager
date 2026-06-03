@@ -86,8 +86,8 @@ This is the constraint that shapes everything, and it is time-sensitive.
 
 ## 6. Phased build (value fast, no boiling the ocean)
 
-- **URGENT — Phase 0a: Forward-capture first.** Stand up the store schema + nightly sync for the platforms we have, so we **stop losing the rolling granular window today** — even before backfill and the query layer are polished. This is the countdown item.
-- **Phase 0b:** Backfill + a basic query tool for **one** platform end-to-end (likely Google or Meta), proving the multi-period comparison works on one real client.
+- **Phase 0a: Forward-capture — ✅ COMPLETE (June 3, 2026).** Store schema + nightly sync for all five platforms (Shopify, Meta, Google, WooCommerce, GA) live and verified reconciling via `/api/cron/sync`.
+- **Phase 0b — backfill ✅ DONE; query tool remaining.** Google account-level backfill proven on My Vacation Network (`/api/backfill/google` V2): 658 daily rows, 2024-05-17→2026-06-02, $76.5k. **Still to build:** basic `query_metrics` tool proving multi-period comparison on stored data for one platform end-to-end.
 - **Phase 1:** Roll adapters out to the rest of the current platforms (Meta/Google/Shopify/GA/Woo).
 - **Phase 2:** Asset/combination-level depth + breakdowns where retained.
 - **Phase 3:** Wire Claude fully onto the query layer; retire the window-fetch + 15-min cache in `/api/intelligence`.
@@ -106,6 +106,7 @@ This is the constraint that shapes everything, and it is time-sensitive.
 
 ## 8. Open decisions / to verify during build
 
+0. **Backfill depth is account-specific, not always 36 months.** Backfill goes only as deep as each account's real history — e.g. My Vacation Network's Google data starts 2024-05-17, not the full 36-month cap.
 1. Finalize exact per-platform retention (GA4 property settings; confirm Shopify/Woo full history).
 2. Rolling-lookback window per platform for late-attributed conversions.
 3. Asset/combination depth: forward-capture is total; **backfill is partial** (Google PMax combinations / Meta breakdowns are the most retention-limited layer).

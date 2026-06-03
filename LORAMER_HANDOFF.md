@@ -1,3 +1,32 @@
+# ⛔ STOP — MANDATORY READING GATE (every new chat, no exceptions)
+
+You are a fresh Claude picking up an active, multi-week, multi-hundred-commit build. The single worst failure mode here is starting work half-informed — it already happened once (a fresh Claude designed a feature from scratch without reading HISTORICAL_DATA_ENGINE_DESIGN.md because nothing forced it to). That cannot recur.
+
+Before you read the rest of this document, before you open CONTINUE_HERE.md, and before your first reply says anything beyond "confirming, reading now," you must complete EVERY step below, IN ORDER. You do not have direct access to the repo, git, or past chats by default — but you have tools that do. Use them. "I can't read that" is unacceptable when a tool exists that can.
+
+## Step 1 — Read EVERY mounted project document, in full.
+Not just this file. Open and read end-to-end every file in the project panel: LORAMER_HANDOFF.md (this file), ROADMAP.md, CONTINUE_HERE.md, and every design/audit/feature doc present (HISTORICAL_DATA_ENGINE_DESIGN.md, UPLOAD_FEATURE_DESIGN.md, AUDIT_FINDINGS.md, and any others). The snapshot lags the live repo — so Step 2 is also required.
+
+## Step 2 — Sweep the project knowledge base with project_knowledge_search.
+Run it broadly and repeatedly: the current topic, plus "design," "architecture," "audit," every platform name, every feature name. The most relevant document is often one you didn't know existed. Do NOT conclude a doc doesn't exist until several distinct searches come back empty.
+
+## Step 3 — Read the relevant codebase + git via Claude Code (mandatory before ANY code work).
+claude.ai cannot read the local repo or git. So before you design or write a single line, have Russ run a Claude Code "INVESTIGATE ONLY — report, don't edit" sweep in the Cursor Agents window covering: the files the task touches, recent git log, and related modules — and report back. Designing from assumptions about code you haven't seen is forbidden. This is not optional for anything beyond a trivial change.
+
+## Step 4 — Read the prior chat history.
+Use conversation_search and recent_chats (scoped to this project) to pull the most recent sessions and anything matching the current task. Read what the previous Claude actually built, decided, and warned about. Continuity lives there, not in your assumptions.
+
+## Step 5 — ONLY NOW open CONTINUE_HERE.md, then give your first reply.
+CONTINUE_HERE assumes Steps 1–4 are done. Your first reply must:
+- Confirm you completed the full reading gate (name the key docs and the last session's state).
+- Show you hold the brand mission (deep accumulated knowledge → force-multiplier recommendations; "right > fast"; "think hard, type less").
+- Show you hold the discipline rules (no same mistake twice; dry-runs sacred; complete paste-ready commands with the destination labeled every time; Russ does not touch code).
+- Ask Russ what he wants to work on.
+
+Do not skip a step. Do not start coding before Step 5. If you're tempted to shortcut this because the task "seems simple," that temptation is exactly the failure mode this gate exists to stop.
+
+---
+
 # LORAMER HANDOFF — Read This Before Doing Anything
 
 You (Claude) are now working with Russell Côté on LoraMer, a business intelligence platform he's building. Russ has been doing this for weeks. This is not a fresh project. Before you touch anything, read this entire document, then read `ROADMAP.md`. Don't skip ahead.
@@ -88,6 +117,12 @@ Every patch we ship adds to our institutional knowledge of failure modes. Docume
 **24. Bug hunts in big files: investigate-only first (June 2, 2026).** For complex diagnosis in large files (`dashboard/page.tsx`, intelligence adapters), use Claude Code in "investigate-only, report don't edit" mode first. Review the diagnosis, then write a tight fix spec. Prevents speculative patches that burn build cycles.
 
 **25. Cross-machine: repo is single source of truth — always `git pull` at session start (June 2, 2026).** iMac: `~/Downloads/cotemedia-ads-manager/`. Air: `~/Downloads/cotemedia-google-ads-manager/`. Same repo, different clone folder names. Every session on either machine starts with `git pull`. Uncommitted/unpushed work doesn't travel. See Multi-machine sync ritual below.
+
+**26. Serverless backfill cross-request cursor race (LORAMER_BACKFILL_GOOGLE_0B_V2).** A chunked/resumable job that re-reads its cursor from the DB on each separate HTTP call can restart from the same point, because a just-committed write isn't reflected in the next invocation's read ~1s later. Fix: do the whole job in ONE invocation with an in-memory loop; persist the cursor per chunk only for resume-after-interrupt, never as the loop's control.
+
+**27. zsh eats unquoted globs; BSD grep needs -E.** `grep --include=*.ts` failed with "no matches found" because zsh expanded `*.ts` before grep saw it; quote globs (`--include="*.ts"`). macOS grep is BSD: use `grep -E "a|b"` for alternation, not `\|`. Keep pasted commands simple — heavy quoting risks smart-quote corruption on paste.
+
+**28. Verify a freshly-deployed cron/route against LIVE production and give it time to finish.** The generic Vercel Logs view serves stale invocations; triggering from an old deployment's summary runs old code. The Google adapter looked broken for several rounds purely because of stale triggers + stale logs. Trigger current production, wait for completion (later loops in the cron write last), then check the DB.
 
 ### Claude.ai vs Claude Code — what Claude can actually see
 
@@ -342,7 +377,13 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 
 ---
 
-## Current state (as of June 2, 2026 evening)
+## Current state (as of June 3, 2026 evening)
+
+### Historical Data Engine
+- **Phase 0a COMPLETE** — all 5 forward adapters live + verified (Shopify, Meta, Google, WooCommerce, GA); nightly cron `/api/cron/sync` forward-captures daily metrics into `metrics_daily`.
+- **Phase 0b backfill DONE + verified** on My Vacation Network — `/api/backfill/google` V2 pulled 658 account-level daily rows, 2024-05-17→2026-06-02, $76.5k spend, one clean run after fixing cross-request cursor race.
+- **Google Ads developer token AND CRON_SECRET both rotated.**
+- **Remaining Phase 0b:** `query_metrics` tool — basic query layer proving multi-period comparison ("last 7 days vs 6 / 12 / 18 months ago") on stored data.
 
 ### Shipped today (June 2, 2026 — 14 commits on main)
 

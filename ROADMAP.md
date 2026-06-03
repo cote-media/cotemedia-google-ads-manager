@@ -1321,8 +1321,10 @@ The intelligence audit recommended Option C (full context by default, narrow sli
 
 ## Historical Data Engine (foundational) — added June 3, 2026
 System of record for period-over-period and arbitrary historical analysis. Platform-agnostic daily-grain warehouse (metrics_daily) + nightly forward-capture cron + backfill + Claude query layer. Design: docs/HISTORICAL_DATA_ENGINE_DESIGN.md.
-- 0a.1 schema DONE. 0a.2 google_tokens DONE. 0a.3a Shopify LIVE/VERIFIED. 0a.3b Meta LIVE/VERIFIED.
-- Remaining: 0a.3c Google (needs Google Ads dev-token rotation), 0a.3d GA + Woo, 0b backfill, Phase 3 query layer.
+- [x] **Phase 0a COMPLETE** — all 5 forward adapters LIVE/VERIFIED (Shopify, Meta, Google, WooCommerce, GA); nightly cron `/api/cron/sync` forward-captures into `metrics_daily`.
+- [x] **Phase 0b backfill DONE + verified** on My Vacation Network — `/api/backfill/google` V2 (d14429b): 658 account-level daily rows, 2024-05-17→2026-06-02, $76.5k spend, one clean run.
+- [ ] **Phase 0b remaining:** `query_metrics` tool — multi-period comparison from store (marquee: last 7 days vs 6/12/18 months ago).
+- **Phase 1 next:** generalize backfill + query to other platforms/clients; replace secret-pasting backfill trigger with in-app button.
 
 ## Pre-launch requirements — added June 3, 2026
 - Google OAuth app verification (sensitive adwords scope; no CASA needed): consent screen + declared scopes, verified domains (loramer.com + Vercel), public homepage + privacy policy, scope justification + demo video, submit in Verification Center, publish.

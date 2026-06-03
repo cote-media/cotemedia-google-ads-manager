@@ -1,19 +1,26 @@
-# CONTINUE HERE — Next session
+# CONTINUE_HERE — Resume point after June 3, 2026 (evening)
 
-Last session: June 3, 2026 (evening). Read the "Session — June 3, 2026 (evening)" entry in LORAMER_HANDOFF.md and docs/HISTORICAL_DATA_ENGINE_DESIGN.md for full context.
+Read AFTER completing the MANDATORY READING GATE at the top of LORAMER_HANDOFF.md. Not before.
+
+## Session start — machine-switch ritual (FIRST, every session)
+Repo is the single source of truth; uncommitted work doesn't travel.
+- iMac (russellcote), macOS Terminal: cd /Users/russellcote/Downloads/cotemedia-ads-manager && git pull origin main
+- Air (russcote2), macOS Terminal: cd /Users/russcote2/Downloads/cotemedia-google-ads-manager && git pull origin main
+Then, before any code work, run in the Cursor Agents window: "INVESTIGATE ONLY — do not edit. Read the files my next task touches plus recent git log; report structure, signatures, and anything conflicting with the plan."
 
 ## Where we are
-Historical Data Engine Phase 0a is live: nightly cron (/api/cron/sync, 0 8 UTC) forward-captures daily metrics into the metrics_daily warehouse. Shopify (0a.3a) and Meta (0a.3b) adapters are built and VERIFIED writing correct, reconciling daily rows. Schema (0a.1) and Google refresh-token capture (0a.2) done.
+- Phase 0a COMPLETE: nightly cron /api/cron/sync forward-captures daily metrics for Shopify, Meta, Google, WooCommerce, GA into metrics_daily, all verified reconciling.
+- Phase 0b backfill DONE + verified on one client: /api/backfill/google (V2, d14429b) backfilled My Vacation Network's full Google history — 658 account-level daily rows, 2024-05-17→2026-06-02, $76.5k — in one run. Account-level only, 36-month cap, resumable via sync_state backfill cursor columns.
+- Google Ads dev token AND CRON_SECRET both rotated this session.
 
-## Do next, in order
-1. Rotate the Google Ads developer token (Google Ads API Center). Last un-rotated exposed secret AND the prerequisite for the Google adapter. Update the Vercel env var, redeploy, verify Google Ads still works in-app.
-2. Build 0a.3c — Google sync adapter in /api/cron/sync, mirroring the Meta adapter. google_tokens refresh token + rotated dev token; GAQL daily pull per customer id; account → campaign → ad_group → ad/keyword rows.
-3. Build 0a.3d — GA + WooCommerce adapters, same pattern.
-4. Phase 0b — one-time backfill (races the ~37-month rolling purge).
-5. Phase 3 — Claude query layer (tools that pull warehouse slices per question).
+## Next task — finish Phase 0b: the query_metrics tool
+Per HISTORICAL_DATA_ENGINE_DESIGN.md §4d/§6: build a basic query layer over metrics_daily supporting multi-period comparison, exposed to Claude as a tool. Prove the marquee example on My Vacation Network: spend in the last 7 days vs the same window 6 / 12 / 18 months ago, answered from the store (not a live fetch). Then Phase 1: generalize backfill + query to the other platforms/clients, and replace the secret-pasting backfill trigger with an in-app button.
 
-## Also rotate
-CRON_SECRET in Vercel — value was shared in chat. New value; update the env var named exactly CRON_SECRET (case-sensitive); redeploy.
+## Backfill driver (interim, until the in-app button)
+macOS Terminal, one client at a time (one invocation does the full 36-mo window):
+echo "→ Paste CRON_SECRET, then Enter:"; read -r -s CRON; echo "→ Running..."; curl -s -H "Authorization: Bearer $CRON" "https://cotemedia-google-ads-manager.vercel.app/api/backfill/google?clientId=<CLIENT_ID>" | python3 -m json.tool; unset CRON
+Replace <CLIENT_ID>. Re-run only if interrupted; it resumes from the cursor.
 
-## Parked (not urgent)
-Shopify token hardening + dedupe (see handoff). Cosmetic cron clientsProcessed double-count.
+## Open / pending
+- Pre-launch gate: Google Ads API permissible use is "MYSELF_OR_MY_COMPANY_ONLY/internal" — switch to external + apply for Standard Access before public launch (Basic = 15k ops/day cap; review days–weeks; needs demo sign-in). Pairs with the Google OAuth verification gate.
+- Still open from prior sessions: GA Phase 6 disconnect, Google date-path tech debt, ConnectionPill extract (see ROADMAP).
