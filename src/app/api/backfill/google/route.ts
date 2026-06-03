@@ -1,7 +1,8 @@
-// LORAMER_BACKFILL_GOOGLE_0B_V1
-// Phase 0b: chunked, resumable historical backfill of Google Ads ACCOUNT-LEVEL
-// daily metrics into metrics_daily. One client + one date-chunk per invocation.
-// Re-invoke until the response shows { complete: true }.
+// LORAMER_BACKFILL_GOOGLE_0B_V2
+// Phase 0b: resumable historical backfill of Google Ads ACCOUNT-LEVEL daily
+// metrics into metrics_daily. Processes the full remaining window in ONE
+// invocation via an in-memory chunk loop, so there is no cross-request cursor
+// read (which caused V1 to restart from yesterday each call).
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -12,11 +13,9 @@ export const maxDuration = 60
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 
-// Google granular retention floor (37 months). Backfill never goes older.
-const GRANULAR_MONTHS = 37
-
-// Days of history pulled per invocation (resumable; older each call).
+const GRANULAR_MONTHS = 36
 const CHUNK_DAYS = 365
+const MAX_CHUNKS = 60
 
 function fmt(d: Date): string {
   return d.toISOString().split('T')[0]
@@ -51,7 +50,6 @@ export async function GET(request: Request) {
     .select('id, user_email, platform_connections(*)')
     .eq('id', clientId)
     .single()
-
   if (clientError || !client) {
     return NextResponse.json(
       { error: 'Client not found', detail: clientError?.message },
@@ -82,13 +80,13 @@ export async function GET(request: Request) {
     .select('refresh_token')
     .eq('user_email', userEmail)
     .single()
-
   if (tokenError || !tokenRow?.refresh_token) {
     return NextResponse.json(
       { error: 'No Google refresh token', detail: tokenError?.message },
       { status: 400 }
     )
   }
+  const refreshToken = tokenRow.refresh_token
 
   const { data: stateRow } = await supabaseAdmin
     .from('sync_state')
@@ -101,103 +99,106 @@ export async function GET(request: Request) {
     return NextResponse.json({ clientId, customerId, complete: true, note: 'already complete' })
   }
 
-  const targetDateObj = new Date()
-  targetDateObj.setUTCMonth(targetDateObj.getUTCMonth() - GRANULAR_MONTHS)
-  const targetDate = stateRow?.backfill_target_date || fmt(targetDateObj)
+  const targetObj = new Date()
+  targetObj.setUTCMonth(targetObj.getUTCMonth() - GRANULAR_MONTHS)
+  const targetDate = stateRow?.backfill_target_date || fmt(targetObj)
 
-  const yesterdayObj = new Date()
-  yesterdayObj.setUTCDate(yesterdayObj.getUTCDate() - 1)
-  const yesterday = fmt(yesterdayObj)
+  const yObj = new Date()
+  yObj.setUTCDate(yObj.getUTCDate() - 1)
+  const yesterday = fmt(yObj)
 
-  const windowEnd = stateRow?.backfill_earliest_date
+  let windowEnd = stateRow?.backfill_earliest_date
     ? addDays(stateRow.backfill_earliest_date, -1)
     : yesterday
 
-  if (windowEnd < targetDate) {
-    await supabaseAdmin
+  let totalRows = 0
+  let earliest = stateRow?.backfill_earliest_date || addDays(yesterday, 1)
+  let chunks = 0
+  let complete = false
+
+  while (windowEnd >= targetDate && chunks < MAX_CHUNKS) {
+    chunks += 1
+    let windowStart = addDays(windowEnd, -(CHUNK_DAYS - 1))
+    if (windowStart < targetDate) windowStart = targetDate
+
+    const daily = await getDailyMetrics(
+      refreshToken,
+      customerId,
+      'LAST_30_DAYS',
+      undefined,
+      'day',
+      windowStart,
+      windowEnd
+    )
+
+    const rows = (daily || []).map(d => ({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'google',
+      entity_level: 'account',
+      entity_id: customerId,
+      entity_name: accountName,
+      date: d.date,
+      breakdown_type: '',
+      breakdown_value: '',
+      spend: d.cost,
+      impressions: d.impressions,
+      clicks: d.clicks,
+      conversions: d.conversions,
+      conversion_value: d.conversionValue,
+      revenue: 0,
+      extra: {},
+    }))
+
+    if (rows.length > 0) {
+      const { error: metricsError } = await supabaseAdmin
+        .from('metrics_daily')
+        .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+      if (metricsError) {
+        return NextResponse.json(
+          { error: 'metrics_daily upsert failed', detail: metricsError.message, earliest, totalRows },
+          { status: 500 }
+        )
+      }
+      totalRows += rows.length
+    }
+
+    earliest = windowStart
+
+    const { error: stateError } = await supabaseAdmin
       .from('sync_state')
       .upsert(
         {
           client_id: clientId,
           platform: 'google',
-          backfill_earliest_date: targetDate,
+          backfill_earliest_date: earliest,
           backfill_target_date: targetDate,
-          backfill_complete: true,
+          backfill_complete: windowStart <= targetDate,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'client_id,platform' }
       )
-    return NextResponse.json({ clientId, customerId, complete: true })
-  }
-
-  let windowStart = addDays(windowEnd, -(CHUNK_DAYS - 1))
-  if (windowStart < targetDate) windowStart = targetDate
-
-  // dateRange is ignored because customStart/customEnd are provided
-  const daily = await getDailyMetrics(
-    tokenRow.refresh_token,
-    customerId,
-    'LAST_30_DAYS',
-    undefined,
-    'day',
-    windowStart,
-    windowEnd
-  )
-
-  const rows = (daily || []).map(d => ({
-    client_id: clientId,
-    user_email: userEmail,
-    platform: 'google',
-    entity_level: 'account',
-    entity_id: customerId,
-    entity_name: accountName,
-    date: d.date,
-    breakdown_type: '',
-    breakdown_value: '',
-    spend: d.cost,
-    impressions: d.impressions,
-    clicks: d.clicks,
-    conversions: d.conversions,
-    conversion_value: d.conversionValue,
-    revenue: 0,
-    extra: {},
-  }))
-
-  if (rows.length > 0) {
-    const { error: metricsError } = await supabaseAdmin
-      .from('metrics_daily')
-      .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
-    if (metricsError) {
+    if (stateError) {
       return NextResponse.json(
-        { error: 'metrics_daily upsert failed', detail: metricsError.message },
+        { error: 'sync_state upsert failed', detail: stateError.message, earliest, totalRows },
         { status: 500 }
       )
     }
-  }
 
-  const complete = windowStart <= targetDate
-  await supabaseAdmin
-    .from('sync_state')
-    .upsert(
-      {
-        client_id: clientId,
-        platform: 'google',
-        backfill_earliest_date: windowStart,
-        backfill_target_date: targetDate,
-        backfill_complete: complete,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'client_id,platform' }
-    )
+    if (windowStart <= targetDate) {
+      complete = true
+      break
+    }
+    windowEnd = addDays(windowStart, -1)
+  }
 
   return NextResponse.json({
     clientId,
     customerId,
-    windowStart,
-    windowEnd,
-    rowsWritten: rows.length,
-    backfillEarliest: windowStart,
     targetDate,
+    earliest,
+    chunks,
+    totalRows,
     complete,
   })
 }
