@@ -5,8 +5,56 @@ import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
+import { queryMetrics } from '@/lib/metrics-query'  // LORAMER_QUERY_METRICS_TOOL_0B_V1
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+// LORAMER_QUERY_METRICS_TOOL_0B_V1
+// query_metrics tool: lets Claude pull historical / period-over-period numbers
+// from LoraMer's own store (metrics_daily) instead of a live platform fetch.
+// clientId is injected server-side from the request - NOT a model-controlled input.
+const QUERY_METRICS_TOOL: any = {
+  name: 'query_metrics',
+  description:
+    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Use this for any period-over-period or historical comparison (for example: last 7 days vs the same window 6, 12, and 18 months ago), including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. Data is read from our own database, not a live fetch, so it is fast and covers paused or historical periods. Prefer this over reasoning from the numbers already in your context whenever the question involves a comparison to a prior period or a specific historical window.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      platform: {
+        type: 'string',
+        enum: ['google', 'meta', 'shopify', 'woocommerce', 'ga', 'all'],
+        description: 'Which platform to query. Use "all" to sum across every connected platform. Defaults to all if omitted.',
+      },
+      level: {
+        type: 'string',
+        enum: ['account', 'campaign', 'ad_group', 'ad_set', 'ad', 'product'],
+        description: 'Aggregation level. Default "account" (whole-account totals). Note: only account-level history is broadly backfilled today; deeper levels exist mainly from the connect date forward.',
+      },
+      baseRange: {
+        type: 'string',
+        description: 'The primary / most-recent window, as a preset: LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, LAST_90_DAYS, THIS_MONTH, or LAST_MONTH. Default LAST_7_DAYS.',
+      },
+      offsetsMonths: {
+        type: 'array',
+        items: { type: 'number' },
+        description: 'Month offsets for comparison windows; 0 is the base window itself. Each offset produces an equal-length window ending that many calendar months before the base window. Example: [0, 6, 12, 18].',
+      },
+    },
+    required: [],
+  },
+}
+
+// LORAMER_QUERY_METRICS_TOOL_0B_V1
+async function runQueryMetricsTool(input: any, clientId: string) {
+  const platform = typeof input?.platform === 'string' ? input.platform : undefined
+  const level = typeof input?.level === 'string' ? input.level : undefined
+  const baseRange = typeof input?.baseRange === 'string' ? input.baseRange : undefined
+  const offsetsMonths = Array.isArray(input?.offsetsMonths)
+    ? input.offsetsMonths.filter((n: any) => typeof n === 'number')
+    : undefined
+  const platforms = platform && platform !== 'all' ? [platform] : []
+  return queryMetrics({ clientId, platforms, level, baseRange, offsetsMonths })
+}
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -120,29 +168,85 @@ export async function POST(request: Request) {
     { role: 'user' as const, content: message }
   ]
 
+  // LORAMER_QUERY_METRICS_TOOL_0B_V1
+  // Tool-use loop. With a client in scope, expose query_metrics so Claude can pull
+  // historical/comparison numbers from our store. Single-shot behavior is preserved
+  // when Claude calls no tool or no clientId is present. Caps tool round-trips.
+  const tools: any[] | undefined = clientId ? [QUERY_METRICS_TOOL] : undefined
+  const convo: any[] = [...messages]
+  const usageTotals = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
+  const MAX_TOOL_TURNS = 5
+
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
-      system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
-      messages,
-    })
-    const responseText = (response.content[0] as any).text?.trim() || ''
-    // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — surface cache metrics
-    const usage = response.usage as any
+    let out: any = null
+    let last: any = null
+    for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+      const createParams: any = {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
+        system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+        messages: convo,
+      }
+      if (tools) createParams.tools = tools
+      const resp: any = await anthropic.messages.create(createParams)
+      last = resp
+      const u = resp.usage || {}
+      usageTotals.input += u.input_tokens || 0
+      usageTotals.output += u.output_tokens || 0
+      usageTotals.cache_create += u.cache_creation_input_tokens || 0
+      usageTotals.cache_read += u.cache_read_input_tokens || 0
+
+      if (resp.stop_reason === 'tool_use' && clientId) {
+        const toolUses = (resp.content as any[]).filter(b => b.type === 'tool_use')
+        convo.push({ role: 'assistant', content: resp.content })
+        const toolResults: any[] = []
+        for (const tu of toolUses) {
+          let payload: any
+          try {
+            payload = tu.name === 'query_metrics'
+              ? await runQueryMetricsTool(tu.input, clientId)
+              : { error: 'unknown tool: ' + tu.name }
+          } catch (err) {
+            payload = { error: err instanceof Error ? err.message : String(err) }
+          }
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: tu.id,
+            content: JSON.stringify(payload),
+          })
+        }
+        convo.push({ role: 'user', content: toolResults })
+        continue
+      }
+
+      out = resp
+      break
+    }
+
+    const finalResp: any = out || last
+    let responseText = finalResp
+      ? (finalResp.content as any[])
+          .filter(b => b.type === 'text')
+          .map(b => b.text)
+          .join('\n')
+          .trim()
+      : ''
+    if (!responseText) responseText = 'I wasn\u2019t able to complete that request. Please try rephrasing.'
+
+    // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — cache metrics, summed across tool turns
     console.log('[chat] cache:', {
-      input: usage?.input_tokens || 0,
-      cache_create: usage?.cache_creation_input_tokens || 0,
-      cache_read: usage?.cache_read_input_tokens || 0,
-      output: usage?.output_tokens || 0,
+      input: usageTotals.input,
+      cache_create: usageTotals.cache_create,
+      cache_read: usageTotals.cache_read,
+      output: usageTotals.output,
     })
     logSpend({
       userEmail: session.user.email,
       clientId,
       endpoint: 'chat',
       model: 'claude-sonnet-4-6',
-      inputTokens: response.usage?.input_tokens || 0,
-      outputTokens: response.usage?.output_tokens || 0,
+      inputTokens: usageTotals.input,
+      outputTokens: usageTotals.output,
     })
     return NextResponse.json({ response: responseText })
   } catch (e: any) {
