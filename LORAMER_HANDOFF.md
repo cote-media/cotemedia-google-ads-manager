@@ -516,3 +516,77 @@ Welcome to LoraMer. The promise is that this is the best business intelligence t
 **Meta backfill (June 4, 2026 - LORAMER_BACKFILL_META_0B_V1).** /api/backfill/meta mirrors /api/backfill/google but: Meta connection (platform_connections platform='meta'), token from meta_tokens.access_token by user_email, fetcher = fetchMetaDailyMetrics in NEW src/lib/meta-ads.ts (account-level daily Graph v18 insights, time_increment=1 as a PARAM not a field per lesson 12, paginated, throws on Graph error). CHUNK_DAYS=90 (smaller than Google's 365 - Meta daily insights are touchier on long ranges; resumable via sync_state so a timeout just continues on re-run). CONVERSION-DEFINITION SEAM: backfill uses the account-level daily set (purchase/lead/complete_registration/offsite_conversion/submit_application; value=purchase, matching /api/meta/daily); the cron uses a per-campaign priority-pick (lead -> fb_pixel_lead -> fb_pixel_purchase -> insight.conversions, summed over spend>0 campaigns). Spend/impressions/clicks reconcile exactly; conversions differ in definition at the boundary. KNOWN DUPLICATION: the conversion mapping lives in both /api/meta/daily (inline) and src/lib/meta-ads.ts (mapMetaDailyInsightRow), identical today - unify later. Backfill v18 vs intelligence v21 - unify later. NEXT: surface a Meta conversion caveat in the query_metrics result.
 
 **Meta conversion caveat in query layer (June 4, 2026 - LORAMER_QUERY_METRICS_META_CAVEAT_V1).** queryMetrics() now returns notes?: string[]. When Meta is in scope (platform=meta or all), notes carries: spend/clicks/impressions exact; Meta conversion counts use the account-level daily definition, directionally accurate, may not reconcile with campaign-level figures; surface only when conversions are central. The result is JSON-stringified into the tool_result Claude reads, so Claude can state the limit honestly without over-narrating. Meta backfill verified on MyVN: 565 rows to 2023-06-04.
+
+
+---
+
+## Session Wrap-Up Checklist (run EVERY time a session ends or rotates)
+
+The consolidated version of the rotation + multi-machine sync + docs-with-code rules
+above, in ONE place so no future session has to assemble it from three sections.
+Never rotate mid-task; reach a clean breakpoint first. Do these in order:
+
+1. CLEAN TREE, PUSHED. In the Cursor terminal:
+   `cd ~/Downloads/cotemedia-google-ads-manager && git status`
+   Both must be true: "nothing to commit, working tree clean" AND "Your branch is up
+   to date with 'origin/main'". If not, commit + push the pending work first.
+   (iMac path: cotemedia-ads-manager.) Uncommitted/unpushed work does NOT travel to
+   the next session or the other machine.
+
+2. NEW LESSONS CAPTURED. If anything bit us this session that is not already in the
+   "No same mistake twice" list, add it as a new numbered lesson here (same commit as
+   the work, per docs-with-code).
+
+3. HANDOFF CURRENT-STATE REFRESHED. Update this file so its current-state reflects what
+   shipped this session: what's done, what's verified, what's the next thread. ROADMAP.md
+   checkboxes should already be flipped per docs-with-code; double-check.
+
+4. CONTINUE_HERE.md REWRITTEN for the next task. Scope it to the single next thing, with:
+   the resume command (git pull), the next-task spec, any decisions already made, and the
+   relevant facts/gotchas so the next chat does not re-derive them. CONTINUE_HERE reads
+   AFTER the handoff + roadmap, never before.
+
+5. DOCS COMMITTED + PUSHED. Commit the handoff/CONTINUE_HERE updates and push. Re-run
+   `git status` to confirm clean + up to date (step 1 again).
+
+6. DEPLOYS GREEN. Any code pushed this session should show a green Vercel deploy before
+   walking away.
+
+The paired START-of-session protocol lives in "What to do in the first message of a new
+chat" + the Multi-machine sync ritual (git pull first). A fresh Claude reads
+LORAMER_HANDOFF.md -> ROADMAP.md -> CONTINUE_HERE.md, then asks what to work on, before
+any code.
+
+
+---
+
+### Session end - June 4, 2026 (query layer + all-surface tool wiring + Meta backfill)
+
+Shipped + verified this session:
+- LORAMER_ALLSURFACE_SCROLL_V1 - all Claude surfaces (RightPanel desktop + mobile, the
+  InsightChat blue box) open scrolled to the latest message, matching the May 29 ChatTab
+  fix. (Lesson 26: RightPanel has TWIN desktop/mobile render blocks - audit both.)
+- LORAMER_QUERY_METRICS_0B_V1 - Phase 0b query layer: src/lib/metrics-query.ts (paginated
+  aggregation over metrics_daily + equal-length multi-period windows) + read-only proving
+  route /api/query-metrics. Proven on My Vacation Network (Google): 7d vs 6/12/18mo reconciles.
+- LORAMER_QUERY_METRICS_TOOL_0B_V1 + _SHARED_LOOP_V1 + LORAMER_INSIGHT_FOLLOWUP_SONNET_V1 -
+  query_metrics is now a Claude tool across ALL surfaces. src/lib/claude-tools.ts is the
+  single tool-loop home. /api/chat (Sonnet) and /api/insight follow-ups (Sonnet, 2000 tok)
+  both call it; the /api/insight auto-banner stays Haiku/no-tool. clientId injected
+  server-side. 2 engines, 3 doorways.
+- LORAMER_BACKFILL_META_0B_V1 - Meta account-level historical backfill (/api/backfill/meta +
+  src/lib/meta-ads.ts). Verified on MyVN: 565 rows back to 2023-06-04. Conversion seam
+  documented (account-level daily vs cron campaign-summed).
+- LORAMER_QUERY_METRICS_META_CAVEAT_V1 - query_metrics result carries a Meta conversion
+  provenance caveat (notes field) so Claude states the precision limit honestly when
+  conversions are central, without over-narrating.
+
+Phase 0b COMPLETE. Meta DONE for Phase 1.
+
+NEXT THREAD (see CONTINUE_HERE.md): the in-app backfill button. Investigate-only assessment
+done; three corrections are baked into CONTINUE_HERE: (1) per-platform laps + poll/resume,
+NOT one-click-all-in-one-request (60s route cap, no background queue); (2) the session route
+MUST add a client-ownership check - the existing backfill GET routes are CRON_SECRET-only
+with no user_email ownership (latent IDOR); (3) extract the backfill loops into a shared lib
+so the session POST route calls them directly (no CRON_SECRET in the browser path, no nested
+timeouts) - also the registry that lets Shopify/GA/Woo plug in later.

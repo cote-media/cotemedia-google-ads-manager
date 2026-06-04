@@ -1,26 +1,76 @@
-# CONTINUE_HERE — Resume point after June 3, 2026 (evening)
+# CONTINUE_HERE - Resume point after June 4, 2026
 
-Read AFTER completing the MANDATORY READING GATE at the top of LORAMER_HANDOFF.md. Not before.
+Read AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before. Same laptop as last session
+(MacBook Air, ~/Downloads/cotemedia-google-ads-manager).
 
-## Session start — machine-switch ritual (FIRST, every session)
-Repo is the single source of truth; uncommitted work doesn't travel.
-- iMac (russellcote), macOS Terminal: cd /Users/russellcote/Downloads/cotemedia-ads-manager && git pull origin main
-- Air (russcote2), macOS Terminal: cd /Users/russcote2/Downloads/cotemedia-google-ads-manager && git pull origin main
-Then, before any code work, run in the Cursor Agents window: "INVESTIGATE ONLY — do not edit. Read the files my next task touches plus recent git log; report structure, signatures, and anything conflicting with the plan."
+## Session start
+```
+cd ~/Downloads/cotemedia-google-ads-manager && git pull origin main
+```
+Expect "Already up to date" - same laptop, last session's work was pushed.
 
 ## Where we are
-- Phase 0a COMPLETE: nightly cron /api/cron/sync forward-captures daily metrics for Shopify, Meta, Google, WooCommerce, GA into metrics_daily, all verified reconciling.
-- Phase 0b backfill DONE + verified on one client: /api/backfill/google (V2, d14429b) backfilled My Vacation Network's full Google history — 658 account-level daily rows, 2024-05-17→2026-06-02, $76.5k — in one run. Account-level only, 36-month cap, resumable via sync_state backfill cursor columns.
-- Google Ads dev token AND CRON_SECRET both rotated this session.
+- Phase 0b COMPLETE: historical query layer (src/lib/metrics-query.ts) + read-only proving
+  route /api/query-metrics, and query_metrics wired as a Claude tool on ALL surfaces via
+  src/lib/claude-tools.ts. Proven on My Vacation Network.
+- Meta backfill DONE (Phase 1 start): /api/backfill/meta + src/lib/meta-ads.ts. MyVN
+  backfilled (565 rows to 2023-06-04). Meta conversion caveat surfaced to Claude.
+- Backfill routes today: google + meta only (ACCOUNT-LEVEL, CRON_SECRET-bearer GET,
+  resumable via sync_state, 36-month cap). Shopify/GA/Woo have forward-capture only.
 
-## Next task — finish Phase 0b: the query_metrics tool
-Per HISTORICAL_DATA_ENGINE_DESIGN.md §4d/§6: build a basic query layer over metrics_daily supporting multi-period comparison, exposed to Claude as a tool. Prove the marquee example on My Vacation Network: spend in the last 7 days vs the same window 6 / 12 / 18 months ago, answered from the store (not a live fetch). Then Phase 1: generalize backfill + query to the other platforms/clients, and replace the secret-pasting backfill trigger with an in-app button.
+## Next task - in-app backfill button (retire the curl)
+Goal: a session-authed, in-app way to run backfills so Russ never pastes CRON_SECRET into a
+terminal again. Investigate-only assessment is already done; refined design with corrections:
 
-## Backfill driver (interim, until the in-app button)
-macOS Terminal, one client at a time (one invocation does the full 36-mo window):
-echo "→ Paste CRON_SECRET, then Enter:"; read -r -s CRON; echo "→ Running..."; curl -s -H "Authorization: Bearer $CRON" "https://cotemedia-google-ads-manager.vercel.app/api/backfill/google?clientId=<CLIENT_ID>" | python3 -m json.tool; unset CRON
-Replace <CLIENT_ID>. Re-run only if interrupted; it resumes from the cursor.
+DESIGN
+- ONE platform per "lap." A backfill is chunked + resumable (60s route cap, NO background
+  queue exists). The button kicks off a lap, the UI reads progress and re-triggers to resume
+  until complete. Do NOT try to run all platforms in one request - it will time out.
+- Session POST endpoint (e.g. /api/backfill/run): verify getServerSession AND enforce client
+  ownership (.eq('user_email', session.user.email) on clients). The existing backfill GET
+  routes do NOT check ownership (latent IDOR, CRON_SECRET-only) - the browser path MUST. Use
+  POST, not GET, for a browser-triggered mutation.
+- Auth approach = extract the google + meta backfill loop bodies into shared lib functions
+  (e.g. src/lib/backfill/*), make the existing CRON GET routes thin wrappers over them, and
+  have the session route call the lib directly. No CRON_SECRET in the browser path, no nested
+  60s timeouts. This is also the "register a backfill function" foundation so Shopify/GA/Woo
+  plug in later.
+- Progress: sync_state has backfill_earliest_date / backfill_target_date / backfill_complete /
+  updated_at. No API exposes sync_state to the browser yet - add a small read (extend
+  /api/clients or a GET status route). Percent is indicative (real depth is account-specific,
+  not always 36mo).
+- UI: the Connections block on /clients (src/app/clients/page.tsx ~L997-1091). Per backfillable
+  platform (google/meta now) show a Backfill button + progress; non-backfillable platforms show
+  "history coming soon." DISABLE the button while a lap runs (no locking exists - prevents the
+  double-click / parallel-invocation cursor race).
 
-## Open / pending
-- Pre-launch gate: Google Ads API permissible use is "MYSELF_OR_MY_COMPANY_ONLY/internal" — switch to external + apply for Standard Access before public launch (Basic = 15k ops/day cap; review days–weeks; needs demo sign-in). Pairs with the Google OAuth verification gate.
-- Still open from prior sessions: GA Phase 6 disconnect, Google date-path tech debt, ConnectionPill extract (see ROADMAP).
+SUGGESTED BUILD ORDER
+1. Extract shared backfill lib (src/lib/backfill/*); refactor /api/backfill/google +
+   /api/backfill/meta into thin GET wrappers; re-verify BOTH still backfill via curl (no
+   behavior change) before moving on.
+2. Session POST /api/backfill/run with ownership check, one platform per lap, {google,meta}
+   allowlist + graceful skip for platforms with no route yet.
+3. Small sync_state status read for the UI.
+4. UI button + progress + lap-driver on /clients Connections, with a double-click guard.
+
+GOTCHAS (from the investigate sweep)
+- No background queue anywhere; per-route maxDuration=60; resumable by design.
+- Concurrency: no locking on sync_state. Cron vs backfill use different columns (low risk),
+  but two concurrent backfills on the same client+platform can stomp the cursor (data is
+  idempotent, but wasted work / premature complete) - disable button during a run.
+- Multi-account clients: backfill uses .find() = FIRST connection per platform; cron loops
+  all. Multi-account backfill is a known gap.
+- Reviewer/Shopify-install sessions may not own clients.user_email rows - the ownership check
+  could 404 for them (acceptable).
+
+## After the button
+Remaining Phase 1: Shopify / GA / Woo backfill routes (same template as Meta), run them
+THROUGH the new button. Then Phase 2 (asset/breakdown depth), Phase 3 (cutover: wire Claude
+fully onto the query layer, retire the 15-min live-fetch cache in /api/intelligence).
+
+## Discipline reminders
+- Right > fast; dry-run sacred; per-edit content-based idempotency; comments NEVER after a
+  comma/closing token (L13); `tsc --noEmit` is NOT a full build, Vercel is the gate (L14);
+  anchors only from current-turn pastes (L16); investigate-only first on big files (L24);
+  page.tsx has desktop/mobile twin blocks - audit both (L26).
+- Run the Session Wrap-Up Checklist (in LORAMER_HANDOFF.md) before ending the next session.
