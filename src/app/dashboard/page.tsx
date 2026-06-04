@@ -646,10 +646,19 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
   quickPrompts?: string[]  // LORAMER_PANEL_ONLY_V1
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const panelScrollRef = useRef<HTMLDivElement>(null)
+  const panelScrollRefMobile = useRef<HTMLDivElement>(null)
+  const panelMountedRef = useRef(false)
 
-  useEffect(() => {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useLayoutEffect(() => {
+    const els = [panelScrollRef.current, panelScrollRefMobile.current]
+    if (!panelMountedRef.current) {
+      els.forEach(el => { if (el) el.scrollTop = el.scrollHeight })
+      panelMountedRef.current = true
+    } else {
+      els.forEach(el => { if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }) })
+    }
+  }, [messages.length])
 
   // LORAMER_CONV_API_V1_RIGHTPANEL + LORAMER_MEMORY_AUTODETECT_V1
   async function saveToClient(msgs: { role: 'user' | 'assistant'; content: string }[]) {
@@ -741,7 +750,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div ref={panelScrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.length === 0 && (!quickPrompts || quickPrompts.length === 0) && (
             <div className="text-center py-8">
               <p className="text-sm text-muted font-mono">Ask anything about {title}</p>
@@ -819,7 +828,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
             <p className="text-xs text-muted font-mono truncate">{context}</p>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div ref={panelScrollRefMobile} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           {messages.length === 0 && (!quickPrompts || quickPrompts.length === 0) && (
             <div className="text-center py-8">
               <p className="text-sm text-muted font-mono">Ask anything about {title}</p>
@@ -1175,6 +1184,19 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
   }
 
   // LORAMER_CONV_API_V1_INSIGHTCHAT
+  // LORAMER_ALLSURFACE_SCROLL_V1 - scroll insight chat to bottom on load/new message (mirrors ChatTab)
+  const insightScrollRef = useRef<HTMLDivElement>(null)
+  const insightMountedRef = useRef(false)
+  useLayoutEffect(() => {
+    const el = insightScrollRef.current
+    if (!el) return
+    if (!insightMountedRef.current) {
+      el.scrollTop = el.scrollHeight
+      insightMountedRef.current = true
+    } else {
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [messages.length, expanded])
   // Load saved conversation from client_conversations table on mount.
   // user_notes still lives on client_context, fetched separately.
   useEffect(() => {
@@ -1374,7 +1396,7 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
             )}
           </div>
           {messages.length > 0 && (
-            <div id={'it-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
+            <div ref={insightScrollRef} id={'it-' + cacheKey} className="max-h-64 overflow-y-auto px-4 py-3 space-y-3">
               {messages.map((m, i) => (
                 <div key={i} className={'flex ' + (m.role === 'user' ? 'justify-end' : 'justify-start')}>
                   <div className={'text-sm px-3 py-2 rounded-xl max-w-[85%] ' + (m.role === 'user' ? 'bg-accent text-white' : 'bg-blue-50 text-ink border border-blue-100')}>{m.role === 'user' ? m.content : <div className="chat-response prose prose-sm max-w-none">{/* LORAMER_INSIGHTCHAT_MARKDOWN_V1 */}<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}</div>

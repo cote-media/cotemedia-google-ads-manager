@@ -1332,3 +1332,5 @@ System of record for period-over-period and arbitrary historical analysis. Platf
 
 ## Brand principle candidate — added June 3, 2026
 "LoraMer is your permanent system of record" — platforms purge granular history at ~37 months; LoraMer keeps it from connect-day forward. Honest framing: permanent from capture onward + bounded backfill; never claim recovery of already-purged data.
+
+- [x] **All Claude surfaces scroll-to-bottom on open (June 4, 2026 - LORAMER_ALLSURFACE_SCROLL_V1):** Extends the May 29 ChatTab fix to the rest. RightPanel desktop AND mobile bottom-sheet containers, plus the InsightChat blue top-of-page box, now instant-scroll to the latest message on mount and smooth-scroll on new messages. Mobile RightPanel previously had no scroll logic at all. See handoff lesson 26.
