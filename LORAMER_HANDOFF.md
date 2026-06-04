@@ -592,3 +592,31 @@ so the session POST route calls them directly (no CRON_SECRET in the browser pat
 timeouts) - also the registry that lets Shopify/GA/Woo plug in later.
 
 NOTE: the Meta conversion caveat shipped as V1 then was strengthened to LORAMER_QUERY_METRICS_META_CAVEAT_V2 (firmer "MUST add a one-line note when reporting conversions/CPA" wording). VERIFIED live June 4 - a Meta conversions/CPA question gets the caveat appended; spend-only answers stay clean.
+
+
+---
+
+## Session Start / Handoff Protocol
+
+*(Authoritative. Supersedes the older "first reply" notes elsewhere in this file. Every new chat that resumes LoraMer work follows this BEFORE writing any code. Added because a fresh Claude kept landing on a stale picture of the project and proposing the wrong next task.)*
+
+**Why this exists.** A new Claude's background memory lags a day or more behind reality, and the project-library copies of these docs only refresh when Russ re-syncs GitHub. Past-conversation search helps but returns partial snippets, not exact state. The only source that is current and unambiguous about what is actually committed is the repo on Russ's machine. So every resume reconciles against the repo before acting.
+
+**Steps for the receiving Claude:**
+
+1. Read this file, then `ROADMAP.md`, then `CONTINUE_HERE.md`.
+2. Search recent project conversations (the last one or two sessions) for narrative context on what was just done. Treat BOTH these docs AND that chat history as possibly stale.
+3. Before naming any next task, hand Russ ONE copy-button command for the Cursor terminal that: pulls latest from `main`, prints the recent commit log, prints the live `CONTINUE_HERE.md` date, and checks whether the key files for the supposed next task already exist. Wait for him to paste the output back.
+4. Reconcile the repo output against the docs and memory. State the single confirmed next task. **WAIT for Russ's explicit "yes" before writing any code.**
+5. After his yes, proceed one step at a time with copy-button commands. **Label where every paste goes** (Cursor terminal / Supabase SQL editor / Vercel dashboard). Never make Russ touch code directly.
+
+**Canonical ground-truth command** (use the path for the machine Russ names; replace the final `ls` targets with the files relevant to the next task):
+
+- MacBook Air: `/Users/russcote2/Downloads/cotemedia-google-ads-manager`
+- iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager`
+
+```
+cd <repo-path> && git pull origin main && echo "===== LAST 15 COMMITS =====" && git log --oneline -15 && echo "===== CONTINUE_HERE DATE =====" && head -3 CONTINUE_HERE.md && echo "===== KEY FILES =====" && ls -la <files-for-the-next-task>
+```
+
+**Always-on rules:** right > fast; dry-runs sacred; complete files or labeled pastes; never the same mistake twice; never make Russ touch code directly.
