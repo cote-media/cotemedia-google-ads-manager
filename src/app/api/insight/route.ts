@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
+import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_INSIGHT_FOLLOWUP_SONNET_V1
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -63,28 +64,59 @@ export async function POST(request: Request) {
     : conversationHistory.map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: isInitial ? 150 : 600,
-      system: systemArr,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+    if (isInitial) {
+      // Auto one-liner banner — stays Haiku, no tool (proactive summary, not a question).
+      const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 150,
+        system: systemArr,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+        messages,
+      })
+      const insight = (response.content[0] as any).text?.trim() || ''
+      const usage = response.usage as any
+      console.log('[insight] cache:', {
+        input: usage?.input_tokens || 0,
+        cache_create: usage?.cache_creation_input_tokens || 0,
+        cache_read: usage?.cache_read_input_tokens || 0,
+        output: usage?.output_tokens || 0,
+      })
+      logSpend({
+        userEmail: session.user.email,
+        clientId,
+        endpoint: 'insight',
+        model: 'claude-haiku-4-5-20251001',
+        inputTokens: response.usage?.input_tokens || 0,
+        outputTokens: response.usage?.output_tokens || 0,
+      })
+      return NextResponse.json({ insight })
+    }
+
+    // LORAMER_INSIGHT_FOLLOWUP_SONNET_V1
+    // Typed follow-up questions in the blue box are answered by Sonnet with the
+    // shared query_metrics tool loop (same engine as Ask Claude), so historical /
+    // comparison questions work here too. The auto one-liner above stays Haiku.
+    const { responseText, usage } = await runClaudeToolLoop({
+      anthropic,
+      model: 'claude-sonnet-4-6',
+      maxTokens: 2000,
+      system: systemArr,
       messages,
+      clientId,
     })
-    const insight = (response.content[0] as any).text?.trim() || ''
-    // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — surface cache metrics
-    const usage = response.usage as any
-    console.log('[insight] cache:', {
-      input: usage?.input_tokens || 0,
-      cache_create: usage?.cache_creation_input_tokens || 0,
-      cache_read: usage?.cache_read_input_tokens || 0,
-      output: usage?.output_tokens || 0,
+    const insight = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
+    console.log('[insight] cache (followup sonnet):', {
+      input: usage.input,
+      cache_create: usage.cache_create,
+      cache_read: usage.cache_read,
+      output: usage.output,
     })
     logSpend({
       userEmail: session.user.email,
       clientId,
       endpoint: 'insight',
-      model: 'claude-haiku-4-5-20251001',
-      inputTokens: response.usage?.input_tokens || 0,
-      outputTokens: response.usage?.output_tokens || 0,
+      model: 'claude-sonnet-4-6',
+      inputTokens: usage.input,
+      outputTokens: usage.output,
     })
     return NextResponse.json({ insight })
   } catch (e: any) {
