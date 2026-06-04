@@ -31,6 +31,7 @@ export type QueryMetricsResult = {
   platforms: string[]
   baseRange: string
   windows: WindowResult[]
+  notes?: string[]
 }
 
 function emptyTotals(): MetricTotals {
@@ -137,5 +138,11 @@ export async function queryMetrics(opts: {
       derived: derive(totals),
     })
   }
-  return { level, platforms: platforms.length ? platforms : ['all'], baseRange, windows }
+  const resolvedPlatforms = platforms.length ? platforms : ['all']
+  const notes: string[] = []
+  const metaInScope = resolvedPlatforms.includes('meta') || resolvedPlatforms.includes('all')
+  if (metaInScope) {
+    notes.push('Data provenance: Meta spend, clicks, and impressions are exact. Meta conversion counts use Meta\u2019s account-level daily definition and are directionally accurate but may not perfectly reconcile with campaign-level conversion figures (a Meta reporting limitation, not a data gap). Surface this caveat only if conversions are central to the user\u2019s question.')
+  }
+  return { level, platforms: resolvedPlatforms, baseRange, windows, notes: notes.length ? notes : undefined }
 }
