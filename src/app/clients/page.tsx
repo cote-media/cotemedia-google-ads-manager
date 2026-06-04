@@ -2,6 +2,7 @@
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
+import BackfillControl from './BackfillControl'
 
 type Client = {
   id: string
@@ -1002,7 +1003,7 @@ function ClientsContent() {
                         <div>
                           <p className="text-xs font-sans uppercase tracking-widest text-muted mb-3">Connections</p>
                           <div className="space-y-2">
-                            {googleConn && (
+                            {googleConn && (<div>
                               <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#4285F4' }}>
@@ -1015,8 +1016,8 @@ function ClientsContent() {
                                 </div>
                                 <span className="text-xs font-sans text-muted">Connected</span>
                               </div>
-                            )}
-                            {metaConn && (
+                            <BackfillControl clientId={client.id} platform="google" onComplete={fetchClients} /></div>)}
+                            {metaConn && (<div>
                               <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#0866FF' }}>
@@ -1031,7 +1032,7 @@ function ClientsContent() {
                                   Disconnect
                                 </button>
                               </div>
-                            )}
+                            <BackfillControl clientId={client.id} platform="meta" onComplete={fetchClients} /></div>)}
                             {shopifyConn && (
                               <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2 min-w-0">
