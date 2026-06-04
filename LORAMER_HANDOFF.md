@@ -590,3 +590,5 @@ MUST add a client-ownership check - the existing backfill GET routes are CRON_SE
 with no user_email ownership (latent IDOR); (3) extract the backfill loops into a shared lib
 so the session POST route calls them directly (no CRON_SECRET in the browser path, no nested
 timeouts) - also the registry that lets Shopify/GA/Woo plug in later.
+
+NOTE: the Meta conversion caveat shipped as V1 then was strengthened to LORAMER_QUERY_METRICS_META_CAVEAT_V2 (firmer "MUST add a one-line note when reporting conversions/CPA" wording). VERIFIED live June 4 - a Meta conversions/CPA question gets the caveat appended; spend-only answers stay clean.
