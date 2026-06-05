@@ -20,6 +20,7 @@ The loose `*.py` files in the repo root are historical one-off patch scripts (th
 - **Two machines, one repo:** iMac `~/Downloads/cotemedia-ads-manager/`, MacBook Air (user `russcote2`) `~/Downloads/cotemedia-google-ads-manager/`. Every session starts with `git pull`; GitHub `main` is the source of truth.
 - **Every push to `main` auto-deploys to Vercel.** A push that breaks the Vercel build is a serious failure. Run `npm run build` locally before pushing (works on the iMac, which has `.env.local`). `npx tsc --noEmit` is NOT a full build — it misses webpack syntax errors and mangled string literals.
 - **Commit convention:** `LORAMER_<FEATURE>_V1: description`. The same marker appears as a code comment at the change site (used for idempotency/traceability).
+- **Platform extensibility:** `(client, platform, account)` is the universal key for every data source. New platforms (e.g., Triple Whale, Klaviyo) are added as a backfill adapter + platform-registry entry + a new `metrics_daily` platform value — never a schema change or core rewrite. Per-platform behavior lives in adapters/registry, never scattered conditionals.
 
 ## Commands
 
