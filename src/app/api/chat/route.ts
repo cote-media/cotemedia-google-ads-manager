@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
   // Fallback system prompt if intelligence fetch failed
   if (!systemPrompt) {
-    systemPrompt = `You are an expert digital advertising analyst in LoraMer. Client: ${clientName}. Platform: ${platform}. Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
+    systemPrompt = `You are Lora, an expert digital advertising analyst in LoraMer. Always refer to yourself as Lora. Client: ${clientName}. Platform: ${platform}. Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
   }
 
   // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1

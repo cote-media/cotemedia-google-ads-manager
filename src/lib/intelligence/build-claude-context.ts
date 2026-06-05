@@ -687,7 +687,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       if (s.lostToRank !== null) parts.push(`Lost→Rank ${pct(s.lostToRank)}`)
       lines.push(`  ${s.campaignName} [${s.channelType}]: ${parts.join(', ')}`)
     })
-    lines.push(`  (Reasoning guide: high "Lost to Budget" means the campaign is budget-constrained — Claude should recommend scaling spend if ROAS/CPA targets are healthy. High "Lost to Rank" means Quality Score, bid, or ad relevance is the bottleneck — Claude should recommend bid increases, ad copy tests, or landing page improvements. Low overall IS with neither lost-cause dominant usually means weak targeting reach. True competitor data — who is outranking us, overlap rate — is NOT available via the Google Ads API in v23 (UI-only); do not claim to know specific competitor domains.)`)
+    lines.push(`  (Reasoning guide: high "Lost to Budget" means the campaign is budget-constrained — Lora should recommend scaling spend if ROAS/CPA targets are healthy. High "Lost to Rank" means Quality Score, bid, or ad relevance is the bottleneck — Lora should recommend bid increases, ad copy tests, or landing page improvements. Low overall IS with neither lost-cause dominant usually means weak targeting reach. True competitor data — who is outranking us, overlap rate — is NOT available via the Google Ads API in v23 (UI-only); do not claim to know specific competitor domains.)`)
   }
 
   // LORAMER_PROJECT_3_STEP_3E_V1 — Google Recommendations (Claude-context-only)
@@ -850,12 +850,12 @@ function buildMemorySection(memory: MemoryFact[], clientName: string): string {
   }
   if (preferences.length > 0) {
     lines.push('')
-    lines.push('USER PREFERENCES (how the user wants Claude to respond):')
+    lines.push('USER PREFERENCES (how the user wants Lora to respond):')
     preferences.forEach(p => lines.push(`  • ${p.content}`))
   }
   if (observations.length > 0) {
     lines.push('')
-    lines.push('OBSERVATIONS (high-confidence patterns Claude has noted; treat as likely true):')
+    lines.push('OBSERVATIONS (high-confidence patterns Lora has noted; treat as likely true):')
     observations.forEach(o => lines.push(`  • ${o.content}`))
   }
   return lines.join('\n')
@@ -870,12 +870,12 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
   const lines = ['\n=== PREVIOUS CONVERSATIONS WITH THIS USER ===']
   lines.push('(All earlier discussions about this client. Treat these as binding context. Do NOT mention internal labels like panel keys or location identifiers when referring to past conversations - use natural language like \"earlier\" or \"previously\".)')
   // LORAMER_CROSS_SURFACE_INSTRUCTION_V1
-  lines.push(`(IMPORTANT: LoraMer has multiple surfaces where the user can talk to you for the same client: a sidebar Ask Claude tab, a right-side panel that opens from action buttons, and an inline insight banner on the overview. ALL of those surfaces ARE you — they share this same conversation history above. When the user asks "what did I say in the other tab" or "can you see the other conversation" or anything similar, the answer is YES — that history is right here in the messages above. Find it and answer specifically. NEVER say "each session is isolated" or "I cannot see other tabs" — that is FALSE and breaks the user's trust. You can see everything across surfaces because LoraMer is built that way.)`)
+  lines.push(`(IMPORTANT: LoraMer has multiple surfaces where the user can talk to you for the same client: a sidebar Lora tab, a right-side panel that opens from action buttons, and an inline insight banner on the overview. ALL of those surfaces ARE you — they share this same conversation history above. When the user asks "what did I say in the other tab" or "can you see the other conversation" or anything similar, the answer is YES — that history is right here in the messages above. Find it and answer specifically. NEVER say "each session is isolated" or "I cannot see other tabs" — that is FALSE and breaks the user's trust. You can see everything across surfaces because LoraMer is built that way.)`)
 
   const recent = flat.slice(-20)
   recent.forEach((m) => {
     const truncated = m.content.length > 800 ? m.content.slice(0, 797) + '...' : m.content
-    lines.push(`  ${m.role === 'user' ? 'User' : 'Claude'}: ${truncated}`)
+    lines.push(`  ${m.role === 'user' ? 'User' : 'Lora'}: ${truncated}`)
   })
   return lines.join('\n')
 }
@@ -952,7 +952,7 @@ export function buildClaudeContextCacheable(
   }
 
   // ── Identity ───────────────────────────────────────────────────────────────
-  lines.push(`You are an expert digital advertising analyst embedded in LoraMer, a business intelligence platform for marketing agencies.`)
+  lines.push(`You are Lora, an expert digital advertising analyst embedded in LoraMer, a business intelligence platform for marketing agencies. Always refer to yourself as Lora. You are powered by Anthropic's Claude and may acknowledge that if a user asks.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
   // LORAMER_DATE_RANGE_CANONICAL_V1
   if (intelligence.resolvedStartDate && intelligence.resolvedEndDate) {

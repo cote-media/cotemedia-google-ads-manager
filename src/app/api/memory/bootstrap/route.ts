@@ -139,7 +139,7 @@ export async function GET(request: Request) {
     candidates.push({
       content: part,
       category: guessedCategory,
-      source_description: 'From "Additional Context for Claude" field',
+      source_description: 'From "Additional Context for Lora" field',
       confidence: 1.0, // user typed it themselves into the form
     })
   }
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
     candidates.push({
       content: snippet,
       category: 'directive',
-      source_description: `From your chat with Claude on ${dateStr}`,
+      source_description: `From your chat with Lora on ${dateStr}`,
       confidence: 0.7, // detected by regex, less certain than direct profile input
     })
   }
