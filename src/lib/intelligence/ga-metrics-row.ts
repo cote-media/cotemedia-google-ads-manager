@@ -5,7 +5,24 @@
 // rows (same columns, same conflict key). Extracted verbatim from cron/sync.
 import type { IntelligenceGa } from './intelligence-types'
 
-export function gaExtra(data: IntelligenceGa): Record<string, unknown> {
+// The subset of IntelligenceGa fields a daily row needs. Both the full
+// IntelligenceGa (forward-capture) and a per-day GaDailySlice (backfill) satisfy
+// this, so one builder serves both paths without an unsafe cast.
+type GaMetricsInput = Pick<
+  IntelligenceGa,
+  | 'conversions'
+  | 'totalRevenue'
+  | 'sessions'
+  | 'totalUsers'
+  | 'newUsers'
+  | 'engagementRate'
+  | 'transactions'
+  | 'cartToPurchaseRate'
+  | 'purchaserConversionRate'
+  | 'refundAmount'
+>
+
+export function gaExtra(data: GaMetricsInput): Record<string, unknown> {
   const extra: Record<string, unknown> = {}
   if (data.sessions != null) extra.sessions = data.sessions
   if (data.totalUsers != null) extra.totalUsers = data.totalUsers
@@ -24,7 +41,7 @@ export function buildGaMetricsRows(
   captureDate: string,
   propertyId: string,
   propertyName: string,
-  data: IntelligenceGa
+  data: GaMetricsInput
 ): Record<string, unknown>[] {
   return [
     {
