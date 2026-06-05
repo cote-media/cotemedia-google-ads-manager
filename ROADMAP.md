@@ -1,7 +1,7 @@
 # LoraMer — Product Roadmap
 <!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: June 2, 2026*
+*Last updated: June 5, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -1321,6 +1321,8 @@ The intelligence audit recommended Option C (full context by default, narrow sli
 
 ## Historical Data Engine (foundational) — added June 3, 2026
 System of record for period-over-period and arbitrary historical analysis. Platform-agnostic daily-grain warehouse (metrics_daily) + nightly forward-capture cron + backfill + Claude query layer. Design: docs/HISTORICAL_DATA_ENGINE_DESIGN.md.
+
+- [ ] **Multiple ad accounts per client (NEXT SESSION PRIORITY — June 5, 2026):** `platform_connections` is ~1 account per `(client_id, platform)` and `metrics_daily` has no account dimension, so one client can't hold two accounts on the same platform without rows merging. **First decision (before code):** rollup-only vs per-account breakout vs both — determines whether `metrics_daily` needs an `account_id` column. Then map ripple: connection schema/uniqueness, intelligence adapters, backfill engine/adapters, query layer, `/clients` UI. Scope only next session — do not design yet.
 - [x] **Phase 0a COMPLETE** — all 5 forward adapters LIVE/VERIFIED (Shopify, Meta, Google, WooCommerce, GA); nightly cron `/api/cron/sync` forward-captures into `metrics_daily`.
 - [x] **Phase 0b backfill DONE + verified** on My Vacation Network — `/api/backfill/google` V2 (d14429b): 658 account-level daily rows, 2024-05-17→2026-06-02, $76.5k spend, one clean run.
 - [ ] **Phase 0b remaining:** `query_metrics` tool — multi-period comparison from store (marquee: last 7 days vs 6/12/18 months ago).
@@ -1340,6 +1342,8 @@ System of record for period-over-period and arbitrary historical analysis. Platf
 - [x] **Phase 0b query_metrics wired into Claude chat (June 4, 2026 - LORAMER_QUERY_METRICS_TOOL_0B_V1):** /api/chat now runs a capped (<=5) tool-use loop exposing the query_metrics tool; clientId injected server-side, never a model input. Claude answers period-over-period / historical questions from metrics_daily instead of a live fetch; single-shot behavior preserved when no tool is called. /api/insight (Haiku) unchanged. Completes the earlier [~] query-layer item: built, proven via curl, now Claude-facing. PHASE 0b DONE. Next: Phase 1 (generalize backfill to Meta/Shopify/GA/Woo + in-app backfill button).
 
 - [x] **query_metrics on ALL Claude surfaces (June 4, 2026 - LORAMER_QUERY_METRICS_SHARED_LOOP_V1 + LORAMER_INSIGHT_FOLLOWUP_SONNET_V1):** Extracted tool def + executor + tool-use loop to src/lib/claude-tools.ts (single source of truth, no twin-drift). /api/chat refactored to call it (behavior unchanged). /api/insight: auto one-liner banner stays Haiku/no-tool; typed follow-ups now run Sonnet + the shared loop (maxTokens 2000). All 3 doorways (Ask Claude, star panel, blue insight box) can now answer historical / period-over-period questions from metrics_daily. clientId injected server-side on every path.
+
+- [x] **query_metrics arbitrary explicit date ranges (June 5, 2026 — LORAMER_QUERY_METRICS_DATE_FLEX_V1):** Claude can query any explicit YYYY-MM-DD range (e.g. Q4 2024 vs Q4 2025); fixes the prior approximate-and-mislabel bug.
 
 - [~] **Phase 1: Meta backfill BUILT (June 4, 2026 - LORAMER_BACKFILL_META_0B_V1):** src/lib/meta-ads.ts (fetchMetaDailyMetrics: account-level daily Insights, Graph v18, time_increment=1, paginated) + /api/backfill/meta (mirrors the Google backfill: resumable via sync_state, 36-month cap, 90-day chunks). Account-level only, like Google. CONVERSION SEAM: backfilled Meta conversions use the account-level daily definition (sum of purchase/lead/etc.; value=purchase); the forward-capture cron uses a per-campaign priority-pick that cannot be reproduced from account-level daily data. Spend/impressions/clicks reconcile exactly; conversion counts may differ at the backfill/forward boundary. TODO next: add a Meta conversion caveat into the query_metrics result so Claude can state the limit. NOT yet run/verified.
 

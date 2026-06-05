@@ -27,20 +27,16 @@ multi-line pastes into the terminal (see Lesson 29).
 - A standing protocol directive was added: use Claude Code for deep-dive
   research/edits; err on caution whenever a next step isn't 100% certain.
 
-### Next tasks (none urgent — no purge clock on GA/Shopify/Woo)
-1. Meta "per-adapter floor" fix — Meta backfill shows "partial / Resume" that
-   never completes because its fetch throws past the account's first data
-   (cosmetic; data is complete to account start). Diagnose with a headless Meta
-   run first.
-2. Shopify backfill adapter (V3 pattern).
-3. WooCommerce backfill adapter (V3 pattern).
-4. Cleanup: delete stray repo-root scripts append_handoff_docs.py and
-   patch_backfill_ui_v1.py (untracked leftovers).
-
-## NEXT TASK (priority) — query_metrics: support arbitrary explicit date ranges
+## DONE — query_metrics: support arbitrary explicit date ranges
 <!-- LORAMER_QUERY_METRICS_DATE_FLEX_DESIGN_2026_06_05 -->
 
-This is priority #1, ahead of the Meta floor / Shopify / Woo items listed above.
+**Close-out (June 5, 2026):** Shipped as LORAMER_QUERY_METRICS_DATE_FLEX_V1 — additive
+`windows` param on queryMetrics opts + query_metrics tool schema/description rewrite +
+proving route accepts explicit windows. PROVEN headless on My Vacation Network
+(965c77ff-3ad5-44b2-8d45-ee8ab1c97966): Q4 2024 (2024-10-01..2024-12-31, spend
+$12,097.46, 223 conv) and Q4 2025 (2025-10-01..2025-12-31, spend $19,191.57, 758
+conv) returned with exact dates echoed and accurate labels. baseRange/offsets path
+behavior-identical.
 
 THE PROBLEM (verified against code, not assumed): the query_metrics tool can
 only express a baseRange PRESET (LAST_7/14/30/90_DAYS, THIS_MONTH, LAST_MONTH)
@@ -92,6 +88,29 @@ confirm it passes explicit windows, correctly labeled.
 DISCIPLINE: interface-only; do NOT change aggregateWindow's math or the existing
 baseRange/offsets path (keep byte-identical, like the V3 default branch). Read
 the live files via Claude Code before editing; diff-review before each commit.
+
+## NEXT TASK (priority) — Multiple ad accounts within a SINGLE client
+
+**Problem:** `platform_connections` is ~1 account per `(client_id, platform)` and
+`metrics_daily` has no account dimension, so one client can't hold two accounts on
+the same platform without rows merging.
+
+**FIRST DECISION (before code):** rollup-only vs per-account breakout vs both —
+determines whether `metrics_daily` needs an `account_id` column. Then map the
+ripple: connection schema/uniqueness, intelligence adapters, backfill engine/adapters,
+query layer, `/clients` UI.
+
+**DO NOT design yet** — scope first thing next session.
+
+### Next tasks (none urgent — no purge clock on GA/Shopify/Woo)
+1. Meta "per-adapter floor" fix — Meta backfill shows "partial / Resume" that
+   never completes because its fetch throws past the account's first data
+   (cosmetic; data is complete to account start). Diagnose with a headless Meta
+   run first.
+2. Shopify backfill adapter (V3 pattern).
+3. WooCommerce backfill adapter (V3 pattern).
+4. Cleanup: delete stray repo-root scripts `append_handoff_docs.py` and
+   `patch_backfill_ui_v1.py` (untracked leftovers).
 
 ## What shipped & was PROVEN this session
 
