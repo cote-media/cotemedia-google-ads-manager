@@ -39,6 +39,38 @@ const CHART_COLORS = [
   '#65a30d', '#7c3aed',
 ]
 
+// --- Warm chart theme (shared by all charts) ---
+const AXIS_TICK = { fontSize: 12, fontFamily: 'var(--font-body, system-ui, -apple-system, sans-serif)', fill: '#64748b' }
+
+function ChartTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.98)',
+      border: '1px solid #e7e2d8',
+      borderRadius: 12,
+      boxShadow: '0 8px 24px rgba(15,23,42,0.12)',
+      padding: '12px 14px',
+      fontFamily: 'var(--font-body, system-ui, -apple-system, sans-serif)',
+      fontSize: 13,
+      lineHeight: 1.5,
+    }}>
+      {label != null && (
+        <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: 8, fontSize: 13 }}>{label}</div>
+      )}
+      {payload.map((entry: any, i: number) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: i === 0 ? 0 : 4 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: entry.color, flexShrink: 0 }} />
+          <span style={{ color: '#64748b' }}>{entry.name}</span>
+          <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#1e293b' }}>
+            {typeof entry.value === 'number' ? entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 type Client = {
   id: string
   name: string
@@ -203,9 +235,9 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {GOOGLE_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
           ))}
@@ -266,9 +298,9 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {META_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
           ))}
@@ -336,9 +368,9 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {COMBINED_METRICS.filter(m => activeMetrics.includes(m.id)).flatMap(m => [
             <Line key={m.id + '_g'} type="monotone" dataKey={m.googleKey} stroke={m.googleColor} strokeWidth={2} dot={false} name={'🔵 ' + m.label} />,
             <Line key={m.id + '_m'} type="monotone" dataKey={m.metaKey} stroke={m.metaColor} strokeWidth={2} dot={false} strokeDasharray="4 2" name={'🔷 ' + m.label} />,
@@ -462,9 +494,9 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {series.filter(s => visibleIds.has(s.id)).map(s => (
             <Line key={s.id} type="monotone" dataKey={s.id} stroke={colorMap[s.id]} strokeWidth={2} dot={false} name={s.name} connectNulls />
           ))}
@@ -618,9 +650,9 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-              <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+              <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <Tooltip content={<ChartTooltip />} />
               {lineData.length > 0 && (
                 <Line type="monotone" dataKey="value" stroke={metricColors[activeMetric]} strokeWidth={2} dot={false} name={metricLabels[activeMetric]} connectNulls />
               )}
@@ -1491,9 +1523,9 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {SHOPIFY_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
           ))}
@@ -2707,9 +2739,9 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} />
-          <YAxis tick={{ fontSize: 9, fontFamily: 'monospace' }} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ fontSize: 11, fontFamily: 'monospace', border: '1px solid #e2e8f0', borderRadius: 0 }} />
+          <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
+          <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+          <Tooltip content={<ChartTooltip />} />
           {GA_CHART_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
             <Line key={m.id} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} />
           ))}
