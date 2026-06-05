@@ -1,6 +1,13 @@
 // LORAMER_CLIENT_METRICS_ROLLUP_V1
+// LORAMER_CLIENT_METRICS_ROLLUP_V2 - honest revenue: store (shopify/woo) and
+// GA both report the SAME sales, and ads conversion_value is the attributed
+// slice of them — so they are never added together. Precedence: store rows
+// present -> storeRev is revenue30 (source of truth); else ga rows present ->
+// gaRev; else null. conversion_value is returned separately as convValue30.
+//
 // Session-authed per-client rollup for the /clients page cards:
-//   spend30 / revenue30 / roas over LAST_30_DAYS + lastActive (true max(date)).
+//   spend30 (google+meta) / revenue30 + revenueSource / roas / convValue30
+//   over LAST_30_DAYS + lastActive (true max(date), unbounded).
 // Reads metrics_daily ONLY (no live platform fetch). Additive — nothing
 // consumes this yet; the /clients UI wires in next.
 //
@@ -8,15 +15,6 @@
 // rows are entity_level='account' with the EMPTY-STRING sentinel in
 // breakdown_type/breakdown_value — identical to aggregateWindow in
 // src/lib/metrics-query.ts, so these sums match the query layer / Ask Claude.
-//
-// Revenue semantics (mirrors the dashboard): ads rows carry value in
-// conversion_value (revenue written as 0 by the builders); commerce/GA rows
-// carry value in revenue (no conversion_value). The fields partition cleanly,
-// so revenue30 = SUM(revenue) + SUM(conversion_value) — the same combination
-// the dashboard surfaces (ads ROAS = conversion_value/spend; store revenue =
-// revenue). NOTE: a client with BOTH Shopify/Woo AND GA connected will count
-// store revenue from each platform that reports it (platform-level overlap,
-// same as summing those dashboard tabs); acceptable for the card rollup.
 
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -24,11 +22,25 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 
+const ADS_PLATFORMS = ['google', 'meta']
+const STORE_PLATFORMS = ['shopify', 'woocommerce']
+
 type ClientRollup = {
   spend30: number
-  revenue30: number
+  revenue30: number | null
+  revenueSource: 'store' | 'ga' | 'none'
   roas: number | null
   lastActive: string | null
+  convValue30: number
+}
+
+type Bucket = {
+  spend: number
+  convValue: number
+  storeRev: number
+  gaRev: number
+  storeRows: number
+  gaRows: number
 }
 
 export async function GET() {
@@ -54,8 +66,9 @@ export async function GET() {
   if (clientIds.length === 0) {
     return NextResponse.json({ metrics })
   }
+  const buckets: Record<string, Bucket> = {}
   for (const id of clientIds) {
-    metrics[id] = { spend30: 0, revenue30: 0, roas: null, lastActive: null }
+    buckets[id] = { spend: 0, convValue: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 }
   }
 
   // 30-day window from the ONE date resolver (Lesson 19).
@@ -67,7 +80,7 @@ export async function GET() {
   for (;;) {
     const { data, error } = await supabaseAdmin
       .from('metrics_daily')
-      .select('client_id,spend,revenue,conversion_value')
+      .select('client_id,platform,spend,revenue,conversion_value')
       .in('client_id', clientIds)
       .eq('entity_level', 'account')
       .eq('breakdown_type', '')
@@ -83,13 +96,47 @@ export async function GET() {
     }
     const rows = data || []
     for (const r of rows) {
-      const m = metrics[r.client_id as string]
-      if (!m) continue
-      m.spend30 += Number(r.spend || 0)
-      m.revenue30 += Number(r.revenue || 0) + Number(r.conversion_value || 0)
+      const b = buckets[r.client_id as string]
+      if (!b) continue
+      const platform = r.platform as string
+      if (ADS_PLATFORMS.includes(platform)) {
+        b.spend += Number(r.spend || 0)
+        b.convValue += Number(r.conversion_value || 0)
+      } else if (STORE_PLATFORMS.includes(platform)) {
+        b.storeRev += Number(r.revenue || 0)
+        b.storeRows += 1
+      } else if (platform === 'ga') {
+        b.gaRev += Number(r.revenue || 0)
+        b.gaRows += 1
+      }
     }
     if (rows.length < PAGE) break
     from += PAGE
+  }
+
+  for (const id of clientIds) {
+    const b = buckets[id]
+    const spend30 = Number(b.spend.toFixed(2))
+    const convValue30 = Number(b.convValue.toFixed(2))
+    // Revenue precedence — NEVER store + GA: store rows present win (source of
+    // truth for sales); else GA's reported revenue; else honest null.
+    let revenue30: number | null = null
+    let revenueSource: ClientRollup['revenueSource'] = 'none'
+    if (b.storeRows > 0) {
+      revenue30 = Number(b.storeRev.toFixed(2))
+      revenueSource = 'store'
+    } else if (b.gaRows > 0) {
+      revenue30 = Number(b.gaRev.toFixed(2))
+      revenueSource = 'ga'
+    }
+    metrics[id] = {
+      spend30,
+      revenue30,
+      revenueSource,
+      roas: revenue30 != null && spend30 > 0 ? Number((revenue30 / spend30).toFixed(2)) : null,
+      lastActive: null,
+      convValue30,
+    }
   }
 
   // lastActive = true MAX(date) across ALL of the client's rows (not 30d-capped).
@@ -105,13 +152,6 @@ export async function GET() {
       if (data?.date) metrics[id].lastActive = data.date as string
     })
   )
-
-  for (const id of clientIds) {
-    const m = metrics[id]
-    m.spend30 = Number(m.spend30.toFixed(2))
-    m.revenue30 = Number(m.revenue30.toFixed(2))
-    m.roas = m.spend30 > 0 ? Number((m.revenue30 / m.spend30).toFixed(2)) : null
-  }
 
   return NextResponse.json({ metrics })
 }
