@@ -35,7 +35,7 @@ export default function WelcomePage() {
 
         <div className="bg-white rounded-xl shadow-card p-6 mb-6">
           <p className="text-ink text-base leading-relaxed mb-5">
-            Your Google Ads accounts are connecting now. In a moment, Claude will start reading across your campaigns and learning what matters to you.
+            Your Google Ads accounts are connecting now. In a moment, Lora will start reading across your campaigns and learning what matters to you.
           </p>
 
           <div className="border-t border-border pt-5">

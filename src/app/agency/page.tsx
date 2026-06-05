@@ -34,7 +34,7 @@ export default function AgencyPage() {
               {
                 icon: '🧠',
                 title: 'A separate brain per client',
-                desc: 'Each client account gets its own memory. Claude remembers your goals, your KPIs, your standing instructions — and never confuses one client\'s account with another.'
+                desc: 'Each client account gets its own memory. Lora remembers your goals, your KPIs, your standing instructions — and never confuses one client\'s account with another.'
               },
               {
                 icon: '🌊',
@@ -49,7 +49,7 @@ export default function AgencyPage() {
               {
                 icon: '📄',
                 title: 'Client-ready output',
-                desc: 'Download analysis transcripts in PDF or markdown for client meetings. Claude writes in plain language clients can read — not analyst-speak.'
+                desc: 'Download analysis transcripts in PDF or markdown for client meetings. Lora writes in plain language clients can read — not analyst-speak.'
               },
             ].map(f => (
               <div key={f.title} className="flex gap-4 p-5 md:p-6 bg-white border border-border">

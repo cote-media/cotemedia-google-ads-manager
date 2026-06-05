@@ -33,7 +33,7 @@ export default function Home() {
             <em>in one conversation.</em>
           </h1>
           <p className="text-muted text-base md:text-lg leading-relaxed mb-8 md:mb-10 max-w-md">
-            Connect every data source you use — ads, sales, customers, products — and ask Claude anything. LoraMer reads across all of it to surface what&apos;s working, what&apos;s broken, and what to do next.
+            Connect every data source you use — ads, sales, customers, products — and ask Lora anything. LoraMer reads across all of it to surface what&apos;s working, what&apos;s broken, and what to do next.
           </p>
 
           {/* Split cards */}
@@ -76,7 +76,7 @@ export default function Home() {
       <div className="border-t border-border">
         <div className="grid grid-cols-1 md:grid-cols-3 md:divide-x divide-border">
           {[
-            { label: 'Deep Knowledge', desc: 'Google, Meta, Shopify and more — Claude reads across every data source and remembers what you told it last week.' },
+            { label: 'Deep Knowledge', desc: 'Google, Meta, Shopify and more — Lora reads across every data source and remembers what you told it last week.' },
             { label: 'A Real Human, Always', desc: 'Every customer can reach a real person, on every plan. No bot-only support. No phone trees. Ever.' },
             { label: 'Built for Real Operators', desc: 'Whether you manage one store or fifty client accounts, LoraMer keeps context separate per account and answers in plain language.' },
           ].map((f, i) => (

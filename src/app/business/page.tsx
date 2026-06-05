@@ -49,7 +49,7 @@ export default function BusinessPage() {
               {
                 icon: '🤝',
                 title: 'A real human, always reachable',
-                desc: 'Stuck? Confused? Need to push back on what Claude said? You can reach a real person on every plan. No bot-only support. No phone trees. Ever.'
+                desc: 'Stuck? Confused? Need to push back on what Lora said? You can reach a real person on every plan. No bot-only support. No phone trees. Ever.'
               },
             ].map(f => (
               <div key={f.title} className="flex gap-4 p-5 md:p-6 bg-white border border-border">
