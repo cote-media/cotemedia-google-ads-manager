@@ -74,7 +74,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - **Supabase tables:** `metrics_daily` (the permanent per-day metrics store, all platforms), `sync_state` (backfill cursors/completion), `clients`, `platform_connections`, `client_context`, `client_conversations`, `client_memory`, `user_profiles`, token tables per connector (`google_tokens`, `meta_tokens`, `ga_tokens`, `shopify_tokens`, `woocommerce_tokens`, `shopify_installs`), `anthropic_spend_log`, `shopify_compliance_log`
 - **Forward capture:** `api/cron/sync` runs nightly (Vercel cron) and writes YESTERDAY's rows per connection — a change gated on cron output can only be verified after the next UTC-midnight-crossing run (see handoff Lesson on cron-gated verification)
 - **Backfill:** `lib/backfill/run-backfill.ts` is the platform-agnostic engine (probe → chunked daily fetch → shared row builder → write + cursor); `lib/backfill/adapters.ts` registers per-platform adapters (token loading, daily fetch, chunking, floors). Adding a platform = daily fetch + row builder + adapter + CRON wrapper + mount `BackfillControl` on its `/clients` row
-- **Connectors:** `lib/google-ads.ts` + `lib/platforms/google.ts` (Google Ads API via the google-ads-api Node client, GAQL), `lib/meta-ads.ts` + `lib/platforms/meta.ts` (Meta Graph API v18.0, paginated daily insights), Shopify/Woo/GA via their OAuth routes + token helpers (`shopify-token.ts`, `shopify-install-token.ts`, `ga-token.ts`)
+- **Connectors:** `lib/google-ads.ts` + `lib/platforms/google.ts` (Google Ads API via the google-ads-api Node client, GAQL), `lib/meta-ads.ts` + `lib/platforms/meta.ts` (Meta Graph API — version hardcoded at each call site across the meta routes and libs, not centrally pinned; grep `graph.facebook.com` for the current value — paginated daily insights), Shopify/Woo/GA via their OAuth routes + token helpers (`shopify-token.ts`, `shopify-install-token.ts`, `ga-token.ts`)
 - `lib/metrics-query.ts` — the query layer over `metrics_daily` powering both the `query_metrics` tool and `api/clients/metrics`, so model answers and UI rollups agree
 - `lib/platforms/types.ts` — shared dashboard-facing platform types + column definitions
 
@@ -100,14 +100,14 @@ Client management grid: per-client cards with honest metrics from `api/clients/m
 - **Mer** = the client deep-dive surface on the clients page. (LoraMer = Lora + Mer.)
 - **"Powered by Claude" / Anthropic references** = engine credit only — legal pages and the identity line's "powered by Anthropic's Claude" stay verbatim; never rename those.
 - Engine: Claude Sonnet for chat and insight follow-ups, Claude Haiku for the auto insight banner one-liner.
-- Code identifiers deliberately keep legacy names (`buildClaudeContext`, `runClaudeToolLoop`, `AskClaudeButton`, `advar-*` localStorage keys) — rendered/prompt text is what got renamed.
+- Code identifiers deliberately keep legacy names (`buildClaudeContext`, `runClaudeToolLoop`, `AskClaudeButton`, the legacy `advar-*` localStorage keys; newer keys use `loramer-*`) — rendered/prompt text is what got renamed.
 
 ## Conventions (full lessons in LORAMER_HANDOFF.md)
 - Russ never edits code directly — Claude Code makes all edits, commits, and pushes. Hand him complete copyable blocks and label every paste destination (Cursor terminal / Supabase SQL Editor / Vercel).
 - Verify with `npx tsc --noEmit` before committing; Vercel deploys from main.
 - Session work is tagged `LORAMER_*_V1`-style in commit messages; handoffs anchor on TAGS + deliverable files, never commit hashes.
 - Single-source-of-truth files are deliberate: `date-range.ts` (date windows), `claude-tools.ts` (model tools), `metrics-query.ts` (historical sums), `build-claude-context.ts` (prompt). Change behavior there, not at call sites.
-- Deliver code as files/zips, never multi-line terminal pastes (characters get silently dropped).
+- Raw macOS Terminal: keep pastes to single commands or a small script — long multi-line terminal pastes can drop characters. The Cursor Agents window takes full multi-line task pastes — that's how all code work is delivered.
 
 ## If you're changing X, look here
 | Change | Where |
