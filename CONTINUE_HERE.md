@@ -1,3 +1,20 @@
+# ▶ RESUME LORAMER — do this first, every session
+
+Russ types one line into a new chat with the strategy Claude: `Resume LoraMer`.
+Strategy Claude reads this file and hands back the block below. Russ pastes it into Claude Code. That is the whole ritual.
+
+--- PASTE INTO CLAUDE CODE (Cursor Agents window) ---
+SESSION RESUME — read-only, no edits this turn.
+1. git pull origin main
+2. git status
+3. git log -1 --oneline
+Report: (a) did the pull fast-forward or say "already up to date" — if it says MERGE / CONFLICT / divergence, STOP and paste the full output; (b) is the working tree clean, ignoring untracked helper scripts append_handoff_docs.py and patch_backfill_ui_v1.py — if any TRACKED file is modified, STOP and paste git status; (c) print HEAD's one-line so we confirm the session TAG (never a hash). Then read the NEXT STEP line in CONTINUE_HERE.md and tell me what it says. Wait for instruction.
+--- END PASTE ---
+
+NEXT STEP (2026-06-05): Surface + restyle the dashboard Recharts chart tooltip and chart typography (warm/bigger, like Google Ads), propagate the Lora rename app-wide (sidebar still reads "ASK CLAUDE"), and apply the homepage serif headings + type scale to the dashboard. Multi-account migration runbook stays PARKED until the daily cron writes the next day's rows.
+
+ANCHOR RULE: verify the session TAG in HEAD's commit message + the deliverable files — NEVER a commit hash. Local commits get squashed on push and rewritten, so a hash written into a handoff will never appear on origin. This is what broke the 088b687 resume.
+
 # CONTINUE_HERE — Resume point after June 5, 2026
 
 Read AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before. Same laptop as last

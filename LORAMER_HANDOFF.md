@@ -747,3 +747,11 @@ stops, and never marks complete. Cosmetic, not data loss. Fix = give Meta a
 floorDate and/or have its adapter return [] on out-of-range windows (the
 roadmap's "per-adapter floor for Meta"). Diagnose with a headless run
 (stoppedOnError:true) before fixing.
+
+## Lesson 34 — Handoffs anchor on session TAG + files, never a commit hash
+(Numbered 34, not 26 as drafted — Lesson 26 already exists: "RightPanel has TWIN
+desktop/mobile render blocks"; sequence was already at 33.)
+Local commits are squashed on push and rewritten, so a hash recorded in a handoff (e.g. 088b687) never appears on origin and the resume check fails every time. Verify instead: clean fast-forward pull + the LORAMER_*_V1 session tag in HEAD's message + an ls/grep proving the named deliverable files exist.
+
+## Standing rule — End every session by refreshing CONTINUE_HERE.md
+At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
