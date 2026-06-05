@@ -213,6 +213,7 @@ export async function runBackfill(
           client_id: clientId,
           user_email: userEmail,
           platform: adapter.platform,
+          account_id: accountId, // LORAMER_MULTIACCOUNT_PHASE2A_V1
           entity_level: 'account',
           entity_id: accountId,
           entity_name: accountName,

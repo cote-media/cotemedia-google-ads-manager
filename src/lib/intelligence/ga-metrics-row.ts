@@ -48,6 +48,7 @@ export function buildGaMetricsRows(
       client_id: clientId,
       user_email: userEmail,
       platform: 'ga',
+      account_id: propertyId, // LORAMER_MULTIACCOUNT_PHASE2A_V1
       entity_level: 'account',
       entity_id: propertyId,
       entity_name: propertyName,

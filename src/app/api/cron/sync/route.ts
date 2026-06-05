@@ -70,6 +70,7 @@ function buildShopifyMetricsRows(
     client_id: clientId,
     user_email: userEmail,
     platform: 'shopify',
+    account_id: shopDomain, // LORAMER_MULTIACCOUNT_PHASE2A_V1
     entity_level: 'account',
     entity_id: shopDomain,
     entity_name: shopDomain,
@@ -86,6 +87,7 @@ function buildShopifyMetricsRows(
       client_id: clientId,
       user_email: userEmail,
       platform: 'shopify',
+      account_id: shopDomain, // LORAMER_MULTIACCOUNT_PHASE2A_V1
       entity_level: 'product',
       entity_id: product.id,
       entity_name: product.name,
@@ -150,6 +152,7 @@ function buildMetaMetricsRows(
       client_id: clientId,
       user_email: userEmail,
       platform: 'meta',
+      account_id: accountId, // LORAMER_MULTIACCOUNT_PHASE2A_V1
       entity_level: entityLevel,
       entity_id: entityId,
       entity_name: entityName,
@@ -242,6 +245,7 @@ function buildGoogleMetricsRows(
       client_id: clientId,
       user_email: userEmail,
       platform: 'google',
+      account_id: customerId, // LORAMER_MULTIACCOUNT_PHASE2A_V1
       entity_level: entityLevel,
       entity_id: entityId,
       entity_name: entityName,
@@ -292,6 +296,7 @@ function buildWooMetricsRows(
     client_id: clientId,
     user_email: userEmail,
     platform: 'woocommerce',
+    account_id: storeUrl, // LORAMER_MULTIACCOUNT_PHASE2A_V1
     entity_level: 'account',
     entity_id: storeUrl,
     entity_name: storeUrl,
@@ -308,6 +313,7 @@ function buildWooMetricsRows(
       client_id: clientId,
       user_email: userEmail,
       platform: 'woocommerce',
+      account_id: storeUrl, // LORAMER_MULTIACCOUNT_PHASE2A_V1
       entity_level: 'product',
       entity_id: product.id,
       entity_name: product.name,
