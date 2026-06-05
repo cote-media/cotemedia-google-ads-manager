@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   { id: 'woocommerce', label: 'WooCommerce', icon: '🛒', wooOnly: true },  // LORAMER_WOO_TAB_V1
   { id: 'ga', label: 'Analytics', icon: '📊', gaOnly: true },  // LORAMER_GA_DASHBOARD_TAB_V1
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
-  { id: 'chat', label: 'Ask Claude', icon: '✦' },
+  { id: 'chat', label: 'Lora', icon: '✦' },
 ]
 
 const CHART_COLORS = [
@@ -761,7 +761,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
       <div className="hidden md:flex fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-border shadow-2xl z-50 flex-col">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-white flex-shrink-0">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
+            <p className="text-xs font-mono text-accent">✦ Ask Lora</p>
             <p className="text-sm font-medium text-ink truncate">{title}</p>
           </div>
           <div className="flex items-center gap-1 ml-3">
@@ -841,7 +841,7 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
       <div className="flex md:hidden fixed left-0 right-0 bottom-0 top-[25%] bg-white border-t border-border shadow-2xl z-50 flex-col rounded-t-2xl">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-white flex-shrink-0 rounded-t-2xl">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-mono text-accent">✦ Ask Claude</p>
+            <p className="text-xs font-mono text-accent">✦ Ask Lora</p>
             <p className="text-sm font-medium text-ink truncate">{title}</p>
           </div>
           <div className="flex items-center gap-1 ml-3">
@@ -960,7 +960,7 @@ function AskClaudeButton({ row, level, platform, clientId, clientName, dateRange
   return (
     <button
       onClick={e => { e.stopPropagation(); openPanel(row.name, rowContext, [], quickPrompts) }}
-      title={'Ask Claude about this ' + levelLabel.toLowerCase()}
+      title={'Ask Lora about this ' + levelLabel.toLowerCase()}
       className="text-xs text-accent hover:bg-blue-100 transition-colors rounded px-1 py-0.5"
     >
       ✦
@@ -1060,7 +1060,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
               </th>
             ))}
             {level !== 'ads' && <th className="px-3 py-3 w-8 text-left font-mono text-xs text-muted">↳</th>}
-            {clientId && <th className="px-2 py-3 w-6" title="Ask Claude">✦</th>}
+            {clientId && <th className="px-2 py-3 w-6" title="Ask Lora">✦</th>}
           </tr>
         </thead>
         <tbody>
@@ -1400,7 +1400,7 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
                 <div className="space-y-0.5">{filteredAnomalies.map((a, i) => <p key={i} className="text-sm text-amber-800 font-medium">• {a}</p>)}</div>
               </div>
             )}
-            <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Claude Analysis</p>
+            <p className="font-mono text-xs uppercase tracking-widest mb-2 text-accent">✦ Lora Analysis</p>
             {loading && !insight
               ? <div className="flex items-center gap-2"><span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" /><span className="text-sm text-muted font-mono">Analyzing account...</span></div>
               : <div className="chat-response text-sm text-ink leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{insight}</ReactMarkdown></div>}
@@ -1466,7 +1466,7 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
           )}
           {profileSaved && (
             <div className="px-4 py-2 bg-green-50 border-t border-green-100">
-              <p className="text-xs font-mono text-green-600">✓ Saved to client profile — Claude will use this for all future analyses</p>
+              <p className="text-xs font-mono text-green-600">✓ Saved to client profile — Lora will use this for all future analyses</p>
             </div>
           )}
         </div>
@@ -1565,7 +1565,7 @@ function AskClaudeCardButton({ cardTitle, cardData, clientId, clientName, platfo
   return (
     <button
       onClick={() => openPanel(cardTitle, cardContext, [], quickPrompts)}
-      title={'Ask Claude about ' + cardTitle}
+      title={'Ask Lora about ' + cardTitle}
       className="text-xs text-accent hover:bg-blue-100 transition-colors px-1.5 py-0.5 rounded"
     >
       ✦
@@ -2299,7 +2299,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
     <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Claude</h2>
+          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Lora</h2>
           <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}{chatLevelLabel}</p>
         </div>
         <div className="flex gap-2">
@@ -3480,7 +3480,7 @@ function DashboardContent() {
   }
 
   function downloadChat() {
-    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Claude') + ': ' + m.content).join('\n\n---\n\n')
+    const text = chatMessages.map(m => (m.role === 'user' ? 'You' : 'Lora') + ': ' + m.content).join('\n\n---\n\n')
     const header = 'LoraMer Chat Export\nClient: ' + (selectedClient?.name || '') + '\nDate: ' + new Date().toLocaleDateString() + '\n\n'
     const blob = new Blob([header + text], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
@@ -3501,7 +3501,8 @@ function DashboardContent() {
       for (const line of lines) {
         const t = line.trim()
         if (t.startsWith('You: ')) messages.push({ role: 'user', content: t.slice(5) })
-        else if (t.startsWith('Claude: ')) messages.push({ role: 'assistant', content: t.slice(8) })
+        else if (t.startsWith('Lora: ')) messages.push({ role: 'assistant', content: t.slice(6) })
+        else if (t.startsWith('Claude: ')) messages.push({ role: 'assistant', content: t.slice(8) })  // legacy transcripts exported before the Lora rename
       }
       if (messages.length > 0) {
         const restored = [...messages, { role: 'assistant', content: "I've read through our previous conversation and have full context. What would you like to tackle next?" }]
@@ -3736,7 +3737,7 @@ function DashboardContent() {
               <button key={item.id} onClick={() => { changeTab(item.id as any); setMobileMenuOpen(false) }}
                 className={'flex-1 flex flex-col items-center py-2 px-1 transition-colors ' + (activeTab === item.id ? 'text-accent' : 'text-muted hover:text-ink')}>
                 <span className="text-lg leading-none mb-0.5">{item.icon}</span>
-                <span className="font-mono text-[10px] uppercase tracking-wide">{item.label === 'Ask Claude' ? 'Claude' : item.label}</span>
+                <span className="font-mono text-[10px] uppercase tracking-wide">{item.label}</span>
               </button>
             ))}
             <button onClick={() => setMobileMoreOpen(!mobileMoreOpen)}

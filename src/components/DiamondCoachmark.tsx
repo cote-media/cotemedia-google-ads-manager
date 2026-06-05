@@ -36,7 +36,7 @@ export function DiamondCoachmark() {
   return (
     <div
       role="dialog"
-      aria-label="Tip about Ask Claude diamonds"
+      aria-label="Tip about Ask Lora diamonds"
       className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-50 max-w-sm bg-white border border-accent shadow-xl rounded-xl overflow-hidden"
     >
       <div className="px-4 py-3 bg-blue-50 border-b border-accent/20 flex items-center justify-between">
@@ -51,10 +51,10 @@ export function DiamondCoachmark() {
       </div>
       <div className="px-4 py-3">
         <p className="text-sm text-ink leading-relaxed mb-3">
-          See the <span className="inline-block text-accent font-medium">✦</span> icons on each section? Tap any of them to ask Claude about that specific data — campaign performance, top keywords, budget, anything.
+          See the <span className="inline-block text-accent font-medium">✦</span> icons on each section? Tap any of them to ask Lora about that specific data — campaign performance, top keywords, budget, anything.
         </p>
         <p className="text-xs text-muted leading-relaxed mb-3">
-          Claude already knows which client you&apos;re viewing and what data is on screen.
+          Lora already knows which client you&apos;re viewing and what data is on screen.
         </p>
         <button
           onClick={dismiss}
