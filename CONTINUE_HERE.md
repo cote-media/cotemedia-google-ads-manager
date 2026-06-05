@@ -1,76 +1,125 @@
-# CONTINUE_HERE - Resume point after June 4, 2026
+# CONTINUE_HERE — Resume point after June 4–5, 2026
 
-Read AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before. Same laptop as last session
-(MacBook Air, ~/Downloads/cotemedia-google-ads-manager).
+Read AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before. Same laptop as last
+session (MacBook Air, ~/Downloads/cotemedia-google-ads-manager).
 
-## Session start
+## Session start (FIRST, every session — paste into the Cursor terminal)
 ```
 cd ~/Downloads/cotemedia-google-ads-manager && git pull origin main
 ```
-Expect "Already up to date" - same laptop, last session's work was pushed.
+Expect "Already up to date" on the same laptop.
 
-## Where we are
-- Phase 0b COMPLETE: historical query layer (src/lib/metrics-query.ts) + read-only proving
-  route /api/query-metrics, and query_metrics wired as a Claude tool on ALL surfaces via
-  src/lib/claude-tools.ts. Proven on My Vacation Network.
-- Meta backfill DONE (Phase 1 start): /api/backfill/meta + src/lib/meta-ads.ts. MyVN
-  backfilled (565 rows to 2023-06-04). Meta conversion caveat surfaced to Claude.
-- Backfill routes today: google + meta only (ACCOUNT-LEVEL, CRON_SECRET-bearer GET,
-  resumable via sync_state, 36-month cap). Shopify/GA/Woo have forward-capture only.
+NOTE FOR THE NEXT CLAUDE: Russ does not touch code. Always hand him COMPLETE
+copyable commands/blocks and state exactly where each is pasted (Cursor terminal /
+Supabase SQL Editor / macOS Terminal / Vercel). Never tell him to scroll to a
+previous message — if there's any confusion, re-paste the full command in your
+newest message. Deliver code as downloadable files/zips (byte-exact), NOT as
+multi-line pastes into the terminal (see Lesson 29).
 
-## Next task - in-app backfill button (retire the curl)
-Goal: a session-authed, in-app way to run backfills so Russ never pastes CRON_SECRET into a
-terminal again. Investigate-only assessment is already done; refined design with corrections:
+## What shipped & was PROVEN this session
 
-DESIGN
-- ONE platform per "lap." A backfill is chunked + resumable (60s route cap, NO background
-  queue exists). The button kicks off a lap, the UI reads progress and re-triggers to resume
-  until complete. Do NOT try to run all platforms in one request - it will time out.
-- Session POST endpoint (e.g. /api/backfill/run): verify getServerSession AND enforce client
-  ownership (.eq('user_email', session.user.email) on clients). The existing backfill GET
-  routes do NOT check ownership (latent IDOR, CRON_SECRET-only) - the browser path MUST. Use
-  POST, not GET, for a browser-triggered mutation.
-- Auth approach = extract the google + meta backfill loop bodies into shared lib functions
-  (e.g. src/lib/backfill/*), make the existing CRON GET routes thin wrappers over them, and
-  have the session route call the lib directly. No CRON_SECRET in the browser path, no nested
-  60s timeouts. This is also the "register a backfill function" foundation so Shopify/GA/Woo
-  plug in later.
-- Progress: sync_state has backfill_earliest_date / backfill_target_date / backfill_complete /
-  updated_at. No API exposes sync_state to the browser yet - add a small read (extend
-  /api/clients or a GET status route). Percent is indicative (real depth is account-specific,
-  not always 36mo).
-- UI: the Connections block on /clients (src/app/clients/page.tsx ~L997-1091). Per backfillable
-  platform (google/meta now) show a Backfill button + progress; non-backfillable platforms show
-  "history coming soon." DISABLE the button while a lap runs (no locking exists - prevents the
-  double-click / parallel-invocation cursor race).
+### In-app backfill button — Phase 1 COMPLETE (retired the CRON_SECRET curl)
+- `src/lib/backfill/run-backfill.ts` — shared backfill engine (account-level daily,
+  chunked, resumable). Auth is the caller's responsibility.
+- `src/lib/backfill/adapters.ts` — per-platform adapters (google + meta) + a
+  `backfillAdapters` registry. THIS is where every future platform plugs in.
+- `src/app/api/backfill/google/route.ts` + `meta/route.ts` — now THIN CRON-bearer
+  GET wrappers over the engine (behavior identical to the pre-refactor V1/V2).
+- `src/app/api/backfill/run/route.ts` — session-authed POST, ownership-gated
+  (closes the IDOR on the GET routes), {google,meta} allowlist, one platform/lap.
+- `src/app/api/backfill/status/route.ts` — session-authed GET, per-platform
+  progress; reports the HONEST earliest (actual min(date) in metrics_daily).
+- `src/app/api/backfill/probe/route.ts` — read-only CRON-bearer diagnostic: ask a
+  platform's API for any date window, see rows/earliest/latest/error. Use it to
+  confirm how deep a platform actually serves BEFORE trusting depth.
+- `src/app/clients/BackfillControl.tsx` — per-platform UI control on /clients
+  Connections (google+meta): reads status, drives run in resumable laps, disables
+  while running (double-click guard), shows honest history depth.
 
-SUGGESTED BUILD ORDER
-1. Extract shared backfill lib (src/lib/backfill/*); refactor /api/backfill/google +
-   /api/backfill/meta into thin GET wrappers; re-verify BOTH still backfill via curl (no
-   behavior change) before moving on.
-2. Session POST /api/backfill/run with ownership check, one platform per lap, {google,meta}
-   allowlist + graceful skip for platforms with no route yet.
-3. Small sync_state status read for the UI.
-4. UI button + progress + lap-driver on /clients Connections, with a double-click guard.
+### Deep-history V2 — capture as far back as the platform serves
+- `run-backfill.ts`: floor raised 36 → 132 months (Google's 11yr ceiling); per-chunk
+  try/catch (stops gracefully on a retention/date error instead of 500-ing); target
+  recomputed fresh each run.
+- `status` route: earliestDate = actual earliest row held (honest), not the swept
+  cursor target.
+- PROVEN on "Bath Fitter | O'Gorman Bros" (Google): earliest 2020-01-27 (the
+  account's true first-spend day, matched in the Google UI), 1,933 daily rows,
+  total_spend $2,293,179.80 — reconciling to Google's all-time $2.29M to the penny.
 
-GOTCHAS (from the investigate sweep)
-- No background queue anywhere; per-route maxDuration=60; resumable by design.
-- Concurrency: no locking on sync_state. Cron vs backfill use different columns (low risk),
-  but two concurrent backfills on the same client+platform can stomp the cursor (data is
-  idempotent, but wasted work / premature complete) - disable button during a run.
-- Multi-account clients: backfill uses .find() = FIRST connection per platform; cron loops
-  all. Multi-account backfill is a known gap.
-- Reviewer/Shopify-install sessions may not own clients.user_email rows - the ownership check
-  could 404 for them (acceptable).
+### Reset + redeepen
+- Cleared backfill_complete / backfill_earliest_date / backfill_target_date for ALL
+  google+meta sync_state rows so every client's button reappeared. Russ then
+  backfilled ALL his current google+meta clients deep. (The reset only clears the
+  cursor/flags — metrics_daily data is never deleted by it.)
 
-## After the button
-Remaining Phase 1: Shopify / GA / Woo backfill routes (same template as Meta), run them
-THROUGH the new button. Then Phase 2 (asset/breakdown depth), Phase 3 (cutover: wire Claude
-fully onto the query layer, retire the 15-min live-fetch cache in /api/intelligence).
+## Platform data-retention reality (drives backfill strategy — see ROADMAP table)
+- GOOGLE ADS: rolling 37-month limit on GRANULAR (daily/hourly/weekly) data + 11yr
+  for aggregates, effective June 1, 2026. As of June 4 the API STILL served full
+  granular history (we pulled 51–77 months) — enforcement not yet biting. URGENT:
+  backfill new google clients while the deep history is still reachable.
+- META: shorter retention (~37 months typical); backfill works, sweeps empty for
+  older ranges, resumable.
+- GA4: the 2/14/50-month retention applies to EVENT/USER-level data (Explorations).
+  The AGGREGATE metrics LoraMer pulls are kept indefinitely and served by the Data
+  API WITHOUT the retention limit. So GA can likely be backfilled deep — CONFIRM via
+  a wide GA Data API probe first. NOT urgent (aggregate isn't purged).
+- SHOPIFY / WOOCOMMERCE: no purge clock — Shopify keeps orders; Woo is the
+  merchant's own DB. Full history always available. NOT urgent. But LoraMer only
+  FORWARD-captures them today — no backfill route yet.
+
+## NEXT TASKS (priority)
+1. GA backfill adapter. FIRST: read-only probe the GA Data API on a real property
+   over a wide range (e.g. 2015→yesterday) to confirm aggregate depth. THEN add a
+   GA daily-fetch (model it on `ga-intelligence.ts`) + register a `ga` adapter in
+   `src/lib/backfill/adapters.ts` + render <BackfillControl platform="ga"> on the GA
+   row in `src/app/clients/page.tsx`. No time pressure.
+2. Shopify + Woo backfill adapters — same pattern. No time pressure.
+3. New google/meta clients Russ adds: the button works automatically for fresh
+   clients; if any were previously capped, reset their sync_state backfill_* first
+   (SQL below). TIME-SENSITIVE (rolling purge).
+4. Polish: "history coming soon" labels on non-backfillable platform rows;
+   per-adapter floor for Meta (132mo sweeps many empty chunks but is resumable);
+   backfill UX; optional "backfill all clients" bulk action.
+
+## HOW TO ADD A NEW PLATFORM BACKFILL (the universal pattern)
+The engine + run/status/probe routes are platform-agnostic. To add a platform:
+1. Provide a daily-fetch returning `DailyRow[]` ({date,cost,clicks,impressions,
+   conversions,conversionValue}).
+2. Register an adapter in `src/lib/backfill/adapters.ts` (platform, accountIdKey,
+   chunkDays, connectionMissingError, tokenMissingError, loadToken, fetchDaily) and
+   add it to the `backfillAdapters` registry.
+3. Render `<BackfillControl clientId={client.id} platform="<p>" onComplete={fetchClients} />`
+   on that platform's row in `src/app/clients/page.tsx`.
+Run/status/probe and the UI then work automatically.
+
+## Verification / operations commands (copy/paste)
+Probe a Google account's true depth (macOS Terminal; replace CLIENT_ID):
+```
+echo "→ Paste CRON_SECRET, then Enter (hidden):"; read -r -s CRON; curl -s -H "Authorization: Bearer $CRON" "https://cotemedia-google-ads-manager.vercel.app/api/backfill/probe?clientId=CLIENT_ID&start=2015-01-01&end=2026-06-03" | python3 -m json.tool; unset CRON
+```
+Confirm captured depth + spend for a client (Supabase SQL Editor; replace NAME):
+```
+select c.name, min(m.date) earliest, max(m.date) latest, count(*) days, round(sum(m.spend)::numeric,2) total_spend
+from metrics_daily m join clients c on c.id=m.client_id
+where c.name ilike '%NAME%' and m.platform='google' and m.entity_level='account'
+group by c.name;
+```
+Reset google+meta backfill flags so buttons reappear (Supabase SQL Editor):
+```
+update sync_state set backfill_complete=false, backfill_earliest_date=null, backfill_target_date=null where platform in ('google','meta');
+```
+
+## Still open / carried forward
+- SECURITY: the June 2 .env.local screenshot exposed 5 secrets. Confirmed rotated:
+  Google Ads dev token + CRON_SECRET. STILL VERIFY/ROTATE: Google client secret,
+  NextAuth secret, Supabase keys, Meta app secret — then update Vercel env vars.
+- GA Phase 6 disconnect; Google date-path tech debt; ConnectionPill extract.
 
 ## Discipline reminders
-- Right > fast; dry-run sacred; per-edit content-based idempotency; comments NEVER after a
-  comma/closing token (L13); `tsc --noEmit` is NOT a full build, Vercel is the gate (L14);
-  anchors only from current-turn pastes (L16); investigate-only first on big files (L24);
-  page.tsx has desktop/mobile twin blocks - audit both (L26).
-- Run the Session Wrap-Up Checklist (in LORAMER_HANDOFF.md) before ending the next session.
+- Right > fast; dry-run sacred; deliver complete files/zips (Lesson 29), not
+  terminal code pastes; `tsc --noEmit` is the type gate but cannot catch mangled
+  string literals in untyped calls — grep critical strings; Vercel is the real
+  build gate.
+- Always give Russ copyable commands with the exact paste destination; never say
+  "scroll up."
+- Run the Session Wrap-Up Checklist (in LORAMER_HANDOFF.md) before ending.

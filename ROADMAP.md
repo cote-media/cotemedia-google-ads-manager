@@ -1344,3 +1344,38 @@ System of record for period-over-period and arbitrary historical analysis. Platf
 - [~] **Phase 1: Meta backfill BUILT (June 4, 2026 - LORAMER_BACKFILL_META_0B_V1):** src/lib/meta-ads.ts (fetchMetaDailyMetrics: account-level daily Insights, Graph v18, time_increment=1, paginated) + /api/backfill/meta (mirrors the Google backfill: resumable via sync_state, 36-month cap, 90-day chunks). Account-level only, like Google. CONVERSION SEAM: backfilled Meta conversions use the account-level daily definition (sum of purchase/lead/etc.; value=purchase); the forward-capture cron uses a per-campaign priority-pick that cannot be reproduced from account-level daily data. Spend/impressions/clicks reconcile exactly; conversion counts may differ at the backfill/forward boundary. TODO next: add a Meta conversion caveat into the query_metrics result so Claude can state the limit. NOT yet run/verified.
 
 - [x] **Meta backfill VERIFIED + conversion caveat shipped (June 4, 2026 - LORAMER_QUERY_METRICS_META_CAVEAT_V1):** Ran /api/backfill/meta on My Vacation Network - 565 account-level daily rows back to the 36-mo cap (2023-06-04), complete. query_metrics platform=meta reconciles (spend/clicks/impressions exact; CTR/CPC/CPA math checks). query_metrics result now carries a `notes` provenance caveat when Meta is in scope, so Claude can state the Meta conversion precision limit honestly (and only when conversions are central). Meta done for Phase 1. Remaining Phase 1: Shopify/GA/Woo backfills (same template) + in-app backfill button to retire the curl.
+
+
+---
+
+## Historical Backfill - Universal Pattern (added June 4-5, 2026)
+<!-- LORAMER_BACKFILL_DEEP_SESSION_2026_06_04 -->
+
+LoraMer's moat is being the permanent system of record as platforms purge history.
+Every connected platform must have BOTH forward-capture AND a backfill adapter that
+pulls as deep as the platform will serve and labels depth honestly.
+
+STATUS:
+- Google Ads - forward-capture + backfill: DONE (deep, proven on a $2.29M account).
+- Meta - forward-capture + backfill: DONE (deep).
+- GA4 - forward-capture only. TODO: backfill adapter (probe the Data API first to
+  confirm aggregate depth; aggregate is retained indefinitely so likely deep).
+- Shopify - forward-capture only. TODO: backfill adapter (no purge clock).
+- WooCommerce - forward-capture only. TODO: backfill adapter (no purge clock).
+
+PER-PLATFORM RETENTION (drives urgency):
+| Platform | Granular limit | Aggregate | LoraMer urgency |
+|----------|----------------|-----------|-----------------|
+| Google Ads | rolling 37 months (eff. Jun 1 2026; not yet enforced on API) | 11 years | HIGH - backfill before the purge bites |
+| Meta | ~37 months | - | medium |
+| GA4 | event/user 2-14mo (50 on 360) | indefinite (aggregate via Data API) | low (aggregate safe) |
+| Shopify | none | none | none |
+| WooCommerce | none (merchant DB) | none | none |
+
+ENGINEERING: the engine (`src/lib/backfill/run-backfill.ts`), the session
+run/status routes, the read-only probe, and `BackfillControl` are all
+platform-agnostic. A new platform = one adapter in `src/lib/backfill/adapters.ts`
++ a <BackfillControl> on its /clients row.
+
+OPEN POLISH: "history coming soon" on non-backfillable rows; per-adapter floor for
+Meta; backfill UX; optional "backfill all clients" bulk action.

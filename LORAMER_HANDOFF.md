@@ -620,3 +620,46 @@ cd <repo-path> && git pull origin main && echo "===== LAST 15 COMMITS =====" && 
 ```
 
 **Always-on rules:** right > fast; dry-runs sacred; complete files or labeled pastes; never the same mistake twice; never make Russ touch code directly.
+
+
+---
+
+## SESSION ADDENDUM — June 4-5, 2026 (backfill button + deep history)
+<!-- LORAMER_BACKFILL_DEEP_SESSION_2026_06_04 -->
+
+The authoritative current state now lives in CONTINUE_HERE.md (read it). Headlines:
+- In-app backfill button shipped (Phase 1): shared engine `src/lib/backfill/`
+  (run-backfill.ts + adapters.ts), thin CRON GET wrappers, session POST
+  /api/backfill/run (ownership-gated), GET /api/backfill/status (honest label),
+  read-only /api/backfill/probe, and `src/app/clients/BackfillControl.tsx` on
+  /clients (google+meta). The CRON_SECRET curl is retired.
+- Deep-history V2: 132-month floor + per-chunk error resilience + honest
+  earliest-from-data label. PROVEN on "Bath Fitter | O'Gorman Bros" — full real
+  history (earliest 2020-01-27, 1,933 days), total_spend $2,293,179.80 reconciling
+  to Google's all-time $2.29M to the penny.
+
+### New lessons
+- Lesson 29 - Heredoc/terminal code pastes silently DROP characters (we hit
+  `fetchDaily` -> `fetcaily` and `NextResponse` -> `Nexesponse`, each a single
+  mangled occurrence while every other copy was correct). Deliver code as
+  downloadable files/zips (byte-exact); never paste multi-line code through the
+  terminal. `tsc` catches mangled IDENTIFIERS; it does NOT catch mangled STRING
+  LITERALS in untyped calls (e.g. a Supabase column name) - grep the critical
+  strings after writing.
+- Lesson 30 - Backfill depth = "as deep as the platform will serve," discovered by
+  PROBING a wide date range, not a fixed cap. Always report the ACTUAL earliest row
+  held (min(date) in metrics_daily), never the swept cursor target - the swept
+  target lies (it claimed depth that had no data behind it).
+- Lesson 31 - Per-platform retention differs and must be respected, not assumed:
+  Google Ads = rolling 37-month granular / 11yr aggregate (effective Jun 1 2026,
+  but the API still served full history on Jun 4 - backfill urgently while it
+  lasts); GA4 = 2/14/50mo for event/user (Explorations) but aggregate is indefinite
+  and the Data API serves it unrestricted; Shopify/Woo = no purge clock. Instrument
+  (probe) before trusting any documented limit.
+
+### Universal backfill pattern (institutional)
+Adding a platform backfill = register an adapter in `src/lib/backfill/adapters.ts`
+(loadToken + fetchDaily + chunkDays + labels) + add it to `backfillAdapters` +
+render <BackfillControl> on that platform's /clients row. The engine and the
+run/status/probe routes are platform-agnostic. See CONTINUE_HERE.md ->
+"HOW TO ADD A NEW PLATFORM BACKFILL".
