@@ -92,15 +92,29 @@ the live files via Claude Code before editing; diff-review before each commit.
 ## NEXT TASK (priority) — Multiple ad accounts within a SINGLE client
 
 **Problem:** `platform_connections` is ~1 account per `(client_id, platform)` and
-`metrics_daily` has no account dimension, so one client can't hold two accounts on
+`metrics_daily` had no account dimension, so one client can't hold two accounts on
 the same platform without rows merging.
 
-**FIRST DECISION (before code):** rollup-only vs per-account breakout vs both —
-determines whether `metrics_daily` needs an `account_id` column. Then map the
-ripple: connection schema/uniqueness, intelligence adapters, backfill engine/adapters,
-query layer, `/clients` UI.
+**Phase 1 DONE (June 5, 2026)** <!-- LORAMER_MULTIACCOUNT_PHASE1_DONE_V1 -->
+Migration `migrations/005_metrics_daily_account_id.sql` was run in the Supabase
+SQL Editor and VERIFIED live: nullable `account_id` added to `metrics_daily` and
+backfilled from `platform_connections` for ALL FIVE platforms — every platform
+`still_null = 0`, 19,404 rows total. Conflict key untouched; no app code changed.
+Scoping brief + risk log: `docs/scoping/multi-account-phase1.md`. The backfill
+UPDATE is idempotent — rows the cron writes before Phase 2 land NULL; re-paste
+step 2 of the migration any time to sweep them.
 
-**DO NOT design yet** — scope first thing next session.
+**Phase 2 (NEXT):** widen the `metrics_daily` upsert conflict key to include
+`account_id` — THE one risky step. It must land in the cron sync
+(`/api/cron/sync` METRICS_DAILY_CONFLICT), the backfill engine
+(`src/lib/backfill/`), and EVERY other upsert site simultaneously, writing
+byte-identical rows, or forward capture and backfill diverge. Map every upsert
+site before touching anything; writers must populate `account_id` on every new
+row as part of the same change.
+
+Then the rest of the ripple: connection schema/uniqueness
+(`UNIQUE (client_id, platform)` → `(client_id, platform, account_id)`),
+intelligence adapters, `sync_state` keying, query layer, `/clients` UI.
 
 ### Next tasks (none urgent — no purge clock on GA/Shopify/Woo)
 1. Meta "per-adapter floor" fix — Meta backfill shows "partial / Resume" that
