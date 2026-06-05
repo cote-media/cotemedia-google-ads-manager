@@ -121,7 +121,7 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted font-mono">This context is used by Claude for all analyses of this client. The more detail you provide, the more accurate and relevant the insights will be.</p>
+      <p className="text-xs text-muted font-mono">This context is used by Lora for all analyses of this client. The more detail you provide, the more accurate and relevant the insights will be.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Business Type */}
@@ -158,8 +158,8 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
       {/* Free-text notes */}
       <div>
         <label className="block text-xs font-medium text-ink mb-1.5">
-          Additional Context for Claude
-          <span className="text-muted font-normal ml-1">(industry, benchmarks, seasonality, anything Claude should always know)</span>
+          Additional Context for Lora
+          <span className="text-muted font-normal ml-1">(industry, benchmarks, seasonality, anything Lora should always know)</span>
         </label>
         <textarea value={context.user_notes} onChange={e => setContext(p => ({ ...p, user_notes: e.target.value }))}
           rows={4} placeholder="e.g. This client is a boutique pet food brand targeting dog owners 35+. They run seasonal sales in October. Their target CPA is $45. Don't focus on ROAS for awareness campaigns — they measure those by reach and CPM only."
@@ -193,7 +193,7 @@ function ClientProfileForm({ client, onSave }: { client: Client; onSave: () => v
           className="btn-primary disabled:opacity-50">
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
-        {saved && <span className="text-xs text-green-600 font-mono">✓ Saved — Claude will use this context for all future analyses</span>}
+        {saved && <span className="text-xs text-green-600 font-mono">✓ Saved — Lora will use this context for all future analyses</span>}
       </div>
       {/* LORAMER_MEMORY_V1_UI */}
       <ClientMemorySection clientId={client.id} />
@@ -221,11 +221,11 @@ const MEMORY_CATEGORIES: Array<{
   label: string
   blurb: string
 }> = [
-  { key: 'directive', label: 'Directives', blurb: 'Binding rules. Claude treats these as hard constraints.' },
+  { key: 'directive', label: 'Directives', blurb: 'Binding rules. Lora treats these as hard constraints.' },
   { key: 'fact',      label: 'Facts',      blurb: 'Durable truths about the business.' },
-  { key: 'context',   label: 'Context',    blurb: 'Background that helps Claude reason about this client.' },
-  { key: 'preference',label: 'Preferences',blurb: 'How you want Claude to respond.' },
-  { key: 'observation',label: 'Observations', blurb: 'Patterns Claude has noted. Confirm to promote to a Fact.' },
+  { key: 'context',   label: 'Context',    blurb: 'Background that helps Lora reason about this client.' },
+  { key: 'preference',label: 'Preferences',blurb: 'How you want Lora to respond.' },
+  { key: 'observation',label: 'Observations', blurb: 'Patterns Lora has noted. Confirm to promote to a Fact.' },
 ]
 
 // LORAMER_MEMORY_BOOTSTRAP_V1
@@ -347,7 +347,7 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
   }
 
   async function archiveFact(id: number) {
-    if (!confirm('Archive this memory? Claude will no longer reference it. (It stays in the database for audit.)')) return
+    if (!confirm('Archive this memory? Lora will no longer reference it. (It stays in the database for audit.)')) return
     setSaving(true)
     try {
       await fetch('/api/memory?id=' + id, { method: 'DELETE' })
@@ -486,9 +486,9 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
 
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-sm font-medium text-ink">What Claude knows about this client</p>
+          <p className="text-sm font-medium text-ink">What Lora knows about this client</p>
           <p className="text-xs text-muted mt-0.5">
-            Structured facts Claude treats as durable knowledge. Edit anytime — Claude uses the latest on every response.
+            Structured facts Lora treats as durable knowledge. Edit anytime — Lora uses the latest on every response.
           </p>
         </div>
         <button
@@ -536,7 +536,7 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
         <p className="text-xs text-muted font-mono">Loading memory...</p>
       ) : memory.length === 0 ? (
         <p className="text-xs text-muted">
-          No memory yet. Add a fact, or tell Claude something in any chat surface (e.g. "remember that...") — durable knowledge will accumulate here.
+          No memory yet. Add a fact, or tell Lora something in any chat surface (e.g. "remember that...") — durable knowledge will accumulate here.
         </p>
       ) : (
         <div className="space-y-4">
@@ -555,7 +555,7 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
                   >
                     <button
                       onClick={() => togglePin(fact)}
-                      title={fact.pinned ? 'Unpin' : 'Pin (always include in Claude prompts)'}
+                      title={fact.pinned ? 'Unpin' : 'Pin (always include in Lora prompts)'}
                       className={'text-base transition-opacity ' + (fact.pinned ? 'opacity-100' : 'opacity-30 hover:opacity-70')}
                     >
                       📌
@@ -617,7 +617,7 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
                         <button
                           onClick={() => archiveFact(fact.id)}
                           className="text-xs font-mono text-muted hover:text-red-500 px-1"
-                          title="Archive (Claude stops referencing; row preserved in DB)"
+                          title="Archive (Lora stops referencing; row preserved in DB)"
                         >
                           ×
                         </button>
@@ -634,12 +634,30 @@ function ClientMemorySection({ clientId }: { clientId: string }) {
   )
 }
 
+// LORAMER_CLIENTS_GRID_V1 - card stat formatting helpers
+function fmtCardCurrency(n: number): string {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+function lastActiveLabel(lastActive: string | null | undefined): string {
+  if (!lastActive) return 'No activity yet'
+  const now = new Date()
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  const days = Math.round((todayUtc - new Date(lastActive + 'T00:00:00Z').getTime()) / 86400000)
+  if (days <= 0) return 'Active today'
+  return 'Active ' + days + 'd ago'
+}
+
 function ClientsContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // LORAMER_CLIENTS_GRID_V1 - the deep-surface pill label (one place to change)
+  const DEEP_LABEL = 'Mer'
+
   const [clients, setClients] = useState<Client[]>([])
+  const [clientMetrics, setClientMetrics] = useState<Record<string, any>>({})  // LORAMER_CLIENTS_GRID_V1
+  const [sortBy, setSortBy] = useState<'alpha' | 'recent' | 'spend' | 'revenue'>('alpha')  // LORAMER_CLIENTS_GRID_V1
   const [googleAccounts, setGoogleAccounts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -668,6 +686,14 @@ function ClientsContent() {
   const [metaError, setMetaError] = useState('')
 
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
+
+  // LORAMER_CLIENTS_GRID_V1 - Escape closes the Mer overlay
+  useEffect(() => {
+    if (!expandedProfile) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpandedProfile(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expandedProfile])
 
   useEffect(() => {
     if (session) {
@@ -730,6 +756,10 @@ function ClientsContent() {
     const res = await fetch('/api/clients')
     fetch('/api/clients/profiles').then(r => r.json()).then(d => {
       setProfiledClientIds(new Set<string>(d.profiledClientIds || []))
+    }).catch(() => {})
+    // LORAMER_CLIENTS_GRID_V1 - hydrate per-client stat cards from the rollup endpoint
+    fetch('/api/clients/metrics').then(r => r.json()).then(d => {
+      setClientMetrics(d.metrics || {})
     }).catch(() => {})
     const data = await res.json()
     setClients(data.clients || [])
@@ -838,6 +868,34 @@ function ClientsContent() {
     !clients.some(c => c.platform_connections.some(p => p.account_id === acc.id && p.platform === 'google'))
   )
 
+  // LORAMER_CLIENTS_GRID_V1 - derived render order. Metrics-based sorts use the
+  // hydrated rollup; missing values sort last; ties (and pre-hydration) fall
+  // back to the alphabetical order.
+  const sortedClients = [...clients].sort((a, b) => {
+    const alpha = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    if (sortBy === 'recent') {
+      const la = clientMetrics[a.id]?.lastActive || ''
+      const lb = clientMetrics[b.id]?.lastActive || ''
+      if (la !== lb) return la > lb ? -1 : 1
+      return alpha
+    }
+    if (sortBy === 'spend') {
+      const va = typeof clientMetrics[a.id]?.spend30 === 'number' ? clientMetrics[a.id].spend30 : -1
+      const vb = typeof clientMetrics[b.id]?.spend30 === 'number' ? clientMetrics[b.id].spend30 : -1
+      if (va !== vb) return vb - va
+      return alpha
+    }
+    if (sortBy === 'revenue') {
+      const ra = clientMetrics[a.id]?.revenue30
+      const rb = clientMetrics[b.id]?.revenue30
+      const va = ra == null ? -1 : ra
+      const vb = rb == null ? -1 : rb
+      if (va !== vb) return vb - va
+      return alpha
+    }
+    return alpha
+  })
+
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-paper flex items-center justify-center">
@@ -858,9 +916,9 @@ function ClientsContent() {
         <span className="font-mono text-xs text-muted uppercase tracking-widest">Client Manager</span>
       </div>
 
-      <div className="max-w-3xl mx-auto px-8 py-12">
+      <div className="max-w-7xl mx-auto px-8 py-12">{/* LORAMER_CLIENTS_GRID_V1 - widened for the grid */}
         {metaError && (
-          <div className="mb-6 bg-red-50 border border-red-300 px-4 py-3 rounded-lg">
+          <div className="mb-6 bg-red-50 border border-red-300 px-4 py-3 rounded-lg max-w-2xl">
             <p className="text-sm text-red-700">{metaError}</p>
             <button onClick={() => setMetaError('')} className="text-xs text-red-500 hover:underline mt-1">Dismiss</button>
           </div>
@@ -869,9 +927,22 @@ function ClientsContent() {
         {/* Existing clients */}
         {clients.length > 0 && (
           <div className="mb-12">
-            <h2 className="font-display text-2xl text-ink mb-6">Your Clients</h2>
-            <div className="space-y-3">
-              {clients.map(client => {
+            {/* LORAMER_CLIENTS_GRID_V1 - heading + sort control */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h2 className="font-display text-2xl text-ink">Your Clients</h2>
+              <div className="flex items-center gap-2">
+                <span className="metric-label">Sort</span>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value as 'alpha' | 'recent' | 'spend' | 'revenue')}
+                  className="text-xs font-sans border border-border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-accent">
+                  <option value="alpha">Alphabetical</option>
+                  <option value="recent">Recent activity</option>
+                  <option value="spend">Spend</option>
+                  <option value="revenue">Revenue</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-start">{/* LORAMER_CLIENTS_GRID_V1 */}
+              {sortedClients.map(client => {
                 const googleConn = client.platform_connections.find(p => p.platform === 'google')
                 const metaConn = client.platform_connections.find(p => p.platform === 'meta')
                 const shopifyConn = client.platform_connections.find(p => p.platform === 'shopify')
@@ -879,6 +950,7 @@ function ClientsContent() {
                 // LORAMER_GA_PROPERTY_PICKER_V1
                 const gaConn = client.platform_connections.find(p => p.platform === 'ga')
                 const isExpanded = expandedProfile === client.id
+                const m = clientMetrics[client.id]  // LORAMER_CLIENTS_GRID_V1
                 return (
                   <div key={client.id} className="bg-white border border-border rounded-xl overflow-hidden shadow-sm">
                     {/* LORAMER_PILL_ROW_V1 - Linear-style client row */}
@@ -967,22 +1039,23 @@ function ClientsContent() {
                               </a>
                             )}
 
-                            {/* Claude profile pill */}
+                            {/* LORAMER_CLIENTS_GRID_V1 - Mer pill (the deep surface, opens the overlay) */}
                             {profiledClientIds.has(client.id) ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedProfile(isExpanded ? null : client.id) }}
                                 className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans font-medium px-2.5 py-0.5 rounded-full text-white"
                                 style={{ background: '#2563eb' }}
                               >
-                                <span style={{ fontSize: '10px' }}>&#10022;</span>
-                                Claude
+                                <span style={{ fontSize: '10px' }}>&#8964;</span>
+                                {DEEP_LABEL}
                               </button>
                             ) : (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setExpandedProfile(isExpanded ? null : client.id) }}
-                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                                className="inline-flex items-center gap-1 text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
                               >
-                                + Claude
+                                <span style={{ fontSize: '10px' }}>&#8964;</span>
+                                {'+ ' + DEEP_LABEL}
                               </button>
                             )}
 
@@ -993,11 +1066,37 @@ function ClientsContent() {
                           <span className="md:hidden text-lg">&#8594;</span>
                         </button>
                       </div>
+
+                      {/* LORAMER_CLIENTS_GRID_V1 - at-a-glance stat strip ("—" until metrics hydrate) */}
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="metric-label">30-Day Spend</p>
+                            <p className="font-display text-base text-ink">{typeof m?.spend30 === 'number' ? fmtCardCurrency(m.spend30) : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="metric-label">30-Day Revenue</p>
+                            <p className="font-display text-base text-ink flex items-center gap-1.5">
+                              <span>{m?.revenue30 != null ? fmtCardCurrency(m.revenue30) : '—'}</span>
+                              {m?.revenueSource === 'store' && <span title="Store revenue — Shopify/WooCommerce" className="inline-block w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />}
+                              {m?.revenueSource === 'ga' && <span title="Estimated from GA4" className="inline-block w-1.5 h-1.5 rounded-full border border-accent flex-shrink-0" />}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="metric-label">ROAS</p>
+                            <p className="font-display text-base text-ink">{m?.roas != null ? m.roas.toFixed(2) + '×' : '—'}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted font-mono mt-2">{m ? lastActiveLabel(m.lastActive) : '—'}</p>
+                      </div>
                     </div>
 
-                    {/* LORAMONNECTIONS_SECTION_V1 - Client details: connections + Claude profile */}
-                    {isExpanded && (
-                      <div className="border-t border-border bg-slate-50 px-4 sm:px-6 py-5 space-y-6">
+                    {/* LORAMONNECTIONS_SECTION_V1 - Client details: connections + Lora profile.
+                        LORAMER_CLIENTS_GRID_V1 - now rendered in the Mer overlay (twin desktop modal /
+                        mobile bottom sheet) instead of the old inline expand-down. */}
+                    {isExpanded && (() => {
+                      const expandedContent = (
+                      <div className="space-y-6">
 
                         {/* Connections section */}
                         <div>
@@ -1091,17 +1190,44 @@ function ClientsContent() {
                           </div>
                         </div>
 
-                        {/* Claude profile section */}
+                        {/* Lora profile section */}
                         <div className="pt-2 border-t border-border">
                           <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-sans uppercase tracking-widest text-muted">&#10022; Claude Profile</span>
-                            <span className="text-xs text-muted font-sans">&mdash; helps Claude give better, more relevant analysis</span>
+                            <span className="text-xs font-sans uppercase tracking-widest text-muted">&#10022; What Lora should know</span>
+                            <span className="text-xs text-muted font-sans">&mdash; the more Lora knows about this client, the sharper its analysis</span>
                           </div>
                           <ClientProfileForm client={client} onSave={() => { fetch('/api/clients/profiles').then(r => r.json()).then(d => setProfiledClientIds(new Set<string>(d.profiledClientIds || []))).catch(() => {}) }} />
                         </div>
 
                       </div>
-                    )}
+                      )
+                      return (
+                        <>
+                          {/* Desktop: centered modal over backdrop */}
+                          <div className="hidden md:flex fixed inset-0 z-50 items-center justify-center p-6">
+                            <div className="absolute inset-0 bg-ink/40" onClick={() => setExpandedProfile(null)} />
+                            <div className="relative max-w-2xl w-full max-h-[85vh] overflow-y-auto bg-white rounded-2xl shadow-2xl">
+                              <div className="sticky top-0 z-10 bg-white border-b border-border px-6 py-4 flex items-center justify-between">
+                                <p className="font-display text-lg text-ink truncate">{client.name}</p>
+                                <button onClick={() => setExpandedProfile(null)} title="Close" className="text-muted hover:text-ink transition-colors text-lg leading-none px-1.5 py-0.5 hover:bg-surface rounded">&#215;</button>
+                              </div>
+                              <div className="px-6 py-5">{expandedContent}</div>
+                            </div>
+                          </div>
+                          {/* Mobile: bottom sheet over backdrop */}
+                          <div className="md:hidden fixed inset-0 z-50">
+                            <div className="absolute inset-0 bg-ink/40" onClick={() => setExpandedProfile(null)} />
+                            <div className="absolute left-0 right-0 bottom-0 top-[12%] rounded-t-2xl bg-white overflow-y-auto">
+                              <div className="sticky top-0 z-10 bg-white border-b border-border px-4 py-3 flex items-center justify-between rounded-t-2xl">
+                                <p className="font-display text-base text-ink truncate">{client.name}</p>
+                                <button onClick={() => setExpandedProfile(null)} title="Close" className="text-muted hover:text-ink transition-colors text-lg leading-none px-1.5 py-0.5 hover:bg-surface rounded">&#215;</button>
+                              </div>
+                              <div className="px-4 py-4">{expandedContent}</div>
+                            </div>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 )
               })}
@@ -1140,7 +1266,7 @@ function ClientsContent() {
         )}
 
         {/* Add new client */}
-        <div>
+        <div className="max-w-2xl">{/* LORAMER_CLIENTS_GRID_V1 - keep the form readable in the wide container */}
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-2xl text-ink">Add Client Manually</h2>
             <button onClick={() => setShowNewClient(!showNewClient)} className="text-xs font-mono text-accent hover:underline">
