@@ -17,7 +17,7 @@ ANCHOR RULE: verify the session TAG in HEAD's commit message + the deliverable f
 
 ---
 
-### Session log — 2026-06-05 (warmth + Lora rename). HEAD = b3560a2
+### Session log — 2026-06-05 (warmth + Lora rename + codebase map). HEAD = 1e898e2
 
 Shipped, all production-green:
 - LORAMER_RESUME_PROTOCOL_V1 (99f7789) — this resume header + anchor-on-tag lesson
@@ -26,6 +26,9 @@ Shipped, all production-green:
 - LORAMER_CHART_CURRENCY_V1 (8d78355) — $ on money metrics (cost/revenue/AOV) in chart tooltip
 - LORAMER_LORA_SELFID_V1 (1a704e3) — model self-identifies as Lora (powered by Claude); prompt + provenance text
 - LORAMER_LORA_RENAME_MARKETING_V1 (b3560a2) — Claude→Lora on marketing/onboarding pages
+- LORAMER_HANDOFF_2026_06_05_WARMTH (f237b8f) — logged warmth+Lora session; set NEXT STEP to homepage type reconciliation
+- LORAMER_CODEBASE_MAP_V1 (1db6044) — architecture map (LORAMER_CODEBASE_MAP.md) + git-diff maintenance rule + added to always-read set
+- LORAMER_CODEBASE_MAP_V1a (1e898e2) — map accuracy fixes (localStorage key prefixes, Meta version pointer, terminal-paste scope)
 
 Lora rename is now COMPLETE end-to-end. Remaining "Claude" in repo is intentional only: legal pages, code identifiers/comments, claude- model IDs, legacy transcript parser branch.
 
