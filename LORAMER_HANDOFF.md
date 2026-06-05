@@ -619,6 +619,12 @@ NOTE: the Meta conversion caveat shipped as V1 then was strengthened to LORAMER_
 cd <repo-path> && git pull origin main && echo "===== LAST 15 COMMITS =====" && git log --oneline -15 && echo "===== CONTINUE_HERE DATE =====" && head -3 CONTINUE_HERE.md && echo "===== KEY FILES =====" && ls -la <files-for-the-next-task>
 ```
 
+**Use Claude Code for deep-dive research.**
+<!-- LORAMER_CLAUDE_CODE_DEEP_DIVE_DIRECTIVE_V1 -->
+For anything where getting it exactly right depends on code you can't fully see — multi-file reads, whole-repo audits, tracing how a function is used, confirming a field or type, verifying an anchor against the real file — use **Claude Code in the Cursor Agents window** (investigate-only / report-don't-edit first). Claude.ai sees only the mounted snapshot (often stale) plus what Russ pastes; Claude Code reads the live local repo directly. Lighter tasks that don't hinge on unseen code can proceed directly.
+
+**The overriding rule:** whenever there is even a slim doubt that the next step is 100% correct and mistake-free, STOP and verify — paste the file, run a Claude Code investigation, or ask — before producing the step. Caution over speed, every time. (Reinforces "right > fast" and investigate-first.)
+
 **Always-on rules:** right > fast; dry-runs sacred; complete files or labeled pastes; never the same mistake twice; never make Russ touch code directly.
 
 
