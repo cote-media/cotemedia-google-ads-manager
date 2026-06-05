@@ -11,9 +11,32 @@ SESSION RESUME — read-only, no edits this turn.
 Report: (a) did the pull fast-forward or say "already up to date" — if it says MERGE / CONFLICT / divergence, STOP and paste the full output; (b) is the working tree clean, ignoring untracked helper scripts append_handoff_docs.py and patch_backfill_ui_v1.py — if any TRACKED file is modified, STOP and paste git status; (c) print HEAD's one-line so we confirm the session TAG (never a hash). Then read the NEXT STEP line in CONTINUE_HERE.md and tell me what it says. Wait for instruction.
 --- END PASTE ---
 
-NEXT STEP (2026-06-05): Surface + restyle the dashboard Recharts chart tooltip and chart typography (warm/bigger, like Google Ads), propagate the Lora rename app-wide (sidebar still reads "ASK CLAUDE"), and apply the homepage serif headings + type scale to the dashboard. Multi-account migration runbook stays PARKED until the daily cron writes the next day's rows.
+NEXT STEP (2026-06-05, updated): Homepage ↔ dashboard TYPE RECONCILIATION — "kill the robotic feel," part 3. The dashboard still reads dense/robotic vs the warm editorial homepage. Goal: bring the homepage's serif headings (font-display), type scale, and spacing onto the dashboard pages. FIRST action when resumed = RECON ONLY: surface (a) the brand/type tokens in src/app/globals.css and the font setup (font-display / font-body, tailwind.config), (b) the homepage heading/type/spacing usage in src/app/page.tsx, (c) how src/app/dashboard/page.tsx currently applies type (page headings, sidebar labels, card titles). Then a styling plan, then incremental edits. Multi-account migration runbook stays PARKED until the daily cron writes the next day's rows.
 
 ANCHOR RULE: verify the session TAG in HEAD's commit message + the deliverable files — NEVER a commit hash. Local commits get squashed on push and rewritten, so a hash written into a handoff will never appear on origin. This is what broke the 088b687 resume.
+
+---
+
+### Session log — 2026-06-05 (warmth + Lora rename). HEAD = b3560a2
+
+Shipped, all production-green:
+- LORAMER_RESUME_PROTOCOL_V1 (99f7789) — this resume header + anchor-on-tag lesson
+- LORAMER_CHART_WARMTH_V1 (1bdaa64) — shared warm ChartTooltip + sans axis ticks across all 7 charts
+- LORAMER_LORA_RENAME_APP_V1 (c9eb2c2) — Claude→Lora in dashboard UI (engine credit preserved)
+- LORAMER_CHART_CURRENCY_V1 (8d78355) — $ on money metrics (cost/revenue/AOV) in chart tooltip
+- LORAMER_LORA_SELFID_V1 (1a704e3) — model self-identifies as Lora (powered by Claude); prompt + provenance text
+- LORAMER_LORA_RENAME_MARKETING_V1 (b3560a2) — Claude→Lora on marketing/onboarding pages
+
+Lora rename is now COMPLETE end-to-end. Remaining "Claude" in repo is intentional only: legal pages, code identifiers/comments, claude- model IDs, legacy transcript parser branch.
+
+QUEUED (not urgent):
+- Graph-line metric prominence/availability — revisit how shown/available chart metrics are surfaced (Russ flagged for later discussion).
+- averageSessionDuration → time formatting ("3m 24s") in chart tooltip instead of plain number.
+- Recharts Legend imported but never rendered in dashboard/page.tsx — dead import; extend warm theme if legends are ever added.
+- AdGroupChart / AdChart tooltips use dynamic dataKeys → no currency formatting yet (deferred refinement).
+- Mobile IA (step 2): make /clients reachable on mobile; declutter bottom nav.
+
+---
 
 # CONTINUE_HERE — Resume point after June 5, 2026
 
