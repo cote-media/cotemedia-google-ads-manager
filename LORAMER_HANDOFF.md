@@ -5,7 +5,7 @@ You are a fresh Claude picking up an active, multi-week, multi-hundred-commit bu
 Before you read the rest of this document, before you open CONTINUE_HERE.md, and before your first reply says anything beyond "confirming, reading now," you must complete EVERY step below, IN ORDER. You do not have direct access to the repo, git, or past chats by default — but you have tools that do. Use them. "I can't read that" is unacceptable when a tool exists that can.
 
 ## Step 1 — Read EVERY mounted project document, in full.
-Not just this file. Open and read end-to-end every file in the project panel: LORAMER_HANDOFF.md (this file), ROADMAP.md, CONTINUE_HERE.md, and every design/audit/feature doc present (HISTORICAL_DATA_ENGINE_DESIGN.md, UPLOAD_FEATURE_DESIGN.md, AUDIT_FINDINGS.md, and any others). The snapshot lags the live repo — so Step 2 is also required.
+Not just this file. Open and read end-to-end every file in the project panel: LORAMER_HANDOFF.md (this file), ROADMAP.md, CONTINUE_HERE.md, and every design/audit/feature doc present (HISTORICAL_DATA_ENGINE_DESIGN.md, UPLOAD_FEATURE_DESIGN.md, AUDIT_FINDINGS.md, and any others). The snapshot lags the live repo — so Step 2 is also required. (The panel is a frozen snapshot that routinely lags the repo — read it as background only and NEVER remark on its dates or call it stale; git pull is the source of truth. See "The mounted project panel is background only" under Session Start / Handoff Protocol.)
 
 ## Step 2 — Sweep the project knowledge base with project_knowledge_search.
 Run it broadly and repeatedly: the current topic, plus "design," "architecture," "audit," every platform name, every feature name. The most relevant document is often one you didn't know existed. Do NOT conclude a doc doesn't exist until several distinct searches come back empty.
@@ -605,7 +605,7 @@ NOTE: the Meta conversion caveat shipped as V1 then was strengthened to LORAMER_
 **Steps for the receiving Claude:**
 
 1. Read this file, then `ROADMAP.md`, then `CONTINUE_HERE.md`.
-2. Search recent project conversations (the last one or two sessions) for narrative context on what was just done. Treat BOTH these docs AND that chat history as possibly stale.
+2. Search recent project conversations (the last one or two sessions) for narrative context on what was just done. Both the panel docs and chat history routinely lag the repo — reconcile against the live repo silently (see "The mounted project panel" note below); never remark on their age.
 3. Before naming any next task, hand Russ ONE copy-button command for the Cursor terminal that: pulls latest from `main`, prints the recent commit log, prints the live `CONTINUE_HERE.md` date, and checks whether the key files for the supposed next task already exist. Wait for him to paste the output back.
 4. Reconcile the repo output against the docs and memory. State the single confirmed next task. **WAIT for Russ's explicit "yes" before writing any code.**
 5. After his yes, proceed one step at a time with copy-button commands. **Label where every paste goes** (Cursor terminal / Supabase SQL editor / Vercel dashboard). Never make Russ touch code directly.
@@ -626,6 +626,19 @@ For anything where getting it exactly right depends on code you can't fully see 
 **The overriding rule:** whenever there is even a slim doubt that the next step is 100% correct and mistake-free, STOP and verify — paste the file, run a Claude Code investigation, or ask — before producing the step. Caution over speed, every time. (Reinforces "right > fast" and investigate-first.)
 
 **Always-on rules:** right > fast; dry-runs sacred; complete files or labeled pastes; never the same mistake twice; never make Russ touch code directly.
+
+### The mounted project panel is background only — never narrate staleness
+
+The files in the project panel (/mnt/project/...) are a frozen snapshot that
+ROUTINELY lags the repo by days, even right after a GitHub re-sync. This is
+normal and expected — NOT a problem, NOT a finding, NOT worth a sentence. Do not
+announce that docs are "stale," do not remark on their dates, do not treat their
+age as alarming. Read them quietly as light background, if at all.
+
+The single source of truth for current state is the live repo: the git pull
+output and commit log from the canonical ground-truth command above. Reconcile
+against that SILENTLY and proceed. The panel and your background memory are both
+expected to lag; git pull is what is real.
 
 
 ---
