@@ -1,4 +1,8 @@
 // LORAMER_QUERY_METRICS_0B_V1
+// LORAMER_QUERY_METRICS_DATE_FLEX_V1 - adds optional explicit `windows` so any
+// arbitrary date range (e.g. Q4 2024) can be queried directly. Additive and
+// fully back-compatible: when `windows` is absent the baseRange/offsetsMonths
+// path is behavior-identical to before.
 // Phase 0b query layer over metrics_daily. Pure aggregation + multi-period
 // comparison FROM THE STORE (no live platform fetch). Account-level by default;
 // generalizes to campaign/ad_group/ad/product via the `level` arg. JS-side
@@ -109,35 +113,59 @@ async function aggregateWindow(
   return totals
 }
 
-// Multi-period comparison. Each offset in offsetsMonths produces an EQUAL-LENGTH
-// window ending that many calendar months before the base window's end date.
-// offset 0 = the base window itself.
+// Multi-period comparison. Two mutually-exclusive modes:
+//   (A) Explicit windows: opts.windows = exact [{label?,startDate,endDate}]. Each
+//       window is aggregated as-is (any dates, any length, any count). baseRange
+//       and offsetsMonths are IGNORED in this mode. Used for arbitrary calendar
+//       periods like "Q4 2024". Each window is validated as YYYY-MM-DD with
+//       start <= end; invalid windows return honest empty totals (no DB error).
+//   (B) Rolling presets (default, unchanged): each offset in offsetsMonths
+//       produces an EQUAL-LENGTH window ending that many calendar months before
+//       the base window's end date. offset 0 = the base window itself.
 export async function queryMetrics(opts: {
   clientId: string
   platforms?: string[]
   level?: string
   baseRange?: string
   offsetsMonths?: number[]
+  windows?: Array<{ label?: string; startDate: string; endDate: string }>
 }): Promise<QueryMetricsResult> {
   const level = opts.level || 'account'
   const platforms = opts.platforms && opts.platforms.length ? opts.platforms : []
   const baseRange = opts.baseRange || 'LAST_7_DAYS'
-  const offsets = opts.offsetsMonths && opts.offsetsMonths.length ? opts.offsetsMonths : [0, 6, 12, 18]
-  const base = resolveDateWindow(baseRange)
-  const span = daysInclusive(base.startDate, base.endDate)
+  const explicitWindows = Array.isArray(opts.windows) ? opts.windows : []
   const windows: WindowResult[] = []
-  for (const off of offsets) {
-    const endDate = off === 0 ? base.endDate : shiftMonthsUTC(base.endDate, -off)
-    const startDate = off === 0 ? base.startDate : addDaysUTC(endDate, -(span - 1))
-    const totals = await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
-    windows.push({
-      label: off === 0 ? baseRange : off + 'mo ago',
-      startDate,
-      endDate,
-      totals,
-      derived: derive(totals),
-    })
+
+  if (explicitWindows.length) {
+    const ISO = /^\d{4}-\d{2}-\d{2}$/
+    for (const w of explicitWindows) {
+      const startDate = typeof w?.startDate === 'string' ? w.startDate.trim() : ''
+      const endDate = typeof w?.endDate === 'string' ? w.endDate.trim() : ''
+      const label = typeof w?.label === 'string' && w.label.trim() ? w.label.trim() : `${startDate}..${endDate}`
+      const valid = ISO.test(startDate) && ISO.test(endDate) && startDate <= endDate
+      const totals = valid
+        ? await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
+        : emptyTotals()
+      windows.push({ label, startDate, endDate, totals, derived: derive(totals) })
+    }
+  } else {
+    const offsets = opts.offsetsMonths && opts.offsetsMonths.length ? opts.offsetsMonths : [0, 6, 12, 18]
+    const base = resolveDateWindow(baseRange)
+    const span = daysInclusive(base.startDate, base.endDate)
+    for (const off of offsets) {
+      const endDate = off === 0 ? base.endDate : shiftMonthsUTC(base.endDate, -off)
+      const startDate = off === 0 ? base.startDate : addDaysUTC(endDate, -(span - 1))
+      const totals = await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
+      windows.push({
+        label: off === 0 ? baseRange : off + 'mo ago',
+        startDate,
+        endDate,
+        totals,
+        derived: derive(totals),
+      })
+    }
   }
+
   const resolvedPlatforms = platforms.length ? platforms : ['all']
   const notes: string[] = []
   const metaInScope = resolvedPlatforms.includes('meta') || resolvedPlatforms.includes('all')
