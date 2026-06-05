@@ -11,6 +11,7 @@ import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-int
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
+import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import type {
   IntelligenceGa,
   IntelligenceMetrics,
@@ -321,45 +322,6 @@ function buildWooMetricsRows(
   }
 
   return rows
-}
-
-function gaExtra(data: IntelligenceGa): Record<string, unknown> {
-  const extra: Record<string, unknown> = {}
-  if (data.sessions != null) extra.sessions = data.sessions
-  if (data.totalUsers != null) extra.totalUsers = data.totalUsers
-  if (data.newUsers != null) extra.newUsers = data.newUsers
-  if (data.engagementRate != null) extra.engagementRate = data.engagementRate
-  if (data.transactions != null) extra.transactions = data.transactions
-  if (data.cartToPurchaseRate != null) extra.cartToPurchaseRate = data.cartToPurchaseRate
-  if (data.purchaserConversionRate != null) extra.purchaserConversionRate = data.purchaserConversionRate
-  if (data.refundAmount != null) extra.refundAmount = data.refundAmount
-  return extra
-}
-
-function buildGaMetricsRows(
-  clientId: string,
-  userEmail: string,
-  captureDate: string,
-  propertyId: string,
-  propertyName: string,
-  data: IntelligenceGa
-): Record<string, unknown>[] {
-  return [
-    {
-      client_id: clientId,
-      user_email: userEmail,
-      platform: 'ga',
-      entity_level: 'account',
-      entity_id: propertyId,
-      entity_name: propertyName,
-      date: captureDate,
-      breakdown_type: '',
-      breakdown_value: '',
-      conversions: data.conversions ?? 0,
-      revenue: data.totalRevenue ?? 0,
-      extra: gaExtra(data),
-    },
-  ]
 }
 
 function serializeCaughtError(value: unknown): string {
