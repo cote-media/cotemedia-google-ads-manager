@@ -104,13 +104,37 @@ Scoping brief + risk log: `docs/scoping/multi-account-phase1.md`. The backfill
 UPDATE is idempotent — rows the cron writes before Phase 2 land NULL; re-paste
 step 2 of the migration any time to sweep them.
 
-**Phase 2 (NEXT):** widen the `metrics_daily` upsert conflict key to include
-`account_id` — THE one risky step. It must land in the cron sync
-(`/api/cron/sync` METRICS_DAILY_CONFLICT), the backfill engine
-(`src/lib/backfill/`), and EVERY other upsert site simultaneously, writing
-byte-identical rows, or forward capture and backfill diverge. Map every upsert
-site before touching anything; writers must populate `account_id` on every new
-row as part of the same change.
+**Phase 2 step (a) SHIPPED (June 5, 2026)** <!-- LORAMER_MULTIACCOUNT_PHASE2A_VERIFIED_GA_V1 -->
+LORAMER_MULTIACCOUNT_PHASE2A_V1: all 7 `metrics_daily` row builders now
+populate `account_id` (cron shopify/meta/google/woo + shared GA builder +
+backfill google/meta inline + GA backfill via the shared builder). Conflict
+key UNTOUCHED. `npm run build` verified before commit; deployed to prod.
+
+**GA path PROVEN in prod (June 5, 2026):** GA backfill lap on Veterinary
+mastermind (f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2) wrote 151 fresh rows with
+`account_id` populated (= `properties/518184304`, matches `entity_id`).
+Table-wide `null_account = 0` across all 5 platforms (ga 3006, google 14895,
+meta 1631, shopify 20, woo 3).
+
+**PENDING GATE:** the 4 cron-only forward-capture builders
+(google/meta/shopify/woo) have NOT written under the new code yet — today's
+capture predated the deploy. Tonight's cron writes 2026-06-05 rows through
+them.
+
+**NEXT SESSION FIRST ACTION:** re-run the table-wide check (Supabase SQL
+Editor):
+```
+select platform, count(*) rows, count(*) filter (where account_id is null) null_account
+from metrics_daily group by platform order by platform;
+```
+If `null_account = 0` everywhere, proceed to step (b).
+
+**STEP (b):** re-run migration 005 step-2 sweep (idempotent), verify zero
+NULLs, then `ALTER TABLE metrics_daily ALTER COLUMN account_id SET NOT NULL;`
+**THEN (c):** widen the conflict key + flip BOTH `METRICS_DAILY_CONFLICT`
+constants (cron/sync/route.ts + run-backfill.ts) byte-identical.
+**THEN (d):** verify row counts unchanged (one cron cycle + one backfill lap).
+Full plan + hazards: `docs/scoping/multi-account-phase2.md`.
 
 Then the rest of the ripple: connection schema/uniqueness
 (`UNIQUE (client_id, platform)` → `(client_id, platform, account_id)`),
