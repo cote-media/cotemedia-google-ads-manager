@@ -122,14 +122,14 @@ capture predated the deploy. Tonight's cron writes 2026-06-05 rows through
 them.
 
 **NEXT SESSION FIRST ACTION:** execute the runbook below
-("TOMORROW — FINISH MULTI-ACCOUNT MIGRATION"). Full plan + hazards:
+("FINISH MULTI-ACCOUNT MIGRATION"). Full plan + hazards:
 `docs/scoping/multi-account-phase2.md`.
 
 Then the rest of the ripple: connection schema/uniqueness
 (`UNIQUE (client_id, platform)` → `(client_id, platform, account_id)`),
 intelligence adapters, `sync_state` keying, query layer, `/clients` UI.
 
-## TOMORROW — FINISH MULTI-ACCOUNT MIGRATION (multi-account-phase2 steps b–d)
+## FINISH MULTI-ACCOUNT MIGRATION (multi-account-phase2 steps b–d)
 <!-- LORAMER_MULTIACCOUNT_PHASE2_RUNBOOK -->
 
 Ordered runbook for Claude Code to execute end-to-end. STOP on any failure —

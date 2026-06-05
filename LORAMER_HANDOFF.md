@@ -686,7 +686,13 @@ The authoritative current state now lives in CONTINUE_HERE.md (read it). Headlin
   deployed BEFORE that window, or verified immediately by manually invoking
   /api/cron/sync (with CRON_SECRET) right after deploy. Deploying after the
   day's run already fired forces a ~16h wait. Never plan the dependent locking
-  step for a session that can't reach a cron cycle.
+  step for a session that can't reach a cron cycle. TWO SPECIFICS (hit Jun 5):
+  (a) the capture writes YESTERDAY's date (resolveDateWindow('YESTERDAY')), so
+  the gate-clearing run for day D is the FIRST run after midnight UTC of D+1 —
+  a manual trigger before midnight UTC just re-updates D-1 and clears nothing;
+  (b) the manual same-day workaround is curl-ing /api/cron/sync with
+  "Authorization: Bearer CRON_SECRET" AFTER midnight UTC instead of waiting
+  for the ~08:45 scheduled run.
 
 ### Universal backfill pattern (institutional)
 Adding a platform backfill = register an adapter in `src/lib/backfill/adapters.ts`
