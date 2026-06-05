@@ -305,3 +305,25 @@ update sync_state set backfill_complete=false, backfill_earliest_date=null, back
 - Always give Russ copyable commands with the exact paste destination; never say
   "scroll up."
 - Run the Session Wrap-Up Checklist (in LORAMER_HANDOFF.md) before ending.
+
+## SESSION 2026-06-05 (PM) — UI/UX WORKSTREAM
+<!-- LORAMER_UIUX_SESSION_V1 -->
+
+Shipped today (all pushed to main):
+- b7d2027 — brand design-language CSS ported into app globals (section-label, wordmark-mer, link-quiet, section-reveal, smoothing). Additive; nothing consumes it yet.
+- f41c0d3 — new GET /api/clients/metrics (per-client 30d spend/revenue/roas + lastActive; canonical filter entity_level='account' AND breakdown_type='' AND breakdown_value='').
+- 6fff9e3 — metrics v2: HONEST revenue. revenue30 = store (shopify/woo) if store rows exist, else GA, never summed; ads conversion_value never folded in (returned as convValue30); adds revenueSource = store|ga|none. Cross-checked to the penny.
+- 088b687 — /clients rebuilt: responsive grid (1/2/3 col), stat-tile cards (30d spend/revenue+source dot/ROAS/last-active), sort control (alphabetical default + recent/spend/revenue), and the "Claude" pill → "Mer" deep overlay (twin desktop modal / mobile sheet via shared IIFE content) replacing the inline expand. Claude→Lora/Mer renamed ON THE /clients PAGE ONLY. DEEP_LABEL const = swappable.
+
+Naming locked: in-app analyst = "Lora"; client deep-dive pill+surface = "Mer"; "Powered by Claude" = engine credit only.
+
+Migration status: PARKED, unchanged. The FINISH MULTI-ACCOUNT MIGRATION runbook (steps b–d) in this file self-resumes once the forward-capture cron writes 2026-06-05 rows — after midnight UTC (manual Terminal curl after 8 PM ET, else the ~08:45 UTC run), then tell Claude Code to execute that runbook.
+
+NEXT ORDER (UI/UX), do in sequence:
+1. Kill the robotic feel: restyle the Recharts chart tooltip + chart typography to warm/bigger/padded/soft-shadow/rounded (like Google Ads, NOT mono/cramped); propagate the Lora rename app-wide (dashboard sidebar still says "ASK CLAUDE"); apply the homepage type scale + spacing + serif display headings across dashboard pages.
+2. Mobile IA: make /clients reachable on mobile (nav gap, not layout — grid already 1-col); declutter the mobile bottom-nav (platform views become a secondary in-client selector, not top-level); sidebar-purpose IA pass.
+3. Flagship later: warm-start auto-population — always-open Additional Context box + new Industry selector; on type/industry pick, auto-prefill fresh warm-start context drafted by Claude but grounded in primary sources w/ provenance, human-reviewable, never silently injected as fact; mechanism = curated per-industry reference library (skills). Plus Mer as its own route/new tab (shared component). Deeper track to ~95% accuracy = semantic layer (query_metrics) → skills → provenance footer → evals (per the Anthropic self-serve-analytics blog).
+
+UI philosophy: ONE responsive codebase; same content/IA on mobile & desktop, only chrome adapts; separate render blocks only when the interaction model must change (drawer↔sheet, sidebar↔bottom-nav), sharing content.
+
+Immediate next action: surface the dashboard's Recharts chart/tooltip component + the sidebar nav source from src/app/dashboard/page.tsx, then start step 1.
