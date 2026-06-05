@@ -1358,8 +1358,8 @@ pulls as deep as the platform will serve and labels depth honestly.
 STATUS:
 - Google Ads - forward-capture + backfill: DONE (deep, proven on a $2.29M account).
 - Meta - forward-capture + backfill: DONE (deep).
-- GA4 - forward-capture only. TODO: backfill adapter (probe the Data API first to
-  confirm aggregate depth; aggregate is retained indefinitely so likely deep).
+- GA4 - forward-capture + backfill: DONE (engine V3 hooks; floor 2015-08-14;
+    proven on My Vacation Network 1266 rows + a second client).
 - Shopify - forward-capture only. TODO: backfill adapter (no purge clock).
 - WooCommerce - forward-capture only. TODO: backfill adapter (no purge clock).
 
@@ -1375,7 +1375,9 @@ PER-PLATFORM RETENTION (drives urgency):
 ENGINEERING: the engine (`src/lib/backfill/run-backfill.ts`), the session
 run/status routes, the read-only probe, and `BackfillControl` are all
 platform-agnostic. A new platform = one adapter in `src/lib/backfill/adapters.ts`
-+ a <BackfillControl> on its /clients row.
++ a <BackfillControl> on its /clients row. The shared engine is now genuinely
+platform-agnostic via the V3 optional hooks (resolveContext / buildRows /
+floorDate) — see LORAMER_BACKFILL_GA_SESSION_2026_06_05 in the handoff.
 
 OPEN POLISH: "history coming soon" on non-backfillable rows; per-adapter floor for
 Meta; backfill UX; optional "backfill all clients" bulk action.

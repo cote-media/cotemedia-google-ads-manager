@@ -662,6 +662,12 @@ The authoritative current state now lives in CONTINUE_HERE.md (read it). Headlin
   lasts); GA4 = 2/14/50mo for event/user (Explorations) but aggregate is indefinite
   and the Data API serves it unrestricted; Shopify/Woo = no purge clock. Instrument
   (probe) before trusting any documented limit.
+- Lesson 32 - JSX comments live in {/* */}, not /* */ (LORAMER_BACKFILL_GA_UI_V1,
+  Jun 5). Wrapping a JSX element around an expression-position comment turns it
+  into literal VISIBLE text: `{cond && ( /* X */ <div>...` is a valid JS comment,
+  but `{cond && (<div> /* X */ <inner/>...` renders the string "/* X */" on the
+  page. tsc does NOT catch it (valid JSX text, not a type/syntax error — Lesson
+  14 family). In JSX children, comments MUST be {/* X */}. Caught in diff review.
 
 ### Universal backfill pattern (institutional)
 Adding a platform backfill = register an adapter in `src/lib/backfill/adapters.ts`
@@ -669,3 +675,50 @@ Adding a platform backfill = register an adapter in `src/lib/backfill/adapters.t
 render <BackfillControl> on that platform's /clients row. The engine and the
 run/status/probe routes are platform-agnostic. See CONTINUE_HERE.md ->
 "HOW TO ADD A NEW PLATFORM BACKFILL".
+
+## SESSION ADDENDUM — June 5, 2026 (GA backfill + engine made platform-agnostic)
+<!-- LORAMER_BACKFILL_GA_SESSION_2026_06_05 -->
+
+GA4 historical backfill shipped end-to-end, and the shared engine was
+generalized so any non-ads platform rides it without forking.
+
+- Engine V3 (LORAMER_BACKFILL_SHARED_LIB_V3): three OPTIONAL adapter hooks —
+  resolveContext (override platform_connections + loadToken resolution),
+  buildRows (override the ACCOUNT-LEVEL row mapping), floorDate (per-adapter hard
+  floor). Adapters setting none (Google, Meta) behave EXACTLY as V2; the default
+  row mapping was verified byte-identical.
+- GA daily fetch (LORAMER_GA_DAILY_FETCH_V1): fetchGaDailyMetrics in
+  ga-intelligence.ts — per-day series via a date-dimension runReport, mirroring
+  the proven fetchAccountTotals/fetchEcommerce metric groupings, resiliently.
+- Shared GA row builder (LORAMER_GA_METRICS_ROW_V1): gaExtra + buildGaMetricsRows
+  extracted from cron/sync into src/lib/intelligence/ga-metrics-row.ts so
+  forward-capture AND backfill write byte-identical rows (same conflict key).
+  Param widened to a GaMetricsInput Pick so IntelligenceGa and GaDailySlice both
+  feed it without a cast.
+- GA adapter (LORAMER_BACKFILL_GA_ADAPTER_V1): registered via the V3 hooks —
+  resolveContext uses getValidGaToken(clientId, userEmail), entity_id =
+  gaPropertyId (same source as forward-capture), floorDate '2015-08-14' (GA Data
+  API hard floor, proven by probe).
+- GA CRON wrapper (LORAMER_BACKFILL_GA_0B_V1) at /api/backfill/ga + UI mount
+  (LORAMER_BACKFILL_GA_UI_V1): <BackfillControl platform="ga"> on the GA row.
+
+VERIFIED: probe found GA's API-wide hard floor = 2015-08-14; My Vacation
+Network's real data floor = 2022-12-14. Headless backfill wrote 1266 rows
+(== probe rowCount), earliest 2022-12-14, per-day sessions byte-matched the
+probe, complete:true, no error. UI shows "complete back to 2022-12-14".
+Confirmed on a second new GA client too.
+
+ADDING A NEW PLATFORM BACKFILL (now): (1) a daily fetch returning per-day
+slices, (2) a shared row builder matching forward-capture, (3) register an
+adapter (resolveContext/buildRows/floorDate hooks for non-ads shapes, defaults
+for ads), (4) a thin CRON wrapper, (5) mount <BackfillControl>. Shopify + Woo
+are next and follow this exactly — no purge clock, not urgent.
+
+KNOWN ROUGH EDGE (pre-existing, NOT from this session): Meta backfill shows
+"partial / Resume" that never completes. Meta's data IS captured back to the
+account's first day; the issue is Meta's fetch THROWS when swept before the
+account's first data (Google returns empty instead), so the engine catches,
+stops, and never marks complete. Cosmetic, not data loss. Fix = give Meta a
+floorDate and/or have its adapter return [] on out-of-range windows (the
+roadmap's "per-adapter floor for Meta"). Diagnose with a headless run
+(stoppedOnError:true) before fixing.

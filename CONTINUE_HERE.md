@@ -1,4 +1,4 @@
-# CONTINUE_HERE — Resume point after June 4–5, 2026
+# CONTINUE_HERE — Resume point after June 5, 2026
 
 Read AFTER LORAMER_HANDOFF.md and ROADMAP.md, not before. Same laptop as last
 session (MacBook Air, ~/Downloads/cotemedia-google-ads-manager).
@@ -15,6 +15,83 @@ Supabase SQL Editor / macOS Terminal / Vercel). Never tell him to scroll to a
 previous message — if there's any confusion, re-paste the full command in your
 newest message. Deliver code as downloadable files/zips (byte-exact), NOT as
 multi-line pastes into the terminal (see Lesson 29).
+
+## Session — June 5, 2026: GA backfill shipped (engine now platform-agnostic)
+
+- GA4 historical backfill DONE end-to-end (probe -> daily fetch -> shared row
+  builder -> engine V3 hooks -> GA adapter -> CRON wrapper -> UI). Verified on
+  My Vacation Network (1266 rows back to 2022-12-14, per-day parity) and a
+  second GA client.
+- The shared backfill engine is now platform-agnostic (V3 hooks). Adding a
+  platform = daily fetch + row builder + adapter + CRON wrapper + UI mount.
+- A standing protocol directive was added: use Claude Code for deep-dive
+  research/edits; err on caution whenever a next step isn't 100% certain.
+
+### Next tasks (none urgent — no purge clock on GA/Shopify/Woo)
+1. Meta "per-adapter floor" fix — Meta backfill shows "partial / Resume" that
+   never completes because its fetch throws past the account's first data
+   (cosmetic; data is complete to account start). Diagnose with a headless Meta
+   run first.
+2. Shopify backfill adapter (V3 pattern).
+3. WooCommerce backfill adapter (V3 pattern).
+4. Cleanup: delete stray repo-root scripts append_handoff_docs.py and
+   patch_backfill_ui_v1.py (untracked leftovers).
+
+## NEXT TASK (priority) — query_metrics: support arbitrary explicit date ranges
+<!-- LORAMER_QUERY_METRICS_DATE_FLEX_DESIGN_2026_06_05 -->
+
+This is priority #1, ahead of the Meta floor / Shopify / Woo items listed above.
+
+THE PROBLEM (verified against code, not assumed): the query_metrics tool can
+only express a baseRange PRESET (LAST_7/14/30/90_DAYS, THIS_MONTH, LAST_MONTH)
+plus offsetsMonths (equal-length windows ending N calendar months before the
+base). It CANNOT accept explicit dates. So "Q4 2024" (Oct 1 - Dec 31, 2024) is
+impossible to express: the model approximated it as a ~30-day preset + 18-month
+offset, landed on Nov 5 - Dec 4, 2024, and mislabeled that slice "Q4 2024."
+This cripples the moat (Claude reasoning over arbitrary history) and produces
+confidently mislabeled analysis.
+
+ROOT CAUSE is purely the tool INTERFACE, not the data/engine:
+- src/lib/metrics-query.ts -> aggregateWindow ALREADY filters
+  .gte('date', startDate).lte('date', endDate) for ANY dates.
+- src/lib/date-range.ts -> resolveDateWindow ALREADY supports explicit dates via
+  ('CUSTOM', customStart, customEnd) or when both customs are passed.
+- The gap: queryMetrics opts + the query_metrics tool schema/description never
+  expose explicit start/end. queryMetrics calls resolveDateWindow(baseRange)
+  with one arg and derives comparison windows by month-shifting the base end
+  date (equal span).
+
+THE FIX (additive, back-compatible, ~3 files):
+1. src/lib/metrics-query.ts - add optional
+   windows?: Array<{ label?: string; startDate: string; endDate: string }>
+   to queryMetrics opts. When present, aggregate EXACTLY those explicit windows
+   (any dates, any length, any count) via the existing aggregateWindow + derive,
+   carrying each provided label (fallback "start..end"). When ABSENT, keep the
+   current baseRange/offsetsMonths behavior byte-identical (full back-compat).
+   Validate each window: YYYY-MM-DD and startDate <= endDate; otherwise pass
+   through (the store returns no rows for pre-data days, which is honest).
+2. src/lib/claude-tools.ts - add `windows` to the query_metrics input_schema
+   (array of {label, startDate, endDate}); forward it in runQueryMetricsTool.
+   REWRITE the description: for any SPECIFIC period (a quarter, month, year, or
+   arbitrary range) the model must translate it to explicit YYYY-MM-DD windows
+   ITSELF and pass them in `windows` (Q4 2024 -> 2024-10-01..2024-12-31;
+   "Q4 2024 vs Q4 2025" -> two windows). Use baseRange/offsetsMonths ONLY for
+   rolling recent-vs-prior. Label each window accurately; never relabel a
+   different window as the requested period. If `windows` is provided, ignore
+   baseRange/offsets (mutually exclusive — say so in the description).
+3. (recommended) src/app/api/query-metrics/route.ts - accept explicit windows
+   too, so the fix is PROVEN HEADLESSLY (CRON_SECRET curl) before trusting
+   in-app, exactly like the GA probe.
+
+VERIFY headless on My Vacation Network (clientId
+965c77ff-3ad5-44b2-8d45-ee8ab1c97966): query windows 2024-10-01..2024-12-31 and
+2025-10-01..2025-12-31, confirm day-accurate totals from metrics_daily and that
+labels echo back. Then in-app: ask LoraMer "compare Q4 2024 to Q4 2025" and
+confirm it passes explicit windows, correctly labeled.
+
+DISCIPLINE: interface-only; do NOT change aggregateWindow's math or the existing
+baseRange/offsets path (keep byte-identical, like the V3 default branch). Read
+the live files via Claude Code before editing; diff-review before each commit.
 
 ## What shipped & was PROVEN this session
 
