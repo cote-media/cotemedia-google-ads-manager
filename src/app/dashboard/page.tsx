@@ -63,7 +63,11 @@ function ChartTooltip({ active, payload, label }: any) {
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: entry.color, flexShrink: 0 }} />
           <span style={{ color: '#64748b' }}>{entry.name}</span>
           <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#1e293b' }}>
-            {typeof entry.value === 'number' ? entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : entry.value}
+            {typeof entry.value === 'number'
+              ? (CURRENCY_KEYS.has(entry.dataKey)
+                  ? '$' + entry.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }))
+              : entry.value}
           </span>
         </div>
       ))}
@@ -175,7 +179,7 @@ function ColumnPicker({ platform, active, onChange }: {
 
 // ─── Google Chart ─────────────────────────────────────────────────────────────
 const GOOGLE_METRICS = [
-  { id: 'cost', label: 'Spend', color: '#2563eb' },
+  { id: 'cost', label: 'Spend', currency: true, color: '#2563eb' },
   { id: 'clicks', label: 'Clicks', color: '#16a34a' },
   { id: 'impressions', label: 'Impressions', color: '#9333ea' },
   { id: 'conversions', label: 'Conversions', color: '#ea580c' },
@@ -249,7 +253,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
 
 // ─── Meta Chart ───────────────────────────────────────────────────────────────
 const META_METRICS = [
-  { id: 'cost', label: 'Spend', color: '#0ea5e9' },
+  { id: 'cost', label: 'Spend', currency: true, color: '#0ea5e9' },
   { id: 'clicks', label: 'Clicks', color: '#10b981' },
   { id: 'impressions', label: 'Impressions', color: '#8b5cf6' },
   { id: 'conversions', label: 'Conversions', color: '#f97316' },
@@ -311,6 +315,14 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
 }
 
 // ─── Combined Chart ───────────────────────────────────────────────────────────
+// Hoisted to module scope (LORAMER_CHART_CURRENCY_V1) so CURRENCY_KEYS can read it;
+// pure constant, no component dependencies.
+const COMBINED_METRICS = [
+  { id: 'cost', label: 'Spend', currency: true, googleKey: 'google_cost', metaKey: 'meta_cost', googleColor: '#2563eb', metaColor: '#0ea5e9' },
+  { id: 'clicks', label: 'Clicks', googleKey: 'google_clicks', metaKey: 'meta_clicks', googleColor: '#16a34a', metaColor: '#10b981' },
+  { id: 'conversions', label: 'Conversions', googleKey: 'google_conversions', metaKey: 'meta_conversions', googleColor: '#ea580c', metaColor: '#f97316' },
+]
+
 function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart, customEnd }: {
   googleAccountId: string; metaAccountId: string; dateRange: string; customStart?: string; customEnd?: string
 }) {
@@ -338,12 +350,6 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
     metaData.forEach(r => { map[r.date] = { ...map[r.date], date: r.date, meta_cost: r.meta_cost, meta_clicks: r.meta_clicks, meta_conversions: r.meta_conversions } })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
   })()
-
-  const COMBINED_METRICS = [
-    { id: 'cost', label: 'Spend', googleKey: 'google_cost', metaKey: 'meta_cost', googleColor: '#2563eb', metaColor: '#0ea5e9' },
-    { id: 'clicks', label: 'Clicks', googleKey: 'google_clicks', metaKey: 'meta_clicks', googleColor: '#16a34a', metaColor: '#10b981' },
-    { id: 'conversions', label: 'Conversions', googleKey: 'google_conversions', metaKey: 'meta_conversions', googleColor: '#ea580c', metaColor: '#f97316' },
-  ]
 
   const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
@@ -1477,9 +1483,9 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
 
 // ─── Shopify Chart ────────────────────────────────────────────────────────────
 const SHOPIFY_METRICS = [
-  { id: 'revenue', label: 'Revenue', color: '#16a34a' },
+  { id: 'revenue', label: 'Revenue', currency: true, color: '#16a34a' },
   { id: 'orders', label: 'Orders', color: '#2563eb' },
-  { id: 'avgOrderValue', label: 'AOV', color: '#9333ea' },
+  { id: 'avgOrderValue', label: 'AOV', currency: true, color: '#9333ea' },
 ]
 
 function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '/api/shopify/daily' }: {  // LORAMER_WOO_TAB_V1
@@ -2663,6 +2669,16 @@ const GA_CHART_METRICS = [
   { id: 'screenPageViews', label: 'Pageviews', color: '#ca8a04' },
   { id: 'averageSessionDuration', label: 'Avg Session Duration', color: '#db2777' },
 ]
+
+// LORAMER_CHART_CURRENCY_V1 — dataKeys whose tooltip values render as dollars.
+// Declared after the last metric array so all five are defined above.
+const CURRENCY_KEYS = new Set<string>([
+  ...GOOGLE_METRICS.filter(m => (m as any).currency).map(m => m.id),
+  ...META_METRICS.filter(m => (m as any).currency).map(m => m.id),
+  ...SHOPIFY_METRICS.filter(m => (m as any).currency).map(m => m.id),
+  ...GA_CHART_METRICS.filter(m => (m as any).currency).map(m => m.id),
+  ...COMBINED_METRICS.filter(m => (m as any).currency).flatMap(m => [(m as any).googleKey, (m as any).metaKey]),
+])
 
 // LORAMER_GA_CHART_GRANULARITY_V1
 function GaChart({ clientId, dateRange, customStart, customEnd }: {
