@@ -681,6 +681,12 @@ The authoritative current state now lives in CONTINUE_HERE.md (read it). Headlin
   but `{cond && (<div> /* X */ <inner/>...` renders the string "/* X */" on the
   page. tsc does NOT catch it (valid JSX text, not a type/syntax error — Lesson
   14 family). In JSX children, comments MUST be {/* X */}. Caught in diff review.
+- Lesson 33 - CRON-GATED VERIFICATION: A change whose only proof-of-correctness
+  is the once-daily forward-capture cron (~08:45 UTC / ~04:45 ET) must be
+  deployed BEFORE that window, or verified immediately by manually invoking
+  /api/cron/sync (with CRON_SECRET) right after deploy. Deploying after the
+  day's run already fired forces a ~16h wait. Never plan the dependent locking
+  step for a session that can't reach a cron cycle.
 
 ### Universal backfill pattern (institutional)
 Adding a platform backfill = register an adapter in `src/lib/backfill/adapters.ts`

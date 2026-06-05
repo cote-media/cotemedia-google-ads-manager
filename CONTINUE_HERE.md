@@ -121,24 +121,72 @@ meta 1631, shopify 20, woo 3).
 capture predated the deploy. Tonight's cron writes 2026-06-05 rows through
 them.
 
-**NEXT SESSION FIRST ACTION:** re-run the table-wide check (Supabase SQL
-Editor):
-```
-select platform, count(*) rows, count(*) filter (where account_id is null) null_account
-from metrics_daily group by platform order by platform;
-```
-If `null_account = 0` everywhere, proceed to step (b).
-
-**STEP (b):** re-run migration 005 step-2 sweep (idempotent), verify zero
-NULLs, then `ALTER TABLE metrics_daily ALTER COLUMN account_id SET NOT NULL;`
-**THEN (c):** widen the conflict key + flip BOTH `METRICS_DAILY_CONFLICT`
-constants (cron/sync/route.ts + run-backfill.ts) byte-identical.
-**THEN (d):** verify row counts unchanged (one cron cycle + one backfill lap).
-Full plan + hazards: `docs/scoping/multi-account-phase2.md`.
+**NEXT SESSION FIRST ACTION:** execute the runbook below
+("TOMORROW — FINISH MULTI-ACCOUNT MIGRATION"). Full plan + hazards:
+`docs/scoping/multi-account-phase2.md`.
 
 Then the rest of the ripple: connection schema/uniqueness
 (`UNIQUE (client_id, platform)` → `(client_id, platform, account_id)`),
 intelligence adapters, `sync_state` keying, query layer, `/clients` UI.
+
+## TOMORROW — FINISH MULTI-ACCOUNT MIGRATION (multi-account-phase2 steps b–d)
+<!-- LORAMER_MULTIACCOUNT_PHASE2_RUNBOOK -->
+
+Ordered runbook for Claude Code to execute end-to-end. STOP on any failure —
+do not improvise past a failed step. Run c1–c3 well away from the ~08:45 UTC
+cron window. Live conflict constraint name (verified 2026-06-05):
+`metrics_daily_client_id_platform_entity_level_entity_id_dat_key`.
+
+**GATE (all must pass, else STOP):**
+1. Query `metrics_daily`: fresh rows exist for `date = '2026-06-05'` on EACH
+   of google / meta / shopify / woocommerce (proves all 4 cron-only builders
+   wrote under the new code).
+2. `null_account = 0` for EVERY platform, table-wide:
+   ```
+   select platform, count(*) rows, count(*) filter (where account_id is null) null_account
+   from metrics_daily group by platform order by platform;
+   ```
+3. Confirm DDL writes are possible (Supabase MCP in write mode, or hand the
+   SQL to Russ for the Supabase SQL Editor).
+
+**STEP b — guard then lock:**
+```sql
+DO $$ DECLARE n bigint; BEGIN SELECT count(*) INTO n FROM public.metrics_daily WHERE account_id IS NULL; IF n>0 THEN RAISE EXCEPTION 'ABORT: % null account_id', n; END IF; END $$;
+ALTER TABLE public.metrics_daily ALTER COLUMN account_id SET NOT NULL;
+```
+
+**STEP c1 — add the new key (idempotent; only if a constraint named
+`metrics_daily_multiaccount_unique` doesn't already exist):**
+```sql
+ALTER TABLE public.metrics_daily
+  ADD CONSTRAINT metrics_daily_multiaccount_unique
+  UNIQUE (client_id, platform, account_id, entity_level, entity_id, date, breakdown_type, breakdown_value);
+```
+
+**STEP c2 — flip both constants, byte-identical:**
+In `src/app/api/cron/sync/route.ts` (~L22-23) and
+`src/lib/backfill/run-backfill.ts` (~L82-83), change `METRICS_DAILY_CONFLICT`
+from
+`'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'`
+to
+`'client_id,platform,account_id,entity_level,entity_id,date,breakdown_type,breakdown_value'`.
+Grep `account_id,entity_level` to prove BOTH flipped byte-identical; run
+`npx tsc --noEmit`; commit and push ONLY if both pass.
+
+**STEP c3 — only after the Vercel deploy is READY:**
+```sql
+ALTER TABLE public.metrics_daily DROP CONSTRAINT IF EXISTS metrics_daily_client_id_platform_entity_level_entity_id_dat_key;
+```
+
+**STEP d — prove it:** run one Google backfill lap for client
+`f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2` (Veterinary mastermind); confirm row
+count unchanged, all rows non-null `account_id`, zero upsert/constraint
+errors.
+
+**Why this ordering is safe:** c1→c2→c3 is window-free by design — at every
+moment a unique constraint matching the RUNNING code's onConflict column list
+exists (old code matches the old constraint until c3; new code matches
+`metrics_daily_multiaccount_unique` from c1). Keep that order.
 
 ### Next tasks (none urgent — no purge clock on GA/Shopify/Woo)
 1. Meta "per-adapter floor" fix — Meta backfill shows "partial / Resume" that
