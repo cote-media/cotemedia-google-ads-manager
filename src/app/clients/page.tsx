@@ -1071,7 +1071,7 @@ function ClientsContent() {
                                 }} className="text-xs text-muted hover:text-red-600 transition-colors font-sans">Disconnect</button>
                               </div>
                             )}
-                            {gaConn && (  /* LORAMER_GA_PROPERTY_PICKER_V1 */
+                            {gaConn && (<div> {/* LORAMER_GA_PROPERTY_PICKER_V1 */}
                               <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#E8710A' }}>
@@ -1084,7 +1084,7 @@ function ClientsContent() {
                                 </div>
                                 <span className="text-xs font-sans text-muted">Connected</span>
                               </div>
-                            )}
+                            <BackfillControl clientId={client.id} platform="ga" onComplete={fetchClients} /></div>)}
                             {!googleConn && !metaConn && !shopifyConn && !wooConn && !gaConn && (
                               <p className="text-xs font-sans text-muted italic">No platforms connected yet. Use the pills above to connect Meta or Shopify, or finish Google MCC setup.</p>
                             )}
