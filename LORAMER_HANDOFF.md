@@ -755,3 +755,7 @@ Local commits are squashed on push and rewritten, so a hash recorded in a handof
 
 ## Standing rule — End every session by refreshing CONTINUE_HERE.md
 At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
+
+## Standing rule — Keep LORAMER_CODEBASE_MAP.md current via git, not memory
+At each handoff run: git diff --name-status $(git log -1 --format=%H -- LORAMER_CODEBASE_MAP.md)..HEAD
+If the output has any A (added), D (deleted), or R (renamed) entries, the codebase shape changed — update the affected section(s) of LORAMER_CODEBASE_MAP.md and its "Map last verified" line in the same commit. If only M (modified) entries appear, the map is still accurate — leave it. The map is architecture-level only: never add line numbers, counts, or implementation specifics.

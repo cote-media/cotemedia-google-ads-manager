@@ -1,7 +1,7 @@
 # ▶ RESUME LORAMER — do this first, every session
 
 Russ types one line into a new chat with the strategy Claude: `Resume LoraMer`.
-Strategy Claude reads this file and hands back the block below. Russ pastes it into Claude Code. That is the whole ritual.
+Strategy Claude reads CONTINUE_HERE.md, LORAMER_HANDOFF.md, ROADMAP.md, and LORAMER_CODEBASE_MAP.md in full from the project knowledge, then outputs the SESSION RESUME paste block below VERBATIM in a code block labeled for the Cursor Agents window — so Russ can paste it into Claude Code to git pull and sync the repo — and then states the single NEXT STEP.
 
 --- PASTE INTO CLAUDE CODE (Cursor Agents window) ---
 SESSION RESUME — read-only, no edits this turn.
