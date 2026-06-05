@@ -435,3 +435,108 @@ export async function fetchGaIntelligence(
     refundAmount: ecommerce.refundAmount,
   }
 }
+
+export interface GaDailySlice {
+  date: string
+  sessions?: number
+  totalUsers?: number
+  newUsers?: number
+  engagementRate?: number
+  conversions?: number
+  totalRevenue?: number
+  transactions?: number
+  cartToPurchaseRate?: number
+  purchaserConversionRate?: number
+  refundAmount?: number
+}
+
+// Per-day GA metrics for historical backfill. Mirrors the metric groupings of
+// fetchAccountTotals + fetchEcommerce (already proven valid in production) but
+// adds a date dimension so each row is one day. Resilient: the core series is
+// one call; the ecommerce rate + refund calls are independently try/caught so a
+// property without ecommerce still returns the core daily series.
+export async function fetchGaDailyMetrics(
+  propertyId: string,
+  accessToken: string,
+  startDate: string,
+  endDate: string
+): Promise<GaDailySlice[]> {
+  const byDate = new Map<string, GaDailySlice>()
+
+  const coreRows = await runGaReport(propertyId, accessToken, {
+    dateRanges: dateRanges(startDate, endDate),
+    dimensions: [{ name: 'date' }],
+    metrics: [
+      { name: 'sessions' },
+      { name: 'totalUsers' },
+      { name: 'newUsers' },
+      { name: 'engagementRate' },
+      { name: 'conversions' },
+      { name: 'totalRevenue' },
+      { name: 'transactions' },
+    ],
+    limit: 100000,
+  })
+  for (const row of coreRows) {
+    const raw = dimensionStr(row, 0)
+    if (!/^\d{8}$/.test(raw)) continue
+    const d = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+    byDate.set(d, {
+      date: d,
+      sessions: metricNum(row, 0),
+      totalUsers: metricNum(row, 1),
+      newUsers: metricNum(row, 2),
+      engagementRate: metricNum(row, 3),
+      conversions: metricNum(row, 4),
+      totalRevenue: metricNum(row, 5),
+      transactions: metricNum(row, 6),
+    })
+  }
+
+  try {
+    const rateRows = await runGaReport(propertyId, accessToken, {
+      dateRanges: dateRanges(startDate, endDate),
+      dimensions: [{ name: 'date' }],
+      metrics: [
+        { name: 'addToCarts' },
+        { name: 'transactions' },
+        { name: 'purchaserConversionRate' },
+      ],
+      limit: 100000,
+    })
+    for (const row of rateRows) {
+      const raw = dimensionStr(row, 0)
+      if (!/^\d{8}$/.test(raw)) continue
+      const d = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+      const slice = byDate.get(d) || { date: d }
+      const addToCarts = metricNum(row, 0)
+      const txns = metricNum(row, 1)
+      slice.cartToPurchaseRate = addToCarts > 0 ? txns / addToCarts : 0
+      slice.purchaserConversionRate = metricNum(row, 2)
+      byDate.set(d, slice)
+    }
+  } catch (e) {
+    console.error('[ga-intelligence] daily ecommerce rates failed:', e)
+  }
+
+  try {
+    const refundRows = await runGaReport(propertyId, accessToken, {
+      dateRanges: dateRanges(startDate, endDate),
+      dimensions: [{ name: 'date' }],
+      metrics: [{ name: 'refundAmount' }],
+      limit: 100000,
+    })
+    for (const row of refundRows) {
+      const raw = dimensionStr(row, 0)
+      if (!/^\d{8}$/.test(raw)) continue
+      const d = `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`
+      const slice = byDate.get(d) || { date: d }
+      slice.refundAmount = metricNum(row, 0)
+      byDate.set(d, slice)
+    }
+  } catch (e) {
+    console.error('[ga-intelligence] daily refunds failed:', e)
+  }
+
+  return Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date))
+}
