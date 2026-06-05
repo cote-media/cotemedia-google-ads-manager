@@ -1,6 +1,8 @@
-// LORAMER_BACKFILL_STATUS_GET_V1
-// Phase 1: session-authed read of backfill progress (sync_state) for a client,
-// for the /clients Connections UI. Same ownership gate as /api/backfill/run.
+// LORAMER_BACKFILL_STATUS_GET_V2
+// Phase 1: session-authed read of backfill progress for a client, for the
+// /clients Connections UI. Same ownership gate as /api/backfill/run.
+// V2 (honest depth): earliestDate now reports the ACTUAL earliest row held in
+// metrics_daily for the platform, not the date the backfill cursor swept to.
 // Read-only.
 
 import { NextResponse } from 'next/server'
@@ -49,8 +51,25 @@ export async function GET(request: Request) {
   const platforms: Record<string, any> = {}
   for (const r of rows || []) {
     if (!backfillable.includes(r.platform)) continue
+
+    // Honest depth: the actual earliest account-level row we hold for this
+    // platform, regardless of how far the cursor swept (empty older chunks
+    // don't create rows, so this is the true start of captured history).
+    let actualEarliest: string | null = null
+    const { data: minRow } = await supabaseAdmin
+      .from('metrics_daily')
+      .select('date')
+      .eq('client_id', clientId)
+      .eq('platform', r.platform)
+      .eq('entity_level', 'account')
+      .order('date', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    actualEarliest = (minRow && minRow.date) || null
+
     platforms[r.platform] = {
-      earliestDate: r.backfill_earliest_date ?? null,
+      earliestDate: actualEarliest,
+      sweptTo: r.backfill_earliest_date ?? null,
       targetDate: r.backfill_target_date ?? null,
       complete: !!r.backfill_complete,
       updatedAt: r.updated_at ?? null,

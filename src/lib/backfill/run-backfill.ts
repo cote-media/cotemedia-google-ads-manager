@@ -1,10 +1,14 @@
-// LORAMER_BACKFILL_SHARED_LIB_V1
+// LORAMER_BACKFILL_SHARED_LIB_V2
 // Phase 1: shared engine for resumable historical backfill of ACCOUNT-LEVEL
-// daily metrics into metrics_daily. Extracted (no behavior change) from the
-// google + meta backfill routes so (a) the CRON GET routes are thin wrappers
-// and (b) a session-authed trigger can call the same engine.
-// Auth is the CALLER's responsibility — this engine assumes clientId is
-// already authorized.
+// daily metrics into metrics_daily. Auth is the CALLER's responsibility —
+// this engine assumes clientId is already authorized.
+//
+// V2 (deep history): the floor is now 132 months (Google's 11-year retention
+// ceiling) instead of a fixed 36-month cap, so we capture as far back as the
+// platform will serve. For accounts younger than the floor, the older chunks
+// simply return no rows. Each chunk fetch is wrapped so that if a platform
+// throws a retention/date-range error going backward, we stop gracefully at
+// the deepest point captured rather than failing the whole run.
 
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -40,7 +44,9 @@ export interface BackfillResult {
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 
-const GRANULAR_MONTHS = 36
+// 132 months = 11 years = Google's maximum reporting retention. We sweep back
+// to here; younger accounts return empty for the older chunks (harmless).
+const GRANULAR_MONTHS = 132
 const MAX_CHUNKS = 60
 
 function fmt(d: Date): string {
@@ -112,9 +118,11 @@ export async function runBackfill(
     }
   }
 
+  // Always compute the floor fresh (deepest the platform allows), so deepening
+  // takes effect even if an older shallower target was stored before.
   const targetObj = new Date()
   targetObj.setUTCMonth(targetObj.getUTCMonth() - GRANULAR_MONTHS)
-  const targetDate = stateRow?.backfill_target_date || fmt(targetObj)
+  const targetDate = fmt(targetObj)
 
   const yObj = new Date()
   yObj.setUTCDate(yObj.getUTCDate() - 1)
@@ -128,13 +136,23 @@ export async function runBackfill(
   let earliest = stateRow?.backfill_earliest_date || addDays(yesterday, 1)
   let chunks = 0
   let complete = false
+  let stoppedOnError = false
 
   while (windowEnd >= targetDate && chunks < MAX_CHUNKS) {
     chunks += 1
     let windowStart = addDays(windowEnd, -(adapter.chunkDays - 1))
     if (windowStart < targetDate) windowStart = targetDate
 
-    const daily = await adapter.fetchDaily(token, accountId, windowStart, windowEnd)
+    let daily: DailyRow[] = []
+    try {
+      daily = await adapter.fetchDaily(token, accountId, windowStart, windowEnd)
+    } catch {
+      // Hit the platform's retention limit (or a transient error) going
+      // backward. Stop here; the cursor stays at the last successful chunk so
+      // a re-run can resume. We do NOT mark complete on an error.
+      stoppedOnError = true
+      break
+    }
 
     const rows = (daily || []).map(d => ({
       client_id: clientId,
@@ -217,6 +235,7 @@ export async function runBackfill(
       chunks,
       totalRows,
       complete,
+      stoppedOnError,
     },
   }
 }
