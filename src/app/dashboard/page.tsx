@@ -168,9 +168,11 @@ function ChartTooltip({ active, payload, label }: any) {
           <span style={{ color: '#64748b' }}>{entry.name}</span>
           <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#1e293b' }}>
             {typeof entry.value === 'number'
-              ? (CURRENCY_KEYS.has(entry.dataKey)
-                  ? '$' + entry.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                  : entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }))
+              ? (PERCENT_KEYS.has(entry.dataKey)
+                  ? entry.value.toFixed(2) + '%'
+                  : CURRENCY_KEYS.has(entry.dataKey)
+                    ? '$' + entry.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }))
               : entry.value}
           </span>
         </div>
@@ -309,6 +311,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
     }).catch(() => setLoading(false))
   }, [accountId, dateRange, campaignId, granularity, customStart, customEnd])
 
+  // NOTE (LORAMER_ADCHART_MULTI_V1): permits empty selection — known bug; align with AdChart's last-metric guard in a later cleanup.
   const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
@@ -617,6 +620,16 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
 }
 
 // ─── Ad Chart (bar for multiple ads, line for single ad, toggleable) ──────────
+// LORAMER_ADCHART_MULTI_V1 — line-view metric definitions (single-entity parent
+// trend). axis 'right' is for TRUE RATIOS only (CTR now, ROAS later); volume
+// metrics (spend/clicks/conversions) stay left.
+const AD_LINE_METRICS = [
+  { id: 'spend', label: 'Spend', currency: true, axis: 'left', color: '#2563eb' },
+  { id: 'clicks', label: 'Clicks', axis: 'left', color: '#16a34a' },
+  { id: 'conversions', label: 'Conversions', axis: 'left', color: '#ea580c' },
+  { id: 'ctr', label: 'CTR', percent: true, axis: 'right', color: '#9333ea' },
+]
+
 function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountId, dateRange, customStart, customEnd }: {
   ads: any[]
   adGroupId: string
@@ -629,7 +642,9 @@ function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountI
   customEnd?: string
 }) {
   const [viewMode, setViewMode] = useState<'bar' | 'line'>(ads.length === 1 ? 'line' : 'bar')
-  const [activeMetric, setActiveMetric] = useState<'spend' | 'clicks' | 'conversions' | 'ctr'>('spend')
+  const [activeMetric, setActiveMetric] = useState<'spend' | 'clicks' | 'conversions' | 'ctr'>('spend')  // bar view (single — bars are ads)
+  // LORAMER_ADCHART_MULTI_V1 — line view is multi-select (single-entity trend)
+  const [activeMetrics, setActiveMetrics] = useState<string[]>(['spend'])
   const [lineData, setLineData] = useState<{ id: string; name: string; daily: any[] }[]>([])
   const [lineLoading, setLineLoading] = useState(false)
   const [visibleIds, setVisibleIds] = useState<Set<string>>(new Set(ads.map(a => a.id)))
@@ -676,21 +691,27 @@ function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountI
   const colorMap: Record<string, string> = {}
   ads.forEach((ad, i) => { colorMap[ad.id] = CHART_COLORS[i % CHART_COLORS.length] })
 
+  // LORAMER_ADCHART_MULTI_V1 — emit ALL metric keys per date so multi-select can
+  // plot any combination. LORAMER_DRILL_CHART_FIX_V1 normalization preserved:
+  // daily rows key spend as `cost` and carry no per-day ctr.
   const merged = (() => {
     const map: Record<string, any> = {}
     lineData.forEach(s => {
       s.daily.forEach((row: any) => {
         if (!map[row.date]) map[row.date] = { date: row.date }
-        // LORAMER_DRILL_CHART_FIX_V1 — daily rows key spend as `cost` and carry
-        // no per-day ctr; normalize here instead of flatlining at 0.
-        const value = activeMetric === 'spend' ? (row.cost ?? 0)
-          : activeMetric === 'ctr' ? ((row.impressions ?? 0) > 0 ? (row.clicks / row.impressions) * 100 : 0)
-          : (row[activeMetric] ?? 0)
-        map[row.date]['value'] = value
+        map[row.date].spend = row.cost ?? 0
+        map[row.date].clicks = row.clicks ?? 0
+        map[row.date].conversions = row.conversions ?? 0
+        map[row.date].ctr = (row.impressions ?? 0) > 0 ? (row.clicks / row.impressions) * 100 : 0
       })
     })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
   })()
+
+  // LORAMER_ADCHART_MULTI_V1 — line-view multi toggle; the LAST selected metric
+  // can't be removed (chart never renders zero lines).
+  const toggleLineMetric = (id: string) => setActiveMetrics(prev =>
+    prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])
 
   const toggleVisible = (id: string) => setVisibleIds(prev => {
     const next = new Set(prev)
@@ -708,24 +729,44 @@ function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountI
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-ink">Ad Performance</h3>
           <div className="flex items-center gap-2">
-            {/* Metric selector */}
-            <div className="flex gap-1">
-              {(Object.keys(metricLabels)).map(m => (
-                <button key={m} onClick={() => setActiveMetric(m as any)}
-                  className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
-                  style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
-                  {metricLabels[m]}
-                </button>
-              ))}
-            </div>
+            {/* Metric selector — line view: multi-select (GoogleChart pattern, last-metric guard); bar view: single */}
+            {viewMode === 'line' ? (
+              <div className="flex gap-1">
+                {AD_LINE_METRICS.map(m => (
+                  <button key={m.id} onClick={() => toggleLineMetric(m.id)}
+                    className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetrics.includes(m.id) ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                    style={activeMetrics.includes(m.id) ? { backgroundColor: m.color, borderColor: m.color } : {}}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                {(Object.keys(metricLabels)).map(m => (
+                  <button key={m} onClick={() => setActiveMetric(m as any)}
+                    className={'text-xs font-mono px-2 py-1 border transition-colors ' + (activeMetric === m ? 'text-white border-transparent' : 'text-muted border-border hover:text-ink')}
+                    style={activeMetric === m ? { backgroundColor: metricColors[m], borderColor: metricColors[m] } : {}}>
+                    {metricLabels[m]}
+                  </button>
+                ))}
+              </div>
+            )}
             {/* View toggle — only show if multiple ads */}
             {ads.length > 1 && (
               <div className="flex border border-border">
-                <button onClick={() => setViewMode('bar')}
+                <button onClick={() => {
+                  // LORAMER_ADCHART_MULTI_V1 — line→bar collapses to one metric
+                  setActiveMetric(prev => activeMetrics.includes(prev) ? prev : (activeMetrics[0] as any))
+                  setViewMode('bar')
+                }}
                   className={'text-xs font-mono px-2 py-1 transition-colors ' + (viewMode === 'bar' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
                   ▦ Bar
                 </button>
-                <button onClick={() => setViewMode('line')}
+                <button onClick={() => {
+                  // LORAMER_ADCHART_MULTI_V1 — bar→line carries the single metric into the multi-set
+                  setActiveMetrics(prev => prev.includes(activeMetric) ? prev : [...prev, activeMetric])
+                  setViewMode('line')
+                }}
                   className={'text-xs font-mono px-2 py-1 transition-colors ' + (viewMode === 'line' ? 'bg-ink text-white' : 'text-muted hover:text-ink')}>
                   ∿ Line
                 </button>
@@ -775,11 +816,19 @@ function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountI
             <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} />
-              <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              {/* LORAMER_ADCHART_MULTI_V1 — the app's first dual axis. Both axes
+                  ALWAYS rendered with `hide` when unused: a Line whose yAxisId has
+                  no registered axis misscales, and conditional mounting glitches
+                  Recharts' scale registration. CTR-only ⇒ left hides, right draws. */}
+              <YAxis yAxisId="left" tick={AXIS_TICK} tickLine={false} axisLine={false}
+                hide={!AD_LINE_METRICS.some(m => m.axis === 'left' && activeMetrics.includes(m.id))} />
+              <YAxis yAxisId="right" orientation="right" tick={AXIS_TICK} tickLine={false} axisLine={false}
+                tickFormatter={(v: any) => v + '%'}
+                hide={!AD_LINE_METRICS.some(m => m.axis === 'right' && activeMetrics.includes(m.id))} />
               <Tooltip content={<ChartTooltip />} />
-              {lineData.length > 0 && (
-                <Line type="monotone" dataKey="value" stroke={metricColors[activeMetric]} strokeWidth={2} dot={false} name={metricLabels[activeMetric]} connectNulls />
-              )}
+              {AD_LINE_METRICS.filter(m => activeMetrics.includes(m.id)).map(m => (
+                <Line key={m.id} yAxisId={m.axis} type="monotone" dataKey={m.id} stroke={m.color} strokeWidth={2} dot={false} name={m.label} connectNulls />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         )
@@ -2798,6 +2847,12 @@ const CURRENCY_KEYS = new Set<string>([
   ...SHOPIFY_METRICS.filter(m => (m as any).currency).map(m => m.id),
   ...GA_CHART_METRICS.filter(m => (m as any).currency).map(m => m.id),
   ...COMBINED_METRICS.filter(m => (m as any).currency).flatMap(m => [(m as any).googleKey, (m as any).metaKey]),
+  ...AD_LINE_METRICS.filter(m => (m as any).currency).map(m => m.id),  // LORAMER_ADCHART_MULTI_V1
+])
+
+// LORAMER_ADCHART_MULTI_V1 — dataKeys whose tooltip values render as percentages.
+const PERCENT_KEYS = new Set<string>([
+  ...AD_LINE_METRICS.filter(m => (m as any).percent).map(m => m.id),
 ])
 
 // LORAMER_GA_CHART_GRANULARITY_V1
