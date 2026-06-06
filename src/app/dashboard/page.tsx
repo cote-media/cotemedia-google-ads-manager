@@ -482,8 +482,8 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
           <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} />
           <Tooltip content={<ChartTooltip />} />
           {COMBINED_METRICS.filter(m => activeMetrics.includes(m.id)).flatMap(m => [
-            <Line key={m.id + '_g'} type="monotone" dataKey={m.googleKey} stroke={m.googleColor} strokeWidth={2} dot={false} name={'🔵 ' + m.label} />,
-            <Line key={m.id + '_m'} type="monotone" dataKey={m.metaKey} stroke={m.metaColor} strokeWidth={2} dot={false} strokeDasharray="4 2" name={'🔷 ' + m.label} />,
+            <Line key={m.id + '_g'} type="monotone" dataKey={m.googleKey} stroke={m.googleColor} strokeWidth={2} dot={false} name={'Google ' + m.label} />,
+            <Line key={m.id + '_m'} type="monotone" dataKey={m.metaKey} stroke={m.metaColor} strokeWidth={2} dot={false} strokeDasharray="4 2" name={'Meta ' + m.label} />,
           ])}
         </LineChart>
       </ResponsiveContainer>
@@ -617,9 +617,10 @@ function AdGroupChart({ campaignId, accountId, dateRange, platform, metaAccountI
 }
 
 // ─── Ad Chart (bar for multiple ads, line for single ad, toggleable) ──────────
-function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange, customStart, customEnd }: {
+function AdChart({ ads, adGroupId, campaignId, platform, accountId, metaAccountId, dateRange, customStart, customEnd }: {
   ads: any[]
   adGroupId: string
+  campaignId?: string  // LORAMER_DRILL_CHART_FIX_V1 — drill campaign id for the Google ad-group daily endpoint
   platform: 'google' | 'meta'
   accountId: string
   metaAccountId?: string
@@ -646,17 +647,22 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
       // This gives context for the time period while viewing ads
       let url: string
       if (platform === 'google') {
-        url = '/api/google/adgroups/daily?accountId=' + accountId + '&campaignId=' + adGroupId + '&dateRange=' + dateRange + base
+        // LORAMER_DRILL_CHART_FIX_V1 — this endpoint filters by CAMPAIGN id and
+        // returns the ad groups under it; previously we passed the ad group id
+        // here, which matched zero campaigns and left the chart empty.
+        if (!campaignId) { setLineData([]); setLineLoading(false); return }
+        url = '/api/google/adgroups/daily?accountId=' + accountId + '&campaignId=' + campaignId + '&dateRange=' + dateRange + base
         const res = await fetch(url)
         const d = await res.json()
-        // Use the ad group that matches adGroupId, or aggregate all
         const groups = d.adGroups || []
-        const matchingGroup = groups.find((g: any) => g.id === adGroupId) || groups[0]
-        if (matchingGroup) {
-          setLineData([{ id: matchingGroup.id, name: matchingGroup.name, daily: matchingGroup.daily.map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }])
-        }
+        const matchingGroup = groups.find((g: any) => g.id === adGroupId)
+        setLineData(matchingGroup
+          ? [{ id: matchingGroup.id, name: matchingGroup.name, daily: matchingGroup.daily.map((r: any) => ({ ...r, date: String(r.date).slice(5) })) }]
+          : [])
       } else {
-        // For Meta, fetch ad set daily data
+        // For Meta, fetch ad set daily data. NOTE: /api/meta/daily uses its
+        // campaignId param as a raw Graph entity id (v18 insights edge works on
+        // any ad object), so passing the AD SET id here is correct.
         url = '/api/meta/daily?accountId=' + (metaAccountId || accountId) + '&campaignId=' + adGroupId + '&dateRange=' + dateRange + base
         const res = await fetch(url)
         const d = await res.json()
@@ -665,7 +671,7 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
       setLineLoading(false)
     }
     fetchParentTrend().catch(() => setLineLoading(false))
-  }, [viewMode, adGroupId, platform, accountId, metaAccountId, dateRange, customStart, customEnd])
+  }, [viewMode, adGroupId, campaignId, platform, accountId, metaAccountId, dateRange, customStart, customEnd])
 
   const colorMap: Record<string, string> = {}
   ads.forEach((ad, i) => { colorMap[ad.id] = CHART_COLORS[i % CHART_COLORS.length] })
@@ -675,7 +681,12 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
     lineData.forEach(s => {
       s.daily.forEach((row: any) => {
         if (!map[row.date]) map[row.date] = { date: row.date }
-        map[row.date]['value'] = row[activeMetric] ?? 0
+        // LORAMER_DRILL_CHART_FIX_V1 — daily rows key spend as `cost` and carry
+        // no per-day ctr; normalize here instead of flatlining at 0.
+        const value = activeMetric === 'spend' ? (row.cost ?? 0)
+          : activeMetric === 'ctr' ? ((row.impressions ?? 0) > 0 ? (row.clicks / row.impressions) * 100 : 0)
+          : (row[activeMetric] ?? 0)
+        map[row.date]['value'] = value
       })
     })
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
@@ -756,6 +767,9 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
           <div className="flex items-center justify-center h-32 text-muted font-mono text-sm">
             <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse mr-2" />Loading...
           </div>
+        ) : merged.length === 0 ? (
+          /* LORAMER_DRILL_CHART_FIX_V1 — honest empty state instead of a blank plot (GaChart pattern) */
+          <p className="text-sm font-mono text-muted">No daily data for this date range.</p>
         ) : (
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={merged} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -1837,7 +1851,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
               <div key={c.id + c.platform}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-ink truncate max-w-[65%]">
-                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
+                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? <IconBrandGoogle size={12} className="inline" /> : <IconBrandMeta size={12} className="inline" />}</span>}
                     {c.name}
                   </span>
                   <span className="text-xs font-mono text-muted">{fmt(c.spend, 'currency')}</span>
@@ -1861,7 +1875,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
               {topByConv.map(c => (
                 <div key={c.id + c.platform} className="flex items-center justify-between py-1 border-b border-border last:border-0">
                   <span className="text-xs text-ink truncate max-w-[55%]">
-                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? '🔵' : '🔷'}</span>}
+                    {platform === 'combined' && <span className="mr-1">{c.platform === 'google' ? <IconBrandGoogle size={12} className="inline" /> : <IconBrandMeta size={12} className="inline" />}</span>}
                     {c.name}
                   </span>
                   <div className="text-right">
@@ -2194,7 +2208,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
         <AdGroupChart campaignId={drill.campaign.id} accountId={googleAccountId} dateRange={dateRange} platform={drill.campaign.platform} metaAccountId={metaAccountId} customStart={customStart} customEnd={customEnd} />
       )}
       {drill.level === 'ads' && subRows.length > 0 && drill.adGroup && (
-        <AdChart ads={subRows} adGroupId={drill.adGroup.id}
+        <AdChart ads={subRows} adGroupId={drill.adGroup.id} campaignId={drill.campaign?.id}
           platform={drill.campaign?.platform || (platform === 'combined' ? 'google' : platform as 'google' | 'meta')}
           accountId={googleAccountId} metaAccountId={metaAccountId}
           dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
