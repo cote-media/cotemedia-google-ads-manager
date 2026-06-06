@@ -10,7 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
-import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconLayersIntersect, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid } from '@tabler/icons-react'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 
 const DATE_RANGES = [
@@ -3386,6 +3386,11 @@ function DashboardContent() {
     const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
     if (validTabs.includes(savedTab)) setActiveTab(savedTab)
     else setActiveTab('overview')
+    // LORAMER_NAV_REGROUP_V1 — normalize impossible persisted tabs (e.g. set on
+    // mobile or under a previous client): keywords is google-only; campaigns
+    // needs an ad platform. Snap to overview instead of rendering empty.
+    if (savedTab === 'keywords' && resolved !== 'google') setActiveTab('overview')
+    if (savedTab === 'campaigns' && !hasGoogle && !hasMeta) setActiveTab('overview')
     // Only reset drill state and panel when switching to a different client
     const previousClientId = ls('advar-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
@@ -3658,6 +3663,68 @@ function DashboardContent() {
   })
   const dateLabel = dateRange === 'CUSTOM' && customStart && customEnd ? customStart + ' – ' + customEnd : DATE_RANGES.find(d => d.value === dateRange)?.label || ''
 
+  // LORAMER_NAV_REGROUP_V1 — desktop rail model (S2+S3). One list, one highlight;
+  // each item implies a (platform, tab) pair built on the EXISTING handlers.
+  // Mobile bottom nav still consumes NAV_ITEMS/visibleNavItems unchanged.
+  const adChannelActive = ['overview', 'campaigns', 'keywords'].includes(activeTab)
+  type RailItem = { id: string; label: string; icon: any; active: boolean; onClick: () => void }
+  const overviewRailItem: RailItem = {
+    id: 'rail-overview', label: 'Overview', icon: IconLayoutDashboard,
+    // Single-ad-platform clients: Overview IS the lone channel (no duplicate item).
+    active: adChannelActive && (hasBoth ? activePlatform === 'combined' : true),
+    onClick: () => {
+      if (!hasGoogle && !hasMeta) { if (activeTab !== 'overview') changeTab('overview'); return }
+      const target: Platform = hasBoth ? 'combined' : hasGoogle ? 'google' : 'meta'
+      // Already on this surface → at most a light tab snap, no reload/drill reset.
+      if (adChannelActive && activePlatform === target) { if (activeTab !== 'overview') changeTab('overview'); return }
+      changePlatform(target)
+      changeTab('overview')
+    },
+  }
+  const channelRailItems: RailItem[] = []
+  if (hasBoth) {
+    channelRailItems.push({
+      id: 'rail-google', label: 'Google Ads', icon: IconBrandGoogle,
+      active: adChannelActive && activePlatform === 'google',
+      onClick: () => {
+        if (adChannelActive && activePlatform === 'google') { if (activeTab !== 'overview') changeTab('overview'); return }
+        changePlatform('google')
+        changeTab('overview')
+      },
+    })
+    channelRailItems.push({
+      id: 'rail-meta', label: 'Meta Ads', icon: IconBrandMeta,
+      active: adChannelActive && activePlatform === 'meta',
+      onClick: () => {
+        if (adChannelActive && activePlatform === 'meta') { if (activeTab !== 'overview') changeTab('overview'); return }
+        changePlatform('meta')
+        changeTab('overview')
+      },
+    })
+  }
+  if (hasGa) channelRailItems.push({ id: 'rail-ga', label: 'Analytics', icon: IconChartBar, active: activeTab === 'ga', onClick: () => { if (activeTab !== 'ga') changeTab('ga') } })
+  if (hasShopify) channelRailItems.push({ id: 'rail-shopify', label: 'Shopify', icon: IconShoppingBag, active: activeTab === 'shopify', onClick: () => { if (activeTab !== 'shopify') changeTab('shopify') } })
+  if (hasWoo) channelRailItems.push({ id: 'rail-woo', label: 'WooCommerce', icon: IconShoppingCart, active: activeTab === 'woocommerce', onClick: () => { if (activeTab !== 'woocommerce') changeTab('woocommerce') } })
+  const loraRailItem: RailItem = { id: 'rail-lora', label: 'Lora', icon: IconSparkles, active: activeTab === 'chat', onClick: () => { if (activeTab !== 'chat') changeTab('chat') } }
+  const renderRailItem = (item: RailItem) => {
+    const Ico = item.icon
+    return (
+      <button key={item.id} onClick={item.onClick} title={sidebarCollapsed ? item.label : undefined}
+        className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (item.active ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+        <Ico size={18} stroke={1.75} className="flex-shrink-0" />
+        {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
+      </button>
+    )
+  }
+  // Channel-aware sub-tabs (rendered in <main>): Google = Overview/Campaigns/Keywords,
+  // Meta = Overview/Campaigns. Combined Overview has NO sub-tabs (combined-campaigns retired).
+  const subTabs: { id: 'overview' | 'campaigns' | 'keywords'; label: string }[] | null =
+    adChannelActive && activePlatform === 'google' && hasGoogle
+      ? [{ id: 'overview', label: 'Overview' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'keywords', label: 'Keywords' }]
+      : adChannelActive && activePlatform === 'meta' && hasMeta
+        ? [{ id: 'overview', label: 'Overview' }, { id: 'campaigns', label: 'Campaigns' }]
+        : null
+
   return (
     <div className="min-h-screen bg-paper flex">
       {/* LORAMER_MEMORY_AUTODETECT_V1 */}
@@ -3690,40 +3757,19 @@ function DashboardContent() {
             )}
           </div>
         )}
-        {selectedClient && (hasGoogle || hasMeta) && (
-          <div className="border-b border-border flex-shrink-0">
-            {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 text-xs text-muted">Platform</p>}
-            {hasGoogle && (
-              <button onClick={() => changePlatform('google')} title={sidebarCollapsed ? 'Google Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <IconBrandGoogle size={16} className="flex-shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm">Google Ads</span>}
-              </button>
-            )}
-            {hasMeta && (
-              <button onClick={() => changePlatform('meta')} title={sidebarCollapsed ? 'Meta Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <IconBrandMeta size={16} className="flex-shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm">Meta Ads</span>}
-              </button>
-            )}
-            {hasBoth && (
-              <button onClick={() => changePlatform('combined')} title={sidebarCollapsed ? 'Combined' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <IconLayersIntersect size={16} className="flex-shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm">Combined</span>}
-              </button>
-            )}
-          </div>
-        )}
+        {/* LORAMER_NAV_REGROUP_V1 — Overview + Channels group + Lora (replaces PLATFORM section + flat tab list) */}
         <nav className="py-2 flex-shrink-0">
-          {visibleNavItems.map(item => (
-            <button key={item.id} onClick={() => changeTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
-              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-              <NavIcon id={item.id} />
-              {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
-            </button>
-          ))}
+          {renderRailItem(overviewRailItem)}
+          {!sidebarCollapsed && <p className="px-4 pt-3 pb-1 text-xs text-muted">Channels</p>}
+          {channelRailItems.map(renderRailItem)}
+          <a href="/clients" title={sidebarCollapsed ? 'Connect a source' : undefined}
+            className="flex items-center gap-3 px-4 py-2 text-muted hover:text-ink hover:bg-surface transition-colors">
+            <IconPlus size={18} stroke={1.75} className="flex-shrink-0" />
+            {!sidebarCollapsed && <span className="text-sm">Connect a source</span>}
+          </a>
+          <div className="pt-2">
+            {renderRailItem(loraRailItem)}
+          </div>
         </nav>
         <div className="border-t border-border py-2 mt-auto flex-shrink-0">
           <button onClick={() => selectedClient && loadData(selectedClient, activePlatform, dateRange, customStart, customEnd)} title="Refresh"
@@ -3790,6 +3836,17 @@ function DashboardContent() {
         )}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
           {selectedClient && <h1 className="font-display text-3xl md:text-4xl text-ink mb-6">{selectedClient.name}</h1>}
+          {/* LORAMER_NAV_REGROUP_V1 — channel sub-tabs (desktop IA): Campaigns/Keywords live inside the ad channel */}
+          {!loading && subTabs && (
+            <div className="hidden md:flex border border-border rounded-md w-fit mb-6 overflow-hidden">
+              {subTabs.map(t => (
+                <button key={t.id} onClick={() => { if (activeTab !== t.id) changeTab(t.id) }}
+                  className={'text-sm px-3 py-1.5 transition-colors ' + (activeTab === t.id ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          )}
           {loading && (
             <div className="flex items-center justify-center h-64">
               <div className="flex items-center gap-2 text-muted font-mono text-sm">
