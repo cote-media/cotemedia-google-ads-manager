@@ -365,7 +365,7 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Combined Performance</h3>
-          <p className="text-xs text-muted font-mono mt-0.5">🔵 Google (solid) · 🔷 Meta (dashed)</p>
+          <p className="text-xs text-muted font-mono mt-0.5">Google (solid) · Meta (dashed)</p>
         </div>
         <div className="flex gap-1 flex-wrap">
           {COMBINED_METRICS.map(m => (
@@ -1595,12 +1595,12 @@ function GaCombinedMetrics({ ga }: { ga: IntelligenceGa }) {
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="bg-white border border-border p-4">
-        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">📊 GA Sessions</p>
-        <p className="text-2xl font-display text-accent">{ga.sessions != null ? fmt(ga.sessions) : '—'}</p>
+        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><IconChartBar size={13} className="flex-shrink-0" /> GA Sessions</p>
+        <p className="text-2xl font-display text-ink">{ga.sessions != null ? fmt(ga.sessions) : '—'}</p>
       </div>
       <div className="bg-white border border-border p-4">
-        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">📊 GA Users</p>
-        <p className="text-2xl font-display text-accent">{ga.totalUsers != null ? fmt(ga.totalUsers) : '—'}</p>
+        <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><IconChartBar size={13} className="flex-shrink-0" /> GA Users</p>
+        <p className="text-2xl font-display text-ink">{ga.totalUsers != null ? fmt(ga.totalUsers) : '—'}</p>
       </div>
     </div>
   )
@@ -1633,7 +1633,7 @@ function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, open
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
             <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+            <div className="text-lg md:text-2xl font-display text-ink">{m.value}</div>
           </div>
         ))}
       </div>
@@ -1660,6 +1660,7 @@ function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, open
 }
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
+// LORAMER_NUMBERS_INK_V1
 function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify, ga, hasGa }: {
   data?: PlatformData | null; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
@@ -1692,12 +1693,12 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {hasAdData && platform === 'combined' && totals!.googleSpend !== undefined && totals!.metaSpend !== undefined && (
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4">
-            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔵 Google Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals!.googleSpend, 'currency')}</p>
+            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><IconBrandGoogle size={13} className="flex-shrink-0" /> Google Ads</p>
+            <p className="text-2xl font-display text-ink">{fmt(totals!.googleSpend, 'currency')}</p>
           </div>
           <div className="bg-white border border-border p-4">
-            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1">🔷 Meta Ads</p>
-            <p className="text-2xl font-display text-accent">{fmt(totals!.metaSpend, 'currency')}</p>
+            <p className="font-mono text-xs text-muted uppercase tracking-wider mb-1 flex items-center gap-1.5"><IconBrandMeta size={13} className="flex-shrink-0" /> Meta Ads</p>
+            <p className="text-2xl font-display text-ink">{fmt(totals!.metaSpend, 'currency')}</p>
           </div>
         </div>
       )}
@@ -1712,7 +1713,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
             <div className="metric-label mb-1 md:mb-2 text-xs">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+            <div className="text-lg md:text-2xl font-display text-ink">{m.value}</div>
           </div>
         ))}
       </div>
@@ -1765,7 +1766,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
                     {c.name}
                   </span>
                   <div className="text-right">
-                    <span className="text-xs font-mono text-accent font-medium">{c.conversions.toFixed(1)} conv</span>
+                    <span className="text-xs font-mono text-ink font-medium">{c.conversions.toFixed(1)} conv</span>
                     {c.costPerConv && <span className="text-xs font-mono text-muted ml-2">{fmt(c.costPerConv, 'currency')}/conv</span>}
                   </div>
                 </div>
