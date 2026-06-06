@@ -68,16 +68,23 @@ function ClientSwitcher({ clients, selectedClient, onSelect }: {
       setOpen(false)
     }
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
-    function onScrollOrResize() { setOpen(false) }
+    // LORAMER_CLIENT_SWITCHER_V1_FIX — scrolls INSIDE the menu (wheel/scrollbar on
+    // the client list) must not close it; only page/sidebar scrolls that would
+    // detach the fixed menu from its trigger do.
+    function onScroll(e: Event) {
+      if (menuRef.current && e.target instanceof Node && menuRef.current.contains(e.target)) return
+      setOpen(false)
+    }
+    function onResize() { setOpen(false) }
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', onScrollOrResize, true)
-    window.addEventListener('resize', onScrollOrResize)
+    window.addEventListener('scroll', onScroll, true)
+    window.addEventListener('resize', onResize)
     return () => {
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', onScrollOrResize, true)
-      window.removeEventListener('resize', onScrollOrResize)
+      window.removeEventListener('scroll', onScroll, true)
+      window.removeEventListener('resize', onResize)
     }
   }, [open])
 
@@ -98,7 +105,7 @@ function ClientSwitcher({ clients, selectedClient, onSelect }: {
             <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search clients"
               className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-paper focus:outline-none focus:border-accent" />
           </div>
-          <div className="max-h-56 overflow-y-auto py-1">
+          <div className="overflow-y-auto py-1" style={{ maxHeight: '60vh' }}>
             {filtered.map(c => (
               <button key={c.id} onClick={() => { onSelect(c); setOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
