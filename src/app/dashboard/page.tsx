@@ -1094,7 +1094,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
                   )}
                 </td>
                 {platform === 'combined' && level === 'campaigns' && (
-                  <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? '🔵' : '🔷'}</td>
+                  <td className="px-3 py-3 whitespace-nowrap text-xs font-mono text-muted">{row.platform === 'google' ? <IconBrandGoogle size={14} className="flex-shrink-0" /> : <IconBrandMeta size={14} className="flex-shrink-0" />}</td>
                 )}
                 <td className="px-3 py-3 whitespace-nowrap"><StatusBadge status={normalizeStatus(row.status)} /></td>
                 {level === 'ads' && <td className="px-3 py-3 text-xs text-muted max-w-xs truncate hidden md:table-cell">{row.description || row.body || ''}</td>}
@@ -1640,7 +1640,7 @@ function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, open
       {topSources.length > 0 && (
         <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-ink">📊 Top Traffic Sources</h3>
+            <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5"><IconChartBar size={13} className="flex-shrink-0" /> Top Traffic Sources</h3>
             <AskClaudeCardButton cardTitle="Google Analytics Traffic Sources"
               cardData={gaContext}
               clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />
@@ -1818,7 +1818,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">🛍 Shopify Revenue</h3>
+              <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5"><IconShoppingBag size={13} className="flex-shrink-0" /> Shopify Revenue</h3>
               <AskClaudeCardButton cardTitle="Shopify Revenue"
                 cardData={`Shopify: $${(shopify.totalRevenue || 0).toFixed(2)} revenue, ${shopify.totalOrders || 0} orders, $${(shopify.avgOrderValue || 0).toFixed(2)} AOV`}
                 clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
@@ -1838,7 +1838,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           </div>
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-ink">🛍 Shopify Customers</h3>
+              <h3 className="text-sm font-semibold text-ink flex items-center gap-1.5"><IconShoppingBag size={13} className="flex-shrink-0" /> Shopify Customers</h3>
               <AskClaudeCardButton cardTitle="Shopify Customers"
                 cardData={`Shopify customers: ${shopify.newCustomers || 0} new, ${shopify.returningCustomers || 0} returning`}
                 clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
@@ -1862,7 +1862,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {/* LORAMER_GA_OVERVIEW_COMBINED_V1 — summary GA section on Overview */}
       {hasGa && ga?.connected && (
         <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-          <h3 className="text-sm font-semibold text-ink mb-4">📊 Google Analytics</h3>
+          <h3 className="text-sm font-semibold text-ink mb-4 flex items-center gap-1.5"><IconChartBar size={13} className="flex-shrink-0" /> Google Analytics</h3>
           <GaOverviewSummary
             ga={ga}
             clientId={clientId}
@@ -2397,6 +2397,7 @@ interface ShopifyData {
   adAttributedOrders?: number
 }
 
+// LORAMER_VISUAL_CONSISTENCY_V1
 function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPanel, platformLabel = 'Shopify', apiPath = '/api/shopify/daily', customStart, customEnd }: {  // LORAMER_WOO_TAB_V1 + LORAMER_CUSTOM_DATE_RANGE_FIX_V2
   shopify: ShopifyData
   clientId: string
@@ -2412,7 +2413,7 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
   if (!shopify) {
     return (
       <div className="flex items-center justify-center h-64 flex-col gap-4">
-        <p className="text-2xl">🛍</p>
+        <IconShoppingBag size={32} className="text-muted" />
         <p className="text-ink font-medium">{platformLabel} data unavailable</p>
         <p className="text-muted font-mono text-sm">Could not fetch store data. Check your {platformLabel} connection.</p>
         <a href="/clients" className="btn-primary text-sm">Manage connections →</a>
@@ -2462,7 +2463,7 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
             <div className="text-xs font-medium text-muted uppercase tracking-widest mb-1 md:mb-2">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+            <div className="text-lg md:text-2xl font-display text-ink">{m.value}</div>
           </div>
         ))}
       </div>
@@ -2488,7 +2489,7 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-ink truncate max-w-[60%]">{product.name}</span>
                   <div className="text-right">
-                    <span className="text-xs font-mono text-accent">{fmt(product.revenue, 'currency')}</span>
+                    <span className="text-xs font-mono text-ink">{fmt(product.revenue, 'currency')}</span>
                     <span className="text-xs font-mono text-muted ml-2">{product.units} units</span>
                   </div>
                 </div>
@@ -2837,7 +2838,7 @@ function GoogleAnalyticsTab({ ga, clientId, dateRange, customStart, customEnd, c
   if (!ga || !ga.connected) {
     return (
       <div className="flex items-center justify-center h-64 flex-col gap-4">
-        <p className="text-2xl">📊</p>
+        <IconChartBar size={32} className="text-muted" />
         <p className="text-ink font-medium">Google Analytics data unavailable</p>
         <p className="text-muted font-mono text-sm">Could not fetch Analytics data. Check your Google Analytics connection.</p>
         <a href="/clients" className="btn-primary text-sm">Manage connections →</a>
@@ -2882,7 +2883,7 @@ function GoogleAnalyticsTab({ ga, clientId, dateRange, customStart, customEnd, c
         {metrics.map(m => (
           <div key={m.label} className="bg-white p-3 md:p-5">
             <div className="text-xs font-medium text-muted uppercase tracking-widest mb-1 md:mb-2">{m.label}</div>
-            <div className="text-lg md:text-2xl font-display text-accent">{m.value}</div>
+            <div className="text-lg md:text-2xl font-display text-ink">{m.value}</div>
           </div>
         ))}
       </div>
@@ -3692,8 +3693,8 @@ function DashboardContent() {
             )}
             {selectedClient && (hasGoogle || hasMeta) && (
               <div className="flex gap-2">
-                {hasGoogle && <button onClick={() => { changePlatform('google'); setMobileMenuOpen(false) }} className={'flex-1 text-xs font-mono border py-1.5 ' + (activePlatform === 'google' ? 'bg-ink text-white border-ink' : 'border-border text-muted')}>🔵 Google</button>}
-                {hasMeta && <button onClick={() => { changePlatform('meta'); setMobileMenuOpen(false) }} className={'flex-1 text-xs font-mono border py-1.5 ' + (activePlatform === 'meta' ? 'bg-ink text-white border-ink' : 'border-border text-muted')}>🔷 Meta</button>}
+                {hasGoogle && <button onClick={() => { changePlatform('google'); setMobileMenuOpen(false) }} className={'flex-1 text-xs font-mono border py-1.5 ' + (activePlatform === 'google' ? 'bg-ink text-white border-ink' : 'border-border text-muted')}><span className="flex items-center justify-center gap-1.5"><IconBrandGoogle size={16} className="flex-shrink-0" /> Google</span></button>}
+                {hasMeta && <button onClick={() => { changePlatform('meta'); setMobileMenuOpen(false) }} className={'flex-1 text-xs font-mono border py-1.5 ' + (activePlatform === 'meta' ? 'bg-ink text-white border-ink' : 'border-border text-muted')}><span className="flex items-center justify-center gap-1.5"><IconBrandMeta size={16} className="flex-shrink-0" /> Meta</span></button>}
                 {hasBoth && <button onClick={() => { changePlatform('combined'); setMobileMenuOpen(false) }} className={'flex-1 text-xs font-mono border py-1.5 ' + (activePlatform === 'combined' ? 'bg-ink text-white border-ink' : 'border-border text-muted')}>⊕ Both</button>}
               </div>
             )}
