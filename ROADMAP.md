@@ -209,7 +209,9 @@ The eventual product wedge: Claude doesn't just recommend, it acts. Big project,
 - [x] Paused-with-spend threshold raised to $500 (was $0, too noisy)
 
 ### Open items
-- [ ] **Site-wide info tooltips (LORAMER_ROADMAP_INFO_TOOLTIPS_V1):** Cross-cutting UX — add ("i") explainers across the app wherever metrics or terms may confuse users. Examples: "Net sales = product revenue after refunds, excl shipping & tax"; ROAS vs CPA; impression share decomposition. Not one screen — many surfaces, one consistent tooltip pattern.
+- [ ] **Meta Ad Accounts connect modal — search + default sort (LORAMER_ROADMAP_META_PICKER_SORT_V1):** The 'Connect Meta Ad Accounts' selection modal lists every ad account the user can access with no ordering — unusable at 100+ accounts (agency case). Add (1) default alphabetical sort by account name, (2) a search/filter input at top matching name or act_ id. Contained front-end change in the account-selection modal; reuse the same pattern for Google/GA pickers if they share the issue. Pre-launch UX win — agency founding-cohort users hit this immediately.
+- [ ] **Smart coachmark/tip system + in-dashboard glossary/knowledge base (LORAMER_ROADMAP_TIPS_GLOSSARY_V1):** Quick Tip popups are live but must become a managed system — SMART (context/frequency-aware; never re-show a dismissed tip; right tip per surface), REMOVABLE (dismiss/Got it — exists), RETRIEVABLE (a persistent '?'/Help or Tips affordance to bring tips back after dismissal). PLUS a glossary/knowledge-base surface inside the dashboard explaining metrics & terms (net sales, ROAS vs CPA, impression share, etc.). Consolidates and supersedes the scattered items it cross-references. One coherent help/onboarding system.
+- [ ] **Site-wide info tooltips (LORAMER_ROADMAP_INFO_TOOLTIPS_V1):** Cross-cutting UX — add ("i") explainers across the app wherever metrics or terms may confuse users. Examples: "Net sales = product revenue after refunds, excl shipping & tax"; ROAS vs CPA; impression share decomposition. Not one screen — many surfaces, one consistent tooltip pattern. → Consolidated into LORAMER_ROADMAP_TIPS_GLOSSARY_V1 (above).
 - [ ] Better loading states (skeletons instead of "Loading...")
 - [x] **Coming-soon landing page at loramer.com LIVE (May 29, 2026 — LORAMER_LANDING_V1+V2+V3):** Separate repo `cote-media/loramer-landing`, separate Vercel project. Live at https://loramer.com (apex, no www redirect). DNS via Cloudflare (propagated, nameservers active), SSL provisioned by Vercel + Let's Encrypt, Cloudflare SSL mode Full. Next.js 14 single-page: center hero with phrase-by-phrase reveal, 5 differentiators (including "A real human, always" and "Knows what only you know" — uploads), pricing section with 5 tiers across two tracks (Free / Business $79 / Agency $199 / Scale $999 / Enterprise), brand-aligned /privacy and /terms pages covering waitlist + Mailchimp + app data + Shopify merchant data + GDPR/CCPA/CAN-SPAM. Mailchimp waitlist end-to-end working with double opt-in. REMAINING: Cloudflare Email Routing for hello@loramer.com; rotate Mailchimp API key; eventual launch consolidation (see docs/LAUNCH_CONSOLIDATION_DESIGN_2026_05_29.md).
 - [x] **Ask Claude scroll-on-refresh (LORAMER_ROADMAP_ASKCLAUDE_SCROLL_V1) — SHIPPED May 29, 2026:** ChatTab was missing the scroll ref + effect that RightPanel already had. Added `chatScrollRef` + `useLayoutEffect` that instant-scrolls to bottom on mount (refresh case) and smooth-scrolls on new messages. Verified in production.
@@ -395,7 +397,7 @@ Incremental fixes:
 - [ ] Quick "pin all" / "archive all" bulk actions on category headers
 - [ ] Visual indicator when a fact was last referenced by Claude (so users see what's active vs. dormant)
 - [x] Inline blurb under each group header explaining what the category means (LORAMER_MEMORY_CATEGORY_BLURB_V1 — shipped May 26)
-- [ ] **Glossary/help popover** for memory categories (LORAMER_ROADMAP_MEMORY_GLOSSARY_V1) — "?" icon next to section title opens a popover with full definitions and examples for Directive / Fact / Context / Preference / Observation. Goes beyond the one-line blurbs to give new users a real reference. Connects to onboarding/tour system when one exists.
+- [ ] **Glossary/help popover** for memory categories (LORAMER_ROADMAP_MEMORY_GLOSSARY_V1) — "?" icon next to section title opens a popover with full definitions and examples for Directive / Fact / Context / Preference / Observation. Goes beyond the one-line blurbs to give new users a real reference. Connects to onboarding/tour system when one exists. → Consolidated into LORAMER_ROADMAP_TIPS_GLOSSARY_V1 (Project 5).
 
 Bigger evolution (likely Phase 2.5+):
 - [ ] **Merge similar facts** — when user adds "Ignore ROAS" and Claude observes "Don't focus on ROAS", offer to consolidate
@@ -712,7 +714,7 @@ Run in order, on real iPhone Safari, not desktop responsive mode.
 
 ## 📣 Cross-cutting — In-app message / nudge layer *(deserves its own project — scope TBD)*
 
-Onboarding coachmarks, token-expired prompts, tier nudges, upload prompts. Broader than uploads; multiple features need it. Launch minimum: contextual empty-states + dismissible banner. Full notification system is a fast-follow. Surfaced from upload/knowledge design (June 2, 2026 — `docs/UPLOAD_FEATURE_DESIGN.md`).
+Onboarding coachmarks, token-expired prompts, tier nudges, upload prompts. Broader than uploads; multiple features need it. Launch minimum: contextual empty-states + dismissible banner. Full notification system is a fast-follow. Surfaced from upload/knowledge design (June 2, 2026 — `docs/UPLOAD_FEATURE_DESIGN.md`). → Coachmark/tips + glossary slice consolidated into LORAMER_ROADMAP_TIPS_GLOSSARY_V1 (Project 5).
 
 ---
 
