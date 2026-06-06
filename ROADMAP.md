@@ -1385,3 +1385,27 @@ floorDate) — see LORAMER_BACKFILL_GA_SESSION_2026_06_05 in the handoff.
 
 OPEN POLISH: "history coming soon" on non-backfillable rows; per-adapter floor for
 Meta; backfill UX; optional "backfill all clients" bulk action.
+
+## 🧭 NAVIGATION & IA REBUILD — 2026-06-05
+<!-- LORAMER_ROADMAP_NAV_MOAT_2026_06_05 -->
+Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfinding stays familiar (convention beats novelty); novelty lives in the intelligence.
+- [ ] Overview-first home: combined by default, customizable + savable sectioned cards. Replaces the Combined/Overview throwback. Ties to Project 18.
+- [ ] Corner client switcher (top-left, Slack/Linear pattern). Removes inline CLIENTS list, "+ Edit", Sign Out from the rail. Switcher menu = search + recent + "All clients" (portfolio = client-management home) + account/sign-out.
+- [ ] Channels group in the rail: dynamic per connected source, identical structure for all, scales to N. "Connect a source" inline.
+- [ ] Demote Campaigns + Keywords from top-level → in-channel tabs inside Google Ads.
+- [ ] Mer = per-client deep structured brain (depth into ONE client). Rail destination; NOT the clients list.
+- [ ] De-emoji all nav icons → one consistent family; sentence-case labels; numbers in ink; accent reserved.
+- [ ] Compare control in the date picker (compare to prior period / prior year).
+
+## 🧠 MOAT — PROACTIVE LORA & BLEND ENGINE — 2026-06-05
+<!-- LORAMER_ROADMAP_PROACTIVE_LORA_2026_06_05 -->
+- [ ] Proactive Lora engine: daily + on-anomaly pass per client → RANKED, deduped, provenance-grounded observations + recommended actions, cached by client × surface × date so every screen is already thought-through (instant, no spinner). Cheap model for the broad sweep, Sonnet for deep on-demand. It's prioritization (what's worth saying per surface), NOT pre-computing every screen. The moat.
+- [ ] Blend-anything: separated "Blend" rail button → popout to checkbox ANY sources → generated page with unified viz + Lora's ready analysis scoped to those sources. Saveable blends pin onto Overview. Retires fixed "Combined".
+- [ ] Blend Phase 2 — drag-to-combine: drag one metric box onto another (Conversions → Spend) → Lora narrates the relationship. Signature interaction; built on the blend engine, after it exists.
+- [ ] Compounding per-client brain: memory + the daily pass references prior recs ("the shift I flagged 2 weeks ago is paying off"). Extends Project 9.
+- [ ] Unified viz vocabulary: MER / blended ROAS headline, revenue-contribution-by-source over time, cross-source full funnel, profit layer (margin uploads → true CAC, LTV:CAC). Charts are substrate; Lora's recommendation is the product.
+- [ ] Skills for Lora — AFTER the proactive engine shape is locked: (a) per-industry reference libraries (benchmarks/seasonality/KPIs/gotchas, provenance-grounded, human-reviewable; warm-start), (b) per-platform analysis playbooks (PMax, MER, funnel). House-style/"how Lora reasons" stays in the system prompt, not a skill. Don't build skill content before the engine or it gets built twice.
+
+## 📝 Dogfooding — running notes
+<!-- LORAMER_ROADMAP_RUNNING_NOTES_2026_06_05 -->
+- [ ] Persistent personal "notes" section Russ keeps while using LoraMer daily — separate from client user_notes; a running product-observation log.
