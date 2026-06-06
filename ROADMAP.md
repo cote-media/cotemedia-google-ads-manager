@@ -1394,7 +1394,8 @@ Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfind
 - [ ] Channels group in the rail: dynamic per connected source, identical structure for all, scales to N. "Connect a source" inline.
 - [ ] Demote Campaigns + Keywords from top-level → in-channel tabs inside Google Ads.
 - [ ] Mer = per-client deep structured brain (depth into ONE client). Rail destination; NOT the clients list.
-- [ ] De-emoji all nav icons → one consistent family; sentence-case labels; numbers in ink; accent reserved.
+- [x] De-emoji all nav icons → one consistent family; sentence-case labels (LORAMER_NAV_ICONS_TYPE_V1, 2026-06-05)
+- [ ] Numbers in ink; accent reserved (next increment)
 - [ ] Compare control in the date picker (compare to prior period / prior year).
 
 ## 🧠 MOAT — PROACTIVE LORA & BLEND ENGINE — 2026-06-05

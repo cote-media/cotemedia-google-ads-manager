@@ -10,6 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconLayersIntersect, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 
 const DATE_RANGES = [
   { label: 'Today', value: 'TODAY' },
@@ -32,6 +33,10 @@ const NAV_ITEMS = [
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
   { id: 'chat', label: 'Lora', icon: '✦' },
 ]
+
+// LORAMER_NAV_ICONS_TYPE_V1
+const NAV_ICONS: Record<string, any> = { overview: IconLayoutDashboard, campaigns: IconTarget, keywords: IconSearch, chat: IconSparkles, shopify: IconShoppingBag, woocommerce: IconShoppingCart, ga: IconChartBar }
+function NavIcon({ id, size = 18 }: { id: string; size?: number }) { const Ico = NAV_ICONS[id]; return Ico ? <Ico size={size} stroke={1.75} className="flex-shrink-0" /> : null }
 
 const CHART_COLORS = [
   '#2563eb', '#16a34a', '#ea580c', '#9333ea',
@@ -3561,7 +3566,7 @@ function DashboardContent() {
         <div className="flex items-center justify-between px-4 py-4 border-b border-border flex-shrink-0">
           {!sidebarCollapsed && <span className="font-display text-lg text-ink">LoraMer</span>}
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-muted hover:text-ink transition-colors ml-auto">
-            {sidebarCollapsed ? '→' : '←'}
+            {sidebarCollapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
           </button>
         </div>
         {!sidebarCollapsed && (
@@ -3580,26 +3585,26 @@ function DashboardContent() {
         )}
         {selectedClient && (hasGoogle || hasMeta) && (
           <div className="border-b border-border flex-shrink-0">
-            {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 font-mono text-xs text-muted uppercase tracking-wider">Platform</p>}
+            {!sidebarCollapsed && <p className="px-4 pt-2 pb-1 text-xs text-muted">Platform</p>}
             {hasGoogle && (
               <button onClick={() => changePlatform('google')} title={sidebarCollapsed ? 'Google Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <span className="text-sm flex-shrink-0">🔵</span>
-                {!sidebarCollapsed && <span className="text-xs font-mono">Google Ads</span>}
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'google' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <IconBrandGoogle size={16} className="flex-shrink-0" />
+                {!sidebarCollapsed && <span className="text-sm">Google Ads</span>}
               </button>
             )}
             {hasMeta && (
               <button onClick={() => changePlatform('meta')} title={sidebarCollapsed ? 'Meta Ads' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <span className="text-sm flex-shrink-0">🔷</span>
-                {!sidebarCollapsed && <span className="text-xs font-mono">Meta Ads</span>}
+                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (activePlatform === 'meta' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <IconBrandMeta size={16} className="flex-shrink-0" />
+                {!sidebarCollapsed && <span className="text-sm">Meta Ads</span>}
               </button>
             )}
             {hasBoth && (
               <button onClick={() => changePlatform('combined')} title={sidebarCollapsed ? 'Combined' : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <span className="text-sm flex-shrink-0">⊕</span>
-                {!sidebarCollapsed && <span className="text-xs font-mono">Combined</span>}
+                className={'w-full flex items-center gap-3 px-4 py-2 pb-2 transition-colors ' + (activePlatform === 'combined' ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+                <IconLayersIntersect size={16} className="flex-shrink-0" />
+                {!sidebarCollapsed && <span className="text-sm">Combined</span>}
               </button>
             )}
           </div>
@@ -3607,17 +3612,17 @@ function DashboardContent() {
         <nav className="py-2 flex-shrink-0">
           {visibleNavItems.map(item => (
             <button key={item.id} onClick={() => changeTab(item.id as any)} title={sidebarCollapsed ? item.label : undefined}
-              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent text-white' : 'text-muted hover:text-ink hover:bg-surface')}>
-              <span className="text-base leading-none w-4 text-center">{item.icon}</span>
-              {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">{item.label}</span>}
+              className={'w-full flex items-center gap-3 px-4 py-2.5 transition-colors ' + (activeTab === item.id ? 'bg-accent/10 text-accent font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
+              <NavIcon id={item.id} />
+              {!sidebarCollapsed && <span className="text-sm">{item.label}</span>}
             </button>
           ))}
         </nav>
         <div className="border-t border-border flex-shrink-0">
           {!sidebarCollapsed && (
             <div className="px-4 py-2 flex items-center justify-between">
-              <span className="font-mono text-xs text-muted uppercase tracking-wider">Clients</span>
-              <a href="/clients" className="text-xs text-accent hover:underline font-mono">+ Edit</a>
+              <span className="text-xs text-muted">Clients</span>
+              <a href="/clients" className="text-xs text-accent hover:underline">+ Edit</a>
             </div>
           )}
           <div className="pb-2 overflow-y-auto" style={{ maxHeight: '160px' }}>
@@ -3633,19 +3638,19 @@ function DashboardContent() {
         <div className="border-t border-border py-2 mt-auto flex-shrink-0">
           <button onClick={() => selectedClient && loadData(selectedClient, activePlatform, dateRange, customStart, customEnd)} title="Refresh"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
-            <span className="text-base w-4 text-center">↻</span>
-            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Refresh</span>}
+            <IconRefresh size={18} />
+            {!sidebarCollapsed && <span className="text-sm">Refresh</span>}
           </button>
           <button onClick={() => signOut({ callbackUrl: '/' })} title="Sign out"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
-            <span className="text-base w-4 text-center">⇥</span>
-            {!sidebarCollapsed && <span className="font-mono text-xs tracking-wide uppercase">Sign out</span>}
+            <IconLogout size={18} />
+            {!sidebarCollapsed && <span className="text-sm">Sign out</span>}
           </button>
           {!sidebarCollapsed && (
             <div className="px-4 py-3 flex gap-3">
-              <a href="/privacy" target="_blank" className="text-xs font-mono text-muted hover:text-ink transition-colors">Privacy</a>
+              <a href="/privacy" target="_blank" className="text-xs text-muted hover:text-ink transition-colors">Privacy</a>
               <span className="text-xs text-muted">·</span>
-              <a href="/terms" target="_blank" className="text-xs font-mono text-muted hover:text-ink transition-colors">Terms</a>
+              <a href="/terms" target="_blank" className="text-xs text-muted hover:text-ink transition-colors">Terms</a>
             </div>
           )}
         </div>
@@ -3752,14 +3757,14 @@ function DashboardContent() {
             {visibleNavItems.map(item => (
               <button key={item.id} onClick={() => { changeTab(item.id as any); setMobileMenuOpen(false) }}
                 className={'flex-1 flex flex-col items-center py-2 px-1 transition-colors ' + (activeTab === item.id ? 'text-accent' : 'text-muted hover:text-ink')}>
-                <span className="text-lg leading-none mb-0.5">{item.icon}</span>
-                <span className="font-mono text-[10px] uppercase tracking-wide">{item.label}</span>
+                <NavIcon id={item.id} size={20} />
+                <span className="text-[11px]">{item.label}</span>
               </button>
             ))}
             <button onClick={() => setMobileMoreOpen(!mobileMoreOpen)}
               className={'flex-1 flex flex-col items-center py-2 px-1 transition-colors ' + (mobileMoreOpen ? 'text-accent' : 'text-muted hover:text-ink')}>
               <span className="text-lg leading-none mb-0.5">•••</span>
-              <span className="font-mono text-[10px] uppercase tracking-wide">More</span>
+              <span className="text-[11px]">More</span>
             </button>
           </div>
           {mobileMoreOpen && (
