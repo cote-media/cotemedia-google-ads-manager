@@ -168,11 +168,15 @@ function ChartTooltip({ active, payload, label }: any) {
           <span style={{ color: '#64748b' }}>{entry.name}</span>
           <span style={{ marginLeft: 'auto', fontWeight: 600, color: '#1e293b' }}>
             {typeof entry.value === 'number'
-              ? (PERCENT_KEYS.has(entry.dataKey)
-                  ? entry.value.toFixed(2) + '%'
-                  : CURRENCY_KEYS.has(entry.dataKey)
-                    ? '$' + entry.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }))
+              ? (DURATION_KEYS.has(entry.dataKey)
+                  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — round TOTAL seconds first
+                  // so 239.7 → "4m 0s", never "3m 60s".
+                  ? (() => { const s = Math.round(entry.value); return Math.floor(s / 60) + 'm ' + (s % 60) + 's' })()
+                  : PERCENT_KEYS.has(entry.dataKey)
+                    ? entry.value.toFixed(2) + '%'
+                    : CURRENCY_KEYS.has(entry.dataKey)
+                      ? '$' + entry.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : entry.value.toLocaleString(undefined, { maximumFractionDigits: 2 }))
               : entry.value}
           </span>
         </div>
@@ -311,8 +315,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
     }).catch(() => setLoading(false))
   }, [accountId, dateRange, campaignId, granularity, customStart, customEnd])
 
-  // NOTE (LORAMER_ADCHART_MULTI_V1): permits empty selection — known bug; align with AdChart's last-metric guard in a later cleanup.
-  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — last metric can't be deselected
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
 
@@ -385,7 +388,7 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
     }).catch(() => setLoading(false))
   }, [accountId, dateRange, campaignId, customStart, customEnd])
 
-  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — last metric can't be deselected
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
 
@@ -458,7 +461,7 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
   })()
 
-  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — last metric can't be deselected
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!merged.length) return null
 
@@ -1674,7 +1677,7 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '
       .catch(() => setLoading(false))
   }, [clientId, dateRange, customStart, customEnd])
 
-  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — last metric can't be deselected
 
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) return null
@@ -2836,7 +2839,7 @@ const GA_CHART_METRICS = [
   { id: 'engagedSessions', label: 'Engaged Sessions', color: '#0891b2' },
   { id: 'eventCount', label: 'Event Count', color: '#dc2626' },
   { id: 'screenPageViews', label: 'Pageviews', color: '#ca8a04' },
-  { id: 'averageSessionDuration', label: 'Avg Session Duration', color: '#db2777' },
+  { id: 'averageSessionDuration', label: 'Avg Session Duration', duration: true, color: '#db2777' },  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1
 ]
 
 // LORAMER_CHART_CURRENCY_V1 — dataKeys whose tooltip values render as dollars.
@@ -2853,6 +2856,12 @@ const CURRENCY_KEYS = new Set<string>([
 // LORAMER_ADCHART_MULTI_V1 — dataKeys whose tooltip values render as percentages.
 const PERCENT_KEYS = new Set<string>([
   ...AD_LINE_METRICS.filter(m => (m as any).percent).map(m => m.id),
+])
+
+// LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — dataKeys whose tooltip values render
+// as durations ("3m 24s"); values arrive as seconds.
+const DURATION_KEYS = new Set<string>([
+  ...GA_CHART_METRICS.filter(m => (m as any).duration).map(m => m.id),
 ])
 
 // LORAMER_GA_CHART_GRANULARITY_V1
@@ -2879,7 +2888,7 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
       .catch(() => setLoading(false))
   }, [clientId, dateRange, granularity, customStart, customEnd])
 
-  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id])
+  const toggle = (id: string) => setActiveMetrics(prev => prev.includes(id) ? (prev.length > 1 ? prev.filter(m => m !== id) : prev) : [...prev, id])  // LORAMER_CHART_TOGGLEGUARD_DURATION_V1 — last metric can't be deselected
 
   if (loading) return <div className="text-muted text-sm font-mono mb-6 h-8 flex items-center">Loading chart...</div>
   if (!data.length) {
