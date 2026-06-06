@@ -20,5 +20,6 @@ use_legacy_install_flow = false
 
 [auth]
 redirect_urls = [
-  "https://cotemedia-google-ads-manager.vercel.app/api/shopify/callback"
+  "https://cotemedia-google-ads-manager.vercel.app/api/shopify/callback",
+  "https://app.loramer.com/api/shopify/callback"
 ]
