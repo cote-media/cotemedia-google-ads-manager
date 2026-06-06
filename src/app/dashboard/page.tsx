@@ -105,7 +105,7 @@ function ClientSwitcher({ clients, selectedClient, onSelect }: {
             <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search clients"
               className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-paper focus:outline-none focus:border-accent" />
           </div>
-          <div className="overflow-y-auto py-1" style={{ maxHeight: '60vh' }}>
+          <div className="overflow-y-auto py-1" style={{ maxHeight: '60vh', overscrollBehavior: 'contain' }}>
             {filtered.map(c => (
               <button key={c.id} onClick={() => { onSelect(c); setOpen(false) }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
