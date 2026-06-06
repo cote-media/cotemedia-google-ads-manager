@@ -1397,6 +1397,7 @@ Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfind
 - [x] De-emoji all nav icons → one consistent family; sentence-case labels (LORAMER_NAV_ICONS_TYPE_V1, 2026-06-05)
 - [x] Numbers in ink + card emoji swept on Overview; accent reserved (LORAMER_NUMBERS_INK_V1, 2026-06-05). Other tabs' numbers next.
 - [ ] Compare control in the date picker (compare to prior period / prior year).
+- [x] Type pass — card/section titles de-shouted (Title Case, sans, ink), heading scale up toward homepage (LORAMER_TYPE_PASS_V1, 2026-06-05).
 
 ## 🧠 MOAT — PROACTIVE LORA & BLEND ENGINE — 2026-06-05
 <!-- LORAMER_ROADMAP_PROACTIVE_LORA_2026_06_05 -->

@@ -218,7 +218,7 @@ function GoogleChart({ accountId, dateRange, campaignId, campaignName, customSta
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+          <h3 className="text-sm font-semibold text-ink">Performance Over Time</h3>
           {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -291,7 +291,7 @@ function MetaChart({ accountId, dateRange, campaignId, campaignName, customStart
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+          <h3 className="text-sm font-semibold text-ink">Performance Over Time</h3>
           {campaignName && <p className="text-xs text-accent font-mono mt-0.5">{campaignName}</p>}
         </div>
         <div className="flex gap-1 flex-wrap">
@@ -364,7 +364,7 @@ function CombinedChart({ googleAccountId, metaAccountId, dateRange, customStart,
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Combined Performance</h3>
+          <h3 className="text-sm font-semibold text-ink">Combined Performance</h3>
           <p className="text-xs text-muted font-mono mt-0.5">Google (solid) · Meta (dashed)</p>
         </div>
         <div className="flex gap-1 flex-wrap">
@@ -596,7 +596,7 @@ function AdChart({ ads, adGroupId, platform, accountId, metaAccountId, dateRange
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Ad Performance</h3>
+          <h3 className="text-sm font-semibold text-ink">Ad Performance</h3>
           <div className="flex items-center gap-2">
             {/* Metric selector */}
             <div className="flex gap-1">
@@ -1520,7 +1520,7 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Store Performance Over Time</h3>
+        <h3 className="text-sm font-semibold text-ink">Store Performance Over Time</h3>
         <div className="flex gap-1 flex-wrap">
           {SHOPIFY_METRICS.map(m => (
             <button key={m.id} onClick={() => toggle(m.id)}
@@ -1640,7 +1640,7 @@ function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, open
       {topSources.length > 0 && (
         <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-mono text-xs tracking-widest uppercase text-muted">📊 Top Traffic Sources</h3>
+            <h3 className="text-sm font-semibold text-ink">📊 Top Traffic Sources</h3>
             <AskClaudeCardButton cardTitle="Google Analytics Traffic Sources"
               cardData={gaContext}
               clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />
@@ -1727,7 +1727,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {hasAdData && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
               Campaign Performance
               <AskClaudeCardButton cardTitle="Campaign Performance"
                 cardData={topByCost.map(c => `${c.name}: $${c.spend.toFixed(2)} spend, ${c.conversions.toFixed(1)} conv, ROAS ${c.roas ? c.roas.toFixed(2) + 'x' : 'N/A'}, CTR ${c.ctr?.toFixed(2)}%`).join('\n')}
@@ -1751,7 +1751,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           </div>
         </div>
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
               Conversion Leaders
               <AskClaudeCardButton cardTitle="Conversion Leaders"
                 cardData={topByConv.map(c => `${c.name}: ${c.conversions.toFixed(1)} conv, CPA ${c.costPerConv ? '$' + c.costPerConv.toFixed(2) : 'N/A'}, ROAS ${c.roas ? c.roas.toFixed(2) + 'x' : 'N/A'}`).join('\n')}
@@ -1777,14 +1777,14 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         {platform === 'google' && googleAccountId && (
           <div className="bg-white border border-border p-4 md:p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Top Keywords</h3>
+              <h3 className="text-sm font-semibold text-ink">Top Keywords</h3>
               {clientId && <AskClaudeCardButton cardTitle="Top Keywords" cardData={keywordCardData} clientId={clientId} clientName={clientName} platform={platform} dateRange={dateRange} openPanel={openPanel} />}
             </div>
             <TopKeywordsCard accountId={googleAccountId} dateRange={dateRange} onDataLoaded={setKeywordCardData} />
           </div>
         )}
         <div className="bg-white border border-border p-4 md:p-5">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-ink mb-4 flex items-center justify-between">
               Budget Utilization
               <AskClaudeCardButton cardTitle="Budget Utilization"
                 cardData={campaignsWithBudget.map(c => `${c.name}: $${c.spend.toFixed(2)} spent of $${c.budget?.toFixed(2)}/day budget (${((c.spend / (c.budget! * 30)) * 100).toFixed(0)}% utilized)`).join('\n')}
@@ -1818,7 +1818,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Revenue</h3>
+              <h3 className="text-sm font-semibold text-ink">🛍 Shopify Revenue</h3>
               <AskClaudeCardButton cardTitle="Shopify Revenue"
                 cardData={`Shopify: $${(shopify.totalRevenue || 0).toFixed(2)} revenue, ${shopify.totalOrders || 0} orders, $${(shopify.avgOrderValue || 0).toFixed(2)} AOV`}
                 clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
@@ -1838,7 +1838,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
           </div>
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-mono text-xs tracking-widest uppercase text-muted">🛍 Shopify Customers</h3>
+              <h3 className="text-sm font-semibold text-ink">🛍 Shopify Customers</h3>
               <AskClaudeCardButton cardTitle="Shopify Customers"
                 cardData={`Shopify customers: ${shopify.newCustomers || 0} new, ${shopify.returningCustomers || 0} returning`}
                 clientId={clientId} clientName={clientName} platform={data?.platform || 'google'} dateRange={dateRange} openPanel={openPanel} />
@@ -1862,7 +1862,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {/* LORAMER_GA_OVERVIEW_COMBINED_V1 — summary GA section on Overview */}
       {hasGa && ga?.connected && (
         <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
-          <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-4">📊 Google Analytics</h3>
+          <h3 className="text-sm font-semibold text-ink mb-4">📊 Google Analytics</h3>
           <GaOverviewSummary
             ga={ga}
             clientId={clientId}
@@ -2055,7 +2055,7 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
   return (
     <div>
       <div className="mb-4">
-        <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Campaigns</h2>
+        <h2 className="font-display text-2xl md:text-3xl text-ink mb-1">Campaigns</h2>
         <p className="text-sm text-muted font-mono">{levelLabel}</p>
       </div>
 
@@ -2201,7 +2201,7 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Keywords</h2>
+          <h2 className="font-display text-2xl md:text-3xl text-ink mb-1">Keywords</h2>
           <p className="text-sm text-muted font-mono">Top 200 by spend</p>
         </div>
         <div className="relative">
@@ -2311,7 +2311,7 @@ function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelec
     <div className="max-w-4xl">
       <div className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="font-display text-xl md:text-2xl text-ink mb-1">Ask Lora</h2>
+          <h2 className="font-display text-2xl md:text-3xl text-ink mb-1">Ask Lora</h2>
           <p className="text-sm text-muted font-mono">{clientName} · {platformLabel}{chatLevelLabel}</p>
         </div>
         <div className="flex gap-2">
@@ -2716,7 +2716,7 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
   if (!data.length) {
     return (
       <div className="bg-white border border-border p-4 md:p-6 mb-6">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-2">Performance Over Time</h3>
+        <h3 className="text-sm font-semibold text-ink mb-2">Performance Over Time</h3>
         <p className="text-sm font-mono text-muted">No daily Analytics data for this date range.</p>
       </div>
     )
@@ -2728,7 +2728,7 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
   if (!hasAnyValue) {
     return (
       <div className="bg-white border border-border p-4 md:p-6 mb-6">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted mb-2">Performance Over Time</h3>
+        <h3 className="text-sm font-semibold text-ink mb-2">Performance Over Time</h3>
         <p className="text-sm font-mono text-muted">No daily Analytics data for this date range.</p>
       </div>
     )
@@ -2737,7 +2737,7 @@ function GaChart({ clientId, dateRange, customStart, customEnd }: {
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-        <h3 className="font-mono text-xs tracking-widest uppercase text-muted">Performance Over Time</h3>
+        <h3 className="text-sm font-semibold text-ink">Performance Over Time</h3>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex border border-border">
             {(['day', 'week', 'month'] as const).map(g => (
@@ -3705,7 +3705,7 @@ function DashboardContent() {
           </div>
         )}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
-          {selectedClient && <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">{selectedClient.name}</h1>}
+          {selectedClient && <h1 className="font-display text-3xl md:text-4xl text-ink mb-6">{selectedClient.name}</h1>}
           {loading && (
             <div className="flex items-center justify-center h-64">
               <div className="flex items-center gap-2 text-muted font-mono text-sm">
