@@ -3335,6 +3335,7 @@ function DashboardContent() {
   const [shopifyData, setShopifyData] = useState<any>(null)
   const [gaData, setGaData] = useState<IntelligenceGa | null>(null)  // LORAMER_GA_OVERVIEW_COMBINED_V1
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)  // LORAMER_ISSUE2_EMPTYSTATE_V1
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false)
@@ -3580,6 +3581,11 @@ function DashboardContent() {
     }
   }
 
+  // LORAMER_ISSUE2_EMPTYSTATE_V1 — only the LATEST loadData call may write state;
+  // stale completions (rapid client switches) are fully ignored, including their
+  // loading flip, so the newest call alone manages the lifecycle.
+  const loadSeqRef = useRef(0)
+
   async function loadData(client: Client, platform: Platform, dr: string, cs: string, ce: string) {
     const googleConn = client.platform_connections.find(p => p.platform === 'google')
     const metaConn = client.platform_connections.find(p => p.platform === 'meta')
@@ -3590,12 +3596,21 @@ function DashboardContent() {
     params.set('dateRange', dr)
     if (cs) params.set('customStart', cs)
     if (ce) params.set('customEnd', ce)
-    setLoading(true); setPlatformData(null)
+    const seq = ++loadSeqRef.current
+    setLoading(true); setPlatformData(null); setLoadError(false)
     try {
       const res = await fetch('/api/platform?' + params.toString())
-      setPlatformData(await res.json())
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
+      // LORAMER_ISSUE2_EMPTYSTATE_V1 — non-200, network rejection, and JSON parse
+      // failure all land in the same catch; platformData stays null on failure.
+      if (!res.ok) throw new Error('platform ' + res.status)
+      const json = await res.json()
+      if (seq === loadSeqRef.current) setPlatformData(json)
+    } catch (e) {
+      console.error(e)
+      if (seq === loadSeqRef.current) setLoadError(true)
+    } finally {
+      if (seq === loadSeqRef.current) setLoading(false)
+    }
   }
 
   async function sendChat() {
@@ -3745,7 +3760,9 @@ function DashboardContent() {
       if (!hasGoogle && !hasMeta) { if (activeTab !== 'overview') changeTab('overview'); return }
       const target: Platform = hasBoth ? 'combined' : hasGoogle ? 'google' : 'meta'
       // Already on this surface → at most a light tab snap, no reload/drill reset.
-      if (adChannelActive && activePlatform === target) { if (activeTab !== 'overview') changeTab('overview'); return }
+      // LORAMER_ISSUE2_EMPTYSTATE_V1 — && platformData: when data failed to load,
+      // the already-active click falls through to changePlatform → refetch.
+      if (adChannelActive && activePlatform === target && platformData) { if (activeTab !== 'overview') changeTab('overview'); return }
       changePlatform(target)
       changeTab('overview')
     },
@@ -3756,7 +3773,7 @@ function DashboardContent() {
       id: 'rail-google', label: 'Google Ads', icon: IconBrandGoogle,
       active: adChannelActive && activePlatform === 'google',
       onClick: () => {
-        if (adChannelActive && activePlatform === 'google') { if (activeTab !== 'overview') changeTab('overview'); return }
+        if (adChannelActive && activePlatform === 'google' && platformData) { if (activeTab !== 'overview') changeTab('overview'); return }  // LORAMER_ISSUE2_EMPTYSTATE_V1
         changePlatform('google')
         changeTab('overview')
       },
@@ -3765,7 +3782,7 @@ function DashboardContent() {
       id: 'rail-meta', label: 'Meta Ads', icon: IconBrandMeta,
       active: adChannelActive && activePlatform === 'meta',
       onClick: () => {
-        if (adChannelActive && activePlatform === 'meta') { if (activeTab !== 'overview') changeTab('overview'); return }
+        if (adChannelActive && activePlatform === 'meta' && platformData) { if (activeTab !== 'overview') changeTab('overview'); return }  // LORAMER_ISSUE2_EMPTYSTATE_V1
         changePlatform('meta')
         changeTab('overview')
       },
@@ -3921,6 +3938,16 @@ function DashboardContent() {
               <div className="flex items-center gap-2 text-muted font-mono text-sm">
                 <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading...
               </div>
+            </div>
+          )}
+          {/* LORAMER_ISSUE2_EMPTYSTATE_V1 — honest failure state for the platformData-
+              dependent surfaces. Gated on selectedClient (never co-fires with the
+              no-clients block) and hasGoogle/hasMeta (store-only clients legitimately
+              have null platformData). Covers both the error path and plain-null. */}
+          {!loading && selectedClient && (hasGoogle || hasMeta) && adChannelActive && !platformData && !shopifyData && (
+            <div className="flex items-center justify-center h-64 flex-col gap-3">
+              <p className="text-muted font-mono text-sm">{loadError ? "Couldn't load data — the request failed." : "Couldn't load data."}</p>
+              <button onClick={() => loadData(selectedClient, activePlatform, dateRange, customStart, customEnd)} className="btn-primary text-sm">Retry</button>
             </div>
           )}
           {/* Overview — works with ad data, shopify data, or both */}
