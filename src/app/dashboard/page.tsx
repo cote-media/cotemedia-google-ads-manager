@@ -10,7 +10,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
-import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconLayersIntersect, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconLayersIntersect, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid } from '@tabler/icons-react'
+import { createPortal } from 'react-dom'
 
 const DATE_RANGES = [
   { label: 'Today', value: 'TODAY' },
@@ -37,6 +38,97 @@ const NAV_ITEMS = [
 // LORAMER_NAV_ICONS_TYPE_V1
 const NAV_ICONS: Record<string, any> = { overview: IconLayoutDashboard, campaigns: IconTarget, keywords: IconSearch, chat: IconSparkles, shopify: IconShoppingBag, woocommerce: IconShoppingCart, ga: IconChartBar }
 function NavIcon({ id, size = 18 }: { id: string; size?: number }) { const Ico = NAV_ICONS[id]; return Ico ? <Ico size={size} stroke={1.75} className="flex-shrink-0" /> : null }
+
+// LORAMER_CLIENT_SWITCHER_V1
+// Corner client switcher (Slack/Linear pattern). Dropdown renders through a
+// portal to document.body with fixed positioning from the trigger's rect —
+// the sidebar has overflowY:auto and would clip an in-flow absolute menu.
+function ClientSwitcher({ clients, selectedClient, onSelect }: {
+  clients: Client[]; selectedClient: Client | null; onSelect: (c: Client) => void
+}) {
+  const { data: session } = useSession()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+
+  function openMenu() {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (rect) setPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 240) })
+    setQuery('')
+    setOpen(true)
+  }
+
+  useEffect(() => {
+    if (!open) return
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node
+      if (menuRef.current?.contains(t) || triggerRef.current?.contains(t)) return
+      setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onScrollOrResize() { setOpen(false) }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', onScrollOrResize, true)
+    window.addEventListener('resize', onScrollOrResize)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', onScrollOrResize, true)
+      window.removeEventListener('resize', onScrollOrResize)
+    }
+  }, [open])
+
+  const filtered = clients.filter(c => c.name.toLowerCase().includes(query.toLowerCase()))
+
+  return (
+    <>
+      <button ref={triggerRef} onClick={() => open ? setOpen(false) : openMenu()}
+        className="w-full flex items-center gap-2 border border-border bg-surface rounded-md px-2.5 py-2 text-sm text-ink hover:border-ink transition-colors">
+        <span className="w-5 h-5 rounded-full bg-accent flex-shrink-0 flex items-center justify-center text-white text-xs">{(selectedClient?.name || '?').charAt(0).toUpperCase()}</span>
+        <span className="truncate flex-1 text-left">{selectedClient?.name || 'Select client'}</span>
+        <IconChevronDown size={16} className="flex-shrink-0 text-muted" />
+      </button>
+      {open && pos && createPortal(
+        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 100 }}
+          className="bg-white border border-border rounded-lg shadow-card-hover overflow-hidden">
+          <div className="p-2 border-b border-border">
+            <input autoFocus type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search clients"
+              className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-paper focus:outline-none focus:border-accent" />
+          </div>
+          <div className="max-h-56 overflow-y-auto py-1">
+            {filtered.map(c => (
+              <button key={c.id} onClick={() => { onSelect(c); setOpen(false) }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
+                <span className="w-5 h-5 rounded-full bg-accent flex-shrink-0 flex items-center justify-center text-white text-xs">{c.name.charAt(0).toUpperCase()}</span>
+                <span className="truncate flex-1 text-left">{c.name}</span>
+                {selectedClient?.id === c.id && <IconCheck size={16} className="flex-shrink-0 text-accent" />}
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="px-3 py-2 text-sm text-muted">No clients match</p>}
+          </div>
+          <div className="border-t border-border py-1">
+            <a href="/clients" className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
+              <IconLayoutGrid size={16} className="flex-shrink-0 text-muted" />
+              All clients
+            </a>
+          </div>
+          <div className="border-t border-border py-1">
+            {session?.user?.email && <p className="px-3 py-1.5 text-xs text-muted truncate">{session.user.email}</p>}
+            <button onClick={() => signOut({ callbackUrl: '/' })}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
+              <IconLogout size={16} className="flex-shrink-0 text-muted" />
+              Sign out
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
 
 const CHART_COLORS = [
   '#2563eb', '#16a34a', '#ea580c', '#9333ea',
@@ -3571,6 +3663,12 @@ function DashboardContent() {
             {sidebarCollapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
           </button>
         </div>
+        {/* LORAMER_CLIENT_SWITCHER_V1 — corner client switcher */}
+        {!sidebarCollapsed && (
+          <div className="px-3 py-2 border-b border-border flex-shrink-0">
+            <ClientSwitcher clients={clients} selectedClient={selectedClient} onSelect={selectClient} />
+          </div>
+        )}
         {!sidebarCollapsed && (
           <div className="px-3 py-2 border-b border-border flex-shrink-0">
             <select value={dateRange} onChange={e => changeDateRange(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent">
@@ -3620,33 +3718,11 @@ function DashboardContent() {
             </button>
           ))}
         </nav>
-        <div className="border-t border-border flex-shrink-0">
-          {!sidebarCollapsed && (
-            <div className="px-4 py-2 flex items-center justify-between">
-              <span className="text-xs text-muted">Clients</span>
-              <a href="/clients" className="text-xs text-accent hover:underline">+ Edit</a>
-            </div>
-          )}
-          <div className="pb-2 overflow-y-auto" style={{ maxHeight: '160px' }}>
-            {clients.map(client => (
-              <button key={client.id} onClick={() => selectClient(client)} title={sidebarCollapsed ? client.name : undefined}
-                className={'w-full flex items-center gap-3 px-4 py-2 transition-colors ' + (selectedClient?.id === client.id ? 'bg-surface text-ink font-medium' : 'text-muted hover:text-ink hover:bg-surface')}>
-                <span className="w-4 h-4 rounded-full bg-accent flex-shrink-0 flex items-center justify-center text-white text-xs">{client.name.charAt(0).toUpperCase()}</span>
-                {!sidebarCollapsed && <span className="text-xs truncate">{client.name}</span>}
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="border-t border-border py-2 mt-auto flex-shrink-0">
           <button onClick={() => selectedClient && loadData(selectedClient, activePlatform, dateRange, customStart, customEnd)} title="Refresh"
             className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
             <IconRefresh size={18} />
             {!sidebarCollapsed && <span className="text-sm">Refresh</span>}
-          </button>
-          <button onClick={() => signOut({ callbackUrl: '/' })} title="Sign out"
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-muted hover:text-ink hover:bg-surface transition-colors">
-            <IconLogout size={18} />
-            {!sidebarCollapsed && <span className="text-sm">Sign out</span>}
           </button>
           {!sidebarCollapsed && (
             <div className="px-4 py-3 flex gap-3">

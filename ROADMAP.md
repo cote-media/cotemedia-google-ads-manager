@@ -1390,7 +1390,7 @@ Meta; backfill UX; optional "backfill all clients" bulk action.
 <!-- LORAMER_ROADMAP_NAV_MOAT_2026_06_05 -->
 Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfinding stays familiar (convention beats novelty); novelty lives in the intelligence.
 - [ ] Overview-first home: combined by default, customizable + savable sectioned cards. Replaces the Combined/Overview throwback. Ties to Project 18.
-- [ ] Corner client switcher (top-left, Slack/Linear pattern). Removes inline CLIENTS list, "+ Edit", Sign Out from the rail. Switcher menu = search + recent + "All clients" (portfolio = client-management home) + account/sign-out.
+- [x] Corner client switcher (top-left, Slack/Linear pattern) — search + filtered list + check on current + "All clients" → /clients + account email/sign-out; portal dropdown (sidebar overflow can't clip it). Clients list, "+ Edit", Sign Out removed from the rail. Desktop only; mobile select untouched. (LORAMER_CLIENT_SWITCHER_V1, 2026-06-05; "recent" section deferred)
 - [ ] Channels group in the rail: dynamic per connected source, identical structure for all, scales to N. "Connect a source" inline.
 - [ ] Demote Campaigns + Keywords from top-level → in-channel tabs inside Google Ads.
 - [ ] Mer = per-client deep structured brain (depth into ONE client). Rail destination; NOT the clients list.
