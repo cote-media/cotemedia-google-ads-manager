@@ -13,6 +13,7 @@
 - Facebook Login for Business OAuth verified OK: Client/Web OAuth Yes, Enforce HTTPS Yes, Strict Mode Yes, JS SDK + Login-from-devices No; redirect URIs app.loramer.com/api/meta/callback (+vercel.app rollback). Deauthorize + Data Deletion URLs still EMPTY → fill after Phase 2 endpoints exist.
 - loramer.com FOOTER shipped (loramer-landing repo, LORAMER_LANDING_FOOTER_SIGNUP_EMBED_V1, a58e637 on main): WaitlistForm embedded inline in footer (reuses /api/waitlist→Mailchimp, unchanged); floating StickyCTA bar removed (component + .sticky-cta CSS deleted); attribution now "LoraMer is a product of Cote Media · since 2011"; ©2026 Cote Media LLC kept. /privacy + /terms footers already named Cote Media → left untouched (wording differs slightly; optional future match). Satisfies Meta access-verification website requirement.
 - META COMPLIANCE PHASE 1 COMPLETE (LORAMER_META_FBUSERID_FOUNDATION_V1, dd66f28 on main): migration 006 applied (meta_tokens.fb_user_id col + index + meta_compliance_log table); callback now GET /v18/me?fields=id → stores fb_user_id in meta_tokens upsert (stores token w/ null on /me failure → connect never breaks); one-off CRON_SECRET-gated /api/meta/backfill-fb-user-id RAN (1 candidate, 1 updated, 0 failed) → ALL meta_tokens rows now have fb_user_id. Reconnect test: connect still works. meta-compliance-foundation branch kept for rollback.
+- META COMPLIANCE PHASE 2 COMPLETE (LORAMER_META_COMPLIANCE_ENDPOINTS_V1, a3a7b47 on main): src/lib/meta-signed-request.ts (HMAC-SHA256 verify), POST /api/meta/deauthorize, POST /api/meta/data-deletion, public /meta/deletion-status page; Phase 1 backfill route removed. Verified end-to-end: 401 on bad/missing/wrong-secret sig; valid-sig no-match test passed (fake fb_user_id 999999999999, zero deletes → data-deletion returns {url, confirmation_code}, status=no_data, status page renders). BOTH URLs REGISTERED in Meta dashboard (Facebook Login for Business): Deauthorize=https://app.loramer.com/api/meta/deauthorize, Data Deletion=https://app.loramer.com/api/meta/data-deletion. Meta data-handling requirement SATISFIED. Routes now LIVE (no longer dormant). No real-deletion test run (USER-scoped wipe; fires only on real external requests).
 - ARCHITECTURE NOTE: meta_tokens is USER-scoped — ONE token per LoraMer login (user_email), reused across all that user's client ad-account connections (platform_connections). One BM OAuth grants token + account list; picker assigns accounts without re-OAuth.
 
 ### Decisions locked (Phase 2)
@@ -34,13 +35,7 @@
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — PHASE 2 (Meta compliance endpoints), scoped + ready
-- NEW src/lib/meta-signed-request.ts (HMAC-SHA256 verify, timingSafeEqual)
-- NEW /api/meta/deauthorize (verify → map fb_user_id→user_email → delete token + platform_connections meta rows → log → always 200)
-- NEW /api/meta/data-deletion (verify → idempotency via meta_compliance_log → delete meta-sourced data → return {url, confirmation_code})
-- NEW public /meta/deletion-status?code= page
-- REMOVE /api/meta/backfill-fb-user-id route (cleanup)
-- THEN register Deauthorize + Data Deletion URLs in Meta dashboard (after endpoints live; separate from access-verification review)
+## NEXT STEP — Phase 2 DONE. Both external clocks still running (passive): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW. Meta path once access verification clears: App Review for ads_read (needs reviewer testing instructions + a demoable read feature) → Publish. In-our-control queue to pick from meanwhile: Stripe billing (long pole), Supabase backups (HIGH/cheap, before paying customers), quick-wins (spacing/dashboard reconcile). Secret rotations: CRON_SECRET (queued — landed in a CC session), META_APP_SECRET (optional/lower priority — touched a CC session, not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
 
 ## Session log (2026-06-06, MacBook Air) — shipped/verified
 - Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).
