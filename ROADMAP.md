@@ -1393,8 +1393,8 @@ Meta; backfill UX; optional "backfill all clients" bulk action.
 Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfinding stays familiar (convention beats novelty); novelty lives in the intelligence.
 - [ ] Overview-first home: combined by default, customizable + savable sectioned cards. Replaces the Combined/Overview throwback. Ties to Project 18.
 - [x] Corner client switcher (top-left, Slack/Linear pattern) — search + filtered list + check on current + "All clients" → /clients + account email/sign-out; portal dropdown (sidebar overflow can't clip it). Clients list, "+ Edit", Sign Out removed from the rail. Desktop only; mobile select untouched. (LORAMER_CLIENT_SWITCHER_V1, 2026-06-05; "recent" section deferred)
-- [ ] Channels group in the rail: dynamic per connected source, identical structure for all, scales to N. "Connect a source" inline.
-- [ ] Demote Campaigns + Keywords from top-level → in-channel tabs inside Google Ads.
+- [x] Channels group in the rail: dynamic per connected source, identical structure for all, scales to N. "Connect a source" inline. (LORAMER_NAV_REGROUP_V1, 2026-06-06)
+- [x] Demote Campaigns + Keywords from top-level → in-channel tabs inside Google Ads (sub-tab row; Meta gets Overview/Campaigns). (LORAMER_NAV_REGROUP_V1, 2026-06-06)
 - [ ] Mer = per-client deep structured brain (depth into ONE client). Rail destination; NOT the clients list.
 - [x] De-emoji all nav icons → one consistent family; sentence-case labels (LORAMER_NAV_ICONS_TYPE_V1, 2026-06-05)
 - [x] Numbers in ink + card emoji swept on Overview (LORAMER_NUMBERS_INK_V1) and on ShopifyTab/GA tab (LORAMER_VISUAL_CONSISTENCY_V1); accent reserved. 2026-06-05.
@@ -1410,7 +1410,7 @@ Decided in design session (mockup: loramer_nav_concept.html). Principle: wayfind
 - [ ] Unified viz vocabulary: MER / blended ROAS headline, revenue-contribution-by-source over time, cross-source full funnel, profit layer (margin uploads → true CAC, LTV:CAC). Charts are substrate; Lora's recommendation is the product.
 - [ ] Skills for Lora — AFTER the proactive engine shape is locked: (a) per-industry reference libraries (benchmarks/seasonality/KPIs/gotchas, provenance-grounded, human-reviewable; warm-start), (b) per-platform analysis playbooks (PMax, MER, funnel). House-style/"how Lora reasons" stays in the system prompt, not a skill. Don't build skill content before the engine or it gets built twice.
 - [ ] Responsive recommendation rendering: Lora's freeform markdown tables don't fit mobile (a 3-col "angle / verdict / why" grid squishes to unreadable on a ~390px phone). Real fix = the structured Recommendation card component (severity badge, action, why, provenance) that STACKS on mobile and lays out richly on desktop — retiring freeform markdown tables for recommendations. Part of the proactive-Lora engine; deferred until we build it right (no band-aid). Mobile dogfooding 2026-06-05 is the motivating case.
-- [x] Visual cleanup queue (post type-pass): leftover card-title emoji, mobile hamburger platform buttons, DrillTable platform dots, empty-states → Tabler icons; ShopifyTab + GA tab metric numbers → ink (LORAMER_VISUAL_CONSISTENCY_V1, 2026-06-05). Remaining: Overview campaign-row 🔵/🔷 dots + CombinedChart tooltip series names (string-context, flagged) + spacing/roominess pass toward the mockup.
+- [x] Visual cleanup queue (post type-pass): leftover card-title emoji, mobile hamburger platform buttons, DrillTable platform dots, empty-states → Tabler icons; ShopifyTab + GA tab metric numbers → ink (LORAMER_VISUAL_CONSISTENCY_V1, 2026-06-05); Overview campaign-row dots + CombinedChart tooltip series names de-glyphed (b2ffe1f, 2026-06-06). Remaining: spacing/roominess pass toward the mockup.
 
 ## 📝 Dogfooding — running notes
 <!-- LORAMER_ROADMAP_RUNNING_NOTES_2026_06_05 -->

@@ -1,21 +1,28 @@
 # CONTINUE_HERE — LoraMer
 
-## Session log (2026-06-06, MacBook Air) — all shipped to prod, verified live
-- S1 corner client switcher (portal dropdown, search, All clients, account/sign-out) — c6f12f0 + fixes 18192e0
-- S2+S3 nav regroup: Overview / "Channels" group (dynamic per source) / sub-tab row under Google+Meta / Lora; Platform section + flat tab list removed; mobile bottom nav untouched — merged from nav-regroup-v1 (5046c3c)
-- Build 1: glyph cleanup (●/◆ → Google/Meta icons + "Google/Meta" tooltip labels) + drill Ad Performance fix (campaignId param, cost-key normalization, per-day CTR, empty state; Meta path intentionally left — its misnamed campaignId param was already correct) — b2ffe1f
-- Build A: AdChart line view → multi-select metrics + app's FIRST dual-axis (CTR on right axis via yAxisId+hide pattern, absolute metrics left; per-metric tooltip via PERCENT_KEYS; line=multi/bar=single coupling; empty-selection guard) — daa1071
-- Issue 2 empty-body fix shipped + verified on prod — LORAMER_ISSUE2_EMPTYSTATE_V1 (51264c4): loadData hardening + res.ok throw, loadSeqRef sequence guard (kills latent stale-data race), "Couldn't load — Retry" empty/error state, rail no-op guard relaxation on 3 guards (store-only guard 3745 left intentional). All 4 click-tests passed mobile. (Investigation note: root was client-side silent catch, NOT a 200-with-missing-totals — /api/platform 200s always carry full shape; combined path silently swallows upstream failures into zeros, queued as a separate honesty fix.)
+## Session log (2026-06-06, MacBook Air) — shipped/verified
+- Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).
+- Last-metric toggle guard on all 5 charts + GA duration tooltip "3m 24s" (LORAMER_CHART_TOGGLEGUARD_DURATION_V1, 9426565).
+- Privacy Limited Use disclosure on landing /privacy (loramer-landing 2abbd48).
+- Shopify allowlist: added app.loramer.com callback alongside vercel.app; application_url + webhooks left on vercel.app deliberately (LORAMER_SHOPIFY_REDIRECT_APPDOMAIN_V1, 636d4cd; shopify app deploy = loramer-6).
+- Roadmap UX items: Meta picker sort/search + smart tips/glossary consolidation (16d9719).
+- LoraMer Google identity: Workspace @loramer.com (russ/hello/support/lore); russ@loramer.com Owner of GCP project "Cote Media Claude Google Ads"; loramer.com verified in Search Console (DNS Domain property).
+- app.loramer.com MIGRATION DONE + verified: attached to app Vercel project, Cloudflare CNAME (DNS-only), SSL issued; new redirect URIs registered on both Google OAuth clients (sign-in + GA) and Meta; NEXTAUTH_URL + GOOGLE_ANALYTICS_REDIRECT_URI flipped to app.loramer.com + redeployed. app.loramer.com now canonical; vercel.app alias still serves; old URIs still registered (rollback intact). Verified: Google sign-in + Meta connect on existing client both work.
+- Google OAuth verification SUBMITTED 2026-06-06: branding VERIFIED, data access UNDER REVIEW. Clock ~2-6 weeks running. adwords is sensitive (not restricted) → no CASA. Consent screen: app LoraMer, support@loramer.com, homepage loramer.com, privacy loramer.com/privacy, authorized domain loramer.com, published to Production, unlisted demo video attached.
 
-## NEXT STEP — two low-risk mobile-friendly fills
-1. GoogleChart empty-toggle guard: its metric toggle allows deselecting ALL metrics (zero lines — bug). Make it consistent with AdChart's last-metric guard. One-liner; a NOTE comment already marks the spot on GoogleChart's toggle.
-2. GA duration formatting: averageSessionDuration renders as a plain number (seconds) in the GaChart tooltip — format as "3m 24s". Extend ChartTooltip's per-dataKey formatting (PERCENT_KEYS pattern → a DURATION_KEYS set fed from GA_CHART_METRICS).
+## NEXT STEP — Google is the only external clock and it's now running; remaining launch work is all in-our-control. Priority order:
+1. Watch russ@loramer.com for Google reviewer follow-up; respond within a day; DO NOT touch consent screen/scopes/publish status while under review.
+2. Check Meta app-review status (second external clock — cohort needs Meta app in Live mode + ads_read approved to connect).
+3. Stripe billing + tier segregation (long pole; Project 2 pivoted Shopify-Managed-Pricing → Stripe; tiers, upgrade/downgrade, 20% annual, full pricing).
+4. Supabase backups (HIGH, cheap, before paying customers).
+5. Quick-wins: spacing/roominess pass (finishes dashboard reconcile), GA Phase 6 disconnect, audit cleanups (dead platformData, combined-path silent-zeros honesty), advar→loramer localStorage rebrand, Meta picker sort/search, GaChart/ShopifyChart dual-axis.
 
-## Queue (after the two fills)
-- GaChart + ShopifyChart: copy AdChart's yAxisId+hide dual-axis for avgSessionDuration (seconds) and AOV (~100x scale gap).
-- Day/Week/Month on Meta/Combined/Shopify: DELIBERATE decision — those daily endpoints don't accept a granularity param; needs API support or client-side bucketing.
-- /api/platform combined path: silently swallows per-platform upstream failures into a zeros payload (honesty fix — return partial-failure signal).
-- Bigger, own-session items: S4 Overview = fused everything-picture (MER/contribution/funnel/profit, Project 18); Mer = net-new per-client deep surface; mobile IA pass (mobile/desktop IA diverged temporarily by design).
+Launch target: soft launch ~July 14 (invite-only founding cohort, Russ onboards), full launch Q4 2026.
+
+## Migration cleanup (minor, deferred)
+- Optional Shopify dev-store install test on app.loramer.com.
+- Full Shopify consolidation later (application_url + webhooks → app.loramer.com).
+- Remove old vercel.app redirect URIs from Google/Meta after verification confirmed.
 
 ## Discipline
 - Right > fast; no same mistake twice; one code change in flight for clean reverts.
