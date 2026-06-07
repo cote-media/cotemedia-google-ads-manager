@@ -1,5 +1,10 @@
 # CONTINUE_HERE — LoraMer
 
+## REMOTE CONTROL (work from phone)
+- In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
+- On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
+- Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
+
 ## Session log (2026-06-06, MacBook Air) — shipped/verified
 - Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).
 - Last-metric toggle guard on all 5 charts + GA duration tooltip "3m 24s" (LORAMER_CHART_TOGGLEGUARD_DURATION_V1, 9426565).
