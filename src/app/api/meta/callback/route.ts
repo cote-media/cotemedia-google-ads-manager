@@ -82,10 +82,25 @@ export async function GET(request: Request) {
     // Get ALL ad accounts (direct + BM owned + BM client)
     const adAccounts = await getAllMetaAccounts(finalToken)
 
+    // LORAMER_META_FBUSERID_FOUNDATION_V1: capture the app-scoped Facebook
+    // user id at connect time — Meta's deauthorize/data-deletion callbacks
+    // identify the person only by this id. Best-effort: a /me failure must
+    // never break connect (fb_user_id stays null until next reconnect).
+    let fbUserId: string | null = null
+    try {
+      const meRes = await fetch(`https://graph.facebook.com/v18.0/me?fields=id&access_token=${finalToken}`)
+      const meData = await meRes.json()
+      if (meRes.ok && meData?.id) fbUserId = String(meData.id)
+      else console.error('Meta /me fetch failed:', { status: meRes.status, body: meData })
+    } catch (e) {
+      console.error('Meta /me fetch threw:', e)
+    }
+
     // Store token
     await supabaseAdmin.from('meta_tokens').upsert({
       user_email: stateData.email,
       access_token: finalToken,
+      fb_user_id: fbUserId,
       updated_at: new Date().toISOString(),
     })
 
