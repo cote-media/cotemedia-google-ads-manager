@@ -5,6 +5,13 @@
 - On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
 - Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
 
+## Session log (2026-06-08, MacBook Air) — CRON_SECRET ROTATED + VERIFIED
+
+### Shipped / verified
+- CRON_SECRET ROTATED + VERIFIED. Recon confirmed ONE env var read by all bearer routes: `/api/cron/sync` + `/api/backfill/{google,meta,ga,probe,probe-ga}` + `/api/query-metrics`. They all use the same check (Authorization header, accepts `Bearer <token>` or raw, trim-tolerant, compared to `process.env.CRON_SECRET`). `/api/backfill/run` is NextAuth-session-authed (ownership-gated), NOT CRON_SECRET — unaffected by rotation.
+- Vercel-NATIVE cron (`vercel.json`: `/api/cron/sync` @ `0 8 * * *`) auto-injects `Authorization: Bearer $CRON_SECRET` from project env at run time. No external callers hold the secret (the only GitHub Action, db-backup.yml, uses SUPABASE_DB_URL + R2_* only; no cron-job.org/external pinger).
+- Rotation = new `openssl rand -hex 32` set in Vercel (Production + any env that had it) → redeploy (serverless binds env at deploy time) → verified on prod: NEW bearer → 200, junk bearer → 401. New value never entered chat (written to local untracked OUT.txt → pasted into Vercel → OUT.txt scrubbed). Next 08:00 UTC cron auto-uses the new secret.
+
 ## Session log (2026-06-08, MacBook Air) — Off-site DB backup SHIPPED + VERIFIED
 
 ### Shipped / verified
@@ -44,7 +51,7 @@
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro, gap closed). Two external clocks still running (passive): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW. Meta path once access verification clears: App Review for ads_read (needs reviewer testing instructions + a demoable read feature) → Publish. Near-term cheap pending items to clear: (1) rotate CRON_SECRET in Vercel — do coordinated so the nightly cron keeps authenticating; (2) reconnect the Supabase MCP on the MacBook Air (russcote2) — local/user MCP scopes don't sync across machines; consider project-scope .mcp.json so migrations stop falling back to SQL Editor. In-our-control queue beyond those: Stripe billing (long pole), quick-wins (spacing/dashboard reconcile). Lower priority: META_APP_SECRET rotation (optional — not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
+## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro). CRON_SECRET rotation DONE + VERIFIED. In-our-control queue by effort: (1) reconnect the Supabase MCP on the MacBook Air (russcote2) so migrations stop falling back to the SQL Editor — local/user MCP scopes don't sync across machines; consider project-scope .mcp.json; (2) Stripe billing (long pole — Project 2 pivoted Shopify-Managed-Pricing → Stripe; tiers, upgrade/downgrade, 20% annual, full pricing); (3) dashboard quick-wins (spacing/tooltip reconcile). Passive external clocks (respond fast only if a reviewer emails): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW (then App Review for ads_read → Publish). Lower priority: optional META_APP_SECRET rotation (not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
 
 ## Session log (2026-06-06, MacBook Air) — shipped/verified
 - Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).

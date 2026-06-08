@@ -753,6 +753,18 @@ roadmap's "per-adapter floor for Meta"). Diagnose with a headless run
 desktop/mobile render blocks"; sequence was already at 33.)
 Local commits are squashed on push and rewritten, so a hash recorded in a handoff (e.g. 088b687) never appears on origin and the resume check fails every time. Verify instead: clean fast-forward pull + the LORAMER_*_V1 session tag in HEAD's message + an ls/grep proving the named deliverable files exist.
 
+## Lesson 35 — pg_dump in CI: invoke by ABSOLUTE path
+Use the full path `/usr/lib/postgresql/17/bin/pg_dump`, never bare `pg_dump`. On Ubuntu runners the `pg_wrapper` shim resolves bare `pg_dump` to a preinstalled OLDER client (v16), which refuses to dump a newer server (17.6) with "server version mismatch." Installing `postgresql-client-17` is NOT enough — PATH still wins, so the wrapper picks v16. Pin the absolute v17 binary and echo `--version` right before the dump as log proof. (LORAMER_OFFSITE_R2_BACKUP_PGDUMP17_FIX_V1, db-backup.yml.)
+
+## Lesson 36 — GitHub Actions "Re-run jobs" replays the ORIGINAL commit
+"Re-run jobs" re-runs the workflow file as it was at the commit that triggered the original run — NOT current `main` HEAD. To test a workflow FIX you just pushed, start a fresh "Run workflow" (workflow_dispatch) so the updated file actually runs; re-running the failed job will just replay the broken version.
+
+## Lesson 37 — Vercel env rotation needs a redeploy; native cron rotates atomically
+Serverless functions bind environment variables at deploy time, so changing a Vercel env var is NOT live until a redeploy. Vercel-native cron auto-injects secrets from the SAME project env at run time, so updating the var + redeploy rotates the function's check AND the scheduler together — there is no separate caller to update. (Confirmed during the CRON_SECRET rotation: new value in Vercel → redeploy → prod verify NEW bearer 200 / junk 401; next 08:00 UTC cron auto-used it.)
+
+## Lesson 38 — Supabase DB password is reset-safe for LoraMer
+The raw Postgres DB password isn't viewable after creation — only resettable. Resetting it is SAFE: the app authenticates to Supabase via the API keys (anon/service-role), not the raw DB password. Only raw-Postgres consumers care about it (e.g. `pg_dump` in the backup Action, the Supabase MCP). After a reset, update only those consumers' connection strings.
+
 ## Standing rule — End every session by refreshing CONTINUE_HERE.md
 At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
 
