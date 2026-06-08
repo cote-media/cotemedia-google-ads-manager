@@ -47,8 +47,13 @@ jobs:
           TS="$(date -u +%Y%m%dT%H%M%SZ)"
           FILE="loramer-db-${TS}.dump"
           echo "FILE=${FILE}" >> "$GITHUB_ENV"
+          # LORAMER_OFFSITE_R2_BACKUP_PGDUMP17_FIX_V1: the runner's preinstalled
+          # pg_wrapper resolves bare `pg_dump` to v16, which refuses a 17.x server
+          # ("server version mismatch"). Invoke the v17 binary by ABSOLUTE path and
+          # echo its version first so the log proves 17.x is what ran.
+          /usr/lib/postgresql/17/bin/pg_dump --version
           # -Fc custom format (selective restore + parallelism), -Z9 max compression.
-          pg_dump "$SUPABASE_DB_URL" --format=custom --compress=9 --no-owner --no-privileges --file "$FILE"
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --format=custom --compress=9 --no-owner --no-privileges --file "$FILE"
           ls -lh "$FILE"
           # Guard against a zero-byte / truncated dump slipping through green.
           if [ ! -s "$FILE" ]; then
