@@ -5,6 +5,15 @@
 - On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
 - Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
 
+## Session log (2026-06-08, MacBook Air) — Off-site DB backup SHIPPED + VERIFIED
+
+### Shipped / verified
+- Off-site DB backup SHIPPED + VERIFIED. GitHub Action `.github/workflows/db-backup.yml`: nightly `pg_dump` (custom format -Fc -Z9, --no-owner --no-privileges) of the Supabase DB via the SESSION POOLER connection (IPv4 — runners are IPv4-only), uploaded to Cloudflare R2 bucket `loramer-db-backups`, 30-day retention prune, fail-loud (`set -euo pipefail` + empty-dump/missing-secret guards).
+- Schedule: 03:30 UTC daily + manual `workflow_dispatch`. Deliberately clear of the 08:00 UTC `/api/cron/sync`.
+- pg_dump pinned to v17 by ABSOLUTE path `/usr/lib/postgresql/17/bin/pg_dump` (the runner's pg_wrapper resolves bare `pg_dump` to v16, which refuses the 17.6 server with "server version mismatch"). A version echo runs right before the dump as log proof. Commits: build `c95ef7b`, pgdump17 fix `63f3b40`.
+- Credentials stored as GitHub Actions repo secrets: `SUPABASE_DB_URL` (session-pooler; DB password was reset 2026-06-08), `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. (No secret values recorded here.)
+- Verified: fresh manual run green; first `.dump` confirmed in the R2 bucket. Combined with Supabase Pro daily automated backups (7-day retention), the "no backups before paying customers" gap is fully closed — in-platform + off-site.
+
 ## Session log (2026-06-07, MacBook Air) — Meta Tech Provider + footer + Meta compliance Phase 1
 
 ### Shipped / verified
@@ -35,7 +44,7 @@
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Phase 2 DONE. Both external clocks still running (passive): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW. Meta path once access verification clears: App Review for ads_read (needs reviewer testing instructions + a demoable read feature) → Publish. In-our-control queue to pick from meanwhile: Stripe billing (long pole), Supabase backups (HIGH/cheap, before paying customers), quick-wins (spacing/dashboard reconcile). Secret rotations: CRON_SECRET (queued — landed in a CC session), META_APP_SECRET (optional/lower priority — touched a CC session, not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
+## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro, gap closed). Two external clocks still running (passive): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW. Meta path once access verification clears: App Review for ads_read (needs reviewer testing instructions + a demoable read feature) → Publish. Near-term cheap pending items to clear: (1) rotate CRON_SECRET in Vercel — do coordinated so the nightly cron keeps authenticating; (2) reconnect the Supabase MCP on the MacBook Air (russcote2) — local/user MCP scopes don't sync across machines; consider project-scope .mcp.json so migrations stop falling back to SQL Editor. In-our-control queue beyond those: Stripe billing (long pole), quick-wins (spacing/dashboard reconcile). Lower priority: META_APP_SECRET rotation (optional — not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
 
 ## Session log (2026-06-06, MacBook Air) — shipped/verified
 - Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).

@@ -77,6 +77,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - **Connectors:** `lib/google-ads.ts` + `lib/platforms/google.ts` (Google Ads API via the google-ads-api Node client, GAQL), `lib/meta-ads.ts` + `lib/platforms/meta.ts` (Meta Graph API — version hardcoded at each call site across the meta routes and libs, not centrally pinned; grep `graph.facebook.com` for the current value — paginated daily insights), Shopify/Woo/GA via their OAuth routes + token helpers (`shopify-token.ts`, `shopify-install-token.ts`, `ga-token.ts`)
 - `lib/metrics-query.ts` — the query layer over `metrics_daily` powering both the `query_metrics` tool and `api/clients/metrics`, so model answers and UI rollups agree
 - `lib/platforms/types.ts` — shared dashboard-facing platform types + column definitions
+- **Off-site backup:** `.github/workflows/db-backup.yml` — nightly GitHub Action `pg_dump` of the Supabase DB → Cloudflare R2 (off-site complement to Supabase's in-platform backups)
 
 ## Dashboard internals (src/app/dashboard/page.tsx)
 One large client-side file containing the whole dashboard. Major in-file areas, top to bottom by responsibility:
