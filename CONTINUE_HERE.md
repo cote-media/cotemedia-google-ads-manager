@@ -8,6 +8,7 @@
 ## Session log (2026-06-08, MacBook Air) — CRON_SECRET ROTATED + VERIFIED
 
 ### Shipped / verified
+- MCP project-scope migration (LORAMER_MCP_PROJECT_SCOPE_V1, commit 8d3016c): supabase + vercel moved from local→project scope via committed .mcp.json, so both machines share it on git pull. Supabase write-enabled (read_only=false) → migrations run via MCP, not the SQL Editor. MacBook Air verified: supabase connected (20 tools = write set), vercel connected, launched from repo. Added `loramer` zsh alias on the Air (cd into repo && claude) so it always launches from the right folder. iMac one-time setup still pending — see block below.
 - CRON_SECRET ROTATED + VERIFIED. Recon confirmed ONE env var read by all bearer routes: `/api/cron/sync` + `/api/backfill/{google,meta,ga,probe,probe-ga}` + `/api/query-metrics`. They all use the same check (Authorization header, accepts `Bearer <token>` or raw, trim-tolerant, compared to `process.env.CRON_SECRET`). `/api/backfill/run` is NextAuth-session-authed (ownership-gated), NOT CRON_SECRET — unaffected by rotation.
 - Vercel-NATIVE cron (`vercel.json`: `/api/cron/sync` @ `0 8 * * *`) auto-injects `Authorization: Bearer $CRON_SECRET` from project env at run time. No external callers hold the secret (the only GitHub Action, db-backup.yml, uses SUPABASE_DB_URL + R2_* only; no cron-job.org/external pinger).
 - Rotation = new `openssl rand -hex 32` set in Vercel (Production + any env that had it) → redeploy (serverless binds env at deploy time) → verified on prod: NEW bearer → 200, junk bearer → 401. New value never entered chat (written to local untracked OUT.txt → pasted into Vercel → OUT.txt scrubbed). Next 08:00 UTC cron auto-uses the new secret.
@@ -51,7 +52,21 @@
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro). CRON_SECRET rotation DONE + VERIFIED. In-our-control queue by effort: (1) reconnect the Supabase MCP on the MacBook Air (russcote2) so migrations stop falling back to the SQL Editor — local/user MCP scopes don't sync across machines; consider project-scope .mcp.json; (2) Stripe billing (long pole — Project 2 pivoted Shopify-Managed-Pricing → Stripe; tiers, upgrade/downgrade, 20% annual, full pricing); (3) dashboard quick-wins (spacing/tooltip reconcile). Passive external clocks (respond fast only if a reviewer emails): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW (then App Review for ads_read → Publish). Lower priority: optional META_APP_SECRET rotation (not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
+## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro). CRON_SECRET rotation DONE + VERIFIED. Supabase MCP project-scope migration DONE + VERIFIED on the MacBook Air (both machines share committed .mcp.json on git pull). In-our-control queue by effort:
+1. Stripe billing (long pole — pivoted Shopify-Managed-Pricing → Stripe; tiers, upgrade/downgrade, 20% annual).
+2. Dashboard quick-wins (spacing/tooltip reconcile).
+
+Passive external clocks (respond fast only if a reviewer emails): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW (then App Review for ads_read → Publish). Lower priority: optional META_APP_SECRET rotation (not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
+
+=== iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
+.mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).
+When on the iMac, tell Claude "set up iMac MCP" and it will hand these as labeled pastes:
+1. Terminal, one-time manual launch (alias not set yet): cd /Users/russellcote/Downloads/cotemedia-ads-manager && git pull origin main && claude
+2. In Claude Code: approve the "trust project MCP servers" prompt; run /mcp and complete the browser sign-in for supabase + vercel.
+3. In Claude Code: remove any local-scope overrides (claude mcp remove "supabase" -s local ; claude mcp remove "vercel" -s local — ignore "not found"), and add the launch alias by EDITING ~/.zshrc with the file editor, NOT echo-append (chars drop in the shell): alias loramer="cd /Users/russellcote/Downloads/cotemedia-ads-manager && claude"
+4. Open a NEW terminal, type: loramer
+5. Confirm /mcp shows supabase (connected, ~20 tools = write) and vercel (connected). Permanent on the iMac after this.
+=== end iMac setup ===
 
 ## Session log (2026-06-06, MacBook Air) — shipped/verified
 - Issue 2 empty-body fix: loadData res.ok hardening + loadSeqRef sequence guard + "Couldn't load — Retry" empty state + rail guard relaxation (LORAMER_ISSUE2_EMPTYSTATE_V1, 51264c4).
