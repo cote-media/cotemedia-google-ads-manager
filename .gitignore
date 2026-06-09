@@ -24,6 +24,7 @@ yarn-error.log*
 
 # local env files
 .env
+.env*.local
 .env.local
 .env.development.local
 .env.test.local
@@ -35,3 +36,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# transient artifacts (LoraMer) — stay on disk, never tracked
+OUT.txt
+*_REPORT.txt
+append_handoff_docs.py
+patch_backfill_ui_v1.py
