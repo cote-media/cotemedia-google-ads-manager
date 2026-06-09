@@ -490,7 +490,7 @@ The consolidated version of the rotation + multi-machine sync + docs-with-code r
 above, in ONE place so no future session has to assemble it from three sections.
 Never rotate mid-task; reach a clean breakpoint first. Do these in order:
 
-1. CLEAN TREE, PUSHED. In the Cursor terminal:
+1. CLEAN TREE, PUSHED. In Claude Code:
    `cd ~/Downloads/cotemedia-google-ads-manager && git status`
    Both must be true: "nothing to commit, working tree clean" AND "Your branch is up
    to date with 'origin/main'". If not, commit + push the pending work first.
