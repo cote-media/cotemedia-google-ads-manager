@@ -11,9 +11,9 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 # CONTINUE_HERE — LoraMer
 
 ## FILE DELIVERY — where pasteable commands & long output live (Russ copy-pastes; never inline)
-- EVERY runnable command and any long output goes into **`OUT.txt` at the repo ROOT** — full path `/Users/russcote2/Downloads/cotemedia-google-ads-manager/OUT.txt` (iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager/OUT.txt`). Untracked; overwrite each time.
-- Claude NEVER pastes commands inline in chat for Russ to copy. Write to OUT.txt, then in chat say only that it's ready (and SendUserFile it so it surfaces on the phone).
-- Russ opens OUT.txt (or the file pushed to the Claude app CODE tab) and copies from there.
+- EVERYTHING Claude Code wants Russ to see goes into ONE file: OUT.txt at repo root (overwrite each time) — full path `/Users/russcote2/Downloads/cotemedia-google-ads-manager/OUT.txt` (iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager/OUT.txt`). That means command output AND file contents AND answers AND any plain-text commentary/status/summary — all in the one file.
+- Nothing of substance lives only in the Claude Code chat reply. Russ opens OUT.txt from the phone Claude app CODE section and pastes the whole thing back — ONE copy, once.
+- Never split output between a chat reply and the file; never make Russ scrape terminal scrollback or copy two separate things.
 
 ## REMOTE CONTROL (work from phone)
 - In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
