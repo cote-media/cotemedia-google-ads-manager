@@ -10,7 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
-import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus } from '@tabler/icons-react'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 
 const DATE_RANGES = [
@@ -120,6 +120,11 @@ function ClientSwitcher({ clients, selectedClient, onSelect }: {
             <a href="/clients" className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
               <IconLayoutGrid size={16} className="flex-shrink-0 text-muted" />
               All clients
+            </a>
+            {/* LORAMER_STRIPE_PHASE3_BILLING_UI_V1 */}
+            <a href="/billing" className="flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface transition-colors">
+              <IconCreditCard size={16} className="flex-shrink-0 text-muted" />
+              Billing &amp; Plan
             </a>
           </div>
           <div className="border-t border-border py-1">
