@@ -27,6 +27,13 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 4. cat every REQUIRED READING file and read it fully before acting.
 === end launch ritual ===
 
+## Session log (2026-06-09) — Protocol consolidation + Stripe account
+- Consolidated four overlapping start-protocols into ONE "SESSION START GATE" atop LORAMER_HANDOFF.md; purged stale Cursor / patch-script / dry-run workflow; IDE refs -> Claude Code. (LORAMER_HANDOFF_CONSOLIDATE_V1)
+- New standing rules in the gate + committed: READ-FIRST (act only on actual printed CONTINUE_HERE + REQUIRED READING — never a summary, memory, or panel); SINGLE-PASTE (one copy-paste block per Claude Code instruction); OUTPUT-TO-ONE-FILE (everything Claude Code shows Russ — output AND commentary — in OUT.txt only). (LORAMER_HANDOFF_READGATE_V1, LORAMER_OUTPUT_ALL_TO_FILE_V1)
+- Stripe Phase 1 deliverables now tracked: migration 007 + scripts/stripe-sync-products.mjs + stripe dep. (LORAMER_STRIPE_PHASE1_TRACK_V1)
+- Tree cleaned: transient artifacts gitignored; working tree clean. (LORAMER_TREE_CLEANUP_V1)
+- Stripe: dedicated LoraMer Stripe account created (russ@loramer.com, TEST mode); test secret key rotated. NOT DONE: the sk_test_ value in .env.local is still EMPTY.
+
 ## Session log (2026-06-08, MacBook Air) — CRON_SECRET ROTATED + VERIFIED
 
 ### Shipped / verified
@@ -75,11 +82,7 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro). CRON_SECRET rotation DONE + VERIFIED. Supabase MCP project-scope migration DONE + VERIFIED on the MacBook Air (both machines share committed .mcp.json on git pull). In-our-control queue by effort:
-1. Stripe Phase 1 — BLOCKED until Russ creates the LoraMer Stripe account (russ@loramer.com, TEST mode) + grabs the test secret key (sk_test_...). Then: plan_entitlements table + solo->business tier migration, and the Stripe product/price creation script. Full spec + locked matrix + decisions in STRIPE_BILLING_PLAN.md.
-2. Dashboard quick-wins (spacing/tooltip reconcile).
-
-Passive external clocks (respond fast only if a reviewer emails): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW (then App Review for ads_read → Publish). Lower priority: optional META_APP_SECRET rotation (not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
+## NEXT STEP — Stripe Phase 1: set the rotated sk_test_ key into .env.local (copy the key in Stripe, run the pbpaste one-liner; expect value length ~107), then `npm run stripe:sync` to create the TEST products/prices and write price IDs into plan_entitlements. REQUIRED READING (STRIPE_BILLING_PLAN.md, migration 007, scripts/stripe-sync-products.mjs) is current. Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
 
 === iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
 .mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).
