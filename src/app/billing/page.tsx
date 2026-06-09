@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState, Suspense } from 'react'
 import { IconArrowLeft, IconCheck, IconLoader2 } from '@tabler/icons-react'
-import { TIER_ORDER } from '@/lib/billing/plans'
+import { TIER_ORDER, flagLabel } from '@/lib/billing/plans'
 
 type Entitlements = {
   tier: string
@@ -39,7 +39,7 @@ function entitlementLines(e: Partial<Entitlements> | null | undefined): string[]
   else if (e.history_window_days >= 365) lines.push(`${Math.round(e.history_window_days / 30)}-month history window`)
   else lines.push(`${e.history_window_days}-day history window`)
   const flags = Array.isArray(e.feature_flags) ? e.feature_flags : []
-  if (flags.length) lines.push(`Includes: ${flags.join(', ')}`)
+  for (const f of flags) lines.push(flagLabel(f))
   return lines
 }
 

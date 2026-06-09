@@ -15,6 +15,20 @@ export const DISPLAY_PRICES: Record<SelfServeTier, { monthly: number; annual: nu
   scale: { monthly: 999, annual: 9500 },
 }
 
+// LORAMER_STRIPE_PHASE3_FLAGLABELS_V1
+// Human-readable labels for plan_entitlements.feature_flags (never show raw keys to users).
+export const FLAG_LABELS: Record<string, string> = {
+  wyws: 'While You Were Sleeping digest',
+  priority_support: 'Priority support',
+  automations: 'Automations',
+  white_label: 'White-label',
+  bulk_export: 'Bulk export',
+  sla: 'SLA',
+}
+export function flagLabel(f: string): string {
+  return FLAG_LABELS[f] ?? f
+}
+
 export function isSelfServeTier(t: unknown): t is SelfServeTier {
   return typeof t === 'string' && (SELF_SERVE_TIERS as readonly string[]).includes(t)
 }
