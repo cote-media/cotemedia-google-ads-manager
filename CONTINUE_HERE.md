@@ -5,9 +5,16 @@
 - On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
 - Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
 
+=== LAUNCH RITUAL (start every session this way) ===
+1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
+2. In claude.ai: say  resume loramer
+3. Paste the SESSION RESUME output back into claude.ai.
+=== end launch ritual ===
+
 ## Session log (2026-06-08, MacBook Air) — CRON_SECRET ROTATED + VERIFIED
 
 ### Shipped / verified
+- Stripe billing Phase 0 complete (2026-06-08): account-model recon done (billing key = user_email; no agency table; user_profiles.tier exists but enforced nowhere; greenfield for Stripe). Entitlement matrix + 4 design decisions LOCKED. Stripe account decision: separate dedicated LoraMer account under russ@loramer.com, TEST mode first. Full spec in STRIPE_BILLING_PLAN.md.
 - MCP project-scope migration (LORAMER_MCP_PROJECT_SCOPE_V1, commit 8d3016c): supabase + vercel moved from local→project scope via committed .mcp.json, so both machines share it on git pull. Supabase write-enabled (read_only=false) → migrations run via MCP, not the SQL Editor. MacBook Air verified: supabase connected (20 tools = write set), vercel connected, launched from repo. Added `loramer` zsh alias on the Air (cd into repo && claude) so it always launches from the right folder. iMac one-time setup still pending — see block below.
 - CRON_SECRET ROTATED + VERIFIED. Recon confirmed ONE env var read by all bearer routes: `/api/cron/sync` + `/api/backfill/{google,meta,ga,probe,probe-ga}` + `/api/query-metrics`. They all use the same check (Authorization header, accepts `Bearer <token>` or raw, trim-tolerant, compared to `process.env.CRON_SECRET`). `/api/backfill/run` is NextAuth-session-authed (ownership-gated), NOT CRON_SECRET — unaffected by rotation.
 - Vercel-NATIVE cron (`vercel.json`: `/api/cron/sync` @ `0 8 * * *`) auto-injects `Authorization: Bearer $CRON_SECRET` from project env at run time. No external callers hold the secret (the only GitHub Action, db-backup.yml, uses SUPABASE_DB_URL + R2_* only; no cron-job.org/external pinger).
@@ -53,7 +60,7 @@
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
 ## NEXT STEP — Supabase backups DONE (off-site R2 + in-platform Pro). CRON_SECRET rotation DONE + VERIFIED. Supabase MCP project-scope migration DONE + VERIFIED on the MacBook Air (both machines share committed .mcp.json on git pull). In-our-control queue by effort:
-1. Stripe billing (long pole — pivoted Shopify-Managed-Pricing → Stripe; tiers, upgrade/downgrade, 20% annual).
+1. Stripe Phase 1 — BLOCKED until Russ creates the LoraMer Stripe account (russ@loramer.com, TEST mode) + grabs the test secret key (sk_test_...). Then: plan_entitlements table + solo->business tier migration, and the Stripe product/price creation script. Full spec + locked matrix + decisions in STRIPE_BILLING_PLAN.md.
 2. Dashboard quick-wins (spacing/tooltip reconcile).
 
 Passive external clocks (respond fast only if a reviewer emails): Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW (then App Review for ads_read → Publish). Lower priority: optional META_APP_SECRET rotation (not public; Reset in Meta dashboard → update Vercel → redeploy, existing connections survive).
