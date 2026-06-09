@@ -1,3 +1,13 @@
+⛔ READ-FIRST GATE — Before proposing ANY command, verifying anything, re-checking already-built or locked work, or rebuilding, a fresh Claude MUST: (1) read this entire file; (2) cat and read every file under "REQUIRED READING" below. NEVER infer state from memory or the knowledge panel. The git repo is the ONLY source of truth.
+
+## REQUIRED READING — ACTIVE WORKSTREAM
+Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
+
+Current workstream: **Stripe billing — Phase 1 (in progress)**
+- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build, open items.
+- `migrations/007_stripe_billing_foundation.sql` — `plan_entitlements` table + `solo`→`business` tier reconcile (APPLIED to live DB).
+- `scripts/stripe-sync-products.mjs` — idempotent Stripe product/price sync (`npm run stripe:sync`); writes price IDs back into `plan_entitlements`.
+
 # CONTINUE_HERE — LoraMer
 
 ## REMOTE CONTROL (work from phone)
@@ -9,6 +19,7 @@
 1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
 2. In claude.ai: say  resume loramer
 3. Paste the SESSION RESUME output back into claude.ai.
+4. cat every REQUIRED READING file and read it fully before acting.
 === end launch ritual ===
 
 ## Session log (2026-06-08, MacBook Air) — CRON_SECRET ROTATED + VERIFIED

@@ -1,3 +1,9 @@
+⛔ READ-FIRST GATE — Before proposing ANY command, verifying anything, re-checking already-built or locked work, or rebuilding, a fresh Claude MUST: (1) read this entire file; (2) cat and read every file under "REQUIRED READING" below. NEVER infer state from memory or the knowledge panel. The git repo is the ONLY source of truth.
+
+("REQUIRED READING — ACTIVE WORKSTREAM" is maintained in CONTINUE_HERE.md and lists the live task's authoritative files by exact path.)
+
+---
+
 # ⛔ STOP — MANDATORY READING GATE (every new chat, no exceptions)
 
 You are a fresh Claude picking up an active, multi-week, multi-hundred-commit build. The single worst failure mode here is starting work half-informed — it already happened once (a fresh Claude designed a feature from scratch without reading HISTORICAL_DATA_ENGINE_DESIGN.md because nothing forced it to). That cannot recur.
