@@ -12,14 +12,13 @@ Before proposing, verifying, re-checking, or building ANYTHING, in order:
 SESSION RESUME paste (this is what "resume loramer" outputs):
 SESSION RESUME — read-only, no edits.
 cd <repo-for-this-machine> && git pull origin main && git status && git log -1 --oneline
-cat CONTINUE_HERE.md, then cat in full every file listed under its "REQUIRED READING — ACTIVE WORKSTREAM" section. Write ALL of it to OUT.txt at repo root so Russ can open it from the phone Claude app CODE section and paste it back. Print actual file contents — do NOT summarize. Then wait.
+cat CONTINUE_HERE.md, then cat in full every file listed under its "REQUIRED READING — ACTIVE WORKSTREAM" section. Print ALL of it, actual file contents (do NOT summarize), inside ONE single fenced code block in the chat reply per the REPORT FORMAT rule below. Then wait.
 Receiving Claude: do not act until those actual contents are in the chat. A summary is not enough.
 
 HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" notes in this file):
 - Russ is a non-coder and never touches code. Claude Code runs locally on both machines with Supabase + Vercel MCP write access; it edits, commits, pushes, deploys, and runs migrations directly (Russ approves each). Russ is the human verification gate.
 - SINGLE-PASTE: anything Russ must paste to Claude Code is ONE copy-paste block — never split into prose + code + prose. The whole instruction, including verbatim text to insert (delimited by markers), goes in one block.
-- OUTPUT TO FILE: Claude Code puts EVERYTHING it wants Russ to see — command output, file contents, answers, AND any plain-text commentary, status, or summary — into ONE copy-pasteable file: OUT.txt at repo root (overwrite each time). Nothing of substance lives only in the Claude Code chat reply. Russ copies ONE file, once, from the phone Claude app CODE section, and pastes it back. Never split between a chat reply and the file; never make him scrape terminal scrollback.
-- PROTOCOL AMENDMENT (2026-06-09): Claude Code writes OUT.txt AND prints its full contents verbatim in the chat reply, so Russ can copy directly from the phone CODE tab without opening a file.
+- REPORT FORMAT (2026-06-09, supersedes all earlier OUT.txt wording): Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
 - Label EVERY paste destination "Claude Code" (never "Cursor"). Any runnable command — even one line — goes in its own copyable code block with the destination labeled above it. Secrets never go in chat.
 - Verification tiers: visual/className → tsc --noEmit + push + eyeball. logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting; keep a clean revert ready.
 - Right > fast. One workstream, one active paste at a time. Never the same mistake twice — log new ones in the lessons list.
@@ -147,7 +146,7 @@ When in doubt about whether a pattern has bitten us before, search this list. If
 
 ### Russ does not touch code — how changes are delivered
 
-Russ never edits files. Claude Code runs locally and makes every change directly — edits, commits, pushes, deploys, Supabase/Vercel MCP migrations — with Russ approving each. The old model (Python patch scripts / `sed` pastes into a Cursor terminal) is retired. See "HOW WE OPERATE NOW" in the SESSION START GATE at the top of this file: SINGLE-PASTE instructions, OUTPUT TO FILE (OUT.txt at repo root), label every paste "Claude Code," secrets never in chat. Never tell Russ "add this line to file Y on line Z."
+Russ never edits files. Claude Code runs locally and makes every change directly — edits, commits, pushes, deploys, Supabase/Vercel MCP migrations — with Russ approving each. The old model (Python patch scripts / `sed` pastes into a Cursor terminal) is retired. See "HOW WE OPERATE NOW" in the SESSION START GATE at the top of this file: SINGLE-PASTE instructions, REPORT FORMAT (one fenced code block in chat — OUT.txt retired), label every paste "Claude Code," secrets never in chat. Never tell Russ "add this line to file Y on line Z."
 
 ### Multi-machine sync ritual (LORAMER_HANDOFF_MULTI_MACHINE_SYNC_V1)
 

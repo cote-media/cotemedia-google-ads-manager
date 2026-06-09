@@ -10,11 +10,8 @@ Current workstream: **Stripe billing — Phase 3 (Checkout) NEXT; Phases 0-2 DON
 
 # CONTINUE_HERE — LoraMer
 
-## FILE DELIVERY — where pasteable commands & long output live (Russ copy-pastes; never inline)
-- EVERYTHING Claude Code wants Russ to see goes into ONE file: OUT.txt at repo root (overwrite each time) — full path `/Users/russcote2/Downloads/cotemedia-google-ads-manager/OUT.txt` (iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager/OUT.txt`). That means command output AND file contents AND answers AND any plain-text commentary/status/summary — all in the one file.
-- Nothing of substance lives only in the Claude Code chat reply. Russ opens OUT.txt from the phone Claude app CODE section and pastes the whole thing back — ONE copy, once.
-- Never split output between a chat reply and the file; never make Russ scrape terminal scrollback or copy two separate things.
-- PROTOCOL AMENDMENT (2026-06-09): Claude Code writes OUT.txt AND prints its full contents verbatim in the chat reply, so Russ can copy directly from the phone CODE tab without opening a file.
+## REPORT FORMAT — how Claude Code delivers everything to Russ (2026-06-09, supersedes all earlier OUT.txt wording)
+Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
 
 ## REMOTE CONTROL (work from phone)
 - In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
