@@ -14,6 +14,7 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 - EVERYTHING Claude Code wants Russ to see goes into ONE file: OUT.txt at repo root (overwrite each time) — full path `/Users/russcote2/Downloads/cotemedia-google-ads-manager/OUT.txt` (iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager/OUT.txt`). That means command output AND file contents AND answers AND any plain-text commentary/status/summary — all in the one file.
 - Nothing of substance lives only in the Claude Code chat reply. Russ opens OUT.txt from the phone Claude app CODE section and pastes the whole thing back — ONE copy, once.
 - Never split output between a chat reply and the file; never make Russ scrape terminal scrollback or copy two separate things.
+- PROTOCOL AMENDMENT (2026-06-09): Claude Code writes OUT.txt AND prints its full contents verbatim in the chat reply, so Russ can copy directly from the phone CODE tab without opening a file.
 
 ## REMOTE CONTROL (work from phone)
 - In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
@@ -26,6 +27,12 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 3. Paste the SESSION RESUME output back into claude.ai.
 4. cat every REQUIRED READING file and read it fully before acting.
 === end launch ritual ===
+
+## Session log (2026-06-09b) — Stripe Phase 1 COMPLETE (sync Node fix)
+- sk_test_ key set in .env.local; `npm run stripe:sync` ran. Stripe side: 3 TEST products + 6 prices (Business/Agency/Scale × monthly+annual) created, now idempotently REUSED on re-run.
+- BUG FIXED (LORAMER_STRIPE_SYNC_NODEFIX_V1): on Node 20, supabase-js 2.105 `createClient()` throws "Node.js 20 detected without native WebSocket support" — it eagerly builds a realtime client with no opt-out. Fix: dropped the @supabase/supabase-js import; write-back now does a direct authenticated PostgREST PATCH via fetch (no realtime layer, no ws dependency). Stripe logic untouched.
+- This MacBook Air's .env.local has PLACEHOLDER Supabase creds (placeholder.supabase.co, 23-char key), so the script's fetch write-back can't reach the real DB here. Completed the write-back via Supabase MCP instead: UPDATE plan_entitlements set the 6 price IDs. VERIFIED — business/agency/scale populated (price IDs match sync output), free/enterprise/beta_unlimited still null.
+- Phase 1 DONE: products/prices live in Stripe TEST; plan_entitlements carries price IDs; $0 moved.
 
 ## Session log (2026-06-09) — Protocol consolidation + Stripe account
 - Consolidated four overlapping start-protocols into ONE "SESSION START GATE" atop LORAMER_HANDOFF.md; purged stale Cursor / patch-script / dry-run workflow; IDE refs -> Claude Code. (LORAMER_HANDOFF_CONSOLIDATE_V1)
@@ -82,7 +89,7 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Stripe Phase 1: set the rotated sk_test_ key into .env.local (copy the key in Stripe, run the pbpaste one-liner; expect value length ~107), then `npm run stripe:sync` to create the TEST products/prices and write price IDs into plan_entitlements. REQUIRED READING (STRIPE_BILLING_PLAN.md, migration 007, scripts/stripe-sync-products.mjs) is current. Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
+## NEXT STEP — Stripe Phase 2 (Data + sync): create the `subscriptions` mirror table; create a Stripe customer on signup keyed to user_email; build the webhook endpoint (needs STRIPE_WEBHOOK_SECRET) for checkout.session.completed + customer.subscription.* + invoice.* → Supabase; verify with Stripe test events. Spec in STRIPE_BILLING_PLAN.md (Phase 2). Phase 1 is COMPLETE (TEST products/prices live; plan_entitlements carries price IDs — see 06-09b log). Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
 
 === iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
 .mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).

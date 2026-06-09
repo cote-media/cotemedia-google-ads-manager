@@ -17,7 +17,11 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+// LORAMER_STRIPE_SYNC_NODEFIX_V1: deliberately NOT importing @supabase/supabase-js.
+// On Node 20 its createClient() eagerly constructs a realtime client whose WebSocket
+// factory throws ("Node.js 20 detected without native WebSocket support"), and there is
+// no option to skip realtime. This script only does table writes, so writeBack() uses a
+// direct authenticated PostgREST PATCH (fetch) instead — no realtime layer, no ws dep.
 
 // Load .env.local into process.env (only keys not already set in the real env).
 function loadDotEnvLocal() {
@@ -119,13 +123,27 @@ async function writeBack(rows) {
     }
     return false
   }
-  const sb = createClient(url, svc)
+  // LORAMER_STRIPE_SYNC_NODEFIX_V1: PostgREST PATCH via fetch (service-role key) — see import note.
+  const base = url.replace(/\/+$/, '')
   for (const r of rows) {
-    const { error } = await sb
-      .from('plan_entitlements')
-      .update({ stripe_price_monthly: r.monthly, stripe_price_annual: r.annual, updated_at: new Date().toISOString() })
-      .eq('tier', r.tier)
-    if (error) throw new Error(`Supabase write-back failed for ${r.tier}: ${error.message}`)
+    const res = await fetch(`${base}/rest/v1/plan_entitlements?tier=eq.${encodeURIComponent(r.tier)}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: svc,
+        Authorization: `Bearer ${svc}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({
+        stripe_price_monthly: r.monthly,
+        stripe_price_annual: r.annual,
+        updated_at: new Date().toISOString(),
+      }),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`Supabase write-back failed for ${r.tier}: HTTP ${res.status} ${detail}`)
+    }
   }
   return true
 }
