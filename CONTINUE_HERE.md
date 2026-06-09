@@ -1,4 +1,4 @@
-⛔ READ-FIRST GATE — Before proposing ANY command, verifying anything, re-checking already-built or locked work, or rebuilding, a fresh Claude MUST: (1) read this entire file; (2) cat and read every file under "REQUIRED READING" below. NEVER infer state from memory or the knowledge panel. The git repo is the ONLY source of truth.
+⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
 
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.

@@ -1,35 +1,27 @@
-⛔ READ-FIRST GATE — Before proposing ANY command, verifying anything, re-checking already-built or locked work, or rebuilding, a fresh Claude MUST: (1) read this entire file; (2) cat and read every file under "REQUIRED READING" below. NEVER infer state from memory or the knowledge panel. The git repo is the ONLY source of truth.
+# ⛔ SESSION START GATE — the one authoritative protocol (supersedes every other start/first-reply section in this file)
 
-("REQUIRED READING — ACTIVE WORKSTREAM" is maintained in CONTINUE_HERE.md and lists the live task's authoritative files by exact path.)
+A fresh Claude knows NOTHING current until it reads the live repo. Background memory AND the mounted project panel both lag and are NEVER authoritative. The git repo is the only source of truth.
 
----
+Before proposing, verifying, re-checking, or building ANYTHING, in order:
+1. Output the SESSION RESUME paste (below) for Claude Code; WAIT for the result.
+2. Read the ACTUAL printed contents of CONTINUE_HERE.md and EVERY file under its "REQUIRED READING — ACTIVE WORKSTREAM" section, in full, in the chat. A hand-typed summary is NOT enough — if you only have a summary, demand the real printed output before doing anything else.
+3. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–38.
+4. State the single confirmed NEXT STEP from CONTINUE_HERE; WAIT for Russ's explicit "go" before any command, edit, or verification.
+5. Never re-verify or rebuild work CONTINUE_HERE marks done/locked. Never infer state.
 
-# ⛔ STOP — MANDATORY READING GATE (every new chat, no exceptions)
+SESSION RESUME paste (this is what "resume loramer" outputs):
+SESSION RESUME — read-only, no edits.
+cd <repo-for-this-machine> && git pull origin main && git status && git log -1 --oneline
+cat CONTINUE_HERE.md, then cat in full every file listed under its "REQUIRED READING — ACTIVE WORKSTREAM" section. Write ALL of it to OUT.txt at repo root so Russ can open it from the phone Claude app CODE section and paste it back. Print actual file contents — do NOT summarize. Then wait.
+Receiving Claude: do not act until those actual contents are in the chat. A summary is not enough.
 
-You are a fresh Claude picking up an active, multi-week, multi-hundred-commit build. The single worst failure mode here is starting work half-informed — it already happened once (a fresh Claude designed a feature from scratch without reading HISTORICAL_DATA_ENGINE_DESIGN.md because nothing forced it to). That cannot recur.
-
-Before you read the rest of this document, before you open CONTINUE_HERE.md, and before your first reply says anything beyond "confirming, reading now," you must complete EVERY step below, IN ORDER. You do not have direct access to the repo, git, or past chats by default — but you have tools that do. Use them. "I can't read that" is unacceptable when a tool exists that can.
-
-## Step 1 — Read EVERY mounted project document, in full.
-Not just this file. Open and read end-to-end every file in the project panel: LORAMER_HANDOFF.md (this file), ROADMAP.md, CONTINUE_HERE.md, and every design/audit/feature doc present (HISTORICAL_DATA_ENGINE_DESIGN.md, UPLOAD_FEATURE_DESIGN.md, AUDIT_FINDINGS.md, and any others). The snapshot lags the live repo — so Step 2 is also required. (The panel is a frozen snapshot that routinely lags the repo — read it as background only and NEVER remark on its dates or call it stale; git pull is the source of truth. See "The mounted project panel is background only" under Session Start / Handoff Protocol.)
-
-## Step 2 — Sweep the project knowledge base with project_knowledge_search.
-Run it broadly and repeatedly: the current topic, plus "design," "architecture," "audit," every platform name, every feature name. The most relevant document is often one you didn't know existed. Do NOT conclude a doc doesn't exist until several distinct searches come back empty.
-
-## Step 3 — Read the relevant codebase + git via Claude Code (mandatory before ANY code work).
-claude.ai cannot read the local repo or git. So before you design or write a single line, have Russ run a Claude Code "INVESTIGATE ONLY — report, don't edit" sweep in the Cursor Agents window covering: the files the task touches, recent git log, and related modules — and report back. Designing from assumptions about code you haven't seen is forbidden. This is not optional for anything beyond a trivial change.
-
-## Step 4 — Read the prior chat history.
-Use conversation_search and recent_chats (scoped to this project) to pull the most recent sessions and anything matching the current task. Read what the previous Claude actually built, decided, and warned about. Continuity lives there, not in your assumptions.
-
-## Step 5 — ONLY NOW open CONTINUE_HERE.md, then give your first reply.
-CONTINUE_HERE assumes Steps 1–4 are done. Your first reply must:
-- Confirm you completed the full reading gate (name the key docs and the last session's state).
-- Show you hold the brand mission (deep accumulated knowledge → force-multiplier recommendations; "right > fast"; "think hard, type less").
-- Show you hold the discipline rules (no same mistake twice; dry-runs sacred; complete paste-ready commands with the destination labeled every time; Russ does not touch code).
-- Ask Russ what he wants to work on.
-
-Do not skip a step. Do not start coding before Step 5. If you're tempted to shortcut this because the task "seems simple," that temptation is exactly the failure mode this gate exists to stop.
+HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" notes in this file):
+- Russ is a non-coder and never touches code. Claude Code runs locally on both machines with Supabase + Vercel MCP write access; it edits, commits, pushes, deploys, and runs migrations directly (Russ approves each). Russ is the human verification gate.
+- SINGLE-PASTE: anything Russ must paste to Claude Code is ONE copy-paste block — never split into prose + code + prose. The whole instruction, including verbatim text to insert (delimited by markers), goes in one block.
+- OUTPUT TO FILE: Claude Code writes ALL outputs / long results to OUT.txt at repo root — a copy-pasteable file Russ opens from the phone Claude app CODE section and pastes back. Never make him scrape terminal scrollback.
+- Label EVERY paste destination "Claude Code" (never "Cursor"). Any runnable command — even one line — goes in its own copyable code block with the destination labeled above it. Secrets never go in chat.
+- Verification tiers: visual/className → tsc --noEmit + push + eyeball. logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting; keep a clean revert ready.
+- Right > fast. One workstream, one active paste at a time. Never the same mistake twice — log new ones in the lessons list.
 
 ---
 
@@ -41,7 +33,7 @@ You (Claude) are now working with Russell Côté on LoraMer, a business intellig
 
 ## Who you're working with
 
-**Russell Côté.** Founder/operator of Cote Media (a marketing agency since 2011) and the sole non-developer building LoraMer. He uses Cursor as his IDE. He does NOT touch code directly — he copies your terminal commands and pastes them. He copy-pastes Python patch scripts you generate, runs them in terminal. He's a strong product thinker, has been in agency work since 2011, and is the one calling the shots on what LoraMer becomes.
+**Russell Côté.** Founder/operator of Cote Media (a marketing agency since 2011) and the sole non-developer building LoraMer. He does NOT write or edit code. Claude Code runs locally on his machine and makes changes directly — edits, commits, pushes, deploys, migrations — with Russ approving each step; he is the product owner and the human verification gate (see the SESSION START GATE at the top of this file for how we operate). He's a strong product thinker, has been in agency work since 2011, and is the one calling the shots on what LoraMer becomes.
 
 He hates one thing more than anything else: **doing things twice.** If you ship broken code, if you have to revert, if you cause a regression — every wasted minute is on you. He'll tell you directly if you're making mistakes. He's right when he does.
 
@@ -137,7 +129,7 @@ The Claude instance in claude.ai (web/desktop/mobile) CANNOT read Russ's local c
 What this means in practice:
 - For end-to-end audits or reading any non-trivial file fully, ask Russ for the whole file in ONE paste rather than asking for 5 sed slices in 5 turns. The single big paste is faster and avoids ambiguity from partial views.
 - Anchors for patches need to come from CURRENT file state (paste this turn), not memory from earlier turns. Russ's local edits or auto-format on save can have changed bytes you assume are stable.
-- Claude Code (terminal product) DOES read the local codebase directly. It's the right tool for codebase-wide refactors, multi-file audits, and migration work. Russ is on Cursor by choice because he doesn't write code — but Claude Code is available if a future thread genuinely needs whole-codebase awareness. Don't pretend Claude.ai has that access when it doesn't.
+- Claude Code (terminal product) DOES read the local codebase directly, and it is now the primary way LoraMer is built — codebase-wide refactors, multi-file audits, migrations, commits, and deploys all run through it. (This "Claude.ai vs Claude Code" section is retained for the case where a thread runs in claude.ai without Claude Code: don't pretend claude.ai has local-repo access when it doesn't.)
 - When you need a fact about the codebase, the fastest accurate path is one targeted `cat`/`grep`/`sed` from Russ, not guessing.
 
 ### Communication discipline — think hard, type less (LORAMER_HANDOFF_EOD_2026_05_28_V1 reaffirms LORAMER_HANDOFF_TYPE_LESS_V1)
@@ -152,15 +144,9 @@ The internal thinking budget is unlimited. The output to Russ is rationed. Take 
 
 When in doubt about whether a pattern has bitten us before, search this list. If you make a new mistake not in this list, ADD IT before ending the session.
 
-### Russ does not touch code — delivery formats
+### Russ does not touch code — how changes are delivered
 
-Russ uses Cursor as his IDE but never edits files directly. Every change is delivered as:
-
-- **A Python patch script** he downloads to `~/Downloads/` and runs via `python3 ~/Downloads/patch_X.py`
-- **A `sed` command** he pastes into the Cursor terminal
-- **A single-line `cat`/`grep`/git command** he pastes into the terminal
-
-Never tell Russ "add this line to file Y on line Z." Always deliver an executable command. Always use absolute paths starting with `~/Downloads/cotemedia-google-ads-manager/...`.
+Russ never edits files. Claude Code runs locally and makes every change directly — edits, commits, pushes, deploys, Supabase/Vercel MCP migrations — with Russ approving each. The old model (Python patch scripts / `sed` pastes into a Cursor terminal) is retired. See "HOW WE OPERATE NOW" in the SESSION START GATE at the top of this file: SINGLE-PASTE instructions, OUTPUT TO FILE (OUT.txt at repo root), label every paste "Claude Code," secrets never in chat. Never tell Russ "add this line to file Y on line Z."
 
 ### Multi-machine sync ritual (LORAMER_HANDOFF_MULTI_MACHINE_SYNC_V1)
 
@@ -203,27 +189,9 @@ If a `git push` is rejected and `git pull --rebase` produces conflicts because l
 
 The May 29 incident is the canonical example. The iMac had two local-only commits: a duplicate of a chat-route change already shipped from the laptop, AND today's genuine scroll-fix commit. Reset to origin + cherry-pick only the scroll commit. Clean push, no conflict resolution needed.
 
-### Every patch script MUST include
+### How changes get verified before they're "done"
 
-1. **`--dry-run` mode** that checks anchors WITHOUT modifying anything. If any anchor fails, Russ sees ✗ and pastes the output back, and we fix the patch BEFORE running it for real.
-
-2. **Per-edit content-based idempotency.** Re-running the patch must be safe. If applied → "Already applied, no changes." If partial state detected → FATAL with which edits succeeded.
-
-3. **Anchor verification against current file.** Before sending ANY patch to Russ, the anchors must come from the CURRENT state of his file as he just pasted. Never assume your context's file copy matches what's on disk.
-
-4. **Chained build verification when possible:**
-
-```
-python3 ~/Downloads/patch_X.py && cd ~/Downloads/cotemedia-google-ads-manager && npm run build 2>&1 | tail -10 && git add <files> && git commit -m "..." && git push
-```
-
-The `&&` chain means: if any step fails, nothing downstream runs. The local `npm run build` step catches typos before they hit production. If build fails, nothing is committed and nothing is pushed.
-
-EXCEPTION: when Russ is on the laptop and doesn't have `.env.local`, the local build will fail because Supabase env vars are missing. In that case, skip local build for trivial one-line edits (sed-style) and let Vercel be the build check. Only do this when the edit is so simple (single line, no syntax change) that build failure is essentially impossible.
-
-5. **100% green Vercel deployments.** Every git push should result in a successful Vercel deploy. If we know a push will fail Vercel's build, we don't push. The local `npm run build` step is how we know.
-
-6. **Docs move with code, in the same `&&` chain.** Every patch that ships a feature or fixes a bug ALSO flips its own ROADMAP.md checkbox and/or moves its own LAUNCH_PARKING.md item, in the SAME commit. Done is not done until the doc reflects it. This is how the docs stay current instead of drifting -- the drift only ever happened because doc updates were a separate step that got skipped under pressure. (LORAMER_HANDOFF_DOCS_WITH_CODE_V1)
+Claude Code edits and runs the build directly; there are no patch scripts to dry-run anymore. Verification follows the tiers in the SESSION START GATE: visual/className → `tsc --noEmit` + push + eyeball; logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting, clean revert ready. Two standing rules survive from the old patch-script era: 100% green Vercel deploys (every push builds clean — `npm run build` locally is the gate, with `.env.local`), and **docs move with code** (every feature/bugfix flips its own ROADMAP.md checkbox / moves its LAUNCH_PARKING.md item in the SAME commit — done is not done until the doc reflects it; LORAMER_HANDOFF_DOCS_WITH_CODE_V1).
 
 ### Dry run is sacred
 
@@ -331,7 +299,7 @@ Two things are NOT product features — they are binding commitments. If a produ
   - `claude-haiku-4-5-20251001` for insight banner (50-word max)
   - `claude-sonnet-4-6` for chat (16,000 max_tokens for long briefings)
 - **Hosting:** Vercel (auto-deploys from GitHub `main` branch pushes)
-- **IDE:** Cursor
+- **Dev tool:** Claude Code (runs locally on both machines; edits/commits/pushes/deploys + Supabase/Vercel MCP directly)
 - **Repo:** `cote-media/cotemedia-google-ads-manager` on GitHub
 
 ### Russ's machines
@@ -497,19 +465,9 @@ When the next chat starts: the fresh Claude should read THIS document, then ROAD
 
 ---
 
-## What to do in the first message of a new chat
+## First reply of a new chat
 
-When Russ messages you in a new conversation, your first reply should:
-
-1. Confirm you've read this handoff and ROADMAP.md
-2. Demonstrate awareness of the brand mission (deep knowledge, force multipliers, best-in-class BI)
-3. Demonstrate awareness of the discipline rules (no same mistake twice, right > fast, dry-run sacred)
-4. Reference where the previous session left off (read the "Current state" section)
-5. Ask Russ what he wants to work on today
-
-Don't be effusive. Don't apologize for previous Claudes' mistakes. Don't promise "this time will be different" — show it by being careful from message one.
-
-Welcome to LoraMer. The promise is that this is the best business intelligence tool ever built. Don't fuck it up.
+Consolidated into the **SESSION START GATE** at the top of this file — there is no separate first-reply checklist. (LoraMer's promise: the best business intelligence tool ever built. Be careful from message one.)
 
 **26. RightPanel (star panel) renders TWO message containers (LORAMER_ALLSURFACE_SCROLL_V1, June 4, 2026).** A desktop panel (`hidden md:flex`, right side) and a mobile bottom sheet (`flex md:hidden`, `top-[25%]`) both render the same `messages` and are BOTH in the DOM at once - CSS toggles visibility, not conditional render. They share identical container classNames (`flex-1 overflow-y-auto px-4 py-4 space-y-3`), so any anchor on that line matches twice - assign by document order (desktop first). Mobile historically had NO scroll end-marker or effect. Claude surfaces that must open scrolled to bottom: ChatTab (fixed May 29), RightPanel desktop + mobile, InsightChat (`it-` container) - all now share one useLayoutEffect instant-on-mount / smooth-on-new-message pattern. General rule: page.tsx has desktop/mobile twin render blocks - audit BOTH when touching either.
 
@@ -602,49 +560,17 @@ NOTE: the Meta conversion caveat shipped as V1 then was strengthened to LORAMER_
 
 ---
 
-## Session Start / Handoff Protocol
+## Session Start / Handoff Protocol — MOVED
 
-*(Authoritative. Supersedes the older "first reply" notes elsewhere in this file. Every new chat that resumes LoraMer work follows this BEFORE writing any code. Added because a fresh Claude kept landing on a stale picture of the project and proposing the wrong next task.)*
-
-**Why this exists.** A new Claude's background memory lags a day or more behind reality, and the project-library copies of these docs only refresh when Russ re-syncs GitHub. Past-conversation search helps but returns partial snippets, not exact state. The only source that is current and unambiguous about what is actually committed is the repo on Russ's machine. So every resume reconciles against the repo before acting.
-
-**Steps for the receiving Claude:**
-
-1. Read this file, then `ROADMAP.md`, then `CONTINUE_HERE.md`.
-2. Search recent project conversations (the last one or two sessions) for narrative context on what was just done. Both the panel docs and chat history routinely lag the repo — reconcile against the live repo silently (see "The mounted project panel" note below); never remark on their age.
-3. Before naming any next task, hand Russ ONE copy-button command for the Cursor terminal that: pulls latest from `main`, prints the recent commit log, prints the live `CONTINUE_HERE.md` date, and checks whether the key files for the supposed next task already exist. Wait for him to paste the output back.
-4. Reconcile the repo output against the docs and memory. State the single confirmed next task. **WAIT for Russ's explicit "yes" before writing any code.**
-5. After his yes, proceed one step at a time with copy-button commands. **Label where every paste goes** (Cursor terminal / Supabase SQL editor / Vercel dashboard). Never make Russ touch code directly.
-
-**Canonical ground-truth command** (use the path for the machine Russ names; replace the final `ls` targets with the files relevant to the next task):
-
-- MacBook Air: `/Users/russcote2/Downloads/cotemedia-google-ads-manager`
-- iMac: `/Users/russellcote/Downloads/cotemedia-ads-manager`
-
-```
-cd <repo-path> && git pull origin main && echo "===== LAST 15 COMMITS =====" && git log --oneline -15 && echo "===== CONTINUE_HERE DATE =====" && head -3 CONTINUE_HERE.md && echo "===== KEY FILES =====" && ls -la <files-for-the-next-task>
-```
+The authoritative resume protocol is the **SESSION START GATE at the top of this file** (its SESSION RESUME paste replaces the old numbered steps + ground-truth command). The two standing directives below survive because they're not fully captured there:
 
 **Use Claude Code for deep-dive research.**
 <!-- LORAMER_CLAUDE_CODE_DEEP_DIVE_DIRECTIVE_V1 -->
-For anything where getting it exactly right depends on code you can't fully see — multi-file reads, whole-repo audits, tracing how a function is used, confirming a field or type, verifying an anchor against the real file — use **Claude Code in the Cursor Agents window** (investigate-only / report-don't-edit first). Claude.ai sees only the mounted snapshot (often stale) plus what Russ pastes; Claude Code reads the live local repo directly. Lighter tasks that don't hinge on unseen code can proceed directly.
+For anything where getting it exactly right depends on code you can't fully see — multi-file reads, whole-repo audits, tracing how a function is used, confirming a field or type, verifying against the real file — read the live repo directly (Claude Code runs locally, investigate-only first) rather than guessing from memory or the lagging project panel. Lighter tasks that don't hinge on unseen code can proceed directly.
 
-**The overriding rule:** whenever there is even a slim doubt that the next step is 100% correct and mistake-free, STOP and verify — paste the file, run a Claude Code investigation, or ask — before producing the step. Caution over speed, every time. (Reinforces "right > fast" and investigate-first.)
+**The overriding rule:** whenever there is even a slim doubt that the next step is 100% correct and mistake-free, STOP and verify — read the file, investigate, or ask — before producing the step. Caution over speed, every time. (Reinforces "right > fast" and investigate-first.)
 
-**Always-on rules:** right > fast; dry-runs sacred; complete files or labeled pastes; never the same mistake twice; never make Russ touch code directly.
-
-### The mounted project panel is background only — never narrate staleness
-
-The files in the project panel (/mnt/project/...) are a frozen snapshot that
-ROUTINELY lags the repo by days, even right after a GitHub re-sync. This is
-normal and expected — NOT a problem, NOT a finding, NOT worth a sentence. Do not
-announce that docs are "stale," do not remark on their dates, do not treat their
-age as alarming. Read them quietly as light background, if at all.
-
-The single source of truth for current state is the live repo: the git pull
-output and commit log from the canonical ground-truth command above. Reconcile
-against that SILENTLY and proceed. The panel and your background memory are both
-expected to lag; git pull is what is real.
+**Panel + memory are background only:** the mounted project panel and your background memory routinely lag the repo by days; that's normal — never remark on their dates or call them "stale." The live repo (git pull output + commit log) is the only source of truth. Reconcile silently and proceed.
 
 
 ---
