@@ -3,10 +3,10 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
-Current workstream: **Stripe billing — Phase 1 (in progress)**
-- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build, open items.
-- `migrations/007_stripe_billing_foundation.sql` — `plan_entitlements` table + `solo`→`business` tier reconcile (APPLIED to live DB).
-- `scripts/stripe-sync-products.mjs` — idempotent Stripe product/price sync (`npm run stripe:sync`); writes price IDs back into `plan_entitlements`.
+Current workstream: **Stripe billing — Phase 3 (Checkout) NEXT; Phases 0-2 DONE**
+- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build (Phase 2 marked DONE + locked answers), open items.
+- `migrations/007_stripe_billing_foundation.sql` — `plan_entitlements` (price IDs populated). `migrations/008_stripe_billing_phase2.sql` — subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id (APPLIED).
+- `src/app/api/stripe/webhook/route.ts` — the sync engine (signature/dedupe/livemode/tier-write). `src/lib/billing/{ensure-customer,tier-from-price}.ts` + `src/lib/stripe.ts`. `scripts/stripe-sync-products.mjs` — idempotent product/price sync.
 
 # CONTINUE_HERE — LoraMer
 
@@ -27,6 +27,16 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 3. Paste the SESSION RESUME output back into claude.ai.
 4. cat every REQUIRED READING file and read it fully before acting.
 === end launch ritual ===
+
+## Session log (2026-06-09c) — Stripe Phase 2 COMPLETE (data + webhook sync, verified end-to-end)
+- Migration 008 applied (subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id UNIQUE). Verified via MCP. (LORAMER_STRIPE_PHASE2_MIGRATION_V1)
+- src/lib/stripe.ts (lazy getStripe singleton + stripeLivemode) + src/lib/billing/tier-from-price.ts. (LORAMER_STRIPE_PHASE2_LIB_V1)
+- ensureStripeCustomer wired into /api/welcome (best-effort, never throws, skips @loramer.app). Idempotency proven against Stripe TEST (created->reused, 1 customer). (LORAMER_STRIPE_PHASE2_CUSTOMER_V1)
+- Webhook POST /api/stripe/webhook (Node runtime): constructEvent signature verify, stripe_events PK dedupe (release+500 on handler error so Stripe retries), event.livemode mode-gate, out-of-order guard, manual-tier guard (beta_unlimited/enterprise sticky), past_due=grace. period read from subscription ITEM (SDK v22 moved current_period_end off Subscription). (LORAMER_STRIPE_PHASE2_WEBHOOK_V1)
+- ENV: STRIPE_SECRET_KEY pushed to Vercel Prod from local via piped stdin (value never in chat; Vercel masks all values on `env pull`, so verified functionally not by length). STRIPE_WEBHOOK_SECRET added by Russ in Vercel after registering the TEST endpoint (we_1TgXCr...) at https://app.loramer.com/api/stripe/webhook.
+- GOTCHA logged: `vercel redeploy <branch-alias>` rebuilds the SOURCE of the deployment the alias points at (was the older Step-3 commit) -> 404 on the new route. Fix: `vercel --prod` deploys the CURRENT tree. Also: Stripe CLI installed via direct x86_64 binary to ~/.local/bin (this Air is INTEL x86_64, NOT arm64; no Homebrew present); `stripe subscriptions cancel` is interactive -> needs `--confirm`; `stripe events resend` needs `--webhook-endpoint we_...`.
+- VERIFIED end-to-end on prod (TEST): bad-sig->400; subscription created->user_profiles.tier business + stripe_customer_id backfilled; cancel_at_period_end->still business (grace); canceled->free; resend same event->dedup no-op (one row per event id); checkout.session.completed received/verified/acked. All test data cleaned up (subscriptions/stripe_events/test profile = 0; Stripe test customer deleted).
+- NOTE: this MacBook Air .env.local has PLACEHOLDER Supabase creds (so the local Stripe key works but DB writes must go through Vercel/MCP). Production has the real creds.
 
 ## Session log (2026-06-09b) — Stripe Phase 1 COMPLETE (sync Node fix)
 - sk_test_ key set in .env.local; `npm run stripe:sync` ran. Stripe side: 3 TEST products + 6 prices (Business/Agency/Scale × monthly+annual) created, now idempotently REUSED on re-run.
@@ -89,7 +99,7 @@ Current workstream: **Stripe billing — Phase 1 (in progress)**
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Stripe Phase 2 (Data + sync): create the `subscriptions` mirror table; create a Stripe customer on signup keyed to user_email; build the webhook endpoint (needs STRIPE_WEBHOOK_SECRET) for checkout.session.completed + customer.subscription.* + invoice.* → Supabase; verify with Stripe test events. Spec in STRIPE_BILLING_PLAN.md (Phase 2). Phase 1 is COMPLETE (TEST products/prices live; plan_entitlements carries price IDs — see 06-09b log). Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
+## NEXT STEP — Stripe Phase 3 (Checkout): add Upgrade buttons -> server route that creates a Stripe Checkout session (mode=subscription, the tier's price from plan_entitlements, client_reference_id=user_email so the webhook resolves the user, success/cancel URLs) -> user completes hosted Checkout -> existing webhook (already live + proven) flips user_profiles.tier. Then preview/prod click-test a real upgrade. Spec in STRIPE_BILLING_PLAN.md (Phase 3). Phases 0-2 COMPLETE & verified (see 06-09c). The webhook is LIVE in prod (TEST mode) — a real subscription-mode checkout will exercise the checkout.session.completed subscription branch for real. Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
 
 === iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
 .mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).

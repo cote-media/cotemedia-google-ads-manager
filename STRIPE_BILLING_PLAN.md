@@ -43,7 +43,8 @@ tier (PK), display_name, workspace_cap int (null=unlimited), questions_per_month
   (Claude Code) Migration: create+seed plan_entitlements; reconcile tier (migrate solo->business, update user_profiles.tier CHECK to canonical set). Committed migration file (prior ad-hoc tables had none).
   (Claude Code) Idempotent script: create Stripe products Business/Agency/Scale each with monthly+annual price (annual=20% off), TEST mode; write price IDs back into plan_entitlements. Re-runnable for live.
   Done-when: plan_entitlements seeded w/ price IDs; products live in Stripe test; key in env; $0 moved.
-- Phase 2 Data+sync: subscriptions mirror table; create Stripe customer on signup keyed to user_email; webhook endpoint (needs STRIPE_WEBHOOK_SECRET) for checkout.session.completed + customer.subscription.* + invoice.* -> Supabase. Verify with Stripe test events.
+- Phase 2 Data+sync — DONE 2026-06-09 (TEST mode, verified end-to-end). Migration 008 (subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id). ensureStripeCustomer wired into /api/welcome (best-effort, never throws, skips @loramer.app synthetic accounts). Webhook POST /api/stripe/webhook (signature-verified, livemode-gated, event-id dedupe, out-of-order guard) handles checkout.session.completed + customer.subscription.created/updated/deleted -> upserts subscriptions + writes user_profiles.tier. STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in Vercel Production; endpoint registered (we_1TgXCr...). Verified: bad-sig->400; created->business; cancel_at_period_end->still business (grace); canceled->free; resend dedup no-op; checkout.session.completed received/acked. invoice.* intentionally NOT handled in Phase 2 (entitlement rides on subscription.* status; dunning deferred).
+  - LOCKED answers (this build): customer hook = /api/welcome (best-effort). Manual-tier guard = webhook NEVER overrides beta_unlimited/enterprise. past_due = entitled (grace). No trial configured; trialing = entitled. TEST/LIVE kept separate via event.livemode gate + a livemode column (one mode active per environment).
 - Phase 3 Checkout: Upgrade buttons -> server-created Checkout session -> success/cancel -> user lands on paid tier. Preview-test.
 - Phase 4 Customer Portal: enable in Stripe (Settings > Billing > Customer portal, allow plan switching); "Manage billing" -> portal session.
 - Phase 5 Gating: enforce matrix (workspace cap at client-creation; monthly question counter; history-window date filter; feature flags) + upgrade prompts.
@@ -53,6 +54,6 @@ tier (PK), display_name, workspace_cap int (null=unlimited), questions_per_month
 Founding cohort = beta_unlimited bypasses gating, so July 14 needs only the MONEY PATH (Phases 1-3ish), not full enforcement. Heavy enforcement (Phase 5) can be pre-public-launch (Q4).
 
 ## Open items to confirm next session
-- Annual price rounding: proposed Business $758 / Agency $1910 / Scale $9590 (monthly x12 x0.8, rounded). Confirm or give marketing-rounded.
-- Free trial? (14-day on paid tiers vs Free tier = the trial). Undecided.
-- Landing copy fix: Enterprise card still says "Contract billing outside Shopify" (stale); reconcile "Business" label vs DB key.
+- Annual price rounding: SHIPPED marketing-rounded in Phase 1 — Business $750 / Agency $1900 / Scale $9500 (Stripe TEST prices live). (Superseded the $758/$1910/$9590 proposal.)
+- Free trial? DECIDED for now: NO trial configured (Free tier IS the trial). Webhook already treats `trialing` as entitled, so adding a trial later is config-only, no code change.
+- Landing copy fix: Enterprise card still says "Contract billing outside Shopify" (stale); reconcile "Business" label vs DB key. (Still open.)
