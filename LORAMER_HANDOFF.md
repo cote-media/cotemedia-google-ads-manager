@@ -5,7 +5,7 @@ A fresh Claude knows NOTHING current until it reads the live repo. Background me
 Before proposing, verifying, re-checking, or building ANYTHING, in order:
 1. Output the SESSION RESUME paste (below) for Claude Code; WAIT for the result.
 2. Read the ACTUAL printed contents of CONTINUE_HERE.md and EVERY file under its "REQUIRED READING — ACTIVE WORKSTREAM" section, in full, in the chat. A hand-typed summary is NOT enough — if you only have a summary, demand the real printed output before doing anything else.
-3. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–38.
+3. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–40.
 4. State the single confirmed NEXT STEP from CONTINUE_HERE; WAIT for Russ's explicit "go" before any command, edit, or verification.
 5. Never re-verify or rebuild work CONTINUE_HERE marks done/locked. Never infer state.
 
@@ -17,7 +17,10 @@ Receiving Claude: do not act until those actual contents are in the chat. A summ
 
 HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" notes in this file):
 - Russ is a non-coder and never touches code. Claude Code runs locally on both machines with Supabase + Vercel MCP write access; it edits, commits, pushes, deploys, and runs migrations directly (Russ approves each). Russ is the human verification gate.
+- READ-FIRST: act only on what you've actually read THIS session — the printed CONTINUE_HERE + REQUIRED READING + the live code. Never act on background memory, the Claude project-knowledge panel, an old handoff zip, or a hand-typed summary; if you only have a summary, demand the real printed output first.
 - SINGLE-PASTE: anything Russ must paste to Claude Code is ONE copy-paste block — never split into prose + code + prose. The whole instruction, including verbatim text to insert (delimited by markers), goes in one block.
+- NO-BUNDLING: never combine a procedural/rule change with substantive build work in one move, and never start new work or add scope while Russ has an unanswered approval request on the table. One thing at a time; finish it or get the answer first.
+- DEFINITION OF DONE includes: any DB write that must touch a row UPSERTs (or checks the affected-row count and logs loudly on 0) — Lesson 39; and no internal flag/enum/status/tier key is ever rendered to a user without a human-readable label — Lesson 40.
 - REPORT FORMAT (2026-06-09, supersedes all earlier OUT.txt wording): Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
 - Label EVERY paste destination "Claude Code" (never "Cursor"). Any runnable command — even one line — goes in its own copyable code block with the destination labeled above it. Secrets never go in chat.
 - Verification tiers: visual/className → tsc --noEmit + push + eyeball. logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting; keep a clean revert ready.

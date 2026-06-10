@@ -1,12 +1,17 @@
 ⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
 
+**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
+**AUTHORITY:** The git repo is the ONLY source of truth. The Claude project-knowledge panel, background memory, and any old handoff zip/export are NOT authoritative — they lag. Act only on the live repo read THIS session (this file + REQUIRED READING + the actual code).
+
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
 Current workstream: **Stripe billing — Phase 4 (Customer Portal) NEXT; Phases 0-3 DONE**
-- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build (Phases 2 + 3 marked DONE + locked answers), open items.
-- `migrations/008_stripe_billing_phase2.sql` — subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id (APPLIED). `plan_entitlements` price IDs populated (migration 007).
-- `src/app/api/stripe/webhook/route.ts` — sync engine (signature/dedupe/livemode/UPSERT tier-write). `src/app/billing/page.tsx` + `src/app/api/billing/{route,checkout/route}.ts` — Checkout UI + routes. `src/lib/billing/{ensure-customer,tier-from-price,plans}.ts`, `src/lib/stripe.ts`, `src/lib/welcome-gate.ts`.
+- `STRIPE_BILLING_PLAN.md` — locked plan; read the **Phase 4 (Customer Portal)** section + the entitlement matrix and locked answers.
+- `src/app/billing/page.tsx` — the /billing UI (already has the "Manage billing (coming soon)" placeholder Phase 4 wires to a portal session).
+- `src/app/api/billing/*` (`route.ts` = GET current plan; `checkout/route.ts` = Checkout session) and `src/app/api/stripe/webhook/route.ts` — the Stripe→Supabase sync engine (signature/dedupe/livemode/UPSERT tier-write).
+- `src/lib/billing/*` (`plans.ts`, `ensure-customer.ts`, `tier-from-price.ts`) + `src/lib/stripe.ts` (Stripe singleton + `stripeLivemode`) + `src/lib/welcome-gate.ts`.
+- Schema reference: `migrations/008_stripe_billing_phase2.sql` (subscriptions + stripe_events + user_profiles.stripe_customer_id, APPLIED); `plan_entitlements` price IDs populated (migration 007).
 
 # CONTINUE_HERE — LoraMer
 
@@ -23,6 +28,7 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 2. In claude.ai: say  resume loramer
 3. Paste the SESSION RESUME output back into claude.ai.
 4. cat every REQUIRED READING file and read it fully before acting.
+5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
 ## Session log (2026-06-09d) — Stripe Phase 3 COMPLETE (Checkout) + 2 fixes, verified end-to-end
@@ -32,12 +38,14 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
   - FIX B (FIX_WELCOMEGATE_V1, 605293e): the welcome/profile-creation gate lived ONLY in /clients, so a sign-in landing on /dashboard skipped row creation entirely. Extracted to src/lib/welcome-gate.ts (enforceWelcomeGate) and mounted on /dashboard + /clients + /billing. Edge cases: /welcome ungated (no loop), API routes untouched, signed-out not bounced, DB error fails open.
 - Verified on prod (TEST): created->business; cancel_at_period_end->business (grace); canceled->free; welcome screen now appears on /dashboard + /billing for a profile-less user (Russ eyeballed both). GOTCHA: a plain `stripe events resend` can't prove a sync fix — the out-of-order guard skips it because a resent event keeps its ORIGINAL (older) created-timestamp; verify with a genuinely fresh event (e.g. a metadata touch) instead.
 - All test data cleaned up (subscriptions/stripe_events/profile = 0; Stripe test customer deleted). Lessons 39 (affected-row count / UPSERT-when-row-may-be-absent) + 40 (no internal keys to users) added. Roadmap: Google Pay in Stripe (Project 2); loramer.com->app signup handoff (Homepage unification); first-run guidance + /welcome copy truth pass (onboarding system).
+- Protocol/docs commits today: REPORT FORMAT rule = every report ONCE in ONE fenced code block in chat, no files, OUT.txt retired (LORAMER_REPORT_FORMAT_V1, 6202dad); Phase 3 DOCS — plan + log + Lessons 39/40 + roadmap (LORAMER_STRIPE_PHASE3_DOCS_V1, f0668fb); codebase map updated for the billing surface (LORAMER_CODEBASE_MAP_STRIPE_PHASE3_V1, 21768c6); roadmap path-chooser-continuity line folded into the onboarding item (LORAMER_ROADMAP_PATHCHOOSER_CONTINUITY_V1, d2320b1); this handoff hardening (LORAMER_HANDOFF_HARDEN_0609_V1).
+- SECOND cleanup (end of night): Russ's welcome re-test completed a real fresh-user upgrade — which PROVED both fixes on a cold user (welcome_seen_at got set = FIX B showed /welcome; tier=business landed on a brand-new customer/profile = FIX A upsert). Swept to zero again: canceled the sub, deleted the Stripe customer, wiped subscriptions/stripe_events/profile (re-verified stable at 0, no late-webhook straggler). Stripe TEST + DB are clean.
 
 ## Session log (2026-06-09c) — Stripe Phase 2 COMPLETE (data + webhook sync, verified end-to-end)
-- Migration 008 applied (subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id UNIQUE). Verified via MCP. (LORAMER_STRIPE_PHASE2_MIGRATION_V1)
-- src/lib/stripe.ts (lazy getStripe singleton + stripeLivemode) + src/lib/billing/tier-from-price.ts. (LORAMER_STRIPE_PHASE2_LIB_V1)
-- ensureStripeCustomer wired into /api/welcome (best-effort, never throws, skips @loramer.app). Idempotency proven against Stripe TEST (created->reused, 1 customer). (LORAMER_STRIPE_PHASE2_CUSTOMER_V1)
-- Webhook POST /api/stripe/webhook (Node runtime): constructEvent signature verify, stripe_events PK dedupe (release+500 on handler error so Stripe retries), event.livemode mode-gate, out-of-order guard, manual-tier guard (beta_unlimited/enterprise sticky), past_due=grace. period read from subscription ITEM (SDK v22 moved current_period_end off Subscription). (LORAMER_STRIPE_PHASE2_WEBHOOK_V1)
+- Migration 008 applied (subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id UNIQUE). Verified via MCP. (LORAMER_STRIPE_PHASE2_MIGRATION_V1, c97429f)
+- src/lib/stripe.ts (lazy getStripe singleton + stripeLivemode) + src/lib/billing/tier-from-price.ts. (LORAMER_STRIPE_PHASE2_LIB_V1, cfb08ae)
+- ensureStripeCustomer wired into /api/welcome (best-effort, never throws, skips @loramer.app). Idempotency proven against Stripe TEST (created->reused, 1 customer). (LORAMER_STRIPE_PHASE2_CUSTOMER_V1, eebb9e4)
+- Webhook POST /api/stripe/webhook (Node runtime): constructEvent signature verify, stripe_events PK dedupe (release+500 on handler error so Stripe retries), event.livemode mode-gate, out-of-order guard, manual-tier guard (beta_unlimited/enterprise sticky), past_due=grace. period read from subscription ITEM (SDK v22 moved current_period_end off Subscription). (LORAMER_STRIPE_PHASE2_WEBHOOK_V1, b5ceccf; Phase 2 docs e35ef34)
 - ENV: STRIPE_SECRET_KEY pushed to Vercel Prod from local via piped stdin (value never in chat; Vercel masks all values on `env pull`, so verified functionally not by length). STRIPE_WEBHOOK_SECRET added by Russ in Vercel after registering the TEST endpoint (we_1TgXCr...) at https://app.loramer.com/api/stripe/webhook.
 - GOTCHA logged: `vercel redeploy <branch-alias>` rebuilds the SOURCE of the deployment the alias points at (was the older Step-3 commit) -> 404 on the new route. Fix: `vercel --prod` deploys the CURRENT tree. Also: Stripe CLI installed via direct x86_64 binary to ~/.local/bin (this Air is INTEL x86_64, NOT arm64; no Homebrew present); `stripe subscriptions cancel` is interactive -> needs `--confirm`; `stripe events resend` needs `--webhook-endpoint we_...`.
 - VERIFIED end-to-end on prod (TEST): bad-sig->400; subscription created->user_profiles.tier business + stripe_customer_id backfilled; cancel_at_period_end->still business (grace); canceled->free; resend same event->dedup no-op (one row per event id); checkout.session.completed received/verified/acked. All test data cleaned up (subscriptions/stripe_events/test profile = 0; Stripe test customer deleted).
@@ -45,7 +53,7 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 ## Session log (2026-06-09b) — Stripe Phase 1 COMPLETE (sync Node fix)
 - sk_test_ key set in .env.local; `npm run stripe:sync` ran. Stripe side: 3 TEST products + 6 prices (Business/Agency/Scale × monthly+annual) created, now idempotently REUSED on re-run.
-- BUG FIXED (LORAMER_STRIPE_SYNC_NODEFIX_V1): on Node 20, supabase-js 2.105 `createClient()` throws "Node.js 20 detected without native WebSocket support" — it eagerly builds a realtime client with no opt-out. Fix: dropped the @supabase/supabase-js import; write-back now does a direct authenticated PostgREST PATCH via fetch (no realtime layer, no ws dependency). Stripe logic untouched.
+- BUG FIXED (LORAMER_STRIPE_SYNC_NODEFIX_V1, 04bc909): on Node 20, supabase-js 2.105 `createClient()` throws "Node.js 20 detected without native WebSocket support" — it eagerly builds a realtime client with no opt-out. Fix: dropped the @supabase/supabase-js import; write-back now does a direct authenticated PostgREST PATCH via fetch (no realtime layer, no ws dependency). Stripe logic untouched.
 - This MacBook Air's .env.local has PLACEHOLDER Supabase creds (placeholder.supabase.co, 23-char key), so the script's fetch write-back can't reach the real DB here. Completed the write-back via Supabase MCP instead: UPDATE plan_entitlements set the 6 price IDs. VERIFIED — business/agency/scale populated (price IDs match sync output), free/enterprise/beta_unlimited still null.
 - Phase 1 DONE: products/prices live in Stripe TEST; plan_entitlements carries price IDs; $0 moved.
 
