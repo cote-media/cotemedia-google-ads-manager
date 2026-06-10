@@ -2,6 +2,8 @@
 
 A fresh Claude knows NOTHING current until it reads the live repo. Background memory AND the mounted project panel both lag and are NEVER authoritative. The git repo is the only source of truth.
 
+**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
+
 Before proposing, verifying, re-checking, or building ANYTHING, in order:
 1. Output the SESSION RESUME paste (below) for Claude Code; WAIT for the result.
 2. Read the ACTUAL printed contents of CONTINUE_HERE.md and EVERY file under its "REQUIRED READING — ACTIVE WORKSTREAM" section, in full, in the chat. A hand-typed summary is NOT enough — if you only have a summary, demand the real printed output before doing anything else.
