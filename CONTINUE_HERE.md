@@ -6,7 +6,7 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
-Current workstream: **Stripe billing — Phases 0-4 DONE & VERIFIED. Phase 5 (Gating) is next per plan but NOT launch-blocking (cohort = beta_unlimited bypasses gating); launch-critical remainder is Phase 6 go-live. See NEXT STEP.**
+Current workstream: **External review clocks for July 14 launch — (a) Google Ads API Standard Access application (now UNBLOCKED: Google OAuth adwords scope APPROVED 2026-06-10), (b) Meta App Review for ads_read → flip app to Live. Stripe: Phases 0-4 DONE & VERIFIED; Phase 5 (Gating) deferred (cohort = beta_unlimited bypasses gating); Phase 6 go-live scheduled early July (bank/legal lead time). See NEXT STEP.**
 - `STRIPE_BILLING_PLAN.md` — locked plan; read the **Phase 4 (Customer Portal)** section + the entitlement matrix and locked answers.
 - `src/app/billing/page.tsx` — the /billing UI (already has the "Manage billing (coming soon)" placeholder Phase 4 wires to a portal session).
 - `src/app/api/billing/*` (`route.ts` = GET current plan; `checkout/route.ts` = Checkout session) and `src/app/api/stripe/webhook/route.ts` — the Stripe→Supabase sync engine (signature/dedupe/livemode/UPSERT tier-write).
@@ -30,6 +30,12 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 4. cat every REQUIRED READING file and read it fully before acting.
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
+
+## Session log (2026-06-10b) — Google OAuth adwords scope APPROVED (LORAMER_GOOGLE_OAUTH_APPROVED_V1)
+- Google OAuth verification for the **adwords** scope = **CLEARED 2026-06-10** (GCP project savvy-palace-495920-v2). The unverified-app warning is GONE. App published in Production; branding + sensitive-scope data access both approved. This was the ~2-6 week external clock opened 2026-06-06.
+- ⚠️ STANDING CAUTION (Google's approval email): ANY change to the OAuth consent screen config — app name, authorized domains, scopes, homepage/privacy/TOS URLs, logo — triggers **RE-verification** (back under review, warning can reappear). DO NOT touch the consent screen casually. This directly constrains the **homepage unification** work (loramer.com ↔ app.loramer.com): plan domain/URL changes deliberately, batch them, expect a re-review window, and never edit the consent screen mid-launch. (Also logged as Lesson 42.)
+- NEW ACTIVE WORKSTREAM = the two external review clocks for July 14 (see NEXT STEP): (a) Google Ads API **Standard Access** application — now UNBLOCKED by the OAuth approval; involves switching the API Center "permissible use" internal→external + applying; (b) Meta **App Review for ads_read** → then flip the Meta app to **Live** mode. Cohort can't connect Google/Meta at scale until these clear.
+- Stripe Phase 5 (Gating) DEFERRED — not launch-blocking (founding cohort = beta_unlimited bypasses gating). Phase 6 (go-live: account activation, TEST→LIVE keys, LIVE webhook, LIVE portal config) scheduled **early July** because Stripe account activation carries bank/legal lead time.
 
 ## Session log (2026-06-10) — Stripe Phase 4 (Customer Portal) COMPLETE & VERIFIED end-to-end
 - Phase 4 built + shipped (LORAMER_STRIPE_PHASE4_PORTAL_V1, commit 33fca5c). New POST /api/billing/portal (auth; 500 config_missing if STRIPE_PORTAL_CONFIG_ID unset; 403 manual_tier; requires a this-livemode active/trialing/past_due sub else 409 no_subscription; customer id from user_profiles w/ subscriptions backstop else 409 no_customer; billingPortal session w/ configuration=env + return_url=/billing). /billing hasActiveSub placeholder → real "Manage billing" button. webhook/schema UNCHANGED — portal switch/cancel ride the existing customer.subscription.updated/deleted handlers (manual-tier + out-of-order guards intact).
@@ -119,12 +125,15 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Stripe Phases 0-4 are COMPLETE & VERIFIED. Per STRIPE_BILLING_PLAN.md the remaining phases are:
-- **Phase 5 — Gating** (next in the phased build, but per the plan's "soft-launch sequencing" NOT required for July 14: the founding cohort is beta_unlimited which bypasses gating; heavy enforcement is OK to land pre-public-launch / Q4). Scope: enforce the entitlement matrix — workspace cap at client-creation, monthly question counter, history-window date filter, feature flags — plus upgrade prompts. All DB-driven off plan_entitlements.
-- **Phase 6 — Go live** (the launch-critical Stripe remainder, times with ~July 14): finish Stripe account activation (bank/legal), flip TEST→LIVE keys, register the LIVE webhook, AND re-create the portal config in LIVE mode + set the LIVE STRIPE_PORTAL_CONFIG_ID (Phase 4 carryover), then smoke-test.
-- **Queued (roadmap):** enable Google Pay in Stripe payment settings; capture sub.cancel_at into the subscriptions mirror IF we surface "cancels on X" (Lesson 41 follow-up).
-Recommendation: hold Phase 5 (not launch-blocking) and prioritize the Meta/Google review clocks + onboarding for July 14; do Phase 5 + Phase 6 as the pre-launch money-path hardening. Confirm which to take next.
-External clocks: Google OAuth adwords scope UNDER REVIEW; Meta access verification DONE (Tech Provider cleared 2026-06-09) — Meta App Review for ads_read (then switch app to Live mode) is the next ACTIVE workstream alongside the Google OAuth review; cohort can't connect Meta until both clear (see ROADMAP Pre-launch requirements).
+## NEXT STEP — Work the two external review clocks for July 14 (longest lead time; start now):
+- **(a) Google Ads API Standard Access application** — UNBLOCKED by today's OAuth approval. Lives in the Google Ads account API Center; involves switching "permissible use" internal→external + submitting the application. APPROACH being drafted this session (investigate-only, no submission yet) — read it before Russ does any account-level clicks.
+- **(b) Meta App Review for ads_read** → then flip the Meta app from Development to **Live** mode. Tech Provider already cleared (2026-06-09); access verification DONE. Cohort can't connect Meta until ads_read is approved AND the app is Live.
+- ⚠️ Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42).
+
+Stripe (parallel, owner = Russ's external lead times):
+- **Phase 6 — Go live** scheduled **early July**: Stripe account activation (bank/legal — start early), flip TEST→LIVE keys, register LIVE webhook, RE-CREATE the portal config in LIVE mode + set LIVE STRIPE_PORTAL_CONFIG_ID (Phase 4 carryover), smoke-test.
+- **Phase 5 — Gating** DEFERRED (not launch-blocking; cohort = beta_unlimited bypasses gating). Land pre-public-launch / Q4: enforce the entitlement matrix (workspace cap, monthly question counter, history-window filter, feature flags) + upgrade prompts, all DB-driven off plan_entitlements.
+- Queued (roadmap): enable Google Pay in Stripe payment settings; capture sub.cancel_at into the subscriptions mirror IF we surface "cancels on X" (Lesson 41 follow-up).
 
 === iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
 .mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).
