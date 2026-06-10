@@ -53,12 +53,25 @@ export async function ensureStripeCustomer(email: string | null | undefined): Pr
       customerId = created.id
     }
 
-    // 4. Write the link back into user_profiles (idempotent).
-    const { error } = await supabaseAdmin
-      .from('user_profiles')
-      .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() })
-      .eq('user_email', email)
-    if (error) console.error('[billing] ensureStripeCustomer write-back failed:', error)
+    // 4. Write the link back into user_profiles. UPSERT — insert the row if the user never passed
+    //    the welcome gate (LORAMER_STRIPE_PHASE3_FIX_UPSERT_V1); otherwise set the link only when
+    //    it's currently null. Affected-row count is checked: a 0-row update where 1 was expected is
+    //    logged loudly (a silent no-op UPDATE on a missing row is exactly how the tier bug hid).
+    if (prof) {
+      const { error, count } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ stripe_customer_id: customerId, updated_at: new Date().toISOString() }, { count: 'exact' })
+        .eq('user_email', email)
+        .is('stripe_customer_id', null)
+      if (error) console.error('[billing] ensureStripeCustomer link update failed:', error)
+      else if (count === 0) console.error('[billing] ensureStripeCustomer link update affected 0 rows for', email)
+    } else {
+      const { error } = await supabaseAdmin
+        .from('user_profiles')
+        .insert({ user_email: email, stripe_customer_id: customerId })
+      // 23505 = raced with another writer that just created the row; the link will be set elsewhere.
+      if (error && error.code !== '23505') console.error('[billing] ensureStripeCustomer profile insert failed:', error)
+    }
 
     return customerId
   } catch (e) {

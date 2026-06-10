@@ -175,30 +175,70 @@ async function syncSubscription(
     { onConflict: 'id' }
   )
 
-  // Backfill the user->customer link if we resolved the email another way.
-  if (email && customerId) {
-    await supabaseAdmin
-      .from('user_profiles')
-      .update({ stripe_customer_id: customerId })
-      .eq('user_email', email)
-      .is('stripe_customer_id', null)
-  }
-
   // Entitled statuses grant the sub's tier; otherwise drop to free.
   const grantedTier = ENTITLED.has(sub.status) ? tier : 'free'
-  await applyTierToProfile(email, grantedTier)
+  // LORAMER_STRIPE_PHASE3_FIX_UPSERT_V1: write tier + customer link via UPSERT so a paying customer
+  // always gets a profile row with the right tier even if they never passed the welcome gate.
+  await upsertBillingProfile(email, grantedTier, customerId)
 }
 
-async function applyTierToProfile(email: string | null, newTier: string | null): Promise<void> {
-  if (!email || !newTier) return
-  const { data } = await supabaseAdmin
+// LORAMER_STRIPE_PHASE3_FIX_UPSERT_V1
+// Ensure a user_profiles row exists with the granted tier + customer link. INSERT when the row is
+// absent (welcome_seen_at left NULL so onboarding still shows), UPDATE when present — never
+// overwriting a manual tier (beta_unlimited/enterprise), and only filling stripe_customer_id when
+// it's currently null. The UPDATE checks its affected-row count and logs loudly on 0: a silent
+// no-op UPDATE against a missing row is exactly how the original tier-not-flipped bug hid.
+async function upsertBillingProfile(
+  email: string | null,
+  grantedTier: string | null,
+  customerId: string | null
+): Promise<void> {
+  if (!email) return
+  const { data: existing } = await supabaseAdmin
     .from('user_profiles')
-    .select('tier')
+    .select('tier, stripe_customer_id')
     .eq('user_email', email)
     .maybeSingle()
-  if (data && MANUAL_TIERS.has(data.tier)) return // sticky manual tier
-  await supabaseAdmin
+
+  if (!existing) {
+    const row: Record<string, string> = { user_email: email }
+    if (grantedTier) row.tier = grantedTier
+    if (customerId) row.stripe_customer_id = customerId
+    const { error } = await supabaseAdmin.from('user_profiles').insert(row)
+    if (error) {
+      // 23505 = raced with a concurrent writer that just created the row — fall through to update.
+      if (error.code === '23505') await updateBillingProfile(email, grantedTier, customerId)
+      else console.error('[stripe webhook] profile insert failed for', email, error)
+    }
+    return
+  }
+  await updateBillingProfile(email, grantedTier, customerId, existing)
+}
+
+async function updateBillingProfile(
+  email: string,
+  grantedTier: string | null,
+  customerId: string | null,
+  existing?: { tier: string; stripe_customer_id: string | null }
+): Promise<void> {
+  const ex =
+    existing ??
+    (
+      await supabaseAdmin
+        .from('user_profiles')
+        .select('tier, stripe_customer_id')
+        .eq('user_email', email)
+        .maybeSingle()
+    ).data
+  const patch: Record<string, string> = {}
+  if (grantedTier && !(ex && MANUAL_TIERS.has(ex.tier))) patch.tier = grantedTier // manual tiers sticky
+  if (customerId && ex && ex.stripe_customer_id == null) patch.stripe_customer_id = customerId
+  if (Object.keys(patch).length === 0) return
+  patch.updated_at = new Date().toISOString()
+  const { error, count } = await supabaseAdmin
     .from('user_profiles')
-    .update({ tier: newTier, updated_at: new Date().toISOString() })
+    .update(patch, { count: 'exact' })
     .eq('user_email', email)
+  if (error) console.error('[stripe webhook] profile update failed for', email, error)
+  else if (count === 0) console.error('[stripe webhook] profile update affected 0 rows (expected 1) for', email)
 }
