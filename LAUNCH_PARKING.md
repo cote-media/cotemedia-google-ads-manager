@@ -11,6 +11,17 @@ Three buckets, in priority order.
 
 ---
 
+## 🔴 PRE-LAUNCH VERIFICATION MATRIX — onboarding identity shapes (LORAMER_ONBOARDING_IDENTITY_MATRIX_V1, 2026-06-10)
+
+The Google account-listing path has been MCC-only since the initial commit (`listAccessibleAccounts` queries `customer_client` under `login_customer_id = GOOGLE_ADS_MANAGER_ACCOUNT_ID`; there is no `ListAccessibleCustomers` path). The "business owner with direct admin on a single Ads account and NO MCC access" shape was assumed away from day one and never walked by a real identity — it surfaced 2026-06-10 when demo@loramer.com (direct admin on Influential Drones, no MCC access) got an empty picker. Before the July cohort, every onboarding identity SHAPE the product claims to support must be walked by a REAL identity of that shape and prove: picker/mapper lists the account → connect → dashboard shows live data. Treat the business-owner path as FIRST-CLASS, not an edge case.
+
+Run all three before launch (✅ when a real identity of that shape passes end-to-end):
+- [ ] (a) **MCC agency identity** — a Google identity with access to our Manager (MCC) account. Connect a client via the picker AND the "Set Up Clients" mapper; confirm live Google data loads. (This is the founder's own shape — historically the ONLY shape tested.)
+- [ ] (b) **Direct-grant single-account business owner** — a Google identity with direct admin on ONE Ads account and NO MCC access. **demo@loramer.com is our permanent test fixture for this shape.** Currently FAILS (empty picker) — gated on the empty-picker root-cause fix (restore MCC env and/or add a `ListAccessibleCustomers` path). Must pass before launch.
+- [ ] (c) **Two LoraMer users, same Ads account** — two different LoraMer user_emails each assign the SAME Ads account to their own client. Both must succeed independently (the "unassigned" filter is per-user, so this should already hold) and load data for both — verify, don't assume.
+
+---
+
 ## ✅ Resolved
 
 ### "This month" date range blank tiles on Shopify tab — FIXED (LORAMER_THIS_MONTH_FIX_V1)
