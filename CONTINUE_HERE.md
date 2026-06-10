@@ -3,10 +3,10 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
-Current workstream: **Stripe billing — Phase 3 (Checkout) NEXT; Phases 0-2 DONE**
-- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build (Phase 2 marked DONE + locked answers), open items.
-- `migrations/007_stripe_billing_foundation.sql` — `plan_entitlements` (price IDs populated). `migrations/008_stripe_billing_phase2.sql` — subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id (APPLIED).
-- `src/app/api/stripe/webhook/route.ts` — the sync engine (signature/dedupe/livemode/tier-write). `src/lib/billing/{ensure-customer,tier-from-price}.ts` + `src/lib/stripe.ts`. `scripts/stripe-sync-products.mjs` — idempotent product/price sync.
+Current workstream: **Stripe billing — Phase 4 (Customer Portal) NEXT; Phases 0-3 DONE**
+- `STRIPE_BILLING_PLAN.md` — locked plan: decisions, entitlement matrix, phased build (Phases 2 + 3 marked DONE + locked answers), open items.
+- `migrations/008_stripe_billing_phase2.sql` — subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id (APPLIED). `plan_entitlements` price IDs populated (migration 007).
+- `src/app/api/stripe/webhook/route.ts` — sync engine (signature/dedupe/livemode/UPSERT tier-write). `src/app/billing/page.tsx` + `src/app/api/billing/{route,checkout/route}.ts` — Checkout UI + routes. `src/lib/billing/{ensure-customer,tier-from-price,plans}.ts`, `src/lib/stripe.ts`, `src/lib/welcome-gate.ts`.
 
 # CONTINUE_HERE — LoraMer
 
@@ -24,6 +24,14 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 3. Paste the SESSION RESUME output back into claude.ai.
 4. cat every REQUIRED READING file and read it fully before acting.
 === end launch ritual ===
+
+## Session log (2026-06-09d) — Stripe Phase 3 COMPLETE (Checkout) + 2 fixes, verified end-to-end
+- Phase 3 shipped: /billing page (current plan, annual/monthly toggle default annual, self-serve cards, human-readable feature labels, success-poll) + "Billing & Plan" link in the dashboard account menu; POST /api/billing/checkout (validated, ensureStripeCustomer backstop, hosted Checkout, client_reference_id=user_email) + GET /api/billing. (CHECKOUT_API_V1 f81a904, BILLING_UI_V1 46d1dbf, FLAGLABELS_V1 2cd7707)
+- Live click-test (cote.russell@gmail.com, Business annual, 4242 card) surfaced TWO real bugs, both fixed + verified:
+  - FIX A (FIX_UPSERT_V1, 5f64108): billing writes to user_profiles were UPDATE...WHERE — a silent 0-row no-op when the user had no profile row, so tier=business resolved but was written NOWHERE (/billing showed Free over an active sub). Now UPSERT (insert if absent w/ welcome_seen_at NULL; update if present, manual tiers sticky, stripe_customer_id set only when null; affected-row count checked + logged on 0).
+  - FIX B (FIX_WELCOMEGATE_V1, 605293e): the welcome/profile-creation gate lived ONLY in /clients, so a sign-in landing on /dashboard skipped row creation entirely. Extracted to src/lib/welcome-gate.ts (enforceWelcomeGate) and mounted on /dashboard + /clients + /billing. Edge cases: /welcome ungated (no loop), API routes untouched, signed-out not bounced, DB error fails open.
+- Verified on prod (TEST): created->business; cancel_at_period_end->business (grace); canceled->free; welcome screen now appears on /dashboard + /billing for a profile-less user (Russ eyeballed both). GOTCHA: a plain `stripe events resend` can't prove a sync fix — the out-of-order guard skips it because a resent event keeps its ORIGINAL (older) created-timestamp; verify with a genuinely fresh event (e.g. a metadata touch) instead.
+- All test data cleaned up (subscriptions/stripe_events/profile = 0; Stripe test customer deleted). Lessons 39 (affected-row count / UPSERT-when-row-may-be-absent) + 40 (no internal keys to users) added. Roadmap: Google Pay in Stripe (Project 2); loramer.com->app signup handoff (Homepage unification); first-run guidance + /welcome copy truth pass (onboarding system).
 
 ## Session log (2026-06-09c) — Stripe Phase 2 COMPLETE (data + webhook sync, verified end-to-end)
 - Migration 008 applied (subscriptions mirror + stripe_events dedupe + user_profiles.stripe_customer_id UNIQUE). Verified via MCP. (LORAMER_STRIPE_PHASE2_MIGRATION_V1)
@@ -96,7 +104,7 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Stripe Phase 3 (Checkout): add Upgrade buttons -> server route that creates a Stripe Checkout session (mode=subscription, the tier's price from plan_entitlements, client_reference_id=user_email so the webhook resolves the user, success/cancel URLs) -> user completes hosted Checkout -> existing webhook (already live + proven) flips user_profiles.tier. Then preview/prod click-test a real upgrade. Spec in STRIPE_BILLING_PLAN.md (Phase 3). Phases 0-2 COMPLETE & verified (see 06-09c). The webhook is LIVE in prod (TEST mode) — a real subscription-mode checkout will exercise the checkout.session.completed subscription branch for real. Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
+## NEXT STEP — Stripe Phase 4 (Customer Portal): enable the Stripe Customer Portal (Stripe Dashboard → Settings → Billing → Customer portal; allow plan switching + cancel) and add a "Manage billing" action that creates a portal session (stripe.billingPortal.sessions.create, return_url=/billing) for users with an active subscription — the /billing page already shows a "Manage billing (coming soon)" placeholder for that state. This is where plan switch / downgrade / cancel live (Phase 3 was free→paid only). Spec in STRIPE_BILLING_PLAN.md (Phase 4). Phases 0-3 COMPLETE & verified (see 06-09d). Also queued: enable Google Pay in Stripe payment settings (roadmap). Passive external clocks: Google adwords scope UNDER REVIEW; Meta access verification IN REVIEW.
 
 === iMac ONE-TIME MCP SETUP (user russellcote) — do once, next time on the iMac ===
 .mcp.json is already committed, so the iMac just needs to pull it, clear any old local read-only override, sign in once, and set its own alias. NOTE the iMac differs from the MacBook Air: user = russellcote, repo = /Users/russellcote/Downloads/cotemedia-ads-manager (DIFFERENT folder name).

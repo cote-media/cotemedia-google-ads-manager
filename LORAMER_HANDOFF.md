@@ -697,6 +697,12 @@ Serverless functions bind environment variables at deploy time, so changing a Ve
 ## Lesson 38 — Supabase DB password is reset-safe for LoraMer
 The raw Postgres DB password isn't viewable after creation — only resettable. Resetting it is SAFE: the app authenticates to Supabase via the API keys (anon/service-role), not the raw DB password. Only raw-Postgres consumers care about it (e.g. `pg_dump` in the backup Action, the Supabase MCP). After a reset, update only those consumers' connection strings.
 
+## Lesson 39 — A DB write that expects 1 row must check the affected count and log on 0 (LORAMER_STRIPE_PHASE3_FIX_UPSERT_V1)
+An `UPDATE ... WHERE key = x` against a row that doesn't exist affects 0 rows and returns NO error — a silent no-op. The Stripe webhook resolved `tier=business` correctly but wrote it with `update().eq('user_email', …)` while the user had no `user_profiles` row (they'd bypassed the welcome gate), so the tier landed nowhere and `/billing` showed Free over an active subscription — a bug that hid for a full click-test. Rules: (1) any write that conceptually "must touch a row" uses UPSERT, not UPDATE, when the row's existence isn't guaranteed; (2) where a 1-row effect is expected, pass `{ count: 'exact' }` and `console.error` loudly on `count === 0`. Never assume a write happened because it didn't throw.
+
+## Lesson 40 — Never render internal flag/enum keys to users (LORAMER_STRIPE_PHASE3_FLAGLABELS_V1)
+`/billing` printed raw `feature_flags` keys ("wyws, priority_support, white_label, …") straight from `plan_entitlements` to the customer. Internal DB keys (flags, enums, status codes, tier slugs) must pass through a human-label map before they hit a user surface — keep the map next to the keys (e.g. `FLAG_LABELS` in `src/lib/billing/plans.ts`) so adding a key forces adding its label. Same discipline as Lesson 11 (prompt-as-mirror): be deliberate about which strings are for the machine vs. for the human.
+
 ## Standing rule — End every session by refreshing CONTINUE_HERE.md
 At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
 
