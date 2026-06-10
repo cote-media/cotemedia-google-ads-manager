@@ -58,6 +58,7 @@ function BillingInner() {
   const [loading, setLoading] = useState(true)
   const [interval, setIntervalState] = useState<'monthly' | 'annual'>('annual')
   const [busyTier, setBusyTier] = useState<string | null>(null)
+  const [busyPortal, setBusyPortal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activating, setActivating] = useState(checkoutStatus === 'success')
 
@@ -94,6 +95,24 @@ function BillingInner() {
     }, 2000)
     return () => { stop = true; clearInterval(iv) }
   }, [checkoutStatus, load])
+
+  async function manageBilling() {
+    setError(null)
+    setBusyPortal(true)
+    try {
+      const res = await fetch('/api/billing/portal', { method: 'POST' })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.url) {
+        window.location.href = body.url
+        return
+      }
+      setError("Couldn't open billing — please try again.")
+    } catch {
+      setError("Couldn't open billing — please try again.")
+    } finally {
+      setBusyPortal(false)
+    }
+  }
 
   async function upgrade(tier: string) {
     setError(null)
@@ -172,7 +191,11 @@ function BillingInner() {
             ) : data.hasActiveSub ? (
               <div className="rounded-xl border border-border bg-surface p-5">
                 <p className="text-sm text-ink mb-1">You have an active subscription.</p>
-                <p className="text-sm text-muted">Plan changes and cancellation are coming soon via the billing portal.</p>
+                <p className="text-sm text-muted mb-4">Switch plans, change billing interval, or cancel anytime.</p>
+                <button onClick={manageBilling} disabled={busyPortal}
+                  className="py-2 px-4 rounded-md bg-ink text-white text-sm hover:opacity-90 transition-opacity disabled:opacity-50 inline-flex items-center justify-center gap-2">
+                  {busyPortal ? <><IconLoader2 size={16} className="animate-spin" /> Opening…</> : 'Manage billing'}
+                </button>
               </div>
             ) : (
               <>
