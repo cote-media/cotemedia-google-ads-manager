@@ -1,7 +1,7 @@
 # LoraMer — Codebase Map
 
 > **Orientation map — architecture and responsibilities only.** No line numbers, counts, or implementation specifics (those rot). Use it to understand the shape of the system and where things live; ALWAYS verify any specific line, function, or value against the live file. Claude Code reads files fresh — this map orients, the repo is truth.
-> Map last verified: 2026-06-05 · tag: LORAMER_CODEBASE_MAP_V1
+> Map last verified: 2026-06-09 · tag: LORAMER_CODEBASE_MAP_STRIPE_PHASE3_V1
 > Maintenance: at each handoff, if `git diff --name-status` since this map's last commit shows any added/deleted/renamed files, the changed area is updated here. Modified-only commits need no update.
 
 ## What LoraMer is
@@ -17,7 +17,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 
 ## Directory map (src/)
 - `src/app/` — pages (App Router) and `src/app/api/` route handlers
-- `src/lib/` — all shared logic: the Lora brain (`intelligence/`), platform connectors, the historical data engine (`backfill/`, `metrics-query.ts`), auth/token helpers, Supabase client
+- `src/lib/` — all shared logic: the Lora brain (`intelligence/`), platform connectors, the historical data engine (`backfill/`, `metrics-query.ts`), auth/token helpers, Supabase client, billing/Stripe (`billing/`, `stripe.ts`), the welcome gate (`welcome-gate.ts`)
 - `src/components/` — small shared UI components (error boundary, onboarding coachmark)
 - Root-level docs: `LORAMER_HANDOFF.md` (lessons/protocol), `CONTINUE_HERE.md` (resume point), `ROADMAP.md`, this map; `migrations/` holds SQL run against Supabase
 
@@ -28,6 +28,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - `/welcome` — post-signup onboarding interstitial while first accounts connect
 - `/dashboard` — the product: per-client analytics dashboard + all Lora surfaces (see "Dashboard internals")
 - `/clients` — client management: clients grid, connection rows per platform, backfill controls, the "Mer" client deep-dive surface
+- `/billing` — plan & billing: current tier, annual/monthly toggle, self-serve upgrade cards → Stripe Checkout, post-Checkout success polling (waits for the webhook to flip the tier). Linked from the dashboard account menu
 - `/install/complete` — landing page after a Shopify-initiated app-store install
 - `/reviewer-login` — app-store reviewer bypass login
 - `/privacy`, `/terms` — legal pages (these keep the Anthropic/Claude engine credit verbatim)
@@ -58,7 +59,12 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - GA4: `api/ga/start`, `/connect`, `/callback`, `/properties`, `/daily`
 - `api/platform` — unified cross-platform campaign/totals fetch the dashboard tabs consume (google / meta / combined)
 
-**Misc:** `api/auth/[...nextauth]` (sign-in), `api/upload` (file upload), `api/welcome` (marks onboarding done in `user_profiles`), `api/test` (Google token debug)
+**Billing (Stripe):**
+- `api/billing` — reads the caller's current plan + the self-serve plan list (powers `/billing` and its success polling)
+- `api/billing/checkout` — server-validated Stripe Checkout session creator (free→paid only; `mode=subscription`, `client_reference_id=user_email`; rejects manual tiers / an existing active subscription)
+- `api/stripe/webhook` — Stripe→Supabase sync engine: signature-verified, event-deduped (`stripe_events`), livemode-gated; UPSERTs the `subscriptions` mirror and the user's `user_profiles.tier`
+
+**Misc:** `api/auth/[...nextauth]` (sign-in), `api/upload` (file upload), `api/welcome` (creates/marks the `user_profiles` row + ensures the Stripe customer), `api/test` (Google token debug)
 
 ## The Lora brain (intelligence + context)
 - `lib/intelligence/build-claude-context.ts` — the universal system-prompt builder. Every Lora call goes through it. Order: HARD CONSTRAINTS (user directives + profile notes) first, then the Lora identity line ("You are Lora… powered by Anthropic's Claude"), client profile, honest per-platform data sections (focus-aware slicing by tab/drill), memory block, prior conversations, analysis rules. Split into cacheable prefix + dynamic suffix for Anthropic prompt caching.
@@ -78,6 +84,16 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - `lib/metrics-query.ts` — the query layer over `metrics_daily` powering both the `query_metrics` tool and `api/clients/metrics`, so model answers and UI rollups agree
 - `lib/platforms/types.ts` — shared dashboard-facing platform types + column definitions
 - **Off-site backup:** `.github/workflows/db-backup.yml` — nightly GitHub Action `pg_dump` of the Supabase DB → Cloudflare R2 (off-site complement to Supabase's in-platform backups)
+
+## Billing & monetization (Stripe)
+Stripe (TEST mode for now) processes cards via hosted Checkout; entitlements are DB-driven and Stripe is the source of truth, mirrored into Supabase by the webhook.
+- `lib/stripe.ts` — lazy Stripe client singleton + `stripeLivemode()` (mode inferred from the secret-key prefix; used to gate TEST vs LIVE webhook events)
+- `lib/billing/plans.ts` — self-serve tiers, display-only prices, and the feature-flag → human-label map (raw flag keys never reach a user surface)
+- `lib/billing/ensure-customer.ts` — idempotent one-Stripe-customer-per-`user_email`; UPSERTs the `user_profiles` link, never duplicates a customer, never throws (signup-safe)
+- `lib/billing/tier-from-price.ts` — resolve a Stripe price id → LoraMer tier via `plan_entitlements`
+- `lib/welcome-gate.ts` — shared `enforceWelcomeGate()` mounted via server layouts on `/dashboard`, `/clients`, AND `/billing`; sends a profile-less / unwelcomed user to `/welcome` (the single place the `user_profiles` row is created and the Stripe customer ensured). All billing writes to `user_profiles` UPSERT, so a paying user always lands the right tier even if they bypass onboarding
+- **Supabase tables:** `plan_entitlements` (per-tier caps/quotas/flags + Stripe price ids — migration 007), `subscriptions` (per-subscription mirror) + `stripe_events` (webhook idempotency) — migration 008; `user_profiles.stripe_customer_id` links a user to Stripe
+- Sync helper: `scripts/stripe-sync-products.mjs` — idempotent Stripe product/price creator that writes price ids back into `plan_entitlements` (re-runnable for LIVE at go-live)
 
 ## Dashboard internals (src/app/dashboard/page.tsx)
 One large client-side file containing the whole dashboard. Major in-file areas, top to bottom by responsibility:
@@ -125,4 +141,5 @@ Client management grid: per-client cards with honest metrics from `api/clients/m
 | Client cards / connections / Mer overlay | `app/clients/page.tsx` (+ `api/clients/*`) |
 | Per-client memory behavior | `api/memory/*`, `api/conversations` (proposal detection), memory section of the prompt builder |
 | Date-range semantics | `lib/date-range.ts` (single source of truth) |
+| Billing / plans / Checkout / entitlements | `app/billing/page.tsx` + `api/billing/*`, `api/stripe/webhook`, `lib/billing/*`, `lib/stripe.ts`; onboarding gate in `lib/welcome-gate.ts` |
 | Brand/type tokens | `src/app/globals.css` + `tailwind.config` |
