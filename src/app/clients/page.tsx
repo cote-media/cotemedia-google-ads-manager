@@ -685,6 +685,9 @@ function ClientsContent() {
   const [selectedMetaAccounts, setSelectedMetaAccounts] = useState<string[]>([])
   const [metaError, setMetaError] = useState('')
 
+  // LORAMER_GOOGLE_PILL_CONNECT_V1 — per-client Google Ads account picker (clientId or null)
+  const [googleModal, setGoogleModal] = useState<string | null>(null)
+
   useEffect(() => { if (status === 'unauthenticated') router.push('/') }, [status, router])
 
   // LORAMER_CLIENTS_GRID_V1 - Escape closes the Mer overlay
@@ -822,6 +825,21 @@ function ClientsContent() {
   async function disconnectMeta(clientId: string, connectionId: string) {
     await fetch('/api/clients/connections?id=' + connectionId, { method: 'DELETE' })
     await fetchClients()
+  }
+
+  // LORAMER_GOOGLE_PILL_CONNECT_V1 — attach one accessible Google Ads account to this client.
+  // Mirrors saveMetaConnections (same POST shape) but single-select: a client maps to one
+  // Google Ads account (googleConn is a single find).
+  async function connectGoogleAccount(clientId: string, account: any) {
+    setSaving(true)
+    try {
+      await fetch('/api/clients/connections', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, platform: 'google', account_id: account.id, account_name: account.name }),
+      })
+      setGoogleModal(null)
+      await fetchClients()
+    } finally { setSaving(false) }
   }
 
   // LORAMER_GA_PROPERTY_PICKER_V1
@@ -976,7 +994,12 @@ function ClientsContent() {
                                 Google
                               </button>
                             ) : (
-                              <span className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted">+ Google</span>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setGoogleModal(client.id) }}
+                                className="text-[11px] sm:text-xs font-sans px-2.5 py-0.5 rounded-full border border-border text-muted hover:text-ink hover:border-ink/40 transition-colors"
+                              >
+                                + Google
+                              </button>
                             )}
 
                             {/* Meta pill */}
@@ -1325,6 +1348,35 @@ function ClientsContent() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Ads account picker modal — LORAMER_GOOGLE_PILL_CONNECT_V1 */}
+      {googleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg p-8 rounded-2xl shadow-xl">
+            <h3 className="font-display text-xl text-ink mb-2">Connect a Google Ads Account</h3>
+            <p className="text-sm text-muted font-mono mb-6">Pick the Google Ads account to connect to this client.</p>
+            {unmappedAccounts.length === 0 ? (
+              <p className="text-sm text-muted font-mono mb-6">No unassigned Google Ads accounts available. If you expected one, make sure the signed-in Google account has access to it.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto mb-6">
+                {unmappedAccounts.map(account => (
+                  <button key={account.id} onClick={() => connectGoogleAccount(googleModal, account)} disabled={saving}
+                    className="w-full text-left flex items-center gap-3 py-2 px-3 border border-border rounded-lg hover:bg-surface disabled:opacity-50">
+                    <div>
+                      <p className="text-sm text-ink">{account.name}</p>
+                      <p className="text-xs font-mono text-muted">{account.id}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setGoogleModal(null)} disabled={saving}
+              className="text-xs font-mono text-muted hover:text-ink border border-border rounded-lg px-4 py-2 disabled:opacity-50">
+              {saving ? 'Connecting...' : 'Cancel'}
+            </button>
           </div>
         </div>
       )}
