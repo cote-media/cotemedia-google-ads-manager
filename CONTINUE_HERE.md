@@ -6,7 +6,7 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
-Current workstream: **External review clocks for July 14 launch — (a) Google Ads API Standard Access application (now UNBLOCKED: Google OAuth adwords scope APPROVED 2026-06-10), (b) Meta App Review for ads_read → flip app to Live. Stripe: Phases 0-4 DONE & VERIFIED; Phase 5 (Gating) deferred (cohort = beta_unlimited bypasses gating); Phase 6 go-live scheduled early July (bank/legal lead time). See NEXT STEP.**
+Current workstream: **External review clocks for July 14 launch — (a) Google Ads API Tool Change Form SUBMITTED 2026-06-10 (ticket created; permissible use → external/reporting; demo@loramer.com demo) → awaiting review; (b) Meta App Review for ads_read → flip app to Live = NEXT STEP. Stripe: Phases 0-4 DONE & VERIFIED; Phase 5 (Gating) deferred; Phase 6 go-live early July (bank/legal lead time). See NEXT STEP.**
 - `STRIPE_BILLING_PLAN.md` — locked plan; read the **Phase 4 (Customer Portal)** section + the entitlement matrix and locked answers.
 - `src/app/billing/page.tsx` — the /billing UI (already has the "Manage billing (coming soon)" placeholder Phase 4 wires to a portal session).
 - `src/app/api/billing/*` (`route.ts` = GET current plan; `checkout/route.ts` = Checkout session) and `src/app/api/stripe/webhook/route.ts` — the Stripe→Supabase sync engine (signature/dedupe/livemode/UPSERT tier-write).
@@ -144,8 +144,10 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — Work the two external review clocks for July 14 (longest lead time; start now):
-- **(a) Google Ads API — Tool Change Form (permissible use → external, Reporting-only).** Standard Access is DEFERRED to scale-time (Basic = 15k ops/day covers the invite-only cohort). The active item is the lighter **Tool Change Form** (support.google.com/adspolicy/contact/tool_change) to update permissible use to external/client + reporting. ANSWER PACK READY for Russ to review + submit himself: docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md (verbatim Q2/Q3/Q4/Q5/Q7 + Q1 reminder); attach docs/GOOGLE_ADS_API_DESIGN.pdf at Q4. ⚠️ Q2 MCC ID is NOT in our env (prod GOOGLE_ADS_MANAGER_ACCOUNT_ID is empty / local is a placeholder) — Russ supplies it (XXX-XXX-XXXX from the Ads UI). Q7 email must match the API contact email Russ sets in API Center. This is zero-risk MCC metadata (token/OAuth/account links untouched — Lesson 43). No submission by Claude.
+## NEXT STEP — **Meta App Review submission for `ads_read`**, then flip the Meta app Development → Live. Tech Provider cleared 2026-06-09; access verification DONE. Prep: screencast of the Meta connect flow, reviewer test instructions (demo path), read-only justification. The founding cohort cannot connect Meta until ads_read is approved AND the app is Live. (See ROADMAP Pre-launch.)
+
+Google review clock (passive, no action unless Google replies):
+- **(a) Google Ads API Tool Change Form — SUBMITTED 2026-06-10 (ticket created).** Permissible use → external/client + reporting-only; demo = demo@loramer.com connected to Influential Drones; design doc docs/GOOGLE_ADS_API_DESIGN.pdf attached. Now awaiting Google's review — respond fast if they ask for more. Standard Access remains DEFERRED to scale-time (Basic 15k ops/day covers the cohort). Answer pack archived at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md.
 - **(b) Meta App Review for ads_read** → then flip the Meta app from Development to **Live** mode. Tech Provider already cleared (2026-06-09); access verification DONE. Cohort can't connect Meta until ads_read is approved AND the app is Live.
 - ⚠️ Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42).
 
