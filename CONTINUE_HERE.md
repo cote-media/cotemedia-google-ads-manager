@@ -1,3 +1,4 @@
+⛔ Read **LORAMER_ESSENCE.md** first, every session.
 ⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
 
 **LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
