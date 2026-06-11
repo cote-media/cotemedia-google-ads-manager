@@ -199,6 +199,10 @@ The May 29 incident is the canonical example. The iMac had two local-only commit
 
 Claude Code edits and runs the build directly; there are no patch scripts to dry-run anymore. Verification follows the tiers in the SESSION START GATE: visual/className → `tsc --noEmit` + push + eyeball; logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting, clean revert ready. Two standing rules survive from the old patch-script era: 100% green Vercel deploys (every push builds clean — `npm run build` locally is the gate, with `.env.local`), and **docs move with code** (every feature/bugfix flips its own ROADMAP.md checkbox / moves its LAUNCH_PARKING.md item in the SAME commit — done is not done until the doc reflects it; LORAMER_HANDOFF_DOCS_WITH_CODE_V1).
 
+ADAPTER CHANGE GATE (2026-06-11, mandatory): any change to a platform query/adapter is machine-validated against the REAL API locally BEFORE deploy (Gate A — if it throws, nothing gets built) and machine-verified in prod-identical code after deploy BEFORE the human looks (Gate B). Russ never performs first contact with a changed query. Platform fetch failures must be LOUD: "connected but fetch failed" is a different fact from "not connected" — rendering one as the other is a bug, every time.
+
+SPEC RULE (2026-06-11): chat-Claude specs state OUTCOMES and constraints; Claude Code owns mechanism. Any specific API field/syntax named in a spec is a hypothesis Gate A must confirm, never an instruction. No "if cheap" extras — every spec element is required-and-validated or absent. (Origin: V1 broke prod via an unvalidated extra field; Gate A then caught the corrected spec's end_date error pre-build. Only execution reveals truth.)
+
 ### Dry run is sacred
 
 Always always always dry-run multi-edit patches before running them for real. Dry runs are free. Broken builds are expensive. Even when Russ is in a hurry, the dry run takes seconds and prevents real damage.

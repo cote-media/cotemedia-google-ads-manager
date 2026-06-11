@@ -32,6 +32,9 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-11 close) — GOOGLE_CAMPAIGN_STATUS_FIX_V2 shipped + verified; ENV gap closed (LORAMER_DAY_CLOSE_20260611_V1)
+GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the approved spec's second error (campaign.end_date/start_date unrecognized in google-ads-api 23.0.0) BEFORE build — primary_status alone yields exact truth (0 active / 4 paused / 5 ended, matches Google UI). Gate B machine-verified in prod-identical code before Russ. Russ in-app: both questions PASS — false "$523/day live budget" alarm now impossible; $0 framed as paused/ended. Hardened: campaign query falls back to base fields on throw (loud), never drops the platform; intelligence route renders "connected but fetch FAILED" distinct from "not connected". ENV GAP CLOSED: Air .env.local now carries real Google + Supabase creds (proof: 9-row GAQL pass) — both machines fully capable. OBSERVED for Lora honesty spec: Lora falsely claimed "same data as before, nothing has changed" while contradicting its own prior in-thread answer; + residual "billing issues" speculation tail.
+
 ## Session log (2026-06-11) — query_metrics ownership hardening + Phase 0b query item CLOSED (LORAMER_QUERY_METRICS_OWNERSHIP_V1)
 - FINDING: query_metrics was already BUILT and WIRED into both /api/chat and /api/insight (since June 4, LORAMER_QUERY_METRICS_TOOL_0B_V1) — the "not yet wired / chat still single-shot" notes were STALE. Reconciled ROADMAP to BUILT+WIRED+HARDENED, Phase 0b query item COMPLETE.
 - SECURITY FIX: the tool read path scoped ONLY by client_id (from the request body) via the service role — no check that the signed-in user OWNS the client. A signed-in user could ask Lora about another tenant's clientId and receive their aggregated history (also affected /api/intelligence's live-data fetch). Closed with the proven backfill/run gate (clients.eq(id).eq(user_email).maybeSingle → 404) at TWO layers: (a) route-level on /api/chat (when clientId present), /api/insight, /api/intelligence; (b) central in runClaudeToolLoop (userEmail passed in; query_metrics withheld unless ownership verified — fails closed, degrades to single-shot). Backend only; ZERO UI change (reviewer-path freeze respected).
@@ -161,11 +164,10 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — **BOTH external review clocks now PASSIVE** (Google Tool Change Form submitted 06-10; Meta App Review submitted 06-11).
-- While waiting: **FREEZE all app UI on the reviewer path** (/clients, connect flows, dashboard Meta tab) until the Meta decision — no visual changes that diverge from the screencast.
-- On Meta approval: flip the app **Development → Live** per **docs/META_APP_REVIEW_ANSWERS.md section 5**, then verify connect as a FRESH external user.
-- Queued post-approval: publish the gov data-request policy as a public page; homepage unification; dashboard visual reconciliation.
-- Safe active work meanwhile: **Shopify token hardening**; **iMac MCP setup**. (query_metrics Phase 0b item CLOSED 2026-06-11 — built, wired, ownership-hardened.)
+## NEXT STEP — both review clocks PASSIVE (Google 06-10, Meta 06-11); reviewer-path UI freeze holds until the Meta decision.
+- **FREEZE all app UI on the reviewer path** (/clients, connect flows, dashboard Meta tab) until the Meta decision — no visual changes that diverge from the screencast.
+- Safe active work meanwhile: **Shopify token hardening**; **iMac one-time MCP setup**.
+- Post-approval queue: flip the Meta app **Development → Live** (docs/META_APP_REVIEW_ANSWERS.md §5) + fresh-external-user verify; publish the gov-policy public page; homepage unification; dashboard visual reconciliation; URL-state nav workstream.
 - ⚠️ Respond fast if Google or Meta asks for more. Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42). Reference: answer packs at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md + docs/META_APP_REVIEW_ANSWERS.md.
 
 Stripe (parallel, owner = Russ's external lead times):
