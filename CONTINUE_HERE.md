@@ -31,6 +31,12 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-11) — META APP REVIEW SUBMITTED (LORAMER_META_REVIEW_SUBMITTED_V1)
+- **SUBMITTED** to Meta App Review: Advanced Access requested for **ads_read + business_management** (plus **Marketing API Access Tier** and **public_profile**). UNUSED permissions TRASHED from the submission: ads_management, pages_* , catalog_management, email, Business Asset User Profile Access. Screencast uploaded per-permission + supporting docs.
+- REVIEWER PATH: demo@loramer.com login; a NEW empty client **"Reviewer Test Client"** created in the demo@ workspace for the connect flow; **Influential Drones** already connected and showing live data.
+- DATA HANDLING completed: processors declared = **Supabase, Vercel, Anthropic, Cloudflare** (all US); responsible entity = **"Cote, LLC (doing business as Cote Media)"**; internal **docs/GOVERNMENT_DATA_REQUEST_POLICY.md** adopted + cited.
+- Also shipped today: LORAMER_META_SCOPE_READONLY_V1 (scope now ads_read,business_management); gov data-request policy + entity-name fix + tighten; roadmap legal housekeeping.
+
 ## Session log (2026-06-11) — Meta scope trimmed to read-only for App Review (LORAMER_META_SCOPE_READONLY_V1)
 - Dropped the unused **ads_management** write scope from the Meta OAuth request (src/app/api/meta/auth/route.ts — the ONLY scope-string site in the repo; product makes zero mutate calls). Live OAuth now requests **ads_read,business_management** (business_management kept — needed to enumerate Business Manager owned/client ad accounts in the callback). Scope change affects NEW authorizations only; existing meta_tokens grants are untouched.
 - Added **docs/META_APP_REVIEW_ANSWERS.md** — full App Review answer pack: use-case justification (read-only posture, exact endpoints/fields, storage, deauth/data-deletion citations), reviewer test instructions, screencast shot list, post-approval checklist, and the open gaps (scope decision, demo Meta ad account, demo@ password).
@@ -42,7 +48,8 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 ## DEMO TEARDOWN CHECKLIST — run AFTER the Google review (LORAMER_DEMO_ACCOUNT_PROVISIONED_V1)
 - [ ] Re-enable the MANAGER (MCC) account 2-Step Verification requirement (if it was relaxed so the reviewer could sign in).
-- [ ] Rotate the demo@loramer.com password.
+- [ ] Rotate the demo@loramer.com password — ONLY after Meta review is fully closed AND the credentials are no longer required. ⚠️ Meta requires reviewer credentials to stay VALID for ONE YEAR after submission, so the demo@ password must stay ACTIVE until then.
+- [ ] After Meta approval: disconnect the reviewer-era Meta connection from demo@ if desired; keep the **"Reviewer Test Client"** card until review closes.
 - [ ] Downgrade demo@ MCC access Admin → read-only NOW if it was granted as Admin (read-only is all the demo needs).
 - [ ] REVOKE demo@'s MCC access entirely BEFORE running pre-launch matrix test (b) — that returns demo@ to the pure business-owner shape (direct grant on Influential Drones only, NO MCC), which is exactly the identity test (b) must exercise. Rationale: with MCC access, demo@'s picker exposes all MCC client names AND it's no longer a true direct-grant fixture.
 - [ ] (Optional) Decide whether to keep demo's metrics_daily backfill rows or sweep them after review.
@@ -148,12 +155,12 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — **RUSS provisions reviewer credentials + submits Meta App Review for `ads_read` + `business_management`.** Specifically: (1) create a Facebook **Test User** with a role on an ad account that has **recent spend** (App Dashboard → Roles → Test Users); (2) supply the **demo@loramer.com password**; (3) record the screencast following the shot list in **docs/META_APP_REVIEW_ANSWERS.md section 4**; (4) submit Meta App Review for **ads_read + business_management** (use the answer pack in that doc). Code prereq DONE 2026-06-11: scope trimmed to ads_read,business_management (LORAMER_META_SCOPE_READONLY_V1). Then flip the Meta app Development → Live (post-approval checklist in the doc, section 5). The founding cohort cannot connect Meta until the permissions are approved AND the app is Live. (See ROADMAP Pre-launch.)
-
-Google review clock (passive, no action unless Google replies):
-- **(a) Google Ads API Tool Change Form — SUBMITTED 2026-06-10 (ticket created).** Permissible use → external/client + reporting-only; demo = demo@loramer.com connected to Influential Drones; design doc docs/GOOGLE_ADS_API_DESIGN.pdf attached. Now awaiting Google's review — respond fast if they ask for more. Standard Access remains DEFERRED to scale-time (Basic 15k ops/day covers the cohort). Answer pack archived at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md.
-- **(b) Meta App Review for ads_read** → then flip the Meta app from Development to **Live** mode. Tech Provider already cleared (2026-06-09); access verification DONE. Cohort can't connect Meta until ads_read is approved AND the app is Live.
-- ⚠️ Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42).
+## NEXT STEP — **BOTH external review clocks now PASSIVE** (Google Tool Change Form submitted 06-10; Meta App Review submitted 06-11).
+- While waiting: **FREEZE all app UI on the reviewer path** (/clients, connect flows, dashboard Meta tab) until the Meta decision — no visual changes that diverge from the screencast.
+- On Meta approval: flip the app **Development → Live** per **docs/META_APP_REVIEW_ANSWERS.md section 5**, then verify connect as a FRESH external user.
+- Queued post-approval: publish the gov data-request policy as a public page; homepage unification; dashboard visual reconciliation.
+- Safe active work meanwhile: **query_metrics tool** (Phase 0b remainder); **Shopify token hardening**; **iMac MCP setup**.
+- ⚠️ Respond fast if Google or Meta asks for more. Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42). Reference: answer packs at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md + docs/META_APP_REVIEW_ANSWERS.md.
 
 Stripe (parallel, owner = Russ's external lead times):
 - **Phase 6 — Go live** scheduled **early July**: Stripe account activation (bank/legal — start early), flip TEST→LIVE keys, register LIVE webhook, RE-CREATE the portal config in LIVE mode + set LIVE STRIPE_PORTAL_CONFIG_ID (Phase 4 carryover), smoke-test.
