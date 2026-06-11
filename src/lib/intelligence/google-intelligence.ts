@@ -78,6 +78,63 @@ function normalizeStatus(s: string): string {
   return u.toLowerCase()
 }
 
+// LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V1
+// Google reports a campaign's on/off TOGGLE (campaign.status = ENABLED/PAUSED)
+// separately from whether it is actually SERVING. A campaign past its end_date
+// keeps status=ENABLED but is "Ended" in the UI. Reading only the toggle
+// mislabeled ended campaigns as "active" and let their stale daily budgets be
+// summed as live spend authority. We now also read campaign.primary_status and
+// campaign.end_date. NOTE the sentinel: Google returns end_date '2037-12-30'
+// when NO end date is set — that must NOT count as ended.
+const NO_END_DATE_SENTINEL = '2037-12-30'
+
+// CampaignPrimaryStatus enum — the google-ads-api lib may hand back a number or
+// a string (mirrors normalizeStatus handling ENABLED vs '2'). Idempotent.
+function normalizePrimaryStatus(s: any): string {
+  const u = String(s ?? '').toUpperCase()
+  const byNum: Record<string, string> = {
+    '0': 'UNSPECIFIED', '1': 'UNKNOWN', '2': 'ELIGIBLE', '3': 'PAUSED',
+    '4': 'REMOVED', '5': 'ENDED', '6': 'PENDING', '7': 'NOT_ELIGIBLE',
+    '8': 'LIMITED', '9': 'MISCONFIGURED',
+  }
+  return byNum[u] || u
+}
+
+function todayUTC(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+// CampaignPrimaryStatusReason — partial map of the common, human-meaningful
+// reasons. String enums pass through; unknown numerics return '' so raw enum
+// integers never leak into Lora's prompt (callers filter(Boolean)).
+function normalizePrimaryStatusReason(r: any): string {
+  const u = String(r ?? '').toUpperCase()
+  if (!u) return ''
+  const byNum: Record<string, string> = {
+    '2': 'CAMPAIGN_REMOVED', '3': 'CAMPAIGN_PAUSED', '4': 'CAMPAIGN_PENDING',
+    '5': 'CAMPAIGN_ENDED', '6': 'CAMPAIGN_DRAFT', '11': 'BUDGET_CONSTRAINED',
+    '12': 'BUDGET_MISCONFIGURED', '13': 'SEARCH_VOLUME_LIMITED',
+    '14': 'AD_GROUPS_PAUSED', '15': 'NO_AD_GROUPS', '16': 'KEYWORDS_PAUSED',
+    '17': 'NO_KEYWORDS', '18': 'AD_GROUP_ADS_PAUSED', '19': 'NO_AD_GROUP_ADS',
+    '21': 'HAS_ADS_DISAPPROVED',
+  }
+  if (byNum[u]) return byNum[u]
+  return /^\d+$/.test(u) ? '' : u  // unmapped numeric → drop; string enum → keep
+}
+
+// Authoritative status for Lora's context. ENDED wins over the toggle;
+// primary_status is the primary signal, end_date < today is a guarded fallback.
+function computeCampaignStatus(rawStatus: string, primaryStatus: string, endDate: string): string {
+  const toggle = normalizeStatus(rawStatus)            // active | paused | removed
+  if (toggle === 'removed') return 'removed'
+  const ps = normalizePrimaryStatus(primaryStatus)
+  const realEnd = !!endDate && endDate !== NO_END_DATE_SENTINEL
+  const ended = ps === 'ENDED' || (realEnd && endDate < todayUTC())
+  if (ended) return 'ended'
+  if (toggle === 'paused' || ps === 'PAUSED') return 'paused'
+  return 'active'
+}
+
 export async function fetchGoogleIntelligence(
   refreshToken: string,
   customerId: string,
@@ -94,8 +151,16 @@ export async function fetchGoogleIntelligence(
   const dateFilter = buildDateFilter(dateRange, customStart, customEnd)
 
   // ── Campaigns ──────────────────────────────────────────────────────────────
+  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V1 — also select primary_status +
+  // primary_status_reasons + end_date so an ENABLED-but-ended campaign is
+  // labeled "ended", not "active".
+  // KNOWN SECOND DISTORTION (deferred, no fix this ship): the ${dateFilter}
+  // segments.date filter drops campaigns with zero metrics in the window from
+  // context entirely — an ended/paused campaign with no recent activity may not
+  // appear at all. Separate follow-up; today MVN's 9 campaigns all surface.
   const campaignRows = await customer.query(`
     SELECT campaign.id, campaign.name, campaign.status,
+    campaign.primary_status, campaign.primary_status_reasons, campaign.end_date,
     campaign.advertising_channel_type, campaign.bidding_strategy_type,
     campaign_budget.amount_micros, campaign_budget.type,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
@@ -107,18 +172,33 @@ export async function fetchGoogleIntelligence(
     ORDER BY metrics.cost_micros DESC
   `)
 
-  const campaigns: IntelligenceCampaign[] = campaignRows.map((row: any) => ({
-    id: String(row.campaign?.id || ''),
-    name: String(row.campaign?.name || ''),
-    platform: 'google' as const,
-    status: normalizeStatus(String(row.campaign?.status || '')),
-    channelType: normalizeChannelType(row),
-    objective: normalizeChannelType(row),
-    bidStrategy: normalizeBidStrategy(row),
-    budgetType: row.campaign_budget?.type === 'DAILY' ? 'daily' : 'lifetime',
-    budget: Number(row.campaign_budget?.amount_micros || 0) / 1e6,
-    metrics: buildMetrics(row),
-  }))
+  const campaigns: IntelligenceCampaign[] = campaignRows.map((row: any) => {
+    const endDate = row.campaign?.end_date ? String(row.campaign.end_date) : ''
+    const primaryStatus = normalizePrimaryStatus(row.campaign?.primary_status)
+    const reasonsRaw = row.campaign?.primary_status_reasons
+    const primaryStatusReasons = Array.isArray(reasonsRaw)
+      ? reasonsRaw.map((r: any) => normalizePrimaryStatusReason(r)).filter(Boolean)
+      : []
+    return {
+      id: String(row.campaign?.id || ''),
+      name: String(row.campaign?.name || ''),
+      platform: 'google' as const,
+      status: computeCampaignStatus(
+        String(row.campaign?.status || ''),
+        primaryStatus,
+        endDate
+      ),
+      primaryStatus,
+      primaryStatusReasons,
+      endDate: endDate && endDate !== NO_END_DATE_SENTINEL ? endDate : undefined,
+      channelType: normalizeChannelType(row),
+      objective: normalizeChannelType(row),
+      bidStrategy: normalizeBidStrategy(row),
+      budgetType: row.campaign_budget?.type === 'DAILY' ? 'daily' : 'lifetime',
+      budget: Number(row.campaign_budget?.amount_micros || 0) / 1e6,
+      metrics: buildMetrics(row),
+    }
+  })
 
   // ── Ad Groups ──────────────────────────────────────────────────────────────
   const adGroupRows = await customer.query(`

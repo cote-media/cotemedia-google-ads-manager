@@ -36,6 +36,9 @@ export interface IntelligenceCampaign {
   bidStrategy?: string        // Target CPA, Target ROAS, Maximize Conversions, etc.
   budgetType?: 'daily' | 'lifetime'
   budget?: number
+  endDate?: string                 // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V1 (Google; omitted when no end date set)
+  primaryStatus?: string           // Google CampaignPrimaryStatus: ELIGIBLE/ENDED/PAUSED/LIMITED/...
+  primaryStatusReasons?: string[]  // why a campaign isn't serving (e.g. CAMPAIGN_ENDED, BUDGET_CONSTRAINED)
   metrics: IntelligenceMetrics
 }
 
