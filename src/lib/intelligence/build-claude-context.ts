@@ -393,19 +393,7 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       const rule = OBJECTIVE_RULES[c.objective || ''] || ''
       lines.push(`  • ${c.name} [${c.objective || c.channelType || 'unknown'}] [${c.status}]`)
       if (c.bidStrategy) lines.push(`    Bid strategy: ${c.bidStrategy}`)
-      // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V1 — an ENDED campaign's budget is NOT
-      // a live daily-spend figure; label it historical so it is never summed as
-      // an active budget. Also surface WHY an enabled campaign isn't serving.
-      if (c.budget) {
-        lines.push(c.status === 'ended'
-          ? `    Budget (historical — campaign ended, not serving): $${c.budget.toFixed(2)}/day`
-          : `    Budget: $${c.budget.toFixed(2)}/day`)
-      }
-      if (c.status === 'ended' && c.endDate) lines.push(`    Ended: ${c.endDate}`)
-      if (c.status === 'active' && c.primaryStatus && c.primaryStatus !== 'ELIGIBLE' && c.primaryStatus !== 'LIMITED') {
-        const reasons = c.primaryStatusReasons && c.primaryStatusReasons.length ? ` (${c.primaryStatusReasons.join(', ')})` : ''
-        lines.push(`    ⚠ Enabled but not fully serving: ${c.primaryStatus}${reasons}`)
-      }
+      if (c.budget) lines.push(`    Budget: $${c.budget.toFixed(2)}/day`)
       lines.push(`    ${formatMetrics(c.metrics, '    ')}`)
       if (rule) lines.push(`    ⚠ Rule: ${rule}`)
     })
