@@ -1,7 +1,7 @@
 # Government / Public-Authority Data Request Policy
 
 **Adopted:** 2026-06-11
-**Owner:** Cote Media LLC (operator of LoraMer)
+**Owner:** Cote, LLC (d/b/a Cote Media) (operator of LoraMer)
 **Scope:** All requests from any government body, law-enforcement agency, court,
 regulator, or other public authority seeking user personal data held by LoraMer.
 
@@ -33,6 +33,6 @@ legal reasoning applied, the parties involved, and the response given.
 Where lawful, affected users will be notified of requests concerning their data.
 
 ---
-*This is an internal operating policy of Cote Media LLC. It governs our conduct;
+*This is an internal operating policy of Cote, LLC (d/b/a Cote Media). It governs our conduct;
 it does not create third-party rights or legal obligations beyond those imposed
 by applicable law.*
