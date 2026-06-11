@@ -36,6 +36,7 @@ export interface IntelligenceCampaign {
   bidStrategy?: string        // Target CPA, Target ROAS, Maximize Conversions, etc.
   budgetType?: 'daily' | 'lifetime'
   budget?: number
+  primaryStatus?: string           // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — Google CampaignPrimaryStatus (ELIGIBLE/ENDED/PAUSED/LIMITED/…); authoritative serving signal behind the toggle
   metrics: IntelligenceMetrics
 }
 
@@ -401,6 +402,7 @@ export interface IntelligenceShopify {
 
 export interface PlatformIntelligence {
   connected: boolean
+  fetchFailed?: boolean   // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — connected, but the live fetch threw this turn (distinct from no-spend / not-connected)
   accountId?: string
   accountName?: string
   dateRange: string

@@ -375,6 +375,13 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
   if (!platform?.connected) return ''
   const lines: string[] = []
   lines.push(`\n=== ${name.toUpperCase()} ADS ===`)
+  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — a fetch that FAILED is a different
+  // fact from "no spend" and from "not connected". Say so loudly so Lora never
+  // reports $0 / "disconnected" when the data simply failed to load this turn.
+  if (platform.fetchFailed) {
+    lines.push(`${name} is CONNECTED, but the live data fetch FAILED this turn — the data is temporarily unavailable, NOT zero and NOT disconnected. Do not report $0, "no spend", or "not connected" for ${name}; tell the user the ${name} data could not be loaded right now and to retry.`)
+    return lines.join('\n')
+  }
   // Connected but no campaigns with spend in this date range → emit honest empty-state
   // and stop. The Meta API hard-filters insights on spend > 0, so a quiet window
   // looks identical to a disconnected account from the data shape's perspective.
@@ -393,7 +400,17 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
       const rule = OBJECTIVE_RULES[c.objective || ''] || ''
       lines.push(`  • ${c.name} [${c.objective || c.channelType || 'unknown'}] [${c.status}]`)
       if (c.bidStrategy) lines.push(`    Bid strategy: ${c.bidStrategy}`)
-      if (c.budget) lines.push(`    Budget: $${c.budget.toFixed(2)}/day`)
+      // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — an ENDED campaign's budget is NOT
+      // a live daily-spend figure; label it historical so it is never summed as
+      // an active budget. Also surface WHY an enabled campaign isn't serving.
+      if (c.budget) {
+        lines.push(c.status === 'ended'
+          ? `    Budget (historical — campaign ended, not serving): $${c.budget.toFixed(2)}/day`
+          : `    Budget: $${c.budget.toFixed(2)}/day`)
+      }
+      if (c.status === 'active' && c.primaryStatus && c.primaryStatus !== 'ELIGIBLE' && c.primaryStatus !== 'LIMITED') {
+        lines.push(`    ⚠ Enabled but not fully serving: ${c.primaryStatus}`)
+      }
       lines.push(`    ${formatMetrics(c.metrics, '    ')}`)
       if (rule) lines.push(`    ⚠ Rule: ${rule}`)
     })
@@ -993,7 +1010,8 @@ export function buildClaudeContextCacheable(
   const platformStatus: string[] = []
   const platformIsPopulated = (p: PlatformIntelligence | undefined) => !!(p?.connected && p.campaigns?.length)
   const platformIsEmpty = (p: PlatformIntelligence | undefined) => !!(p?.connected && !p.campaigns?.length)
-  if (platformIsPopulated(intelligence.google)) platformStatus.push('Google: populated')
+  if (intelligence.google?.fetchFailed) platformStatus.push('Google: CONNECTED but data fetch FAILED this turn (temporarily unavailable — not zero, not disconnected)')  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2
+  else if (platformIsPopulated(intelligence.google)) platformStatus.push('Google: populated')
   else if (platformIsEmpty(intelligence.google)) platformStatus.push('Google: connected but no spend in this date range')
   else platformStatus.push('Google: not connected')
   if (platformIsPopulated(intelligence.meta)) platformStatus.push('Meta: populated')

@@ -78,6 +78,37 @@ function normalizeStatus(s: string): string {
   return u.toLowerCase()
 }
 
+// LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2
+// Google reports a campaign's on/off TOGGLE (campaign.status = ENABLED/PAUSED)
+// separately from whether it is actually SERVING. A campaign past its end date
+// keeps status=ENABLED but Google's campaign.primary_status reports ENDED.
+// Reading only the toggle mislabeled ended campaigns as "active" and let their
+// stale daily budgets be summed as live spend. We now also read
+// campaign.primary_status (the authoritative serving signal). NOTE: this API
+// surface (google-ads-api 23.0.0) rejects campaign.end_date / campaign.start_date
+// as unrecognized fields — proven via the real account in Gate A — so we key on
+// primary_status alone; ENDED there is exactly what the UI shows as "Ended".
+function normalizePrimaryStatus(s: any): string {
+  const u = String(s ?? '').toUpperCase()
+  const byNum: Record<string, string> = {
+    '0': 'UNSPECIFIED', '1': 'UNKNOWN', '2': 'ELIGIBLE', '3': 'PAUSED',
+    '4': 'REMOVED', '5': 'ENDED', '6': 'PENDING', '7': 'NOT_ELIGIBLE',
+    '8': 'LIMITED', '9': 'MISCONFIGURED',
+  }
+  return byNum[u] || u  // idempotent: string enums pass through unchanged
+}
+
+// Authoritative status for Lora's context. primary_status ENDED wins over the
+// toggle; otherwise PAUSED (toggle or primary) → paused; otherwise active.
+function computeCampaignStatus(rawStatus: string, primaryStatus: string): string {
+  const toggle = normalizeStatus(rawStatus)            // active | paused | removed
+  if (toggle === 'removed') return 'removed'
+  const ps = normalizePrimaryStatus(primaryStatus)
+  if (ps === 'ENDED') return 'ended'
+  if (toggle === 'paused' || ps === 'PAUSED') return 'paused'
+  return 'active'
+}
+
 export async function fetchGoogleIntelligence(
   refreshToken: string,
   customerId: string,
@@ -94,31 +125,56 @@ export async function fetchGoogleIntelligence(
   const dateFilter = buildDateFilter(dateRange, customStart, customEnd)
 
   // ── Campaigns ──────────────────────────────────────────────────────────────
-  const campaignRows = await customer.query(`
-    SELECT campaign.id, campaign.name, campaign.status,
+  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — the ENRICHED select adds
+  // campaign.primary_status so ENABLED-but-ended campaigns are labeled "ended",
+  // not "active". HARDENED: if the enriched query throws (e.g. a future API
+  // version rejects a field, the way end_date is rejected today), fall back to
+  // the ORIGINAL field set and log LOUDLY — a campaign-field error must NEVER
+  // silently drop the whole Google platform from context again (the V1
+  // regression). Worst case we lose only the new status precision, not Google.
+  const CAMPAIGN_BASE_FIELDS = `campaign.id, campaign.name, campaign.status,
     campaign.advertising_channel_type, campaign.bidding_strategy_type,
     campaign_budget.amount_micros, campaign_budget.type,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.conversions_value,
-    metrics.ctr, metrics.average_cpc
+    metrics.ctr, metrics.average_cpc`
+  const campaignQuery = (fields: string) => `
+    SELECT ${fields}
     FROM campaign
     WHERE ${dateFilter}
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
-  `)
+  `
+  let campaignRows: any[]
+  let campaignStatusEnriched = true
+  try {
+    campaignRows = await customer.query(campaignQuery(`campaign.primary_status, ${CAMPAIGN_BASE_FIELDS}`))
+  } catch (enrichErr) {
+    campaignStatusEnriched = false
+    console.error('LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2: enriched campaign query failed, falling back to base fields (status precision lost, Google NOT dropped):', enrichErr instanceof Error ? enrichErr.message : enrichErr)
+    campaignRows = await customer.query(campaignQuery(CAMPAIGN_BASE_FIELDS))
+  }
 
-  const campaigns: IntelligenceCampaign[] = campaignRows.map((row: any) => ({
-    id: String(row.campaign?.id || ''),
-    name: String(row.campaign?.name || ''),
-    platform: 'google' as const,
-    status: normalizeStatus(String(row.campaign?.status || '')),
-    channelType: normalizeChannelType(row),
-    objective: normalizeChannelType(row),
-    bidStrategy: normalizeBidStrategy(row),
-    budgetType: row.campaign_budget?.type === 'DAILY' ? 'daily' : 'lifetime',
-    budget: Number(row.campaign_budget?.amount_micros || 0) / 1e6,
-    metrics: buildMetrics(row),
-  }))
+  const campaigns: IntelligenceCampaign[] = campaignRows.map((row: any) => {
+    const primaryStatus = campaignStatusEnriched ? normalizePrimaryStatus(row.campaign?.primary_status) : ''
+    // Enriched: primary_status authoritative. Fallback: toggle only (V1 behavior).
+    const status = campaignStatusEnriched
+      ? computeCampaignStatus(String(row.campaign?.status || ''), primaryStatus)
+      : normalizeStatus(String(row.campaign?.status || ''))
+    return {
+      id: String(row.campaign?.id || ''),
+      name: String(row.campaign?.name || ''),
+      platform: 'google' as const,
+      status,
+      primaryStatus: primaryStatus || undefined,
+      channelType: normalizeChannelType(row),
+      objective: normalizeChannelType(row),
+      bidStrategy: normalizeBidStrategy(row),
+      budgetType: row.campaign_budget?.type === 'DAILY' ? 'daily' : 'lifetime',
+      budget: Number(row.campaign_budget?.amount_micros || 0) / 1e6,
+      metrics: buildMetrics(row),
+    }
+  })
 
   // ── Ad Groups ──────────────────────────────────────────────────────────────
   const adGroupRows = await customer.query(`

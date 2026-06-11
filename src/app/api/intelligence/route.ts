@@ -288,8 +288,12 @@ export async function GET(request: Request) {
   if (googleResult.status === 'fulfilled' && googleResult.value) {
     intelligence.google = googleResult.value
   } else if (googleConn) {
+    // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — a connected Google account whose
+    // fetch FAILED must read as "connected, fetch failed", NOT "not connected"
+    // and NOT "$0 spend". connected:true + fetchFailed:true carries that fact
+    // to build-claude-context (which renders the loud distinct message).
     console.error('Google intelligence failed:', googleResult.status === 'rejected' ? googleResult.reason?.message : 'unknown')
-    intelligence.google = { ...EMPTY_PLATFORM, dateRange }
+    intelligence.google = { ...EMPTY_PLATFORM, connected: true, fetchFailed: true, dateRange }
   }
 
   if (metaResult.status === 'fulfilled' && metaResult.value) {
