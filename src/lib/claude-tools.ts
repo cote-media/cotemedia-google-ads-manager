@@ -9,6 +9,23 @@
 // the caller - it is NEVER a model-controlled input.
 
 import { queryMetrics } from '@/lib/metrics-query'
+import { supabaseAdmin } from '@/lib/supabase'
+
+// LORAMER_QUERY_METRICS_OWNERSHIP_V1
+// Defense-in-depth ownership check (the routes also gate before calling the
+// loop). A signed-in user may only query a client they own. Same proven
+// pattern as /api/backfill/run. Fails CLOSED: any error or missing input
+// returns false, so the tool is simply not exposed.
+async function userOwnsClient(userEmail: string, clientId: string): Promise<boolean> {
+  if (!userEmail || !clientId) return false
+  const { data, error } = await supabaseAdmin
+    .from('clients')
+    .select('id')
+    .eq('id', clientId)
+    .eq('user_email', userEmail)
+    .maybeSingle()
+  return !error && !!data
+}
 
 export const QUERY_METRICS_TOOL: any = {
   name: 'query_metrics',
@@ -98,11 +115,17 @@ export async function runClaudeToolLoop(opts: {
   system: any
   messages: any[]
   clientId?: string | null
+  userEmail?: string | null  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
   maxToolTurns?: number
 }): Promise<ToolLoopResult> {
   const { anthropic, model, maxTokens, system, messages } = opts
   const clientId = opts.clientId || ''
-  const tools: any[] | undefined = clientId ? [QUERY_METRICS_TOOL] : undefined
+  const userEmail = opts.userEmail || ''
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — expose query_metrics ONLY when the
+  // signed-in user owns this client. Without a verified owner the tool is
+  // withheld and the loop degrades to a single-shot call (no cross-tenant read).
+  const tools: any[] | undefined =
+    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL] : undefined
   const convo: any[] = [...messages]
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5
@@ -120,7 +143,7 @@ export async function runClaudeToolLoop(opts: {
     usage.cache_create += u.cache_creation_input_tokens || 0
     usage.cache_read += u.cache_read_input_tokens || 0
 
-    if (resp.stop_reason === 'tool_use' && clientId) {
+    if (resp.stop_reason === 'tool_use' && tools && clientId) {
       const toolUses = (resp.content as any[]).filter(b => b.type === 'tool_use')
       convo.push({ role: 'assistant', content: resp.content })
       const toolResults: any[] = []

@@ -6,6 +6,7 @@ import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
+import { supabaseAdmin } from '@/lib/supabase'  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -30,6 +31,22 @@ export async function POST(request: Request) {
   } = await request.json()
 
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
+
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — when a client is in scope, the
+  // signed-in user MUST own it before we fetch its intelligence or expose the
+  // query_metrics tool. Same proven gate as /api/backfill/run. clientId is
+  // optional on this route, so only gate when present.
+  if (clientId) {
+    const { data: owned, error: ownErr } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('user_email', session.user.email)
+      .maybeSingle()
+    if (ownErr || !owned) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+  }
 
   // LORAMER_FOCUS_LOCATION_V1
   // Build focus description. Honor `location` (the tab) first - that's
@@ -134,6 +151,7 @@ export async function POST(request: Request) {
       system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
       messages,
       clientId,
+      userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
     })
     const finalText = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
     console.log('[chat] cache:', {

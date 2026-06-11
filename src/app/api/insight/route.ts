@@ -6,6 +6,7 @@ import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_INSIGHT_FOLLOWUP_SONNET_V1
+import { supabaseAdmin } from '@/lib/supabase'  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -29,6 +30,21 @@ export async function POST(request: Request) {
 
   const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd, activeAlerts } = await request.json()
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
+
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — the signed-in user MUST own this
+  // client before we fetch its intelligence or expose query_metrics. Same
+  // proven gate as /api/backfill/run.
+  {
+    const { data: owned, error: ownErr } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('user_email', session.user.email)
+      .maybeSingle()
+    if (ownErr || !owned) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+  }
 
   // Fetch complete intelligence for this client.
   // We use the hybrid cache: platform data is cached 15 min, but user_notes
@@ -102,6 +118,7 @@ export async function POST(request: Request) {
       system: systemArr,
       messages,
       clientId,
+      userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
     })
     const insight = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
     console.log('[insight] cache (followup sonnet):', {

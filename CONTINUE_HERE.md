@@ -31,6 +31,11 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-11) — query_metrics ownership hardening + Phase 0b query item CLOSED (LORAMER_QUERY_METRICS_OWNERSHIP_V1)
+- FINDING: query_metrics was already BUILT and WIRED into both /api/chat and /api/insight (since June 4, LORAMER_QUERY_METRICS_TOOL_0B_V1) — the "not yet wired / chat still single-shot" notes were STALE. Reconciled ROADMAP to BUILT+WIRED+HARDENED, Phase 0b query item COMPLETE.
+- SECURITY FIX: the tool read path scoped ONLY by client_id (from the request body) via the service role — no check that the signed-in user OWNS the client. A signed-in user could ask Lora about another tenant's clientId and receive their aggregated history (also affected /api/intelligence's live-data fetch). Closed with the proven backfill/run gate (clients.eq(id).eq(user_email).maybeSingle → 404) at TWO layers: (a) route-level on /api/chat (when clientId present), /api/insight, /api/intelligence; (b) central in runClaudeToolLoop (userEmail passed in; query_metrics withheld unless ownership verified — fails closed, degrades to single-shot). Backend only; ZERO UI change (reviewer-path freeze respected).
+- VERIFY (Russ, after deploy): NEGATIVE — signed in as demo@loramer.com, request Russ's main-account clientId → must get NO data (404 / tool unavailable). POSITIVE — as the owner, Lora answers normally. Then run the in-app question set.
+
 ## Session log (2026-06-11) — META APP REVIEW SUBMITTED (LORAMER_META_REVIEW_SUBMITTED_V1)
 - **SUBMITTED** to Meta App Review: Advanced Access requested for **ads_read + business_management** (plus **Marketing API Access Tier** and **public_profile**). UNUSED permissions TRASHED from the submission: ads_management, pages_* , catalog_management, email, Business Asset User Profile Access. Screencast uploaded per-permission + supporting docs.
 - REVIEWER PATH: demo@loramer.com login; a NEW empty client **"Reviewer Test Client"** created in the demo@ workspace for the connect flow; **Influential Drones** already connected and showing live data.
@@ -159,7 +164,7 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - While waiting: **FREEZE all app UI on the reviewer path** (/clients, connect flows, dashboard Meta tab) until the Meta decision — no visual changes that diverge from the screencast.
 - On Meta approval: flip the app **Development → Live** per **docs/META_APP_REVIEW_ANSWERS.md section 5**, then verify connect as a FRESH external user.
 - Queued post-approval: publish the gov data-request policy as a public page; homepage unification; dashboard visual reconciliation.
-- Safe active work meanwhile: **query_metrics tool** (Phase 0b remainder); **Shopify token hardening**; **iMac MCP setup**.
+- Safe active work meanwhile: **Shopify token hardening**; **iMac MCP setup**. (query_metrics Phase 0b item CLOSED 2026-06-11 — built, wired, ownership-hardened.)
 - ⚠️ Respond fast if Google or Meta asks for more. Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42). Reference: answer packs at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md + docs/META_APP_REVIEW_ANSWERS.md.
 
 Stripe (parallel, owner = Russ's external lead times):

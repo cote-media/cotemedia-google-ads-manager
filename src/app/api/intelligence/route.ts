@@ -60,6 +60,22 @@ export async function GET(request: Request) {
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — ownership gate. This route fetches
+  // platform_connections/clients by client_id with the service role, so without
+  // this check any signed-in user could read another tenant's live data. Same
+  // proven gate as /api/backfill/run; 404 (not 403) to avoid confirming the id.
+  {
+    const { data: owned, error: ownErr } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('user_email', session.user.email)
+      .maybeSingle()
+    if (ownErr || !owned) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+  }
+
   // ── Fetch client data from Supabase ────────────────────────────────────────
   // LORAMER_CONV_API_V1_INTELLIGENCE
   // Conversations now live in client_conversations table (was client_context.conversations).
