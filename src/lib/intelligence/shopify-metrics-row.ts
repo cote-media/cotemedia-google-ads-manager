@@ -70,6 +70,7 @@ export function buildShopifyDepthRows(
 ): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
   const cur = data.currencyCode
+  const curMixed = data.currencyMixed || undefined // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — tag untrustworthy cross-currency sums
 
   for (const p of data.productsCapture || []) {
     if (!p?.id) continue
@@ -87,7 +88,7 @@ export function buildShopifyDepthRows(
       breakdown_value: '',
       revenue: p.netRevenue, // NET (after discounts); gross kept in extra
       conversions: p.units,
-      extra: { units: p.units, grossRevenue: p.grossRevenue, currencyCode: cur, netBasis: 'discountedTotal_excl_refunds' },
+      extra: { units: p.units, grossRevenue: p.grossRevenue, currencyCode: cur, currencyMixed: curMixed, netBasis: 'discountedTotal_excl_refunds' },
     })
   }
 
@@ -106,7 +107,7 @@ export function buildShopifyDepthRows(
       breakdown_value: g.country, // ISO country code, or 'UNKNOWN'
       revenue: g.netRevenue,
       conversions: g.orders,
-      extra: { orders: g.orders, refunded: g.refunded, currencyCode: cur },
+      extra: { orders: g.orders, refunded: g.refunded, currencyCode: cur, currencyMixed: curMixed },
     })
   }
 
@@ -124,7 +125,7 @@ export function buildShopifyDepthRows(
       breakdown_value: g.region, // e.g. 'US-CA', or '<country>-UNKNOWN'
       revenue: g.netRevenue,
       conversions: g.orders,
-      extra: { orders: g.orders, currencyCode: cur },
+      extra: { orders: g.orders, currencyCode: cur, currencyMixed: curMixed },
     })
   }
 

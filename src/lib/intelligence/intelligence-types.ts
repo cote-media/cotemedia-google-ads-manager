@@ -385,6 +385,7 @@ export interface IntelligenceShopify {
   geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
   geoRegions?: { region: string; netRevenue: number; orders: number }[]
   currencyCode?: string
+  currencyMixed?: boolean // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — window spans >1 base currency (rare)
   unknownGeoOrders?: number
   // Customers
   newCustomers?: number

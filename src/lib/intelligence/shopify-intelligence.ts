@@ -11,6 +11,40 @@ import type { IntelligenceShopify } from './intelligence-types'
 
 const GRAPHQL_API_VERSION = '2025-01'
 
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+// LORAMER_SHOPIFY_DIM_BACKFILL_V1 — POST a GraphQL op with Shopify cost-throttle handling.
+// On a THROTTLED error, wait the computed restore time and retry. If a throttleDeadline is given
+// (backfill route budget) and the wait would blow it, throw a budget error so the caller can stop +
+// persist its cursor and resume later (NOT treated as empty data).
+async function shopifyGraphQL(
+  endpoint: string,
+  headers: Record<string, string>,
+  query: string,
+  variables: Record<string, unknown>,
+  throttleDeadline?: number
+): Promise<any> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ query, variables }) })
+    const json = await res.json()
+    const throttled = Array.isArray(json.errors) && json.errors.some((e: any) => e?.extensions?.code === 'THROTTLED')
+    if (!throttled) return json
+    const ts = json.extensions?.cost?.throttleStatus
+    const requested = Number(json.extensions?.cost?.requestedQueryCost || 0)
+    const available = Number(ts?.currentlyAvailable || 0)
+    const restoreRate = Number(ts?.restoreRate || 50)
+    const waitMs = Math.max(500, Math.ceil(Math.max(0, requested - available) / restoreRate) * 1000)
+    if (throttleDeadline && Date.now() + waitMs > throttleDeadline) {
+      const err: any = new Error('THROTTLE_BUDGET — throttle wait would exceed the run budget')
+      err.throttleBudget = true
+      throw err
+    }
+    console.warn(`[shopify] THROTTLED — waiting ${waitMs}ms (avail=${available} restore=${restoreRate}/s) attempt=${attempt + 1}`)
+    await sleep(waitMs)
+  }
+  throw new Error('Shopify GraphQL still throttled after retries')
+}
+
 // LORAMER_SHOPIFY_NET_SALES_V1
 type GraphQLOrderNode = {
   id: string
@@ -76,7 +110,8 @@ export async function fetchShopifyIntelligence(
   shopDomain: string,   // e.g. "my-store.myshopify.com"
   dateRange: string,
   customStart?: string,
-  customEnd?: string
+  customEnd?: string,
+  opts?: { throttleDeadline?: number } // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — backfill budget for throttle waits
 ): Promise<IntelligenceShopify> {
   const endpoint = `https://${shopDomain}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`
   const headers = {
@@ -90,9 +125,11 @@ export async function fetchShopifyIntelligence(
   // Shopify GraphQL date filter syntax for the orders `query` arg.
   const queryString = `created_at:>=${startDate}T00:00:00Z AND created_at:<=${endDate}T23:59:59Z`
 
+  // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — cursor pagination: accumulate ALL pages, not just the first 250.
+  // (abandonedCheckouts(first:250) is still single-page — count-only, understates on huge days; paginate later.)
   const gqlQuery = `
-    query OrdersInRange($query: String!) {
-      orders(first: 250, query: $query) {
+    query OrdersInRange($query: String!, $after: String) {
+      orders(first: 250, after: $after, query: $query) {
         edges {
           node {
             id
@@ -115,25 +152,26 @@ export async function fetchShopifyIntelligence(
             }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }
   `
 
   try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ query: gqlQuery, variables: { query: queryString } }),
-    })
-
-    const json = await res.json()
-
-    if (json.errors) {
-      console.error('Shopify GraphQL errors:', JSON.stringify(json.errors))
-      throw new Error('GraphQL query returned errors')
-    }
-
-    const orderNodes: GraphQLOrderNode[] = (json.data?.orders?.edges || []).map((e: any) => e.node)
+    const orderNodes: GraphQLOrderNode[] = []
+    let after: string | null = null
+    let pages = 0
+    do {
+      const json = await shopifyGraphQL(endpoint, headers, gqlQuery, { query: queryString, after }, opts?.throttleDeadline)
+      if (json.errors) {
+        console.error('Shopify GraphQL errors:', JSON.stringify(json.errors))
+        throw new Error('GraphQL query returned errors')
+      }
+      const conn = json.data?.orders
+      for (const e of conn?.edges || []) orderNodes.push(e.node)
+      after = conn?.pageInfo?.hasNextPage ? conn.pageInfo.endCursor : null
+      pages += 1
+    } while (after && pages < 100) // safety cap (100 pages × 250 = 25k orders/window)
 
     // LORAMER_SHOPIFY_NET_SALES_V1 — headline revenue = net sales (line-item subtotal after refunds, excludes shipping/tax)
     const totalRevenue = orderNodes.reduce(
@@ -203,7 +241,14 @@ export async function fetchShopifyIntelligence(
     // ─── LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth (NOT UI) ───
     // Cancelled orders EXCLUDED from these grains (the account totals above are untouched).
     const liveOrders = orderNodes.filter((o) => !o.cancelledAt)
-    const currencyCode = orderNodes[0]?.currentSubtotalPriceSet?.shopMoney?.currencyCode || undefined
+    // Currency rule: use shopMoney as-is; if a window spans MULTIPLE base currencies (rare — a store
+    // changed currency), the net sums mix currencies — LOG LOUD and tag (currencyMixed), never silent.
+    const currencies = new Set(liveOrders.map((o) => o.currentSubtotalPriceSet?.shopMoney?.currencyCode).filter(Boolean))
+    const currencyCode = currencies.size ? (Array.from(currencies)[0] as string) : (orderNodes[0]?.currentSubtotalPriceSet?.shopMoney?.currencyCode || undefined)
+    const currencyMixed = currencies.size > 1
+    if (currencyMixed) {
+      console.warn(`[shopify] MIXED CURRENCY for ${shopDomain} in ${startDate}..${endDate}: ${Array.from(currencies).join(',')} — geo/product net sums span currencies; tagged in extra`)
+    }
 
     // Ship-to geo: net subtotal + order count per country / region. shopMoney only.
     const geoC: Record<string, { netRevenue: number; orders: number; refunded: number }> = {}
@@ -268,9 +313,13 @@ export async function fetchShopifyIntelligence(
       geoCountries,
       geoRegions,
       currencyCode,
+      currencyMixed,
       unknownGeoOrders,
     }
-  } catch (e) {
+  } catch (e: any) {
+    // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — let a throttle-budget signal propagate so the backfill can
+    // stop + persist its cursor (NOT collapse to empty data).
+    if (e?.throttleBudget) throw e
     console.error('Shopify intelligence error:', e)
     // Return connected:true with zeros rather than connected:false
     // so the UI shows empty data rather than an error state

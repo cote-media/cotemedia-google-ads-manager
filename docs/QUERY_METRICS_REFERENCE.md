@@ -43,6 +43,12 @@ Pick `query_breakdown` when the question is about *individual terms/keywords/dim
     count per ISO country / `<country>-<province>` region; missing addresses bucket as 'UNKNOWN'
     (never dropped). Cancelled orders excluded. SHIPPED 2a (LORAMER_SHOPIFY_DEPTH_2A_V1). (Shopify
     PRODUCT is NOT a breakdown — it's a base entity_level, see above.)
+    SEMANTICS (LORAMER_SHOPIFY_DIM_BACKFILL_V1): Shopify depth rows reflect the CURRENT state of
+    historical orders — forward capture re-reads yesterday nightly, and the backfill re-reads past
+    days, so a late refund/edit/cancel correctly lowers that day's net on the next run (idempotent
+    upsert). If a window spans >1 base currency (rare — a store changed currency), the net sums mix
+    currencies and the rows carry `currencyMixed: true` in extra (and a loud log) — do NOT trust a
+    cross-currency sum.
   `query_breakdown` reads ONLY breakdown rows, one `breakdown_type` per call.
 
 ## (c) Double-count rule (the one that matters)
