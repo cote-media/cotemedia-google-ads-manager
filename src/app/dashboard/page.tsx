@@ -10,7 +10,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
-import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard } from '@tabler/icons-react'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard, IconCalendar } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 
 const DATE_RANGES = [
@@ -3853,8 +3853,17 @@ function DashboardContent() {
             </select>
             {showCustomPicker && (
               <div className="mt-2 space-y-1">
-                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
-                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-1.5 font-mono text-ink focus:outline-none focus:border-accent" />
+                {/* LORAMER_DATE_PICKER_AFFORDANCE_V1 — icon + label so iOS Safari shows it's a tappable date field */}
+                <label className="flex items-center gap-2 w-full text-xs border border-border bg-paper px-2 py-1.5 focus-within:border-accent">
+                  <IconCalendar size={14} stroke={1.75} className="flex-shrink-0 text-muted" />
+                  <span className="text-muted">Start</span>
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="flex-1 bg-transparent font-mono text-ink focus:outline-none" />
+                </label>
+                <label className="flex items-center gap-2 w-full text-xs border border-border bg-paper px-2 py-1.5 focus-within:border-accent">
+                  <IconCalendar size={14} stroke={1.75} className="flex-shrink-0 text-muted" />
+                  <span className="text-muted">End</span>
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="flex-1 bg-transparent font-mono text-ink focus:outline-none" />
+                </label>
                 <button onClick={applyCustomRange} disabled={!customStart || !customEnd} className="w-full btn-primary text-xs py-1.5 disabled:opacity-50">Apply</button>
               </div>
             )}
@@ -3918,8 +3927,17 @@ function DashboardContent() {
             </select>
             {showCustomPicker && (
               <div className="space-y-1">
-                <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono" />
-                <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="w-full text-xs border border-border bg-paper px-2 py-2 font-mono" />
+                {/* LORAMER_DATE_PICKER_AFFORDANCE_V1 — icon + label so iOS Safari shows it's a tappable date field */}
+                <label className="flex items-center gap-2 w-full text-xs border border-border bg-paper px-2 py-2">
+                  <IconCalendar size={16} stroke={1.75} className="flex-shrink-0 text-muted" />
+                  <span className="text-muted">Start</span>
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="flex-1 bg-transparent font-mono" />
+                </label>
+                <label className="flex items-center gap-2 w-full text-xs border border-border bg-paper px-2 py-2">
+                  <IconCalendar size={16} stroke={1.75} className="flex-shrink-0 text-muted" />
+                  <span className="text-muted">End</span>
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="flex-1 bg-transparent font-mono" />
+                </label>
                 <button onClick={() => { applyCustomRange(); setMobileMenuOpen(false) }} className="w-full btn-primary text-xs py-2">Apply</button>
               </div>
             )}
