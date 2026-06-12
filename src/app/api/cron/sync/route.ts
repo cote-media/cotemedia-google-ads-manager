@@ -373,6 +373,10 @@ export async function GET(request: Request) {
     rowsWritten: 0,
     errors: [] as SyncError[],
   }
+  // LORAMER_CRON_DISTINCT_COUNT_V1 — FIX 5: clientsProcessed is one Set of distinct client ids
+  // across the five per-platform loops, not five separate +=1 (which counted a multi-platform
+  // client once per platform). Cosmetic; no behavior change.
+  const processedClientIds = new Set<string>()
 
   const { data: clients, error: clientsError } = await supabaseAdmin
     .from('clients')
@@ -396,7 +400,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    summary.clientsProcessed += 1
+    processedClientIds.add(client.id)
 
     for (const conn of shopifyConnections) {
       summary.shopifyConnections += 1
@@ -475,7 +479,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    summary.clientsProcessed += 1
+    processedClientIds.add(client.id)
 
     for (const conn of metaConnections) {
       summary.metaConnections += 1
@@ -560,7 +564,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    summary.clientsProcessed += 1
+    processedClientIds.add(client.id)
 
     for (const conn of googleConnections) {
       summary.googleConnections += 1
@@ -647,7 +651,7 @@ export async function GET(request: Request) {
       continue
     }
 
-    summary.clientsProcessed += 1
+    processedClientIds.add(client.id)
 
     for (const conn of wooConnections) {
       summary.wooConnections += 1
@@ -739,7 +743,7 @@ export async function GET(request: Request) {
         continue
       }
 
-      summary.clientsProcessed += 1
+      processedClientIds.add(client.id)
       summary.gaConnections += 1
 
       const intel = await fetchGaIntelligence(
@@ -799,5 +803,6 @@ export async function GET(request: Request) {
     }
   }
 
+  summary.clientsProcessed = processedClientIds.size // FIX 5: distinct clients, not per-platform sum
   return NextResponse.json(summary)
 }
