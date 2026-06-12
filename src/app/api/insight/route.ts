@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd, activeAlerts } = await request.json()
+  const { clientId, clientName, dateRange, location, conversationHistory, customStart, customEnd, activeAlerts, shopify: shopifyFromUI } = await request.json() // LORAMER_INSIGHT_WINDOW_SYNC_V1
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
   // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — the signed-in user MUST own this
@@ -57,6 +57,12 @@ export async function POST(request: Request) {
   const intelligenceData = await intelligenceRes.json()
   const intelligence: ClientIntelligence = intelligenceData.intelligence
   if (!intelligence) return NextResponse.json({ error: 'Could not fetch intelligence' }, { status: 500 })
+
+  // LORAMER_INSIGHT_WINDOW_SYNC_V1 — the dashboard already loaded + displays the Shopify payload (the
+  // "No orders" banner reads it). Use that EXACT payload so Lora reasons on the same numbers the user
+  // sees for the displayed window — divergence between the banner and Lora is then impossible by
+  // construction. (Absent — e.g. ad-only views — falls back to the freshly-fetched intelligence.shopify.)
+  if (shopifyFromUI) intelligence.shopify = shopifyFromUI
 
   // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
   // Build prefix/suffix from intelligence. Active alerts are per-call dynamic

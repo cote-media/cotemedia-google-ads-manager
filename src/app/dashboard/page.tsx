@@ -1391,7 +1391,10 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
       const res = await fetch('/api/insight', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clientId, clientName, dateRange, customStart, customEnd, location, conversationHistory: history, activeAlerts: filteredAnomalies,
           // Pass ad data if available for backwards compat
-          totals: totals || null, campaigns: campaigns || [], platform }) }) // LORAMER_CUSTOM_DATE_RANGE_FIX_V2
+          totals: totals || null, campaigns: campaigns || [], platform,
+          // LORAMER_INSIGHT_WINDOW_SYNC_V1 — pass the SAME shopify payload the banner reads so Lora
+          // and the UI can never diverge on orders/revenue for the displayed window.
+          shopify: shopify || null }) })
       const d = await res.json(); return d.insight || ''
     } catch { return '' }
   }
@@ -1439,7 +1442,7 @@ function InsightChat({ data, clientId, clientName, dateRange, customStart, custo
 
   useEffect(() => {
     fetchInsight().then(text => { if (text) { setInsight(text); lsSet(cacheKey, JSON.stringify({ text, ts: Date.now() })) } setLoading(false) })
-  }, [clientId, platform, dateRange, location])
+  }, [clientId, platform, dateRange, location, customStart, customEnd]) // LORAMER_INSIGHT_WINDOW_SYNC_V1 — refetch on custom→custom window changes
 
   // LORAMER_CONV_API_V1_INSIGHTCHAT + LORAMER_MEMORY_AUTODETECT_V1
   async function saveConversation(updatedMessages: InsightMessage[]) {
