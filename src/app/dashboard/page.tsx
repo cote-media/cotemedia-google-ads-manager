@@ -2628,8 +2628,8 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
         />
       )}
       {/* Revenue over time chart */}
-      {/* LORAMER_WOO_FIX_V2 */}
-      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={undefined} customEnd={undefined} apiPath={apiPath} />
+      {/* LORAMER_SHOPIFY_TAB_CHART_RANGE_V1 — forward the custom range (was hardcoded undefined → blank chart on custom) */}
+      <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} apiPath={apiPath} />
 
       {/* Metric tiles */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-px bg-border rounded-xl overflow-hidden">
