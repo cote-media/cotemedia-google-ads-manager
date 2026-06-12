@@ -14,10 +14,12 @@ const GRAPHQL_API_VERSION = '2025-01'
 // LORAMER_SHOPIFY_NET_SALES_V1
 type GraphQLOrderNode = {
   id: string
-  currentSubtotalPriceSet: { shopMoney: { amount: string } }
+  cancelledAt: string | null // LORAMER_SHOPIFY_DEPTH_2A_V1
+  currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode?: string } }
   totalRefundedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
   customer: { id: string; numberOfOrders: number } | null
+  shippingAddress: { countryCodeV2: string | null; provinceCode: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1
   lineItems: {
     edges: Array<{
       node: {
@@ -25,6 +27,7 @@ type GraphQLOrderNode = {
         quantity: number
         product: { id: string } | null
         originalUnitPriceSet: { shopMoney: { amount: string } }
+        discountedTotalSet: { shopMoney: { amount: string } } // LORAMER_SHOPIFY_DEPTH_2A_V1 — line net (after discounts)
       }
     }>
   }
@@ -93,10 +96,12 @@ export async function fetchShopifyIntelligence(
         edges {
           node {
             id
-            currentSubtotalPriceSet { shopMoney { amount } }
+            cancelledAt
+            currentSubtotalPriceSet { shopMoney { amount currencyCode } }
             totalRefundedSet { shopMoney { amount } }
             displayFinancialStatus
             customer { id numberOfOrders }
+            shippingAddress { countryCodeV2 provinceCode }
             lineItems(first: 50) {
               edges {
                 node {
@@ -104,6 +109,7 @@ export async function fetchShopifyIntelligence(
                   quantity
                   product { id }
                   originalUnitPriceSet { shopMoney { amount } }
+                  discountedTotalSet { shopMoney { amount } }
                 }
               }
             }
@@ -194,6 +200,46 @@ export async function fetchShopifyIntelligence(
       .slice(0, 10)
       .map(([id, data]) => ({ id, ...data }))
 
+    // ─── LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth (NOT UI) ───
+    // Cancelled orders EXCLUDED from these grains (the account totals above are untouched).
+    const liveOrders = orderNodes.filter((o) => !o.cancelledAt)
+    const currencyCode = orderNodes[0]?.currentSubtotalPriceSet?.shopMoney?.currencyCode || undefined
+
+    // Ship-to geo: net subtotal + order count per country / region. shopMoney only.
+    const geoC: Record<string, { netRevenue: number; orders: number; refunded: number }> = {}
+    const geoR: Record<string, { netRevenue: number; orders: number }> = {}
+    let unknownGeoOrders = 0
+    for (const o of liveOrders) {
+      const net = parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0')
+      const refunded = parseFloat(o.totalRefundedSet?.shopMoney?.amount || '0')
+      const country = o.shippingAddress?.countryCodeV2 || 'UNKNOWN'
+      if (country === 'UNKNOWN') unknownGeoOrders += 1
+      if (!geoC[country]) geoC[country] = { netRevenue: 0, orders: 0, refunded: 0 }
+      geoC[country].netRevenue += net
+      geoC[country].orders += 1
+      geoC[country].refunded += refunded
+      const region = `${country}-${o.shippingAddress?.provinceCode || 'UNKNOWN'}`
+      if (!geoR[region]) geoR[region] = { netRevenue: 0, orders: 0 }
+      geoR[region].netRevenue += net
+      geoR[region].orders += 1
+    }
+    const geoCountries = Object.entries(geoC).map(([country, v]) => ({ country, ...v }))
+    const geoRegions = Object.entries(geoR).map(([region, v]) => ({ region, ...v }))
+
+    // Full product mix with NET revenue (line discountedTotalSet, after discounts) + gross.
+    const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
+    for (const order of liveOrders) {
+      for (const lineEdge of order.lineItems?.edges || []) {
+        const item = lineEdge.node
+        const id = String(item.product?.id || `notitle:${item.title}`)
+        if (!prodCap[id]) prodCap[id] = { name: item.title, netRevenue: 0, grossRevenue: 0, units: 0 }
+        prodCap[id].netRevenue += parseFloat(item.discountedTotalSet?.shopMoney?.amount || '0')
+        prodCap[id].grossRevenue += parseFloat(item.originalUnitPriceSet?.shopMoney?.amount || '0') * item.quantity
+        prodCap[id].units += item.quantity
+      }
+    }
+    const productsCapture = Object.entries(prodCap).map(([id, v]) => ({ id, ...v }))
+
     // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — separate fail-soft fetch.
     // Reuses the same date queryString as the orders query so the count is
     // scoped to the same window.
@@ -217,6 +263,12 @@ export async function fetchShopifyIntelligence(
       // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — undefined when permission/perm or network failed
       abandonedCheckoutCount,
       topProducts,
+      // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth
+      productsCapture,
+      geoCountries,
+      geoRegions,
+      currencyCode,
+      unknownGeoOrders,
     }
   } catch (e) {
     console.error('Shopify intelligence error:', e)
@@ -238,6 +290,11 @@ export async function fetchShopifyIntelligence(
       returningCustomerAov: 0,
       revenueConcentration: 0,
       topProducts: [],
+      // LORAMER_SHOPIFY_DEPTH_2A_V1
+      productsCapture: [],
+      geoCountries: [],
+      geoRegions: [],
+      unknownGeoOrders: 0,
     }
   }
 }

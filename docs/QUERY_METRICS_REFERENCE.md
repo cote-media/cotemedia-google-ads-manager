@@ -28,7 +28,10 @@ Pick `query_breakdown` when the question is about *individual terms/keywords/dim
 
 - **Base rows** — `breakdown_type = ''`. The hierarchy: `entity_level` ∈ account / campaign /
   ad_group / ad (Google, Meta) / product (Shopify, Woo). These carry the authoritative TOTALS.
-  `query_metrics` reads ONLY base rows.
+  `query_metrics` reads ONLY base rows. **Shopify product is a BASE entity_level**
+  (`entity_level='product'`, NET revenue via lineItem discountedTotalSet, units = conversions, gross +
+  units + currencyCode in `extra`; LORAMER_SHOPIFY_DEPTH_2A_V1) — read it with
+  `query_metrics(level='product')`, NOT query_breakdown.
 - **Breakdown rows** — `breakdown_type != ''`. A dimensional cut hanging off an entity:
   - `search_term` / `keyword` (Google): `entity_level='ad_group'`, `entity_id`=adGroupId,
     `parent_entity_id`=campaignId, `breakdown_value`=the term/keyword text. status / match_type live
@@ -36,7 +39,10 @@ Pick `query_breakdown` when the question is about *individual terms/keywords/dim
     (forward) + backfilled ~90 days (LORAMER_SEARCH_TERMS_CAPTURE_V1 / _BACKFILL_V1). Top 300 terms /
     200 keywords per day by cost; fully-inactive rows skipped.
   - `publisher_platform` / `age` / `gender` (Meta): existing breakdown rows.
-  - `geo_country` / `product` (Shopify): future (SHOPIFY DATA DEPTH MAX Phase 2).
+  - `geo_country` / `geo_region` (Shopify): ship-to geo on the account row — net revenue + order
+    count per ISO country / `<country>-<province>` region; missing addresses bucket as 'UNKNOWN'
+    (never dropped). Cancelled orders excluded. SHIPPED 2a (LORAMER_SHOPIFY_DEPTH_2A_V1). (Shopify
+    PRODUCT is NOT a breakdown — it's a base entity_level, see above.)
   `query_breakdown` reads ONLY breakdown rows, one `breakdown_type` per call.
 
 ## (c) Double-count rule (the one that matters)
@@ -76,7 +82,10 @@ inactive day is empty-by-truth, not an error.
   there are more — never imply you saw all terms.
 - Date window default `LAST_30_DAYS`; explicit `startDate`+`endDate` validated YYYY-MM-DD, start≤end
   (invalid → empty, not an error).
-- `rankBy` default `spend`. `orderDir` default `desc`.
+- `rankBy` default `spend`; also accepts `revenue` (Shopify geo is revenue-centric — ad breakdowns
+  carry spend, commerce breakdowns carry revenue). Each returned row includes spend/impressions/
+  clicks/conversions/conversionValue/revenue + derived.
+- `orderDir` default `desc`.
 - Platform is implied by `breakdownType`; a mismatched `platform` arg is rejected (no cross-platform
   read).
 - OWNERSHIP: both tools are exposed by `runClaudeToolLoop` ONLY when the signed-in user owns the

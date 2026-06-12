@@ -185,13 +185,17 @@ export async function queryMetrics(opts: {
 // grain. The summed metrics here are a SUBSET of the entity's base total (e.g. the
 // search-term-attributed portion) and must never be presented as the account total.
 
-const BREAKDOWN_TYPES = new Set(['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'product'])
+// NOTE: 'product' is NOT here — products are a BASE entity_level (read via query_metrics
+// level='product'), not a breakdown_type. geo_country/geo_region are Shopify breakdowns
+// (LORAMER_SHOPIFY_DEPTH_2A_V1).
+const BREAKDOWN_TYPES = new Set(['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'geo_region'])
 const BREAKDOWN_PLATFORM: Record<string, string> = {
   search_term: 'google', keyword: 'google',
   publisher_platform: 'meta', age: 'meta', gender: 'meta',
-  geo_country: 'shopify', product: 'shopify',
+  geo_country: 'shopify', geo_region: 'shopify',
 }
-const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue'])
+// revenue is rankable too — Shopify geo/product breakdowns are revenue-centric (LORAMER_SHOPIFY_DEPTH_2A_V1).
+const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'])
 const VALUE_MAXLEN = 120
 
 export type BreakdownRow = {
@@ -202,6 +206,7 @@ export type BreakdownRow = {
   clicks: number
   conversions: number
   conversionValue: number
+  revenue: number
   derived: Record<string, number>
 }
 
@@ -260,14 +265,14 @@ export async function queryBreakdown(opts: {
     return result
   }
 
-  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number }
+  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number }
   const byValue = new Map<string, Agg>()
   const PAGE = 1000
   let from = 0
   for (;;) {
     let q = supabaseAdmin
       .from('metrics_daily')
-      .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value')
+      .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue')
       .eq('client_id', opts.clientId)
       .eq('platform', platform)
       .eq('breakdown_type', bt) // NEVER '' — base rows are physically excluded (double-count guard)
@@ -284,7 +289,7 @@ export async function queryBreakdown(opts: {
       const value = String(row.breakdown_value ?? '')
       let agg = byValue.get(value)
       if (!agg) {
-        agg = { value, parents: new Set<string>(), spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0 }
+        agg = { value, parents: new Set<string>(), spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0 }
         byValue.set(value, agg)
       }
       if (row.parent_entity_id) agg.parents.add(String(row.parent_entity_id))
@@ -293,6 +298,7 @@ export async function queryBreakdown(opts: {
       agg.clicks += Number(row.clicks || 0)
       agg.conversions += Number(row.conversions || 0)
       agg.conversionValue += Number(row.conversion_value || 0)
+      agg.revenue += Number(row.revenue || 0)
     }
     if (rows.length < PAGE) break
     from += PAGE
@@ -311,11 +317,11 @@ export async function queryBreakdown(opts: {
   })
   result.truncated = sorted.length > topN
   result.rows = sorted.slice(0, topN).map((a) => {
-    const totals: MetricTotals = { spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: 0, rowCount: 0 }
+    const totals: MetricTotals = { spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: a.revenue, rowCount: 0 }
     return {
       value: a.value.length > VALUE_MAXLEN ? a.value.slice(0, VALUE_MAXLEN) + '…' : a.value,
       parentEntityId: a.parents.size === 1 ? Array.from(a.parents)[0] : undefined,
-      spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue,
+      spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: a.revenue,
       derived: derive(totals),
     }
   })

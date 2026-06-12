@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
+import { buildShopifyMetricsRows, buildShopifyDepthRows, shopifyAccountExtra } from '@/lib/intelligence/shopify-metrics-row' // LORAMER_SHOPIFY_DEPTH_2A_V1
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
@@ -42,68 +43,9 @@ type SyncError = {
   message: string
 }
 
-function shopifyAccountExtra(data: IntelligenceShopify): Record<string, unknown> {
-  return {
-    avgOrderValue: data.avgOrderValue,
-    refundedAmount: data.refundedAmount,
-    newCustomers: data.newCustomers,
-    returningCustomers: data.returningCustomers,
-    refundedOrderCount: data.refundedOrderCount,
-    refundRate: data.refundRate,
-    returningRate: data.returningRate,
-    newCustomerAov: data.newCustomerAov,
-    returningCustomerAov: data.returningCustomerAov,
-    revenueConcentration: data.revenueConcentration,
-    abandonedCheckoutCount: data.abandonedCheckoutCount,
-  }
-}
-
-function buildShopifyMetricsRows(
-  clientId: string,
-  userEmail: string,
-  captureDate: string,
-  shopDomain: string,
-  data: IntelligenceShopify
-): Record<string, unknown>[] {
-  const rows: Record<string, unknown>[] = []
-
-  rows.push({
-    client_id: clientId,
-    user_email: userEmail,
-    platform: 'shopify',
-    account_id: shopDomain, // LORAMER_MULTIACCOUNT_PHASE2A_V1
-    entity_level: 'account',
-    entity_id: shopDomain,
-    entity_name: shopDomain,
-    date: captureDate,
-    breakdown_type: '',
-    breakdown_value: '',
-    revenue: data.totalRevenue ?? 0,
-    conversions: data.totalOrders ?? 0,
-    extra: shopifyAccountExtra(data),
-  })
-
-  for (const product of data.topProducts || []) {
-    rows.push({
-      client_id: clientId,
-      user_email: userEmail,
-      platform: 'shopify',
-      account_id: shopDomain, // LORAMER_MULTIACCOUNT_PHASE2A_V1
-      entity_level: 'product',
-      entity_id: product.id,
-      entity_name: product.name,
-      parent_entity_id: shopDomain,
-      date: captureDate,
-      breakdown_type: '',
-      breakdown_value: '',
-      revenue: product.revenue,
-      conversions: product.units,
-      extra: { units: product.units },
-    })
-  }
-
-  return rows
-}
+// LORAMER_SHOPIFY_DEPTH_2A_V1 — buildShopifyMetricsRows (account MAIN row) +
+// buildShopifyDepthRows (product net + geo breakdowns) moved to
+// @/lib/intelligence/shopify-metrics-row (imported above).
 
 function metaMetricsExtra(metrics: IntelligenceMetrics): Record<string, unknown> {
   const extra: Record<string, unknown> = {
@@ -441,6 +383,36 @@ export async function GET(request: Request) {
         }
 
         summary.rowsWritten += rows.length
+
+        // LORAMER_SHOPIFY_DEPTH_2A_V1 — product-net + ship-to geo depth in its OWN try/catch:
+        // a depth failure logs LOUD and is recorded, but NEVER drops the account main row or
+        // sync_state. 0 rows = logged empty (not error); UNKNOWN-address share logged.
+        try {
+          const depthRows = buildShopifyDepthRows(client.id, userEmail, captureDate, shopDomain, intel)
+          if (intel.unknownGeoOrders) {
+            console.warn(
+              `[cron/sync] client=${client.id} platform=shopify geo UNKNOWN-address orders=${intel.unknownGeoOrders}`
+            )
+          }
+          if (depthRows.length === 0) {
+            console.log(
+              `[cron/sync] client=${client.id} platform=shopify depth: 0 product/geo rows (empty, not an error)`
+            )
+          } else {
+            const { error: depthError } = await supabaseAdmin
+              .from('metrics_daily')
+              .upsert(depthRows, { onConflict: METRICS_DAILY_CONFLICT })
+            if (depthError) throw depthError
+            summary.rowsWritten += depthRows.length
+          }
+        } catch (depthErr) {
+          const message = serializeCaughtError(depthErr)
+          console.error(
+            `[cron/sync] client=${client.id} platform=shopify depth capture FAILED:`,
+            message
+          )
+          summary.errors.push({ clientId: client.id, platform: 'shopify', message: `depth: ${message}` })
+        }
 
         const { error: syncError } = await supabaseAdmin
           .from('sync_state')

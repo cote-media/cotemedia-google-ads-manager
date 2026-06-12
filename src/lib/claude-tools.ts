@@ -93,8 +93,8 @@ export const QUERY_BREAKDOWN_TOOL: any = {
     properties: {
       breakdownType: {
         type: 'string',
-        enum: ['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'product'],
-        description: 'Which dimension to list. search_term/keyword are Google; publisher_platform/age/gender are Meta; geo_country/product are Shopify (future).',
+        enum: ['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'geo_region'],
+        description: 'Which dimension to list. search_term/keyword are Google; publisher_platform/age/gender are Meta; geo_country/geo_region are Shopify ship-to geo. (Product performance is NOT here — use query_metrics with level="product".)',
       },
       platform: {
         type: 'string',
@@ -109,8 +109,8 @@ export const QUERY_BREAKDOWN_TOOL: any = {
       endDate: { type: 'string', description: 'Optional explicit window end, YYYY-MM-DD (use with startDate).' },
       rankBy: {
         type: 'string',
-        enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue'],
-        description: 'Metric to rank by. Default spend.',
+        enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'],
+        description: 'Metric to rank by. Default spend. Use "revenue" for revenue-centric breakdowns like Shopify geo (ad breakdowns have no revenue; commerce breakdowns have no spend).',
       },
       topN: { type: 'number', description: 'How many to return. Default 20, maximum 50.' },
       orderDir: { type: 'string', enum: ['desc', 'asc'], description: 'desc (default) for top, asc for bottom.' },

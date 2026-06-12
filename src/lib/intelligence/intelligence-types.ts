@@ -379,6 +379,13 @@ export interface IntelligenceShopify {
   avgOrderValue?: number
   // Products
   topProducts?: { id: string; name: string; revenue: number; units: number }[]
+  // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only (NOT UI): full product net + ship-to geo.
+  // Cancelled orders excluded from these. currencyCode = the store's shopMoney currency.
+  productsCapture?: { id: string; name: string; netRevenue: number; grossRevenue: number; units: number }[]
+  geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
+  geoRegions?: { region: string; netRevenue: number; orders: number }[]
+  currencyCode?: string
+  unknownGeoOrders?: number
   // Customers
   newCustomers?: number
   returningCustomers?: number
