@@ -91,4 +91,11 @@ The same rules govern the Claudes who build her: outcomes over assumed
 mechanisms, hypotheses validated before shipped, failures loud, confidence
 calibrated. The product and the process share one ethic.
 
+EVERYTHING GETS EVERYTHING. Data completeness is a correctness requirement,
+not a nicety. Every platform, every grain, as deep as the source allows —
+and every gap surfaced EXPLICITLY (never a silent empty). A missing platform,
+a truncated window, a dropped grain is a BUG until proven to be a documented
+limit; any accepted cap (retention floor, scope wall, API limit) is a logged,
+deliberate decision. The scorecard is docs/DATA_COMPLETENESS_MATRIX.md.
+
 If a change makes Lora more confident but not more provable, it is wrong.
