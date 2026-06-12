@@ -249,3 +249,116 @@ export function buildGoogleDimensionalRows(
     ...build(dim.keywords, 'keyword'),
   ]
 }
+
+// ── Windowed capture for the bounded backfill (LORAMER_SEARCH_TERMS_BACKFILL_V1) ──
+// One query per type over a date window WITH segments.date, then the caller buckets by date and
+// applies the same per-day top-N — so ~2 requests recover N days instead of 2×N. A LIMIT acts as a
+// safety cap: hitting it means we can't guarantee per-day completeness, so the caller falls back to
+// the per-day path (Option A). Same enum mapping + field shape as the single-day fetch.
+const WINDOW_ROW_CAP = 50000
+
+export interface GoogleDimWindow {
+  searchTerms: Array<GoogleDimSearchTerm & { date: string }>
+  keywords: Array<GoogleDimKeyword & { date: string }>
+  overflow: boolean // a query hit WINDOW_ROW_CAP → caller should fall back to per-day (Option A)
+}
+
+export async function fetchGoogleDimensionalWindow(
+  refreshToken: string,
+  customerId: string,
+  startDate: string,
+  endDate: string
+): Promise<GoogleDimWindow> {
+  const customer = adsClient.Customer({
+    customer_id: customerId,
+    refresh_token: refreshToken,
+    login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
+  })
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
+
+  const stRows: any[] = await customer.query(`
+    SELECT segments.date, search_term_view.search_term, search_term_view.status,
+    campaign.id, ad_group.id,
+    metrics.cost_micros, metrics.impressions, metrics.clicks,
+    metrics.conversions, metrics.conversions_value
+    FROM search_term_view
+    WHERE ${dateFilter}
+    AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT ${WINDOW_ROW_CAP}
+  `)
+
+  const kwRows: any[] = await customer.query(`
+    SELECT segments.date, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
+    ad_group_criterion.status, campaign.id, ad_group.id,
+    metrics.cost_micros, metrics.impressions, metrics.clicks,
+    metrics.conversions, metrics.conversions_value
+    FROM keyword_view
+    WHERE ${dateFilter}
+    AND ad_group_criterion.status != 'REMOVED'
+    AND campaign.status != 'REMOVED'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT ${WINDOW_ROW_CAP}
+  `)
+
+  const searchTerms = stRows.map((row) => ({
+    date: String(row.segments?.date || ''),
+    term: String(row.search_term_view?.search_term || ''),
+    status: mapEnum(row.search_term_view?.status, SEARCH_TERM_STATUS),
+    campaignId: String(row.campaign?.id || ''),
+    adGroupId: String(row.ad_group?.id || ''),
+    spend: micros(row.metrics?.cost_micros),
+    impressions: num(row.metrics?.impressions),
+    clicks: num(row.metrics?.clicks),
+    conversions: num(row.metrics?.conversions),
+    conversionValue: num(row.metrics?.conversions_value),
+  }))
+
+  const keywords = kwRows.map((row) => ({
+    date: String(row.segments?.date || ''),
+    text: String(row.ad_group_criterion?.keyword?.text || ''),
+    matchType: mapEnum(row.ad_group_criterion?.keyword?.match_type, MATCH_TYPE),
+    status: mapEnum(row.ad_group_criterion?.status, CRITERION_STATUS),
+    campaignId: String(row.campaign?.id || ''),
+    adGroupId: String(row.ad_group?.id || ''),
+    spend: micros(row.metrics?.cost_micros),
+    impressions: num(row.metrics?.impressions),
+    clicks: num(row.metrics?.clicks),
+    conversions: num(row.metrics?.conversions),
+    conversionValue: num(row.metrics?.conversions_value),
+  }))
+
+  return {
+    searchTerms,
+    keywords,
+    overflow: stRows.length >= WINDOW_ROW_CAP || kwRows.length >= WINDOW_ROW_CAP,
+  }
+}
+
+// Bucket a window's rows by date and apply the SAME per-day top-N (by cost) as forward capture, so
+// the per-day GoogleDimensional fed to buildGoogleDimensionalRows is byte-identical in shape.
+export function bucketWindowByDate(win: GoogleDimWindow): Map<string, GoogleDimensional> {
+  const byDate = new Map<string, { st: Array<GoogleDimSearchTerm & { date: string }>; kw: Array<GoogleDimKeyword & { date: string }> }>()
+  for (const t of win.searchTerms) {
+    if (!t.date) continue
+    if (!byDate.has(t.date)) byDate.set(t.date, { st: [], kw: [] })
+    byDate.get(t.date)!.st.push(t)
+  }
+  for (const k of win.keywords) {
+    if (!k.date) continue
+    if (!byDate.has(k.date)) byDate.set(k.date, { st: [], kw: [] })
+    byDate.get(k.date)!.kw.push(k)
+  }
+  const out = new Map<string, GoogleDimensional>()
+  for (const [date, { st, kw }] of byDate) {
+    st.sort((a, b) => b.spend - a.spend)
+    kw.sort((a, b) => b.spend - a.spend)
+    out.set(date, {
+      searchTerms: st.slice(0, SEARCH_TERMS_CAP),
+      keywords: kw.slice(0, KEYWORDS_CAP),
+      searchTermsTruncated: st.length > SEARCH_TERMS_CAP,
+      keywordsTruncated: kw.length > KEYWORDS_CAP,
+    })
+  }
+  return out
+}

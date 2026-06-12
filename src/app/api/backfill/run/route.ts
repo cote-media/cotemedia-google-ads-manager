@@ -11,6 +11,7 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runBackfill } from '@/lib/backfill/run-backfill'
 import { backfillAdapters } from '@/lib/backfill/adapters'
+import { runGoogleDimensionalBackfill } from '@/lib/backfill/google-dimensional-backfill' // LORAMER_SEARCH_TERMS_BACKFILL_V1
 
 export const maxDuration = 60
 
@@ -35,6 +36,25 @@ export async function POST(request: Request) {
       { error: 'Missing clientId or platform' },
       { status: 400 }
     )
+  }
+
+  // LORAMER_SEARCH_TERMS_BACKFILL_V1 — dimensional (search-term/keyword) backfill rides a SEPARATE
+  // lib, not the V2 account engine. Ownership-gated like the account path; cursor lives under the
+  // synthetic sync_state platform='google_dimensional'.
+  if (platform === 'google_dimensional') {
+    const { data: owned, error: ownErr } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('user_email', email)
+      .maybeSingle()
+    if (ownErr || !owned) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    const daysRaw = payload?.days
+    const days = typeof daysRaw === 'number' ? Math.max(1, Math.min(400, Math.floor(daysRaw))) : 90
+    const { status, body } = await runGoogleDimensionalBackfill(clientId, { days })
+    return NextResponse.json(body, { status })
   }
 
   const adapter = backfillAdapters[platform]
