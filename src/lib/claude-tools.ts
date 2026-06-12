@@ -8,7 +8,7 @@
 // surfaces cannot drift (handoff lesson 26). clientId is injected server-side by
 // the caller - it is NEVER a model-controlled input.
 
-import { queryMetrics } from '@/lib/metrics-query'
+import { queryMetrics, queryBreakdown } from '@/lib/metrics-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1
@@ -80,6 +80,63 @@ export const QUERY_METRICS_TOOL: any = {
   },
 }
 
+// LORAMER_QUERY_BREAKDOWN_V1 — sibling of query_metrics for the DIMENSIONAL grain
+// (individual search terms, keywords, and the existing Meta publisher_platform/age/
+// gender rows). Reads only breakdown rows (never base rows), so it cannot be summed
+// against query_metrics' account/campaign totals.
+export const QUERY_BREAKDOWN_TOOL: any = {
+  name: 'query_breakdown',
+  description:
+    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta breakdowns (publisher_platform/age/gender). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      breakdownType: {
+        type: 'string',
+        enum: ['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'product'],
+        description: 'Which dimension to list. search_term/keyword are Google; publisher_platform/age/gender are Meta; geo_country/product are Shopify (future).',
+      },
+      platform: {
+        type: 'string',
+        enum: ['google', 'meta', 'shopify'],
+        description: 'Optional. Must match the breakdownType’s platform; a mismatch is rejected (no cross-platform read). Usually omit — it is implied by breakdownType.',
+      },
+      baseRange: {
+        type: 'string',
+        description: 'Single-window preset: LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, LAST_90_DAYS, THIS_MONTH, LAST_MONTH. Default LAST_30_DAYS. Ignored if startDate+endDate are given.',
+      },
+      startDate: { type: 'string', description: 'Optional explicit window start, YYYY-MM-DD (use with endDate).' },
+      endDate: { type: 'string', description: 'Optional explicit window end, YYYY-MM-DD (use with startDate).' },
+      rankBy: {
+        type: 'string',
+        enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue'],
+        description: 'Metric to rank by. Default spend.',
+      },
+      topN: { type: 'number', description: 'How many to return. Default 20, maximum 50.' },
+      orderDir: { type: 'string', enum: ['desc', 'asc'], description: 'desc (default) for top, asc for bottom.' },
+      parentEntityId: { type: 'string', description: 'Optional: restrict to one campaign id (the parent of the ad group).' },
+      entityId: { type: 'string', description: 'Optional: restrict to one ad group id.' },
+    },
+    required: ['breakdownType'],
+  },
+}
+
+export async function runQueryBreakdownTool(input: any, clientId: string) {
+  return queryBreakdown({
+    clientId,
+    breakdownType: typeof input?.breakdownType === 'string' ? input.breakdownType : '',
+    platform: typeof input?.platform === 'string' ? input.platform : undefined,
+    baseRange: typeof input?.baseRange === 'string' ? input.baseRange : undefined,
+    startDate: typeof input?.startDate === 'string' ? input.startDate : undefined,
+    endDate: typeof input?.endDate === 'string' ? input.endDate : undefined,
+    rankBy: typeof input?.rankBy === 'string' ? input.rankBy : undefined,
+    topN: typeof input?.topN === 'number' ? input.topN : undefined,
+    orderDir: input?.orderDir === 'asc' ? 'asc' : input?.orderDir === 'desc' ? 'desc' : undefined,
+    parentEntityId: typeof input?.parentEntityId === 'string' ? input.parentEntityId : undefined,
+    entityId: typeof input?.entityId === 'string' ? input.entityId : undefined,
+  })
+}
+
 export async function runQueryMetricsTool(input: any, clientId: string) {
   const platform = typeof input?.platform === 'string' ? input.platform : undefined
   const level = typeof input?.level === 'string' ? input.level : undefined
@@ -125,7 +182,7 @@ export async function runClaudeToolLoop(opts: {
   // signed-in user owns this client. Without a verified owner the tool is
   // withheld and the loop degrades to a single-shot call (no cross-tenant read).
   const tools: any[] | undefined =
-    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL] : undefined
+    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL] : undefined
   const convo: any[] = [...messages]
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5
@@ -152,7 +209,9 @@ export async function runClaudeToolLoop(opts: {
         try {
           payload = tu.name === 'query_metrics'
             ? await runQueryMetricsTool(tu.input, clientId)
-            : { error: 'unknown tool: ' + tu.name }
+            : tu.name === 'query_breakdown'
+              ? await runQueryBreakdownTool(tu.input, clientId)
+              : { error: 'unknown tool: ' + tu.name }
         } catch (err) {
           payload = { error: err instanceof Error ? err.message : String(err) }
         }
