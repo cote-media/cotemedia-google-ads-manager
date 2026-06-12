@@ -3,6 +3,7 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi, enums } from 'google-ads-api'
+import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
@@ -148,11 +149,12 @@ export async function fetchGoogleIntelligence(
   let campaignRows: any[]
   let campaignStatusEnriched = true
   try {
-    campaignRows = await customer.query(campaignQuery(`campaign.primary_status, ${CAMPAIGN_BASE_FIELDS}`))
+    // LORAMER_GOOGLE_GAQL_RETRY_V1 — retry transient deadline/internal/unavailable before falling back
+    campaignRows = await withGaqlRetry('intel:campaign-enriched', () => customer.query(campaignQuery(`campaign.primary_status, ${CAMPAIGN_BASE_FIELDS}`)))
   } catch (enrichErr) {
     campaignStatusEnriched = false
     console.error('LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2: enriched campaign query failed, falling back to base fields (status precision lost, Google NOT dropped):', enrichErr instanceof Error ? enrichErr.message : enrichErr)
-    campaignRows = await customer.query(campaignQuery(CAMPAIGN_BASE_FIELDS))
+    campaignRows = await withGaqlRetry('intel:campaign-base', () => customer.query(campaignQuery(CAMPAIGN_BASE_FIELDS)))
   }
 
   const campaigns: IntelligenceCampaign[] = campaignRows.map((row: any) => {

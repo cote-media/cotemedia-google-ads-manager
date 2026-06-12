@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchMetaCampaigns } from '@/lib/platforms/meta'
 import { buildCombinedData } from '@/lib/platforms/combined'
 import { GoogleAdsApi } from 'google-ads-api'
+import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
 import { normalizeGoogleStatus } from '@/lib/platforms/types'
 import type { Campaign, PlatformData, PlatformTotals } from '@/lib/platforms/types'
 
@@ -44,7 +45,8 @@ async function fetchGoogleData(
     }
   }
 
-  const rows = await customer.query(`
+  // LORAMER_GOOGLE_GAQL_RETRY_V1 — retry transient deadline/internal/unavailable on the deep-window query
+  const rows = await withGaqlRetry('platform:google-campaigns', () => customer.query(`
     SELECT campaign.id, campaign.name, campaign.status,
     campaign_budget.amount_micros, metrics.impressions, metrics.clicks,
     metrics.cost_micros, metrics.conversions, metrics.conversions_value,
@@ -53,7 +55,7 @@ async function fetchGoogleData(
     WHERE ${dateFilter}
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
-  `)
+  `))
 
   const campaigns: Campaign[] = rows.map((row: any) => {
     const cost = Number(row.metrics?.cost_micros || 0) / 1e6
