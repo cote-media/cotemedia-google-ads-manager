@@ -69,9 +69,23 @@ export async function GET(request: Request) {
   // Compute absolute expiration timestamps
   const now = Date.now()
   const expiresAt = new Date(now + (tokenData.expires_in || 3600) * 1000).toISOString()
-  const refreshTokenExpiresAt = new Date(
-    now + (tokenData.refresh_token_expires_in || 7776000) * 1000
-  ).toISOString()
+
+  // LORAMER_SHOPIFY_TOKEN_HARDEN_V1 — FIX 2: shared token fields for both branches. Include
+  // refresh_token / its expiry ONLY when Shopify returned one, so an absent rotated token never
+  // nulls an existing value on a reinstall upsert. (user_email is added per-branch below.)
+  const tokenFields: Record<string, unknown> = {
+    shop_domain: shop,
+    access_token: tokenData.access_token,
+    expires_at: expiresAt,
+    scope: tokenData.scope,
+    updated_at: new Date().toISOString(),
+  }
+  if (tokenData.refresh_token) {
+    tokenFields.refresh_token = tokenData.refresh_token
+    tokenFields.refresh_token_expires_at = new Date(
+      now + (tokenData.refresh_token_expires_in || 7776000) * 1000
+    ).toISOString()
+  }
 
   // LORAMER_GRAPHQL_MIGRATION_V1 — fetch shop name via GraphQL (was REST shop.json)
   let shopName = shop
@@ -114,19 +128,7 @@ export async function GET(request: Request) {
 
     await supabaseAdmin
       .from('shopify_tokens')
-      .upsert(
-        {
-          user_email: userEmail,
-          shop_domain: shop,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || null,
-          expires_at: expiresAt,
-          refresh_token_expires_at: refreshTokenExpiresAt,
-          scope: tokenData.scope,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_email,shop_domain' }
-      )
+      .upsert({ user_email: userEmail, ...tokenFields }, { onConflict: 'user_email,shop_domain' })
 
     return NextResponse.redirect(new URL('/clients?shopify_connected=true', request.url))
   }
@@ -201,19 +203,7 @@ export async function GET(request: Request) {
     // Upsert tokens
     await supabaseAdmin
       .from('shopify_tokens')
-      .upsert(
-        {
-          user_email: userEmail,
-          shop_domain: shop,
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || null,
-          expires_at: expiresAt,
-          refresh_token_expires_at: refreshTokenExpiresAt,
-          scope: tokenData.scope,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_email,shop_domain' }
-      )
+      .upsert({ user_email: userEmail, ...tokenFields }, { onConflict: 'user_email,shop_domain' })
 
     // Sign a short-lived install token and redirect to /install/complete,
     // which calls signIn('shopify-install', { token }) to create the session.

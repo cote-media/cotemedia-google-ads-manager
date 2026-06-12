@@ -84,22 +84,46 @@ export async function getValidShopifyToken(
   // Compute new expirations
   const refreshTime = Date.now()
   const newExpiresAt = new Date(refreshTime + (refreshed.expires_in || 3600) * 1000).toISOString()
-  const newRefreshExpiresAt = new Date(
-    refreshTime + (refreshed.refresh_token_expires_in || 7776000) * 1000
-  ).toISOString()
 
-  // CRITICAL: save the new refresh token — old one is now invalidated
-  await supabaseAdmin
-    .from('shopify_tokens')
-    .update({
-      access_token: refreshed.access_token,
-      refresh_token: refreshed.refresh_token,
-      expires_at: newExpiresAt,
-      refresh_token_expires_at: newRefreshExpiresAt,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_email', userEmail)
-    .eq('shop_domain', shopDomain)
+  // LORAMER_SHOPIFY_TOKEN_HARDEN_V1 — FIX 2: only write refresh_token / its expiry when
+  // Shopify actually returned a rotated refresh token. If the field is absent, omit the keys
+  // so the EXISTING refresh_token survives instead of being nulled.
+  const updatePayload: Record<string, unknown> = {
+    access_token: refreshed.access_token,
+    expires_at: newExpiresAt,
+    updated_at: new Date().toISOString(),
+  }
+  if (refreshed.refresh_token) {
+    updatePayload.refresh_token = refreshed.refresh_token
+    updatePayload.refresh_token_expires_at = new Date(
+      refreshTime + (refreshed.refresh_token_expires_in || 7776000) * 1000
+    ).toISOString()
+  }
+
+  // LORAMER_SHOPIFY_TOKEN_HARDEN_V1 — FIX 1: the post-refresh save is NOT fire-and-forget.
+  // Shopify has already rotated (and invalidated) the old refresh token server-side, so if this
+  // write doesn't land, our DB holds a DEAD refresh token → every future refresh fails → the
+  // merchant must reinstall. Capture {error} AND affected-row count (Lesson 39: 0 rows matched
+  // == failure), retry exactly once, and refuse to hand back a token we couldn't persist.
+  const persist = () =>
+    supabaseAdmin
+      .from('shopify_tokens')
+      .update(updatePayload)
+      .eq('user_email', userEmail)
+      .eq('shop_domain', shopDomain)
+      .select('id')
+
+  let { data: saved, error: saveError } = await persist()
+  if (saveError || !saved || saved.length === 0) {
+    // Retry exactly once before giving up.
+    ;({ data: saved, error: saveError } = await persist())
+  }
+  if (saveError || !saved || saved.length === 0) {
+    console.error(
+      `[shopify-token] CRITICAL: refresh succeeded but persist FAILED — shop=${shopDomain} user=${userEmail} matched=${saved?.length ?? 0} error=${saveError?.message ?? 'none'}`
+    )
+    return { ok: false, reason: 'refresh_failed', detail: 'token refreshed but persist failed' }
+  }
 
   return { ok: true, accessToken: refreshed.access_token }
 }
