@@ -16,6 +16,8 @@ export function shopifyAccountExtra(data: IntelligenceShopify): Record<string, u
     refundedAmount: data.refundedAmount,
     newCustomers: data.newCustomers,
     returningCustomers: data.returningCustomers,
+    unknownCustomers: data.unknownCustomers, // LORAMER_CUSTOMER_MIX_FIX_V1
+    customerMixUnavailable: data.customerMixUnavailable,
     refundedOrderCount: data.refundedOrderCount,
     refundRate: data.refundRate,
     returningRate: data.returningRate,

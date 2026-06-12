@@ -45,6 +45,34 @@ async function shopifyGraphQL(
   throw new Error('Shopify GraphQL still throttled after retries')
 }
 
+// LORAMER_CUSTOMER_MIX_FIX_V1 — map each customer id → their TRUE first-order date via
+// Customer.orders(first:1, sortKey:CREATED_AT) (the reliable first-order anchor; customer.createdAt
+// can predate the first order). Bulk via nodes(ids:) in chunks of 250. Ids that error or have no
+// order are left absent (→ classified UNKNOWN, never silently bucketed). Cheap (Gate A: cost ~4).
+async function fetchFirstOrderDates(
+  endpoint: string,
+  headers: Record<string, string>,
+  customerIds: string[],
+  throttleDeadline?: number
+): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>()
+  const query = `query($ids: [ID!]!) {
+    nodes(ids: $ids) { ... on Customer { id orders(first: 1, sortKey: CREATED_AT) { edges { node { createdAt } } } } }
+  }`
+  for (let i = 0; i < customerIds.length; i += 250) {
+    const chunk = customerIds.slice(i, i + 250)
+    const json = await shopifyGraphQL(endpoint, headers, query, { ids: chunk }, throttleDeadline)
+    if (json.errors) {
+      console.warn('[shopify] first-order lookup errors (those customers → UNKNOWN):', JSON.stringify(json.errors).slice(0, 200))
+      continue
+    }
+    for (const n of json.data?.nodes || []) {
+      if (n?.id) map.set(n.id, n.orders?.edges?.[0]?.node?.createdAt || null)
+    }
+  }
+  return map
+}
+
 // LORAMER_SHOPIFY_NET_SALES_V1
 type GraphQLOrderNode = {
   id: string
@@ -52,7 +80,7 @@ type GraphQLOrderNode = {
   currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode?: string } }
   totalRefundedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
-  customer: { id: string; numberOfOrders: number } | null
+  customer: { id: string } | null // LORAMER_CUSTOMER_MIX_FIX_V1 — numberOfOrders dropped (string scalar + lifetime-only; classify by first-order date instead)
   shippingAddress: { countryCodeV2: string | null; provinceCode: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1
   lineItems: {
     edges: Array<{
@@ -137,7 +165,7 @@ export async function fetchShopifyIntelligence(
             currentSubtotalPriceSet { shopMoney { amount currencyCode } }
             totalRefundedSet { shopMoney { amount } }
             displayFinancialStatus
-            customer { id numberOfOrders }
+            customer { id }
             shippingAddress { countryCodeV2 provinceCode }
             lineItems(first: 50) {
               edges {
@@ -185,29 +213,49 @@ export async function fetchShopifyIntelligence(
     const totalOrders = orderNodes.length
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-    // Customer segmentation
-    // GraphQL: customer.numberOfOrders is the lifetime order count for that customer.
-    // numberOfOrders === 1 means this is their first order = new customer.
-    const newCustomers = orderNodes.filter((o) => o.customer?.numberOfOrders === 1).length
-    const returningCustomers = totalOrders - newCustomers
-
-    // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived metrics from existing query response
-    // Refund rate: any order where displayFinancialStatus indicates a refund.
+    // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — refund signals
     const refundedOrderCount = orderNodes.filter(o => {
       const s = (o.displayFinancialStatus || '').toUpperCase()
       return s === 'REFUNDED' || s === 'PARTIALLY_REFUNDED'
     }).length
     const refundRate = totalOrders > 0 ? (refundedOrderCount / totalOrders) * 100 : 0
-    // Returning rate (% of orders from returning customers in this window)
-    const returningRate = totalOrders > 0 ? (returningCustomers / totalOrders) * 100 : 0
-    // New vs returning AOV split
-    const newOrderAmounts = orderNodes
-      .filter(o => o.customer?.numberOfOrders === 1)
-      .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
-    const returningOrderAmounts = orderNodes
-      .filter(o => o.customer && o.customer.numberOfOrders > 1)
-      .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
     const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0)
+
+    // LORAMER_CUSTOMER_MIX_FIX_V1 — classify new-vs-returning by the customer's TRUE FIRST-ORDER DATE.
+    // (The old code used customer.numberOfOrders === 1, which was doubly wrong: numberOfOrders is a
+    //  STRING scalar — "1" === 1 is false → ALWAYS 0 new / 100% returning — AND it's the current
+    //  LIFETIME count, not window-aware. customer.createdAt is also unreliable: Gate A showed it can
+    //  PREDATE the first order. So we use customer.orders(first:1, sortKey:CREATED_AT).)
+    // new = the customer's first order ever falls within this window; returning = first order was
+    // before the window start; unknown = no linked customer / first-order lookup failed.
+    const windowStartMs = new Date(startDate + 'T00:00:00Z').getTime()
+    const customerIds = Array.from(new Set(orderNodes.map((o) => o.customer?.id).filter(Boolean))) as string[]
+    const firstOrderByCustomer = customerIds.length
+      ? await fetchFirstOrderDates(endpoint, headers, customerIds, opts?.throttleDeadline)
+      : new Map<string, string | null>()
+    const bucketOf = (o: GraphQLOrderNode): 'new' | 'returning' | 'unknown' => {
+      const id = o.customer?.id
+      if (!id) return 'unknown'
+      const fo = firstOrderByCustomer.get(id)
+      if (!fo) return 'unknown'
+      return new Date(fo).getTime() >= windowStartMs ? 'new' : 'returning'
+    }
+    let newCustomers = 0
+    let returningCustomers = 0
+    let unknownCustomers = 0
+    for (const id of customerIds) {
+      const fo = firstOrderByCustomer.get(id)
+      if (!fo) unknownCustomers++
+      else if (new Date(fo).getTime() >= windowStartMs) newCustomers++
+      else returningCustomers++
+    }
+    unknownCustomers += orderNodes.filter((o) => !o.customer?.id).length // orders with no linked customer
+    const knownCustomers = newCustomers + returningCustomers
+    // Never fabricate a split when we can't determine anyone — the widget should say "unavailable".
+    const customerMixUnavailable = knownCustomers === 0
+    const returningRate = knownCustomers > 0 ? (returningCustomers / knownCustomers) * 100 : 0
+    const newOrderAmounts = orderNodes.filter((o) => bucketOf(o) === 'new').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
+    const returningOrderAmounts = orderNodes.filter((o) => bucketOf(o) === 'returning').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
     const newCustomerAov = newOrderAmounts.length > 0 ? sum(newOrderAmounts) / newOrderAmounts.length : 0
     const returningCustomerAov = returningOrderAmounts.length > 0 ? sum(returningOrderAmounts) / returningOrderAmounts.length : 0
     // Revenue concentration: what % of total revenue comes from the top 10% of orders by value
@@ -298,6 +346,9 @@ export async function fetchShopifyIntelligence(
       avgOrderValue,
       newCustomers,
       returningCustomers,
+      // LORAMER_CUSTOMER_MIX_FIX_V1
+      unknownCustomers,
+      customerMixUnavailable,
       // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1
       refundedOrderCount,
       refundRate,
@@ -331,6 +382,9 @@ export async function fetchShopifyIntelligence(
       avgOrderValue: 0,
       newCustomers: 0,
       returningCustomers: 0,
+      // LORAMER_CUSTOMER_MIX_FIX_V1 — fetch failed → mix is unavailable, NOT a fabricated split
+      unknownCustomers: 0,
+      customerMixUnavailable: true,
       // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1
       refundedOrderCount: 0,
       refundRate: 0,

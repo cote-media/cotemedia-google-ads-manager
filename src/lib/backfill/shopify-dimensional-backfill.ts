@@ -15,7 +15,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
-import { buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row'
+import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row'
 
 const CURSOR_PLATFORM = 'shopify_dimensional' // sync_state progress key only; data rows are platform='shopify'
 const METRICS_DAILY_CONFLICT =
@@ -115,15 +115,16 @@ export async function runShopifyDimensionalBackfill(
     }
     try {
       const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', cursor, cursor, { throttleDeadline })
-      const rows = buildShopifyDepthRows(clientId, userEmail, cursor, shopDomain, intel)
-      if (rows.length === 0) {
-        emptyDays += 1 // pre-activity / all-cancelled / no orders — normal, still a covered day
-      } else {
-        const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
-        if (upErr) throw upErr
-        daysWritten += 1
-        rowsWritten += rows.length
-      }
+      // LORAMER_CUSTOMER_MIX_FIX_V1 — write the account MAIN row too, so a re-backfill CORRECTS the
+      // account-extra (incl. customer mix) for historical days; depth rows ride alongside.
+      const accountRows = buildShopifyMetricsRows(clientId, userEmail, cursor, shopDomain, intel)
+      const depthRows = buildShopifyDepthRows(clientId, userEmail, cursor, shopDomain, intel)
+      const rows = [...accountRows, ...depthRows] // always >= 1 (the account row)
+      const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+      if (upErr) throw upErr
+      daysWritten += 1
+      rowsWritten += rows.length
+      if (depthRows.length === 0) emptyDays += 1 // no orders that day (account row still written, zeros)
       if (cursor < earliestWritten) earliestWritten = cursor
     } catch (e: any) {
       if (e?.throttleBudget) {

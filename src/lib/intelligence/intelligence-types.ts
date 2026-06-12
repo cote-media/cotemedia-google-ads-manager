@@ -390,6 +390,11 @@ export interface IntelligenceShopify {
   // Customers
   newCustomers?: number
   returningCustomers?: number
+  // LORAMER_CUSTOMER_MIX_FIX_V1 — new/returning are now COUNTS of distinct customers classified by
+  // their TRUE first-order date; unknownCustomers can't be determined; customerMixUnavailable=true
+  // when none could be classified (render "unavailable", never a fabricated split).
+  unknownCustomers?: number
+  customerMixUnavailable?: boolean
   // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived metrics
   refundedOrderCount?: number
   refundRate?: number              // percentage (0-100)
