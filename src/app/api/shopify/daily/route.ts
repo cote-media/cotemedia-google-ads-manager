@@ -9,6 +9,7 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 import { getValidShopifyToken } from '@/lib/shopify-token'
+import { shopifyGraphQL } from '@/lib/intelligence/shopify-intelligence' // LORAMER_SHOPIFY_DAILY_HARDEN_V1 — shared pagination + throttle-retry
 
 const GRAPHQL_API_VERSION = '2025-01'
 const MAX_ORDERS = 1000
@@ -90,12 +91,9 @@ export async function GET(request: Request) {
     let cursor: string | null = null
 
     while (true) {
-      const res: Response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ query: gqlQuery, variables: { query: queryString, cursor } }),
-      })
-      const json: any = await res.json()
+      // LORAMER_SHOPIFY_DAILY_HARDEN_V1 — route through the shared throttle-retry helper so a
+      // THROTTLED/transient page retries instead of 500ing (deep ranges previously 500'd here).
+      const json: any = await shopifyGraphQL(endpoint, headers, gqlQuery, { query: queryString, cursor })
 
       if (json.errors) {
         console.error('Shopify GraphQL errors:', JSON.stringify(json.errors))

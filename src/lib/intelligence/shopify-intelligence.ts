@@ -17,7 +17,7 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 // On a THROTTLED error, wait the computed restore time and retry. If a throttleDeadline is given
 // (backfill route budget) and the wait would blow it, throw a budget error so the caller can stop +
 // persist its cursor and resume later (NOT treated as empty data).
-async function shopifyGraphQL(
+export async function shopifyGraphQL(
   endpoint: string,
   headers: Record<string, string>,
   query: string,
