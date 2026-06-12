@@ -7,6 +7,7 @@ import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
+import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -612,6 +613,37 @@ export async function GET(request: Request) {
         }
 
         summary.rowsWritten += rows.length
+
+        // LORAMER_SEARCH_TERMS_CAPTURE_V1 — dimensional capture (search terms + keywords) as
+        // breakdown rows. Own try/catch: a dimensional failure logs LOUD and is recorded, but never
+        // drops the platform's main rows or its sync_state write. 0 rows = logged empty, not error.
+        try {
+          const dim = await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)
+          if (dim.searchTermsTruncated || dim.keywordsTruncated) {
+            console.warn(
+              `[cron/sync] client=${client.id} platform=google dimensional capture TRUNCATED — searchTerms@cap=${dim.searchTermsTruncated} keywords@cap=${dim.keywordsTruncated} (lower-spend rows dropped)`
+            )
+          }
+          const dimRows = buildGoogleDimensionalRows(client.id, userEmail, captureDate, customerId, dim)
+          if (dimRows.length === 0) {
+            console.log(
+              `[cron/sync] client=${client.id} platform=google dimensional capture: 0 search-term/keyword rows (empty, not an error)`
+            )
+          } else {
+            const { error: dimError } = await supabaseAdmin
+              .from('metrics_daily')
+              .upsert(dimRows, { onConflict: METRICS_DAILY_CONFLICT })
+            if (dimError) throw dimError
+            summary.rowsWritten += dimRows.length
+          }
+        } catch (dimErr) {
+          const message = serializeCaughtError(dimErr)
+          console.error(
+            `[cron/sync] client=${client.id} platform=google dimensional capture FAILED:`,
+            message
+          )
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional: ${message}` })
+        }
 
         const { error: syncError } = await supabaseAdmin
           .from('sync_state')
