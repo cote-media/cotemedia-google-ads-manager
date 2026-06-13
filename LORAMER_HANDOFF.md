@@ -323,19 +323,21 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 
 BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.loramer.com`. Folder NAMES differ by design — NEVER "fix" them.
 
-**MacBook Air (user `russcote2`) — VERIFIED + ENV-COMPLETED 2026-06-13 (all 23 vars):**
-- repo `/Users/russcote2/Downloads/cotemedia-google-ads-manager` — on `main`, clean
-- `node_modules` present (deps installed)
-- `.env.local` present — **23 vars, full Vercel-Production parity** (was 15; the 8 GA + Shopify + Stripe-webhook/portal + reviewer vars were pulled from Production 2026-06-13). Real Google-Ads + Supabase creds proven (06-11 9-row GAQL pass). Meta = app-level creds only (`META_APP_ID`/`META_APP_SECRET`); per-user Meta tokens live in the Supabase `meta_tokens` table, NOT env.
-- CAPABLE locally: Google Ads (GAQL), Meta, **Google Analytics**, **Shopify** live probes, plus Supabase + Anthropic + NextAuth. Stripe: `STRIPE_SECRET_KEY` works for checkout/API; local webhook testing uses the Stripe CLI's own `stripe listen` signing secret, NOT the prod `STRIPE_WEBHOOK_SECRET` (that var is present for reference only).
-- Vercel CLI installed + project linked (`.vercel/project.json`)
-- MCP: project-scoped `.mcp.json` (supabase + vercel) active; NO local-scope shadowing
-- => Fully work-capable & interchangeable for live probes across all five platforms.
+**MacBook Air (user `russcote2`) — VALUE-LEVEL VERIFIED 2026-06-13 (23 NAMES present, but NOT all valid):**
+- repo `/Users/russcote2/Downloads/cotemedia-google-ads-manager` — on `main`, clean; `node_modules` present.
+- `.env.local` has 23 NAMES but a value-level audit (shape/length only) shows the set is INCOMPLETE:
+  - CONFIRMED REAL: Google-Ads (`GOOGLE_ADS_*` + `GOOGLE_CLIENT_*`, 9-row GAQL pass), Supabase (`NEXT_PUBLIC_SUPABASE_*` + `SUPABASE_SERVICE_ROLE_KEY`, MCP works), `ANTHROPIC_API_KEY` (set real this session — `sk-ant…`, 108 chars).
+  - PLACEHOLDER: `CRON_SECRET` (11 chars — NOT the rotated prod value; cannot auth the cron locally).
+  - BLANK (len 0): the 8 vars "pulled" 2026-06-13 — `GOOGLE_ANALYTICS_CLIENT_ID/SECRET/REDIRECT_URI`, `SHOPIFY_CLIENT_ID/SECRET`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PORTAL_CONFIG_ID`, `REVIEWER_LOGIN_TOKEN`. `vercel env pull` returned them EMPTY (Lesson 45 blanks sensitive AND, here, even non-secret vars), so the append wrote blanks — the names are present, the values are not.
+  - UNVERIFIED: `META_APP_ID/SECRET`, `NEXTAUTH_*`, `STRIPE_SECRET_KEY` (not value-checked; per-user Meta tokens live in Supabase `meta_tokens`, not env — the Meta probe used those, not `META_APP_*`).
+- CAPABLE locally TODAY: Google Ads (GAQL), Supabase, Anthropic. NOT capable: live GA / Shopify probes (their creds are blank), cron auth (`CRON_SECRET` placeholder), Stripe webhook/portal.
+- LESSON (value ≠ name): name-presence does NOT mean value-validity. Parity MUST check sensitive VALUES (shape/length), not just names. `vercel env pull` blanks sensitive vars (Lesson 45) — a pull only proves NAMES, never values. The earlier "23-var full parity / fully capable" stamp was a name-level illusion; this block is the corrected value-level truth.
+- Vercel CLI installed + project linked; plan = **Pro** (confirmed 2026-06-13). MCP: project-scoped `.mcp.json` (supabase + vercel) active; NO local-scope shadowing.
 
 **iMac (user `russellcote`) — LAST-KNOWN (not verified this session):**
 - repo `/Users/russellcote/Downloads/cotemedia-ads-manager`
-- historically primary; `.env.local` present + working (var set NOT audited — may or may not hold the full 23)
-- ACTION: re-verify env names + stamp next iMac session
+- historically primary; `.env.local` present + working (VALUE-level audit NOT done — may hold the real GA/Shopify/Stripe/Cron values the Air lacks)
+- ACTION: full value-level env audit + stamp next iMac session (see AUDIT_FINDINGS ENV-TRUTH AUDIT)
 
 ### Key file locations (paths relative to project root)
 

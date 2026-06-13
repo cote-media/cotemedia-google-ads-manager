@@ -48,6 +48,13 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 - **Stripe Phase 6 — go-live** | external-gated (bank/legal lead time) | DATA-LOSS no
   Phases 0-4 done + verified; Phase 5 gating deferred (cohort = beta_unlimited bypasses). At go-live: re-create the portal config in LIVE mode, flip TEST→LIVE keys, register LIVE webhook, smoke-test.
 
+## ENV-TRUTH AUDIT  (freeze-safe · ops hygiene)
+- **Air .env.local has blank/placeholder sensitive values behind present NAMES** | MED | safe-now | DATA-LOSS no
+  Value-level audit 2026-06-13: `CRON_SECRET` = 11-char placeholder; the 8 "pulled" vars (GA ×3, Shopify ×2, Stripe webhook/portal, reviewer token) = BLANK (len 0 — `vercel env pull` returned them empty, Lesson 45). Real: Google-Ads, Supabase, Anthropic (set this session). Approach: set the Air's real `CRON_SECRET` + the 8 blanks by hand from a real source (NOT `vercel env pull` — it blanks them); silent no-echo method (separate non-mirrored terminal). Then re-audit by shape/length.
+- **iMac value-level env audit pending** | MED | safe-now | DATA-LOSS no
+  Names never confirmed at value level on the iMac; it may already hold the real GA/Shopify/Stripe/Cron values. Do a full shape/length audit next iMac session and stamp the HANDOFF MACHINES & ENV STATE block.
+- PRINCIPLE: keep ENV-STATE honest — name-presence ≠ value-validity; audit VALUES, update the HANDOFF block in the same commit as any env change (ENV/MACHINE STATE same-commit rule).
+
 ## LOW / WHEN-CONVENIENT
 - **#10 — GA dimensional grains + GA/Meta entity-depth backfills** | LOW | safe-now | DATA-LOSS no | completeness depth, post-core.
 - **#12 — transient "Google data fetch failed temporarily" in Lora (06-12)** | LOW | safe-now | DATA-LOSS no | check Vercel logs for the real error when convenient (Lesson 15); likely transient GAQL/timeout.
