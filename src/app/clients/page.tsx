@@ -1,15 +1,39 @@
 'use client'
-import { useSession } from 'next-auth/react'
+import { useSession, signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, Suspense } from 'react'
 import BackfillControl from './BackfillControl'
+
+// LORAMER_CONNECTION_HEALTH_V1 — single flag gates ALL dead-state UI. OFF → byte-identical to
+// today (healthy AND dead connections both render exactly as before).
+const HEALTH_UI = process.env.NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI === '1'
 
 type Client = {
   id: string
   name: string
   platform_connections: {
     id: string; platform: string; account_id: string; account_name: string
+    health?: string | null  // LORAMER_CONNECTION_HEALTH_V1 — 'healthy' | 'reconnect' | 'disconnected' | null
+    last_error_code?: string | null
   }[]
+}
+
+// LORAMER_CONNECTION_HEALTH_V1 — the dead-state affordance: "Reconnect needed" + a Reconnect
+// action. Rendered ONLY when HEALTH_UI && health==='reconnect'. scopeNote warns when one
+// reconnect heals a whole shared credential (Google MCC OAuth, Meta FB token).
+function ReconnectControl({ onClick, href, scopeNote }: { onClick?: () => void; href?: string; scopeNote?: string }) {
+  const btnCls = 'text-xs font-sans font-medium text-white rounded px-2 py-0.5 transition-colors'
+  const btnStyle = { background: '#D97706' }
+  return (
+    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+      <span className="text-xs font-sans font-medium" style={{ color: '#B45309' }} title={scopeNote}>Reconnect needed</span>
+      {href ? (
+        <a href={href} className={btnCls} style={btnStyle} title={scopeNote} onClick={(e) => e.stopPropagation()}>Reconnect</a>
+      ) : (
+        <button onClick={(e) => { e.stopPropagation(); onClick?.() }} className={btnCls} style={btnStyle} title={scopeNote}>Reconnect</button>
+      )}
+    </div>
+  )
 }
 
 type MetaAccount = { id: string; name: string; account_status: number }
@@ -1136,7 +1160,11 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{googleConn.account_name}</p>
                                   </div>
                                 </div>
-                                <span className="text-xs font-sans text-muted">Connected</span>
+                                {HEALTH_UI && googleConn.health === 'reconnect' ? (
+                                  <ReconnectControl onClick={() => signIn('google', { callbackUrl: '/clients' })} scopeNote="Reconnects ALL your Google Ads accounts — they share one agency login." />
+                                ) : (
+                                  <span className="text-xs font-sans text-muted">Connected</span>
+                                )}
                               </div>
                             <BackfillControl clientId={client.id} platform="google" onComplete={fetchClients} /></div>)}
                             {metaConn && (<div>
@@ -1150,9 +1178,13 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{metaConn.account_name}</p>
                                   </div>
                                 </div>
-                                <button onClick={() => disconnectMeta(client.id, metaConn.id)} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
-                                  Disconnect
-                                </button>
+                                {HEALTH_UI && metaConn.health === 'reconnect' ? (
+                                  <ReconnectControl href={'/api/meta/auth?clientId=' + client.id} scopeNote="Reconnects ALL your Meta accounts — they share one login." />
+                                ) : (
+                                  <button onClick={() => disconnectMeta(client.id, metaConn.id)} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
+                                    Disconnect
+                                  </button>
+                                )}
                               </div>
                             <BackfillControl clientId={client.id} platform="meta" onComplete={fetchClients} /></div>)}
                             {shopifyConn && (
@@ -1166,12 +1198,16 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{shopifyConn.account_name}</p>
                                   </div>
                                 </div>
-                                <button onClick={async () => {
-                                  await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
-                                  fetchClients()
-                                }} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
-                                  Disconnect
-                                </button>
+                                {HEALTH_UI && shopifyConn.health === 'reconnect' ? (
+                                  <ReconnectControl onClick={() => { setShopifyModal(client.id); setShopifyDomain('') }} scopeNote="Re-authorize this Shopify store." />
+                                ) : (
+                                  <button onClick={async () => {
+                                    await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
+                                    fetchClients()
+                                  }} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
+                                    Disconnect
+                                  </button>
+                                )}
                               </div>
                             )}
                             {wooConn && (  /* LORAMER_WOO_CONNECT_V1 */
@@ -1185,12 +1221,16 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{wooConn.account_name}</p>
                                   </div>
                                 </div>
-                                <button onClick={async (e) => {
-                                  e.stopPropagation()
-                                  if (!confirm('Disconnect WooCommerce from this client?')) return
-                                  await fetch('/api/clients/connections?id=' + wooConn.id, { method: 'DELETE' })
-                                  fetchClients()
-                                }} className="text-xs text-muted hover:text-red-600 transition-colors font-sans">Disconnect</button>
+                                {HEALTH_UI && wooConn.health === 'reconnect' ? (
+                                  <ReconnectControl onClick={() => { setWooModal(client.id); setWooDomain('') }} scopeNote="Re-enter this store's WooCommerce API keys." />
+                                ) : (
+                                  <button onClick={async (e) => {
+                                    e.stopPropagation()
+                                    if (!confirm('Disconnect WooCommerce from this client?')) return
+                                    await fetch('/api/clients/connections?id=' + wooConn.id, { method: 'DELETE' })
+                                    fetchClients()
+                                  }} className="text-xs text-muted hover:text-red-600 transition-colors font-sans">Disconnect</button>
+                                )}
                               </div>
                             )}
                             {gaConn && (<div> {/* LORAMER_GA_PROPERTY_PICKER_V1 */}
@@ -1204,7 +1244,11 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{gaConn.account_name}</p>
                                   </div>
                                 </div>
-                                <span className="text-xs font-sans text-muted">Connected</span>
+                                {HEALTH_UI && gaConn.health === 'reconnect' ? (
+                                  <ReconnectControl href={'/api/ga/start?clientId=' + client.id} scopeNote="Re-authorize Google Analytics for this client." />
+                                ) : (
+                                  <span className="text-xs font-sans text-muted">Connected</span>
+                                )}
                               </div>
                             <BackfillControl clientId={client.id} platform="ga" onComplete={fetchClients} /></div>)}
                             {!googleConn && !metaConn && !shopifyConn && !wooConn && !gaConn && (

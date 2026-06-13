@@ -1036,6 +1036,23 @@ export function buildClaudeContextCacheable(
     'Use the data that IS in this prompt. If a platform shows "connected but no spend in this date range", "connected but no data", or "not connected", do NOT invent data for it — say so directly if the user asks about that platform.'
   )
 
+  // LORAMER_CONNECTION_HEALTH_V1 — reconnect honesty block. Only present when the health
+  // UI flag is on upstream (the field is undefined otherwise → this block never renders →
+  // prompt byte-identical). Distinguishes an AUTH failure from "no data": a dead connection
+  // must NOT be reported as $0 / no activity.
+  if (Array.isArray(intelligence.connectionHealth) && intelligence.connectionHealth.length > 0) {
+    const PLATFORM_LABEL: Record<string, string> = {
+      google: 'Google Ads', meta: 'Meta Ads', shopify: 'Shopify',
+      woocommerce: 'WooCommerce', ga: 'Google Analytics',
+    }
+    lines.push('\n=== CONNECTIONS NEEDING RECONNECT ===')
+    lines.push('These connections FAILED to authenticate on the most recent fetch — access was revoked or expired. This is a CREDENTIAL failure, NOT a temporary blip and NOT "no data". Their numbers are missing or stale for an auth reason, not a business reason:')
+    intelligence.connectionHealth.forEach(c => {
+      lines.push(`  • ${PLATFORM_LABEL[c.platform] || c.platform} — ${c.accountName}: reconnect needed`)
+    })
+    lines.push('If the user asks about one of these platforms, tell them the connection needs to be reconnected (its data cannot be trusted until then). Do NOT report $0 or "no activity" for these — that would be a false business conclusion drawn from an authentication failure.')
+  }
+
   if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
   if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
 

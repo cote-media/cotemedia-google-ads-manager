@@ -193,7 +193,31 @@ function ChartTooltip({ active, payload, label }: any) {
 type Client = {
   id: string
   name: string
-  platform_connections: { id: string; platform: string; account_id: string; account_name: string }[]
+  platform_connections: { id: string; platform: string; account_id: string; account_name: string; health?: string | null }[]
+}
+
+// LORAMER_CONNECTION_HEALTH_V1 — single flag gates the dead-state banner. OFF → never renders.
+const HEALTH_UI = process.env.NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI === '1'
+const PLATFORM_LABEL_DASH: Record<string, string> = {
+  google: 'Google Ads', meta: 'Meta Ads', shopify: 'Shopify', woocommerce: 'WooCommerce', ga: 'Google Analytics',
+}
+
+// Honest, freeze-safe banner: only renders when the flag is ON AND a connection is dead.
+// Links to /clients (the connection-management surface) rather than duplicating per-platform
+// reconnect logic here.
+function ConnectionHealthBanner({ client }: { client: Client | null }) {
+  if (!HEALTH_UI || !client) return null
+  const dead = client.platform_connections.filter(c => c.health === 'reconnect')
+  if (dead.length === 0) return null
+  const names = dead.map(c => PLATFORM_LABEL_DASH[c.platform] || c.platform).join(', ')
+  return (
+    <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border px-4 py-3" style={{ borderColor: '#FCD34D', background: '#FFFBEB' }}>
+      <p className="text-sm font-sans" style={{ color: '#92400E' }}>
+        <span className="font-medium">Reconnect needed:</span> {names}. Its data can&apos;t be trusted until reconnected — figures shown may be stale or missing.
+      </p>
+      <a href="/clients" className="text-xs font-sans font-medium text-white rounded px-3 py-1.5 flex-shrink-0 transition-colors" style={{ background: '#D97706' }}>Fix in Clients →</a>
+    </div>
+  )
 }
 
 type DrillLevel = 'campaigns' | 'adgroups' | 'ads'
@@ -3957,6 +3981,8 @@ function DashboardContent() {
         )}
         <main className="flex-1 px-4 md:px-8 py-4 md:py-8 pb-20 md:pb-8">
           {selectedClient && <h1 className="font-display text-3xl md:text-4xl text-ink mb-6">{selectedClient.name}</h1>}
+          {/* LORAMER_CONNECTION_HEALTH_V1 — gated dead-connection banner (flag OFF → renders nothing) */}
+          <ConnectionHealthBanner client={selectedClient} />
           {/* LORAMER_NAV_REGROUP_V1 — channel sub-tabs (desktop IA): Campaigns/Keywords live inside the ad channel */}
           {!loading && subTabs && (
             <div className="hidden md:flex border border-border rounded-md w-fit mb-6 overflow-hidden">
