@@ -14,6 +14,7 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
+import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import type {
   IntelligenceGa,
   IntelligenceMetrics,
@@ -429,6 +430,9 @@ export async function GET(request: Request) {
         if (syncError) {
           throw syncError
         }
+
+        // LORAMER_CONNECTION_HEALTH_V1 — this shop authenticated; heal it.
+        await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -440,6 +444,8 @@ export async function GET(request: Request) {
           platform: 'shopify',
           message,
         })
+        // LORAMER_CONNECTION_HEALTH_V1 — AUTH-class only; transient/empty leaves health untouched.
+        await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail, error: err })
       }
     }
   }
@@ -514,6 +520,9 @@ export async function GET(request: Request) {
         if (syncError) {
           throw syncError
         }
+
+        // LORAMER_CONNECTION_HEALTH_V1
+        await recordConnectionResult({ platform: 'meta', clientId: client.id, accountId, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -525,6 +534,8 @@ export async function GET(request: Request) {
           platform: 'meta',
           message,
         })
+        // LORAMER_CONNECTION_HEALTH_V1 — Meta code-190 flips the whole FB-token credential.
+        await recordConnectionResult({ platform: 'meta', clientId: client.id, accountId, userEmail, error: err })
       }
     }
   }
@@ -632,6 +643,9 @@ export async function GET(request: Request) {
         if (syncError) {
           throw syncError
         }
+
+        // LORAMER_CONNECTION_HEALTH_V1
+        await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -643,6 +657,9 @@ export async function GET(request: Request) {
           platform: 'google',
           message,
         })
+        // LORAMER_CONNECTION_HEALTH_V1 — invalid_grant flips the whole MCC OAuth credential;
+        // a per-customer permission denial flips only this account.
+        await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail, error: err })
       }
     }
   }
@@ -715,6 +732,9 @@ export async function GET(request: Request) {
         if (syncError) {
           throw syncError
         }
+
+        // LORAMER_CONNECTION_HEALTH_V1
+        await recordConnectionResult({ platform: 'woocommerce', clientId: client.id, accountId: tok.store_url, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -726,29 +746,37 @@ export async function GET(request: Request) {
           platform: 'woocommerce',
           message,
         })
+        // LORAMER_CONNECTION_HEALTH_V1 — 401/auth flips; WAF 406 / timeout does not.
+        await recordConnectionResult({ platform: 'woocommerce', clientId: client.id, accountId: conn.account_id, userEmail, error: err })
       }
     }
   }
 
   for (const client of clientRows) {
     const userEmail = client.user_email
+    let gaPropertyIdForHealth = '' // LORAMER_CONNECTION_HEALTH_V1 — hoisted so the catch can address the row
 
     try {
       const gaToken = await getValidGaToken(client.id, userEmail)
 
       if (!gaToken.ok) {
         if (gaToken.reason !== 'no_token') {
-          summary.errors.push({
-            clientId: client.id,
-            platform: 'ga',
-            message: `GA token unavailable: ${gaToken.reason}${gaToken.detail ? ' - ' + gaToken.detail : ''}`,
-          })
+          const message = `GA token unavailable: ${gaToken.reason}${gaToken.detail ? ' - ' + gaToken.detail : ''}`
+          summary.errors.push({ clientId: client.id, platform: 'ga', message })
+          // LORAMER_CONNECTION_HEALTH_V1 — a GA row EXISTS but its token won't refresh
+          // (this is exactly the invalid_grant case). Flip the per-client GA credential.
+          // reason==='no_token' is skipped: that just means "GA not connected" for this client.
+          const { authClass, code } = classifyConnectionError('ga', message)
+          if (authClass) {
+            await recordConnectionAuthFailure({ platform: 'ga', authClass, code, clientId: client.id, userEmail })
+          }
         }
         continue
       }
 
       processedClientIds.add(client.id)
       summary.gaConnections += 1
+      gaPropertyIdForHealth = gaToken.gaPropertyId
 
       const intel = await fetchGaIntelligence(
         gaToken.gaPropertyId,
@@ -793,6 +821,9 @@ export async function GET(request: Request) {
       if (syncError) {
         throw syncError
       }
+
+      // LORAMER_CONNECTION_HEALTH_V1 — GA property authenticated; heal it.
+      await recordConnectionResult({ platform: 'ga', clientId: client.id, accountId: gaPropertyIdForHealth, userEmail })
     } catch (err) {
       const message = serializeCaughtError(err)
       console.error(
@@ -804,6 +835,9 @@ export async function GET(request: Request) {
         platform: 'ga',
         message,
       })
+      // LORAMER_CONNECTION_HEALTH_V1 — auth-class fetch failure flips the GA credential
+      // (only reached when the token was valid, so gaPropertyIdForHealth is set).
+      await recordConnectionResult({ platform: 'ga', clientId: client.id, accountId: gaPropertyIdForHealth, userEmail, error: err })
     }
   }
 

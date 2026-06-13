@@ -503,6 +503,10 @@ export interface ClientIntelligence {
   // LORAMER_GA_INTELLIGENCE_V1
   ga?: IntelligenceGa
 
+  // LORAMER_CONNECTION_HEALTH_V1 — reconnect-needed connections (only populated when the
+  // NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flag is on; absent → no honesty block in the prompt).
+  connectionHealth?: Array<{ platform: string; accountName: string }>
+
   // Future platforms plug in here:
   // tiktok?: PlatformIntelligence
   // pinterest?: PlatformIntelligence

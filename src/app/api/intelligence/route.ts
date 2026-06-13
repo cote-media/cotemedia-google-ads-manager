@@ -20,9 +20,23 @@ import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { resolveDateWindow } from '@/lib/date-range'
+import { recordConnectionResult } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
+// LORAMER_CONNECTION_HEALTH_V1 — single flag gates ALL dead-state UI (badge, dashboard banner,
+// Lora prompt block). Health WRITES are always on; only the user-facing surfacing is gated.
+const HEALTH_UI = process.env.NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI === '1'
+
+// Map the reconnect-needed connections (read off platform_connections.health) into the lean
+// shape the prompt builder + dashboard render. Only emitted when the flag is ON, so flag-OFF
+// leaves the intelligence object — and therefore the prompt + UI — byte-identical to today.
+function buildConnectionHealth(connections: any[]): Array<{ platform: string; accountName: string }> | undefined {
+  if (!HEALTH_UI) return undefined
+  const dead = (connections || []).filter((c) => c?.health === 'reconnect')
+  if (dead.length === 0) return undefined
+  return dead.map((c) => ({ platform: c.platform, accountName: c.account_name || c.account_id || c.platform }))
+}
 
 const EMPTY_PLATFORM: PlatformIntelligence = {
   connected: false,
@@ -151,6 +165,7 @@ export async function GET(request: Request) {
         }
         entry.resolvedStartDate = resolvedStartDate
         entry.resolvedEndDate = resolvedEndDate
+        entry.connectionHealth = buildConnectionHealth(connections) // LORAMER_CONNECTION_HEALTH_V1 — always fresh (connections read every call)
         return NextResponse.json({ intelligence: entry })
       }
     } catch (e) {
@@ -328,6 +343,73 @@ export async function GET(request: Request) {
       )
     }
     intelligence.ga = { connected: false }
+  }
+
+  // ── LORAMER_CONNECTION_HEALTH_V1 — record live-fetch health per connection ──
+  // A live fetch is just as authoritative as the cron. Success heals the row; an AUTH-class
+  // rejection flips it to 'reconnect' (transient/empty leaves it untouched — see the engine).
+  // recordConnectionResult swallows its own errors, so this can never break the response.
+  await Promise.allSettled([
+    googleConn
+      ? recordConnectionResult({
+          platform: 'google',
+          clientId,
+          accountId: googleConn.account_id,
+          userEmail: session.user.email,
+          error: googleResult.status === 'rejected' ? googleResult.reason : (googleResult.value ? undefined : new Error('skip')),
+        })
+      : Promise.resolve(),
+    metaConn
+      ? recordConnectionResult({
+          platform: 'meta',
+          clientId,
+          accountId: metaConn.account_id,
+          userEmail: session.user.email,
+          error: metaResult.status === 'rejected' ? metaResult.reason : (metaResult.value ? undefined : new Error('skip')),
+        })
+      : Promise.resolve(),
+    shopifyConn
+      ? recordConnectionResult({
+          platform: 'shopify',
+          clientId,
+          accountId: shopifyConn.account_id,
+          userEmail: session.user.email,
+          error: shopifyResult.status === 'rejected' ? shopifyResult.reason : (shopifyResult.value ? undefined : new Error('skip')),
+        })
+      : Promise.resolve(),
+    wooConn
+      ? recordConnectionResult({
+          platform: 'woocommerce',
+          clientId,
+          accountId: wooConn.account_id,
+          userEmail: session.user.email,
+          error: wooResult.status === 'rejected' ? wooResult.reason : (wooResult.value ? undefined : new Error('skip')),
+        })
+      : Promise.resolve(),
+    // GA: the promise resolves null when no ga row exists for this client → skip entirely.
+    (() => {
+      const gaConn = connections.find((c) => c.platform === 'ga')
+      if (!gaConn) return Promise.resolve()
+      if (gaResult.status === 'fulfilled' && !gaResult.value) return Promise.resolve() // not connected this turn
+      return recordConnectionResult({
+        platform: 'ga',
+        clientId,
+        accountId: gaConn.account_id,
+        userEmail: session.user.email,
+        error: gaResult.status === 'rejected' ? gaResult.reason : undefined,
+      })
+    })(),
+  ])
+
+  // Surface reconnect-needed connections to the prompt builder + dashboard (gated).
+  // Re-read health AFTER the writes above so a connection this very fetch just flipped is
+  // reflected immediately (no one-call lag). Only when the flag is on (skips a query otherwise).
+  if (HEALTH_UI) {
+    const { data: freshConns } = await supabaseAdmin
+      .from('platform_connections')
+      .select('platform, account_id, account_name, health')
+      .eq('client_id', clientId)
+    intelligence.connectionHealth = buildConnectionHealth(freshConns || connections)
   }
 
   // ── Cache the result ───────────────────────────────────────────────────────
