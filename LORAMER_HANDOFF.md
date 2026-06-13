@@ -319,6 +319,24 @@ Two things are NOT product features — they are binding commitments. If a produ
 
 Same repo, both machines kept in sync via `git pull` / `git push` through GitHub. Note the path differs: iMac has `cotemedia-ads-manager`, laptop has `cotemedia-google-ads-manager` (the full GitHub repo name when cloned fresh). When generating commands, always use the path matching the machine he's on.
 
+#### MACHINES & ENV STATE — verified: MacBook Air 2026-06-13 / iMac last-known (re-verify next iMac session)
+
+BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.loramer.com`. Folder NAMES differ by design — NEVER "fix" them.
+
+**MacBook Air (user `russcote2`) — VERIFIED + ENV-COMPLETED 2026-06-13 (all 23 vars):**
+- repo `/Users/russcote2/Downloads/cotemedia-google-ads-manager` — on `main`, clean
+- `node_modules` present (deps installed)
+- `.env.local` present — **23 vars, full Vercel-Production parity** (was 15; the 8 GA + Shopify + Stripe-webhook/portal + reviewer vars were pulled from Production 2026-06-13). Real Google-Ads + Supabase creds proven (06-11 9-row GAQL pass). Meta = app-level creds only (`META_APP_ID`/`META_APP_SECRET`); per-user Meta tokens live in the Supabase `meta_tokens` table, NOT env.
+- CAPABLE locally: Google Ads (GAQL), Meta, **Google Analytics**, **Shopify** live probes, plus Supabase + Anthropic + NextAuth. Stripe: `STRIPE_SECRET_KEY` works for checkout/API; local webhook testing uses the Stripe CLI's own `stripe listen` signing secret, NOT the prod `STRIPE_WEBHOOK_SECRET` (that var is present for reference only).
+- Vercel CLI installed + project linked (`.vercel/project.json`)
+- MCP: project-scoped `.mcp.json` (supabase + vercel) active; NO local-scope shadowing
+- => Fully work-capable & interchangeable for live probes across all five platforms.
+
+**iMac (user `russellcote`) — LAST-KNOWN (not verified this session):**
+- repo `/Users/russellcote/Downloads/cotemedia-ads-manager`
+- historically primary; `.env.local` present + working (var set NOT audited — may or may not hold the full 23)
+- ACTION: re-verify env names + stamp next iMac session
+
 ### Key file locations (paths relative to project root)
 
 - `src/app/dashboard/page.tsx` — main dashboard (3000+ lines, the heart of the app)
@@ -736,6 +754,9 @@ Every platform, every grain, as deep as the source allows — and every gap surf
 
 ## Standing rule — End every session by refreshing CONTINUE_HERE.md
 At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
+
+## Standing rule — ENV/MACHINE STATE moves with the fact (same commit)
+Whenever a machine/env fact is established or verified (env file created/changed, dep installed, CLI linked, MCP scope changed, token rotated into env), update the MACHINES & ENV STATE block (in "Russ's machines" above) in the SAME commit, with a fresh "verified <date>" stamp for that machine. Durable infra facts never live only in a session log.
 
 ## Standing rule — Keep LORAMER_CODEBASE_MAP.md current via git, not memory
 At each handoff run: git diff --name-status $(git log -1 --format=%H -- LORAMER_CODEBASE_MAP.md)..HEAD

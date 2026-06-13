@@ -186,7 +186,7 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 
 ### ⏰ CRITICAL DATE-GATED — DO NOT SLIP
 1. **META TOKEN AGING → DIES ~2026-07-13** (ONE DAY before the July-14 launch). cote@ Meta token last refreshed 2026-05-14; Meta long-lived tokens live ~60 days. Affects ALL 7 cote@ Meta clients (BusyBee, Foam OH, Glass Plus, My Vacation Network, The Escential Group, Thought Streams, Veterinary mastermind). ACTION: deliberate Meta reconnect ~**2026-07-10** — before death, before launch. HARD-CALENDAR this; a silent death takes every Meta dashboard dark at the worst possible moment.
-2. **META PROBE — Influential Drones** (act_584246708329858): connection row exists but ZERO metrics_daily capture rows EVER. Settle ALIVE vs DEAD with ONE live Meta probe — on the iMac (.env.local present) or via a raw prod log. Do at the next iMac session.
+2. **META PROBE — Influential Drones** (act_584246708329858): connection row exists but ZERO metrics_daily capture rows EVER. Settle ALIVE vs DEAD with ONE live Meta probe — runs on EITHER machine (both carry a working .env.local with Meta APP creds; the per-user Meta token is in Supabase meta_tokens, not env), or via a raw prod log.
 
 - **FREEZE all app UI on the reviewer path** (/clients, connect flows, dashboard Meta tab) until the Meta decision — no visual changes that diverge from the screencast.
 - Post-approval queue: flip the Meta app **Development → Live** (docs/META_APP_REVIEW_ANSWERS.md §5) + fresh-external-user verify; publish the gov-policy public page; homepage unification; dashboard visual reconciliation; URL-state nav workstream.
