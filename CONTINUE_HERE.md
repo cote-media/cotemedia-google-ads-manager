@@ -184,6 +184,10 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 
 ## NEXT STEP — both review clocks PASSIVE (Google 06-10, Meta 06-11); reviewer-path UI freeze holds until the Meta decision.
 
+**MASTER PUNCH-LIST: see `AUDIT_FINDINGS.md`** (consolidated 2026-06-13; workstreams WS1→WS3, HELD/POST-META/EXTERNAL/LOW/RESOLVED). The GAP/BACKLOG notes below feed into it.
+
+**▶ ACTIVE NEXT STEP: WS1a — cron `maxDuration` band-aid + manual-trigger confirm.** (/api/cron/sync is silently dropping GA + Woo + the Google-loop tail nightly — active data loss, freeze-safe, no reviewer-path overlap. AUDIT_FINDINGS.md WS1.)
+
 ### ⏰ CRITICAL DATE-GATED — DO NOT SLIP
 1. **META TOKEN AGING → DIES ~2026-07-13** (ONE DAY before the July-14 launch). cote@ Meta token last refreshed 2026-05-14; Meta long-lived tokens live ~60 days. Affects ALL 7 cote@ Meta clients (BusyBee, Foam OH, Glass Plus, My Vacation Network, The Escential Group, Thought Streams, Veterinary mastermind). ACTION: deliberate Meta reconnect ~**2026-07-10** — before death, before launch. HARD-CALENDAR this; a silent death takes every Meta dashboard dark at the worst possible moment.
 2. **META PROBE — Influential Drones** (act_584246708329858): connection row exists but ZERO metrics_daily capture rows EVER. Settle ALIVE vs DEAD with ONE live Meta probe — runs on EITHER machine (both carry a working .env.local with Meta APP creds; the per-user Meta token is in Supabase meta_tokens, not env), or via a raw prod log.
