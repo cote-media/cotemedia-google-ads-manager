@@ -288,6 +288,12 @@ function serializeCaughtError(value: unknown): string {
   }
 }
 
+// WS1a — cron maxDuration band-aid to stop loop-tail starvation. The 5 sequential
+// per-client platform loops (Shopify→Meta→Google→Woo→GA) were exceeding the default
+// serverless duration cap, silently dropping the tail (GA + Woo + Google-tail clients).
+// 60s = the safe maximum (Hobby cap; strict improvement under Pro). Real fix = WS1c.
+export const maxDuration = 60
+
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
