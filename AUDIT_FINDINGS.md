@@ -32,8 +32,7 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 ## WS3 — ACCURACY / COMPLETENESS  (freeze-safe)
 - **#6 — Shopify ACCOUNT-row includes cancelled orders in totalRevenue** | MED | safe-now | DATA-LOSS no (accuracy mismatch)
   Depth grains already exclude cancelled; the account calc doesn't. Approach: reconcile the account calc to the depth-grain rule (exclude cancelled).
-- **#5 — Lora prompt-leak (constraints meta-commentary reaches users)** | MED | safe-now (backend prompt) | DATA-LOSS no
-  Located: build-claude-context.ts rules block ~906-964 ("the constraint wins", "verify NOTHING contradicts these constraints"). Approach: harden so the model never narrates about its own constraints/context.
+- **#5 — Lora prompt-leak** | ✅ RESOLVED 2026-06-13 (LORAMER_PROMPT_LEAK_GUARD_V1) — see RESOLVED section.
 - **#7 — Woo backfill adapter missing (forward-only; no history)** | MED | safe-now | DATA-LOSS no
   Approach: build the shared-engine Woo adapter (daily fetch + byte-identical row builder + registration).
 
@@ -55,6 +54,7 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 - **#13 — Shopify token read keyed by user_email alone** | LOW | safe-now | DATA-LOSS no | getValidShopifyToken reads `.eq('user_email')` — verify a user with 2 shops can't grab the wrong row (add shop_domain to the key if so). Low: hardening V1 shipped; likely 1 shop/user today.
 
 ## RESOLVED  (do not re-open)
+- **#5 Lora prompt-leak (constraints meta-commentary reaching users)** — RESOLVED 2026-06-13 (LORAMER_PROMPT_LEAK_GUARD_V1). Root cause: /api/insight INITIAL_INSIGHT_PROMPT rule 1 said "If there are HARD CONSTRAINTS at the top of your context…" — conditional self-reference to prompt scaffolding → when a client had no constraints (Foam OH), Haiku narrated the absence ("I don't see any hard constraints…"). Fix: (a) reworded that rule to unconditional, non-meta obedience (imperative kept in the user message); de-meta'd the build-claude-context ~1135 REMINDER positional self-reference; (b) added an always-on anti-meta guard in the identity prefix (covers insight + chat) forbidding narration of own instructions/constraints/context, (c) explicitly scoped to instructions ONLY — data-gap/provenance honesty preserved. Validated live (Haiku A/B ×3: no meta-commentary, ROAS-ignore obedience held on Glass Plus, quality intact; Sonnet over-suppression probe confirmed gaps-out-loud survives). The data-honesty instruction (build-claude-context ~1036) deliberately left untouched.
 - **Meta token "dies ~30 days early"** — DEBUNKED 2026-06-13: token alive, all accounts HTTP 200; the 8 'reconnect' flags are stale false-alarms from #2 (self-heal on next successful Meta capture). (NOTE: the deliberate ~07-10 Meta reconnect before the projected ~07-13 expiry STILL stands — see CONTINUE_HERE date-gated.)
 - **Influential Drones Meta ghost** — SETTLED 2026-06-13: alive-but-empty (HTTP 200, no spend>0 campaigns), not dead/forbidden.
 - **Shopify token hardening** (post-refresh save guard, missing rotated refresh_token, concurrent-refresh race) — SHIPPED + proven (CAS claim + winner re-read + TTL + release).

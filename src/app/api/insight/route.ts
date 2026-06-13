@@ -10,14 +10,16 @@ import { supabaseAdmin } from '@/lib/supabase'  // LORAMER_QUERY_METRICS_OWNERSH
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// The initial-insight user prompt. We bake the HARD CONSTRAINTS reminder
-// directly into the user message because Haiku in 50-word mode tends to
-// follow the dominant data signal over the system prompt constraints.
-// Naming this thing here also means it's grep-able when we want to tune it.
+// The initial-insight user prompt. The obedience imperative lives in the user
+// message (not just the system prompt) because Haiku in 50-word mode under-follows
+// the system prompt. Worded WITHOUT referencing the prompt's own structure — the
+// old "if there are HARD CONSTRAINTS at the top of your context" framing invited
+// Haiku to narrate that scaffolding ("I don't see any hard constraints…"), which
+// leaked into user-facing output (WS3 #5). Grep-able here for tuning.
 const INITIAL_INSIGHT_PROMPT = `Generate a 1-2 sentence insight (50 words max) about this account.
 
 CRITICAL RULES for this insight:
-1. If there are HARD CONSTRAINTS at the top of your context, OBEY THEM. Do NOT mention any metric the user told you to ignore — not even to compare against, not even to dismiss. Pretend that metric does not exist in the data for the purposes of this insight.
+1. Obey every standing instruction you have been given about this account. Never mention a metric the user has asked you to ignore — not to compare against, not to dismiss. Treat any such metric as if it is not in the data for this insight.
 2. Find a different angle. If ROAS is off-limits, talk about conversion volume, CTR patterns, budget concentration, campaign mix, or whatever else is meaningful given the user's stated priorities.
 3. Be specific with actual campaign names and numbers — but only for metrics that aren't off-limits.
 4. No markdown. Plain text only.
