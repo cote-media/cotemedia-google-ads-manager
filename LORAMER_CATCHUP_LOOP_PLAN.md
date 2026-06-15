@@ -68,3 +68,22 @@ NONE EXISTS. `last_forward_sync_date` appears at exactly 5 sites — all WRITES 
 
 ## EXECUTION NOTE
 WS1c step 1 (per-platform split) is DONE & VERIFIED (commit c5180b5, LORAMER_CRON_PLATFORM_SPLIT_V1). It stopped the ongoing bleed (every platform now lands yesterday in its own 300s budget). This catch-up loop repairs the EXISTING holes left by the earlier starvation. WS1b (cron_runs completion sentinel) is independent and can land before or after.
+
+---
+
+## APPROVED APPROACH (gated by Russ 2026-06-15)
+
+DECISIONS:
+(a) Placement = SEPARATE route /api/cron/catchup (per-platform-gated via ?platform=), NOT inline. Rationale: full-fidelity repair stacked on the nightly yesterday-baseline would exceed maxDuration=300 (est. Google ~33s/client-day → first repair night ~460s). A separate route runs the repair in its own fresh 300s budget and leaves the just-stabilized forward cron BYTE-UNCHANGED (zero regression to fresh code). Self-healing-forever = schedule catchup on its own staggered nightly Vercel crons, offset AFTER the forward crons; steady-state gap=0 → no-op.
+(b) Per-run day cap = 14 days per (client, platform), oldest-first contiguous. Advance last_forward_sync_date = max(current, last contiguously-filled day) — monotonic, never moves backward, so forward + catchup cannot corrupt each other; idempotent UPSERT (METRICS_DAILY_CONFLICT) makes overlap a harmless rewrite. 14 clears every current hole in one pass (largest = GA, 5 missing days); larger future gaps converge over successive nights.
+(c) Woo = per-day replay loop now, NO new adapter. Every platform handled identically: catchup loops gap days and reuses the SAME capture body the nightly cron uses with (day, day). WS3 #7 (formal Woo backfill adapter for deep history) stays deferred/unbundled.
+
+FIDELITY = FULL (not account-spine). Catchup re-runs the same intelligence fetch + builders the nightly cron uses per gap day, INCLUDING Google search-term/keyword dimensional rows and Shopify depth rows. Rationale: search terms are permanent-loss (Google purges them); account-spine-only would lose that history forever, breaking the "permanent system of record" promise.
+
+DRY: row builders are the fidelity-critical part. Shopify + GA builders + dimensional/depth fetchers+builders are ALREADY shared. Only buildMetaMetricsRows / buildGoogleMetricsRows / buildWooMetricsRows are still inline in cron/sync/route.ts.
+
+BUILD SEQUENCE (one change in flight each; tsc+grep → vercel --prod → verify on the Air → revert-ready):
+- 2a: extract the 3 inline builders into shared modules; cron imports them. No behavior change. Verify forward-cron output byte-identical on the Air BEFORE anything depends on them.
+- 2b: add /api/cron/catchup (reads sync_state.last_forward_sync_date per client+platform, computes gap [L+1..yesterday], fills oldest-first capped at 14, monotonic L, reuses ALL shared builders/fetchers per gap day = full fidelity) + staggered catchup crons in vercel.json + shared addDays (currently module-local in run-backfill.ts). Repair current holes via manual per-platform invocation on the Air; verify in metrics_daily (rows present for missing dates; idempotent re-run; L advanced); confirm real per-platform timing < 300s before trusting the schedule.
+
+VERIFICATION is provable immediately by manual invocation — NOT gated on the nightly cron window. The ~33s/client-day Google estimate is confirmed by real Air timing before relying on the schedule.
