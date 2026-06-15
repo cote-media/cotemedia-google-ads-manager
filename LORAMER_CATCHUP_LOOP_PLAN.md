@@ -87,3 +87,23 @@ BUILD SEQUENCE (one change in flight each; tsc+grep → vercel --prod → verify
 - 2b: add /api/cron/catchup (reads sync_state.last_forward_sync_date per client+platform, computes gap [L+1..yesterday], fills oldest-first capped at 14, monotonic L, reuses ALL shared builders/fetchers per gap day = full fidelity) + staggered catchup crons in vercel.json + shared addDays (currently module-local in run-backfill.ts). Repair current holes via manual per-platform invocation on the Air; verify in metrics_daily (rows present for missing dates; idempotent re-run; L advanced); confirm real per-platform timing < 300s before trusting the schedule.
 
 VERIFICATION is provable immediately by manual invocation — NOT gated on the nightly cron window. The ~33s/client-day Google estimate is confirmed by real Air timing before relying on the schedule.
+
+---
+
+## CORRECTION (2026-06-15) — decision (b) gap-detection SUPERSEDED: presence-based, NOT last_forward_sync_date
+
+The (b) mechanism above ("read last_forward_sync_date L, fill [L+1..yesterday]") is WRONG and is hereby superseded. Reason: the OLD forward cron stamped L=yesterday UNCONDITIONALLY even on nights it skipped days — which is HOW the current holes formed. So L now sits at yesterday (06-14) for the hole-clients while the holes (GA 06-09->06-13, Woo 06-11->06-13, Google-tail 06-12->06-13) sit BELOW L. [L+1..yesterday] would be empty -> would repair NOTHING. (Gate-A Q5: nothing reads L anyway.)
+
+CORRECTED MECHANISM — presence-based, per (client, platform, account):
+1. Window = last 35 days ending yesterday: [yesterday-34 .. yesterday]. const CATCHUP_WINDOW_DAYS = 35.
+2. Read metrics_daily for the dates that already have an account-level row (entity_level='account') for that (client_id, platform, account_id) in the window.
+3. If ZERO present in the window -> SKIP this (client, platform, account). No recent baseline = forward cron / deep-backfill engine's job, not catchup's. (Runaway guard against pre-connection days.)
+4. Else floor = earliest present date in window; ceiling = yesterday. Missing = every date in [floor..ceiling] with no account-level row.
+5. Fill the OLDEST up-to-14 missing dates this run (const CATCHUP_DAY_CAP = 14), oldest-first, FULL fidelity (same fetch + shared builders + depth (shopify) / dimensional (google) sub-captures the forward cron runs, per day, with (day,day)). Idempotent UPSERT on METRICS_DAILY_CONFLICT.
+6. Catchup NEVER reads or writes last_forward_sync_date — purely presence-driven. Backlogs larger than the cap converge over successive nights.
+
+Repairs the EXISTING holes (interior-to-window missing dates) AND self-heals any FUTURE skip incl. a missed yesterday, without trusting L and without touching the forward cron. Forward cron stays unchanged; L remains a harmless write-only vestige.
+
+PRESENCE SIGNAL = entity_level='account' main row. CONFIRM at 2b first read that all 5 builders emit an entity_level='account' main row (meta/google/woo confirmed in 2a; shopify + ga to confirm) before relying on it.
+
+UNCHANGED: (a) separate /api/cron/catchup route, per-platform-gated, own 300s budget; (c) Woo per-day replay, no new adapter; full fidelity; 14/run cap. Re-gated by Russ 2026-06-15.
