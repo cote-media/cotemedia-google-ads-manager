@@ -342,6 +342,13 @@ export async function GET(request: Request) {
 
   const clientRows = (clients || []) as ClientRow[]
 
+  // LORAMER_CRON_PLATFORM_SPLIT_V1 (WS1c step 1) — gate each per-platform loop on ?platform=.
+  // No param / platform==='all' runs all 5 (backward-compatible manual full-sync); the
+  // Vercel crons now fire one platform each on staggered minutes so every platform gets its
+  // own fresh maxDuration budget instead of competing in one 300s invocation.
+  const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+
+  if (platform === 'all' || platform === 'shopify') {
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const shopifyConnections = connections.filter(c => c.platform === 'shopify')
@@ -455,7 +462,9 @@ export async function GET(request: Request) {
       }
     }
   }
+  } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end shopify guard
 
+  if (platform === 'all' || platform === 'meta') {
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const metaConnections = connections.filter(c => c.platform === 'meta')
@@ -545,7 +554,9 @@ export async function GET(request: Request) {
       }
     }
   }
+  } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end meta guard
 
+  if (platform === 'all' || platform === 'google') {
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const googleConnections = connections.filter(c => c.platform === 'google')
@@ -669,7 +680,9 @@ export async function GET(request: Request) {
       }
     }
   }
+  } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end google guard
 
+  if (platform === 'all' || platform === 'woocommerce') {
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const wooConnections = connections.filter(c => c.platform === 'woocommerce')
@@ -757,7 +770,9 @@ export async function GET(request: Request) {
       }
     }
   }
+  } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end woocommerce guard
 
+  if (platform === 'all' || platform === 'ga') {
   for (const client of clientRows) {
     const userEmail = client.user_email
     let gaPropertyIdForHealth = '' // LORAMER_CONNECTION_HEALTH_V1 — hoisted so the catch can address the row
@@ -846,6 +861,7 @@ export async function GET(request: Request) {
       await recordConnectionResult({ platform: 'ga', clientId: client.id, accountId: gaPropertyIdForHealth, userEmail, error: err })
     }
   }
+  } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end ga guard
 
   summary.clientsProcessed = processedClientIds.size // FIX 5: distinct clients, not per-platform sum
   return NextResponse.json(summary)

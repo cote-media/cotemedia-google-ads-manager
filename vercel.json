@@ -1,8 +1,24 @@
 {
   "crons": [
     {
-      "path": "/api/cron/sync",
+      "path": "/api/cron/sync?platform=ga",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync?platform=woocommerce",
+      "schedule": "5 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync?platform=shopify",
+      "schedule": "10 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync?platform=meta",
+      "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/cron/sync?platform=google",
+      "schedule": "20 8 * * *"
     }
   ]
 }
