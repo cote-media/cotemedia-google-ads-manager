@@ -18,6 +18,12 @@ function addUtcDays(d: Date, delta: number): Date {
   return next
 }
 
+export function addDaysIso(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().split('T')[0]
+}
+
 export function resolveDateWindow(
   dateRange: string,
   customStart?: string,
