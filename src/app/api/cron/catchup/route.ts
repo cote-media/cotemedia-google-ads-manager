@@ -28,6 +28,7 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -156,6 +157,47 @@ export async function GET(request: Request) {
   }
   const processedClientIds = new Set<string>()
 
+  // LORAMER_CRON_RUNS_SENTINEL_V1 (WS1b-1) — parse the platform gate + write started markers BEFORE
+  // the clients query / heavy work; a crash or maxDuration kill leaves started rows with finished_at
+  // NULL (the silent-hole signal). This also gives catchup its FIRST durable proof-of-run.
+  const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+  const cronTrigger = detectTrigger(request)
+  const cronRunIds = await startCronRuns({
+    mode: 'catchup',
+    platforms: cronRunPlatforms(platform),
+    trigger: cronTrigger,
+    windowStart,
+    windowEnd: yesterday,
+  })
+
+  // Per-section finalize: derive this platform's tallies from the summary delta since the section
+  // began (catchup also tracks accountsWithGaps + daysFilled), then stamp finished_at. Sections run
+  // sequentially and tag errors by platform, so the delta belongs entirely to this section.
+  const ATTEMPT_KEYS: Record<string, keyof typeof summary> = {
+    shopify: 'shopifyConnections',
+    meta: 'metaConnections',
+    google: 'googleConnections',
+    woocommerce: 'wooConnections',
+    ga: 'gaConnections',
+  }
+  async function finalizeSection(
+    p: string,
+    snap: { rows: number; errs: number; gaps: number; days: number }
+  ) {
+    const errsForP = summary.errors.slice(snap.errs)
+    const erroredConns = new Set(errsForP.map(e => e.clientId)).size
+    const attempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    await finishCronRun(cronRunIds[p], {
+      connectionsAttempted: attempted,
+      connectionsErrored: erroredConns,
+      connectionsSucceeded: Math.max(0, attempted - erroredConns),
+      accountsWithGaps: summary.accountsWithGaps - snap.gaps,
+      daysFilled: summary.daysFilled - snap.days,
+      rowsWritten: summary.rowsWritten - snap.rows,
+      errorCount: errsForP.length,
+    })
+  }
+
   const { data: clients, error: clientsError } = await supabaseAdmin
     .from('clients')
     .select('id, user_email, platform_connections(*)')
@@ -170,11 +212,11 @@ export async function GET(request: Request) {
 
   const clientRows = (clients || []) as ClientRow[]
 
-  // Same ?platform= gate as the forward cron: no param / 'all' = all 5; else just that one.
-  const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+  // Same ?platform= gate as the forward cron (`platform` parsed above): no param / 'all' = all 5; else just that one.
 
   // ── SHOPIFY ──────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'shopify') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const shopifyConnections = (client.platform_connections || []).filter(c => c.platform === 'shopify')
     if (shopifyConnections.length === 0) continue
@@ -241,10 +283,12 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('shopify', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   }
 
   // ── META ─────────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'meta') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const metaConnections = (client.platform_connections || []).filter(c => c.platform === 'meta')
     if (metaConnections.length === 0) continue
@@ -298,10 +342,12 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('meta', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   }
 
   // ── GOOGLE ───────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'google') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const googleConnections = (client.platform_connections || []).filter(c => c.platform === 'google')
     if (googleConnections.length === 0) continue
@@ -381,10 +427,12 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('google', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   }
 
   // ── WOOCOMMERCE ──────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'woocommerce') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const wooConnections = (client.platform_connections || []).filter(c => c.platform === 'woocommerce')
     if (wooConnections.length === 0) continue
@@ -444,10 +492,12 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('woocommerce', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   }
 
   // ── GA ───────────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'ga') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     // GA's account_id (property id) lives in ga_tokens. Read it cheaply FIRST so the
     // presence query can run BEFORE the expensive getValidGaToken refresh.
@@ -519,6 +569,7 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('ga', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   }
 
   summary.clientsProcessed = processedClientIds.size

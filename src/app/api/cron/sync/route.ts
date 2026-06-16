@@ -19,6 +19,7 @@ import { getValidGaToken } from '@/lib/ga-token'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
+import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 import type {
   IntelligenceGa,
 } from '@/lib/intelligence/intelligence-types'
@@ -103,6 +104,41 @@ export async function GET(request: Request) {
   // client once per platform). Cosmetic; no behavior change.
   const processedClientIds = new Set<string>()
 
+  // LORAMER_CRON_RUNS_SENTINEL_V1 (WS1b-1) — parse the platform gate + write started markers
+  // BEFORE the clients query / heavy work, so a crash or maxDuration kill still leaves a started
+  // row with finished_at NULL (the silent-hole signal). Observability only; never throws.
+  const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+  const cronTrigger = detectTrigger(request)
+  const cronRunIds = await startCronRuns({
+    mode: 'forward',
+    platforms: cronRunPlatforms(platform),
+    trigger: cronTrigger,
+    targetDate: captureDate,
+  })
+
+  // Per-section finalize: derive this platform's tallies from the summary delta since the section
+  // began, then stamp finished_at. Sections run sequentially and each pushes only its own
+  // platform's errors, so every error added during a section belongs to that section's platform.
+  const ATTEMPT_KEYS: Record<string, keyof typeof summary> = {
+    shopify: 'shopifyConnections',
+    meta: 'metaConnections',
+    google: 'googleConnections',
+    woocommerce: 'wooConnections',
+    ga: 'gaConnections',
+  }
+  async function finalizeSection(p: string, snap: { rows: number; errs: number }) {
+    const errsForP = summary.errors.slice(snap.errs)
+    const erroredConns = new Set(errsForP.map(e => e.clientId)).size
+    const attempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    await finishCronRun(cronRunIds[p], {
+      connectionsAttempted: attempted,
+      connectionsErrored: erroredConns,
+      connectionsSucceeded: Math.max(0, attempted - erroredConns),
+      rowsWritten: summary.rowsWritten - snap.rows,
+      errorCount: errsForP.length,
+    })
+  }
+
   const { data: clients, error: clientsError } = await supabaseAdmin
     .from('clients')
     .select('id, user_email, platform_connections(*)')
@@ -117,13 +153,12 @@ export async function GET(request: Request) {
 
   const clientRows = (clients || []) as ClientRow[]
 
-  // LORAMER_CRON_PLATFORM_SPLIT_V1 (WS1c step 1) — gate each per-platform loop on ?platform=.
-  // No param / platform==='all' runs all 5 (backward-compatible manual full-sync); the
-  // Vercel crons now fire one platform each on staggered minutes so every platform gets its
-  // own fresh maxDuration budget instead of competing in one 300s invocation.
-  const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+  // LORAMER_CRON_PLATFORM_SPLIT_V1 (WS1c step 1) — `platform` (parsed above) gates each per-platform
+  // loop. No param / platform==='all' runs all 5 (backward-compatible manual full-sync); the Vercel
+  // crons fire one platform each on staggered minutes so every platform gets its own 300s budget.
 
   if (platform === 'all' || platform === 'shopify') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const shopifyConnections = connections.filter(c => c.platform === 'shopify')
@@ -237,9 +272,11 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('shopify', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end shopify guard
 
   if (platform === 'all' || platform === 'meta') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const metaConnections = connections.filter(c => c.platform === 'meta')
@@ -329,9 +366,11 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('meta', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end meta guard
 
   if (platform === 'all' || platform === 'google') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const googleConnections = connections.filter(c => c.platform === 'google')
@@ -455,9 +494,11 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('google', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end google guard
 
   if (platform === 'all' || platform === 'woocommerce') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const connections = client.platform_connections || []
     const wooConnections = connections.filter(c => c.platform === 'woocommerce')
@@ -545,9 +586,11 @@ export async function GET(request: Request) {
       }
     }
   }
+  await finalizeSection('woocommerce', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end woocommerce guard
 
   if (platform === 'all' || platform === 'ga') {
+  const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
   for (const client of clientRows) {
     const userEmail = client.user_email
     let gaPropertyIdForHealth = '' // LORAMER_CONNECTION_HEALTH_V1 — hoisted so the catch can address the row
@@ -636,6 +679,7 @@ export async function GET(request: Request) {
       await recordConnectionResult({ platform: 'ga', clientId: client.id, accountId: gaPropertyIdForHealth, userEmail, error: err })
     }
   }
+  await finalizeSection('ga', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end ga guard
 
   summary.clientsProcessed = processedClientIds.size // FIX 5: distinct clients, not per-platform sum
