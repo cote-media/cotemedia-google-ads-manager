@@ -24,7 +24,7 @@ Run all three before launch (✅ when a real identity of that shape passes end-t
 
 ## 🔴 HARD GATE — live-store Woo backfill prerequisites (LORAMER_WOO_BACKFILL_CLAIM_V1, 2026-06-16)
 
-**✅ SATISFIED 2026-06-16 (LORAMER_WOO_BACKFILL_SAFE_V1, migration 013)** — all four BUILT + verified (pure unit test + controlled always-500 e2e; no live-store contact). The Woo backfill is now safe to run against a live store / cohort onboarding. (Incident background: Lesson 51.)
+**🟡 BUILT 2026-06-16 (LORAMER_WOO_BACKFILL_SAFE_V1, migration 013) — verification PARTIAL (see caveat).** All four implemented; pure de-escalation test 9/9; graceful-200/zero-5xx proven; breaker read→increment→block→graceful logic proven in isolation. ⚠️ The CONSECUTIVE breaker-accumulation + no-op-when-blocked e2e is INFRA-BLOCKED (Supabase PostgREST schema cache had not reloaded the migration-013 columns on the read path — transient; not a code defect). RE-VERIFY the consecutive e2e once the cache converges before declaring the gate fully SATISFIED. (Incident background: Lesson 51.)
 - [x] (1) **Circuit-breaker (caller-proof, persisted)**: blocked-window state on the cursor; a blocked backfill no-ops with ZERO outbound, checked BEFORE the claim/any store call — no caller can re-hammer. Trips after N=2 consecutive per-day-floor failures.
 - [x] (2) **Graceful route status**: store-side failure → 200 {status:'halted'/'blocked'} (no 5xx/alert); only genuine infra errors stay 5xx.
 - [x] (3) **Gentle-on-live-store + adaptive sub-chunking**: 300ms throttle (pages + windows), de-escalate 21→7→1 on error (lighter queries, slips under a slow host), MAX_OUTBOUND_FETCHES=500 backstop, CAS claim guards concurrency.
