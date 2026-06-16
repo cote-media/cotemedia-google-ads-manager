@@ -27,6 +27,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-16) — WS3 #7 PHASE 2a HARDENING + FULL-HISTORY CONVERGENCE (LORAMER_WOO_BACKFILL_CLAIM_V1)
+- The initial Phase-2a backfill (engine correct; ~5yr captured 2021-05→2026-06; Black Friday verified 31/$2,246.34) did NOT converge the deep tail: the merchant's slow WP host hangs some fetches → functions ran to the 300s ceiling → rapid invocation looping spawned OVERLAPPING/orphaned functions that raced the resume cursor (it bounced 2021↔2024). Data was always correct/idempotent; convergence was the only failure.
+- HARDENING (Option B — ADDITIVE; verified engine logic sale-filter/net/§A/false-zero/bucketing UNTOUCHED):
+  - migration 012: sync_state claim columns (backfill_claim_token, backfill_claimed_at) + claim_backfill_cursor / release_backfill_cursor CAS RPCs (mirrors the Shopify refresh CAS, migration 009). On start an invocation atomically CLAIMS the cursor; a held VALID claim → new invocation NO-OPs ("skipped"); RELEASE on clean finish (fast convergence); STALENESS reclaim 360s (> the 300s route ceiling) so a crashed holder can't deadlock.
+  - per-page fetch TIMEOUT (AbortController 35s) + RETRY (3×) in the shared fetchWooOrdersRaw; persistent failure THROWS (halt-and-surface, Lesson 15) — never silently skips a page (would gap a window). Forward keeps fail-soft (caught → zeros).
+- Drives the full ~10yr history to completion with overlap impossible. de-risks Phase 2b (UI/cron can trigger it safely — overlaps no-op). Convergence + Black-Friday recheck in the commit/report.
+
 ## Session log (2026-06-16) — WS3 #7 PHASE 2a: WOO HISTORICAL BACKFILL ENGINE + ROUTE (LORAMER_WOO_BACKFILL_2A_V1)
 - BACKEND ONLY (reviewer-path freeze): no UI wiring, no run-backfill branch, no BackfillControl mount.
 - Refactored woocommerce-intelligence.ts to EXPORT the shared Phase-1 pieces so forward + backfill are byte-identical BY CONSTRUCTION: WOO_SALE_STATUSES, wooNetOf, fetchWooOrdersRaw (raw window fetch with a PARAMETRIZED page cap — forward defaults to 10, backfill passes 1000), summarizeWooOrders (the aggregation). fetchWooCommerceIntelligence now = fetchWooOrdersRaw → filter to sale → summarize (behavior byte-identical to Phase 1; verified — forward 06-15 still 2/$134.90).

@@ -15,6 +15,7 @@
 // COMPLETENESS: when a chunk returns ZERO all-status orders, we've reached the start of the merchant's
 // order history → mark complete. (No comparison to any account-creation/max-history date.)
 
+import { randomUUID } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1 (§A guard)
 import {
@@ -97,6 +98,32 @@ export async function runWooCommerceBackfill(
   }
   const storeUrl = tok.store_url as string
 
+  // LORAMER_WOO_BACKFILL_CLAIM_V1 — concurrency claim (CAS, mirrors the Shopify refresh CAS,
+  // migration 009/012). If another invocation holds a VALID claim, NO-OP. The merchant's slow host
+  // can make a fetch run to the 300s ceiling; without this, overlapping calls raced the cursor.
+  // Staleness reclaim is 360s (> the 300s route ceiling) so a crashed holder can't deadlock.
+  const claimToken = randomUUID()
+  const { data: claimed, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
+    p_client_id: clientId,
+    p_platform: CURSOR_PLATFORM,
+    p_token: claimToken,
+  })
+  if (claimErr) {
+    return { status: 500, body: { error: 'claim check failed', detail: claimErr.message } }
+  }
+  if (!claimed) {
+    return { status: 200, body: { clientId, storeUrl, skipped: true, note: 'another backfill invocation holds the claim' } }
+  }
+  // Release the claim on every exit. A missed release (uncaught throw) self-heals via the 360s
+  // staleness reclaim, so the backfill can never deadlock.
+  const release = async () => {
+    try {
+      await supabaseAdmin.rpc('release_backfill_cursor', { p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken })
+    } catch {
+      /* best-effort; a missed release self-heals via the 360s staleness reclaim */
+    }
+  }
+
   const nowIso = opts.now ?? fmt(new Date())
   const endDate = addDays(nowIso, -1) // yesterday
   const targetStart = addDays(nowIso, -days)
@@ -108,6 +135,7 @@ export async function runWooCommerceBackfill(
     .eq('platform', CURSOR_PLATFORM)
     .maybeSingle()
   if (stateRow?.backfill_complete) {
+    await release()
     return { status: 200, body: { clientId, storeUrl, complete: true, note: 'already complete' } }
   }
 
@@ -118,6 +146,7 @@ export async function runWooCommerceBackfill(
     : (stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate)
   if (windowEnd < targetStart) {
     await upsertCursor(clientId, targetStart, targetStart, true)
+    await release()
     return { status: 200, body: { clientId, storeUrl, complete: true, note: 'window already covered' } }
   }
 
@@ -197,6 +226,7 @@ export async function runWooCommerceBackfill(
   // a timeout, or the per-run chunk cap leaves it incomplete + resumable (the next run continues).
   const complete = reachedHistoryStart
   await upsertCursor(clientId, earliestWritten, targetStart, complete)
+  await release()
 
   return {
     status: errors.length ? 502 : 200,

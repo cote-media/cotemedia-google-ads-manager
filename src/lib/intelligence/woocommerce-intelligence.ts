@@ -42,6 +42,11 @@ export async function fetchWooOrdersRaw(
     Authorization: basicAuth(consumerKey, consumerSecret),
     Accept: 'application/json',
   }
+  // LORAMER_WOO_BACKFILL_CLAIM_V1 — per-page timeout + retry (hang resilience): the merchant's host
+  // can hang a request indefinitely. Abort a page after PAGE_TIMEOUT_MS, retry a few times; if it
+  // STILL fails, THROW (halt-and-surface, Lesson 15) — never silently skip a page (would gap a window).
+  const PAGE_TIMEOUT_MS = 35_000
+  const PAGE_RETRIES = 3
   const all: any[] = []
   for (let page = 1; page <= maxPages; page++) {
     const url =
@@ -50,7 +55,27 @@ export async function fetchWooOrdersRaw(
       '&after=' + encodeURIComponent(after) +
       '&before=' + encodeURIComponent(before) +
       '&status=any'
-    const res = await fetch(url, { headers })
+    let res: Response | undefined
+    let lastErr: unknown
+    for (let attempt = 1; attempt <= PAGE_RETRIES; attempt++) {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), PAGE_TIMEOUT_MS)
+      try {
+        res = await fetch(url, { headers, signal: ctrl.signal })
+        break
+      } catch (e) {
+        lastErr = e
+        res = undefined
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+    if (!res) {
+      throw new Error(
+        'WooCommerce page fetch failed after ' + PAGE_RETRIES + ' attempts (timeout/network): ' +
+        String((lastErr as any)?.message ?? lastErr)
+      )
+    }
     if (!res.ok) {
       const txt = await res.text().catch(() => '')
       throw new Error('WooCommerce orders fetch failed: ' + res.status + ' ' + txt.slice(0, 200))
