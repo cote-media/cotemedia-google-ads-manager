@@ -27,6 +27,7 @@ import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-int
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
+import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -214,7 +215,7 @@ export async function GET(request: Request) {
           const rows = buildShopifyMetricsRows(client.id, userEmail, d, shopDomain, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')
-            .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+            .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
             if (depthRows.length > 0) {
               const { error: depthError } = await supabaseAdmin
                 .from('metrics_daily')
-                .upsert(depthRows, { onConflict: METRICS_DAILY_CONFLICT })
+                .upsert(normalizeMetricsRows(depthRows), { onConflict: METRICS_DAILY_CONFLICT })
               if (depthError) throw depthError
               summary.rowsWritten += depthRows.length
             }
@@ -286,7 +287,7 @@ export async function GET(request: Request) {
           const rows = buildMetaMetricsRows(client.id, userEmail, d, accountId, conn.account_name, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')
-            .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+            .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
@@ -353,7 +354,7 @@ export async function GET(request: Request) {
           const rows = buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')
-            .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+            .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
@@ -366,7 +367,7 @@ export async function GET(request: Request) {
             if (dimRows.length > 0) {
               const { error: dimError } = await supabaseAdmin
                 .from('metrics_daily')
-                .upsert(dimRows, { onConflict: METRICS_DAILY_CONFLICT })
+                .upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
               if (dimError) throw dimError
               summary.rowsWritten += dimRows.length
             }
@@ -432,7 +433,7 @@ export async function GET(request: Request) {
           const rows = buildWooMetricsRows(client.id, userEmail, d, storeUrl, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')
-            .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+            .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
@@ -508,7 +509,7 @@ export async function GET(request: Request) {
         const rows = buildGaMetricsRows(client.id, gaUserEmail, d, gaToken.gaPropertyId, gaToken.gaPropertyName, intel)
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
         if (metricsError) throw metricsError
         summary.rowsWritten += rows.length
         summary.daysFilled += 1

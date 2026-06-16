@@ -18,6 +18,7 @@ import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
+import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import type {
   IntelligenceGa,
 } from '@/lib/intelligence/intelligence-types'
@@ -164,7 +165,7 @@ export async function GET(request: Request) {
 
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
         if (metricsError) {
           throw metricsError
@@ -189,7 +190,7 @@ export async function GET(request: Request) {
           } else {
             const { error: depthError } = await supabaseAdmin
               .from('metrics_daily')
-              .upsert(depthRows, { onConflict: METRICS_DAILY_CONFLICT })
+              .upsert(normalizeMetricsRows(depthRows), { onConflict: METRICS_DAILY_CONFLICT })
             if (depthError) throw depthError
             summary.rowsWritten += depthRows.length
           }
@@ -286,7 +287,7 @@ export async function GET(request: Request) {
 
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
         if (metricsError) {
           throw metricsError
@@ -380,7 +381,7 @@ export async function GET(request: Request) {
 
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
         if (metricsError) {
           throw metricsError
@@ -406,7 +407,7 @@ export async function GET(request: Request) {
           } else {
             const { error: dimError } = await supabaseAdmin
               .from('metrics_daily')
-              .upsert(dimRows, { onConflict: METRICS_DAILY_CONFLICT })
+              .upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
             if (dimError) throw dimError
             summary.rowsWritten += dimRows.length
           }
@@ -502,7 +503,7 @@ export async function GET(request: Request) {
 
         const { error: metricsError } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
         if (metricsError) {
           throw metricsError
@@ -593,7 +594,7 @@ export async function GET(request: Request) {
 
       const { error: metricsError } = await supabaseAdmin
         .from('metrics_daily')
-        .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+        .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
       if (metricsError) {
         throw metricsError
