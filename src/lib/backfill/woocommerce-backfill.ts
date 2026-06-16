@@ -188,7 +188,6 @@ export async function runWooCommerceBackfill(
   let blockedNow = false
   let blockWindow: string | null = null
   let blockReason: string | null = null
-  let bumpDiag: any = null // TEMP_BREAKER_DIAG — remove after proof gate
 
   while (windowEnd >= targetStart && chunks < MAX_CHUNKS) {
     if (Date.now() - startedAt > timeBudgetMs) { timedOut = true; break }
@@ -281,13 +280,6 @@ export async function runWooCommerceBackfill(
       const bump = (Array.isArray(bumpRows) ? bumpRows[0] : bumpRows) as { block_fails: number; blocked: boolean } | undefined
       blockFails = bump?.block_fails ?? blockFails + 1
       blockedNow = bump?.blocked ?? blockFails >= BLOCK_THRESHOLD
-      // TEMP_BREAKER_DIAG — capture what claim read vs what bump returned vs an immediate read-back
-      {
-        const { data: rb } = await supabaseAdmin
-          .from('sync_state').select('backfill_block_fails')
-          .eq('client_id', clientId).eq('platform', CURSOR_PLATFORM).maybeSingle()
-        bumpDiag = { claimFails: claim.block_fails, claimEarliest: claim.earliest, bumpRows, readBack: rb?.backfill_block_fails }
-      }
       break
     }
   }
@@ -303,7 +295,6 @@ export async function runWooCommerceBackfill(
         window: blockWindow, reason: blockReason, blockFails,
         chunksThisRun: chunks, daysWritten, rowsWritten, ordersSeen, saleOrdersSeen,
         earliest: earliestWritten, target: targetStart, outbound,
-        _diag: bumpDiag, // TEMP_BREAKER_DIAG
       },
     }
   }
