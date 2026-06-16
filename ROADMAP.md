@@ -171,6 +171,21 @@ Steps 2a–2f shipped end-to-end: search terms (2a), conversion attribution (2b)
 - [ ] Update insight prompts to reference all selected KPIs
 - [ ] UI: checkbox group instead of single select
 
+### LORA INTELLIGENCE — Growth Blueprint + Daily Alerts (two scopes of ONE engine)
+Two reads of the same complete-context engine: one on-demand deep document (R1) and one recurring lightweight pulse (R2). Both fan specialized analysis across every data grain + user context, and both live or die by the same disciplines: split "grounded in your data" vs "needs inputs you haven't supplied," and carry provenance per item. (The Lora brain is `src/lib/intelligence/`; per-client memory + `query_metrics`/`query_breakdown` give the historical reach — see LORAMER_CODEBASE_MAP.md.)
+
+- [ ] **[R1] "BOMB" / GROWTH BLUEPRINT** — codename "bomb"; **NEEDS A REAL PRODUCT NAME.** On-demand, full-throttle growth document: one command → Lora ingests the COMPLETE data garden (every platform grain + historical trends) + user context/industry → a structured, exportable strategy doc. Likely a **Mer** artifact (the client deep-dive surface).
+  - Sections: exec summary · revenue levers · pricing · website/CRO · retention · remarketing · cost & margin · prioritized action list (each item with expected impact + provenance).
+  - **Make-or-break dependency:** the cost/margin/pricing/offline sections need business context Lora can't see (COGS, margins, goals). The doc MUST split "grounded in your data" vs "needs inputs you haven't supplied," and prompt for the missing pieces to unlock those sections. NEVER invent a margin (extends the prompt-honesty doctrine, Lesson 11).
+  - **Mechanism (NOT fine-tuning):** one large structured prompt over the complete context at high/max effort; a natural fit for SUBAGENTS fanned per domain (ad data · sales · product/pricing · website/CRO · retention · logistics/margin) composed by a lead agent. Positioning = "a team of specialized analysts, not one chatbot." Use "specialized," NOT "tuned," unless/until a per-industry/per-domain skills/knowledge library backs a real knowledge-tuning claim.
+  - **Pricing:** tier-gated — 1/month on a low tier → unlimited on high; "unlimited" needs a quiet fair-use cap; caps config-driven per tier via entitlement gating (Stripe Phase 5, deferred — founding cohort = beta_unlimited bypasses).
+- [ ] **[R2] DAILY ALERT LAYER** — scope + quality + cadence (IMPROVE the existing layer, not greenfield).
+  - **Step 0 = read-only audit** of what exists today (the InsightChat "Lora Analysis" banner + `anomaly-filter.ts` + the "While You Were Sleeping"/digest items above) before deciding build-vs-improve.
+  - Timing: overnight events fire AFTER the nightly cron completes — the **cron_runs completion sentinel** (WS1b-1, shipped 2026-06-16) signals a clean run; a failed connection (the **connection-health** engine) is itself alert-worthy.
+  - Quality bar: prioritized (no alert fatigue) · actionable · anomaly-aware · provenance per item.
+  - Toggles: short-version switch + cadence (daily / weekly / 2-week / monthly), with content ADAPTING per cadence (a monthly pulse ≠ 30 dailies stacked).
+  - Open: delivery channel (in-app / email / push). Shares infra with R1 (same engine, lighter read).
+
 ---
 
 ## ⚡ PROJECT 4 — Execution Layer
