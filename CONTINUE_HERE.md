@@ -7,12 +7,7 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
-Current workstream: **WS1c STEP 2 — CATCH-UP LOOP** (cron integrity; repair the holes the earlier starvation left). External review clocks run PASSIVE in parallel (Google Ads Tool Change Form SUBMITTED 2026-06-10 → awaiting; Meta App Review for ads_read → flip-to-Live is NEXT after decision). Stripe: Phases 0-4 DONE & VERIFIED; Phase 5 deferred; Phase 6 early July. Reviewer-path UI FREEZE holds.
-- `LORAMER_CATCHUP_LOOP_PLAN.md` — the catch-up loop plan: problem, full Gate-A findings (Q1–Q5), design implication, OPEN DECISIONS. Read this FIRST for the active task.
-- `src/app/api/cron/sync/route.ts` — the forward-capture cron (now per-platform-gated via `?platform=`, LORAMER_CRON_PLATFORM_SPLIT_V1). The catch-up loop modifies this; it only ever writes `captureDate` (yesterday) today.
-- Reusable per-day fetchers the catch-up loop builds on: `getDailyMetrics` (`src/lib/google-ads.ts`), `fetchMetaDailyMetrics` (`src/lib/meta-ads.ts`), `fetchGaDailyMetrics` (`src/lib/intelligence/ga-intelligence.ts:458`) + `buildGaMetricsRows`; engine `runBackfill` + `addDays` in `src/lib/backfill/run-backfill.ts`; adapters in `src/lib/backfill/adapters.ts`.
-- `AUDIT_FINDINGS.md` — master punch-list (WS1c status, #14/#15 observed items).
-- Stripe (parallel, owner = Russ): `STRIPE_BILLING_PLAN.md` (Phase 4 + entitlement matrix) + `src/app/api/billing/*` + `src/app/api/stripe/webhook/route.ts` + `src/lib/billing/*` + `src/lib/stripe.ts` — read when the active task is Stripe Phase 6.
+No active workstream — see AUDIT_FINDINGS.md (master punch-list) + the NEXT queue. LORAMER_CATCHUP_LOOP_PLAN.md is the closed record of WS1c STEP 2.
 
 # CONTINUE_HERE — LoraMer
 
@@ -31,6 +26,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 4. cat every REQUIRED READING file and read it fully before acting.
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
+
+## Session log (2026-06-15 cont.) — WS1c STEP 2 (CATCH-UP LOOP) COMPLETE end-to-end
+- 2a (19a21b7): extracted meta/google/woo row-builders to shared modules; pure refactor; forward-cron verified byte-identical on the Air (all 5 platforms).
+- 2b route (513b980): presence-based /api/cron/catchup (per-platform-gated). Gap = metrics_daily account-row presence (entity_level='account' AND breakdown_type='' — the latter REQUIRED, Shopify geo rows also use entity_level='account') over a 35-day window; fills oldest ≤14 missing days oldest-first at FULL fidelity ((CUSTOM,d,d), same fetch+builders+depth/dimensional); NO sync_state/health writes. Decision (b) CORRECTED L-watermark→presence-based (9dee901): last_forward_sync_date was unreliable (forward stamped it PAST the holes). Repaired GA 06-09→13, Woo 06-11→13, Google-tail 06-12→13 + deeper backlog; idempotent.
+- §A write-boundary finite guard (a749660): normalizeMetricsRows (Number.isFinite→0) wraps every metrics_daily upsert in forward+catchup. Root cause of a Meta silent hole — NaN conversions → JSON null → 23502 → row dropped. The `?? 0` patch (652701c) was insufficient (NaN≠null) and was superseded. Glass Plus 06-11/06-15 repaired. → Lesson (NaN finite-guard).
+- §B 'phantom-gap' INVESTIGATED + CLEARED (read-only diag, no fix): exact presence logic finds ZERO gaps on a complete DB; earlier symptom was deep-backlog + catchup-before-forward. → Lesson (timing/diagnosis).
+- 2b-crons (577ffb4): 5 staggered nightly catchup crons 08:30–08:50 UTC. No-op confirmed (all 5 daysFilled=0); 10 crons total, Vercel accepted.
 
 ## Session log (2026-06-15) — WS1c STEP 1 (per-platform cron split) DONE & VERIFIED + CRON_SECRET rotated (remote-control session)
 - **WS1c STEP 1 SHIPPED + VERIFIED** (LORAMER_CRON_PLATFORM_SPLIT_V1, commit c5180b5): the single nightly `/api/cron/sync` was proven STILL starving GA + Woo + the Google-tail under the maxDuration=300 band-aid (the 06-14/06-15 crons reached shopify/meta/google but dropped GA+Woo entirely). Fix = gate the 5 existing per-platform loops on `?platform=` (no param / `all` still runs all 5 = backward-compatible full sync; loop bodies byte-for-byte unchanged) + replace the one vercel.json cron with 5 staggered entries: ga :00 / woo :05 / shopify :10 / meta :15 / google :20 @ 08 UTC, each with its own fresh 300s. tsc green; guard tokens === ?platform= values (woocommerce spelled in full both sides).
@@ -202,7 +204,13 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 
 **MASTER PUNCH-LIST: see `AUDIT_FINDINGS.md`** (consolidated 2026-06-13; workstreams WS1→WS3, HELD/POST-META/EXTERNAL/LOW/RESOLVED). The GAP/BACKLOG notes below feed into it.
 
-**▶ ACTIVE NEXT STEP: WS1c STEP 2 — CATCH-UP LOOP.** Highest-risk cron change (touches all 5 capture paths) → do it in a FRESH session. Gate-A design inputs already captured in **`LORAMER_CATCHUP_LOOP_PLAN.md`** (per-platform fetcher granularity; reusable per-day fetchers; runBackfill is backward-only not a forward gap-filler; Woo/account-Shopify have no daily fetcher; idempotent conflict key; no gap helper exists). APPROACH-BEFORE-BUILD: write the approach (settle the 3 OPEN DECISIONS — placement, per-run day cap, Woo path) → Russ gates → build. Repairs the holes: GA 06-09→06-13, Woo 06-11→06-13, Google-tail 06-12→06-13.
+Current workstream: NONE ACTIVE — WS1c STEP 2 (catch-up loop) COMPLETE 2026-06-15. Russ picks the next workstream from the queue below. External review clocks still PASSIVE; reviewer-path UI FREEZE holds.
+
+▶ NEXT — Russ picks from queue:
+- BACKFILL-ROUTE CHOKEPOINT HARDENING: extend normalizeMetricsRows (write-boundary finite guard) to the remaining metrics_daily writers — run-backfill.ts default mapper + google-dimensional-backfill + shopify-dimensional-backfill — completing the §A class-elimination (forward+catchup already covered). Approach-first.
+- WS1b: cron_runs completion sentinel.
+- ENV-TRUTH AUDIT (iMac value-audit; Air CRON_SECRET already SET).
+- WS3 #6 (Shopify cancelled-order accuracy) · WS3 #7 (Woo backfill adapter) · #14 (2 Shopify dead-token reconnects).
 ✅ **WS1a RESOLVED 2026-06-15 by WS1c step 1** (per-platform split, commit c5180b5) — the maxDuration=300 band-aid alone was insufficient; the split gives each platform its own 300s. WS1a/WS1c-step1 starvation is fixed; only the historical holes remain (→ catch-up loop).
 Then queued: **WS1b** (cron_runs completion sentinel) · ENV-TRUTH AUDIT (iMac value-audit; the Air's real CRON_SECRET is now SET — rotated 2026-06-15) · WS3 #6 (Shopify cancelled-order accuracy) · WS3 #7 (Woo backfill adapter) · #14 (2 Shopify reconnects). Reviewer-path freeze HOLDS.
 

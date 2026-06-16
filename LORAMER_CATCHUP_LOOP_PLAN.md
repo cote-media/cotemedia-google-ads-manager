@@ -125,3 +125,8 @@ DURABLE FOLLOW-UP (QUEUED — approach-first, NOT bundled here): centralize nume
 ALSO OPEN after the fix: Google account 2102961791 is ~4 days short of full-window convergence (clears on one more google catchup pass); 2b-crons (staggered nightly catchup schedule) not yet wired.
 
 SUPERSEDED 2026-06-15: the ?? 0 builder patch was INSUFFICIENT — the bad value is NaN, not null (NaN ?? 0 = NaN -> JSON null -> 23502). Fixed via finite-number write-boundary guard normalizeMetricsRows (LORAMER_METRICS_NORMALIZE_V1), scoped to forward cron + catchup now; backfill-route wrapping folded into the queued write-boundary chokepoint hardening.
+
+---
+
+## STATUS: WS1c STEP 2 COMPLETE & VERIFIED — 2026-06-15
+Commits: 19a21b7 (2a builder extraction) / 513b980 (2b presence-based catchup route) / 9dee901 (decision-b corrected to presence-based) / a749660 (§A write-boundary finite guard) / 577ffb4 (2b nightly catchup crons). Catch-up route live + self-healing nightly (catchup 08:30–08:50 UTC, after forward 08:00–08:20). Original holes repaired; future skips self-heal within ~1 day. REMAINING QUEUED: extend normalizeMetricsRows to the backfill writers (run-backfill + google/shopify-dimensional-backfill) = full write-boundary chokepoint.
