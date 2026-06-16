@@ -19,6 +19,26 @@
     {
       "path": "/api/cron/sync?platform=google",
       "schedule": "20 8 * * *"
+    },
+    {
+      "path": "/api/cron/catchup?platform=ga",
+      "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/catchup?platform=woocommerce",
+      "schedule": "35 8 * * *"
+    },
+    {
+      "path": "/api/cron/catchup?platform=shopify",
+      "schedule": "40 8 * * *"
+    },
+    {
+      "path": "/api/cron/catchup?platform=meta",
+      "schedule": "45 8 * * *"
+    },
+    {
+      "path": "/api/cron/catchup?platform=google",
+      "schedule": "50 8 * * *"
     }
   ]
 }
