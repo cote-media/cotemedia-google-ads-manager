@@ -35,7 +35,8 @@ export async function fetchWooOrdersRaw(
   consumerSecret: string,
   after: string,
   before: string,
-  maxPages = 10
+  maxPages = 10,
+  throttleMs = 0 // LORAMER_WOO_BACKFILL_SAFE_V1 — backfill passes a delay between pages (gentle on a live store); forward leaves 0
 ): Promise<any[]> {
   const base = storeUrl.replace(/\/+$/, '') + '/wp-json/wc/v3'
   const headers = {
@@ -49,6 +50,7 @@ export async function fetchWooOrdersRaw(
   const PAGE_RETRIES = 3
   const all: any[] = []
   for (let page = 1; page <= maxPages; page++) {
+    if (throttleMs > 0 && page > 1) await new Promise((r) => setTimeout(r, throttleMs)) // gentle: space pages
     const url =
       base +
       '/orders?per_page=100&page=' + page +

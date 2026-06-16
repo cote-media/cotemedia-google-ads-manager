@@ -27,11 +27,10 @@ export async function GET(request: Request) {
   }
   const daysRaw = searchParams.get('days')
   const days = daysRaw ? Math.max(1, Math.min(5000, parseInt(daysRaw, 10) || DEFAULT_DAYS)) : DEFAULT_DAYS
-  // LORAMER_WOO_BACKFILL_2A_V1 — optional explicit window end (YYYY-MM-DD) for a client-driven,
-  // cursor-independent resumable loop. Validated to a plain date.
-  const beforeRaw = searchParams.get('before')
-  const before = beforeRaw && /^\d{4}-\d{2}-\d{2}$/.test(beforeRaw) ? beforeRaw : undefined
+  // LORAMER_WOO_BACKFILL_SAFE_V1 — deliberate one-shot unblock of the circuit-breaker (after the
+  // source store is fixed). No caller-supplied window: resume is always from the persisted frontier.
+  const unblock = searchParams.get('unblock') === 'true'
 
-  const { status, body } = await runWooCommerceBackfill(clientId, { days, before })
+  const { status, body } = await runWooCommerceBackfill(clientId, { days, unblock })
   return NextResponse.json(body, { status })
 }

@@ -24,11 +24,11 @@ Run all three before launch (✅ when a real identity of that shape passes end-t
 
 ## 🔴 HARD GATE — live-store Woo backfill prerequisites (LORAMER_WOO_BACKFILL_CLAIM_V1, 2026-06-16)
 
-Before ANY future Woo HISTORICAL backfill against a LIVE store — including cohort Woo onboarding — implement ALL FOUR (the 2026-06-16 incident: a driver loop oscillated against a persistent per-window store-500 → ~few hundred read-only requests to a live store over ~40 min; see Lesson 51):
-- [ ] (1) **Circuit-breaker** in the driver: stop after N consecutive failures on the SAME window; never oscillate/re-walk an already-captured range.
-- [ ] (2) **Graceful route status**: a halted window returns a handled "halted" body (not a 5xx) so a stuck window can't read as an outage / trip alerts.
-- [ ] (3) **Gentle-on-live-store controls**: throttle, smallest viable windows, off-peak scheduling, and a hard per-store request budget.
-- [ ] (4) **Resume from true frontier**: reconcile the cursor to the deepest captured date before resuming; don't trust a bounced cursor.
+**✅ SATISFIED 2026-06-16 (LORAMER_WOO_BACKFILL_SAFE_V1, migration 013)** — all four BUILT + verified (pure unit test + controlled always-500 e2e; no live-store contact). The Woo backfill is now safe to run against a live store / cohort onboarding. (Incident background: Lesson 51.)
+- [x] (1) **Circuit-breaker (caller-proof, persisted)**: blocked-window state on the cursor; a blocked backfill no-ops with ZERO outbound, checked BEFORE the claim/any store call — no caller can re-hammer. Trips after N=2 consecutive per-day-floor failures.
+- [x] (2) **Graceful route status**: store-side failure → 200 {status:'halted'/'blocked'} (no 5xx/alert); only genuine infra errors stay 5xx.
+- [x] (3) **Gentle-on-live-store + adaptive sub-chunking**: 300ms throttle (pages + windows), de-escalate 21→7→1 on error (lighter queries, slips under a slow host), MAX_OUTBOUND_FETCHES=500 backstop, CAS claim guards concurrency.
+- [x] (4) **Resume from true frontier**: `before` re-walk override REMOVED; resume purely from the persisted cursor (monotonic). UNBLOCK via CRON_SECRET ?unblock=true after a store is fixed.
 GROUP with the cohort Woo-onboarding gate: the forward Woo status+refund accuracy fix is already SHIPPED (LORAMER_WOO_STATUS_ACCURACY_V1 — sale-only {completed,processing,refunded} + net), so forward capture is safe; this gate covers the HISTORICAL backfill path specifically.
 CURRENT STATE: Shelley Kyle backfill captured 2018-12-13 → 2026-06-15 (~7.5yr, verified). Deep tail 2016-10 → 2018-12 DEFERRED (blocked by her host's PHP-fatal/500 on the heavy 2018-11-22..12-12 window). Cursor reconciled to 2018-12-13, NOT marked complete. No Woo backfill cron exists and the UI trigger (Phase 2b) is unbuilt/frozen → nothing auto-resumes against her store. To finish the tail later: adaptive sub-chunking (split a 500'd window to per-day to slip under her host's memory limit) UNDER this gate's controls — or confirm genuine store-side corruption and accept ~7.5yr.
 

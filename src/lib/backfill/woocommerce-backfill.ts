@@ -24,6 +24,7 @@ import {
   summarizeWooOrders,
 } from '@/lib/intelligence/woocommerce-intelligence'
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
+import { adaptiveFetchWindow, type WooFetchFn } from '@/lib/backfill/woo-adaptive'
 
 const CURSOR_PLATFORM = 'woocommerce_backfill' // progress key only; data rows stay platform='woocommerce'
 const METRICS_DAILY_CONFLICT =
@@ -34,6 +35,10 @@ const MAX_CHUNKS = 60 // per invocation; the time budget is the real gate; curso
 const MAX_PAGES = 30 // ≤3,000 orders/chunk — above any real 21-day window here (no truncation), bounds a runaway
 const DEFAULT_TIME_BUDGET_MS = 90_000 // margin under the 300s route; cursor only advances per COMPLETED chunk, so a
                                        // rare overrun self-heals on resume (idempotent, no false-zero, no cursor skip)
+const THROTTLE_MS = 300 // LORAMER_WOO_BACKFILL_SAFE_V1 — gentle: delay between page fetches AND between windows
+const BLOCK_THRESHOLD = 2 // trip the breaker after this many CONSECUTIVE per-day-floor failures at the frontier
+const MAX_OUTBOUND_FETCHES = 500 // hard per-invocation backstop. The 90s time budget is the real gate (at the 300ms
+                                  // throttle floor ≤ ~300 fetches fit in it); this only trips if time accounting is bypassed.
 
 function fmt(d: Date): string {
   return d.toISOString().split('T')[0]
@@ -49,23 +54,17 @@ export interface WooBackfillResult {
   body: Record<string, any>
 }
 
-async function upsertCursor(clientId: string, earliest: string, target: string, complete: boolean): Promise<void> {
+// Generalized cursor writer — upserts whatever fields are passed (earliest/target/complete + breaker state).
+async function writeCursor(clientId: string, fields: Record<string, unknown>): Promise<void> {
   await supabaseAdmin.from('sync_state').upsert(
-    {
-      client_id: clientId,
-      platform: CURSOR_PLATFORM,
-      backfill_earliest_date: earliest,
-      backfill_target_date: target,
-      backfill_complete: complete,
-      updated_at: new Date().toISOString(),
-    },
+    { client_id: clientId, platform: CURSOR_PLATFORM, updated_at: new Date().toISOString(), ...fields },
     { onConflict: 'client_id,platform' }
   )
 }
 
 export async function runWooCommerceBackfill(
   clientId: string,
-  opts: { days?: number; timeBudgetMs?: number; now?: string; before?: string } = {}
+  opts: { days?: number; timeBudgetMs?: number; now?: string; unblock?: boolean; fetchOrders?: WooFetchFn } = {}
 ): Promise<WooBackfillResult> {
   const days = opts.days ?? DEFAULT_DAYS
   const timeBudgetMs = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS
@@ -98,56 +97,78 @@ export async function runWooCommerceBackfill(
   }
   const storeUrl = tok.store_url as string
 
-  // LORAMER_WOO_BACKFILL_CLAIM_V1 — concurrency claim (CAS, mirrors the Shopify refresh CAS,
-  // migration 009/012). If another invocation holds a VALID claim, NO-OP. The merchant's slow host
-  // can make a fetch run to the 300s ceiling; without this, overlapping calls raced the cursor.
-  // Staleness reclaim is 360s (> the 300s route ceiling) so a crashed holder can't deadlock.
+  const nowIso = opts.now ?? fmt(new Date())
+  const endDate = addDays(nowIso, -1) // yesterday
+  const targetStart = addDays(nowIso, -days)
+
+  // ── Read state (cursor + circuit-breaker) BEFORE any claim or store call ───────────────────────
+  const { data: stateRow } = await supabaseAdmin
+    .from('sync_state')
+    .select('backfill_earliest_date, backfill_complete, backfill_blocked, backfill_block_window, backfill_block_reason, backfill_block_fails')
+    .eq('client_id', clientId)
+    .eq('platform', CURSOR_PLATFORM)
+    .maybeSingle()
+
+  if (stateRow?.backfill_complete) {
+    return { status: 200, body: { clientId, storeUrl, status: 'complete', complete: true, note: 'already complete' } }
+  }
+  // CIRCUIT-BREAKER (caller-proof): a blocked backfill NO-OPs with ZERO outbound store requests, and
+  // before the claim — so no caller (UI button, cron, script, Claude Code) can re-hammer a known-bad
+  // window no matter how often it calls. Cleared only by a deliberate ?unblock=true.
+  if (stateRow?.backfill_blocked && !opts.unblock) {
+    return {
+      status: 200,
+      body: {
+        clientId, storeUrl, status: 'blocked',
+        window: stateRow.backfill_block_window, reason: stateRow.backfill_block_reason,
+        note: 'backfill blocked at a window the source store cannot serve; retry with ?unblock=true after the store is fixed',
+      },
+    }
+  }
+
+  // ── Concurrency claim (CAS) — only after the cheap complete/blocked short-circuits ─────────────
   const claimToken = randomUUID()
   const { data: claimed, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
-    p_client_id: clientId,
-    p_platform: CURSOR_PLATFORM,
-    p_token: claimToken,
+    p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken,
   })
   if (claimErr) {
     return { status: 500, body: { error: 'claim check failed', detail: claimErr.message } }
   }
   if (!claimed) {
-    return { status: 200, body: { clientId, storeUrl, skipped: true, note: 'another backfill invocation holds the claim' } }
+    return { status: 200, body: { clientId, storeUrl, status: 'skipped', skipped: true, note: 'another backfill invocation holds the claim' } }
   }
-  // Release the claim on every exit. A missed release (uncaught throw) self-heals via the 360s
-  // staleness reclaim, so the backfill can never deadlock.
   const release = async () => {
     try {
       await supabaseAdmin.rpc('release_backfill_cursor', { p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken })
-    } catch {
-      /* best-effort; a missed release self-heals via the 360s staleness reclaim */
-    }
+    } catch { /* best-effort; self-heals via the 360s staleness reclaim */ }
   }
 
-  const nowIso = opts.now ?? fmt(new Date())
-  const endDate = addDays(nowIso, -1) // yesterday
-  const targetStart = addDays(nowIso, -days)
-
-  const { data: stateRow } = await supabaseAdmin
-    .from('sync_state')
-    .select('backfill_earliest_date, backfill_complete')
-    .eq('client_id', clientId)
-    .eq('platform', CURSOR_PLATFORM)
-    .maybeSingle()
-  if (stateRow?.backfill_complete) {
-    await release()
-    return { status: 200, body: { clientId, storeUrl, complete: true, note: 'already complete' } }
+  // Deliberate unblock: clear the breaker for ONE retry from the current frontier.
+  let blockFails = stateRow?.backfill_block_fails ?? 0
+  if (opts.unblock && stateRow?.backfill_blocked) {
+    blockFails = 0
+    await writeCursor(clientId, { backfill_blocked: false, backfill_block_fails: 0, backfill_block_window: null, backfill_block_reason: null })
   }
 
-  // LORAMER_WOO_BACKFILL_2A_V1 — `before` lets the caller drive the window explicitly (client-side
-  // resumable loop), independent of the stored cursor. Without it, fall back to the cursor.
-  let windowEnd = opts.before
-    ? opts.before
-    : (stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate)
+  // Resume PURELY from the persisted cursor (the true frontier). No caller-specified window → a caller
+  // can never force a re-walk of already-captured windows.
+  let windowEnd = stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate
   if (windowEnd < targetStart) {
-    await upsertCursor(clientId, targetStart, targetStart, true)
+    await writeCursor(clientId, { backfill_earliest_date: targetStart, backfill_target_date: targetStart, backfill_complete: true })
     await release()
-    return { status: 200, body: { clientId, storeUrl, complete: true, note: 'window already covered' } }
+    return { status: 200, body: { clientId, storeUrl, status: 'complete', complete: true, note: 'window already covered' } }
+  }
+
+  // Injected fetcher (tests) OR the real throttled paginated fetch; counted against the outbound backstop.
+  let outbound = 0
+  const baseFetch: WooFetchFn =
+    opts.fetchOrders ??
+    ((s, e) => fetchWooOrdersRaw(storeUrl, tok.consumer_key as string, tok.consumer_secret as string, s + 'T00:00:00', e + 'T23:59:59', MAX_PAGES, THROTTLE_MS))
+  const countedFetch: WooFetchFn = async (s, e) => {
+    if (outbound >= MAX_OUTBOUND_FETCHES) throw new Error('__BUDGET__')
+    if (THROTTLE_MS > 0 && outbound > 0) await new Promise((r) => setTimeout(r, THROTTLE_MS)) // gentle between windows
+    outbound += 1
+    return baseFetch(s, e)
   }
 
   let chunks = 0
@@ -157,93 +178,122 @@ export async function runWooCommerceBackfill(
   let saleOrdersSeen = 0
   let reachedHistoryStart = false
   let timedOut = false
+  let budgetHit = false
   let earliestWritten = stateRow?.backfill_earliest_date || addDays(endDate, 1)
-  const errors: Array<{ window: string; message: string }> = []
+  // store-side halt/block outcome (graceful, NOT a 5xx)
+  let halted = false
+  let blockedNow = false
+  let blockWindow: string | null = null
+  let blockReason: string | null = null
 
   while (windowEnd >= targetStart && chunks < MAX_CHUNKS) {
     if (Date.now() - startedAt > timeBudgetMs) { timedOut = true; break }
+    if (outbound >= MAX_OUTBOUND_FETCHES) { budgetHit = true; break }
     chunks += 1
     let windowStart = addDays(windowEnd, -(CHUNK_DAYS - 1))
     if (windowStart < targetStart) windowStart = targetStart
 
-    let raw: any[]
+    let res
     try {
-      raw = await fetchWooOrdersRaw(
-        storeUrl, tok.consumer_key, tok.consumer_secret,
-        windowStart + 'T00:00:00', windowEnd + 'T23:59:59', MAX_PAGES
-      )
+      res = await adaptiveFetchWindow(countedFetch, windowStart, windowEnd)
     } catch (e: any) {
-      console.error(`[woo-backfill] client=${clientId} window=${windowStart}..${windowEnd} FETCH FAILED:`, e?.message ?? e)
-      errors.push({ window: `${windowStart}..${windowEnd}`, message: String(e?.message ?? e) })
-      break // do NOT advance the cursor; do NOT write. Resume re-processes this chunk.
+      if (String(e?.message) === '__BUDGET__') { budgetHit = true; break }
+      console.error(`[woo-backfill] client=${clientId} window=${windowStart}..${windowEnd} ADAPTIVE THREW:`, e?.message ?? e)
+      halted = true; blockWindow = `${windowStart}..${windowEnd}`; blockReason = String(e?.message ?? e); break
     }
 
-    if (raw.length === 0) {
-      // No orders of ANY status before this window → start of the merchant's order history.
-      reachedHistoryStart = true
+    // Write whatever was captured (contiguous newest range) — even on a partial (!ok) result.
+    if (res.orders.length > 0) {
+      ordersSeen += res.orders.length
+      const byDay: Record<string, any[]> = {}
+      for (const o of res.orders) {
+        const day = String(o.date_created || '').slice(0, 10)
+        if (!day) continue
+        if (!byDay[day]) byDay[day] = []
+        byDay[day].push(o)
+      }
+      const rows: Record<string, unknown>[] = []
+      for (const [day, dayOrders] of Object.entries(byDay)) {
+        const saleDay = dayOrders.filter((o) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
+        if (saleDay.length === 0) continue // false-zero discipline: no sale that day → write nothing
+        saleOrdersSeen += saleDay.length
+        rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summarizeWooOrders(saleDay)))
+        daysWritten += 1
+      }
+      if (rows.length > 0) {
+        const { error: upErr } = await supabaseAdmin
+          .from('metrics_daily')
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
+        if (upErr) {
+          // INFRA error (our DB) → a genuine 5xx; do NOT advance the cursor.
+          console.error(`[woo-backfill] client=${clientId} UPSERT FAILED:`, upErr.message)
+          await release()
+          return { status: 500, body: { error: 'metrics_daily upsert failed', detail: upErr.message, earliest: earliestWritten } }
+        }
+        rowsWritten += rows.length
+      }
+    }
+
+    if (res.ok) {
+      if (res.orders.length === 0) {
+        // a fully-fetched window with ZERO all-status orders → start of the merchant's history
+        reachedHistoryStart = true
+        earliestWritten = windowStart
+        break
+      }
       earliestWritten = windowStart
+      windowEnd = addDays(windowStart, -1)
+      blockFails = 0 // success at this frontier resets the consecutive-failure counter
+      await writeCursor(clientId, { backfill_earliest_date: earliestWritten, backfill_target_date: targetStart, backfill_complete: false, backfill_block_fails: 0 })
+    } else {
+      // STORE-SIDE failure at the per-day floor → halt-and-surface; trip the breaker on the Nth time.
+      halted = true
+      blockWindow = res.failedDay ?? `${windowStart}..${windowEnd}`
+      blockReason = res.reason ?? 'window unservable at per-day floor'
+      earliestWritten = res.failedDay ? addDays(res.failedDay, 1) : earliestWritten // frontier just above the broken day
+      blockFails += 1
+      blockedNow = blockFails >= BLOCK_THRESHOLD
+      await writeCursor(clientId, {
+        backfill_earliest_date: earliestWritten,
+        backfill_target_date: targetStart,
+        backfill_complete: false,
+        backfill_block_fails: blockFails,
+        backfill_blocked: blockedNow,
+        backfill_block_window: blockedNow ? blockWindow : null,
+        backfill_block_reason: blockedNow ? blockReason : null,
+        backfill_block_at: blockedNow ? new Date().toISOString() : null,
+      })
       break
     }
-    ordersSeen += raw.length
-
-    // Bucket by date_created's calendar day (site tz — matches forward's after/before frame).
-    const byDay: Record<string, any[]> = {}
-    for (const o of raw) {
-      const day = String(o.date_created || '').slice(0, 10)
-      if (!day) continue
-      if (!byDay[day]) byDay[day] = []
-      byDay[day].push(o)
-    }
-
-    const rows: Record<string, unknown>[] = []
-    for (const [day, dayOrders] of Object.entries(byDay)) {
-      const saleDay = dayOrders.filter((o) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
-      if (saleDay.length === 0) continue // false-zero discipline: no sale that day → write nothing
-      saleOrdersSeen += saleDay.length
-      const summary = summarizeWooOrders(saleDay)
-      rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summary))
-      daysWritten += 1
-    }
-
-    if (rows.length > 0) {
-      const { error: upErr } = await supabaseAdmin
-        .from('metrics_daily')
-        .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
-      if (upErr) {
-        console.error(`[woo-backfill] client=${clientId} window=${windowStart}..${windowEnd} UPSERT FAILED:`, upErr.message)
-        errors.push({ window: `${windowStart}..${windowEnd}`, message: upErr.message })
-        break // do not advance the cursor past a failed write
-      }
-      rowsWritten += rows.length
-    }
-
-    earliestWritten = windowStart
-    windowEnd = addDays(windowStart, -1)
-    await upsertCursor(clientId, earliestWritten, targetStart, false)
   }
 
-  // Complete ONLY when we hit the start of the merchant's history (an empty chunk). A days-floor stop,
-  // a timeout, or the per-run chunk cap leaves it incomplete + resumable (the next run continues).
-  const complete = reachedHistoryStart
-  await upsertCursor(clientId, earliestWritten, targetStart, complete)
-  await release()
+  // STORE-SIDE halt/block → graceful 200 (NEVER a 5xx). Cursor + breaker state already persisted above.
+  if (halted) {
+    await release()
+    return {
+      status: 200,
+      body: {
+        clientId, storeUrl,
+        status: blockedNow ? 'blocked' : 'halted',
+        window: blockWindow, reason: blockReason, blockFails,
+        chunksThisRun: chunks, daysWritten, rowsWritten, ordersSeen, saleOrdersSeen,
+        earliest: earliestWritten, target: targetStart, outbound,
+      },
+    }
+  }
 
+  // Normal completion / incomplete-resumable path (timeout / chunk-cap / budget-backstop are all resumable).
+  const complete = reachedHistoryStart
+  await writeCursor(clientId, { backfill_earliest_date: earliestWritten, backfill_target_date: targetStart, backfill_complete: complete })
+  await release()
   return {
-    status: errors.length ? 502 : 200,
+    status: 200,
     body: {
-      clientId,
-      storeUrl,
-      complete,
-      reachedHistoryStart,
-      timedOut,
-      chunksThisRun: chunks,
-      daysWritten,
-      rowsWritten,
-      ordersSeen,
-      saleOrdersSeen,
-      earliest: earliestWritten,
-      target: targetStart,
-      errors,
+      clientId, storeUrl,
+      status: complete ? 'complete' : 'ok',
+      complete, reachedHistoryStart, timedOut, budgetHit,
+      chunksThisRun: chunks, daysWritten, rowsWritten, ordersSeen, saleOrdersSeen,
+      earliest: earliestWritten, target: targetStart, outbound,
       resumeFrom: complete ? null : addDays(earliestWritten, -1),
     },
   }
