@@ -32,7 +32,8 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 - FIX (shipped, build-gated, deployed): (a) migration 014 — `claim_backfill_cursor` now RETURNS the full state row off its CAS UPDATE's own RETURNING (claimed/blocked/block_fails/earliest/complete/window/reason); new `bump_backfill_block` atomically increments block_fails, computes blocked (≥threshold), persists window/reason/at + cursor frontier, RETURNS post-write counts. Engine reads ALL control state from these primary write-returning RPCs — no standalone SELECT. (b) `/api/backfill/woocommerce` route: `export const dynamic='force-dynamic'` + `fetchCache='force-no-store'`.
 - PROOF GATE PASSED (mock-only, throwaway client dddddddd…dddd → temp /api/mock-woo-500; ZERO live-store contact; shelleykyle.com + all real stores untouched): call1→200 halted block_fails=1; call2→200 blocked block_fails=2 (tripped ACROSS invocations); call3→200 blocked with ZERO outbound store fetches (blocked-gate no-op); ?unblock=true→cleared then exactly ONE retry (→halted block_fails=1, not re-blocked). Each step DB-confirmed.
 - TEARDOWN done: temp diag + /api/mock-woo-500 route + local repro script removed (commit); throwaway client + its sync_state/connection/token rows deleted via SQL (metrics_daily polluted = 0).
-- FOLLOW-UP (non-blocking, see Lesson 52): add force-no-store to other cursor-resume routes (run-backfill, google/shopify-dimensional, /api/cron/sync) as defense-in-depth.
+- DEFENSE-IN-DEPTH DONE (fc0cfad): force-dynamic + fetchCache='force-no-store' applied to the sibling cursor-resume routes flagged in Lesson 52 — /api/backfill/run, /api/backfill/google-dimensional, /api/backfill/shopify-dimensional, /api/cron/sync (route-config only, NO logic changes; user-facing dashboard read routes intentionally untouched).
+- ✅ ARC CLOSED — WS3 #7 Woo live-store safety is DONE end-to-end: forward accuracy fix → 7.5-yr backfill (2018-12-13→2026-06-15) → atomic circuit-breaker that accumulates across invocations + trips (proven mock-only, ZERO live-store contact, all fixtures removed) → Lesson-52 root cause (Next.js App Router fetch-cache) → defense-in-depth on sibling routes. Commits: c3e1246 (atomic claim/bump RETURNING + engine rewrite), 2b15fe5 (force-no-store — the fix that made accumulation work), 73583ff (teardown), 7c39b40 (Lesson 52 + docs), fc0cfad (defense-in-depth). Migration: 014_woo_backfill_atomic_breaker. Shelley's 2016–2018 tail stays DEFERRED (separate deliberate go).
 
 ## Session log (2026-06-16) — WS3 #7 WOO BACKFILL LIVE-STORE SAFETY — 4 PREREQUISITES BUILT + VERIFIED (LORAMER_WOO_BACKFILL_SAFE_V1)
 - The HARD GATE (4 prerequisites before any live-store Woo backfill) is now SATISFIED — the real fix for the 2026-06-16 incident + the pre-launch requirement for cohort Woo onboarding.
@@ -268,7 +269,20 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — both review clocks PASSIVE (Google 06-10, Meta 06-11); reviewer-path UI freeze holds until the Meta decision.
+## NEXT STEP — TOMORROW'S CHECKLIST (set 2026-06-16)
+Woo live-store-safety arc is CLOSED end-to-end (see the top session log). Review clocks still PASSIVE (Google 06-10, Meta 06-11); reviewer-path UI freeze holds until the Meta decision.
+
+- [ ] 1. SESSION RESUME (read-only) per protocol; read this file.
+- [ ] 2. Cron health check — curl /api/cron/status (CRON_SECRET) → confirm verdict=healthy AND the last forward run trigger='cron' (validates the cron_runs sentinel on a real nightly fire).
+- [ ] 3. Shelley dashboard READ-ONLY diagnostic — NO edits, NO live-store hits:
+  - (A) Meta — captured metrics_daily rows, or live-only (not yet captured)?
+  - (B) the 30-day card SPEND/ROAS + Lora's Meta analysis — captured, or a live Meta fetch?
+  - (C) channel-rail logic — connection-driven vs captured-driven (explains the missing Meta left-nav tab)
+  - (D) why the Meta pill on /clients routes to Woo (routing bug)
+  - (E) do the Woo dashboard CARDS live-fetch her store on render (slow load + $0 placeholder) vs read captured rows
+- [ ] 4. Based on (A): capture Shelley's Meta (forward + backfill via the EXISTING proven Google/Meta route — Meta is the robust MANAGED class, safe) — likely surfaces the missing tab.
+
+Triage note (NOT tomorrow's build): C/D are reviewer-path UI → POST-Meta-approval freeze batch; E (Woo cards live-fetch) is a self-hosted live-store exposure → fix under the LIVE-SOURCE PRINCIPLE (read captured data, add skeleton). See LORAMER_HANDOFF.md → "Standing principle — LIVE-SOURCE PRINCIPLE".
 
 **MASTER PUNCH-LIST: see `AUDIT_FINDINGS.md`** (consolidated 2026-06-13; workstreams WS1→WS3, HELD/POST-META/EXTERNAL/LOW/RESOLVED). The GAP/BACKLOG notes below feed into it.
 
@@ -292,7 +306,7 @@ Then queued: **WS1b** (cron_runs completion sentinel) · ENV-TRUTH AUDIT (iMac v
 - Post-approval queue: flip the Meta app **Development → Live** (docs/META_APP_REVIEW_ANSWERS.md §5) + fresh-external-user verify; publish the gov-policy public page; homepage unification; dashboard visual reconciliation; URL-state nav workstream.
 - ⚠️ Respond fast if Google or Meta asks for more. Do NOT touch the Google OAuth consent screen while these run (re-verification trigger — Lesson 42). Reference: answer packs at docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md + docs/META_APP_REVIEW_ANSWERS.md.
 
-### TOMORROW — ~08:45 UTC cron proof (ONE pass)
+### (HISTORICAL — superseded by TOMORROW'S CHECKLIST above) earlier ~08:45 UTC cron-proof plan + GAP/BACKLOG reference
 - Google search_term/keyword for ALL Google clients; Shopify geo_country/geo_region + product + customer-mix for the 3 stores; **GA forward capture RESUMED for the 4 re-authed clients** (Foam OH, My Vacation Network, The Escential Group, Veterinary mastermind); **NEW connection-health signal — FIRST real-cron proof: `select platform, health, count(*), max(last_ok_at) from platform_connections group by 1,2;` should show last_ok_at advancing + health 'healthy' on live conns (NO false 'reconnect').** Rows: `select platform, breakdown_type, count(*) from metrics_daily where date='2026-06-12' and breakdown_type in ('search_term','keyword','geo_country','geo_region') group by 1,2;` + `... entity_level='product' and platform='shopify'`; scan cron summary.errors for `dimensional:`/`depth:`/refresh entries.
 - GAP LIST (completeness-matrix order): **Meta breakdowns not persisted [HIGH]** (publisher_platform/age/gender are live-only — never written to metrics_daily); **Woo backfill adapter [MED]**; **GA dimensional grains [MED-LOW]**; Lora prompt-leak (/api/insight meta-commentary); stale-intelligence-cache audit (LORAMER_ROADMAP_STALE_INTEL_CACHE_V1); GA/Meta entity-depth backfills.
 - (ii) BACKLOG NOTES (pick the next workstream from here with Russ):
