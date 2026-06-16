@@ -107,3 +107,19 @@ Repairs the EXISTING holes (interior-to-window missing dates) AND self-heals any
 PRESENCE SIGNAL = entity_level='account' main row. CONFIRM at 2b first read that all 5 builders emit an entity_level='account' main row (meta/google/woo confirmed in 2a; shopify + ga to confirm) before relying on it.
 
 UNCHANGED: (a) separate /api/cron/catchup route, per-platform-gated, own 300s budget; (c) Woo per-day replay, no new adapter; full fidelity; 14/run cap. Re-gated by Russ 2026-06-15.
+
+---
+
+## 2b FINDING (2026-06-15) — shared-builder NULL-numeric bug (root cause of a Meta hole) + fix + durable follow-up
+
+DISCOVERED by catchup verification (caught a hole the manual hole-list missed). Meta upsert rejected by metrics_daily NOT-NULL constraint (Postgres 23502): buildMetaMetricsRows wrote `conversions: metrics.conversions` UN-coalesced; Meta returned null conversions for Glass Plus (client 7d90cce7, act_3769140430018695) on 06-11 — real spend 35.49, impressions 5437, clicks 230, conversions NULL — so the null hit the NOT-NULL column and the WHOLE row was rejected -> silent hole. buildGoogleMetricsRows shares the identical un-coalesced pattern (didn't trip this run only because Google emitted 0, not null). GA / Woo / Shopify builders coalesce (?? 0) and are immune.
+
+NOT catchup-specific: the FORWARD cron uses the same shared builders, so this is what CREATED the Meta hole (the nightly write of 06-11 hit the same 23502). Catchup faithfully reproduced and exposed it.
+
+LESSON (to be numbered at WS1c STEP 2 close-out): a platform may return null for a NOT-NULL numeric column; an un-coalesced builder field makes the upsert 23502-fail and SILENTLY drop the row (a hole). Every NOT-NULL numeric column must be coalesced.
+
+IMMEDIATE FIX (gated by Russ 2026-06-15): coalesce the NOT-NULL numeric metric fields to `?? 0` in buildMetaMetricsRows + buildGoogleMetricsRows (matching GA/Woo/Shopify). Strictly-safe: no-op on any row that already has a number; only converts a crash into a stored 0. Chosen OVER making the column nullable (that would break the non-null numeric assumption across every reader — query_metrics, charts, Lora — for marginal semantic gain). To be verified by re-running meta catchup (Glass Plus 06-11 fills clean, no 23502) + a forward-meta regression check.
+
+DURABLE FOLLOW-UP (QUEUED — approach-first, NOT bundled here): centralize numeric coalescing at the metrics_daily WRITE BOUNDARY — one normalize step / upsertMetricsDaily helper that ALL writers route through (cron/sync, catchup, run-backfill, google-dimensional-backfill, shopify-dimensional-backfill), so no builder can ever reintroduce a null-numeric hole. The per-builder coalesce is the same convention that already silently failed once; the chokepoint makes the class structurally impossible. Deferred to its own change-in-flight (touches ~9 builders / all writers incl. the just-stabilized forward path) to protect pre-launch stability. The inline coalesce stays as a harmless inner guard after the chokepoint lands — nothing gets undone.
+
+ALSO OPEN after the fix: Google account 2102961791 is ~4 days short of full-window convergence (clears on one more google catchup pass); 2b-crons (staggered nightly catchup schedule) not yet wired.
