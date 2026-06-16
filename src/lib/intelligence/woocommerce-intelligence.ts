@@ -49,28 +49,37 @@ export async function fetchWooCommerceIntelligence(
       if (orders.length < 100) break
     }
 
-    const totalOrders = allOrders.length
-    const totalRevenue = allOrders.reduce(
-      (s: number, o: any) => s + parseFloat(o.total || '0'),
-      0
-    )
+    // LORAMER_WOO_STATUS_ACCURACY_V1 (WS3 #7 Phase 1) — count only REAL sales. Woo's status=any
+    // includes failed/cancelled/pending/on-hold/etc. (on the first real store, FAILED alone was
+    // 28.5% of orders) and o.total stays GROSS. Mirror the Shopify #6 client-side rebase: filter to
+    // the counted set {completed, processing, refunded} and base ALL aggregations on it; net refunds
+    // via the refunds[] array (negative amounts — Woo has no total_refunded field). Refunded orders
+    // STAY counted (a returned sale, net ~0), parallel to Shopify refund handling.
+    const SALE_STATUSES = new Set(['completed', 'processing', 'refunded'])
+    const saleOrders = allOrders.filter((o: any) => SALE_STATUSES.has(String(o.status || '').toLowerCase()))
+    const netOf = (o: any): number =>
+      parseFloat(o.total || '0') +
+      ((o.refunds as any[]) || []).reduce((s: number, rf: any) => s + parseFloat(rf.total || '0'), 0)
+
+    const totalOrders = saleOrders.length
+    const totalRevenue = saleOrders.reduce((s: number, o: any) => s + netOf(o), 0)
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
     const orderCountByCustomer: Record<string, number> = {}
-    allOrders.forEach((o: any) => {
+    saleOrders.forEach((o: any) => {
       const cid = String(o.customer_id || 'guest_' + o.id)
       orderCountByCustomer[cid] = (orderCountByCustomer[cid] || 0) + 1
     })
     let newCustomers = 0
     let returningCustomers = 0
-    allOrders.forEach((o: any) => {
+    saleOrders.forEach((o: any) => {
       const cid = String(o.customer_id || 'guest_' + o.id)
       if (orderCountByCustomer[cid] === 1) newCustomers++
       else returningCustomers++
     })
 
     const productSales: Record<string, { name: string; revenue: number; units: number }> = {}
-    allOrders.forEach((o: any) => {
+    saleOrders.forEach((o: any) => {
       (o.line_items || []).forEach((item: any) => {
         const id = String(item.product_id)
         if (!productSales[id]) {
