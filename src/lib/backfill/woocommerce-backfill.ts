@@ -101,40 +101,23 @@ export async function runWooCommerceBackfill(
   const endDate = addDays(nowIso, -1) // yesterday
   const targetStart = addDays(nowIso, -days)
 
-  // ── Read state (cursor + circuit-breaker) BEFORE any claim or store call ───────────────────────
-  const { data: stateRow } = await supabaseAdmin
-    .from('sync_state')
-    .select('backfill_earliest_date, backfill_complete, backfill_blocked, backfill_block_window, backfill_block_reason, backfill_block_fails')
-    .eq('client_id', clientId)
-    .eq('platform', CURSOR_PLATFORM)
-    .maybeSingle()
-
-  if (stateRow?.backfill_complete) {
-    return { status: 200, body: { clientId, storeUrl, status: 'complete', complete: true, note: 'already complete' } }
-  }
-  // CIRCUIT-BREAKER (caller-proof): a blocked backfill NO-OPs with ZERO outbound store requests, and
-  // before the claim — so no caller (UI button, cron, script, Claude Code) can re-hammer a known-bad
-  // window no matter how often it calls. Cleared only by a deliberate ?unblock=true.
-  if (stateRow?.backfill_blocked && !opts.unblock) {
-    return {
-      status: 200,
-      body: {
-        clientId, storeUrl, status: 'blocked',
-        window: stateRow.backfill_block_window, reason: stateRow.backfill_block_reason,
-        note: 'backfill blocked at a window the source store cannot serve; retry with ?unblock=true after the store is fixed',
-      },
-    }
-  }
-
-  // ── Concurrency claim (CAS) — only after the cheap complete/blocked short-circuits ─────────────
+  // ── Atomic CAS claim → ALL cross-invocation state from its primary RETURNING ────────────────────
+  // LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1: no standalone SELECT drives control flow. The claim RPC
+  // both takes the CAS lock AND returns the row state (claimed/blocked/block_fails/earliest/complete)
+  // read in the same transaction as the write — so complete/blocked/cursor are primary-fresh, never a
+  // lagging replica read. The complete/blocked gates run AFTER the claim (claim-then-release-if-blocked
+  // is intentional; a blocked run still does ZERO outbound store fetches — DB ops are fine).
   const claimToken = randomUUID()
-  const { data: claimed, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
+  const { data: claimRows, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
     p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken,
   })
   if (claimErr) {
     return { status: 500, body: { error: 'claim check failed', detail: claimErr.message } }
   }
-  if (!claimed) {
+  const claim = (Array.isArray(claimRows) ? claimRows[0] : claimRows) as
+    | { claimed: boolean; blocked: boolean; block_fails: number; earliest: string | null; complete: boolean; block_window: string | null; block_reason: string | null }
+    | undefined
+  if (!claim?.claimed) {
     return { status: 200, body: { clientId, storeUrl, status: 'skipped', skipped: true, note: 'another backfill invocation holds the claim' } }
   }
   const release = async () => {
@@ -143,16 +126,35 @@ export async function runWooCommerceBackfill(
     } catch { /* best-effort; self-heals via the 360s staleness reclaim */ }
   }
 
-  // Deliberate unblock: clear the breaker for ONE retry from the current frontier.
-  let blockFails = stateRow?.backfill_block_fails ?? 0
-  if (opts.unblock && stateRow?.backfill_blocked) {
-    blockFails = 0
-    await writeCursor(clientId, { backfill_blocked: false, backfill_block_fails: 0, backfill_block_window: null, backfill_block_reason: null })
+  if (claim.complete) {
+    await release()
+    return { status: 200, body: { clientId, storeUrl, status: 'complete', complete: true, note: 'already complete' } }
+  }
+  // CIRCUIT-BREAKER (caller-proof): a blocked backfill NO-OPs with ZERO outbound store requests. The
+  // blocked flag is read from the claim's primary RETURNING, so no caller (UI button, cron, script,
+  // Claude Code) can re-hammer a known-bad window no matter how often it calls. Cleared only by ?unblock=true.
+  if (claim.blocked && !opts.unblock) {
+    await release()
+    return {
+      status: 200,
+      body: {
+        clientId, storeUrl, status: 'blocked',
+        window: claim.block_window, reason: claim.block_reason,
+        note: 'backfill blocked at a window the source store cannot serve; retry with ?unblock=true after the store is fixed',
+      },
+    }
   }
 
-  // Resume PURELY from the persisted cursor (the true frontier). No caller-specified window → a caller
-  // can never force a re-walk of already-captured windows.
-  let windowEnd = stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate
+  // Deliberate unblock: clear the breaker for ONE retry from the current frontier (direct constant write).
+  let blockFails = claim.block_fails ?? 0
+  if (opts.unblock && claim.blocked) {
+    blockFails = 0
+    await writeCursor(clientId, { backfill_blocked: false, backfill_block_fails: 0, backfill_block_window: null, backfill_block_reason: null, backfill_block_at: null })
+  }
+
+  // Resume PURELY from the persisted cursor (the true frontier, from the claim's RETURNING). No
+  // caller-specified window → a caller can never force a re-walk of already-captured windows.
+  let windowEnd = claim.earliest ? addDays(claim.earliest, -1) : endDate
   if (windowEnd < targetStart) {
     await writeCursor(clientId, { backfill_earliest_date: targetStart, backfill_target_date: targetStart, backfill_complete: true })
     await release()
@@ -164,8 +166,9 @@ export async function runWooCommerceBackfill(
   const baseFetch: WooFetchFn =
     opts.fetchOrders ??
     ((s, e) => fetchWooOrdersRaw(storeUrl, tok.consumer_key as string, tok.consumer_secret as string, s + 'T00:00:00', e + 'T23:59:59', MAX_PAGES, THROTTLE_MS))
+  // The outbound backstop is enforced at chunk-top (below); countedFetch never throws a budget signal —
+  // a throw here would be caught by adaptiveFetchWindow and misread as a store failure (false breaker trip).
   const countedFetch: WooFetchFn = async (s, e) => {
-    if (outbound >= MAX_OUTBOUND_FETCHES) throw new Error('__BUDGET__')
     if (THROTTLE_MS > 0 && outbound > 0) await new Promise((r) => setTimeout(r, THROTTLE_MS)) // gentle between windows
     outbound += 1
     return baseFetch(s, e)
@@ -179,7 +182,7 @@ export async function runWooCommerceBackfill(
   let reachedHistoryStart = false
   let timedOut = false
   let budgetHit = false
-  let earliestWritten = stateRow?.backfill_earliest_date || addDays(endDate, 1)
+  let earliestWritten = claim.earliest || addDays(endDate, 1)
   // store-side halt/block outcome (graceful, NOT a 5xx)
   let halted = false
   let blockedNow = false
@@ -197,7 +200,8 @@ export async function runWooCommerceBackfill(
     try {
       res = await adaptiveFetchWindow(countedFetch, windowStart, windowEnd)
     } catch (e: any) {
-      if (String(e?.message) === '__BUDGET__') { budgetHit = true; break }
+      // adaptiveFetchWindow returns ok:false on store errors and never throws on them; a throw here is a
+      // truly unexpected fault → halt-and-surface (no breaker bump, next run retries the same window).
       console.error(`[woo-backfill] client=${clientId} window=${windowStart}..${windowEnd} ADAPTIVE THREW:`, e?.message ?? e)
       halted = true; blockWindow = `${windowStart}..${windowEnd}`; blockReason = String(e?.message ?? e); break
     }
@@ -244,25 +248,38 @@ export async function runWooCommerceBackfill(
       earliestWritten = windowStart
       windowEnd = addDays(windowStart, -1)
       blockFails = 0 // success at this frontier resets the consecutive-failure counter
-      await writeCursor(clientId, { backfill_earliest_date: earliestWritten, backfill_target_date: targetStart, backfill_complete: false, backfill_block_fails: 0 })
-    } else {
-      // STORE-SIDE failure at the per-day floor → halt-and-surface; trip the breaker on the Nth time.
-      halted = true
-      blockWindow = res.failedDay ?? `${windowStart}..${windowEnd}`
-      blockReason = res.reason ?? 'window unservable at per-day floor'
-      earliestWritten = res.failedDay ? addDays(res.failedDay, 1) : earliestWritten // frontier just above the broken day
-      blockFails += 1
-      blockedNow = blockFails >= BLOCK_THRESHOLD
+      // RESET path (direct constant write — a reset writer of the breaker columns, never read-then-write).
       await writeCursor(clientId, {
         backfill_earliest_date: earliestWritten,
         backfill_target_date: targetStart,
         backfill_complete: false,
-        backfill_block_fails: blockFails,
-        backfill_blocked: blockedNow,
-        backfill_block_window: blockedNow ? blockWindow : null,
-        backfill_block_reason: blockedNow ? blockReason : null,
-        backfill_block_at: blockedNow ? new Date().toISOString() : null,
+        backfill_block_fails: 0,
+        backfill_blocked: false,
+        backfill_block_window: null,
+        backfill_block_reason: null,
+        backfill_block_at: null,
       })
+    } else {
+      // STORE-SIDE failure at the per-day floor → halt-and-surface. Trip the breaker via the ATOMIC bump
+      // RPC: it increments block_fails, computes blocked (fails >= threshold), persists the block window
+      // and the cursor frontier, and RETURNS the post-write counts — all in one primary write. The engine
+      // decides halted-vs-blocked PURELY from the RETURNED values (never a standalone read).
+      halted = true
+      blockWindow = res.failedDay ?? `${windowStart}..${windowEnd}`
+      blockReason = res.reason ?? 'window unservable at per-day floor'
+      earliestWritten = res.failedDay ? addDays(res.failedDay, 1) : earliestWritten // frontier just above the broken day
+      const { data: bumpRows, error: bumpErr } = await supabaseAdmin.rpc('bump_backfill_block', {
+        p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_threshold: BLOCK_THRESHOLD,
+        p_window: blockWindow, p_reason: blockReason, p_earliest: earliestWritten,
+      })
+      if (bumpErr) {
+        console.error(`[woo-backfill] client=${clientId} BUMP FAILED:`, bumpErr.message)
+        await release()
+        return { status: 500, body: { error: 'breaker bump failed', detail: bumpErr.message, earliest: earliestWritten } }
+      }
+      const bump = (Array.isArray(bumpRows) ? bumpRows[0] : bumpRows) as { block_fails: number; blocked: boolean } | undefined
+      blockFails = bump?.block_fails ?? blockFails + 1
+      blockedNow = bump?.blocked ?? blockFails >= BLOCK_THRESHOLD
       break
     }
   }
