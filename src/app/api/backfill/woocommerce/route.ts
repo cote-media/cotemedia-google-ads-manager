@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server'
 import { runWooCommerceBackfill } from '@/lib/backfill/woocommerce-backfill'
 
-export const maxDuration = 60
+export const maxDuration = 300 // Pro ceiling — the merchant's WP host is slow (~8s/page); the engine
+                               // time-budgets well under this and resumes via the cursor across calls.
 
 const DEFAULT_DAYS = 4000
 

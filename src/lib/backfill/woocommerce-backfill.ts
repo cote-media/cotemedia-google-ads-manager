@@ -28,10 +28,11 @@ const CURSOR_PLATFORM = 'woocommerce_backfill' // progress key only; data rows s
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 const DEFAULT_DAYS = 4000 // ~11y floor; completeness normally triggers earlier on an empty chunk
-const CHUNK_DAYS = 30
-const MAX_CHUNKS = 18 // per invocation (~18 months); cursor bridges re-runs
-const MAX_PAGES = 1000 // effectively unbounded per chunk (≤100k orders); forward stays at the default 10
-const DEFAULT_TIME_BUDGET_MS = 45_000 // under the 60s route
+const CHUNK_DAYS = 21 // big enough that low-volume windows are 1 page; small enough to bound a heavy chunk
+const MAX_CHUNKS = 60 // per invocation; the time budget is the real gate; cursor bridges re-runs
+const MAX_PAGES = 30 // ≤3,000 orders/chunk — above any real 21-day window here (no truncation), bounds a runaway
+const DEFAULT_TIME_BUDGET_MS = 90_000 // margin under the 300s route; cursor only advances per COMPLETED chunk, so a
+                                       // rare overrun self-heals on resume (idempotent, no false-zero, no cursor skip)
 
 function fmt(d: Date): string {
   return d.toISOString().split('T')[0]
