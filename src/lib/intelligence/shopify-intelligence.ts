@@ -201,20 +201,27 @@ export async function fetchShopifyIntelligence(
       pages += 1
     } while (after && pages < 100) // safety cap (100 pages × 250 = 25k orders/window)
 
+    // LORAMER_SHOPIFY_CANCELLED_ACCURACY_V1 (WS3 #6) — a CANCELLED order (cancelledAt != null) did not
+    // result in a sale, so it contributes NOTHING to ANY metric at ANY grain. Base ALL account
+    // aggregations on liveOrders (the depth grains already do). Refunds are a SEPARATE axis
+    // (currentSubtotalPriceSet already nets them); a refunded-but-not-cancelled order stays a counted
+    // order. (Test-order exclusion deferred — see CONTINUE_HERE WS3 #6.)
+    const liveOrders = orderNodes.filter((o) => !o.cancelledAt)
+
     // LORAMER_SHOPIFY_NET_SALES_V1 — headline revenue = net sales (line-item subtotal after refunds, excludes shipping/tax)
-    const totalRevenue = orderNodes.reduce(
+    const totalRevenue = liveOrders.reduce(
       (s, o) => s + parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'),
       0
     )
-    const refundedAmount = orderNodes.reduce(
+    const refundedAmount = liveOrders.reduce(
       (s, o) => s + parseFloat(o.totalRefundedSet?.shopMoney?.amount || '0'),
       0
     )
-    const totalOrders = orderNodes.length
+    const totalOrders = liveOrders.length
     const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
     // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — refund signals
-    const refundedOrderCount = orderNodes.filter(o => {
+    const refundedOrderCount = liveOrders.filter(o => {
       const s = (o.displayFinancialStatus || '').toUpperCase()
       return s === 'REFUNDED' || s === 'PARTIALLY_REFUNDED'
     }).length
@@ -229,7 +236,7 @@ export async function fetchShopifyIntelligence(
     // new = the customer's first order ever falls within this window; returning = first order was
     // before the window start; unknown = no linked customer / first-order lookup failed.
     const windowStartMs = new Date(startDate + 'T00:00:00Z').getTime()
-    const customerIds = Array.from(new Set(orderNodes.map((o) => o.customer?.id).filter(Boolean))) as string[]
+    const customerIds = Array.from(new Set(liveOrders.map((o) => o.customer?.id).filter(Boolean))) as string[]
     const firstOrderByCustomer = customerIds.length
       ? await fetchFirstOrderDates(endpoint, headers, customerIds, opts?.throttleDeadline)
       : new Map<string, string | null>()
@@ -249,17 +256,17 @@ export async function fetchShopifyIntelligence(
       else if (new Date(fo).getTime() >= windowStartMs) newCustomers++
       else returningCustomers++
     }
-    unknownCustomers += orderNodes.filter((o) => !o.customer?.id).length // orders with no linked customer
+    unknownCustomers += liveOrders.filter((o) => !o.customer?.id).length // orders with no linked customer
     const knownCustomers = newCustomers + returningCustomers
     // Never fabricate a split when we can't determine anyone — the widget should say "unavailable".
     const customerMixUnavailable = knownCustomers === 0
     const returningRate = knownCustomers > 0 ? (returningCustomers / knownCustomers) * 100 : 0
-    const newOrderAmounts = orderNodes.filter((o) => bucketOf(o) === 'new').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
-    const returningOrderAmounts = orderNodes.filter((o) => bucketOf(o) === 'returning').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
+    const newOrderAmounts = liveOrders.filter((o) => bucketOf(o) === 'new').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
+    const returningOrderAmounts = liveOrders.filter((o) => bucketOf(o) === 'returning').map((o) => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
     const newCustomerAov = newOrderAmounts.length > 0 ? sum(newOrderAmounts) / newOrderAmounts.length : 0
     const returningCustomerAov = returningOrderAmounts.length > 0 ? sum(returningOrderAmounts) / returningOrderAmounts.length : 0
     // Revenue concentration: what % of total revenue comes from the top 10% of orders by value
-    const orderAmountsSorted = orderNodes
+    const orderAmountsSorted = liveOrders
       .map(o => parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0'))
       .sort((a, b) => b - a)
     const top10Count = Math.max(1, Math.ceil(orderAmountsSorted.length * 0.1))
@@ -269,7 +276,7 @@ export async function fetchShopifyIntelligence(
     // Top products (aggregate line items across all orders)
     // LORAMER_SHOPIFY_NET_SALES_V1 — gross product mix from originalUnitPriceSet, not net sales
     const productSales: Record<string, { name: string; revenue: number; units: number }> = {}
-    for (const order of orderNodes) {
+    for (const order of liveOrders) {
       for (const lineEdge of order.lineItems?.edges || []) {
         const item = lineEdge.node
         const productId = item.product?.id || `notitle:${item.title}`
@@ -287,8 +294,8 @@ export async function fetchShopifyIntelligence(
       .map(([id, data]) => ({ id, ...data }))
 
     // ─── LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth (NOT UI) ───
-    // Cancelled orders EXCLUDED from these grains (the account totals above are untouched).
-    const liveOrders = orderNodes.filter((o) => !o.cancelledAt)
+    // Cancelled orders EXCLUDED here too — `liveOrders` is now defined once above and the account
+    // totals share it (LORAMER_SHOPIFY_CANCELLED_ACCURACY_V1), so account == Σ depth.
     // Currency rule: use shopMoney as-is; if a window spans MULTIPLE base currencies (rare — a store
     // changed currency), the net sums mix currencies — LOG LOUD and tag (currencyMixed), never silent.
     const currencies = new Set(liveOrders.map((o) => o.currentSubtotalPriceSet?.shopMoney?.currencyCode).filter(Boolean))
