@@ -64,7 +64,7 @@ async function upsertCursor(clientId: string, earliest: string, target: string, 
 
 export async function runWooCommerceBackfill(
   clientId: string,
-  opts: { days?: number; timeBudgetMs?: number; now?: string } = {}
+  opts: { days?: number; timeBudgetMs?: number; now?: string; before?: string } = {}
 ): Promise<WooBackfillResult> {
   const days = opts.days ?? DEFAULT_DAYS
   const timeBudgetMs = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS
@@ -111,7 +111,11 @@ export async function runWooCommerceBackfill(
     return { status: 200, body: { clientId, storeUrl, complete: true, note: 'already complete' } }
   }
 
-  let windowEnd = stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate
+  // LORAMER_WOO_BACKFILL_2A_V1 — `before` lets the caller drive the window explicitly (client-side
+  // resumable loop), independent of the stored cursor. Without it, fall back to the cursor.
+  let windowEnd = opts.before
+    ? opts.before
+    : (stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate)
   if (windowEnd < targetStart) {
     await upsertCursor(clientId, targetStart, targetStart, true)
     return { status: 200, body: { clientId, storeUrl, complete: true, note: 'window already covered' } }
