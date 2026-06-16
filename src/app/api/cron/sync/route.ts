@@ -24,6 +24,12 @@ import type {
   IntelligenceGa,
 } from '@/lib/intelligence/intelligence-types'
 
+// LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1 (Lesson 52 defense-in-depth) — opt out of Next.js App Router
+// fetch caching so the supabase-js last_forward_sync_date read + metrics_daily/sync_state writes always
+// hit the primary fresh. Preventative: a stale cursor read here is idempotent (re-syncs a day), not corrupting.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 const METRICS_DAILY_CONFLICT =
   'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 

@@ -7,6 +7,11 @@ import { NextResponse } from 'next/server'
 import { runShopifyDimensionalBackfill } from '@/lib/backfill/shopify-dimensional-backfill'
 
 export const maxDuration = 60
+// LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1 (Lesson 52 defense-in-depth) — opt out of Next.js App Router
+// fetch caching so supabase-js cursor reads/writes on this stateful resume path always hit the primary
+// fresh. Preventative: a stale resume read here is idempotent (re-walks captured windows), not corrupting.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 const DEFAULT_DAYS = 90
 

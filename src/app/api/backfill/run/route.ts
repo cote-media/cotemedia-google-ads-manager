@@ -15,6 +15,11 @@ import { runGoogleDimensionalBackfill } from '@/lib/backfill/google-dimensional-
 import { runShopifyDimensionalBackfill } from '@/lib/backfill/shopify-dimensional-backfill' // LORAMER_SHOPIFY_DIM_BACKFILL_V1
 
 export const maxDuration = 60
+// LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1 (Lesson 52 defense-in-depth) — opt out of Next.js App Router
+// fetch caching so supabase-js cursor reads/writes on this stateful resume path always hit the primary
+// fresh. Preventative: a stale resume read here is idempotent (re-walks captured windows), not corrupting.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 export async function POST(request: Request) {
   const session = (await getServerSession(authOptions)) as any
