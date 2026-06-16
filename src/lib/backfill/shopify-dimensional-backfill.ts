@@ -13,6 +13,7 @@
 // token) — no interaction.
 
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row'
@@ -120,7 +121,7 @@ export async function runShopifyDimensionalBackfill(
       const accountRows = buildShopifyMetricsRows(clientId, userEmail, cursor, shopDomain, intel)
       const depthRows = buildShopifyDepthRows(clientId, userEmail, cursor, shopDomain, intel)
       const rows = [...accountRows, ...depthRows] // always >= 1 (the account row)
-      const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+      const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT }) // LORAMER_METRICS_NORMALIZE_V1
       if (upErr) throw upErr
       daysWritten += 1
       rowsWritten += rows.length

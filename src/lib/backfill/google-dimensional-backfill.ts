@@ -12,6 +12,7 @@
 // so re-runs resume and never collide with the account backfill cursor.
 
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import {
   fetchGoogleDimensional,
   fetchGoogleDimensionalWindow,
@@ -160,7 +161,7 @@ export async function runGoogleDimensionalBackfill(
       } else {
         const { error: upErr } = await supabaseAdmin
           .from('metrics_daily')
-          .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT }) // LORAMER_METRICS_NORMALIZE_V1
         if (upErr) throw upErr
         daysWritten += 1
         rowsWritten += rows.length

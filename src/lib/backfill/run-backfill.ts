@@ -22,6 +22,7 @@
 //     start date earlier than 2015-08-14).
 // Adapters that set none of these (Google, Meta) behave EXACTLY as in V2.
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 
 export interface DailyRow {
   date: string
@@ -231,7 +232,7 @@ export async function runBackfill(
     if (rows.length > 0) {
       const { error: metricsError } = await supabaseAdmin
         .from('metrics_daily')
-        .upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })
+        .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT }) // LORAMER_METRICS_NORMALIZE_V1
       if (metricsError) {
         return {
           status: 500,

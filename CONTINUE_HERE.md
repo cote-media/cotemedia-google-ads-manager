@@ -27,6 +27,11 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-16) — §A finite-guard CLASS-ELIMINATION COMPLETE (all metrics_daily writers)
+- Extended normalizeMetricsRows (LORAMER_METRICS_NORMALIZE_V1) to the three remaining metrics_daily writers so the NaN→JSON-null→23502→silently-dropped-row class is eliminated EVERYWHERE, not just forward-cron + catchup: (1) src/lib/backfill/run-backfill.ts default mapper/shared engine, (2) src/lib/backfill/google-dimensional-backfill.ts, (3) src/lib/backfill/shopify-dimensional-backfill.ts. Each = 1 import + 1 wrap (`.upsert(normalizeMetricsRows(rows), …)`); row shape, conflict key, and absent-key behavior all UNCHANGED (false-zero doctrine preserved — guard only coerces PRESENT non-finite numerics among the 6 NOT-NULL cols; omitted keys untouched, DB default applies). Guard is idempotent + dimensional-safe (touches only the 6 named numerics, never breakdown/geo/product columns). Shopify wraps the combined [...accountRows, ...depthRows] array.
+- These are ON-DEMAND backfill routes (not cron) → no nightly signal to wait on. Verification bar = tsc-clean + build-clean (guard already proven live in forward+catchup); exercises live on the next backfill run.
+- §A class-elimination now COMPLETE across ALL metrics_daily writers. Approach-first report approved as written; optional force-fill variant DECLINED (false-zero doctrine).
+
 ## Session log (2026-06-15 cont.) — WS1c STEP 2 (CATCH-UP LOOP) COMPLETE end-to-end
 - 2a (19a21b7): extracted meta/google/woo row-builders to shared modules; pure refactor; forward-cron verified byte-identical on the Air (all 5 platforms).
 - 2b route (513b980): presence-based /api/cron/catchup (per-platform-gated). Gap = metrics_daily account-row presence (entity_level='account' AND breakdown_type='' — the latter REQUIRED, Shopify geo rows also use entity_level='account') over a 35-day window; fills oldest ≤14 missing days oldest-first at FULL fidelity ((CUSTOM,d,d), same fetch+builders+depth/dimensional); NO sync_state/health writes. Decision (b) CORRECTED L-watermark→presence-based (9dee901): last_forward_sync_date was unreliable (forward stamped it PAST the holes). Repaired GA 06-09→13, Woo 06-11→13, Google-tail 06-12→13 + deeper backlog; idempotent.
@@ -207,7 +212,7 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 Current workstream: NONE ACTIVE — WS1c STEP 2 (catch-up loop) COMPLETE 2026-06-15. Russ picks the next workstream from the queue below. External review clocks still PASSIVE; reviewer-path UI FREEZE holds.
 
 ▶ NEXT — Russ picks from queue:
-- BACKFILL-ROUTE CHOKEPOINT HARDENING: extend normalizeMetricsRows (write-boundary finite guard) to the remaining metrics_daily writers — run-backfill.ts default mapper + google-dimensional-backfill + shopify-dimensional-backfill — completing the §A class-elimination (forward+catchup already covered). Approach-first.
+- ✅ BACKFILL-ROUTE CHOKEPOINT HARDENING — DONE 2026-06-16 (LORAMER_METRICS_NORMALIZE_V1): normalizeMetricsRows now wraps the metrics_daily writes in run-backfill.ts default mapper + google-dimensional-backfill + shopify-dimensional-backfill. §A class-elimination COMPLETE across ALL metrics_daily writers (forward + catchup + all 3 backfills).
 - WS1b: cron_runs completion sentinel.
 - ENV-TRUTH AUDIT (iMac value-audit; Air CRON_SECRET already SET).
 - WS3 #6 (Shopify cancelled-order accuracy) · WS3 #7 (Woo backfill adapter) · #14 (2 Shopify dead-token reconnects).
