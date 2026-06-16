@@ -9,6 +9,14 @@ import { runWooCommerceBackfill } from '@/lib/backfill/woocommerce-backfill'
 
 export const maxDuration = 300 // Pro ceiling — the merchant's WP host is slow (~8s/page); the engine
                                // time-budgets well under this and resumes via the cursor across calls.
+// LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1 — disable Next.js App Router fetch caching for this route.
+// supabase-js calls global fetch, which Next caches/memoizes by request content. The CAS claim has a
+// random token so its request is unique each call (always fresh); the breaker bump + cursor reads have
+// DETERMINISTIC bodies, so Next returned a STALE cached response and silently dropped the DB write —
+// the breaker counter never accumulated across invocations. force-no-store makes every Supabase op hit
+// the primary fresh. (This is the true root of the "stale standalone SELECT" symptom on this project.)
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 const DEFAULT_DAYS = 4000
 
