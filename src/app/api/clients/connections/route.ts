@@ -9,6 +9,14 @@ export async function POST(request: Request) {
 
   const { client_id, platform, account_id, account_name } = await request.json()
 
+  // LORAMER_OWNERSHIP_GATE_20260616 (#20) — same proven gate as /api/insight, /api/intelligence, /api/backfill/run.
+  // (this file aliases supabaseAdmin as `supabase`; var is client_id, not clientId)
+  const { data: owned } = await supabase
+    .from('clients').select('id')
+    .eq('id', client_id).eq('user_email', session.user.email)
+    .maybeSingle()
+  if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
   const { data, error } = await supabase
     .from('platform_connections')
     .insert({ client_id, platform, account_id, account_name, user_email: session.user.email })

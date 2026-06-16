@@ -17,6 +17,13 @@ export async function POST(request: Request) {
 
     if (!file || !clientId) return NextResponse.json({ error: 'File and clientId required' }, { status: 400 })
 
+    // LORAMER_OWNERSHIP_GATE_20260616 (#20) — same proven gate as /api/insight, /api/intelligence, /api/backfill/run.
+    const { data: owned } = await supabaseAdmin
+      .from('clients').select('id')
+      .eq('id', clientId).eq('user_email', session.user.email)
+      .maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
     const fileName = file.name.toLowerCase()
     const fileType = fileName.split('.').pop() || ''
     const arrayBuffer = await file.arrayBuffer()

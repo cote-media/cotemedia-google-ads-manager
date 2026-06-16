@@ -33,6 +33,13 @@ export async function GET(request: Request) {
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
+  // LORAMER_OWNERSHIP_GATE_20260616 (#16) — same proven gate as /api/insight, /api/intelligence, /api/backfill/run.
+  const { data: owned } = await supabaseAdmin
+    .from('clients').select('id')
+    .eq('id', clientId).eq('user_email', session.user.email)
+    .maybeSingle()
+  if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
   // Get shop connection
   const { data: conn } = await supabaseAdmin
     .from('platform_connections')
