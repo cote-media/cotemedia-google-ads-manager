@@ -22,6 +22,26 @@ Run all three before launch (✅ when a real identity of that shape passes end-t
 
 ---
 
+## 🔴 HARD GATE — live-store Woo backfill prerequisites (LORAMER_WOO_BACKFILL_CLAIM_V1, 2026-06-16)
+
+Before ANY future Woo HISTORICAL backfill against a LIVE store — including cohort Woo onboarding — implement ALL FOUR (the 2026-06-16 incident: a driver loop oscillated against a persistent per-window store-500 → ~few hundred read-only requests to a live store over ~40 min; see Lesson 51):
+- [ ] (1) **Circuit-breaker** in the driver: stop after N consecutive failures on the SAME window; never oscillate/re-walk an already-captured range.
+- [ ] (2) **Graceful route status**: a halted window returns a handled "halted" body (not a 5xx) so a stuck window can't read as an outage / trip alerts.
+- [ ] (3) **Gentle-on-live-store controls**: throttle, smallest viable windows, off-peak scheduling, and a hard per-store request budget.
+- [ ] (4) **Resume from true frontier**: reconcile the cursor to the deepest captured date before resuming; don't trust a bounced cursor.
+GROUP with the cohort Woo-onboarding gate: the forward Woo status+refund accuracy fix is already SHIPPED (LORAMER_WOO_STATUS_ACCURACY_V1 — sale-only {completed,processing,refunded} + net), so forward capture is safe; this gate covers the HISTORICAL backfill path specifically.
+CURRENT STATE: Shelley Kyle backfill captured 2018-12-13 → 2026-06-15 (~7.5yr, verified). Deep tail 2016-10 → 2018-12 DEFERRED (blocked by her host's PHP-fatal/500 on the heavy 2018-11-22..12-12 window). Cursor reconciled to 2018-12-13, NOT marked complete. No Woo backfill cron exists and the UI trigger (Phase 2b) is unbuilt/frozen → nothing auto-resumes against her store. To finish the tail later: adaptive sub-chunking (split a 500'd window to per-day to slip under her host's memory limit) UNDER this gate's controls — or confirm genuine store-side corruption and accept ~7.5yr.
+
+## 🟡 POST-META-APPROVAL UI BATCH — backfill completeness semantics + Woo Phase 2b trigger (reviewer-path UI, FROZEN until the Meta decision)
+
+Ship together in the post-Meta-approval UI batch (all touch reviewer-path shared UI; bundle with the Meta breakdowns/completeness-label item, AUDIT_FINDINGS #4):
+- [ ] **Step 1 — read-only investigation**: the backfill "complete" predicate across platforms + Shelley's Meta cursor state; document where "complete" is computed/surfaced and what it currently means.
+- [ ] **Step 2 — completeness-semantics fix (platform-general)**: "complete" should mean "reached the max RETRIEVABLE history" (not a fixed floor); surface the first-activity date; show "Resume" ONLY when genuinely incomplete. Avoid implying a store has no older data when the source simply won't serve it.
+- [ ] **Step 3 — Woo Phase 2b UI trigger**: run-backfill Woo branch + BackfillControl mount on the Woo connection row (gated behind the HARD GATE above for live stores).
+Reason parked: reviewer-path shared UI is frozen until the Meta decision; these change what the reviewer sees.
+
+---
+
 ## ✅ Resolved
 
 ### "This month" date range blank tiles on Shopify tab — FIXED (LORAMER_THIS_MONTH_FIX_V1)

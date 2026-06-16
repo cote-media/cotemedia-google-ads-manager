@@ -27,6 +27,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-16) — WS3 #7 PHASE 2a WRAP-UP + LIVE-STORE INCIDENT (stopped, reconciled, gated)
+- STATUS: Woo backfill Phase 2a (backend) DONE; Shelley Kyle captured + verified 2018-12-13 → 2026-06-15 (~7.5yr, 1,944 account-days; BF 2025-11-28=31/$2,246.34, 2020-11-27=15/$1,546.01, zero false-zeros). DEEP TAIL 2016-10→2018-12 DEFERRED — her WP host PHP-fatal/500 on the heavy 2018-11-22..12-12 window (halt-and-surface correctly refused to skip).
+- INCIDENT (→ Lesson 51): my client-side driver loop OSCILLATED against that persistent wall → ~few hundred read-only requests to her LIVE store over ~40 min before I caught it. No data harm (read-only/idempotent); CAS claim prevented concurrency but NOT repeated sequential calls; route returned handled 502s (not a crash). STOPPED + confirmed: no tracked tasks, no local process, Vercel shows ZERO route calls since 18:32:48.
+- RECONCILED (DB only, no store contact): sync_state woocommerce_backfill backfill_earliest_date → 2018-12-13 (true frontier; oscillation left it at 2021-05-13), backfill_complete stays FALSE, claim fields cleared. NOTHING auto-resumes: no Woo backfill cron (vercel.json woocommerce entries are forward sync + catchup only), backfill route is CRON_SECRET manual-only, Phase 2b UI unbuilt/frozen.
+- GATES RECORDED: LAUNCH_PARKING HARD GATE = 4 prerequisites before ANY live-store Woo backfill (circuit-breaker · graceful halted-status not 5xx · gentle-on-live-store throttle/small-windows/off-peak/budget · resume-from-true-frontier); grouped with cohort Woo-onboarding (forward status+refund fix already shipped). LAUNCH_PARKING POST-META UI BATCH = completeness-semantics fix (Step 1 read-only investigation → Step 2 platform-general → Step 3 Woo Phase 2b UI trigger), bundled with the Meta completeness-label item.
+- NO new route/fetcher code this turn; docs + one sync_state reconcile only.
+
 ## Session log (2026-06-16) — WS3 #7 PHASE 2a HARDENING + FULL-HISTORY CONVERGENCE (LORAMER_WOO_BACKFILL_CLAIM_V1)
 - The initial Phase-2a backfill (engine correct; ~5yr captured 2021-05→2026-06; Black Friday verified 31/$2,246.34) did NOT converge the deep tail: the merchant's slow WP host hangs some fetches → functions ran to the 300s ceiling → rapid invocation looping spawned OVERLAPPING/orphaned functions that raced the resume cursor (it bounced 2021↔2024). Data was always correct/idempotent; convergence was the only failure.
 - HARDENING (Option B — ADDITIVE; verified engine logic sale-filter/net/§A/false-zero/bucketing UNTOUCHED):
