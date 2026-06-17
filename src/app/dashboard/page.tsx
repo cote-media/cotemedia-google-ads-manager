@@ -3544,22 +3544,41 @@ function DashboardContent() {
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
     const hasMeta = client.platform_connections.some(p => p.platform === 'meta')
     const hasShopifyLocal = client.platform_connections.some(p => p.platform === 'shopify')
+    const hasWooLocal = client.platform_connections.some(p => p.platform === 'woocommerce')  // LORAMER_CLIENT_SWITCH_TAB_V1 — hoisted for tab validation (was below)
+    const hasGaLocal = client.platform_connections.some(p => p.platform === 'ga')  // LORAMER_CLIENT_SWITCH_TAB_V1 — hoisted for tab validation (was below)
     const savedPlatform = overridePlatform || (ls('advar-active-platform') as Platform) || 'google'
     const resolved: Platform = (savedPlatform === 'google' && hasGoogle) ? 'google'
       : (savedPlatform === 'meta' && hasMeta) ? 'meta'
       : (savedPlatform === 'combined' && hasGoogle && hasMeta) ? 'combined'
       : hasGoogle ? 'google' : hasMeta ? 'meta' : 'google'
     setActivePlatform(resolved)
-    // Restore saved tab (LORAMER_DEFAULT_TAB_V1 - validate)
+    // LORAMER_CLIENT_SWITCH_TAB_V1 — single source of truth for the active tab on (re)select.
+    // KEEP the carried/persisted tab ONLY if the DESTINATION client actually has it; otherwise land on a
+    // valid, non-blank tab. `tabAvailable` mirrors each tab's render gate EXACTLY, so the chosen tab can
+    // never render empty. All flags come from the NEW `client` (selectedClient state is still the OUTGOING
+    // client here). Subsumes the old keywords/campaigns normalizer AND the LORAMER_ECOM_TAB_DEFAULT_V1 block.
     const savedTab = ls('advar-active-tab') as any
-    const validTabs = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
-    if (validTabs.includes(savedTab)) setActiveTab(savedTab)
-    else setActiveTab('overview')
-    // LORAMER_NAV_REGROUP_V1 — normalize impossible persisted tabs (e.g. set on
-    // mobile or under a previous client): keywords is google-only; campaigns
-    // needs an ad platform. Snap to overview instead of rendering empty.
-    if (savedTab === 'keywords' && resolved !== 'google') setActiveTab('overview')
-    if (savedTab === 'campaigns' && !hasGoogle && !hasMeta) setActiveTab('overview')
+    const tabAvailable: Record<string, boolean> = {
+      overview: hasGoogle || hasMeta || hasShopifyLocal,  // gate: (platformData || shopifyData)
+      campaigns: hasGoogle || hasMeta,                    // gate: platformData
+      keywords: resolved === 'google',                    // gate: activePlatform==='google' && googleAccountId
+      shopify: hasShopifyLocal,                           // gate: hasShopify
+      woocommerce: hasWooLocal,                           // gate: hasWoo
+      ga: hasGaLocal,                                     // gate: hasGa
+      chat: true,
+    }
+    // Natural landing tab when the carried tab isn't available. Order REPRODUCES today's first-load exactly:
+    // ad clients → overview; ecom-only → its ecom tab (the old ecom-default); GA-only → Analytics
+    // (the one NEW case — today GA-only fell to a blank Overview).
+    const landingTab: typeof activeTab =
+      (hasGoogle || hasMeta) ? 'overview'
+      : hasShopifyLocal ? 'shopify'
+      : hasWooLocal ? 'woocommerce'
+      : hasGaLocal ? 'ga'
+      : 'overview'
+    const nextTab: typeof activeTab = (savedTab && tabAvailable[savedTab]) ? savedTab : landingTab
+    setActiveTab(nextTab)
+    lsSet('advar-active-tab', nextTab)  // re-persist so a stale value can't linger across reloads
     // Only reset drill state and panel when switching to a different client
     const previousClientId = ls('advar-active-client-prev')
     if (previousClientId && previousClientId !== client.id) {
@@ -3570,22 +3589,7 @@ function DashboardContent() {
       lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
     lsSet('advar-active-client-prev', client.id)
-    // LORAMER_ECOM_TAB_DEFAULT_V1
-    // Auto-default tab ONLY if the user hasn't explicitly chosen one for this session.
-    // hasWooLocal duplicates the hasWoo derivation but we don't have it in scope here.
-    const hasWooLocal = client.platform_connections.some(p => p.platform === 'woocommerce')
-    const explicitTab = ls('advar-active-tab')
-    const hasExplicitEcomChoice = explicitTab === 'shopify' || explicitTab === 'woocommerce'
-    if (!hasGoogle && !hasMeta && !hasExplicitEcomChoice) {
-      // Pick the ecommerce platform that exists
-      if (hasShopifyLocal) {
-        setActiveTab('shopify')
-        lsSet('advar-active-tab', 'shopify')
-      } else if (hasWooLocal) {
-        setActiveTab('woocommerce')
-        lsSet('advar-active-tab', 'woocommerce')
-      }
-    }
+    // (LORAMER_ECOM_TAB_DEFAULT_V1 removed — folded into the LORAMER_CLIENT_SWITCH_TAB_V1 landing computation above)
     // Load ad platform data if Google or Meta is connected
     if (hasGoogle || hasMeta) {
       loadData(client, resolved, dateRange, customStart, customEnd)
@@ -3597,8 +3601,7 @@ function DashboardContent() {
     if (hasShopifyLocal) {
       loadShopifyData(client.id, dateRange, customStart, customEnd)
     }
-    // LORAMER_GA_OVERVIEW_COMBINED_V1 — fetch GA intelligence when connected
-    const hasGaLocal = client.platform_connections.some(p => p.platform === 'ga')
+    // LORAMER_GA_OVERVIEW_COMBINED_V1 — fetch GA intelligence when connected (hasGaLocal hoisted above)
     if (hasGaLocal) {
       loadGaData(client.id, dateRange, customStart, customEnd)
     }
