@@ -2857,17 +2857,42 @@ function WooCommerceTabWrapper({ clientId, clientName, dateRange, platform, open
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
   customStart?: string; customEnd?: string
 }) {
+  // LORAMER_WOO_CAPTURED_E1_1_V1 — mirror ShopifyTabWrapper: real loading/error gate so a not-yet-arrived
+  // captured read no longer renders ShopifyTab's "data unavailable" path; focus=woocommerce skips the live
+  // GA/Meta fetches so these captured cards/chart return sub-second.
   const [wooData, setWooData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   useEffect(() => {
     if (!clientId) return
-    const params = new URLSearchParams({ clientId, dateRange })
+    setLoading(true)
+    setError('')
+    const params = new URLSearchParams({ clientId, dateRange, focus: 'woocommerce' })
     if (customStart) params.set('customStart', customStart)
     if (customEnd) params.set('customEnd', customEnd)
     fetch('/api/intelligence?' + params.toString())
       .then(r => r.json())
-      .then(d => { if (d.intelligence?.woocommerce) setWooData(d.intelligence.woocommerce) })
-      .catch(() => {})
+      .then(d => {
+        if (d.intelligence?.woocommerce) setWooData(d.intelligence.woocommerce)
+        else setError('No WooCommerce data available')
+        setLoading(false)
+      })
+      .catch(e => { setError(e?.message || 'Network error'); setLoading(false) })
   }, [clientId, dateRange, customStart, customEnd])
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="flex items-center gap-2 text-muted font-mono text-sm">
+        <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />Loading WooCommerce data...
+      </div>
+    </div>
+  )
+  if (error) return (
+    <div className="flex items-center justify-center h-64 flex-col gap-2">
+      <p className="text-muted font-mono text-sm">Couldn&apos;t load WooCommerce data — try refreshing</p>
+      <p className="text-xs text-red-500">{error}</p>
+    </div>
+  )
   return (
     <ShopifyTab
       shopify={wooData}

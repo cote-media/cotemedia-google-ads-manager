@@ -64,6 +64,10 @@ export async function GET(request: Request) {
   const customStart = searchParams.get('customStart') || undefined
   const customEnd = searchParams.get('customEnd') || undefined
   const forceRefresh = searchParams.get('refresh') === 'true'
+  // LORAMER_WOO_CAPTURED_E1_1_V1 — optional focus scope. Default '' = full all-channel bundle (every
+  // existing caller unchanged). focus=woocommerce = captured Woo-only (the Woo tab passes this so its
+  // cards don't block on the live GA/Meta fetches). Part of the cache key so scoped ≠ full.
+  const focus = searchParams.get('focus') || ''
 
   // LORAMER_DATE_RANGE_CANONICAL_V1
   const { startDate: resolvedStartDate, endDate: resolvedEndDate } = resolveDateWindow(
@@ -147,7 +151,7 @@ export async function GET(request: Request) {
   }
 
   // ── Check cache ────────────────────────────────────────────────────────────
-  const cacheKey = `intelligence:${clientId}:${dateRange}:${customStart || ''}:${customEnd || ''}`
+  const cacheKey = `intelligence:${clientId}:${dateRange}:${customStart || ''}:${customEnd || ''}:${focus}`
 
   if (!forceRefresh && context?.intelligence_cache) {
     try {
@@ -197,6 +201,47 @@ export async function GET(request: Request) {
   const metaConn = connections.find(c => c.platform === 'meta')
   const shopifyConn = connections.find(c => c.platform === 'shopify')
   const wooConn = connections.find(c => c.platform === 'woocommerce')  // LORAMER_WOO_INTEL_V1
+
+  // ── LORAMER_WOO_CAPTURED_E1_1_V1 — FOCUSED woo-only path ───────────────────
+  // The Woo dashboard tab requests focus=woocommerce so its CAPTURED cards/chart return sub-second
+  // instead of blocking on the live GA/Meta/Google/Shopify fetches in the full bundle below. Assembles
+  // ONLY the captured Woo branch (zero outbound store calls), caches under the focus-scoped key, returns.
+  // No-focus (every other caller, incl. /api/insight which powers the Lora banner) falls through UNCHANGED.
+  // Woo connection HEALTH is intentionally NOT recorded here — a captured DB read doesn't probe the store,
+  // so only the nightly live capture cron is authoritative for woo health.
+  if (focus === 'woocommerce') {
+    if (wooConn) {
+      try {
+        intelligence.woocommerce = await fetchWooCommerceIntelligenceCaptured(
+          wooConn.client_id,
+          session.user.email,
+          dateRange,
+          customStart,
+          customEnd
+        )
+      } catch (e) {
+        console.error('WooCommerce focused intelligence failed:', e)
+        intelligence.woocommerce = { connected: false }
+      }
+    }
+    try {
+      const existingCache = context?.intelligence_cache ? JSON.parse(context.intelligence_cache) : {}
+      existingCache[cacheKey] = intelligence
+      const keys = Object.keys(existingCache)
+      if (keys.length > 5) delete existingCache[keys[0]]
+      await supabaseAdmin
+        .from('client_context')
+        .upsert({
+          client_id: clientId,
+          user_email: session.user.email,
+          intelligence_cache: JSON.stringify(existingCache),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'client_id,user_email' })
+    } catch (e) {
+      console.error('Cache save error (focused woo):', e)
+    }
+    return NextResponse.json({ intelligence })
+  }
 
   // ── Fetch all platforms in parallel ───────────────────────────────────────
   const [googleResult, metaResult, shopifyResult, wooResult, gaResult] = await Promise.allSettled([
