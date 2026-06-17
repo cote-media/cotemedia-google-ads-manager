@@ -772,6 +772,9 @@ The Woo backfill circuit-breaker counter would not accumulate across invocations
 ## Standing rule — End every session by refreshing CONTINUE_HERE.md
 At the end of each session, the strategy Claude rewrites the "NEXT STEP" line (one sentence: the very next action) and the state notes at the top of CONTINUE_HERE.md, and Claude Code commits it. The "▶ RESUME LORAMER" header block is static — never edit it.
 
+## Standing rule — Append a dated SESSION LOG entry at every session wrap
+At each session end, as part of the same CONTINUE_HERE.md refresh, the strategy Claude adds ONE new entry as the newest log — placed ABOVE all existing `## Session log` entries in CONTINUE_HERE.md (newest-first; never reorder, rewrite, or delete older entries). Header format, matching the existing entries exactly: `## Session log (<YYYY-MM-DD>) — <WORKSTREAM / one-line title> (<DOC_TAG_Vn> if one exists)`. Then terse `-` bullets covering: what changed, root cause if it was a bug, the fix with commit hashes and any migration numbers, the proof/verification (Gate A/B, proof gate, or test result), what stays DEFERRED, and arc status (e.g. ✅ CLOSED). Claude Code commits the entry with the rest of the wrap. Session logs live ONLY in CONTINUE_HERE.md — never in this file or LORAMER_ESSENCE.md. The log is the narrative record; it does NOT replace the proper home for durable facts — env/machine facts still go to MACHINES & ENV STATE (rule above) and infra facts to their own section, never ONLY in a log.
+
 ## Standing rule — ENV/MACHINE STATE moves with the fact (same commit)
 Whenever a machine/env fact is established or verified (env file created/changed, dep installed, CLI linked, MCP scope changed, token rotated into env), update the MACHINES & ENV STATE block (in "Russ's machines" above) in the SAME commit, with a fresh "verified <date>" stamp for that machine. Durable infra facts never live only in a session log.
 
