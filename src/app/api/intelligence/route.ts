@@ -15,7 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
-import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'  // LORAMER_WOO_INTEL_V1
+import { fetchWooCommerceIntelligenceCaptured } from '@/lib/intelligence/woocommerce-intelligence'  // LORAMER_WOO_INTEL_V1 + LORAMER_WOO_CAPTURED_E1_V1 (render reads captured, not live store)
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
@@ -249,27 +249,17 @@ export async function GET(request: Request) {
           )
         })
       : Promise.resolve(null),
-    // LORAMER_WOO_INTEL_V1 - WooCommerce
+    // LORAMER_WOO_INTEL_V1 + LORAMER_WOO_CAPTURED_E1_V1 — WooCommerce dashboard render reads CAPTURED
+    // metrics_daily (zero outbound store calls; LIVE-SOURCE PRINCIPLE). The merchant's self-hosted store
+    // is only ever hit by the forward/catchup capture cron + backfill (the writers), never on render.
     wooConn
-      ? supabaseAdmin
-          .from('woocommerce_tokens')
-          .select('store_url, consumer_key, consumer_secret')
-          .eq('user_email', session.user.email)
-          .eq('client_id', wooConn.client_id)
-          .single()
-          .then(({ data: tok }) => {
-            if (!tok?.consumer_key || !tok?.consumer_secret || !tok?.store_url) {
-              throw new Error('No WooCommerce credentials found')
-            }
-            return fetchWooCommerceIntelligence(
-              tok.store_url,
-              tok.consumer_key,
-              tok.consumer_secret,
-              dateRange,
-              customStart,
-              customEnd
-            )
-          })
+      ? fetchWooCommerceIntelligenceCaptured(
+          wooConn.client_id,
+          session.user.email,
+          dateRange,
+          customStart,
+          customEnd
+        )
       : Promise.resolve(null),
 
     // LORAMER_GA_INTELLIGENCE_V1 — GA4 when ga_tokens row exists for this client

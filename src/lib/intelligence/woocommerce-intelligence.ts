@@ -8,6 +8,7 @@
 // field). The sale-status set, the refund-netting fn, the raw window fetch, and the aggregation are
 // EXPORTED so the Phase-2 backfill applies byte-identical rules (LORAMER_WOO_BACKFILL_2A_V1).
 import { resolveDateWindow } from '@/lib/date-range'
+import { supabaseAdmin } from '@/lib/supabase' // LORAMER_WOO_CAPTURED_E1_V1 — captured-read path
 import type { IntelligenceShopify } from './intelligence-types'
 
 function basicAuth(consumerKey: string, consumerSecret: string): string {
@@ -167,6 +168,85 @@ export async function fetchWooCommerceIntelligence(
       newCustomers: 0,
       returningCustomers: 0,
       topProducts: [],
+    }
+  }
+}
+
+// LORAMER_WOO_CAPTURED_E1_V1 — DASHBOARD RENDER path. Builds the SAME IntelligenceShopify shape as the
+// live fetcher above, but from CAPTURED metrics_daily (account rows: revenue=NET, orders=conversions,
+// AOV=extra.avgOrderValue; product rows: top-10 by revenue + extra.units). ZERO outbound store calls
+// (LIVE-SOURCE PRINCIPLE). New/returning are intentionally LEFT UNSET with customerMixComingSoon=true —
+// the 0-PII first-ever engine is E2; the UI renders an honest "coming soon", never a fabricated split.
+// NOTE: forward/catchup capture (api/cron/sync, api/cron/catchup) + the backfill still call the LIVE
+// fetchWooCommerceIntelligence above — they are the writers that POPULATE these rows.
+export async function fetchWooCommerceIntelligenceCaptured(
+  clientId: string,
+  userEmail: string,
+  dateRange: string,
+  customStart?: string,
+  customEnd?: string
+): Promise<IntelligenceShopify> {
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
+  try {
+    // Paginate (Supabase caps a select at 1000 rows).
+    const pageAll = async (level: 'account' | 'product'): Promise<any[]> => {
+      const rows: any[] = []
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabaseAdmin
+          .from('metrics_daily')
+          .select('date, entity_id, entity_name, revenue, conversions, extra')
+          .eq('client_id', clientId)
+          .eq('user_email', userEmail)
+          .eq('platform', 'woocommerce')
+          .eq('entity_level', level)
+          .eq('breakdown_type', '')
+          .gte('date', startDate)
+          .lte('date', endDate)
+          .order('date', { ascending: true })
+          .range(from, from + 999)
+        if (error) throw new Error('metrics_daily ' + level + ' read failed: ' + error.message)
+        if (!data || data.length === 0) break
+        rows.push(...data)
+        if (data.length < 1000) break
+      }
+      return rows
+    }
+
+    const accountRows = await pageAll('account')
+    const totalRevenue = accountRows.reduce((s, r) => s + Number(r.revenue || 0), 0)
+    const totalOrders = accountRows.reduce((s, r) => s + Number(r.conversions || 0), 0)
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
+
+    const productRows = await pageAll('product')
+    const byProduct: Record<string, { id: string; name: string; revenue: number; units: number }> = {}
+    productRows.forEach((r) => {
+      const id = String(r.entity_id ?? r.entity_name ?? 'unknown')
+      if (!byProduct[id]) byProduct[id] = { id, name: r.entity_name || ('product ' + id), revenue: 0, units: 0 }
+      byProduct[id].revenue += Number(r.revenue || 0)
+      byProduct[id].units += Number(r.extra?.units || 0)
+    })
+    const topProducts = Object.values(byProduct)
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)
+
+    return {
+      connected: true,
+      totalOrders,
+      totalRevenue,
+      avgOrderValue,
+      topProducts,
+      // New/returning intentionally UNSET — honest "coming soon" until the E2 0-PII engine ships.
+      customerMixComingSoon: true,
+    }
+  } catch (e) {
+    console.error('WooCommerce captured intelligence error:', e)
+    return {
+      connected: true,
+      totalOrders: 0,
+      totalRevenue: 0,
+      avgOrderValue: 0,
+      topProducts: [],
+      customerMixComingSoon: true,
     }
   }
 }

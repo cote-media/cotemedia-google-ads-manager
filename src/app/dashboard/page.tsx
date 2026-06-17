@@ -1696,16 +1696,19 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeMetrics, setActiveMetrics] = useState<string[]>(['revenue', 'orders'])
+  // LORAMER_WOO_CAPTURED_E1_V1 — captured-read honesty notes (Woo only; absent for Shopify's live route)
+  const [capturedNote, setCapturedNote] = useState<{ asOf?: string | null; capturedFrom?: string | null }>({})
 
   useEffect(() => {
     if (!clientId) return
     setLoading(true)
+    setCapturedNote({})
     let url = `${apiPath}?clientId=${clientId}&dateRange=${dateRange}`  // LORAMER_WOO_TAB_V1
     if (customStart) url += '&customStart=' + customStart
     if (customEnd) url += '&customEnd=' + customEnd
     fetch(url)
       .then(r => r.json())
-      .then(d => { setData(d.daily || []); setLoading(false) })
+      .then(d => { setData(d.daily || []); setCapturedNote({ asOf: d.asOf ?? null, capturedFrom: d.capturedFrom ?? null }); setLoading(false) })
       .catch(() => setLoading(false))
   }, [clientId, dateRange, customStart, customEnd])
 
@@ -1717,7 +1720,17 @@ function ShopifyChart({ clientId, dateRange, customStart, customEnd, apiPath = '
   return (
     <div className="bg-white border border-border p-4 md:p-6 mb-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-        <h3 className="text-sm font-semibold text-ink">Store Performance Over Time</h3>
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Store Performance Over Time</h3>
+          {/* LORAMER_WOO_CAPTURED_E1_V1 — honest captured-window caption (Woo only) */}
+          {(capturedNote.asOf || capturedNote.capturedFrom) && (
+            <p className="text-[11px] font-mono text-muted mt-0.5">
+              {capturedNote.capturedFrom ? `captured from ${capturedNote.capturedFrom}` : ''}
+              {capturedNote.capturedFrom && capturedNote.asOf ? ' · ' : ''}
+              {capturedNote.asOf ? `as of ${capturedNote.asOf} — today not yet captured` : ''}
+            </p>
+          )}
+        </div>
         <div className="flex gap-1 flex-wrap">
           {SHOPIFY_METRICS.map(m => (
             <button key={m.id} onClick={() => toggle(m.id)}
@@ -2592,6 +2605,7 @@ interface ShopifyData {
   topProducts?: { id: string; name: string; revenue: number; units: number }[]
   adAttributedRevenue?: number
   adAttributedOrders?: number
+  customerMixComingSoon?: boolean  // LORAMER_WOO_CAPTURED_E1_V1 — Woo captured-read: new/returning is E2
 }
 
 // LORAMER_VISUAL_CONSISTENCY_V1
@@ -2622,9 +2636,10 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
     { label: 'Total Revenue', value: shopify.totalRevenue != null ? fmt(shopify.totalRevenue, 'currency') : '—' },
     { label: 'Total Orders', value: shopify.totalOrders != null ? fmt(shopify.totalOrders) : '—' },
     { label: 'Avg Order Value', value: shopify.avgOrderValue != null ? fmt(shopify.avgOrderValue, 'currency') : '—' },
-    { label: 'New Customers', value: shopify.newCustomers != null ? fmt(shopify.newCustomers) : '—' },
-    { label: 'Returning', value: shopify.returningCustomers != null ? fmt(shopify.returningCustomers) : '—' },
-    { label: 'Return Rate', value: shopify.totalOrders && shopify.returningCustomers != null ? fmt((shopify.returningCustomers / shopify.totalOrders) * 100, 'percent') : '—' },
+    // LORAMER_WOO_CAPTURED_E1_V1 — Woo captured-read leaves new/returning unset; show an honest "coming soon" (never a fabricated 0). Shopify is unaffected (flag undefined).
+    { label: 'New Customers', value: shopify.customerMixComingSoon ? 'Coming soon' : (shopify.newCustomers != null ? fmt(shopify.newCustomers) : '—') },
+    { label: 'Returning', value: shopify.customerMixComingSoon ? 'Coming soon' : (shopify.returningCustomers != null ? fmt(shopify.returningCustomers) : '—') },
+    { label: 'Return Rate', value: shopify.customerMixComingSoon ? 'Coming soon' : (shopify.totalOrders && shopify.returningCustomers != null ? fmt((shopify.returningCustomers / shopify.totalOrders) * 100, 'percent') : '—') },
   ]
 
   const topProducts = shopify.topProducts || []
@@ -2633,8 +2648,7 @@ function ShopifyTab({ shopify, clientId, clientName, dateRange, platform, openPa
 Total Revenue: ${shopify.totalRevenue != null ? '$' + shopify.totalRevenue.toFixed(2) : 'N/A'}
 Total Orders: ${shopify.totalOrders || 0}
 Avg Order Value: ${shopify.avgOrderValue != null ? '$' + shopify.avgOrderValue.toFixed(2) : 'N/A'}
-New Customers: ${shopify.newCustomers || 0}
-Returning Customers: ${shopify.returningCustomers || 0}
+${shopify.customerMixComingSoon ? 'New vs returning customers: not yet captured (coming soon)' : 'New Customers: ' + (shopify.newCustomers || 0) + '\nReturning Customers: ' + (shopify.returningCustomers || 0)}
 ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => `- ${p.name}: $${p.revenue.toFixed(2)} revenue, ${p.units} units`).join('\n') : ''}`
 
   return (
@@ -2701,7 +2715,8 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
       )}
 
       {/* Customer breakdown */}
-      {(shopify.newCustomers != null || shopify.returningCustomers != null) && (
+      {/* LORAMER_WOO_CAPTURED_E1_V1 — also render for Woo captured-read (customerMixComingSoon) so mix-derived fields show an honest "Coming soon"; Shopify path unchanged (flag undefined). */}
+      {(shopify.newCustomers != null || shopify.returningCustomers != null || shopify.customerMixComingSoon) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -2716,6 +2731,10 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
                 openPanel={openPanel}
               />
             </div>
+            {/* LORAMER_WOO_CAPTURED_E1_V1 — Woo captured-read: never compute a split from unset new/returning; show honest "Coming soon". */}
+            {shopify.customerMixComingSoon ? (
+              <div className="py-2 text-xs font-mono text-muted">Coming soon — new vs returning (privacy-safe first-time-buyer engine in progress)</div>
+            ) : (
             <div className="space-y-3">
               {[
                 { label: 'New customers', value: shopify.newCustomers || 0, color: '#2563eb' },
@@ -2736,6 +2755,7 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
                 )
               })}
             </div>
+            )}
           </div>
 
           {/* Revenue summary card */}
@@ -2768,7 +2788,10 @@ ${topProducts.length > 0 ? 'Top Products:\n' + topProducts.slice(0, 5).map(p => 
               <div className="flex justify-between py-1">
                 <span className="text-xs text-muted">Revenue per customer</span>
                 <span className="text-xs font-mono text-ink">
-                  {shopify.totalRevenue && (shopify.newCustomers || 0) + (shopify.returningCustomers || 0) > 0
+                  {/* LORAMER_WOO_CAPTURED_E1_V1 — mix-derived: "Coming soon" for Woo captured-read (never divide by unset new/returning). */}
+                  {shopify.customerMixComingSoon
+                    ? 'Coming soon'
+                    : shopify.totalRevenue && (shopify.newCustomers || 0) + (shopify.returningCustomers || 0) > 0
                     ? fmt(shopify.totalRevenue / ((shopify.newCustomers || 0) + (shopify.returningCustomers || 0)), 'currency')
                     : '—'}
                 </span>

@@ -395,6 +395,9 @@ export interface IntelligenceShopify {
   // when none could be classified (render "unavailable", never a fabricated split).
   unknownCustomers?: number
   customerMixUnavailable?: boolean
+  // LORAMER_WOO_CAPTURED_E1_V1 — Woo dashboard reads captured aggregates; first-ever new/returning is the
+  // E2 0-PII engine. When true, the tiles render an honest "coming soon" (never a fabricated 0/split).
+  customerMixComingSoon?: boolean
   // LORAMER_SHOPIFY_DEEPER_SIGNALS_V1 — derived metrics
   refundedOrderCount?: number
   refundRate?: number              // percentage (0-100)
