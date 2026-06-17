@@ -308,6 +308,10 @@ Current workstream: NONE ACTIVE — WS1c STEP 2 (catch-up loop) COMPLETE 2026-06
 ▶ NEXT — Russ picks from queue:
 ▶▶ TOP OF QUEUE (set 2026-06-17, priority order):
 - (1) **Woo revenue reconciliation** ← NEXT STEP. Align captured Woo revenue to NET sales (excl shipping/tax) so the card matches her admin; card $1,587.80 (incl shipping/tax) vs Woo admin Jun 1–17 = $1,547.55 net / 23 orders (today 1 order $72); fix Lora's order count (37 = line-items, should be 22 distinct); likely recompute/re-capture; intersects the net-sales tooltip.
+  - REFINEMENT (2026-06-17, diagnosed): net CANNOT be fixed in-place. Account rows store the order TOTAL (incl shipping+tax), with NO shipping/tax/net components and raw=NULL; product rows are capped at top-10 distinct products/day (DATA-LOSS on >10-product days, e.g. BFCM/holidays) so summing them UNDERCOUNTS net. ⇒ historical net requires RE-FETCHING orders.
+  - LIKELY PATH (= item (4)'s mechanism): WooCommerce ANALYTICS API (wc-analytics/reports/*/stats) — pre-aggregated net/orders/items per day, server-side, exact match to her admin, no order-walking, no product cap. PENDING validation that our consumer key can reach wc-analytics on her install + history coverage.
+  - Remove the top-10 product-row cap (data-completeness bug) as part of this workstream.
+  - Lora orders-vs-items LABELING fixed separately this session (prompt fix, LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1) — pending its own commit; does NOT fix the revenue basis.
 - (2) Budget Utilization — Meta card shows "$500/day" for $500 LIFETIME campaigns (~30×); daily_budget vs lifetime_budget mis-read/mislabel; diagnose now, fix banked POST-Meta (frozen).
 - (3) Error-path false-zero hardening — captured-read failure returns {connected:false} → could show $0 cards instead of "couldn't load"; MUST-HARDEN-BEFORE-LAUNCH.
 - (4)–(6) Woo ingestion research · E2 0-PII first-ever engine · Woo 2016–2018 deep-tail → see LORAMER_WOO_CAPTURED_E1_V1 plan-doc follow-ups (don't duplicate).
