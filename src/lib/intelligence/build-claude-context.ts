@@ -1100,14 +1100,19 @@ export function buildClaudeContextCacheable(
     const w = intelligence.woocommerce
     lines.push('\n=== WOOCOMMERCE ===')
     if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
-    if (w.totalOrders) lines.push(`Total Orders: ${w.totalOrders}`)
-    if (w.avgOrderValue) lines.push(`Avg Order Value: $${w.avgOrderValue.toFixed(2)}`)
+    // LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 — Lora was narrating the SUM OF UNITS as the order count (e.g. "37 orders").
+    // Pure labeling fix (no data/basis change): make distinct orders unambiguous, label units as items, split items into its own aggregate.
+    if (w.totalOrders) lines.push(`Orders (distinct): ${w.totalOrders}`)
+    if (w.avgOrderValue) lines.push(`Avg Order Value (revenue ÷ distinct orders): $${w.avgOrderValue.toFixed(2)}`)
     if (w.newCustomers) lines.push(`New Customers: ${w.newCustomers}`)
     if (w.returningCustomers) lines.push(`Returning Customers: ${w.returningCustomers}`)
     if (w.topProducts?.length) {
-      lines.push(`Top Products (showing top ${Math.min(w.topProducts.length, limits.topProducts)}):`)
-      w.topProducts.slice(0, limits.topProducts).forEach(prod => {
-        lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units`)
+      const shown = w.topProducts.slice(0, limits.topProducts)
+      const itemsSold = shown.reduce((s, p) => s + (p.units || 0), 0)
+      lines.push(`Items sold (total units across the ${shown.length} products listed): ${itemsSold}`)
+      lines.push(`Top Products (top ${shown.length} by revenue):`)
+      shown.forEach(prod => {
+        lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units sold`)
       })
     }
   }
@@ -1143,6 +1148,8 @@ export function buildClaudeContextCacheable(
   lines.push('Be specific — use actual campaign names, ad names, and numbers.')
   lines.push('You are talking to an experienced agency professional. Skip basics.')
   lines.push('If you can see the data needed to answer a question, answer it directly without asking for more info.')
+  // LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 — generalized to all commerce platforms (Woo + Shopify); was an inline Woo-block note, moved here (Lesson 11).
+  lines.push("For commerce platforms (Shopify, WooCommerce), \"orders\" always means the distinct order count provided; items/units sold is a SEPARATE metric and must NEVER be reported as the number of orders. Any per-order figure (e.g. AOV) uses the distinct order count, never units.")
 
   return {
     prefix: prefixLines.join('\n'),
