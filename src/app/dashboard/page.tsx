@@ -1871,12 +1871,13 @@ function GaOverviewSummary({ ga, clientId, clientName, platform, dateRange, open
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 // LORAMER_NUMBERS_INK_V1
-function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify, ga, hasGa }: {
+function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId, clientName, customStart, customEnd, openPanel, shopify, ga, hasGa, hasShopify }: {
   data?: PlatformData | null; googleAccountId: string; metaAccountId: string; dateRange: string; clientId: string; clientName: string; customStart?: string; customEnd?: string
   openPanel: (title: string, context: string, messages: { role: 'user' | 'assistant'; content: string }[]) => void
   shopify?: any
   ga?: IntelligenceGa | null
   hasGa?: boolean
+  hasShopify?: boolean  // LORAMER_CLIENT_SWITCH_GUARD_V1 — gate Shopify cards on the CURRENT client's connection (mirrors hasGa)
 }) {
   const totals = data?.totals
   const campaigns = data?.campaigns || []
@@ -1932,7 +1933,7 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       {hasAdData && platform === 'google' && googleAccountId && <GoogleChart accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {hasAdData && platform === 'meta' && metaAccountId && <MetaChart accountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
       {hasAdData && platform === 'combined' && googleAccountId && metaAccountId && <CombinedChart googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
-      {shopify?.connected && clientId && <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
+      {hasShopify && shopify?.connected && clientId && <ShopifyChart clientId={clientId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />}
 
       {hasAdData && (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
@@ -2024,7 +2025,8 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
       )} {/* end hasAdData */}
 
       {/* Shopify summary cards — show when Shopify is connected */}
-      {shopify?.connected && (
+      {/* LORAMER_CLIENT_SWITCH_GUARD_V1 — gate on the CURRENT client's connection (hasShopify), not just data presence */}
+      {hasShopify && shopify?.connected && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white border border-border p-4 md:p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -3528,7 +3530,15 @@ function DashboardContent() {
     } catch (e) { console.error(e) }
   }
 
+  // LORAMER_CLIENT_SWITCH_GUARD_V1 — client-generation counter, bumped on EVERY selectClient. Same
+  // mechanism as loadData's loadSeqRef, but client-scoped: a slow prior-client loadShopifyData/loadGaData
+  // that resolves AFTER a switch is DROPPED — INCLUDING the case where the new client doesn't re-call
+  // that loader (e.g. switching to a client with no Shopify). Closes the cross-client data-bleed.
+  const loadGenRef = useRef(0)
+
   function selectClient(client: Client, overridePlatform?: Platform) {
+    loadGenRef.current++  // invalidate any in-flight shopify/ga loads from the previous client
+    setShopifyData(null); setGaData(null)  // unconditional reset — never carry a prior client's ecom/GA data
     setSelectedClient(client)
     lsSet('advar-active-client', client.id)
     const hasGoogle = client.platform_connections.some(p => p.platform === 'google')
@@ -3555,7 +3565,7 @@ function DashboardContent() {
     if (previousClientId && previousClientId !== client.id) {
       lsSet('advar-drill-state', JSON.stringify({ level: 'campaigns', campaign: null, adGroup: null }))
       setPanelOpen(false); setPanelMinimized(false); setPanelMessages([])
-      setPanelTitle(''); setPanelContext(''); setShopifyData(null); setGaData(null)  // LORAMER_GA_OVERVIEW_COMBINED_V1
+      setPanelTitle(''); setPanelContext('')  // LORAMER_GA_OVERVIEW_COMBINED_V1 — shopify/ga reset moved UNCONDITIONAL above (LORAMER_CLIENT_SWITCH_GUARD_V1)
       lsSet('advar-panel-open', 'false'); lsSet('advar-panel-minimized', 'false')
       lsSet('advar-panel-messages', '[]'); lsSet('advar-panel-title', ''); lsSet('advar-panel-context', '')
     }
@@ -3595,26 +3605,36 @@ function DashboardContent() {
   }
 
   async function loadShopifyData(clientId: string, dr: string, cs?: string, ce?: string) {
+    const gen = loadGenRef.current  // LORAMER_CLIENT_SWITCH_GUARD_V1 — capture the client generation at fetch start
     try {
       const params = new URLSearchParams({ clientId, dateRange: dr })
       if (cs) params.set('customStart', cs)
       if (ce) params.set('customEnd', ce)
       const res = await fetch('/api/intelligence?' + params.toString())
       const d = await res.json()
-      if (d.intelligence?.shopify) setShopifyData(d.intelligence.shopify)
-    } catch (e) { console.error('Shopify data fetch error:', e) }
+      // Drop the response if the user has switched clients since this fetch began.
+      if (gen === loadGenRef.current) setShopifyData(d.intelligence?.shopify || null)
+    } catch (e) {
+      console.error('Shopify data fetch error:', e)
+      if (gen === loadGenRef.current) setShopifyData(null)
+    }
   }
 
   // LORAMER_GA_OVERVIEW_COMBINED_V1
   async function loadGaData(clientId: string, dr: string, cs?: string, ce?: string) {
+    const gen = loadGenRef.current  // LORAMER_CLIENT_SWITCH_GUARD_V1 — capture the client generation at fetch start
     try {
       const params = new URLSearchParams({ clientId, dateRange: dr })
       if (cs) params.set('customStart', cs)
       if (ce) params.set('customEnd', ce)
       const res = await fetch('/api/intelligence?' + params.toString())
       const d = await res.json()
-      if (d.intelligence?.ga) setGaData(d.intelligence.ga)
-    } catch (e) { console.error('GA data fetch error:', e) }
+      // Drop the response if the user has switched clients since this fetch began.
+      if (gen === loadGenRef.current) setGaData(d.intelligence?.ga || null)
+    } catch (e) {
+      console.error('GA data fetch error:', e)
+      if (gen === loadGenRef.current) setGaData(null)
+    }
   }
 
   function changePlatform(platform: Platform) {
@@ -4061,7 +4081,7 @@ function DashboardContent() {
           )}
           {/* Overview — works with ad data, shopify data, or both */}
           {!loading && activeTab === 'overview' && (platformData || shopifyData) && (
-            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} ga={gaData} hasGa={hasGa} />
+            <OverviewTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} shopify={shopifyData} ga={gaData} hasGa={hasGa} hasShopify={hasShopify} />
           )}
           {!loading && platformData && activeTab === 'campaigns' && (
             <CampaignsTab data={platformData} googleAccountId={googleAccountId} metaAccountId={metaAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} customStart={customStart} customEnd={customEnd} openPanel={openPanel} />
