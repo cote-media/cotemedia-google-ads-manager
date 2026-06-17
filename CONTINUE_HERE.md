@@ -27,6 +27,20 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-17) — Session-log rule + nav invariant + cron sentinel + Shelley diagnostic + E1/E1.1 + two client-switch fixes + Auth0 eval
+
+- SESSION-LOG RULE codified in LORAMER_HANDOFF.md (LORAMER_SESSION_LOG_RULE_V1, a0b7364, docs only).
+- NAV INVARIANT pinned: new LORAMER_NAV_REGROUP_PLAN.md — per-connection nav visibility (every connected platform gets a tab; no hasBoth-style gate may hide one; combination logic may only ADD aggregate views). Homes the OPEN hasBoth violation + Shelley C/D findings (LORAMER_NAV_REGROUP_PLAN_V1).
+- CRON SENTINEL validated: /api/cron/status — all 5 forward platforms trigger='cron' + finished_at set on real nightly fire (cron_runs sentinel, migration 011, confirmed). Carried: Shopify 2 dead-token reconnects (AUDIT #14), Meta transient code1/subcode99 (#15). Catchup filled Woo 12d + Meta 3d.
+- SHELLEY DIAGNOSTIC (client 23c697bb-5255-4289-9329-659544ba8e6e): Meta IS richly captured (678 acct-days to 2023-12, ~$26k) -> checklist #4 (capture Meta) DEAD. Missing Meta tab = hasBoth rail gate (frozen, nav doc). Meta pill->Woo = stale sticky tab (frozen, nav doc). Woo dashboard was live-fetching her self-hosted store on render -> fixed via E1.
+- E1 shipped (LORAMER_WOO_CAPTURED_E1_V1, 252a84e): Woo tab reads captured metrics_daily, not live store on render; chart corrected to NET sale-only (latent gross/all-status over-report fixed); New/Returning tiles honest "coming soon"; Shopify untouched. Confirm pass caught fabricated 0/0 split + divide-by-zero NaN.
+- E1.1 shipped (LORAMER_WOO_CAPTURED_E1_1_V1, 1d6e2d3): loading/error gate on Woo wrapper (spinner, not false "unavailable") + focus=woocommerce scoping on /api/intelligence (captured-only early-return ~8ms; full bundle byte-identical; Lora banner unaffected). Gate B PASSED.
+- CROSS-CLIENT LEAK fixed (LORAMER_CLIENT_SWITCH_GUARD_V1, 26e5a73): client-generation guard on loadShopifyData/loadGaData drops stale prior-client responses (incl. switch-to-non-Shopify) + unconditional reset + hasShopify Overview gate. Pre-existing. Gate A passed; Gate B so-far-clean.
+- BLANK-ON-SWITCH fixed (LORAMER_CLIENT_SWITCH_TAB_V1, 3aa1d50): carried advar-active-tab validated vs destination client; keeps if available else lands valid (GA-only -> Analytics); first-load proven unchanged except GA-only; ecom-default folded into landingTab. Pre-existing, not caused by 26e5a73. Lesson 53; nav-plan sticky-tab item CLOSED, Meta-pill->Woo logged residual. Gate B pending.
+- AUTH0 evaluated (NO change): strong for user login (CIAM) but our pain is data-platform token brokering; Token Vault overlaps but is AI-agent/interactive-oriented, awkward for Shopify (custom OAuth) / N/A for Woo (API keys), doesn't remove provider-side approvals, wrong to migrate 4wks pre-launch. DECISION: keep our OAuth; revisit Auth0 for login post-launch; watch Token Vault.
+- OPEN QUEUE (priority): (1) Woo revenue reconciliation — align captured revenue to Woo NET sales (excl shipping/tax) so card matches her admin; card $1,587.80 incl shipping/tax vs Woo admin Jun 1-17 = $1,547.55 net / 23 orders (today 1 order $72); fix Lora order count (37 = line-items, should be 22 distinct); likely recompute/re-capture; intersects net-sales tooltip. (2) Budget Utilization — Meta card shows "$500/day" for $500 LIFETIME campaigns (~30x); daily_budget vs lifetime_budget mis-read/mislabel; diagnose now, fix banked post-Meta (frozen). (3) Error-path false-zero hardening — captured-read failure returns {connected:false} -> could show $0 cards not "couldn't load"; must-harden-before-launch. (4) Woo ingestion research [E1 plan doc]. (5) E2 0-PII first-ever engine [E1 plan doc]. (6) Woo 2016-2018 deep-tail [E1 plan doc]. (7) AUDIENCE VISION — parked, compliance-gated: current permissions do NOT allow people-audiences (Google/Meta reporting-only; Shopify/Woo orders carry PII incidentally); needs DPAs, GDPR/UK-GDPR, CCPA/CPRA+state, CAN-SPAM/CASL, Shopify Protected Customer Data, Meta/Google audience terms; lawyer-first; "EVERYTHING GETS EVERYTHING" is right for metrics, wrong (minimization) for people-data; NOT set up now. (8) "Lora explains why same-thing numbers legitimately differ" — future, precondition = numbers reconcile. (9) Intraday "today" freshness top-up for Woo (bounded current-day). (10) Draft CLAUDE.md (auto-loaded standing rules, compaction-proof). (11) activePlatform sibling-axis read-only check (can a carried valid campaigns/keywords tab render empty under stale activePlatform on ad->ad switch?).
+- STANDING: reviewer-path UI FREEZE until Meta decision (nav/hasBoth, Meta-pill routing, Budget fix all frozen). cote@ Meta long-lived token dies ~2026-07-13 -> deliberate reconnect ~07-10 (HARD CALENDAR).
+
 ## Session log (2026-06-16) — WS3 #7 WOO BACKFILL CIRCUIT-BREAKER NOW PROVEN END-TO-END + real root cause (LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1)
 - The breaker's cross-invocation accumulation (left "infra-blocked / awaiting cache settle" in the prior entry) is now PROVEN ON VERCEL, and the prior diagnosis (PostgREST schema-cache) was WRONG. REAL root cause = Next.js App Router caches global `fetch`; supabase-js uses it → the deterministic `bump`/cursor calls returned STALE cached responses and DROPPED the DB write (the random-token CAS claim was unique → always fresh, which masked it). Full write-up = **Lesson 52**.
 - FIX (shipped, build-gated, deployed): (a) migration 014 — `claim_backfill_cursor` now RETURNS the full state row off its CAS UPDATE's own RETURNING (claimed/blocked/block_fails/earliest/complete/window/reason); new `bump_backfill_block` atomically increments block_fails, computes blocked (≥threshold), persists window/reason/at + cursor frontier, RETURNS post-write counts. Engine reads ALL control state from these primary write-returning RPCs — no standalone SELECT. (b) `/api/backfill/woocommerce` route: `export const dynamic='force-dynamic'` + `fetchCache='force-no-store'`.
@@ -269,18 +283,21 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP — TOMORROW'S CHECKLIST (set 2026-06-16)
-Woo live-store-safety arc is CLOSED end-to-end (see the top session log). Review clocks still PASSIVE (Google 06-10, Meta 06-11); reviewer-path UI freeze holds until the Meta decision.
+## NEXT STEP (set 2026-06-17)
+Woo revenue reconciliation (highest-trust): diagnose the shipping/tax basis of captured Woo revenue + the source of Lora's order count, align card/left-nav/chat to Woo NET sales, recompute/re-capture as needed.
 
-- [ ] 1. SESSION RESUME (read-only) per protocol; read this file.
-- [ ] 2. Cron health check — curl /api/cron/status (CRON_SECRET) → confirm verdict=healthy AND the last forward run trigger='cron' (validates the cron_runs sentinel on a real nightly fire).
-- [ ] 3. Shelley dashboard READ-ONLY diagnostic — NO edits, NO live-store hits:
+Reviewer-path UI freeze holds until the Meta decision; review clocks PASSIVE (Google 06-10, Meta 06-11).
+
+### TOMORROW'S CHECKLIST (set 2026-06-16) — EXECUTED this session (see the top 2026-06-17 session log)
+- [x] 1. SESSION RESUME (read-only) per protocol; read this file.
+- [x] 2. Cron health check — DONE: all 5 forward platforms trigger='cron' + finished_at set on the nightly fire; carried Shopify #14 + Meta #15.
+- [x] 3. Shelley dashboard READ-ONLY diagnostic — DONE (A–E answered; drove E1/E1.1 + the two client-switch fixes):
   - (A) Meta — captured metrics_daily rows, or live-only (not yet captured)?
   - (B) the 30-day card SPEND/ROAS + Lora's Meta analysis — captured, or a live Meta fetch?
   - (C) channel-rail logic — connection-driven vs captured-driven (explains the missing Meta left-nav tab)
   - (D) why the Meta pill on /clients routes to Woo (routing bug)
   - (E) do the Woo dashboard CARDS live-fetch her store on render (slow load + $0 placeholder) vs read captured rows
-- [ ] 4. Based on (A): capture Shelley's Meta (forward + backfill via the EXISTING proven Google/Meta route — Meta is the robust MANAGED class, safe) — likely surfaces the missing tab.
+- [x] 4. **#4 DEAD (2026-06-17): Meta already richly captured for Shelley; missing tab was the hasBoth rail gate, not data.** (was: capture Shelley's Meta forward+backfill — unnecessary, 678 acct-days to 2023-12 already captured.)
 
 Triage note (NOT tomorrow's build): C/D are reviewer-path UI → POST-Meta-approval freeze batch; E (Woo cards live-fetch) is a self-hosted live-store exposure → fix under the LIVE-SOURCE PRINCIPLE (read captured data, add skeleton). See LORAMER_HANDOFF.md → "Standing principle — LIVE-SOURCE PRINCIPLE".
 
@@ -289,6 +306,16 @@ Triage note (NOT tomorrow's build): C/D are reviewer-path UI → POST-Meta-appro
 Current workstream: NONE ACTIVE — WS1c STEP 2 (catch-up loop) COMPLETE 2026-06-15. Russ picks the next workstream from the queue below. External review clocks still PASSIVE; reviewer-path UI FREEZE holds.
 
 ▶ NEXT — Russ picks from queue:
+▶▶ TOP OF QUEUE (set 2026-06-17, priority order):
+- (1) **Woo revenue reconciliation** ← NEXT STEP. Align captured Woo revenue to NET sales (excl shipping/tax) so the card matches her admin; card $1,587.80 (incl shipping/tax) vs Woo admin Jun 1–17 = $1,547.55 net / 23 orders (today 1 order $72); fix Lora's order count (37 = line-items, should be 22 distinct); likely recompute/re-capture; intersects the net-sales tooltip.
+- (2) Budget Utilization — Meta card shows "$500/day" for $500 LIFETIME campaigns (~30×); daily_budget vs lifetime_budget mis-read/mislabel; diagnose now, fix banked POST-Meta (frozen).
+- (3) Error-path false-zero hardening — captured-read failure returns {connected:false} → could show $0 cards instead of "couldn't load"; MUST-HARDEN-BEFORE-LAUNCH.
+- (4)–(6) Woo ingestion research · E2 0-PII first-ever engine · Woo 2016–2018 deep-tail → see LORAMER_WOO_CAPTURED_E1_V1 plan-doc follow-ups (don't duplicate).
+- (7) AUDIENCE VISION — PARKED, compliance-gated: current permissions do NOT allow people-audiences (Google/Meta reporting-only; Shopify/Woo orders carry PII incidentally); needs DPAs, GDPR/UK-GDPR, CCPA/CPRA+state, CAN-SPAM/CASL, Shopify Protected Customer Data, Meta/Google audience terms; lawyer-first; "EVERYTHING GETS EVERYTHING" is right for metrics, WRONG (data-minimization) for people-data; NOT set up now.
+- (8) "Lora explains why same-thing numbers legitimately differ" — future; precondition = numbers reconcile.
+- (9) Intraday "today" freshness top-up for Woo (bounded current-day).
+- (10) Draft CLAUDE.md (auto-loaded standing rules, compaction-proof).
+- (11) activePlatform sibling-axis read-only check — can a carried VALID campaigns/keywords tab render empty under a stale activePlatform on an ad→ad switch?
 - ✅ BACKFILL-ROUTE CHOKEPOINT HARDENING — DONE 2026-06-16 (LORAMER_METRICS_NORMALIZE_V1): normalizeMetricsRows now wraps the metrics_daily writes in run-backfill.ts default mapper + google-dimensional-backfill + shopify-dimensional-backfill. §A class-elimination COMPLETE across ALL metrics_daily writers (forward + catchup + all 3 backfills).
 - ✅ WS1b-1: cron_runs completion sentinel — DONE 2026-06-16 (LORAMER_CRON_RUNS_SENTINEL_V1; migration 011 + /api/cron/status). WS1b-2 (alert channel + 90d prune) deferred.
 - WS1b-2: turn /api/cron/status verdicts into a real alert channel (email/push/Slack) + optional monitor cron; add the ~90-day append-only prune for cron_runs.
