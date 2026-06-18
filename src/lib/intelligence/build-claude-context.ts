@@ -1101,15 +1101,14 @@ export function buildClaudeContextCacheable(
     lines.push('\n=== WOOCOMMERCE ===')
     if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
     // LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 — Lora was narrating the SUM OF UNITS as the order count (e.g. "37 orders").
-    // Pure labeling fix (no data/basis change): make distinct orders unambiguous, label units as items, split items into its own aggregate.
+    // Pure labeling fix (no data/basis change): make distinct orders unambiguous and label per-product units as "units sold".
+    // NO items TOTAL is shown here — topProducts is a top-N capped list, so summing its units is NOT the true total; Lora gets the true item total from the query_metrics tool (all product rows).
     if (w.totalOrders) lines.push(`Orders (distinct): ${w.totalOrders}`)
     if (w.avgOrderValue) lines.push(`Avg Order Value (revenue ÷ distinct orders): $${w.avgOrderValue.toFixed(2)}`)
     if (w.newCustomers) lines.push(`New Customers: ${w.newCustomers}`)
     if (w.returningCustomers) lines.push(`Returning Customers: ${w.returningCustomers}`)
     if (w.topProducts?.length) {
       const shown = w.topProducts.slice(0, limits.topProducts)
-      const itemsSold = shown.reduce((s, p) => s + (p.units || 0), 0)
-      lines.push(`Items sold (total units across the ${shown.length} products listed): ${itemsSold}`)
       lines.push(`Top Products (top ${shown.length} by revenue):`)
       shown.forEach(prod => {
         lines.push(`  • ${prod.name}: $${prod.revenue.toFixed(2)} revenue, ${prod.units} units sold`)
