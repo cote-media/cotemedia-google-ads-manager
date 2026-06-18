@@ -29,6 +29,16 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-18) — All 3 Shopify stores re-authed (read_all_orders) + one-click Re-authorize shipped + account-vs-product basis diagnosed (LORAMER_SHOPIFY_REAUTH_BUTTON_V1)
+
+- ONE-CLICK RE-AUTHORIZE shipped + LIVE (commit dc760db): connected Shopify rows now show an UNGATED green "Re-authorize" link → straight to /api/shopify/auth with the shop pre-filled from the stored account_id (no modal, no blank-field retype). Replaces the unreachable flag-gated ReconnectControl (Lesson 55).
+- ALL 3 REAL SHOPIFY STORES RE-AUTHORIZED — read_all_orders proven end-to-end (managed-install config **loramer-7** + the new button); the ~60-day wall is LIFTED; oldest order reached on each (read-only ONE-order probes, ZERO DB writes):
+   • Foam OH (dreamboard1) — 2022-01-24 **#FOAMOH1001** (~4 yr)
+   • Influential Drones — 2019-04-13 **#1001** (~7 yr, deepest)
+   • The Escential Group (k9tpib-st) — 2025-12-16 **#1001** (young store ~6 mo; NOT walled, just new)
+- ACCOUNT-vs-PRODUCT BASIS DIAGNOSED + RESOLVED (bounded 60-day LIVE read, 2 stores; Foam OH's ~1h online token expired mid-run — same mechanism applies): the gap is **REFUNDS, nothing else.** account grain = currentSubtotalPriceSet (post-discount, POST-refund, ex shipping/tax) = the merchant's TRUE net → CORRECT, do not change. product grain = line discountedTotalSet (PRE-refund) → WRONG. Proof: Influential 0% refunds → 0.08% gap; Escential one refunded order → its $49.95 subtotal-refund == the ENTIRE gap (20.4% on a tiny base); Foam OH ~24.6% per audit = higher refund volume. Discounts / shipping / tax / cancelled / test / currency ALL RULED OUT (cancelled already excluded from both grains via the #6 liveOrders fix). FIX = refund-net the PRODUCT grain (Flight 1 below).
+- No basis-fix code shipped yet (diagnosis only). dc760db is live; all probe/diag scripts were temp + deleted; tree clean.
+
 ## Session log (2026-06-17 cont.) — Shopify read_all_orders PROVEN end-to-end (Foam OH); managed-install scope arc (LORAMER_SHOPIFY_READ_ALL_ORDERS_SCOPE_V1)
 
 - WIN: read_all_orders proven on a REAL order for Foam OH — the ~60-day Shopify order-visibility wall is LIFTED on re-auth.
@@ -292,14 +302,14 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP (set 2026-06-17 cont.)
-Shopify deep-history arc — read_all_orders PROVEN on Foam OH (see top session log). In order:
-1. FIX the in-app Shopify "Re-authorize" control: make it reachable for CONNECTED stores (ungate from `NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI` + health==='reconnect') and PRE-FILL the stored shop_domain so it's one click straight to /api/shopify/auth — no modal, no blank-field retype. Approach-first; VISUAL gate; confirm it doesn't disturb the frozen reviewer-path UI.
-2. Re-auth the other two Shopify stores (Influential Drones, The Escential Group) via the fixed button; PROBE each (scope string + oldest order) to confirm.
-3. Design the full Shopify history backfill (approach-first — substantial: full order history → metrics_daily, account-vs-product basis reconciliation, dedup, rate limits).
-OPEN FOLLOW-UPS: (a) cross-platform re-auth integrity audit (Google/Meta — do their "reconnect" flows force a real re-consent, or silently refresh? — Lesson 54 corollary); (b) machine-parity pass (align Air & iMac node/CLI/tooling — Lesson 56); (c) Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch.
+## NEXT STEP (set 2026-06-18)
+Shopify deep-history arc — ALL 3 stores re-authed + read_all_orders proven; account-vs-product basis diagnosed (see top session log). **TWO FLIGHTS, STRICT ORDER — fix the basis BEFORE backfilling, else we write years of WRONG permanent history.**
 
-(Woo revenue reconciliation remains the highest-trust DATA item — TOP OF QUEUE (1) below — pick it up after the Shopify re-auth button.)
+**FLIGHT 1 (FIRST) — product-grain basis fix.** Refund-net the product rows so Σ product ≡ account EXACTLY. Forward-capture builder change ONLY (account grain = currentSubtotalPriceSet stays UNTOUCHED — it's the merchant's true net). Changes written numbers → requires a CHANGE CONTRACT + a HARD reconciliation test (Σ product == account per window) before ship. OPEN SUB-DECISION (Chat-Claude to spec for Russ's gate): pro-rata currentSubtotal allocation across all SKUs (exact aggregate, spreads each refund evenly) **vs** attribute refunds to the SPECIFIC refunded line items (exact aggregate AND exact per-SKU — PREFERRED; it's the per-SKU truth LORAMER_LORA_INTELLIGENCE_BAR.md requires).
+
+**FLIGHT 2 (AFTER Flight 1 ships) — deep full-history Shopify backfill.** Woo-template order engine (order-fetch + per-day bucket + resumable cursor + completeness-on-empty + throttle-aware) reusing the CORRECTED product builder, + a BackfillControl button on the Shopify connection row mirroring google/meta/ga. NO retention floor (read_all_orders reaches the first order). Folds in the deferred #6 cancelled-order history correction. Edges: use the VALID cohort token per store (Escential has a duplicate EXPIRED reviewer-install row — filter user_email=cotebrandmarketing@gmail.com); getValidShopifyToken refreshes the ~1h online token (Foam OH's expired mid-session — auto-handled, no manual re-auth). RUN ORDER: Foam OH → Influential Drones → Escential.
+
+OPEN FOLLOW-UPS / CARRY-OVER (unchanged): Woo revenue reconciliation (highest-trust DATA item — TOP OF QUEUE (1) below); token-dedup hardening (the duplicate Escential reviewer row); cross-platform re-auth integrity audit (Google/Meta — real re-consent vs silent refresh? — Lesson 54); machine-parity pass (Air & iMac node/CLI — Lesson 56); Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch.
 
 Reviewer-path UI freeze holds until the Meta decision; review clocks PASSIVE (Google 06-10, Meta 06-11).
 
