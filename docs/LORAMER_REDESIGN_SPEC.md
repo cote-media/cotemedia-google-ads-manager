@@ -176,3 +176,42 @@ POLISH (pre-flip): self-host fonts + icons (currently external CDN <link>s in th
 ARTIFACT: loramer_mobile_concept.html — 3 frames (agency multi-client overview, per-client mobile overview, rail-as-drawer). Add to docs/design/ when available on the machine.
 
 TABLES: every table is sortable on every column where the data allows — universal rule across all redesign tables.
+
+---
+
+## CLIENT PAGE & CLIENT BRAIN (redesign) — locked 2026-06-18
+
+### IA
+- ONE clients list = the Multi-Client Overview (portfolio). Everything ABOUT a client lives INSIDE the client, never on a second list.
+- Portfolio card: tap card body -> that client's Overview; tap the card AVATAR -> that client's page (brain). Alerts deep-link to the EVIDENCE (the specific view the alert is about), not the generic Overview.
+- On the portfolio, the top-bar client switcher reads "Select a client" (or is hidden) since no client is active.
+- Connection management lives IN the client page (Connections section); the rail's "Connect a source" is a shortcut to it. Adding a NEW client = a top-level action on the portfolio.
+
+### The client page = a full sectioned route (replaces the legacy expand-down, which is RETIRED)
+- Mobile: inline stacked sections. Web: full sectioned layout. Same content, adapted chrome (gospel).
+- Reached by tapping the client avatar (top-bar chip or portfolio card).
+- ENTITY MODEL: an entity (a client OR the agency itself) = identity + connections + brain + dashboard. The SAME page component serves the agency profile (top-right avatar); the agency can use LoraMer for its own marketing (it's an entity that also owns the account).
+
+### Sections
+1. General - name, logo (manual upload + first-letter monogram fallback), website (+ Scan), industry (= existing business_type select), primary KPI (existing select), contacts. FUNNEL DROPPED (fake precision: "mixed/varies by campaign" is ~always true).
+2. Connections - platform_connections rows + health (the flag-gated dead-state/Reconnect UI lives here when NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flips).
+3. Rules - client_memory where category='directive' (binding "always/never/ignore" instructions Lora must obey).
+4. What Lora knows (Facts) - client_memory non-directive facts + the free-text "Additional Context" (user_notes). Pinnable, soft-delete (existing editor). Each fact is SOURCE-MARKED: "you told Lora" vs "Lora learned." Learned facts are proposed, provenance-tagged, human-confirmable, NEVER silently injected.
+5. Uploads - the proper Knowledge store per docs/UPLOAD_FEATURE_DESIGN.md (separate uploaded_docs store, per-doc list/delete, agency + client layers, security/scanning). NOT the current bug of appending into user_notes - that gets fixed.
+6. Saved chats - a standalone browser over client_conversations (data exists; browser is net-new UI).
+
+### Brain taxonomy - SIMPLIFIED to two user-facing buckets
+- User sees TWO ideas: RULES (Lora must obey) and FACTS (Lora should know). No category dropdown - the SECTION implies the category.
+- Old 4-way (directive/fact/context/preference) collapses: directive -> Rules; fact/context/preference -> Facts; observation/claude_extracted -> surfaces under Facts as "Lora learned."
+- The DB keeps client_memory's richer `category` field (no data loss, reversible); only the UI is simplified.
+- Rationale: the only split that changes model behavior is rule-as-hard-constraint vs fact-as-knowledge; finer buckets added confusion without proportional accuracy gain. Structure kept where it matters; explainable to customers ("Rules Lora follows + Facts Lora knows").
+
+### Scans (client + competitor) - conversational, confirmable
+- Website scan (client): enter website -> Scan -> Lora reads key pages and presents findings CONVERSATIONALLY ("here's what I see - do you agree?"). Confirmed -> facts (source=learned). Strong first draft of public positioning/offers/tone/pricing; cannot get private info; depth tunable.
+- Competitor scan: a Competitors area - add competitor URLs -> scan -> conversational summary -> competitor-context facts. PUBLIC face only (positioning/offers/pricing/tone), NOT competitor private performance - frame honestly.
+- WARM-START: client scan + competitor scans + industry context + auto-extracted facts = a new client's brain is pre-filled (all proposed/confirmable), never blank.
+
+### Build order (all launch-critical per gospel; order only)
+(a) Sectioned client-page shell + faithful sections wired to existing tables (General, Connections, Rules, What Lora knows, Saved chats browser).
+(b) Uploads done right (separate Knowledge store per the design doc; fixes the user_notes bug).
+(c) Scan flow (client + competitor), conversational + confirmable.
