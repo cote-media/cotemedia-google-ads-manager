@@ -29,6 +29,12 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-18 cont.2) — Influential Drones deep backfill COMPLETE → ALL 3 SHOPIFY STORES DONE & RECONCILED $0.00
+• Influential Drones backfilled to 2019-04-13 #1001 floor (~7.2yr, DEEPEST of the 3). Data under REAL cohort client 5bb9b2ff-a1df-4d46-ac6b-0471ef543e15 (user_email=cotebrandmarketing@gmail.com); reviewer dup 2617b163 (demo@loramer.com) CLEAN (0 shopify rows, 0 cursor) — same edge as Escential.
+• 7,789 rows: account 2,623 (= 1 row/day across 2,623 days 2019-04-13→2026-06-17, full daily coverage, no gaps) / product 3,003 / geo 2,163.
+• RECONCILE: account==product $5,144,044.69, delta $0.00; per-day worst |Σproduct−account| = $0.0000 across all 2,623 days, 0 days >1¢ (aggregate NOT masking per-day offset). cursor backfill_complete=true, backfill_earliest_date=2019-04-13. Verified READ-ONLY.
+• ✅ SHOPIFY DEEP-BACKFILL ARC CLOSED: Escential $472.65 + Foam OH $4,096,620.74 + Influential $5,144,044.69 — all $0.00 residual. Lessons 58/59 held every single day.
+
 ## Session log (2026-06-18 cont.) — Shopify Flight 1 (refund-net) + Flight 2 (deep backfill) SHIPPED; 2/3 stores backfilled & verified
 
 - FLIGHT 1 — LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 (a27f120, LIVE): product grain refund-netted via per-line refund attribution (refundLineItems.subtotalSet) + order-residual pro-rata → Σ product ≡ account EXACTLY (by construction, exact per-SKU). account / geo / gross UNTOUCHED. Reconciled $0.00 on all 3 stores incl. refund cases before ship.
@@ -311,10 +317,9 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP (set 2026-06-18 cont.)
-**FINISH Influential Drones deep backfill** — the last of 3 (floor ~2019-04-13 #1001, ~7yr DEEPEST → several "Resume" presses). Open the client → "Backfill history" → click **Resume** until the shopify_deep cursor reaches 2019-04-13, then VERIFY read-only: earliest reaches 2019-04-13 across account/product/geo; cursor backfill_complete=true; full-range Σ product == account within 1¢. The per-day HALT-on-mismatch stops loudly — capture any error verbatim. (Foam OH 957d484e + Escential c39ee088 already done; Influential is the cohort client — filter user_email=cotebrandmarketing@gmail.com; same duplicate-row edge if a reviewer dup exists.)
-
-THEN: triage the FLIGHT-2 FOLLOW-UP QUEUE below at the roadmap audit (several launch-critical).
+═══ NEXT STEP (set 2026-06-18 cont.2) ═══
+✅ SHOPIFY DEEP-BACKFILL ARC CLOSED — all 3 stores backfilled & reconciled $0.00 (Escential $472.65 / Foam OH $4,096,620.74 / Influential Drones $5,144,044.69). No backfill work remains.
+NEXT = triage the FLIGHT-2 FOLLOW-UP QUEUE below, launch-flagged items first: #7 Campaigns bottom-nav default (LAUNCH-CRITICAL), then #2 Lora mobile/desktop overflow, #3 mobile path to /clients, #9 more Meta conversion data (all LAUNCH-RELEVANT). Pick ONE, approach-first, one change in flight.
 
 ### FLIGHT-2 FOLLOW-UP QUEUE (from Russ, 2026-06-18 — triage at the roadmap audit; LAUNCH flags noted)
 1. Backfill progress meter, ALL platforms (merge w/ #6).
@@ -327,6 +332,8 @@ THEN: triage the FLIGHT-2 FOLLOW-UP QUEUE below at the roadmap audit (several la
 8. "Clear" button under the alert Lora surface — UNKNOWN behavior; needs a READ-ONLY code check (view-clear vs Lora memory/history wipe); treat as possibly history-affecting until confirmed.
 9. More Meta data — conversions (add-to-cart, purchases, ROAS), not just graph+name on mobile campaigns>meta; more capture + a real intelligent display; benchmark Triple Whale / Shopify / Google, copy the best. **LAUNCH-RELEVANT.**
 10. Re-auth button for ALL platforms — same reachability gap in Google/Meta/GA (flag/health-gated); needed on scope expansion (Meta breakdowns/write) or token revoke = the cross-platform re-auth integrity audit (queued); Meta near-term.
+
+AUTO-BACKFILL ON CONNECT (customer-facing) — NEW, queued 2026-06-18 (Russ). TARGET: by July 14 soft launch. NOT a hard launch gate (invite cohort onboarded manually by Russ) — must NOT elbow ahead of the blocking gates (Google OAuth verification, Meta App Review) if time gets tight. DESIGN: on successful customer account connect → mark the backfill cursor 'pending' (do NOT run the backfill inside the connect request — a 7-yr backfill can't live in one web request). A cron sweep drains pending cursors lap-by-lap to completion in the background. 20-lap cap = hard safety bound; respects the per-day SELF-RECONCILE HALT; NEVER auto-retries into a wall (Lesson 51 oscillation). Managed platforms (Shopify/Google/Meta) = full speed; WooCommerce = extra-gentle (throttled drain / shorter initial window — it's the customer's own server). Builds on Flight-2 #6 (auto-continue) → do #6 first.
 
 OPEN FOLLOW-UPS / CARRY-OVER (unchanged): Woo revenue reconciliation (highest-trust DATA item — TOP OF QUEUE (1) below); token-dedup hardening (the Escential cohort/reviewer duplicate rows); cross-platform re-auth integrity audit (Google/Meta — Lesson 54); machine-parity pass (Air & iMac node/CLI — Lesson 56); Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch; LORAMER_LORA_INTELLIGENCE_BAR.md north star (99d3ead, in REQUIRED READING).
 
