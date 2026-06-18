@@ -111,3 +111,10 @@ Threat model: multi-tenant data keyed by client_id, owned by user_email. ALL app
 - **Google campaign-status V2** — SHIPPED + verified (primary_status; false "$523/day live budget" alarm impossible).
 - **query_metrics ownership gate** — SHIPPED + verified (cross-tenant read closed at route + central tool loop).
 - **ROAS 0.00x** — confirmed NON-BUG (presentational; optionally hide when conversionValue=0).
+
+---
+
+## 2026-06-18 — live-use findings (Veterinary mastermind)
+• OVERVIEW LONG-RANGE LOAD CAN TIME OUT — "Couldn't load data — the request failed" on the Overview at Last 90 days; transient (cleared on date change); the Analytics tab loaded fine same client/range → suspect the Overview's combined multi-source fetch timing out on long ranges. Error UI behaved correctly (honest failure + Retry, NOT a false $0). HARDEN before launch (timeout/perf; pairs with Flight-2 #4). Backend = freeze-safe.
+• GA PAGE-LEVEL CAPTURE GAP — we capture source/medium only. GA4 Data API DOES provide pagePath/landingPage × views/sessions/engagement/conversions split by day, so "which pages moved this week vs last" is answerable from the API. Lora can't answer it only because we never capture the page dimension or expose it to query_metrics. NOT a GA limitation. FIX: capture top pages/day → metrics_daily + expose page grain to query_metrics. Backend = freeze-safe. Bank to data/intelligence phase. Confirm GA4 field names vs the live API (Adapter Change Gate A) when building.
+• UNIVERSAL TABLE SORT — every table must be sortable on every column where the data allows. Build into the redesign tables; do not patch legacy UI.

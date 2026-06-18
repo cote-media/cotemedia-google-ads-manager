@@ -174,3 +174,5 @@ PROACTIVE LORA (INTELLIGENCE PHASE — NOT now; move to the Lora north-star when
 POLISH (pre-flip): self-host fonts + icons (currently external CDN <link>s in the dark build) before going live.
 
 ARTIFACT: loramer_mobile_concept.html — 3 frames (agency multi-client overview, per-client mobile overview, rail-as-drawer). Add to docs/design/ when available on the machine.
+
+TABLES: every table is sortable on every column where the data allows — universal rule across all redesign tables.
