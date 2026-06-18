@@ -27,6 +27,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-17 cont.) — Shopify read_all_orders PROVEN end-to-end (Foam OH); managed-install scope arc (LORAMER_SHOPIFY_READ_ALL_ORDERS_SCOPE_V1)
+
+- WIN: read_all_orders proven on a REAL order for Foam OH — the ~60-day Shopify order-visibility wall is LIFTED on re-auth.
+- THE CHAIN THAT WORKED: scope added to the OAuth routes + shopify.app.toml (e4a34a5) → BUT managed install (use_legacy_install_flow=false) grants the DEPLOYED config's scopes, NOT the authorize-URL `scope` param → `shopify app deploy` from the Air (nvm use 22; CLI 4.x needs node ≥22.12) released app version **loramer-7**, pushing read_all_orders into the Partner Dashboard config → re-auth via the direct **/api/shopify/auth?clientId=&shop=** URL (signed in) minted a NEW token with scope `read_all_orders,read_customers,read_orders,read_products` → read-only probe fetched the OLDEST order: **2022-01-24, #FOAMOH1001, $349.00, paid**. Full history reachable (matches the ~Feb-2022 admin figure).
+- WHY earlier "reconnects" only REFRESHED (no scope change): a token refresh preserves the original grant; and the in-app "Re-authorize" control is unreachable in prod (gated behind the OFF `NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI` flag + health==='reconnect') so a healthy store only shows "Disconnect" — the direct route URL was the interim workaround. New Lessons 54–57.
+- SCOPE: Foam OH ONLY. Influential Drones + The Escential Group still on the old 3-scope grant (not re-authed). No backfill run yet. Repo at e4a34a5; loramer-7 lives in the Partner Dashboard (no repo change — `.shopify/` is gitignored).
+
 ## Session log (2026-06-17) — Session-log rule + nav invariant + cron sentinel + Shelley diagnostic + E1/E1.1 + two client-switch fixes + Auth0 eval
 
 - SESSION-LOG RULE codified in LORAMER_HANDOFF.md (LORAMER_SESSION_LOG_RULE_V1, a0b7364, docs only).
@@ -283,8 +290,14 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP (set 2026-06-17)
-Woo revenue reconciliation (highest-trust): diagnose the shipping/tax basis of captured Woo revenue + the source of Lora's order count, align card/left-nav/chat to Woo NET sales, recompute/re-capture as needed.
+## NEXT STEP (set 2026-06-17 cont.)
+Shopify deep-history arc — read_all_orders PROVEN on Foam OH (see top session log). In order:
+1. FIX the in-app Shopify "Re-authorize" control: make it reachable for CONNECTED stores (ungate from `NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI` + health==='reconnect') and PRE-FILL the stored shop_domain so it's one click straight to /api/shopify/auth — no modal, no blank-field retype. Approach-first; VISUAL gate; confirm it doesn't disturb the frozen reviewer-path UI.
+2. Re-auth the other two Shopify stores (Influential Drones, The Escential Group) via the fixed button; PROBE each (scope string + oldest order) to confirm.
+3. Design the full Shopify history backfill (approach-first — substantial: full order history → metrics_daily, account-vs-product basis reconciliation, dedup, rate limits).
+OPEN FOLLOW-UPS: (a) cross-platform re-auth integrity audit (Google/Meta — do their "reconnect" flows force a real re-consent, or silently refresh? — Lesson 54 corollary); (b) machine-parity pass (align Air & iMac node/CLI/tooling — Lesson 56); (c) Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch.
+
+(Woo revenue reconciliation remains the highest-trust DATA item — TOP OF QUEUE (1) below — pick it up after the Shopify re-auth button.)
 
 Reviewer-path UI freeze holds until the Meta decision; review clocks PASSIVE (Google 06-10, Meta 06-11).
 
