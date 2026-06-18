@@ -52,7 +52,7 @@ export default function TopBar({
         <div className={styles.topLeft}>
           {/* Desktop: All clients home control. Mobile (CSS): hamburger that opens the drawer. */}
           <Link href="/dashboard-next/clients" className={styles.homeBtn}>
-            <i className="ti ti-layout-grid" /> All clients
+            <i className="ti ti-users" /> All clients
           </Link>
           <button className={styles.hamburger} onClick={() => setDrawerOpen(true)} aria-label="Open menu">
             <i className="ti ti-menu-2" />

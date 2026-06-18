@@ -4,6 +4,7 @@
 // flex children of <main> (inheriting main's gap:18, matching the mockup spacing).
 import Link from 'next/link'
 import styles from './redesign.module.css'
+import ShopifyIcon from './ShopifyIcon'
 
 export default function OverviewStatic() {
   return (
@@ -65,7 +66,8 @@ export default function OverviewStatic() {
             <i className={`ti ti-arrow-right ${styles.chanGo}`} />
           </Link>
           <Link href="/dashboard-next/shopify" className={styles.chan}>
-            <i className={`ti ti-brand-shopify ${styles.chanLead}`} />
+            {/* Shopify: inline SVG (Tabler v3 webfont dropped brand-shopify). */}
+            <ShopifyIcon size={22} className={styles.chanLead} />
             <div><div className={styles.chanNm}>Shopify</div><div className={styles.chanSub}>9 orders · $333 AOV</div></div>
             <i className={`ti ti-arrow-right ${styles.chanGo}`} />
           </Link>

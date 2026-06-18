@@ -4,6 +4,8 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
 import styles from './redesign.module.css'
+import ShopifyIcon from './ShopifyIcon'
+import SignOutButton from './SignOutButton'
 
 type NavItem = { id: string; label: string; icon: string; href: string; group?: 'channel'; connect?: boolean }
 
@@ -31,10 +33,11 @@ export default function RailContent({
     <>
       <div className={styles.wordmark}>LoraMer</div>
 
-      {/* Drawer only: "All clients" at the top (it's not in the mobile TopBar — that has the hamburger). */}
+      {/* Drawer only: "All clients" at the top (it's not in the mobile TopBar — that has the hamburger).
+          ti-users (roster glyph) — distinct from Overview's ti-layout-dashboard. */}
       {mobile && (
         <Link href="/dashboard-next/clients" className={`${styles.navItem} ${styles.allClients}`}>
-          <i className="ti ti-layout-grid" /> All clients
+          <i className="ti ti-users" /> All clients
         </Link>
       )}
 
@@ -54,13 +57,19 @@ export default function RailContent({
               {groupLabel}
               {sep}
               <Link href={item.href} className={cls}>
-                <i className={`ti ${item.icon}`} />
+                {/* Shopify: inline SVG (Tabler v3 webfont dropped brand-shopify); every other channel = webfont. */}
+                {item.id === 'shopify'
+                  ? <ShopifyIcon size={18} />
+                  : <i className={`ti ${item.icon}`} />}
                 {item.label}
               </Link>
             </Fragment>
           )
         })}
       </nav>
+
+      {/* Rail footer — Sign out (also in the TopBar account menu). Shows in desktop rail AND mobile drawer. */}
+      <SignOutButton />
     </>
   )
 }
