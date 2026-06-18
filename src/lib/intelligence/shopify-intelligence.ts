@@ -85,6 +85,7 @@ type GraphQLOrderNode = {
   lineItems: {
     edges: Array<{
       node: {
+        id: string // LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — match refundLineItems.lineItem.id
         title: string
         quantity: number
         product: { id: string } | null
@@ -93,6 +94,17 @@ type GraphQLOrderNode = {
       }
     }>
   }
+  // LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — per-line refunded SUBTOTAL (the same axis currentSubtotalPriceSet nets)
+  refunds: Array<{
+    refundLineItems: {
+      edges: Array<{
+        node: {
+          lineItem: { id: string } | null
+          subtotalSet: { shopMoney: { amount: string } }
+        }
+      }>
+    }
+  }>
 }
 
 // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1
@@ -170,11 +182,22 @@ export async function fetchShopifyIntelligence(
             lineItems(first: 50) {
               edges {
                 node {
+                  id
                   title
                   quantity
                   product { id }
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
+                }
+              }
+            }
+            refunds {
+              refundLineItems(first: 50) {
+                edges {
+                  node {
+                    lineItem { id }
+                    subtotalSet { shopMoney { amount } }
+                  }
                 }
               }
             }
@@ -326,16 +349,45 @@ export async function fetchShopifyIntelligence(
     const geoCountries = Object.entries(geoC).map(([country, v]) => ({ country, ...v }))
     const geoRegions = Object.entries(geoR).map(([region, v]) => ({ region, ...v }))
 
-    // Full product mix with NET revenue (line discountedTotalSet, after discounts) + gross.
+    // Full product mix with NET revenue. LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — REFUND-NET per line so
+    // Σ product net == account net (currentSubtotalPriceSet) EXACTLY, with per-SKU refunds landing on the
+    // refunded SKU. Per line: discountedTotal − that line's refunded SUBTOTAL (from refundLineItems.subtotalSet,
+    // the same axis currentSubtotalPriceSet nets). Any order-level residual not attributable to a line
+    // (order edits / shipping-tax-only refund discrepancies) is allocated pro-rata across the order's lines by
+    // discountedTotal share, so per order Σ line-net ≡ currentSubtotal exactly. grossRevenue + units stay
+    // order-side (gross product mix / ordered units — a separate axis, not reconciled to net).
     const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
     for (const order of liveOrders) {
-      for (const lineEdge of order.lineItems?.edges || []) {
-        const item = lineEdge.node
+      // refunded SUBTOTAL per lineItem id (sum across all refunds on the order)
+      const refundByLine: Record<string, number> = {}
+      for (const ref of order.refunds || []) {
+        for (const rliEdge of ref.refundLineItems?.edges || []) {
+          const rli = rliEdge.node
+          const lid = rli.lineItem?.id
+          if (!lid) continue
+          refundByLine[lid] = (refundByLine[lid] || 0) + parseFloat(rli.subtotalSet?.shopMoney?.amount || '0')
+        }
+      }
+      // pass 1: line net = discountedTotal − line refund; track sums for residual allocation
+      const lines = (order.lineItems?.edges || []).map((e) => {
+        const item = e.node
         const id = String(item.product?.id || `notitle:${item.title}`)
-        if (!prodCap[id]) prodCap[id] = { name: item.title, netRevenue: 0, grossRevenue: 0, units: 0 }
-        prodCap[id].netRevenue += parseFloat(item.discountedTotalSet?.shopMoney?.amount || '0')
-        prodCap[id].grossRevenue += parseFloat(item.originalUnitPriceSet?.shopMoney?.amount || '0') * item.quantity
-        prodCap[id].units += item.quantity
+        const disc = parseFloat(item.discountedTotalSet?.shopMoney?.amount || '0')
+        const refunded = item.id ? refundByLine[item.id] || 0 : 0
+        return { item, id, disc, net: disc - refunded }
+      })
+      const sumDisc = lines.reduce((s, l) => s + l.disc, 0)
+      const sumNet = lines.reduce((s, l) => s + l.net, 0)
+      const orderNet = parseFloat(order.currentSubtotalPriceSet?.shopMoney?.amount || '0')
+      const residual = orderNet - sumNet // order-level refund/adjustment not tied to a specific line
+      // pass 2: allocate residual pro-rata by discountedTotal share (equal split if all lines are $0)
+      for (const l of lines) {
+        const share = sumDisc > 0 ? l.disc / sumDisc : lines.length ? 1 / lines.length : 0
+        const net = l.net + residual * share
+        if (!prodCap[l.id]) prodCap[l.id] = { name: l.item.title, netRevenue: 0, grossRevenue: 0, units: 0 }
+        prodCap[l.id].netRevenue += net
+        prodCap[l.id].grossRevenue += parseFloat(l.item.originalUnitPriceSet?.shopMoney?.amount || '0') * l.item.quantity
+        prodCap[l.id].units += l.item.quantity
       }
     }
     const productsCapture = Object.entries(prodCap).map(([id, v]) => ({ id, ...v }))
