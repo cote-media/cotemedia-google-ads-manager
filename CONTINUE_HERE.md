@@ -7,6 +7,8 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
+★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
+
 No active workstream — see AUDIT_FINDINGS.md (master punch-list) + the NEXT queue. LORAMER_CATCHUP_LOOP_PLAN.md is the closed record of WS1c STEP 2.
 
 # CONTINUE_HERE — LoraMer
