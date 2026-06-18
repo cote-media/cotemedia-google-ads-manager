@@ -1,13 +1,13 @@
-// LORAMER_REDESIGN_INC2 — the rail's inner content, shared by the desktop <aside> AND the mobile slide-in
-// drawer (same nav, one source of truth). Server component (pure markup). The container (.rail or .drawer)
-// supplies the chrome (width / background / padding / full-height flex column); this renders the items.
+// LORAMER_REDESIGN_INCA — the rail's inner content, shared by the desktop <aside> AND the mobile slide-in
+// drawer (same nav, one source of truth). Per-client NAV only now: the client switcher + account row moved
+// to the TopBar. Server component (pure markup). The container (.rail or .drawer) supplies the chrome.
 import { Fragment } from 'react'
 import Link from 'next/link'
 import styles from './redesign.module.css'
 
 type NavItem = { id: string; label: string; icon: string; href: string; group?: 'channel'; connect?: boolean }
 
-// Static for now — the per-connection Channels list becomes dynamic when real data is wired (Increment 3).
+// Static for now — the per-connection Channels list becomes dynamic when real data is wired (later increment).
 const NAV: NavItem[] = [
   { id: 'overview', label: 'Overview', icon: 'ti-layout-dashboard', href: '/dashboard-next' },
   { id: 'google-ads', label: 'Google Ads', icon: 'ti-brand-google', href: '/dashboard-next/google-ads', group: 'channel' },
@@ -21,29 +21,22 @@ const NAV: NavItem[] = [
 
 export default function RailContent({
   active,
-  clientName,
   mobile = false,
 }: {
   active: string
-  clientName: string
+  clientName?: string
   mobile?: boolean
 }) {
   return (
     <>
       <div className={styles.wordmark}>LoraMer</div>
 
-      {/* Drawer only: explicit "All clients" entry (back-to-clients path #3). */}
+      {/* Drawer only: "All clients" at the top (it's not in the mobile TopBar — that has the hamburger). */}
       {mobile && (
-        <Link href="/clients" className={`${styles.navItem} ${styles.allClients}`}>
-          <i className="ti ti-arrow-left" /> All clients
+        <Link href="/dashboard-next/clients" className={`${styles.navItem} ${styles.allClients}`}>
+          <i className="ti ti-layout-grid" /> All clients
         </Link>
       )}
-
-      <div className={styles.switcher}>
-        <span className={styles.av}>{clientName.charAt(0)}</span>
-        <span className={styles.switcherName}>{clientName}</span>
-        <i className={`ti ti-chevron-down ${styles.chev}`} />
-      </div>
 
       <nav className={styles.nav}>
         {NAV.map((item, i) => {
@@ -68,12 +61,6 @@ export default function RailContent({
           )
         })}
       </nav>
-
-      <div className={styles.acct}>
-        <span className={`${styles.av} ${styles.acctAv}`}>RC</span>
-        <span className={styles.acctName}>Russ Côté</span>
-        <i className="ti ti-settings" />
-      </div>
     </>
   )
 }

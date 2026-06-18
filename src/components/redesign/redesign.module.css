@@ -15,6 +15,7 @@
   --sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
 
   display: flex;
+  flex-direction: column;        /* INC A: TopBar on top, then [rail | main] body row */
   min-height: 100vh;
   background: var(--paper);
   color: var(--ink);
@@ -22,6 +23,9 @@
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+/* INC A: the [rail | main] row beneath the full-width TopBar */
+.body { display: flex; flex: 1; min-height: 0; }
 
 /* ── rail ── */
 .rail {
@@ -165,6 +169,69 @@
 }
 .allClients { color: var(--accent); font-weight: 500; }
 
+/* ── INC A: unified two-avatar TopBar (one component, responsive) ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 16px; background: var(--white); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; position: relative; z-index: 20;
+}
+.topLeft { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topRight { display: flex; align-items: center; gap: 10px; position: relative; }
+
+.homeBtn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  font-size: 13px; color: var(--muted); text-decoration: none; padding: 6px 9px; border-radius: 8px;
+}
+.homeBtn:hover { background: var(--surface); color: var(--ink); }
+.hamburger {
+  display: none; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; color: var(--ink); font-size: 22px; padding: 4px; line-height: 1;
+}
+
+/* avatars (shared helper art): logo if on file, else monogram */
+.tbAvatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;
+}
+.tbAvatarClient { background: #dbe5fb; color: var(--accent); }
+.tbAvatarAgency { background: #d8f0e9; color: #0f6e56; }
+.avatarImg { width: 100%; height: 100%; object-fit: cover; }
+.tbAvatarLink { display: inline-flex; border-radius: 50%; }
+
+/* the prominent client switcher (avatar is a separate target; name+chevron opens the dropdown) */
+.tbSwitcher { display: flex; align-items: center; gap: 8px; min-width: 0; position: relative; }
+.tbName {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0;
+  font-size: 14.5px; font-weight: 600; color: var(--ink);
+  background: none; border: none; cursor: pointer; padding: 5px 7px; border-radius: 8px;
+}
+.tbName:hover { background: var(--surface); }
+.tbNameLabel { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbName i { font-size: 15px; color: var(--muted); }
+
+.acctAvatarBtn { background: none; border: none; cursor: pointer; padding: 0; border-radius: 50%; }
+
+/* dropdown menus (switcher list + account menu) */
+.menuBackdrop { position: fixed; inset: 0; z-index: 55; background: transparent; }
+.menu {
+  position: absolute; background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, .12); padding: 6px; min-width: 210px; z-index: 60;
+}
+.menuLeft { top: calc(100% + 6px); left: 0; }
+.menuRight { top: calc(100% + 6px); right: 0; }
+.menuItem {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 8px 10px; border-radius: 7px; font-size: 13px; color: var(--ink);
+  background: none; border: none; cursor: pointer; text-decoration: none;
+}
+.menuItem:hover { background: var(--surface); }
+.menuCheck { margin-left: auto; color: var(--accent); font-size: 15px; }
+.menuLabel { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px 4px; }
+.menuSep { height: 1px; background: var(--border); margin: 6px 4px; }
+
+/* the kept view pills, now a sub-header below the TopBar (shown desktop + mobile) */
+.subheader { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 @media (max-width: 920px) {
   .statGrid { grid-template-columns: repeat(2, 1fr); }
   .rail { width: 200px; }
@@ -175,6 +242,8 @@
   .railDesktop { display: none; }
   .crumbbarDesktop { display: none; }
   .mobileTop { display: flex; align-items: center; gap: 8px; }
+  .homeBtn { display: none; }              /* INC A: All clients moves into the drawer on mobile */
+  .hamburger { display: inline-flex; }     /* INC A: hamburger opens the drawer on mobile */
   .statGrid { grid-template-columns: repeat(2, 1fr); }
   .chanGrid { grid-template-columns: 1fr; }
   .main { padding-bottom: 76px; }

@@ -1,13 +1,11 @@
-// LORAMER_REDESIGN_INC2 — the constant app shell, now RESPONSIVE (docs/LORAMER_REDESIGN_SPEC.md §4).
-// Desktop (≥ md): persistent left rail + main, UNCHANGED from Increment 1.
-// Mobile (< md): rail hidden → fixed bottom tab bar + slide-in drawer (MobileNav); a top bar inside the
-//   content gives the 3 back-to-clients paths (‹ All clients crumb · client chip · drawer "All clients").
-// Server component; fonts/icons load via <link> exactly as the mockup. Build-dark: renders only for
-// allowlisted users (the page guards first).
-import Link from 'next/link'
+// LORAMER_REDESIGN_INCA — the constant app shell. Layout: full-width TopBar on top, then [ rail | main ]
+// below it (the .body row), plus the mobile bottom tab bar (MobileNav). The TopBar is ONE shared component
+// rendering responsively (no desktop/mobile fork). Server component; fonts/icons load via <link> as the
+// mockup. Build-dark: renders only for allowlisted users (the page guards first).
 import styles from './redesign.module.css'
 import RailContent from './RailContent'
 import MobileNav from './MobileNav'
+import TopBar from './TopBar'
 
 export default function Shell({
   active,
@@ -29,38 +27,29 @@ export default function Shell({
       />
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css" />
 
-      {/* Desktop rail (hidden < md) */}
-      <aside className={`${styles.rail} ${styles.railDesktop}`}>
-        <RailContent active={active} clientName={clientName} />
-      </aside>
+      {/* Unified top bar (desktop + mobile, one component). Drawer body = the rail content, server-rendered. */}
+      <TopBar clientName={clientName} drawer={<RailContent active={active} clientName={clientName} mobile />} />
 
-      <main className={styles.main}>
-        {/* Mobile top bar (hidden ≥ md): back-to-clients crumb + client chip + Ask Lora */}
-        <div className={styles.mobileTop}>
-          <Link href="/clients" className={styles.backCrumb}><i className="ti ti-chevron-left" /> All clients</Link>
-          <Link href="/clients" className={styles.chip}>
-            <span className={styles.avSm}>{clientName.charAt(0)}</span>
-            <span className={styles.chipName}>{clientName}</span>
-            <i className="ti ti-chevron-down" />
-          </Link>
-          <Link href="/dashboard-next/lora" className={`${styles.pill} ${styles.pillLora} ${styles.askMobile}`}>
-            <i className="ti ti-sparkles" /> Ask Lora
-          </Link>
-        </div>
+      <div className={styles.body}>
+        {/* Desktop rail (hidden < md). Per-client nav only — switcher + account moved to the TopBar. */}
+        <aside className={`${styles.rail} ${styles.railDesktop}`}>
+          <RailContent active={active} clientName={clientName} />
+        </aside>
 
-        {/* Desktop crumbbar (hidden < md) */}
-        <div className={`${styles.crumbbar} ${styles.crumbbarDesktop}`}>
-          <span className={styles.crumb}>{clientName} · last 14 days</span>
-          <span className={styles.pill}><i className="ti ti-calendar" /> Last 14 days</span>
-          <span className={styles.pill}><i className="ti ti-adjustments-horizontal" /> Customize</span>
-          <span className={`${styles.pill} ${styles.pillLora}`}><i className="ti ti-sparkles" /> Ask Lora</span>
-        </div>
+        <main className={styles.main}>
+          {/* Kept view pills, now a sub-header below the TopBar (shown desktop + mobile). */}
+          <div className={styles.subheader}>
+            <span className={styles.pill}><i className="ti ti-calendar" /> Last 14 days</span>
+            <span className={styles.pill}><i className="ti ti-adjustments-horizontal" /> Customize</span>
+            <span className={`${styles.pill} ${styles.pillLora}`}><i className="ti ti-sparkles" /> Ask Lora</span>
+          </div>
 
-        {children}
-      </main>
+          {children}
+        </main>
+      </div>
 
-      {/* Mobile bottom bar + drawer (hidden ≥ md). Drawer body = the same RailContent. */}
-      <MobileNav active={active} drawer={<RailContent active={active} clientName={clientName} mobile />} />
+      {/* Mobile bottom tab bar (Overview · Lora · Mer). Hidden ≥ md. */}
+      <MobileNav active={active} />
     </div>
   )
 }
