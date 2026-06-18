@@ -29,6 +29,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-18 cont.4) — MOBILE + MULTI-CLIENT + NAV decisions LOCKED (mobile concept approved)
+• Mobile concept approved by Russ (3 frames). Decisions banked to docs/LORAMER_REDESIGN_SPEC.md §4.
+• NAV: one shell, responsive — desktop left rail; mobile = bottom tab bar [Overview/Home · Lora · Mer · Menu] + slide-in drawer (the rail). Hybrid per UX best-practice.
+• LANDING by account shape: agency (>1 client) → NEW Multi-Client Overview (portfolio, proactive-Lora "who needs attention", pinnable, = evolved /clients, customizable); single (1 client) → per-client Overview. User-configurable default = later.
+• Back-to-clients (Flight-2 #3) designed in: 3 visible paths (crumb, chip, drawer "All clients"). Mer icon = atom. Proactive-Lora two-mode spec captured for the intelligence phase (Mer = editable per-client brain).
+• STANDING DoD: every increment verified on BOTH desktop + mobile; target = app-like responsive (PWA later).
+
 ## Session log (2026-06-18 cont.3) — REDESIGN PROGRAM ADOPTED (mockup = spec) + BUILD-DARK operating model set
 - Mockup loramer_nav_concept.html adopted as canonical design spec → copied to docs/design/ + formalized in docs/LORAMER_REDESIGN_SPEC.md (IA/shell + Overview + channel drill-down + "one picture" moat viz + exact palette).
 - OPERATING MODEL: entire redesign built in prod but DARK behind a PER-USER preview gate (allowlist = Russ's accounts only); demo@ + all others see current screencast-matching UI; no OAuth/consent/domain change; redesign GO-LIVE is META-gated (flip on approval). Clean rule: until Meta clears, ship only backend/data/invisible work LIVE; all UI builds behind the gate.
@@ -322,10 +329,13 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-═══ NEXT STEP (set 2026-06-18 cont.3) ═══
-Redesign program adopted; spec + operating model banked (docs/LORAMER_REDESIGN_SPEC.md).
-NEXT = Step 2: design + build the PER-USER PREVIEW GATE (approach-first) — renders the new UI only for an allowlist of Russ's accounts; current UI for demo@ and everyone else; default-OLD-on-failure; touches NO OAuth/consent/domain config. Then build the app shell into it.
-PARALLEL (SHIP-NOW-LIVE, backend): auto-backfill-on-connect engine; #9 Meta data CAPTURE; error-path false-zero hardening (launch-must); Woo revenue reconciliation; Shopify month-view perf; #8 Clear-button read-only check. (Full sort: docs/LORAMER_REDESIGN_SPEC.md §3.)
+═══ NEXT STEP (set 2026-06-18 cont.4) ═══
+Build toward the redesign behind the preview gate, desktop AND mobile together (per-increment DoD = verified on both). Recommended order, approach-first on each:
+(a) Make the shell RESPONSIVE — desktop rail ↔ mobile bottom-bar + drawer, with the 3 back-to-clients paths (crumb / chip / drawer "All clients").
+(b) The NEW Multi-Client Overview (agency portfolio landing) as the evolution of /clients.
+(c) Wire real client/connection data into the shell + landing.
+(d) The reusable react-grid-layout customization engine (drag/expand/pin, per-page saved layouts) on Overview, then every page.
+Spec: docs/LORAMER_REDESIGN_SPEC.md §1 (desktop) + §4 (mobile/nav/landing).
 
 ### FLIGHT-2 FOLLOW-UP QUEUE (from Russ, 2026-06-18 — triage at the roadmap audit; LAUNCH flags noted)
 1. Backfill progress meter, ALL platforms (merge w/ #6).

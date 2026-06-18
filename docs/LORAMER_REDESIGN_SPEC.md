@@ -142,3 +142,35 @@ BUILD-DARK (all UI — behind the per-user preview gate; flips on Meta approval)
 - Flight-2 #1 + #6 — backfill progress meter + auto-continue UI.
 
 DO-NOT-CROSS until Meta clears: live /clients, Meta connect flow, dashboard Meta tab, Ask-Lora Meta answer for non-allowlisted users.
+
+---
+
+## SECTION 4 — MOBILE, NAVIGATION & LANDING
+
+SECTION 4 — MOBILE, NAVIGATION & LANDING (set 2026-06-18; mobile concept approved by Russ)
+
+STANDING RULE: every increment is "done" only when verified on BOTH desktop and mobile. Target = near-app-like responsive web (ultimately an installable PWA), NOT a separate native app. Reference bar: Shopify mobile web.
+
+NAV — one shell, responsive presentation:
+• Desktop: persistent left rail (current).
+• Mobile: HYBRID — a bottom tab bar for the few global destinations [Overview/Home · Lora · Mer · Menu] + a slide-in drawer (= the rail) holding the client switcher, the dynamic Channels list (scales to N sources), and account/settings. A client-switcher chip sits top-left inside a client.
+• Best-practice basis: bottom tab bar = thumb-zone, high discoverability, 3–5 items; hamburger reserved for secondary/overflow; complex apps combine both (Gmail/Slack/Maps).
+• BACK-TO-CLIENTS (resolves Flight-2 #3): three visible paths inside a client — a "‹ All clients" crumb at top, the client-switcher chip, and an "All clients" entry at the top of the drawer.
+
+LANDING — opening screen by account shape:
+• Agency (>1 client) → NEW Multi-Client Overview (portfolio): card per client with headline metric + delta + status; proactive-Lora "who needs attention" strip on top; priority clients pinnable; rest drag-to-reorder. This is the EVOLUTION of /clients (folds in the queued sort/filter/custom-order work) and is itself a customizable surface.
+• Single business (1 client) → the per-client Overview.
+• Detection: client count (>1 = agency landing; exactly 1 = that client's Overview).
+• Later (roadmap): user-configurable default landing.
+
+ICONS / NAMING: Mer icon = atom (nucleus + interlocking orbits) — signals science/unique, reinforces "Mer = the client's brain." Lora icon = sparkle.
+
+PROACTIVE LORA (INTELLIGENCE PHASE — NOT now; move to the Lora north-star when we get there):
+• Lora shifts reactive → proactive everywhere, surfacing what matters (good AND bad) before being asked (cf. Shopify Insight cards).
+• Two modes: (1) best-practice proactivity (anomalies, trend breaks, benchmark misses); (2) custom rules ("tell me when X"), user/agency-defined.
+• Mer becomes the visible, editable per-client brain: facts, context, thresholds, rules — where you see and tune what Lora knows/watches.
+• Portfolio "who's up / who's down" is the first instance of this engine, applied across clients.
+
+POLISH (pre-flip): self-host fonts + icons (currently external CDN <link>s in the dark build) before going live.
+
+ARTIFACT: loramer_mobile_concept.html — 3 frames (agency multi-client overview, per-client mobile overview, rail-as-drawer). Add to docs/design/ when available on the machine.
