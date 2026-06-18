@@ -178,6 +178,50 @@
 .signOut:hover { background: var(--surface); color: var(--ink); }
 .signOut i { font-size: 18px; }
 
+/* ── INC B: Multi-Client Overview (agency portfolio landing) ── */
+.loraStrip { background: #fbfaf7; border: 1px solid var(--warm); border-radius: 12px; padding: 16px 18px; }
+.loraStripHead {
+  display: flex; align-items: center; gap: 7px; color: var(--accent);
+  font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+}
+.loraStripHead i { font-size: 16px; }
+.loraStripText { font-size: 14px; margin-top: 8px; color: var(--ink); max-width: 80ch; }
+
+.clientsHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.clientsTitle { font-family: var(--serif); font-size: 24px; font-weight: 400; letter-spacing: -.01em; }
+.sortStub {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  font-size: 12.5px; color: var(--muted); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 10px; background: var(--white); cursor: pointer;
+}
+.sortStub:hover { border-color: var(--muted); }
+.sortStub i { font-size: 15px; }
+
+.clientGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.clientCard {
+  background: var(--white); border: 1px solid var(--border); border-radius: 11px; padding: 14px 15px;
+  display: flex; flex-direction: column; gap: 12px; text-decoration: none; color: inherit; transition: border-color .15s;
+}
+.clientCard:hover { border-color: var(--muted); }
+.cardTop { display: flex; align-items: center; gap: 10px; }
+.cardAvatar { width: 38px; height: 38px; font-size: 14px; }
+.cardName { font-size: 14.5px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardPin { font-size: 16px; color: #cbd5e1; flex-shrink: 0; }
+
+.cardMetrics { display: flex; align-items: flex-end; gap: 16px; }
+.metricBox { display: flex; flex-direction: column; }
+.metricK { font-size: 11px; color: var(--muted); }
+.metricV { font-size: 16px; font-weight: 600; margin-top: 2px; }
+.cardDelta { margin-left: auto; font-size: 12.5px; font-weight: 500; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; width: fit-content;
+  font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+}
+.chip i { font-size: 13px; }
+.chipOk { background: #d8f0e9; color: #0f6e56; }
+.chipWarn { background: #fdeccc; color: #b45309; }
+
 /* ── INC A: unified two-avatar TopBar (one component, responsive) ── */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

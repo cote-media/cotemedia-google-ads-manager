@@ -9,22 +9,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { signOut } from 'next-auth/react'
 import styles from './redesign.module.css'
-
-// Avatar art rule: render the logo if a URL is on file, else the monogram. No logos on file yet.
-function initials(name: string, max: 1 | 2): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (!parts.length) return '?'
-  if (max === 1) return parts[0].charAt(0).toUpperCase()
-  return (parts[0].charAt(0) + (parts[1]?.charAt(0) || '')).toUpperCase()
-}
-function Avatar({ name, kind, logoUrl }: { name: string; kind: 'client' | 'agency'; logoUrl?: string | null }) {
-  const cls = `${styles.tbAvatar} ${kind === 'agency' ? styles.tbAvatarAgency : styles.tbAvatarClient}`
-  return (
-    <span className={cls}>
-      {logoUrl ? <img src={logoUrl} alt="" className={styles.avatarImg} /> : initials(name, kind === 'agency' ? 2 : 1)}
-    </span>
-  )
-}
+import Avatar from './Avatar'
 
 export default function TopBar({
   clientName,
