@@ -222,6 +222,60 @@
 .chipOk { background: #d8f0e9; color: #0f6e56; }
 .chipWarn { background: #fdeccc; color: #b45309; }
 
+/* ── CLIENT PAGE (build a) — sectioned client page ── */
+.section { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.sectionHead { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.sectionTitle { font-size: 14px; font-weight: 600; color: var(--ink); }
+.savedTag { font-size: 11.5px; color: #0f6e56; font-weight: 500; }
+.emptyNote { font-size: 13px; color: var(--muted); }
+
+/* General */
+.genTop { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.genName { font-size: 15px; font-weight: 600; }
+.genGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.fieldLabel { font-size: 12px; color: var(--muted); font-weight: 500; }
+.formSelect { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--white); color: var(--ink); font-family: inherit; }
+.formSelect:focus { outline: none; border-color: var(--accent); }
+
+/* Connections */
+.connList { display: flex; flex-direction: column; gap: 8px; }
+.connRow { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--surface); }
+.connRow:last-child { border-bottom: none; }
+.connIcon { font-size: 20px; color: var(--muted); }
+.connMeta { display: flex; flex-direction: column; min-width: 0; }
+.connName { font-size: 13.5px; font-weight: 500; }
+.connAcct { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.healthBadge { margin-left: auto; font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px; flex-shrink: 0; }
+.hHealthy { background: #d8f0e9; color: #0f6e56; }
+.hReconnect { background: #fdeccc; color: #b45309; }
+.hDisconnected { background: #fde2e1; color: #b91c1c; }
+.hUnknown { background: var(--surface); color: var(--muted); }
+
+/* Rules / Facts (brain items) */
+.brainList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.brainItem { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: var(--surface); border-radius: 9px; }
+.brainItemContent { flex: 1; min-width: 0; font-size: 13px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.brainItemActions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.iconBtn { background: none; border: none; cursor: pointer; color: var(--muted); padding: 4px; border-radius: 6px; font-size: 12.5px; line-height: 1; }
+.iconBtn i { font-size: 16px; }
+.iconBtn:hover { background: var(--white); color: var(--ink); }
+.pinOn { color: var(--accent); font-size: 14px; }
+.sourceTag { font-size: 10.5px; font-weight: 500; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.sourceTold { background: #dbe5fb; color: var(--accent); }
+.sourceLearned { background: #ece7f7; color: #7c3aed; }
+.brainAdd { display: flex; flex-direction: column; gap: 8px; }
+.brainInput { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; color: var(--ink); }
+.brainInput:focus { outline: none; border-color: var(--accent); }
+.addBtn { display: inline-flex; align-items: center; gap: 5px; align-self: flex-start; font-size: 12.5px; font-weight: 500; padding: 7px 12px; border-radius: 8px; background: var(--accent); color: var(--white); border: none; cursor: pointer; }
+.addBtn:disabled { opacity: .5; cursor: not-allowed; }
+.addBtn i { font-size: 15px; }
+
+.notesArea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 13px; font-family: inherit; resize: vertical; color: var(--ink); margin-top: 5px; }
+.notesArea:focus { outline: none; border-color: var(--accent); }
+.notesBar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.factsDivider { height: 1px; background: var(--border); margin: 16px 0 12px; }
+
 /* ── INC A: unified two-avatar TopBar (one component, responsive) ── */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
