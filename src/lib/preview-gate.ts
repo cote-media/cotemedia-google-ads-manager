@@ -10,6 +10,7 @@
 // NEXT_PUBLIC_ prefix on purpose — it must stay server-only and never ship in the client bundle.
 // This util must only be imported by server components / route handlers, never a 'use client' module.
 import { getServerSession } from 'next-auth'
+import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 
 function allowlist(): Set<string> {
@@ -31,4 +32,14 @@ export async function isPreviewUser(): Promise<boolean> {
     console.error('[preview-gate] check failed, defaulting to CURRENT UI:', e)
     return false
   }
+}
+
+// EVERY server page / data-loader under /dashboard-next MUST call requirePreviewUser() as its
+// FIRST line. Do NOT rely on the layout redirect alone for content isolation: a Next.js App Router
+// LAYOUT redirect() still streams the child page's RSC payload in the 307 body, so protected
+// content would be present in the raw bytes for non-allowlisted users. Calling this FIRST inside
+// the page makes redirect() throw before any content is computed → nothing protected is rendered
+// or serialized. Fails closed (redirects to /dashboard) on any non-allowlisted / error case.
+export async function requirePreviewUser(): Promise<void> {
+  if (!(await isPreviewUser())) redirect('/dashboard')
 }
