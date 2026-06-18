@@ -1,0 +1,134 @@
+/* LORAMER_REDESIGN_INC1 — styles transcribed from docs/design/loramer_nav_concept.html (match, not approximate).
+   Scoped via CSS Module. Fonts (Instrument Sans) + Tabler icon webfont are loaded via <link> in Shell.tsx,
+   the same way the mockup loads them. Serif = Georgia (system), exactly as the mockup's --serif. */
+
+.root {
+  --ink: #0f172a;
+  --paper: #f8fafc;
+  --accent: #2563eb;
+  --muted: #64748b;
+  --surface: #f1f5f9;
+  --border: #e2e8f0;
+  --warm: #e7e2d8;
+  --white: #ffffff;
+  --serif: Georgia, 'Times New Roman', serif;
+  --sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+
+  display: flex;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── rail ── */
+.rail {
+  width: 232px;
+  flex-shrink: 0;
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.wordmark { font-family: var(--serif); font-size: 22px; padding: 2px 8px; }
+
+.switcher {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--surface); cursor: pointer; transition: border-color .15s;
+}
+.switcher:hover { border-color: var(--muted); }
+.av {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+  background: #dbe5fb; color: var(--accent);
+}
+.switcherName {
+  font-size: 13.5px; font-weight: 500; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chev { font-size: 16px; color: var(--muted); margin-left: auto; }
+
+.nav { display: flex; flex-direction: column; gap: 1px; }
+.navItem {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 11px; border-radius: 9px;
+  font-size: 13.5px; color: var(--muted); text-decoration: none;
+  cursor: pointer; transition: background .12s, color .12s;
+}
+.navItem:hover { background: var(--surface); color: var(--ink); }
+.navItem i { font-size: 18px; }
+.active { background: #e8effd; color: var(--accent); font-weight: 500; }
+.navGroup {
+  font-size: 11px; color: #94a3b8; padding: 14px 11px 5px;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.connect { color: #94a3b8; }
+.navSep { height: 1px; background: var(--border); margin: 12px 8px; }
+
+.acct {
+  margin-top: auto; display: flex; align-items: center; gap: 9px;
+  padding: 9px 10px; border-top: 1px solid var(--border);
+}
+.acctAv { background: #d8f0e9; color: #0f6e56; }
+.acctName { font-size: 12.5px; color: var(--muted); }
+.acct i { font-size: 17px; color: #94a3b8; margin-left: auto; }
+
+/* ── main ── */
+.main {
+  flex: 1; min-width: 0; background: var(--paper);
+  padding: 18px 22px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;
+}
+.crumbbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.crumb { font-size: 12.5px; color: var(--muted); flex: 1; min-width: 0; }
+.pill {
+  font-size: 12.5px; padding: 6px 11px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--white); display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; white-space: nowrap; color: inherit; text-decoration: none;
+}
+.pill i { font-size: 15px; color: var(--muted); }
+.pillLora { color: var(--accent); border-color: #c7d9fa; }
+.pillLora i { color: var(--accent); }
+
+.title { font-family: var(--serif); font-size: 30px; font-weight: 400; letter-spacing: -.01em; }
+
+.secHead { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.grip { font-size: 15px; color: #cbd5e1; cursor: grab; }
+.lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+.metaLabel { font-size: 11.5px; color: #94a3b8; margin-left: auto; }
+
+.statGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.stat { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; }
+.statK { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+.statK i { font-size: 14px; }
+.statV { font-size: 23px; font-weight: 600; margin-top: 5px; letter-spacing: -.01em; }
+.statD { font-size: 11.5px; margin-top: 3px; }
+.up { color: #0f6e56; }
+.down { color: #b91c1c; }
+
+.chanGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.chan {
+  background: var(--white); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 15px; display: flex; align-items: center; gap: 13px;
+  cursor: pointer; transition: border-color .15s; text-decoration: none; color: inherit;
+}
+.chan:hover { border-color: var(--muted); }
+.chanLead { font-size: 22px; color: var(--muted); }
+.chanNm { font-size: 14px; font-weight: 500; }
+.chanSub { font-size: 11.5px; color: var(--muted); }
+.chanGo { font-size: 16px; color: #cbd5e1; margin-left: auto; }
+
+.footcues { display: flex; gap: 18px; padding-top: 2px; }
+.footcues span {
+  font-size: 12.5px; color: #94a3b8; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+
+@media (max-width: 920px) {
+  .statGrid { grid-template-columns: repeat(2, 1fr); }
+  .rail { width: 200px; }
+}
