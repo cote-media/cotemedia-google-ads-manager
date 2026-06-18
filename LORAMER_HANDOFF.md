@@ -29,6 +29,11 @@ HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" 
 - Verification tiers: visual/className → tsc --noEmit + push + eyeball. logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting; keep a clean revert ready.
 - Right > fast. One workstream, one active paste at a time. Never the same mistake twice — log new ones in the lessons list.
 
+## GOSPEL / NON-NEGOTIABLES
+Standing truths that override convenience. Read every session; never trade them away for speed.
+- **DESKTOP=MOBILE PARITY:** the redesign is ONE app. Every increment must look, feel, and work coherently on BOTH desktop and mobile — never fork or decouple them. Verify each increment on both surfaces before calling it done.
+- **EVERYTHING IS LAUNCH-CRITICAL ("Russ launch-blocker"):** default-treat all features/fixes as launch-critical for the July 14, 2026 soft launch (Russ wants ~100% operational and will put in the hours). The ONLY exceptions are (a) true next-phase capabilities — design (Canva-like integration) then write capability; and (b) genuine external constraints (reviewer/approval timelines, e.g. Meta/Google). Never assume an item is post-launch unless it is one of those, or Russ says so.
+
 ---
 
 # LORAMER HANDOFF — Read This Before Doing Anything

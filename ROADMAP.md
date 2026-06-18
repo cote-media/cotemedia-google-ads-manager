@@ -9,6 +9,22 @@ This roadmap is organized by **active project**. Items marked `[?]` are uncertai
 
 ---
 
+## 🎯 REDESIGN PROGRAM — LAUNCH-CRITICAL & PHASES (added 2026-06-18)
+<!-- LORAMER_ROADMAP_REDESIGN_LAUNCHCRIT_V1 -->
+Default posture: every item is launch-critical for July 14, 2026 unless it's a named next phase or an external constraint (see LORAMER_HANDOFF.md → GOSPEL / NON-NEGOTIABLES). Spec: docs/LORAMER_REDESIGN_SPEC.md.
+
+### LAUNCH-CRITICAL (by July 14, 2026)
+- [ ] **Agency profile & settings** — the top-right agency-avatar destination.
+- [ ] **Per-client profile card** — the editable identity/context/thresholds/rules that is the FRONT of Mer (the client brain). Client logo: manual upload (must-have) + first-letter monogram fallback. Auto-fetch from website domain or a connected platform = best-effort enhancement that may follow; the card + manual upload are launch-critical.
+- [ ] **Team members & permissions (RBAC)** — standard role tiers (owner/admin/member…), per-client access scoping (a member sees clients A/B/C but not D/E/F), and capability gates (e.g. cannot add/remove members, cannot view billing). Two admin scopes mirroring the two-avatar model: per-client admin (rail footer / bottom-left) vs agency-wide admin (top-right agency avatar). Use standard role levels; do not reinvent.
+
+### POST-LAUNCH PHASES (explicit next phases — NOT launch-critical)
+- [ ] **Design phase** — Canva-like design integration.
+- [ ] **Write phase** — write/content capability.
+- Vision framing: recommendations → design → write, one platform; broader profile "bells & whistles" beyond the launch-critical card.
+
+---
+
 ## 🚀 PROJECT 1 — Production Launch (Shopify App Store) ✅ APPROVED & LIVE
 
 **Status (May 26, 2026):** ✅ APPROVED & LIVE on the Shopify App Store (approved May 26, 2026).
