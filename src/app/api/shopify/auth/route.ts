@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid shop domain. Must be in format: your-store.myshopify.com' }, { status: 400 })
   }
 
-  const scopes = 'read_orders,read_products,read_customers'
+  const scopes = 'read_orders,read_all_orders,read_products,read_customers'
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/shopify/callback`
   const state = Buffer.from(JSON.stringify({ clientId, userEmail: session.user.email })).toString('base64')
 

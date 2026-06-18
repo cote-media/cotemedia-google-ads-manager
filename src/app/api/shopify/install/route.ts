@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     })
   ).toString('base64')
 
-  const scopes = 'read_orders,read_products,read_customers'
+  const scopes = 'read_orders,read_all_orders,read_products,read_customers'
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/shopify/callback`
   const authUrl =
     `https://${shopDomain}/admin/oauth/authorize` +
