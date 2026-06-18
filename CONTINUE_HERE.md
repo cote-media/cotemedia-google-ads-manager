@@ -29,6 +29,11 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-18 cont.3) — REDESIGN PROGRAM ADOPTED (mockup = spec) + BUILD-DARK operating model set
+- Mockup loramer_nav_concept.html adopted as canonical design spec → copied to docs/design/ + formalized in docs/LORAMER_REDESIGN_SPEC.md (IA/shell + Overview + channel drill-down + "one picture" moat viz + exact palette).
+- OPERATING MODEL: entire redesign built in prod but DARK behind a PER-USER preview gate (allowlist = Russ's accounts only); demo@ + all others see current screencast-matching UI; no OAuth/consent/domain change; redesign GO-LIVE is META-gated (flip on approval). Clean rule: until Meta clears, ship only backend/data/invisible work LIVE; all UI builds behind the gate.
+- Queue re-sorted into SHIP-NOW-LIVE vs BUILD-DARK (docs/LORAMER_REDESIGN_SPEC.md §3). #7 / #3 / hasBoth / Meta-pill / Budget fixes all fold into the build-dark redesign.
+
 ## Session log (2026-06-18 cont.2) — Influential Drones deep backfill COMPLETE → ALL 3 SHOPIFY STORES DONE & RECONCILED $0.00
 • Influential Drones backfilled to 2019-04-13 #1001 floor (~7.2yr, DEEPEST of the 3). Data under REAL cohort client 5bb9b2ff-a1df-4d46-ac6b-0471ef543e15 (user_email=cotebrandmarketing@gmail.com); reviewer dup 2617b163 (demo@loramer.com) CLEAN (0 shopify rows, 0 cursor) — same edge as Escential.
 • 7,789 rows: account 2,623 (= 1 row/day across 2,623 days 2019-04-13→2026-06-17, full daily coverage, no gaps) / product 3,003 / geo 2,163.
@@ -317,9 +322,10 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-═══ NEXT STEP (set 2026-06-18 cont.2) ═══
-✅ SHOPIFY DEEP-BACKFILL ARC CLOSED — all 3 stores backfilled & reconciled $0.00 (Escential $472.65 / Foam OH $4,096,620.74 / Influential Drones $5,144,044.69). No backfill work remains.
-NEXT = triage the FLIGHT-2 FOLLOW-UP QUEUE below, launch-flagged items first: #7 Campaigns bottom-nav default (LAUNCH-CRITICAL), then #2 Lora mobile/desktop overflow, #3 mobile path to /clients, #9 more Meta conversion data (all LAUNCH-RELEVANT). Pick ONE, approach-first, one change in flight.
+═══ NEXT STEP (set 2026-06-18 cont.3) ═══
+Redesign program adopted; spec + operating model banked (docs/LORAMER_REDESIGN_SPEC.md).
+NEXT = Step 2: design + build the PER-USER PREVIEW GATE (approach-first) — renders the new UI only for an allowlist of Russ's accounts; current UI for demo@ and everyone else; default-OLD-on-failure; touches NO OAuth/consent/domain config. Then build the app shell into it.
+PARALLEL (SHIP-NOW-LIVE, backend): auto-backfill-on-connect engine; #9 Meta data CAPTURE; error-path false-zero hardening (launch-must); Woo revenue reconciliation; Shopify month-view perf; #8 Clear-button read-only check. (Full sort: docs/LORAMER_REDESIGN_SPEC.md §3.)
 
 ### FLIGHT-2 FOLLOW-UP QUEUE (from Russ, 2026-06-18 — triage at the roadmap audit; LAUNCH flags noted)
 1. Backfill progress meter, ALL platforms (merge w/ #6).

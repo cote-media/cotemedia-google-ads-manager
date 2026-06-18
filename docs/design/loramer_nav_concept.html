@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LoraMer — navigation concept</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/dist/tabler-icons.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0f172a; --paper:#f8fafc; --accent:#2563eb; --muted:#64748b;
+    --surface:#f1f5f9; --border:#e2e8f0; --warm:#e7e2d8; --white:#ffffff;
+    --serif:Georgia,'Times New Roman',serif; --sans:'Instrument Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:#eceff3;color:var(--ink);line-height:1.5;
+    -webkit-font-smoothing:antialiased;padding:32px 20px 80px}
+  .page{max-width:1180px;margin:0 auto}
+  .doc-head{margin:0 auto 28px;max-width:1180px}
+  .doc-head h1{font-family:var(--serif);font-size:30px;font-weight:400;letter-spacing:-.01em}
+  .doc-head p{color:var(--muted);font-size:15px;margin-top:6px;max-width:60ch}
+  .caption{display:flex;align-items:baseline;gap:10px;margin:38px auto 12px;max-width:1180px}
+  .caption .n{font-family:var(--serif);font-size:34px;color:var(--accent);line-height:1}
+  .caption h2{font-family:var(--serif);font-size:21px;font-weight:400}
+  .caption p{color:var(--muted);font-size:13.5px}
+
+  /* app frame */
+  .frame{background:var(--paper);border:1px solid var(--border);border-radius:14px;
+    overflow:hidden;display:flex;min-height:560px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  aside{width:232px;flex-shrink:0;background:var(--white);border-right:1px solid var(--border);
+    padding:18px 12px;display:flex;flex-direction:column;gap:16px}
+  .wordmark{font-family:var(--serif);font-size:22px;padding:2px 8px}
+  .switcher{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);
+    border-radius:9px;background:var(--surface);cursor:pointer;transition:border-color .15s}
+  .switcher:hover{border-color:var(--muted)}
+  .av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:600;flex-shrink:0;background:#dbe5fb;color:var(--accent)}
+  .switcher .nm{font-size:13.5px;font-weight:500;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  nav{display:flex;flex-direction:column;gap:1px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;
+    font-size:13.5px;color:var(--muted);cursor:pointer;transition:background .12s,color .12s}
+  .nav-item:hover{background:var(--surface);color:var(--ink)}
+  .nav-item i{font-size:18px}
+  .nav-item.active{background:#e8effd;color:var(--accent);font-weight:500}
+  .nav-group{font-size:11px;color:#94a3b8;padding:14px 11px 5px;letter-spacing:.06em;text-transform:uppercase}
+  .nav-item.connect{color:#94a3b8}
+  .nav-sep{height:1px;background:var(--border);margin:12px 8px}
+  .acct{margin-top:auto;display:flex;align-items:center;gap:9px;padding:9px 10px;border-top:1px solid var(--border)}
+  .acct .av{background:#d8f0e9;color:#0f6e56}
+  .acct .nm{font-size:12.5px;color:var(--muted)}
+  .acct i{font-size:17px;color:#94a3b8;margin-left:auto}
+
+  main{flex:1;min-width:0;background:var(--paper);padding:18px 22px;display:flex;flex-direction:column;gap:18px;overflow:hidden}
+  .crumbbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .crumb{font-size:12.5px;color:var(--muted);flex:1;min-width:0}
+  .pill{font-size:12.5px;padding:6px 11px;border:1px solid var(--border);border-radius:8px;background:var(--white);
+    display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap}
+  .pill i{font-size:15px;color:var(--muted)}
+  .pill.lora{color:var(--accent);border-color:#c7d9fa}
+  .pill.lora i{color:var(--accent)}
+  h1.title{font-family:var(--serif);font-size:30px;font-weight:400;letter-spacing:-.01em}
+  .sec-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .sec-head i.grip{font-size:15px;color:#cbd5e1;cursor:grab}
+  .sec-head .lbl{font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.02em}
+  .sec-head .meta{font-size:11.5px;color:#94a3b8;margin-left:auto}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .stat{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:13px 14px}
+  .stat .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:5px}
+  .stat .k i{font-size:14px}
+  .stat .v{font-size:23px;font-weight:600;margin-top:5px;letter-spacing:-.01em}
+  .stat .d{font-size:11.5px;margin-top:3px}
+  .up{color:#0f6e56}.down{color:#b91c1c}
+
+  .chan-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .chan{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:14px 15px;
+    display:flex;align-items:center;gap:13px;cursor:pointer;transition:border-color .15s}
+  .chan:hover{border-color:var(--muted)}
+  .chan i.lead{font-size:22px;color:var(--muted)}
+  .chan .nm{font-size:14px;font-weight:500}
+  .chan .sub{font-size:11.5px;color:var(--muted)}
+  .chan i.go{font-size:16px;color:#cbd5e1;margin-left:auto}
+
+  .footcues{display:flex;gap:18px;padding-top:2px}
+  .footcues span{font-size:12.5px;color:#94a3b8;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+
+  /* tabs within channel */
+  .chtabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-top:2px}
+  .chtab{font-size:13px;padding:9px 13px;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer}
+  .chtab.active{color:var(--ink);border-bottom-color:var(--accent);font-weight:500}
+
+  .card{background:var(--white);border:1px solid var(--border);border-radius:11px;padding:16px 18px}
+  .chart-wrap{height:150px;position:relative}
+  .legend{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:8px}
+  .legend b{font-weight:500;color:var(--ink)}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+  table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+  table.tbl th{text-align:left;font-weight:500;color:var(--muted);font-size:11.5px;letter-spacing:.02em;
+    padding:8px 10px;border-bottom:1px solid var(--border)}
+  table.tbl th.r,table.tbl td.r{text-align:right}
+  table.tbl td{padding:10px 10px;border-bottom:1px solid var(--surface)}
+  table.tbl td.num{font-variant-numeric:tabular-nums}
+  table.tbl tr:hover td{background:#fafbfc}
+
+  /* unified viz band */
+  .viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1180px;margin:0 auto}
+  .mer{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+  .mer .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .mer .big{font-family:var(--serif);font-size:52px;line-height:1;margin:8px 0 4px;letter-spacing:-.02em}
+  .mer .sub{font-size:13px;color:var(--muted)}
+  .mer .row{display:flex;gap:22px;margin-top:16px;border-top:1px solid var(--surface);padding-top:14px}
+  .mer .row div .k{font-size:11.5px;color:var(--muted)}
+  .mer .row div .v{font-size:18px;font-weight:600;margin-top:2px}
+
+  .stackbars{display:flex;align-items:flex-end;gap:7px;height:140px;margin-top:6px}
+  .sb{flex:1;display:flex;flex-direction:column;justify-content:flex-end;border-radius:4px 4px 0 0;overflow:hidden}
+  .sb .seg{width:100%}
+  .seg.g{background:#2563eb}.seg.m{background:#7da6f0}.seg.o{background:#1d9e75}.seg.d{background:#cbd5e1}
+  .axis{display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;margin-top:6px}
+
+  .funnel{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+  .fstep{display:flex;align-items:center;gap:12px}
+  .fbar{height:34px;border-radius:6px;background:#e8effd;display:flex;align-items:center;padding:0 12px;
+    font-size:12.5px;color:var(--accent);font-weight:500}
+  .fmeta{font-size:12px;color:var(--muted);white-space:nowrap}
+
+  .lora-card{background:#fbfaf7;border:1px solid var(--warm);border-radius:12px;padding:18px 20px;max-width:1180px;margin:16px auto 0}
+  .lora-card .h{display:flex;align-items:center;gap:8px;color:var(--accent);font-size:13px;font-weight:600;
+    letter-spacing:.04em;text-transform:uppercase}
+  .lora-card .h i{font-size:17px}
+  .lora-card p{font-size:14.5px;margin-top:9px;color:var(--ink);max-width:78ch}
+  .lora-card .ask{margin-top:13px;display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);
+    border:1px solid var(--border);border-radius:8px;padding:8px 12px;background:var(--white)}
+
+  .note{max-width:1180px;margin:10px auto 0;font-size:12.5px;color:#94a3b8}
+  @media(max-width:920px){
+    .stat-grid{grid-template-columns:repeat(2,1fr)}
+    .viz-grid{grid-template-columns:1fr}
+    aside{width:200px}
+  }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <h1>LoraMer — navigation &amp; overview concept</h1>
+  <p>A concept mockup, not the live app. Brand-accurate type and color: Georgia headings, Instrument Sans body, numbers in ink, accent used sparingly, no emoji — so it previews the polish pass as well as the structure.</p>
+</div>
+
+<!-- FRAME 1 -->
+<div class="caption"><span class="n">01</span><h2>Overview — the front door</h2><p>Combined by default · customizable · savable</p></div>
+<div class="page"><div class="frame">
+  <aside>
+    <div class="wordmark">LoraMer</div>
+    <div class="switcher"><span class="av">T</span><span class="nm">The Escential Group</span><i class="ti ti-chevron-down"></i></div>
+    <nav>
+      <div class="nav-item active"><i class="ti ti-layout-dashboard"></i> Overview</div>
+      <div class="nav-group">Channels</div>
+      <div class="nav-item"><i class="ti ti-brand-google"></i> Google Ads</div>
+      <div class="nav-item"><i class="ti ti-brand-meta"></i> Meta Ads</div>
+      <div class="nav-item"><i class="ti ti-chart-bar"></i> Analytics</div>
+      <div class="nav-item"><i class="ti ti-brand-shopify"></i> Shopify</div>
+      <div class="nav-item connect"><i class="ti ti-plus"></i> Connect a source</div>
+      <div class="nav-sep"></div>
+      <div class="nav-item"><i class="ti ti-sparkles"></i> Lora</div>
+      <div class="nav-item"><i class="ti ti-microscope"></i> Mer</div>
+    </nav>
+    <div class="acct"><span class="av">RC</span><span class="nm">Russ Côté</span><i class="ti ti-settings"></i></div>
+  </aside>
+  <main>
+    <div class="crumbbar">
+      <span class="crumb">The Escential Group · last 14 days</span>
+      <span class="pill"><i class="ti ti-calendar"></i> Last 14 days</span>
+      <span class="pill"><i class="ti ti-adjustments-horizontal"></i> Customize</span>
+      <span class="pill lora"><i class="ti ti-sparkles"></i> Ask Lora</span>
+    </div>
+    <h1 class="title">Overview</h1>
+
+    <div>
+      <div class="sec-head"><i class="ti ti-grip-vertical grip"></i><span class="lbl">Top stats</span><span class="meta">drag to reorder</span></div>
+      <div class="stat-grid">
+        <div class="stat"><div class="k"><i class="ti ti-speakerphone"></i> Total spend</div><div class="v">$2,799</div><div class="d down">↓ 12% vs prior</div></div>
+        <div class="stat"><div class="k">Conversions</div><div class="v">68</div><div class="d up">↑ 9%</div></div>
+        <div class="stat"><div class="k"><i class="ti ti-brand-shopify"></i> Revenue</div><div class="v">$3,002</div><div class="d up">↑ 4%</div></div>
+        <div class="stat"><div class="k"><i class="ti ti-chart-bar"></i> Sessions</div><div class="v">10,526</div><div class="d up">↑ 31%</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="sec-head"><i class="ti ti-grip-vertical grip"></i><span class="lbl">Channels</span><span class="meta">open any to drill in</span></div>
+      <div class="chan-grid">
+        <div class="chan"><i class="ti ti-brand-google lead"></i><div><div class="nm">Google Ads</div><div class="sub">$1,665 spend · 43 campaigns</div></div><i class="ti ti-arrow-right go"></i></div>
+        <div class="chan"><i class="ti ti-brand-meta lead"></i><div><div class="nm">Meta Ads</div><div class="sub">$1,134 spend · 8 ad sets</div></div><i class="ti ti-arrow-right go"></i></div>
+        <div class="chan"><i class="ti ti-chart-bar lead"></i><div><div class="nm">Analytics</div><div class="sub">9,855 users · 10,526 sessions</div></div><i class="ti ti-arrow-right go"></i></div>
+        <div class="chan"><i class="ti ti-brand-shopify lead"></i><div><div class="nm">Shopify</div><div class="sub">9 orders · $333 AOV</div></div><i class="ti ti-arrow-right go"></i></div>
+      </div>
+    </div>
+
+    <div class="footcues">
+      <span><i class="ti ti-plus"></i> Add section</span>
+      <span><i class="ti ti-device-floppy"></i> Save view</span>
+    </div>
+  </main>
+</div></div>
+<div class="note">The clients list, the “+ Edit” button and Sign Out all leave the rail — they live behind the switcher’s “all clients”. The Channels group is the only part that changes per user; its structure never changes. Campaigns &amp; Keywords are gone from the top level.</div>
+
+<!-- FRAME 2 -->
+<div class="caption"><span class="n">02</span><h2>Channel drill-down — Google Ads</h2><p>Campaigns &amp; Keywords live here now, as in-channel tabs</p></div>
+<div class="page"><div class="frame">
+  <aside>
+    <div class="wordmark">LoraMer</div>
+    <div class="switcher"><span class="av">T</span><span class="nm">The Escential Group</span><i class="ti ti-chevron-down"></i></div>
+    <nav>
+      <div class="nav-item"><i class="ti ti-layout-dashboard"></i> Overview</div>
+      <div class="nav-group">Channels</div>
+      <div class="nav-item active"><i class="ti ti-brand-google"></i> Google Ads</div>
+      <div class="nav-item"><i class="ti ti-brand-meta"></i> Meta Ads</div>
+      <div class="nav-item"><i class="ti ti-chart-bar"></i> Analytics</div>
+      <div class="nav-item"><i class="ti ti-brand-shopify"></i> Shopify</div>
+      <div class="nav-item connect"><i class="ti ti-plus"></i> Connect a source</div>
+      <div class="nav-sep"></div>
+      <div class="nav-item"><i class="ti ti-sparkles"></i> Lora</div>
+      <div class="nav-item"><i class="ti ti-microscope"></i> Mer</div>
+    </nav>
+    <div class="acct"><span class="av">RC</span><span class="nm">Russ Côté</span><i class="ti ti-settings"></i></div>
+  </aside>
+  <main>
+    <div class="crumbbar">
+      <span class="crumb">The Escential Group · Google Ads · last 14 days</span>
+      <span class="pill"><i class="ti ti-calendar"></i> Last 14 days</span>
+      <span class="pill lora"><i class="ti ti-sparkles"></i> Ask Lora</span>
+    </div>
+    <h1 class="title">Google Ads</h1>
+    <div class="chtabs">
+      <div class="chtab active">Summary</div>
+      <div class="chtab">Campaigns</div>
+      <div class="chtab">Keywords</div>
+      <div class="chtab">Search terms</div>
+      <div class="chtab">Assets</div>
+    </div>
+
+    <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="stat"><div class="k">Spend</div><div class="v">$1,665</div></div>
+      <div class="stat"><div class="k">Clicks</div><div class="v">7,221</div></div>
+      <div class="stat"><div class="k">Conversions</div><div class="v">41</div></div>
+      <div class="stat"><div class="k">ROAS</div><div class="v">1.8×</div></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-head"><span class="lbl">Spend &amp; conversions over time</span></div>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 640 150" width="100%" height="150" preserveAspectRatio="none">
+          <polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="0,120 90,60 180,52 270,55 360,70 450,40 540,30 640,38"/>
+          <polyline fill="none" stroke="#1d9e75" stroke-width="2.5" stroke-dasharray="5 5" points="0,135 90,128 180,118 270,122 360,110 450,108 540,96 640,90"/>
+        </svg>
+      </div>
+      <div class="legend"><span><span class="dot" style="background:#2563eb"></span>Spend</span><span><span class="dot" style="background:#1d9e75"></span>Conversions</span></div>
+    </div>
+
+    <div class="card">
+      <div class="sec-head"><span class="lbl">Top campaigns</span></div>
+      <table class="tbl">
+        <thead><tr><th>Campaign</th><th class="r">Spend</th><th class="r">Conv.</th><th class="r">CPA</th><th class="r">ROAS</th></tr></thead>
+        <tbody>
+          <tr><td>Brand — Search</td><td class="r num">$412</td><td class="r num">18</td><td class="r num">$22.90</td><td class="r num">3.4×</td></tr>
+          <tr><td>Sandalwood — PMax</td><td class="r num">$688</td><td class="r num">14</td><td class="r num">$49.10</td><td class="r num">1.6×</td></tr>
+          <tr><td>Prospecting — Search</td><td class="r num">$401</td><td class="r num">7</td><td class="r num">$57.30</td><td class="r num">0.9×</td></tr>
+          <tr><td>Remarketing — Display</td><td class="r num">$164</td><td class="r num">2</td><td class="r num">$82.00</td><td class="r num">0.6×</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div></div>
+<div class="note">“Drill into a platform on its own” = open its channel. Same shell, same switcher, same date control — only the centre changes. Adding a 6th or 12th source later needs zero nav work.</div>
+
+<!-- FRAME 3 -->
+<div class="caption"><span class="n">03</span><h2>Showing everything as one picture</h2><p>The industry methods, applied to your data</p></div>
+<div class="viz-grid">
+  <div class="mer">
+    <div class="lab">Marketing efficiency (MER)</div>
+    <div class="big">1.05×</div>
+    <div class="sub">All revenue ÷ all ad spend — the one number that only exists when every source is in one place.</div>
+    <div class="row">
+      <div><div class="k">Blended ROAS</div><div class="v">1.05×</div></div>
+      <div><div class="k">Blended CAC</div><div class="v">$41</div></div>
+      <div><div class="k">New-customer revenue</div><div class="v">38%</div></div>
+    </div>
+  </div>
+  <div class="mer">
+    <div class="lab">Revenue contribution by source</div>
+    <div class="stackbars">
+      <div class="sb"><div class="seg g" style="height:32px"></div><div class="seg m" style="height:18px"></div><div class="seg o" style="height:40px"></div><div class="seg d" style="height:10px"></div></div>
+      <div class="sb"><div class="seg g" style="height:38px"></div><div class="seg m" style="height:22px"></div><div class="seg o" style="height:46px"></div><div class="seg d" style="height:12px"></div></div>
+      <div class="sb"><div class="seg g" style="height:30px"></div><div class="seg m" style="height:26px"></div><div class="seg o" style="height:52px"></div><div class="seg d" style="height:14px"></div></div>
+      <div class="sb"><div class="seg g" style="height:44px"></div><div class="seg m" style="height:20px"></div><div class="seg o" style="height:48px"></div><div class="seg d" style="height:11px"></div></div>
+      <div class="sb"><div class="seg g" style="height:36px"></div><div class="seg m" style="height:30px"></div><div class="seg o" style="height:58px"></div><div class="seg d" style="height:16px"></div></div>
+      <div class="sb"><div class="seg g" style="height:48px"></div><div class="seg m" style="height:24px"></div><div class="seg o" style="height:50px"></div><div class="seg d" style="height:13px"></div></div>
+      <div class="sb"><div class="seg g" style="height:40px"></div><div class="seg m" style="height:34px"></div><div class="seg o" style="height:62px"></div><div class="seg d" style="height:18px"></div></div>
+    </div>
+    <div class="axis"><span>wk 1</span><span>wk 2</span><span>wk 3</span><span>wk 4</span><span>wk 5</span><span>wk 6</span><span>wk 7</span></div>
+    <div class="legend" style="flex-wrap:wrap">
+      <span><span class="dot" style="background:#2563eb"></span>Google</span>
+      <span><span class="dot" style="background:#7da6f0"></span>Meta</span>
+      <span><span class="dot" style="background:#1d9e75"></span>Organic / direct</span>
+      <span><span class="dot" style="background:#cbd5e1"></span>Other</span>
+    </div>
+  </div>
+</div>
+<div class="viz-grid" style="margin-top:16px">
+  <div class="mer">
+    <div class="lab">Full funnel — across sources</div>
+    <div class="funnel">
+      <div class="fstep"><div class="fbar" style="width:100%">Impressions</div><div class="fmeta">237,602</div></div>
+      <div class="fstep"><div class="fbar" style="width:78%">Clicks</div><div class="fmeta">11,669</div></div>
+      <div class="fstep"><div class="fbar" style="width:60%">Sessions</div><div class="fmeta">10,526</div></div>
+      <div class="fstep"><div class="fbar" style="width:30%">Add to cart</div><div class="fmeta">486</div></div>
+      <div class="fstep"><div class="fbar" style="width:14%">Orders</div><div class="fmeta">68</div></div>
+      <div class="fstep"><div class="fbar" style="width:9%;background:#d8f0e9;color:#0f6e56">Revenue</div><div class="fmeta">$3,002</div></div>
+    </div>
+  </div>
+  <div class="mer">
+    <div class="lab">Profit layer — unlocked by uploads</div>
+    <div class="big" style="font-size:40px;color:#0f6e56">$1,140</div>
+    <div class="sub">Contribution profit after COGS &amp; ad spend. Appears only once a margin sheet is uploaded — the picture no ad platform can draw.</div>
+    <div class="row">
+      <div><div class="k">True CAC</div><div class="v">$41</div></div>
+      <div><div class="k">LTV : CAC</div><div class="v">3.2 : 1</div></div>
+      <div><div class="k">Gross margin</div><div class="v">62%</div></div>
+    </div>
+    <div class="sub" style="margin-top:12px;color:#b45309"><i class="ti ti-upload" style="vertical-align:-2px"></i> Upload margins to turn revenue into profit</div>
+  </div>
+</div>
+
+<div class="lora-card">
+  <div class="h"><i class="ti ti-sparkles"></i> Lora reads the unified picture</div>
+  <p>“Organic and direct are carrying revenue while paid efficiency slipped to 1.05× MER. Google Brand–Search is your only profitable paid line (3.4× ROAS); PMax and Prospecting are below breakeven on a 62% margin. Shift budget from Prospecting to Brand and to retention — that’s where the next dollar earns most.”</p>
+  <span class="ask"><i class="ti ti-arrow-right"></i> Ask a follow-up, or send this to Mer for the deep dive</span>
+</div>
+
+<div class="note">The charts are the substrate; the recommendation is the product. Every visual above feeds Lora, and Lora turns it into the next move — that’s the part competitors can’t copy by adding a connector.</div>
+
+</body>
+</html>
