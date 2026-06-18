@@ -29,6 +29,15 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-18 cont.) — Shopify Flight 1 (refund-net) + Flight 2 (deep backfill) SHIPPED; 2/3 stores backfilled & verified
+
+- FLIGHT 1 — LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 (a27f120, LIVE): product grain refund-netted via per-line refund attribution (refundLineItems.subtotalSet) + order-residual pro-rata → Σ product ≡ account EXACTLY (by construction, exact per-SKU). account / geo / gross UNTOUCHED. Reconciled $0.00 on all 3 stores incl. refund cases before ship.
+- FLIGHT 2 — LORAMER_SHOPIFY_DEEP_BACKFILL_V1 (d5b28a3, LIVE): full-history Shopify ORDER backfill. BackfillControl button on the Shopify row (mirrors google/meta/ga); /api/backfill/run platform='shopify' dispatch (ownership-gated → {complete,earliest}); /api/backfill/status emits platforms['shopify']; synthetic 'shopify_deep' cursor; oldest-order probe sets the first-order floor (NO retention cap); per-day SELF-RECONCILE HALT guard (Σ product==account/1¢ or no write + no cursor advance); sweep-from-yesterday (also overwrites recent pre-fix product rows + folds in #6 cancelled-exclusion free); getValidShopifyToken + REFRESH_RACE CAS keyed to conn.user_email (handles the Escential duplicate-row edge); resumable 45s laps. Button dormant until clicked.
+- BACKFILLS RUN + VERIFIED (2 of 3, read-only canaries):
+   • The Escential Group (c39ee088) — complete to 2025-12-16; 349 rows; account == product **$472.65**, residual **$0.00**. (Confirmed the cohort/reviewer duplicate-client edge: data + cursor live under the REAL cohort client c39ee088, NOT the reviewer dup bb9e2c31.)
+   • Foam OH (957d484e) — complete to 2022-01-24 **#FOAMOH1001**; **16,398 rows** (~4.4 yr); account == product **$4,096,620.74**, residual **$0.00**; per-day guard held end-to-end. Foam OH's 2024 collapse (the Andromeda-impact side) is now in metrics_daily.
+- New Lessons 58 (basis-differs-by-grain → reconcile or ship a silent per-SKU lie) + 59 (per-lap self-reconcile or don't write) in LORAMER_HANDOFF.md.
+
 ## Session log (2026-06-18) — All 3 Shopify stores re-authed (read_all_orders) + one-click Re-authorize shipped + account-vs-product basis diagnosed (LORAMER_SHOPIFY_REAUTH_BUTTON_V1)
 
 - ONE-CLICK RE-AUTHORIZE shipped + LIVE (commit dc760db): connected Shopify rows now show an UNGATED green "Re-authorize" link → straight to /api/shopify/auth with the shop pre-filled from the stored account_id (no modal, no blank-field retype). Replaces the unreachable flag-gated ReconnectControl (Lesson 55).
@@ -302,14 +311,24 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-## NEXT STEP (set 2026-06-18)
-Shopify deep-history arc — ALL 3 stores re-authed + read_all_orders proven; account-vs-product basis diagnosed (see top session log). **TWO FLIGHTS, STRICT ORDER — fix the basis BEFORE backfilling, else we write years of WRONG permanent history.**
+## NEXT STEP (set 2026-06-18 cont.)
+**FINISH Influential Drones deep backfill** — the last of 3 (floor ~2019-04-13 #1001, ~7yr DEEPEST → several "Resume" presses). Open the client → "Backfill history" → click **Resume** until the shopify_deep cursor reaches 2019-04-13, then VERIFY read-only: earliest reaches 2019-04-13 across account/product/geo; cursor backfill_complete=true; full-range Σ product == account within 1¢. The per-day HALT-on-mismatch stops loudly — capture any error verbatim. (Foam OH 957d484e + Escential c39ee088 already done; Influential is the cohort client — filter user_email=cotebrandmarketing@gmail.com; same duplicate-row edge if a reviewer dup exists.)
 
-**FLIGHT 1 (FIRST) — product-grain basis fix.** Refund-net the product rows so Σ product ≡ account EXACTLY. Forward-capture builder change ONLY (account grain = currentSubtotalPriceSet stays UNTOUCHED — it's the merchant's true net). Changes written numbers → requires a CHANGE CONTRACT + a HARD reconciliation test (Σ product == account per window) before ship. OPEN SUB-DECISION (Chat-Claude to spec for Russ's gate): pro-rata currentSubtotal allocation across all SKUs (exact aggregate, spreads each refund evenly) **vs** attribute refunds to the SPECIFIC refunded line items (exact aggregate AND exact per-SKU — PREFERRED; it's the per-SKU truth LORAMER_LORA_INTELLIGENCE_BAR.md requires).
+THEN: triage the FLIGHT-2 FOLLOW-UP QUEUE below at the roadmap audit (several launch-critical).
 
-**FLIGHT 2 (AFTER Flight 1 ships) — deep full-history Shopify backfill.** Woo-template order engine (order-fetch + per-day bucket + resumable cursor + completeness-on-empty + throttle-aware) reusing the CORRECTED product builder, + a BackfillControl button on the Shopify connection row mirroring google/meta/ga. NO retention floor (read_all_orders reaches the first order). Folds in the deferred #6 cancelled-order history correction. Edges: use the VALID cohort token per store (Escential has a duplicate EXPIRED reviewer-install row — filter user_email=cotebrandmarketing@gmail.com); getValidShopifyToken refreshes the ~1h online token (Foam OH's expired mid-session — auto-handled, no manual re-auth). RUN ORDER: Foam OH → Influential Drones → Escential.
+### FLIGHT-2 FOLLOW-UP QUEUE (from Russ, 2026-06-18 — triage at the roadmap audit; LAUNCH flags noted)
+1. Backfill progress meter, ALL platforms (merge w/ #6).
+2. Lora content bleed on mobile + desktop (tables overflow) — responsive table/overflow across ALL Lora surfaces. **LAUNCH-RELEVANT.**
+3. Mobile: no path to the /clients cards grid (dropdown lacks "all clients") — the mobile nav gap. **LAUNCH-RELEVANT.** Pairs w/ #7.
+4. Shopify month-view loads too slow — perf; check live-fetch-vs-metrics_daily / missing index FIRST.
+5. Daily/weekly/monthly toggle on the Shopify performance graph.
+6. Backfill AUTO-CONTINUE to completion (drop manual Resume; the 20-lap cap is a safety bound, not a requirement) + progress meter (merge w/ #1).
+7. Campaigns bottom-nav defaults to Meta; must default to BOTH when google+meta both connected, else the single available one. **LAUNCH-CRITICAL;** part of the nav/IA redo.
+8. "Clear" button under the alert Lora surface — UNKNOWN behavior; needs a READ-ONLY code check (view-clear vs Lora memory/history wipe); treat as possibly history-affecting until confirmed.
+9. More Meta data — conversions (add-to-cart, purchases, ROAS), not just graph+name on mobile campaigns>meta; more capture + a real intelligent display; benchmark Triple Whale / Shopify / Google, copy the best. **LAUNCH-RELEVANT.**
+10. Re-auth button for ALL platforms — same reachability gap in Google/Meta/GA (flag/health-gated); needed on scope expansion (Meta breakdowns/write) or token revoke = the cross-platform re-auth integrity audit (queued); Meta near-term.
 
-OPEN FOLLOW-UPS / CARRY-OVER (unchanged): Woo revenue reconciliation (highest-trust DATA item — TOP OF QUEUE (1) below); token-dedup hardening (the duplicate Escential reviewer row); cross-platform re-auth integrity audit (Google/Meta — real re-consent vs silent refresh? — Lesson 54); machine-parity pass (Air & iMac node/CLI — Lesson 56); Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch.
+OPEN FOLLOW-UPS / CARRY-OVER (unchanged): Woo revenue reconciliation (highest-trust DATA item — TOP OF QUEUE (1) below); token-dedup hardening (the Escential cohort/reviewer duplicate rows); cross-platform re-auth integrity audit (Google/Meta — Lesson 54); machine-parity pass (Air & iMac node/CLI — Lesson 56); Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch; LORAMER_LORA_INTELLIGENCE_BAR.md north star (99d3ead, in REQUIRED READING).
 
 Reviewer-path UI freeze holds until the Meta decision; review clocks PASSIVE (Google 06-10, Meta 06-11).
 
