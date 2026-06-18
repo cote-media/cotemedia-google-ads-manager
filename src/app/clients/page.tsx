@@ -1198,16 +1198,21 @@ function ClientsContent() {
                                     <p className="text-xs text-muted font-sans truncate">{shopifyConn.account_name}</p>
                                   </div>
                                 </div>
-                                {HEALTH_UI && shopifyConn.health === 'reconnect' ? (
-                                  <ReconnectControl onClick={() => { setShopifyModal(client.id); setShopifyDomain('') }} scopeNote="Re-authorize this Shopify store." />
-                                ) : (
+                                {/* LORAMER_SHOPIFY_REAUTH_BUTTON_V1 — one-click Re-authorize (UNGATED: not behind HEALTH_UI or health==='reconnect'). Straight to the OAuth route, shop pre-filled from the stored connection account_id (the .myshopify.com domain) — no modal, no typed field. Replaces the broken blank-modal ReconnectControl path. Disconnect + the new-connection modal are unchanged. */}
+                                <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+                                  <a href={`/api/shopify/auth?clientId=${client.id}&shop=${shopifyConn.account_id}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Re-authorize this Shopify store (re-grants access, e.g. full order history)"
+                                    className="text-xs font-sans font-medium rounded px-2 py-0.5 text-white transition-colors hover:opacity-90" style={{ background: '#95BF47' }}>
+                                    Re-authorize
+                                  </a>
                                   <button onClick={async () => {
                                     await fetch('/api/clients/connections?id=' + shopifyConn.id, { method: 'DELETE' })
                                     fetchClients()
-                                  }} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
+                                  }} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline">
                                     Disconnect
                                   </button>
-                                )}
+                                </div>
                               </div>
                             )}
                             {wooConn && (  /* LORAMER_WOO_CONNECT_V1 */
