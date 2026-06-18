@@ -12,7 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { runBackfill } from '@/lib/backfill/run-backfill'
 import { backfillAdapters } from '@/lib/backfill/adapters'
 import { runGoogleDimensionalBackfill } from '@/lib/backfill/google-dimensional-backfill' // LORAMER_SEARCH_TERMS_BACKFILL_V1
-import { runShopifyDimensionalBackfill } from '@/lib/backfill/shopify-dimensional-backfill' // LORAMER_SHOPIFY_DIM_BACKFILL_V1
+import { runShopifyDimensionalBackfill, runShopifyDeepBackfill } from '@/lib/backfill/shopify-dimensional-backfill' // LORAMER_SHOPIFY_DIM_BACKFILL_V1 + LORAMER_SHOPIFY_DEEP_BACKFILL_V1
 
 export const maxDuration = 60
 // LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1 (Lesson 52 defense-in-depth) — opt out of Next.js App Router
@@ -77,6 +77,23 @@ export async function POST(request: Request) {
     const daysRaw = payload?.days
     const days = typeof daysRaw === 'number' ? Math.max(1, Math.min(400, Math.floor(daysRaw))) : 90
     const { status, body } = await runShopifyDimensionalBackfill(clientId, { days })
+    return NextResponse.json(body, { status })
+  }
+
+  // LORAMER_SHOPIFY_DEEP_BACKFILL_V1 — Shopify FULL-HISTORY backfill (account + refund-netted product + geo,
+  // back to the store's first order). Separate lib + cursor (sync_state platform='shopify_deep'); data rows
+  // stay platform='shopify'. Ownership-gated like the other platforms; ONE lap per POST (BackfillControl resumes).
+  if (platform === 'shopify') {
+    const { data: owned, error: ownErr } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('user_email', email)
+      .maybeSingle()
+    if (ownErr || !owned) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    const { status, body } = await runShopifyDeepBackfill(clientId)
     return NextResponse.json(body, { status })
   }
 

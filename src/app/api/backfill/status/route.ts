@@ -76,5 +76,34 @@ export async function GET(request: Request) {
     }
   }
 
+  // LORAMER_SHOPIFY_DEEP_BACKFILL_V1 — Shopify deep backfill status. The cursor lives under the synthetic
+  // sync_state platform='shopify_deep'; data rows are platform='shopify'. earliestDate = the actual earliest
+  // metrics_daily shopify ACCOUNT row (honest depth, same as the adapter platforms above). Emitted only when
+  // the client has shopify data or a deep cursor (so non-Shopify clients get no phantom entry).
+  const { data: shopState } = await supabaseAdmin
+    .from('sync_state')
+    .select('backfill_earliest_date, backfill_target_date, backfill_complete, updated_at')
+    .eq('client_id', clientId)
+    .eq('platform', 'shopify_deep')
+    .maybeSingle()
+  const { data: shopMin } = await supabaseAdmin
+    .from('metrics_daily')
+    .select('date')
+    .eq('client_id', clientId)
+    .eq('platform', 'shopify')
+    .eq('entity_level', 'account')
+    .order('date', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (shopState || shopMin) {
+    platforms['shopify'] = {
+      earliestDate: (shopMin && shopMin.date) || null,
+      sweptTo: shopState?.backfill_earliest_date ?? null,
+      targetDate: shopState?.backfill_target_date ?? null,
+      complete: !!shopState?.backfill_complete,
+      updatedAt: shopState?.updated_at ?? null,
+    }
+  }
+
   return NextResponse.json({ clientId, backfillable, platforms })
 }

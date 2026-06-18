@@ -1187,7 +1187,7 @@ function ClientsContent() {
                                 )}
                               </div>
                             <BackfillControl clientId={client.id} platform="meta" onComplete={fetchClients} /></div>)}
-                            {shopifyConn && (
+                            {shopifyConn && (<div>
                               <div className="flex items-center justify-between bg-white border border-border rounded-lg px-3 py-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full flex-shrink-0" style={{ background: '#95BF47' }}>
@@ -1214,7 +1214,7 @@ function ClientsContent() {
                                   </button>
                                 </div>
                               </div>
-                            )}
+                            <BackfillControl clientId={client.id} platform="shopify" onComplete={fetchClients} /></div>)}
                             {wooConn && (  /* LORAMER_WOO_CONNECT_V1 */
                               <div className="flex items-center justify-between p-3 bg-surface rounded-lg">
                                 <div className="flex items-center gap-3 min-w-0">
