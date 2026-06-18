@@ -27,7 +27,7 @@ export default function Shell({
         href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap"
         rel="stylesheet"
       />
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/dist/tabler-icons.min.css" />
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css" />
 
       {/* Desktop rail (hidden < md) */}
       <aside className={`${styles.rail} ${styles.railDesktop}`}>
