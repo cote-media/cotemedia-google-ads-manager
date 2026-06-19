@@ -13,6 +13,7 @@ import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
 import NaicsPicker from './NaicsPicker'
+import KnowledgePanel from './KnowledgePanel'
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -252,6 +253,15 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
           <textarea className={styles.brainInput} placeholder='e.g. "B2B SaaS targeting facility managers; sales cycle ~90 days."' value={newFact} onChange={e => setNewFact(e.target.value)} rows={2} />
           <button className={styles.addBtn} onClick={() => addItem(newFact, 'fact', () => setNewFact(''))}><i className="ti ti-plus" /> Add fact</button>
         </div>
+      </section>
+
+      {/* 5) KNOWLEDGE (uploads) */}
+      <section className={styles.section}>
+        <div className={styles.brainHead}>
+          <span className={styles.brainLabel}>Knowledge</span>
+          <span className={styles.brainExplainer}>— docs Lora reads as reference on every answer</span>
+        </div>
+        <KnowledgePanel scope="client" clientId={clientId} />
       </section>
     </>
   )
