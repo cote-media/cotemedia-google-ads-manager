@@ -38,6 +38,7 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
   • KnowledgePanel.tsx UI (client scope, scope-aware for agency reuse): drop-zone, multi-file sequential upload, doc list, delete×, budget meter, empty state. Polish: brand copy Claude→Lora; mobile no-horizontal-bleed.
 - Banked LAUNCH_PARKING.md "Post-freeze hardening": managed malware scan + final security review (launch floor shipped; scan_status seam ready, no new migration).
 - HEAD at wrap: 1d4d51e.
+- PDF EXTRACTION FIX COMPLETE (LORAMER_KNOWLEDGE_PDF_FIX_V1, commit 3dde314): /api/knowledge PDF branch swapped pdf-parse (v2/pdfjs browser build) -> unpdf 1.6.2 (serverless, DOM-free), fixing the prod "DOMMatrix is not defined" error. PDF branch ONLY; docx/xlsx/txt, dedup, budget, audit, segment-config UNTOUCHED. pdf-parse left installed (legacy /api/upload still uses it). Proven: Gate A = 3/3 real PDFs locally incl. a 51-pg/37k-word doc + tsc PASS; Gate B = PROD upload of Escential_Group_Blog_Template.pdf -> 281 words ingested cleanly, zero DOMMatrix. Vercel prod build clean (no next.config externalize needed). HEAD now 3dde314 (+ this docs wrap on top).
 
 ## Session log (2026-06-18 cont.4) — MOBILE + MULTI-CLIENT + NAV decisions LOCKED (mobile concept approved)
 • Mobile concept approved by Russ (3 frames). Decisions banked to docs/LORAMER_REDESIGN_SPEC.md §4.
@@ -339,17 +340,13 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-═══ NEXT STEP (set 2026-06-19) ═══
-NEXT STEP — FIX PDF EXTRACTION (production bug).
-PDF uploads fail in prod with "DOMMatrix is not defined": pdf-parse v2 / pdfjs needs a browser API absent in
-Vercel's Node serverless runtime. DOCX / TXT / CSV / XLSX work; PDF does not.
-Do it RIGHT (permanent, not a patch): investigate first, then choose a serverless-friendly extractor (e.g. unpdf)
-OR a DOMMatrix polyfill OR the pdfjs legacy build. PROVE by extracting the real failing file "Russ-Claude
-exchange.pdf" plus 1–2 other real PDFs end-to-end. Lives in /api/knowledge (shared backend, additive, freeze-safe).
-Standard Gate A → deploy → Gate B.
+═══ NEXT STEP (set 2026-06-19, after PDF fix) ═══
+NEXT STEP — WIRE -next TO REAL DATA.
+Wire the -next shell + portfolio + client switcher to real client/connection data (currently static) so -next becomes navigable. [Russ's leaning workstream.] Build-dark behind the preview gate; desktop AND mobile together (one responsive shell). Approach-before-build gate applies (shared shell). Redesign arc: (a) responsive shell [DONE], (b) Multi-Client Overview [DONE static], (c) wire real data [THIS STEP], (d) react-grid-layout customization engine. Spec: docs/LORAMER_REDESIGN_SPEC.md §1 + §4.
 
-QUEUED (after the PDF fix):
-- Wire -next shell + portfolio + client switcher to real client/connection data (currently static) — makes -next navigable. [Russ's leaning next workstream]
+(PREVIOUS NEXT STEP — FIX PDF EXTRACTION — DONE this session: LORAMER_KNOWLEDGE_PDF_FIX_V1 / commit 3dde314. See session log.)
+
+QUEUED:
 - Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes → Facts.
 - Agency profile route (stub) → unlocks agency-level Knowledge UI (KnowledgePanel already scope-aware).
 - Privacy / no-training copy (folds into homepage unification).
@@ -358,6 +355,7 @@ QUEUED (after the PDF fix):
 - DECISION pending: user-delete = soft-delete+retention (current) vs immediate hard-purge (Russ asked).
 - Launch cleanup: remove/disable legacy /api/upload (broken pdf-parse v1) + /clients uploader when -next replaces legacy.
 - Bigger launch tracks: RBAC, Stripe Phase 4, Google OAuth + Standard Access, homepage unification, Meta token reconnect ~07-10.
+- NICETY (not launch-critical): soften the encrypted-PDF rejection copy in /api/knowledge — show "This PDF is password-protected and can't be read" instead of raw "Could not read this file: No password given". (Encrypted PDFs are inherently unreadable without the password — correct to reject, just friendlier copy.)
 
 PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to real data): build the redesign behind the preview gate, desktop AND mobile together (per-increment DoD = verified on both): (a) responsive shell [DONE], (b) Multi-Client Overview [DONE static], (c) wire real client/connection data [QUEUED above], (d) reusable react-grid-layout customization engine (drag/expand/pin, per-page saved layouts). Spec: docs/LORAMER_REDESIGN_SPEC.md §1 (desktop) + §4 (mobile/nav/landing).
 
