@@ -175,3 +175,9 @@ built once, never owner-only-then-rewritten:
 - **Staged-revert ready** — every increment ships behind the gate with a clean revert; cutover itself is a
   route swap with instant rollback.
 - **Docs ship with code** — this program doc + ROADMAP move in the same commit as the increment they describe.
+
+## PORTFOLIO SORT/FILTER — captured spec (build when we reach the /dashboard-next/clients sort/filter slice; refine then)
+SORTS (respect the active period picker): alphabetical A–Z (default) / Z–A; total spend; total revenue; ROAS (rev÷spend); spend Δ%; revenue Δ%; absolute $ change (spend, revenue) — separate from %, since % misleads on small bases; last active / data freshness; pinned-first (cards already have a pin).
+FILTERS — objective (near-term; mostly client-side on loaded data, platform/health need the route to also return connections): platform connected (Google/Meta/Shopify/Woo/GA); connection health (healthy/needs-reauth/disconnected); active vs dormant ($0 in period); spend/revenue thresholds; ROAS<1 (losing money); industry/NAICS (already stored); high-spend + flat/declining-revenue (efficiency flag).
+FILTERS — intelligent (DEFER; land with the proactive-intelligence layer): needs-attention/anomalies; trending up/down; over/underperformers vs benchmark; budget pacing; spending-but-not-converting; not-reviewed-recently.
+NOTE: most SORTS are pure client-side reorders on data the portfolio already fetches → fast/freeze-safe. Intelligent filters ride the deferred intelligence layer.
