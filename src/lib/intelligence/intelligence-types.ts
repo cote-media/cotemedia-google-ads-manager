@@ -486,6 +486,7 @@ export interface ClientIntelligence {
     businessDescriptor?: string  // LORAMER_CLIENT_DESCRIPTOR_V1 — free-text "what this business does" (primary signal; falls back to businessType)
     serviceArea?: string         // LORAMER_CLIENT_DESCRIPTOR_V1
     naicsCodes?: { code: string; title: string }[]  // LORAMER_NAICS_V1 — official definitions resolved server-side at prompt time
+    knowledgeDocs?: { scope: 'client' | 'agency'; filename: string; text: string; wordCount: number }[]  // LORAMER_KNOWLEDGE_INGEST_V1 — uploaded reference docs (delimited untrusted data)
     primaryKpi?: string
     funnelNotes?: string
     userNotes?: string

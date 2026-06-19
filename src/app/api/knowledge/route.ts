@@ -7,14 +7,13 @@ import { getServerSession } from 'next-auth'
 import { createHash } from 'crypto'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { CLIENT_WORD_BUDGET, AGENCY_WORD_BUDGET } from '@/lib/knowledge/budgets'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 export const maxDuration = 60
 
-const CLIENT_WORD_BUDGET = 25000
-const AGENCY_WORD_BUDGET = 8000
 const MAX_BYTES = 25 * 1024 * 1024
 const EXTRACT_TIMEOUT_MS = 30000
 

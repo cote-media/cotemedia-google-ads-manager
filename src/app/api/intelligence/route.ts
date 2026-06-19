@@ -104,7 +104,7 @@ export async function GET(request: Request) {
   // Read active (non-archived) facts only; pinned first, then highest
   // confidence, then most recent. The prompt builder uses these to inject
   // a "WHAT YOU KNOW ABOUT [CLIENT]" block in Claude's system prompt.
-  const [connectionsResult, clientResult, contextResult, conversationsResult, memoryResult] = await Promise.all([
+  const [connectionsResult, clientResult, contextResult, conversationsResult, memoryResult, knowledgeResult] = await Promise.all([
     supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId),
     supabaseAdmin.from('clients').select('name').eq('id', clientId).single(),
     supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', session.user.email).single(),
@@ -125,8 +125,17 @@ export async function GET(request: Request) {
       .order('confidence', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(200),
+    // LORAMER_KNOWLEDGE_INGEST_V1 — recall: this client's docs + this owner's agency-wide docs (non-deleted)
+    supabaseAdmin
+      .from('uploaded_docs')
+      .select('scope, filename, extracted_text, word_count')
+      .is('deleted_at', null)
+      .or(`and(scope.eq.client,client_id.eq.${clientId}),and(scope.eq.agency,owner_email.eq.${session.user.email})`),
   ])
   const memory = memoryResult.data || []
+  const knowledgeDocs = (knowledgeResult.data || []).map((d: any) => ({
+    scope: d.scope as 'client' | 'agency', filename: d.filename, text: d.extracted_text || '', wordCount: d.word_count || 0,
+  }))
 
   const connections = connectionsResult.data || []
   const client = clientResult.data
@@ -164,6 +173,7 @@ export async function GET(request: Request) {
           businessDescriptor: context.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
           serviceArea: context.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
           naicsCodes: context.naics_codes || [],           // LORAMER_NAICS_V1 (additive)
+          knowledgeDocs,                                    // LORAMER_KNOWLEDGE_INGEST_V1 (additive)
           primaryKpi: context.primary_kpi,
           funnelNotes: context.funnel_notes,
           userNotes: context.user_notes,
@@ -195,6 +205,7 @@ export async function GET(request: Request) {
       businessDescriptor: context?.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
       serviceArea: context?.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
       naicsCodes: context?.naics_codes || [],           // LORAMER_NAICS_V1 (additive)
+      knowledgeDocs,                                    // LORAMER_KNOWLEDGE_INGEST_V1 (additive)
       primaryKpi: context?.primary_kpi,
       funnelNotes: context?.funnel_notes,
       userNotes: context?.user_notes,
