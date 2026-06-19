@@ -83,6 +83,20 @@ export function resolveDateWindow(
       const end = utcCalendarDate(y, m, 0)
       return { startDate: formatUtcDate(start), endDate: formatUtcDate(end) }
     }
+    case 'THIS_WEEK': {
+      // ADDITIVE (LORAMER_NEXT_PORTFOLIO_DELTA_V1). Monday-start week, to-date.
+      const dow = today.getUTCDay() // 0=Sun..6=Sat
+      const monday = addUtcDays(today, -((dow + 6) % 7))
+      return { startDate: formatUtcDate(monday), endDate: todayStr }
+    }
+    case 'LAST_WEEK': {
+      // ADDITIVE (LORAMER_NEXT_PORTFOLIO_DELTA_V1). Previous complete Monday..Sunday.
+      const dow = today.getUTCDay()
+      const thisMonday = addUtcDays(today, -((dow + 6) % 7))
+      const lastMonday = addUtcDays(thisMonday, -7)
+      const lastSunday = addUtcDays(thisMonday, -1)
+      return { startDate: formatUtcDate(lastMonday), endDate: formatUtcDate(lastSunday) }
+    }
     default:
       return {
         startDate: formatUtcDate(addUtcDays(yesterday, -29)),

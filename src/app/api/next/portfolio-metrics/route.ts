@@ -1,20 +1,16 @@
-// LORAMER_NEXT_PORTFOLIO_METRICS_V1 — -next batch portfolio metrics (membership-aware). ONE paginated
-// metrics_daily query for ALL accessible clients (NOT a per-client loop of heavy intelligence calls).
+// LORAMER_NEXT_PORTFOLIO_METRICS_V1 / LORAMER_NEXT_PORTFOLIO_DELTA_V1 — -next batch portfolio metrics
+// (membership-aware) for a SELECTED period + its LIKE-FOR-LIKE prior. ONE paginated metrics_daily query covers
+// BOTH windows (NOT a per-client loop). ?period=<preset> (default LAST_30_DAYS for back-compat).
 //
-// DEFINITION IS REPLICATED from the current app's /api/clients/metrics (LORAMER_CLIENT_METRICS_ROLLUP_V2) —
-// that route is on the frozen reviewer path, so it is NOT imported/edited; the identical query lives here and
-// is reconciled to it (Gate A): metrics_daily CANONICAL account rows (entity_level='account',
-// breakdown_type='' , breakdown_value='') over LAST_30_DAYS via the ONE resolver; spend = google+meta;
-// revenue precedence store(shopify/woo) > ga > null (NEVER summed); ads conversion_value is NOT revenue.
-//
-// NO delta: the current app computes no portfolio-level delta, so there is nothing to reconcile a delta to
-// (deferred — see CONTINUE_HERE / report). Returns only the objective, reconcilable Spend + Revenue.
+// DEFINITION replicated from the current app's /api/clients/metrics (that route is frozen — NOT imported/edited;
+// reconciled in Gate A): metrics_daily CANONICAL account rows (breakdown_type=''/value='') ; spend = google+meta;
+// revenue precedence store(shopify/woo) > ga > null (NEVER summed). ONLY the windows change vs 1B-2.
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { resolveDateWindow } from '@/lib/date-range'
 import { listAccessibleClients } from '@/lib/access/can-access'
+import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -23,54 +19,73 @@ export const fetchCache = 'force-no-store'
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
 
-export async function GET() {
+type Acc = { spend: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }
+const emptyAcc = (): Acc => ({ spend: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 })
+function settle(a: Acc): { spend: number; revenue: number | null; revenueSource: 'store' | 'ga' | 'none' } {
+  const spend = Number(a.spend.toFixed(2))
+  if (a.storeRows > 0) return { spend, revenue: Number(a.storeRev.toFixed(2)), revenueSource: 'store' }
+  if (a.gaRows > 0) return { spend, revenue: Number(a.gaRev.toFixed(2)), revenueSource: 'ga' }
+  return { spend, revenue: null, revenueSource: 'none' }
+}
+
+export async function GET(request: Request) {
   const session = (await getServerSession(authOptions)) as any
   const email = session?.user?.email
   if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const raw = new URL(request.url).searchParams.get('period')
+  const period = isPortfolioPeriod(raw) ? raw : 'LAST_30_DAYS'
+  const { current, prior } = portfolioWindows(period)
+  const overallStart = current.startDate < prior.startDate ? current.startDate : prior.startDate
+  const overallEnd = current.endDate > prior.endDate ? current.endDate : prior.endDate
+
   const clientIds = await listAccessibleClients(email)
-  if (!clientIds.length) return NextResponse.json({ metrics: [] })
+  if (!clientIds.length) return NextResponse.json({ period, current, prior, metrics: [] })
 
-  const { startDate, endDate } = resolveDateWindow('LAST_30_DAYS')
-  const buckets: Record<string, { spend: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }> = {}
-  for (const id of clientIds) buckets[id] = { spend: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 }
+  const cur: Record<string, Acc> = {}
+  const prev: Record<string, Acc> = {}
+  for (const id of clientIds) { cur[id] = emptyAcc(); prev[id] = emptyAcc() }
 
-  // Canonical top-level rows only; paginate (Supabase caps selects at 1000). Identical filter to the query layer.
   const PAGE = 1000
   let from = 0
   for (;;) {
     const { data, error } = await supabaseAdmin
       .from('metrics_daily')
-      .select('client_id,platform,spend,revenue')
+      .select('client_id,platform,spend,revenue,date')
       .in('client_id', clientIds)
       .eq('entity_level', 'account')
       .eq('breakdown_type', '')
       .eq('breakdown_value', '')
-      .gte('date', startDate)
-      .lte('date', endDate)
+      .gte('date', overallStart)
+      .lte('date', overallEnd)
       .range(from, from + PAGE - 1)
     if (error) return NextResponse.json({ error: 'metrics_daily query failed', detail: error.message }, { status: 500 })
     const rows = data || []
     for (const r of rows) {
-      const b = buckets[r.client_id as string]
-      if (!b) continue
+      const d = r.date as string
+      const bucket = d >= current.startDate && d <= current.endDate ? cur
+        : d >= prior.startDate && d <= prior.endDate ? prev
+        : null
+      if (!bucket) continue
+      const a = bucket[r.client_id as string]
+      if (!a) continue
       const platform = r.platform as string
-      if (ADS_PLATFORMS.includes(platform)) b.spend += Number(r.spend || 0)
-      else if (STORE_PLATFORMS.includes(platform)) { b.storeRev += Number(r.revenue || 0); b.storeRows += 1 }
-      else if (platform === 'ga') { b.gaRev += Number(r.revenue || 0); b.gaRows += 1 }
+      if (ADS_PLATFORMS.includes(platform)) a.spend += Number(r.spend || 0)
+      else if (STORE_PLATFORMS.includes(platform)) { a.storeRev += Number(r.revenue || 0); a.storeRows += 1 }
+      else if (platform === 'ga') { a.gaRev += Number(r.revenue || 0); a.gaRows += 1 }
     }
     if (rows.length < PAGE) break
     from += PAGE
   }
 
   const metrics = clientIds.map((id) => {
-    const b = buckets[id]
-    const spend = Number(b.spend.toFixed(2))
-    let revenue: number | null = null
-    let revenueSource: 'store' | 'ga' | 'none' = 'none'
-    if (b.storeRows > 0) { revenue = Number(b.storeRev.toFixed(2)); revenueSource = 'store' }
-    else if (b.gaRows > 0) { revenue = Number(b.gaRev.toFixed(2)); revenueSource = 'ga' }
-    return { clientId: id, spend, revenue, revenueSource }
+    const c = settle(cur[id])
+    const p = settle(prev[id])
+    return {
+      clientId: id,
+      spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,
+      spendPrior: p.spend, revenuePrior: p.revenue,
+    }
   })
-  return NextResponse.json({ metrics })
+  return NextResponse.json({ period, current, prior, metrics })
 }
