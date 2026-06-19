@@ -60,9 +60,10 @@ function isUtf8Text(buf: Buffer): boolean {
 async function extractText(type: string, buf: Buffer): Promise<string> {
   const run = (async () => {
     if (type === 'pdf') {
-      const { PDFParse } = require('pdf-parse') // v2 class API
-      const parser = new PDFParse({ data: new Uint8Array(buf) })
-      try { return (await parser.getText()).text || '' } finally { try { await parser.destroy?.() } catch {} }
+      const { getDocumentProxy, extractText: pdfExtractText } = await import('unpdf')
+      const pdf = await getDocumentProxy(new Uint8Array(buf))
+      const { text } = await pdfExtractText(pdf, { mergePages: true })
+      return text || ''
     }
     if (type === 'docx') {
       const mammoth = require('mammoth')
