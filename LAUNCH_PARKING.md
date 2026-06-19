@@ -82,3 +82,20 @@ Project 3 Step 2f shipped successfully — asset GROUPS render correctly (Asset 
 Build output during recent commits shows: `(node:4) [DEP0169] DeprecationWarning: url.parse() behavior is not standardized and prone to errors that have security implications.` This comes from a transitive dependency, not our code. Node is signaling it won't issue CVEs for url.parse() vulnerabilities — long-term security concern. Connected to Project 8 (Next.js 14.2.3 upgrade) and broader dependency hygiene. Defer until post-launch when we do a dependency-update pass. Run `node --trace-deprecation` next to localize the offending dep if we want to be surgical.
 ### Project 3 Step 2 status note (May 26, 2026)
 Project 3 Step 2 (a-f) shipped end-to-end this session. All six sub-steps deployed: search terms, per-campaign conversion attribution, audience segments (with recovery), demographics, RSA asset-level performance, PMax asset groups + assets. Known gaps to address before Project 3 is "fully done": (1) the PMax asset-level query bug above; (2) the Meta audience-data investigation; (3) the second test message "what's the last thing I said in the other tab" exposed an architectural gap addressed by `docs/PROJECT_14_PHASE_4_DESIGN.md` (cross-surface attribution with per-message surface labels). Step 3 (Google Tier 2: geographic, device, hour, auction insights, recommendations) not started — that's tomorrow's main thread once asset-level bug is fixed.
+
+## Post-freeze hardening
+
+<!-- LORAMER_PARK_UPLOAD_MALWARE_V1 -->
+### Uploads — best-practice malware scanning + final security review (POST-FREEZE)
+Decided 2026-06-18 (Russ). Launch ships the Knowledge-store security FLOOR; managed malware scanning is the
+first hardening step once the Meta App Review freeze lifts, before the wider Q4 opening.
+
+Already in place at launch (the floor):
+- Magic-byte / content validation (not extension), 25 MB cap, parse timeouts (zip-bomb / DoS guard)
+- Text-only extraction, no execution (DOCX macros never run), prompt-injection-safe delimited injection
+- SHA-256 content hashing (dedup / integrity / audit) — live from day one
+
+Post-freeze drop-in (no rework — the seam is already built):
+- Integrate a managed malware-scan API per upload; on result, flip uploaded_docs.scan_status
+  ('deferred' -> 'pending' -> 'clean'/'infected'/'error'). No new migration needed (column already exists).
+- Final security review of the upload path; consider self-hosted ClamAV if volume warrants (UPLOAD design decision 2).
