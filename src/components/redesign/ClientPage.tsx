@@ -23,6 +23,8 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
 
 type Conn = { platform: string; account_name: string | null; health: string | null }
 type Fact = { id: number; content: string; category: string; source: string; pinned: boolean }
+type GenField = 'business_descriptor' | 'service_area' | 'website'
+type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const TOLD = new Set(['user_explicit', 'user_conversation', 'bootstrap_legacy'])
 
@@ -30,8 +32,11 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   const [descriptor, setDescriptor] = useState('')
   const [serviceArea, setServiceArea] = useState('')
   const [website, setWebsite] = useState('')
-  const saved = useRef<{ business_descriptor: string; service_area: string; website: string }>({ business_descriptor: '', service_area: '', website: '' })
-  const [savedTag, setSavedTag] = useState('')
+  const saved = useRef<Record<GenField, string>>({ business_descriptor: '', service_area: '', website: '' })
+  // Per-field save lifecycle so the state is UNMISTAKABLE (steady, not a flash): idle/dirty/saving/saved/error.
+  const [status, setStatus] = useState<Record<GenField, SaveState>>({ business_descriptor: 'idle', service_area: 'idle', website: 'idle' })
+  const setFieldStatus = (f: GenField, s: SaveState) => setStatus(prev => ({ ...prev, [f]: s }))
+  const current = (f: GenField) => (f === 'business_descriptor' ? descriptor : f === 'service_area' ? serviceArea : website)
   const [memory, setMemory] = useState<Fact[]>([])
   const [newRule, setNewRule] = useState('')
   const [newFact, setNewFact] = useState('')
@@ -46,22 +51,38 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   useEffect(() => {
     fetch('/api/context?clientId=' + clientId).then(r => r.json()).then(d => {
       const c = d.context || {}
-      setDescriptor(c.business_descriptor || '')
-      setServiceArea(c.service_area || '')
-      setWebsite(c.website || '')
-      saved.current = { business_descriptor: c.business_descriptor || '', service_area: c.service_area || '', website: c.website || '' }
+      const bd = c.business_descriptor || '', sa = c.service_area || '', ws = c.website || ''
+      setDescriptor(bd); setServiceArea(sa); setWebsite(ws)
+      saved.current = { business_descriptor: bd, service_area: sa, website: ws }
+      // A persisted (non-empty) field starts in a steady "Saved" state; empty fields stay quiet (idle).
+      setStatus({ business_descriptor: bd ? 'saved' : 'idle', service_area: sa ? 'saved' : 'idle', website: ws ? 'saved' : 'idle' })
     })
     loadMemory()
   }, [clientId]) // eslint-disable-line
 
+  // Live "dirty" tracking as the user types — value differs from the last-persisted value.
+  function onEdit(field: GenField, value: string, setter: (v: string) => void) {
+    setter(value)
+    const v = value.trim()
+    setFieldStatus(field, v === saved.current[field] ? (saved.current[field] ? 'saved' : 'idle') : 'dirty')
+  }
+
   // Save a single General field on blur, only if it changed. Light website tidy: add https:// if missing.
-  async function saveField(field: 'business_descriptor' | 'service_area' | 'website', raw: string) {
+  // Loud, steady lifecycle: saving -> saved (stays) or error (stays, with retry). Never a silent fail.
+  async function saveField(field: GenField, raw: string) {
     let value = raw.trim()
     if (field === 'website' && value && !/^https?:\/\//i.test(value)) { value = 'https://' + value; setWebsite(value) }
-    if (value === saved.current[field]) return
-    saved.current = { ...saved.current, [field]: value }
-    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { [field]: value } }) })
-    setSavedTag('Saved ✓'); setTimeout(() => setSavedTag(''), 1500)
+    if (value === saved.current[field]) { setFieldStatus(field, value ? 'saved' : 'idle'); return }
+    setFieldStatus(field, 'saving')
+    try {
+      const res = await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { [field]: value } }) })
+      if (!res.ok) throw new Error('save ' + res.status)
+      saved.current = { ...saved.current, [field]: value }
+      setFieldStatus(field, value ? 'saved' : 'idle')
+    } catch (e) {
+      console.error('[client-page] saveField failed:', field, e)
+      setFieldStatus(field, 'error') // stays until a successful retry — never silently dropped
+    }
   }
   async function addItem(content: string, category: 'directive' | 'fact', reset: () => void) {
     if (!content.trim()) return
@@ -75,6 +96,21 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   async function saveEdit(id: number) {
     if (editText.trim()) await patchItem(id, { content: editText.trim() })
     setEditingId(null); setEditText('')
+  }
+
+  // The unmistakable per-field save indicator.
+  function FieldStatus({ field }: { field: GenField }) {
+    const s = status[field]
+    if (s === 'idle') return null
+    if (s === 'dirty') return <span className={`${styles.fieldStatus} ${styles.fsDirty}`}><i className="ti ti-point-filled" /> Unsaved changes</span>
+    if (s === 'saving') return <span className={`${styles.fieldStatus} ${styles.fsSaving}`}><i className="ti ti-loader-2" /> Saving…</span>
+    if (s === 'saved') return <span className={`${styles.fieldStatus} ${styles.fsSaved}`}><i className="ti ti-circle-check" /> Saved</span>
+    return (
+      <span className={`${styles.fieldStatus} ${styles.fsError}`}>
+        <i className="ti ti-alert-triangle" /> Couldn&apos;t save —
+        <button className={styles.retryBtn} onClick={() => saveField(field, current(field))}>retry</button>
+      </span>
+    )
   }
 
   const rules = memory.filter(m => m.category === 'directive')
@@ -124,7 +160,6 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
       <section className={styles.section}>
         <div className={styles.sectionHead}>
           <span className={styles.sectionTitle}>General</span>
-          {savedTag && <span className={styles.savedTag}>{savedTag}</span>}
         </div>
         <div className={styles.genTop}>
           <Avatar name={clientName} kind="client" className={styles.cardAvatar} />
@@ -132,22 +167,22 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
         </div>
         <div className={styles.genFields}>
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>What this business does</span>
+            <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>What this business does</span><FieldStatus field="business_descriptor" /></span>
             <textarea className={styles.notesArea} rows={3} value={descriptor}
-              onChange={e => setDescriptor(e.target.value)} onBlur={e => saveField('business_descriptor', e.target.value)}
+              onChange={e => onEdit('business_descriptor', e.target.value, setDescriptor)} onBlur={e => saveField('business_descriptor', e.target.value)}
               placeholder="Modular foam furniture for kids, sold DTC — buyers are parents, peak Nov–Dec" />
           </label>
           <div className={styles.genGrid}>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Service area</span>
+              <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>Service area</span><FieldStatus field="service_area" /></span>
               <input className={styles.formInput} type="text" value={serviceArea}
-                onChange={e => setServiceArea(e.target.value)} onBlur={e => saveField('service_area', e.target.value)}
+                onChange={e => onEdit('service_area', e.target.value, setServiceArea)} onBlur={e => saveField('service_area', e.target.value)}
                 placeholder="Nationwide (US) · Local — Atlanta metro · Global" />
             </label>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Website</span>
+              <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>Website</span><FieldStatus field="website" /></span>
               <input className={styles.formInput} type="text" inputMode="url" value={website}
-                onChange={e => setWebsite(e.target.value)} onBlur={e => saveField('website', e.target.value)}
+                onChange={e => onEdit('website', e.target.value, setWebsite)} onBlur={e => saveField('website', e.target.value)}
                 placeholder="https://…" />
             </label>
           </div>

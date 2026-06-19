@@ -233,6 +233,18 @@
 .genTop { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
 .genName { font-size: 15px; font-weight: 600; }
 .genFields { display: flex; flex-direction: column; gap: 12px; }
+.fieldLabelRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 18px; }
+
+/* Unmistakable per-field save state (steady, not a flash) */
+.fieldStatus { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.fieldStatus i { font-size: 14px; }
+.fsDirty { color: #b45309; }
+.fsSaving { color: var(--muted); }
+.fsSaved { color: #0f6e56; }
+.fsError { color: #b91c1c; gap: 3px; }
+.fsSaving i { animation: redspin 0.8s linear infinite; }
+@keyframes redspin { to { transform: rotate(360deg); } }
+.retryBtn { background: none; border: none; padding: 0 0 0 2px; font: inherit; color: #b91c1c; font-weight: 700; text-decoration: underline; cursor: pointer; }
 .genGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .fieldLabel { font-size: 12px; color: var(--muted); font-weight: 500; }
