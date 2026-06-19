@@ -161,6 +161,8 @@ export async function GET(request: Request) {
         // Always return fresh profile/conversations with cached platform data
         entry.profile = {
           businessType: context.business_type,
+          businessDescriptor: context.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
+          serviceArea: context.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
           primaryKpi: context.primary_kpi,
           funnelNotes: context.funnel_notes,
           userNotes: context.user_notes,
@@ -189,6 +191,8 @@ export async function GET(request: Request) {
     resolvedEndDate,
     profile: {
       businessType: context?.business_type,
+      businessDescriptor: context?.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
+      serviceArea: context?.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
       primaryKpi: context?.primary_kpi,
       funnelNotes: context?.funnel_notes,
       userNotes: context?.user_notes,

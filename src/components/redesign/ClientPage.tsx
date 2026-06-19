@@ -8,14 +8,10 @@
 // from the UI (the blob is retired as a field — build-claude-context still READS user_notes elsewhere, so
 // nothing is lost). Facts is now purely the structured list, parallel to Rules.
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
-
-// Option list defined HERE (not imported from legacy). Industry stays for now (swapped for the free-text
-// descriptor + service area + website in the NEXT pass, which needs a migration).
-const INDUSTRIES = ['E-commerce', 'Lead Generation', 'SaaS / Software', 'Local Service', 'Brand / Media', 'App / Mobile', 'Non-profit', 'Healthcare', 'Real Estate', 'Other']
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -31,7 +27,10 @@ type Fact = { id: number; content: string; category: string; source: string; pin
 const TOLD = new Set(['user_explicit', 'user_conversation', 'bootstrap_legacy'])
 
 export default function ClientPage({ clientId, clientName, connections }: { clientId: string; clientName: string; connections: Conn[] }) {
-  const [industry, setIndustry] = useState('')
+  const [descriptor, setDescriptor] = useState('')
+  const [serviceArea, setServiceArea] = useState('')
+  const [website, setWebsite] = useState('')
+  const saved = useRef<{ business_descriptor: string; service_area: string; website: string }>({ business_descriptor: '', service_area: '', website: '' })
   const [savedTag, setSavedTag] = useState('')
   const [memory, setMemory] = useState<Fact[]>([])
   const [newRule, setNewRule] = useState('')
@@ -46,14 +45,22 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   }
   useEffect(() => {
     fetch('/api/context?clientId=' + clientId).then(r => r.json()).then(d => {
-      setIndustry((d.context && d.context.business_type) || '')
+      const c = d.context || {}
+      setDescriptor(c.business_descriptor || '')
+      setServiceArea(c.service_area || '')
+      setWebsite(c.website || '')
+      saved.current = { business_descriptor: c.business_descriptor || '', service_area: c.service_area || '', website: c.website || '' }
     })
     loadMemory()
   }, [clientId]) // eslint-disable-line
 
-  async function saveIndustry(value: string) {
-    setIndustry(value)
-    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { business_type: value } }) })
+  // Save a single General field on blur, only if it changed. Light website tidy: add https:// if missing.
+  async function saveField(field: 'business_descriptor' | 'service_area' | 'website', raw: string) {
+    let value = raw.trim()
+    if (field === 'website' && value && !/^https?:\/\//i.test(value)) { value = 'https://' + value; setWebsite(value) }
+    if (value === saved.current[field]) return
+    saved.current = { ...saved.current, [field]: value }
+    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { [field]: value } }) })
     setSavedTag('Saved ✓'); setTimeout(() => setSavedTag(''), 1500)
   }
   async function addItem(content: string, category: 'directive' | 'fact', reset: () => void) {
@@ -123,14 +130,27 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
           <Avatar name={clientName} kind="client" className={styles.cardAvatar} />
           <span className={styles.genName}>{clientName}</span>
         </div>
-        <div className={styles.genGrid}>
+        <div className={styles.genFields}>
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>Industry</span>
-            <select className={styles.formSelect} value={industry} onChange={e => saveIndustry(e.target.value)}>
-              <option value="">Select…</option>
-              {INDUSTRIES.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <span className={styles.fieldLabel}>What this business does</span>
+            <textarea className={styles.notesArea} rows={3} value={descriptor}
+              onChange={e => setDescriptor(e.target.value)} onBlur={e => saveField('business_descriptor', e.target.value)}
+              placeholder="Modular foam furniture for kids, sold DTC — buyers are parents, peak Nov–Dec" />
           </label>
+          <div className={styles.genGrid}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Service area</span>
+              <input className={styles.formInput} type="text" value={serviceArea}
+                onChange={e => setServiceArea(e.target.value)} onBlur={e => saveField('service_area', e.target.value)}
+                placeholder="Nationwide (US) · Local — Atlanta metro · Global" />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Website</span>
+              <input className={styles.formInput} type="text" inputMode="url" value={website}
+                onChange={e => setWebsite(e.target.value)} onBlur={e => saveField('website', e.target.value)}
+                placeholder="https://…" />
+            </label>
+          </div>
         </div>
       </section>
 

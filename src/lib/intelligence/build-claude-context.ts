@@ -993,9 +993,13 @@ export function buildClaudeContextCacheable(
   if (focusData) lines.push(`Specifically looking at: ${focusData}`)
 
   // ── Client Profile ─────────────────────────────────────────────────────────
-  if (p.businessType || p.primaryKpi || p.funnelNotes) {
+  // LORAMER_CLIENT_DESCRIPTOR_V1 (additive): prefer the free-text descriptor; fall back to the legacy
+  // business_type so existing clients keep their context. service_area added when present. Empty → no change.
+  if (p.businessDescriptor || p.businessType || p.serviceArea || p.primaryKpi || p.funnelNotes) {
     lines.push('\n=== CLIENT PROFILE ===')
-    if (p.businessType) lines.push(`Business type: ${p.businessType}`)
+    if (p.businessDescriptor) lines.push(`What this business does: ${p.businessDescriptor}`)
+    else if (p.businessType) lines.push(`Business type: ${p.businessType}`)
+    if (p.serviceArea) lines.push(`Service area: ${p.serviceArea}`)
     if (p.primaryKpi) lines.push(`Primary KPI: ${p.primaryKpi}`)
     if (p.funnelNotes) lines.push(`Funnel strategy: ${p.funnelNotes}`)
   }

@@ -232,11 +232,12 @@
 /* General */
 .genTop { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
 .genName { font-size: 15px; font-weight: 600; }
+.genFields { display: flex; flex-direction: column; gap: 12px; }
 .genGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .fieldLabel { font-size: 12px; color: var(--muted); font-weight: 500; }
-.formSelect { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--white); color: var(--ink); font-family: inherit; }
-.formSelect:focus { outline: none; border-color: var(--accent); }
+.formSelect, .formInput { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; background: var(--white); color: var(--ink); font-family: inherit; }
+.formSelect:focus, .formInput:focus { outline: none; border-color: var(--accent); }
 
 /* Connections */
 .connList { display: flex; flex-direction: column; gap: 8px; }

@@ -42,6 +42,10 @@ export async function POST(request: Request) {
     .maybeSingle()
   if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // LORAMER_CLIENT_DESCRIPTOR_V1 (additive): business_descriptor / service_area / website ride through the
+  // generic `...updates` spread below — no per-field handling needed; GET's select('*') already returns them.
+  // Existing fields (business_type / primary_kpi / funnel_notes / user_notes) are unchanged and keep working
+  // for the legacy /clients form.
   const { data, error } = await supabaseAdmin
     .from('client_context')
     .upsert({

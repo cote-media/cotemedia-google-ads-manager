@@ -483,6 +483,8 @@ export interface ClientIntelligence {
   // Client profile
   profile: {
     businessType?: string
+    businessDescriptor?: string  // LORAMER_CLIENT_DESCRIPTOR_V1 — free-text "what this business does" (primary signal; falls back to businessType)
+    serviceArea?: string         // LORAMER_CLIENT_DESCRIPTOR_V1
     primaryKpi?: string
     funnelNotes?: string
     userNotes?: string
