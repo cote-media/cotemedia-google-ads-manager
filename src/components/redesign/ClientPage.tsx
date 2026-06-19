@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
+import NaicsPicker from './NaicsPicker'
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -32,6 +33,7 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   const [descriptor, setDescriptor] = useState('')
   const [serviceArea, setServiceArea] = useState('')
   const [website, setWebsite] = useState('')
+  const [naicsInitial, setNaicsInitial] = useState<{ code: string; title: string }[]>([])
   const saved = useRef<Record<GenField, string>>({ business_descriptor: '', service_area: '', website: '' })
   // Per-field save lifecycle so the state is UNMISTAKABLE (steady, not a flash): idle/dirty/saving/saved/error.
   const [status, setStatus] = useState<Record<GenField, SaveState>>({ business_descriptor: 'idle', service_area: 'idle', website: 'idle' })
@@ -53,6 +55,7 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
       const c = d.context || {}
       const bd = c.business_descriptor || '', sa = c.service_area || '', ws = c.website || ''
       setDescriptor(bd); setServiceArea(sa); setWebsite(ws)
+      setNaicsInitial(Array.isArray(c.naics_codes) ? c.naics_codes : [])
       saved.current = { business_descriptor: bd, service_area: sa, website: ws }
       // A persisted (non-empty) field starts in a steady "Saved" state; empty fields stay quiet (idle).
       setStatus({ business_descriptor: bd ? 'saved' : 'idle', service_area: sa ? 'saved' : 'idle', website: ws ? 'saved' : 'idle' })
@@ -172,6 +175,7 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
               onChange={e => onEdit('business_descriptor', e.target.value, setDescriptor)} onBlur={e => saveField('business_descriptor', e.target.value)}
               placeholder="Modular foam furniture for kids, sold DTC — buyers are parents, peak Nov–Dec" />
           </label>
+          <NaicsPicker clientId={clientId} initialCodes={naicsInitial} />
           <div className={styles.genGrid}>
             <label className={styles.field}>
               <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>Service area</span><FieldStatus field="service_area" /></span>
