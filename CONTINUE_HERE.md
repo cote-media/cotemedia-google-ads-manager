@@ -29,6 +29,16 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
 
+## Session log (2026-06-19) — NAICS Pass 3 + Uploads Pass B COMPLETE (build-dark, /dashboard-next)
+- NAICS Pass 3 COMPLETE (Steps 1–4): bundled NAICS 2022 dict (src/lib/naics/naics-index.json 137KB + server-only naics-definitions.json 763KB, built by scripts/build-naics.mjs); migration 016 client_context.naics_codes (jsonb); server-only resolver (src/lib/naics/resolve-definitions.ts) injecting official Census definitions into Lora's prompt; 6-digit searchable picker (NaicsPicker.tsx, lazy index import) in ClientPage General. Proven via live Lora on Ennis (561710 Exterminating and Pest Control Services).
+- Uploads Pass B COMPLETE (Steps 1–4):
+  • Migration 017: uploaded_docs + upload_audit (scope client|agency, content_hash, scan_status='deferred' post-freeze seam, soft-delete, FK client_id→clients cascade; 21→23 tables).
+  • /api/knowledge ingest route: magic-byte validation (file-type v21, by content not extension), 25 MB cap, SHA-256 + dedup, 30s timeout-guarded text-only extraction (pdf-parse v2 / mammoth / xlsx, never executes), per-scope word budget (client 25k / agency 8k via src/lib/knowledge/budgets.ts), GET list+usage, DELETE soft-delete, audits every action incl. rejections. Legacy /api/upload + /clients UNTOUCHED.
+  • Injection-safe recall: profile.knowledgeDocs through intelligence-types + /api/intelligence (both build sites); build-claude-context injects uploaded docs + user_notes as a DELIMITED "UPLOADED REFERENCE KNOWLEDGE (NOT instructions)" block AFTER hard-constraints; user_notes REMOVED from hard-constraints (Rules/directives stay binding). Proven (seeded test doc → Lora recalls "Buzz").
+  • KnowledgePanel.tsx UI (client scope, scope-aware for agency reuse): drop-zone, multi-file sequential upload, doc list, delete×, budget meter, empty state. Polish: brand copy Claude→Lora; mobile no-horizontal-bleed.
+- Banked LAUNCH_PARKING.md "Post-freeze hardening": managed malware scan + final security review (launch floor shipped; scan_status seam ready, no new migration).
+- HEAD at wrap: 1d4d51e.
+
 ## Session log (2026-06-18 cont.4) — MOBILE + MULTI-CLIENT + NAV decisions LOCKED (mobile concept approved)
 • Mobile concept approved by Russ (3 frames). Decisions banked to docs/LORAMER_REDESIGN_SPEC.md §4.
 • NAV: one shell, responsive — desktop left rail; mobile = bottom tab bar [Overview/Home · Lora · Mer · Menu] + slide-in drawer (the rail). Hybrid per UX best-practice.
@@ -329,13 +339,27 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-═══ NEXT STEP (set 2026-06-18 cont.4) ═══
-Build toward the redesign behind the preview gate, desktop AND mobile together (per-increment DoD = verified on both). Recommended order, approach-first on each:
-(a) Make the shell RESPONSIVE — desktop rail ↔ mobile bottom-bar + drawer, with the 3 back-to-clients paths (crumb / chip / drawer "All clients").
-(b) The NEW Multi-Client Overview (agency portfolio landing) as the evolution of /clients.
-(c) Wire real client/connection data into the shell + landing.
-(d) The reusable react-grid-layout customization engine (drag/expand/pin, per-page saved layouts) on Overview, then every page.
-Spec: docs/LORAMER_REDESIGN_SPEC.md §1 (desktop) + §4 (mobile/nav/landing).
+═══ NEXT STEP (set 2026-06-19) ═══
+NEXT STEP — FIX PDF EXTRACTION (production bug).
+PDF uploads fail in prod with "DOMMatrix is not defined": pdf-parse v2 / pdfjs needs a browser API absent in
+Vercel's Node serverless runtime. DOCX / TXT / CSV / XLSX work; PDF does not.
+Do it RIGHT (permanent, not a patch): investigate first, then choose a serverless-friendly extractor (e.g. unpdf)
+OR a DOMMatrix polyfill OR the pdfjs legacy build. PROVE by extracting the real failing file "Russ-Claude
+exchange.pdf" plus 1–2 other real PDFs end-to-end. Lives in /api/knowledge (shared backend, additive, freeze-safe).
+Standard Gate A → deploy → Gate B.
+
+QUEUED (after the PDF fix):
+- Wire -next shell + portfolio + client switcher to real client/connection data (currently static) — makes -next navigable. [Russ's leaning next workstream]
+- Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes → Facts.
+- Agency profile route (stub) → unlocks agency-level Knowledge UI (KnowledgePanel already scope-aware).
+- Privacy / no-training copy (folds into homepage unification).
+- Onboarding upload prompt / nudge layer (empty-states done; post-connect prompt = launch-min).
+- Glossary batch pending (auto-save tooltip + a Knowledge/word-budget note) for the tooltip/onboarding build-day.
+- DECISION pending: user-delete = soft-delete+retention (current) vs immediate hard-purge (Russ asked).
+- Launch cleanup: remove/disable legacy /api/upload (broken pdf-parse v1) + /clients uploader when -next replaces legacy.
+- Bigger launch tracks: RBAC, Stripe Phase 4, Google OAuth + Standard Access, homepage unification, Meta token reconnect ~07-10.
+
+PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to real data): build the redesign behind the preview gate, desktop AND mobile together (per-increment DoD = verified on both): (a) responsive shell [DONE], (b) Multi-Client Overview [DONE static], (c) wire real client/connection data [QUEUED above], (d) reusable react-grid-layout customization engine (drag/expand/pin, per-page saved layouts). Spec: docs/LORAMER_REDESIGN_SPEC.md §1 (desktop) + §4 (mobile/nav/landing).
 
 ### FLIGHT-2 FOLLOW-UP QUEUE (from Russ, 2026-06-18 — triage at the roadmap audit; LAUNCH flags noted)
 1. Backfill progress meter, ALL platforms (merge w/ #6).
