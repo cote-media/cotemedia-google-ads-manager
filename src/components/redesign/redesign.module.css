@@ -264,7 +264,7 @@
 .naicsOptCode { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
 
 /* Knowledge panel */
-.knPanel { display: flex; flex-direction: column; gap: 12px; }
+.knPanel { display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
 .hiddenInput { display: none; }
 .dropZone {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -276,7 +276,9 @@
 .dropZone strong { color: var(--accent); }
 .dropZoneActive { border-color: var(--accent); background: #e8effd; }
 .dropHint { font-size: 11px; color: #94a3b8; }
-.uploadRow { display: flex; }
+/* upload feedback must WRAP within the panel — never push past the viewport on mobile */
+.uploadRow { display: flex; min-width: 0; max-width: 100%; }
+.uploadRow .fieldStatus { display: flex; flex-wrap: wrap; align-items: baseline; min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 
 .budgetMeter { display: flex; flex-direction: column; gap: 4px; }
 .budgetBar { height: 6px; border-radius: 999px; background: var(--surface); overflow: hidden; }
@@ -288,12 +290,12 @@
 .knNote { font-size: 12px; color: var(--muted); }
 .knEmpty { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-.docList { display: flex; flex-direction: column; gap: 6px; }
-.docRow { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--surface); border-radius: 9px; }
+.docList { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 100%; }
+.docRow { display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--surface); border-radius: 9px; min-width: 0; max-width: 100%; }
 .docIcon { font-size: 18px; color: var(--muted); flex-shrink: 0; }
 .docMeta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.docName { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.docSub { font-size: 11px; color: var(--muted); }
+.docName { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.docSub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .genGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .fieldLabel { font-size: 12px; color: var(--muted); font-weight: 500; }

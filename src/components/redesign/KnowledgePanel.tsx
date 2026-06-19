@@ -99,13 +99,13 @@ export default function KnowledgePanel({ scope, clientId }: { scope: 'client' | 
         </span>
       </div>
 
-      <p className={styles.knNote}>Claude reads these as reference on every answer {noteScope}.</p>
+      <p className={styles.knNote}>Lora reads these as reference on every answer {noteScope}.</p>
 
       {/* list / empty state */}
       {loading ? (
         <p className={styles.emptyNote}>Loading…</p>
       ) : docs.length === 0 ? (
-        <p className={styles.knEmpty}>Claude only knows the basics so far. Upload a brand guide, margins, personas, or strategy and Claude will use them in every answer {noteScope}.</p>
+        <p className={styles.knEmpty}>Lora only knows the basics so far. Upload a brand guide, margins, personas, or strategy and Lora will use them in every answer {noteScope}.</p>
       ) : (
         <div className={styles.docList}>
           {docs.map(d => (
