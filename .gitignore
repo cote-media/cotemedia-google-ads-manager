@@ -42,3 +42,6 @@ OUT.txt
 *_REPORT.txt
 append_handoff_docs.py
 patch_backfill_ui_v1.py
+
+# NAICS build scratch (raw Census source — not committed)
+.naics-tmp/
