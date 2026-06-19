@@ -1,17 +1,21 @@
-// LORAMER_REDESIGN_CLIENTPAGE_A — the sectioned client page (build a-core), WIRED TO REAL DATA via the
-// existing gated API routes (/api/context, /api/memory). Sections: General · Connections (read-only this
-// pass) · Rules (client_memory directives) · What Lora knows (user_notes + non-directive facts, source-marked).
-// One responsive component (mobile = stacked, web = sectioned). Does NOT import or touch legacy /clients or
-// /dashboard UI — only their shared API routes. Renders only for allowlisted users (the page guards first).
+// LORAMER_REDESIGN_CLIENTPAGE_A — the sectioned client page, WIRED TO REAL DATA via the existing gated API
+// routes (/api/context, /api/memory). Sections: General · Connections (read-only + stubbed connect) · Rules
+// (client_memory directives) · Facts (client_memory non-directive, source-marked). One responsive component
+// (mobile = stacked, web = sectioned). Does NOT import/touch legacy /clients or /dashboard UI — only their
+// shared API routes. Renders only for allowlisted users (the page guards first).
+//
+// PASS 1 cleanup: Primary KPI select removed; the free-text "Additional context" (user_notes) editor removed
+// from the UI (the blob is retired as a field — build-claude-context still READS user_notes elsewhere, so
+// nothing is lost). Facts is now purely the structured list, parallel to Rules.
 'use client'
 import { useEffect, useState } from 'react'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
 
-// Option lists defined HERE (not imported from the legacy page). Funnel intentionally dropped.
+// Option list defined HERE (not imported from legacy). Industry stays for now (swapped for the free-text
+// descriptor + service area + website in the NEXT pass, which needs a migration).
 const INDUSTRIES = ['E-commerce', 'Lead Generation', 'SaaS / Software', 'Local Service', 'Brand / Media', 'App / Mobile', 'Non-profit', 'Healthcare', 'Real Estate', 'Other']
-const PRIMARY_KPIS = ['Purchases / ROAS', 'Leads / CPL', 'App Installs / CPI', 'Reach / CPM', 'Traffic / CPC', 'Video Views / CPV', 'Engagement', 'Form Submissions', 'Phone Calls', 'Store Visits']
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -23,15 +27,12 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
 
 type Conn = { platform: string; account_name: string | null; health: string | null }
 type Fact = { id: number; content: string; category: string; source: string; pinned: boolean }
-type Ctx = { business_type: string; primary_kpi: string; user_notes: string }
 
 const TOLD = new Set(['user_explicit', 'user_conversation', 'bootstrap_legacy'])
 
 export default function ClientPage({ clientId, clientName, connections }: { clientId: string; clientName: string; connections: Conn[] }) {
-  const [ctx, setCtx] = useState<Ctx>({ business_type: '', primary_kpi: '', user_notes: '' })
+  const [industry, setIndustry] = useState('')
   const [savedTag, setSavedTag] = useState('')
-  const [notesDraft, setNotesDraft] = useState('')
-  const [notesStatus, setNotesStatus] = useState('')
   const [memory, setMemory] = useState<Fact[]>([])
   const [newRule, setNewRule] = useState('')
   const [newFact, setNewFact] = useState('')
@@ -45,22 +46,15 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   }
   useEffect(() => {
     fetch('/api/context?clientId=' + clientId).then(r => r.json()).then(d => {
-      const c = d.context || {}
-      setCtx({ business_type: c.business_type || '', primary_kpi: c.primary_kpi || '', user_notes: c.user_notes || '' })
-      setNotesDraft(c.user_notes || '')
+      setIndustry((d.context && d.context.business_type) || '')
     })
     loadMemory()
   }, [clientId]) // eslint-disable-line
 
-  async function saveContext(updates: Partial<Ctx>) {
-    setCtx(p => ({ ...p, ...updates }))
-    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates }) })
+  async function saveIndustry(value: string) {
+    setIndustry(value)
+    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { business_type: value } }) })
     setSavedTag('Saved ✓'); setTimeout(() => setSavedTag(''), 1500)
-  }
-  async function saveNotes() {
-    setNotesStatus('Saving…')
-    await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { user_notes: notesDraft } }) })
-    setCtx(p => ({ ...p, user_notes: notesDraft })); setNotesStatus('Saved ✓'); setTimeout(() => setNotesStatus(''), 1500)
   }
   async function addItem(content: string, category: 'directive' | 'fact', reset: () => void) {
     if (!content.trim()) return
@@ -132,22 +126,15 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
         <div className={styles.genGrid}>
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Industry</span>
-            <select className={styles.formSelect} value={ctx.business_type} onChange={e => saveContext({ business_type: e.target.value })}>
+            <select className={styles.formSelect} value={industry} onChange={e => saveIndustry(e.target.value)}>
               <option value="">Select…</option>
               {INDUSTRIES.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </label>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Primary KPI</span>
-            <select className={styles.formSelect} value={ctx.primary_kpi} onChange={e => saveContext({ primary_kpi: e.target.value })}>
-              <option value="">Select…</option>
-              {PRIMARY_KPIS.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </label>
         </div>
       </section>
 
-      {/* 2) CONNECTIONS (read-only this pass) */}
+      {/* 2) CONNECTIONS (read-only this pass + stubbed connect) */}
       <section className={styles.section}>
         <div className={styles.sectionHead}><span className={styles.sectionTitle}>Connections</span></div>
         {connections.length === 0 ? (
@@ -172,11 +159,18 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
             })}
           </div>
         )}
+        {/* Stubbed connect affordance — does NOT bounce to legacy; real connect flow is a later build. */}
+        <button className={styles.connectStub} type="button" disabled title="Connect flow coming soon">
+          <i className="ti ti-plus" /> Connect a source <span>coming soon</span>
+        </button>
       </section>
 
       {/* 3) RULES */}
       <section className={styles.section}>
-        <div className={styles.sectionHead}><span className={styles.sectionTitle}>Rules Lora always follows for this client</span></div>
+        <div className={styles.brainHead}>
+          <span className={styles.brainLabel}>Rules</span>
+          <span className={styles.brainExplainer}>— directions Lora has to follow for this client</span>
+        </div>
         <div className={styles.brainList}>
           {rules.length === 0 ? <p className={styles.emptyNote}>No rules yet.</p> : rules.map(m => renderItem(m, false))}
         </div>
@@ -186,20 +180,12 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
         </div>
       </section>
 
-      {/* 4) WHAT LORA KNOWS */}
+      {/* 4) FACTS */}
       <section className={styles.section}>
-        <div className={styles.sectionHead}><span className={styles.sectionTitle}>What Lora knows about this client</span></div>
-
-        <span className={styles.fieldLabel}>Additional context</span>
-        <textarea className={styles.notesArea} value={notesDraft} onChange={e => setNotesDraft(e.target.value)} rows={4}
-          placeholder="Anything Lora should keep in mind — audience, seasonality, brand voice, constraints…" />
-        <div className={styles.notesBar}>
-          <button className={styles.addBtn} onClick={saveNotes} disabled={notesDraft === ctx.user_notes}>Save context</button>
-          {notesStatus && <span className={styles.savedTag}>{notesStatus}</span>}
+        <div className={styles.brainHead}>
+          <span className={styles.brainLabel}>Facts</span>
+          <span className={styles.brainExplainer}>— what Lora knows about this client</span>
         </div>
-
-        <div className={styles.factsDivider} />
-        <span className={styles.fieldLabel}>Facts</span>
         <div className={styles.brainList}>
           {facts.length === 0 ? <p className={styles.emptyNote}>No facts yet.</p> : facts.map(m => renderItem(m, true))}
         </div>

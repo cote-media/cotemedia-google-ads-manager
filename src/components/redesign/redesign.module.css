@@ -276,6 +276,20 @@
 .notesBar { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 .factsDivider { height: 1px; background: var(--border); margin: 16px 0 12px; }
 
+/* Rules / Facts headers — bold label + serif explainer */
+.brainHead { margin-bottom: 12px; }
+.brainLabel { font-size: 15px; font-weight: 700; color: var(--ink); }
+.brainExplainer { font-family: var(--serif); font-size: 13.5px; color: var(--muted); margin-left: 5px; }
+
+/* Stubbed "+ Connect a source" (disabled this pass; never bounces to legacy) */
+.connectStub {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+  font-size: 12.5px; color: var(--muted); border: 1px dashed var(--border); border-radius: 8px;
+  padding: 8px 12px; background: none; cursor: not-allowed;
+}
+.connectStub i { font-size: 15px; }
+.connectStub span { font-size: 10.5px; opacity: .7; margin-left: 2px; }
+
 /* ── INC A: unified two-avatar TopBar (one component, responsive) ── */
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
