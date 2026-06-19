@@ -5,8 +5,9 @@
 // passed in as a prop so it stays server-rendered. Isolation is unaffected — the page guards first, so none
 // of this renders for non-allowlisted users.
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
@@ -24,12 +25,23 @@ export default function TopBar({
   agencyLogoUrl?: string | null
   drawer: React.ReactNode
 }) {
+  const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [acctOpen, setAcctOpen] = useState(false)
 
-  // Static placeholder switch list (real client list wired in a later increment). Selecting is a no-op stub.
-  const clientList = [clientName, 'Foam OH', 'Influential Drones']
+  // LORAMER_NEXT_DATAWIRE_PORTFOLIO_V1 — real, membership-aware client list from /api/next/clients.
+  // Selecting NAVIGATES to that client's per-client page. Falls back to the current client until loaded/on error.
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([])
+  useEffect(() => {
+    let alive = true
+    fetch('/api/next/clients')
+      .then((r) => (r.ok ? r.json() : { clients: [] }))
+      .then((d) => { if (alive) setClients(d.clients || []) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+  const clientList = clients.length ? clients : [{ id: '', name: clientName }]
 
   return (
     <>
@@ -57,11 +69,18 @@ export default function TopBar({
                 <div className={styles.menuBackdrop} onClick={() => setSwitcherOpen(false)} />
                 <div className={`${styles.menu} ${styles.menuLeft}`}>
                   <div className={styles.menuLabel}>Switch client</div>
-                  {clientList.map((name, i) => (
-                    <button key={i} className={styles.menuItem} onClick={() => setSwitcherOpen(false)}>
-                      <Avatar name={name} kind="client" />
-                      <span className={styles.tbNameLabel}>{name}</span>
-                      {name === clientName && <i className={`ti ti-check ${styles.menuCheck}`} />}
+                  {clientList.map((c) => (
+                    <button
+                      key={c.id || c.name}
+                      className={styles.menuItem}
+                      onClick={() => {
+                        setSwitcherOpen(false)
+                        if (c.id) router.push(`/dashboard-next/client-profile?clientId=${c.id}`)
+                      }}
+                    >
+                      <Avatar name={c.name} kind="client" />
+                      <span className={styles.tbNameLabel}>{c.name}</span>
+                      {c.name === clientName && <i className={`ti ti-check ${styles.menuCheck}`} />}
                     </button>
                   ))}
                 </div>

@@ -1,34 +1,23 @@
-// LORAMER_REDESIGN_INCB — the Multi-Client Overview (agency portfolio landing), STATIC first pass. This is
-// where "All clients" lands. Layout only: a proactive-Lora "needs attention" triage strip (visual placeholder
-// for the real engine), a Clients header with a sort/filter stub, and a grid of sample client cards. Real
-// client/connection data + real proactive analysis are the next two increments. Server component; the whole
-// card routes to the per-client Overview (stays in-redesign).
+// LORAMER_REDESIGN_INCB / LORAMER_NEXT_DATAWIRE_PORTFOLIO_V1 — the Multi-Client Overview (agency portfolio
+// landing), where "All clients" lands. Client IDENTITY is now real (membership-aware list passed in from the
+// server page) and each card navigates to that client's per-client page. Per-client METRICS (spend/revenue/
+// delta/status) + the proactive "needs attention" engine are NOT wired yet (1B-2 via /api/next/intelligence) —
+// so they render as HONEST NEUTRAL PLACEHOLDERS, never fabricated numbers/analysis beside real client names.
+// Server component; the whole card routes to the per-client page (stays in-redesign).
 import Link from 'next/link'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 
-type ClientCard = { name: string; spend: string; revenue: string; delta: string; up: boolean; warn: boolean }
+type ClientLite = { id: string; name: string }
 
-// Static sample portfolio (≈6 cards). Replaced by real data in the next increment.
-const CLIENTS: ClientCard[] = [
-  { name: 'The Escential Group', spend: '$2,799', revenue: '$3,002', delta: '↓ 12%', up: false, warn: false },
-  { name: 'Foam OH', spend: '$5,140', revenue: '$4,210', delta: '↓ 18%', up: false, warn: true },
-  { name: 'Influential Drones', spend: '$1,980', revenue: '$6,540', delta: '↑ 24%', up: true, warn: false },
-  { name: 'Acme Co', spend: '$3,420', revenue: '$2,990', delta: '↑ 32%', up: true, warn: true },
-  { name: 'Glass Plus', spend: '$1,210', revenue: '$1,880', delta: '↑ 6%', up: true, warn: false },
-  { name: 'My Vacation Network', spend: '$880', revenue: '$1,140', delta: '↓ 3%', up: false, warn: false },
-]
-
-export default function MultiClientOverview() {
+export default function MultiClientOverview({ clients }: { clients: ClientLite[] }) {
   return (
     <>
-      {/* 1) Needs-attention strip — proactive-Lora triage (STATIC placeholder for the real engine). */}
+      {/* 1) Portfolio insights — NEUTRAL placeholder until the proactive engine + per-client metrics land (1B-2).
+             (Was a fabricated "needs attention" strip naming specific clients — removed; not real yet.) */}
       <div className={styles.loraStrip}>
-        <div className={styles.loraStripHead}><i className="ti ti-sparkles" /> Needs attention</div>
-        <p className={styles.loraStripText}>
-          2 clients need a look — <strong>Foam OH</strong> (ROAS down 18% WoW) · <strong>Acme Co</strong> (spend
-          up 32%, conversions flat). <strong>Influential Drones</strong> is having its best week.
-        </p>
+        <div className={styles.loraStripHead}><i className="ti ti-sparkles" /> Portfolio insights</div>
+        <p className={styles.loraStripText}>Proactive insights across your clients are coming soon.</p>
       </div>
 
       {/* 2) Header + sort/filter stub (visual only). */}
@@ -39,35 +28,38 @@ export default function MultiClientOverview() {
         </button>
       </div>
 
-      {/* 3) Client card grid (desktop 2–3 cols via auto-fill; single column on mobile). */}
-      <div className={styles.clientGrid}>
-        {CLIENTS.map((c) => (
-          <Link key={c.name} href="/dashboard-next" className={styles.clientCard}>
-            <div className={styles.cardTop}>
-              <Avatar name={c.name} kind="client" className={styles.cardAvatar} />
-              <span className={styles.cardName}>{c.name}</span>
-              <i className={`ti ti-pin ${styles.cardPin}`} aria-hidden="true" />
-            </div>
-
-            <div className={styles.cardMetrics}>
-              <div className={styles.metricBox}>
-                <span className={styles.metricK}>Spend</span>
-                <span className={styles.metricV}>{c.spend}</span>
+      {/* 3) Real client cards (identity wired; metrics = placeholders). Empty → honest empty state. */}
+      {clients.length === 0 ? (
+        <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: '8px 2px' }}>No clients yet.</p>
+      ) : (
+        <div className={styles.clientGrid}>
+          {clients.map((c) => (
+            <Link key={c.id} href={`/dashboard-next/client-profile?clientId=${c.id}`} className={styles.clientCard}>
+              <div className={styles.cardTop}>
+                <Avatar name={c.name} kind="client" className={styles.cardAvatar} />
+                <span className={styles.cardName}>{c.name}</span>
+                <i className={`ti ti-pin ${styles.cardPin}`} aria-hidden="true" />
               </div>
-              <div className={styles.metricBox}>
-                <span className={styles.metricK}>Revenue</span>
-                <span className={styles.metricV}>{c.revenue}</span>
-              </div>
-              <span className={`${styles.cardDelta} ${c.up ? styles.up : styles.down}`}>{c.delta}</span>
-            </div>
 
-            <span className={`${styles.chip} ${c.warn ? styles.chipWarn : styles.chipOk}`}>
-              <i className={`ti ${c.warn ? 'ti-alert-triangle' : 'ti-circle-check'}`} />
-              {c.warn ? 'needs attention' : 'working'}
-            </span>
-          </Link>
-        ))}
-      </div>
+              <div className={styles.cardMetrics}>
+                <div className={styles.metricBox}>
+                  <span className={styles.metricK}>Spend</span>
+                  <span className={styles.metricV}>—</span>
+                </div>
+                <div className={styles.metricBox}>
+                  <span className={styles.metricK}>Revenue</span>
+                  <span className={styles.metricV}>—</span>
+                </div>
+              </div>
+
+              {/* Honest neutral status placeholder (no fabricated "working"/"needs attention"). */}
+              <span className={styles.chip} style={{ background: '#eef0f3', color: '#64748b' }}>
+                <i className="ti ti-clock" /> metrics coming
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
     </>
   )
 }
