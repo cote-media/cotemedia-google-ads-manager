@@ -192,13 +192,19 @@ TABLES: every table is sortable on every column where the data allows — univer
 - Reached by tapping the client avatar (top-bar chip or portfolio card).
 - ENTITY MODEL: an entity (a client OR the agency itself) = identity + connections + brain + dashboard. The SAME page component serves the agency profile (top-right avatar); the agency can use LoraMer for its own marketing (it's an entity that also owns the account).
 
-### Sections
-1. General - name, logo (manual upload + first-letter monogram fallback), website (+ Scan), industry (= existing business_type select), primary KPI (existing select), contacts. FUNNEL DROPPED (fake precision: "mixed/varies by campaign" is ~always true).
-2. Connections - platform_connections rows + health (the flag-gated dead-state/Reconnect UI lives here when NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flips).
-3. Rules - client_memory where category='directive' (binding "always/never/ignore" instructions Lora must obey).
-4. What Lora knows (Facts) - client_memory non-directive facts + the free-text "Additional Context" (user_notes). Pinnable, soft-delete (existing editor). Each fact is SOURCE-MARKED: "you told Lora" vs "Lora learned." Learned facts are proposed, provenance-tagged, human-confirmable, NEVER silently injected.
-5. Uploads - the proper Knowledge store per docs/UPLOAD_FEATURE_DESIGN.md (separate uploaded_docs store, per-doc list/delete, agency + client layers, security/scanning). NOT the current bug of appending into user_notes - that gets fixed.
-6. Saved chats - a standalone browser over client_conversations (data exists; browser is net-new UI).
+### Sections (order: General -> Connections -> Rules -> Facts; mobile = inline stacked, web = full sectioned layout, one responsive component)
+1. General -
+   - name; logo (manual upload + first-letter monogram fallback); website (+ Scan).
+   - service area / geography (e.g. local / regional / nationwide / global, or specific regions) — analytical context that changes how Lora reads the data.
+   - "What this business does" — free-text descriptor, the PRIMARY classification signal (rich natural language, e.g. "modular foam furniture for kids, DTC"; scan-prefillable). Replaces the old 9-bucket Industry dropdown (which threw away precision).
+   - NAICS code(s) — OPTIONAL, structured. Searchable picker over a bundled NAICS dictionary so Lora reads each code's OFFICIAL DEFINITION; multiple allowed (a business can span two). This is the warm-start / benchmark key (replaces business_type as that key). Caveat: NAICS is North American; the free-text descriptor carries non-NA clients.
+   - NO Primary KPI field (REMOVED — campaign-era remnant; how a client defines success is captured better by a Rule + inferred from sources/data). NO funnel.
+   - Business model (ecomm / lead-gen / local-service / SaaS) is INFERRED from the descriptor + connected sources, NOT a forced field.
+2. Connections - platform_connections rows (platform · account · health) PLUS a "+ Connect a source" affordance in this section (the rail's "Connect a source" is a shortcut to it).
+3. Rules - header "**Rules** — directions Lora has to follow for this client" (bold label + explainer in serif/Georgia). One-at-a-time structured items = client_memory category='directive'. Add / edit / archive.
+4. Facts - header "**Facts** — what Lora knows about this client" (bold label + explainer in serif/Georgia). One-at-a-time structured items, PARALLEL to Rules = client_memory non-directive. Source-marked ("You told Lora" vs "Lora learned"), pinnable, soft-delete. Optional "brain dump -> Lora structures into facts you confirm" fast-entry helper. The old free-text "Additional context" (user_notes) blob is REMOVED as a permanent field (it conflicted with the structure and was the upload-bug target); existing user_notes is still READ so nothing is lost, and migrates into facts over time.
+
+Section header styling: bold label + explainer sentence in serif (Georgia) paragraph text.
 
 ### Brain taxonomy - SIMPLIFIED to two user-facing buckets
 - User sees TWO ideas: RULES (Lora must obey) and FACTS (Lora should know). No category dropdown - the SECTION implies the category.
