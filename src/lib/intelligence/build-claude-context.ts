@@ -17,6 +17,7 @@ import type {
   IntelligenceShopify,
   PlatformIntelligence,
 } from './intelligence-types'
+import { resolveNaicsBlock } from '../naics/resolve-definitions' // LORAMER_NAICS_V1 — server-only resolver
 
 const OBJECTIVE_RULES: Record<string, string> = {
   OUTCOME_AWARENESS: 'Brand Awareness — evaluate CPM/reach ONLY. NEVER mention CTR or ROAS.',
@@ -1003,6 +1004,11 @@ export function buildClaudeContextCacheable(
     if (p.primaryKpi) lines.push(`Primary KPI: ${p.primaryKpi}`)
     if (p.funnelNotes) lines.push(`Funnel strategy: ${p.funnelNotes}`)
   }
+
+  // LORAMER_NAICS_V1 (additive): inject the official NAICS 2022 definition(s) for the client's selected codes,
+  // right after the business descriptor/context. Resolver returns "" when no codes are stored → nothing added.
+  const naicsBlock = resolveNaicsBlock(p.naicsCodes)
+  if (naicsBlock) lines.push('\n' + naicsBlock)
 
   // ── Platform Data ──────────────────────────────────────────────────────────
   // LORAMER_PROJECT_3_STEP_1_V1 — focus-aware slicing

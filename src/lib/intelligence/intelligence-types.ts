@@ -485,6 +485,7 @@ export interface ClientIntelligence {
     businessType?: string
     businessDescriptor?: string  // LORAMER_CLIENT_DESCRIPTOR_V1 — free-text "what this business does" (primary signal; falls back to businessType)
     serviceArea?: string         // LORAMER_CLIENT_DESCRIPTOR_V1
+    naicsCodes?: { code: string; title: string }[]  // LORAMER_NAICS_V1 — official definitions resolved server-side at prompt time
     primaryKpi?: string
     funnelNotes?: string
     userNotes?: string

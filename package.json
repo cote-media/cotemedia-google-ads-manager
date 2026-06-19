@@ -27,6 +27,7 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
     "stripe": "^22.2.0",
     "zod": "^3.23.8"
   },

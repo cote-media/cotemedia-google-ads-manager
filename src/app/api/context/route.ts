@@ -23,6 +23,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // LORAMER_NAICS_V1 (additive): coalesce naics_codes null → [] so the client page reads a stable array.
+  if (data) (data as any).naics_codes = (data as any).naics_codes || []
   return NextResponse.json({ context: data || null })
 }
 
@@ -46,12 +48,23 @@ export async function POST(request: Request) {
   // generic `...updates` spread below — no per-field handling needed; GET's select('*') already returns them.
   // Existing fields (business_type / primary_kpi / funnel_notes / user_notes) are unchanged and keep working
   // for the legacy /clients form.
+  // LORAMER_NAICS_V1 (additive): persist naics_codes ONLY when the key is present (absent → column untouched,
+  // so a partial save never wipes it). Validate shape: array of {code:string,title:string}; drop malformed
+  // entries. Never throws when absent.
+  const cleanUpdates: Record<string, any> = { ...updates }
+  if (updates && Object.prototype.hasOwnProperty.call(updates, 'naics_codes')) {
+    const arr = Array.isArray(updates.naics_codes) ? updates.naics_codes : []
+    cleanUpdates.naics_codes = arr
+      .filter((x: any) => x && typeof x.code === 'string' && typeof x.title === 'string')
+      .map((x: any) => ({ code: x.code, title: x.title }))
+  }
+
   const { data, error } = await supabaseAdmin
     .from('client_context')
     .upsert({
       client_id: clientId,
       user_email: session.user.email,
-      ...updates,
+      ...cleanUpdates,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'client_id,user_email' })
     .select()
