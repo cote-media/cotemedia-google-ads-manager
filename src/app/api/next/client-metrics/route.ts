@@ -50,6 +50,7 @@ export async function GET(request: Request) {
   const overallEnd = current.endDate > prior.endDate ? current.endDate : prior.endDate
 
   const cur = emptyAcc(), prev = emptyAcc()
+  const curByPlatform: Record<string, number> = { google: 0, meta: 0 } // per-platform spend, CURRENT window only
   const PAGE = 1000
   let from = 0
   for (;;) {
@@ -72,7 +73,10 @@ export async function GET(request: Request) {
         : null
       if (!a) continue
       const platform = r.platform as string
-      if (ADS_PLATFORMS.includes(platform)) { a.spend += fin(r.spend); a.conversions += fin(r.conversions); a.conversionValue += fin(r.conversion_value) }
+      if (ADS_PLATFORMS.includes(platform)) {
+        a.spend += fin(r.spend); a.conversions += fin(r.conversions); a.conversionValue += fin(r.conversion_value)
+        if (a === cur && (platform === 'google' || platform === 'meta')) curByPlatform[platform] += fin(r.spend)
+      }
       else if (STORE_PLATFORMS.includes(platform)) { a.storeRev += fin(r.revenue); a.storeRows += 1 }
       else if (platform === 'ga') { a.gaRev += fin(r.revenue); a.gaRows += 1 }
     }
@@ -81,6 +85,18 @@ export async function GET(request: Request) {
   }
 
   const c = settle(cur), p = settle(prev)
+
+  // hasDataEver: does this client have ANY metrics_daily rows for the platform across all time (honest
+  // "is it connected" proxy) — so an unconnected platform renders "not connected", never a fabricated $0.
+  const ever = async (pf: string) => {
+    const { data } = await supabaseAdmin.from('metrics_daily').select('platform').eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle()
+    return !!data
+  }
+  const [googleEver, metaEver] = await Promise.all([ever('google'), ever('meta')])
+  const channels = [
+    { platform: 'google', spend: Number(curByPlatform.google.toFixed(2)), hasDataEver: googleEver },
+    { platform: 'meta', spend: Number(curByPlatform.meta.toFixed(2)), hasDataEver: metaEver },
+  ]
 
   // True freshness for this client (unbounded by the window) so the captured basis is transparent.
   const { data: latest } = await supabaseAdmin
@@ -93,5 +109,6 @@ export async function GET(request: Request) {
     conversions: c.conversions, conversionValue: c.conversionValue, roas: c.roas,
     spendPrior: p.spend, revenuePrior: p.revenue, conversionsPrior: p.conversions,
     latestCapturedDate: latest?.date || null,
+    channels,
   })
 }

@@ -15,6 +15,7 @@ type Metrics = {
   spendPrior: number; revenuePrior: number | null; conversionsPrior: number
   latestCapturedDate: string | null
   current?: { startDate: string; endDate: string }
+  channels?: { platform: string; spend: number; hasDataEver: boolean }[]
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -70,6 +71,12 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
   const convD = m ? deltaLabel(m.conversions, m.conversionsPrior) : null
   // Honest freshness: the selected window extends past the latest captured day (e.g. early-ET-morning pre-cron gap).
   const stale = !!(m && m.current && m.latestCapturedDate && m.current.endDate > m.latestCapturedDate)
+  // Channels: real per-platform spend for the period; connection-honest (no fabricated $0 for unconnected platforms).
+  const chanSub = (p: string) => {
+    const c = m?.channels?.find((x) => x.platform === p)
+    if (!c) return loading ? '…' : '—'
+    return c.hasDataEver ? `${money(c.spend)} spend` : 'not connected'
+  }
 
   return (
     <>
@@ -118,11 +125,11 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
         <div className={styles.chanGrid}>
           <div className={styles.chan}>
             <i className={`ti ti-brand-google ${styles.chanLead}`} />
-            <div><div className={styles.chanNm}>Google Ads</div><div className={styles.chanSub}>coming soon</div></div>
+            <div><div className={styles.chanNm}>Google Ads</div><div className={styles.chanSub}>{chanSub('google')}</div></div>
           </div>
           <div className={styles.chan}>
             <i className={`ti ti-brand-meta ${styles.chanLead}`} />
-            <div><div className={styles.chanNm}>Meta Ads</div><div className={styles.chanSub}>coming soon</div></div>
+            <div><div className={styles.chanNm}>Meta Ads</div><div className={styles.chanSub}>{chanSub('meta')}</div></div>
           </div>
           <div className={styles.chan}>
             <i className={`ti ti-chart-bar ${styles.chanLead}`} />
