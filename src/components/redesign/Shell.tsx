@@ -39,9 +39,10 @@ export default function Shell({
         </aside>
 
         <main className={styles.main}>
-          {/* Kept view pills, now a sub-header below the TopBar (shown desktop + mobile). */}
+          {/* Sub-header below the TopBar. The dead static "Last 14 days" pill was REMOVED (LORAMER_NEXT_PERIOD_UI_V1):
+              it looked like the date control but was inert — the real, working period picker lives in each page's
+              own header (the Overview Top-stats dropdown / the all-clients center dropdown). */}
           <div className={styles.subheader}>
-            <span className={styles.pill}><i className="ti ti-calendar" /> Last 14 days</span>
             <span className={styles.pill}><i className="ti ti-adjustments-horizontal" /> Customize</span>
             <span className={`${styles.pill} ${styles.pillLora}`}><i className="ti ti-sparkles" /> Ask Lora</span>
           </div>
