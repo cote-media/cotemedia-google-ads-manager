@@ -31,6 +31,17 @@ HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" 
 
 ## GOSPEL / NON-NEGOTIABLES
 Standing truths that override convenience. Read every session; never trade them away for speed.
+
+## BEDROCK PRINCIPLE — TOTAL DATA CAPTURE (non-negotiable, supersedes convenience)
+Data completeness is the single most important property of LoraMer — the core premise of the app.
+For EVERY customer, on connecting ANY source, LoraMer automatically CAPTURES and BACKFILLS everything the platform's API exposes — every entity grain, every dimension/breakdown, every available metric — to the deepest the platform allows, and captures it all FORWARD daily. "Everything" means everything obtainable, never "most" or "almost all."
+ENFORCEMENT:
+ (1) Auto-backfill fires on every source connect — no manual step — to the platform floor, across all grains/dimensions.
+ (2) Forward daily capture covers ALL grains/dimensions, not a subset.
+ (3) The completeness gate verifies every client × platform × grain × dimension; onboarding is NOT complete until the gate is green.
+ (4) Any field fetched-but-unpersisted is a DEFECT, not a deferral.
+No future session may narrow or de-scope this. When in doubt, capture more, deeper.
+
 - **DESKTOP=MOBILE PARITY:** the redesign is ONE app. Every increment must look, feel, and work coherently on BOTH desktop and mobile — never fork or decouple them. Verify each increment on both surfaces before calling it done.
 - **EVERYTHING IS LAUNCH-CRITICAL ("Russ launch-blocker"):** default-treat all features/fixes as launch-critical for the July 14, 2026 soft launch (Russ wants ~100% operational and will put in the hours). The ONLY exceptions are (a) true next-phase capabilities — design (Canva-like integration) then write capability; and (b) genuine external constraints (reviewer/approval timelines, e.g. Meta/Google). Never assume an item is post-launch unless it is one of those, or Russ says so.
 

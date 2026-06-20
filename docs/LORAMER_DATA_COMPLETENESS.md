@@ -33,3 +33,8 @@ PHASE 2 FIXES: (3) Woo — remove top-10 cap, capture ALL products (forward+back
 PHASE 3 GUARANTEE: (5) completeness gate — audit every client×platform×grain; flag any grain shallower than account or any fetched-but-unpersisted field; pre-launch gate + repeatable.
 PHASE 4 BREADTH: the breakdown/dimension capture project, prioritized by product value, after 1–3.
 Every phase: approach gate on shared writers; Gate A reconcile before commit; freeze-safe; reconcile-or-don't-write; loud failures.
+
+## ENFORCEMENT — onboarding = total capture (per the bedrock principle in LORAMER_HANDOFF.md)
+PHASE 4 (breadth) is ELEVATED from "future/prioritized" to a CORE requirement: capture every available grain/dimension/metric in the matrix, forward + backfilled to platform floor.
+Onboarding automation: every source connect auto-triggers full backfill across all grains (the backfill engine already reaches GA 2015 floor / campaign / stores — extend it to all breadth dimensions and fire it on connect).
+Completeness gate: every client × platform × grain × dimension — flag anything missing, shallow, or fetched-but-unpersisted; gate "onboarded" on green; run continuously thereafter.
