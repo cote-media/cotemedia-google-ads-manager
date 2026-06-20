@@ -38,7 +38,7 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
     .order('platform', { ascending: true })
 
   return (
-    <Shell active="clients" clientName={resolved.name}>
+    <Shell active="clients" clientName={resolved.name} clientId={resolved.id}>
       <ClientPage clientId={resolved.id} clientName={resolved.name} connections={conns || []} />
     </Shell>
   )

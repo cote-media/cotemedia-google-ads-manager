@@ -10,10 +10,12 @@ import TopBar from './TopBar'
 export default function Shell({
   active,
   clientName = 'The Escential Group',
+  clientId,
   children,
 }: {
   active: string
   clientName?: string
+  clientId?: string
   children: React.ReactNode
 }) {
   return (
@@ -28,12 +30,12 @@ export default function Shell({
       <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css" />
 
       {/* Unified top bar (desktop + mobile, one component). Drawer body = the rail content, server-rendered. */}
-      <TopBar clientName={clientName} drawer={<RailContent active={active} clientName={clientName} mobile />} />
+      <TopBar clientName={clientName} clientId={clientId} drawer={<RailContent active={active} clientName={clientName} clientId={clientId} mobile />} />
 
       <div className={styles.body}>
         {/* Desktop rail (hidden < md). Per-client nav only — switcher + account moved to the TopBar. */}
         <aside className={`${styles.rail} ${styles.railDesktop}`}>
-          <RailContent active={active} clientName={clientName} />
+          <RailContent active={active} clientName={clientName} clientId={clientId} />
         </aside>
 
         <main className={styles.main}>
@@ -49,7 +51,7 @@ export default function Shell({
       </div>
 
       {/* Mobile bottom tab bar (Overview · Lora · Mer). Hidden ≥ md. */}
-      <MobileNav active={active} />
+      <MobileNav active={active} clientId={clientId} />
     </div>
   )
 }

@@ -7,25 +7,28 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 
 export default function TopBar({
   clientName,
+  clientId = null,
   agencyName = 'Russ Côté',
   clientLogoUrl = null,
   agencyLogoUrl = null,
   drawer,
 }: {
   clientName: string
+  clientId?: string | null
   agencyName?: string
   clientLogoUrl?: string | null
   agencyLogoUrl?: string | null
   drawer: React.ReactNode
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [switcherOpen, setSwitcherOpen] = useState(false)
   const [acctOpen, setAcctOpen] = useState(false)
@@ -57,7 +60,7 @@ export default function TopBar({
 
           {/* Client switcher: the avatar is its own tap target (→ client profile); the name+chevron opens the dropdown. */}
           <div className={styles.tbSwitcher}>
-            <Link href="/dashboard-next/client-profile" className={styles.tbAvatarLink} aria-label="Client profile">
+            <Link href={clientId ? `/dashboard-next/client-profile?clientId=${clientId}` : '/dashboard-next/client-profile'} className={styles.tbAvatarLink} aria-label="Client profile">
               <Avatar name={clientName} kind="client" logoUrl={clientLogoUrl} />
             </Link>
             <button className={styles.tbName} onClick={() => setSwitcherOpen((v) => !v)}>
@@ -75,7 +78,8 @@ export default function TopBar({
                       className={styles.menuItem}
                       onClick={() => {
                         setSwitcherOpen(false)
-                        if (c.id) router.push(`/dashboard-next/client-profile?clientId=${c.id}`)
+                        // Change WHO, keep WHERE: re-navigate the current view with the picked client.
+                        if (c.id) router.push(`${pathname}?clientId=${c.id}`)
                       }}
                     >
                       <Avatar name={c.name} kind="client" />

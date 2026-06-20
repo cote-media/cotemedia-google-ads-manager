@@ -31,7 +31,7 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
   }
 
   return (
-    <Shell active="overview" clientName={resolved.name}>
+    <Shell active="overview" clientName={resolved.name} clientId={resolved.id}>
       <OverviewStatic clientId={resolved.id} clientName={resolved.name} />
     </Shell>
   )

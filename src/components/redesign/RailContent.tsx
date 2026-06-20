@@ -23,12 +23,16 @@ const NAV: NavItem[] = [
 
 export default function RailContent({
   active,
+  clientId,
   mobile = false,
 }: {
   active: string
   clientName?: string
+  clientId?: string
   mobile?: boolean
 }) {
+  // Per-client -next links carry the active client; the legacy 'connect' (/clients) link does not.
+  const withClient = (href: string) => (clientId ? `${href}?clientId=${clientId}` : href)
   return (
     <>
       <div className={styles.wordmark}>LoraMer</div>
@@ -56,7 +60,7 @@ export default function RailContent({
             <Fragment key={item.id}>
               {groupLabel}
               {sep}
-              <Link href={item.href} className={cls}>
+              <Link href={item.connect ? item.href : withClient(item.href)} className={cls}>
                 {/* Shopify: inline SVG (Tabler v3 webfont dropped brand-shopify); every other channel = webfont. */}
                 {item.id === 'shopify'
                   ? <ShopifyIcon size={18} />
