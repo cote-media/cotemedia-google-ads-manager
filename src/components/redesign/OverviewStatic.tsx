@@ -73,22 +73,27 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
 
   return (
     <>
-      <h1 className={styles.title}>Overview</h1>
+      {/* Page header + period picker = the PAGE'S date control (drives Top stats), mirroring the all-clients
+          header treatment (clientsHeader + title + the same sortStub <select>) — moved out of the "Top stats"
+          section header so it reads/behaves as the date control, not a sub-thing. */}
+      <div className={styles.clientsHeader}>
+        <h1 className={styles.title}>Overview</h1>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+          aria-label="Period"
+          className={styles.sortStub}
+          style={{ cursor: 'pointer' }}
+        >
+          {PERIOD_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
 
       {/* Top stats — REAL captured numbers for the selected period. */}
       <div>
         <div className={styles.secHead}>
           <i className={`ti ti-grip-vertical ${styles.grip}`} />
           <span className={styles.lbl}>Top stats</span>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            aria-label="Period"
-            className={styles.sortStub}
-            style={{ cursor: 'pointer', marginLeft: 'auto' }}
-          >
-            {PERIOD_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
         </div>
         <div className={styles.statGrid}>
           <Stat icon="ti-speakerphone" label="Total spend" value={spendV} delta={spendD} />
