@@ -1479,3 +1479,21 @@ WHY: Lora currently says she can't search the web — most likely web_search is 
 DESIGN PRINCIPLE: availability = a tool-wiring decision; SCOPE = a role/purpose decision. Do NOT hard-allowlist domains (it blocks exactly the long-tail business blogs we want). Scope by PURPOSE instead: Lora is a marketing analyst; web search serves the client's growth. Off-purpose requests (e.g. restaurant recos) are declined because they're not her job — a consequence of a well-defined role, not a brittle topic blocklist. The same purpose-scoping will govern future capabilities (write / ad-management).
 GUARDRAILS: (1) purpose-scoped Lora "web research" Skill — search only for marketing/advertising/platform/industry/competitive/business context relevant to a client. (2) PROVENANCE — external findings always cited and kept clearly SEPARATE from the client's own data (never merge "what your data shows" with "what a blog says"); ties to the Validation layer. (3) source-quality bias — reputable industry + primary sources, skeptical of SEO junk. (4) anchor to a data observation where possible.
 BUILD ON-RAMP (when picked up): read-only investigation first — confirm whether web_search is wired into Lora's tools (likely not) → add it scoped via the Skill + a provenance footer → eval. Stages with the Skills/Validation workstream.
+
+## 2027+ VISION — write-everything + first-party pixel (capture only; far-horizon, after best-in-world analysis is proven & the system of record is rock-solid)
+
+### WRITE-EVERYTHING (write / ad-management across all platforms)
+Once LoraMer is best-in-world at analysis on the system of record, the next layer is ACTION: from its understanding of the business, craft the best marketing plan, create the assets, and write ads directly to the platforms (Google, Meta, and any platform that allows it) per its unparalleled understanding of that business. Read-only is the LAUNCH posture; write/ad-management is the long-term destination. Gated on: the analysis core proven (the 95% path), per-platform write scopes requested INCREMENTALLY and only when demoable, and the eval program. The first-party pixel's conversion data is the cleanest fuel for this loop.
+
+### FIRST-PARTY PIXEL (LoraMer's OWN website tag — like Triple Whale / Meta Pixel / Google tag; distinct from Meta's pixel)
+WHY: stop being limited to platform-REPORTED data; own a first-party behavioral/conversion stream straight off the client's site. Deepens the system-of-record thesis (own the raw behavior, not just platform aggregates) and is the best fuel for write-everything.
+WHAT GOES IN (rough order of lift):
+  1. The tag — small JS snippet (one-click Shopify/Woo app; snippet/GTM elsewhere), unique per-client ID, fires pageviews/sessions/add-to-cart/checkout/purchase/custom events.
+  2. Ingestion pipeline (the engineering core) — real-time collector endpoint, at scale, never-drop (firehose, NOT a nightly pull) — a genuinely different beast from today's cron-pull model.
+  3. Event-scale storage + identity/sessionization — stitch events into sessions/people, cross-session/device; a new storage tier (event volume dwarfs metrics_daily).
+  4. Attribution modeling — LoraMer's OWN click→visit→conversion picture, not each platform's self-serving version. The analytical payoff.
+  5. Loop back to platforms (server-side conversions / CAPI / Enhanced Conversions) — send measured conversions back to sharpen platform optimization; shakes hands with write-everything.
+  6. THE HEAVY ONE — privacy/consent/compliance: collecting behavior + PII makes LoraMer a data PROCESSOR → consent management (GDPR/CCPA/consent mode), DPAs with every client, PII hashing/encryption/retention, deletion/access rights, breach liability. More legal/operational than technical; the most-underestimated part.
+  7. Install + verification UX — one-click Shopify/Woo, snippet/GTM for others, an "is it firing?" checker.
+PHASED ON-RAMP: do NOT start with a full pixel. Server-side conversions from data ALREADY captured (Shopify/Woo orders) → sent to platforms server-side → a real slice of the value without the full client-tag + event-pipeline + consent build. Server-side conversions first, full first-party pixel later. Build-vs-buy the event infra when the time comes.
+HORIZON: firmly 2027+; a new CATEGORY of data source layered on top of today's platform-API pulls.
