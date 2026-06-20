@@ -52,6 +52,7 @@ export async function GET(request: Request) {
   const cur = emptyAcc(), prev = emptyAcc()
   const curByPlatform: Record<string, number> = { google: 0, meta: 0 } // per-platform ads SPEND, CURRENT window only
   const curStoreRev: Record<string, number> = { shopify: 0, woocommerce: 0 } // per-platform store REVENUE, CURRENT window
+  let curGaRev = 0, curGaConv = 0 // GA revenue + conversions, CURRENT window only
   const PAGE = 1000
   let from = 0
   for (;;) {
@@ -82,7 +83,10 @@ export async function GET(request: Request) {
         a.storeRev += fin(r.revenue); a.storeRows += 1
         if (a === cur && (platform === 'shopify' || platform === 'woocommerce')) curStoreRev[platform] += fin(r.revenue)
       }
-      else if (platform === 'ga') { a.gaRev += fin(r.revenue); a.gaRows += 1 }
+      else if (platform === 'ga') {
+        a.gaRev += fin(r.revenue); a.gaRows += 1
+        if (a === cur) { curGaRev += fin(r.revenue); curGaConv += fin(r.conversions) }
+      }
     }
     if (rows.length < PAGE) break
     from += PAGE
@@ -96,12 +100,13 @@ export async function GET(request: Request) {
     const { data } = await supabaseAdmin.from('metrics_daily').select('platform').eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle()
     return !!data
   }
-  const [googleEver, metaEver, shopifyEver, wooEver] = await Promise.all([ever('google'), ever('meta'), ever('shopify'), ever('woocommerce')])
+  const [googleEver, metaEver, shopifyEver, wooEver, gaEver] = await Promise.all([ever('google'), ever('meta'), ever('shopify'), ever('woocommerce'), ever('ga')])
   const channels = [
-    { platform: 'google', spend: Number(curByPlatform.google.toFixed(2)), revenue: null as number | null, hasDataEver: googleEver },
-    { platform: 'meta', spend: Number(curByPlatform.meta.toFixed(2)), revenue: null as number | null, hasDataEver: metaEver },
-    { platform: 'shopify', spend: null as number | null, revenue: Number(curStoreRev.shopify.toFixed(2)), hasDataEver: shopifyEver },
-    { platform: 'woocommerce', spend: null as number | null, revenue: Number(curStoreRev.woocommerce.toFixed(2)), hasDataEver: wooEver },
+    { platform: 'google', spend: Number(curByPlatform.google.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: googleEver },
+    { platform: 'meta', spend: Number(curByPlatform.meta.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: metaEver },
+    { platform: 'shopify', spend: null as number | null, revenue: Number(curStoreRev.shopify.toFixed(2)), conversions: null as number | null, hasDataEver: shopifyEver },
+    { platform: 'woocommerce', spend: null as number | null, revenue: Number(curStoreRev.woocommerce.toFixed(2)), conversions: null as number | null, hasDataEver: wooEver },
+    { platform: 'ga', spend: null as number | null, revenue: Number(curGaRev.toFixed(2)), conversions: Math.round(curGaConv), hasDataEver: gaEver },
   ]
 
   // True freshness for this client (unbounded by the window) so the captured basis is transparent.

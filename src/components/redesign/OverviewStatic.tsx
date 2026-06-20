@@ -15,7 +15,7 @@ type Metrics = {
   spendPrior: number; revenuePrior: number | null; conversionsPrior: number
   latestCapturedDate: string | null
   current?: { startDate: string; endDate: string }
-  channels?: { platform: string; spend: number | null; revenue: number | null; hasDataEver: boolean }[]
+  channels?: { platform: string; spend: number | null; revenue: number | null; conversions: number | null; hasDataEver: boolean }[]
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -89,6 +89,14 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
       sub: !c ? (loading ? '…' : '—') : (c.hasDataEver ? `${money(c.revenue ?? 0)} revenue` : 'not connected'),
     }
   })()
+  // Analytics (GA) card: GA's OWN revenue + conversions, source-labeled (may differ from the store/headline figure,
+  // which use store precedence — that's correct, not a contradiction). Sessions are out of scope (not captured).
+  const gaSub = () => {
+    const c = m?.channels?.find((x) => x.platform === 'ga')
+    if (!c) return loading ? '…' : '—'
+    if (!c.hasDataEver) return 'not connected'
+    return `${money(c.revenue ?? 0)} GA revenue · ${(c.conversions ?? 0).toLocaleString('en-US')} conv`
+  }
 
   return (
     <>
@@ -145,7 +153,7 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
           </div>
           <div className={styles.chan}>
             <i className={`ti ti-chart-bar ${styles.chanLead}`} />
-            <div><div className={styles.chanNm}>Analytics</div><div className={styles.chanSub}>coming soon</div></div>
+            <div><div className={styles.chanNm}>Analytics</div><div className={styles.chanSub}>{gaSub()}</div></div>
           </div>
           <div className={styles.chan}>
             {store.kind === 'shopify'
