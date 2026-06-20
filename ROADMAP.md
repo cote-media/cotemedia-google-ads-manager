@@ -1497,3 +1497,22 @@ WHAT GOES IN (rough order of lift):
   7. Install + verification UX — one-click Shopify/Woo, snippet/GTM for others, an "is it firing?" checker.
 PHASED ON-RAMP: do NOT start with a full pixel. Server-side conversions from data ALREADY captured (Shopify/Woo orders) → sent to platforms server-side → a real slice of the value without the full client-tag + event-pipeline + consent build. Server-side conversions first, full first-party pixel later. Build-vs-buy the event infra when the time comes.
 HORIZON: firmly 2027+; a new CATEGORY of data source layered on top of today's platform-API pulls.
+
+## FEATURE — Data Completeness Onboarding (meter + notification automation + human-assist)
+The customer-facing surface of the Total Data Capture bedrock principle (see LORAMER_HANDOFF.md). Backend = the completeness gate (docs/LORAMER_DATA_COMPLETENESS.md).
+
+PROGRESS METER (per client) — NON-BLOCKING: app is fully usable from day one; this is an indicator + motivator, never a paywall/gate. Stays RED until every connectable source is resolved; GREEN when all are. Per-source status:
+  • connected + fully backfilled (green)
+  • backfilling… (show progress, e.g. "Shopify — 4.3 yrs · 80%") — a trust/wow moment
+  • not connected (red)
+  • marked "I don't have this" / N/A (green)
+
+TWO COMPLETENESS LAYERS — the meter only nags on what the customer controls:
+  • Customer-controlled: connect each source you have, or mark N/A. Drives the red state + notifications.
+  • Automatic (ours): deep backfill on connect, shown as progress, NOT as a nag.
+
+N/A PATH (first-class): per-source, one tap, reversible if they later get it; "I don't run Meta" is a complete, valid answer that turns that source green so the meter can legitimately reach 100%.
+
+NOTIFICATION AUTOMATION: a per-client onboarding-completeness state machine → email + in-app. Relentless but with clear off-ramps — the ONLY stop conditions are "connected" or "marked N/A." Escalating cadence (motivate, not spam) + a global off-switch.
+
+HUMAN-ASSIST: a "get a person to help you connect everything" CTA embedded in the meter → reaches a REAL human (per the no-bot-only-support gospel). The path that gets stalled customers to green.
