@@ -15,7 +15,7 @@ type Metrics = {
   spendPrior: number; revenuePrior: number | null; conversionsPrior: number
   latestCapturedDate: string | null
   current?: { startDate: string; endDate: string }
-  channels?: { platform: string; spend: number; hasDataEver: boolean }[]
+  channels?: { platform: string; spend: number | null; revenue: number | null; hasDataEver: boolean }[]
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -75,8 +75,20 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
   const chanSub = (p: string) => {
     const c = m?.channels?.find((x) => x.platform === p)
     if (!c) return loading ? '…' : '—'
-    return c.hasDataEver ? `${money(c.spend)} spend` : 'not connected'
+    return c.hasDataEver ? `${money(c.spend ?? 0)} spend` : 'not connected'
   }
+  // Store card adapts to the client's actual store platform: Shopify, or WooCommerce if that's the connected one.
+  const store = (() => {
+    const shop = m?.channels?.find((x) => x.platform === 'shopify')
+    const woo = m?.channels?.find((x) => x.platform === 'woocommerce')
+    const useWoo = !!(woo?.hasDataEver && !shop?.hasDataEver)
+    const c = useWoo ? woo : shop
+    return {
+      label: useWoo ? 'WooCommerce' : 'Shopify',
+      kind: useWoo ? 'woo' : 'shopify',
+      sub: !c ? (loading ? '…' : '—') : (c.hasDataEver ? `${money(c.revenue ?? 0)} revenue` : 'not connected'),
+    }
+  })()
 
   return (
     <>
@@ -136,8 +148,10 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
             <div><div className={styles.chanNm}>Analytics</div><div className={styles.chanSub}>coming soon</div></div>
           </div>
           <div className={styles.chan}>
-            <ShopifyIcon size={22} className={styles.chanLead} />
-            <div><div className={styles.chanNm}>Shopify</div><div className={styles.chanSub}>coming soon</div></div>
+            {store.kind === 'shopify'
+              ? <ShopifyIcon size={22} className={styles.chanLead} />
+              : <i className={`ti ti-shopping-cart ${styles.chanLead}`} />}
+            <div><div className={styles.chanNm}>{store.label}</div><div className={styles.chanSub}>{store.sub}</div></div>
           </div>
         </div>
       </div>
