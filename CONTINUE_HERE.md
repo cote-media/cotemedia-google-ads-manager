@@ -39,7 +39,7 @@ SHIPPED (all -next, deployed, freeze intact):
 - 1G (459ce95): Channels grid → real Google/Meta per-platform SPEND, reconciled to account Total Spend, connection-honest (hasDataEver).
 - 1H (c5ad9cb): Channels grid → real Shopify/Woo store REVENUE, reconciled via store precedence, connection-honest; store slot relabels to WooCommerce for Woo clients.
 - 1I (1015651): Channels grid → GA/Analytics card (GA revenue + conversions), source-labeled, reconciled for GA-only clients; store+GA clients show GA's own figure distinct from store/headline; sessions out of scope.
-=> Channels grid now FULLY real across all 4 cards. Per-client Overview complete end-to-end (Top stats + ET period picker + 4 real channel cards).
+=> Channels grid now FULLY real across all 4 cards. Per-client Overview complete end-to-end (Top stats + ET period picker + 4 real channel cards). + 1J (expanded per-client Overview Top stats to the live headline set — Clicks/Impressions/Avg CTR/CPC/CPA, captured+reconciled, mobile-first; commit bbabdfe) + 1K (Combined Performance daily time-series chart — Google solid/Meta dashed, Spend/Clicks/Conversions toggle, new /api/next/client-timeseries, captured+reconciled, mobile-first; commit c6356b8).
 DOCS BANKED: LORAMER_LORA_INTELLIGENCE_BAR (741f13f, Agentic Analytics Stack + repo-verified per-layer status + 95% path + north star); FLIP_PROGRAM (2c2ab76, sort/filter spec); ROADMAP (first-party login workstream; Lora web-research + scoping principle; 2027+ vision write-everything + first-party pixel; revenue-source tooltip — wording confirmed store>ga>null); LORAMER_HANDOFF (standing: -next is the ONLY dev target going forward, live app frozen/ignored until Meta decision; mobile experience is a first-class Claude-app-caliber standard on all -next surfaces).
 INVESTIGATIONS (read-only, resolved): VM revenue = legitimately GA ($126 real, correctly sourced via store>ga>null, NOT a bug). GA connection provenance = SYSTEMIC across 9 clients via the app's normal GA connect flow during cohort onboarding (06-12 re-auth + 06-16/18), owned by cotebrandmarketing@gmail.com — legit, "connected and forgotten." GA reaches -next because the client-metrics revenue precedence reads the shared metrics_daily (which holds GA rows) — no GA-specific -next code; GA had no card until 1I.
 SECURITY EVENT: Meta Ads + Gmail MCP CONNECTORS were exposing write tools (create ad set/creative, pixel-event-create, custom-audience PII upload) with confirmation-bypass instructions. Claude NEVER invoked any. Russ DISCONNECTED both connectors (resolved). These were Claude.ai connectors, SEPARATE from LoraMer's own Meta data pipeline (app Meta OAuth + cote@ token + cron) — pipeline UNAFFECTED.
@@ -359,14 +359,8 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Write/ad-management across Google+Meta+any platform (read-only = launch posture only).
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
-═══ NEXT STEP (set 2026-06-19 evening, flip-app program) ═══
-NEXT STEP — PER-PLATFORM DRILL PAGES. Make the -next Channels cards navigate to real detail views
-(/dashboard-next/google-ads · /meta-ads · /shopify · /analytics — routes don't exist yet). Goal = bring -next to
-CAPABILITY parity with the live site (NOT visual — -next is the better design). Start READ-ONLY (scope the live
-dashboard's per-platform tabs + what each would read), then build slice by slice (membership-aware /api/next/*
-reads; freeze-safe; -next route + components only). Spec: docs/LORAMER_NEXT_FLIP_PROGRAM.md (parity §4).
-Prior: per-client Overview COMPLETE end-to-end (Top stats + ET period picker + 4 real Channel cards), slices
-1B→1I (HEAD 1015651). See the "SESSION 2026-06-19 (evening)" log at the top.
+═══ NEXT STEP ═══
+CAMPAIGN-LEVEL TABLES (Slice C) on the -next Overview — Campaign Performance / Conversion Leaders / Budget Utilization, matching the live site. START read-only: confirm campaign-grain data is captured in metrics_daily (entity_level='campaign') for a sample client over a window; if present, build slice by slice (reconciled to account totals); if it's live-fetch only, flag as a live-route track. PER-PLATFORM DRILL PAGES come AFTER C.
 
 (PREVIOUS NEXT STEP — WIRE -next TO REAL DATA / Increment 1 — DONE this session: portfolio + per-client Overview +
 Channels grid fully real, 1B-3 through 1I. PDF fix [3dde314] + RBAC foundation [9cae500] also done earlier.)
