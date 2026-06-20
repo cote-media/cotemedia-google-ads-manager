@@ -24,11 +24,26 @@ function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000)
 }
 
+// LORAMER_NEXT_ET_ANCHOR_V1 — civil "today" in US Eastern (America/New_York, DST-correct via Intl) returned as a
+// Date whose UTC Y/M/D EQUAL the ET calendar date. The frozen resolveDateWindow derives "today" from its `now`
+// arg's UTC components, so passing this anchors all -next windows to ET WITHOUT touching resolveDateWindow's
+// behavior for frozen (now=undefined → server-UTC) callers. The -next user base is US/Eastern; this stops the
+// post-UTC-midnight "Yesterday → not-yet-captured day → $0" off-by-one.
+export function etCivilDate(at?: Date): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(at || new Date())
+  const v = (t: string) => Number(parts.find((p) => p.type === t)!.value)
+  return new Date(Date.UTC(v('year'), v('month') - 1, v('day')))
+}
+
 // Current window for the period + the LIKE-FOR-LIKE prior window.
 //  - complete periods (yesterday, last week, last month, last 7/30) → immediately-preceding complete period.
 //  - to-date periods (today, this week, this month) → same number of elapsed days in the prior period.
+// `now` defaults to the US-Eastern civil date (not the server/UTC clock) for the -next date path.
 export function portfolioWindows(period: string, now?: Date): { current: Window; prior: Window } {
-  const current = resolveDateWindow(period, undefined, undefined, now)
+  const base = now || etCivilDate()
+  const current = resolveDateWindow(period, undefined, undefined, base)
 
   // Month periods: prior = the calendar month BEFORE current.startDate's month (THIS_MONTH caps to elapsed days).
   if (period === 'THIS_MONTH' || period === 'LAST_MONTH') {

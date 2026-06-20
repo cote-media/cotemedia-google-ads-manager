@@ -87,5 +87,11 @@ export async function GET(request: Request) {
       spendPrior: p.spend, revenuePrior: p.revenue,
     }
   })
-  return NextResponse.json({ period, current, prior, metrics })
+
+  // Global freshness: most-recent captured day across the accessible clients (for the data-through guard).
+  const { data: latest } = await supabaseAdmin
+    .from('metrics_daily').select('date').in('client_id', clientIds)
+    .order('date', { ascending: false }).limit(1).maybeSingle()
+
+  return NextResponse.json({ period, current, prior, latestCapturedDate: latest?.date || null, metrics })
 }

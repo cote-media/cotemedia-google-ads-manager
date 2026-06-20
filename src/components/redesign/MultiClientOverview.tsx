@@ -40,6 +40,7 @@ function DeltaTag({ d }: { d: Delta }) {
 export default function MultiClientOverview({ clients }: { clients: ClientLite[] }) {
   const [period, setPeriod] = useState<string>(DEFAULT_PERIOD)
   const [metrics, setMetrics] = useState<Record<string, Metric>>({})
+  const [fresh, setFresh] = useState<{ end: string | null; latest: string | null }>({ end: null, latest: null })
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -53,11 +54,15 @@ export default function MultiClientOverview({ clients }: { clients: ClientLite[]
         const map: Record<string, Metric> = {}
         for (const m of d.metrics || []) map[m.clientId] = m
         setMetrics(map)
+        setFresh({ end: d.current?.endDate || null, latest: d.latestCapturedDate || null })
       })
       .catch(() => {})
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [period])
+
+  // Honest freshness: selected window runs past the latest captured day (e.g. early-ET-morning pre-cron gap).
+  const stale = !!(fresh.end && fresh.latest && fresh.end > fresh.latest)
 
   return (
     <>
@@ -83,6 +88,12 @@ export default function MultiClientOverview({ clients }: { clients: ClientLite[]
           <i className="ti ti-adjustments-horizontal" /> Sort &amp; filter
         </button>
       </div>
+
+      {stale && (
+        <div className={styles.metaLabel} style={{ color: '#b45309', marginBottom: 4 }}>
+          Selected period runs to {fresh.end}, but data is only captured through {fresh.latest} — recent day(s) not in yet.
+        </div>
+      )}
 
       {/* 3) Real client cards: identity + real Spend/Revenue + honest Δ for the selected period. */}
       {clients.length === 0 ? (

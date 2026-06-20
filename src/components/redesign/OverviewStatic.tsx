@@ -14,6 +14,7 @@ type Metrics = {
   conversions: number; conversionValue: number; roas: number | null
   spendPrior: number; revenuePrior: number | null; conversionsPrior: number
   latestCapturedDate: string | null
+  current?: { startDate: string; endDate: string }
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -67,6 +68,8 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
   const spendD = m ? deltaLabel(m.spend, m.spendPrior) : null
   const revD = m ? deltaLabel(m.revenue, m.revenuePrior) : null
   const convD = m ? deltaLabel(m.conversions, m.conversionsPrior) : null
+  // Honest freshness: the selected window extends past the latest captured day (e.g. early-ET-morning pre-cron gap).
+  const stale = !!(m && m.current && m.latestCapturedDate && m.current.endDate > m.latestCapturedDate)
 
   return (
     <>
@@ -93,8 +96,10 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
           <Stat icon="ti-cash" label="Revenue" value={revV} delta={revD} />
           <Stat icon="ti-trending-up" label="ROAS" value={roasV} delta={null} />
         </div>
-        <div className={styles.metaLabel} style={{ marginTop: 6 }}>
-          {m?.latestCapturedDate ? `Captured data through ${m.latestCapturedDate}` : 'Captured data (system of record)'}
+        <div className={styles.metaLabel} style={{ marginTop: 6, color: stale ? '#b45309' : undefined }}>
+          {stale
+            ? `Selected period runs to ${m!.current!.endDate}, but data is only captured through ${m!.latestCapturedDate} — recent day(s) not in yet.`
+            : (m?.latestCapturedDate ? `Captured data through ${m.latestCapturedDate}` : 'Captured data (system of record)')}
         </div>
       </div>
 
