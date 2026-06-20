@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import styles from './redesign.module.css'
 import ShopifyIcon from './ShopifyIcon'
+import CombinedPerformanceChart from './CombinedPerformanceChart'
 import { deltaLabel, DEFAULT_PERIOD, type Delta } from '@/lib/next/portfolio-windows'
 
 type Metrics = {
@@ -179,6 +180,9 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
           </div>
         </div>
       </div>
+
+      {/* Combined Performance — daily Google/Meta time-series (captured, reconciled). Below Channels. */}
+      {clientId && <CombinedPerformanceChart clientId={clientId} period={period} />}
 
       {/* Foot cues (visual only) */}
       <div className={styles.footcues}>
