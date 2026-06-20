@@ -12,7 +12,9 @@ import { deltaLabel, DEFAULT_PERIOD, type Delta } from '@/lib/next/portfolio-win
 type Metrics = {
   spend: number; revenue: number | null; revenueSource: string
   conversions: number; conversionValue: number; roas: number | null
+  impressions: number; clicks: number; ctr: number | null; cpc: number | null; cpa: number | null
   spendPrior: number; revenuePrior: number | null; conversionsPrior: number
+  impressionsPrior: number; clicksPrior: number
   latestCapturedDate: string | null
   current?: { startDate: string; endDate: string }
   channels?: { platform: string; spend: number | null; revenue: number | null; conversions: number | null; hasDataEver: boolean }[]
@@ -30,6 +32,7 @@ const PERIOD_OPTIONS: { value: string; label: string }[] = [
 ]
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+const usd2 = (n: number) => '$' + n.toFixed(2) // CPC/CPA need cents
 const num = (n: number) => Math.round(n).toLocaleString('en-US')
 
 function Stat({ icon, label, value, delta }: { icon?: string; label: string; value: string; delta: Delta | null }) {
@@ -66,9 +69,16 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
   const revV = m ? (m.revenue != null ? money(m.revenue) : '—') : (loading ? '…' : '—')
   const convV = m ? num(m.conversions) : (loading ? '…' : '—')
   const roasV = m ? (m.roas != null ? m.roas.toFixed(2) + '×' : '—') : (loading ? '…' : '—')
+  const clicksV = m ? num(m.clicks) : (loading ? '…' : '—')
+  const imprV = m ? num(m.impressions) : (loading ? '…' : '—')
+  const ctrV = m ? (m.ctr != null ? m.ctr.toFixed(2) + '%' : '—') : (loading ? '…' : '—')
+  const cpcV = m ? (m.cpc != null ? usd2(m.cpc) : '—') : (loading ? '…' : '—')
+  const cpaV = m ? (m.cpa != null ? usd2(m.cpa) : '—') : (loading ? '…' : '—')
   const spendD = m ? deltaLabel(m.spend, m.spendPrior) : null
   const revD = m ? deltaLabel(m.revenue, m.revenuePrior) : null
   const convD = m ? deltaLabel(m.conversions, m.conversionsPrior) : null
+  const clicksD = m ? deltaLabel(m.clicks, m.clicksPrior) : null
+  const imprD = m ? deltaLabel(m.impressions, m.impressionsPrior) : null
   // Honest freshness: the selected window extends past the latest captured day (e.g. early-ET-morning pre-cron gap).
   const stale = !!(m && m.current && m.latestCapturedDate && m.current.endDate > m.latestCapturedDate)
   // Channels: real per-platform spend for the period; connection-honest (no fabricated $0 for unconnected platforms).
@@ -122,11 +132,17 @@ export default function OverviewStatic({ clientId }: { clientId?: string; client
           <i className={`ti ti-grip-vertical ${styles.grip}`} />
           <span className={styles.lbl}>Top stats</span>
         </div>
-        <div className={styles.statGrid}>
+        {/* Mobile-first responsive: auto-fit wraps to 2-up on phones, more per row as width allows (not a cramped row). */}
+        <div className={styles.statGrid} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(132px, 1fr))' }}>
           <Stat icon="ti-speakerphone" label="Total spend" value={spendV} delta={spendD} />
+          <Stat icon="ti-click" label="Clicks" value={clicksV} delta={clicksD} />
+          <Stat icon="ti-eye" label="Impressions" value={imprV} delta={imprD} />
           <Stat label="Conversions" value={convV} delta={convD} />
           <Stat icon="ti-cash" label="Revenue" value={revV} delta={revD} />
           <Stat icon="ti-trending-up" label="ROAS" value={roasV} delta={null} />
+          <Stat icon="ti-percentage" label="Avg CTR" value={ctrV} delta={null} />
+          <Stat label="CPC" value={cpcV} delta={null} />
+          <Stat label="CPA" value={cpaV} delta={null} />
         </div>
         <div className={styles.metaLabel} style={{ marginTop: 6, color: stale ? '#b45309' : undefined }}>
           {stale

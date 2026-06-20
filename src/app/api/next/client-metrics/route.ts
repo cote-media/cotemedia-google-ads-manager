@@ -17,9 +17,12 @@ export const fetchCache = 'force-no-store'
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
 
-type Acc = { spend: number; conversions: number; conversionValue: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }
-const emptyAcc = (): Acc => ({ spend: 0, conversions: 0, conversionValue: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 })
+type Acc = { spend: number; conversions: number; conversionValue: number; impressions: number; clicks: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }
+const emptyAcc = (): Acc => ({ spend: 0, conversions: 0, conversionValue: 0, impressions: 0, clicks: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 })
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
+// guarded ratio: returns null on /0 or non-finite (never NaN/∞)
+const ratio = (num: number, den: number, scale = 1): number | null =>
+  den > 0 && Number.isFinite(num / den) ? Number(((num / den) * scale).toFixed(2)) : null
 
 function settle(a: Acc) {
   const spend = Number(a.spend.toFixed(2))
@@ -29,8 +32,15 @@ function settle(a: Acc) {
   else if (a.gaRows > 0) { revenue = Number(a.gaRev.toFixed(2)); revenueSource = 'ga' }
   const conversions = Number(a.conversions.toFixed(2))
   const conversionValue = Number(a.conversionValue.toFixed(2))
+  const impressions = Math.round(a.impressions)
+  const clicks = Math.round(a.clicks)
   const roas = spend > 0 && revenue != null && Number.isFinite(revenue / spend) ? Number((revenue / spend).toFixed(2)) : null
-  return { spend, revenue, revenueSource, conversions, conversionValue, roas }
+  return {
+    spend, revenue, revenueSource, conversions, conversionValue, roas, impressions, clicks,
+    ctr: ratio(a.clicks, a.impressions, 100), // percentage
+    cpc: ratio(a.spend, a.clicks),
+    cpa: ratio(a.spend, a.conversions),
+  }
 }
 
 export async function GET(request: Request) {
@@ -58,7 +68,7 @@ export async function GET(request: Request) {
   for (;;) {
     const { data, error } = await supabaseAdmin
       .from('metrics_daily')
-      .select('platform,spend,revenue,conversions,conversion_value,date')
+      .select('platform,spend,revenue,conversions,conversion_value,impressions,clicks,date')
       .eq('client_id', clientId)
       .eq('entity_level', 'account')
       .eq('breakdown_type', '')
@@ -77,6 +87,7 @@ export async function GET(request: Request) {
       const platform = r.platform as string
       if (ADS_PLATFORMS.includes(platform)) {
         a.spend += fin(r.spend); a.conversions += fin(r.conversions); a.conversionValue += fin(r.conversion_value)
+        a.impressions += fin(r.impressions); a.clicks += fin(r.clicks)
         if (a === cur && (platform === 'google' || platform === 'meta')) curByPlatform[platform] += fin(r.spend)
       }
       else if (STORE_PLATFORMS.includes(platform)) {
@@ -118,7 +129,9 @@ export async function GET(request: Request) {
     clientId, period, current, prior,
     spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,
     conversions: c.conversions, conversionValue: c.conversionValue, roas: c.roas,
+    impressions: c.impressions, clicks: c.clicks, ctr: c.ctr, cpc: c.cpc, cpa: c.cpa,
     spendPrior: p.spend, revenuePrior: p.revenue, conversionsPrior: p.conversions,
+    impressionsPrior: p.impressions, clicksPrior: p.clicks,
     latestCapturedDate: latest?.date || null,
     channels,
   })
