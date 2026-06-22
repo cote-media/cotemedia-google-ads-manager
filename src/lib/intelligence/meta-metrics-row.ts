@@ -110,5 +110,35 @@ export function buildMetaMetricsRows(
     )
   }
 
+  // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — campaign × placement breakdown rows. SPEND/clicks/impressions
+  // ONLY (Meta does not break conversions out per placement → conversions/conversion_value stay 0, never
+  // fabricated). entity_level='campaign' + breakdown_type='placement' is collision-free with the campaign
+  // grain (breakdown_type=''); breakdown_value '<publisher>:<position>' separates placements per campaign.
+  for (const cp of data.campaignPlacements || []) {
+    const ctr = cp.impressions > 0 ? (cp.clicks / cp.impressions) * 100 : 0
+    const cpc = cp.clicks > 0 ? cp.spend / cp.clicks : null
+    const cpm = cp.impressions > 0 ? (cp.spend / cp.impressions) * 1000 : null
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'meta',
+      account_id: accountId,
+      entity_level: 'campaign',
+      entity_id: cp.campaignId,
+      entity_name: cp.campaignName,
+      parent_entity_id: accountId,
+      date: captureDate,
+      breakdown_type: 'placement',
+      breakdown_value: `${cp.publisherPlatform}:${cp.platformPosition}`,
+      spend: cp.spend,
+      impressions: cp.impressions,
+      clicks: cp.clicks,
+      conversions: 0,
+      conversion_value: 0,
+      revenue: 0,
+      extra: { ctr, cpc, cpm, publisherPlatform: cp.publisherPlatform, platformPosition: cp.platformPosition },
+    })
+  }
+
   return rows
 }

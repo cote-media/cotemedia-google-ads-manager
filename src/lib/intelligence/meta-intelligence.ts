@@ -2,7 +2,7 @@
 // Fetches ALL available Meta Ads data for a client account.
 // Output conforms to PlatformIntelligence schema.
 
-import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceConversionAction, IntelligencePlacement } from './intelligence-types'
+import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceConversionAction, IntelligencePlacement, IntelligenceCampaignPlacement } from './intelligence-types'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 
@@ -90,7 +90,10 @@ export async function fetchMetaIntelligence(
     : `date_preset=${buildDatePreset(dateRange)}`
 
   const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
-  const placementFields = 'spend,clicks,impressions'  // LORAMER_META_PLACEMENT_FIELDS_FIX_V1 — breakdowns go in &breakdowns=, NOT &fields=
+  // LORAMER_META_PLACEMENT_FIELDS_FIX_V1 — breakdowns go in &breakdowns=, NOT &fields=.
+  // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — campaign_id,campaign_name added (additive response columns)
+  // so the SAME response feeds BOTH the unchanged account-level `placements` sum AND the new per-campaign map.
+  const placementFields = 'campaign_id,campaign_name,spend,clicks,impressions'
 
   // ── Campaigns ──────────────────────────────────────────────────────────────
   const campaignInsights = await fetchAll(
@@ -239,6 +242,34 @@ export async function fetchMetaIntelligence(
   const placements: IntelligencePlacement[] = Object.values(placementMap)
     .sort((a, b) => b.spend - a.spend)
 
+  // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — SECOND aggregation from the SAME response, keyed by
+  // campaign × placement, for metrics_daily persistence. The account-level `placements` array above is
+  // UNTOUCHED (Lora prompt byte-identical). Rows missing campaign_id are skipped (never pollute the grain).
+  const campaignPlacementMap: Record<string, IntelligenceCampaignPlacement> = {}
+  placementInsights.forEach((p: any) => {
+    const campaignId = String(p.campaign_id || '')
+    if (!campaignId) return
+    const publisher = String(p.publisher_platform || '').toLowerCase()
+    const position = String(p.platform_position || '').toLowerCase()
+    const key = `${campaignId}|${publisher}|${position}`
+    if (!campaignPlacementMap[key]) {
+      campaignPlacementMap[key] = {
+        campaignId,
+        campaignName: String(p.campaign_name || ''),
+        publisherPlatform: publisher,
+        platformPosition: position,
+        spend: 0,
+        clicks: 0,
+        impressions: 0,
+      }
+    }
+    campaignPlacementMap[key].spend += parseFloat(p.spend || '0')
+    campaignPlacementMap[key].clicks += parseFloat(p.clicks || '0')
+    campaignPlacementMap[key].impressions += parseFloat(p.impressions || '0')
+  })
+  const campaignPlacements: IntelligenceCampaignPlacement[] = Object.values(campaignPlacementMap)
+    .sort((a, b) => b.spend - a.spend)
+
   // ── Totals ─────────────────────────────────────────────────────────────────
   const totalSpend = campaigns.reduce((s, c) => s + c.metrics.spend, 0)
   const totalClicks = campaigns.reduce((s, c) => s + c.metrics.clicks, 0)
@@ -271,7 +302,8 @@ export async function fetchMetaIntelligence(
     adGroups,
     ads,
     conversionActions: [],
-    placements,  // LORAMER_PROJECT_3_STEP_4A_V1
+    placements,  // LORAMER_PROJECT_3_STEP_4A_V1 (account-level; Lora prompt — UNCHANGED)
+    campaignPlacements,  // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 (campaign × placement; metrics_daily)
     totals,
   }
 }

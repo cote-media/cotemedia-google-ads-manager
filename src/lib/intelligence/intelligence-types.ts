@@ -453,8 +453,10 @@ export interface PlatformIntelligence {
   impressionShares?: IntelligenceImpressionShare[]
   // LORAMER_PROJECT_3_STEP_3E_V1 — Google's own optimization suggestions
   recommendations?: IntelligenceRecommendation[]
-  // LORAMER_PROJECT_3_STEP_4A_V1 — Meta-only: placement breakdown
+  // LORAMER_PROJECT_3_STEP_4A_V1 — Meta-only: placement breakdown (account-level, Lora-prompt only)
   placements?: IntelligencePlacement[]
+  // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — Meta-only: campaign × placement breakdown (for metrics_daily persistence)
+  campaignPlacements?: IntelligenceCampaignPlacement[]
   totals: IntelligenceMetrics
 }
 
@@ -463,6 +465,20 @@ export interface PlatformIntelligence {
 // publisherPlatform: facebook, instagram, audience_network, messenger, etc.
 // platformPosition: feed, reels, stories, marketplace, etc.
 export interface IntelligencePlacement {
+  publisherPlatform: string
+  platformPosition: string
+  spend: number
+  clicks: number
+  impressions: number
+}
+
+// LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1
+// Meta campaign × placement breakdown: same (publisher × position) split, but KEYED PER CAMPAIGN
+// (campaign_id added to the placement fetch). Persisted to metrics_daily as entity_level='campaign',
+// breakdown_type='placement'. spend/clicks/impressions only — Meta does not break conversions out per placement.
+export interface IntelligenceCampaignPlacement {
+  campaignId: string
+  campaignName: string
   publisherPlatform: string
   platformPosition: string
   spend: number
