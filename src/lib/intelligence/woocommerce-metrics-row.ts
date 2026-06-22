@@ -47,9 +47,9 @@ export function buildWooMetricsRows(
       date: captureDate,
       breakdown_type: '',
       breakdown_value: '',
-      revenue: product.revenue,
+      revenue: product.revenue, // LORAMER_WOO_PRODUCT_REFUND_NET_FIX1B_V1 — NET (productsCapture sets revenue=netRevenue)
       conversions: product.units,
-      extra: { units: product.units },
+      extra: { units: product.units, netBasis: 'account_net_incl_shipping_tax_prorata_by_gross_share' },
     })
   }
 

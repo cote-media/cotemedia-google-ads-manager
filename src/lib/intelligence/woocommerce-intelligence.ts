@@ -123,14 +123,41 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
       productSales[id].units += Number(item.quantity || 0)
     })
   })
-  const sortedProducts = Object.entries(productSales)
-    .sort(([, a], [, b]) => b.revenue - a.revenue)
+  // topProducts = GROSS display list, top-10 (UNCHANGED — display only, mirrors Phase 1).
+  const topProducts = Object.entries(productSales)
     .map(([id, data]) => ({ id, ...data }))
-  const topProducts = sortedProducts.slice(0, 10) // display list (unchanged)
-  // LORAMER_WOO_ALLPRODUCTS_FIX1A_V1 — uncapped capture set (mirrors Shopify productsCapture).
-  // The metrics_daily WRITER consumes this; topProducts stays the 10-row display list. Revenue is
-  // line-item GROSS (same basis as topProducts) — refund-netting the product grain is a later change.
-  const productsCapture = sortedProducts
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 10)
+
+  // LORAMER_WOO_PRODUCT_REFUND_NET_FIX1B_V1 — productsCapture (the metrics_daily WRITER source) is
+  // REFUND-NETTED so Σ(productsCapture.netRevenue) ≡ account NET (Σ wooNetOf), $0.00 residual.
+  // Woo exposes ONLY order-level refund totals (refunds[].total, negative; no per-line detail), so we
+  // distribute each order's FULL net — wooNetOf(o) = o.total (incl shipping/tax) + refunds — across its
+  // product lines PRO-RATA by gross line share. Per order Σ line-net ≡ wooNetOf(o) by construction
+  // (Σ share = 1), so store-wide Σ reconciles to the account grain exactly. Basing the share on the
+  // ORDER net (not line gross + refund) is what absorbs shipping/tax so it reconciles to the wooNetOf
+  // account basis; grossRevenue + units stay an unreconciled order-side axis (mirrors Shopify Flight 1).
+  const fin = (n: number) => (Number.isFinite(n) ? n : 0)
+  const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
+  saleOrders.forEach((o: any) => {
+    const items = (o.line_items || []) as any[]
+    if (items.length === 0) return // no lines → nothing to attribute (order net still in account grain)
+    const sumGross = fin(items.reduce((s: number, it: any) => s + parseFloat(it.total || '0'), 0))
+    const orderNet = fin(wooNetOf(o)) // account-grain basis: o.total (incl shipping/tax) + negative refunds
+    items.forEach((item: any) => {
+      const id = String(item.product_id)
+      const grossLine = fin(parseFloat(item.total || '0'))
+      const share = sumGross > 0 ? grossLine / sumGross : 1 / items.length // all-$0 order → equal split
+      const netContribution = fin(orderNet * share)
+      if (!prodCap[id]) prodCap[id] = { name: item.name || ('product ' + id), netRevenue: 0, grossRevenue: 0, units: 0 }
+      prodCap[id].netRevenue += netContribution
+      prodCap[id].grossRevenue += grossLine
+      prodCap[id].units += fin(Number(item.quantity || 0))
+    })
+  })
+  const productsCapture = Object.entries(prodCap)
+    .map(([id, v]) => ({ id, ...v, revenue: v.netRevenue })) // revenue alias = NET (writer reads .revenue)
+    .sort((a, b) => b.netRevenue - a.netRevenue)
 
   return {
     connected: true,
