@@ -9,7 +9,7 @@ Authoritative files for the live task. `cat` and read each in full before acting
 
 ★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
 
-No active workstream — see AUDIT_FINDINGS.md (master punch-list) + the NEXT queue. LORAMER_CATCHUP_LOOP_PLAN.md is the closed record of WS1c STEP 2.
+ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Wave 1 Fix-1a SHIPPED (8377b97); NEXT = Wave 1 Fix-1b (Woo product refund-net). See the NEXT STEP block at the bottom. AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
 # CONTINUE_HERE — LoraMer
 
@@ -28,6 +28,13 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 4. cat every REQUIRED READING file and read it fully before acting.
 5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
 === end launch ritual ===
+
+## SESSION 2026-06-22 — DATA COMPLETENESS PROGRAM launched: Wave 0 audit + Wave 1 Fix-1a (Woo all-products) SHIPPED. HEAD = 8377b97.
+- GOVERNING RULE set: retrieve ALL data from everywhere + store FOREVER (until cancel). Active workstream = DATA COMPLETENESS PROGRAM (docs/LORAMER_DATA_COMPLETENESS.md).
+- WAVE 0 AUDIT (read-only SQL): full per-client × platform × grain coverage map. Account-grain "barbell holes" (BusyBee/Glass Plus/skinregimen/Influential — old years + 2026, middle absent) DISMISSED per Russ = those accounts weren't running Google ads then (true zero, not loss); banked the bounded-cursor-rewrite re-capture technique for future real gaps. search_term/keyword = BANKED-AND-GROWING (persist forever). Duplicate client_ids noted: Influential Drones real 5bb9b2ff (cotebrandmarketing@) vs demo 2617b163 (demo@); Escential/LoraMer reviewer dups.
+- ENGINE GROUND-TRUTH (read-only): runBackfill (account grain) = contiguous backward sweep, no interior-gap detection, SHORT-CIRCUITS on backfill_complete (run-backfill.ts:166); no [start,end] entry point — only auto-cursor. getDailyMetrics THROWS (no silent swallow); its callers = daily/route (LIVE-REVIEW frozen), backfill/probe, backfill adapter. runWooCommerceBackfill = resumable-lap, /api/backfill/woocommerce?clientId=&days=&unblock CRON_SECRET GET; complete=true → no-op (woocommerce-backfill.ts:129-132); `days` sets only the back-floor, resume is always from frontier going OLDER (155-162); `unblock` clears only the breaker, never complete. cron/sync has NO clientId param (all-clients, platform-scoped).
+- FIX-1a SHIPPED (8377b97, LORAMER_WOO_ALLPRODUCTS_FIX1A_V1): summarizeWooOrders emits uncapped `productsCapture` (mirrors Shopify); buildWooMetricsRows writes from it (fallback to topProducts if undefined); IntelligenceShopify.productsCapture widened (revenue fields optional, serves Shopify+Woo). Gate A: tsc clean, npm run build clean, unit proof 15>10 products written, display top-10 + frozen read-cap intact. Product revenue still GROSS (→1b). Deployed to prod.
+- NEXT = Fix-1b (Woo product refund-net) → then Meta placement persist → Wave 2 Shelley re-capture (after 1b). See NEXT STEP block.
 
 ## SESSION 2026-06-19 (evening) — -next per-client Overview build-out + ET date-engine fix + connector cleanup. HEAD = 1015651.
 SHIPPED (all -next, deployed, freeze intact):
@@ -361,11 +368,25 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
 ═══ NEXT STEP ═══
-SINGLE FOCUS: DATA COMPLETENESS ROLLOUT — per the BEDROCK PRINCIPLE (LORAMER_HANDOFF.md) + the 4-phase plan in docs/LORAMER_DATA_COMPLETENESS.md. Nothing else until the data is whole.
-PHASE 1 (start here):
- 1. SCALE the two PROVEN campaign-grain backfill writers — Google (google-campaign-backfill.ts, pilot ffd0f6f) + Meta (meta-campaign-backfill.ts, pilot 266b048) — across ALL clients × platform, deepest the API serves. Per-day SPEND reconcile-or-skip; Meta conversions = own grain (spend is the reconcile basis, Lesson 58); idempotent upsert; resumable; per-client reconcile proof; freeze-safe (writers tree-shaken; forward capture + frozen set untouched).
- 2. RUN the existing GA backfill (gaBackfillAdapter / /api/backfill/ga / BackfillControl) for ENNIS EXTERMINATING — the ONLY shallow GA client (8/9 already deep).
-THEN: Phase 2 (drop Woo top-10 product cap → capture ALL products; persist Meta placement breakdown), Phase 3 (build the completeness gate), Phase 4 (breadth-capture build + onboarding auto-backfill). Approach gate on shared writers; Gate A reconcile before every commit.
+ACTIVE WORKSTREAM: DATA COMPLETENESS PROGRAM. GOVERNING RULE — retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Plan: docs/LORAMER_DATA_COMPLETENESS.md.
+
+WAVE 0 (audit) — DONE.
+ • Per-client × platform × grain coverage mapped (read-only SQL, 2026-06-22).
+ • Account-grain "barbell holes" (BusyBee / Glass Plus / skinregimen / Influential Drones — old years + 2026 present, middle years absent) INVESTIGATED then DISMISSED: per Russ those accounts simply WEREN'T RUNNING Google ads in the missing years → genuine zero, NOT data loss. No account-range writer needed now; BANK the targeted re-capture idea for any FUTURE real gap (the auto-cursor engine no-ops on complete and only sweeps OLDER — it can't refill an interior span without a deliberate bounded cursor rewrite).
+ • Google search_term/keyword confirmed BANKED-AND-GROWING (earliest pinned at the one-time ~90d backfill floor, latest extends nightly; nothing prunes) → we persist them forever.
+
+WAVE 1 (capture-completeness fixes) — IN PROGRESS.
+ • Fix-1a SHIPPED ✅ (commit 8377b97, LORAMER_WOO_ALLPRODUCTS_FIX1A_V1): Woo product WRITE path now emits an UNCAPPED `productsCapture` (Shopify-shaped) → captures ALL products/day, closing the >10-product/day data-loss. The 10-row DISPLAY list + the frozen captured-read cap (woocommerce-intelligence.ts:228-230) are UNTOUCHED. Product revenue is still GROSS (account is NET) — Σproduct does NOT yet reconcile.
+ • Fix-1b = NEXT STEP → refund-net the Woo PRODUCT grain (per-line refund attribution, mirroring Shopify Flight 1) so Σ(product) ≡ account NET. APPROACH-GATE first; Gate A reconcile ($0.00 residual) before commit.
+ • Then: Meta PLACEMENT persist — publisher_platform/platform_position are fetched live at campaign level but DROPPED on write; persist them as metrics_daily rows (breakdown_type='placement'). Fetched-but-unpersisted = a completeness violation.
+
+OPEN COMMITMENT — Shelley Kyle (the ONLY Woo product client; id 23c697bb-5255-4289-9329-659544ba8e6e): her 10 historical capped days (ALL pegged at exactly 10 product rows — 2026-05-05, 2026-04-14, 2026-01-27, 2025-12-19, 2025-12-17, 2025-12-09, 2025-12-03, 2025-12-01, 2025-11-30, 2025-11-29) are RE-CAPTURED in WAVE 2, AFTER 1b ships, so they land ALL-PRODUCTS **and** refund-netted in ONE idempotent pass. DO NOT re-capture under 1a alone — that would force a second pass over the same days.
+
+BANKED READ-ONLY FOLLOW-UPS (non-blocking, investigate when convenient):
+ • 3 stale Google search-term/keyword clients (capture stopped early April; rows retained): Foam OH (→2026-04-05), My Vacation Network (→2026-04-15), Ogmentor (→2026-03-24) — paused search activity vs broken dimensional capture?
+ • 2 moderate GA-depth clients (~5 months only): Veterinary mastermind (from 2026-01-02) + The Escential Group (from 2026-01-29) — verify new-property vs un-backfilled before any deepen.
+
+STILL TRACKED (later waves, not dropped): campaign/ad_group/ad DEPTH is forward-only — Google campaign + ad_group + ad (the two campaign-grain writers exist but are UNWIRED, no invoker; ad_group/ad have no writer); Meta campaign + ad_set + ad likewise. GA backfill for Ennis (shallow, 5 days). These were the prior NEXT STEP; re-sequenced behind Wave 1 by Russ. Approach-gate + Gate A reconcile on every writer.
 
 (PREVIOUS NEXT STEP — WIRE -next TO REAL DATA / Increment 1 — DONE this session: portfolio + per-client Overview +
 Channels grid fully real, 1B-3 through 1I. PDF fix [3dde314] + RBAC foundation [9cae500] also done earlier.)

@@ -1,4 +1,11 @@
 # LoraMer — Data Completeness: Gap Matrix + Rollout Plan
+GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels).
+
+## STATUS (2026-06-22)
+- WAVE 0 audit DONE (read-only per-client × platform × grain map). Account-grain "barbell holes" (BusyBee/Glass Plus/skinregimen/Influential) DISMISSED — those accounts weren't running Google ads in the missing years (true zero, not loss); no account-range writer now, banked for future real gaps. search_term/keyword = BANKED-AND-GROWING (persist forever).
+- WAVE 1 Fix-1a SHIPPED (8377b97): Woo product capture UNCAPPED via Shopify-shaped `productsCapture` — closes the >10-product/day data-loss. Display top-10 + frozen read-cap untouched. Product revenue still GROSS (account NET) → does NOT yet reconcile.
+- NEXT: Fix-1b = refund-net the Woo product grain (Σproduct ≡ account NET, mirror Shopify Flight 1) → then Meta placement persist. Wave 2 re-captures Shelley Kyle's 10 capped days AFTER 1b (all-products + refund-netted in one pass).
+
 AVAILABLE (official API docs, Jun 2026) vs HAVE (adapter inventory) vs GAP. Two gap types: DEPTH = a grain we capture forward but never backfilled (silent risk); BREADTH = a dimension the API offers we don't capture at all (future scope, not lost).
 
 ## GOOGLE ADS
@@ -23,13 +30,13 @@ Gap: ACTIVE LOSS — product rows capped at top-10 → real loss on >10-product 
 
 ## BOTTOM LINE — ACTION
 Depth: (1) campaign Google+Meta — writers proven, scale all clients. (2) GA — run existing backfill for shallow clients (years deep).
-Active loss: (3) Woo top-10 product cap — drop it, capture all.
+Active loss: (3) Woo top-10 product cap — ✅ 1a SHIPPED (write path uncapped, 8377b97); refund-net the product grain in 1b so it reconciles.
 Free win: (4) Meta placement — persist what's already fetched.
 Breadth (future): device/geo/demographics/network/hour, Google impression-share, Meta video+ranking, GA dimensions.
 
 ## TOMORROW — COORDINATED COMPLETENESS ROLLOUT (single focus until done)
 PHASE 1 DEPTH: (1) scale campaign writers (Google+Meta) across ALL clients, deepest the API serves; per-day spend reconcile-or-skip; Meta conversions=own grain; idempotent; resumable; per-client reconcile proof. (2) GA backfill for every shallow client; reconcile to account grain.
-PHASE 2 FIXES: (3) Woo — remove top-10 cap, capture ALL products (forward+backfill). (4) Meta — persist placement breakdown.
+PHASE 2 FIXES: (3) Woo — ✅ 1a remove top-10 WRITE cap DONE (8377b97); 1b refund-net product grain (Σproduct ≡ account NET) PENDING; Wave 2 re-capture Shelley's capped days after 1b. (4) Meta — persist placement breakdown (breakdown_type='placement').
 PHASE 3 GUARANTEE: (5) completeness gate — audit every client×platform×grain; flag any grain shallower than account or any fetched-but-unpersisted field; pre-launch gate + repeatable.
 PHASE 4 BREADTH: the breakdown/dimension capture project, prioritized by product value, after 1–3.
 Every phase: approach gate on shared writers; Gate A reconcile before commit; freeze-safe; reconcile-or-don't-write; loud failures.
