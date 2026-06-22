@@ -30,7 +30,11 @@ export function buildWooMetricsRows(
     extra: shopifyAccountExtra(data),
   })
 
-  for (const product of data.topProducts || []) {
+  // LORAMER_WOO_ALLPRODUCTS_FIX1A_V1 — write ALL products from the uncapped productsCapture.
+  // Fall back to the 10-row topProducts ONLY if productsCapture is undefined (an older cached
+  // shape can't drop product rows to zero). `??` keeps an intentional empty [] as empty.
+  const productList = data.productsCapture ?? data.topProducts ?? []
+  for (const product of productList) {
     rows.push({
       client_id: clientId,
       user_email: userEmail,

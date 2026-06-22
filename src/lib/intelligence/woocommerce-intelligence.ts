@@ -123,10 +123,14 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
       productSales[id].units += Number(item.quantity || 0)
     })
   })
-  const topProducts = Object.entries(productSales)
+  const sortedProducts = Object.entries(productSales)
     .sort(([, a], [, b]) => b.revenue - a.revenue)
-    .slice(0, 10)
     .map(([id, data]) => ({ id, ...data }))
+  const topProducts = sortedProducts.slice(0, 10) // display list (unchanged)
+  // LORAMER_WOO_ALLPRODUCTS_FIX1A_V1 — uncapped capture set (mirrors Shopify productsCapture).
+  // The metrics_daily WRITER consumes this; topProducts stays the 10-row display list. Revenue is
+  // line-item GROSS (same basis as topProducts) — refund-netting the product grain is a later change.
+  const productsCapture = sortedProducts
 
   return {
     connected: true,
@@ -136,6 +140,7 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
     newCustomers,
     returningCustomers,
     topProducts,
+    productsCapture,
   }
 }
 

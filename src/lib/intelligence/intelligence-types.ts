@@ -381,7 +381,9 @@ export interface IntelligenceShopify {
   topProducts?: { id: string; name: string; revenue: number; units: number }[]
   // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only (NOT UI): full product net + ship-to geo.
   // Cancelled orders excluded from these. currencyCode = the store's shopMoney currency.
-  productsCapture?: { id: string; name: string; netRevenue: number; grossRevenue: number; units: number }[]
+  // LORAMER_WOO_ALLPRODUCTS_FIX1A_V1 — revenue fields optional so this serves BOTH Shopify
+  // (netRevenue/grossRevenue) AND Woo (revenue). id/name/units required (both set them).
+  productsCapture?: { id: string; name: string; units: number; revenue?: number; netRevenue?: number; grossRevenue?: number }[]
   geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
   geoRegions?: { region: string; netRevenue: number; orders: number }[]
   currencyCode?: string
