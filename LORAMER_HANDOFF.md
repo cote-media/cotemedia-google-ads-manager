@@ -830,3 +830,15 @@ All forward development happens in the -next environment. The live (old) app is 
 
 ## STANDING — mobile experience is a first-class standard for ALL -next surfaces
 The LoraMer mobile experience on every -next surface must be as modern, responsive, intuitive, and beautiful as possible — mobile is NOT an afterthought or a shrunk-down desktop port. The bar = the Claude app's own mobile behavior: the keyboard rises smoothly and the input renders beautifully for typing; in Code specifically, when there's a command/action to approve, the content shifts up in the input area so the action and the text stay visible and reachable. Apply that caliber: input fields that adapt gracefully when the keyboard or an action/approval appears; smooth, native-feeling interactions; thumb-reachable controls; nothing cramped. This applies app-wide, with the Lora chat input as the exemplar. Desktop + mobile remain ONE responsive codebase (chrome adapts, content/IA never forks) — and the mobile rendering must be genuinely excellent, not merely functional. Treat mobile polish as acceptance criteria on -next UI work, not a later pass.
+
+## STANDING — COMMIT/PUSH GATE (2026-06-22)
+Commit and push in ONE motion when, and ONLY when, the change is verified clean:
+  • tsc --noEmit / npm run build green
+  • Gate A passed where applicable (adapter gate: machine-validated vs the real API locally for any platform-query change; reconcile proof where a grain must reconcile)
+  • Freeze intact (no frozen-surface files touched; owner-gate count unchanged)
+  • git status shows ONLY the intended files; tree otherwise clean
+  • one change in flight; revert-ready
+If ALL hold, do not break commit and push into a separate approval step — push is earned, not ceremonial. If ANY is uncertain, STOP before push and surface it. "Clean and perfect" is the precondition for an unbroken commit→push, never an assumption. Never push as a reflex or because "that's the rule"; push because the work proved it.
+
+## LESSON (2026-06-22) — product grain must reconcile on the SAME basis as account
+Woo product cap was a display/.slice conflation: ONE list (topProducts) served both the display top-10 and the metrics_daily write source, so the display cap silently capped capture. Fix-1a split them — uncapped productsCapture for the writer, topProducts stays the 10-row display list. Deeper lesson: a product/line grain must reconcile to its account grain on the SAME revenue basis. Woo product = GROSS line-item while Woo account = NET (wooNetOf, refund-attributed) → Σproduct will exceed account NET on any store with refunds until the product grain is refund-netted (Fix-1b, mirroring Shopify Flight 1). Corollary: re-capture history ONLY AFTER the basis fix ships, never before — re-capturing under 1a alone would force a second pass to net it (violates "never do it twice").
