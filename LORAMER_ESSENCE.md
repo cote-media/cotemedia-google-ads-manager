@@ -1,3 +1,13 @@
+# ⛔ GOVERNING LAW — READ FIRST, OBEY ABSOLUTELY (no exceptions, no reinterpretation)
+LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the customer cancels).
+- EVERYTHING = every grain AND every dimension every platform exposes: account, campaign, ad_group/adset, ad, keyword, search_term, placement, device, geo, age/gender, hour/day, network, video, impression-share, all conversion/action types, product/variant, geo, and every other breakdown the API serves. If the API offers it, we capture it.
+- EVERYWHERE = every connected platform: Google, Meta, Shopify, WooCommerce, GA — and any platform added later.
+- FOREVER = forward capture appends daily and NOTHING is ever deleted or aged out; backfill reaches each platform's retention floor.
+- FULL GRAIN, WITH HISTORY, IS THE DEFAULT. If the current code captures a thin slice (e.g. account-level only, or forward-only), that is INCOMPLETE CODE TO BE FINISHED — never a constraint to design around, and never labeled "future," "phase 4," "later," or "post-launch."
+- The ONLY acceptable reason to not capture something is that the platform genuinely does not serve it (e.g. Google search terms beyond ~90d no longer exist to fetch). That is the ONLY exception. Filtering artifacts, missing params (campaign_id, time_increment), unbuilt writers, and "out of scope for this change" are NOT reasons — they are work to do.
+- SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, freeze-safe). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
+- A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
+
 # THE ESSENCE OF LORAMER — read this every session, before anything else
 
 This is not a spec. It is the reason the product exists, distilled 2026-06-11.
