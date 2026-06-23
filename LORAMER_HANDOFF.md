@@ -5,19 +5,24 @@ A fresh Claude knows NOTHING current until it reads the live repo. Background me
 **LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
 
 Before proposing, verifying, re-checking, or building ANYTHING, in order:
-1. Read `LORAMER_ESSENCE.md` (repo root) in full — the reason the product exists: FACTS are engineered provable, JUDGMENT is calibrated, and Lora never says what it can't show and prove. Internalize it before anything else.
+1. Read `LORAMER_ESSENCE.md` (repo root) in full — the reason the product exists: FACTS are engineered provable, JUDGMENT is calibrated, and Lora never says what it can't show and prove. Internalize it before anything else. (TIER 2 per step 4d: full-read when its manifest content_hash changed; its GOVERNING LAW applies every session regardless.)
 2. Output the SESSION RESUME paste (below) for Claude Code; WAIT for the result.
 3. Read the ACTUAL printed contents of CONTINUE_HERE.md and EVERY file under its "REQUIRED READING — ACTIVE WORKSTREAM" section, in full, in the chat. A hand-typed summary is NOT enough — if you only have a summary, demand the real printed output before doing anything else.
 4. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–59.
 4b. Read IN FULL, EVERY session — the two consolidated registers (MANDATORY, not optional): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate ruling + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped across all queue homes, with status). These are the single source of truth for "what's decided" and "what's queued."
 4c. RESTATE-TO-PROVE rule: before proposing ANY action, restate the settled decisions (from LORAMER_DECISIONS.md) AND the queued items (from LORAMER_QUEUE_OF_RECORD.md) relevant to it, to prove you read them. If you cannot, read more before proposing — never propose from memory or a summary.
+4d. TIERED READ (LORAMER_HANDOFF_TIERED_READ_MANIFEST_V1) — manifest-driven, to end the monolithic-dump failure (the single full dump died mid-stream twice on 2026-06-23 and once printed a false "ALL FILES DUMPED" footer). `docs/HANDOFF_MANIFEST.json` carries per-file content_hash + line_count + last_reconciled. The RESTATE-TO-PROVE bar (4c) is UNCHANGED and still mandatory — tiering changes WHICH files are re-read, never the proof bar.
+   - TIER 1 — read IN FULL every session, ONE file per paste: CONTINUE_HERE.md, LORAMER_QUEUE_OF_RECORD.md, LORAMER_DECISIONS.md.
+   - TIER 2 — read IN FULL only when its `docs/HANDOFF_MANIFEST.json` content_hash CHANGED since the last recorded session: LORAMER_ESSENCE.md, LORAMER_HANDOFF.md, ROADMAP.md, LORAMER_LORA_INTELLIGENCE_BAR.md, docs/LORAMER_DATA_COMPLETENESS.md, AUDIT_FINDINGS.md, LORAMER_CATCHUP_LOOP_PLAN.md.
+   - SESSION RESUME prints `docs/HANDOFF_MANIFEST.json` FIRST; chat-Claude full-reads all TIER 1 + only the TIER 2 files whose hash changed. FIRST-EVER session, or any missing/unmatched prior manifest = read ALL TEN in full.
+   - TRANSMISSION RULE: ONE file per paste, ALWAYS — never the full monolithic dump.
 5. State the single confirmed NEXT STEP from CONTINUE_HERE; WAIT for Russ's explicit "go" before any command, edit, or verification.
 6. Never re-verify or rebuild work CONTINUE_HERE / LORAMER_QUEUE_OF_RECORD marks done/resolved/locked. Never infer state.
 
 SESSION RESUME paste (this is what "resume loramer" outputs):
 SESSION RESUME — read-only, no edits.
 cd <repo-for-this-machine> && git pull origin main && git status && git log -1 --oneline
-cat LORAMER_ESSENCE.md FIRST, then cat CONTINUE_HERE.md, then cat LORAMER_DECISIONS.md and LORAMER_QUEUE_OF_RECORD.md (both MANDATORY, in full), then cat in full every file listed under CONTINUE_HERE's "REQUIRED READING — ACTIVE WORKSTREAM" section. Print ALL of it, actual file contents (do NOT summarize), inside ONE single fenced code block in the chat reply per the REPORT FORMAT rule below. Then wait.
+cat docs/HANDOFF_MANIFEST.json FIRST. Then, ONE FILE PER PASTE (NEVER one monolithic dump): full-read all TIER 1 (CONTINUE_HERE.md, LORAMER_QUEUE_OF_RECORD.md, LORAMER_DECISIONS.md) + only the TIER 2 files whose manifest content_hash CHANGED since the last recorded session (LORAMER_ESSENCE.md, LORAMER_HANDOFF.md, ROADMAP.md, LORAMER_LORA_INTELLIGENCE_BAR.md, docs/LORAMER_DATA_COMPLETENESS.md, AUDIT_FINDINGS.md, LORAMER_CATCHUP_LOOP_PLAN.md). First-ever session, or any missing/unmatched prior manifest = read ALL TEN in full. Each file printed as actual contents (do NOT summarize), each in its OWN fenced code block, ONE per paste, per the REPORT FORMAT rule below. Then wait.
 Receiving Claude: do not act until those actual contents are in the chat. A summary is not enough.
 
 HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" notes in this file):
@@ -583,6 +588,7 @@ Never rotate mid-task; reach a clean breakpoint first. Do these in order:
 3. SUPERSEDED-DOC BANNER: when a doc is deprecated it gets a one-line top banner "STATUS: SUPERSEDED BY <x>" — never deleted (history matters), always bannered. LORAMER_CATCHUP_LOOP_PLAN.md's existing banner is the standard pattern.
 4. ONE STATUS, ONE HOME: a shipped item lives ONLY in DONE — do-not-rebuild; it is never left phrased as pending anywhere else (one status per item, one place).
 5. FRESHNESS STAMP: each mandatory doc carries a "last reconciled <date> @ <HEAD>" line, refreshed at every wrap that touches it (visible staleness; this stamp also feeds the Part A manifest).
+6. MANIFEST REGEN (LORAMER_HANDOFF_TIERED_READ_MANIFEST_V1): regenerate `docs/HANDOFF_MANIFEST.json` content_hash + line_count and refresh last_reconciled_date / last_reconciled_head for every doc touched this session, so Tier-2 change-detection (gate step 4d) stays honest. Folds into the freshness stamp (step 5).
 
 The paired START-of-session protocol lives in "What to do in the first message of a new
 chat" + the Multi-machine sync ritual (git pull first). A fresh Claude reads

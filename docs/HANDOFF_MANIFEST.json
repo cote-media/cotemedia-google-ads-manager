@@ -1,0 +1,62 @@
+{
+  "AUDIT_FINDINGS.md": {
+    "content_hash": "d33a298d9e23776e0ab941228e550df816ca2e1c86ecef8dcc774391773f7457",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 120
+  },
+  "CONTINUE_HERE.md": {
+    "content_hash": "6c955ae5d3c22226a42a649c285d3e44d963adf9be59a7eaf454d9b136569292",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 543
+  },
+  "LORAMER_CATCHUP_LOOP_PLAN.md": {
+    "content_hash": "6021a403b53ea8dad9b15506e33a2bbd858de9a6322025d38fae616fb00724c0",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 136
+  },
+  "LORAMER_DECISIONS.md": {
+    "content_hash": "4de91bb35b6ebdb57b4505e261b67c55f93ad64b79982517bd3be5a718cf372a",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 198
+  },
+  "LORAMER_ESSENCE.md": {
+    "content_hash": "53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 111
+  },
+  "LORAMER_HANDOFF.md": {
+    "content_hash": "d2d3cc155e20d6faf20755cce75ce83b6a0b066450d8e1de8590dc6e610d8a79",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 872
+  },
+  "LORAMER_LORA_INTELLIGENCE_BAR.md": {
+    "content_hash": "2d83994f96762a5dfe486f4db3af9edf508aa8186c731be5130ca14f7f04dacd",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 52
+  },
+  "LORAMER_QUEUE_OF_RECORD.md": {
+    "content_hash": "ee2a301ba93f6d0ce309e07dfb2ccc74a2f61c269fb19faa8b3f14ba7de214dc",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 174
+  },
+  "ROADMAP.md": {
+    "content_hash": "f82c7f8b2fbd09106641daebd2923e52da58e2750e8d9c0db093b6808f220db2",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 1526
+  },
+  "docs/LORAMER_DATA_COMPLETENESS.md": {
+    "content_hash": "2a061053d2db4583eb7c2a491e5f7ab9db3097b9458119f7b002ea0e0d9256c4",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "d596a2a",
+    "line_count": 49
+  }
+}
