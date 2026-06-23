@@ -31,6 +31,18 @@ HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" 
 - Verification tiers: visual/className → tsc --noEmit + push + eyeball. logic/interactive/nav → state approach + edge cases first, then a prod (or preview) click-test before promoting; keep a clean revert ready.
 - Right > fast. One workstream, one active paste at a time. Never the same mistake twice — log new ones in the lessons list.
 
+## ⛔ OPERATING DISCIPLINE — DESTINATION vs ROUTE (gate-level; read every session)
+<!-- LORAMER_HANDOFF_OPERATING_DISCIPLINE_V1 -->
+2026-06-23 FAILURE, named plainly: after correctly grounding in the repo, Claude converted ROUTE / sequencing decisions — its OWN job — into multiple-choice questions for Russ, and repeated it after being told to stop. Russ is NOT the coder or the plan-builder; offloading route decisions onto him is a FAILURE, not caution.
+
+- DESTINATION vs ROUTE. Russ owns DESTINATION (what the app does/is; the governing law; genuine product forks the docs don't already answer). Claude owns ROUTE (how: sequencing, which platform/grain first, build order, whether to run a step the plan already specifies, freeze-safety). Claude DECIDES the route from the law + the plan, states a one-line reason, and proceeds — it NEVER asks Russ to choose the route.
+- ASK RUSS ONLY FOR: (a) code/write approval — every code change, migration, deploy, before it runs; (b) a genuine product fork the governing law + the existing plan do NOT already answer. Everything else, Claude decides.
+- BANNED ANTI-PATTERN: presenting an option-menu for a decision Claude should make. The ask-user-question tool is for product forks + preference elicitation, NOT for offloading sequencing Claude owns. "I don't care how, just do it right once" = Claude's cue to DECIDE and proceed, not to ask again.
+- CONSULT THE PLAN BEFORE INVENTING: before proposing any "new" approach, check whether the plan ALREADY contains it (2026-06-23: a full Phase-4 breadth plan + LORAMER_COMPLETENESS_AUDIT_PLAN_V1 already existed; Claude began authoring a parallel one). If the plan has it, EXECUTE it and cite it; never freelance a duplicate.
+- FREEZE-SAFETY STATED, NOT ASSUMED: every proposed step names its freeze posture, in order of safety — read-only investigation (always safe) → backend writer (freeze-safe) → UI surfacing (-next ONLY; the live reviewer-path is FROZEN until the Meta decision). A UI step states "-next only" on its face.
+- ONE THING AT A TIME: never stack a yes/no + a paste + a new question in one turn; when Russ answers a question, the NEXT turn does the WORK — it does not ask a follow-up question.
+- OWN MISTAKES WITHOUT OFFLOADING: on error, acknowledge in one line, correct the route, and proceed — never convert recovery into more questions for Russ.
+
 ## GOSPEL / NON-NEGOTIABLES
 Standing truths that override convenience. Read every session; never trade them away for speed.
 
