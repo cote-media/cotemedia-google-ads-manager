@@ -48,6 +48,11 @@ HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" 
 - ONE THING AT A TIME: never stack a yes/no + a paste + a new question in one turn; when Russ answers a question, the NEXT turn does the WORK — it does not ask a follow-up question.
 - OWN MISTAKES WITHOUT OFFLOADING: on error, acknowledge in one line, correct the route, and proceed — never convert recovery into more questions for Russ.
 
+## ⛔ BUILD TARGET (gate-level; read every session)
+<!-- LORAMER_HANDOFF_BUILD_TARGET_V1 -->
+BUILD TARGET (gate-level): all UI/build work targets -next ONLY. The live app is FROZEN until the Meta decision — reviewer-path untouched. Any step that would touch a live reviewer-path file is a STOP-and-confirm, never automatic. Every proposed step must state its freeze posture: read-only (safe) → backend writer (freeze-safe) → UI surfacing (-next only).
+(Promotes the standing prose "## STANDING — -next is the ONLY development target going forward" below to a loud gate-level rule; the original section is retained there for full rationale — cross-reference, not a replacement.)
+
 ## GOSPEL / NON-NEGOTIABLES
 Standing truths that override convenience. Read every session; never trade them away for speed.
 
@@ -589,6 +594,7 @@ Never rotate mid-task; reach a clean breakpoint first. Do these in order:
 4. ONE STATUS, ONE HOME: a shipped item lives ONLY in DONE — do-not-rebuild; it is never left phrased as pending anywhere else (one status per item, one place).
 5. FRESHNESS STAMP: each mandatory doc carries a "last reconciled <date> @ <HEAD>" line, refreshed at every wrap that touches it (visible staleness; this stamp also feeds the Part A manifest).
 6. MANIFEST REGEN (LORAMER_HANDOFF_TIERED_READ_MANIFEST_V1): regenerate `docs/HANDOFF_MANIFEST.json` content_hash + line_count and refresh last_reconciled_date / last_reconciled_head for every doc touched this session, so Tier-2 change-detection (gate step 4d) stays honest. Folds into the freshness stamp (step 5).
+7. RESUME-BLOCK DRIFT CHECK: if RESUME_INSTRUCTIONS.md changed this session, raise a flag in the wrap report that Russ MUST re-paste it into Claude app settings (the repo cannot update app settings).
 
 The paired START-of-session protocol lives in "What to do in the first message of a new
 chat" + the Multi-machine sync ritual (git pull first). A fresh Claude reads
