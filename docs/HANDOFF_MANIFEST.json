@@ -47,6 +47,12 @@
     "last_reconciled_head": "d596a2a",
     "line_count": 174
   },
+  "RESUME_INSTRUCTIONS.md": {
+    "content_hash": "dfb63e30fdb17a69f363b4fe6ba43dd65297b8cdf82cdb93bd73a5bd2fe2c3ed",
+    "last_reconciled_date": "2026-06-23",
+    "last_reconciled_head": "ef06584",
+    "line_count": 32
+  },
   "ROADMAP.md": {
     "content_hash": "f82c7f8b2fbd09106641daebd2923e52da58e2750e8d9c0db093b6808f220db2",
     "last_reconciled_date": "2026-06-23",
