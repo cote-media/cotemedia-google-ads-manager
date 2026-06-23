@@ -8,14 +8,16 @@ Before proposing, verifying, re-checking, or building ANYTHING, in order:
 1. Read `LORAMER_ESSENCE.md` (repo root) in full — the reason the product exists: FACTS are engineered provable, JUDGMENT is calibrated, and Lora never says what it can't show and prove. Internalize it before anything else.
 2. Output the SESSION RESUME paste (below) for Claude Code; WAIT for the result.
 3. Read the ACTUAL printed contents of CONTINUE_HERE.md and EVERY file under its "REQUIRED READING — ACTIVE WORKSTREAM" section, in full, in the chat. A hand-typed summary is NOT enough — if you only have a summary, demand the real printed output before doing anything else.
-4. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–40.
+4. Read this file (LORAMER_HANDOFF.md) + ROADMAP.md for standing knowledge: architecture, what's shipped, how we operate, lessons 1–59.
+4b. Read IN FULL, EVERY session — the two consolidated registers (MANDATORY, not optional): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate ruling + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped across all queue homes, with status). These are the single source of truth for "what's decided" and "what's queued."
+4c. RESTATE-TO-PROVE rule: before proposing ANY action, restate the settled decisions (from LORAMER_DECISIONS.md) AND the queued items (from LORAMER_QUEUE_OF_RECORD.md) relevant to it, to prove you read them. If you cannot, read more before proposing — never propose from memory or a summary.
 5. State the single confirmed NEXT STEP from CONTINUE_HERE; WAIT for Russ's explicit "go" before any command, edit, or verification.
-6. Never re-verify or rebuild work CONTINUE_HERE marks done/locked. Never infer state.
+6. Never re-verify or rebuild work CONTINUE_HERE / LORAMER_QUEUE_OF_RECORD marks done/resolved/locked. Never infer state.
 
 SESSION RESUME paste (this is what "resume loramer" outputs):
 SESSION RESUME — read-only, no edits.
 cd <repo-for-this-machine> && git pull origin main && git status && git log -1 --oneline
-cat LORAMER_ESSENCE.md FIRST, then cat CONTINUE_HERE.md, then cat in full every file listed under its "REQUIRED READING — ACTIVE WORKSTREAM" section. Print ALL of it, actual file contents (do NOT summarize), inside ONE single fenced code block in the chat reply per the REPORT FORMAT rule below. Then wait.
+cat LORAMER_ESSENCE.md FIRST, then cat CONTINUE_HERE.md, then cat LORAMER_DECISIONS.md and LORAMER_QUEUE_OF_RECORD.md (both MANDATORY, in full), then cat in full every file listed under CONTINUE_HERE's "REQUIRED READING — ACTIVE WORKSTREAM" section. Print ALL of it, actual file contents (do NOT summarize), inside ONE single fenced code block in the chat reply per the REPORT FORMAT rule below. Then wait.
 Receiving Claude: do not act until those actual contents are in the chat. A summary is not enough.
 
 HOW WE OPERATE NOW (current reality — supersedes any older "delivery formats" notes in this file):

@@ -1,3 +1,7 @@
+> ⛔ NOT MANDATORY READING — CLOSED RECORD. WS1c STEP 2 (catch-up loop) SHIPPED & VERIFIED 2026-06-15
+> (commits 513b980 route + 577ffb4 crons). This file is the closed historical design record only; it is
+> NOT in the mandatory-reading set. Current state lives in LORAMER_QUEUE_OF_RECORD.md (resolved) + the code.
+
 # LORAMER_CATCHUP_LOOP_PLAN.md
 
 ## WS1c STEP 2 — CATCH-UP LOOP (design inputs captured; approach pending Russ's gate)

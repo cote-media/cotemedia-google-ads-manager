@@ -16,7 +16,7 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 - **WS1b = #3 completion sentinel** | HIGH | safe-now | DATA-LOSS yes (masks #1)
   summary.errors lives only in the (expired ~1h) Vercel response; a killed run leaves no trace, so starvation is invisible. Approach: persist a `cron_runs` row at the END of the invocation with the summary; absence of the row ⇒ the run was killed mid-flight. A starved platform must surface, never disappear.
 
-- **WS1c = #1 real fix** | STEP 1 ✅ DONE & VERIFIED 2026-06-15 · STEP 2 (catch-up loop) PENDING | HIGH | safe-now | DATA-LOSS step1 stops the bleed; holes remain until step 2
+- **WS1c = #1 real fix** | STEP 1 ✅ DONE & VERIFIED 2026-06-15 · STEP 2 (catch-up loop) ✅ DONE & VERIFIED 2026-06-15 (RESOLVED — repo-confirmed 2026-06-22: commits 513b980 route + 577ffb4 crons; src/app/api/cron/catchup/route.ts wired) | HIGH | safe-now | DATA-LOSS resolved
   STEP 1 (per-platform split) SHIPPED: commit c5180b5 (LORAMER_CRON_PLATFORM_SPLIT_V1) — `?platform=` gating on the 5 loops + 5 staggered vercel.json crons (ga :00 / woo :05 / shopify :10 / meta :15 / google :20 @ 08 UTC). Verified: all 5 HTTP 200 each in its own 300s budget; google 196.5s (under ceiling); all starved targets advanced to 06-14. Each platform's client loop stays in ONE invocation (Lesson 26 respected).
   STEP 2 = the CATCH-UP LOOP (repair pre-existing holes; the cron only ever writes yesterday, never reads last_forward_sync_date). Gate-A design inputs captured → **see LORAMER_CATCHUP_LOOP_PLAN.md**. Highest-risk change (all 5 capture paths) → approach-first in a fresh session, Russ gates before build.
 
@@ -47,8 +47,8 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
   Gate A on the first real Woo store (Shelley Kyle) found the forward fetcher's `status=any` + raw gross `o.total` counted ~50% non-sales: status census = completed 6947 · processing 292 · **failed 3095 (28.5%)** · cancelled 483 · refunded 26 · on-hold 6 · pending 0 (10,849 total). Refund shape confirmed: `o.total` stays GROSS, NO total_refunded field, `refunds[]` carries NEGATIVE amounts. FIX (shared fetcher fetchWooCommerceIntelligence, mirrors Shopify #6): keep the fetch, then filter to the LOCKED counted set {completed, processing, refunded} and base ALL aggregations (count/conversions, revenue, AOV, customer-mix, topProducts) on it; revenue per order = NET = parseFloat(total) + Σ parseFloat(refunds[].total). Refunded orders stay counted (returned sale, net ~0). Forward + future backfill share this fetcher → byte-identical. Phase-2 backfill will re-derive history with the same rule (no wall → corrects all history).
 
 ## HELD until the Meta decision  (Russ's call 2026-06-13)
-- **#4 — Meta breakdowns not persisted (publisher_platform/age/gender live-only)** | MED | HELD (Meta-adapter code) | DATA-LOSS yes (never written to metrics_daily)
-  Active completeness loss, BUT it lives in the Meta adapter. Do NOT touch while Meta App Review is live, even though the change is likely reviewer-invisible. Approach (when unfrozen): add a meta dimensional grain mirroring google_dimensional (breakdowns in `&breakdowns=`, not `fields=`).
+- **#4 — Meta breakdowns: PLACEMENT ✅ DONE; age/gender still live-only** | MED | placement SHIPPED 2026-06-22 (Slice1 c06d1c7 forward + Slice2 9cb038a campaign×placement history backfill, scaled to all reconcilable Meta clients); age/gender HELD (Meta-adapter) | DATA-LOSS placement resolved; age/gender still not persisted
+  Placement (publisher_platform×platform_position) now persists as breakdown_type='placement' (forward + history). REMAINING: age/gender breakdowns still fetched/used live-only — add when unfrozen, mirroring the placement pattern (breakdowns in `&breakdowns=`, not `fields=`).
 
 ## POST-META-DECISION  (reviewer-path)
 - **#11 — Dashboard rail "missing Google tab" for single-ad-platform clients** | LOW | post-Meta-decision | DATA-LOSS no
@@ -68,7 +68,7 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 ## LOW / WHEN-CONVENIENT
 - **#10 — GA dimensional grains + GA/Meta entity-depth backfills** | LOW | safe-now | DATA-LOSS no | completeness depth, post-core.
 - **#12 — transient "Google data fetch failed temporarily" in Lora (06-12)** | LOW | safe-now | DATA-LOSS no | check Vercel logs for the real error when convenient (Lesson 15); likely transient GAQL/timeout.
-- **#13 — Shopify token read keyed by user_email alone** | LOW | safe-now | DATA-LOSS no | getValidShopifyToken reads `.eq('user_email')` — verify a user with 2 shops can't grab the wrong row (add shop_domain to the key if so). Low: hardening V1 shipped; likely 1 shop/user today.
+- **#13 — Shopify token keyed by user_email alone** | ✅ CLOSED (repo-verified 2026-06-22, per #21) | DATA-LOSS no | getValidShopifyToken keys by user_email AND shop_domain (src/lib/shopify-token.ts:39-40/50-51/119-120) → a user with 2 shops cannot grab the wrong row. No action.
 
 ## OBSERVED DURING WS1c STEP 1 VERIFY  (2026-06-15 · NOT caused by the split · triage)
 - **#14 — Shopify dead refresh token (2 clients)** | MED | safe-now | DATA-LOSS yes (those 2 stores stop capturing)

@@ -1,0 +1,175 @@
+# LORAMER_QUEUE_OF_RECORD.md — CONSOLIDATED BACKLOG  ⛔ MANDATORY SESSION READING (read in full, every session)
+Consolidated backlog of everything PLANNED-BUT-NOT-BUILT, merged from every queue home into ONE list.
+Built 2026-06-22 by reading: ROADMAP.md, AUDIT_FINDINGS.md, LAUNCH_PARKING.md, CONTINUE_HERE.md (all embedded
+queues), docs/LORAMER_DATA_COMPLETENESS.md, TOMORROW_OPENING_MESSAGE.md, and the design docs' open backlog.
+Rules used: one row per distinct item; duplicates merged (all sources listed); existing LORAMER_*_V1 markers
+reused; status = open/partial/blocked/date-gated/status-unclear; launch-relevance per the GOSPEL default
+(everything launch-critical unless a named next-phase or external constraint). Grouped by the existing Project
+structure. SHIPPED/[x] items live in the DONE appendix (do-not-rebuild). Nothing invented; ambiguous status
+marked "status-unclear (verify)". Conflicts resolved from repo ground truth 2026-06-22 (commits cited inline).
+RULE: before proposing any action, restate the queued items here that bear on it — to prove you read them.
+
+LEGEND: [LC]=launch-critical · [NP]=next-phase (post-launch) · [EXT]=external-constraint-gated · [DG]=date-gated
+
+═══════════════════════════════════════════════════════════════════
+ACTIVE WORKSTREAM — DATA COMPLETENESS PROGRAM (docs/LORAMER_DATA_COMPLETENESS.md + CONTINUE_HERE NEXT STEP)
+Governing law: capture EVERYTHING from EVERYWHERE, store FOREVER, full grain + history. [LC]
+═══════════════════════════════════════════════════════════════════
+- Account-grain FORWARD-ONLY backfill — Meta: Inside (floor→2023-10), Glenn Stearns (→2024-09), Ogmentor (→2025-06): run /api/backfill/meta then re-run meta-placement. src: CONTINUE_HERE/this-session audit. open [LC]
+- Influential Drones Meta — BROKEN token (oauth_190, frozen 2025-09-02): reconnect, THEN probe+backfill. src: AUDIT#15, fleet audit. blocked [LC]
+- Google 2025-floor clients — confirm forward-only vs new: Inside google(2025-06), Thought Streams google(2025-04), Ennis google(2025-02) — probe pre-2025. src: fleet audit. open(verify) [LC]
+- Ennis Exterminating — shallow GA (5 days): run gaBackfillAdapter to floor. src: DATA_COMPLETENESS, CONTINUE_HERE. open [LC]
+- Verify Veterinary + Escential GA depth (~5mo) — new-property vs un-backfilled. src: CONTINUE_HERE Wave0. open(verify) [LC]
+- Wave 2 — Shelley Kyle Woo product re-capture (10 capped days) AFTER 1b, all-products + refund-netted in one pass. src: DATA_COMPLETENESS STATUS, CONTINUE_HERE. open [LC]
+- Woo product top-10 cap on >10-product days — REMOVE (drop cap, capture all). status: 1a SHIPPED forward; history pending Wave2. src: DATA_COMPLETENESS#3, AUDIT, MATRIX#?. partial [LC]
+- Stale search-term/keyword capture (3 clients: Foam OH→04-05, My Vacation Network→04-15, Ogmentor→03-24) — paused vs broken dimensional capture. src: CONTINUE_HERE Wave0. open(investigate) [LC]
+- Account-grain "barbell holes" (BusyBee/Glass Plus/skinregimen/Influential) — DISMISSED as true-zero/no-ads; banked bounded-cursor-rewrite re-capture for any FUTURE real gap. src: CONTINUE_HERE, DATA_COMPLETENESS. banked [NP]
+- Campaign/ad_group/ad DEPTH backfill (Google) — campaign writer exists+UNWIRED; ad_group/ad have NO writer; forward-only. src: DATA_COMPLETENESS DEPTH, MATRIX#3. open [LC]
+- Meta ad_set + ad DEPTH backfill — forward-only, no writer. src: DATA_COMPLETENESS, MATRIX#3. open [LC]
+- PHASE 3 — Completeness GATE: audit every client×platform×grain×dimension; flag shallow/fetched-but-unpersisted; gate "onboarded" on green; repeatable. src: DATA_COMPLETENESS Phase3, ESSENCE bedrock(3). open [LC]
+- PHASE 4 BREADTH (ELEVATED to CORE): capture every available breadth dimension fwd+backfill — Google device/network/geo/age-gender/hour/impression-share/video/all_conversions/view-through/audiences/assets; Meta age-gender/geo/device/hourly/video/ranking/full cost_per_action; GA sessions/users/source-medium/channel/landing-pages/device/geo/demographics/events/item-ecommerce; Shopify shipping-tax-split/discount-codes/variant-SKU/abandoned-value/fulfillment/inventory/tags/channel; Woo geo/customer-mix/variants/coupons/fulfillment/WC-Analytics. src: DATA_COMPLETENESS BREADTH+ENFORCEMENT, MATRIX gaps, ESSENCE. open [LC]
+- AUTO-BACKFILL ON CONNECT (customer-facing): on connect → cursor 'pending'; cron sweep drains lap-by-lap; 20-lap cap; honors self-reconcile HALT; never oscillate (L51); Woo extra-gentle; builds on Flight-2 #6 (auto-continue first). src: CONTINUE_HERE, ESSENCE bedrock(1), HANDOFF bedrock, ROADMAP Data-Completeness-Onboarding. open [LC]
+- GA page-level capture (pagePath/landingPage × views/sessions/engagement/conversions/day) → metrics_daily + query_metrics. src: AUDIT 2026-06-18. open [LC]
+- Shopify deep re-backfill to full history (read_all_orders now granted on Foam OH; Influential+Escential still 3-scope — re-auth) — corrects #6 cancelled-history for free; no false-zeros. src: AUDIT#6/#7, MATRIX#1, LAUNCH_PARKING. open [LC]
+- Shopify dimensional re-backfill beyond 60-day wall (wall lifted on re-auth). src: MATRIX#1. open [LC]
+- Drop Woo top-10 product cap also in the captured-READ display (woocommerce-intelligence.ts:228-230) — frozen reviewer surface, post-Meta. src: this-session 1a notes. open(frozen) [EXT]
+- Per-platform revenue-basis tooltips (authoritative wording — Shopify subtotal-excl, Woo incl-shipping/tax-prorata; reflect stored extra.netBasis). src: ROADMAP §Revenue-basis-tooltips. open [LC]
+
+═══════════════════════════════════════════════════════════════════
+REDESIGN PROGRAM / -next  (docs/LORAMER_REDESIGN_SPEC.md, LORAMER_NEXT_FLIP_PROGRAM.md, CONTINUE_HERE)
+-next is the ONLY dev target; live app frozen until Meta decision. Desktop=mobile parity standing.
+═══════════════════════════════════════════════════════════════════
+- Per-platform DRILL PAGES on -next (/dashboard-next/{google-ads,meta-ads,shopify,analytics} — routes don't exist) → capability parity w/ live. src: CONTINUE_HERE NEXT STEP(06-19). open [LC]
+- Agency profile & settings (top-right agency-avatar destination). src: ROADMAP Redesign LC, CONTINUE_HERE queue. open [LC]
+- Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
+- Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
+- Customizable layout engine (react-grid-layout drag/expand/pin, per-page saved layouts) — see Project 18. src: CONTINUE_HERE redesign arc(d). open [LC]
+- Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes→Facts. src: CONTINUE_HERE QUEUED. open [LC]
+- Agency profile route (stub) → unlocks agency-level Knowledge UI. src: CONTINUE_HERE QUEUED. open [LC]
+- Onboarding upload prompt / post-connect nudge layer (empty-states done). src: CONTINUE_HERE QUEUED, ROADMAP cross-cutting nudge. open [LC]
+- Glossary batch (auto-save tooltip + Knowledge/word-budget note). src: CONTINUE_HERE QUEUED. open [LC]
+- DECISION pending: user-delete = soft-delete+retention (current) vs immediate hard-purge. src: CONTINUE_HERE QUEUED. decision-pending [LC]
+- Launch cleanup: remove/disable legacy /api/upload (broken pdf-parse v1) + /clients uploader when -next replaces legacy. src: CONTINUE_HERE QUEUED. open [LC]
+- NICETY: soften encrypted-PDF rejection copy in /api/knowledge. src: CONTINUE_HERE QUEUED. open [NP]
+- Privacy / no-training copy (folds into homepage unification). src: CONTINUE_HERE QUEUED. open [LC]
+- Universal table SORT — every table sortable on every column (build into redesign tables, not legacy). src: AUDIT 2026-06-18, Flight-2#? . open [LC]
+
+FLIGHT-2 FOLLOW-UP QUEUE (CONTINUE_HERE, from Russ 2026-06-18):
+- #1/#6 Backfill AUTO-CONTINUE to completion (drop manual Resume; 20-lap cap = safety) + progress meter, ALL platforms. src: CONTINUE_HERE Flight-2. open [LC]
+- #2 Lora content bleed on mobile+desktop (tables overflow) — responsive across ALL Lora surfaces. src: Flight-2. open [LC]
+- #3 Mobile: no path to /clients cards grid (dropdown lacks "all clients") — mobile nav gap. src: Flight-2. open [LC]
+- #4 Shopify month-view loads too slow — perf; check live-fetch-vs-metrics_daily/index first (pairs w/ Overview long-range timeout). src: Flight-2, AUDIT 06-18. open [LC]
+- #5 Daily/weekly/monthly toggle on Shopify performance graph. src: Flight-2. open [LC]
+- #7 Campaigns bottom-nav defaults to Meta; must default to BOTH when google+meta both connected, else the single one. src: Flight-2. open [LC]
+- #8 "Clear" button under alert Lora surface — UNKNOWN behavior; read-only check (view-clear vs history wipe). src: Flight-2. open(investigate) [LC]
+- #9 More Meta data — conversions (ATC/purchases/ROAS) not just graph+name on mobile campaigns>meta; benchmark TripleWhale/Shopify/Google. src: Flight-2. open [LC]
+- #10 Re-auth button for ALL platforms (Google/Meta/GA reachability gap; cross-platform re-auth integrity audit, L54). src: Flight-2, OPEN-FOLLOWUPS. open [LC]
+- Overview long-range load can time out ("Couldn't load" at Last 90d) — harden timeout/perf (combined multi-source fetch). src: AUDIT 06-18. open [LC]
+
+═══════════════════════════════════════════════════════════════════
+AUDIT_FINDINGS.md — master pre-launch punch-list (WS1→WS3 + held/post-meta/external/low)
+═══════════════════════════════════════════════════════════════════
+- WS1c STEP 2 — CATCH-UP LOOP — ✅ RESOLVED (repo-verified 2026-06-22): commit 513b980 (catchup route) + 577ffb4 (staggered crons) + 0d15bcf cron_runs sentinel; src/app/api/cron/catchup/route.ts + src/app/api/cron/status/route.ts + src/lib/cron-runs.ts all exist+wired. The AUDIT_FINDINGS WS1c#2 "PENDING" line is STALE → flipped to RESOLVED. src: AUDIT WS1c#2 (stale) vs commits. resolved [LC]
+- #8 dimensional sync_state never stamps last_forward_sync_date (google_dimensional+shopify_dimensional NULL → no staleness signal). src: AUDIT#8. open [LC]
+- #9 sync_state vs rows inconsistency (rows written but sync_state skipped). src: AUDIT#9. open [LC]
+- WS2 #2 credential FAN-OUT on single (spurious) auth error — require N-consecutive failures / token-probe before credential-wide flip; MUST ship before NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flips on. src: AUDIT#2. open [LC, freeze-fix-safe]
+- #4 Meta breakdowns — PLACEMENT ✅ DONE (Slice1 c06d1c7 forward + Slice2 9cb038a history backfill, scaled to all reconcilable Meta clients); age/gender STILL live-only/held (Meta-adapter, until Meta decision). AUDIT#4 "not persisted" line updated to reflect placement done. src: AUDIT#4, MATRIX#2. partial [EXT]
+- #6a Shopify test-order exclusion (confirm test:false syntax; fold into liveOrders + re-backfill). src: AUDIT#6a. open [NP]
+- #6b /api/shopify/daily cancelled rule (pre-launch fast-follow; live chart must agree w/ Lora). src: AUDIT#6b. open [LC]
+- #7 Woo deep tail 2016-10→2018-12 (Shelley) — DEFERRED (host PHP-fatal/500 on 2018-11 window) — adaptive sub-chunking under HARD GATE later. src: AUDIT#7, LAUNCH_PARKING. deferred [NP]
+- #11 Dashboard rail "missing Google tab" single-ad-platform clients (~4-line fix, dashboard ~3784) — post-Meta (frozen). src: AUDIT#11, ROADMAP §Dashboard-rail. open(frozen) [EXT]
+- ENV-TRUTH: Air .env.local blank/placeholder values (CRON_SECRET 11-char placeholder→now SET; 8 blanks: GA×3/Shopify×2/Stripe webhook+portal/reviewer token). src: AUDIT ENV. partial [LC]
+- ENV-TRUTH: iMac value-level env audit + stamp HANDOFF block. src: AUDIT ENV. open [LC]
+- #10 GA dimensional grains + GA/Meta entity-depth backfills (completeness depth). src: AUDIT#10. open [LC]
+- #12 transient "Google data fetch failed temporarily" in Lora (06-12) — check Vercel logs (L15). src: AUDIT#12. open(low) [LC]
+- #13 Shopify token read by user_email alone — ✅ CLOSED (repo-verified: getValidShopifyToken keys by user_email AND shop_domain, src/lib/shopify-token.ts:39-40/50-51/119-120, per #21). AUDIT#13 marked closed. src: AUDIT#13/#21. resolved [LC]
+- #14 Shopify dead refresh token (2 clients efe036b4, bb9e2c31) — identify by name + reconnect. src: AUDIT#14. open [LC]
+- #18 legacy live-data routes: request accountId not bound to owned client (caller-token-bounded; MCC breadth). src: AUDIT#18. open [LC]
+- #19 query-metrics + CRON backfill wrappers: service-role + request id, no owner gate (CRON_SECRET-mitigated). src: AUDIT#19. open(by-design) [LC]
+- #22 DEFENSE-IN-DEPTH: extract assertOwnsClient helper across ~9 routes + delete dead anon export + de-alias supabaseAdmin. src: AUDIT#22. open [LC]
+
+═══════════════════════════════════════════════════════════════════
+LAUNCH_PARKING.md
+═══════════════════════════════════════════════════════════════════
+- PRE-LAUNCH IDENTITY MATRIX: walk (a) MCC agency, (b) direct-grant single-account owner [FAILS empty picker; needs ListAccessibleCustomers path], (c) two-users-same-account — each with a real identity end-to-end. src: PARKING matrix, L44, ROADMAP pre-launch. open [LC]
+- POST-META UI BATCH (frozen): Step1 backfill "complete" predicate investigation → Step2 completeness-semantics fix (complete=max-retrievable, show first-activity, Resume only when incomplete) → Step3 Woo Phase 2b UI trigger (BackfillControl on Woo row, behind HARD GATE). src: PARKING, AUDIT#4/#7. open(frozen) [EXT]
+- PHASE-2b WIRING GATE: Woo into /api/backfill/run MUST carry force-no-store (L52) + route through breaker engine, never raw re-walk. src: PARKING. open [LC]
+- PRE-LAUNCH managed-API hygiene audit: confirm Google/Meta/Shopify/GA back off cleanly on 429. src: PARKING. open [LC]
+- PRE-LAUNCH-NICE: explicit Manage/chevron control on every client row (expand affordance). src: PARKING, ROADMAP Open-profile. open [NP]
+- POST-LAUNCH: "Return Rate" tile mislabeled (returning-customer% vs refund-rate) — rename or compute refund-rate. src: PARKING. open [NP]
+- POST-LAUNCH: left-nav IA rethink (function vs platform) before adding more platform tabs. src: PARKING. open [NP]
+- /welcome "Let's go" hydration delay (loading skeleton / disable until hydrated). src: PARKING. open [NP]
+- Meta audience-targeting data appearing in Claude responses — verify meta-intelligence end-to-end (reliable vs inferred). src: PARKING. open(investigate) [LC]
+- Node url.parse() DEP0169 deprecation (transitive dep) — defer to dependency pass (Project 8). src: PARKING. open [NP]
+- POST-FREEZE: Uploads managed malware scan + final security review (scan_status seam ready, no migration). src: PARKING, ROADMAP Project10. open(post-freeze) [EXT]
+
+═══════════════════════════════════════════════════════════════════
+ROADMAP PROJECTS (open items only; [x] in DONE appendix)
+═══════════════════════════════════════════════════════════════════
+P2 BILLING (STRIPE_BILLING_PLAN.md): enable Google Pay; Phase 5 gating (workspace cap/question counter/retention/flags + upgrade prompts) DEFERRED [NP]; Phase 6 go-live (activate, TEST→LIVE keys, LIVE webhook, RE-CREATE portal config LIVE + STRIPE_PORTAL_CONFIG_ID, smoke-test) [EXT/early-July]; capture sub.cancel_at into mirror IF surfacing "cancels on X" (L41). src: ROADMAP P2, AUDIT external, CONTINUE_HERE Stripe.
+P3 INTELLIGENCE DEPTH: Google auction-insights(impression-share/overlap/outrank), bid-strategy; Meta placement[SHIPPED]/audience-targeting/bid-strategy/conversion-events; ad-creative details; device/geo/historical-trend in rowContext; WEB SEARCH for Claude (on-demand→auto-trigger); pre-built prompt library + WYWS digest; multi-KPI (JSONB array); [R1] GROWTH BLUEPRINT/"bomb" doc (subagent fan-out, needs real name); [R2] DAILY ALERT LAYER (audit-first, post-cron, cadence-adaptive). src: ROADMAP P3. open [LC except web-search/blueprint NP]
+P4 EXECUTION LAYER: pause/enable/bid/negative keywords; pause/enable campaigns, budgets, bidding; "Claude Recommends" approve-checkbox→Execute. src: ROADMAP P4. open [NP]
+P5 UX/POLISH: Meta picker sort+search; SMART tips/coachmark system + in-dashboard glossary (+Stripe Phase3 follow-ups a–e: empty-dashboard guidance, welcome-copy truth, path-chooser continuity, first-login progressive onboarding, per-row mapper selection); site-wide info tooltips; better loading skeletons; client-switch data refresh; user-defined Tier-2 dashboard cards; better empty states; metric-cards redesign; visual refresh; explicit open-profile affordance; state persistence (chart metric/granularity/lines/sort persist + restore-from-localStorage); chart-table column sync; demo mode; explainer page. src: ROADMAP P5. open [mostly LC]
+P5 KNOWN BUGS: Combined-mode drill does nothing (drill by row's own platform); window-focus auto-refetch (disable Next focus revalidation). src: ROADMAP P5. open [LC]
+P6 PLATFORM EXPANSION: Bing/TikTok/Amazon/LinkedIn/X/Pinterest/Snapchat/Reddit Ads (consider Unified API); WooCommerce[connector shipped]; Klaviyo; Stripe payments; GA Phase 6 disconnect route+button. src: ROADMAP P6. open [GA-disconnect LC; rest NP]
+P7 AGENCY: client-list sort/filter/drag-drop order; cross-client insights; benchmark view; best-practice sharing; white-label; team access; custom domain; client portal; agent automations. src: ROADMAP P7. open [NP]
+P8 TECH DEBT: advar→loramer localStorage rebrand (51 keys + migration); /admin user-management page; refresh-connection UX; Next.js 14.2.3 security upgrade; npm deprecations; error boundaries w/ friendly msgs; rate-limiting; Google Ads Standard Access (scale-time); Anthropic spend dashboard; webhook retry queue; revisit forceRefresh; unify 3 caches; /api/intelligence request dedup; tier-gate/batch extractProfileContext; Google date-path consolidation (resolveDateWindow everywhere); stale-intel-cache fix; dead platformData in /api/chat; Meta spend>0 filter hides ad-set structure; layout.tsx Georgia inline override; insight useEffect missing userNotes dep; landing copy "ads reimagined"; architectural /api/* audit pass; SYNC_STATE migration capture (010→011 gap). src: ROADMAP P8, AUDIT FINDs, CONTINUE_HERE. open [mixed]
+P9 MEMORY & LEARNING: Phase3 dismissed-insights+pattern obs; Phase4 nightly learning loop+daily logs; memory-editor UX (collapsible/search/sort/pin/last-referenced/glossary-popover/merge/decay/sub-group/dedicated route); Phase2.2 changed-circumstances (3 Qs pending); Phase2.3 environmental-change detection (banned-metric signal); warm-start agency brain; "Website" field on Mer profile (ingest site w/ provenance). src: ROADMAP P9 + design docs. open [NP mostly; website field LC]
+P10 UPLOADS: V1 ✅ SHIPPED via Uploads Pass B (repo-verified: /api/knowledge route + migration 017 uploaded_docs/upload_audit + separate-from-user_notes + magic-byte + 25MB + dedup + delete/soft-delete + audit + budgets + KnowledgePanel) + PDF extraction fix (3dde314, unpdf replaces pdf-parse — DOMMatrix bug FIXED). REMAINING: remove/disable legacy /api/upload (still broken pdf-parse v1) + /clients uploader when -next replaces legacy; V2 structured CSV/XLSX; V3 live feeds (Sheets/Notion/CRM); onboarding upload nudge. ROADMAP P10 V1 task list flipped to done. src: ROADMAP P10, UPLOAD_DESIGN, CONTINUE_HERE. partial(V1 done) [LC]
+- MULTI-ACCOUNT per client (>1 account same platform): Phase 1 ✅ DONE (migration 005 added nullable account_id to metrics_daily; LORAMER_MULTIACCOUNT_PHASE2A_V1 writes it). Phase 2 = widen the metrics_daily conflict key to include account_id = SCOPING-ONLY (docs/scoping/multi-account-phase2.md, 2026-06-05, nothing executed). The rollup-only vs per-account-breakout vs both DECISION is NOT settled (scoping doc leans per-account but is explicitly "SCOPING ONLY"). src: ROADMAP:1369, docs/scoping/multi-account-phase1+2, migration 005. open-decision + open-build [LC]
+P11 ATTENTION SURFACE v2: dismissible alerts (track in client_memory); severity tiers; consistent across panels. src: ROADMAP P11. open [NP]
+P12 USER-DEFINED ALERT RULES: alert_rules+alert_events schema; rule builder UI; email digest; AI-suggested rules; agent automations. src: ROADMAP P12. open [NP]
+P13 MOBILE QA CADENCE + pre-launch mobile checklist (auth/clients/dashboard/campaigns/keywords/shopify/floating-claude/profile/error-states + known-issues); mobile right-panel bottom-sheet sizing. src: ROADMAP P13. open [LC]
+P14 CONVERSATION SURFACE: Phase1 remaining (drop legacy conversations JSONB after soak; extractProfileContext→new table); Phase2 cross-context references; Phase3 Ask-Claude continuity banner; Phase4 cross-surface attribution (per-message surface labels — docs/PROJECT_14_PHASE_4_DESIGN). src: ROADMAP P14. open [NP mostly]
+P15 HUMAN SUPPORT: "Talk to a human" link+button (always visible) + response-time promise; App Store/pricing human-commitment copy; footer→support 1-click; agency/business/pricing marketing callouts; help-desk tooling at 50 customers. src: ROADMAP P15. open [LC]
+P16 GLOBAL PREFERENCES: user_preferences table+UI; build-claude-context reads user-prefs-first; cross-client directive propagation; operator-model (Phase3/P9). src: ROADMAP P16. open [NP]
+P18 CUSTOMIZABLE DASHBOARDS: dashboard_layouts table; Card abstraction; react-grid-layout (Shopify proving ground→all tabs); templates; cross-platform "My Overview"; AI-suggested layouts. src: ROADMAP P18, CONTINUE_HERE redesign(d). open [LC foundation; AI NP]
+P19 CANVA CLOSED-LOOP / design phase (2027+ horizon). src: ROADMAP P19, Redesign post-launch. open [NP]
+P20 MULTI-USER WORKSPACES: workspaces+workspace_members; backfill user_email→workspace_id; Owner/Member roles; invite flow; audit log; Viewer/Billing roles; SSO (Enterprise). (overlaps RBAC LC item.) src: ROADMAP P20. open [NP/LC overlap]
+P21 EXPORT & SHARING: Markdown/txt → PDF/Word/XLSX → HTML-email/bulk → scheduled-digest/JSON/white-label. src: ROADMAP P21. open [NP]
+P22 PROMPT CACHING: Phase3 two-tier (1hr TTL profile/memory) + conversation-prefix breakpoint — deferred until cache-hit data warrants. src: ROADMAP P22. deferred [NP]
+DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress meter (green/backfilling%/red/N-A); N/A path; notification state machine (stop only on connected|N/A); human-assist CTA. src: ROADMAP §Data-Completeness-Onboarding. open [LC]
+
+═══════════════════════════════════════════════════════════════════
+DATE-GATED (CONTINUE_HERE ⏰ — do not slip)
+═══════════════════════════════════════════════════════════════════
+- [DG] META TOKEN dies ~2026-07-13 (cote@ last refresh 05-14, ~60d life; 7 clients) → deliberate reconnect ~2026-07-10. src: CONTINUE_HERE date-gated#1. open
+- [DG] GOOGLE ADS Tool Change Form submitted 2026-06-19 (permissible-use external/reporting); MONITOR russ@; if no reply by 2026-06-26 resubmit/escalate; GATE: no external self-serve Google until API Center reads external. src: CONTINUE_HERE#3. open
+- Influential Drones Meta probe — SETTLED alive-but-empty (optional unfiltered confirm). src: CONTINUE_HERE#2. open(optional)
+- GA token VERIFY after 2026-06-20 (4 re-authed tokens still refreshing). src: CONTINUE_HERE STANDING. open
+- Post-Meta-approval queue: flip NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI=1 + redeploy; flip Meta app Dev→Live + fresh-external verify; publish gov-policy page; homepage unification; dashboard visual reconciliation; URL-state nav workstream; read_all_orders+read_inventory scope batch + Shopify resubmit + targeted re-auth → deep re-backfill + sell-through. src: CONTINUE_HERE STANDING/post-approval. open [EXT]
+
+═══════════════════════════════════════════════════════════════════
+OPEN FOLLOW-UPS / CARRY-OVER (CONTINUE_HERE)
+═══════════════════════════════════════════════════════════════════
+- Woo revenue reconciliation (TOP-OF-QUEUE) — repo-verified 2026-06-22: (a) order-count-vs-items labeling FIXED (4ba1bf9 LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 + 218d091; totalOrders=saleOrders.length distinct); (b) product-net CLOSED by Fix-1b (3e74e0b, Σproduct≡account o.total basis). REMAINING = the WC-Analytics-API exact-subtotal-net-to-match-her-admin path (no wc-analytics code exists in repo) = the BANKED Path-1 subtotal re-base (near-zero likelihood). src: CONTINUE_HERE TOP-OF-QUEUE(1) + commits. mostly-closed; WC-Analytics path banked [LC]
+- Budget Utilization — Meta card "$500/day" for $500 LIFETIME campaigns (~30×); daily vs lifetime mis-read; diagnose now, fix POST-Meta (frozen). src: CONTINUE_HERE(2), Flight-2. open(frozen) [EXT]
+- Error-path false-zero hardening — captured-read failure returns {connected:false} could show $0 not "couldn't load"; MUST-HARDEN-BEFORE-LAUNCH. src: CONTINUE_HERE(3). open [LC]
+- token-dedup hardening (Escential cohort/reviewer duplicate rows). src: CONTINUE_HERE. open [LC]
+- cross-platform re-auth integrity audit (Google/Meta — L54). src: CONTINUE_HERE, Flight-2#10. open [LC]
+- machine-parity pass (Air & iMac node/CLI — L56). src: CONTINUE_HERE. open [LC]
+- Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch. src: CONTINUE_HERE. open [LC]
+- "Lora explains why same-thing numbers legitimately differ" — future; precondition numbers reconcile. src: CONTINUE_HERE(8). open [NP]
+- Intraday "today" freshness top-up for Woo (bounded current-day). src: CONTINUE_HERE(9). open [NP]
+- activePlatform sibling-axis read-only check (carried-valid tab render empty on ad→ad switch). src: CONTINUE_HERE(11). open(investigate) [LC]
+- AUDIENCE VISION — PARKED, compliance-gated (DPAs/GDPR/CCPA/CAN-SPAM/Shopify-PCD/Meta-Google audience terms; lawyer-first; NOT now). src: CONTINUE_HERE(7). parked [NP]
+- query_breakdown 1.2 modes (per-value trend, multi-window PoP, negative-keyword/waste). src: CONTINUE_HERE, QUERY_METRICS_REFERENCE "Later". open [NP]
+- Wire Claude fully onto query layer; retire window-fetch + 15-min cache in /api/intelligence (Historical Engine Phase3). src: HISTORICAL_DATA_ENGINE_DESIGN §6, HANDOFF. open [NP]
+- New-platform adapter template (Triple Whale/LinkedIn/TikTok inherit history+comparison) — Historical Engine Phase4. src: HISTORICAL_DATA_ENGINE_DESIGN. open [NP]
+- LORAMER_COMPLETENESS_AUDIT_PLAN_V1 gap-map (per real client×source PRESENT?/RIGHT? + BLEEDING/RECOVERABLE/BOUNDED-LOST classification) — the read-only audit that feeds this queue. src: LORAMER_COMPLETENESS_AUDIT_PLAN_V1. open [LC]
+
+═══════════════════════════════════════════════════════════════════
+DESIGN-DOC OPEN BACKLOG (the ~8 unbuilt items beyond what's above)
+═══════════════════════════════════════════════════════════════════
+- Shopify LTV Phase 2 (true LTV, abandoned-cart funnel value, cohort retention) — needs new fetch. src: SHOPIFY_LTV_DESIGN. open [NP]
+- GA connector Phase 6 disconnect (/api/ga/disconnect + button). src: GA_CONNECTOR_DESIGN, HANDOFF open. open [LC]
+- ConnectionPill extract (from connector architecture audit). src: CONNECTOR_ARCHITECTURE_AUDIT. open [NP]
+- PROJECT_9_PHASE_2_2 — 3 open questions pending Russ before build. src: PROJECT_9_PHASE_2_2_DESIGN. decision-pending [NP]
+- Launch consolidation Phases 4-5 (login evolution: email/password secondary, OAuth-as-discovery) — wait for plan after GA. src: LAUNCH_CONSOLIDATION_DESIGN. open [NP]
+- FLIP program staged cutover post-Meta+Google (current app = launch vehicle). src: LORAMER_NEXT_FLIP_PROGRAM. open [EXT]
+- NAV regroup invariant — per-connection nav visibility (every connected platform gets a tab; combination logic may only ADD aggregate views) — homes hasBoth violation + Shelley C/D. src: LORAMER_NAV_REGROUP_PLAN. open(frozen) [EXT]
+
+═══════════════════════════════════════════════════════════════════
+DONE — DO NOT REBUILD (appendix; representative — full list in ROADMAP Completed Archive + AUDIT RESOLVED)
+═══════════════════════════════════════════════════════════════════
+Shopify App Store approved+live; Google Ads/Meta/Shopify/GA-V1 connectors; Universal Intelligence Layer + /api/intelligence + 15-min cache + insight banner + sidebar/floating Claude; HARD CONSTRAINTS block; cross-panel memory; Project3 Steps 2a–2g + 3a–3d (search-terms, conv-attr, audience, demographics, RSA, PMax groups+combinations, geo, device, hour, impression-share); Shopify net-sales + deeper-signals + abandoned-checkouts + cancelled-accuracy(#6) + product-refund-net(Flight1) + deep-backfill (3 stores $0.00 residual) + customer-mix-fix + read_all_orders scope; canonical date-range; prompt caching (Project22 Phase1+2); Project14 Phase1 conversation unification + soft-delete; Project9 Phase2 memory; query_metrics + query_breakdown tools + ownership gate; Historical Engine Phase 0a (5 fwd adapters) + 0b (Google/Meta/GA backfill + in-app BackfillControl); cron per-platform split (WS1c step1) + catchup loop (step2) + cron_runs sentinel (WS1b-1) + §A normalize guard; Woo forward accuracy (status/net) + backfill engine + atomic breaker (migrations 012/013/014) + captured-read E1/E1.1; connection-health engine (dark); GAQL retry; GA re-auth; Stripe Phases 0–4 (entitlements/webhook/checkout/portal, TEST); off-site R2 backup + Supabase Pro backups; CRON_SECRET rotated; Meta compliance Phase1+2 (deauth/data-deletion); Meta scope read-only + App-Review submitted; Google OAuth adwords approved; demo@ provisioned; NAICS Pass3; Uploads Pass B (/api/knowledge) + PDF unpdf fix; RBAC foundation slice1A (migration 018); -next Increment-1 (portfolio + per-client Overview + Channels grid 1B–1K); ownership gates #16/#20; Woo all-products (Fix-1a) + product refund-net (Fix-1b); Meta placement persist Slice1 (forward) + Slice2 (history backfill, scaled to all reconcilable Meta clients). Lessons 1–59 (see LORAMER_DECISIONS.DRAFT.md). Project17 popover RESOLVED.

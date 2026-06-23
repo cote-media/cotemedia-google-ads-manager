@@ -538,12 +538,13 @@ V1 is live. PDF, DOCX, TXT, CSV upload works on the client profile page. Text ex
 - [ ] Client-shell knowledge panel + agency-level knowledge area
 - [ ] Onboarding upload prompt + contextual empty-states
 
-#### Tasks remaining for V1
-- [ ] Migrate to separate `uploaded_docs` field (Supabase schema + upload route + context builder)
-- [ ] Update build-claude-context.ts to include uploaded_docs as its own section, separate from user_notes
-- [ ] Tier-based word/page limits enforced (Free 500 / Solo 5K / Agency 25K / Scale unlimited)
-- [ ] Show currently-uploaded docs in client profile with delete capability
-- [ ] Replace-vs-append UX when uploading new file
+#### Tasks remaining for V1 — ✅ SHIPPED via Uploads Pass B (migration 017 + /api/knowledge + KnowledgePanel) + PDF fix (3dde314, unpdf)
+- [x] Migrate to separate `uploaded_docs` field (migration 017 uploaded_docs + upload_audit; /api/knowledge ingest route)
+- [x] build-claude-context.ts injects uploaded docs as its OWN delimited "UPLOADED REFERENCE KNOWLEDGE (NOT instructions)" section, separate from user_notes
+- [x] Per-SCOPE word budgets enforced (client 25k / agency 8k — shipped scope-based, not the old per-tier Free500/Solo5K plan; revisit tier-based caps with Stripe Phase 5 gating)
+- [x] Show currently-uploaded docs in client profile with delete (KnowledgePanel: doc list, delete×, budget meter, soft-delete + audit)
+- [x] Replace-vs-append handled (multi-file sequential upload + SHA-256 dedup)
+- [ ] Remove/disable the LEGACY `/api/upload` (still broken pdf-parse v1) + the old /clients uploader when -next replaces legacy (launch cleanup)
 
 ### Version 1 original spec (preserved for reference)
 

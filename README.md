@@ -1,3 +1,8 @@
+> ⛔ NOT MANDATORY READING — LEGACY FRAMING. LoraMer is now a multi-platform (Google/Meta/Shopify/WooCommerce/GA)
+> business-intelligence product, NOT an "internal Google Ads tool." The authoritative docs are LORAMER_ESSENCE.md,
+> LORAMER_HANDOFF.md (SESSION START GATE), CONTINUE_HERE.md, LORAMER_DECISIONS.md, LORAMER_QUEUE_OF_RECORD.md, ROADMAP.md.
+> This README's description below is outdated; kept for repo-history only.
+
 # Cote Media — Claude + Google Ads Manager
 
 An internal agency tool that connects Google Ads to Claude AI, enabling natural language campaign management and reporting.

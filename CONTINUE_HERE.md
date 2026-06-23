@@ -8,6 +8,8 @@
 ## REQUIRED READING — ACTIVE WORKSTREAM
 Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
 
+⛔ MANDATORY REGISTERS — read IN FULL every session (the consolidated source of truth): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped, with status). Before proposing anything, restate the relevant decisions + queued items to prove you read them (per the SESSION START GATE).
+
 ★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
 
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Wave 1 Fix-1a SHIPPED (8377b97); NEXT = Wave 1 Fix-1b (Woo product refund-net). See the NEXT STEP block at the bottom. AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.

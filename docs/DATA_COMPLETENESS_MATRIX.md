@@ -1,3 +1,8 @@
+> ⛔ NOT MANDATORY READING — SUPERSEDED (snapshot 2026-06-12). The current data-completeness truth lives in
+> **docs/LORAMER_DATA_COMPLETENESS.md** (active rollout + status) and the two registers (LORAMER_DECISIONS.md
+> accepted caps + LORAMER_QUEUE_OF_RECORD.md gaps). Several rows here are stale (e.g. Woo "NO backfill adapter",
+> Meta "no breakdowns", the 60-day Shopify wall). Kept as a historical scorecard; do not rely on it for current state.
+
 # Data Completeness Matrix — Historical Data Engine
 
 **EVERYTHING GETS EVERYTHING.** Data completeness is a CORRECTNESS requirement, not a nicety. Every
