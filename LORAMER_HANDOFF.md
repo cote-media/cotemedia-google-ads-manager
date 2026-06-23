@@ -576,6 +576,14 @@ Never rotate mid-task; reach a clean breakpoint first. Do these in order:
 6. DEPLOYS GREEN. Any code pushed this session should show a green Vercel deploy before
    walking away.
 
+### STALENESS SWEEP (run at every wrap — hardens the docs-with-code wrap)
+<!-- LORAMER_HANDOFF_FRESHNESS_SWEEP_V1 -->
+1. CONTRADICTION SCAN: anything that shipped this session is (a) moved to the DONE / do-not-rebuild appendix in LORAMER_QUEUE_OF_RECORD.md, AND (b) struck from any "NEXT" / "REQUIRED READING" line in CONTINUE_HERE.md — in the SAME commit. Canonical miss this catches: CONTINUE_HERE's "NEXT = Wave 1 Fix-1b" line sat stale for two sessions after Fix-1b shipped (3e74e0b).
+2. DATE-GATED REVIEW: every [DG] item's trigger date is checked at wrap; any item past its date is actioned or explicitly re-dated with a reason — no silently-expired triggers.
+3. SUPERSEDED-DOC BANNER: when a doc is deprecated it gets a one-line top banner "STATUS: SUPERSEDED BY <x>" — never deleted (history matters), always bannered. LORAMER_CATCHUP_LOOP_PLAN.md's existing banner is the standard pattern.
+4. ONE STATUS, ONE HOME: a shipped item lives ONLY in DONE — do-not-rebuild; it is never left phrased as pending anywhere else (one status per item, one place).
+5. FRESHNESS STAMP: each mandatory doc carries a "last reconciled <date> @ <HEAD>" line, refreshed at every wrap that touches it (visible staleness; this stamp also feeds the Part A manifest).
+
 The paired START-of-session protocol lives in "What to do in the first message of a new
 chat" + the Multi-machine sync ritual (git pull first). A fresh Claude reads
 LORAMER_HANDOFF.md -> ROADMAP.md -> CONTINUE_HERE.md, then asks what to work on, before
