@@ -22,7 +22,7 @@
 // health = "not yet observed" = treated healthy-until-observed by the UI.
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { probeCredential, type ProbeResult } from '@/lib/connection-probe' // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1
+import { probeCredential, type ProbeResult, type WooCreds } from '@/lib/connection-probe' // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 + LORAMER_CONNECTION_PROBE_WOO_V1
 
 export type ConnAuthClass = 'credential' | 'account' | null
 export type ConnHealth = 'healthy' | 'reconnect' | 'disconnected'
@@ -205,6 +205,35 @@ async function probeCredentialCoalesced(platform: string, userEmail: string): Pr
   return p
 }
 
+// LORAMER_CONNECTION_PROBE_WOO_V1 — Woo has NO OAuth refresh, so resolve the stored API keys the SAME
+// way the capture path does (woocommerce_tokens by client_id [+ user_email]) and gentle-probe with them.
+async function resolveWooCreds(clientId: string, userEmail: string | null): Promise<WooCreds | null> {
+  let q: any = supabaseAdmin
+    .from('woocommerce_tokens')
+    .select('store_url, consumer_key, consumer_secret')
+    .eq('client_id', clientId)
+  if (userEmail) q = q.eq('user_email', userEmail)
+  const { data } = await q.maybeSingle()
+  if (!data?.store_url || !data?.consumer_key || !data?.consumer_secret) return null
+  return { storeUrl: data.store_url, consumerKey: data.consumer_key, consumerSecret: data.consumer_secret }
+}
+
+// Per-client coalescing (Woo scope is per-client, no fan-out): one gentle probe per (woocommerce,clientId)
+// per invocation so an error burst can't hammer the self-hosted store.
+async function probeWooCoalesced(clientId: string, userEmail: string | null): Promise<ProbeResult> {
+  const key = `woocommerce:${clientId}`
+  const now = Date.now()
+  const hit = probeMemo.get(key)
+  if (hit && now - hit.at < PROBE_MEMO_TTL_MS) return hit.p
+  const p = (async (): Promise<ProbeResult> => {
+    const creds = await resolveWooCreds(clientId, userEmail)
+    if (!creds) return 'dead' // no stored keys at all = unauthable → flip is correct
+    return probeCredential('woocommerce', creds)
+  })()
+  probeMemo.set(key, { at: now, p })
+  return p
+}
+
 // Auth failure: flip to 'reconnect' at the right scope (credential = many; account = one).
 export async function recordConnectionAuthFailure(args: {
   platform: string
@@ -214,29 +243,43 @@ export async function recordConnectionAuthFailure(args: {
   clientId?: string | null
   accountId?: string | null
 }): Promise<void> {
-  // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — PROBE BEFORE FLIP for the WIDE-fan-out shared
-  // credentials (Google MCC OAuth / Meta FB token). A classify-as-'credential' error is only a
-  // HYPOTHESIS (Lesson 60); confirm the credential is actually dead via a live probe before
-  // flipping EVERY connection on it. account-class (single-row genuine denial) and GA/Shopify/Woo
-  // are intentionally unchanged here: their scope is narrow, and their trigger already came from a
-  // dedicated refresh probe (getValidGaToken / getValidShopifyToken).
-  if (args.authClass === 'credential' && (args.platform === 'google' || args.platform === 'meta') && args.userEmail) {
-    const probe = await probeCredentialCoalesced(args.platform, args.userEmail)
+  // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 (google/meta) + LORAMER_CONNECTION_PROBE_WOO_V1 (woocommerce)
+  // — PROBE BEFORE FLIP. A classify-as-'credential' error is only a HYPOTHESIS (Lesson 60); confirm the
+  // credential is actually dead via a live probe before flipping. Covered: google/meta (WIDE shared-token
+  // fan-out → probe per user_email, heal credential-wide) + woocommerce (self-hosted, NO refresh layer →
+  // probe per client_id, heal per-connection). account-class + Shopify + GA stay UNCHANGED: proven
+  // evidence-backed by construction (Shopify = getValidShopifyToken refresh-determination or a live
+  // Admin-API 401; GA = invalid_grant from the refresh POST) with narrow scope (WS2 #2b audit).
+  const wideCred =
+    args.authClass === 'credential' && (args.platform === 'google' || args.platform === 'meta') && !!args.userEmail
+  const wooCred =
+    args.authClass === 'credential' && args.platform === 'woocommerce' && !!args.clientId
+  if (wideCred || wooCred) {
+    const probe = wooCred
+      ? await probeWooCoalesced(args.clientId!, args.userEmail ?? null)
+      : await probeCredentialCoalesced(args.platform, args.userEmail!)
+    const healFilter: HealthFilter = wooCred
+      ? (args.accountId
+          ? { client_id: args.clientId!, platform: args.platform, account_id: args.accountId }
+          : { client_id: args.clientId!, platform: args.platform })
+      : { user_email: args.userEmail!, platform: args.platform }
+    const subject = wooCred ? `client ${args.clientId}` : `credential ${args.userEmail}`
     if (probe === 'alive') {
-      // The shared token authenticates RIGHT NOW → the error was transient/spurious. Do NOT flip;
-      // HEAL the whole credential — clears any stale 'reconnect' even on quiet/zero-spend accounts
-      // that would otherwise never self-heal (no spend-bearing capture to trigger a success).
-      await applyUpdate(
-        { user_email: args.userEmail, platform: args.platform },
-        { health: 'healthy', last_ok_at: new Date().toISOString(), last_error_code: null, last_error_at: null }
-      )
+      // Authenticates RIGHT NOW → the error was spurious. Do NOT flip; HEAL (clears any stale 'reconnect';
+      // for google/meta this is credential-wide and also fixes the quiet-account never-heals trap).
+      await applyUpdate(healFilter, {
+        health: 'healthy',
+        last_ok_at: new Date().toISOString(),
+        last_error_code: null,
+        last_error_at: null,
+      })
       return
     }
     if (probe === 'indeterminate') {
-      // FAIL SAFE (Lesson 15/60): uncertainty (timeout/5xx/429/network) must NEVER dark-flag a live
-      // connection. Leave health untouched and warn loudly; the next event re-probes.
+      // FAIL SAFE (Lesson 15/60): uncertainty (timeout/5xx/429/406/network/WAF) must NEVER dark-flag a
+      // live connection. Leave health untouched and warn loudly; the next event re-probes.
       console.warn(
-        `[conn-health] ${args.platform} credential ${args.userEmail}: probe INDETERMINATE (err ${args.code ?? 'auth'}) — leaving health unchanged (fail-safe)`
+        `[conn-health] ${args.platform} ${subject}: probe INDETERMINATE (err ${args.code ?? 'auth'}) — leaving health unchanged (fail-safe)`
       )
       return
     }
