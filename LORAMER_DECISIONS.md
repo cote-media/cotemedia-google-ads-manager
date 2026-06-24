@@ -24,6 +24,7 @@ NON-NEGOTIABLE BRAND COMMITMENTS (commitments win over product decisions)
 - DEEP KNOWLEDGE: LoraMer = "lore + sea" = accumulated deep knowledge; every feature judged on whether it makes Claude know the customer better. | HANDOFF/ROADMAP Brand | do not relitigate.
 - A REAL HUMAN, ALWAYS: every customer reaches a real person on every plan, every time — operational not just marketing (Project 15 SLAs). | ROADMAP Project 15, HANDOFF | do not relitigate.
 - PROMPT HONESTY: Lora never says what it can't show/prove; connected-but-empty surfaced explicitly; never fabricate (margin, audience, $0 false-zero). | ESSENCE, L11/L46/L47 | do not relitigate.
+- CONNECTION-STATE CLAIMS REQUIRE A LIVE PROBE: no session writes "broken/dead/frozen/blocked/unhealthy" about a connection into any handoff doc from a stored flag alone; stored health flags are hypotheses until a live capture-path probe proves them. | Lesson 60, ESSENCE "never say what it can't prove" | do not relitigate.
 
 ═══════════════════════════════════════════════════════════════════
 OPERATING PROTOCOL (how we work — settled)
@@ -126,8 +127,8 @@ COMPLETED-ARCHIVE EMBEDDED RULINGS (do-not-relitigate rulings inside ROADMAP shi
 - INSTANT CROSS-DEVICE SYNC is a product principle: same state phone+desktop instantly; LoraMer must NEVER fork or lag across devices (URL-held state + Supabase realtime). | ROADMAP:1387 | do not relitigate.
 
 ═══════════════════════════════════════════════════════════════════
-LESSONS 1–59 (+ 1 dated 2026-06-22) — failure modes that bit this project; never repeat. (LORAMER_HANDOFF.md)
-COUNT: 59 numbered lessons, sequence 1–59 CONTIGUOUS, NO GAPS (lesson 26 is split 26a/26b — HANDOFF dual-numbered it) + 1 dated lesson (2026-06-22) + 2 early pre-numbered patterns below.
+LESSONS 1–60 (+ 1 dated 2026-06-22) — failure modes that bit this project; never repeat. (LORAMER_HANDOFF.md)
+COUNT: 60 numbered lessons, sequence 1–60 CONTIGUOUS, NO GAPS (lesson 26 is split 26a/26b — HANDOFF dual-numbered it) + 1 dated lesson (2026-06-22) + 2 early pre-numbered patterns below.
 ═══════════════════════════════════════════════════════════════════
 1 Silent-skip via shared marker — use content-based idempotency, not marker-presence.
 2 Scope assumption in destructure adds — grep the prop in the parent's scope before patching.
@@ -189,6 +190,7 @@ COUNT: 59 numbered lessons, sequence 1–59 CONTIGUOUS, NO GAPS (lesson 26 is sp
 57 Vercel env VALUES are unreadable from tooling (masked / pull-blanked / no MCP env tool) — confirm from the source system.
 58 Shopify revenue basis differs BY GRAIN — reconcile to the cent (per-line refund attribution + pro-rata residual) or ship a silent per-SKU lie; a WRONG basis is worse than no basis.
 59 A permanent-history backfill must self-reconcile per unit of work (Σ within 1¢ each day BEFORE write/cursor-advance) or HALT loudly — never persist a bad day.
+60 A connection-state claim (broken/dead/frozen/blocked/unhealthy/reconnect-needed) is a HYPOTHESIS until a LIVE capture-path probe proves it — never written as fact from a stored flag (health/last_error_code/oauth_190/last_ok_at) alone; stored flags are DERIVED CONTEXT, not ground truth (same class as the Google end_date adapter-semantics bug). Origin: a prior session wrote "Influential Drones Meta BLOCKED/broken/oauth_190" into CONTINUE_HERE + QUEUE + a session log as settled fact from the flag alone — it was FALSE (token alive HTTP 200, warehouse reconciled to the penny) and survived days because each session read it forward without re-deriving. RULE: before writing any negative connection claim into ANY handoff doc, run a live probe (raw HTTP status + body, Lesson 15 style); until probed, record "flag says X — UNVERIFIED, probe before acting," never as a blocker. The transient-190-dark-flags-a-live-connection generator = WS2 #2 (separate fix).
 (2026-06-22) Product/line grain must reconcile to its account grain on the SAME revenue basis; re-capture history ONLY AFTER the basis fix ships (re-capturing before forces a second pass — violates "never twice").
 
 ═══════════════════════════════════════════════════════════════════
