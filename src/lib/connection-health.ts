@@ -22,6 +22,7 @@
 // health = "not yet observed" = treated healthy-until-observed by the UI.
 
 import { supabaseAdmin } from '@/lib/supabase'
+import { probeCredential, type ProbeResult } from '@/lib/connection-probe' // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1
 
 export type ConnAuthClass = 'credential' | 'account' | null
 export type ConnHealth = 'healthy' | 'reconnect' | 'disconnected'
@@ -170,6 +171,40 @@ export async function recordConnectionSuccess(args: {
   )
 }
 
+// LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — coalesce probes per (platform, userEmail): a fleet-wide
+// 190 burst in one invocation (N connections on one shared token all throw) triggers exactly ONE
+// live probe of that credential, not N — the token is shared, so one verdict is authoritative for
+// every row on it. TTL-scoped so a warm serverless container can't reuse a stale verdict across the
+// next (hours-later) cron run; staleness only ever errs toward NOT flipping (the design ethic).
+const PROBE_MEMO_TTL_MS = 5 * 60 * 1000
+const probeMemo = new Map<string, { at: number; p: Promise<ProbeResult> }>()
+
+async function resolveCredentialToken(platform: string, userEmail: string): Promise<string | null> {
+  if (platform === 'meta') {
+    const { data } = await supabaseAdmin.from('meta_tokens').select('access_token').eq('user_email', userEmail).single()
+    return data?.access_token ?? null
+  }
+  if (platform === 'google') {
+    const { data } = await supabaseAdmin.from('google_tokens').select('refresh_token').eq('user_email', userEmail).single()
+    return data?.refresh_token ?? null
+  }
+  return null
+}
+
+async function probeCredentialCoalesced(platform: string, userEmail: string): Promise<ProbeResult> {
+  const key = `${platform}:${userEmail}`
+  const now = Date.now()
+  const hit = probeMemo.get(key)
+  if (hit && now - hit.at < PROBE_MEMO_TTL_MS) return hit.p
+  const p = (async (): Promise<ProbeResult> => {
+    const token = await resolveCredentialToken(platform, userEmail)
+    if (!token) return 'dead' // no credential at all = authoritatively unauthable → flip is correct
+    return probeCredential(platform, token)
+  })()
+  probeMemo.set(key, { at: now, p })
+  return p
+}
+
 // Auth failure: flip to 'reconnect' at the right scope (credential = many; account = one).
 export async function recordConnectionAuthFailure(args: {
   platform: string
@@ -179,6 +214,35 @@ export async function recordConnectionAuthFailure(args: {
   clientId?: string | null
   accountId?: string | null
 }): Promise<void> {
+  // LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — PROBE BEFORE FLIP for the WIDE-fan-out shared
+  // credentials (Google MCC OAuth / Meta FB token). A classify-as-'credential' error is only a
+  // HYPOTHESIS (Lesson 60); confirm the credential is actually dead via a live probe before
+  // flipping EVERY connection on it. account-class (single-row genuine denial) and GA/Shopify/Woo
+  // are intentionally unchanged here: their scope is narrow, and their trigger already came from a
+  // dedicated refresh probe (getValidGaToken / getValidShopifyToken).
+  if (args.authClass === 'credential' && (args.platform === 'google' || args.platform === 'meta') && args.userEmail) {
+    const probe = await probeCredentialCoalesced(args.platform, args.userEmail)
+    if (probe === 'alive') {
+      // The shared token authenticates RIGHT NOW → the error was transient/spurious. Do NOT flip;
+      // HEAL the whole credential — clears any stale 'reconnect' even on quiet/zero-spend accounts
+      // that would otherwise never self-heal (no spend-bearing capture to trigger a success).
+      await applyUpdate(
+        { user_email: args.userEmail, platform: args.platform },
+        { health: 'healthy', last_ok_at: new Date().toISOString(), last_error_code: null, last_error_at: null }
+      )
+      return
+    }
+    if (probe === 'indeterminate') {
+      // FAIL SAFE (Lesson 15/60): uncertainty (timeout/5xx/429/network) must NEVER dark-flag a live
+      // connection. Leave health untouched and warn loudly; the next event re-probes.
+      console.warn(
+        `[conn-health] ${args.platform} credential ${args.userEmail}: probe INDETERMINATE (err ${args.code ?? 'auth'}) — leaving health unchanged (fail-safe)`
+      )
+      return
+    }
+    // probe === 'dead' → fall through to the flip below.
+  }
+
   const filter = resolveReconnectScope(args.platform, args.authClass, args)
   if (!filter) return // not enough keys to scope safely — never flip blindly
   const nowIso = new Date().toISOString()
