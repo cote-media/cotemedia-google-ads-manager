@@ -1,0 +1,119 @@
+// LORAMER_CAMPAIGN_BACKFILL_ROUTE_V1
+// CRON_SECRET-bearer GET wrapper over runGoogleCampaignBackfill. MIRRORS /api/backfill/meta-placement:
+// STATELESS year-window endDate→startDate loop with resumeBefore (no cursor / no sync_state), ~250s budget,
+// force-no-store (L52), writer-agnostic loop control (status===200 + subStart<=startDate).
+// GOOGLE-SPECIFIC delta: clamps startDate to the 36-month granular floor (Google DateRangeErrors on
+// pre-floor daily granular — it does NOT empty, unlike Meta), plus a defense-in-depth DateRangeError
+// graceful-stop for the fuzzy 37-mo boundary. The writer (google-campaign-backfill.ts) is UNCHANGED.
+import { NextResponse } from 'next/server'
+import { runGoogleCampaignBackfill } from '@/lib/backfill/google-campaign-backfill'
+
+export const maxDuration = 300
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
+const BUDGET_MS = 250_000
+const WINDOW_DAYS = 365
+
+const iso = (d: Date) => d.toISOString().split('T')[0]
+function addDays(s: string, n: number): string {
+  const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d)
+}
+// "Yesterday" in US Eastern civil time (forward capture's target day; the default backfill end).
+function etYesterday(): string {
+  const nowEt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  nowEt.setDate(nowEt.getDate() - 1)
+  const y = nowEt.getFullYear(), m = String(nowEt.getMonth() + 1).padStart(2, '0'), d = String(nowEt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+// 36-month granular floor (safety margin under Google's ~37-mo rolling cap). We NEVER request below this:
+// pre-floor daily granular DateRangeErrors (it does NOT empty).
+function googleGranularFloor(): string {
+  const d = new Date()
+  d.setUTCMonth(d.getUTCMonth() - 36)
+  return iso(d)
+}
+
+export async function GET(request: Request) {
+  const envSecret = (process.env.CRON_SECRET ?? '').trim()
+  const authHeader = request.headers.get('authorization') ?? ''
+  const got = (authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : authHeader).trim()
+  if (!envSecret || got !== envSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const { searchParams } = new URL(request.url)
+  const clientId = searchParams.get('clientId')
+  if (!clientId) return NextResponse.json({ error: 'Missing clientId' }, { status: 400 })
+  const requestedStart = searchParams.get('startDate')
+  if (!requestedStart) return NextResponse.json({ error: 'Missing startDate (YYYY-MM-DD)' }, { status: 400 })
+  const endDate = searchParams.get('endDate') || etYesterday()
+  const dryRun = searchParams.get('dryRun') === 'true'
+
+  // FLOOR-CLAMP (primary guard, Google-specific): never request pre-floor granular.
+  const floor = googleGranularFloor()
+  const startDate = requestedStart < floor ? floor : requestedStart
+  const clampedFrom = requestedStart < floor ? requestedStart : null
+
+  if (endDate < startDate) {
+    return NextResponse.json({ error: 'endDate is before the (clamped) startDate', startDate, endDate, floor }, { status: 400 })
+  }
+
+  const writer = runGoogleCampaignBackfill
+
+  const started = Date.now()
+  let curEnd = endDate
+  let complete = false
+  let resumeBefore: string | null = null
+  let floorHit = false
+  const subRanges: any[] = []
+  const flagged: any[] = []
+  let totalWritten = 0, totalDaysWritten = 0, totalDaysSkipped = 0, totalCampaignDayRows = 0
+  const totalOtherDeltas = { clicks: 0, impressions: 0, conversions: 0 }
+
+  while (true) {
+    if (curEnd < startDate) { complete = true; break }
+    if (Date.now() - started > BUDGET_MS) { complete = false; resumeBefore = curEnd; break }
+    let subStart = addDays(curEnd, -(WINDOW_DAYS - 1))
+    if (subStart < startDate) subStart = startDate
+    let body: any
+    try {
+      const res = await writer(clientId, subStart, curEnd, { dryRun })
+      if (res.status !== 200) {
+        return NextResponse.json({ error: 'writer failed', subRange: `${subStart}→${curEnd}`, detail: res.body }, { status: res.status })
+      }
+      body = res.body
+    } catch (e: any) {
+      const msg = String(e?.message ?? e ?? '')
+      // DEFENSE-IN-DEPTH: a DateRangeError at the fuzzy 37-mo boundary = floor reached → stop gracefully (never a 500).
+      if (/DateRangeError|date.?range|requested.*too far|segments\.date/i.test(msg)) {
+        floorHit = true; complete = true; break
+      }
+      return NextResponse.json({ error: 'writer threw', subRange: `${subStart}→${curEnd}`, detail: msg }, { status: 500 })
+    }
+    subRanges.push({ range: body.range, written: body.written, daysWritten: body.daysWritten, daysSkipped: body.daysSkipped, otherDeltas: body.otherDeltas })
+    totalWritten += body.written || 0
+    totalDaysWritten += body.daysWritten || 0
+    totalDaysSkipped += body.daysSkipped || 0
+    totalCampaignDayRows += body.campaignDayRows || 0
+    totalOtherDeltas.clicks += body.otherDeltas?.clicks || 0
+    totalOtherDeltas.impressions += body.otherDeltas?.impressions || 0
+    totalOtherDeltas.conversions += body.otherDeltas?.conversions || 0
+    flagged.push(...(body.flagged || []))
+    if (subStart <= startDate) { complete = true; break }
+    curEnd = addDays(subStart, -1) // step to the next-older window
+  }
+
+  return NextResponse.json({
+    clientId,
+    range: { requested: `${requestedStart}→${endDate}`, effective: `${startDate}→${endDate}`, floor, clampedFrom },
+    dryRun, complete, resumeBefore, floorHit,
+    totalWritten, totalDaysWritten, totalDaysSkipped, totalCampaignDayRows,
+    totalOtherDeltas: {
+      clicks: Math.round(totalOtherDeltas.clicks),
+      impressions: Math.round(totalOtherDeltas.impressions),
+      conversions: Number(totalOtherDeltas.conversions.toFixed(2)),
+    },
+    subRanges, flagged,
+  }, { status: 200 })
+}

@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-24T23:11:56.401Z
-- built_from HEAD: 6ac5815c5d3d67feb62362e7167d74080fcd7081  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-25T00:09:45.325Z
+- built_from HEAD: afd9afec1001f8bdeea4b5178c313844c364e4f0  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9
     - LORAMER_HANDOFF.md: 3edbcb812a5f31f2cf70d6e14a096c8b1f01988226b86dbd1c8f72444eead962
-    - CONTINUE_HERE.md: 87a53aaa1d2957744d01e327116442bc256300226a67d00639b8726b3c48705b
-    - LORAMER_DECISIONS.md: 6a03c91f1ca5ca3b02d85ed0c5859f4a9e1551c04d9ca1efa2acc851246a4249
-    - LORAMER_QUEUE_OF_RECORD.md: 47953cd2da21dfdfc4f57fecc5f82c83d11681218e8f6fff2d1e94f6f474345d
+    - CONTINUE_HERE.md: 65297392048592ab67fee7620dc5b8940299f7862a37476c6f938df5ea28b41e
+    - LORAMER_DECISIONS.md: 1ca49b10bd33ee605edeb3c54fe56e76229ec9ea1462435a80628aab1a0015e7
+    - LORAMER_QUEUE_OF_RECORD.md: 132b37069c1aeeabda2d8b208bc2d046b845cf04c0fb926997d50a6484074130
 
 ## B. ROLE CONTRACT — DESTINATION vs ROUTE  (source: LORAMER_HANDOFF.md)
 ## ⛔ OPERATING DISCIPLINE — DESTINATION vs ROUTE (gate-level; read every session)
@@ -79,11 +79,12 @@ ACTIVE WORKSTREAM: DATA COMPLETENESS PROGRAM. GOVERNING RULE — capture EVERYTH
 DONE THIS SESSION (don't rebuild): Woo Fix-1a (8377b97) + Fix-1b (3e74e0b); Meta placement forward Slice 1 (c06d1c7) + history backfill writer Slice 2 (9cb038a, scaled to all reconcilable Meta clients); consolidation + gate hardening (4dfd564).
 
 PRIORITY ORDER (next work):
+ 0. ▶ IN FLIGHT 2026-06-24 (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1): Google campaign-grain backfill WIRED + pilot-proven (Bath Fitter→floor 2023-06-24, reconciled, idempotent). SCALE remaining clients deep-accounts-first: Tri-Copy, skinregimen, Influential (5bb9b2ff), Champion, BusyBee, Glass Plus, Foam OH, Ogmentor, Glenn Stearns → then younger: Marathon, My Vacation Network, Thought Streams, Inside, Ennis, Escential. SKIP Veterinary (campaign already aligned to account 2026-03-23). Per-client startDate=max(36mo-floor, account_earliest), endDate=campaign_earliest−1; reconcile-or-skip L59; idempotent UPSERT.
  ✅ DONE 2026-06-23 (LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1) — ACCOUNT-FORWARD-ONLY Meta backfills for Inside / Glenn Stearns / Ogmentor: account grain to floor (Inside 403d→2023-10-17 $9,158.26 / Glenn 113d→2024-09-23 $5,179.11 / Ogmentor 202d→2025-06-16 $3,617.55) + placement grain floor→yesterday (12,651 campaign×placement×day rows, reconciled FLAG-NOT-BLOCK, conversions=0). Thought Streams = truly new, nothing owed. DO NOT REBUILD.
  1. ✅ RESOLVED 2026-06-24 (LORAMER_CONNECTION_STATE_PROBE_SAFEGUARD_V1): Influential Drones Meta connection is ALIVE — capture-path probe returned HTTP 200 across 2024-02-01..2025-07-24 (zero oauth_190); warehouse reconciles to the live API TO THE PENNY ($8,412.89, 2024-09-17→2025-07-24). Pre-2024-09-17 = TRUE ZERO (no Meta history); interior gaps = zero-spend days. NOTHING to backfill. Stored health='reconnect'/oauth_190 was a STALE flag (WS2 #2 transient-190 fan-out) — now cleared to 'healthy'. DO NOT re-raise as blocked. WS2 #2 GENERATOR fixed 2026-06-24 (LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1).
  1b. ✅ DONE 2026-06-24: WS2 #2b parity audit + #2c Woo probe-before-flip (LORAMER_CONNECTION_PROBE_WOO_V1) — connection-state probe-before-flip is now UNIVERSAL across all 5 platforms (meta/google/woo probe-gated; shopify/ga proven-safe-by-construction). The WS2 connection-health arc is CLOSED. ▶ NEXT = the resume digest (Russ wants it before wrap), then data-completeness depth (placement adset×/ad× per item 2).
  2. Continue placement to FULL grain: adset×placement + ad×placement — same writer pattern at level=adset / level=ad (mirror meta-placement-backfill + the forward Slice-1 aggregation). Then Meta age/gender breakdowns (still live-only, AUDIT#4) once unfrozen.
- 3. Broader DATA COMPLETENESS per LORAMER_QUEUE_OF_RECORD.md: campaign/ad_group/ad DEPTH backfill (Google campaign writer exists but UNWIRED; ad_group/ad have no writer; Meta campaign/adset/ad likewise); GA depth probe for Veterinary + Escential (~5mo — new-property vs un-backfilled); Ennis GA backfill (5 days); Google 2025-floor probes (Inside/Thought Streams/Ennis google); Wave-2 Shelley Woo re-capture (10 capped days, all-products + refund-netted in one pass); AUTO-BACKFILL-ON-CONNECT implementation (the designed cron-sweep system that makes all of this automatic on connect — the real endgame; design in LORAMER_DECISIONS.md + ROADMAP Data-Completeness-Onboarding).
+ 3. Broader DATA COMPLETENESS per LORAMER_QUEUE_OF_RECORD.md: campaign/ad_group/ad DEPTH backfill (Google campaign backfill WIRED+SCALING per item 0 — LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1; ad_group/ad still no writer; Meta campaign/adset/ad likewise UNWIRED); GA depth probe for Veterinary + Escential (~5mo — new-property vs un-backfilled); Ennis GA backfill (5 days); Google 2025-floor probes (Inside/Thought Streams/Ennis google); Wave-2 Shelley Woo re-capture (10 capped days, all-products + refund-netted in one pass); AUTO-BACKFILL-ON-CONNECT implementation (the designed cron-sweep system that makes all of this automatic on connect — the real endgame; design in LORAMER_DECISIONS.md + ROADMAP Data-Completeness-Onboarding).
 
 DECISION-PENDING (carry; need Russ's product call — not a code question): multi-account rollup-only vs per-account-breakout vs both (account_id column added, Phase-2 widening SCOPING-ONLY); PROJECT_9_PHASE_2_2 three open questions.
 
@@ -173,6 +174,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - WOO counted-as-sale statuses = {completed, processing, refunded}; refunded stays counted (net ~0). | AUDIT#7-FWD, woo-intelligence | do not relitigate.
 - Meta placement persist: campaign×placement×day, breakdown_type='placement', breakdown_value='<pub>:<pos>', spend/clicks/impr only (conversions=0, none per placement); account-level reconcile FLAG-NOT-BLOCK; intel.placements (Lora prompt) byte-identical. | this-session Slice1/Slice2 | do not relitigate.
 - Meta conversion seam: backfill uses account-level daily definition; query_metrics carries a Meta conversion provenance caveat (notes) — state limit, don't over-narrate. | LORAMER_QUERY_METRICS_META_CAVEAT_V2 (HANDOFF Session 2026-06-04) | do not relitigate.
+- Google campaign-grain conversion seam: campaign backfill reconciles per-day on SPEND only (exact, L59-gated); account-vs-Σcampaign CONVERSIONS differ slightly by attribution (pilot Bath Fitter +2.8/mo; spend/clicks/impr reconcile EXACTLY) — ACCEPTED caveat, same class as the Meta conversion seam; query_metrics may note it. Writer correctly does NOT gate on conversions. | LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1 | do not relitigate.
 - (1) LEGALITY REVIEW: every public-authority request reviewed for valid legal process/jurisdiction/scope before any response; no data on an informal/voluntary/unverified request; invalid/improper requests refused. | GOV §1 | do not relitigate.
 - (2) CHALLENGE: requests believed unlawful/overbroad/improper are challenged (narrow/quash via legal channels; counsel engaged as needed). | GOV §2 | do not relitigate.
 - (3) DATA MINIMIZATION: where disclosure is legally compelled, disclose only the minimum data the process requires. | GOV §3 | do not relitigate.
@@ -209,7 +211,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Woo product top-10 cap on >10-product days — REMOVE (drop cap, capture all). status: 1a SHIPPED forward; history pending Wave2. src: DATA_COMPLETENESS#3, AUDIT, MATRIX#?. partial [LC]
 - Stale search-term/keyword capture (3 clients: Foam OH→04-05, My Vacation Network→04-15, Ogmentor→03-24) — paused vs broken dimensional capture. src: CONTINUE_HERE Wave0. open(investigate) [LC]
 - Account-grain "barbell holes" (BusyBee/Glass Plus/skinregimen/Influential) — DISMISSED as true-zero/no-ads; banked bounded-cursor-rewrite re-capture for any FUTURE real gap. src: CONTINUE_HERE, DATA_COMPLETENESS. banked [NP]
-- Campaign/ad_group/ad DEPTH backfill (Google) — campaign writer exists+UNWIRED; ad_group/ad have NO writer; forward-only. src: DATA_COMPLETENESS DEPTH, MATRIX#3. open [LC]
+- Campaign/ad_group/ad DEPTH backfill (Google) — campaign WIRED+pilot-proven (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1: /api/backfill/google-campaign; Bath Fitter→floor 2023-06-24, 11,438 rows, 0 residual, idempotent; SCALING deep-accounts-first); ad_group/ad still NO writer (forward-only). src: DATA_COMPLETENESS DEPTH, MATRIX#3. partial(campaign wired) [LC]
 - Meta ad_set + ad DEPTH backfill — forward-only, no writer. src: DATA_COMPLETENESS, MATRIX#3. open [LC]
 - PHASE 3 — Completeness GATE: audit every client×platform×grain×dimension; flag shallow/fetched-but-unpersisted; gate "onboarded" on green; repeatable. src: DATA_COMPLETENESS Phase3, ESSENCE bedrock(3). open [LC]
 - PHASE 4 BREADTH (ELEVATED to CORE): capture every available breadth dimension fwd+backfill — Google device/network/geo/age-gender/hour/impression-share/video/all_conversions/view-through/audiences/assets; Meta age-gender/geo/device/hourly/video/ranking/full cost_per_action; GA sessions/users/source-medium/channel/landing-pages/device/geo/demographics/events/item-ecommerce; Shopify shipping-tax-split/discount-codes/variant-SKU/abandoned-value/fulfillment/inventory/tags/channel; Woo geo/customer-mix/variants/coupons/fulfillment/WC-Analytics. src: DATA_COMPLETENESS BREADTH+ENFORCEMENT, MATRIX gaps, ESSENCE. open [LC]
