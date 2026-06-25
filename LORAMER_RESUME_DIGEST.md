@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-25T01:09:01.251Z
-- built_from HEAD: 07ededd6522df56910eb917b709091f4f0aca216  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-25T02:10:57.452Z
+- built_from HEAD: c1684c87c32811967e78b1d1cbf7502d33fab5b9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9
     - LORAMER_HANDOFF.md: 32f7b10504e656f06750cf5d5b3715cd6879374ff96d2f445a433b6c352cf1d3
-    - CONTINUE_HERE.md: c26a0d9cc404847fe63c1cebf573bb87063c3e754fa5521df315eceb9ac20dbd
+    - CONTINUE_HERE.md: c27143171c1b17196ef629cc1aa1263e262a11f70c1ea696e4bf55732f470f4a
     - LORAMER_DECISIONS.md: e1a15ba71181925437735d500a8a880c4e39f9d96ccd705380b6aa4afb190b42
-    - LORAMER_QUEUE_OF_RECORD.md: 67d8fb2dd2cb6faea0722412b91b8a9b5bfb472bea2ac68345f689016442c155
+    - LORAMER_QUEUE_OF_RECORD.md: 7d8e78f6ae5a8ae4a3fa3ffade646ff9b604244bcaad602df2eccb9db2064df9
 
 ## B. ROLE CONTRACT — DESTINATION vs ROUTE  (source: LORAMER_HANDOFF.md)
 ## ⛔ OPERATING DISCIPLINE — DESTINATION vs ROUTE (gate-level; read every session)
@@ -216,7 +216,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Meta ad_set + ad DEPTH backfill — forward-only, no writer. src: DATA_COMPLETENESS, MATRIX#3. open [LC]
 - PHASE 3 — Completeness GATE: audit every client×platform×grain×dimension; flag shallow/fetched-but-unpersisted; gate "onboarded" on green; repeatable. src: DATA_COMPLETENESS Phase3, ESSENCE bedrock(3). open [LC]
 - PHASE 4 BREADTH (ELEVATED to CORE): capture every available breadth dimension fwd+backfill — Google device/network/geo/age-gender/hour/impression-share/video/all_conversions/view-through/audiences/assets; Meta age-gender/geo/device/hourly/video/ranking/full cost_per_action; GA sessions/users/source-medium/channel/landing-pages/device/geo/demographics/events/item-ecommerce; Shopify shipping-tax-split/discount-codes/variant-SKU/abandoned-value/fulfillment/inventory/tags/channel; Woo geo/customer-mix/variants/coupons/fulfillment/WC-Analytics. src: DATA_COMPLETENESS BREADTH+ENFORCEMENT, MATRIX gaps, ESSENCE. open [LC]
-- AUTO-BACKFILL ON CONNECT (customer-facing): on connect → cursor 'pending'; cron sweep drains lap-by-lap; 20-lap cap; honors self-reconcile HALT; never oscillate (L51); Woo extra-gentle; builds on Flight-2 #6 (auto-continue first). src: CONTINUE_HERE, ESSENCE bedrock(1), HANDOFF bedrock, ROADMAP Data-Completeness-Onboarding. open [LC]
+- AUTO-BACKFILL ON CONNECT (customer-facing): STEP 2A DONE 2026-06-24 (LORAMER_ONBOARD_AUTOBACKFILL_MARKER_V1, migration 019) — per-connection marker platform_connections.onboard_steps_done jsonb DEFAULT '[]' (new conns auto-pending; ZERO connect-route code, column default marks them), existing rows seeded from DB reality. STEP 2B PENDING = the drain cron over the writer-registry (deepest-first; lap-cap; honors self-reconcile HALT; never oscillate L51; Woo extra-gentle; clears marker on complete; builds on Flight-2 #6 auto-continue). src: CONTINUE_HERE, ESSENCE bedrock(1), HANDOFF bedrock, ROADMAP Data-Completeness-Onboarding. partial(2A done; drain pending) [LC]
 - GA page-level capture (pagePath/landingPage × views/sessions/engagement/conversions/day) → metrics_daily + query_metrics. src: AUDIT 2026-06-18. open [LC]
 - Shopify deep re-backfill to full history (read_all_orders now granted on Foam OH; Influential+Escential still 3-scope — re-auth) — corrects #6 cancelled-history for free; no false-zeros. src: AUDIT#6/#7, MATRIX#1, LAUNCH_PARKING. open [LC]
 - Shopify dimensional re-backfill beyond 60-day wall (wall lifted on re-auth). src: MATRIX#1. open [LC]
