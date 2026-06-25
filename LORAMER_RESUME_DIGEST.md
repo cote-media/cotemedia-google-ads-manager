@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-25T16:02:55.299Z
-- built_from HEAD: 3b3bcf113cb61f874c713ecd5b16dcdbf6303028  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-25T18:36:14.915Z
+- built_from HEAD: 57b8b81706efd3f6e3534c5002691abcf4a28510  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9
     - LORAMER_HANDOFF.md: 32f7b10504e656f06750cf5d5b3715cd6879374ff96d2f445a433b6c352cf1d3
-    - CONTINUE_HERE.md: 274739efafce0f4ec03b860701db47e2a0985dd9e799150324b3698d69cf3df6
+    - CONTINUE_HERE.md: bd6ada2a37caaa28bc259919391c2f283e54e663bd4a91f0b16b126162424217
     - LORAMER_DECISIONS.md: d94807cf7d5b7d3286876b5cdc346cb8ecc06adad8736f6e9c5aef1d472e0eb9
-    - LORAMER_QUEUE_OF_RECORD.md: 7437654e58e171680d20530891725a181b327f2070e539d7c0ca1cbd6a77c36d
+    - LORAMER_QUEUE_OF_RECORD.md: dc59717680ed7f5413acfcea3cfd784b5a0221a9755bed179e28e24daa0d73c3
 
 ## B. ROLE CONTRACT — DESTINATION vs ROUTE  (source: LORAMER_HANDOFF.md)
 ## ⛔ OPERATING DISCIPLINE — DESTINATION vs ROUTE (gate-level; read every session)
@@ -79,7 +79,7 @@ ACTIVE WORKSTREAM: DATA COMPLETENESS PROGRAM. GOVERNING RULE — capture EVERYTH
 DONE THIS SESSION (don't rebuild): Woo Fix-1a (8377b97) + Fix-1b (3e74e0b); Meta placement forward Slice 1 (c06d1c7) + history backfill writer Slice 2 (9cb038a, scaled to all reconcilable Meta clients); consolidation + gate hardening (4dfd564).
 
 PRIORITY ORDER (next work):
- 0. ▶ IN FLIGHT 2026-06-25 (LORAMER_ONBOARD_DRAIN_V1): onboarding auto-backfill drain SHIPPED + deployed; first prod GA cohort tick verified. NEXT = RAMP N (currently 4/platform/tick, woo 2, every 6h) as the cohort drains; monitor daysFlagged per client (0=clean; >0=spend mismatch, investigate). The cron auto-fills the real gaps (GA-shallow Ennis/Veterinary/Escential/Glass Plus/Shelley; Meta placement Influential[multi-lap]/Thought Streams). Remaining capture writers to add (each = ONE registry entry, then back-drains cohort): Google ad_group/ad, Meta campaign/adset/ad, breadth dims (device/geo/age-gender/GA-dims/store-breadth).
+ 0. ✅ SHIPPED 2026-06-25 (LORAMER_ONBOARD_DRAIN_V1, HEAD 57b8b81 + deployed): onboarding auto-backfill drain. COHORT DRAIN IS NOW AUTOMATIC — the staggered cron runs N=4/platform/6h (woo 2), self-healing already-backfilled steps + filling real gaps; NO manual action needed. Prod GA tick verified clean (4 GA clients self-healed to done). OPEN THREAD (no manual action): Ennis GA last-tick (cursor incomplete → AUTO-drains on the next GA cron) + RAMP N if/when faster fill wanted (one-line throughput knob in /api/cron/drain). NEXT BUILD THREAD (depth/breadth plan; each new writer = ONE drain-registry entry → back-drains the WHOLE cohort automatically): RACING THE 37mo FLOOR → Google ad_group+ad backfill (NO writer — mirror the campaign writer), then Meta campaign (writer EXISTS, just wire it) / adset / ad, then Google+Meta breakdown breadth (device/geo/age-gender); THEN GA / Shopify / Woo breadth (NO clock — indefinite retention). Deferred cleanups in LORAMER_QUEUE_OF_RECORD (cron-runs 'drain' mode; clean __drain_* lock rows). Pricing-for-large-backfills item logged in ROADMAP (Data Completeness Onboarding).
  0b. ✅ DONE 2026-06-24 (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1): Google campaign-grain backfill WIRED (route /api/backfill/google-campaign, 36-mo floor-clamp; writer unchanged) + pilot-proven + SCALED to ALL clients deep-first — residual 0 everywhere, 23,771 campaign rows, 2023-06-24→2026-06-23. Sparse advertisers (skinregimen/Glenn) had no in-window campaign data = campaign-forward-only, nothing owed. Veterinary skipped (aligned). NEXT Google depth gap = ad_group/ad backfill (NO writer yet — mirror this campaign writer) + Meta campaign(writer exists+UNWIRED)/adset/ad(none).
  ✅ DONE 2026-06-23 (LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1) — ACCOUNT-FORWARD-ONLY Meta backfills for Inside / Glenn Stearns / Ogmentor: account grain to floor (Inside 403d→2023-10-17 $9,158.26 / Glenn 113d→2024-09-23 $5,179.11 / Ogmentor 202d→2025-06-16 $3,617.55) + placement grain floor→yesterday (12,651 campaign×placement×day rows, reconciled FLAG-NOT-BLOCK, conversions=0). Thought Streams = truly new, nothing owed. DO NOT REBUILD.
  1. ✅ RESOLVED 2026-06-24 (LORAMER_CONNECTION_STATE_PROBE_SAFEGUARD_V1): Influential Drones Meta connection is ALIVE — capture-path probe returned HTTP 200 across 2024-02-01..2025-07-24 (zero oauth_190); warehouse reconciles to the live API TO THE PENNY ($8,412.89, 2024-09-17→2025-07-24). Pre-2024-09-17 = TRUE ZERO (no Meta history); interior gaps = zero-spend days. NOTHING to backfill. Stored health='reconnect'/oauth_190 was a STALE flag (WS2 #2 transient-190 fan-out) — now cleared to 'healthy'. DO NOT re-raise as blocked. WS2 #2 GENERATOR fixed 2026-06-24 (LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1).
@@ -217,6 +217,8 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Meta ad_set + ad DEPTH backfill — forward-only, no writer. src: DATA_COMPLETENESS, MATRIX#3. open [LC]
 - PHASE 3 — Completeness GATE: audit every client×platform×grain×dimension; flag shallow/fetched-but-unpersisted; gate "onboarded" on green; repeatable. src: DATA_COMPLETENESS Phase3, ESSENCE bedrock(3). open [LC]
 - PHASE 4 BREADTH (ELEVATED to CORE): capture every available breadth dimension fwd+backfill — Google device/network/geo/age-gender/hour/impression-share/video/all_conversions/view-through/audiences/assets; Meta age-gender/geo/device/hourly/video/ranking/full cost_per_action; GA sessions/users/source-medium/channel/landing-pages/device/geo/demographics/events/item-ecommerce; Shopify shipping-tax-split/discount-codes/variant-SKU/abandoned-value/fulfillment/inventory/tags/channel; Woo geo/customer-mix/variants/coupons/fulfillment/WC-Analytics. src: DATA_COMPLETENESS BREADTH+ENFORCEMENT, MATRIX gaps, ESSENCE. open [LC]
+- cron-runs 'drain' mode observability — CronMode is typed forward|catchup; the drain cron uses detectTrigger but SKIPPED startCronRuns/finishCronRun to avoid editing the shared lib + an enum migration. Widen CronMode to include 'drain' for sentinel observability. src: LORAMER_ONBOARD_DRAIN_V1. deferred [NP]
+- Clean inert __drain_* lock rows in sync_state — dry-run + local laps left harmless NULLED __drain_ga/__drain_meta/__drain_google claim rows. One-time: `delete from sync_state where platform like '__drain_%';` (ONLY the lock rows — NOT real cursors/markers). src: LORAMER_ONBOARD_DRAIN_V1. deferred [NP]
 - GA page-level capture (pagePath/landingPage × views/sessions/engagement/conversions/day) → metrics_daily + query_metrics. src: AUDIT 2026-06-18. open [LC]
 - Shopify deep re-backfill to full history (read_all_orders now granted on Foam OH; Influential+Escential still 3-scope — re-auth) — corrects #6 cancelled-history for free; no false-zeros. src: AUDIT#6/#7, MATRIX#1, LAUNCH_PARKING. open [LC]
 - Shopify dimensional re-backfill beyond 60-day wall (wall lifted on re-auth). src: MATRIX#1. open [LC]
