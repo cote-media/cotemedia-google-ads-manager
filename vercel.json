@@ -39,6 +39,26 @@
     {
       "path": "/api/cron/catchup?platform=google",
       "schedule": "50 8 * * *"
+    },
+    {
+      "path": "/api/cron/drain?platform=ga",
+      "schedule": "0 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/cron/drain?platform=woocommerce",
+      "schedule": "5 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/cron/drain?platform=shopify",
+      "schedule": "10 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/cron/drain?platform=meta",
+      "schedule": "15 0,6,12,18 * * *"
+    },
+    {
+      "path": "/api/cron/drain?platform=google",
+      "schedule": "20 0,6,12,18 * * *"
     }
   ]
 }

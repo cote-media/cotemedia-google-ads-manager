@@ -20,6 +20,7 @@ import {
   buildGoogleDimensionalRows,
   type GoogleDimensional,
 } from '@/lib/intelligence/google-dimensional'
+import { withGoogleRetry } from './retry' // LORAMER_BACKFILL_RETRY_V1 — transient backoff (was the missing per-source guard)
 
 const CURSOR_PLATFORM = 'google_dimensional' // sync_state progress key only; data rows are platform='google'
 const METRICS_DAILY_CONFLICT =
@@ -116,7 +117,7 @@ export async function runGoogleDimensionalBackfill(
   let useOptionA = false
   let buckets: Map<string, GoogleDimensional> = new Map()
   try {
-    const win = await fetchGoogleDimensionalWindow(refreshToken, customerId, targetStart, windowEnd)
+    const win = await withGoogleRetry(() => fetchGoogleDimensionalWindow(refreshToken, customerId, targetStart, windowEnd))
     if (win.overflow) {
       useOptionA = true
       console.warn(
@@ -146,7 +147,7 @@ export async function runGoogleDimensionalBackfill(
     }
     try {
       const dim: GoogleDimensional = useOptionA
-        ? await fetchGoogleDimensional(refreshToken, customerId, cursor, cursor)
+        ? await withGoogleRetry(() => fetchGoogleDimensional(refreshToken, customerId, cursor, cursor))
         : buckets.get(cursor) || { searchTerms: [], keywords: [], searchTermsTruncated: false, keywordsTruncated: false }
 
       if (dim.searchTermsTruncated || dim.keywordsTruncated) {

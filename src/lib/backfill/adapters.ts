@@ -11,6 +11,7 @@ import { fetchMetaDailyMetrics } from '@/lib/meta-ads'
 import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaDailyMetrics, type GaDailySlice } from '@/lib/intelligence/ga-intelligence'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
+import { withGoogleRetry, fetchMetaDailyWithRetryNarrow } from './retry' // LORAMER_BACKFILL_RETRY_V1 — transient backoff at the backfill boundary
 import type { BackfillAdapter, DailyRow } from './run-backfill'
 
 export const googleBackfillAdapter: BackfillAdapter = {
@@ -28,7 +29,7 @@ export const googleBackfillAdapter: BackfillAdapter = {
     return { token: data?.refresh_token, error: error?.message }
   },
   fetchDaily: async (token, accountId, windowStart, windowEnd) =>
-    (await getDailyMetrics(
+    (await withGoogleRetry(() => getDailyMetrics(
       token,
       accountId,
       'LAST_30_DAYS',
@@ -36,13 +37,16 @@ export const googleBackfillAdapter: BackfillAdapter = {
       'day',
       windowStart,
       windowEnd
-    )) as DailyRow[],
+    ))) as DailyRow[], // LORAMER_BACKFILL_RETRY_V1 — backoff was the missing per-source guard here
 }
 
 export const metaBackfillAdapter: BackfillAdapter = {
   platform: 'meta',
   accountIdKey: 'accountId',
   chunkDays: 90,
+  // Meta insights retain ~37 months; stop at 36 (safety margin) so the engine never requests pre-retention
+  // (which Meta THROWS on, stopping the step short) — the floor becomes an empty-success, i.e. "complete".
+  granularMonths: 36,
   connectionMissingError: 'Client has no Meta connection',
   tokenMissingError: 'No Meta access token',
   loadToken: async (userEmail: string) => {
@@ -53,8 +57,13 @@ export const metaBackfillAdapter: BackfillAdapter = {
       .single()
     return { token: data?.access_token, error: error?.message }
   },
+  // (b) backfill-boundary retry: transient backoff + query-too-heavy (#100/1487534) window-halving.
   fetchDaily: async (token, accountId, windowStart, windowEnd) =>
-    (await fetchMetaDailyMetrics(token, accountId, windowStart, windowEnd)) as DailyRow[],
+    (await fetchMetaDailyWithRetryNarrow(
+      (s, u) => fetchMetaDailyMetrics(token, accountId, s, u),
+      windowStart,
+      windowEnd
+    )) as DailyRow[],
 }
 
 export const gaBackfillAdapter: BackfillAdapter<GaDailySlice> = {

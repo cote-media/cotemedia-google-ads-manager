@@ -73,6 +73,10 @@ export interface BackfillAdapter<TRow = DailyRow> {
     ctx: BackfillRowContext
   ) => Record<string, unknown>[]
   floorDate?: string
+  // Per-adapter retention depth in months (default 132 = Google's 11-yr ceiling). Meta serves only ~37mo,
+  // so it sets 36 (safety margin) — otherwise the engine descends past retention and Meta THROWS at the
+  // boundary instead of returning empty, which used to stop the step short of "complete".
+  granularMonths?: number
 }
 
 export interface BackfillResult {
@@ -178,7 +182,7 @@ export async function runBackfill(
   // takes effect even if an older shallower target was stored before. A
   // per-adapter floorDate clamps it (e.g. GA refuses dates before 2015-08-14).
   const targetObj = new Date()
-  targetObj.setUTCMonth(targetObj.getUTCMonth() - GRANULAR_MONTHS)
+  targetObj.setUTCMonth(targetObj.getUTCMonth() - (adapter.granularMonths ?? GRANULAR_MONTHS))
   let targetDate = fmt(targetObj)
   if (adapter.floorDate && targetDate < adapter.floorDate) {
     targetDate = adapter.floorDate
@@ -194,6 +198,9 @@ export async function runBackfill(
   let chunks = 0
   let complete = false
   let stoppedOnError = false
+  let stopCode: number | null = null
+  let stopSubcode: number | null = null
+  let stopDetail: string | null = null
   while (windowEnd >= targetDate && chunks < MAX_CHUNKS) {
     chunks += 1
     let windowStart = addDays(windowEnd, -(adapter.chunkDays - 1))
@@ -201,11 +208,14 @@ export async function runBackfill(
     let daily: any[] = []
     try {
       daily = await adapter.fetchDaily(token, accountId, windowStart, windowEnd)
-    } catch {
-      // Hit the platform's retention limit (or a transient error) going
-      // backward. Stop here; the cursor stays at the last successful chunk so
-      // a re-run can resume. We do NOT mark complete on an error.
+    } catch (e: any) {
+      // (c) NEVER SWALLOW (Lesson 15): surface the error so the caller can tell a retention floor from a
+      // transient from a query-too-heavy. The cursor stays at the last successful chunk so a re-run resumes.
+      // We do NOT mark complete on an error — only an empty-success descent to targetDate is "complete".
       stoppedOnError = true
+      stopCode = Number.isFinite(Number(e?.code)) ? Number(e.code) : null
+      stopSubcode = Number.isFinite(Number(e?.error_subcode)) ? Number(e.error_subcode) : null
+      stopDetail = String(e?.message ?? e ?? 'unknown error')
       break
     }
     const rows = adapter.buildRows
@@ -277,6 +287,19 @@ export async function runBackfill(
     }
     windowEnd = addDays(windowStart, -1)
   }
+  // Coarse label for the surfaced error (verified Meta taxonomy; harmless for other platforms whose errors
+  // carry no .code → 'transient_or_other'). The drain interprets this to decide done-vs-retry.
+  const stopReason = !stoppedOnError
+    ? null
+    : stopCode === 100 && stopSubcode === 1487534
+      ? 'query_too_heavy'
+      : stopCode === 190
+        ? 'token'
+        : stopCode === 368
+          ? 'account_disabled'
+          : stopCode === 100
+            ? 'invalid_parameter'
+            : 'transient_or_other'
   return {
     status: 200,
     body: {
@@ -288,6 +311,10 @@ export async function runBackfill(
       totalRows,
       complete,
       stoppedOnError,
+      stopReason,
+      stopCode,
+      stopSubcode,
+      stopDetail,
     },
   }
 }

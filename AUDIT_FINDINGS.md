@@ -4,6 +4,8 @@ Authoritative, deduplicated punch-list (consolidated 2026-06-13, read-only audit
 
 Discipline: when an item ships, move it to RESOLVED in the SAME commit (docs-with-code).
 
+✅ ONBOARDING AUTO-BACKFILL-ON-CONNECT SHIPPED 2026-06-25 (LORAMER_ONBOARD_DRAIN_V1): connect→full-historical-backfill is now automatic — marker column default (no connect-route touch) + a staggered per-platform drain cron over the proven writer-registry (deepest-first, per-step-independent, self-heal + real-gap-fill, never-mark-on-error). The cohort GA-shallow + Meta-placement gaps now drain automatically. Detail: docs/LORAMER_DATA_COMPLETENESS.md + LORAMER_QUEUE_OF_RECORD.md.
+
 ---
 
 ## WS1 — CRON INTEGRITY  (active nightly data loss · freeze-safe · DO FIRST)

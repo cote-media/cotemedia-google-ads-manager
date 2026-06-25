@@ -63,7 +63,14 @@ export async function fetchMetaDailyMetrics(
     const res: Response = await fetch(nextUrl)
     const data: any = await res.json()
     if (data.error) {
-      throw new Error('Meta Graph error: ' + (data.error.message || JSON.stringify(data.error)))
+      // Backfill-only fetcher (sole caller = the backfill adapter): surface code/subcode/http so the backfill
+      // boundary can classify per the verified Meta taxonomy (retryable vs query-too-heavy #100/1487534 vs
+      // token/disabled). Message is unchanged → any caller reading .message is unaffected.
+      const err: any = new Error('Meta Graph error: ' + (data.error.message || JSON.stringify(data.error)))
+      err.code = data.error.code
+      err.error_subcode = data.error.error_subcode
+      err.http = res.status
+      throw err
     }
     if (Array.isArray(data.data)) rows.push(...data.data)
     nextUrl = data.paging?.next || null
