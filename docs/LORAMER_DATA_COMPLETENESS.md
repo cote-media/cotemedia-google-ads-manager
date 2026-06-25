@@ -12,7 +12,7 @@ AVAILABLE (official API docs, Jun 2026) vs HAVE (adapter inventory) vs GAP. Two 
 
 ## GOOGLE ADS
 Have: account(summed)+campaign+ad_group+ad spend/impr/clicks/conv/conv_value; search_term+keyword ~90d; QS/budget/bidding. Only segment captured = date (+conversion_action).
-Gap: DEPTH — Google campaign backfill WIRED + pilot-proven (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1, /api/backfill/google-campaign; Bath Fitter→36-mo floor 2023-06-24, 11,438 rows, 0 spend-residual days, idempotent; SCALING deep-accounts-first); ad_group/ad still no backfill (forward-only); keyword/search_term ~90d only. BREADTH — device, ad_network_type, geo, age/gender, hour/day-of-week, impression-share family (budget/rank-lost, top%), video metrics, all_conversions, view-through, conversion lag, audiences/assets/asset_groups — none captured.
+Gap: DEPTH — Google campaign backfill WIRED + SCALED 2026-06-24 across ALL clients (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1, /api/backfill/google-campaign; residual 0 everywhere; deep accounts to the floor ~2023-06-25, sparse advertisers campaign-forward-only/nothing-owed; 23,771 campaign rows total, idempotent); ad_group/ad still no backfill (forward-only); keyword/search_term ~90d only. BREADTH — device, ad_network_type, geo, age/gender, hour/day-of-week, impression-share family (budget/rank-lost, top%), video metrics, all_conversions, view-through, conversion lag, audiences/assets/asset_groups — none captured.
 
 ## GA4
 Have: account daily totalRevenue + conversions (spend=0). DEEP BACKFILL EXISTS — mechanism built and run for multiple clients (years).
