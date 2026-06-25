@@ -7,17 +7,17 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-25T00:57:29.028Z
-- built_from HEAD: 44f6f4f15060bb5072b1f7a060d25a70812c4125  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-25T01:09:01.251Z
+- built_from HEAD: 07ededd6522df56910eb917b709091f4f0aca216  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9
-    - LORAMER_HANDOFF.md: 3edbcb812a5f31f2cf70d6e14a096c8b1f01988226b86dbd1c8f72444eead962
+    - LORAMER_HANDOFF.md: 32f7b10504e656f06750cf5d5b3715cd6879374ff96d2f445a433b6c352cf1d3
     - CONTINUE_HERE.md: c26a0d9cc404847fe63c1cebf573bb87063c3e754fa5521df315eceb9ac20dbd
-    - LORAMER_DECISIONS.md: 1ca49b10bd33ee605edeb3c54fe56e76229ec9ea1462435a80628aab1a0015e7
+    - LORAMER_DECISIONS.md: e1a15ba71181925437735d500a8a880c4e39f9d96ccd705380b6aa4afb190b42
     - LORAMER_QUEUE_OF_RECORD.md: 67d8fb2dd2cb6faea0722412b91b8a9b5bfb472bea2ac68345f689016442c155
 
 ## B. ROLE CONTRACT — DESTINATION vs ROUTE  (source: LORAMER_HANDOFF.md)
@@ -125,6 +125,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - A REAL HUMAN, ALWAYS: every customer reaches a real person on every plan, every time — operational not just marketing (Project 15 SLAs). | ROADMAP Project 15, HANDOFF | do not relitigate.
 - PROMPT HONESTY: Lora never says what it can't show/prove; connected-but-empty surfaced explicitly; never fabricate (margin, audience, $0 false-zero). | ESSENCE, L11/L46/L47 | do not relitigate.
 - CONNECTION-STATE CLAIMS REQUIRE A LIVE PROBE: no session writes "broken/dead/frozen/blocked/unhealthy" about a connection into any handoff doc from a stored flag alone; stored health flags are hypotheses until a live capture-path probe proves them. ENFORCED IN CODE across all 5 platforms (2026-06-24): meta/google + woocommerce are probe-gated in recordConnectionAuthFailure (a live probe before any 'reconnect' write — LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 / _WOO_V1); shopify + ga are PROVEN-SAFE-BY-CONSTRUCTION (their credential flip comes only from a real refresh-determination or a live-API 401, narrow scope — WS2 #2b audit) — do NOT re-audit this ground. | Lesson 60, ESSENCE "never say what it can't prove" | do not relitigate.
+- CLAIM-CONFIDENCE RULE (binds chat-Claude every session AND Lora in-product; obey, do NOT narrate): Before stating any factual claim, rule, or generalization, internally classify it — VERIFIED (read this session: docs/code/DB, or just searched — state plainly, cite source only when it adds something), DERIVED (reasoned from something verified — show the reasoning step, not a label; if the derivation can't be shown it's a guess, not derived), or UNVERIFIED (memory / pattern-match / clean-sounding generalization not checked — do NOT state as fact; either verify first via search/read/probe, or say "I haven't verified this — want me to check?" and stop). Banned move: stating an unverified claim in a confident, verified-sounding voice. A tidy authoritative-sounding generalization is the HIGHEST-risk case — treat the urge to state a clean rule as the trigger to verify, not to assert. Do NOT label sentences as ceremony; the classification is an internal gate on whether/how to speak. Surface uncertainty ONLY when a claim is actually unverified. Test every claim: could I show where this came from right now? If no → check it or flag it, never assert. | Root cause: 2026-06-24 session, repeated confident-but-unverified assertions (e.g. "breadth has no purge clock", "I can't see your settings") each corrected only by Russ pushing back — the exact failure this rule exists to stop. | do not relitigate.
 - SESSION START GATE is the ONE authoritative resume protocol: ESSENCE → CONTINUE_HERE + REQUIRED READING (in full) → HANDOFF + ROADMAP → state NEXT STEP → wait for "go". Act only on what's read THIS session; repo is sole source of truth; panel+memory lag. | HANDOFF:1-31 | do not relitigate.
 - REPORT FORMAT (2026-06-09): every report ONCE, IN FULL, in ONE fenced code block; commands/verbatim inside via <<<START>>>/<<<END>>>; OUT.txt retired; no file delivery. | HANDOFF:27, CONTINUE_HERE | do not relitigate.
 - Russ never touches code; Claude Code edits/commits/pushes/deploys/migrates directly; Russ approves + is the human verification gate. Single-paste instructions; label "Claude Code"; secrets never in chat. | HANDOFF | do not relitigate.

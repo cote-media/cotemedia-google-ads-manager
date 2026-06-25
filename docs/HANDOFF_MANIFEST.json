@@ -18,10 +18,10 @@
     "line_count": 136
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "1ca49b10bd33ee605edeb3c54fe56e76229ec9ea1462435a80628aab1a0015e7",
+    "content_hash": "e1a15ba71181925437735d500a8a880c4e39f9d96ccd705380b6aa4afb190b42",
     "last_reconciled_date": "2026-06-24",
-    "last_reconciled_head": "afd9afe",
-    "line_count": 201
+    "last_reconciled_head": "07ededd",
+    "line_count": 202
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "53da63462b34ca40fadf622d6999f298062f237e291c835a02d54af604eb8bf9",
@@ -30,10 +30,10 @@
     "line_count": 111
   },
   "LORAMER_HANDOFF.md": {
-    "content_hash": "3edbcb812a5f31f2cf70d6e14a096c8b1f01988226b86dbd1c8f72444eead962",
+    "content_hash": "32f7b10504e656f06750cf5d5b3715cd6879374ff96d2f445a433b6c352cf1d3",
     "last_reconciled_date": "2026-06-24",
-    "last_reconciled_head": "6ac5815",
-    "line_count": 884
+    "last_reconciled_head": "07ededd",
+    "line_count": 885
   },
   "LORAMER_LORA_INTELLIGENCE_BAR.md": {
     "content_hash": "2d83994f96762a5dfe486f4db3af9edf508aa8186c731be5130ca14f7f04dacd",
@@ -48,10 +48,10 @@
     "line_count": 177
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "4824dfd8aef96bb48cf28f92ab8fb47c078bd4ac9838c2ee35c1294dd132d1ca",
+    "content_hash": "9969be706f7b84e7167169188a5342fc8f74abc1d4ea0071a35fc799f23e4cf7",
     "last_reconciled_date": "2026-06-24",
-    "last_reconciled_head": "44f6f4f",
-    "line_count": 391
+    "last_reconciled_head": "07ededd",
+    "line_count": 392
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "dfb63e30fdb17a69f363b4fe6ba43dd65297b8cdf82cdb93bd73a5bd2fe2c3ed",
@@ -60,9 +60,9 @@
     "line_count": 32
   },
   "ROADMAP.md": {
-    "content_hash": "f82c7f8b2fbd09106641daebd2923e52da58e2750e8d9c0db093b6808f220db2",
-    "last_reconciled_date": "2026-06-23",
-    "last_reconciled_head": "d596a2a",
+    "content_hash": "9ca75e5178a10ef3521b9c01ed81f4f13600f43f1764543d0e38a539ffbbaf82",
+    "last_reconciled_date": "2026-06-24",
+    "last_reconciled_head": "07ededd",
     "line_count": 1526
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
