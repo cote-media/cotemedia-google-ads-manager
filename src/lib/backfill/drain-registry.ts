@@ -16,6 +16,7 @@ import { runGoogleCampaignBackfill } from './google-campaign-backfill'
 import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
+import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -144,6 +145,15 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_placement',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_placement', runMetaPlacementBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_META_ADSET_AD_BACKFILL_V1 — deepest Meta grain (ad_set + ad, one writer/one pass). Reconciles
+    // account SPEND per day FLAG-NOT-BLOCK (account anchor via maybeSingle → no silent cap; full pagination
+    // closes the forward limit=100 truncation; finalized days reconcile to the cent, recent stale-anchor days
+    // flagged-but-written). Stateless-range, same driver as meta_campaign / meta_placement.
+    key: 'meta_adset_ad',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_adset_ad', runMetaAdSetAdBackfill as RangeWriter, dryRun),
   },
   {
     key: 'google_dimensional',
