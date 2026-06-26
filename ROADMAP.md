@@ -1506,6 +1506,9 @@ WHAT GOES IN (rough order of lift):
 PHASED ON-RAMP: do NOT start with a full pixel. Server-side conversions from data ALREADY captured (Shopify/Woo orders) → sent to platforms server-side → a real slice of the value without the full client-tag + event-pipeline + consent build. Server-side conversions first, full first-party pixel later. Build-vs-buy the event infra when the time comes.
 HORIZON: firmly 2027+; a new CATEGORY of data source layered on top of today's platform-API pulls.
 
+## ACTIVE WORKSTREAM — Unified Live + Breadth (design LOCKED 2026-06-26)
+Design of record: **docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md** (LORAMER_LIVE_BREADTH_UNIFIED_DESIGN_V1). The Google+Meta DEPTH arc is complete (campaign/ad_group/ad_set/ad all wired + draining). The program now advances under Direction B: captured `metrics_daily` stays the reconciled system-of-record; a SEPARATE sibling live store (keyed by as_of) holds live/realtime/sub-daily; Lora reconciles across + ALWAYS labels which store. Build order: consolidation pre-work (shared reconcile + fetch primitives) → BREADTH (every breakdown dim) → live spine (live store + query_live + merge-with-mandatory-provenance truth-spine) → live UI (-next) → intelligence reshape + 15-min cache retirement (FREEZE-GATED, last). Standard Access PROMOTED launch-critical for the persistent-live env. See the doc for all locked decisions + the build phases.
+
 ## FEATURE — Data Completeness Onboarding (meter + notification automation + human-assist)
 The customer-facing surface of the Total Data Capture bedrock principle (see LORAMER_HANDOFF.md). Backend = the completeness gate (docs/LORAMER_DATA_COMPLETENESS.md).
 
