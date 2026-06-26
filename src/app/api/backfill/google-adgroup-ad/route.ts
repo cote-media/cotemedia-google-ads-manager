@@ -33,7 +33,7 @@ function googleGranularFloor(): string {
   return iso(d)
 }
 
-const emptyTot = () => ({ grainDayRows: 0, written: 0, skipped: 0, daysWritten: 0, daysSkipped: 0 })
+const emptyTot = () => ({ grainDayRows: 0, written: 0, daysWritten: 0, daysFlagged: 0 })
 
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
@@ -75,9 +75,8 @@ export async function GET(request: Request) {
     if (!g) return
     tot.grainDayRows += g.grainDayRows || 0
     tot.written += g.written || 0
-    tot.skipped += g.skipped || 0
     tot.daysWritten += g.daysWritten || 0
-    tot.daysSkipped += g.daysSkipped || 0
+    tot.daysFlagged += g.daysFlagged || 0
   }
 
   while (true) {

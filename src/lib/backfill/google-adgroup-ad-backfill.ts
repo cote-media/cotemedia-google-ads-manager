@@ -1,26 +1,25 @@
 // LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1
 // Ad-group-grain AND ad-grain backfill writer for Google (NEW, backfill-only — does NOT touch forward
 // capture). Mirrors src/lib/backfill/google-campaign-backfill.ts byte-for-pattern (monthChunks,
-// queryWithRetry, idempotent UPSERT via normalizeMetricsRows on the standard CONFLICT key, per-day
-// reconcile gate, same return shape). One pass per month-chunk runs TWO GAQL reports:
+// queryWithRetry, idempotent UPSERT via normalizeMetricsRows on the standard CONFLICT key, same return
+// shape). One pass per month-chunk runs TWO GAQL reports:
 //   • ad_group        → entity_level='ad_group', entity_id=ad_group.id,        parent=campaign.id
 //   • ad_group_ad     → entity_level='ad',       entity_id=ad_group_ad.ad.id,  parent=ad_group.id
 // Rows are byte-compatible with the forward builder (src/lib/intelligence/google-metrics-row.ts) — same
 // columns, same conflict key, same extra-JSON shape (ctr/cpc/cpm/roas/cpa/convRate), breakdown_type/value=''.
 // Like the campaign writer we DO NOT filter status (a since-REMOVED ad_group/ad still had real historical
-// spend; the no-status-filter capture is what makes the per-day reconcile sum to its parents).
+// spend). The google-ads-api lib auto-paginates, so the GAQL fetch itself is not silently truncatable.
 //
-// RECONCILE GATE (Lesson 59) — the GRAIN-SPECIFIC anchor:
-//   The campaign writer reconciles Σcampaign vs ACCOUNT because every campaign type appears in the
-//   `campaign` report (Σcampaign ≡ account). That anchor is WRONG here: PMax campaigns expose no
-//   ad_groups, and Shopping/PMax expose no ad_group_ad rows, so Σad_group / Σad sit structurally BELOW
-//   account — an account gate would falsely skip days. The correct per-unit-of-work anchor is the
-//   ALREADY-BACKFILLED campaign grain: for each day, Σ(grain spend) must equal Σ(campaign-grain
-//   metrics_daily.spend for ONLY the campaign-ids present in that grain's result that day). PMax falls
-//   out of both sides automatically; a truncated/broken fetch makes the grain sum fall short of its
-//   campaigns' total and is caught. Within $0.01 or 0.1% → write; else SKIP that day for that grain + flag
-//   (loud). Account spend is reported in dryRun for context (account − Σcampaign-with-children = the
-//   structural PMax/Shopping gap), never used as the gate.
+// RECONCILE = FLAG-NOT-BLOCK against a per-day CAMPAIGN anchor (mirrors the settled Meta-placement posture):
+//   Proven on real data (Gate A, 2026-06-26): Σad_group / Σad do NOT always equal account (PMax/Shopping
+//   campaigns expose no ad_group/ad children) and do NOT even always equal Σcampaign exactly (Google
+//   attributes some campaign spend outside the ad_group grain — partial-coverage campaigns). So a BLOCK
+//   gate would DROP real, correct grain rows on structurally-divergent days — a capture-everything
+//   violation. Instead we ALWAYS write the real grain rows and RECORD a loud delta in flagged[] when
+//   Σ(grain spend) diverges from Σ(campaign-grain spend over only the campaigns present in that grain's
+//   result that day). The anchor is read PER DAY (scoped to one date — never the whole chunk, which for
+//   high-campaign-count clients like Bath Fitter exceeds supabase-js's silent 1000-row cap and collapsed
+//   the anchor to 0; Lesson 8). Account spend is reported in dryRun for context (the PMax/Shopping gap).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { GoogleAdsApi } from 'google-ads-api'
@@ -28,6 +27,7 @@ import { GoogleAdsApi } from 'google-ads-api'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 const RECON_ABS = 0.01   // $0.01
 const RECON_PCT = 0.001  // 0.1%
+const CAMP_DAY_CAP = 5000 // explicit guard — one day's campaign rows are ≤ a few hundred; never near this
 
 const adsClient = new GoogleAdsApi({
   client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -87,11 +87,10 @@ function buildRow(
 interface GrainStat {
   grainDayRows: number
   written: number
-  skipped: number
   daysWritten: number
-  daysSkipped: number
+  daysFlagged: number
 }
-const emptyStat = (): GrainStat => ({ grainDayRows: 0, written: 0, skipped: 0, daysWritten: 0, daysSkipped: 0 })
+const emptyStat = (): GrainStat => ({ grainDayRows: 0, written: 0, daysWritten: 0, daysFlagged: 0 })
 
 export interface AdGroupAdBackfillResult { status: number; body: Record<string, any> }
 
@@ -110,35 +109,39 @@ export async function runGoogleAdGroupAdBackfill(
   if (tErr || !tok?.refresh_token) return { status: 400, body: { error: 'No Google refresh token', detail: tErr?.message } }
   const customer = adsClient.Customer({ customer_id: customerId, refresh_token: tok.refresh_token as string, login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID! })
 
+  // PER-DAY caches (scoped to one date → bounded result, never the silent 1000-row cap). Shared across
+  // both grains and all chunks; each date is queried at most once.
+  const campCache = new Map<string, Record<string, number>>()
+  const acctCache = new Map<string, number>()
+  const campDay = async (date: string): Promise<Record<string, number>> => {
+    const hit = campCache.get(date)
+    if (hit) return hit
+    const { data } = await supabaseAdmin
+      .from('metrics_daily').select('entity_id,spend')
+      .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'campaign')
+      .eq('breakdown_type', '').eq('breakdown_value', '').eq('date', date).limit(CAMP_DAY_CAP)
+    const m: Record<string, number> = {}
+    for (const r of data || []) m[String((r as any).entity_id)] = fin((r as any).spend)
+    campCache.set(date, m)
+    return m
+  }
+  const acctDay = async (date: string): Promise<number> => {
+    const hit = acctCache.get(date)
+    if (hit !== undefined) return hit
+    const { data } = await supabaseAdmin
+      .from('metrics_daily').select('spend')
+      .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'account')
+      .eq('breakdown_type', '').eq('breakdown_value', '').eq('date', date).maybeSingle()
+    const v = fin((data as any)?.spend)
+    acctCache.set(date, v)
+    return v
+  }
+
   const stats: Record<'ad_group' | 'ad', GrainStat> = { ad_group: emptyStat(), ad: emptyStat() }
   const flagged: any[] = []
   const sampleRow: Record<string, unknown> = {} // dryRun diagnostic: first built row per grain
 
   for (const chunk of monthChunks(startDate, endDate)) {
-    // Campaign-grain anchor for this chunk: map[date][campaignId] = campaign spend (already backfilled,
-    // residual-0). Read ONCE per chunk (not per-day) — the per-day reconcile sums over only the campaign
-    // ids actually present in each grain's result for that day.
-    const { data: campRows } = await supabaseAdmin
-      .from('metrics_daily').select('entity_id,date,spend')
-      .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'campaign')
-      .eq('breakdown_type', '').eq('breakdown_value', '')
-      .gte('date', chunk.from).lte('date', chunk.to)
-    const campSpendByDate: Record<string, Record<string, number>> = {}
-    for (const r of campRows || []) {
-      const d = String((r as any).date)
-      if (!campSpendByDate[d]) campSpendByDate[d] = {}
-      campSpendByDate[d][String((r as any).entity_id)] = fin((r as any).spend)
-    }
-    // Account-grain spend per day (dryRun context only — exposes the PMax/Shopping structural gap).
-    const { data: acctRows } = await supabaseAdmin
-      .from('metrics_daily').select('date,spend')
-      .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'account')
-      .eq('breakdown_type', '').eq('breakdown_value', '')
-      .gte('date', chunk.from).lte('date', chunk.to)
-    const acctSpendByDate: Record<string, number> = {}
-    for (const r of acctRows || []) acctSpendByDate[String((r as any).date)] = fin((r as any).spend)
-
-    // Two grains, identical machinery — query, bucket per (date), reconcile against the parent campaign sum.
     const grains: { level: 'ad_group' | 'ad'; gaql: string; extract: (r: any) => { entityId: string; entityName: string; parentId: string; campaignId: string } }[] = [
       {
         level: 'ad_group',
@@ -179,26 +182,26 @@ export async function runGoogleAdGroupAdBackfill(
 
       for (const [date, bucket] of Object.entries(byDate)) {
         // Anchor = Σ campaign-grain spend over ONLY the campaigns present in THIS grain's result this day.
-        const dayCamp = campSpendByDate[date] || {}
+        const dayCamp = await campDay(date)
         let anchorSpend = 0
-        let anchorMissing = 0 // campaign-grain rows absent for a campaign we have grain rows for (can't reconcile)
+        let anchorMissing = 0 // campaigns in the grain result with no campaign-grain row (anchor unavailable)
         for (const cid of bucket.campaignIds) {
           if (cid in dayCamp) anchorSpend += dayCamp[cid]
           else anchorMissing++
         }
         const delta = Math.abs(bucket.spend - anchorSpend)
         const within = anchorMissing === 0 && (delta <= RECON_ABS || (anchorSpend > 0 && delta / anchorSpend <= RECON_PCT))
+        // FLAG-NOT-BLOCK: ALWAYS write the real grain rows; only record a loud delta when divergent.
         if (!within) {
-          stat.daysSkipped++; stat.skipped += bucket.rows.length
+          stat.daysFlagged++
           flagged.push({
             grain: grain.level, date,
             grain_spend: Number(bucket.spend.toFixed(2)),
             campaign_anchor_spend: Number(anchorSpend.toFixed(2)),
             delta_vs_campaign: Number(delta.toFixed(2)),
             anchor_missing_campaigns: anchorMissing,
-            ...(opts.dryRun ? { account_spend: Number(fin(acctSpendByDate[date]).toFixed(2)) } : {}),
+            ...(opts.dryRun ? { account_spend: Number((await acctDay(date)).toFixed(2)) } : {}),
           })
-          continue
         }
         if (!opts.dryRun) {
           const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(bucket.rows), { onConflict: CONFLICT })
