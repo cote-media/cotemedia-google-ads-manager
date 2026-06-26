@@ -1,11 +1,11 @@
 # LoraMer — Product Roadmap
 <!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: June 5, 2026*
+*Last updated: June 25, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
-This roadmap is organized by **active project**. Items marked `[?]` are uncertain status — please confirm. Items in **Completed Archive** at the bottom are done.
+This roadmap is organized by **active project**. Authoritative current state lives in LORAMER_QUEUE_OF_RECORD.md (open work) + LORAMER_DECISIONS.md (settled) + CONTINUE_HERE.md (live); on any conflict those win over this file. Items in **Completed Archive** at the bottom are done.
 
 ---
 
@@ -1424,8 +1424,8 @@ STATUS:
 - Meta - forward-capture + backfill: DONE (deep).
 - GA4 - forward-capture + backfill: DONE (engine V3 hooks; floor 2015-08-14;
     proven on My Vacation Network 1266 rows + a second client).
-- Shopify - forward-capture only. TODO: backfill adapter (no purge clock).
-- WooCommerce - forward-capture only. TODO: backfill adapter (no purge clock).
+- Shopify - forward-capture + deep backfill: DONE (LORAMER_SHOPIFY_DEEP_BACKFILL_V1; 3 stores reconciled $0.00 residual; read_all_orders, no purge clock).
+- WooCommerce - forward-capture + backfill: DONE (LORAMER_WOO_BACKFILL_2A_V1 + atomic breaker; Shelley 2018-12→2026, ~7.5yr; deep tail 2016-2018 deferred under the live-store HARD GATE).
 
 PER-PLATFORM RETENTION (drives urgency):
 | Platform | Granular limit | Aggregate | LoraMer urgency |

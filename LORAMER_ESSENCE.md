@@ -106,6 +106,6 @@ not a nicety. Every platform, every grain, as deep as the source allows —
 and every gap surfaced EXPLICITLY (never a silent empty). A missing platform,
 a truncated window, a dropped grain is a BUG until proven to be a documented
 limit; any accepted cap (retention floor, scope wall, API limit) is a logged,
-deliberate decision. The scorecard is docs/DATA_COMPLETENESS_MATRIX.md.
+deliberate decision. The scorecard is docs/LORAMER_DATA_COMPLETENESS.md (the live gap-matrix + rollout plan; DATA_COMPLETENESS_MATRIX.md is SUPERSEDED).
 
 If a change makes Lora more confident but not more provable, it is wrong.
