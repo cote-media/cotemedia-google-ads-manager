@@ -79,7 +79,7 @@ Once approved, ship the paid tiers within 30 days.
 | Tier | Price | Workspaces | AI Questions | Retention | Notes |
 |------|-------|------------|--------------|-----------|-------|
 | Free | $0 | 1 | 5/mo | 30 days | Shopify only — no Google/Meta |
-| Solo | $49/mo | 1 | 100/mo | 12 months | All integrations |
+| Business | $79/mo ($750/yr) | 1 | 100/mo | 365 days | All integrations |
 | Agency | $199/mo | 10 | 500/mo | Unlimited | + WYWS digest, priority support |
 | Scale | $999/mo | 50 | 2,500/mo | Unlimited | + agent automations, white-label, bulk export, SLA |
 | Enterprise | Custom | 50+ | Custom | Custom | Contract billing outside Shopify |
@@ -87,11 +87,11 @@ Once approved, ship the paid tiers within 30 days.
 ### Implementation
 > **Superseded by Stripe — see STRIPE_BILLING_PLAN.md.** Phases 0–3 DONE in TEST mode (entitlements table, customer + webhook sync, `/billing` Checkout for free→paid). Phase 4 = Stripe Customer Portal (plan switch/downgrade/cancel) is NEXT.
 - [ ] **Enable Google Pay in Stripe payment-method settings** (Stripe Dashboard → Settings → Payments) so hosted Checkout offers it. (Stripe Phase 3 follow-up, 2026-06-09.)
-- [ ] Implement Shopify Managed Pricing for Solo, Agency, Scale tiers
+- [ ] Implement Shopify Managed Pricing for Business, Agency, Scale tiers
 - [ ] Plan-change UX (upgrade/downgrade flow)
 - [ ] Enforce workspace limit per tier (soft enforcement — alert at limit, hard block at limit + 2)
 - [ ] Enforce AI question cap per tier with monthly reset
-- [ ] Enforce data retention policy per tier (background job to delete old data)
+- [ ] Enforce data retention as a VIEW WINDOW per tier (query-time date filter only — capture is permanent/system-of-record; NOTHING is ever deleted). Per DECISIONS DESIGN DECISION 1.
 - [ ] "Bring 3 clients, get Agency for $99 first 3 months" intro offer
 - [ ] Annual prepay 20% discount toggle
 - [ ] Founding-50 / Founding-25 discount codes (off-public, outreach only)
@@ -102,9 +102,9 @@ Once approved, ship the paid tiers within 30 days.
 - [ ] Add cost-per-customer dashboard for Russ to monitor margin
 
 ### Conversation export (ships before Scale tier — feature gate by tier)
-- [ ] "Download as PDF" button on every conversation (Solo/Agency/Scale)
+- [ ] "Download as PDF" button on every conversation (Business/Agency/Scale)
 - [ ] "Download as Markdown" button on every conversation
-- [ ] "Email me this conversation" button (Solo/Agency/Scale)
+- [ ] "Email me this conversation" button (Business/Agency/Scale)
 - [ ] Bulk export — all conversations as zip (Scale only)
 - [ ] Scheduled weekly email digest of new conversations (Scale only)
 
@@ -118,7 +118,7 @@ Once approved, ship the paid tiers within 30 days.
 
 **Tier-aware caching (locked decision):**
 - Free: 4-hour cache minimum (Shopify-only tier; users upgrade for fresher data)
-- Solo: 1-hour cache
+- Business: 1-hour cache
 - Agency: 15-min hot data, 1-hour cold data
 - Scale: 5-min hot data, 15-min cold data
 - Enterprise: tunable per contract
@@ -408,11 +408,11 @@ Separate from per-client memory.
 | Tier | Memory model |
 |------|--------------|
 | **Free** | Session-only |
-| **Solo** | Persistent per-client memory, 50 facts max, no learning loop |
+| **Business** | Persistent per-client memory, 50 facts max, no learning loop |
 | **Agency** | Persistent memory + dismissed-insights tracking. 500 facts/client. No nightly learning loop |
 | **Scale** | Full system: unlimited memory, nightly learning loop, hypotheses, daily learning logs, memory editing UI |
 
-**Memory Credits:** Solo/Agency users who hit caps can buy credit packs. Anthropic-style metering.
+**Memory Credits:** Business/Agency users who hit caps can buy credit packs. Anthropic-style metering.
 
 ### Warm-start "agency brain" (LORAMER_ROADMAP_WARM_START_BRAIN_V1 — to be scoped)
 
@@ -552,7 +552,7 @@ V1 is live. PDF, DOCX, TXT, CSV upload works on the client profile page. Text ex
 - Extract text on upload (mammoth for docx, pdf-parse for pdf)
 - Store in `client_context.uploaded_docs` as text blob
 - Inject into Claude system prompt with token budget
-- Tier limits: Free 500 words, Solo 5K, Agency 25K, Scale unlimited
+- Tier limits: Free 500 words, Business 5K, Agency 25K, Scale unlimited
 
 **Use cases:** brand guidelines, brand voice, positioning, persona decks, last quarter's strategy memo.
 
@@ -643,13 +643,13 @@ Examples:
 | Tier | Alert capabilities |
 |------|-------|
 | **Free** | Default hardcoded alerts only |
-| **Solo** | Default + 3 custom rules |
+| **Business** | Default + 3 custom rules |
 | **Agency** | Default + 25 custom rules per client + email digest delivery |
 | **Scale** | Unlimited custom rules + AI-suggested rules + agent automations + Slack/SMS |
 
 ### Phased build
 
-- **Phase 1 (post-launch, ~2 weeks):** schema + simple rule builder UI for Solo/Agency. Rules fire dashboard alerts only.
+- **Phase 1 (post-launch, ~2 weeks):** schema + simple rule builder UI for Business/Agency. Rules fire dashboard alerts only.
 - **Phase 2 (~30 days later):** email digest delivery + daily/weekly summary.
 - **Phase 3 (Scale-tier launch):** Claude proposes rules based on observed patterns.
 - **Phase 4:** rules trigger agent automations.
@@ -944,7 +944,7 @@ AI companies dropping users into bot-only support has become a market failure. C
 | Tier | Human support |
 |------|---------------|
 | Free | Email, 24-48hr first response |
-| Solo ($49) | Email + in-app chat, 8hr first response |
+| Business ($79) | Email + in-app chat, 8hr first response |
 | Agency ($199) | Email + in-app chat, 4hr first response, priority queue |
 | Scale ($999) | Email + in-app chat + Slack channel + phone, 1hr first response, named contact |
 | Enterprise | Dedicated support, SLAs in contract |
@@ -972,7 +972,7 @@ AI companies dropping users into bot-only support has become a market failure. C
 - **At 200 customers:** First support hire. Russ off the front line, on escalations only.
 - **At 1000+ customers:** Support team. Tier-1 handles common issues, Tier-2 handles complex, Russ on strategic only.
 
-Pricing must fund this from the start. The Solo/Agency/Scale tiers are designed with human-support cost baked into margin assumptions.
+Pricing must fund this from the start. The Business/Agency/Scale tiers are designed with human-support cost baked into margin assumptions.
 
 ### Risk to manage
 
@@ -1019,7 +1019,7 @@ The promise is operational, not just marketing. If we ever break it — let a cu
 | Tier | Preference model |
 |------|------------------|
 | Free | Per-client only |
-| Solo | User-level defaults + per-client overrides |
+| Business | User-level defaults + per-client overrides |
 | Agency | + cross-client propagation prompts |
 | Scale | + operator model (Phase 3 / Project 9 integration) |
 
@@ -1031,7 +1031,7 @@ The promise is operational, not just marketing. If we ever break it — let a cu
 
 ### UX consideration
 
-Don't surface this complexity to Free/Solo users — they have one or two clients and don't need three layers. The "user-level defaults" feature only becomes valuable at 5+ clients. Show it conditionally based on client count, or surface it as an onboarding step for Agency-tier users only.
+Don't surface this complexity to Free/Business users — they have one or two clients and don't need three layers. The "user-level defaults" feature only becomes valuable at 5+ clients. Show it conditionally based on client count, or surface it as an onboarding step for Agency-tier users only.
 
 ---
 
@@ -1101,7 +1101,7 @@ A new "My Overview" type surface where the user drags cards from ANY connected p
 | Tier | Customization |
 |------|---------------|
 | Free | Fixed default layout |
-| Solo | 3 saved layouts per client |
+| Business | 3 saved layouts per client |
 | Agency | Unlimited per-client layouts, share layouts across clients |
 | Scale | + cross-platform unified dashboard, AI-suggested layouts, template publishing |
 
@@ -1170,7 +1170,7 @@ Future roles to consider: **Viewer** (read-only — useful for clients to see th
 | Tier | Seats |
 |------|-------|
 | Free | 1 (single user, no team features) |
-| Solo | 1 |
+| Business | 1 |
 | Agency | Up to 5 seats |
 | Scale | Up to 25 seats |
 | Enterprise | Custom |
@@ -1215,9 +1215,9 @@ Russ generated a full year-long media briefing for My Vacation Network on May 27
 |--------|-------------|------|
 | Markdown (.md) | Power users, devs, GitHub | Free |
 | Plain text (.txt) | Lowest-common-denominator share | Free |
-| PDF | Client deliverables, archived briefs | Solo+ |
-| Word (.docx) | Editing before client share, agency workflows | Solo+ |
-| XLSX | Data tables only (campaigns, search terms, audiences) | Solo+ |
+| PDF | Client deliverables, archived briefs | Business+ |
+| Word (.docx) | Editing before client share, agency workflows | Business+ |
+| XLSX | Data tables only (campaigns, search terms, audiences) | Business+ |
 | HTML email | "Email me this conversation" → inbox-ready brief | Agency+ |
 | Scheduled email digest | Weekly auto-export of new conversations | Scale |
 | JSON | API consumers, programmatic workflows | Scale |
@@ -1239,13 +1239,13 @@ Russ generated a full year-long media briefing for My Vacation Network on May 27
 | Tier | Export capabilities |
 |------|---------------------|
 | Free | Markdown + plain text, single conversation |
-| Solo | + PDF, Word, XLSX, single conversation |
+| Business | + PDF, Word, XLSX, single conversation |
 | Agency | + HTML email delivery, bulk per-client export |
 | Scale | + Scheduled digest, JSON API, bulk all-clients export, branding/white-label option |
 
 ### Phased build
 - **Phase 1 (this week — minimum viable):** Markdown + plain text export from any conversation surface. One button, two format options. No tier gating yet — just ship it for current users.
-- **Phase 2 (~2 weeks):** PDF + Word via server-side rendering. Tier-aware (Free/Solo+ check). Tests with real briefings to validate formatting holds.
+- **Phase 2 (~2 weeks):** PDF + Word via server-side rendering. Tier-aware (Free/Business+ check). Tests with real briefings to validate formatting holds.
 - **Phase 3 (~30 days):** XLSX for data tables. Bulk client-level export. "Email me this" delivery.
 - **Phase 4 (Scale-tier launch):** Scheduled digests, JSON API, white-label branding option.
 
