@@ -3,7 +3,13 @@
 // Source: Meta insights level=campaign, time_increment=1 (per campaign×day), bounded range, per client×ad-account.
 // SAME spend>0 basis as forward capture (meta-intelligence.ts:97) so campaign Σ reconciles to the account grain.
 // Parsing mirrors meta-intelligence.ts buildMetrics (conversions from actions[], convValue from action_values[],
-// reach/frequency) and meta-metrics-row.ts extra shape. Idempotent upsert + per-day reconcile-or-skip gate.
+// reach/frequency) and meta-metrics-row.ts extra shape. Idempotent upsert + per-day SPEND reconcile.
+// LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2: reconcile = FLAG-NOT-BLOCK (the settled Meta-placement /
+// google-adgroup-ad posture), NOT block. Gate A proved finalized days reconcile EXACTLY but RECENT days show
+// small (<1%) deltas because the stored account anchor is a few days STALE vs the live campaign fetch (Meta
+// restates spend ~28d). A BLOCK gate + the drain's monotonic range cursor would PERMANENTLY skip those days;
+// so we ALWAYS write the real campaign rows and RECORD divergence in flagged[]. Conversions are NEVER the gate
+// (Meta account-level dedup → account conversions ≠ Σcampaign conversions; otherDeltas is informational only).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 
@@ -110,7 +116,7 @@ export async function runMetaCampaignBackfill(
 
   const insightFields = 'campaign_id,campaign_name,spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
   const flagged: any[] = []
-  let written = 0, skipped = 0, daysWritten = 0, daysSkipped = 0, campaignDayRows = 0
+  let written = 0, daysWritten = 0, daysFlagged = 0, campaignDayRows = 0
   const otherDeltas = { clicks: 0, impressions: 0, conversions: 0 }
 
   for (const chunk of monthChunks(startDate, endDate)) {
@@ -145,10 +151,10 @@ export async function runMetaCampaignBackfill(
       const acctSpend = fin(acctRow?.spend)
       const delta = Math.abs(bucket.spend - acctSpend)
       const within = delta <= RECON_ABS || (acctSpend > 0 && delta / acctSpend <= RECON_PCT)
+      // FLAG-NOT-BLOCK: ALWAYS write the real campaign rows; only record a loud delta when divergent.
       if (!within) {
-        daysSkipped++; skipped += bucket.rows.length
+        daysFlagged++
         flagged.push({ date, campaign_spend: Number(bucket.spend.toFixed(2)), account_spend: Number(acctSpend.toFixed(2)), delta: Number(delta.toFixed(2)) })
-        continue
       }
       otherDeltas.clicks += bucket.clicks - fin(acctRow?.clicks)
       otherDeltas.impressions += bucket.impressions - fin(acctRow?.impressions)
@@ -165,7 +171,7 @@ export async function runMetaCampaignBackfill(
     status: 200,
     body: {
       clientId, metaAccountId, range: `${startDate}→${endDate}`, dryRun: !!opts.dryRun,
-      campaignDayRows, written, skipped, daysWritten, daysSkipped,
+      campaignDayRows, written, daysWritten, daysFlagged,
       otherDeltas: { clicks: Math.round(otherDeltas.clicks), impressions: Math.round(otherDeltas.impressions), conversions: Number(otherDeltas.conversions.toFixed(2)) },
       flagged,
     },

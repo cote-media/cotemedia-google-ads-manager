@@ -4,8 +4,8 @@
 // force-no-store (L52), writer-agnostic loop control (status===200 + subStart<=startDate). Clamps startDate
 // to the 36-month granular floor — per Lesson 61 Meta THROWS past its ~37-mo granular retention (it does
 // NOT empty), so we never request below the floor; a defensive past-floor catch graceful-stops as backstop.
-// The writer (meta-campaign-backfill.ts) is UNCHANGED. Reconcile = account-grain SPEND per day (BLOCK);
-// conversions are NOT gated (Meta account-level dedup → account conversions ≠ Σcampaign conversions).
+// The writer reconciles account-grain SPEND per day FLAG-NOT-BLOCK (V2: always writes, records divergence;
+// conversions are NOT gated — Meta account-level dedup → account conversions ≠ Σcampaign conversions).
 import { NextResponse } from 'next/server'
 import { runMetaCampaignBackfill } from '@/lib/backfill/meta-campaign-backfill'
 
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
   let floorHit = false
   const subRanges: any[] = []
   const flagged: any[] = []
-  let totalWritten = 0, totalDaysWritten = 0, totalDaysSkipped = 0, totalCampaignDayRows = 0
+  let totalWritten = 0, totalDaysWritten = 0, totalDaysFlagged = 0, totalCampaignDayRows = 0
   const totalOtherDeltas = { clicks: 0, impressions: 0, conversions: 0 }
 
   while (true) {
@@ -93,10 +93,10 @@ export async function GET(request: Request) {
       }
       return NextResponse.json({ error: 'writer threw', subRange: `${subStart}→${curEnd}`, detail: msg }, { status: 500 })
     }
-    subRanges.push({ range: body.range, written: body.written, daysWritten: body.daysWritten, daysSkipped: body.daysSkipped, otherDeltas: body.otherDeltas })
+    subRanges.push({ range: body.range, written: body.written, daysWritten: body.daysWritten, daysFlagged: body.daysFlagged, otherDeltas: body.otherDeltas })
     totalWritten += body.written || 0
     totalDaysWritten += body.daysWritten || 0
-    totalDaysSkipped += body.daysSkipped || 0
+    totalDaysFlagged += body.daysFlagged || 0
     totalCampaignDayRows += body.campaignDayRows || 0
     totalOtherDeltas.clicks += body.otherDeltas?.clicks || 0
     totalOtherDeltas.impressions += body.otherDeltas?.impressions || 0
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
     clientId,
     range: { requested: `${requestedStart}→${endDate}`, effective: `${startDate}→${endDate}`, floor, clampedFrom },
     dryRun, complete, resumeBefore, floorHit,
-    totalWritten, totalDaysWritten, totalDaysSkipped, totalCampaignDayRows,
+    totalWritten, totalDaysWritten, totalDaysFlagged, totalCampaignDayRows,
     totalOtherDeltas: {
       clicks: Math.round(totalOtherDeltas.clicks),
       impressions: Math.round(totalOtherDeltas.impressions),
