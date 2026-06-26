@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { runBackfill } from './run-backfill'
 import { backfillAdapters } from './adapters'
 import { runGoogleCampaignBackfill } from './google-campaign-backfill'
+import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
@@ -120,6 +121,14 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_campaign',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_campaign', runGoogleCampaignBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1 — depth below campaign. After google_campaign so the
+    // per-day campaign anchor (already at floor cohort-wide) is present at every depth; FLAG-NOT-BLOCK
+    // means it never hard-blocks even if the anchor is briefly absent. Stateless-range, same as campaign.
+    key: 'google_adgroup_ad',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_adgroup_ad', runGoogleAdGroupAdBackfill as RangeWriter, dryRun),
   },
   {
     key: 'meta_placement',
