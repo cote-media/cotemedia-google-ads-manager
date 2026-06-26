@@ -15,6 +15,7 @@ import { backfillAdapters } from './adapters'
 import { runGoogleCampaignBackfill } from './google-campaign-backfill'
 import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
+import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -129,6 +130,15 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_adgroup_ad',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_adgroup_ad', runGoogleAdGroupAdBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — parent grain, BEFORE meta_placement. Reconciles
+    // account SPEND per day FLAG-NOT-BLOCK (always writes; finalized days reconcile exactly, recent
+    // stale-anchor days flagged-but-written so the monotonic range cursor never permanently skips them).
+    // Stateless-range, same driver as google_campaign / meta_placement.
+    key: 'meta_campaign',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_campaign', runMetaCampaignBackfill as RangeWriter, dryRun),
   },
   {
     key: 'meta_placement',
