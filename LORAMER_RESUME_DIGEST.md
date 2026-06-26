@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-26T00:10:25.147Z
-- built_from HEAD: fe77dfe4aa0fe1319b5a41eaf04688c64a9ca691  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-26T01:02:50.615Z
+- built_from HEAD: d1f1da8e3964c7bc7afca7c03597a82581187ff9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,7 +16,7 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 7bc653742bb95eabf903de1a6a1646a6612dfbde6e22ff81e06377137022219c
     - LORAMER_HANDOFF.md: cc08b6f214c428a6687de270f4945b2cdf165fc92d134a901899e4cd3c6fd700
-    - CONTINUE_HERE.md: bb517d2075bc4302d611b4f875efb918c15957b1976a83d44d88577cbe8a5e5a
+    - CONTINUE_HERE.md: 695f39a775243912ba329462f4d458a1b98202526472aafa6beccb662f468a64
     - LORAMER_DECISIONS.md: d94807cf7d5b7d3286876b5cdc346cb8ecc06adad8736f6e9c5aef1d472e0eb9
     - LORAMER_QUEUE_OF_RECORD.md: dc59717680ed7f5413acfcea3cfd784b5a0221a9755bed179e28e24daa0d73c3
 
@@ -83,7 +83,10 @@ PRIORITY ORDER (next work):
  0b. ✅ DONE 2026-06-24 (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1): Google campaign-grain backfill WIRED (route /api/backfill/google-campaign, 36-mo floor-clamp; writer unchanged) + pilot-proven + SCALED to ALL clients deep-first — residual 0 everywhere, 23,771 campaign rows, 2023-06-24→2026-06-23. Sparse advertisers (skinregimen/Glenn) had no in-window campaign data = campaign-forward-only, nothing owed. Veterinary skipped (aligned). NEXT Google depth gap = ad_group/ad backfill (NO writer yet — mirror this campaign writer) + Meta campaign(writer exists+UNWIRED)/adset/ad(none).
  ✅ DONE 2026-06-23 (LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1) — ACCOUNT-FORWARD-ONLY Meta backfills for Inside / Glenn Stearns / Ogmentor: account grain to floor (Inside 403d→2023-10-17 $9,158.26 / Glenn 113d→2024-09-23 $5,179.11 / Ogmentor 202d→2025-06-16 $3,617.55) + placement grain floor→yesterday (12,651 campaign×placement×day rows, reconciled FLAG-NOT-BLOCK, conversions=0). Thought Streams = truly new, nothing owed. DO NOT REBUILD.
  1. ✅ RESOLVED 2026-06-24 (LORAMER_CONNECTION_STATE_PROBE_SAFEGUARD_V1): Influential Drones Meta connection is ALIVE — capture-path probe returned HTTP 200 across 2024-02-01..2025-07-24 (zero oauth_190); warehouse reconciles to the live API TO THE PENNY ($8,412.89, 2024-09-17→2025-07-24). Pre-2024-09-17 = TRUE ZERO (no Meta history); interior gaps = zero-spend days. NOTHING to backfill. Stored health='reconnect'/oauth_190 was a STALE flag (WS2 #2 transient-190 fan-out) — now cleared to 'healthy'. DO NOT re-raise as blocked. WS2 #2 GENERATOR fixed 2026-06-24 (LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1).
- 1b. ✅ DONE 2026-06-24: WS2 #2b parity audit + #2c Woo probe-before-flip (LORAMER_CONNECTION_PROBE_WOO_V1) — connection-state probe-before-flip is now UNIVERSAL across all 5 platforms (meta/google/woo probe-gated; shopify/ga proven-safe-by-construction). The WS2 connection-health arc is CLOSED. ▶ NEXT = the resume digest (Russ wants it before wrap), then data-completeness depth (placement adset×/ad× per item 2).
+ 1b. ✅ DONE 2026-06-24: WS2 #2b parity audit + #2c Woo probe-before-flip (LORAMER_CONNECTION_PROBE_WOO_V1) — connection-state probe-before-flip is now UNIVERSAL across all 5 platforms (meta/google/woo probe-gated; shopify/ga proven-safe-by-construction). The WS2 connection-health arc is CLOSED.
+ 1c. ✅ DONE 2026-06-25 (resume-protocol + stale-doc sweep, 4 commits 23ec186/fe77dfe/7f17ffc/d1f1da8): the resume flow is now ONE paste — digest fast-path is the DEFAULT, RESUME_INSTRUCTIONS.md is the single source (HANDOFF gate + CONTINUE ritual POINT at it, no longer restate), 11-file tiered read demoted to fallback-on-gate-fail. Stale-doc sweep: Shopify/Woo backfill marked DONE (were falsely TODO = rebuild trap), Solo→Business + $49→$79/$750yr to the locked matrix, retention mechanic fixed "delete old data"→VIEW-WINDOW (GOVERNING LAW), CATCHUP dropped from read rotation, ESSENCE scorecard repointed. Resume verified FRESH one-paste on a cold run. Settings block re-pasted by Russ.
+
+ ▶ NEXT STEP (build): Google ad_group + ad DEPTH backfill writer. WHY now (route call): last Google depth gap AND it races the ~37-month granular floor (history actively aging out); placement adset×/ad× (item 2) has no clock and waits. FREEZE POSTURE: backend writer only = freeze-safe. FIRST MOVE: read-only Gate-A dry-run reconcile (ZERO writes) — mirror the proven google-campaign-backfill writer + a thin /api/backfill/google-adgroup-ad route, register as ONE drain-registry step (back-drains the whole cohort). Per Lesson 61 the writer STOPS at the 36mo floor as an empty-success; per Lesson 59 reconcile per-day on SPEND (1¢) or HALT loud; Google conversion-attribution drift = accepted caveat (do NOT gate on conversions).
  2. Continue placement to FULL grain: adset×placement + ad×placement — same writer pattern at level=adset / level=ad (mirror meta-placement-backfill + the forward Slice-1 aggregation). Then Meta age/gender breakdowns (still live-only, AUDIT#4) once unfrozen.
  3. Broader DATA COMPLETENESS per LORAMER_QUEUE_OF_RECORD.md: campaign/ad_group/ad DEPTH backfill (Google campaign backfill WIRED+SCALING per item 0 — LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1; ad_group/ad still no writer; Meta campaign/adset/ad likewise UNWIRED); GA depth probe for Veterinary + Escential (~5mo — new-property vs un-backfilled); Ennis GA backfill (5 days); Google 2025-floor probes (Inside/Thought Streams/Ennis google); Wave-2 Shelley Woo re-capture (10 capped days, all-products + refund-netted in one pass); AUTO-BACKFILL-ON-CONNECT implementation (the designed cron-sweep system that makes all of this automatic on connect — the real endgame; design in LORAMER_DECISIONS.md + ROADMAP Data-Completeness-Onboarding).
 
