@@ -16,6 +16,7 @@ import { runGoogleCampaignBackfill } from './google-campaign-backfill'
 import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runGoogleDeviceBackfill } from './google-device-backfill'
 import { runGoogleGeoBackfill, runGoogleUserGeoBackfill } from './google-geo-backfill'
+import { runGoogleHourBackfill } from './google-hour-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
@@ -168,6 +169,15 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_user_geo',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_user_geo', runGoogleUserGeoBackfill as RangeWriter, dryRun, GEO_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_GOOGLE_HOUR_BACKFILL_V1 — hour BREADTH, BOTH entity grains (campaign×hour + ad_group×hour; ad/keyword
+    // not served). FLAG-NOT-BLOCK reconcile vs the per-day campaign anchor (hour partitions campaign spend). After
+    // google_campaign so the anchor exists. Default 365-day window (hour cardinality is bounded: entities × 24h,
+    // far smaller than geo — confirmed small in Gate A). Stop-at-floor = empty-success (L61).
+    key: 'google_hour',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_hour', runGoogleHourBackfill as RangeWriter, dryRun),
   },
   {
     // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — parent grain, BEFORE meta_placement. Reconciles

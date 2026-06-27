@@ -25,6 +25,7 @@ import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
 import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
+import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -453,6 +454,22 @@ export async function GET(request: Request) {
             } catch (geoErr) {
               summary.errors.push({ clientId: client.id, platform: 'google', message: `${famLabel} ${d}: ${serializeCaughtError(geoErr)}` })
             }
+          }
+
+          // Google hour breakdown (campaign×hour + ad_group×hour) — own try/catch, mirrors device/geo. Both grains.
+          try {
+            for (const grain of HOUR_GRAINS) {
+              const built = buildHourGrainRows(grain, client.id, userEmail, d, customerId, await fetchHourGrainDay(grain, refreshToken, customerId, d))
+              if (built.length > 0) {
+                const { error: hourError } = await supabaseAdmin
+                  .from('metrics_daily')
+                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                if (hourError) throw hourError
+                summary.rowsWritten += built.length
+              }
+            }
+          } catch (hourErr) {
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `hour ${d}: ${serializeCaughtError(hourErr)}` })
           }
         } catch (err) {
           summary.errors.push({ clientId: client.id, platform: 'google', message: `${d}: ${serializeCaughtError(err)}` })

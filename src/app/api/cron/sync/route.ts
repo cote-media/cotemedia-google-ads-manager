@@ -14,6 +14,7 @@ import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
 import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
+import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -524,6 +525,30 @@ export async function GET(request: Request) {
             console.error(`[cron/sync] client=${client.id} platform=google ${famLabel} capture FAILED:`, message)
             summary.errors.push({ clientId: client.id, platform: 'google', message: `${famLabel}: ${message}` })
           }
+        }
+
+        // LORAMER_GOOGLE_HOUR_CAPTURE_V1 — hour breakdown (campaign×hour + ad_group×hour). Own try/catch: an hour
+        // failure logs LOUD and is recorded, but NEVER drops base/dimensional/device/geo rows or sync_state.
+        // Writes both grains; no forward reconcile (matches device/geo — the backfill carries FLAG-NOT-BLOCK).
+        try {
+          let hourRows = 0
+          for (const grain of HOUR_GRAINS) {
+            const built = buildHourGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchHourGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+            if (built.length > 0) {
+              const { error: hourError } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+              if (hourError) throw hourError
+              summary.rowsWritten += built.length; hourRows += built.length
+            }
+          }
+          if (hourRows === 0) {
+            console.log(`[cron/sync] client=${client.id} platform=google hour capture: 0 rows (empty, not an error)`)
+          }
+        } catch (hourErr) {
+          const message = serializeCaughtError(hourErr)
+          console.error(`[cron/sync] client=${client.id} platform=google hour capture FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `hour: ${message}` })
         }
 
         const { error: syncError } = await supabaseAdmin
