@@ -14,6 +14,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { reconcileDay } from './reconcile-day'
+import { gaqlWithRetry } from './gaql-with-retry'
 import { GoogleAdsApi } from 'google-ads-api'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -41,20 +42,6 @@ function monthChunks(start: string, end: string): { from: string; to: string }[]
   return chunks
 }
 
-async function queryWithRetry(customer: any, gaql: string, tries = 4): Promise<any[]> {
-  let lastErr: any
-  for (let i = 0; i < tries; i++) {
-    try { return await customer.query(gaql) } catch (e: any) {
-      lastErr = e
-      if (/RESOURCE_EXHAUSTED|UNAVAILABLE|DEADLINE|429|rate/i.test(String(e?.message || '')) && i < tries - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * 2 ** i)); continue
-      }
-      throw e
-    }
-  }
-  throw lastErr
-}
-
 export interface CampaignBackfillResult { status: number; body: Record<string, any> }
 
 export async function runGoogleCampaignBackfill(
@@ -78,7 +65,7 @@ export async function runGoogleCampaignBackfill(
 
   for (const chunk of monthChunks(startDate, endDate)) {
     const gaql = `SELECT campaign.id, campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
-    const rows = await queryWithRetry(customer, gaql)
+    const rows = await gaqlWithRetry(customer, gaql)
     const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number; clicks: number; impressions: number; conversions: number }> = {}
     for (const r of rows) {
       const date = r.segments?.date

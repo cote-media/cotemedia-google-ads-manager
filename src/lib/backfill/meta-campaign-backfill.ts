@@ -13,11 +13,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { reconcileDay } from './reconcile-day'
+import { metaFetchAllPaged } from './meta-graph-paged'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
-// Meta rate-limit / transient error codes → backoff + retry.
-const RETRYABLE = new Set([1, 2, 4, 17, 32, 341, 613, 80000, 80004])
 
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
 const ratio = (a: number, b: number, s = 1): number | null => (b > 0 && Number.isFinite(a / b) ? Number(((a / b) * s).toFixed(4)) : null)
@@ -73,28 +72,6 @@ function metaExtra(m: ReturnType<typeof parseInsight>): Record<string, unknown> 
   return e
 }
 
-async function fetchAllWithRetry(initialUrl: string, token: string): Promise<any[]> {
-  const out: any[] = []
-  let url: string | null = initialUrl + (initialUrl.includes('?') ? '&' : '?') + 'access_token=' + token
-  let guard = 0
-  while (url && guard < 100) {
-    guard++
-    let j: any
-    for (let i = 0; i < 4; i++) {
-      const res = await fetch(url)
-      j = await res.json()
-      if (j.error) {
-        if (RETRYABLE.has(j.error.code) && i < 3) { await new Promise((r) => setTimeout(r, 2000 * 2 ** i)); continue }
-        throw new Error('Meta Graph error: ' + JSON.stringify(j.error))
-      }
-      break
-    }
-    if (j.data) out.push(...j.data)
-    url = j.paging?.next || null // paging.next is a full URL w/ token — used as-is
-  }
-  return out
-}
-
 export interface CampaignBackfillResult { status: number; body: Record<string, any> }
 
 export async function runMetaCampaignBackfill(
@@ -122,7 +99,7 @@ export async function runMetaCampaignBackfill(
     const timeRange = encodeURIComponent(JSON.stringify({ since: chunk.from, until: chunk.to }))
     const filtering = encodeURIComponent(JSON.stringify([{ field: 'spend', operator: 'GREATER_THAN', value: '0' }]))
     const url = `${META_API}/${actId}/insights?level=campaign&time_range=${timeRange}&time_increment=1&fields=${insightFields}&filtering=${filtering}&limit=500`
-    const insights = await fetchAllWithRetry(url, token)
+    const insights = await metaFetchAllPaged(url, token)
 
     const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number; clicks: number; impressions: number; conversions: number }> = {}
     for (const ins of insights) {

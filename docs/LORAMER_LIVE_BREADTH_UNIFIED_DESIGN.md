@@ -126,10 +126,15 @@ one model without weakening the provability that is LoraMer's moat.
 - Backend writers/primitives/new stores are freeze-safe and may proceed before unfreeze.
 
 ## 11. BUILD PHASES (ordered; each its own gated change, docs-with-code)
-1. CONSOLIDATION PRE-WORK: shared `reconcileDay` primitive [✅ DONE 2026-06-26 — 5 ad writers, zero-change
-   proven; shopify-dimensional OUTLIER not folded] + shared fetch/paging/retry primitives [PENDING — de-dup
-   RETRYABLE/fetchAllWithRetry/queryWithRetry across google-*/meta-* backfills]. Freeze-safe. Do FIRST
-   (before breadth adds ~12 more copies).
+1. CONSOLIDATION PRE-WORK [✅ DONE 2026-06-26]: (1a) shared `reconcileDay` primitive — 5 ad writers,
+   zero-change proven; shopify-dimensional OUTLIER not folded. (1b) shared fetch/paging/retry primitives —
+   `gaql-with-retry.ts` gaqlWithRetry (2 google writers) + `meta-graph-paged.ts` metaFetchAllPaged (3 meta
+   writers; guard param preserves adset-ad's 200 cap), zero-change proven. Two FUTURE notes carried (do NOT
+   do under consolidation): (i) unify the two Google retries (backfill gaqlWithRetry vs forward
+   google-retry.ts withGaqlRetry) = a BEHAVIOR-CHANGE decision (different codes/attempts/backoff/logging);
+   (ii) Meta 100/subcode-1487534 "narrow-and-retry" lives at the CALLER's chunk-loop (window narrowing),
+   NOT the fetch primitive = a separate behavior change. Both writers throw-on-100/1487534 today (parity).
+   PHASE 1 COMPLETE. Freeze-safe.
 2. BREADTH: capture every breakdown dimension fwd + backfill per §7, one drain-registry entry each; breakdown
    registry + entity_level CHECK. Freeze-safe backend.
 3. LIVE SPINE: sibling live store + live reconcile primitive + `query_live` tool + the §3 truth-spine

@@ -23,6 +23,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { reconcileDay } from './reconcile-day'
+import { gaqlWithRetry } from './gaql-with-retry'
 import { GoogleAdsApi } from 'google-ads-api'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -49,20 +50,6 @@ function monthChunks(start: string, end: string): { from: string; to: string }[]
     const next = new Date(to + 'T00:00:00Z'); next.setUTCDate(next.getUTCDate() + 1); cur = iso(next)
   }
   return chunks
-}
-
-async function queryWithRetry(customer: any, gaql: string, tries = 4): Promise<any[]> {
-  let lastErr: any
-  for (let i = 0; i < tries; i++) {
-    try { return await customer.query(gaql) } catch (e: any) {
-      lastErr = e
-      if (/RESOURCE_EXHAUSTED|UNAVAILABLE|DEADLINE|429|rate/i.test(String(e?.message || '')) && i < tries - 1) {
-        await new Promise((r) => setTimeout(r, 1000 * 2 ** i)); continue
-      }
-      throw e
-    }
-  }
-  throw lastErr
 }
 
 // One built metrics_daily row (byte-compatible with buildGoogleMetricsRows).
@@ -155,7 +142,7 @@ export async function runGoogleAdGroupAdBackfill(
     ]
 
     for (const grain of grains) {
-      const rows = await queryWithRetry(customer, grain.gaql)
+      const rows = await gaqlWithRetry(customer, grain.gaql)
       const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number; campaignIds: Set<string> }> = {}
       for (const r of rows) {
         const date = r.segments?.date
