@@ -23,6 +23,7 @@ import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
+import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -419,6 +420,20 @@ export async function GET(request: Request) {
             }
           } catch (dimErr) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional ${d}: ${serializeCaughtError(dimErr)}` })
+          }
+
+          // Google device breakdown (campaign × device) — own try/catch, mirrors the dimensional sub-capture.
+          try {
+            const devRows = buildGoogleDeviceRows(client.id, userEmail, d, customerId, await fetchGoogleDeviceDay(refreshToken, customerId, d))
+            if (devRows.length > 0) {
+              const { error: devError } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(devRows), { onConflict: METRICS_DAILY_CONFLICT })
+              if (devError) throw devError
+              summary.rowsWritten += devRows.length
+            }
+          } catch (devErr) {
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `device ${d}: ${serializeCaughtError(devErr)}` })
           }
         } catch (err) {
           summary.errors.push({ clientId: client.id, platform: 'google', message: `${d}: ${serializeCaughtError(err)}` })

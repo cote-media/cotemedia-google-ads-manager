@@ -12,6 +12,7 @@ import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
+import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -463,6 +464,38 @@ export async function GET(request: Request) {
             message
           )
           summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional: ${message}` })
+        }
+
+        // LORAMER_GOOGLE_DEVICE_CAPTURE_V1 — device breakdown capture (campaign × device) as breakdown
+        // rows. Own try/catch (mirrors the dimensional block above): a device failure logs LOUD and is
+        // recorded, but NEVER drops the platform's main rows, the dimensional rows, or its sync_state write.
+        // 0 rows = logged empty, not error. No forward reconcile (the backfill/drain + catchup carry it).
+        try {
+          const devRows = buildGoogleDeviceRows(
+            client.id,
+            userEmail,
+            captureDate,
+            customerId,
+            await fetchGoogleDeviceDay(tokenRow.refresh_token, customerId, captureDate)
+          )
+          if (devRows.length === 0) {
+            console.log(
+              `[cron/sync] client=${client.id} platform=google device capture: 0 device rows (empty, not an error)`
+            )
+          } else {
+            const { error: devError } = await supabaseAdmin
+              .from('metrics_daily')
+              .upsert(normalizeMetricsRows(devRows), { onConflict: METRICS_DAILY_CONFLICT })
+            if (devError) throw devError
+            summary.rowsWritten += devRows.length
+          }
+        } catch (devErr) {
+          const message = serializeCaughtError(devErr)
+          console.error(
+            `[cron/sync] client=${client.id} platform=google device capture FAILED:`,
+            message
+          )
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `device: ${message}` })
         }
 
         const { error: syncError } = await supabaseAdmin
