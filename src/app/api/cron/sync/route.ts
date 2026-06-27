@@ -12,7 +12,7 @@ import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
-import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -472,31 +472,26 @@ export async function GET(request: Request) {
         // rows. Own try/catch (mirrors the dimensional block above): a device failure logs LOUD and is
         // recorded, but NEVER drops the platform's main rows, the dimensional rows, or its sync_state write.
         // 0 rows = logged empty, not error. No forward reconcile (the backfill/drain + catchup carry it).
+        // 4 entity grains (campaign/ad_group/ad/keyword × device). Writes all grains; no forward reconcile
+        // (backfill/drain carry FLAG-NOT-BLOCK).
         try {
-          const devRows = buildGoogleDeviceRows(
-            client.id,
-            userEmail,
-            captureDate,
-            customerId,
-            await fetchGoogleDeviceDay(tokenRow.refresh_token, customerId, captureDate)
-          )
-          if (devRows.length === 0) {
-            console.log(
-              `[cron/sync] client=${client.id} platform=google device capture: 0 device rows (empty, not an error)`
-            )
-          } else {
-            const { error: devError } = await supabaseAdmin
-              .from('metrics_daily')
-              .upsert(normalizeMetricsRows(devRows), { onConflict: METRICS_DAILY_CONFLICT })
-            if (devError) throw devError
-            summary.rowsWritten += devRows.length
+          let devRows = 0
+          for (const grain of DEVICE_GRAINS) {
+            const built = buildDeviceGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchDeviceGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+            if (built.length > 0) {
+              const { error: devError } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+              if (devError) throw devError
+              summary.rowsWritten += built.length; devRows += built.length
+            }
+          }
+          if (devRows === 0) {
+            console.log(`[cron/sync] client=${client.id} platform=google device capture: 0 rows (empty, not an error)`)
           }
         } catch (devErr) {
           const message = serializeCaughtError(devErr)
-          console.error(
-            `[cron/sync] client=${client.id} platform=google device capture FAILED:`,
-            message
-          )
+          console.error(`[cron/sync] client=${client.id} platform=google device capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `device: ${message}` })
         }
 

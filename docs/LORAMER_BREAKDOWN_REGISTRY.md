@@ -24,6 +24,8 @@ ACTIVE-BASELINE (governing rule): every Gate-A baseline, byte-identical comparis
 
 ENTITY-LEVEL is a universal breadth axis (governing rule): every breadth dimension is selectable at MULTIPLE entity levels (campaign / ad_group / ad / keyword), not just campaign. Completeness = every dimension × every grain × every entity level the API serves. A campaign-only breadth dim is unfinished code.
 
+RECONCILE POSTURE is PER-GRAIN, not per-dimension (governing rule): a grain reconciles (FLAG-NOT-BLOCK vs its anchor) ONLY if it PARTITIONS the anchor's spend; a grain that is a SUBSET is WRITE-ONLY. Decided per (dimension, entity-level), not per dimension. Verified: device × {campaign, ad_group, ad} PARTITION campaign spend → FLAG-NOT-BLOCK; device × keyword is a SEARCH-only SUBSET (keyword_view excludes PMax/Display/Search-partner spend) → WRITE-ONLY, same class as the search_term/keyword breakdowns. Reconciling a non-partition grain produces FALSE flags that drown the real ones (Gate A: keyword reconcile flagged 21/21 days on a mixed account). Test before choosing: does Σ(grain) tie to the anchor on a MIXED (non-pure-search) account? Yes → reconcile; no → write-only.
+
 ENTITY-LEVEL is PROBED PER DIMENSION, NEVER ASSUMED (governing rule): the entity-level axis is NOT one shape — it differs per dimension and must be live-probed. A REJECTION of a (segment, entity-resource) pair = the not-served exception (don't chase it); an EMPTY result on an accepted pair = a gap (capture it). Verified shapes 2026-06-24: device = segment selectable FROM {campaign, ad_group, ad, keyword} (4 levels); hour = segment FROM {campaign, ad_group} ONLY (ad/keyword REJECTED, 2 levels); geo = segments NOT selectable from entity resources at all — instead the geo VIEWS (geographic_view/user_location_view) expose ad_group.id, so geo's entity axis = add the entity id to the view query. THREE distinct shapes — never assume the device pattern generalizes.
 
 GOOGLE ADS API COST/ACCESS (verified fact, Google docs 2026): the Google Ads API is FREE at all access levels including Standard (no charge). Standard Access = UNLIMITED ops/day; Basic = 15,000 ops/day. The entity-level query multiply (every breadth dim × every entity level = many per-grain queries) is constrained ONLY by Basic's 15k/day, which Standard removes at ZERO Google cost. Apply for Standard EARLY — the application backlog is weeks (Google acknowledged Feb 2026). Standard carries RMF (Required Minimum Functionality) requirements — review before applying. QUERY-COUNTING: one Search/SearchStream = 1 op regardless of rows returned; paginated next_page_token requests are NOT counted. So per-grain query count = ops; pagination is free.
@@ -65,7 +67,7 @@ Confidence: [VERIFIED in-code] = source field proven in the live fetcher. [VERIF
 All five VERIFIED dimensions are CAMPAIGN grain (corrected from the draft's ad_group — the proven live GAQL is FROM campaign). Google age & gender are TWO separate views (age_range_view, gender_view) → two breakdown_types, NOT a combined 'age_gender'.
 | breakdown_type     | entity_level | encoding | source field            | confidence |
 |--------------------|--------------|----------|-------------------------|------------|
-| device             | campaign     | raw (enum name) | segments.device, FROM campaign | VERIFIED in-code (google-intelligence:653) — FIRST WRITER |
+| device  | campaign + ad_group + ad + keyword | raw (UPPER enum name) | segments.device, FROM campaign / ad_group / ad_group_ad / keyword_view | VERIFIED live — 4 entity grains (entity-level gap CLOSED). breakdown_type='device'. FLAG-NOT-BLOCK (partitions spend). OS/model NOT served (exception). See "Device" below. |
 | hour               | campaign + ad_group | zero-padded int "00".."23" | segments.hour (+ segments.day_of_week → extra), FROM campaign AND ad_group | VERIFIED live 2026-06-24. See "Hour" below. breakdown_type='hour'; raw-int (NOT enum → UPPER rule N/A); dow name in extra only (derived from date, dropped from key). RECONCILE=FLAG-NOT-BLOCK (partitions spend). ad/keyword NOT served. |
 | geo_* (FAMILY)     | campaign     | "geoTargetConstants/<id>" (+ ":<LOCATION_TYPE_UPPER>" on geographic_view grains) | per-grain segments across geographic_view + user_location_view | VERIFIED live 2026-06-27 (probe). FULL family — see "Geo family" subsection below. RECONCILE=NONE (write-only, non-partitioning). raw opaque id, name resolution DEFERRED. |
 | age                | campaign     | raw      | FROM age_range_view     | VERIFIED in-code (google-intelligence:392) |
@@ -87,11 +89,20 @@ served FROM campaign + ad_group ONLY — ad_group_ad + keyword_view REJECT them 
   grains roll up to the campaign total. conversions never gate.
 - One drain step 'google_hour' (both grains, default 365-day window — hour cardinality is bounded: entities × ≤24h).
 
-#### Device (Google) — entity-level gap (backward-sweep finding, live-confirmed Bath Fitter + Veterinary 2026-06-24)
-API serves device × {campaign [CAPTURED], ad_group, ad, keyword} — we capture campaign ONLY. ad_group×device,
-ad×device, keyword×device are API-served and live-confirmed (rows on both heavy clients) but UNCAPTURED → to be
-added (full entity-level expansion per the ENTITY-LEVEL governing rule). Device's second axis is ENTITY LEVEL, NOT
-a second resource (unlike geo's user_location_view) — segments.device is selectable on every entity report.
+#### Device (Google) — 4 entity grains (entity-level gap CLOSED — backward sweep, live-confirmed 2026-06-24)
+breakdown_type='device', breakdown_value = UPPER enum name (MOBILE/TABLET/DESKTOP/OTHER/CONNECTED_TV; int→name map).
+segments.device is selectable FROM every entity resource → device is captured at ALL 4 grains (gap CLOSED):
+- campaign × device  → entity_level='campaign', FROM campaign
+- ad_group × device  → entity_level='ad_group', FROM ad_group, parent=campaign.id
+- ad × device        → entity_level='ad',       FROM ad_group_ad (entity_id=ad_group_ad.ad.id), parent=ad_group.id
+- keyword × device   → entity_level='keyword',  FROM keyword_view (entity_id=ad_group_criterion.criterion_id,
+                       entity_name=keyword text), parent=ad_group.id
+Device's second axis is ENTITY LEVEL, NOT a second resource (unlike geo's user_location_view) — the SAME
+segments.device on each entity report. RECONCILE = PER-GRAIN: campaign/ad_group/ad = FLAG-NOT-BLOCK vs per-day
+campaign anchor (they PARTITION spend; Gate A 0 flagged). keyword = WRITE-ONLY (keyword_view is a SEARCH-keyword
+SUBSET — PMax/Display/Search-partner spend isn't keyword-attributed, so Σkeyword < campaign on mixed accounts;
+Gate A: reconciling it flagged Veterinary 21/21 days = false noise). One drain step 'google_device' covers all 4
+grains.
 NOT SERVED (documented exception, NOT a gap): OS / OS-version / device-model as performance segments
 (segments.operating_system_version_constant + segments.device_model both rejected as invalid on perf reports; the
 operating_system_version_constant + mobile_device_constant resources are targeting-reference LOOKUP tables with no

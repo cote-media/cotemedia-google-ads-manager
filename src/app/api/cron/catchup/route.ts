@@ -23,7 +23,7 @@ import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
-import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -424,15 +424,17 @@ export async function GET(request: Request) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional ${d}: ${serializeCaughtError(dimErr)}` })
           }
 
-          // Google device breakdown (campaign × device) — own try/catch, mirrors the dimensional sub-capture.
+          // Google device breakdown (campaign/ad_group/ad/keyword × device) — own try/catch, all 4 grains.
           try {
-            const devRows = buildGoogleDeviceRows(client.id, userEmail, d, customerId, await fetchGoogleDeviceDay(refreshToken, customerId, d))
-            if (devRows.length > 0) {
-              const { error: devError } = await supabaseAdmin
-                .from('metrics_daily')
-                .upsert(normalizeMetricsRows(devRows), { onConflict: METRICS_DAILY_CONFLICT })
-              if (devError) throw devError
-              summary.rowsWritten += devRows.length
+            for (const grain of DEVICE_GRAINS) {
+              const built = buildDeviceGrainRows(grain, client.id, userEmail, d, customerId, await fetchDeviceGrainDay(grain, refreshToken, customerId, d))
+              if (built.length > 0) {
+                const { error: devError } = await supabaseAdmin
+                  .from('metrics_daily')
+                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                if (devError) throw devError
+                summary.rowsWritten += built.length
+              }
             }
           } catch (devErr) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `device ${d}: ${serializeCaughtError(devErr)}` })
