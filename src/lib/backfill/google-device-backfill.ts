@@ -1,21 +1,13 @@
 // LORAMER_GOOGLE_DEVICE_BACKFILL_V1
 // First BREADTH dimension writer (Phase 2) — Google campaign × device × day persisted into metrics_daily as
 // BREAKDOWN rows: entity_level='campaign', breakdown_type='device', breakdown_value=<canonical device enum
-// name>, entity_id=campaign.id, parent_entity_id=customerId. Backfill-only — does NOT touch forward capture
-// (cron/sync + cron/catchup forward-capture of device is the IMMEDIATE next motion, mirroring the
-// search_term/keyword V1-capture / V1-backfill split; see docs/LORAMER_BREAKDOWN_REGISTRY.md §6).
+// name>, entity_id=campaign.id, parent_entity_id=customerId.
 //
-// MIRRORS src/lib/backfill/google-adgroup-ad-backfill.ts (stateless-range signature for rangeLap, monthChunks,
-// gaqlWithRetry, idempotent UPSERT via normalizeMetricsRows on the standard CONFLICT key, per-day campaign
-// anchor). The ad-grain writer is the closest model because device — like ad_group/ad — PARTITIONS campaign
-// spend, so it reconciles against the per-day CAMPAIGN anchor (NOT the account anchor the campaign writer uses).
-//
-// SOURCE GAQL = the proven live device query (src/lib/intelligence/google-intelligence.ts:653), FROM campaign
-// with segments.device. A HISTORY writer does NOT filter campaign.status (a since-REMOVED campaign still had
-// real historical spend — same posture as the campaign/ad_group/ad backfills; the LIVE query filters REMOVED,
-// a backfill must not, so its Σ matches the no-status-filter campaign anchor). segments.device returns the
-// Google Ads Device enum (int code via .query(), or a name) → mapped to the canonical NAME; any unanticipated
-// value is kept verbatim (uppercased), never dropped.
+// The fetch + row builder live in the SHARED module src/lib/intelligence/google-device.ts (fetchGoogleDeviceWindow
+// + buildGoogleDeviceRows) so forward capture (cron/sync + cron/catchup) and this backfill write BYTE-IDENTICAL
+// rows (the universal backfill pattern). This file owns ONLY the backfill control flow: month chunking,
+// stateless-range signature (for drain-registry rangeLap), the per-day CAMPAIGN-anchor reconcile, and the
+// idempotent UPSERT.
 //
 // RECONCILE = FLAG-NOT-BLOCK vs the per-day CAMPAIGN anchor (Lesson 59 posture; mirrors google-adgroup-ad /
 // Meta-placement): Σ device spend over the campaigns present that day vs Σ their campaign-grain spend. Device
@@ -25,32 +17,13 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { reconcileDay } from './reconcile-day'
-import { gaqlWithRetry } from './gaql-with-retry'
-import { GoogleAdsApi } from 'google-ads-api'
+import { fetchGoogleDeviceWindow, buildGoogleDeviceRows, type GoogleDeviceRow } from '@/lib/intelligence/google-device'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 const CAMP_DAY_CAP = 5000 // one day's campaign rows are ≤ a few hundred; explicit guard, never near this
 
-const adsClient = new GoogleAdsApi({
-  client_id: process.env.GOOGLE_CLIENT_ID!,
-  client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-  developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-})
-
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
-const ratio = (a: number, b: number, s = 1): number | null => (b > 0 && Number.isFinite(a / b) ? Number(((a / b) * s).toFixed(4)) : null)
 const iso = (d: Date) => d.toISOString().split('T')[0]
-
-// Google Ads Device enum → canonical name. .query() may yield the int code or the name; cover both, and keep
-// any unanticipated value verbatim (UPPERCASED) so a new device kind is captured, never dropped.
-const DEVICE_NAME: Record<string, string> = {
-  '0': 'UNSPECIFIED', '1': 'UNKNOWN', '2': 'MOBILE', '3': 'TABLET', '4': 'DESKTOP', '5': 'OTHER', '6': 'CONNECTED_TV',
-}
-function deviceName(raw: any): string {
-  const s = String(raw ?? '').trim()
-  if (!s) return 'UNKNOWN'
-  return DEVICE_NAME[s] || s.toUpperCase()
-}
 
 function monthChunks(start: string, end: string): { from: string; to: string }[] {
   const chunks: { from: string; to: string }[] = []
@@ -63,17 +36,6 @@ function monthChunks(start: string, end: string): { from: string; to: string }[]
     const next = new Date(to + 'T00:00:00Z'); next.setUTCDate(next.getUTCDate() + 1); cur = iso(next)
   }
   return chunks
-}
-
-interface DeviceAgg {
-  campaignId: string
-  campaignName: string
-  device: string
-  spend: number
-  impressions: number
-  clicks: number
-  conversions: number
-  convValue: number
 }
 
 export interface DeviceBackfillResult { status: number; body: Record<string, any> }
@@ -91,7 +53,7 @@ export async function runGoogleDeviceBackfill(
   const { data: tok, error: tErr } = await supabaseAdmin
     .from('google_tokens').select('refresh_token').eq('user_email', userEmail).single()
   if (tErr || !tok?.refresh_token) return { status: 400, body: { error: 'No Google refresh token', detail: tErr?.message } }
-  const customer = adsClient.Customer({ customer_id: customerId, refresh_token: tok.refresh_token as string, login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID! })
+  const refreshToken = tok.refresh_token as string
 
   // PER-DAY campaign-anchor cache (scoped to one date → bounded, never the silent 1000-row cap; Lesson 8).
   const campCache = new Map<string, Record<string, number>>()
@@ -120,62 +82,27 @@ export async function runGoogleDeviceBackfill(
     return v
   }
 
-  const buildRow = (a: DeviceAgg, date: string): Record<string, unknown> => {
-    const spend = Number(a.spend.toFixed(2))
-    const convValue = Number(a.convValue.toFixed(2))
-    return {
-      client_id: clientId, user_email: userEmail, platform: 'google', account_id: customerId,
-      entity_level: 'campaign', entity_id: a.campaignId, entity_name: a.campaignName,
-      parent_entity_id: customerId, date, breakdown_type: 'device', breakdown_value: a.device,
-      spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversion_value: convValue, revenue: 0,
-      extra: {
-        ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),
-        roas: ratio(convValue, spend), cpa: ratio(spend, a.conversions), convRate: ratio(a.conversions, a.clicks, 100),
-      },
-    }
-  }
-
   let grainDayRows = 0, written = 0, daysWritten = 0, daysFlagged = 0
   const flagged: any[] = []
   const distinctDeviceRaw = new Set<string>() // dryRun diagnostic — the actual enum forms Google returns
   let sampleRow: Record<string, unknown> | null = null
 
   for (const chunk of monthChunks(startDate, endDate)) {
-    const gaql = `SELECT campaign.id, campaign.name, segments.device, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
-    const rows = await gaqlWithRetry(customer, gaql)
+    const rows = await fetchGoogleDeviceWindow(refreshToken, customerId, chunk.from, chunk.to)
 
-    // Aggregate by (date, campaignId, device); track per-day Σspend + campaigns present for the reconcile.
-    const byDate: Record<string, { aggs: Map<string, DeviceAgg>; spend: number; campaignIds: Set<string> }> = {}
+    // Bucket the shared-fetched rows by date; track per-day Σspend + campaigns present for the reconcile.
+    const byDate: Record<string, { rows: GoogleDeviceRow[]; spend: number; campaignIds: Set<string> }> = {}
     for (const r of rows) {
-      const date = r.segments?.date
-      if (!date) continue
-      const campaignId = String(r.campaign?.id || '')
-      if (!campaignId) continue
-      distinctDeviceRaw.add(String(r.segments?.device ?? ''))
-      const device = deviceName(r.segments?.device)
-      const spend = fin(r.metrics?.cost_micros) / 1e6
-      const clicks = fin(r.metrics?.clicks)
-      const impressions = fin(r.metrics?.impressions)
-      const conversions = fin(r.metrics?.conversions)
-      const convValue = fin(r.metrics?.conversions_value)
-      if (!byDate[date]) byDate[date] = { aggs: new Map(), spend: 0, campaignIds: new Set() }
-      const b = byDate[date]
-      const key = `${campaignId}|${device}`
-      let a = b.aggs.get(key)
-      if (!a) { a = { campaignId, campaignName: String(r.campaign?.name || ''), device, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0 }; b.aggs.set(key, a) }
-      a.spend += spend; a.impressions += impressions; a.clicks += clicks; a.conversions += conversions; a.convValue += convValue
-      b.spend += spend
-      b.campaignIds.add(campaignId)
+      distinctDeviceRaw.add(r.deviceRaw)
+      if (!byDate[r.date]) byDate[r.date] = { rows: [], spend: 0, campaignIds: new Set() }
+      const b = byDate[r.date]
+      b.rows.push(r)
+      b.spend += r.spend
+      b.campaignIds.add(r.campaignId)
     }
 
     for (const [date, bucket] of Object.entries(byDate)) {
-      // Skip all-zero-activity rows (pure noise; spend stays 0 so the reconcile sum is unaffected) — mirrors
-      // google-dimensional.ts.
-      const dayRows: Record<string, unknown>[] = []
-      for (const a of bucket.aggs.values()) {
-        if (a.spend === 0 && a.impressions === 0 && a.clicks === 0 && a.conversions === 0) continue
-        dayRows.push(buildRow(a, date))
-      }
+      const dayRows = buildGoogleDeviceRows(clientId, userEmail, date, customerId, bucket.rows)
       grainDayRows += dayRows.length
       if (dayRows.length === 0) continue
       if (opts.dryRun && !sampleRow) sampleRow = dayRows[0]
