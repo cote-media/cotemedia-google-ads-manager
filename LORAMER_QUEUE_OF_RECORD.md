@@ -151,6 +151,7 @@ OPEN FOLLOW-UPS / CARRY-OVER (CONTINUE_HERE)
 - token-dedup hardening (Escential cohort/reviewer duplicate rows). src: CONTINUE_HERE. open [LC]
 - cross-platform re-auth integrity audit (Google/Meta — L54). src: CONTINUE_HERE, Flight-2#10. open [LC]
 - machine-parity pass (Air & iMac node/CLI — L56). src: CONTINUE_HERE. open [LC]
+  - iMac .env.local CRON_SECRET still holds the SUPERSEDED value 983e…c2f1 (yesterday's). Prod is now 71ec…cbbe (rotated + behaviorally verified 200/401 on 2026-06-27 from the Air). The iMac will 401 on any local cron/probe/Gate-A work until its .env.local CRON_SECRET is updated to match prod. FIX next iMac session: copy the current value in, then run the behavioral 200 probe to confirm (docs/LORAMER_SECRET_ROTATION_RUNBOOK.md). open [LC]
 - Shopify privacy disclosure (privacy/page.tsx) must list read_all_orders before broad launch. src: CONTINUE_HERE. open [LC]
 - "Lora explains why same-thing numbers legitimately differ" — future; precondition numbers reconcile. src: CONTINUE_HERE(8). open [NP]
 - Intraday "today" freshness top-up for Woo (bounded current-day). src: CONTINUE_HERE(9). open [NP]
