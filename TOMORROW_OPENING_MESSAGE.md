@@ -1,22 +1,21 @@
-# Russ's opening message for the next Claude chat
-# Copy everything between the lines below
+# TOMORROW_OPENING_MESSAGE.md — Russ's opening brief for the next LoraMer chat
+MAINTENANCE RULE: this file is overwritten IN FULL at every wrap — purge stale content, never append; history lives in the CONTINUE_HERE.md session log.
 
 ---
 
-I'm Russell Côté, founder of Cote Media and the sole non-developer building LoraMer — a business intelligence platform for marketing agencies and business owners. You're picking up an active multi-week build with hundreds of shipped commits. I do NOT touch code — I paste your terminal commands and your Claude Code instructions, and I run Supabase/Vercel in the browser. Every command you give me must be complete and paste-ready with the destination labeled (macOS Terminal / Cursor Agents window / Supabase SQL Editor / Vercel dashboard). Never a placeholder I have to hunt down.
+RESUME: in claude.ai say **resume loramer** → I output the digest-first cold-gate paste; paste it back; the freshness gate runs (FRESH → one paste, done). The resume flow's source of truth is **RESUME_INSTRUCTIONS.md** — do not restate the steps here, follow it.
 
-Before you do ANYTHING else, open LORAMER_HANDOFF.md and execute the MANDATORY READING GATE at the very top — every step, in order. That means: read every project document, sweep the project knowledge base with project_knowledge_search, have me run a Claude Code investigate-only sweep of the relevant code + git, and read the prior chats with conversation_search / recent_chats — and ONLY THEN open CONTINUE_HERE.md. I'm dead serious about this: last time a Claude skipped the reading and rebuilt a design we already had a doc for. Don't. If a tool can read it, read it. "I couldn't see it" is not an answer when project_knowledge_search, conversation_search, recent_chats, and Claude Code exist.
+WHERE TODAY (2026-06-26) LEFT OFF:
+- DEPTH ARC COMPLETE — Google ad_group/ad + Meta campaign + Meta ad_set/ad backfill writers all shipped, wired into the auto-drain, and drained live this session. With the earlier Google campaign work, every Google + Meta spend grain (account → campaign → ad_group|ad_set → ad) now has a writer + an automatic drain step (sync_state keys: google_campaign, google_adgroup_ad, meta_campaign, meta_placement, meta_adset_ad). They keep draining to the 36-mo floor on the 6h cron — no manual action.
+- UNIFIED LIVE + BREADTH design LOCKED & committed: **docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md** (LORAMER_LIVE_BREADTH_UNIFIED_DESIGN_V1). Direction B = captured `metrics_daily` stays the reconciled SYSTEM-OF-RECORD; a SEPARATE sibling live store (keyed by `as_of`) holds live/realtime/sub-daily; Lora reconciles across + ALWAYS labels which store. Read it before proposing Live/Breadth work.
+- PHASE 1 CONSOLIDATION COMPLETE — shared `reconcileDay` primitive + shared fetch primitives (`gaqlWithRetry` / `metaFetchAllPaged`); the 5 ad-grain writers now share them (zero behavior change, proven OLD-vs-NEW).
 
-Where we are right now:
-- Historical Data Engine Phase 0a is COMPLETE — nightly cron forward-captures daily metrics for all five platforms (Shopify, Meta, Google, WooCommerce, GA) into metrics_daily, all verified reconciling.
-- Phase 0b backfill is DONE and proven on one client: the Google account-level backfill route (/api/backfill/google) pulled My Vacation Network's full real history — 658 daily rows back to 2024-05-17, $76.5k spend — in one clean run after we fixed a cross-request cursor race (V2, single-invocation internal loop).
-- Both the Google Ads developer token and CRON_SECRET have been rotated.
-- The ONLY thing left in Phase 0b is the query_metrics tool — the basic query layer that proves multi-period comparison ("last 7 days vs 6 / 12 / 18 months ago") on the data we now have. That's your first task. CONTINUE_HERE.md has the detail.
+NEXT STEP — **Phase 2 BREADTH** (design §7). Open it with the GA FOUNDATIONAL decision FIRST: GA persists ONLY account totals today (every GA dimension is live-only, never captured), so GA breadth needs a session/user **metric-columns-vs-extra-jsonb** decision. Then the breakdown registry + an `entity_level` CHECK, then the dimension writers (Google device/network/geo/age-gender/hour/impression-share/video/all_conversions; Meta age-gender/geo/device/hourly/video/ranking; GA/Shopify/Woo breadth) — each reconciling via the shared primitives. Breadth has NO 37-mo clock (indefinite retention) → no rush; lead with a read-first investigation on the GA fork.
 
-After the query tool proves out on My Vacation Network, the next phase (Phase 1) is generalizing backfill + the query layer across the other platforms and clients — and replacing the secret-pasting backfill trigger with a real in-app button, because the current curl flow is bad for a non-coder.
+ACTIVE QUEUE + FUTURE NOTES: all live in **LORAMER_QUEUE_OF_RECORD.md** (do not duplicate). Includes the banked items (Standard Access promoted launch-critical; iMac⇄Air parity + prod-Google-secrets fork; 18-connection hygiene audit; demo-twin 2617b163 campaign re-drain; Influential Drones connection health; standing rules: read-first existence check + verify-external-UI-before-instructing) + Phase-1b future notes (unify-the-two-Google-retries; Meta 100/1487534 narrow-and-retry).
 
-Standing rules: RIGHT > FAST — take the 30 minutes, never ship a guess; when unsure about an anchor or a fact, have me run a grep/sed/cat or a Claude Code read first. Think as long as you need; keep your OUTPUT terse — no recaps, no "here's what I'll do," no apologies, just the next labeled step.
+MACHINES: works on the iMac (`~/Downloads/cotemedia-ads-manager`) AND the MacBook Air (`~/Downloads/cotemedia-google-ads-manager` — folder name differs BY DESIGN, never "fix" it). `git pull` at session start; GitHub `main` is the source of truth. Local-env PARITY is a queued job: the iMac local env can't run the live Google path (its OAuth app ≠ prod's that minted the refresh tokens → `unauthorized_client`), so Google Gate-A runs as a PROD dry-run (zero writes); Meta runs locally fine.
 
-Don't fuck it up.
+DISCIPLINE: RIGHT > FAST. Russ doesn't touch code — every command paste-ready with the destination labeled; every report in ONE fenced code block. Freeze posture: the live reviewer app is FROZEN until the Meta decision (new UI → `-next` only); backend writers/primitives/new stores are freeze-safe. Every push to `main` auto-deploys to Vercel — `npm run build` is the pre-push gate.
 
 ---
