@@ -57,10 +57,14 @@ one model without weakening the provability that is LoraMer's moat.
   surface — NOT the default answer path. Its quota implications are in §9.
 
 ## 5. TWO RECONCILE PRIMITIVES — LOCKED
-- SETTLED-EQUALITY (captured store): ONE shared primitive `reconcileDay(grainSpend, anchorSpend, {abs, pct,
-  posture})` → `{within, flag}` replacing the 6 copy-paste blocks (google-campaign BLOCK; google-adgroup-ad,
-  meta-campaign, meta-adset-ad, meta-placement FLAG-NOT-BLOCK; shopify-dimensional HALT). Posture is a parameter;
-  default FLAG-NOT-BLOCK (the stale-anchor lesson). Asserts EQUALITY within tolerance or 1¢.
+- SETTLED-EQUALITY (captured store): ONE shared primitive `reconcileDay(grainMetric, anchorMetric, {abs, pct,
+  posture})` → `{within, delta, action}`. Posture is a parameter; default FLAG-NOT-BLOCK (the stale-anchor lesson);
+  `pct:null` = abs-only mode. Asserts EQUALITY within tolerance ($0.01 abs OR 0.1% rel). ✅ SHIPPED 2026-06-26
+  (src/lib/backfill/reconcile-day.ts, LORAMER_RECONCILE_DAY_V1) for the **5 ad-grain writers** (google-campaign
+  BLOCK; google-adgroup-ad/meta-campaign/meta-adset-ad/meta-placement FLAG) — proven ZERO behavior change
+  (OLD-vs-NEW dry-run, finalized + flag-exercising windows, stats + flagged[] byte-identical). The primitive owns
+  ONLY delta+within+advisory-action; each caller KEEPS its flag-payload, otherDeltas, anchorMissing guard, and
+  control flow. shopify-dimensional (HALT, revenue, cursor-walk) stays as-is — OUTLIER, NOT folded in v1.
 - LIVE (sibling store): a DIFFERENT primitive. Instantaneous metrics have no same-grain captured twin, so it
   CANNOT assert equality. It asserts only: "this is the live snapshot as of HH:MM" + OPTIONALLY "vs the trailing
   same-time-of-day baseline = normal / high / low" (anomaly band). NEVER equality-reconcile, never "settled truth."
@@ -122,8 +126,10 @@ one model without weakening the provability that is LoraMer's moat.
 - Backend writers/primitives/new stores are freeze-safe and may proceed before unfreeze.
 
 ## 11. BUILD PHASES (ordered; each its own gated change, docs-with-code)
-1. CONSOLIDATION PRE-WORK: shared `reconcileDay` primitive (replace 6 blocks) + shared fetch/paging/retry
-   primitives. Freeze-safe. Do FIRST (before breadth adds ~12 more copies).
+1. CONSOLIDATION PRE-WORK: shared `reconcileDay` primitive [✅ DONE 2026-06-26 — 5 ad writers, zero-change
+   proven; shopify-dimensional OUTLIER not folded] + shared fetch/paging/retry primitives [PENDING — de-dup
+   RETRYABLE/fetchAllWithRetry/queryWithRetry across google-*/meta-* backfills]. Freeze-safe. Do FIRST
+   (before breadth adds ~12 more copies).
 2. BREADTH: capture every breakdown dimension fwd + backfill per §7, one drain-registry entry each; breakdown
    registry + entity_level CHECK. Freeze-safe backend.
 3. LIVE SPINE: sibling live store + live reconcile primitive + `query_live` tool + the §3 truth-spine

@@ -19,11 +19,10 @@
 //   conversions ≠ Σ grain conversions; otherDeltas is informational only).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { reconcileDay } from './reconcile-day'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
-const RECON_ABS = 0.01
-const RECON_PCT = 0.001
 // Meta rate-limit / transient error codes → backoff + retry (parity with meta-campaign/meta-placement).
 const RETRYABLE = new Set([1, 2, 4, 17, 32, 341, 613, 80000, 80004])
 
@@ -186,8 +185,7 @@ export async function runMetaAdSetAdBackfill(
 
       for (const [date, bucket] of Object.entries(byDate)) {
         const acctSpend = await acctDay(date)
-        const delta = Math.abs(bucket.spend - acctSpend)
-        const within = delta <= RECON_ABS || (acctSpend > 0 && delta / acctSpend <= RECON_PCT)
+        const { within, delta } = reconcileDay(bucket.spend, acctSpend, { posture: 'flag' })
         // FLAG-NOT-BLOCK: ALWAYS write the real grain rows; only record a loud delta when divergent.
         if (!within) {
           stat.daysFlagged++

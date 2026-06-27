@@ -22,11 +22,10 @@
 //   the anchor to 0; Lesson 8). Account spend is reported in dryRun for context (the PMax/Shopping gap).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { reconcileDay } from './reconcile-day'
 import { GoogleAdsApi } from 'google-ads-api'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
-const RECON_ABS = 0.01   // $0.01
-const RECON_PCT = 0.001  // 0.1%
 const CAMP_DAY_CAP = 5000 // explicit guard — one day's campaign rows are ≤ a few hundred; never near this
 
 const adsClient = new GoogleAdsApi({
@@ -189,8 +188,8 @@ export async function runGoogleAdGroupAdBackfill(
           if (cid in dayCamp) anchorSpend += dayCamp[cid]
           else anchorMissing++
         }
-        const delta = Math.abs(bucket.spend - anchorSpend)
-        const within = anchorMissing === 0 && (delta <= RECON_ABS || (anchorSpend > 0 && delta / anchorSpend <= RECON_PCT))
+        const { within: tolWithin, delta } = reconcileDay(bucket.spend, anchorSpend, { posture: 'flag' })
+        const within = anchorMissing === 0 && tolWithin   // anchorMissing guard preserved in the caller
         // FLAG-NOT-BLOCK: ALWAYS write the real grain rows; only record a loud delta when divergent.
         if (!within) {
           stat.daysFlagged++

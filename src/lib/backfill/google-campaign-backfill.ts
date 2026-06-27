@@ -13,11 +13,10 @@
 //  • month chunks, resumable by range, transient (429/RESOURCE_EXHAUSTED) backoff, loud failures (no fabrication).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { reconcileDay } from './reconcile-day'
 import { GoogleAdsApi } from 'google-ads-api'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
-const RECON_ABS = 0.01   // $0.01
-const RECON_PCT = 0.001  // 0.1%
 
 const adsClient = new GoogleAdsApi({
   client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -111,8 +110,7 @@ export async function runGoogleCampaignBackfill(
         .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'account')
         .eq('breakdown_type', '').eq('breakdown_value', '').eq('date', date).maybeSingle()
       const acctSpend = fin(acctRow?.spend)
-      const delta = Math.abs(bucket.spend - acctSpend)
-      const within = delta <= RECON_ABS || (acctSpend > 0 && delta / acctSpend <= RECON_PCT)
+      const { within, delta } = reconcileDay(bucket.spend, acctSpend, { posture: 'block' })
       if (!within) {
         daysSkipped++; skipped += bucket.rows.length
         flagged.push({ date, campaign_spend: Number(bucket.spend.toFixed(2)), account_spend: Number(acctSpend.toFixed(2)), delta: Number(delta.toFixed(2)) })

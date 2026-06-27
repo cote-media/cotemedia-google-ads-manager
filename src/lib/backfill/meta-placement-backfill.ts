@@ -9,11 +9,10 @@
 // conversion_value=0, never fabricated). Reconcile is ACCOUNT-level + FLAG-NOT-BLOCK (see the gate).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { reconcileDay } from './reconcile-day'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
-const RECON_ABS = 0.01
-const RECON_PCT = 0.001
 // Meta rate-limit / transient error codes → backoff + retry.
 const RETRYABLE = new Set([1, 2, 4, 17, 32, 341, 613, 80000, 80004])
 
@@ -132,8 +131,7 @@ export async function runMetaPlacementBackfill(
         .eq('client_id', clientId).eq('platform', 'meta').eq('entity_level', 'account')
         .eq('breakdown_type', '').eq('breakdown_value', '').eq('date', date).maybeSingle()
       const acctSpend = fin(acctRow?.spend)
-      const delta = Math.abs(bucket.spend - acctSpend)
-      const within = delta <= RECON_ABS || (acctSpend > 0 && delta / acctSpend <= RECON_PCT)
+      const { within, delta } = reconcileDay(bucket.spend, acctSpend, { posture: 'flag' })
       if (!within) {
         daysFlagged++
         flagged.push({ date, placement_spend: Number(bucket.spend.toFixed(2)), account_spend: Number(acctSpend.toFixed(2)), delta: Number(delta.toFixed(2)) })
