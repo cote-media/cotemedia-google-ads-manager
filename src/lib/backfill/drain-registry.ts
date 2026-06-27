@@ -14,6 +14,7 @@ import { runBackfill } from './run-backfill'
 import { backfillAdapters } from './adapters'
 import { runGoogleCampaignBackfill } from './google-campaign-backfill'
 import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
+import { runGoogleDeviceBackfill } from './google-device-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
@@ -131,6 +132,16 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_adgroup_ad',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_adgroup_ad', runGoogleAdGroupAdBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_GOOGLE_DEVICE_BACKFILL_V1 — first BREADTH dimension (campaign × device). AFTER google_campaign
+    // so the per-day campaign anchor is present (device PARTITIONS campaign spend, reconciles FLAG-NOT-BLOCK
+    // vs that anchor; PMax/UNKNOWN may not sum exactly → flagged, never dropped). Stateless-range, same driver
+    // as google_campaign. NO 37-mo clock conceptually, but stop-at-floor still applies (rangeLap clamps to the
+    // 36-mo granular floor; empty-success at floor = done).
+    key: 'google_device',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_device', runGoogleDeviceBackfill as RangeWriter, dryRun),
   },
   {
     // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — parent grain, BEFORE meta_placement. Reconciles
