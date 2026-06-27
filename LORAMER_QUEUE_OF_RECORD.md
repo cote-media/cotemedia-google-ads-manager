@@ -192,6 +192,13 @@ LIVE + BREADTH WORKSTREAM (active design of record 2026-06-26)
 - STANDING RULE — READ-FIRST EXISTENCE CHECK: before building any new writer/route/adapter, grep the repo for an existing one first (this session the Meta campaign writer ALREADY existed unwired; building fresh would have duplicated it). Promote to a Lesson at next wrap. src: this session. standing [process]
 - STANDING RULE — VERIFY-EXTERNAL-UI-BEFORE-INSTRUCTING: before telling Russ to do something in an external dashboard (Vercel/Supabase/Google/Meta), verify the actual current UI/state first; do not instruct from an assumed UI (this session: assumed the legacy JWT was the service key; the project had legacy keys disabled → needed the sb_secret_ key). Promote to a Lesson at next wrap. src: this session. standing [process]
 
+## Parked Ideas (not committed — product bets, not scoped, not decided)
+- PARKED IDEA (not committed — Russ's thought 2026-06-27, explicitly "not sold on it myself, don't want to forget it"): "System of Record" slim product — a stripped-down sibling to LoraMer: full historical backfill + forward capture + permanent store, but NO Lora/Mer analysis layer. Pure data custody, no intelligence surface.
+  - Adjacency: this is the existing bedrock brand principle (LoraMer as permanent system of record; platforms purge ~37mo, we keep from connect-day forever) sold AS ITS OWN PRODUCT — custody without analysis.
+  - Architecture note: the capture/drain/store layer being built in the Data Completeness Program IS this product; it would be LoraMer with the intelligence surface removed, not a new build.
+  - Possible angles (unevaluated, for future context): cheaper lead-in tier to full LoraMer; agency white-label data-warehouse; compliance/recordkeeping angle for businesses needing legally-retained ad-spend history.
+  - Status: PARKED. Not scoped, not decided. Revisit when considering tiering/pricing or productizing the permanent-store principle. src: this session.
+
 ═══════════════════════════════════════════════════════════════════
 DONE — DO NOT REBUILD (appendix; representative — full list in ROADMAP Completed Archive + AUDIT RESOLVED)
 ═══════════════════════════════════════════════════════════════════
