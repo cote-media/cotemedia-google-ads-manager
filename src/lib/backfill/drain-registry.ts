@@ -15,6 +15,7 @@ import { backfillAdapters } from './adapters'
 import { runGoogleCampaignBackfill } from './google-campaign-backfill'
 import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runGoogleDeviceBackfill } from './google-device-backfill'
+import { runGoogleGeoBackfill, runGoogleUserGeoBackfill } from './google-geo-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
@@ -57,6 +58,14 @@ function floor36(): string {
 }
 
 const WINDOW_DAYS = 365
+// Shorter lap window for the geo breadth steps ONLY. Geo captures the FULL grain family (10 geographic_view +
+// 9 user_location_view), so a lap fetches far more rows than a single-grain step. Sized empirically 2026-06-27
+// (LIVE dry-run on the heaviest active clients, prod-adjusted: local select round-trip 187-255ms collapses to
+// ~10-15ms in prod where Vercel + Supabase are co-located, so FETCH time — location-independent — is the real
+// constraint). Measured prod-equivalent geo lap (fetch + upserts×~15ms): Bath Fitter 120d ≈ 58s, Veterinary
+// (nationwide, 1.28M rows/120d) ≈ 96s — both comfortably under the 250s drain budget with margin to ~150s for a
+// heavier client. 36-mo floor ÷ 120d ≈ 10 laps/step. (365d would be ~250s fetch alone for a nationwide client.)
+const GEO_WINDOW_DAYS = 120
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -87,9 +96,10 @@ type RangeWriter = (
   opts: { dryRun?: boolean }
 ) => Promise<{ status: number; body: Record<string, unknown> }>
 
-// ONE bounded year-window lap for a STATELESS-RANGE writer, resuming via a sync_state cursor under `cursorKey`.
+// ONE bounded window lap for a STATELESS-RANGE writer, resuming via a sync_state cursor under `cursorKey`.
+// windowDays defaults to WINDOW_DAYS (365 — unchanged for every existing step); geo steps pass GEO_WINDOW_DAYS.
 // cursor.backfill_earliest_date = the deepest day reached so far; next lap's window end = that − 1 day.
-async function rangeLap(clientId: string, cursorKey: string, writer: RangeWriter, dryRun: boolean): Promise<LapResult> {
+async function rangeLap(clientId: string, cursorKey: string, writer: RangeWriter, dryRun: boolean, windowDays: number = WINDOW_DAYS): Promise<LapResult> {
   const floor = floor36()
   const st = await readRangeCursor(clientId, cursorKey)
   if (st?.backfill_complete) return { done: true, detail: { note: 'already complete' } }
@@ -98,7 +108,7 @@ async function rangeLap(clientId: string, cursorKey: string, writer: RangeWriter
     if (!dryRun) await writeRangeCursor(clientId, cursorKey, floor, true)
     return { done: true, detail: { note: 'reached floor', floor } }
   }
-  let subStart = addDays(curEnd, -(WINDOW_DAYS - 1))
+  let subStart = addDays(curEnd, -(windowDays - 1))
   if (subStart < floor) subStart = floor
   const { status, body } = await writer(clientId, subStart, curEnd, { dryRun })
   if (status !== 200) return { done: false, detail: { error: 'writer failed', status, body } }
@@ -142,6 +152,22 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_device',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_device', runGoogleDeviceBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_GOOGLE_GEO_BACKFILL_V1 — geo BREADTH, geographic_view FAMILY (10 grains: city/metro/region/state/
+    // province/county/district/postal/most_specific + country, each carrying location_type). WRITE-ONLY: NO
+    // reconcile (geo is non-partitioning — location_type overlap + multi-grain; like search_term/keyword).
+    // Stateless-range; after google_campaign for grouping. Stop-at-floor = empty-success (L61).
+    key: 'google_geo',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_geo', runGoogleGeoBackfill as RangeWriter, dryRun, GEO_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_GOOGLE_GEO_BACKFILL_V1 — geo BREADTH, user_location_view FAMILY (9 PHYSICAL-location grains; no
+    // location_type, no country — geo_target_country not served on this view). WRITE-ONLY, same posture as google_geo.
+    key: 'google_user_geo',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_user_geo', runGoogleUserGeoBackfill as RangeWriter, dryRun, GEO_WINDOW_DAYS),
   },
   {
     // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — parent grain, BEFORE meta_placement. Reconciles

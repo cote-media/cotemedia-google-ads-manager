@@ -18,6 +18,10 @@ account · campaign · ad_group · ad_set · ad
 Rule for NEW dimensions: prefer raw or iso; use composite ONLY when the dimension is inherently multi-part and the parts are meaningless alone (placement is the sole current case).
 CASING: MAPPED ENUM → UPPER canonical name (convention: EXACT/ENABLED/DESKTOP). RAW API string → stored verbatim (ISO upper e.g. 'US'; Meta raw lower e.g. 'facebook:feed'). breakdown_value follows source type; mapped-enum display Title-case (e.g. 'Mobile') is prompt-only, never persisted.
 
+API-TRUTH-FIRST + ALL-GRAINS (governing rule): a dimension's grain set is whatever the API actually serves, VERIFIED against the live API (probe — don't assume field names or counts), per resource. Capture EVERY grain the API returns; a subset is unfinished code, NOT a design choice. "Empty for a client today" ≠ "unsupported" — still capture it. The ONLY acceptable omission is a grain the platform genuinely does not serve (e.g. user_geo_country — geo_target_country is not selectable on user_location_view), and that omission must be stated. When one logical dimension spans multiple API resources (e.g. geo = geographic_view + user_location_view) OR multiple grains, each resource/grain is its own breakdown_type — never collapse them.
+
+ACTIVE-BASELINE (governing rule): every Gate-A baseline, byte-identical comparison, and lap-window/throughput SIZING must run against a CURRENTLY-ACTIVE account (recent spend in the window measured) — and a heavy one for timing. A dormant client's zeros validate nothing and can mask a real defect (the MVN lesson 2026-06-27: My Vacation Network had near-zero recent data, so a window measured on it would have looked instant and hidden the true nationwide lap cost; Bath Fitter + Veterinary, both active, gave the real numbers). Verify recency (max(date), recent-window spend) BEFORE choosing a Gate-A/sizing client.
+
 ### base-row sentinel
 breakdown_type = '' and breakdown_value = '' (empty string). The query layer's double-count guard depends on this exact sentinel. Never NULL.
 
@@ -57,13 +61,30 @@ All five VERIFIED dimensions are CAMPAIGN grain (corrected from the draft's ad_g
 |--------------------|--------------|----------|-------------------------|------------|
 | device             | campaign     | raw (enum name) | segments.device, FROM campaign | VERIFIED in-code (google-intelligence:653) — FIRST WRITER |
 | hour               | campaign     | composite (hour×day_of_week) | segments.hour, segments.day_of_week, FROM campaign | VERIFIED in-code (google-intelligence:663) |
-| geo                | campaign     | composite| geographic_view.country_criterion_id / location_type, FROM geographic_view | VERIFIED in-code (google-intelligence:643) |
+| geo_* (FAMILY)     | campaign     | "geoTargetConstants/<id>" (+ ":<LOCATION_TYPE_UPPER>" on geographic_view grains) | per-grain segments across geographic_view + user_location_view | VERIFIED live 2026-06-27 (probe). FULL family — see "Geo family" subsection below. RECONCILE=NONE (write-only, non-partitioning). raw opaque id, name resolution DEFERRED. |
 | age                | campaign     | raw      | FROM age_range_view     | VERIFIED in-code (google-intelligence:392) |
 | gender             | campaign     | raw      | FROM gender_view        | VERIFIED in-code (google-intelligence:405) |
 | network            | campaign     | raw      | segments.ad_network_type | VERIFY-AT-WRITER |
 | impression_share   | campaign     | raw      | (competitive metrics)   | VERIFY-AT-WRITER |
 | video              | ad           | raw      | (video metrics)         | VERIFY-AT-WRITER |
 | all_conversions    | campaign     | raw      | (all_conversions split) | VERIFY-AT-WRITER |
+
+#### Geo family (Google) — VERIFIED live 2026-06-27
+Geo is a FAMILY of grains captured PER-GRAIN (one GAQL per grain — co-selecting segments returns the
+intersection and under-captures; proven: all-9 co-select = 0 rows, city+region = city-alone ≠ region-alone).
+All entity_level='campaign', value = "geoTargetConstants/<id>" (raw opaque resource-name; country_criterion_id's
+bare id is normalized to the same form). Name resolution DEFERRED (additive later layer; gates Lora-queryability).
+RECONCILE=NONE for every geo grain (write-only).
+- geographic_view (targeted/interest) — each grain APPENDS ":<LOCATION_TYPE_UPPER>" (2→AREA_OF_INTEREST,
+  3→LOCATION_OF_PRESENCE, 1→UNKNOWN, 0→UNSPECIFIED): geo_city, geo_metro, geo_region, geo_state, geo_province,
+  geo_county, geo_district, geo_postal, geo_most_specific (segments.geo_target_*) + geo_country
+  (geographic_view.country_criterion_id). = 10 grains.
+- user_location_view (PHYSICAL location, NO location_type, DIFFERENT ids): user_geo_city, user_geo_metro,
+  user_geo_region, user_geo_state, user_geo_province, user_geo_county, user_geo_district, user_geo_postal,
+  user_geo_most_specific. = 9 grains. (user_geo_country NOT served — geo_target_country not selectable on this
+  view + no country field; the ONLY acceptable omission = platform genuinely doesn't serve it.)
+- COST: 19 queries/client (10 + 9), one per grain, both forward (per day) and backfill (per window). Two drain
+  steps: 'google_geo' (geographic_view family) + 'google_user_geo' (user_location_view family).
 
 ### Meta
 | breakdown_type     | entity_level | encoding | source field            | confidence |

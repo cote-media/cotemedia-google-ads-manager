@@ -13,6 +13,7 @@ import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
 import { fetchGoogleDeviceDay, buildGoogleDeviceRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -496,6 +497,33 @@ export async function GET(request: Request) {
             message
           )
           summary.errors.push({ clientId: client.id, platform: 'google', message: `device: ${message}` })
+        }
+
+        // LORAMER_GOOGLE_GEO_CAPTURE_V1 — geo breakdown FAMILY (per-grain, both resources: 10 geographic_view +
+        // 9 user_location_view = 19 queries/client/day). Own try/catch PER FAMILY (mirrors the device block): a
+        // geo failure logs LOUD and is recorded, but NEVER drops base/dimensional/device rows or sync_state.
+        // WRITE-ONLY — no reconcile (geo is non-partitioning: location_type overlap + multi-grain).
+        for (const [famLabel, grains] of [['geo', GEOGRAPHIC_GRAINS], ['user_geo', USER_GRAINS]] as const) {
+          try {
+            let famRows = 0
+            for (const grain of grains) {
+              const built = buildGeoGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchGeoGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+              if (built.length > 0) {
+                const { error: geoError } = await supabaseAdmin
+                  .from('metrics_daily')
+                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                if (geoError) throw geoError
+                summary.rowsWritten += built.length; famRows += built.length
+              }
+            }
+            if (famRows === 0) {
+              console.log(`[cron/sync] client=${client.id} platform=google ${famLabel} capture: 0 rows (empty, not an error)`)
+            }
+          } catch (geoErr) {
+            const message = serializeCaughtError(geoErr)
+            console.error(`[cron/sync] client=${client.id} platform=google ${famLabel} capture FAILED:`, message)
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `${famLabel}: ${message}` })
+          }
         }
 
         const { error: syncError } = await supabaseAdmin
