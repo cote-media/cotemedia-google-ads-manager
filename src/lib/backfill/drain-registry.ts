@@ -20,6 +20,7 @@ import { runGoogleHourBackfill } from './google-hour-backfill'
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
+import { runMetaDeviceBackfill } from './meta-device-backfill'
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -70,6 +71,14 @@ const WINDOW_DAYS = 365
 // ≈ 2.7hr. The 40d sweep (~245-290s incl. fixed steps) stays under the 360s lease (migration 014). (Chunk size,
 // below, bounds the per-QUERY buffer only.)
 export const GEO_WINDOW_DAYS = 40 // exported: drives the drain's memory-cap N computation (step 3); STEP 4 free dial
+
+// LORAMER_META_DEVICE_BREADTH_V1 — bounded window for the meta_device breadth step. Device runs 4 entity levels
+// × 2 device fields = 8 Graph insights reports + per-day upserts per lap; a 365-day lap (like the single-report
+// meta_placement) would risk overrunning the 800s ceiling (the geo/504 lesson). 60d keeps a lap ~40s (well under
+// the drain headroom). FLOOR is the standard floor36() — Meta serves the device breakdown to the SAME ~37mo
+// aggregate limit as every other grain (verified 2026-06-28: impression_device exact at 2023-06/~36mo; #3018
+// "beyond 37 months" at 2023-05) — the assumed ~13mo breakdown floor was REFUTED, so NO special granularMonths.
+const META_DEVICE_WINDOW_DAYS = 60
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -204,6 +213,19 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_adset_ad',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_adset_ad', runMetaAdSetAdBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_META_DEVICE_BREADTH_V1 — FIRST Meta BREADTH writer (device). Captures BOTH device dimensions as two
+    // SEPARATE breakdown_type families (breakdown_type='device' ← impression_device; 'device_platform' ← device_platform)
+    // across all 4 entity levels {account,campaign,ad_set,ad} (Meta serves device at all four; spend PARTITIONS
+    // exactly → Σ device == account, FLAG-NOT-BLOCK on SPEND only; conversions=0, never reconciled — L58). Stateless-
+    // range, same driver as the other meta steps. BOUNDED 60d window (META_DEVICE_WINDOW_DAYS) — NOT 365 — because the
+    // 4×2 = 8-report fan-out per lap would risk overrunning maxDuration (the geo/504 lesson). Floor = standard floor36
+    // (device served to the ~37mo aggregate limit — verified 2026-06-28; the assumed ~13mo breakdown floor was REFUTED).
+    // Placed AFTER the meta DEPTH grains (breadth after depth). One entry → next meta drain back-fills the cohort.
+    key: 'meta_device',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_device', runMetaDeviceBackfill as RangeWriter, dryRun, META_DEVICE_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',

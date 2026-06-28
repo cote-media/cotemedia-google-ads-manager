@@ -51,6 +51,8 @@ breakdown_type = '' and breakdown_value = '' (empty string). The query layer's d
 | search_term    | google   | ad_group     | raw       | search term text (google-dimensional) | parent=campaign |
 | keyword        | google   | ad_group     | raw       | keyword text (google-dimensional)     | parent=campaign |
 | placement      | meta     | campaign     | composite | breakdowns=publisher_platform,platform_position → "<pub>:<pos>" | parent=acct |
+| device         | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=impression_device | ✅ LORAMER_META_DEVICE_BREADTH_V1; 4 levels; FLAG-NOT-BLOCK |
+| device_platform| meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=device_platform   | ✅ LORAMER_META_DEVICE_BREADTH_V1; separate family; FLAG-NOT-BLOCK |
 | geo_country    | shopify  | account      | iso       | ISO country code (shopify-metrics-row)|       |
 | geo_region     | shopify  | account      | composite | "US-CA" (shopify-metrics-row)         |       |
 | (base rows)    | all      | (native)     | sentinel  | —                                     | type='' value='' |
@@ -147,7 +149,8 @@ grain at EVERY entity level (write-only — geo is non-partitioning).
 |--------------------|--------------|----------|-------------------------|------------|
 | age_gender         | ad_set       | composite| insights breakdown      | VERIFY-AT-WRITER (the age/gender at meta-intelligence:149-151 is TARGETING config, NOT insights — do not reuse) |
 | geo                | campaign     | composite| insights breakdown      | VERIFY-AT-WRITER |
-| device             | campaign     | raw      | impression_device       | VERIFY-AT-WRITER |
+| device             | account + campaign + ad_set + ad | raw (lower verbatim) | breakdowns=impression_device | ✅ SHIPPED 2026-06-28 (LORAMER_META_DEVICE_BREADTH_V1) — 4 entity levels (Meta serves device at ALL four, probe-proven; Σ device == account spend EXACT → FLAG-NOT-BLOCK partition). values: iphone/android_smartphone/ipad/android_tablet/desktop/other. conversions=0, NEVER reconciled (L58). FLOOR=37mo aggregate limit (assumed ~13mo breakdown floor REFUTED — served at 2023-06/~36mo, #3018 at 2023-05). |
+| device_platform    | account + campaign + ad_set + ad | raw (lower verbatim) | breakdowns=device_platform | ✅ SHIPPED 2026-06-28 (LORAMER_META_DEVICE_BREADTH_V1) — SEPARATE breakdown_type family from 'device' (each its own clean partition; NEVER summed). values: desktop/mobile_app/mobile_web/unknown. Same 4 entity levels, FLAG-NOT-BLOCK, conversions=0. |
 | hourly             | campaign     | raw      | hourly_stats breakdown  | VERIFY-AT-WRITER |
 | video              | ad           | raw      | video metrics           | VERIFY-AT-WRITER |
 | ranking            | ad           | raw      | quality/engagement rank | VERIFY-AT-WRITER |
