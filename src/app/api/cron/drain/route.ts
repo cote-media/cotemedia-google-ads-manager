@@ -29,7 +29,8 @@ export const maxDuration = 800
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const BUDGET_MS = 750_000 // ~50s headroom under the 800s maxDuration for the final lap + response
+const BUDGET_MS = 680_000 // ~120s headroom under the 800s maxDuration: a step that starts just under budget (the
+                          // longest is a ~86s 40d geo lap) can finish before the platform ceiling → no 504 overrun
 
 // ── DRAIN-LEVEL CONCURRENCY CAP — connections drained per platform PER TICK. THROUGHPUT KNOB: raise to drain
 // the cohort faster (bounded by each platform's quota; each lap is backoff-gated). Woo lowest (live self-hosted).
