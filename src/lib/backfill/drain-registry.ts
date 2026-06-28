@@ -59,14 +59,15 @@ function floor36(): string {
 }
 
 const WINDOW_DAYS = 365
-// Shorter lap window for the geo breadth steps ONLY. Geo captures the FULL grain family (10 geographic_view +
-// 9 user_location_view), so a lap fetches far more rows than a single-grain step. Sized empirically 2026-06-27
-// (LIVE dry-run on the heaviest active clients, prod-adjusted: local select round-trip 187-255ms collapses to
-// ~10-15ms in prod where Vercel + Supabase are co-located, so FETCH time — location-independent — is the real
-// constraint). Measured prod-equivalent geo lap (fetch + upserts×~15ms): Bath Fitter 120d ≈ 58s, Veterinary
-// (nationwide, 1.28M rows/120d) ≈ 96s — both comfortably under the 250s drain budget with margin to ~150s for a
-// heavier client. 36-mo floor ÷ 120d ≈ 10 laps/step. (365d would be ~250s fetch alone for a nationwide client.)
-const GEO_WINDOW_DAYS = 120
+// Shorter lap window for the geo breadth steps ONLY. Geo is the heaviest dimension (full grain family × 2 entity
+// levels [campaign + ad_group] × 2 resources). Sized empirically 2026-06-27 on the heaviest active client
+// (Veterinary, nationwide), drain maxDuration=300s, function default 1024MB. BINDING constraint = MEMORY, and it
+// scales with the WINDOW (total lap volume → V8 high-water rss), NOT with the fetch chunk size (measured: 10-day
+// vs monthly chunks both peaked ~830-860MB at 60d). Measured peak-vs-window (geographic 2-level, 10-day chunks):
+// 20d → 544MB/42s, 30d → 715MB/54s, 60d → 829MB/147s. 60d (829MB) sits too close to 1024MB. 20d keeps peak ~544MB
+// (≈480MB headroom, safe even for a heavier client / spike month) and the lap ~42s. ~55 laps/step to the 36-mo
+// floor — fine for a no-37mo-clock background breadth drain. (Chunk size, below, bounds the per-QUERY buffer only.)
+const GEO_WINDOW_DAYS = 20
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin

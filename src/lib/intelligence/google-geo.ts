@@ -80,10 +80,27 @@ export const USER_GRAINS: GeoGrain[] = SEGMENTS.map(([snake, short]): GeoGrain =
   extract: (r) => r.segments?.[`geo_target_${snake}`], hasLocationType: false,
 }))
 
+// ENTITY-LEVEL axis for geo (verified live 2026-06-24): the geo VIEWS subdivide by campaign and ad_group ONLY —
+// ad_group_ad.ad.id + ad_group_criterion.criterion_id are REJECTED on BOTH views (not-served exception). Mechanism
+// = ADD the entity id to the VIEW query (geo segments are not selectable from entity resources). Campaign level =
+// the base query (extraSelect '') → byte-identical to the original campaign-only writer.
+export interface GeoEntity {
+  entityLevel: 'campaign' | 'ad_group'
+  extraSelect: string                            // extra id fields beyond the base campaign.id/campaign.name
+  entityId: (r: any) => string
+  entityName: (r: any) => string
+  parentId: (r: any, customerId: string) => string
+}
+export const GEO_ENTITIES: GeoEntity[] = [
+  { entityLevel: 'campaign', extraSelect: '', entityId: (r) => String(r.campaign?.id || ''), entityName: (r) => String(r.campaign?.name || ''), parentId: (_r, customerId) => customerId },
+  { entityLevel: 'ad_group', extraSelect: 'ad_group.id, ad_group.name', entityId: (r) => String(r.ad_group?.id || ''), entityName: (r) => String(r.ad_group?.name || ''), parentId: (r) => String(r.campaign?.id || '') },
+]
+
 export interface GeoRow {
   date: string
-  campaignId: string
-  campaignName: string
+  entityId: string
+  entityName: string
+  parentId: string
   value: string        // normalized "geoTargetConstants/<id>"
   locationType: string // UPPER name for geographic_view grains, '' for user_location_view
   spend: number
@@ -93,22 +110,26 @@ export interface GeoRow {
   convValue: number
 }
 
-// One grain over [startDate,endDate] WITH segments.date. NO status filter, NO LIMIT (capture all). Throws on a
-// non-transient error (caller logs LOUD). Rows without a campaign id / date / geo value are dropped.
+// One grain × one ENTITY LEVEL over [startDate,endDate] WITH segments.date. campaign entity = base query
+// (extraSelect '') → byte-identical to the original; ad_group entity adds ad_group.id/name. NO status filter, NO
+// LIMIT (capture all). Throws on a non-transient error (caller logs LOUD). Rows without an entity id / date / geo
+// value are dropped.
 export async function fetchGeoGrainWindow(
-  grain: GeoGrain, refreshToken: string, customerId: string, startDate: string, endDate: string
+  grain: GeoGrain, entity: GeoEntity, refreshToken: string, customerId: string, startDate: string, endDate: string
 ): Promise<GeoRow[]> {
   const customer = adsClient.Customer({ customer_id: customerId, refresh_token: refreshToken, login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID! })
   const lt = grain.hasLocationType ? ', geographic_view.location_type' : ''
-  const gaql = `SELECT campaign.id, campaign.name, ${grain.select}${lt}, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ${grain.resource} WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`
+  const extra = entity.extraSelect ? `, ${entity.extraSelect}` : ''
+  const gaql = `SELECT campaign.id, campaign.name${extra}, ${grain.select}${lt}, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ${grain.resource} WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'`
   const rows = await gaqlWithRetry(customer, gaql)
   const out: GeoRow[] = []
   for (const r of rows) {
-    if (!r.campaign?.id || !r.segments?.date) continue
+    const entityId = entity.entityId(r)
+    if (!entityId || !r.segments?.date) continue
     const value = geoConst(grain.extract(r))
     if (!value) continue
     out.push({
-      date: String(r.segments.date), campaignId: String(r.campaign.id), campaignName: String(r.campaign?.name || ''),
+      date: String(r.segments.date), entityId, entityName: entity.entityName(r), parentId: entity.parentId(r, customerId),
       value, locationType: grain.hasLocationType ? locType(r.geographic_view?.location_type) : '',
       spend: fin(r.metrics?.cost_micros) / 1e6, impressions: fin(r.metrics?.impressions), clicks: fin(r.metrics?.clicks),
       conversions: fin(r.metrics?.conversions), convValue: fin(r.metrics?.conversions_value),
@@ -117,23 +138,24 @@ export async function fetchGeoGrainWindow(
   return out
 }
 
-export async function fetchGeoGrainDay(grain: GeoGrain, refreshToken: string, customerId: string, captureDate: string): Promise<GeoRow[]> {
-  return fetchGeoGrainWindow(grain, refreshToken, customerId, captureDate, captureDate)
+export async function fetchGeoGrainDay(grain: GeoGrain, entity: GeoEntity, refreshToken: string, customerId: string, captureDate: string): Promise<GeoRow[]> {
+  return fetchGeoGrainWindow(grain, entity, refreshToken, customerId, captureDate, captureDate)
 }
 
-type Agg = { value: string; locationType: string; campaignId: string; campaignName: string; spend: number; impressions: number; clicks: number; conversions: number; convValue: number }
+type Agg = { value: string; locationType: string; entityId: string; entityName: string; parentId: string; spend: number; impressions: number; clicks: number; conversions: number; convValue: number }
 
-// Build metrics_daily rows for ONE grain on ONE day. AGGREGATES by (campaignId, value, locationType) →
-// idempotent; skips all-zero rows. breakdown_value = value[:LOCATION_TYPE for geographic_view grains]. NO reconcile.
+// Build metrics_daily rows for ONE grain × ONE entity level on ONE day. AGGREGATES by (entityId, value,
+// locationType) → idempotent; skips all-zero rows. breakdown_value = value[:LOCATION_TYPE for geographic_view
+// grains]. NO reconcile (geo is non-partitioning at every entity level).
 export function buildGeoGrainRows(
-  grain: GeoGrain, clientId: string, userEmail: string, captureDate: string, customerId: string, dayRows: GeoRow[]
+  grain: GeoGrain, entity: GeoEntity, clientId: string, userEmail: string, captureDate: string, customerId: string, dayRows: GeoRow[]
 ): Record<string, unknown>[] {
   const byKey = new Map<string, Agg>()
   for (const r of dayRows) {
-    if (!r.campaignId || !r.value) continue
-    const key = `${r.campaignId}|${r.value}|${r.locationType}`
+    if (!r.entityId || !r.value) continue
+    const key = `${r.entityId}|${r.value}|${r.locationType}`
     let a = byKey.get(key)
-    if (!a) { a = { value: r.value, locationType: r.locationType, campaignId: r.campaignId, campaignName: r.campaignName, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0 }; byKey.set(key, a) }
+    if (!a) { a = { value: r.value, locationType: r.locationType, entityId: r.entityId, entityName: r.entityName, parentId: r.parentId, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0 }; byKey.set(key, a) }
     a.spend += r.spend; a.impressions += r.impressions; a.clicks += r.clicks; a.conversions += r.conversions; a.convValue += r.convValue
   }
   const out: Record<string, unknown>[] = []
@@ -144,8 +166,8 @@ export function buildGeoGrainRows(
     const breakdownValue = grain.hasLocationType ? `${a.value}:${a.locationType}` : a.value
     out.push({
       client_id: clientId, user_email: userEmail, platform: 'google', account_id: customerId,
-      entity_level: 'campaign', entity_id: a.campaignId, entity_name: a.campaignName,
-      parent_entity_id: customerId, date: captureDate, breakdown_type: grain.breakdownType, breakdown_value: breakdownValue,
+      entity_level: entity.entityLevel, entity_id: a.entityId, entity_name: a.entityName,
+      parent_entity_id: a.parentId, date: captureDate, breakdown_type: grain.breakdownType, breakdown_value: breakdownValue,
       spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversion_value: convValue, revenue: 0,
       extra: {
         ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),

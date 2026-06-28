@@ -18,16 +18,24 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { detectTrigger } from '@/lib/cron-runs'
 import { DRAIN_REGISTRY, requiredSteps, type DrainConn } from '@/lib/backfill/drain-registry'
 
-export const maxDuration = 300
+// LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
+// sweeps instead of ~3. SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep
+// (~150s: geo 84s + device/hour/dimensional) ≪ 360s lease, so a connection is processed and released well within
+// its lease → overlapping fires (800s > 300s cron) pick DIFFERENT lease-expired connections, never double-claim
+// the same one. (If a single-connection sweep ever approaches 360s, raise the lease in migration 014.) Memory is
+// unaffected by duration — laps run sequentially, each releases; peak stays the per-lap working set.
+export const maxDuration = 800
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const BUDGET_MS = 250_000
+const BUDGET_MS = 750_000 // ~50s headroom under the 800s maxDuration for the final lap + response
 
 // ── DRAIN-LEVEL CONCURRENCY CAP — connections drained per platform PER TICK. THROUGHPUT KNOB: raise to drain
 // the cohort faster (bounded by each platform's quota; each lap is backoff-gated). Woo lowest (live self-hosted).
 const PER_PLATFORM_CAP: Record<string, number> = {
-  google: 4,
+  google: 18, // LORAMER_DRAIN_FREEMAX_V1 — = cohort size so the 750s budget + 360s lease (not an artificial cap)
+              // govern throughput; effective ~5 sweeps/fire (budget) × 5-min cron, each connection laps ~every
+              // 360s (lease) → 36-mo backfill ~6-9h vs ~2-3mo at the old 6h/cap-4. Cost unchanged (work-bound).
   meta: 4,
   ga: 4,
   shopify: 4,

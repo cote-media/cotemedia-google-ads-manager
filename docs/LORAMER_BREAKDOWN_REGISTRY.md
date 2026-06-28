@@ -26,6 +26,10 @@ ENTITY-LEVEL is a universal breadth axis (governing rule): every breadth dimensi
 
 RECONCILE POSTURE is PER-GRAIN, not per-dimension (governing rule): a grain reconciles (FLAG-NOT-BLOCK vs its anchor) ONLY if it PARTITIONS the anchor's spend; a grain that is a SUBSET is WRITE-ONLY. Decided per (dimension, entity-level), not per dimension. Verified: device × {campaign, ad_group, ad} PARTITION campaign spend → FLAG-NOT-BLOCK; device × keyword is a SEARCH-only SUBSET (keyword_view excludes PMax/Display/Search-partner spend) → WRITE-ONLY, same class as the search_term/keyword breakdowns. Reconciling a non-partition grain produces FALSE flags that drown the real ones (Gate A: keyword reconcile flagged 21/21 days on a mixed account). Test before choosing: does Σ(grain) tie to the anchor on a MIXED (non-pure-search) account? Yes → reconcile; no → write-only.
 
+DRAIN SPEED is FREE to crank; cost is WORK-BOUND, not speed-bound (governing fact, measured 2026-06-27): Vercel Pro bills ACTIVE-CPU only (I/O wait — Google API fetch, Supabase upserts — is $0); a geo lap measured 53% active-CPU / 47% I/O-wait. The cohort's full geo backfill ≈ 2-3 active-CPU-HOURS one-time ≈ ~$0.30 — trivial vs the $20/mo Pro credit. Because active-CPU scales with TOTAL WORK (rows × dims × clients × history-depth), NOT cadence, running faster does the SAME work sooner at the SAME cost. FREE-MAX drain config (LORAMER_DRAIN_FREEMAX_V1): google drain cron 6h → */5 (minute-level, Pro; ~8,640 inv/mo ≪ 1M free); maxDuration 300→800s (Pro GA, free); BUDGET_MS 250→750s; PER_PLATFORM_CAP[google] 4→18 → 36-mo backfill ~2-3 MONTHS → ~6-9 HOURS at ZERO added cost. COST CLIFF (first overage $): NOT cadence/duration/concurrency — it's VOLUME: ~17-26 deep-36mo-history clients ONBOARDING in one month (one-time backfill bursts, ~6-9 CPU-hr each), OR ~900-1500 steady clients (nightly forward across all dims). Tipping variable = onboarding rate of deep-history clients, then steady client count. SAFETY: faster cron is safe iff one connection's full step-sweep (~150s) stays under the 360s claim lease (migration 014) — overlapping 800s fires then pick different lease-expired connections, never double-claim; raise the lease if a sweep ever approaches it.
+
+PEAK-MEMORY is bounded by the LAP WINDOW, not chunk size or entity-split (governing rule, measured 2026-06-27): for a high-volume dimension (geo at 2 entity levels, nationwide client), peak rss scales with the TOTAL rows processed per lap = the WINDOW (V8 high-water; freed memory isn't returned to the OS). Fetch CHUNK size bounds only the per-QUERY buffer (10-day vs monthly both peaked ~830-860MB at 60d → chunk is NOT the memory lever). An entity-level split does NOT help either (the writer already processes one grain×entity at a time; peak = a single grain×entity×window's high-water). LEVER = shorten the lap window until peak fits the function memory limit with margin (geo: 60d=829MB too close to 1024MB → 20d=544MB safe). MEASURE peak-vs-window on the heaviest ACTIVE client; never assume chunking fixes memory.
+
 ENTITY-LEVEL is PROBED PER DIMENSION, NEVER ASSUMED (governing rule): the entity-level axis is NOT one shape — it differs per dimension and must be live-probed. A REJECTION of a (segment, entity-resource) pair = the not-served exception (don't chase it); an EMPTY result on an accepted pair = a gap (capture it). Verified shapes 2026-06-24: device = segment selectable FROM {campaign, ad_group, ad, keyword} (4 levels); hour = segment FROM {campaign, ad_group} ONLY (ad/keyword REJECTED, 2 levels); geo = segments NOT selectable from entity resources at all — instead the geo VIEWS (geographic_view/user_location_view) expose ad_group.id, so geo's entity axis = add the entity id to the view query. THREE distinct shapes — never assume the device pattern generalizes.
 
 GOOGLE ADS API COST/ACCESS (verified fact, Google docs 2026): the Google Ads API is FREE at all access levels including Standard (no charge). Standard Access = UNLIMITED ops/day; Basic = 15,000 ops/day. The entity-level query multiply (every breadth dim × every entity level = many per-grain queries) is constrained ONLY by Basic's 15k/day, which Standard removes at ZERO Google cost. Apply for Standard EARLY — the application backlog is weeks (Google acknowledged Feb 2026). Standard carries RMF (Required Minimum Functionality) requirements — review before applying. QUERY-COUNTING: one Search/SearchStream = 1 op regardless of rows returned; paginated next_page_token requests are NOT counted. So per-grain query count = ops; pagination is free.
@@ -69,7 +73,7 @@ All five VERIFIED dimensions are CAMPAIGN grain (corrected from the draft's ad_g
 |--------------------|--------------|----------|-------------------------|------------|
 | device  | campaign + ad_group + ad + keyword | raw (UPPER enum name) | segments.device, FROM campaign / ad_group / ad_group_ad / keyword_view | VERIFIED live — 4 entity grains (entity-level gap CLOSED). breakdown_type='device'. FLAG-NOT-BLOCK (partitions spend). OS/model NOT served (exception). See "Device" below. |
 | hour               | campaign + ad_group | zero-padded int "00".."23" | segments.hour (+ segments.day_of_week → extra), FROM campaign AND ad_group | VERIFIED live 2026-06-24. See "Hour" below. breakdown_type='hour'; raw-int (NOT enum → UPPER rule N/A); dow name in extra only (derived from date, dropped from key). RECONCILE=FLAG-NOT-BLOCK (partitions spend). ad/keyword NOT served. |
-| geo_* (FAMILY)     | campaign     | "geoTargetConstants/<id>" (+ ":<LOCATION_TYPE_UPPER>" on geographic_view grains) | per-grain segments across geographic_view + user_location_view | VERIFIED live 2026-06-27 (probe). FULL family — see "Geo family" subsection below. RECONCILE=NONE (write-only, non-partitioning). raw opaque id, name resolution DEFERRED. |
+| geo_* (FAMILY)     | campaign + ad_group | "geoTargetConstants/<id>" (+ ":<LOCATION_TYPE_UPPER>" on geographic_view grains) | per-grain segments across geographic_view + user_location_view, each at campaign + ad_group | VERIFIED live 2026-06-27 (probe). FULL family × 2 entity levels — see "Geo family" subsection below. RECONCILE=NONE (write-only, non-partitioning). raw opaque id, name resolution DEFERRED. |
 | age                | campaign     | raw      | FROM age_range_view     | VERIFIED in-code (google-intelligence:392) |
 | gender             | campaign     | raw      | FROM gender_view        | VERIFIED in-code (google-intelligence:405) |
 | network            | campaign     | raw      | segments.ad_network_type | VERIFY-AT-WRITER |
@@ -111,9 +115,9 @@ metrics / no per-day performance). So device OS/model performance is genuinely u
 #### Geo family (Google) — VERIFIED live 2026-06-27
 Geo is a FAMILY of grains captured PER-GRAIN (one GAQL per grain — co-selecting segments returns the
 intersection and under-captures; proven: all-9 co-select = 0 rows, city+region = city-alone ≠ region-alone).
-All entity_level='campaign', value = "geoTargetConstants/<id>" (raw opaque resource-name; country_criterion_id's
-bare id is normalized to the same form). Name resolution DEFERRED (additive later layer; gates Lora-queryability).
-RECONCILE=NONE for every geo grain (write-only).
+value = "geoTargetConstants/<id>" (raw opaque resource-name; country_criterion_id's bare id is normalized to the
+same form). Name resolution DEFERRED (additive later layer; gates Lora-queryability). RECONCILE=NONE for every geo
+grain at EVERY entity level (write-only — geo is non-partitioning).
 - geographic_view (targeted/interest) — each grain APPENDS ":<LOCATION_TYPE_UPPER>" (2→AREA_OF_INTEREST,
   3→LOCATION_OF_PRESENCE, 1→UNKNOWN, 0→UNSPECIFIED): geo_city, geo_metro, geo_region, geo_state, geo_province,
   geo_county, geo_district, geo_postal, geo_most_specific (segments.geo_target_*) + geo_country
@@ -122,8 +126,21 @@ RECONCILE=NONE for every geo grain (write-only).
   user_geo_region, user_geo_state, user_geo_province, user_geo_county, user_geo_district, user_geo_postal,
   user_geo_most_specific. = 9 grains. (user_geo_country NOT served — geo_target_country not selectable on this
   view + no country field; the ONLY acceptable omission = platform genuinely doesn't serve it.)
-- COST: 19 queries/client (10 + 9), one per grain, both forward (per day) and backfill (per window). Two drain
-  steps: 'google_geo' (geographic_view family) + 'google_user_geo' (user_location_view family).
+- ENTITY-LEVEL axis (campaign-only gap CLOSED 2026-06-27): every geo grain captured at TWO entity levels —
+  campaign (entity_level='campaign', byte-identical to the original) AND ad_group (entity_level='ad_group',
+  entity_id=ad_group.id, parent=campaign.id). Mechanism = VIEW SUBDIVISION: add ad_group.id to the geo-view query
+  (geo segments are NOT selectable from entity resources — proven REJECTED). ad × geo and keyword × geo are NOT
+  served on either view (rejected both clients) = locked not-served exception. Third distinct entity-axis shape
+  (device=segment-from-4-resources, hour=segment-from-2-resources, geo=view-subdivided-by-{campaign,ad_group}).
+  ad_group multiplier 0.88–2.15× (varies: PMax campaigns have no ad_groups → ad_group < campaign).
+- COST: 38 queries/lap (19 grains × 2 entity levels), one per grain×entity. Two drain steps: 'google_geo'
+  (geographic_view) + 'google_user_geo' (user_location_view), both at GEO_WINDOW_DAYS=20 + 10-day fetch chunks.
+- SIZING (heaviest = Veterinary nationwide, geographic 2-level, measured 2026-06-27): peak MEMORY scales with the
+  WINDOW (V8 high-water), NOT chunk size (10-day vs monthly both ~830-860MB at 60d). Window=20d → ~544MB peak
+  (under the 1024MB function default with margin) · ~42s lap · ~55 laps/step to floor. Volume is REAL (audited:
+  most_specific 22,696 distinct geo ids/month, no duplication). impression-only rows (spend=0, impressions>0) are
+  legitimate activity and ARE captured; truly-empty locations produce NO row (absence=zero, computed by Lora
+  against the geo reference universe at read time, never stored).
 
 ### Meta
 | breakdown_type     | entity_level | encoding | source field            | confidence |

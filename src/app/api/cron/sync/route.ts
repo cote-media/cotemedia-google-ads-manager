@@ -13,7 +13,7 @@ import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
-import { GEOGRAPHIC_GRAINS, USER_GRAINS, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
+import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
@@ -503,13 +503,15 @@ export async function GET(request: Request) {
           try {
             let famRows = 0
             for (const grain of grains) {
-              const built = buildGeoGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchGeoGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
-              if (built.length > 0) {
-                const { error: geoError } = await supabaseAdmin
-                  .from('metrics_daily')
-                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
-                if (geoError) throw geoError
-                summary.rowsWritten += built.length; famRows += built.length
+              for (const entity of GEO_ENTITIES) {
+                const built = buildGeoGrainRows(grain, entity, client.id, userEmail, captureDate, customerId, await fetchGeoGrainDay(grain, entity, tokenRow.refresh_token, customerId, captureDate))
+                if (built.length > 0) {
+                  const { error: geoError } = await supabaseAdmin
+                    .from('metrics_daily')
+                    .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                  if (geoError) throw geoError
+                  summary.rowsWritten += built.length; famRows += built.length
+                }
               }
             }
             if (famRows === 0) {
