@@ -53,6 +53,9 @@ breakdown_type = '' and breakdown_value = '' (empty string). The query layer's d
 | placement      | meta     | campaign     | composite | breakdowns=publisher_platform,platform_position → "<pub>:<pos>" | parent=acct |
 | device         | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=impression_device | ✅ LORAMER_META_DEVICE_BREADTH_V1; 4 levels; FLAG-NOT-BLOCK |
 | device_platform| meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=device_platform   | ✅ LORAMER_META_DEVICE_BREADTH_V1; separate family; FLAG-NOT-BLOCK |
+| age            | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=age               | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; FLAG-NOT-BLOCK |
+| gender         | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=gender            | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; FLAG-NOT-BLOCK |
+| age_gender     | meta     | account+campaign+ad_set+ad | composite   | breakdowns=age,gender → "<age>:<gender>" | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; the joint; FLAG-NOT-BLOCK |
 | geo_country    | shopify  | account      | iso       | ISO country code (shopify-metrics-row)|       |
 | geo_region     | shopify  | account      | composite | "US-CA" (shopify-metrics-row)         |       |
 | (base rows)    | all      | (native)     | sentinel  | —                                     | type='' value='' |
@@ -147,7 +150,9 @@ grain at EVERY entity level (write-only — geo is non-partitioning).
 ### Meta
 | breakdown_type     | entity_level | encoding | source field            | confidence |
 |--------------------|--------------|----------|-------------------------|------------|
-| age_gender         | ad_set       | composite| insights breakdown      | VERIFY-AT-WRITER (the age/gender at meta-intelligence:149-151 is TARGETING config, NOT insights — do not reuse) |
+| age                | account + campaign + ad_set + ad | raw (lower) | breakdowns=age | ✅ SHIPPED 2026-06-28 (LORAMER_META_AGE_GENDER_BREADTH_V1) — 4 entity levels (Meta serves age at ALL four, probe+Gate-A proven; Σ age == account spend EXACT → FLAG-NOT-BLOCK partition). values: 18-24/25-34/35-44/45-54/55-64/65+/unknown (Meta "Unknown"→lower). conversions=0, never reconciled (L58). FLOOR=37mo (#3018 at 2023-05; reconciled exact at 2023-06/~36mo). |
+| gender             | account + campaign + ad_set + ad | raw (lower) | breakdowns=gender | ✅ SHIPPED 2026-06-28 (LORAMER_META_AGE_GENDER_BREADTH_V1) — same 4 levels, FLAG-NOT-BLOCK. values: female/male/unknown. SEPARATE family from age (each its own partition). |
+| age_gender         | account + campaign + ad_set + ad | composite | breakdowns=age,gender → "<age>:<gender>" (both lower, e.g. "25-34:female") | ✅ SHIPPED 2026-06-28 (LORAMER_META_AGE_GENDER_BREADTH_V1) — the JOINT (age×gender); ~20 combos; same 4 levels, FLAG-NOT-BLOCK. THREE separate families captured (age, gender, age_gender; never summed) — the cross is information-complete but age/gender stay first-class queryable. CORRECTS the prior "ad_set only / VERIFY-AT-WRITER" draft. |
 | geo                | campaign     | composite| insights breakdown      | VERIFY-AT-WRITER |
 | device             | account + campaign + ad_set + ad | raw (lower verbatim) | breakdowns=impression_device | ✅ SHIPPED 2026-06-28 (LORAMER_META_DEVICE_BREADTH_V1) — 4 entity levels (Meta serves device at ALL four, probe-proven; Σ device == account spend EXACT → FLAG-NOT-BLOCK partition). values: iphone/android_smartphone/ipad/android_tablet/desktop/other. conversions=0, NEVER reconciled (L58). FLOOR=37mo aggregate limit (assumed ~13mo breakdown floor REFUTED — served at 2023-06/~36mo, #3018 at 2023-05). |
 | device_platform    | account + campaign + ad_set + ad | raw (lower verbatim) | breakdowns=device_platform | ✅ SHIPPED 2026-06-28 (LORAMER_META_DEVICE_BREADTH_V1) — SEPARATE breakdown_type family from 'device' (each its own clean partition; NEVER summed). values: desktop/mobile_app/mobile_web/unknown. Same 4 entity levels, FLAG-NOT-BLOCK, conversions=0. |

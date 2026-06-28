@@ -21,6 +21,7 @@ import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
 import { runMetaDeviceBackfill } from './meta-device-backfill'
+import { runMetaAgeGenderBackfill } from './meta-age-gender-backfill'
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -79,6 +80,13 @@ export const GEO_WINDOW_DAYS = 40 // exported: drives the drain's memory-cap N c
 // aggregate limit as every other grain (verified 2026-06-28: impression_device exact at 2023-06/~36mo; #3018
 // "beyond 37 months" at 2023-05) — the assumed ~13mo breakdown floor was REFUTED, so NO special granularMonths.
 const META_DEVICE_WINDOW_DAYS = 60
+
+// LORAMER_META_AGE_GENDER_BREADTH_V1 — SHORTER window than device. age/gender runs 3 breakdown families
+// (age, gender, age_gender) × 4 entity levels = 12 insights reports/lap (vs device's 8), and the age_gender cross is
+// row-heavy → Gate A measured an estimated 60d LIVE lap ~154s (OVER the ~120s drain headroom under the 800s ceiling).
+// 30d keeps a lap ~77s (SAFE). FLOOR = standard floor36 (demo served to the SAME ~37mo aggregate limit as device — Gate A
+// reconciled EXACT at 2023-06/~36mo; #3018 only at 2023-05, which floor36's clamp never reaches). NO special granularMonths.
+const META_AGE_GENDER_WINDOW_DAYS = 30
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -226,6 +234,17 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_device',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_device', runMetaDeviceBackfill as RangeWriter, dryRun, META_DEVICE_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_AGE_GENDER_BREADTH_V1 — Meta demographics breadth (age + gender + the age,gender cross). THREE
+    // SEPARATE breakdown_type families {age, gender, age_gender} across all 4 entity levels {account,campaign,ad_set,ad};
+    // each PARTITIONS account spend exactly → Σ family == account, FLAG-NOT-BLOCK on SPEND only (conversions=0, never
+    // reconciled — L58). Stateless-range. 30d window (META_AGE_GENDER_WINDOW_DAYS) — SHORTER than meta_device's 60d
+    // because the 3×4=12-report fan-out + the row-heavy cross would push a 60d lap ~154s (over the 800s headroom);
+    // 30d ≈ 77s (Gate A timing). Floor = standard floor36 (demo served to the 37mo limit, Gate A). After meta_device.
+    key: 'meta_age_gender',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_age_gender', runMetaAgeGenderBackfill as RangeWriter, dryRun, META_AGE_GENDER_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
