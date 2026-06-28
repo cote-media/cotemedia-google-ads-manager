@@ -61,13 +61,15 @@ function floor36(): string {
 const WINDOW_DAYS = 365
 // Shorter lap window for the geo breadth steps ONLY. Geo is the heaviest dimension (full grain family × 2 entity
 // levels [campaign + ad_group] × 2 resources). Sized empirically 2026-06-27 on the heaviest active client
-// (Veterinary, nationwide), drain maxDuration=300s, function default 1024MB. BINDING constraint = MEMORY, and it
-// scales with the WINDOW (total lap volume → V8 high-water rss), NOT with the fetch chunk size (measured: 10-day
-// vs monthly chunks both peaked ~830-860MB at 60d). Measured peak-vs-window (geographic 2-level, 10-day chunks):
-// 20d → 544MB/42s, 30d → 715MB/54s, 60d → 829MB/147s. 60d (829MB) sits too close to 1024MB. 20d keeps peak ~544MB
-// (≈480MB headroom, safe even for a heavier client / spike month) and the lap ~42s. ~55 laps/step to the 36-mo
-// floor — fine for a no-37mo-clock background breadth drain. (Chunk size, below, bounds the per-QUERY buffer only.)
-export const GEO_WINDOW_DAYS = 20 // exported: drives the drain's memory-cap N computation (step 3)
+// (Veterinary, nationwide). BINDING constraint = MEMORY, scaling with the WINDOW (total lap volume → V8 high-water
+// rss), NOT the fetch chunk size (measured: 10-day vs monthly both ~830-860MB at 60d). Measured peak-vs-window
+// (geographic 2-level, 10-day chunks): 20d → 544MB/42s · 40d → 690MB/70s · 60d → 829MB/147s.
+// STEP 4 free dial (2026-06-28): set to 40d on the 2GB Standard fluid instance + the bounded-concurrency runner at
+// N=2 → 2×690 = 1380MB ≤ 2048−256 margin (~412MB headroom; clampConcurrency permits N=2 at 40d). 40d → 1095/40 ≈
+// 27-28 laps/step to the 36-mo floor; a priority-HIGH new client (1 lap per 360s lease) reaches floor in ~27×360
+// ≈ 2.7hr. The 40d sweep (~245-290s incl. fixed steps) stays under the 360s lease (migration 014). (Chunk size,
+// below, bounds the per-QUERY buffer only.)
+export const GEO_WINDOW_DAYS = 40 // exported: drives the drain's memory-cap N computation (step 3); STEP 4 free dial
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
