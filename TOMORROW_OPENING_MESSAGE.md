@@ -3,19 +3,42 @@ MAINTENANCE RULE: this file is overwritten IN FULL at every wrap — purge stale
 
 ---
 
-RESUME: in claude.ai say **resume loramer** → I output the digest-first cold-gate paste; paste it back; the freshness gate runs (FRESH → one paste, done). The resume flow's source of truth is **RESUME_INSTRUCTIONS.md** — do not restate the steps here, follow it.
+RESUME: in claude.ai say **resume loramer** → digest-first cold-gate paste; paste back; freshness gate runs. Source of truth for the resume flow = **RESUME_INSTRUCTIONS.md** (follow it, don't restate).
 
-WHERE TODAY (2026-06-26) LEFT OFF:
-- DEPTH ARC COMPLETE — Google ad_group/ad + Meta campaign + Meta ad_set/ad backfill writers all shipped, wired into the auto-drain, and drained live this session. With the earlier Google campaign work, every Google + Meta spend grain (account → campaign → ad_group|ad_set → ad) now has a writer + an automatic drain step (sync_state keys: google_campaign, google_adgroup_ad, meta_campaign, meta_placement, meta_adset_ad). They keep draining to the 36-mo floor on the 6h cron — no manual action.
-- UNIFIED LIVE + BREADTH design LOCKED & committed: **docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md** (LORAMER_LIVE_BREADTH_UNIFIED_DESIGN_V1). Direction B = captured `metrics_daily` stays the reconciled SYSTEM-OF-RECORD; a SEPARATE sibling live store (keyed by `as_of`) holds live/realtime/sub-daily; Lora reconciles across + ALWAYS labels which store. Read it before proposing Live/Breadth work.
-- PHASE 1 CONSOLIDATION COMPLETE — shared `reconcileDay` primitive + shared fetch primitives (`gaqlWithRetry` / `metaFetchAllPaged`); the 5 ad-grain writers now share them (zero behavior change, proven OLD-vs-NEW).
+WHERE TONIGHT (2026-06-27) LEFT OFF — Phase 2 BREADTH well underway:
 
-NEXT STEP — **Phase 2 BREADTH** (design §7). Open it with the GA FOUNDATIONAL decision FIRST: GA persists ONLY account totals today (every GA dimension is live-only, never captured), so GA breadth needs a session/user **metric-columns-vs-extra-jsonb** decision. Then the breakdown registry + an `entity_level` CHECK, then the dimension writers (Google device/network/geo/age-gender/hour/impression-share/video/all_conversions; Meta age-gender/geo/device/hourly/video/ranking; GA/Shopify/Woo breadth) — each reconciling via the shared primitives. Breadth has NO 37-mo clock (indefinite retention) → no rush; lead with a read-first investigation on the GA fork.
+SHIPPED + PUSHED today (LIVE in prod):
+- DEVICE breadth — full 4-entity-grain family (campaign / ad_group / ad / keyword × device), per-grain reconcile (campaign/ad_group/ad = FLAG-NOT-BLOCK partition; keyword = write-only subset). UPPER enum encoding.
+- GEO breadth (campaign-grain) + HOUR breadth (campaign + ad_group) — shipped earlier today, live.
+- (device/geo/hour forward-capture wired into cron/sync + cron/catchup; drain steps registered.)
 
-ACTIVE QUEUE + FUTURE NOTES: all live in **LORAMER_QUEUE_OF_RECORD.md** (do not duplicate). Includes the banked items (Standard Access promoted launch-critical; iMac⇄Air parity + prod-Google-secrets fork; 18-connection hygiene audit; demo-twin 2617b163 campaign re-drain; Influential Drones connection health; standing rules: read-first existence check + verify-external-UI-before-instructing) + Phase-1b future notes (unify-the-two-Google-retries; Meta 100/1487534 narrow-and-retry).
+COMMITTED, NOT PUSHED — origin/main = 2aa704c, local is **2 commits ahead** (decide push next session):
+- 0ef861b — GEO entity expansion (campaign + ad_group, write-only, 20d window / 10-day chunks, 544MB-safe) + DRAIN FREE-MAX config (google drain cron 6h→*/5; maxDuration 300→800; BUDGET_MS 250→750; PER_PLATFORM_CAP[google] 4→18). Net: 36-mo backfill ~2-3mo → ~9-20hr at ~$0 added cost (work-bound, not speed-bound).
+- ef7575e — self-serve backfill findings doc (investigation only).
+- HELD because the self-serve design (open thread #1) may revise the drain config — don't push until that's settled, OR push as-is if you want the free-max speedup live now (geo entity expansion is safe + done regardless). Code commit → run `npm run build` before pushing.
 
-MACHINES: works on the iMac (`~/Downloads/cotemedia-ads-manager`) AND the MacBook Air (`~/Downloads/cotemedia-google-ads-manager` — folder name differs BY DESIGN, never "fix" it). `git pull` at session start; GitHub `main` is the source of truth. Local-env PARITY is a queued job: the iMac local env can't run the live Google path (its OAuth app ≠ prod's that minted the refresh tokens → `unauthorized_client`), so Google Gate-A runs as a PROD dry-run (zero writes); Meta runs locally fine.
+OPEN THREAD #1 (next big piece) — SELF-SERVE BACKFILL ARCHITECTURE, not yet designed. READ **docs/LORAMER_SELFSERVE_BACKFILL_FINDINGS.md** FIRST. Spine = connect-triggered kickoff (today: none — connections just wait for the 5-min round-robin) + new-client priority tier (today: flat round-robin) + concurrency that holds per-customer speed at scale (customer #5 AND #500). Russ's own clients are the first connections through this spine — it IS how his clients get backfilled fast now. Build "as if" real scale.
 
-DISCIPLINE: RIGHT > FAST. Russ doesn't touch code — every command paste-ready with the destination labeled; every report in ONE fenced code block. Freeze posture: the live reviewer app is FROZEN until the Meta decision (new UI → `-next` only); backend writers/primitives/new stores are freeze-safe. Every push to `main` auto-deploys to Vercel — `npm run build` is the pre-push gate.
+OPEN THREAD #2 — clearly-free backfill speed: measure 40d-window PEAK MEMORY on a heavy ACTIVE client (extrapolated ~750MB, NOT yet measured); if ≤~800MB, apply window 40d + lease 360→300s → ~2-2.5hr backfill, clearly free. Fallback 30d if 40d spikes.
+
+KNOWN CONSTRAINTS (from the findings doc — do not relitigate):
+- Lease must stay >250s: full single-connection sweep = 187-250s; lease→200s is DEAD (mid-sweep double-claim). Current 360s safe; 300s safe.
+- Vercel fluid PACKS concurrent invocations into one shared-memory instance → free concurrency needs SMALLER per-sweep window (not per-instance isolation, which isn't guaranteed). PAID lever = raise instance memory. TODO: verify the project's fluid instance memory default + observed co-location in the Vercel dashboard runtime logs (Lesson 57: confirm from source).
+- Speed = laps(=1095/window, memory-bounded) × lease(>250s) ÷ concurrency(memory-bounded); all three free knobs are memory-bounded on the free 1024MB instance. Cost is work-bound (~$0.30 cohort geo). Cost cliff = VOLUME (~17-26 deep-history onboards/mo, or ~900-1500 steady clients), NOT speed.
+
+REMAINING PROGRAM:
+- Completeness-sweep TRACKER doc — still UNWRITTEN (per-platform × dimension × entity-level map). Write next session.
+- Google breadth remaining: network, impression_share, video, all_conversions (all VERIFY-AT-WRITER — probe shape/entity-axis/reconcile per the established discipline before authoring). Then Meta / Shopify / GA4 / Woo breadth.
+- Then: the (platform, breakdown_type) query-allowlist edit (makes device/geo/hour Lora-VISIBLE — STOP-and-confirm, live read-path) + geo-id → readable-name resolution layer (both gate when these dims become queryable by Lora).
+
+PRODUCTION CHARTER: the bar is commercial-grade, self-serve, ~100% complete by July 14, 2026. (Charter doc was discussed but NOT yet written — write it next session too.)
+
+EXTERNAL / RUSS-ACTION:
+- Google Ads API Center "Intended Use" box still says internal-only — this CONTRADICTS the external Tool Change request and is likely why it's stuck. Russ: replace it with the reporting-only text, leave Company Type, ask Compliance.
+- Meta token refresh ~July 10 (cote@ ~60d life).
+
+MACHINES: iMac `~/Downloads/cotemedia-ads-manager` AND MacBook Air `~/Downloads/cotemedia-google-ads-manager` (folder names differ BY DESIGN). `git pull` at session start; GitHub `main` = source of truth. The Air's local env CAN run the live Google Gate-A path (prod creds present); the iMac CANNOT (its OAuth app ≠ prod → unauthorized_client) — banked parity item.
+
+DISCIPLINE: RIGHT > FAST. Russ doesn't touch code — paste-ready commands, destination labeled, every reply ONE fenced block. Backend writers/config = freeze-safe; new UI → -next only (reviewer app frozen till the Meta decision). Every push to main auto-deploys; `npm run build` is the pre-push gate.
 
 ---
