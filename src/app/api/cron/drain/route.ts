@@ -18,6 +18,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { detectTrigger } from '@/lib/cron-runs'
 import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '@/lib/backfill/drain-registry'
 import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
+import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
+import { readGoogleQuotaPause, writeGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
 // sweeps instead of ~3. SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep
@@ -65,6 +67,17 @@ export async function GET(request: Request) {
   const requiredSet = new Set(required)
   const trigger = detectTrigger(request)
   const started = Date.now()
+
+  // LORAMER_GOOGLE_QUOTA_GUARD_V1 — the Google Ads quota is DEVELOPER-token scoped = GLOBAL across all google
+  // clients. If a prior lap tripped the global pause, skip the ENTIRE google fire until the reset window
+  // elapses (clock-based auto-resume in readGoogleQuotaPause — no manual unblock). Non-google platforms never
+  // read it. Checked BEFORE the connection query so a paused fire does zero outbound Google work.
+  if (platform === 'google') {
+    const qp = await readGoogleQuotaPause()
+    if (qp.paused) {
+      return NextResponse.json({ platform, dryRun, trigger, cap, ok: true, selected: 0, quotaPaused: true, quotaUntil: qp.until, note: `google quota paused until ${qp.until}`, results: [] }, { status: 200 })
+    }
+  }
 
   // 1) Existing connections for this platform (optionally one). NO-OP if none exist.
   let q = supabaseAdmin
@@ -119,10 +132,13 @@ export async function GET(request: Request) {
   const concurrency = clampConcurrency(BACKFILL_CONCURRENCY, GEO_WINDOW_DAYS)
   const token = `drain-${platform}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const results: any[] = []
+  const failedSteps: any[] = [] // LORAMER_GOOGLE_QUOTA_GUARD_V1 CHANGE 1 — durable, visible failures; a dead/non-advancing lap can never read as a green fire
+  const quotaBox: { hit: { resetIso: string; detail: string } | null } = { hit: null } // CHANGE 3 — object box: a closure-mutated object prop stays its declared type (a plain `let` would CFA-narrow to null after the pool)
   let drained = 0
   let claimSkipped = 0
   const overBudget = () => Date.now() - started > BUDGET_MS
   await runPool(pending, concurrency, async (row) => {
+    if (quotaBox.hit) return // CHANGE 3 — quota tripped earlier this fire: do no more google work
     // Atomic single-owner claim (360s lease). Loser → skip (another tick/runner owns it).
     const { data: claimRows, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
       p_client_id: row.client_id,
@@ -147,7 +163,19 @@ export async function GET(request: Request) {
       try {
         lap = await step.runLap(conn, { dryRun })
       } catch (e: any) {
-        stepResults.push({ step: step.key, error: 'lap threw', detail: String(e?.message ?? e) })
+        if (e instanceof GoogleQuotaError) {
+          // CHANGE 3 — developer-scope quota: pause ALL google work this fire; the global marker is written
+          // after the pool drains. Recorded as a loud, distinct failure (NOT a green step).
+          quotaBox.hit = { resetIso: e.resetIso, detail: e.message }
+          stepResults.push({ step: step.key, error: 'google_quota', detail: e.message, resetIso: e.resetIso })
+          failedSteps.push({ client_id: row.client_id, step: step.key, kind: 'google_quota', resetIso: e.resetIso, detail: e.message })
+          console.error(`[drain] GOOGLE QUOTA (developer-scope) → pausing google until ${e.resetIso} | client=${row.client_id} step=${step.key}`)
+          break
+        }
+        const detail = String(e?.message ?? e)
+        stepResults.push({ step: step.key, error: 'lap threw', detail })
+        failedSteps.push({ client_id: row.client_id, step: step.key, kind: 'threw', detail }) // CHANGE 1
+        console.error(`[drain] LAP THREW | platform=${platform} client=${row.client_id} step=${step.key}: ${detail}`)
         continue
       }
       let markedDone = false
@@ -166,6 +194,12 @@ export async function GET(request: Request) {
         markedDone = !upd.error
       }
       stepResults.push({ step: step.key, lapDone: lap.done, markedDone, detail: lap.detail })
+      if (isLapFailure(lap)) {
+        // CHANGE 1 — a writer non-200 (rangeLap returns done:false + detail.error 'writer failed'). This is
+        // exactly the silent stall: previously buried under a 200. Surface it loudly + durably.
+        failedSteps.push({ client_id: row.client_id, step: step.key, kind: 'writer-failed', detail: lap.detail })
+        console.error(`[drain] LAP FAILED | platform=${platform} client=${row.client_id} step=${step.key}: ${JSON.stringify(lap.detail).slice(0, 500)}`)
+      }
     }
     drained++
     results.push({ client_id: row.client_id, steps: stepResults })
@@ -176,7 +210,15 @@ export async function GET(request: Request) {
         .update({ backfill_claim_token: null, backfill_claimed_at: null })
         .eq('client_id', row.client_id).eq('platform', drainKey)
     }
-  }, () => drained >= cap || overBudget())
+  }, () => drained >= cap || overBudget() || quotaBox.hit !== null) // CHANGE 3 — stop scheduling once quota trips
+
+  // CHANGE 3 — persist the GLOBAL pause so subsequent fires skip google until the reset window. Skipped on
+  // dryRun (a diagnostic dry-run must not pause production). Best-effort; a failed write self-heals next fire.
+  const qh = quotaBox.hit
+  if (qh && !dryRun) {
+    try { await writeGoogleQuotaPause(qh.resetIso, qh.detail) }
+    catch (e: any) { console.error(`[drain] failed to persist google quota pause: ${String(e?.message ?? e)}`) }
+  }
 
   return NextResponse.json({
     platform, dryRun, trigger, cap, concurrency,
@@ -184,6 +226,10 @@ export async function GET(request: Request) {
     selected: drained,
     claimSkipped,
     required,
+    ok: failedSteps.length === 0, // CHANGE 1 — green ONLY when zero failed steps
+    failed: failedSteps.length,
+    failedSteps,
+    ...(qh ? { quotaPaused: true, quotaUntil: qh.resetIso } : {}),
     results,
   }, { status: 200 })
 }

@@ -7,6 +7,8 @@
 // table truncates ~30 chars and free-tier logs expire in 1h), so the next occurrence captures the
 // exact GoogleAdsFailure / gRPC status that justified (or didn't) the retry.
 
+import { classifyGoogleAdsError, GoogleQuotaError } from './backfill/google-quota'
+
 const TRANSIENT_GRPC = new Set([4, 13, 14]) // DEADLINE_EXCEEDED, INTERNAL, UNAVAILABLE
 const TRANSIENT_RE = /DEADLINE_EXCEEDED|INTERNAL\b|UNAVAILABLE|deadline exceeded|temporar|service is currently unavailable|ETIMEDOUT|ECONNRESET|socket hang up/i
 
@@ -33,6 +35,10 @@ export async function withGaqlRetry<T>(label: string, fn: () => Promise<T>, atte
       return await fn()
     } catch (e: any) {
       lastErr = e
+      // LORAMER_GOOGLE_QUOTA_GUARD_V1: developer-scope quota_error (read from e.errors[0]) → throw a typed
+      // GoogleQuotaError, do NOT retry (reset is hours away, retrying just burns more ops). Transient unchanged.
+      const k = classifyGoogleAdsError(e)
+      if (k.quota) { console.error(`[gaql] ${label} GOOGLE QUOTA (developer-scope) reset=${k.resetIso}: ${describe(e)}`); throw new GoogleQuotaError(k.resetIso!, k.detail) }
       const transient = isTransient(e)
       console.error(`[gaql] ${label} attempt ${i + 1}/${attempts} failed transient=${transient}: ${describe(e)}`)
       if (!transient || i === attempts - 1) throw e
