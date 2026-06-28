@@ -16,7 +16,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { detectTrigger } from '@/lib/cron-runs'
-import { DRAIN_REGISTRY, requiredSteps, type DrainConn } from '@/lib/backfill/drain-registry'
+import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '@/lib/backfill/drain-registry'
+import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
 // sweeps instead of ~3. SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep
@@ -109,24 +110,27 @@ export async function GET(request: Request) {
     return ta < tb ? -1 : ta > tb ? 1 : 0
   })
 
-  // 4) Drain up to `cap` connections, one step-lap each, under the atomic claim.
+  // 4) Drain up to `cap` connections, one step-lap each, under the atomic claim. BOUNDED-CONCURRENCY (step 3):
+  // up to `concurrency` sweeps run in PARALLEL via runPool; each runner claims its OWN connection through the
+  // SAME atomic CAS (migration 014) — distinct connections per runner + the CAS single-owner guard ⇒ no two
+  // runners ever hold the same connection (double-claim-safe under concurrency; the lock is UNCHANGED).
+  // `concurrency` is hard-capped to fit 2GB by clampConcurrency (reduces N rather than risk OOM).
+  const concurrency = clampConcurrency(BACKFILL_CONCURRENCY, GEO_WINDOW_DAYS)
   const token = `drain-${platform}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const results: any[] = []
   let drained = 0
   let claimSkipped = 0
-  for (const row of pending) {
-    if (drained >= cap) break
-    if (Date.now() - started > BUDGET_MS) break
-
-    // Atomic single-owner claim (360s lease). Loser → skip (another tick owns it).
+  const overBudget = () => Date.now() - started > BUDGET_MS
+  await runPool(pending, concurrency, async (row) => {
+    // Atomic single-owner claim (360s lease). Loser → skip (another tick/runner owns it).
     const { data: claimRows, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
       p_client_id: row.client_id,
       p_platform: drainKey,
       p_token: token,
     })
-    if (claimErr) { results.push({ client_id: row.client_id, error: 'claim failed', detail: claimErr.message }); continue }
+    if (claimErr) { results.push({ client_id: row.client_id, error: 'claim failed', detail: claimErr.message }); return }
     const claim = Array.isArray(claimRows) ? (claimRows[0] as any) : (claimRows as any)
-    if (!claim?.claimed) { claimSkipped++; continue }
+    if (!claim?.claimed) { claimSkipped++; return }
 
     const conn: DrainConn = { client_id: row.client_id, platform, account_id: row.account_id }
     let curDone: string[] = Array.isArray(row.onboard_steps_done) ? [...row.onboard_steps_done] : []
@@ -171,10 +175,10 @@ export async function GET(request: Request) {
         .update({ backfill_claim_token: null, backfill_claimed_at: null })
         .eq('client_id', row.client_id).eq('platform', drainKey)
     }
-  }
+  }, () => drained >= cap || overBudget())
 
   return NextResponse.json({
-    platform, dryRun, trigger, cap,
+    platform, dryRun, trigger, cap, concurrency,
     pendingTotal: pending.length,
     selected: drained,
     claimSkipped,

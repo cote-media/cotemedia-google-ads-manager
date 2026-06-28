@@ -67,7 +67,7 @@ const WINDOW_DAYS = 365
 // 20d → 544MB/42s, 30d → 715MB/54s, 60d → 829MB/147s. 60d (829MB) sits too close to 1024MB. 20d keeps peak ~544MB
 // (≈480MB headroom, safe even for a heavier client / spike month) and the lap ~42s. ~55 laps/step to the 36-mo
 // floor — fine for a no-37mo-clock background breadth drain. (Chunk size, below, bounds the per-QUERY buffer only.)
-const GEO_WINDOW_DAYS = 20
+export const GEO_WINDOW_DAYS = 20 // exported: drives the drain's memory-cap N computation (step 3)
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
