@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   // 1) Existing connections for this platform (optionally one). NO-OP if none exist.
   let q = supabaseAdmin
     .from('platform_connections')
-    .select('client_id, platform, account_id, onboard_steps_done')
+    .select('client_id, platform, account_id, onboard_steps_done, backfill_priority')
     .eq('platform', platform)
   if (onlyClientId) q = q.eq('client_id', onlyClientId)
   const { data: rows, error: connErr } = await q
@@ -88,7 +88,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ platform, dryRun, trigger, cap, selected: 0, note: 'nothing pending — no-op', results: [] }, { status: 200 })
   }
 
-  // 3) Round-robin: least-recently-claimed (under the __drain_ key) first; never-claimed (null) first.
+  // 3) PRIORITY LANE then round-robin: backfill_priority DESC (HIGH new-clients first), then least-recently-claimed
+  // (under the __drain_ key) first; never-claimed (null) first. ORDERING-ONLY — this does NOT touch the claim/lease
+  // lock below (acquire+release timing is byte-identical); changing which UNCLAIMED connection is tried first
+  // cannot introduce a double-claim (the lock still guards every actual claim).
   const drainKey = '__drain_' + platform
   const { data: claims } = await supabaseAdmin
     .from('sync_state')
@@ -98,7 +101,10 @@ export async function GET(request: Request) {
   const claimedAt = new Map<string, string | null>()
   for (const c of claims ?? []) claimedAt.set((c as any).client_id, (c as any).backfill_claimed_at)
   pending.sort((a: any, b: any) => {
-    const ta = claimedAt.get(a.client_id) ?? '' // null/absent → '' sorts first (least recent)
+    const pa = Number(a.backfill_priority ?? 0) // higher = more urgent (new-client HIGH); default 0 = normal
+    const pb = Number(b.backfill_priority ?? 0)
+    if (pa !== pb) return pb - pa // priority DESC
+    const ta = claimedAt.get(a.client_id) ?? '' // tie-break: null/absent → '' sorts first (least recent)
     const tb = claimedAt.get(b.client_id) ?? ''
     return ta < tb ? -1 : ta > tb ? 1 : 0
   })
@@ -142,9 +148,13 @@ export async function GET(request: Request) {
       let markedDone = false
       if (!dryRun && lap.done) {
         curDone = Array.from(new Set([...curDone, step.key]))
+        // Priority DECAY: when this connection becomes fully onboarded (curDone ⊇ requiredSteps), drop it from the
+        // new-client HIGH lane back to normal. Written in the SAME onboard_steps_done update (no extra round-trip,
+        // does NOT touch the claim/lease). New-client HIGH is SET on connect (build step 2).
+        const nowComplete = requiredSet.size > 0 && [...requiredSet].every((k) => curDone.includes(k))
         const upd = await supabaseAdmin
           .from('platform_connections')
-          .update({ onboard_steps_done: curDone })
+          .update(nowComplete ? { onboard_steps_done: curDone, backfill_priority: 0 } : { onboard_steps_done: curDone })
           .eq('client_id', row.client_id)
           .eq('platform', platform)
           .eq('account_id', row.account_id)

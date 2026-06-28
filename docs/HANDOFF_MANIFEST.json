@@ -82,5 +82,11 @@
     "last_reconciled_date": "2026-06-27",
     "last_reconciled_head": "ef7575e",
     "line_count": 13
+  },
+  "docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md": {
+    "content_hash": "abe3de92f54c6513a5f827b5abff3ac8008ff8b0dc2664b37ec9cacbf5ed2e4d",
+    "last_reconciled_date": "2026-06-27",
+    "last_reconciled_head": "60dbc57",
+    "line_count": 125
   }
 }
