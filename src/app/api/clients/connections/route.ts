@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -19,11 +20,13 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('platform_connections')
-    .insert({ client_id, platform, account_id, account_name, user_email: session.user.email })
+    .insert({ client_id, platform, account_id, account_name, user_email: session.user.email, backfill_priority: 10 })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff: new connection = HIGH priority + immediate drain.
+  kickoffBackfill(new URL(request.url).origin, client_id, platform)
   return NextResponse.json({ connection: data })
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
 
 // LORAMER_WOO_CALLBACK_V1
 // POST /api/woocommerce/callback?clientId=X&shop=https://store.com
@@ -87,12 +88,16 @@ export async function POST(request: Request) {
     platform: 'woocommerce',
     account_id: shop,
     account_name: shop.replace(/^https?:\/\//, ''),
+    backfill_priority: 10,
   })
 
   if (insert.error) {
     console.error('[woo callback] platform_connections insert failed:', insert.error)
     // Tokens are saved; UI will recover next sign-in. Still 200 so
     // WordPress doesn't keep retrying.
+  } else {
+    // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff.
+    kickoffBackfill(new URL(request.url).origin, clientId, 'woocommerce')
   }
 
   return NextResponse.json({ success: true })

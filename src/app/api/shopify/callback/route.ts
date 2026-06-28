@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import crypto from 'crypto'
 import { signInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
+import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
 
 const GRAPHQL_API_VERSION = '2025-01' // LORAMER_GRAPHQL_MIGRATION_V1
 
@@ -124,12 +125,15 @@ export async function GET(request: Request) {
       platform: 'shopify',
       account_id: shop,
       account_name: shopName,
+      backfill_priority: 10,
     })
 
     await supabaseAdmin
       .from('shopify_tokens')
       .upsert({ user_email: userEmail, ...tokenFields }, { onConflict: 'user_email,shop_domain' })
 
+    // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff.
+    kickoffBackfill(new URL(request.url).origin, clientId, 'shopify')
     return NextResponse.redirect(new URL('/clients?shopify_connected=true', request.url))
   }
 
@@ -198,6 +202,7 @@ export async function GET(request: Request) {
       platform: 'shopify',
       account_id: shop,
       account_name: shopName,
+      backfill_priority: 10,
     })
 
     // Upsert tokens
@@ -205,6 +210,8 @@ export async function GET(request: Request) {
       .from('shopify_tokens')
       .upsert({ user_email: userEmail, ...tokenFields }, { onConflict: 'user_email,shop_domain' })
 
+    // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff.
+    kickoffBackfill(new URL(request.url).origin, clientId, 'shopify')
     // Sign a short-lived install token and redirect to /install/complete,
     // which calls signIn('shopify-install', { token }) to create the session.
     const installToken = signInstallToken(userEmail)

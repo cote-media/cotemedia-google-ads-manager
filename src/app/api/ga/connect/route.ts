@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -116,10 +117,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     account_id: propertyId,
     account_name: propertyName,
     user_email: userEmail,
+    backfill_priority: 10,
   })
   if (connError) {
     return NextResponse.json({ error: connError.message }, { status: 500 })
   }
+  // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff.
+  kickoffBackfill(new URL(request.url).origin, clientId, 'ga')
 
   const response = NextResponse.json({ success: true, account_name: accountName })
   response.cookies.set('ga_oauth_tokens', '', {
