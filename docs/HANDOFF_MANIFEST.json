@@ -6,10 +6,10 @@
     "line_count": 127
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "ebc2bfe74371d99918f7b4d87091a311ee32fc63f338d31fc447475c76176a1f",
+    "content_hash": "126bee7fdc17be46d5e69a78f6dd1dced8dfc717e4cf63f4725c18e988e499ad",
     "last_reconciled_date": "2026-06-28",
-    "last_reconciled_head": "30cb347",
-    "line_count": 610
+    "last_reconciled_head": "d995acf",
+    "line_count": 614
   },
   "LORAMER_CATCHUP_LOOP_PLAN.md": {
     "content_hash": "6021a403b53ea8dad9b15506e33a2bbd858de9a6322025d38fae616fb00724c0",
@@ -18,10 +18,10 @@
     "line_count": 136
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "d94807cf7d5b7d3286876b5cdc346cb8ecc06adad8736f6e9c5aef1d472e0eb9",
-    "last_reconciled_date": "2026-06-25",
-    "last_reconciled_head": "3b3bcf1",
-    "line_count": 203
+    "content_hash": "0eb9c89a0edc35fc5831f656e27bd295c0326e0a4a523d310f298ec46033fe15",
+    "last_reconciled_date": "2026-06-28",
+    "last_reconciled_head": "d995acf",
+    "line_count": 209
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "7bc653742bb95eabf903de1a6a1646a6612dfbde6e22ff81e06377137022219c",
@@ -42,16 +42,16 @@
     "line_count": 52
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "bfc0fd104ca45efd085e6a20debda2a278b3d2e6680c7d3e325bbc6f183dbbfd",
-    "last_reconciled_date": "2026-06-26",
-    "last_reconciled_head": "cea874e",
-    "line_count": 199
+    "content_hash": "536a2d3897f278a1784668396bf77f1d39d0a7a10e320d2ce45ef33d71e65c96",
+    "last_reconciled_date": "2026-06-28",
+    "last_reconciled_head": "d995acf",
+    "line_count": 211
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "2c81081efa6eee19bade8a3bef7e1e740f8ca45f5f925d0a9d7a8b5c8e4e36a4",
+    "content_hash": "a659d9f6e863e81aad39e2f739bd41233d8f8fea4308be405d8c1a8e288569fb",
     "last_reconciled_date": "2026-06-28",
-    "last_reconciled_head": "30cb347",
-    "line_count": 425
+    "last_reconciled_head": "d995acf",
+    "line_count": 436
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834",
