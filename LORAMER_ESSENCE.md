@@ -8,6 +8,16 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, freeze-safe). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
+- VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.
+- INVENTORY-FIRST sequencing — map all 5 platforms' full capture surface, THEN one master gap list + value-ordered build queue, THEN build. Never writer-by-writer ahead of the map.
+- ASSET-COMBINATION CONVERSION ATTRIBUTION is the CORE capability — Lora names which creative COMBINATION (image/video + body + headline + CTA) drove which conversions BY TYPE, to the nickel, across Meta multi-asset + Google PMax incl. YouTube.
+- 2027 WRITE DESTINATION is the WHY — Lora generates near-optimal ads (1–5% differentiation) + WRITES them to Meta/Google; the entire data foundation exists to enable this.
+- PLATFORM-WIDE PLAYBOOK is a standing product goal (the whole-product operating playbook + the rote per-platform onboarding template).
+- PROACTIVELY SURFACE non-coder-relevant risks/needs (token cliffs, scope gaps, cost/billing, reliability) the MOMENT they're visible — Russ is a non-coder; never wait to be asked.
+- SEARCH-BEFORE-NEW — before presenting anything as a NEW finding/caveat/gap, search the docs + prior chats; if it's already decided, CITE the decision, do NOT reopen it.
+
 # THE ESSENCE OF LORAMER — read this every session, before anything else
 
 This is not a spec. It is the reason the product exists, distilled 2026-06-11.
