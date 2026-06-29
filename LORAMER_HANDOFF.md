@@ -368,6 +368,8 @@ Same repo, both machines kept in sync via `git pull` / `git push` through GitHub
 
 BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.loramer.com`. Folder NAMES differ by design — NEVER "fix" them.
 
+**AUTHORITATIVE MACHINE/ENV STORY (single source — CLAUDE.md + TOMORROW_OPENING_MESSAGE point here; supersedes the older "laptop has no `.env.local`" framing in Lesson 14):** BOTH machines have `.env.local`. **iMac** = the COMPLETE env + the full `npm run build` path (historically primary). **Air (`russcote2`)** = a PARTIAL `.env.local` (real Google-Ads + Supabase + Anthropic; GA/Shopify/Stripe/CRON blank-or-placeholder — detail below + AUDIT_FINDINGS ENV-TRUTH) → it RUNS the live Google Gate-A path (real prod Google-Ads creds) but is NOT a guaranteed full-build env. The iMac's Google OAuth app ≠ the prod app (`unauthorized_client`) so the iMac canNOT run live Google Gate-A (per TOMORROW_OPENING_MESSAGE 2026-06-28; re-verify next iMac session).
+
 **MacBook Air (user `russcote2`) — VALUE-LEVEL VERIFIED 2026-06-13 (23 NAMES present, but NOT all valid):**
 - repo `/Users/russcote2/Downloads/cotemedia-google-ads-manager` — on `main`, clean; `node_modules` present.
 - `.env.local` has 23 NAMES but a value-level audit (shape/length only) shows the set is INCOMPLETE:

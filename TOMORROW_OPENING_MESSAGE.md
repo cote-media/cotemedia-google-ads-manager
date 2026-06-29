@@ -39,7 +39,7 @@ EXTERNAL / RUSS-ACTION:
 - Google Ads API Center "Intended Use" box still says internal-only — CONTRADICTS the external Tool Change request, likely why it's stuck. Replace with the reporting-only text, leave Company Type, ask Compliance.
 - Meta token refresh ~July 10 (cote@ ~60d life).
 
-MACHINES: iMac `~/Downloads/cotemedia-ads-manager` AND MacBook Air (russcote2) `~/Downloads/cotemedia-google-ads-manager` (folder names differ BY DESIGN). `git pull` at session start; GitHub `main` = source of truth. The Air CAN run the live Google Gate-A path (prod creds in .env.local); the iMac CANNOT (its OAuth app ≠ prod → unauthorized_client).
+MACHINES: iMac `~/Downloads/cotemedia-ads-manager` AND MacBook Air (russcote2) `~/Downloads/cotemedia-google-ads-manager` (folder names differ BY DESIGN). `git pull` at session start; GitHub `main` = source of truth. For the authoritative machine/env story (who has `.env.local`, who runs the full build vs live Google Gate-A) → see the HANDOFF MACHINES & ENV STATE block.
 
 DISCIPLINE: RIGHT > FAST. Russ doesn't touch code — paste-ready commands, destination labeled, every reply ONE fenced block. Backend writers/config = freeze-safe; new UI → -next only. Every push to main auto-deploys; `npm run build` is the pre-push gate; migrations are applied in the Supabase SQL Editor (or via MCP) before/with the deploy.
 

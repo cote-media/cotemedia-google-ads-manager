@@ -54,8 +54,8 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
   Gate A on the first real Woo store (Shelley Kyle) found the forward fetcher's `status=any` + raw gross `o.total` counted ~50% non-sales: status census = completed 6947 · processing 292 · **failed 3095 (28.5%)** · cancelled 483 · refunded 26 · on-hold 6 · pending 0 (10,849 total). Refund shape confirmed: `o.total` stays GROSS, NO total_refunded field, `refunds[]` carries NEGATIVE amounts. FIX (shared fetcher fetchWooCommerceIntelligence, mirrors Shopify #6): keep the fetch, then filter to the LOCKED counted set {completed, processing, refunded} and base ALL aggregations (count/conversions, revenue, AOV, customer-mix, topProducts) on it; revenue per order = NET = parseFloat(total) + Σ parseFloat(refunds[].total). Refunded orders stay counted (returned sale, net ~0). Forward + future backfill share this fetcher → byte-identical. Phase-2 backfill will re-derive history with the same rule (no wall → corrects all history).
 
 ## HELD until the Meta decision  (Russ's call 2026-06-13)
-- **#4 — Meta breakdowns: PLACEMENT ✅ DONE; age/gender still live-only** | MED | placement SHIPPED 2026-06-22 (Slice1 c06d1c7 forward + Slice2 9cb038a campaign×placement history backfill, scaled to all reconcilable Meta clients); age/gender HELD (Meta-adapter) | DATA-LOSS placement resolved; age/gender still not persisted
-  Placement (publisher_platform×platform_position) now persists as breakdown_type='placement' (forward + history). REMAINING: age/gender breakdowns still fetched/used live-only — add when unfrozen, mirroring the placement pattern (breakdowns in `&breakdowns=`, not `fields=`).
+- **#4 — Meta breakdowns: ✅ RESOLVED 2026-06-28** | MED | placement SHIPPED 2026-06-22 (Slice1 c06d1c7 forward + Slice2 9cb038a history) + DEVICE SHIPPED 2026-06-28 (LORAMER_META_DEVICE_BREADTH_V1, 4404089) + AGE/GENDER SHIPPED 2026-06-28 (LORAMER_META_AGE_GENDER_BREADTH_V1, 6318fe6) | DATA-LOSS resolved
+  All persist as breakdown_type families (placement · device/device_platform · age/gender/age_gender), FLAG-NOT-BLOCK, draining cohort-wide. The age/gender "live-only" gap is CLOSED — the backend writers are freeze-safe so they shipped without waiting on the Meta decision. Remaining Meta breadth (geo/hourly/ranking) is queued in the value-ordered BUILD QUEUE (LORAMER_QUEUE_OF_RECORD).
 
 ## POST-META-DECISION  (reviewer-path)
 - **#11 — Dashboard rail "missing Google tab" for single-ad-platform clients** | LOW | post-Meta-decision | DATA-LOSS no
@@ -73,7 +73,7 @@ Rationale: the forward-capture cron is silently dropping whole platforms/clients
 - PRINCIPLE: keep ENV-STATE honest — name-presence ≠ value-validity; audit VALUES, update the HANDOFF block in the same commit as any env change (ENV/MACHINE STATE same-commit rule).
 
 ## LOW / WHEN-CONVENIENT
-- **#10 — GA dimensional grains + GA/Meta entity-depth backfills** | LOW | safe-now | DATA-LOSS no | completeness depth, post-core.
+- **#10 — GA dimensional grains + GA/Meta entity-depth backfills** | the Google+Meta ENTITY-DEPTH half is ✅ DONE 2026-06-26 (all Google campaign/ad_group/ad + Meta campaign/adset/ad depth grains have backfill writers + drain steps, floored cohort-wide to the 36-mo floor); the GA dimensional-grain half is still open | LOW | safe-now | DATA-LOSS no | completeness depth, post-core.
 - **#12 — transient "Google data fetch failed temporarily" in Lora (06-12)** | LOW | safe-now | DATA-LOSS no | check Vercel logs for the real error when convenient (Lesson 15); likely transient GAQL/timeout.
 - **#13 — Shopify token keyed by user_email alone** | ✅ CLOSED (repo-verified 2026-06-22, per #21) | DATA-LOSS no | getValidShopifyToken keys by user_email AND shop_domain (src/lib/shopify-token.ts:39-40/50-51/119-120) → a user with 2 shops cannot grab the wrong row. No action.
 

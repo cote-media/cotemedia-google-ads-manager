@@ -1,15 +1,15 @@
 {
   "AUDIT_FINDINGS.md": {
-    "content_hash": "3a205e4ede7375da0915a34b7a322217bdbee6f3db195ea8876d1bf89eaddcb2",
-    "last_reconciled_date": "2026-06-25",
-    "last_reconciled_head": "3b3bcf1",
+    "content_hash": "38c734116fa1f4b09f8a09c63239b7e628f500654057eebf1a220c652b74eb11",
+    "last_reconciled_date": "2026-06-29",
+    "last_reconciled_head": "09acf57",
     "line_count": 127
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "f3b203014b18573d359bfdacbdb7ec3a50db7d9bc01917066fd3ad60bc96ca6c",
+    "content_hash": "5f516dc12fd3e36dfe8f7e2e34e89e759e71b8ab6a0f5db430c2a273121b3e4b",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "bc21832",
-    "line_count": 634
+    "last_reconciled_head": "09acf57",
+    "line_count": 637
   },
   "LORAMER_CATCHUP_LOOP_PLAN.md": {
     "content_hash": "6021a403b53ea8dad9b15506e33a2bbd858de9a6322025d38fae616fb00724c0",
@@ -30,10 +30,10 @@
     "line_count": 121
   },
   "LORAMER_HANDOFF.md": {
-    "content_hash": "a8b7172f8182d0721c7dda8d08081e71f690016a0600f7ae96555d334da32c6d",
-    "last_reconciled_date": "2026-06-28",
-    "last_reconciled_head": "09a0718",
-    "line_count": 884
+    "content_hash": "e204422e04fa15890b8cd90b75f6d60c061cd3b297604a822c8bc01511f2e397",
+    "last_reconciled_date": "2026-06-29",
+    "last_reconciled_head": "09acf57",
+    "line_count": 886
   },
   "LORAMER_LORA_INTELLIGENCE_BAR.md": {
     "content_hash": "2d83994f96762a5dfe486f4db3af9edf508aa8186c731be5130ca14f7f04dacd",
@@ -48,9 +48,9 @@
     "line_count": 267
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "d60d06dd8c86088872e402ae79bbd0ce1ddee8010571e3285f3c4ece13cfd88d",
+    "content_hash": "13767171df9bd0c23633ddbbb6c52289397a0f3a3b2ac2aaf908e4df2f62da14",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "bc21832",
+    "last_reconciled_head": "09acf57",
     "line_count": 469
   },
   "RESUME_INSTRUCTIONS.md": {
@@ -60,16 +60,16 @@
     "line_count": 41
   },
   "ROADMAP.md": {
-    "content_hash": "54e484f0b95f1a8cd58854ad8080ad10a2288fc6e6e1b41fe1e8581c0494082b",
-    "last_reconciled_date": "2026-06-26",
-    "last_reconciled_head": "3dacb41",
+    "content_hash": "4b51e2f183c7cd50451afcfa55e9a67cce16c24a708bf07ebc0fb6b1b65475f5",
+    "last_reconciled_date": "2026-06-29",
+    "last_reconciled_head": "09acf57",
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "49c9cf8a022b65c8c67af2b7b4f7d86c7931befc798980c8a56d3c52e0563af5",
-    "last_reconciled_date": "2026-06-25",
-    "last_reconciled_head": "3b3bcf1",
-    "line_count": 49
+    "content_hash": "4766f3a9ce3e30b20d787d405d5ec7b2fd838653a85dc17c3ce7267dc528a17f",
+    "last_reconciled_date": "2026-06-29",
+    "last_reconciled_head": "09acf57",
+    "line_count": 48
   },
   "docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md": {
     "content_hash": "b3bd9a54eacbf3df903c2fa4c75a711690b8d4c7ce131f4975967ca1e3ce28af",

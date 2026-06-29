@@ -1422,7 +1422,7 @@ pulls as deep as the platform will serve and labels depth honestly.
 STATUS:
 - Google Ads - forward-capture + backfill: DONE (deep, proven on a $2.29M account).
 - Meta - forward-capture + backfill: DONE (deep).
-- GA4 - forward-capture + backfill: DONE (engine V3 hooks; floor 2015-08-14;
+- GA4 - forward-capture + backfill: DONE (engine V3 hooks; floor = GA4 property-creation date, ≥2020 — the 2015-08-14 constant is an engine clamp, NOT real GA4 retention [GA4 launched Oct 2020; corrected per DECISIONS];
     proven on My Vacation Network 1266 rows + a second client).
 - Shopify - forward-capture + deep backfill: DONE (LORAMER_SHOPIFY_DEEP_BACKFILL_V1; 3 stores reconciled $0.00 residual; read_all_orders, no purge clock).
 - WooCommerce - forward-capture + backfill: DONE (LORAMER_WOO_BACKFILL_2A_V1 + atomic breaker; Shelley 2018-12→2026, ~7.5yr; deep tail 2016-2018 deferred under the live-store HARD GATE).
@@ -1430,7 +1430,7 @@ STATUS:
 PER-PLATFORM RETENTION (drives urgency):
 | Platform | Granular limit | Aggregate | LoraMer urgency |
 |----------|----------------|-----------|-----------------|
-| Google Ads | rolling 37 months (eff. Jun 1 2026; not yet enforced on API) | 11 years | HIGH - backfill before the purge bites |
+| Google Ads | rolling 37 months (granular cap ENFORCED 2026-06-01; DateRangeError beyond) | 11 years | HIGH - backfill before the purge bites |
 | Meta | ~37 months | - | medium |
 | GA4 | event/user 2-14mo (50 on 360) | indefinite (aggregate via Data API) | low (aggregate safe) |
 | Shopify | none | none | none |

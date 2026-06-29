@@ -77,6 +77,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - `lib/spend-logger.ts` — fire-and-forget Anthropic spend logging to `anthropic_spend_log`, priced per model
 
 ## Historical Data Engine (data layer)
+> ⚠ STALE (pre-drain) as of 2026-06-29 — superseded by docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md + docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md; the drain registry / breakdown_type / entity_level / self-serve backfill spine live there. Full rewrite TODO.
 - **Supabase tables:** `metrics_daily` (the permanent per-day metrics store, all platforms), `sync_state` (backfill cursors/completion), `clients`, `platform_connections`, `client_context`, `client_conversations`, `client_memory`, `user_profiles`, token tables per connector (`google_tokens`, `meta_tokens`, `ga_tokens`, `shopify_tokens`, `woocommerce_tokens`, `shopify_installs`), `anthropic_spend_log`, `shopify_compliance_log`, `meta_compliance_log` (Meta deauthorize/data-deletion audit + idempotency, migration 006); `meta_tokens` also carries `fb_user_id` (app-scoped FB user id captured at connect, migration 006)
 - **Forward capture:** `api/cron/sync` runs nightly (Vercel cron) and writes YESTERDAY's rows per connection — a change gated on cron output can only be verified after the next UTC-midnight-crossing run (see handoff Lesson on cron-gated verification)
 - **Backfill:** `lib/backfill/run-backfill.ts` is the platform-agnostic engine (probe → chunked daily fetch → shared row builder → write + cursor); `lib/backfill/adapters.ts` registers per-platform adapters (token loading, daily fetch, chunking, floors). Adding a platform = daily fetch + row builder + adapter + CRON wrapper + mount `BackfillControl` on its `/clients` row
@@ -120,11 +121,10 @@ Client management grid: per-client cards with honest metrics from `api/clients/m
 - Code identifiers deliberately keep legacy names (`buildClaudeContext`, `runClaudeToolLoop`, `AskClaudeButton`, the legacy `advar-*` localStorage keys; newer keys use `loramer-*`) — rendered/prompt text is what got renamed.
 
 ## Conventions (full lessons in LORAMER_HANDOFF.md)
-- Russ never edits code directly — Claude Code makes all edits, commits, and pushes. Hand him complete copyable blocks and label every paste destination (Cursor terminal / Supabase SQL Editor / Vercel).
+- Russ never edits code directly — Claude Code makes all edits, commits, and pushes DIRECTLY (no paste-into-an-editor step); results are reported back in one fenced block.
 - Verify with `npx tsc --noEmit` before committing; Vercel deploys from main.
 - Session work is tagged `LORAMER_*_V1`-style in commit messages; handoffs anchor on TAGS + deliverable files, never commit hashes.
 - Single-source-of-truth files are deliberate: `date-range.ts` (date windows), `claude-tools.ts` (model tools), `metrics-query.ts` (historical sums), `build-claude-context.ts` (prompt). Change behavior there, not at call sites.
-- Raw macOS Terminal: keep pastes to single commands or a small script — long multi-line terminal pastes can drop characters. The Cursor Agents window takes full multi-line task pastes — that's how all code work is delivered.
 
 ## If you're changing X, look here
 | Change | Where |

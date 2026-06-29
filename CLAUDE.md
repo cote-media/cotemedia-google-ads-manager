@@ -11,14 +11,12 @@ This is **LoraMer** — an active, multi-week, multi-hundred-commit build of a b
 3. **`ROADMAP.md`** — project-by-project status; **docs move with code**: a commit that ships a feature also flips its own ROADMAP checkbox in the same commit.
 4. **`docs/*.md`** — design docs for shipped/planned features. Check here before designing anything; a prior Claude once rebuilt a feature whose design doc already existed.
 
-The loose `*.py` files in the repo root are historical one-off patch scripts (the user applies changes by running generated patch scripts) — they are not part of the app.
-
 ## Working context
 
-- **Russ (the user) does not touch code.** Deliver complete, paste-ready commands with the destination labeled (Cursor terminal / Supabase SQL Editor / Vercel dashboard). Never "edit line N of file X". Never multi-line code pastes through the terminal (heredocs silently drop characters — Lesson 29); deliver code as files.
+- **Russ (the user) does not touch code.** Claude Code edits/commits/pushes/migrates DIRECTLY (via the Supabase + Vercel MCP tools); Russ pastes back results and is the human verification gate. Deliverables to Russ = ONE fenced copy-paste block, with the destination labeled (Supabase SQL Editor / Vercel dashboard) only when a manual step is genuinely needed. Never "edit line N of file X". Never multi-line code pastes through the terminal (heredocs silently drop characters — Lesson 29); deliver code as files.
 - **RIGHT > FAST.** Verify against the actual current file before patching. Think as long as needed; keep output terse — no recaps, no apologies, just the next step.
 - **Two machines, one repo:** iMac `~/Downloads/cotemedia-ads-manager/`, MacBook Air (user `russcote2`) `~/Downloads/cotemedia-google-ads-manager/`. Every session starts with `git pull`; GitHub `main` is the source of truth.
-- **Every push to `main` auto-deploys to Vercel.** A push that breaks the Vercel build is a serious failure. Run `npm run build` locally before pushing (works on the iMac, which has `.env.local`). `npx tsc --noEmit` is NOT a full build — it misses webpack syntax errors and mangled string literals.
+- **Every push to `main` auto-deploys to Vercel.** A push that breaks the Vercel build is a serious failure. Run `npm run build` locally before pushing (the full-build machine is the iMac — see the **HANDOFF MACHINES & ENV STATE** block for the authoritative machine/env story). `npx tsc --noEmit` is NOT a full build — it misses webpack syntax errors and mangled string literals.
 - **Commit convention:** `LORAMER_<FEATURE>_V1: description`. The same marker appears as a code comment at the change site (used for idempotency/traceability).
 - **Platform extensibility:** `(client, platform, account)` is the universal key for every data source. New platforms (e.g., Triple Whale, Klaviyo) are added as a backfill adapter + platform-registry entry + a new `metrics_daily` platform value — never a schema change or core rewrite. Per-platform behavior lives in adapters/registry, never scattered conditionals.
 

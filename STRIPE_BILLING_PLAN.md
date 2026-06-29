@@ -8,15 +8,15 @@ Status: 2026-06-08. Source of truth = this file + repo. Supersedes any "Shopify 
 ## Account model (Phase 0 recon, confirmed)
 - Billing key = user_email (text, threaded everywhere). No agency/account/workspace table.
 - Hierarchy: user_email -> clients[] (a "client" row = a workspace) -> platform connections/data. 1 user = 1 account = many workspaces. Stripe customer maps 1:1 to user_email.
-- user_profiles already exists: user_email PK, tier text CHECK in (free,solo,agency,scale,enterprise,beta_unlimited), welcome_seen_at, timestamps. tier is READ NOWHERE today — zero enforcement.
+- user_profiles already exists: user_email PK, tier text CHECK in (free,solo,agency,scale,enterprise,beta_unlimited), welcome_seen_at, timestamps. ENFORCEMENT STATUS (updated 2026-06-29): Stripe Phases 0–4 (recon→data/sync→checkout→portal) SHIPPED 2026-06-08..10 — tier is now WRITTEN by the Stripe webhook and read by the billing UI; full caps/quotas/flags enforcement = Phase 5 (PENDING; founding cohort = beta_unlimited bypasses it).
 - anthropic_spend_log exists (per-call cost log, not a quota). No Stripe columns/tables/env anywhere — greenfield.
 - beta_unlimited = founding-cohort mechanism (uncapped, hand-onboarded, bypasses gating).
 
-## Entitlement matrix (LOCKED — from published landing pricing)
+## Entitlement matrix (LOCKED — from published landing pricing) — Pricing source of truth = LORAMER_DECISIONS.md (the canonical locked matrix)
 - free / Free / $0 / 1 workspace / 5 Q-mo / 30-day view window / no flags
-- business / Business / $79-mo / $758-yr / 1 workspace / 100 Q-mo / 12-month (365d) view window / no flags
-- agency / Agency / $199-mo / $1910-yr / 10 workspaces / 500 Q-mo / full history / flags: wyws, priority_support
-- scale / Scale / $999-mo / $9590-yr / 50 workspaces / 2500 Q-mo / full history / flags: wyws, priority_support, automations, white_label, bulk_export, sla
+- business / Business / $79-mo / $750-yr / 1 workspace / 100 Q-mo / 12-month (365d) view window / no flags
+- agency / Agency / $199-mo / $1900-yr / 10 workspaces / 500 Q-mo / full history / flags: wyws, priority_support
+- scale / Scale / $999-mo / $9500-yr / 50 workspaces / 2500 Q-mo / full history / flags: wyws, priority_support, automations, white_label, bulk_export, sla
 - enterprise / Enterprise / custom (manual invoice, no Stripe self-serve) / unlimited / custom Q / full history / all flags
 - beta_unlimited / Founding / intro pricing (manual) / unlimited / unlimited Q / full history / all flags; bypasses gating
 Flags: wyws (While You Were Sleeping digest) = agency+; automations/white_label/bulk_export/sla = scale+. Annual = 20% off; founding gets extended intro pricing.
