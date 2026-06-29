@@ -15,6 +15,8 @@ import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intell
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
+import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
+import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -493,6 +495,32 @@ export async function GET(request: Request) {
           const message = serializeCaughtError(devErr)
           console.error(`[cron/sync] client=${client.id} platform=google device capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `device: ${message}` })
+        }
+
+        // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.1 + T0.2) — persist the conversion-action segmentation +
+        // search impression-share families that fetchGoogleIntelligence ALREADY returned above
+        // (intel.conversionsByCampaign / intel.impressionShares) — ZERO new Google calls (rides the existing
+        // live-intel GAQL; the data was fetched for the Lora prompt and otherwise dropped). campaign grain only;
+        // WRITE-ONLY (conversion_action Σ ≠ account by design; IS is a ratio, not a partition). HISTORY backfill
+        // = T2.3 (quota-gated). Own try/catch: NEVER drops the platform's main / dimensional / device rows.
+        try {
+          const t0Rows = [
+            ...buildGoogleConversionActionRows(client.id, userEmail, captureDate, customerId, intel.conversionsByCampaign),
+            ...buildGoogleImpressionShareRows(client.id, userEmail, captureDate, customerId, intel.impressionShares),
+          ]
+          if (t0Rows.length > 0) {
+            const { error: t0Error } = await supabaseAdmin
+              .from('metrics_daily')
+              .upsert(normalizeMetricsRows(t0Rows), { onConflict: METRICS_DAILY_CONFLICT })
+            if (t0Error) throw t0Error
+            summary.rowsWritten += t0Rows.length
+          } else {
+            console.log(`[cron/sync] client=${client.id} platform=google conv-action/IS persist: 0 rows (empty, not an error)`)
+          }
+        } catch (t0Err) {
+          const message = serializeCaughtError(t0Err)
+          console.error(`[cron/sync] client=${client.id} platform=google conv-action/IS persist FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS: ${message}` })
         }
 
         // LORAMER_GOOGLE_GEO_CAPTURE_V1 — geo breakdown FAMILY (per-grain, both resources: 10 geographic_view +

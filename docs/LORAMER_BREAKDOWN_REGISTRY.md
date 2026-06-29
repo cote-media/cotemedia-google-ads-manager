@@ -58,6 +58,8 @@ breakdown_type = '' and breakdown_value = '' (empty string). The query layer's d
 | age_gender     | meta     | account+campaign+ad_set+ad | composite   | breakdowns=age,gender → "<age>:<gender>" | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; the joint; FLAG-NOT-BLOCK |
 | geo_country    | shopify  | account      | iso       | ISO country code (shopify-metrics-row)|       |
 | geo_region     | shopify  | account      | composite | "US-CA" (shopify-metrics-row)         |       |
+| conversion_action | google | campaign   | raw (action NAME) | intel.conversionsByCampaign (RIDES live-intel GAQL, no new call) | ✅ LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.1); forward-persist; per-action conv/value + category(extra); WRITE-ONLY; history=T2.3 |
+| impression_share  | google | campaign   | constant 'search' | intel.impressionShares (RIDES live-intel GAQL, no new call)      | ✅ LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.2); forward-persist; 7 IS ratios in extra (count cols=0); WRITE-ONLY; campaign-only; history=T2.3 |
 | (base rows)    | all      | (native)     | sentinel  | —                                     | type='' value='' |
 
 ## 3. Mismatch resolutions (the inconsistency §7 names)
@@ -82,7 +84,8 @@ All five VERIFIED dimensions are CAMPAIGN grain (corrected from the draft's ad_g
 | age                | campaign     | raw      | FROM age_range_view     | VERIFIED in-code (google-intelligence:392) |
 | gender             | campaign     | raw      | FROM gender_view        | VERIFIED in-code (google-intelligence:405) |
 | network            | campaign     | raw      | segments.ad_network_type | VERIFY-AT-WRITER |
-| impression_share   | campaign     | raw      | (competitive metrics)   | VERIFY-AT-WRITER |
+| impression_share   | campaign     | constant 'search' | intel.impressionShares (search_* IS family, FROM campaign) | ✅ SHIPPED forward 2026-06-29 (LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1, T0.2) — RIDES the live-intel GAQL (ZERO new call); 7 IS ratios in extra, count cols=0; WRITE-ONLY (ratio, not a partition); campaign-only (ad_group/keyword IS = new fetch = T2); LIMIT-200 cap; HISTORY backfill = T2.3 (quota-gated) |
+| conversion_action  | campaign     | raw (action NAME) | intel.conversionsByCampaign (segments.conversion_action_name/_category, FROM campaign) | ✅ SHIPPED forward 2026-06-29 (LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1, T0.1) — RIDES the live-intel GAQL (ZERO new call); per-action conversions/value, category in extra, spend/click cols=0 (segment carries no cost); WRITE-ONLY (Σ ≠ account; multi-action attribution); LIMIT-200 cap; HISTORY backfill = T2.3 (quota-gated) |
 | video              | ad           | raw      | (video metrics)         | VERIFY-AT-WRITER |
 | all_conversions    | campaign     | raw      | (all_conversions split) | VERIFY-AT-WRITER |
 

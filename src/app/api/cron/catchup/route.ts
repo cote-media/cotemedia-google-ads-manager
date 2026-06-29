@@ -24,6 +24,8 @@ import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
+import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -438,6 +440,25 @@ export async function GET(request: Request) {
             }
           } catch (devErr) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `device ${d}: ${serializeCaughtError(devErr)}` })
+          }
+
+          // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.1 + T0.2) — persist conversion-action + impression-share
+          // from the intel ALREADY fetched above (ZERO new Google calls; rides the live-intel GAQL). campaign
+          // grain only; WRITE-ONLY (conv_action Σ ≠ account by design; IS is a ratio). HISTORY backfill = T2.3.
+          try {
+            const t0Rows = [
+              ...buildGoogleConversionActionRows(client.id, userEmail, d, customerId, intel.conversionsByCampaign),
+              ...buildGoogleImpressionShareRows(client.id, userEmail, d, customerId, intel.impressionShares),
+            ]
+            if (t0Rows.length > 0) {
+              const { error: t0Error } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(t0Rows), { onConflict: METRICS_DAILY_CONFLICT })
+              if (t0Error) throw t0Error
+              summary.rowsWritten += t0Rows.length
+            }
+          } catch (t0Err) {
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS ${d}: ${serializeCaughtError(t0Err)}` })
           }
 
           // Google geo breakdown FAMILY (per-grain, both resources) — own try/catch PER FAMILY. WRITE-ONLY.
