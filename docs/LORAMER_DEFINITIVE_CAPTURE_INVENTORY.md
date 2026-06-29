@@ -7,7 +7,7 @@ SEQUENCING (settled): map ALL FIVE platforms FIRST → ONE master gap list + val
 NOT build writer-by-writer ahead of the complete map. (Mixed-state note: meta_device + meta_age_gender shipped before
 inventory mode — correct, keep.) Per-platform companion: docs/LORAMER_BREAKDOWN_REGISTRY.md (per-dimension encoding).
 DONE: Meta ✅, Shopify ✅, GA4 ✅, WooCommerce ✅, GOOGLE ✅ (desk-map §5; EMPIRICAL per-client field-return probe DEFERRED to ≥2026-06-30T08:03Z quota window).
-REMAINING: cross-platform MASTER GAP LIST + value-ordered BUILD QUEUE (the next step). Tags: [CAPTURED ←writer] / [GAP].
+DONE: MASTER GAP LIST §6 + value-ordered BUILD QUEUE (in LORAMER_QUEUE_OF_RECORD). NEXT: BUILD per the queue — TIER 0/1 now (no quota); TIER 2 Google new-fetch on the ≥2026-06-30T08:03Z window. Tags: [CAPTURED ←writer] / [GAP].
 
 ═══════════════════════════════════════════════════════════════════
 ## 1. META (Marketing/Insights API v21.0) — live-probed 2026-06-28 (Veterinary/Foam OH/Glass Plus)
@@ -111,7 +111,7 @@ GAP: (1) FULL ORDER MONEY SURFACE — gross/discounts/taxes/shipping/tips/net [H
 ═══════════════════════════════════════════════════════════════════
 ## 3. GA4 (Data API v1beta runReport) — CAPTURED surface only (Realtime = Phase-3, noted not mapped). Source: repo's proven 7-bucket runReport + ga-metrics-row.ts persist + DB depth + GA4 docs (live probe blocked: GOOGLE_ANALYTICS_CLIENT_ID absent on this machine)
 ═══════════════════════════════════════════════════════════════════
-★ PERSIST (ga-metrics-row.ts): ONE row per (client, property, date), entity_level='account'. conversions→conversions COLUMN; totalRevenue→revenue COLUMN; sessions/totalUsers/newUsers/engagementRate/transactions/rates→extra-JSONB. NO dimensions persisted. → GA session/user metrics are STORED but NOT QUERYABLE (queryMetrics aggregates only the columns — see §7 + the OPEN columns-vs-jsonb decision).
+★ PERSIST (ga-metrics-row.ts): ONE row per (client, property, date), entity_level='account'. conversions→conversions COLUMN; totalRevenue→revenue COLUMN; sessions/totalUsers/newUsers/engagementRate/transactions/rates→extra-JSONB. NO dimensions persisted. → GA session/user metrics are STORED but NOT QUERYABLE (queryMetrics aggregates only the columns — see §8 + the OPEN columns-vs-jsonb decision).
 A. METRICS: [CAPTURED: sessions, totalUsers, newUsers, engagementRate, conversions(col), totalRevenue(col→revenue), transactions, addToCarts, purchaserConversionRate, cartToPurchaseRate, refundAmount ←fetchGaDailyMetrics; only conversions+revenue queryable]. [GAP: activeUsers, engagedSessions, averageSessionDuration, bounceRate, screenPageViews, eventCount/eventValue, keyEvents/keyEventRate, userEngagementDuration, ARPU, purchaseRevenue, ecommercePurchases, itemsViewed/Purchased, itemRevenue, checkouts, cart/purchaseToViewRate, totalPurchasers; ADS-LINKED advertiserAdCost/Clicks/Impressions/returnOnAdSpend (only if Google Ads↔GA4 linked); custom metrics.]
 B. DIMENSIONS [CAPTURED: NONE persisted (date=grain); LIVE-ONLY for prompt: sessionSource/Medium, sessionCampaignName, landingPagePlusQueryString, eventName, country, deviceCategory, itemName]. GAP (persist): time(hour/dayOfWeek) · GEO(country/region/city) · TECH(deviceCategory/browser/OS/platform) · ACQUISITION session-scope + firstUser-scope(Source/Medium/Campaign/DefaultChannelGroup) · CONTENT(pagePath/Title/landingPage) · EVENT(eventName/isKeyEvent) · ITEMS(itemName/Id/Category/Brand/Variant) · audiences · custom. ★ COMPATIBILITY MATRIX (GA's #100-analog): metrics+dims have SCOPES (user/session/event/item); cross-scope combos often INCOMPATIBLE (item metrics ✗ session dims; bounceRate/avgSessionDuration ✗ item dims) → HTTP 400; canonical enumerator = the Data API properties:checkCompatibility method.
 C. GRAINS: property(=account; entity_id=propertyId)/date/dimension-combination. [CAPTURED: property+date ONLY. dim-combination=GAP.]
@@ -119,8 +119,8 @@ D. CONTENT/"ASSET" analog: site + measurement model — landing pages/pagePath+T
 E. ACQUISITION/ATTRIBUTION (GA's distinct value): source/medium/campaign/channel at SESSION + firstUser scope; defaultChannelGroup = cross-channel grouping NO ad platform self-reports; Ads-linked cost/ROAS if linked. ATTRIBUTION-MODEL CAVEAT: GA conv/rev are GA-attributed (DDA+lookback) → NOT 1:1 with Meta/Google in-platform or Shopify orders → a THIRD lens, LABEL never fuse/equality-reconcile. [CAPTURED: GA conv+rev (account/date, GA-attributed); the source/channel SPLIT is LIVE-ONLY=GAP.]
 F. RETENTION FLOOR: AGGREGATED standard reports = property-LIFETIME, NO rolling cap (DISTINCT from the 2/14-mo "data retention" setting, which is Explorations/user-event-scope ONLY). ★ CORRECTION: NOT "2015/~11yr" (that was Universal Analytics, a separate product, sunset 2023 + deleted). GA4 (App+Web) launched Oct 2020 → floor = property-CREATION date (≥2020); deepest captured = Foam OH 2022-02-02 (~4.4yr). The adapter's 2015-08-14 constant is a clamp, not actual GA4 retention. REALTIME (last-30-min, runRealtimeReport) = separate EPHEMERAL API, never in the Data API store → Phase-3 boundary (noted, NOT mapped).
 G. QUOTA/RATE: TOKEN BUCKET PER PROPERTY (returnPropertyQuota → tokensPerDay/Hour/concurrent...; ~25k/day standard). ★ PER-PROPERTY (not a shared dev token like Google Ads) → cohort naturally sharded, NO shared-exhaustion. [Handling: runGaReport throws on error — minimal; the QUEUED GA 429-classifier hardening folds in before scale.]
-GA4 GAP→QUEUE: (1) MAKE SESSION/USER METRICS QUERYABLE (core metric COLUMNS + teach queryMetrics) [HIGH, foundational — see §7 OPEN decision]; (2) ACQUISITION breadth (source/medium/channelGroup/campaign + firstUser) [HIGH]; (3) GEO [MED]; (4) DEVICE/TECH [MED]; (5) CONTENT [MED]; (6) EVENT taxonomy [MED]; (7) ITEM breadth [MED]; (8) ADS-LINKED cost/ROAS [LOW-MED]; (9) metric tail→jsonb [LOW].
-GA4 PLAYBOOK DIFFERENCES: ROLE = analytics/ATTRIBUTION platform (not spend/revenue SOURCE; metrics behavioral) · NO reconcile twin (GA-attributed → label, never equality-reconcile) · COMPATIBILITY MATRIX = 3rd slice-constraint model (Meta #100 / GA4 scope-compat / Shopify none) · GRAIN = property · STORAGE DIVERGENCE = first platform whose core metrics don't fit the spend/clicks columns → forces the columns-vs-jsonb decision (§7 OPEN) · RATE = per-property token bucket (sharded; no shared exhaustion) + separate realtime pool · RETENTION = property-lifetime (floor=creation ≥2020).
+GA4 GAP→QUEUE: (1) MAKE SESSION/USER METRICS QUERYABLE (core metric COLUMNS + teach queryMetrics) [HIGH, foundational — see §8 OPEN decision]; (2) ACQUISITION breadth (source/medium/channelGroup/campaign + firstUser) [HIGH]; (3) GEO [MED]; (4) DEVICE/TECH [MED]; (5) CONTENT [MED]; (6) EVENT taxonomy [MED]; (7) ITEM breadth [MED]; (8) ADS-LINKED cost/ROAS [LOW-MED]; (9) metric tail→jsonb [LOW].
+GA4 PLAYBOOK DIFFERENCES: ROLE = analytics/ATTRIBUTION platform (not spend/revenue SOURCE; metrics behavioral) · NO reconcile twin (GA-attributed → label, never equality-reconcile) · COMPATIBILITY MATRIX = 3rd slice-constraint model (Meta #100 / GA4 scope-compat / Shopify none) · GRAIN = property · STORAGE DIVERGENCE = first platform whose core metrics don't fit the spend/clicks columns → forces the columns-vs-jsonb decision (§8 OPEN) · RATE = per-property token bucket (sharded; no shared exhaustion) + separate realtime pool · RETENTION = property-lifetime (floor=creation ≥2020).
 
 ═══════════════════════════════════════════════════════════════════
 ## 4. WOOCOMMERCE (REST API wc/v3) — self-hosted, gentle-citizen. Source: repo code + captured DB + Woo docs; ZERO live calls (merchant-server respect)
@@ -184,7 +184,74 @@ The 4 named breadth writers map to: network (5.3), all_conversions (5.4), impres
 - API cadence is now MONTHLY (v23 Jan 2026 →): pinned version drifts / unpinned auto-upgrades into breaking changes. Pinned google-ads-api version: ^23.0.0 (installed 23.0.0 → targets Google Ads API v23). ⚠ VERSION GAP: the surface above is mapped to v24.2 but our client runs v23 — v24/v24.2-only capabilities (notably performance_max_placement_view × ad_network_type, the PMax-network gap-closer) are UNAVAILABLE until the lib is bumped to v24. v25 ≈ Jul 2026. The bump is a deliberate, Gate-A-validated, breaking-change review — never an auto-upgrade.
 
 ═══════════════════════════════════════════════════════════════════
-## 6. COMMERCE/ANALYTICS-vs-ADS DIFFERENCES (platform-onboarding-playbook input; GA4/Woo specifics in §3/§4)
+## 6. CROSS-PLATFORM MASTER GAP LIST (synthesis of §1–§5; reference only — BUILD ORDER lives in LORAMER_QUEUE_OF_RECORD)
+═══════════════════════════════════════════════════════════════════
+Every GAP/PARTIAL from §1–§5, grouped by platform, tagged with the 4 rubric factors + its build-queue tier.
+RUBRIC TAGS: COST {PO persist-only · TW thin-writer · NR new-resource/fetch · PB prereq-blocked} · QUOTA {NQ none · GG Google-dev-token-gated} · LAW {★★★ attribution/asset core · ★★ high-cardinality standalone · ★ med · · low · DROP derivable→compute-on-read} · HISTORY {⏳ granular-daily, 37-mo-floor time-critical · — N/A (depth already floored cohort-wide)}.
+TIER {T0 persist-only ~free · T1 no-quota thin writer · T2 Google new-fetch quota-gated · T3 prereq-gated · DROP}. The ORDERED, deduped build queue (the SINGLE source for build order) = LORAMER_QUEUE_OF_RECORD → "VALUE-ORDERED BUILD QUEUE".
+
+### META (§1) — 10 gap families
+- FULL conversion/action taxonomy + per-type value/cost/ROAS (~31/36 action types fetched-but-dropped) — T1 · TW · NQ · ★★★ · ⏳
+- Asset-PERFORMANCE per-asset breakdowns (7 asset breakdowns; per-COMBINATION impossible via Insights → MODEL) — T3b · NR · NQ · ★★★ · ⏳
+- Asset/creative CONTENT layer (image/video/title/body/cta/link content + stable ids; asset_feed_spec) — T3b · NR · NQ · ★★★ · —
+- VIDEO metric family (play/thruplay/p25–100/avg_time/30s/cost_per_thruplay) — T1 · TW · NQ · ★★ · ⏳
+- GEO (country, region) — T1 · TW · NQ · ★ · ⏳
+- HOUR (hourly_stats_aggregated_by_advertiser_time_zone) — T1 · TW · NQ · ★ · ⏳
+- RANKING (quality / engagement_rate / conversion_rate_ranking, ad-level) — T1 · TW · NQ · ★ · ⏳
+- Click-variant COUNTS (inline_link_clicks / outbound_clicks / unique_clicks) + cpp — T1 · TW · NQ · · · ⏳
+- product_id + frequency_value breakdowns — T1 · TW · NQ · · · ⏳
+- cpc, cpm + the *_ctr rate variants — DROP (derivable from captured counts)
+
+### SHOPIFY (§2) — 9 gap families
+- FULL ORDER MONEY SURFACE (gross / subtotal / discounts / taxes / shipping / tips split; currently NET only) — T1 · TW · NQ · ★★ · —
+- VARIANT/SKU grain — T1 · TW · NQ · ★★ · —
+- CATALOG CONTENT layer (product/variant content: title/sku/price/images/options/inventory) — T1 · NR · NQ · ★ · —
+- COGS/MARGIN (variant.inventoryItem.unitCost → margin) — T3c · PB · NQ · ★★ · — [read_inventory scope-blocked]
+- CUSTOMER/LTV/RFM/cohort — T1 · NR · NQ · ★★ · — [privacy-first 0-PII design pass]
+- Sales channel/source — T1 · TW · NQ · ★ · —
+- Discount code + order tags + payment method + fulfillment status — T1 · TW · NQ · ★ · —
+- Billing geo + city/zip — T1 · TW · NQ · · · —
+- Per-order / per-line grain persistence — T1 · TW · NQ · · · —
+
+### GA4 (§3) — 9 gap families
+- MAKE SESSION/USER METRICS QUERYABLE (~8 core metrics jsonb→columns + teach queryMetrics) — T1 · PO/schema · NQ · ★★ · — [DECISION-GATED: columns-vs-jsonb, §8 OPEN / Russ]
+- ACQUISITION breadth (source/medium/campaign/defaultChannelGroup @ session + firstUser) — T1 · TW · NQ · ★★ · — [GA's distinct cross-channel attribution lens]
+- GEO (country/region/city) — T1 · TW · NQ · ★ · —
+- DEVICE/TECH (deviceCategory/browser/OS/platform) — T1 · TW · NQ · ★ · —
+- CONTENT (pagePath/title/landingPage) — T1 · TW · NQ · ★ · —
+- EVENT taxonomy (eventName/isKeyEvent) — T1 · TW · NQ · ★ · —
+- ITEM/ecommerce (itemName/Id/Category/Brand/Variant + item metrics; scope-compat) — T1 · TW · NQ · ★ · —
+- ADS-LINKED cost/ROAS (advertiserAdCost/Clicks/Impr/ROAS — only if Ads↔GA4 linked) — T1 · TW · NQ · · · —
+- metric tail → jsonb + rate metrics — DROP/jsonb (rates derivable; long tail to jsonb)
+
+### WOOCOMMERCE (§4) — 9 gap families
+- FULL ORDER MONEY SURFACE (gross / tax / shipping / discount / fees split; currently NET only) — T1 · TW · NQ · ★★ · —
+- VARIATION grain — T1 · TW · NQ · ★★ · —
+- CATALOG CONTENT layer (product/variation content) — T1 · NR · NQ · ★ · —
+- CUSTOMER/LTV — T1 · NR · NQ · ★★ · — [privacy-first 0-PII, same engine as Shopify]
+- GEO (billing/shipping country/state/city) — T1 · TW · NQ · ★ · —
+- COUPON (coupon_lines) — T1 · TW · NQ · ★ · —
+- PAYMENT method + order status — T1 · TW · NQ · ★ · —
+- CATEGORY/TAG (product join) — T1 · TW · NQ · ★ · —
+- Per-order / per-line grain persistence — T1 · TW · NQ · · · —
+
+### GOOGLE (§5) — 11 gap families (+ derivable drops)
+- CONVERSION-SEGMENTATION persist (conversion_action/_name/_category → per-action rows; ALREADY in the live GAQL) — T0 · PO · NQ* · ★★★ · — [*forward free; 37-mo HISTORY backfill = T2/GG/⏳]
+- IMPRESSION-SHARE persist (search_* IS family; ALREADY in the live GAQL; grain-limited campaign/ad_group/keyword, NOT ad) — T0 · PO · NQ* · ★★ · — [*forward free; HISTORY backfill = T2/GG/⏳; content_* IS = new fetch]
+- ALL_CONVERSIONS (all_conversions / value / view_through / cross_device) — T2 · NR · GG · ★★ · ⏳
+- VIDEO (video_trueview_* / quartiles / watch_time / trueview_average_cpv) — T2 · NR · GG · ★★ · ⏳
+- NETWORK (ad_network_type / ad_sub_network_type) — T2 · NR · GG · ★ · ⏳ [PMax×network needs v24 → T3a]
+- PRODUCT/SHOPPING (product_* family) — T2 · NR · GG · ★ · ⏳
+- AUDIENCE (campaign / ad_group_audience_view) — T2 · NR · GG · ★ · ⏳
+- QUALITY (historical_quality_score + components, keyword grain) — T2 · NR · GG · · · ⏳
+- ENGAGEMENT/INTERACTION counts (engagements / interactions / interaction_event_types) — T2 · NR · GG · · · ⏳
+- CLICK-TYPE/SLOT (click_type / slot / ad_destination_type / ad_format_type) — T2 · NR · GG · · · ⏳
+- GEO grain extension (geo at ad/keyword; currently campaign+ad_group only) — T2 · NR · GG · · · ⏳ [PARTIAL]
+- PMax × ad_network_type (v24.2 capability) — T3a · PB · GG · ★ · — [needs google-ads-api v24 lib bump]
+- Time day_of_week/week/month/quarter/year + average_cpm + engagement_rate/interaction_rate — DROP (derivable from captured date/counts)
+
+═══════════════════════════════════════════════════════════════════
+## 7. COMMERCE/ANALYTICS-vs-ADS DIFFERENCES (platform-onboarding-playbook input; GA4/Woo specifics in §3/§4)
 ═══════════════════════════════════════════════════════════════════
 The (client, platform, account) key + 7-col metrics_daily + drain/registry/reconcile spine abstract the CAPTURE mechanics. The playbook layers over these SEMANTIC differences:
 1. METRIC POLARITY — revenue/refunds (money IN) vs ad spend (OUT). Reconcile anchor = account NET revenue, not spend.
@@ -197,7 +264,7 @@ The (client, platform, account) key + 7-col metrics_daily + drain/registry/recon
 8. SOURCE TYPE — managed/live-fetchable (Shopify) vs self-hosted/gentle-citizen (Woo) — already abstracted (LIVE-SOURCE principle).
 
 ═══════════════════════════════════════════════════════════════════
-## 7. STORAGE MODEL (settled 2026-06-28; see DECISIONS) — two-layer + RAG
+## 8. STORAGE MODEL (settled 2026-06-28; see DECISIONS) — two-layer + RAG
 ═══════════════════════════════════════════════════════════════════
 - LAYER 1 = dedicated COLUMNS on metrics_daily for Lora's HIGH-VALUE query/ranking axes: per-type conversions + revenue, video quartiles/ThruPlays. (Sortable/aggregatable by the query layer.)
 - LAYER 2 = JSONB (extra) for the long tail + per-platform anomalies — ALSO the anomaly-absorber that lets future platforms onboard with NO migration (governing-law extensibility).
@@ -205,4 +272,4 @@ The (client, platform, account) key + 7-col metrics_daily + drain/registry/recon
 Rule: a value Lora ranks/aggregates on → a column; everything else → jsonb; unstructured → RAG. Adding a platform never forces a schema change (jsonb absorbs the new shape).
 ★ OPEN (NOT decided — for the master build queue): the columns-vs-jsonb call for GA's session/user metrics. Today queryMetrics aggregates ONLY columns (spend/clicks/impressions/conversions/conversion_value/revenue); GA sessions/users/engagement sit in extra-JSONB → NOT queryable. RECOMMENDATION (to decide at build, not yet locked): HYBRID — add ~8 core GA session/user metric COLUMNS (the high-value query/ranking axes) + keep the tail in jsonb; dimensional breakdowns ride the existing 7-col key. Decide at build.
 
-(Companion: docs/LORAMER_BREAKDOWN_REGISTRY.md = per-dimension encoding. ALL FIVE PLATFORMS MAPPED — Meta §1 · Shopify §2 · GA4 §3 · Woo §4 · Google §5. Google EMPIRICAL per-client field-return probe DEFERRED to ≥2026-06-30T08:03Z quota window (desk-map complete). NEXT: cross-platform MASTER GAP LIST + value-ordered BUILD QUEUE.)
+(Companion: docs/LORAMER_BREAKDOWN_REGISTRY.md = per-dimension encoding. ALL FIVE PLATFORMS MAPPED — Meta §1 · Shopify §2 · GA4 §3 · Woo §4 · Google §5; MASTER GAP LIST = §6; value-ordered BUILD QUEUE = LORAMER_QUEUE_OF_RECORD (single source for build order). Google EMPIRICAL per-client field-return probe DEFERRED to ≥2026-06-30T08:03Z quota window. NEXT: BUILD per the queue — TIER 0/1 now; TIER 2 Google on the window.)
