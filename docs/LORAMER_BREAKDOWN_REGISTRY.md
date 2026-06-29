@@ -56,6 +56,7 @@ breakdown_type = '' and breakdown_value = '' (empty string). The query layer's d
 | age            | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=age               | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; FLAG-NOT-BLOCK |
 | gender         | meta     | account+campaign+ad_set+ad | raw (lower) | breakdowns=gender            | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; FLAG-NOT-BLOCK |
 | age_gender     | meta     | account+campaign+ad_set+ad | composite   | breakdowns=age,gender → "<age>:<gender>" | ✅ LORAMER_META_AGE_GENDER_BREADTH_V1; the joint; FLAG-NOT-BLOCK |
+| action_type    | meta     | account+campaign+ad_set+ad | raw (action string) | insights actions[]/action_values[]/cost_per_action_type/purchase_roas (RIDES+FIELD-WIDEN, NOT a breakdown) | ✅ LORAMER_META_ACTION_TYPE_TAXONOMY_V1 (T1.1); FULL taxonomy; conv=count, value=value, cost/ROAS→extra; WRITE-ONLY (non-partition, NEVER reconciled); drain 'meta_action_type' |
 | geo_country    | shopify  | account      | iso       | ISO country code (shopify-metrics-row)|       |
 | geo_region     | shopify  | account      | composite | "US-CA" (shopify-metrics-row)         |       |
 | conversion_action | google | campaign   | raw (action NAME) | intel.conversionsByCampaign (RIDES live-intel GAQL, no new call) | ✅ LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.1); forward-persist; per-action conv/value + category(extra); WRITE-ONLY; history=T2.3 |
@@ -162,6 +163,7 @@ grain at EVERY entity level (write-only — geo is non-partitioning).
 | hourly             | campaign     | raw      | hourly_stats breakdown  | VERIFY-AT-WRITER |
 | video              | ad           | raw      | video metrics           | VERIFY-AT-WRITER |
 | ranking            | ad           | raw      | quality/engagement rank | VERIFY-AT-WRITER |
+| action_type        | account + campaign + ad_set + ad | raw (action_type string) | actions[]/action_values[]/cost_per_action_type/purchase_roas/website_purchase_roas (insights &fields=, NOT a breakdown) | ✅ SHIPPED 2026-06-29 (LORAMER_META_ACTION_TYPE_TAXONOMY_V1, T1.1) — FULL taxonomy (live-probed Veterinary 2026-06-29: 36 action_types, cost_per_action_type 19). One row per (entity × action_type × day): conversions=count, conversion_value=value, cost_per_action_type + purchase_roas + website_purchase_roas in extra, spend/clicks/impr cols=0. RIDES-EXISTING + FIELD-WIDEN (no new calls, no row mult). WRITE-ONLY (non-partition; Meta conversions don't sum to account by dedup → NEVER reconciled). drain step 'meta_action_type' (30d window) → back-drains cohort to floor36 (Meta no quota). |
 
 ### GA / Shopify / Woo
 - GA is account-only today. GA breadth needs a build-time DECISION (first-class session/user columns vs extra-jsonb) — deferred to the GA writer step (§7/§12). NEEDS-DECISION, not pre-judged here.

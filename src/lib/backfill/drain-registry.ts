@@ -22,6 +22,7 @@ import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
 import { runMetaDeviceBackfill } from './meta-device-backfill'
 import { runMetaAgeGenderBackfill } from './meta-age-gender-backfill'
+import { runMetaActionTypeBackfill } from './meta-action-type-backfill' // LORAMER_META_ACTION_TYPE_TAXONOMY_V1
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -87,6 +88,11 @@ const META_DEVICE_WINDOW_DAYS = 60
 // 30d keeps a lap ~77s (SAFE). FLOOR = standard floor36 (demo served to the SAME ~37mo aggregate limit as device — Gate A
 // reconciled EXACT at 2023-06/~36mo; #3018 only at 2023-05, which floor36's clamp never reaches). NO special granularMonths.
 const META_AGE_GENDER_WINDOW_DAYS = 30
+
+// LORAMER_META_ACTION_TYPE_TAXONOMY_V1 — action_type window. Only 4 reports/lap (4 entity levels, NO breakdown
+// fan-out) but the full taxonomy is ROW-HEAVY (~36 action_types × entity × day) → 30d matches the row-heavy
+// age/gender posture (tune up after a live timing). WRITE-ONLY (no reconcile). floor36.
+const META_ACTION_TYPE_WINDOW_DAYS = 30
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -245,6 +251,18 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_age_gender',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_age_gender', runMetaAgeGenderBackfill as RangeWriter, dryRun, META_AGE_GENDER_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_ACTION_TYPE_TAXONOMY_V1 (T1.1) — Meta FULL conversion/action taxonomy. ONE breakdown_type
+    // ('action_type') across all 4 entity levels {account,campaign,ad_set,ad}; one row per (entity × action_type ×
+    // day) with per-action conversions/value + Meta's non-derivable cost_per_action_type/purchase_roas/website_purchase_roas
+    // in extra. RIDES-EXISTING (actions/action_values already in the insights fields) + FIELD-WIDEN (the cost/ROAS
+    // fields, SAME call — no new calls, no row multiplication). WRITE-ONLY (action_type does NOT partition spend;
+    // conversions don't sum to account by dedup → NEVER reconciled, unlike age/gender). Stateless-range; floor36; 30d
+    // window. After meta_age_gender → the next meta drain back-fills the cohort to floor automatically (Meta = no quota).
+    key: 'meta_action_type',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_action_type', runMetaActionTypeBackfill as RangeWriter, dryRun, META_ACTION_TYPE_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
