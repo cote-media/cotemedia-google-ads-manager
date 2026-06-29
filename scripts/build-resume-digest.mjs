@@ -6,8 +6,10 @@
 // manifest content_hash so a stale digest is detectable (gate falls back to the full read on any mismatch).
 //
 //   Run:  node scripts/build-resume-digest.mjs
-//   Wrap: regen the manifest for changed docs FIRST, THEN run this (it reads the updated manifest), THEN
-//         re-stamp this file's own manifest entry, THEN commit (per LORAMER_HANDOFF.md wrap-step).
+//   Wrap (HARD GATE): re-stamp HANDOFF_MANIFEST.json for EVERY changed gated SOURCE_DOC (now 8) FIRST, THEN run
+//         this (it reads the updated manifest), THEN re-stamp this file's own manifest entry, THEN run the
+//         FRESHNESS GATE — it MUST read 8/8 PASS before commit. A skipped re-stamp = RED gate next resume = STOP.
+//         (per the LORAMER_HANDOFF.md SESSION-WRAP gate.)
 //
 // Repo root is derived from THIS file's location (works on iMac + Air despite the different folder names).
 
@@ -57,7 +59,7 @@ const manifest = JSON.parse(read('docs/HANDOFF_MANIFEST.json'))
 // ── A. freshness stamp ──
 const head = execSync('git rev-parse HEAD', { cwd: ROOT }).toString().trim()
 const generatedAt = new Date().toISOString()
-const SOURCE_DOCS = ['LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md']
+const SOURCE_DOCS = ['LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md', 'docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md', 'docs/LORAMER_BREAKDOWN_REGISTRY.md', 'RESUME_INSTRUCTIONS.md']
 const hashLines = SOURCE_DOCS.map((d) => `    - ${d}: ${manifest[d]?.content_hash ?? 'MISSING-FROM-MANIFEST'}`).join('\n')
 
 // ── B. role contract ──
@@ -148,6 +150,12 @@ ${lessons}
 ## J. MACHINES / STACK / HOW TO USE THIS DIGEST
 - Machines: iMac ~/Downloads/cotemedia-ads-manager · MacBook Air ~/Downloads/cotemedia-google-ads-manager (folder names differ BY DESIGN). Stack: Next.js 14 App Router + TS + Tailwind, Supabase (Postgres), NextAuth (Google OAuth), Anthropic (claude-haiku-4-5 insight / claude-sonnet-4-6 chat, prompt caching), Vercel auto-deploy on push to main. (full: LORAMER_HANDOFF.md → Tech stack + MACHINES & ENV STATE)
 - HOW TO USE: run the section-A freshness gate. FRESH → read this file IN FULL, restate the section-G decisions + section-H queue items relevant to the task (RESTATE-TO-PROVE), state the section-E NEXT STEP, WAIT for Russ's "go". STALE → ignore this file, do the full 10-file tiered read. This digest NEVER overrides the authoritative docs; it is a derived fast path.
+
+## K. GATED REFERENCE DOCS (hash-guarded in §A; read on-demand — they can't silently rot)
+These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their hashes are stamped in §A). They are NOT embedded here (the digest stays lean = ONE paste); open them when the task needs them — the gate guarantees they are current, and a change to any of them WITHOUT a manifest re-stamp turns §A RED on the next resume:
+- docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md — master per-platform capture surface map (§1–5) + the cross-platform MASTER GAP LIST (§6); source of truth for what each platform CAN serve vs CAPTURED/GAP.
+- docs/LORAMER_BREAKDOWN_REGISTRY.md — per-dimension {entity_level, encoding, reconcile} + governing breakdown rules; the companion every breadth writer follows.
+- RESUME_INSTRUCTIONS.md — the canonical resume-flow wording (§J above summarizes it; the gate now guards the two from drifting).
 
 --- end of digest · regenerate with: node scripts/build-resume-digest.mjs ---
 `
