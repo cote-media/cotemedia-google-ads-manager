@@ -8,7 +8,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
-import OverviewStatic from '@/components/redesign/OverviewStatic'
+// LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
+// built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
+import CardEngine from '@/components/redesign/cards/CardEngine'
 
 export default async function DashboardNextPage({ searchParams }: { searchParams: { clientId?: string } }) {
   await requirePreviewUser()
@@ -32,7 +34,7 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
 
   return (
     <Shell active="overview" clientName={resolved.name} clientId={resolved.id}>
-      <OverviewStatic clientId={resolved.id} clientName={resolved.name} />
+      <CardEngine pageKey="overview" clientId={resolved.id} />
     </Shell>
   )
 }

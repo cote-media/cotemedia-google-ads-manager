@@ -1,0 +1,53 @@
+/* LORAMER_NEXT_CARD_ENGINE_V1 — card-engine styles (-next). Mirrors the redesign palette: ink #0f172a,
+   muted #64748b, border #e2e8f0, accent #2563eb, warm bg #fbfaf7. */
+
+.engine { width: 100%; }
+
+.toolbar { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
+.toolRight { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.viewSel { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
+.tool, .toolOn { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.toolOn { background: #0f172a; color: #fff; border-color: #0f172a; }
+.tool:hover { background: #f8fafc; }
+.saveMsg { font-size: 12px; color: #64748b; }
+
+.grid { position: relative; }
+
+.card { height: 100%; display: flex; flex-direction: column; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+.cardHead { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #eef0f3; cursor: grab; background: #fbfaf7; }
+.cardHead:active { cursor: grabbing; }
+.grip { color: #94a3b8; font-size: 14px; }
+.cardTitle { font-size: 12px; font-weight: 600; color: #334155; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardActions { margin-left: auto; display: flex; gap: 2px; }
+.act, .actOn { border: none; background: transparent; color: #94a3b8; cursor: pointer; padding: 3px; border-radius: 6px; font-size: 14px; line-height: 1; }
+.act:hover { background: #eef2f7; color: #475569; }
+.actOn { color: #2563eb; }
+.cardBody { flex: 1; min-height: 0; padding: 10px 12px; display: flex; flex-direction: column; }
+
+.statBody { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+.statV { font-size: 26px; font-weight: 700; color: #0f172a; line-height: 1.1; }
+.up { font-size: 12px; color: #0f6e56; margin-top: 4px; }
+.down { font-size: 12px; color: #b91c1c; margin-top: 4px; }
+.muted { font-size: 12px; color: #94a3b8; }
+.err { font-size: 12px; color: #b45309; }
+
+.tableWrap { overflow: auto; height: 100%; }
+.table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table th { text-align: left; color: #94a3b8; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid #eef0f3; position: sticky; top: 0; background: #fff; }
+.table td { padding: 4px 6px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+.numCol { text-align: right; }
+
+.pinnedWrap { outline: 2px solid #dbeafe; border-radius: 12px; }
+
+/* Side-panel config editor (decision B) */
+.panel { position: fixed; top: 0; right: 0; bottom: 0; width: 320px; max-width: 88vw; background: #fff; border-left: 1px solid #e2e8f0; box-shadow: -8px 0 24px rgba(15,23,42,.08); z-index: 60; display: flex; flex-direction: column; }
+.panelHead { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #eef0f3; font-weight: 600; color: #0f172a; }
+.panelBody { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.panelFoot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #eef0f3; }
+.fLabel { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+.sel { font: inherit; font-size: 13px; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; width: 100%; }
+.seg { display: flex; gap: 4px; }
+.segBtn, .segOn { flex: 1; font: inherit; font-size: 12px; padding: 6px 4px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; text-transform: capitalize; }
+.segOn { background: #2563eb; color: #fff; border-color: #2563eb; }
+.primary { flex: 1; font: inherit; font-size: 13px; padding: 9px; border: none; border-radius: 8px; background: #0f172a; color: #fff; cursor: pointer; font-weight: 600; }
+.ghost { font: inherit; font-size: 13px; padding: 9px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; }
