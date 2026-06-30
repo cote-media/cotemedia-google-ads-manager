@@ -174,11 +174,11 @@ const GRAPHQL_API_VERSION = '2025-01' // matches fetchShopifyIntelligence
 const DEEP_TIME_BUDGET_MS = 45_000 // under the 60s /api/backfill/run route; cursor bridges laps
 const RECONCILE_TOLERANCE = 0.01 // 1 cent — absorbs FP noise; a real basis regression is dollars
 
-async function upsertDeepCursor(clientId: string, earliest: string, target: string, complete: boolean): Promise<void> {
+async function upsertDeepCursor(clientId: string, platform: string, earliest: string, target: string, complete: boolean): Promise<void> {
   await supabaseAdmin.from('sync_state').upsert(
     {
       client_id: clientId,
-      platform: CURSOR_PLATFORM_DEEP,
+      platform,
       backfill_earliest_date: earliest,
       backfill_target_date: target,
       backfill_complete: complete,
@@ -206,9 +206,13 @@ async function probeFirstOrderDate(shopDomain: string, accessToken: string): Pro
 
 export async function runShopifyDeepBackfill(
   clientId: string,
-  opts: { timeBudgetMs?: number; now?: string } = {}
+  opts: { timeBudgetMs?: number; now?: string; cursorPlatform?: string } = {}
 ): Promise<ShopifyDimBackfillResult> {
   const timeBudgetMs = opts.timeBudgetMs ?? DEEP_TIME_BUDGET_MS
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — the variant drain step re-walks under a SEPARATE cursor namespace
+  // ('shopify_variant') so an already-complete 'shopify_deep' client re-emits depth rows (incl. the new variant
+  // rows) idempotently. Default = the original deep cursor (zero behavior change for the existing 'shopify_deep' step).
+  const cursorPlatformDeep = opts.cursorPlatform ?? CURSOR_PLATFORM_DEEP
   const startedAt = Date.now()
   const throttleDeadline = startedAt + timeBudgetMs
 
@@ -248,7 +252,7 @@ export async function runShopifyDeepBackfill(
     return { status: 200, body: { clientId, shopDomain, complete: false, error: String(e?.message ?? e), note: 'oldest-order probe failed; nothing written' } }
   }
   if (!firstOrderDate) {
-    await upsertDeepCursor(clientId, endDate, endDate, true)
+    await upsertDeepCursor(clientId, cursorPlatformDeep, endDate, endDate, true)
     return { status: 200, body: { clientId, shopDomain, complete: true, earliest: endDate, note: 'store has no orders' } }
   }
   const targetStart = firstOrderDate
@@ -257,7 +261,7 @@ export async function runShopifyDeepBackfill(
     .from('sync_state')
     .select('backfill_earliest_date, backfill_complete')
     .eq('client_id', clientId)
-    .eq('platform', CURSOR_PLATFORM_DEEP)
+    .eq('platform', cursorPlatformDeep)
     .maybeSingle()
   if (stateRow?.backfill_complete) {
     return { status: 200, body: { clientId, shopDomain, complete: true, earliest: targetStart, note: 'already complete' } }
@@ -267,7 +271,7 @@ export async function runShopifyDeepBackfill(
   // the deepest captured day.
   const windowEnd = stateRow?.backfill_earliest_date ? addDays(stateRow.backfill_earliest_date, -1) : endDate
   if (windowEnd < targetStart) {
-    await upsertDeepCursor(clientId, targetStart, targetStart, true)
+    await upsertDeepCursor(clientId, cursorPlatformDeep, targetStart, targetStart, true)
     return { status: 200, body: { clientId, shopDomain, complete: true, earliest: targetStart, note: 'window already covered' } }
   }
 
@@ -277,7 +281,7 @@ export async function runShopifyDeepBackfill(
   let timedOut = false
   const errors: Array<{ date: string; message: string }> = []
   let earliestWritten = stateRow?.backfill_earliest_date || addDays(endDate, 1)
-  let reconcileHalt: { date: string; account: number; product: number; residual: number } | null = null
+  let reconcileHalt: { date: string; account: number; product: number; grain: string; residual: number } | null = null
 
   for (let cursor = windowEnd; cursor >= targetStart; cursor = addDays(cursor, -1)) {
     if (Date.now() - startedAt > timeBudgetMs) {
@@ -289,15 +293,23 @@ export async function runShopifyDeepBackfill(
       const accountRows = buildShopifyMetricsRows(clientId, userEmail, cursor, shopDomain, intel)
       const depthRows = buildShopifyDepthRows(clientId, userEmail, cursor, shopDomain, intel)
 
-      // ── PERMANENT-HISTORY GUARD ── Σ product == account for THIS day (the Flight-1 invariant). Any
-      // mismatch HALTS: do NOT write this day, do NOT advance the cursor, surface date + residual.
+      // ── PERMANENT-HISTORY GUARD ── Σ product == account AND Σ variant == account for THIS day (the Flight-1
+      // invariant + LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 variant invariant — every line lands in exactly one
+      // product bucket AND one variant bucket, so both sums equal account). Any mismatch HALTS: do NOT write
+      // this day, do NOT advance the cursor, surface date + grain + residual.
       const accountRev = Number(accountRows[0]?.revenue) || 0
-      const productSum = depthRows
-        .filter((r) => r.entity_level === 'product')
-        .reduce((s, r) => s + (Number(r.revenue) || 0), 0)
-      if (Math.abs(productSum - accountRev) > RECONCILE_TOLERANCE) {
-        reconcileHalt = { date: cursor, account: accountRev, product: productSum, residual: Math.round((productSum - accountRev) * 100) / 100 }
-        console.error(`[shopify-deep-backfill] RECONCILE HALT client=${clientId} shop=${shopDomain} date=${cursor} product=${productSum} account=${accountRev}`)
+      const sumLevel = (lvl: string) =>
+        depthRows.filter((r) => r.entity_level === lvl).reduce((s, r) => s + (Number(r.revenue) || 0), 0)
+      const productSum = sumLevel('product')
+      const variantSum = sumLevel('variant')
+      const badGrain =
+        Math.abs(productSum - accountRev) > RECONCILE_TOLERANCE ? 'product'
+          : Math.abs(variantSum - accountRev) > RECONCILE_TOLERANCE ? 'variant'
+            : null
+      if (badGrain) {
+        const grainSum = badGrain === 'product' ? productSum : variantSum
+        reconcileHalt = { date: cursor, account: accountRev, product: grainSum, grain: badGrain, residual: Math.round((grainSum - accountRev) * 100) / 100 }
+        console.error(`[shopify-deep-backfill] RECONCILE HALT client=${clientId} shop=${shopDomain} date=${cursor} grain=${badGrain} sum=${grainSum} account=${accountRev}`)
         break
       }
 
@@ -325,14 +337,14 @@ export async function runShopifyDeepBackfill(
       status: 200,
       body: {
         clientId, shopDomain, complete: false, earliest: earliestWritten,
-        error: `RECONCILE HALT date=${reconcileHalt.date} product=$${reconcileHalt.product} account=$${reconcileHalt.account} residual=$${reconcileHalt.residual} — day NOT written, cursor NOT advanced`,
+        error: `RECONCILE HALT date=${reconcileHalt.date} grain=${reconcileHalt.grain} sum=$${reconcileHalt.product} account=$${reconcileHalt.account} residual=$${reconcileHalt.residual} — day NOT written, cursor NOT advanced`,
         reconcileHalt,
       },
     }
   }
 
   const done = earliestWritten <= targetStart && errors.length === 0 && !timedOut
-  await upsertDeepCursor(clientId, earliestWritten, targetStart, done)
+  await upsertDeepCursor(clientId, cursorPlatformDeep, earliestWritten, targetStart, done)
   const resumeFrom = done ? null : errors.length ? errors[0].date : addDays(earliestWritten, -1)
 
   return {

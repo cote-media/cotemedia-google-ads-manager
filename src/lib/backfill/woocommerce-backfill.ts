@@ -55,18 +55,23 @@ export interface WooBackfillResult {
 }
 
 // Generalized cursor writer — upserts whatever fields are passed (earliest/target/complete + breaker state).
-async function writeCursor(clientId: string, fields: Record<string, unknown>): Promise<void> {
+async function writeCursor(clientId: string, platform: string, fields: Record<string, unknown>): Promise<void> {
   await supabaseAdmin.from('sync_state').upsert(
-    { client_id: clientId, platform: CURSOR_PLATFORM, updated_at: new Date().toISOString(), ...fields },
+    { client_id: clientId, platform, updated_at: new Date().toISOString(), ...fields },
     { onConflict: 'client_id,platform' }
   )
 }
 
 export async function runWooCommerceBackfill(
   clientId: string,
-  opts: { days?: number; timeBudgetMs?: number; now?: string; unblock?: boolean; fetchOrders?: WooFetchFn } = {}
+  opts: { days?: number; timeBudgetMs?: number; now?: string; unblock?: boolean; fetchOrders?: WooFetchFn; cursorPlatform?: string } = {}
 ): Promise<WooBackfillResult> {
   const days = opts.days ?? DEFAULT_DAYS
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — the variant drain step re-walks under a SEPARATE cursor namespace
+  // ('woocommerce_variant') with its OWN claim/breaker/cursor row so an already-complete 'woocommerce_backfill'
+  // client re-emits depth rows (incl. the new variant rows) idempotently. Default = the original cursor (zero
+  // behavior change for the existing 'woo' step; gentle-citizen throttle + breaker carry over unchanged).
+  const cursorKey = opts.cursorPlatform ?? CURSOR_PLATFORM
   const timeBudgetMs = opts.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS
   const startedAt = Date.now()
 
@@ -109,7 +114,7 @@ export async function runWooCommerceBackfill(
   // is intentional; a blocked run still does ZERO outbound store fetches — DB ops are fine).
   const claimToken = randomUUID()
   const { data: claimRows, error: claimErr } = await supabaseAdmin.rpc('claim_backfill_cursor', {
-    p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken,
+    p_client_id: clientId, p_platform: cursorKey, p_token: claimToken,
   })
   if (claimErr) {
     return { status: 500, body: { error: 'claim check failed', detail: claimErr.message } }
@@ -122,7 +127,7 @@ export async function runWooCommerceBackfill(
   }
   const release = async () => {
     try {
-      await supabaseAdmin.rpc('release_backfill_cursor', { p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_token: claimToken })
+      await supabaseAdmin.rpc('release_backfill_cursor', { p_client_id: clientId, p_platform: cursorKey, p_token: claimToken })
     } catch { /* best-effort; self-heals via the 360s staleness reclaim */ }
   }
 
@@ -149,14 +154,14 @@ export async function runWooCommerceBackfill(
   let blockFails = claim.block_fails ?? 0
   if (opts.unblock && claim.blocked) {
     blockFails = 0
-    await writeCursor(clientId, { backfill_blocked: false, backfill_block_fails: 0, backfill_block_window: null, backfill_block_reason: null, backfill_block_at: null })
+    await writeCursor(clientId, cursorKey, { backfill_blocked: false, backfill_block_fails: 0, backfill_block_window: null, backfill_block_reason: null, backfill_block_at: null })
   }
 
   // Resume PURELY from the persisted cursor (the true frontier, from the claim's RETURNING). No
   // caller-specified window → a caller can never force a re-walk of already-captured windows.
   let windowEnd = claim.earliest ? addDays(claim.earliest, -1) : endDate
   if (windowEnd < targetStart) {
-    await writeCursor(clientId, { backfill_earliest_date: targetStart, backfill_target_date: targetStart, backfill_complete: true })
+    await writeCursor(clientId, cursorKey, { backfill_earliest_date: targetStart, backfill_target_date: targetStart, backfill_complete: true })
     await release()
     return { status: 200, body: { clientId, storeUrl, status: 'complete', complete: true, note: 'window already covered' } }
   }
@@ -249,7 +254,7 @@ export async function runWooCommerceBackfill(
       windowEnd = addDays(windowStart, -1)
       blockFails = 0 // success at this frontier resets the consecutive-failure counter
       // RESET path (direct constant write — a reset writer of the breaker columns, never read-then-write).
-      await writeCursor(clientId, {
+      await writeCursor(clientId, cursorKey, {
         backfill_earliest_date: earliestWritten,
         backfill_target_date: targetStart,
         backfill_complete: false,
@@ -269,7 +274,7 @@ export async function runWooCommerceBackfill(
       blockReason = res.reason ?? 'window unservable at per-day floor'
       earliestWritten = res.failedDay ? addDays(res.failedDay, 1) : earliestWritten // frontier just above the broken day
       const { data: bumpRows, error: bumpErr } = await supabaseAdmin.rpc('bump_backfill_block', {
-        p_client_id: clientId, p_platform: CURSOR_PLATFORM, p_threshold: BLOCK_THRESHOLD,
+        p_client_id: clientId, p_platform: cursorKey, p_threshold: BLOCK_THRESHOLD,
         p_window: blockWindow, p_reason: blockReason, p_earliest: earliestWritten,
       })
       if (bumpErr) {
@@ -301,7 +306,7 @@ export async function runWooCommerceBackfill(
 
   // Normal completion / incomplete-resumable path (timeout / chunk-cap / budget-backstop are all resumable).
   const complete = reachedHistoryStart
-  await writeCursor(clientId, { backfill_earliest_date: earliestWritten, backfill_target_date: targetStart, backfill_complete: complete })
+  await writeCursor(clientId, cursorKey, { backfill_earliest_date: earliestWritten, backfill_target_date: targetStart, backfill_complete: complete })
   await release()
   return {
     status: 200,

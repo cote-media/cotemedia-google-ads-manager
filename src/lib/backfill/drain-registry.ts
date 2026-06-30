@@ -283,6 +283,19 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     },
   },
   {
+    // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant/SKU DEPTH backfill (Shopify). Re-walks the SAME deep writer
+    // under a SEPARATE cursor namespace ('shopify_variant') so already-complete 'shopify_deep' clients re-emit
+    // depth rows incl. the new variant grain (idempotent, additive). After shopify_deep (depth before this breadth).
+    // The deep writer's Σ product == account AND Σ variant == account HALT guards every day. NEW key → cohort-wide.
+    key: 'shopify_variant',
+    platforms: ['shopify'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_variant') — writer has no dryRun; live lap pending" } }
+      const { body } = await runShopifyDeepBackfill(conn.client_id, { cursorPlatform: 'shopify_variant' })
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
     // WOO last + gentlest (live self-hosted). Its own circuit-breaker + claim already guard the store.
     key: 'woo',
     platforms: ['woocommerce'],
@@ -290,6 +303,20 @@ export const DRAIN_REGISTRY: DrainStep[] = [
       if (dryRun) return { done: false, detail: { plan: 'runWooCommerceBackfill — writer has no dryRun; live lap pending' } }
       const { body } = await runWooCommerceBackfill(conn.client_id, {})
       if (body?.skipped) return { done: false, detail: { note: 'woo writer claim held by another invocation', body } }
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
+    // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant/SKU DEPTH backfill (Woo). Re-walks the SAME backfill writer
+    // under a SEPARATE cursor namespace ('woocommerce_variant') with its OWN claim/breaker row so already-complete
+    // 'woo' clients re-emit depth rows incl. the new variant grain (idempotent, additive). After 'woo'; gentle-
+    // citizen throttle + breaker carry over. NEW key → not-done for every connection → cohort-wide back-drain.
+    key: 'woo_variant',
+    platforms: ['woocommerce'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_variant') — writer has no dryRun; live lap pending" } }
+      const { body } = await runWooCommerceBackfill(conn.client_id, { cursorPlatform: 'woocommerce_variant' })
+      if (body?.skipped) return { done: false, detail: { note: 'woo variant writer claim held by another invocation', body } }
       return { done: body?.complete === true, detail: body }
     },
   },

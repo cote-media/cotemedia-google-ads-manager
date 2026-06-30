@@ -94,6 +94,28 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain (entity_level='variant'): bare variant gid,
+  // parent_entity_id=product id, sku+variantTitle in extra. NET (refund-netted per line) so Σ variant ≡ product.
+  for (const v of data.variantsCapture || []) {
+    if (!v?.id) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'variant',
+      entity_id: v.id,
+      entity_name: v.name,
+      parent_entity_id: v.parentProductId,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      revenue: v.netRevenue ?? v.revenue ?? 0,
+      conversions: v.units,
+      extra: { units: v.units, sku: v.sku, variantTitle: v.variantTitle, grossRevenue: v.grossRevenue, currencyCode: cur, currencyMixed: curMixed, netBasis: 'discountedTotal_refundNetted_perLine' },
+    })
+  }
+
   for (const g of data.geoCountries || []) {
     if (!g?.country) continue
     rows.push({

@@ -53,5 +53,28 @@ export function buildWooMetricsRows(
     })
   }
 
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain (entity_level='variant'): COMPOSITE entity_id
+  // `${productId}:${variationId}` (variation_id=0 simple product → `${productId}:0`), parent_entity_id=product id,
+  // sku in extra. NET (FIX-1b pro-rata per line) so Σ variant ≡ product ≡ account.
+  for (const variant of data.variantsCapture ?? []) {
+    if (!variant?.id) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'woocommerce',
+      account_id: storeUrl, // LORAMER_MULTIACCOUNT_PHASE2A_V1
+      entity_level: 'variant',
+      entity_id: variant.id,
+      entity_name: variant.name,
+      parent_entity_id: variant.parentProductId,
+      date: captureDate,
+      breakdown_type: '',
+      breakdown_value: '',
+      revenue: variant.revenue ?? variant.netRevenue ?? 0,
+      conversions: variant.units,
+      extra: { units: variant.units, sku: variant.sku, netBasis: 'account_net_incl_shipping_tax_prorata_by_gross_share' },
+    })
+  }
+
   return rows
 }

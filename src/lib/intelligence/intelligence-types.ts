@@ -384,6 +384,12 @@ export interface IntelligenceShopify {
   // LORAMER_WOO_ALLPRODUCTS_FIX1A_V1 — revenue fields optional so this serves BOTH Shopify
   // (netRevenue/grossRevenue) AND Woo (revenue). id/name/units required (both set them).
   productsCapture?: { id: string; name: string; units: number; revenue?: number; netRevenue?: number; grossRevenue?: number }[]
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant/SKU grain (capture-only, NOT UI). Shopify: id = bare variant
+  // gid (globally unique). Woo: id = composite `${productId}:${variationId}` (variationId=0 = simple product,
+  // folded to `${productId}:0` — a bare variationId is UNSAFE: every simple product shares 0 → 7-col-key collision).
+  // parentProductId = the product entity_id (written as parent_entity_id). sku/variantTitle ride extra. revenue =
+  // NET (Shopify: per-line refundLineItems netting; Woo: pro-rata of order net by line share) so Σ variant ≡ product ≡ account.
+  variantsCapture?: { id: string; parentProductId: string; name: string; sku?: string; variantTitle?: string; units: number; revenue?: number; netRevenue?: number; grossRevenue?: number }[]
   geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
   geoRegions?: { region: string; netRevenue: number; orders: number }[]
   currencyCode?: string

@@ -89,6 +89,7 @@ type GraphQLOrderNode = {
         title: string
         quantity: number
         product: { id: string } | null
+        variant: { id: string; sku: string | null; title: string | null } | null // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant gid + sku + variant title (same node, one field-add)
         originalUnitPriceSet: { shopMoney: { amount: string } }
         discountedTotalSet: { shopMoney: { amount: string } } // LORAMER_SHOPIFY_DEPTH_2A_V1 — line net (after discounts)
       }
@@ -186,6 +187,7 @@ export async function fetchShopifyIntelligence(
                   title
                   quantity
                   product { id }
+                  variant { id sku title }
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
                 }
@@ -357,6 +359,9 @@ export async function fetchShopifyIntelligence(
     // discountedTotal share, so per order Σ line-net ≡ currentSubtotal exactly. grossRevenue + units stay
     // order-side (gross product mix / ordered units — a separate axis, not reconciled to net).
     const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
+    // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain rides the SAME per-line nets as prodCap (each order
+    // line is exactly one variant), keyed by the bare variant gid → Σ variant ≡ Σ product ≡ account by construction.
+    const varCap: Record<string, { name: string; sku: string | null; variantTitle: string | null; parentProductId: string; netRevenue: number; grossRevenue: number; units: number }> = {}
     for (const order of liveOrders) {
       // refunded SUBTOTAL per lineItem id (sum across all refunds on the order)
       const refundByLine: Record<string, number> = {}
@@ -384,13 +389,34 @@ export async function fetchShopifyIntelligence(
       for (const l of lines) {
         const share = sumDisc > 0 ? l.disc / sumDisc : lines.length ? 1 / lines.length : 0
         const net = l.net + residual * share
+        const lineGross = parseFloat(l.item.originalUnitPriceSet?.shopMoney?.amount || '0') * l.item.quantity
         if (!prodCap[l.id]) prodCap[l.id] = { name: l.item.title, netRevenue: 0, grossRevenue: 0, units: 0 }
         prodCap[l.id].netRevenue += net
-        prodCap[l.id].grossRevenue += parseFloat(l.item.originalUnitPriceSet?.shopMoney?.amount || '0') * l.item.quantity
+        prodCap[l.id].grossRevenue += lineGross
         prodCap[l.id].units += l.item.quantity
+        // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain: bare variant gid (globally unique); fold a
+        // variant-less line (deleted/custom line item, variant=null) to `${productId}::novar` so per-product Σ variant ≡ product.
+        const variant = l.item.variant
+        const varKey = variant?.id || `${l.id}::novar`
+        if (!varCap[varKey]) varCap[varKey] = { name: variant?.title || l.item.title, sku: variant?.sku ?? null, variantTitle: variant?.title ?? null, parentProductId: l.id, netRevenue: 0, grossRevenue: 0, units: 0 }
+        varCap[varKey].netRevenue += net
+        varCap[varKey].grossRevenue += lineGross
+        varCap[varKey].units += l.item.quantity
       }
     }
     const productsCapture = Object.entries(prodCap).map(([id, v]) => ({ id, ...v }))
+    // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain capture. id = bare variant gid; parentProductId = the
+    // product entity_id (written as parent_entity_id). Same per-line nets as productsCapture → Σ variant ≡ Σ product ≡ account net.
+    const variantsCapture = Object.entries(varCap).map(([id, v]) => ({
+      id,
+      parentProductId: v.parentProductId,
+      name: v.name,
+      sku: v.sku ?? undefined,
+      variantTitle: v.variantTitle ?? undefined,
+      units: v.units,
+      netRevenue: v.netRevenue,
+      grossRevenue: v.grossRevenue,
+    }))
 
     // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — separate fail-soft fetch.
     // Reuses the same date queryString as the orders query so the count is
@@ -420,6 +446,7 @@ export async function fetchShopifyIntelligence(
       topProducts,
       // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth
       productsCapture,
+      variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
       geoCountries,
       geoRegions,
       currencyCode,

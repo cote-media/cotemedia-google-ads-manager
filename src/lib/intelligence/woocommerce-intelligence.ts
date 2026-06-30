@@ -139,6 +139,9 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
   // account basis; grossRevenue + units stay an unreconciled order-side axis (mirrors Shopify Flight 1).
   const fin = (n: number) => (Number.isFinite(n) ? n : 0)
   const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain rides the SAME per-line pro-rata net as prodCap,
+  // keyed by COMPOSITE `${productId}:${variationId}` (variation_id=0 = simple product → `${productId}:0`).
+  const varCap: Record<string, { name: string; sku: string | null; parentProductId: string; netRevenue: number; grossRevenue: number; units: number }> = {}
   saleOrders.forEach((o: any) => {
     const items = (o.line_items || []) as any[]
     if (items.length === 0) return // no lines → nothing to attribute (order net still in account grain)
@@ -153,10 +156,25 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
       prodCap[id].netRevenue += netContribution
       prodCap[id].grossRevenue += grossLine
       prodCap[id].units += fin(Number(item.quantity || 0))
+      // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain: COMPOSITE key `${productId}:${variationId}`
+      // (variation_id=0 simple product → `${productId}:0`; a bare variation_id is UNSAFE — all simple products
+      // share 0). Same per-line net share → Σ variant ≡ product ≡ account net (the FIX-1b invariant).
+      const variationId = String(item.variation_id ?? 0)
+      const varKey = `${id}:${variationId}`
+      if (!varCap[varKey]) varCap[varKey] = { name: item.name || ('product ' + id), sku: item.sku ?? null, parentProductId: id, netRevenue: 0, grossRevenue: 0, units: 0 }
+      varCap[varKey].netRevenue += netContribution
+      varCap[varKey].grossRevenue += grossLine
+      varCap[varKey].units += fin(Number(item.quantity || 0))
     })
   })
   const productsCapture = Object.entries(prodCap)
     .map(([id, v]) => ({ id, ...v, revenue: v.netRevenue })) // revenue alias = NET (writer reads .revenue)
+    .sort((a, b) => b.netRevenue - a.netRevenue)
+
+  // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain capture. id = composite `${productId}:${variationId}`;
+  // parentProductId = product entity_id. revenue alias = NET (writer reads .revenue) → Σ variant ≡ product ≡ account.
+  const variantsCapture = Object.entries(varCap)
+    .map(([vid, v]) => ({ id: vid, parentProductId: v.parentProductId, name: v.name, sku: v.sku ?? undefined, units: v.units, revenue: v.netRevenue, netRevenue: v.netRevenue, grossRevenue: v.grossRevenue }))
     .sort((a, b) => b.netRevenue - a.netRevenue)
 
   return {
@@ -168,6 +186,7 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
     returningCustomers,
     topProducts,
     productsCapture,
+    variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
   }
 }
 
