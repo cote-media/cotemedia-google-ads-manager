@@ -59,7 +59,7 @@ const manifest = JSON.parse(read('docs/HANDOFF_MANIFEST.json'))
 // ── A. freshness stamp ──
 const head = execSync('git rev-parse HEAD', { cwd: ROOT }).toString().trim()
 const generatedAt = new Date().toISOString()
-const SOURCE_DOCS = ['LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md', 'docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md', 'docs/LORAMER_BREAKDOWN_REGISTRY.md', 'RESUME_INSTRUCTIONS.md']
+const SOURCE_DOCS = ['LORAMER_ESSENCE.md', 'LORAMER_HANDOFF.md', 'CONTINUE_HERE.md', 'LORAMER_DECISIONS.md', 'LORAMER_QUEUE_OF_RECORD.md', 'docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md', 'docs/LORAMER_BREAKDOWN_REGISTRY.md', 'RESUME_INSTRUCTIONS.md', 'docs/LORAMER_ASSET_LAYER_SCOPE_V1.md']
 const hashLines = SOURCE_DOCS.map((d) => `    - ${d}: ${manifest[d]?.content_hash ?? 'MISSING-FROM-MANIFEST'}`).join('\n')
 
 // ── B. role contract ──
@@ -156,6 +156,7 @@ These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their has
 - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md — master per-platform capture surface map (§1–5) + the cross-platform MASTER GAP LIST (§6); source of truth for what each platform CAN serve vs CAPTURED/GAP.
 - docs/LORAMER_BREAKDOWN_REGISTRY.md — per-dimension {entity_level, encoding, reconcile} + governing breakdown rules; the companion every breadth writer follows.
 - RESUME_INSTRUCTIONS.md — the canonical resume-flow wording (§J above summarizes it; the gate now guards the two from drifting).
+- docs/LORAMER_ASSET_LAYER_SCOPE_V1.md — the T3b creative/asset + asset-combination-attribution SCOPE (post-launch FLAGSHIP; per-platform serve+ceilings, new-table shapes, the per-combination MODELING-layer requirement, the 4 opening decision-forks).
 
 --- end of digest · regenerate with: node scripts/build-resume-digest.mjs ---
 `
