@@ -1,8 +1,10 @@
 # LoraMer Security Posture (audit 2026-06-29)
 
-STATUS: current-state MAP from the 2026-06-29 read-only security audit. The 4 LAUNCH-CRITICAL fixes are NOT applied —
-they are the next security build flight (Russ-routed). This doc is the system-of-record for the posture; re-audit on
-any auth/route/token change. Multi-tenant app holding 18+ clients' Google/Meta/Shopify/GA OAuth tokens + Stripe + ad data.
+STATUS: current-state MAP from the 2026-06-29 read-only security audit. PROGRESS 2026-06-29 (LORAMER_SAFE_SECURITY_FIXES_V1):
+FIX 1 (remove /api/test) CODE-RESOLVED; FIX 2 (NEXTAUTH_SECRET) + FIX 3 (demo@ MCC) = RUSS CONSOLE ACTIONS pending
+(exact steps in §7); the refresh-token-in-session + token-column-encryption items remain the POST-META auth-path flight
+(they touch the live reviewer auth — not a casual edit). This doc is the system-of-record; re-audit on any auth/route/
+token change. Multi-tenant app holding 18+ clients' Google/Meta/Shopify/GA OAuth tokens + Stripe + ad data.
 
 ## 0. One-line posture
 The wall is APP-LAYER ownership gates (resolveAccess / userOwnsClient / inline user_email), NOT RLS (inert for the
@@ -65,12 +67,23 @@ export (supabase.ts:8) is DEAD (imported nowhere). next@14.2.3 is behind the 14.
 no middleware auth); upgrade fast-follow.
 
 ## 7. GAP LIST
-LAUNCH-CRITICAL (pre-7/14):
-1. Google refresh token in the browser session — remove session.refreshToken from the NextAuth session callback; live
-   routes read DB google_tokens / getToken() server-side.
-2. Revoke demo@'s MCC access before the cohort (widens the #18 live-data routes to all MCC-child accounts).
-3. Remove /api/test (prod Google-token-debug endpoint).
-4. Verify NEXTAUTH_SECRET is strong + set in prod (was UNVERIFIED).
+LAUNCH-CRITICAL (pre-7/14) — 1 of 4 code-resolved 2026-06-29; 2 await Russ console actions; 1 is post-Meta:
+1. [POST-META] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
+   callback; live routes read DB google_tokens / getToken() server-side. Touches the LIVE reviewer auth path → sequence
+   post-Meta / with extreme care, NOT a casual edit.
+2. [RUSS CONSOLE ACTION] Revoke demo@'s MCC access (widens #18 to all MCC-child accounts). NO code wiring grants it —
+   demo@loramer.com is just the Meta-reviewer LOGIN; the access (if any) is a Google Ads MCC user grant. STEPS: Google
+   Ads → open the agency MANAGER (MCC) account (GOOGLE_ADS_MANAGER_ACCOUNT_ID) → Admin → Access and security → Users →
+   find demo@loramer.com (or any non-agency/test Google account) → ⋮ → Remove access. This does NOT affect the Meta
+   review (demo@ reviews Meta, not Google). Structural follow-up (fast-follow CODE): bind accountId→owned-client on the
+   live-data routes (#18) so MCC membership alone can't read children.
+3. [DONE 2026-06-29] Remove /api/test — the prod Google-token-debug endpoint (minted a Google access token from the
+   session refresh token + queried the MCC). Route DELETED (confirmed unreferenced; not the reviewer path). tsc green.
+4. [RUSS CONSOLE ACTION] NEXTAUTH_SECRET — CODE CONFIRMED FAIL-CLOSED: authOptions sets no `secret:` field and has NO
+   insecure fallback (no `|| 'default'`), so NextAuth reads process.env.NEXTAUTH_SECRET and THROWS in production if it
+   is unset (no silent default). ACTION: confirm it is set + strong in Vercel (Project → Settings → Environment
+   Variables → NEXTAUTH_SECRET, Production scope). To rotate: `openssl rand -base64 32` → paste as the new value →
+   redeploy. Rotating LOGS EVERYONE OUT (everyone re-logs-in) — acceptable pre-launch. Never commit the value anywhere.
 
 FAST-FOLLOW (hardening):
 5. Encrypt the OAuth-token columns at rest with an app-side key (the single highest-value hardening for this app).
