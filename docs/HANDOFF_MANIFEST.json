@@ -6,10 +6,10 @@
     "line_count": 127
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "402504f173d78897f8d44d258bfef64a4057f9153f4141826d58f340ecbf841b",
+    "content_hash": "f538a9fcac7a0b6c7cb84620407e28b6024b81df20c79108cdc5fe0656787bf9",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "65e05c9",
-    "line_count": 658
+    "last_reconciled_head": "cc3c010",
+    "line_count": 661
   },
   "LORAMER_DECISIONS.md": {
     "content_hash": "6cca4e107da2c85390ec5ee07315cfee0558eadb084434e299a4f8e514fc172f",
@@ -36,16 +36,16 @@
     "line_count": 52
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "25350bf7c9dd1273c4a1f26fbc6f28994f0d91de07668c8af513f819652e5cdc",
+    "content_hash": "6419778a1009dc117e63b95ff500d137148b3e7907a9d4d4692b4cdfb7fa8164",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "65e05c9",
-    "line_count": 267
+    "last_reconciled_head": "cc3c010",
+    "line_count": 277
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "db9eb56048abaa900f966f3e9e5f53f6b5c293cf37e021f3aee870bae9809d96",
+    "content_hash": "818655d80ad3986bfe7613832d3041d4fcfd496d3a584907a9d471f4021c9151",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "65e05c9",
-    "line_count": 480
+    "last_reconciled_head": "cc3c010",
+    "line_count": 482
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834",
@@ -66,10 +66,10 @@
     "line_count": 48
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
-    "content_hash": "b0a15120b10e6e640fae9a9ad59f84efc5094eed8cbe288b14e69195d67ac0e2",
+    "content_hash": "49301b3224d9ace8eeaf9402df3223ae4e49c39c8b189081161cf02af05ead5f",
     "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "09acf57",
-    "line_count": 275
+    "last_reconciled_head": "cc3c010",
+    "line_count": 290
   },
   "docs/LORAMER_BREAKDOWN_REGISTRY.md": {
     "content_hash": "c76c6368cabf13797c0931fd1adb3aa13865d48815cd69213696befbd997c9f9",
@@ -100,5 +100,11 @@
     "last_reconciled_date": "2026-06-27",
     "last_reconciled_head": "60dbc57",
     "line_count": 125
+  },
+  "docs/LORAMER_SECURITY_POSTURE.md": {
+    "content_hash": "937dd40a0c106e017057cb2db6fb1efcada2873d97059b7d5be05afefac1ebcf",
+    "last_reconciled_date": "2026-06-29",
+    "last_reconciled_head": "cc3c010",
+    "line_count": 82
   }
 }

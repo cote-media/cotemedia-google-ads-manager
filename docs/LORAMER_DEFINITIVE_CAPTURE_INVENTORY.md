@@ -250,6 +250,21 @@ TIER {T0 persist-only ~free · T1 no-quota thin writer · T2 Google new-fetch qu
 - PMax × ad_network_type (v24.2 capability) — T3a · PB · GG · ★ · — [needs google-ads-api v24 lib bump]
 - Time day_of_week/week/month/quarter/year + average_cpm + engagement_rate/interaction_rate — DROP (derivable from captured date/counts)
 
+─── §6b PREBUILT-CATALOG AUDIT (2026-06-29; source = each platform's OWN prebuilt-report catalog reconciled vs §1–§5 + the 7-family allowlist) ───
+Premise (Russ): a platform's prebuilt-report catalog = its declaration of what it serves; reconciling it surfaces misses. NET-NEW = not in any §1–§5 tier today.
+Already-tiered (confirmed by the audit, NOT net-new): Meta geo/hourly/video/ranking (Phase-2 breadth, registry §4); Google network/all_conversions/video (T2) + asset/extension (T3b); Shopify COGS/profit-margin (T3c); GA4 acquisition (T1.3). Captured-not-queryable (needs the #2 (platform,breakdown_type) allowlist expansion, NOT a capture gap): Meta device/device_platform/placement/age_gender/action_type; Google device/hour/geo-family/conversion_action/impression_share/age/gender.
+NET-NEW gaps (source = platform prebuilt catalog audit) → folded into the BUILD QUEUE:
+- COMMERCE PRODUCT-LEVEL — Shopify "Sales by product" + Woo Products/Variations/Categories — NET-NEW · SH+WOO · ★★ (which products drive revenue — the single biggest commerce miss)
+- CUSTOMER-LEVEL — Shopify + Woo New-vs-returning / cohort / retention / LTV / by-location — NET-NEW · SH+WOO · ★★
+- CHANNEL / TRAFFIC-SOURCE ATTRIBUTION — Shopify Sales-by-channel / traffic-source / social / Marketing(UTM) — NET-NEW · SH (+GA overlap) · ★★
+- STOREFRONT BEHAVIOR — Shopify Sessions / device / landing-pages / on-store-search / conversion-rate — NET-NEW · SH (GA4-engagement overlap) · ★
+- GA4 FULL BREADTH beyond acquisition — Engagement (events/landing pages) · Monetization (item/product perf) · Retention (cohorts/LTV) · Tech (device/browser/OS) · Demographics — NET-NEW · GA4 · ★★ (broadens the GA columns-vs-jsonb decision T1.2 past just acquisition)
+- FINANCIAL COMPONENT BREAKDOWN — Shopify Finances (gross/net/taxes/shipping/discounts/returns) + Woo Taxes/Coupons — NET-NEW · SH+WOO · ★
+- META PRODUCT-ID + CONVERSION-DEVICE breakdowns — NET-NEW · META · ★ (add to the Meta breadth catalog alongside geo/hourly/video)
+- GOOGLE parental-status + household-income demographics + SHOPPING product-group performance — NET-NEW · GG · ★
+- INVENTORY — Shopify ABC/sell-through/snapshot + Woo Stock — NET-NEW · SH+WOO · (low; operational-not-marketing)
+N/A (platform-specific, NOT ads/commerce-BI scope — do not capture): Shopify Fraud/chargeback-risk · store-speed Performance (Shopify/GA) · Google auction-insight COMPETITOR-overlap data · Woo Downloads (digital-only).
+
 ═══════════════════════════════════════════════════════════════════
 ## 7. COMMERCE/ANALYTICS-vs-ADS DIFFERENCES (platform-onboarding-playbook input; GA4/Woo specifics in §3/§4)
 ═══════════════════════════════════════════════════════════════════
