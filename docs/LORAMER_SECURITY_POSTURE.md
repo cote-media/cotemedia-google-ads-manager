@@ -5,6 +5,7 @@ FIX 1 (remove /api/test) CODE-RESOLVED; FIX 2 (NEXTAUTH_SECRET) + FIX 3 (demo@ M
 (exact steps in §7); the refresh-token-in-session + token-column-encryption items remain the POST-META auth-path flight
 (they touch the live reviewer auth — not a casual edit). This doc is the system-of-record; re-audit on any auth/route/
 token change. Multi-tenant app holding 18+ clients' Google/Meta/Shopify/GA OAuth tokens + Stripe + ad data.
+All access/token/grant removals are subject to the DESTRUCTIVE-ACTION GATE (DECISIONS) — verify why-it-exists before recommending.
 
 ## 0. One-line posture
 The wall is APP-LAYER ownership gates (resolveAccess / userOwnsClient / inline user_email), NOT RLS (inert for the

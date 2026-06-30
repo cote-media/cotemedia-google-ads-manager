@@ -7,23 +7,23 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-06-30T03:31:12.499Z
-- built_from HEAD: 74d2991cd5d48d6063501030086c19de51e8ba7c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-06-30T03:41:49.643Z
+- built_from HEAD: c5007b451caa661a24f51f3f1026467c8f51511d  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 48e74cfdf23c5b24c79ae5f93e4db9c4b30be004df3dd940f275f4621ee7ee9e
-    - LORAMER_HANDOFF.md: 9f8f461c95c04bac00cf0e16dab7401b62a9cebd5b34f1cfbd6cf6287fd222a3
-    - CONTINUE_HERE.md: 901a62262a4c7e32dee919909e5195ae567c497a3b82b77921f6db2a93a22dcb
-    - LORAMER_DECISIONS.md: 6cca4e107da2c85390ec5ee07315cfee0558eadb084434e299a4f8e514fc172f
+    - LORAMER_HANDOFF.md: 936fa49a1c40d083cf98103b068e5a059fbab35c856af893f5b17a8c485df4d0
+    - CONTINUE_HERE.md: 441bbd009698a82148b3d50a14de21e1cdf690a40bac309e8f44ca29f37f80ad
+    - LORAMER_DECISIONS.md: 4aa00cefec125da4558194000ddff3ba519a8533f67ad2a16c95624e44d1fe40
     - LORAMER_QUEUE_OF_RECORD.md: 6419778a1009dc117e63b95ff500d137148b3e7907a9d4d4692b4cdfb7fa8164
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 49301b3224d9ace8eeaf9402df3223ae4e49c39c8b189081161cf02af05ead5f
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: c76c6368cabf13797c0931fd1adb3aa13865d48815cd69213696befbd997c9f9
     - RESUME_INSTRUCTIONS.md: dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
-    - docs/LORAMER_SECURITY_POSTURE.md: 672a8324c31329b92dff7cb51cfdcac4fb224fb744d0e3c7cd365ebe9cddbec9
+    - docs/LORAMER_SECURITY_POSTURE.md: a6e7023c953f485f2b279e58798806e65355e3232812e87c7182da03e3fa473f
 
 ## B. ROLE CONTRACT — DESTINATION vs ROUTE  (source: LORAMER_HANDOFF.md)
 ## ⛔ OPERATING DISCIPLINE — DESTINATION vs ROUTE (gate-level; read every session)
@@ -158,6 +158,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - PROMPT HONESTY: Lora never says what it can't show/prove; connected-but-empty surfaced explicitly; never fabricate (margin, audience, $0 false-zero). | ESSENCE, L11/L46/L47 | do not relitigate.
 - CONNECTION-STATE CLAIMS REQUIRE A LIVE PROBE: no session writes "broken/dead/frozen/blocked/unhealthy" about a connection into any handoff doc from a stored flag alone; stored health flags are hypotheses until a live capture-path probe proves them. ENFORCED IN CODE across all 5 platforms (2026-06-24): meta/google + woocommerce are probe-gated in recordConnectionAuthFailure (a live probe before any 'reconnect' write — LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 / _WOO_V1); shopify + ga are PROVEN-SAFE-BY-CONSTRUCTION (their credential flip comes only from a real refresh-determination or a live-API 401, narrow scope — WS2 #2b audit) — do NOT re-audit this ground. | Lesson 60, ESSENCE "never say what it can't prove" | do not relitigate.
 - CLAIM-CONFIDENCE RULE (binds chat-Claude every session AND Lora in-product; obey, do NOT narrate): Before stating any factual claim, rule, or generalization, internally classify it — VERIFIED (read this session: docs/code/DB, or just searched — state plainly, cite source only when it adds something), DERIVED (reasoned from something verified — show the reasoning step, not a label; if the derivation can't be shown it's a guess, not derived), or UNVERIFIED (memory / pattern-match / clean-sounding generalization not checked — do NOT state as fact; either verify first via search/read/probe, or say "I haven't verified this — want me to check?" and stop). Banned move: stating an unverified claim in a confident, verified-sounding voice. A tidy authoritative-sounding generalization is the HIGHEST-risk case — treat the urge to state a clean rule as the trigger to verify, not to assert. Do NOT label sentences as ceremony; the classification is an internal gate on whether/how to speak. Surface uncertainty ONLY when a claim is actually unverified. Test every claim: could I show where this came from right now? If no → check it or flag it, never assert. | Root cause: 2026-06-24 session, repeated confident-but-unverified assertions (e.g. "breadth has no purge clock", "I can't see your settings") each corrected only by Russ pushing back — the exact failure this rule exists to stop. | do not relitigate.
+- DESTRUCTIVE-ACTION GATE (2026-06-29; governing law; sits with Claim-Confidence + Connection-Probe-Before-Flip; binds RECOMMENDATIONS, not just executions): before RECOMMENDING any remove / revoke / delete / disable / rotate-that-breaks / unlink — of access, tokens, accounts, OAuth grants, MCC/user links, data, rows, or ANYTHING touching a live platform review or pending submission (Google/Meta/Shopify/Stripe) — Claude MUST first verify WHY the thing exists / whether it's load-bearing (search repo docs + past sessions) and STATE the result. (1) absence-of-memory is NOT clearance, only VERIFIED-no-reason; (2) the check's result must be stated in the recommendation; (3) if it can't be run, WITHHOLD the recommendation (no caveat-and-give); (4) binds recommendations — telling Russ to do a destructive console action is gated; (5) feasible because it fires ONLY on the destructive class, not every turn. Full verbatim text: LORAMER_HANDOFF.md 4c-DESTRUCTIVE. | Root cause: 2026-06-29 recommended removing demo@'s MCC access as security cleanup; demo@ was load-bearing (pending Google Tool Change Form + permanent onboarding test fixture); a targeted search would have caught it, absence-of-memory did not — the exact failure this gate exists to stop. | do not relitigate.
 - SESSION START GATE is the ONE authoritative resume protocol: ESSENCE → CONTINUE_HERE + REQUIRED READING (in full) → HANDOFF + ROADMAP → state NEXT STEP → wait for "go". Act only on what's read THIS session; repo is sole source of truth; panel+memory lag. | HANDOFF:1-31 | do not relitigate.
 - REPORT FORMAT (2026-06-09): every report ONCE, IN FULL, in ONE fenced code block; commands/verbatim inside via <<<START>>>/<<<END>>>; OUT.txt retired; no file delivery. | HANDOFF:27, CONTINUE_HERE | do not relitigate.
 - Russ never touches code; Claude Code edits/commits/pushes/deploys/migrates directly; Russ approves + is the human verification gate. Single-paste instructions; label "Claude Code"; secrets never in chat. | HANDOFF | do not relitigate.
