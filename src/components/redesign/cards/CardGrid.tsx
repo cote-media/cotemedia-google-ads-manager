@@ -36,7 +36,15 @@ export default function CardGrid({
   const isMobile = bp === 'sm'
 
   const rgl: Layout[] = layout.map((g) => ({ ...g, static: pinned.has(g.i) || !customizing }))
-  const stacked: Layout[] = cards.map((c, idx) => ({ i: c.id, x: 0, y: idx * 5, w: 1, h: c.kind === 'stat' ? 2 : 5, static: !customizing }))
+  // sm (mobile): stack FLUSH. STATIC items don't auto-compact, so place each card's y at the CUMULATIVE height of the
+  // ones above it (not a fixed idx*step) → no dead vertical gaps regardless of compaction (FIX 1).
+  let yAcc = 0
+  const stacked: Layout[] = cards.map((c) => {
+    const h = c.kind === 'stat' ? 2 : 5
+    const item: Layout = { i: c.id, x: 0, y: yAcc, w: 1, h, static: !customizing }
+    yAcc += h
+    return item
+  })
 
   return (
     <Grid
@@ -48,6 +56,7 @@ export default function CardGrid({
       margin={[12, 12]}
       isDraggable={customizing}
       isResizable={customizing && !isMobile}
+      compactType="vertical"
       resizeHandles={['se', 'sw']}
       draggableHandle=".cardDragHandle"
       onBreakpointChange={(b) => setBp(b)}

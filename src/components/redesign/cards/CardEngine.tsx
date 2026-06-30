@@ -23,10 +23,10 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
   // RESHAPE state: page-level global range + compare + full-screen.
-  const [globalPeriod, setGlobalPeriod] = useState('LAST_30_DAYS')
-  const [globalCustom, setGlobalCustom] = useState<Win | null>(null)
-  const [compareMode, setCompareMode] = useState<ComparePreset>('none')
-  const [customCompare, setCustomCompare] = useState<Win | null>(null)
+  const [globalPeriod, setGlobalPeriod] = useState(fallback.globalPeriod || 'LAST_30_DAYS')
+  const [globalCustom, setGlobalCustom] = useState<Win | null>(fallback.globalCustom || null)
+  const [compareMode, setCompareMode] = useState<ComparePreset>(fallback.compareMode || 'none')
+  const [customCompare, setCustomCompare] = useState<Win | null>(fallback.customCompare || null)
   const [fullscreen, setFullscreen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [rangeDraft, setRangeDraft] = useState<Win>({ startDate: '', endDate: '' })
@@ -47,7 +47,11 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
     return () => { alive = false }
   }, [pageKey, clientId])
 
-  const applyView = (v: SavedView) => { setCards(v.cards); setLayout(v.layout); setPinned(new Set(v.pinned || [])) }
+  const applyView = (v: SavedView) => {
+    setCards(v.cards); setLayout(v.layout); setPinned(new Set(v.pinned || []))
+    setGlobalPeriod(v.globalPeriod || 'LAST_30_DAYS'); setGlobalCustom(v.globalCustom || null)
+    setCompareMode(v.compareMode || 'none'); setCustomCompare(v.customCompare || null)
+  }
   const switchView = (i: number) => { setActive(i); applyView(views[i]); setEditing(null) }
 
   const editingCfg: CardConfig | null =
@@ -67,7 +71,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const saveView = async () => {
     const name = window.prompt('Save view as:', views[active]?.name || 'My view')
     if (!name) return
-    const view: SavedView = { name, cards, layout, pinned: Array.from(pinned) }
+    const view: SavedView = { name, cards, layout, pinned: Array.from(pinned), globalPeriod, globalCustom, compareMode, customCompare }
     setSaveMsg('Saving…')
     try {
       const r = await fetch('/api/next/layouts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pageKey, clientId, view, setDefault: true }) })
@@ -78,13 +82,19 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
     setTimeout(() => setSaveMsg(null), 4000)
   }
 
+  // FIX 2 — persist the page settings into the active view (dashboard_layouts jsonb) ON CHANGE → survives refresh.
+  const persistSettings = (over: Partial<SavedView>) => {
+    const view: SavedView = { name: views[active]?.name || 'Default', cards, layout, pinned: Array.from(pinned), globalPeriod, globalCustom, compareMode, customCompare, ...over }
+    setViews((vs) => { const i = vs.findIndex((v) => v.name === view.name); const next = [...vs]; i >= 0 ? (next[i] = view) : next.push(view); return next })
+    fetch('/api/next/layouts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pageKey, clientId, view, setDefault: true }) }).catch(() => {})
+  }
   const onRange = (key: string) => {
     if (key === 'CUSTOM') { setCustomRangeOpen(true); return } // reveal the date inputs; apply on Apply
-    setCustomRangeOpen(false); setGlobalCustom(null); setGlobalPeriod(key)
+    setCustomRangeOpen(false); setGlobalCustom(null); setGlobalPeriod(key); persistSettings({ globalPeriod: key, globalCustom: null })
   }
-  const applyCustomRange = () => { if (rangeDraft.startDate && rangeDraft.endDate) setGlobalCustom({ ...rangeDraft }) }
-  const onCompare = (key: ComparePreset) => { setCompareMode(key); if (key !== 'custom') setCustomCompare(null) }
-  const applyCustomCompare = () => { if (cmpDraft.startDate && cmpDraft.endDate) setCustomCompare({ ...cmpDraft }) }
+  const applyCustomRange = () => { if (rangeDraft.startDate && rangeDraft.endDate) { const w = { ...rangeDraft }; setGlobalCustom(w); persistSettings({ globalCustom: w }) } }
+  const onCompare = (key: ComparePreset) => { setCompareMode(key); const cc = key === 'custom' ? customCompare : null; if (key !== 'custom') setCustomCompare(null); persistSettings({ compareMode: key, customCompare: cc }) }
+  const applyCustomCompare = () => { if (cmpDraft.startDate && cmpDraft.endDate) { const w = { ...cmpDraft }; setCustomCompare(w); persistSettings({ customCompare: w }) } }
 
   return (
     <div className={`${styles.engine} ${fullscreen ? styles.fullscreen : ''}`}>

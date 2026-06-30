@@ -2,6 +2,8 @@
 // The engine never hardcodes Overview: it takes a pageKey + a SavedView (cards + grid layout). Portfolio + client
 // pages reuse it later by passing a different pageKey + default view — no rebuild (no-do-it-twice).
 
+import type { ComparePreset, Win } from '@/lib/next/card-windows'
+
 export type CardKind = 'stat' | 'breakdown' | 'timeseries'
 export type VizType = 'stat' | 'bar' | 'table' | 'line'
 export type PageKey = 'overview' | 'portfolio' | 'client'
@@ -26,7 +28,18 @@ export interface CardConfig {
 // react-grid-layout item (subset we persist).
 export interface GridItem { i: string; x: number; y: number; w: number; h: number }
 
-export interface SavedView { name: string; cards: CardConfig[]; layout: GridItem[]; pinned?: string[] }
+// RESHAPE FIX 2 — the page-level GLOBAL date range + COMPARE selection persist in the view (dashboard_layouts jsonb)
+// so they survive a refresh (saved on change, hydrated on load).
+export interface SavedView {
+  name: string
+  cards: CardConfig[]
+  layout: GridItem[]
+  pinned?: string[]
+  globalPeriod?: string
+  globalCustom?: Win | null
+  compareMode?: ComparePreset
+  customCompare?: Win | null
+}
 
 // STAT metric catalog (base account cards via /api/next/client-metrics — proven route, honest deltas).
 export interface StatMetric { key: string; label: string; money: boolean; suffix?: string }
@@ -92,5 +105,5 @@ export function defaultOverviewView(): SavedView {
     { i: 'd-ts', x: 0, y: 2, w: 8, h: 5 },
     { i: 'd-age', x: 8, y: 2, w: 4, h: 5 },
   ]
-  return { name: 'Default', cards, layout, pinned: [] }
+  return { name: 'Default', cards, layout, pinned: [], globalPeriod: 'LAST_30_DAYS', globalCustom: null, compareMode: 'none', customCompare: null }
 }
