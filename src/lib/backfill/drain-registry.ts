@@ -24,6 +24,7 @@ import { runMetaDeviceBackfill } from './meta-device-backfill'
 import { runMetaAgeGenderBackfill } from './meta-age-gender-backfill'
 import { runMetaActionTypeBackfill } from './meta-action-type-backfill' // LORAMER_META_ACTION_TYPE_TAXONOMY_V1
 import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VIDEO_CAPTURE_V1
+import { runMetaGeoBackfill } from './meta-geo-backfill' // LORAMER_META_GEO_BACKFILL_V1
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -100,6 +101,11 @@ const META_ACTION_TYPE_WINDOW_DAYS = 30
 // action_type's row-heavy taxonomy) → a WIDE 90d window stays well under the 800s ceiling. floor36 (video rides
 // the same ~37mo Meta aggregate #3018 wall). VERIFY-AT-WRITER: confirm a 90d lap's wall-time at Gate B.
 const META_VIDEO_WINDOW_DAYS = 90
+
+// LORAMER_META_GEO_BACKFILL_V1 (T1.9) — geo window. 2 families (country + country,region) × 4 levels = 8 reports/lap
+// (same as device), but geo_region fans WIDE (~50 US states × entities) → row-heavy like age_gender → 30d. The small
+// undetermined-geo residual is FLAG-NOT-BLOCK (never dropped). VERIFY-AT-WRITER: ad×region ~206 rows/day may force ~20d.
+const META_GEO_WINDOW_DAYS = 30
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -281,6 +287,15 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_video',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_video', runMetaVideoBackfill as RangeWriter, dryRun, META_VIDEO_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_GEO_BACKFILL_V1 (T1.9) — Meta GEO breadth: geo_country (breakdowns=country) + geo_region
+    // (breakdowns=country,region → ISO composite "US-AL"). All 4 levels serve geo (live-probed). FLAG-NOT-BLOCK on
+    // spend vs the account anchor (geo NEAR-partitions; undetermined-geo residual flagged-not-dropped). breakdown_type
+    // 'geo_country'/'geo_region' on the 7-col key, NO migration. 30d window (verify-at-Gate-B). floor36. After meta_video.
+    key: 'meta_geo',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_geo', runMetaGeoBackfill as RangeWriter, dryRun, META_GEO_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
