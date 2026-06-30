@@ -23,6 +23,7 @@ import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
 import { runMetaDeviceBackfill } from './meta-device-backfill'
 import { runMetaAgeGenderBackfill } from './meta-age-gender-backfill'
 import { runMetaActionTypeBackfill } from './meta-action-type-backfill' // LORAMER_META_ACTION_TYPE_TAXONOMY_V1
+import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VIDEO_CAPTURE_V1
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -93,6 +94,12 @@ const META_AGE_GENDER_WINDOW_DAYS = 30
 // fan-out) but the full taxonomy is ROW-HEAVY (~36 action_types × entity × day) → 30d matches the row-heavy
 // age/gender posture (tune up after a live timing). WRITE-ONLY (no reconcile). floor36.
 const META_ACTION_TYPE_WINDOW_DAYS = 30
+
+// LORAMER_META_VIDEO_CAPTURE_V1 (T1.4) — video window. The video_* metrics are FIELD-WIDEN (NOT a breakdowns
+// fan-out) → only 4 insights reports/lap (one per entity level) + ONE row per entity×day (lighter than
+// action_type's row-heavy taxonomy) → a WIDE 90d window stays well under the 800s ceiling. floor36 (video rides
+// the same ~37mo Meta aggregate #3018 wall). VERIFY-AT-WRITER: confirm a 90d lap's wall-time at Gate B.
+const META_VIDEO_WINDOW_DAYS = 90
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -263,6 +270,17 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_action_type',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_action_type', runMetaActionTypeBackfill as RangeWriter, dryRun, META_ACTION_TYPE_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_VIDEO_CAPTURE_V1 (T1.4) — Meta VIDEO metric family. ONE row per entity×day across all 4 levels
+    // {account,campaign,ad_set,ad} (live-probed Foam OH 2026-06-30 — all 4 serve video), breakdown_type='video',
+    // the 10 video metrics in DEDICATED COLUMNS (Layer-1 storage model, migration 023). FIELD-WIDEN on the insights
+    // call (NOT a breakdowns= dim → 4 reports/lap → 90d window). WRITE-ONLY (non-partition; spend lives on the base
+    // row → NEVER reconciled). floor36 (37mo aggregate wall). Stateless-range, same driver as the other meta steps.
+    // After meta_action_type → the next meta drain back-fills the cohort to floor automatically (Meta = no quota).
+    key: 'meta_video',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_video', runMetaVideoBackfill as RangeWriter, dryRun, META_VIDEO_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
