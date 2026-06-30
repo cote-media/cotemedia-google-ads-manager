@@ -1,0 +1,21 @@
+# DOC_REGISTRY_IGNORE — the IGNORE bucket for the untracked-doc detector (scripts/check-untracked-docs.mjs).
+#
+# Three buckets for every git-tracked .md/.txt:
+#   GATED   — load-bearing, read EVERY session → in SOURCE_DOCS (scripts/build-resume-digest.mjs), freshness-checked.
+#   TRACKED — reference, hash-recorded in docs/HANDOFF_MANIFEST.json, not force-read.
+#   IGNORE  — scratch / archive / historical / point-in-time records → listed HERE (one path-or-glob per line + a one-word reason).
+#
+# The detector FAILS on any tracked doc that is in NONE of the three buckets (UNTRACKED). A new doc must land in one
+# of them before commit. Promotion to GATED is a deliberate Russ-level call (never automatic). When in doubt → TRACKED
+# (hash-recorded, never lost), NOT IGNORE.
+#
+# Format: <path-or-glob>  # <one-word-reason>   ('*' is a wildcard; lines starting with # are comments.)
+
+docs/CONNECTOR_ARCHITECTURE_AUDIT_2026_05_29.md    # audit-snapshot
+docs/INTELLIGENCE_ARCHITECTURE_AUDIT_2026_05_29.md # audit-snapshot
+docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md        # form-record
+docs/META_APP_REVIEW_ANSWERS.md                    # form-record
+LORAMER_CATCHUP_LOOP_PLAN.md                        # closed-plan
+LORAMER_COMPLETENESS_AUDIT_PLAN_V1.md              # executed-plan
+docs/DOC_REGISTRY_IGNORE.txt                        # registry-self
+
