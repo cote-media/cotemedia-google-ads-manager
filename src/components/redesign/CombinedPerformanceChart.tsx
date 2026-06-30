@@ -16,7 +16,7 @@ const METRICS: { key: Metric; label: string }[] = [
   { key: 'conversions', label: 'Conversions' },
 ]
 
-export default function CombinedPerformanceChart({ clientId, period }: { clientId: string; period: string }) {
+export default function CombinedPerformanceChart({ clientId, period, start, end }: { clientId: string; period: string; start?: string; end?: string }) {
   const [series, setSeries] = useState<Row[] | null>(null)
   const [metric, setMetric] = useState<Metric>('spend')
   const [loading, setLoading] = useState(false)
@@ -25,13 +25,15 @@ export default function CombinedPerformanceChart({ clientId, period }: { clientI
     if (!clientId) return
     let alive = true
     setLoading(true); setSeries(null)
-    fetch('/api/next/client-timeseries?clientId=' + encodeURIComponent(clientId) + '&period=' + encodeURIComponent(period))
+    // LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — explicit window (the card engine's global range / override) overrides the preset.
+    const win = start && end ? '&start=' + encodeURIComponent(start) + '&end=' + encodeURIComponent(end) : ''
+    fetch('/api/next/client-timeseries?clientId=' + encodeURIComponent(clientId) + '&period=' + encodeURIComponent(period) + win)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setSeries(d?.series || []) })
       .catch(() => { if (alive) setSeries([]) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [clientId, period])
+  }, [clientId, period, start, end])
 
   const rows = series || []
   const data = rows.map((r) => ({ date: r.date.slice(5), google: r.google[metric], meta: r.meta[metric] }))

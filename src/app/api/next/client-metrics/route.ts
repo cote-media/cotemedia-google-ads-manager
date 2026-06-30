@@ -55,7 +55,14 @@ export async function GET(request: Request) {
   if (!access) return NextResponse.json({ error: 'Not found' }, { status: 404 }) // 404, don't confirm the id
 
   const period = isPortfolioPeriod(sp.get('period')) ? (sp.get('period') as string) : 'LAST_30_DAYS'
-  const { current, prior } = portfolioWindows(period)
+  const pw = portfolioWindows(period)
+  // LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — the card engine passes an EXPLICIT current window (global range / per-card
+  // override) and, when a compare mode is active, an explicit comparison window (used as `prior`). Both optional:
+  // absent → the preset's like-for-like prior (back-compatible). The viz only SHOWS the delta when compare is on.
+  const ISO = /^\d{4}-\d{2}-\d{2}$/
+  const qs = sp.get('start'), qe = sp.get('end'), qcs = sp.get('cmpStart'), qce = sp.get('cmpEnd')
+  const current = qs && qe && ISO.test(qs) && ISO.test(qe) ? { startDate: qs, endDate: qe } : pw.current
+  const prior = qcs && qce && ISO.test(qcs) && ISO.test(qce) ? { startDate: qcs, endDate: qce } : pw.prior
   const overallStart = current.startDate < prior.startDate ? current.startDate : prior.startDate
   const overallEnd = current.endDate > prior.endDate ? current.endDate : prior.endDate
 

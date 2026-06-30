@@ -51,3 +51,27 @@
 .segOn { background: #2563eb; color: #fff; border-color: #2563eb; }
 .primary { flex: 1; font: inherit; font-size: 13px; padding: 9px; border: none; border-radius: 8px; background: #0f172a; color: #fff; cursor: pointer; font-weight: 600; }
 .ghost { font: inherit; font-size: 13px; padding: 9px 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; }
+
+/* RESHAPE — header controls, full-screen, compare, dual-corner resize */
+.customRow { display: inline-flex; align-items: center; gap: 5px; }
+.dateIn { font: inherit; font-size: 12px; padding: 5px 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
+.checkRow { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #334155; cursor: pointer; padding: 2px 0; }
+.ovIcon { font-size: 12px; color: #2563eb; margin-left: 5px; }
+.tsToggle { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; }
+
+.moreWrap { position: relative; }
+.moreMenu { position: absolute; right: 0; top: calc(100% + 4px); background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,.10); z-index: 70; min-width: 200px; padding: 4px; }
+.moreItem { display: flex; align-items: center; gap: 8px; width: 100%; font: inherit; font-size: 13px; padding: 8px 10px; border: none; background: transparent; color: #334155; cursor: pointer; border-radius: 8px; text-align: left; }
+.moreItem:hover { background: #f8fafc; }
+
+/* Full screen — the engine fills the viewport over the app chrome (same cards/data/layout). */
+.fullscreen { position: fixed; inset: 0; z-index: 50; background: #fbfaf7; overflow: auto; padding: 14px 18px; }
+
+/* Dual-corner resize: react-resizable only styles 'se' by default — give 'sw' a matching grabbable corner.
+   Handles exist ONLY in customize mode (isResizable is customize-gated), so the board stays clean otherwise. */
+.grid :global(.react-resizable-handle) { opacity: .55; }
+.grid :global(.react-resizable-handle:hover) { opacity: 1; }
+.grid :global(.react-resizable-handle-sw) {
+  bottom: 0; left: 0; right: auto; cursor: sw-resize; transform: rotate(90deg);
+  background-position: bottom right;
+}

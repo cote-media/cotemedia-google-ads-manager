@@ -1,12 +1,12 @@
-// LORAMER_NEXT_CARD_ENGINE_V1 — the PAGE-AGNOSTIC engine (piece 7). Takes { pageKey, clientId, defaultView }; it
-// does NOT know about Overview specifically — portfolio + client pages reuse it by passing a different pageKey +
-// default view (no rebuild). Owns: named saved views (load/save via /api/next/layouts), the customize toggle, the
-// add/edit/remove/pin actions, the side-panel config, and the grid. Layout persistence = named views (locked A).
-// Renders REAL data only (default view uses query-exposed families); "coming" families are picker-disabled.
+// LORAMER_NEXT_CARD_ENGINE_V1 / _RESHAPE_V1 — the PAGE-AGNOSTIC engine. Takes { pageKey, clientId, defaultView };
+// portfolio/client pages reuse it with a different pageKey (no rebuild). Owns: named saved views, the page GLOBAL
+// date range (Shopify model — change once, all inheriting cards move), the page COMPARE mode (deltas + chart overlay),
+// the single Customize toggle, add/edit/remove/pin, the side-panel config, full-screen, the grid. Renders REAL data only.
 'use client'
 import { useEffect, useState } from 'react'
 import type { CardConfig, GridItem, SavedView } from './card-types'
 import { defaultOverviewView, newCardId } from './card-types'
+import { RANGE_PRESETS, COMPARE_PRESETS, type ComparePreset, type Win } from '@/lib/next/card-windows'
 import CardGrid from './CardGrid'
 import CardConfigPanel from './CardConfigPanel'
 import styles from './cards.module.css'
@@ -22,7 +22,17 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const [editing, setEditing] = useState<string | 'new' | null>(null)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
-  // Load this user's saved views for this page (owner-gated route). Empty → keep the built-in default.
+  // RESHAPE state: page-level global range + compare + full-screen.
+  const [globalPeriod, setGlobalPeriod] = useState('LAST_30_DAYS')
+  const [globalCustom, setGlobalCustom] = useState<Win | null>(null)
+  const [compareMode, setCompareMode] = useState<ComparePreset>('none')
+  const [customCompare, setCustomCompare] = useState<Win | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [rangeDraft, setRangeDraft] = useState<Win>({ startDate: '', endDate: '' })
+  const [cmpDraft, setCmpDraft] = useState<Win>({ startDate: '', endDate: '' })
+  const [customRangeOpen, setCustomRangeOpen] = useState(false)
+
   useEffect(() => {
     let alive = true
     fetch(`/api/next/layouts?pageKey=${encodeURIComponent(pageKey)}&clientId=${encodeURIComponent(clientId)}`)
@@ -41,16 +51,14 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const switchView = (i: number) => { setActive(i); applyView(views[i]); setEditing(null) }
 
   const editingCfg: CardConfig | null =
-    editing === 'new' ? { id: newCardId(), kind: 'stat', viz: 'stat', metric: 'spend', dateRange: 'LAST_30_DAYS' }
+    editing === 'new' ? { id: newCardId(), kind: 'stat', viz: 'stat', metric: 'spend', dateRange: 'LAST_30_DAYS', useCustomRange: false }
     : editing ? cards.find((c) => c.id === editing) || null : null
 
   const applyCfg = (cfg: CardConfig) => {
     if (editing === 'new') {
       setCards((cs) => [...cs, cfg])
       setLayout((l) => [...l, { i: cfg.id, x: 0, y: Infinity as unknown as number, w: cfg.kind === 'stat' ? 3 : 5, h: cfg.kind === 'stat' ? 2 : 5 }])
-    } else {
-      setCards((cs) => cs.map((c) => (c.id === cfg.id ? cfg : c)))
-    }
+    } else setCards((cs) => cs.map((c) => (c.id === cfg.id ? cfg : c)))
     setEditing(null)
   }
   const removeCard = (id: string) => { setCards((cs) => cs.filter((c) => c.id !== id)); setLayout((l) => l.filter((g) => g.i !== id)) }
@@ -62,21 +70,24 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
     const view: SavedView = { name, cards, layout, pinned: Array.from(pinned) }
     setSaveMsg('Saving…')
     try {
-      const r = await fetch('/api/next/layouts', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ pageKey, clientId, view, setDefault: true }),
-      })
+      const r = await fetch('/api/next/layouts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pageKey, clientId, view, setDefault: true }) })
       if (!r.ok) throw new Error()
       setSaveMsg('Saved')
       setViews((vs) => { const i = vs.findIndex((v) => v.name === name); const next = [...vs]; i >= 0 ? (next[i] = view) : next.push(view); return next })
-    } catch {
-      setSaveMsg('Couldn’t save')
-    }
+    } catch { setSaveMsg('Couldn’t save') }
     setTimeout(() => setSaveMsg(null), 4000)
   }
 
+  const onRange = (key: string) => {
+    if (key === 'CUSTOM') { setCustomRangeOpen(true); return } // reveal the date inputs; apply on Apply
+    setCustomRangeOpen(false); setGlobalCustom(null); setGlobalPeriod(key)
+  }
+  const applyCustomRange = () => { if (rangeDraft.startDate && rangeDraft.endDate) setGlobalCustom({ ...rangeDraft }) }
+  const onCompare = (key: ComparePreset) => { setCompareMode(key); if (key !== 'custom') setCustomCompare(null) }
+  const applyCustomCompare = () => { if (cmpDraft.startDate && cmpDraft.endDate) setCustomCompare({ ...cmpDraft }) }
+
   return (
-    <div className={styles.engine}>
+    <div className={`${styles.engine} ${fullscreen ? styles.fullscreen : ''}`}>
       <div className={styles.toolbar}>
         {views.length > 1 && (
           <select className={styles.viewSel} value={active} onChange={(e) => switchView(Number(e.target.value))}>
@@ -84,28 +95,59 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
           </select>
         )}
         <div className={styles.toolRight}>
+          {/* GLOBAL date range (page-level — every inheriting card moves) */}
+          <select className={styles.viewSel} value={globalCustom ? 'CUSTOM' : globalPeriod} onChange={(e) => onRange(e.target.value)}>
+            {RANGE_PRESETS.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            <option value="CUSTOM">Custom range…</option>
+          </select>
+          <CustomRow show={customRangeOpen} draft={rangeDraft} setDraft={setRangeDraft} onApply={applyCustomRange} />
+
+          {/* COMPARE (page-level — deltas + chart overlay) */}
+          <select className={styles.viewSel} value={compareMode} onChange={(e) => onCompare(e.target.value as ComparePreset)}>
+            {COMPARE_PRESETS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+          <CustomRow show={compareMode === 'custom'} draft={cmpDraft} setDraft={setCmpDraft} onApply={applyCustomCompare} />
+
           <button type="button" className={customizing ? styles.toolOn : styles.tool} onClick={() => setCustomizing((c) => !c)}>
             <i className="ti ti-adjustments" /> {customizing ? 'Done' : 'Customize'}
           </button>
           {customizing && <button type="button" className={styles.tool} onClick={() => setEditing('new')}><i className="ti ti-plus" /> Add card</button>}
           {customizing && <button type="button" className={styles.tool} onClick={saveView}><i className="ti ti-device-floppy" /> Save view</button>}
           {saveMsg && <span className={styles.saveMsg}>{saveMsg}</span>}
+
+          {/* overflow: full screen */}
+          <div className={styles.moreWrap}>
+            <button type="button" className={styles.tool} aria-label="More" onClick={() => setMoreOpen((o) => !o)}><i className="ti ti-dots" /></button>
+            {moreOpen && (
+              <div className={styles.moreMenu}>
+                <button type="button" className={styles.moreItem} onClick={() => { setFullscreen((f) => !f); setMoreOpen(false) }}>
+                  <i className={fullscreen ? 'ti ti-arrows-minimize' : 'ti ti-arrows-maximize'} /> {fullscreen ? 'Exit full screen' : 'Expand to full screen'}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       <CardGrid
-        clientId={clientId}
-        cards={cards}
-        layout={layout}
-        pinned={pinned}
-        customizing={customizing}
-        onLayoutChange={setLayout}
-        onEdit={(id) => setEditing(id)}
-        onRemove={removeCard}
-        onTogglePin={togglePin}
+        clientId={clientId} cards={cards} layout={layout} pinned={pinned} customizing={customizing}
+        globalPeriod={globalPeriod} globalCustom={globalCustom} compareMode={compareMode} customCompare={customCompare}
+        onLayoutChange={setLayout} onEdit={(id) => setEditing(id)} onRemove={removeCard} onTogglePin={togglePin}
       />
 
       {editingCfg && <CardConfigPanel initial={editingCfg} onApply={applyCfg} onClose={() => setEditing(null)} />}
     </div>
+  )
+}
+
+function CustomRow({ show, draft, setDraft, onApply }: { show: boolean; draft: Win; setDraft: (w: Win) => void; onApply: () => void }) {
+  if (!show) return null
+  return (
+    <span className={styles.customRow}>
+      <input type="date" className={styles.dateIn} value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} />
+      <span className={styles.muted}>→</span>
+      <input type="date" className={styles.dateIn} value={draft.endDate} onChange={(e) => setDraft({ ...draft, endDate: e.target.value })} />
+      <button type="button" className={styles.tool} onClick={onApply}>Apply</button>
+    </span>
   )
 }

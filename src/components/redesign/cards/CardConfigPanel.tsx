@@ -65,10 +65,19 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
           ))}
         </div>
 
+        {/* RESHAPE: by DEFAULT the card inherits the page GLOBAL range; this checkbox is the by-exception override. */}
         <label className={styles.fLabel}>Date range</label>
-        <select className={styles.sel} value={cfg.dateRange} onChange={(e) => set({ dateRange: e.target.value })}>
-          {DATE_RANGES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-        </select>
+        <label className={styles.checkRow}>
+          <input type="checkbox" checked={!!cfg.useCustomRange} onChange={(e) => set({ useCustomRange: e.target.checked })} />
+          Use a custom range for this card
+        </label>
+        {cfg.useCustomRange ? (
+          <select className={styles.sel} value={cfg.dateRange} onChange={(e) => set({ dateRange: e.target.value })}>
+            {DATE_RANGES.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+          </select>
+        ) : (
+          <p className={styles.muted}>Inherits the page date range.</p>
+        )}
 
         <label className={styles.fLabel}>Title (optional)</label>
         <input className={styles.sel} type="text" value={cfg.title || ''} placeholder="Auto" onChange={(e) => set({ title: e.target.value || undefined })} />

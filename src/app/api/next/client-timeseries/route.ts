@@ -30,7 +30,11 @@ export async function GET(request: Request) {
   if (!access) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const period = isPortfolioPeriod(sp.get('period')) ? (sp.get('period') as string) : 'LAST_30_DAYS'
-  const { current } = portfolioWindows(period)
+  // LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — accept an explicit window (the card engine's global range / per-card
+  // override / a compare-window fetch); absent → the preset (back-compatible).
+  const ISO = /^\d{4}-\d{2}-\d{2}$/
+  const qs = sp.get('start'), qe = sp.get('end')
+  const current = qs && qe && ISO.test(qs) && ISO.test(qe) ? { startDate: qs, endDate: qe } : portfolioWindows(period).current
 
   // Zero-filled day map across the window (ISO date string compare == chronological).
   const days: Record<string, { date: string; google: Pt; meta: Pt }> = {}

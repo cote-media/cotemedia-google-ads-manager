@@ -11,7 +11,10 @@ export interface CardConfig {
   title?: string
   kind: CardKind
   viz: VizType
-  dateRange: string            // a portfolio period key (LAST_7_DAYS / LAST_30_DAYS / …)
+  // LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — by DEFAULT a card inherits the page-level GLOBAL date range. useCustomRange
+  // ON = this card pins to its OWN dateRange and ignores the global (the by-exception override).
+  useCustomRange?: boolean
+  dateRange: string            // the card's OWN range (a preset key) — used only when useCustomRange is ON
   // stat:
   metric?: string              // spend | revenue | conversions | roas | clicks | impressions
   // breakdown:
