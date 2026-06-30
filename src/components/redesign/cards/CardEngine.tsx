@@ -70,7 +70,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
       setSaveMsg('Saved')
       setViews((vs) => { const i = vs.findIndex((v) => v.name === name); const next = [...vs]; i >= 0 ? (next[i] = view) : next.push(view); return next })
     } catch {
-      setSaveMsg('Couldn’t save (layouts table not provisioned yet)')
+      setSaveMsg('Couldn’t save')
     }
     setTimeout(() => setSaveMsg(null), 4000)
   }

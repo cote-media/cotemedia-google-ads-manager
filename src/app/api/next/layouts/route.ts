@@ -2,9 +2,9 @@
 // (user_email = the signed-in person customizing THEIR view; a shared viewer gets their own layout, NOT the
 // owner's) — the contract's "layout keys off viewer, data off owner". Per user_email + page_key + client_id (nullable).
 //
-// ⚠ DEPENDS ON the dashboard_layouts table — migration is APPROACH-FIRST / PAUSED for Russ's ok (printed in the
-// flight report). Until provisioned these queries fail; the engine handles that HONESTLY (GET → keep the built-in
-// default view; POST → "couldn't save (layouts table not provisioned yet)"). No fake persistence.
+// Backed by the dashboard_layouts table (migration 022 — APPLIED 2026-06-29; VIEWER-keyed; UNIQUE NULLS NOT
+// DISTINCT on (user_email,page_key,client_id,name) so the upsert's onConflict works for the nullable client_id).
+// The engine still fails HONESTLY on any error (GET → keep the built-in default view; POST → "Couldn't save").
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
