@@ -67,16 +67,21 @@ export (supabase.ts:8) is DEAD (imported nowhere). next@14.2.3 is behind the 14.
 no middleware auth); upgrade fast-follow.
 
 ## 7. GAP LIST
-LAUNCH-CRITICAL (pre-7/14) — 1 of 4 code-resolved 2026-06-29; 2 await Russ console actions; 1 is post-Meta:
+LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAUTH_SECRET = Russ console action · demo@ RECLASSIFIED (HOLD-not-remove; the real fix is #18, fast-follow) · refresh-token-in-session = post-Meta. → 1 done · 1 Russ-action · 2 sequenced; NONE requires demo@ removal.
 1. [POST-META] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
    callback; live routes read DB google_tokens / getToken() server-side. Touches the LIVE reviewer auth path → sequence
    post-Meta / with extreme care, NOT a casual edit.
-2. [RUSS CONSOLE ACTION] Revoke demo@'s MCC access (widens #18 to all MCC-child accounts). NO code wiring grants it —
-   demo@loramer.com is just the Meta-reviewer LOGIN; the access (if any) is a Google Ads MCC user grant. STEPS: Google
-   Ads → open the agency MANAGER (MCC) account (GOOGLE_ADS_MANAGER_ACCOUNT_ID) → Admin → Access and security → Users →
-   find demo@loramer.com (or any non-agency/test Google account) → ⋮ → Remove access. This does NOT affect the Meta
-   review (demo@ reviews Meta, not Google). Structural follow-up (fast-follow CODE): bind accountId→owned-client on the
-   live-data routes (#18) so MCC membership alone can't read children.
+2. [HOLD — do NOT remove; CORRECTED 2026-06-29] demo@'s MCC access is LOAD-BEARING, NOT a stray grant. It is a
+   deliberate READ-ONLY MCC grant (the 2026-06-10 onboarding workaround) and demo@loramer.com is the PERMANENT test
+   fixture for onboarding shape (b) direct-grant single-account business owner (LAUNCH_PARKING / LORAMER_ONBOARDING_
+   IDENTITY_MATRIX_V1). HOLD for two reasons: (1) the Google Ads API Tool Change Form (submitted ~2026-06-10) was filed
+   with demo@ connected to a client as the working integration demo and is STILL PENDING a reply — revoking demo@'s MCC
+   access mid-review could undercut the very submission under review; (2) the MCC-revoke is a LAUNCH-PARKING test-gated
+   step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Does NOT affect Meta
+   review (demo@ reviews Meta, separate from Google). ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
+   bind accountId→owned-client, which is what lets ANY MCC identity (not just demo@) read any child account. Binding
+   accountId→owned-client (FAST-FOLLOW CODE — item 6 below) closes the hole WITHOUT touching demo@. So: demo@ MCC access
+   = HOLD (load-bearing); #18 accountId-binding = the actual remediation.
 3. [DONE 2026-06-29] Remove /api/test — the prod Google-token-debug endpoint (minted a Google access token from the
    session refresh token + queried the MCC). Route DELETED (confirmed unreferenced; not the reviewer path). tsc green.
 4. [RUSS CONSOLE ACTION] NEXTAUTH_SECRET — CODE CONFIRMED FAIL-CLOSED: authOptions sets no `secret:` field and has NO
