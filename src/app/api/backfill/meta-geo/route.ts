@@ -11,8 +11,9 @@ export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const BUDGET_MS = 250_000
-const WINDOW_DAYS = 30
+const BUDGET_MS = 200_000 // Gate B: a 30d geo sub-range ≈ 98s; 250s left only 50s under maxDuration=300 → a sub-range
+                          // straddled it and overran. 200s leaves ~100s margin > one (now 20d ≈ ~65s) sub-range → returns cleanly.
+const WINDOW_DAYS = 20
 
 const iso = (d: Date) => d.toISOString().split('T')[0]
 function addDays(s: string, n: number): string {

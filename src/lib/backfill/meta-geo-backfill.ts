@@ -40,7 +40,10 @@ const US_REGION_TO_ISO: Record<string, string> = {
   'New Hampshire': 'NH', 'New Jersey': 'NJ', 'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC',
   'North Dakota': 'ND', Ohio: 'OH', Oklahoma: 'OK', Oregon: 'OR', Pennsylvania: 'PA', 'Rhode Island': 'RI',
   'South Carolina': 'SC', 'South Dakota': 'SD', Tennessee: 'TN', Texas: 'TX', Utah: 'UT', Vermont: 'VT',
-  Virginia: 'VA', Washington: 'WA', 'West Virginia': 'WV', Wisconsin: 'WI', Wyoming: 'WY', 'District of Columbia': 'DC',
+  Virginia: 'VA', Washington: 'WA', 'West Virginia': 'WV', Wisconsin: 'WI', Wyoming: 'WY',
+  // DC: Meta returns the region NAME "Washington, District of Columbia" (live-confirmed Foam OH 2025-03) — key on
+  // that; keep the plain "District of Columbia" as a harmless fallback in case Meta varies it.
+  'Washington, District of Columbia': 'DC', 'District of Columbia': 'DC',
 }
 
 function monthChunks(start: string, end: string): { from: string; to: string }[] {

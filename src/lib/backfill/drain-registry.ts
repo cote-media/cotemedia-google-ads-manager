@@ -104,8 +104,9 @@ const META_VIDEO_WINDOW_DAYS = 90
 
 // LORAMER_META_GEO_BACKFILL_V1 (T1.9) — geo window. 2 families (country + country,region) × 4 levels = 8 reports/lap
 // (same as device), but geo_region fans WIDE (~50 US states × entities) → row-heavy like age_gender → 30d. The small
-// undetermined-geo residual is FLAG-NOT-BLOCK (never dropped). VERIFY-AT-WRITER: ad×region ~206 rows/day may force ~20d.
-const META_GEO_WINDOW_DAYS = 30
+// undetermined-geo residual is FLAG-NOT-BLOCK (never dropped). DROPPED 30→20 (Gate B: one 30d geo lap ≈ 98s — fine in
+// the drain's 680s budget, but the route's year-loop margin was too thin; 20d ≈ ~65s keeps both comfortable).
+const META_GEO_WINDOW_DAYS = 20
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
