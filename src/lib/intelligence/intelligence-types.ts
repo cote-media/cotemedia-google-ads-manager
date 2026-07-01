@@ -422,6 +422,27 @@ export interface IntelligenceShopify {
   // Attribution (when connected to ad platforms)
   adAttributedRevenue?: number
   adAttributedOrders?: number
+  // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.5/T1.6) — full order money split beyond NET, captured onto the account
+  // row's extra (extra.money). SHARED by Shopify (T1.5) + Woo (T1.6); per-platform basis carried by moneyBasis.
+  // Per-field null-vs-zero: a component is null (not 0) when it could not be honestly summed (a present "0.00"
+  // is a TRUE zero). residual = the per-day composed-identity gap (transparency; null if any input is null).
+  money?: {
+    netSales: number | null      // == account revenue (unchanged, load-bearing)
+    grossSales: number | null    // pre-discount line total (Σ line subtotal), excl tax
+    discounts: number | null     // Shopify: currentTotalDiscounts; Woo: discount_total (coupon/cart)
+    taxes: number | null         // Shopify: currentTotalTax; Woo: total_tax (sum of ALL taxes)
+    shipping: number | null      // Shopify: currentShipping; Woo: shipping_total (excl tax)
+    totalSales: number | null    // grand total incl tax/shipping (Shopify: currentTotalPrice; Woo: total)
+    refunds: number | null       // returns axis (Shopify: totalRefunded; Woo: Σ refunds.total, negative)
+    residual: number | null      // totalSales − composed parts (on-sale-markdown / edit gap; transparency)
+    moneyBasis: string
+    // platform-specific (optional)
+    tips?: number | null         // Shopify native tip (totalTipReceived)
+    fees?: number | null         // Woo fee_lines total — tip-BEARING proxy (Woo has NO native tip field)
+    shippingTax?: number | null  // Woo shipping_tax (informational; already inside taxes)
+    discountTax?: number | null  // Woo discount_tax
+    cartTax?: number | null      // Woo cart_tax (line-item taxes only)
+  }
 }
 
 export interface PlatformIntelligence {

@@ -354,6 +354,24 @@ export const DRAIN_REGISTRY: DrainStep[] = [
       return { done: body?.complete === true, detail: body }
     },
   },
+  {
+    // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.6) — Woo full-order money surface (gross/discounts/taxes/shipping/tips
+    // split beyond NET) onto the account row's extra.money. Re-walks the SAME backfill writer under a SEPARATE
+    // cursor namespace ('woocommerce_money') with its OWN claim/breaker row so already-complete 'woo' clients
+    // re-emit account rows carrying the money split (idempotent, additive; money rides shopifyAccountExtra so NO
+    // fetch/row-builder change — REST already returns every money field). After 'woo_variant'; gentle-citizen
+    // throttle + breaker carry over. NEW key → not-done for every connection → cohort-wide back-drain. Money
+    // coverage == base coverage by construction (same fetch + false-zero discipline); its cursor honestly reports
+    // complete=FALSE at any store-side wall (e.g. shelleykyle pre-2018 deep tail) — no false-completeness.
+    key: 'woocommerce_money',
+    platforms: ['woocommerce'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_money') — writer has no dryRun; live lap pending" } }
+      const { body } = await runWooCommerceBackfill(conn.client_id, { cursorPlatform: 'woocommerce_money' })
+      if (body?.skipped) return { done: false, detail: { note: 'woo money writer claim held by another invocation', body } }
+      return { done: body?.complete === true, detail: body }
+    },
+  },
 ]
 
 // The full step-key set for a platform — a connection is DONE when onboard_steps_done ⊇ this set.

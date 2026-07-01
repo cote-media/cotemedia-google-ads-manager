@@ -26,6 +26,10 @@ export function shopifyAccountExtra(data: IntelligenceShopify): Record<string, u
     revenueConcentration: data.revenueConcentration,
     abandonedCheckoutCount: data.abandonedCheckoutCount,
     currencyCode: data.currencyCode, // LORAMER_SHOPIFY_DEPTH_2A_V1
+    // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.5/T1.6) — full order money split, namespaced under extra.money when the
+    // fetcher computed it. Additive-only: never touches revenue/conversions. Shared by Shopify + Woo (Woo's
+    // buildWooMetricsRows also builds its account extra via this fn). Absent → key omitted (no empty object).
+    ...(data.money ? { money: data.money } : {}),
   }
 }
 

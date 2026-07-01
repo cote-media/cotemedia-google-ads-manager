@@ -27,6 +27,53 @@ export function wooNetOf(order: any): number {
   )
 }
 
+// LORAMER_ECOM_MONEY_SURFACE_V1 (T1.6) — Woo full-order money split beyond NET, per-day ACCOUNT grain, from
+// fields ALREADY in every REST order payload (no fetch change). Cited from the WooCommerce REST v2 Orders
+// schema: total("Grand total, including tax") · total_tax("Sum of all taxes") · shipping_total · shipping_tax ·
+// discount_total · discount_tax · cart_tax("Sum of line item taxes only") · line_items.subtotal("excl tax,
+// before discounts") · fee_lines.total · refunds.total("incl tax", negative). Woo core has NO native tip field
+// → tips, when a store collects them, ride fee_lines (captured as `fees`, a proxy, NOT asserted to BE tips).
+// NULL-vs-ZERO (false zeros/lows worse than absence): each component is summed ONLY from present amounts — a
+// present "0.00" is a TRUE zero; if ANY sale order is missing a component, that component is null (+loud warn),
+// never a false partial-zero. residual = the composed-identity gap (transparency on the on-sale-markdown /
+// order-edit difference between Σ(subtotal−total) and coupon-only discount_total); null if any input is null.
+// Additive-only: does NOT change account revenue (netSales here == the existing wooNetOf sum, proven byte-identical).
+export function buildWooMoneySurface(saleOrders: any[]): NonNullable<IntelligenceShopify['money']> {
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  const num = (s: any): number | undefined => (s === undefined || s === null ? undefined : parseFloat(s))
+  const lineSubtotal = (o: any) => ((o.line_items as any[]) || []).reduce((s, li) => s + parseFloat(li.subtotal || '0'), 0)
+  const feesTotal = (o: any) => ((o.fee_lines as any[]) || []).reduce((s, f) => s + parseFloat(f.total || '0'), 0)
+  const refundsTotal = (o: any) => ((o.refunds as any[]) || []).reduce((s, rf) => s + parseFloat(rf.total || '0'), 0)
+  const sumC = (pick: (o: any) => number | undefined, label: string): number | null => {
+    let s = 0
+    let absent = false
+    for (const o of saleOrders) {
+      const v = pick(o)
+      if (v === undefined || Number.isNaN(v)) { absent = true; console.warn(`[woo-money] ABSENT/NaN ${label} on order ${o?.id}`); continue }
+      s += v
+    }
+    return absent ? null : r2(s)
+  }
+  const netSales = sumC((o) => wooNetOf(o), 'wooNetOf')
+  const grossSales = sumC((o) => lineSubtotal(o), 'line.subtotal')
+  const discounts = sumC((o) => num(o.discount_total), 'discount_total')
+  const discountTax = sumC((o) => num(o.discount_tax), 'discount_tax')
+  const taxes = sumC((o) => num(o.total_tax), 'total_tax')
+  const cartTax = sumC((o) => num(o.cart_tax), 'cart_tax')
+  const shipping = sumC((o) => num(o.shipping_total), 'shipping_total')
+  const shippingTax = sumC((o) => num(o.shipping_tax), 'shipping_tax')
+  const fees = sumC((o) => feesTotal(o), 'fee_lines.total')
+  const totalSales = sumC((o) => num(o.total), 'total')
+  const refunds = sumC((o) => refundsTotal(o), 'refunds.total')
+  // residual = totalSales − [(gross − discounts) + shipping + fees + total_tax]; null if any input null (shipping_tax
+  // is NOT added — it is already inside total_tax; on clean data residual ≈ 0, real stores show the markdown gap).
+  const inputs = [totalSales, grossSales, discounts, shipping, fees, taxes]
+  const residual = inputs.some((p) => p === null)
+    ? null
+    : r2((totalSales as number) - (((grossSales as number) - (discounts as number)) + (shipping as number) + (fees as number) + (taxes as number)))
+  return { netSales, grossSales, discounts, discountTax, taxes, cartTax, shipping, shippingTax, fees, totalSales, refunds, residual, moneyBasis: 'woo_total_incl_shipping_tax_refundNetted' }
+}
+
 // Raw window fetch (status=any) with a PARAMETRIZED page cap: forward keeps the default (10); the
 // backfill passes a high cap so large windows don't truncate. Throws on a non-OK response (Lesson 15 —
 // never swallow a fetch failure into empty data).
@@ -187,6 +234,7 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
     topProducts,
     productsCapture,
     variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
+    money: buildWooMoneySurface(saleOrders), // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.6) — full money split → account extra
   }
 }
 
