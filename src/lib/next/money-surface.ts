@@ -5,11 +5,11 @@
 
 export type MoneyKey =
   | 'grossSales' | 'discounts' | 'discountTax' | 'taxes' | 'cartTax'
-  | 'shipping' | 'shippingTax' | 'fees' | 'totalSales' | 'refunds' | 'netSales' | 'residual'
+  | 'shipping' | 'shippingTax' | 'fees' | 'tips' | 'totalSales' | 'refunds' | 'netSales' | 'residual'
 
 export const MONEY_KEYS: MoneyKey[] = [
   'grossSales', 'discounts', 'discountTax', 'taxes', 'cartTax',
-  'shipping', 'shippingTax', 'fees', 'totalSales', 'refunds', 'netSales', 'residual',
+  'shipping', 'shippingTax', 'fees', 'tips', 'totalSales', 'refunds', 'netSales', 'residual',
 ]
 
 // One aggregated component. value=null means "absent on >=1 day in the window -> not honestly summable"
@@ -60,7 +60,7 @@ export const MONEY_CHAINS: Record<string, ChainStep[]> = {
     { key: 'netSales', label: 'Net sales', op: '=', total: true, tooltip: 'Booked revenue = subtotal after discounts and refunds. Shopify basis: EXCLUDES shipping and tax.' },
     { key: 'taxes', label: 'Taxes', op: '+', tooltip: 'Total tax collected.' },
     { key: 'shipping', label: 'Shipping', op: '+', tooltip: 'Shipping charged (refund-adjusted).' },
-    { key: 'tips', label: 'Tips', op: '+', tooltip: 'Tips collected (Shopify native tip field).' } as any, // 'tips' key exists on Shopify money objs (T1.5)
+    { key: 'tips', label: 'Tips', op: '+', tooltip: 'Tips collected (Shopify native tip field).' }, // LORAMER_SHOPIFY_MONEY_SURFACE_V1 — 'tips' is now a MoneyKey
     { key: 'totalSales', label: 'Total sales', op: '=', total: true, tooltip: 'Grand total charged, including tax and shipping.' },
   ],
 }

@@ -330,6 +330,21 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     },
   },
   {
+    // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — Shopify full-order money surface (gross/discounts/taxes/shipping/
+    // tips split beyond NET) onto the account row's extra.money. Re-walks the SAME deep writer under a SEPARATE
+    // cursor namespace ('shopify_money') so already-complete 'shopify_deep' clients re-emit account rows carrying
+    // the money split (idempotent, additive; money rides shopifyAccountExtra so NO row-builder change; the query-
+    // widen is already in fetchShopifyIntelligence). After 'shopify_variant'. NEW key → cohort-wide back-drain.
+    // Money coverage == account coverage by construction (same fetch); netSales == currentSubtotal, byte-identical.
+    key: 'shopify_money',
+    platforms: ['shopify'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_money') — writer has no dryRun; live lap pending" } }
+      const { body } = await runShopifyDeepBackfill(conn.client_id, { cursorPlatform: 'shopify_money' })
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
     // WOO last + gentlest (live self-hosted). Its own circuit-breaker + claim already guard the store.
     key: 'woo',
     platforms: ['woocommerce'],

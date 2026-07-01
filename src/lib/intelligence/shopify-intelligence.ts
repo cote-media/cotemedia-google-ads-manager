@@ -79,6 +79,13 @@ type GraphQLOrderNode = {
   cancelledAt: string | null // LORAMER_SHOPIFY_DEPTH_2A_V1
   currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode?: string } }
   totalRefundedSet: { shopMoney: { amount: string } }
+  // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — full order money split (all non-null MoneyBag in 2025-01;
+  // live-probed: all return on every order). currentSubtotal (net) + these decompose currentTotalPrice exactly.
+  currentTotalPriceSet: { shopMoney: { amount: string } }
+  currentTotalTaxSet: { shopMoney: { amount: string } }
+  currentTotalDiscountsSet: { shopMoney: { amount: string } }
+  currentShippingPriceSet: { shopMoney: { amount: string } }
+  totalTipReceivedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
   customer: { id: string } | null // LORAMER_CUSTOMER_MIX_FIX_V1 — numberOfOrders dropped (string scalar + lifetime-only; classify by first-order date instead)
   shippingAddress: { countryCodeV2: string | null; provinceCode: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1
@@ -146,6 +153,48 @@ async function fetchAbandonedCheckoutCount(
   }
 }
 
+// LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — Shopify full-order money split beyond NET, per-day ACCOUNT grain,
+// from the widened OrdersInRange fields (no extra call). Basis: net = currentSubtotal (EXCLUDES shipping/tax,
+// after refunds); the additive parts decompose currentTotalPrice. Fields cited from the Shopify 2025-01 Order
+// schema (all non-null MoneyBag; live-probed dreamboard1: all 6 return, residual $0.00). NULL-vs-ZERO (false
+// zeros worse than absence): each component sums ONLY from present amounts — a present "0.00" is a TRUE zero; if
+// ANY live order is missing a component, that component is null (+loud warn), never a false partial-zero.
+// Additive-only: netSales == the existing account revenue (Σ currentSubtotalPriceSet), byte-identical.
+export function buildShopifyMoneySurface(liveOrders: GraphQLOrderNode[]): NonNullable<IntelligenceShopify['money']> {
+  const r2 = (n: number) => Math.round(n * 100) / 100
+  const amt = (set: { shopMoney?: { amount?: string } } | undefined): number | undefined => {
+    const a = set?.shopMoney?.amount
+    return a === undefined || a === null ? undefined : parseFloat(a)
+  }
+  const lineGross = (o: GraphQLOrderNode) =>
+    (o.lineItems?.edges || []).reduce((s, e) => s + parseFloat(e.node.originalUnitPriceSet?.shopMoney?.amount || '0') * e.node.quantity, 0)
+  const sumC = (pick: (o: GraphQLOrderNode) => number | undefined, label: string): number | null => {
+    let s = 0
+    let absent = false
+    for (const o of liveOrders) {
+      const v = pick(o)
+      if (v === undefined || Number.isNaN(v)) { absent = true; console.warn(`[shopify-money] ABSENT/NaN ${label} on order ${o?.id}`); continue }
+      s += v
+    }
+    return absent ? null : r2(s)
+  }
+  const netSales = sumC((o) => amt(o.currentSubtotalPriceSet), 'currentSubtotal')
+  const grossSales = sumC((o) => lineGross(o), 'lineGross')
+  const discounts = sumC((o) => amt(o.currentTotalDiscountsSet), 'currentTotalDiscounts')
+  const taxes = sumC((o) => amt(o.currentTotalTaxSet), 'currentTotalTax')
+  const shipping = sumC((o) => amt(o.currentShippingPriceSet), 'currentShipping')
+  const tips = sumC((o) => amt(o.totalTipReceivedSet), 'totalTipReceived')
+  const totalSales = sumC((o) => amt(o.currentTotalPriceSet), 'currentTotalPrice')
+  const refunds = sumC((o) => amt(o.totalRefundedSet), 'totalRefunded')
+  // residual = totalSales − [net + tax + ship + tip]; null if any input null (on real data this is $0.00 — Shopify
+  // net already nets discounts + returns, so the parts decompose the current total exactly).
+  const inputs = [totalSales, netSales, taxes, shipping, tips]
+  const residual = inputs.some((p) => p === null)
+    ? null
+    : r2((totalSales as number) - ((netSales as number) + (taxes as number) + (shipping as number) + (tips as number)))
+  return { netSales, grossSales, discounts, taxes, shipping, tips, totalSales, refunds, residual, moneyBasis: 'shopify_current_refundAdjusted' }
+}
+
 export async function fetchShopifyIntelligence(
   accessToken: string,
   shopDomain: string,   // e.g. "my-store.myshopify.com"
@@ -177,6 +226,11 @@ export async function fetchShopifyIntelligence(
             cancelledAt
             currentSubtotalPriceSet { shopMoney { amount currencyCode } }
             totalRefundedSet { shopMoney { amount } }
+            currentTotalPriceSet { shopMoney { amount } }
+            currentTotalTaxSet { shopMoney { amount } }
+            currentTotalDiscountsSet { shopMoney { amount } }
+            currentShippingPriceSet { shopMoney { amount } }
+            totalTipReceivedSet { shopMoney { amount } }
             displayFinancialStatus
             customer { id }
             shippingAddress { countryCodeV2 provinceCode }
@@ -452,6 +506,7 @@ export async function fetchShopifyIntelligence(
       currencyCode,
       currencyMixed,
       unknownGeoOrders,
+      money: buildShopifyMoneySurface(liveOrders), // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — full money split → account extra
     }
   } catch (e: any) {
     // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — let a throttle-budget signal propagate so the backfill can
