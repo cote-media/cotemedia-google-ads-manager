@@ -201,7 +201,13 @@ export async function fetchShopifyIntelligence(
   dateRange: string,
   customStart?: string,
   customEnd?: string,
-  opts?: { throttleDeadline?: number } // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — backfill budget for throttle waits
+  opts?: {
+    throttleDeadline?: number // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — backfill budget for throttle waits
+    // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — WRITERS pass true → a real fetch/GraphQL error RE-THROWS (caller halts +
+    // persists its cursor, like Woo) instead of collapsing to an empty/zero day. Default (undefined/false) keeps
+    // the swallow-to-empty for the reviewer path (/api/intelligence) → reviewer render byte-identical.
+    throwOnError?: boolean
+  }
 ): Promise<IntelligenceShopify> {
   const endpoint = `https://${shopDomain}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`
   const headers = {
@@ -512,6 +518,11 @@ export async function fetchShopifyIntelligence(
     // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — let a throttle-budget signal propagate so the backfill can
     // stop + persist its cursor (NOT collapse to empty data).
     if (e?.throttleBudget) throw e
+    // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — WRITERS (throwOnError) RE-THROW a real fetch/GraphQL error so they HALT
+    // instead of writing a false-zero day (mirrors Woo + the fixed Meta fetchAll). This also covers the
+    // "still throttled after retries" plain throw (scope-a). The reviewer path (/api/intelligence) passes no
+    // throwOnError → falls through to the swallow-to-empty below → its render stays BYTE-IDENTICAL.
+    if (opts?.throwOnError) throw e
     console.error('Shopify intelligence error:', e)
     // Return connected:true with zeros rather than connected:false
     // so the UI shows empty data rather than an error state

@@ -115,7 +115,7 @@ export async function runShopifyDimensionalBackfill(
       break
     }
     try {
-      const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', cursor, cursor, { throttleDeadline })
+      const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', cursor, cursor, { throttleDeadline, throwOnError: true }) // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — halt (no false-zero) on a real fetch error
       // LORAMER_CUSTOMER_MIX_FIX_V1 — write the account MAIN row too, so a re-backfill CORRECTS the
       // account-extra (incl. customer mix) for historical days; depth rows ride alongside.
       const accountRows = buildShopifyMetricsRows(clientId, userEmail, cursor, shopDomain, intel)
@@ -289,7 +289,7 @@ export async function runShopifyDeepBackfill(
       break
     }
     try {
-      const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', cursor, cursor, { throttleDeadline })
+      const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', cursor, cursor, { throttleDeadline, throwOnError: true }) // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — halt (no false-zero) on a real fetch error
       const accountRows = buildShopifyMetricsRows(clientId, userEmail, cursor, shopDomain, intel)
       const depthRows = buildShopifyDepthRows(clientId, userEmail, cursor, shopDomain, intel)
 

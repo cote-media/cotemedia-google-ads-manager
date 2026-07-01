@@ -258,7 +258,7 @@ export async function GET(request: Request) {
 
       for (const d of fillDays) {
         try {
-          const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', d, d)
+          const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', d, d, { throwOnError: true }) // LORAMER_SHOPIFY_SWALLOW_FIX_V1
           const rows = buildShopifyMetricsRows(client.id, userEmail, d, shopDomain, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')

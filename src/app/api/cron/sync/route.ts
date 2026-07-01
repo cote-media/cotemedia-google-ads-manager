@@ -198,7 +198,8 @@ export async function GET(request: Request) {
           shopDomain,
           'YESTERDAY',
           captureDate,
-          captureDate
+          captureDate,
+          { throwOnError: true } // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — halt on a real fetch error, never write a false-zero
         )
 
         const rows = buildShopifyMetricsRows(
