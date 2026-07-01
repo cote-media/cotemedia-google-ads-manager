@@ -171,8 +171,10 @@ export async function runMetaGeoBackfill(
           if (!entityId) continue // unkeyable row — skip (never a fabricated key)
           const ctx = `client=${clientId} ${level.entity_level} ${entityId} ${date}`
           const geoValue = field.value(ins, ctx)
-          if (field.breakdown_type === 'geo_region' && /^[A-Z]{2}-/.test(geoValue) === false && geoValue.includes('-') && !geoValue.endsWith('-UNKNOWN')) {
+          if (field.breakdown_type === 'geo_region' && !/^[A-Z]{2}-[A-Z]{2}$/.test(geoValue) && !geoValue.endsWith('-UNKNOWN')) {
             // raw-composite fallback fired (warn already logged in value()); record which region for the report.
+            // Flags ANYTHING not a clean ISO "XX-YY" and not "<cc>-UNKNOWN" — incl. international "CA-Alberta" (the
+            // prior /^[A-Z]{2}-/ detector wrongly PASSED those, so unmappedRegions[] falsely read empty).
             unmappedRegions.add(geoValue)
           }
           const spend = fin(parseFloat(ins.spend || '0'))
