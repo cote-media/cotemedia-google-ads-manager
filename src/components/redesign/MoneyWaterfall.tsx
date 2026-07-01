@@ -1,8 +1,11 @@
 'use client'
-// LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 — -NEXT-ONLY full money-surface waterfall. Reads /api/next/money and
-// renders the per-platform chain ORDERED BY moneyBasis (Woo net incl shipping/tax; Shopify excl — never
-// hardcoded). Residual line shows ONLY when != 0. A true 0 renders "$0.00"; an absent component renders
-// "— not captured", never a false $0. Purely additive component; the frozen reviewer path never imports it.
+// LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 / LORAMER_NEXT_MONEY_CARD_V1 — -NEXT-ONLY full money-surface waterfall.
+// Reads /api/next/money and renders the per-platform chain ORDERED BY moneyBasis (Woo net incl shipping/tax;
+// Shopify excl — never hardcoded). Residual line shows ONLY when != 0. True 0 -> "$0.00"; absent -> "— not
+// captured", never a false $0. Purely additive; the frozen reviewer path never imports it.
+//   WINDOW: pass RESOLVED start+end (from the card engine's shared date picker) → the card obeys the global range.
+//   Falls back to `period` (the standalone store page passes a preset). `bare` = render inside a grid card (the
+//   grid Card supplies the outer chrome + title), so no own card wrapper/title.
 import { useEffect, useState } from 'react'
 import styles from './money.module.css'
 import { chainForBasis, stepDisplayValue, fmtMoney, RESIDUAL_STEP, type ChainStep } from '@/lib/next/money-surface'
@@ -26,36 +29,48 @@ interface MoneyData {
 
 const PLATFORM_LABEL: Record<string, string> = { woocommerce: 'WooCommerce', shopify: 'Shopify' }
 
-export default function MoneyWaterfall({ clientId, platform, period = 'LAST_30_DAYS' }: { clientId: string; platform?: string; period?: string }) {
+export default function MoneyWaterfall({
+  clientId, platform, period, start, end, bare = false,
+}: { clientId: string; platform?: string; period?: string; start?: string; end?: string; bare?: boolean }) {
   const [data, setData] = useState<MoneyData | null>(null)
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
     let alive = true
     setState('loading')
-    const qs = new URLSearchParams({ clientId, period })
+    const qs = new URLSearchParams({ clientId })
+    // RESOLVED window from the shared picker takes precedence; else the preset period (standalone page).
+    if (start && end) { qs.set('start', start); qs.set('end', end) }
+    else qs.set('period', period || 'LAST_30_DAYS')
     if (platform) qs.set('platform', platform)
     fetch(`/api/next/money?${qs.toString()}`)
       .then((r) => r.json())
       .then((d) => { if (alive) { setData(d); setState('ready') } })
       .catch(() => { if (alive) setState('error') })
     return () => { alive = false }
-  }, [clientId, platform, period])
+  }, [clientId, platform, period, start, end])
 
-  if (state === 'loading') return <div className={styles.card}><div className={styles.loading}>Loading money breakdown…</div></div>
-  if (state === 'error' || !data) return <div className={styles.card}><div className={styles.empty}>Couldn’t load the money breakdown.</div></div>
-  if (!data.hasStoreMoney) return <div className={styles.card}><div className={styles.empty}>No store (Shopify / WooCommerce) money captured for this client yet.</div></div>
+  const wrap = (inner: React.ReactNode) => (bare ? <div className={styles.bareWrap}>{inner}</div> : <div className={styles.card}>{inner}</div>)
+
+  if (state === 'loading') return wrap(<div className={styles.loading}>Loading money breakdown…</div>)
+  if (state === 'error' || !data) return wrap(<div className={styles.empty}>Couldn’t load the money breakdown.</div>)
+  if (!data.hasStoreMoney) return wrap(<div className={styles.empty}>No store (Shopify / WooCommerce) money captured for this client yet.</div>)
 
   const label = PLATFORM_LABEL[data.platform || ''] || data.platform || 'Store'
   const chain = chainForBasis(data.basis)
   const residual = data.components.residual
 
-  return (
-    <div className={styles.card}>
-      <div className={styles.header}>
-        <span className={styles.title}>{label} — money breakdown</span>
-        <span className={styles.sub}>{data.current.startDate} → {data.current.endDate}</span>
-      </div>
+  const inner = (
+    <>
+      {/* In bare (in-grid) mode the grid Card already shows the title → show only the platform + range sub-line. */}
+      {bare ? (
+        <div className={styles.sub} style={{ marginBottom: 6 }}>{label} · {data.current.startDate} → {data.current.endDate}</div>
+      ) : (
+        <div className={styles.header}>
+          <span className={styles.title}>{label} — money breakdown</span>
+          <span className={styles.sub}>{data.current.startDate} → {data.current.endDate}</span>
+        </div>
+      )}
 
       {data.noDataInRange ? (
         <div className={styles.empty}>No {label} sales in this range.</div>
@@ -85,7 +100,6 @@ export default function MoneyWaterfall({ clientId, platform, period = 'LAST_30_D
             })}
           </div>
 
-          {/* Residual = on-sale-markdown reconciliation note. Shown ONLY when captured AND non-zero. */}
           {residual && residual.present && residual.value !== null && residual.value !== 0 ? (
             <div className={styles.residual}>
               <span className={styles.label}>
@@ -113,6 +127,8 @@ export default function MoneyWaterfall({ clientId, platform, period = 'LAST_30_D
           ) : null}
         </>
       )}
-    </div>
+    </>
   )
+
+  return wrap(inner)
 }

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import CombinedPerformanceChart from '../CombinedPerformanceChart'
+import MoneyWaterfall from '../MoneyWaterfall' // LORAMER_NEXT_MONEY_CARD_V1 — additive 'money' kind
 import type { CardConfig } from './card-types'
 import { statMetric } from './card-types'
 import { useCardData, type BreakdownRow } from './useCardData'
@@ -124,6 +125,12 @@ function CompareLine({ clientId, current, compare }: { clientId: string; current
   )
 }
 
+// LORAMER_NEXT_MONEY_CARD_V1 — in-grid money waterfall. Obeys the shared date picker via the RESOLVED current
+// window (bare mode: the grid Card supplies the outer chrome + title). Compare not applied to the waterfall (v1).
+function MoneyBody({ clientId, current }: { clientId: string; current: Win }) {
+  return <MoneyWaterfall clientId={clientId} start={current.startDate} end={current.endDate} bare />
+}
+
 export default function CardViz({ clientId, cfg, current, compare }: { clientId: string; cfg: CardConfig; current: Win; compare: Win | null }) {
   if (cfg.kind === 'timeseries') {
     return compare
@@ -131,5 +138,6 @@ export default function CardViz({ clientId, cfg, current, compare }: { clientId:
       : <CombinedPerformanceChart clientId={clientId} period="LAST_30_DAYS" start={current.startDate} end={current.endDate} />
   }
   if (cfg.kind === 'stat') return <StatBody clientId={clientId} cfg={cfg} current={current} compare={compare} />
+  if (cfg.kind === 'money') return <MoneyBody clientId={clientId} current={current} />
   return <BreakdownBody clientId={clientId} cfg={cfg} current={current} compare={compare} />
 }

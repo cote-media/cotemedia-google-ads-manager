@@ -1,5 +1,6 @@
-/* LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 — -next-only styles for MoneyWaterfall + MoneySummary.
-   New module (no edit to redesign.module.css / cards.module.css). Light palette matches the -next shell. */
+/* LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 / LORAMER_NEXT_MONEY_CARD_V1 — -next-only styles for MoneyWaterfall
+   (standalone store page + in-grid 'money' card). New module (no edit to redesign.module.css / cards.module.css).
+   Light palette matches the -next shell. */
 
 .card {
   background: #ffffff;
@@ -69,21 +70,10 @@
 
 .loading, .empty { font-size: 13px; color: #64748b; padding: 6px 2px; }
 
-/* ── compact summary (Overview) ── */
-.summary { display: flex; flex-direction: column; gap: 8px; }
-.summaryTop { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.g2n { display: flex; align-items: baseline; gap: 10px; font-size: 18px; font-weight: 700; }
-.g2n .arrow { color: #94a3b8; font-size: 15px; }
-.g2n .gross { color: #334155; }
-.g2n .net { color: #0f6e56; }
-.summaryMeta { font-size: 12px; color: #64748b; }
-.flagDot {
-  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
-  background: #b45309; margin-left: 6px; vertical-align: middle;
+/* in-grid (bare) mode: the grid Card supplies the outer chrome + title; fill the card body, scroll if tight. */
+.bareWrap {
+  font-family: 'Instrument Sans', system-ui, sans-serif;
+  color: #0f172a;
+  height: 100%;
+  overflow: auto;
 }
-.link {
-  align-self: flex-start;
-  font-size: 13px; font-weight: 500; color: #2563eb;
-  text-decoration: none; margin-top: 2px;
-}
-.link:hover { text-decoration: underline; }

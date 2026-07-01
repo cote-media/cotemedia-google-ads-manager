@@ -11,6 +11,7 @@ const VIZ_FOR: Record<CardKind, VizType[]> = {
   stat: ['stat'],
   breakdown: ['bar', 'table'],
   timeseries: ['line'],
+  money: ['money'], // LORAMER_NEXT_MONEY_CARD_V1 — additive; no metric/breakdown config (auto-detects the store platform)
 }
 
 export default function CardConfigPanel({ initial, onApply, onClose }: { initial: CardConfig; onApply: (c: CardConfig) => void; onClose: () => void }) {
@@ -27,7 +28,7 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
       <div className={styles.panelBody}>
         <label className={styles.fLabel}>Type</label>
         <div className={styles.seg}>
-          {(['stat', 'breakdown', 'timeseries'] as CardKind[]).map((k) => (
+          {(['stat', 'breakdown', 'timeseries', 'money'] as CardKind[]).map((k) => (
             <button key={k} type="button" className={cfg.kind === k ? styles.segOn : styles.segBtn} onClick={() => setKind(k)}>{k}</button>
           ))}
         </div>

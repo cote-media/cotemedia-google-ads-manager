@@ -4,8 +4,10 @@
 
 import type { ComparePreset, Win } from '@/lib/next/card-windows'
 
-export type CardKind = 'stat' | 'breakdown' | 'timeseries'
-export type VizType = 'stat' | 'bar' | 'table' | 'line'
+// LORAMER_NEXT_MONEY_CARD_V1 — 'money' is an ADDITIVE kind (a full-order money waterfall on captured extra.money).
+// Existing kinds/vizes are unchanged; a money card flows through Card.tsx (shared window) + CardViz (a new branch).
+export type CardKind = 'stat' | 'breakdown' | 'timeseries' | 'money'
+export type VizType = 'stat' | 'bar' | 'table' | 'line' | 'money'
 export type PageKey = 'overview' | 'portfolio' | 'client'
 
 export interface CardConfig {
@@ -96,6 +98,9 @@ export function defaultOverviewView(): SavedView {
     { id: 'd-roas', kind: 'stat', viz: 'stat', metric: 'roas', dateRange: 'LAST_30_DAYS' },
     { id: 'd-ts', kind: 'timeseries', viz: 'line', dateRange: 'LAST_30_DAYS', title: 'Combined performance' },
     { id: 'd-age', kind: 'breakdown', viz: 'bar', breakdownType: 'age', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Age (Meta)' },
+    // LORAMER_NEXT_MONEY_CARD_V1 — the money breakdown = the drill-down behind Revenue (Net sales == the Revenue
+    // headline). Placed in a NEW bottom row, left edge under the Revenue stat (x=3); no existing card is moved.
+    { id: 'd-money', kind: 'money', viz: 'money', dateRange: 'LAST_30_DAYS', title: 'Revenue — money breakdown' },
   ]
   const layout: GridItem[] = [
     { i: 'd-spend', x: 0, y: 0, w: 3, h: 2 },
@@ -104,6 +109,7 @@ export function defaultOverviewView(): SavedView {
     { i: 'd-roas', x: 9, y: 0, w: 3, h: 2 },
     { i: 'd-ts', x: 0, y: 2, w: 8, h: 5 },
     { i: 'd-age', x: 8, y: 2, w: 4, h: 5 },
+    { i: 'd-money', x: 3, y: 7, w: 6, h: 6 }, // new bottom row → existing card positions unchanged
   ]
   return { name: 'Default', cards, layout, pinned: [], globalPeriod: 'LAST_30_DAYS', globalCustom: null, compareMode: 'none', customCompare: null }
 }
