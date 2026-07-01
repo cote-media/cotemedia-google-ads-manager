@@ -11,6 +11,9 @@ import Shell from '@/components/redesign/Shell'
 // LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
 // built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
 import CardEngine from '@/components/redesign/cards/CardEngine'
+// LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 — compact store money summary above the card engine (renders nothing
+// for non-store clients; taps through to the store drill page). -next-only.
+import MoneySummary from '@/components/redesign/MoneySummary'
 
 export default async function DashboardNextPage({ searchParams }: { searchParams: { clientId?: string } }) {
   await requirePreviewUser()
@@ -34,6 +37,7 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
 
   return (
     <Shell active="overview" clientName={resolved.name} clientId={resolved.id}>
+      <MoneySummary clientId={resolved.id} />
       <CardEngine pageKey="overview" clientId={resolved.id} />
     </Shell>
   )
