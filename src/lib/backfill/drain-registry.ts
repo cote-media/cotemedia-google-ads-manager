@@ -25,6 +25,7 @@ import { runMetaAgeGenderBackfill } from './meta-age-gender-backfill'
 import { runMetaActionTypeBackfill } from './meta-action-type-backfill' // LORAMER_META_ACTION_TYPE_TAXONOMY_V1
 import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VIDEO_CAPTURE_V1
 import { runMetaGeoBackfill } from './meta-geo-backfill' // LORAMER_META_GEO_BACKFILL_V1
+import { runMetaHourBackfill } from './meta-hour-backfill' // LORAMER_META_HOUR_V1
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -107,6 +108,13 @@ const META_VIDEO_WINDOW_DAYS = 90
 // undetermined-geo residual is FLAG-NOT-BLOCK (never dropped). DROPPED 30→20 (Gate B: one 30d geo lap ≈ 98s — fine in
 // the drain's 680s budget, but the route's year-loop margin was too thin; 20d ≈ ~65s keeps both comfortable).
 const META_GEO_WINDOW_DAYS = 20
+
+// LORAMER_META_HOUR_V1 (T1.10) — hour window. ONE breakdown family (hourly_stats_aggregated_by_advertiser_time_zone)
+// × 4 entity levels = 4 insights reports/lap (same report count as action_type), but hour fans 24× per entity×day →
+// the AD-level grain is ROW-HEAVY (ads × 24h × window). Start conservative at 15d and tune UP after a Gate-B live lap
+// timing (mirrors age_gender's row-heavy 30d posture, but hour's 24× ad-level fan-out can exceed it). floor36 (hour
+// rides the ~37mo Meta aggregate #3018 wall). FLAG-NOT-BLOCK on spend (hour partitions the day's spend).
+const META_HOUR_WINDOW_DAYS = 15
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -297,6 +305,17 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_geo',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_geo', runMetaGeoBackfill as RangeWriter, dryRun, META_GEO_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_HOUR_V1 (T1.10) — Meta HOUR breadth: breakdown_type='hour' ← breakdowns=
+    // hourly_stats_aggregated_by_advertiser_time_zone. All entity levels the API serves (Gate-A probed; account/
+    // campaign/ad_set/ad), breakdown_value = zero-padded "00".."23" (matches google-hour → 'hour' is one cross-platform
+    // dimension), raw range string in extra.hourRange. FLAG-NOT-BLOCK on spend vs the account×day anchor (hour
+    // PARTITIONS the day's spend; recent stale-anchor days flagged-not-dropped). 7-col key, NO migration. 15d window
+    // (24× ad-level fan-out → row-heavy; Gate-B tunable). floor36. After meta_geo.
+    key: 'meta_hour',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_hour', runMetaHourBackfill as RangeWriter, dryRun, META_HOUR_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
