@@ -8,10 +8,15 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, freeze-safe). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ PRE-ACTION GATE (forcing function — output this line before ANY Claude Code paste or ANY UI proposal; a skipped line is a visible violation)
+`in-flight: [what's running / clear] · freeze: [read-only|backend-writer|-next-only|STOP] · grid: [which card, or N/A non-UI] · high-stakes claim: [none | VERIFIED/DERIVED/UNVERIFIED + what]`
+High-stakes = any claim gating a destructive/rotate/delete action, a "this is a bug" diagnosis, or a freeze-safety judgment. Rationale: the rules already exist; this converts the ones most often dropped under momentum (one-in-flight, freeze posture, grid-native, claim-confidence) into required visible output so a skip is caught in the moment, not after. Root cause: 2026-07-01 session — repeated rule-breaks despite the rules being present; the failure was compliance, not coverage. Do not relitigate.
+
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
 - VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.
 - INVENTORY-FIRST sequencing — map all 5 platforms' full capture surface, THEN one master gap list + value-ordered build queue, THEN build. Never writer-by-writer ahead of the map.
+- GRID-NATIVE: Everything analytical lives in the card-engine grid. No standalone data/analytics surface outside the card system — a new metric/breakdown is a card (or a card's detail view), never a floating panel. Building outside the grid is a STOP; state which card it is (or why it can't be one) before proposing any UI. Root cause: 2026-07-01 floating MoneySummary panel built outside the grid built the day prior.
 - ASSET-COMBINATION CONVERSION ATTRIBUTION is the CORE capability — Lora names which creative COMBINATION (image/video + body + headline + CTA) drove which conversions BY TYPE, to the nickel, across Meta multi-asset + Google PMax incl. YouTube.
 - 2027 WRITE DESTINATION is the WHY — Lora generates near-optimal ads (1–5% differentiation) + WRITES them to Meta/Google; the entire data foundation exists to enable this.
 - PLATFORM-WIDE PLAYBOOK is a standing product goal (the whole-product operating playbook + the rote per-platform onboarding template).
