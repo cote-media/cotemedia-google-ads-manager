@@ -8,7 +8,7 @@
 // surfaces cannot drift (handoff lesson 26). clientId is injected server-side by
 // the caller - it is NEVER a model-controlled input.
 
-import { queryMetrics, queryBreakdown } from '@/lib/metrics-query'
+import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1
@@ -143,6 +143,33 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
   })
 }
 
+// LORAMER_QUERY_MONEY_V1 — the store money surface (gross→net waterfall components) for ONE store platform.
+export const QUERY_MONEY_TOOL: any = {
+  name: 'query_money',
+  description:
+    'Break the CURRENT client’s STORE revenue into its money components over a single window — gross sales, discounts, taxes, shipping, fees, tips, refunds, total sales, net sales, and an on-sale-markdown residual — from LoraMer’s historical store, at ACCOUNT grain. Use this when the user asks how revenue breaks down / where the money goes / gross vs net / discounts or taxes or shipping totals. Returns per-component values (each a summed $ amount) plus a "chain" giving the correct waterfall order and +/- direction for the store’s basis, and coverage info. IMPORTANT: net-sales BASIS differs by platform and is reported in "basis" — WooCommerce net INCLUDES shipping + tax; Shopify net EXCLUDES them — so never compare net across the two as like-for-like. A component value of null means it was not captured on at least one day in the window (honestly "not captured", NOT $0). Store-only: pass platform "shopify" or "woocommerce"; there is no cross-platform money total. For plain revenue/spend totals or period-over-period use query_metrics instead.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      platform: { type: 'string', enum: ['shopify', 'woocommerce'], description: 'Which store platform’s money to break down. Required — money is per-store (different net basis); never summed across platforms.' },
+      baseRange: { type: 'string', description: 'Single-window preset: LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, LAST_90_DAYS, THIS_MONTH, LAST_MONTH. Default LAST_30_DAYS. Ignored if startDate+endDate are given.' },
+      startDate: { type: 'string', description: 'Optional explicit window start, YYYY-MM-DD (use with endDate).' },
+      endDate: { type: 'string', description: 'Optional explicit window end, YYYY-MM-DD (use with startDate).' },
+    },
+    required: ['platform'],
+  },
+}
+
+export async function runQueryMoneyTool(input: any, clientId: string) {
+  return queryMoney({
+    clientId,
+    platform: typeof input?.platform === 'string' ? input.platform : '',
+    baseRange: typeof input?.baseRange === 'string' ? input.baseRange : undefined,
+    startDate: typeof input?.startDate === 'string' ? input.startDate : undefined,
+    endDate: typeof input?.endDate === 'string' ? input.endDate : undefined,
+  })
+}
+
 export async function runQueryMetricsTool(input: any, clientId: string) {
   const platform = typeof input?.platform === 'string' ? input.platform : undefined
   const level = typeof input?.level === 'string' ? input.level : undefined
@@ -188,7 +215,7 @@ export async function runClaudeToolLoop(opts: {
   // signed-in user owns this client. Without a verified owner the tool is
   // withheld and the loop degrades to a single-shot call (no cross-tenant read).
   const tools: any[] | undefined =
-    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL] : undefined
+    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
   const convo: any[] = [...messages]
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5
@@ -217,7 +244,9 @@ export async function runClaudeToolLoop(opts: {
             ? await runQueryMetricsTool(tu.input, clientId)
             : tu.name === 'query_breakdown'
               ? await runQueryBreakdownTool(tu.input, clientId)
-              : { error: 'unknown tool: ' + tu.name }
+              : tu.name === 'query_money'
+                ? await runQueryMoneyTool(tu.input, clientId)
+                : { error: 'unknown tool: ' + tu.name }
         } catch (err) {
           payload = { error: err instanceof Error ? err.message : String(err) }
         }

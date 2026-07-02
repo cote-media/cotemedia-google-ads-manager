@@ -11,6 +11,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
+import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surface' // LORAMER_QUERY_MONEY_V1 — reuse the canonical money aggregation (reconciles with /api/next/money by construction)
 
 export type MetricTotals = {
   spend: number
@@ -492,6 +493,86 @@ async function projectNonAdditive(p: {
     notes.push('impression_share ratios are POINT-IN-TIME — each row is the MOST RECENT captured day in-window for that campaign; ratios are NOT aggregated across days. null = campaign non-eligible (API -1) that day.')
   }
   if (result.truncated) notes.push(`Showing top ${p.topN} of ${byEnt.size} by ${rankBy}.`)
+  result.note = notes.join(' ')
+  return result
+}
+
+// LORAMER_QUERY_MONEY_V1 — the full ACCOUNT-grain money surface (gross → net waterfall: discounts/taxes/shipping/
+// fees/tips/refunds/residual) for a single STORE platform over a window. Reads account rows' extra.money and reuses
+// the CANONICAL aggregateMoney/MONEY_KEYS (the exact aggregation /api/next/money uses → reconciles by construction).
+// Every component is an additive $ amount (no rate → no singleVal); per-field null-vs-zero (a component absent on ANY
+// day → null, never a false $0). Platform-scoped: shopify XOR woocommerce — NEVER summed across platforms (different
+// net basis: Woo incl shipping/tax vs Shopify excl). Does NOT touch queryMetrics/queryBreakdown.
+const MONEY_PLATFORMS: Record<string, string> = { shopify: 'shopify', woocommerce: 'woocommerce', woo: 'woocommerce' }
+
+export type QueryMoneyResult = {
+  platform: string
+  basis: string | null
+  window: { startDate: string; endDate: string }
+  components: Record<string, { value: number | null; present: boolean; absentDays: number }>
+  chain: { key: string; label: string; op: string }[]
+  accountDays: number
+  moneyDays: number
+  saleDaysMissingMoney: number
+  coverageComplete: boolean
+  note?: string
+}
+
+export async function queryMoney(opts: {
+  clientId: string; platform: string; baseRange?: string; startDate?: string; endDate?: string
+}): Promise<QueryMoneyResult> {
+  const pf = MONEY_PLATFORMS[opts.platform] || ''
+  const ISO = /^\d{4}-\d{2}-\d{2}$/
+  let startDate: string, endDate: string
+  if (opts.startDate && opts.endDate && ISO.test(opts.startDate) && ISO.test(opts.endDate) && opts.startDate <= opts.endDate) {
+    startDate = opts.startDate; endDate = opts.endDate
+  } else {
+    const w = resolveDateWindow(opts.baseRange || 'LAST_30_DAYS'); startDate = w.startDate; endDate = w.endDate
+  }
+
+  const result: QueryMoneyResult = {
+    platform: pf, basis: null, window: { startDate, endDate },
+    components: {}, chain: [], accountDays: 0, moneyDays: 0, saleDaysMissingMoney: 0, coverageComplete: false,
+  }
+  if (!pf) {
+    result.note = 'money is captured only for store platforms — pass platform "shopify" or "woocommerce".'
+    return result
+  }
+
+  // Same account-row query as /api/next/money → identical inputs to aggregateMoney → identical numbers.
+  const moneyObjs: Array<Record<string, any>> = []
+  const PAGE = 1000
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from('metrics_daily')
+      .select('date, revenue, extra')
+      .eq('client_id', opts.clientId).eq('platform', pf)
+      .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
+      .gte('date', startDate).lte('date', endDate)
+      .order('date', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error('metrics_daily money query failed: ' + error.message)
+    const rows = data || []
+    for (const r of rows) {
+      result.accountDays++
+      const m = (r as any).extra?.money
+      if (m && typeof m === 'object') { moneyObjs.push(m); if (!result.basis && typeof m.moneyBasis === 'string') result.basis = m.moneyBasis }
+      else if (Number((r as any).revenue) !== 0) result.saleDaysMissingMoney++ // had sales, no money = a real pre-back-drain gap
+    }
+    if (rows.length < PAGE) break
+  }
+
+  result.moneyDays = moneyObjs.length
+  if (moneyObjs.length === 0) {
+    result.note = `No ${pf} money captured for this client in ${startDate}..${endDate}.`
+    return result
+  }
+  const agg = aggregateMoney(moneyObjs)
+  for (const k of MONEY_KEYS) result.components[k] = agg[k]
+  result.chain = chainForBasis(result.basis).map((s) => ({ key: s.key, label: s.label, op: s.op }))
+  result.coverageComplete = result.saleDaysMissingMoney === 0
+  const notes = [`Money is ACCOUNT-grain, summed over the window (basis ${result.basis || 'unknown'}); every component is a $ amount, null when absent on any day (never a false $0). Read the waterfall via 'chain'.`]
+  if (result.saleDaysMissingMoney > 0) notes.push(`${result.saleDaysMissingMoney} sale-day(s) predate the money back-drain and carry no money (a real gap, not $0).`)
   result.note = notes.join(' ')
   return result
 }
