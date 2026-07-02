@@ -96,13 +96,22 @@ export async function GET(request: Request) {
       console.error('Meta /me fetch threw:', e)
     }
 
-    // Store token
-    await supabaseAdmin.from('meta_tokens').upsert({
+    // Store token. LORAMER_META_CALLBACK_ONCONFLICT_V1: onConflict:'user_email' is REQUIRED — meta_tokens has
+    // PK=id + UNIQUE(user_email); without the conflict target the upsert INSERTs and, for any EXISTING row, hits a
+    // unique-violation on user_email → re-auth was a silent no-op (only the first-ever connect ever wrote; the
+    // success redirect fired regardless). Mirror the google_tokens upsert (src/lib/auth.ts:80). CHECK the returned
+    // error (no silent swallow — standing law): on failure, console.error + redirect with an error param instead of
+    // the false-success redirect, so a failed write surfaces to the user rather than looking connected.
+    const { error: tokenErr } = await supabaseAdmin.from('meta_tokens').upsert({
       user_email: stateData.email,
       access_token: finalToken,
       fb_user_id: fbUserId,
       updated_at: new Date().toISOString(),
-    })
+    }, { onConflict: 'user_email' })
+    if (tokenErr) {
+      console.error('Meta token upsert failed:', { email: stateData.email, detail: tokenErr.message })
+      return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=token_store_failed')
+    }
 
     const accountsEncoded = encodeURIComponent(JSON.stringify(adAccounts))
     return NextResponse.redirect(
