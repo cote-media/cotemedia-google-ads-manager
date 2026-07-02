@@ -93,8 +93,8 @@ export const QUERY_BREAKDOWN_TOOL: any = {
     properties: {
       breakdownType: {
         type: 'string',
-        enum: ['search_term', 'keyword', 'placement', 'age', 'gender', 'device', 'device_platform', 'hour', 'action_type', 'conversion_action', 'geo_country', 'geo_region'],
-        description: 'Which dimension to list. Google-only: search_term, keyword, conversion_action. Meta-only: placement (publisher:position), age, gender, device_platform, action_type. MULTI-PLATFORM (Meta AND Google) — you MUST pass platform for these: device, hour. geo_country/geo_region are captured on BOTH Shopify (ship-to; the default when platform is omitted) AND Meta (audience geo; pass platform:"meta"). action_type/conversion_action carry per-action conversions, not spend — rank them by conversions. (Product/variant performance is NOT here — use query_metrics with level="product"/"variant".)',
+        enum: ['search_term', 'keyword', 'placement', 'age', 'gender', 'device', 'device_platform', 'hour', 'action_type', 'conversion_action', 'impression_share', 'video', 'geo_country', 'geo_region'],
+        description: 'Which dimension to list. Google-only: search_term, keyword, conversion_action, impression_share. Meta-only: placement (publisher:position), age, gender, device_platform, action_type, video. MULTI-PLATFORM (Meta AND Google) — you MUST pass platform for these: device, hour. geo_country/geo_region are captured on BOTH Shopify (ship-to; the default when platform is omitted) AND Meta (audience geo; pass platform:"meta"). action_type/conversion_action carry per-action conversions, not spend — rank them by conversions. NON-ADDITIVE per-entity families (rows are one-per-entity, metrics under nonAdditiveMetrics): impression_share (per Google campaign — POINT-IN-TIME search IS ratios; shows the MOST RECENT day in-window, never aggregated) and video (per Meta entity — 8 view counts summed + avg-time/cost-per-thruplay rates that are null across multi-day windows; pass entityLevel, default campaign). (Product/variant performance is NOT here — use query_metrics with level="product"/"variant".)',
       },
       platform: {
         type: 'string',
@@ -116,6 +116,11 @@ export const QUERY_BREAKDOWN_TOOL: any = {
       orderDir: { type: 'string', enum: ['desc', 'asc'], description: 'desc (default) for top, asc for bottom.' },
       parentEntityId: { type: 'string', description: 'Optional: restrict to one campaign id (the parent of the ad group).' },
       entityId: { type: 'string', description: 'Optional: restrict to one ad group id.' },
+      entityLevel: {
+        type: 'string',
+        enum: ['account', 'campaign', 'ad_set', 'ad'],
+        description: 'For breakdownType="video" ONLY: which entity grain to scope to (prevents cross-level double-counting of view counts). Default "campaign". Ignored for other breakdown types.',
+      },
     },
     required: ['breakdownType'],
   },
@@ -134,6 +139,7 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
     orderDir: input?.orderDir === 'asc' ? 'asc' : input?.orderDir === 'desc' ? 'desc' : undefined,
     parentEntityId: typeof input?.parentEntityId === 'string' ? input.parentEntityId : undefined,
     entityId: typeof input?.entityId === 'string' ? input.entityId : undefined,
+    entityLevel: typeof input?.entityLevel === 'string' ? input.entityLevel : undefined,
   })
 }
 

@@ -79,6 +79,7 @@ export async function GET(request: Request) {
         orderDir: searchParams.get('orderDir') === 'asc' ? 'asc' : undefined,
         parentEntityId: searchParams.get('parentEntityId') || undefined,
         entityId: searchParams.get('entityId') || undefined,
+        entityLevel: searchParams.get('entityLevel') || undefined,
       })
       return NextResponse.json({ ok: true, mode: 'breakdown', ...result })
     } catch (e) {

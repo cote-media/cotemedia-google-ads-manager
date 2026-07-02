@@ -200,6 +200,7 @@ const BREAKDOWN_PLATFORMS: Record<string, string[]> = {
   placement: ['meta'], age: ['meta'], gender: ['meta'],
   device: ['meta', 'google'], device_platform: ['meta'], hour: ['meta', 'google'],
   action_type: ['meta'], conversion_action: ['google'],
+  impression_share: ['google'], video: ['meta'], // LORAMER_QUERY_NONADDITIVE_V1 — per-entity NON-additive projection (below)
   geo_country: ['shopify', 'meta'], geo_region: ['shopify', 'meta'],
 }
 // Multi-platform types with a documented PRIMARY (their historical single platform) → the back-compat default when
@@ -209,6 +210,19 @@ const BREAKDOWN_PRIMARY: Record<string, string> = { geo_country: 'shopify', geo_
 // action_type/conversion_action carry per-action CONVERSIONS, not partitioned spend (spend cols = 0) → default rank
 // by conversions (never spend, which is 0) and flag it. WRITE-ONLY families; still a SUBSET of the entity total.
 const SPEND_ZERO_BREAKDOWNS = new Set(['action_type', 'conversion_action'])
+// LORAMER_QUERY_NONADDITIVE_V1 — impression_share + video are PER-ENTITY metric families (their breakdown_value is a
+// constant/empty marker), so they are grouped by ENTITY, not value, and their non-additive fields are NEVER summed
+// as base metrics. Handled by projectNonAdditive() below — NOT the additive sum-6-metrics path. Zero effect on any
+// other breakdown_type.
+const NONADDITIVE_BREAKDOWNS = new Set(['impression_share', 'video'])
+// impression_share (google, campaign): 7 POINT-IN-TIME ratios in extra — never summed; per campaign take the MOST
+// RECENT captured day in-window (a real value, flagged), never an aggregate. null = the API -1 non-eligible sentinel.
+const IS_RATIO_FIELDS = ['search_impression_share', 'search_top_impression_share', 'search_absolute_top_impression_share', 'search_budget_lost_impression_share', 'search_rank_lost_impression_share', 'search_budget_lost_top_impression_share', 'search_rank_lost_top_impression_share']
+// video (meta, per entity level): 8 COUNTS sum across days; 2 RATES are single-value (null when the window spans >1
+// day — a per-period rate is not aggregatable). NO cross-entity double-count: scope to ONE entity_level (default campaign).
+const VIDEO_COUNT_FIELDS = ['video_plays', 'video_thruplays', 'video_p25', 'video_p50', 'video_p75', 'video_p95', 'video_p100', 'video_30s']
+const VIDEO_RATE_FIELDS = ['video_avg_time_sec', 'cost_per_thruplay']
+const VIDEO_ENTITY_LEVELS = new Set(['account', 'campaign', 'ad_set', 'ad'])
 // revenue is rankable too — Shopify geo/product breakdowns are revenue-centric (LORAMER_SHOPIFY_DEPTH_2A_V1).
 const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'])
 const VALUE_MAXLEN = 120
@@ -223,6 +237,9 @@ export type BreakdownRow = {
   conversionValue: number
   revenue: number
   derived: Record<string, number>
+  // LORAMER_QUERY_NONADDITIVE_V1 — for impression_share/video rows: the projected metrics (IS ratios / video counts
+  // + rates). null = not aggregatable (multi-day rate) or non-eligible (IS -1). Absent on additive-breakdown rows.
+  nonAdditiveMetrics?: Record<string, number | null>
 }
 
 export type QueryBreakdownResult = {
@@ -234,6 +251,8 @@ export type QueryBreakdownResult = {
   distinctValueCount: number
   truncated: boolean
   note?: string
+  nonAdditive?: boolean       // LORAMER_QUERY_NONADDITIVE_V1 — rows are per-entity projections, not summed base metrics
+  entityLevel?: string        // video only — which entity grain the rows are scoped to
 }
 
 export async function queryBreakdown(opts: {
@@ -248,6 +267,7 @@ export async function queryBreakdown(opts: {
   orderDir?: 'asc' | 'desc'
   parentEntityId?: string
   entityId?: string
+  entityLevel?: string // LORAMER_QUERY_NONADDITIVE_V1 — video only: which entity grain to scope to (default 'campaign')
 }): Promise<QueryBreakdownResult> {
   const bt = BREAKDOWN_ALIAS[opts.breakdownType] || opts.breakdownType // canonicalize legacy read-names (§3)
   const ISO = /^\d{4}-\d{2}-\d{2}$/
@@ -294,6 +314,16 @@ export async function queryBreakdown(opts: {
     return result
   }
   result.platform = platform
+
+  // LORAMER_QUERY_NONADDITIVE_V1 — impression_share/video are per-ENTITY projections (their non-additive fields are
+  // never summed as base metrics). Everything BELOW this branch is the untouched additive sum-by-value path.
+  if (NONADDITIVE_BREAKDOWNS.has(bt)) {
+    return projectNonAdditive({
+      clientId: opts.clientId, bt, platform, startDate, endDate,
+      rankBy: opts.rankBy, topN, orderDir, entityLevel: opts.entityLevel,
+      parentEntityId: opts.parentEntityId, entityId: opts.entityId,
+    })
+  }
 
   type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number }
   const byValue = new Map<string, Agg>()
@@ -362,5 +392,106 @@ export async function queryBreakdown(opts: {
     const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
     result.note = result.note ? `${result.note} ${z}` : z
   }
+  return result
+}
+
+// LORAMER_QUERY_NONADDITIVE_V1 — per-ENTITY projection for impression_share + video. Groups by entity_id (their
+// breakdown_value is a constant/empty marker, so per-value ranking is meaningless). NEVER sums a non-additive field:
+//   impression_share → 7 POINT-IN-TIME ratios; per campaign take the MOST RECENT captured day in-window (flagged).
+//   video → 8 counts SUMMED across days + 2 RATES single-value (null when the window spans >1 day). Scoped to ONE
+//   entity_level (default 'campaign') so counts never double-count across grains. Base metrics are all 0 (write-only).
+async function projectNonAdditive(p: {
+  clientId: string; bt: string; platform: string; startDate: string; endDate: string
+  rankBy?: string; topN: number; orderDir: 'asc' | 'desc'; entityLevel?: string; parentEntityId?: string; entityId?: string
+}): Promise<QueryBreakdownResult> {
+  const isVideo = p.bt === 'video'
+  const entityLevel = isVideo ? (VIDEO_ENTITY_LEVELS.has(p.entityLevel || '') ? (p.entityLevel as string) : 'campaign') : 'campaign'
+  const fields = isVideo ? [...VIDEO_COUNT_FIELDS, ...VIDEO_RATE_FIELDS] : IS_RATIO_FIELDS
+  const rankBy = fields.includes(p.rankBy || '') ? (p.rankBy as string) : (isVideo ? 'video_plays' : 'search_impression_share')
+
+  const result: QueryBreakdownResult = {
+    breakdownType: p.bt, platform: p.platform, window: { startDate: p.startDate, endDate: p.endDate },
+    rankBy, rows: [], distinctValueCount: 0, truncated: false, nonAdditive: true,
+    ...(isVideo ? { entityLevel } : {}),
+  }
+
+  type Ent = { entityName: string; parentId: string; rowCount: number; latestDate: string; latest: Record<string, any>; sums: Record<string, number> }
+  const byEnt = new Map<string, Ent>()
+  const selectCols = isVideo
+    ? `entity_id, entity_name, parent_entity_id, date, ${[...VIDEO_COUNT_FIELDS, ...VIDEO_RATE_FIELDS].join(', ')}`
+    : 'entity_id, entity_name, parent_entity_id, date, extra'
+  const PAGE = 1000
+  let from = 0
+  for (;;) {
+    let q = supabaseAdmin
+      .from('metrics_daily')
+      .select(selectCols)
+      .eq('client_id', p.clientId)
+      .eq('platform', p.platform)
+      .eq('breakdown_type', p.bt) // NEVER '' — base rows excluded (double-count guard)
+      .gte('date', p.startDate)
+      .lte('date', p.endDate)
+      .range(from, from + PAGE - 1)
+    if (isVideo) q = q.eq('entity_level', entityLevel) // one grain only → counts never double-count across levels
+    if (p.parentEntityId) q = q.eq('parent_entity_id', p.parentEntityId)
+    if (p.entityId) q = q.eq('entity_id', p.entityId)
+    const { data, error } = await q
+    if (error) throw new Error('metrics_daily non-additive query failed: ' + error.message)
+    const rows = data || []
+    for (const r of rows) {
+      const row = r as Record<string, any>
+      const eid = String(row.entity_id ?? '')
+      if (!eid) continue
+      let e = byEnt.get(eid)
+      if (!e) { e = { entityName: String(row.entity_name ?? ''), parentId: String(row.parent_entity_id ?? ''), rowCount: 0, latestDate: '', latest: {}, sums: {} }; byEnt.set(eid, e) }
+      e.rowCount++
+      const d = String(row.date ?? '')
+      if (d > e.latestDate) { e.latestDate = d; e.latest = isVideo ? row : (row.extra || {}) } // most-recent day per entity
+      if (isVideo) for (const f of VIDEO_COUNT_FIELDS) { const v = Number(row[f]); if (Number.isFinite(v)) e.sums[f] = (e.sums[f] || 0) + v }
+    }
+    if (rows.length < PAGE) break
+    from += PAGE
+  }
+
+  result.distinctValueCount = byEnt.size
+  if (byEnt.size === 0) {
+    result.note = `No ${p.bt} data captured for this client in ${p.startDate}..${p.endDate}` + (isVideo ? ` at entity_level=${entityLevel}.` : '.')
+    return result
+  }
+
+  let anyMultiDayRate = false
+  const built = Array.from(byEnt.values()).map((e) => {
+    const m: Record<string, number | null> = {}
+    if (isVideo) {
+      for (const f of VIDEO_COUNT_FIELDS) m[f] = Number((e.sums[f] || 0).toFixed(2))
+      for (const f of VIDEO_RATE_FIELDS) {
+        if (e.rowCount === 1) { const v = Number(e.latest[f]); m[f] = Number.isFinite(v) ? v : null }
+        else { m[f] = null; anyMultiDayRate = true } // per-period rate → not aggregatable across days
+      }
+    } else {
+      for (const f of IS_RATIO_FIELDS) { const v = Number(e.latest[f]); m[f] = Number.isFinite(v) ? v : null }
+    }
+    const rk = m[rankBy]
+    return { entityName: e.entityName, parentId: e.parentId, m, rank: typeof rk === 'number' ? rk : -Infinity }
+  })
+
+  built.sort((a, b) => (p.orderDir === 'asc' ? a.rank - b.rank : b.rank - a.rank))
+  result.truncated = built.length > p.topN
+  result.rows = built.slice(0, p.topN).map((b) => ({
+    value: b.entityName.length > VALUE_MAXLEN ? b.entityName.slice(0, VALUE_MAXLEN) + '…' : b.entityName,
+    parentEntityId: b.parentId || undefined,
+    spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0,
+    derived: {}, nonAdditiveMetrics: b.m,
+  }))
+
+  const notes: string[] = []
+  if (isVideo) {
+    notes.push(`video counts (plays/thruplays/quartiles/30s) are SUMMED over the window at entity_level=${entityLevel} (one row per ${entityLevel}; no cross-level double-count).`)
+    if (anyMultiDayRate) notes.push('video_avg_time_sec + cost_per_thruplay are per-period RATES, null for entities spanning multiple days (not aggregatable) — narrow to a single day to read them.')
+  } else {
+    notes.push('impression_share ratios are POINT-IN-TIME — each row is the MOST RECENT captured day in-window for that campaign; ratios are NOT aggregated across days. null = campaign non-eligible (API -1) that day.')
+  }
+  if (result.truncated) notes.push(`Showing top ${p.topN} of ${byEnt.size} by ${rankBy}.`)
+  result.note = notes.join(' ')
   return result
 }
