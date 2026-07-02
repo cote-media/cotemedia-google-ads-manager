@@ -188,12 +188,27 @@ export async function queryMetrics(opts: {
 // NOTE: 'product' is NOT here — products are a BASE entity_level (read via query_metrics
 // level='product'), not a breakdown_type. geo_country/geo_region are Shopify breakdowns
 // (LORAMER_SHOPIFY_DEPTH_2A_V1).
-const BREAKDOWN_TYPES = new Set(['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'geo_region'])
-const BREAKDOWN_PLATFORM: Record<string, string> = {
-  search_term: 'google', keyword: 'google',
-  publisher_platform: 'meta', age: 'meta', gender: 'meta',
-  geo_country: 'shopify', geo_region: 'shopify',
+// LORAMER_QUERY_ALLOWLIST_BREADTH_V1 — multi-platform allowlist. A breakdown_type maps to the platform(s) that
+// capture it (PRIMARY first). Resolution (below): an explicit opts.platform must be in the list; omitted + single
+// platform → that one; omitted + multi-platform → the documented BREAKDOWN_PRIMARY (back-compat) or, if none,
+// platform is REQUIRED (a loud note, never a guess). Adds device/device_platform/hour + Meta on geo_* +
+// action_type/conversion_action. NON-additive families (impression_share, video) are NOT here — they need a
+// singleVal/extra-aware path (P1b), never this sum-6-metrics path (which would return misleading zero rows).
+const BREAKDOWN_ALIAS: Record<string, string> = { publisher_platform: 'placement' } // writer stores 'placement'; repoint the legacy read-name (§3)
+const BREAKDOWN_PLATFORMS: Record<string, string[]> = {
+  search_term: ['google'], keyword: ['google'],
+  placement: ['meta'], age: ['meta'], gender: ['meta'],
+  device: ['meta', 'google'], device_platform: ['meta'], hour: ['meta', 'google'],
+  action_type: ['meta'], conversion_action: ['google'],
+  geo_country: ['shopify', 'meta'], geo_region: ['shopify', 'meta'],
 }
+// Multi-platform types with a documented PRIMARY (their historical single platform) → the back-compat default when
+// opts.platform is omitted, so existing calls stay byte-identical. Multi-platform types NOT listed (device, hour)
+// have no historical behavior to preserve → platform is REQUIRED.
+const BREAKDOWN_PRIMARY: Record<string, string> = { geo_country: 'shopify', geo_region: 'shopify' }
+// action_type/conversion_action carry per-action CONVERSIONS, not partitioned spend (spend cols = 0) → default rank
+// by conversions (never spend, which is 0) and flag it. WRITE-ONLY families; still a SUBSET of the entity total.
+const SPEND_ZERO_BREAKDOWNS = new Set(['action_type', 'conversion_action'])
 // revenue is rankable too — Shopify geo/product breakdowns are revenue-centric (LORAMER_SHOPIFY_DEPTH_2A_V1).
 const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'])
 const VALUE_MAXLEN = 120
@@ -234,7 +249,7 @@ export async function queryBreakdown(opts: {
   parentEntityId?: string
   entityId?: string
 }): Promise<QueryBreakdownResult> {
-  const bt = opts.breakdownType
+  const bt = BREAKDOWN_ALIAS[opts.breakdownType] || opts.breakdownType // canonicalize legacy read-names (§3)
   const ISO = /^\d{4}-\d{2}-\d{2}$/
   let startDate: string
   let endDate: string
@@ -246,24 +261,39 @@ export async function queryBreakdown(opts: {
     startDate = w.startDate
     endDate = w.endDate
   }
-  const platform = BREAKDOWN_PLATFORM[bt] || ''
-  const rankBy = RANKABLE.has(opts.rankBy || '') ? (opts.rankBy as string) : 'spend'
+  const allowed = BREAKDOWN_PLATFORMS[bt]
+  const rankBy = RANKABLE.has(opts.rankBy || '')
+    ? (opts.rankBy as string)
+    : (SPEND_ZERO_BREAKDOWNS.has(bt) ? 'conversions' : 'spend')
   const topN = Math.max(1, Math.min(50, opts.topN || 20))
   const orderDir: 'asc' | 'desc' = opts.orderDir === 'asc' ? 'asc' : 'desc'
 
   const result: QueryBreakdownResult = {
-    breakdownType: bt, platform, window: { startDate, endDate }, rankBy,
+    breakdownType: bt, platform: '', window: { startDate, endDate }, rankBy,
     rows: [], distinctValueCount: 0, truncated: false,
   }
 
-  if (!BREAKDOWN_TYPES.has(bt)) {
-    result.note = `Unknown breakdownType "${bt}". Supported: ${Array.from(BREAKDOWN_TYPES).join(', ')}.`
+  if (!allowed) {
+    result.note = `Unknown breakdownType "${bt}". Supported: ${Object.keys(BREAKDOWN_PLATFORMS).join(', ')}.`
     return result
   }
-  if (opts.platform && opts.platform !== platform) {
-    result.note = `breakdownType "${bt}" belongs to platform "${platform}", not "${opts.platform}" — no cross-platform read.`
+  // Resolve the platform (multi-platform aware; back-compat default via BREAKDOWN_PRIMARY; never guess a multi type).
+  let platform: string
+  if (opts.platform) {
+    if (!allowed.includes(opts.platform)) {
+      result.note = `breakdownType "${bt}" is not captured on platform "${opts.platform}" — it exists on: ${allowed.join(', ')}.`
+      return result
+    }
+    platform = opts.platform
+  } else if (allowed.length === 1) {
+    platform = allowed[0]
+  } else if (BREAKDOWN_PRIMARY[bt]) {
+    platform = BREAKDOWN_PRIMARY[bt]
+  } else {
+    result.note = `breakdownType "${bt}" is captured on multiple platforms (${allowed.join(', ')}); pass platform to choose one.`
     return result
   }
+  result.platform = platform
 
   type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number }
   const byValue = new Map<string, Agg>()
@@ -327,6 +357,10 @@ export async function queryBreakdown(opts: {
   })
   if (result.truncated) {
     result.note = `Showing top ${topN} of ${byValue.size} ${bt} values by ${rankBy}; more exist (these are a SUBSET of total activity, not the account/campaign total).`
+  }
+  if (SPEND_ZERO_BREAKDOWNS.has(bt)) {
+    const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
+    result.note = result.note ? `${result.note} ${z}` : z
   }
   return result
 }

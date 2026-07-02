@@ -16,7 +16,7 @@
 //            windows=2024-10-01:2024-12-31:Q4 2024;2025-10-01:2025-12-31:Q4 2025)
 
 import { NextResponse } from 'next/server'
-import { queryMetrics } from '@/lib/metrics-query'
+import { queryMetrics, queryBreakdown } from '@/lib/metrics-query'
 
 export const maxDuration = 60
 
@@ -60,6 +60,31 @@ export async function GET(request: Request) {
         const label = parts.length > 2 ? parts.slice(2).join(':').trim() : ''
         return { label: label || undefined, startDate, endDate }
       })
+  }
+
+  // BREAKDOWN mode (proving harness for query_breakdown): pass breakdownType to exercise queryBreakdown()
+  // instead of queryMetrics(). CRON_SECRET-gated; does NOT alter queryBreakdown behavior. LORAMER_QUERY_ALLOWLIST_BREADTH_V1.
+  const breakdownType = searchParams.get('breakdownType')
+  if (breakdownType) {
+    try {
+      const result = await queryBreakdown({
+        clientId,
+        breakdownType,
+        platform: platform && platform !== 'all' ? platform : undefined,
+        baseRange: searchParams.get('baseRange') || undefined,
+        startDate: searchParams.get('startDate') || undefined,
+        endDate: searchParams.get('endDate') || undefined,
+        rankBy: searchParams.get('rankBy') || undefined,
+        topN: searchParams.get('topN') ? Number(searchParams.get('topN')) : undefined,
+        orderDir: searchParams.get('orderDir') === 'asc' ? 'asc' : undefined,
+        parentEntityId: searchParams.get('parentEntityId') || undefined,
+        entityId: searchParams.get('entityId') || undefined,
+      })
+      return NextResponse.json({ ok: true, mode: 'breakdown', ...result })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    }
   }
 
   try {

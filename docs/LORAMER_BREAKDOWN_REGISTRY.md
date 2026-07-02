@@ -69,11 +69,11 @@ breakdown_type = '' and breakdown_value = '' (empty string). The query layer's d
 
 ## 3. Mismatch resolutions (the inconsistency §7 names)
 
-Query-layer queryBreakdown allowlist today = {search_term, keyword, publisher_platform, age, gender, geo_country, geo_region}.
+Query-layer queryBreakdown allowlist (LORAMER_QUERY_ALLOWLIST_BREADTH_V1, 2026-07-02) = {search_term, keyword, placement, age, gender, device, device_platform, hour, action_type, conversion_action, geo_country, geo_region}. BREAKDOWN_PLATFORM(1:1) is now BREAKDOWN_PLATFORMS(type→[platforms]) with BREAKDOWN_PRIMARY back-compat defaults. `variant` is a GRAIN via query_metrics level='variant' (not a breakdown_type). NON-additive impression_share + video = P1b (singleVal/extra path); money = P1c.
 
-- WRITTEN but NOT queryable — 'placement' (meta). RESOLUTION: canonical name = `placement` (keep the composite; splitting gains no grain and forces a migration). Fix the allowlist read-name `publisher_platform` → `placement`. This edit is CODE on the live read-path = STOP-and-confirm; TRACKED in §5, NOT done in Step 1. No data migration.
+- ✅ RESOLVED 2026-07-02 (LORAMER_QUERY_ALLOWLIST_BREADTH_V1) — WRITTEN but NOT queryable → 'placement' (meta): canonical name = `placement`; the legacy read-name `publisher_platform` now ALIASES to `placement` (BREAKDOWN_ALIAS) so both resolve to the written rows (was returning 0). Gate-A: publisher_platform 0→19 values. No data migration.
 - QUERYABLE but NOT written — 'age', 'gender' (meta). RESOLUTION: mark RESERVED (writer pending Phase 2). Do not delete from allowlist. Writers land as Phase-2 dimensions below.
-- CROSS-PLATFORM COLLISION — device/geo/age/gender exist on BOTH google AND meta (e.g. google device = campaign grain, meta device = campaign grain). The query layer's BREAKDOWN_PLATFORM map is 1:1 (breakdown_type → ONE platform) and cannot represent device→{google,meta}. RESOLUTION: breakdown_type stays platform-NEUTRAL ('device'); the query allowlist + read-path key on (platform, breakdown_type), and platform is REQUIRED when a type is multi-platform. Every metrics_daily row already carries platform → NO data migration. This is part of the §5 STOP-and-confirm query-layer edit, NOT bundled into a writer commit.
+- ✅ RESOLVED 2026-07-02 (LORAMER_QUERY_ALLOWLIST_BREADTH_V1) — CROSS-PLATFORM COLLISION (device/geo/hour exist on BOTH google AND meta): BREAKDOWN_PLATFORM(1:1) → BREAKDOWN_PLATFORMS(type→[platforms]). Resolution: an explicit platform must be in the list; omitted+single→that platform; omitted+multi→BREAKDOWN_PRIMARY back-compat default (geo_country/geo_region→shopify, preserving existing answers byte-identical) or a loud "pass platform" note (device/hour REQUIRE it — no historical default). Every metrics_daily row already carries platform → NO data migration. Gate-A: age + geo_country(shopify) byte-identical pre/post; device(meta)/hour(meta)/geo_country(meta) read back real rows; device w/o platform → loud note (never guesses).
 
 ## 4. Phase 2 dimension catalog (forward + backfill, one drain entry each)
 
@@ -175,7 +175,7 @@ grain at EVERY entity level (write-only — geo is non-partitioning).
 
 ## 5. Tracked follow-ups (NOT done in this step)
 
-- [CODE / STOP-and-confirm] Query allowlist read-name `publisher_platform` → `placement`, AND re-key the allowlist on (platform, breakdown_type) for the cross-platform dims (§3). Live read-path.
+- ✅ DONE 2026-07-02 (LORAMER_QUERY_ALLOWLIST_BREADTH_V1) — Query allowlist read-name `publisher_platform`→`placement` (aliased) + re-keyed the allowlist on (platform, breakdown_type) for the cross-platform dims (§3); added device/device_platform/hour/action_type/conversion_action + Meta geo + `variant` (query_metrics level). IS/video→P1b, money→P1c. Live read-path; byte-identical on existing types (Gate-A).
 - [CODE / next motion] Google `device` FORWARD capture in cron/sync + cron/catchup (mirror the search_term/keyword forward wiring). Pairs with the device backfill to satisfy fwd+backfill.
 - [MIGRATION / approach-gated] entity_level CHECK constraint over the §1 finite set. Schema touch.
 - [DECISION / deferred] GA breadth storage shape.

@@ -41,8 +41,8 @@ export const QUERY_METRICS_TOOL: any = {
       },
       level: {
         type: 'string',
-        enum: ['account', 'campaign', 'ad_group', 'ad_set', 'ad', 'product'],
-        description: 'Aggregation level. Default "account" (whole-account totals). Note: only account-level history is broadly backfilled today; deeper levels exist mainly from the connect date forward.',
+        enum: ['account', 'campaign', 'ad_group', 'ad_set', 'ad', 'product', 'variant'],
+        description: 'Aggregation level. Default "account" (whole-account totals). "product" and "variant" are the commerce grains (Shopify/Woo — variant = a product’s SKU/variation). Note: only account-level history is broadly backfilled today; deeper levels exist mainly from the connect date forward.',
       },
       baseRange: {
         type: 'string',
@@ -87,19 +87,19 @@ export const QUERY_METRICS_TOOL: any = {
 export const QUERY_BREAKDOWN_TOOL: any = {
   name: 'query_breakdown',
   description:
-    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta breakdowns (publisher_platform/age/gender). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead.',
+    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta/Google breakdowns (placement, age, gender, device, hour, action_type/conversion_action). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead.',
   input_schema: {
     type: 'object',
     properties: {
       breakdownType: {
         type: 'string',
-        enum: ['search_term', 'keyword', 'publisher_platform', 'age', 'gender', 'geo_country', 'geo_region'],
-        description: 'Which dimension to list. search_term/keyword are Google; publisher_platform/age/gender are Meta; geo_country/geo_region are Shopify ship-to geo. (Product performance is NOT here — use query_metrics with level="product".)',
+        enum: ['search_term', 'keyword', 'placement', 'age', 'gender', 'device', 'device_platform', 'hour', 'action_type', 'conversion_action', 'geo_country', 'geo_region'],
+        description: 'Which dimension to list. Google-only: search_term, keyword, conversion_action. Meta-only: placement (publisher:position), age, gender, device_platform, action_type. MULTI-PLATFORM (Meta AND Google) — you MUST pass platform for these: device, hour. geo_country/geo_region are captured on BOTH Shopify (ship-to; the default when platform is omitted) AND Meta (audience geo; pass platform:"meta"). action_type/conversion_action carry per-action conversions, not spend — rank them by conversions. (Product/variant performance is NOT here — use query_metrics with level="product"/"variant".)',
       },
       platform: {
         type: 'string',
         enum: ['google', 'meta', 'shopify'],
-        description: 'Optional. Must match the breakdownType’s platform; a mismatch is rejected (no cross-platform read). Usually omit — it is implied by breakdownType.',
+        description: 'Which platform this dimension is on. REQUIRED for multi-platform dimensions (device, hour). For geo_country/geo_region, omit for Shopify ship-to geo (the default) or pass "meta" for Meta audience geo. For single-platform dimensions it is implied and can be omitted. A platform the dimension is not captured on is rejected.',
       },
       baseRange: {
         type: 'string',
@@ -110,7 +110,7 @@ export const QUERY_BREAKDOWN_TOOL: any = {
       rankBy: {
         type: 'string',
         enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'],
-        description: 'Metric to rank by. Default spend. Use "revenue" for revenue-centric breakdowns like Shopify geo (ad breakdowns have no revenue; commerce breakdowns have no spend).',
+        description: 'Metric to rank by. Default spend (for the conversion families action_type/conversion_action the default is conversions, since their spend is 0). Use "revenue" for revenue-centric breakdowns like Shopify geo (ad breakdowns have no revenue; commerce breakdowns have no spend).',
       },
       topN: { type: 'number', description: 'How many to return. Default 20, maximum 50.' },
       orderDir: { type: 'string', enum: ['desc', 'asc'], description: 'desc (default) for top, asc for bottom.' },
