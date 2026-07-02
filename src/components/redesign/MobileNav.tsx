@@ -1,6 +1,7 @@
 // LORAMER_REDESIGN_INCA — the mobile bottom tab bar (Overview · Lora · Mer). Hidden ≥ md via CSS.
-// The drawer + its trigger now live in the TopBar (hamburger), so this is stateless → server component.
-// Active tab keeps the accent color (from the `active` prop).
+// LORAMER_NEXT_PARITY_V1 (P2-A): the Lora tab now OPENS the Ask-Lora chat sheet (dispatches 'loramer:open-chat',
+// which ChatLauncher listens for) instead of routing to a stub page → 'use client'. Overview/Mer stay Links.
+'use client'
 import Link from 'next/link'
 import styles from './redesign.module.css'
 
@@ -11,9 +12,14 @@ export default function MobileNav({ active, clientId }: { active: string; client
       <Link href={withClient('/dashboard-next')} className={`${styles.barItem} ${active === 'overview' ? styles.barActive : ''}`}>
         <i className="ti ti-layout-dashboard" /><span>Overview</span>
       </Link>
-      <Link href={withClient('/dashboard-next/lora')} className={`${styles.barItem} ${active === 'lora' ? styles.barActive : ''}`}>
+      <button
+        type="button"
+        className={`${styles.barItem} ${active === 'lora' ? styles.barActive : ''}`}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        onClick={() => window.dispatchEvent(new Event('loramer:open-chat'))}
+      >
         <i className="ti ti-sparkles" /><span>Lora</span>
-      </Link>
+      </button>
       <Link href={withClient('/dashboard-next/mer')} className={`${styles.barItem} ${active === 'mer' ? styles.barActive : ''}`}>
         <i className="ti ti-atom" /><span>Mer</span>
       </Link>

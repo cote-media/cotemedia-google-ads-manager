@@ -6,6 +6,7 @@ import styles from './redesign.module.css'
 import RailContent from './RailContent'
 import MobileNav from './MobileNav'
 import TopBar from './TopBar'
+import ChatLauncher from './ChatLauncher' // LORAMER_NEXT_PARITY_V1 (P2-A) — real Ask-Lora chat (replaces the decorative pill)
 
 export default function Shell({
   active,
@@ -45,7 +46,7 @@ export default function Shell({
           {/* LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — the dead static "Customize" pill was REMOVED; the single working
               Customize (+ the global date control + compare + full-screen) lives in the CardEngine page header. */}
           <div className={styles.subheader}>
-            <span className={`${styles.pill} ${styles.pillLora}`}><i className="ti ti-sparkles" /> Ask Lora</span>
+            <ChatLauncher clientId={clientId} clientName={clientName} />
           </div>
 
           {children}
