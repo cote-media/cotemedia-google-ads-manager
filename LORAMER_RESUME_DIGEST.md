@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-03T02:01:04.407Z
-- built_from HEAD: f3e9dd0a797d92e78b1ea41b6eac307ef9e91108  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-03T02:30:14.389Z
+- built_from HEAD: 71c2ca5867070ffa01430704bf1ed3b9f81e6c25  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 5dfda99cb37f68a7623d7f27229aa1be06c3f7678b82ee65af591cb2d79edb82
     - LORAMER_HANDOFF.md: de4ddb9dfbd65f0211b831dc399ece1aae213567a15c337c40e529706753a580
-    - CONTINUE_HERE.md: bc5ac85ae6b15f89deaffbd8ca39c2ffa5bf79991235c46cfb9c99fc4e8e26d1
-    - LORAMER_DECISIONS.md: 373667eb0e9d642affc01c5120b777db20419a9458049789d17cde9992c7f89d
-    - LORAMER_QUEUE_OF_RECORD.md: e2f9a51353a1a69588569a955c6058e0319bb826926c6245f971f49c731537cf
+    - CONTINUE_HERE.md: 66fe9ce65b39a02533e8055af1ac5a7d26924ad440e51f43ca299fa86a068ce9
+    - LORAMER_DECISIONS.md: 279837c31feb616906d77a46268049ed0019720726bcb5885dbf034783d5f1cc
+    - LORAMER_QUEUE_OF_RECORD.md: 0d904fd6c9abdcfb852f5164d6e2bdcca9c3e19ba91f9e0354e69afc67c0a491
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 49301b3224d9ace8eeaf9402df3223ae4e49c39c8b189081161cf02af05ead5f
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: d3979da8b9b7f818bcae49774e2ad13a47b55203865797bcfb40ed6be58c999d
     - RESUME_INSTRUCTIONS.md: dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834
@@ -219,6 +219,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Meta placement persist: campaign×placement×day, breakdown_type='placement', breakdown_value='<pub>:<pos>', spend/clicks/impr only (conversions=0, none per placement); account-level reconcile FLAG-NOT-BLOCK; intel.placements (Lora prompt) byte-identical. | this-session Slice1/Slice2 | do not relitigate.
 - Meta conversion seam: backfill uses account-level daily definition; query_metrics carries a Meta conversion provenance caveat (notes) — state limit, don't over-narrate. | LORAMER_QUERY_METRICS_META_CAVEAT_V2 (HANDOFF Session 2026-06-04) | do not relitigate.
 - Google campaign-grain conversion seam: campaign backfill reconciles per-day on SPEND only (exact, L59-gated); account-vs-Σcampaign CONVERSIONS differ slightly by attribution (pilot Bath Fitter +2.8/mo; spend/clicks/impr reconcile EXACTLY) — ACCEPTED caveat, same class as the Meta conversion seam; query_metrics may note it. Writer correctly does NOT gate on conversions. | LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1 | do not relitigate.
+- NUMBER CORRECTION (2026-07-02, LORAMER_BREAKDOWN_LEVEL_SCOPE_V1): query_breakdown for MULTI-LEVEL families now scopes to ONE entity level (coarsest present; entityLevel override) — it previously SUMMED all captured levels and DOUBLE-COUNTED. So multi-level breakdown $ values DROPPED to their true (lower) values in BOTH Lora's answers AND the -next cards on this date: e.g. Google hour $3,945.88→$2,427.36 (campaign), Meta hour/age/device→account-level Σ, and the -next Overview 'age' card (which was ~4× inflated) is now correct. This is a CORRECTION, not a regression — earlier higher numbers were wrong; do NOT "restore" them. Single-level families (search_term/keyword/placement/conversion_action/shopify geo) unchanged in data; a stable value-asc tiebreaker also made ranking ties deterministic (conversion_action's tied rows now value-ordered, data-identical). query_metrics/query_money unaffected. | LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 | do not relitigate.
 - (1) LEGALITY REVIEW: every public-authority request reviewed for valid legal process/jurisdiction/scope before any response; no data on an informal/voluntary/unverified request; invalid/improper requests refused. | GOV §1 | do not relitigate.
 - (2) CHALLENGE: requests believed unlawful/overbroad/improper are challenged (narrow/quash via legal channels; counsel engaged as needed). | GOV §2 | do not relitigate.
 - (3) DATA MINIMIZATION: where disclosure is legally compelled, disclose only the minimum data the process requires. | GOV §3 | do not relitigate.
@@ -294,7 +295,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
 - Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
 - P2-A.1 FOLLOW-UP (chat polish, open [NP]): (1) bind the chat's ambient window to the LIVE shared CardEngine period — increment A defaults to LAST_30_DAYS (the CardEngine default); Lora fetches any specific period via the query tools, so this is UX polish, not correctness. Needs the CardEngine global period lifted to a shared store/context readable from Shell. (2) MARKDOWN rendering for assistant replies (currently pre-wrapped plaintext; Lora returns markdown tables/lists). src: P2-A Gate-A notes 2026-07-02. open [NP]
-- QUERY_BREAKDOWN ENTITY-LEVEL SCOPING (the double-count) — NEXT FLIGHT, separate. The additive queryBreakdown path SUMS all entity levels for a breakdown_type → double-counts multi-level breakdowns: Google hour all-levels $3,945.88 = campaign $2,427.36 + ad_group $1,518.52 (true = campaign level); ALSO inflates the Meta hour numbers Lora reports (summed across account+campaign+ad_set+ad — the "4 PM $437.68" figure is inflated) + pre-existing age/gender/geo(meta). FIX: scope additive breakdowns to ONE entity level (coarsest present, or an entityLevel arg like the P1b video projection); the new index already includes entity_level to serve it. Shared read-path (metrics-query.ts) — freeze-sensitive; STOP-and-confirm. src: 2026-07-02 timeout diagnosis (found while investigating). open [LC]
+  - [SUPERSEDED — fixed above] The additive queryBreakdown path SUMS all entity levels for a breakdown_type → double-counts multi-level breakdowns: Google hour all-levels $3,945.88 = campaign $2,427.36 + ad_group $1,518.52 (true = campaign level); ALSO inflates the Meta hour numbers Lora reports (summed across account+campaign+ad_set+ad — the "4 PM $437.68" figure is inflated) + pre-existing age/gender/geo(meta). FIX: scope additive breakdowns to ONE entity level (coarsest present, or an entityLevel arg like the P1b video projection); the new index already includes entity_level to serve it. Shared read-path (metrics-query.ts) — freeze-sensitive; STOP-and-confirm. src: 2026-07-02 timeout diagnosis (found while investigating). open [LC]
 - Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes→Facts. src: CONTINUE_HERE QUEUED. open [LC]
 - Agency profile route (stub) → unlocks agency-level Knowledge UI. src: CONTINUE_HERE QUEUED. open [LC]
 - Onboarding upload prompt / post-connect nudge layer (empty-states done). src: CONTINUE_HERE QUEUED, ROADMAP cross-cutting nudge. open [LC]

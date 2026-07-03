@@ -326,6 +326,31 @@ export async function queryBreakdown(opts: {
     })
   }
 
+  // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — scope the ADDITIVE sum to ONE entity level or it double-counts multi-level
+  // families (meta age/gender/device/geo/hour/action_type at account+campaign+ad_set+ad; google hour campaign+
+  // ad_group; google device 4 levels). Default = the COARSEST level present (probe the coarseness order, take the
+  // first that has rows — index-covered, cheap; the writers emit a family's levels atomically so the coarsest is
+  // always present when the family has data). An explicit entityLevel overrides (mirrors the P1b video projection).
+  // Single-level families (search_term/keyword ad_group; placement/conversion_action campaign; shopify geo account)
+  // resolve to their sole level → byte-identical to the pre-scope behavior. Result shape unchanged (byte-identical).
+  const LEVEL_ORDER = ['account', 'campaign', 'ad_group', 'ad_set', 'ad', 'keyword']
+  let level: string | null = opts.entityLevel && LEVEL_ORDER.includes(opts.entityLevel) ? opts.entityLevel : null
+  if (!level) {
+    for (const lv of LEVEL_ORDER) {
+      const { data: probe, error: pErr } = await supabaseAdmin
+        .from('metrics_daily')
+        .select('entity_level')
+        .eq('client_id', opts.clientId).eq('platform', platform).eq('breakdown_type', bt)
+        .eq('entity_level', lv).gte('date', startDate).lte('date', endDate).limit(1)
+      if (pErr) throw new Error('metrics_daily level probe failed: ' + pErr.message)
+      if (probe && probe.length) { level = lv; break }
+    }
+  }
+  if (!level) {
+    result.note = `No ${bt} data captured for this client in ${startDate}..${endDate}.`
+    return result
+  }
+
   type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number }
   const byValue = new Map<string, Agg>()
   const PAGE = 1000
@@ -337,6 +362,7 @@ export async function queryBreakdown(opts: {
       .eq('client_id', opts.clientId)
       .eq('platform', platform)
       .eq('breakdown_type', bt) // NEVER '' — base rows are physically excluded (double-count guard)
+      .eq('entity_level', level) // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — one level only (coarsest present / override); no cross-level double-count
       .gte('date', startDate)
       .lte('date', endDate)
       .range(from, from + PAGE - 1)
@@ -374,7 +400,8 @@ export async function queryBreakdown(opts: {
   const sorted = Array.from(byValue.values()).sort((a, b) => {
     const av = (a as any)[rankBy] as number
     const bv = (b as any)[rankBy] as number
-    return orderDir === 'asc' ? av - bv : bv - av
+    if (av !== bv) return orderDir === 'asc' ? av - bv : bv - av
+    return a.value < b.value ? -1 : a.value > b.value ? 1 : 0 // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — stable tiebreaker (value asc): deterministic order when the rank metric ties (e.g. commerce breakdowns ranked by spend=0)
   })
   result.truncated = sorted.length > topN
   result.rows = sorted.slice(0, topN).map((a) => {
