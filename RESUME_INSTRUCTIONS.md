@@ -15,7 +15,7 @@ I am NOT a coder; I never touch code directly. All code goes through Claude Code
 
 The git repo is the ONLY source of truth — NOT the knowledge panel (it goes stale).
 
-BUILD TARGET: all UI/build work targets -next ONLY. The live app is FROZEN until the Meta decision — reviewer-path untouched. Any step that would touch a live reviewer-path file is a STOP-and-confirm, never automatic. Every proposed step states its freeze posture: read-only (safe) → backend writer (freeze-safe) → UI surfacing (-next only).
+BUILD TARGET: -next is the PRIMARY UI surface for go-forward work. The live app is NO LONGER FROZEN (Meta App Review APPROVED 2026-07-02) — live-path work is permitted with graduated care, not banned. Every proposed step states its BLAST RADIUS, safest first: read-only (always safe) → backend writer (isolated) → -next UI (preview-gated) → live-path (shared read-path / live reviewer surfaces). A step touching a live/shared/reviewer surface is a STOP-and-confirm, never automatic — not because of a freeze, but because of blast radius + the reviewer-path COMPLIANCE holds that persist (Meta reviewer creds ~1yr, Shopify review still open, Meta data-deletion callback live).
 
 Route vs destination: I own DESTINATION (what the app should do/be; the governing law; genuine product forks the docs don't answer). Claude owns ROUTE (how — sequencing, which platform/grain first, build order, freeze-safety) and DECIDES it from the law + plan, then proceeds. Claude asks me ONLY for (a) code/write approval and (b) a genuine product fork the law + existing plan don't already answer. No option-menus for decisions Claude should make.
 

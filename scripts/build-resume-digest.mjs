@@ -6,9 +6,9 @@
 // manifest content_hash so a stale digest is detectable (gate falls back to the full read on any mismatch).
 //
 //   Run:  node scripts/build-resume-digest.mjs
-//   Wrap (HARD GATE): re-stamp HANDOFF_MANIFEST.json for EVERY changed gated SOURCE_DOC (now 8) FIRST, THEN run
+//   Wrap (HARD GATE): re-stamp HANDOFF_MANIFEST.json for EVERY changed gated SOURCE_DOC (now 10) FIRST, THEN run
 //         this (it reads the updated manifest), THEN re-stamp this file's own manifest entry, THEN run the
-//         FRESHNESS GATE — it MUST read 8/8 PASS before commit. A skipped re-stamp = RED gate next resume = STOP.
+//         FRESHNESS GATE — it MUST read 10/10 PASS before commit. A skipped re-stamp = RED gate next resume = STOP.
 //         (per the LORAMER_HANDOFF.md SESSION-WRAP gate.)
 //
 // Repo root is derived from THIS file's location (works on iMac + Air despite the different folder names).
