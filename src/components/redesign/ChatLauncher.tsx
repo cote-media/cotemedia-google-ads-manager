@@ -4,10 +4,14 @@
 // component just holds the conversation and renders { response }. Desktop = right-docked slide-over; mobile =
 // full-screen sheet (responsive via chat.module.css; keyboard-aware input pinned to the bottom, per the mobile
 // gospel). Trigger = the "Ask Lora" pill (rendered here) AND a window 'loramer:open-chat' event (dispatched by the
-// mobile Lora tab). Ambient window = LAST_30_DAYS (the CardEngine default); Lora fetches any specific period via the
-// query tools. Binding the live shared CardEngine period is a trivial follow-up (that state isn't lifted to Shell).
+// mobile Lora tab). Ambient window FOLLOWS the shared CardEngine date picker via period-bus (default LAST_30_DAYS
+// until a page picker is seen); Lora still fetches any explicit period via the tools. Replies render markdown
+// (bold/lists/tables) via react-markdown + remark-gfm; tables scroll on mobile. (LORAMER_NEXT_CHAT_POLISH_V1.)
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import styles from './chat.module.css'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -25,12 +29,21 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
 
   // Any surface (mobile Lora tab, a card CTA) can open the chat by dispatching this event.
   useEffect(() => {
     const openIt = () => setOpen(true)
     window.addEventListener('loramer:open-chat', openIt)
     return () => window.removeEventListener('loramer:open-chat', openIt)
+  }, [])
+
+  // Ambient window follows the shared CardEngine date picker (period-bus): seed on mount + subscribe to changes.
+  useEffect(() => {
+    setPeriod(getSharedPeriod())
+    const onPeriod = (e: Event) => { const d = (e as CustomEvent).detail; if (d) setPeriod(d as SharedPeriod) }
+    window.addEventListener('loramer:period', onPeriod)
+    return () => window.removeEventListener('loramer:period', onPeriod)
   }, [])
 
   // Esc closes; focus the input + scroll to the newest message when open/updated.
@@ -62,7 +75,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           history: messages, // prior turns only (server appends the new message from `message`)
           clientId,
           clientName,
-          dateRange: 'LAST_30_DAYS',
+          dateRange: period.dateRange || 'LAST_30_DAYS',
+          customStart: period.customStart,
+          customEnd: period.customEnd,
           location: 'chat',
         }),
       })
@@ -78,7 +93,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     } finally {
       setLoading(false)
     }
-  }, [messages, loading, clientId, clientName])
+  }, [messages, loading, clientId, clientName, period])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
@@ -112,7 +127,11 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               ) : (
                 messages.map((m, i) => (
                   <div key={i} className={m.role === 'user' ? styles.rowUser : styles.rowAssistant}>
-                    <div className={m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}>{m.content}</div>
+                    <div className={m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}>
+                      {m.role === 'user'
+                        ? m.content
+                        : <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
+                    </div>
                   </div>
                 ))
               )}

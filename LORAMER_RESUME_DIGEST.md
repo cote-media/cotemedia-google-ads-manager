@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-03T02:30:14.389Z
-- built_from HEAD: 71c2ca5867070ffa01430704bf1ed3b9f81e6c25  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-03T02:47:45.307Z
+- built_from HEAD: f110feb087928da9bdc2a2021986ff4c85d9acad  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 5dfda99cb37f68a7623d7f27229aa1be06c3f7678b82ee65af591cb2d79edb82
     - LORAMER_HANDOFF.md: de4ddb9dfbd65f0211b831dc399ece1aae213567a15c337c40e529706753a580
-    - CONTINUE_HERE.md: 66fe9ce65b39a02533e8055af1ac5a7d26924ad440e51f43ca299fa86a068ce9
+    - CONTINUE_HERE.md: 2d8fafff373437adf155ae23d2c648337407c8ed58c667c906552ac6d086498b
     - LORAMER_DECISIONS.md: 279837c31feb616906d77a46268049ed0019720726bcb5885dbf034783d5f1cc
-    - LORAMER_QUEUE_OF_RECORD.md: 0d904fd6c9abdcfb852f5164d6e2bdcca9c3e19ba91f9e0354e69afc67c0a491
+    - LORAMER_QUEUE_OF_RECORD.md: 7765424331b5655173a9de062d76f2cab28579f4c0a3ca0aa0786bdd4eaf3f67
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 49301b3224d9ace8eeaf9402df3223ae4e49c39c8b189081161cf02af05ead5f
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: d3979da8b9b7f818bcae49774e2ad13a47b55203865797bcfb40ed6be58c999d
     - RESUME_INSTRUCTIONS.md: dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834
@@ -294,7 +294,6 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Agency profile & settings (top-right agency-avatar destination). src: ROADMAP Redesign LC, CONTINUE_HERE queue. open [LC]
 - Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
 - Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
-- P2-A.1 FOLLOW-UP (chat polish, open [NP]): (1) bind the chat's ambient window to the LIVE shared CardEngine period — increment A defaults to LAST_30_DAYS (the CardEngine default); Lora fetches any specific period via the query tools, so this is UX polish, not correctness. Needs the CardEngine global period lifted to a shared store/context readable from Shell. (2) MARKDOWN rendering for assistant replies (currently pre-wrapped plaintext; Lora returns markdown tables/lists). src: P2-A Gate-A notes 2026-07-02. open [NP]
   - [SUPERSEDED — fixed above] The additive queryBreakdown path SUMS all entity levels for a breakdown_type → double-counts multi-level breakdowns: Google hour all-levels $3,945.88 = campaign $2,427.36 + ad_group $1,518.52 (true = campaign level); ALSO inflates the Meta hour numbers Lora reports (summed across account+campaign+ad_set+ad — the "4 PM $437.68" figure is inflated) + pre-existing age/gender/geo(meta). FIX: scope additive breakdowns to ONE entity level (coarsest present, or an entityLevel arg like the P1b video projection); the new index already includes entity_level to serve it. Shared read-path (metrics-query.ts) — freeze-sensitive; STOP-and-confirm. src: 2026-07-02 timeout diagnosis (found while investigating). open [LC]
 - Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes→Facts. src: CONTINUE_HERE QUEUED. open [LC]
 - Agency profile route (stub) → unlocks agency-level Knowledge UI. src: CONTINUE_HERE QUEUED. open [LC]

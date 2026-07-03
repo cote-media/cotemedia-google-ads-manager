@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import type { CardConfig, GridItem, SavedView } from './card-types'
 import { defaultOverviewView, newCardId } from './card-types'
 import { RANGE_PRESETS, COMPARE_PRESETS, type ComparePreset, type Win } from '@/lib/next/card-windows'
+import { setSharedPeriod } from '@/lib/next/period-bus' // LORAMER_NEXT_CHAT_POLISH_V1 — publish the page period to the Ask-Lora chat
 import CardGrid from './CardGrid'
 import CardConfigPanel from './CardConfigPanel'
 import styles from './cards.module.css'
@@ -32,6 +33,11 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const [rangeDraft, setRangeDraft] = useState<Win>({ startDate: '', endDate: '' })
   const [cmpDraft, setCmpDraft] = useState<Win>({ startDate: '', endDate: '' })
   const [customRangeOpen, setCustomRangeOpen] = useState(false)
+
+  // LORAMER_NEXT_CHAT_POLISH_V1 — publish the page's shared date range so the Ask-Lora chat's ambient window follows it.
+  useEffect(() => {
+    setSharedPeriod({ dateRange: globalPeriod, customStart: globalCustom?.startDate, customEnd: globalCustom?.endDate })
+  }, [globalPeriod, globalCustom])
 
   useEffect(() => {
     let alive = true
