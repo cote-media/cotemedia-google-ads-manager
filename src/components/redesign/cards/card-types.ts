@@ -101,6 +101,11 @@ export function defaultOverviewView(): SavedView {
     // LORAMER_NEXT_MONEY_CARD_V1 — the money breakdown = the drill-down behind Revenue (Net sales == the Revenue
     // headline). Placed in a NEW bottom row, left edge under the Revenue stat (x=3); no existing card is moved.
     { id: 'd-money', kind: 'money', viz: 'money', dateRange: 'LAST_30_DAYS', title: 'Revenue — money breakdown' },
+    // LORAMER_NEXT_KW_ST_CARD_V1 — P2-B: prebuilt Google keyword + search_term breakdown cards (single-level,
+    // already query-exposed). They ALWAYS carry the truncation "subset" note → BreakdownBody now renders it as an
+    // advisory caption beneath the top-N rows (not in place of them).
+    { id: 'd-kw', kind: 'breakdown', viz: 'table', breakdownType: 'keyword', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Keywords (Google)' },
+    { id: 'd-st', kind: 'breakdown', viz: 'table', breakdownType: 'search_term', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Search terms (Google)' },
   ]
   const layout: GridItem[] = [
     { i: 'd-spend', x: 0, y: 0, w: 3, h: 2 },
@@ -110,6 +115,8 @@ export function defaultOverviewView(): SavedView {
     { i: 'd-ts', x: 0, y: 2, w: 8, h: 5 },
     { i: 'd-age', x: 8, y: 2, w: 4, h: 5 },
     { i: 'd-money', x: 3, y: 7, w: 6, h: 6 }, // new bottom row → existing card positions unchanged
+    { i: 'd-kw', x: 0, y: 13, w: 6, h: 6 }, // LORAMER_NEXT_KW_ST_CARD_V1 — new bottom row (nothing above moves)
+    { i: 'd-st', x: 6, y: 13, w: 6, h: 6 },
   ]
   return { name: 'Default', cards, layout, pinned: [], globalPeriod: 'LAST_30_DAYS', globalCustom: null, compareMode: 'none', customCompare: null }
 }

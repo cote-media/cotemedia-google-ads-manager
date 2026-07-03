@@ -39,12 +39,15 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
   const d = useCardData(clientId, cfg, current, compare)
   if (d.loading) return <p className={styles.muted}>Loading…</p>
   if (d.error) return <p className={styles.err}>{d.error}</p>
-  if (d.note) return <p className={styles.muted}>{d.note}</p>
   const rows: BreakdownRow[] = d.rows || []
-  if (rows.length === 0) return <p className={styles.muted}>No data</p>
+  // LORAMER_NEXT_KW_ST_CARD_V1 — a note is BLOCKING only when there are NO rows (unknown family / not-yet-exposed /
+  // "no data captured"): show it in place of data. With rows present the note is ADVISORY (the truncation "subset"
+  // note that keyword/search_term ALWAYS carry) → render the rows and drop the note to a small caption beneath them.
+  if (rows.length === 0) return <p className={styles.muted}>{d.note || 'No data'}</p>
   const rankBy = cfg.rankBy || 'spend'
   const money = rankBy === 'spend' || rankBy === 'conversionValue' || rankBy === 'revenue'
   const val = (r: BreakdownRow) => (r as any)[rankBy] ?? r.spend
+  const caption = d.note ? <p className={styles.muted}>{d.note}</p> : null
 
   if (cfg.viz === 'table') {
     return (
@@ -64,20 +67,24 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
             })}
           </tbody>
         </table>
+        {caption}
       </div>
     )
   }
   const data = rows.map((r) => ({ name: (r.value || '(none)').slice(0, 18), v: val(r) }))
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" horizontal={false} />
-        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(x) => (money ? fmtMoney(Number(x)) : fmtNum(Number(x)))} />
-        <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={96} />
-        <Tooltip formatter={(x: any) => (money ? fmtMoney(Number(x)) : fmtNum(Number(x)))} />
-        <Bar dataKey="v" fill="#2563eb" radius={[0, 3, 3, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, left: 4, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" horizontal={false} />
+          <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(x) => (money ? fmtMoney(Number(x)) : fmtNum(Number(x)))} />
+          <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={96} />
+          <Tooltip formatter={(x: any) => (money ? fmtMoney(Number(x)) : fmtNum(Number(x)))} />
+          <Bar dataKey="v" fill="#2563eb" radius={[0, 3, 3, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+      {caption}
+    </div>
   )
 }
 
