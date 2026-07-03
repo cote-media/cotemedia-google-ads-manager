@@ -105,6 +105,7 @@ served FROM campaign + ad_group ONLY — ad_group_ad + keyword_view REJECT them 
   campaign spend — verified Σ hour == campaign total to the cent (Bath Fitter $2508.92, Veterinary $92.11). Both
   grains roll up to the campaign total. conversions never gate.
 - One drain step 'google_hour' (both grains, default 365-day window — hour cardinality is bounded: entities × ≤24h).
+- ⚠ HOUR "00" IS A GOOGLE CATCH-ALL (LORAMER_GOOGLE_HOUR0_NOTE_V1, 2026-07-02): Google buckets the FULL-DAY spend of campaigns without hourly segmentation (Display, some PMax) into segments.hour=0 — the DATA IS REAL and Σ24==campaign anchor reconciles to the cent, but hour 0 is INFLATED and is NOT genuine midnight activity. Verified Veterinary June: a Display campaign put $236.27 at hour 0 / $0.09 at all other hours, ~$8/day every day. query_breakdown(google,hour) attaches a note + the query_breakdown tool description caveats it, so Lora never presents hour 0 as a real dayparting peak or recommends a midnight bid-down. Do NOT "fix" by dropping the spend (breaks the reconcile) — it's an interpretation caveat, not a data error.
 
 #### Device (Google) — 4 entity grains (entity-level gap CLOSED — backward sweep, live-confirmed 2026-06-24)
 breakdown_type='device', breakdown_value = UPPER enum name (MOBILE/TABLET/DESKTOP/OTHER/CONNECTED_TV; int→name map).

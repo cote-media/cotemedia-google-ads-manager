@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-03T02:47:45.307Z
-- built_from HEAD: f110feb087928da9bdc2a2021986ff4c85d9acad  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-03T03:41:36.839Z
+- built_from HEAD: c85961d74d535a7271b07bda67439b9f5d266bd3  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,11 +16,11 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 5dfda99cb37f68a7623d7f27229aa1be06c3f7678b82ee65af591cb2d79edb82
     - LORAMER_HANDOFF.md: de4ddb9dfbd65f0211b831dc399ece1aae213567a15c337c40e529706753a580
-    - CONTINUE_HERE.md: 2d8fafff373437adf155ae23d2c648337407c8ed58c667c906552ac6d086498b
-    - LORAMER_DECISIONS.md: 279837c31feb616906d77a46268049ed0019720726bcb5885dbf034783d5f1cc
-    - LORAMER_QUEUE_OF_RECORD.md: 7765424331b5655173a9de062d76f2cab28579f4c0a3ca0aa0786bdd4eaf3f67
+    - CONTINUE_HERE.md: 0209ad0a9c3f7e9a6b56bf75c36cceeff348789532572ee1618b5501250f741f
+    - LORAMER_DECISIONS.md: c69e3e6ef0ff69c26e213bbcf955da6278f0607f6f936f65e0666036a369cd2d
+    - LORAMER_QUEUE_OF_RECORD.md: 7c9591430280310dc0eeb7136bdd5cdb0dda0c0829cc823b40d4b8be32c2b1e4
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 49301b3224d9ace8eeaf9402df3223ae4e49c39c8b189081161cf02af05ead5f
-    - docs/LORAMER_BREAKDOWN_REGISTRY.md: d3979da8b9b7f818bcae49774e2ad13a47b55203865797bcfb40ed6be58c999d
+    - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
     - docs/LORAMER_SECURITY_POSTURE.md: a6e7023c953f485f2b279e58798806e65355e3232812e87c7182da03e3fa473f
@@ -220,6 +220,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - Meta conversion seam: backfill uses account-level daily definition; query_metrics carries a Meta conversion provenance caveat (notes) — state limit, don't over-narrate. | LORAMER_QUERY_METRICS_META_CAVEAT_V2 (HANDOFF Session 2026-06-04) | do not relitigate.
 - Google campaign-grain conversion seam: campaign backfill reconciles per-day on SPEND only (exact, L59-gated); account-vs-Σcampaign CONVERSIONS differ slightly by attribution (pilot Bath Fitter +2.8/mo; spend/clicks/impr reconcile EXACTLY) — ACCEPTED caveat, same class as the Meta conversion seam; query_metrics may note it. Writer correctly does NOT gate on conversions. | LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1 | do not relitigate.
 - NUMBER CORRECTION (2026-07-02, LORAMER_BREAKDOWN_LEVEL_SCOPE_V1): query_breakdown for MULTI-LEVEL families now scopes to ONE entity level (coarsest present; entityLevel override) — it previously SUMMED all captured levels and DOUBLE-COUNTED. So multi-level breakdown $ values DROPPED to their true (lower) values in BOTH Lora's answers AND the -next cards on this date: e.g. Google hour $3,945.88→$2,427.36 (campaign), Meta hour/age/device→account-level Σ, and the -next Overview 'age' card (which was ~4× inflated) is now correct. This is a CORRECTION, not a regression — earlier higher numbers were wrong; do NOT "restore" them. Single-level families (search_term/keyword/placement/conversion_action/shopify geo) unchanged in data; a stable value-asc tiebreaker also made ranking ties deterministic (conversion_action's tied rows now value-ordered, data-identical). query_metrics/query_money unaffected. | LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 | do not relitigate.
+- GOOGLE HOUR-0 CATCH-ALL (2026-07-02, LORAMER_GOOGLE_HOUR0_NOTE_V1): Google buckets the full-day spend of campaigns without hourly segmentation (Display, some PMax) into segments.hour=0, so hour "00" is INFLATED and is NOT genuine midnight activity (Veterinary June: a Display campaign put $236.27 at hour 0 / $0.09 elsewhere; verified REAL — Σ24==campaign anchor to the cent). This is a GOOGLE data-semantics artifact captured faithfully (NOT a writer bug; no fallback-to-0). Handled by CAVEAT, not by dropping data (dropping breaks the reconcile): query_breakdown(google,hour) attaches a note + the tool description warns Lora, so Lora never presents hour 0 as a dayparting peak or recommends a midnight bid-down. | LORAMER_GOOGLE_HOUR0_NOTE_V1 | do not relitigate.
 - (1) LEGALITY REVIEW: every public-authority request reviewed for valid legal process/jurisdiction/scope before any response; no data on an informal/voluntary/unverified request; invalid/improper requests refused. | GOV §1 | do not relitigate.
 - (2) CHALLENGE: requests believed unlawful/overbroad/improper are challenged (narrow/quash via legal channels; counsel engaged as needed). | GOV §2 | do not relitigate.
 - (3) DATA MINIMIZATION: where disclosure is legally compelled, disclose only the minimum data the process requires. | GOV §3 | do not relitigate.

@@ -6,16 +6,16 @@
     "line_count": 127
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "2d8fafff373437adf155ae23d2c648337407c8ed58c667c906552ac6d086498b",
+    "content_hash": "0209ad0a9c3f7e9a6b56bf75c36cceeff348789532572ee1618b5501250f741f",
     "last_reconciled_date": "2026-07-02",
-    "last_reconciled_head": "f110feb",
-    "line_count": 712
+    "last_reconciled_head": "c85961d",
+    "line_count": 715
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "279837c31feb616906d77a46268049ed0019720726bcb5885dbf034783d5f1cc",
+    "content_hash": "c69e3e6ef0ff69c26e213bbcf955da6278f0607f6f936f65e0666036a369cd2d",
     "last_reconciled_date": "2026-07-02",
-    "last_reconciled_head": "71c2ca5",
-    "line_count": 220
+    "last_reconciled_head": "c85961d",
+    "line_count": 221
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "5dfda99cb37f68a7623d7f27229aa1be06c3f7678b82ee65af591cb2d79edb82",
@@ -36,16 +36,16 @@
     "line_count": 52
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "7765424331b5655173a9de062d76f2cab28579f4c0a3ca0aa0786bdd4eaf3f67",
+    "content_hash": "7c9591430280310dc0eeb7136bdd5cdb0dda0c0829cc823b40d4b8be32c2b1e4",
     "last_reconciled_date": "2026-07-02",
-    "last_reconciled_head": "f110feb",
-    "line_count": 285
+    "last_reconciled_head": "c85961d",
+    "line_count": 286
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "607200e14072417d505ab8be937a8f9b0bf7e5d8b5dfbe3673790241a8b04b2b",
+    "content_hash": "864c19227391fcd0c24858601314ef63a645da2e011d3a7f2842cb1a4391c2f1",
     "last_reconciled_date": "2026-07-02",
-    "last_reconciled_head": "f110feb",
-    "line_count": 493
+    "last_reconciled_head": "c85961d",
+    "line_count": 494
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "dfc709041274fc0b0455621e1377bdebcdeb6b9751de13daa17c4b4211b93834",
@@ -72,10 +72,10 @@
     "line_count": 290
   },
   "docs/LORAMER_BREAKDOWN_REGISTRY.md": {
-    "content_hash": "d3979da8b9b7f818bcae49774e2ad13a47b55203865797bcfb40ed6be58c999d",
+    "content_hash": "ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0",
     "last_reconciled_date": "2026-07-02",
-    "last_reconciled_head": "dbb1b40",
-    "line_count": 190
+    "last_reconciled_head": "c85961d",
+    "line_count": 191
   },
   "docs/LORAMER_ASSET_LAYER_SCOPE_V1.md": {
     "content_hash": "5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d",

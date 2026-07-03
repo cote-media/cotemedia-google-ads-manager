@@ -420,6 +420,13 @@ export async function queryBreakdown(opts: {
     const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
     result.note = result.note ? `${result.note} ${z}` : z
   }
+  // LORAMER_GOOGLE_HOUR0_NOTE_V1 — Google hour "00" is a CATCH-ALL: Google buckets spend from campaigns without
+  // hourly segmentation (Display, some PMax) into hour 0, so it is inflated and NOT genuine midnight activity.
+  // Additive-only (a note; rows/values/Σ unchanged) — do not present hour 0 as a real dayparting peak.
+  if (platform === 'google' && bt === 'hour') {
+    const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
+    result.note = result.note ? `${result.note} ${z}` : z
+  }
   return result
 }
 
