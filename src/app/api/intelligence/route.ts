@@ -170,6 +170,7 @@ export async function GET(request: Request) {
         // Always return fresh profile/conversations with cached platform data
         entry.profile = {
           businessType: context.business_type,
+          valueModel: context?.value_model || [], // LORAMER_CLIENT_VALUE_MODEL_V1
           businessDescriptor: context.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
           serviceArea: context.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
           naicsCodes: context.naics_codes || [],           // LORAMER_NAICS_V1 (additive)
@@ -202,6 +203,7 @@ export async function GET(request: Request) {
     resolvedEndDate,
     profile: {
       businessType: context?.business_type,
+      valueModel: context?.value_model || [], // LORAMER_CLIENT_VALUE_MODEL_V1
       businessDescriptor: context?.business_descriptor, // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
       serviceArea: context?.service_area,               // LORAMER_CLIENT_DESCRIPTOR_V1 (additive)
       naicsCodes: context?.naics_codes || [],           // LORAMER_NAICS_V1 (additive)

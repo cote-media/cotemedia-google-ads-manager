@@ -1031,8 +1031,11 @@ export function buildClaudeContextCacheable(
   // ── Client Profile ─────────────────────────────────────────────────────────
   // LORAMER_CLIENT_DESCRIPTOR_V1 (additive): prefer the free-text descriptor; fall back to the legacy
   // business_type so existing clients keep their context. service_area added when present. Empty → no change.
-  if (p.businessDescriptor || p.businessType || p.serviceArea || p.primaryKpi || p.funnelNotes) {
+  if (p.businessDescriptor || p.businessType || p.serviceArea || p.primaryKpi || p.funnelNotes || p.valueModel?.length) {
     lines.push('\n=== CLIENT PROFILE ===')
+    // LORAMER_CLIENT_VALUE_MODEL_V1 — ALWAYS-ON (standalone if, NOT else-if'd): the declared value model must reach Lora
+    // even when businessDescriptor is set (which otherwise suppresses businessType via the else-if below).
+    if (p.valueModel?.length) lines.push(`Client value model: ${p.valueModel.join(', ')}`)
     if (p.businessDescriptor) lines.push(`What this business does: ${p.businessDescriptor}`)
     else if (p.businessType) lines.push(`Business type: ${p.businessType}`)
     if (p.serviceArea) lines.push(`Service area: ${p.serviceArea}`)

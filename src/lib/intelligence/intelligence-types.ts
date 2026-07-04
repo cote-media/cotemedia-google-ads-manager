@@ -528,6 +528,7 @@ export interface ClientIntelligence {
   // Client profile
   profile: {
     businessType?: string
+    valueModel?: string[]        // LORAMER_CLIENT_VALUE_MODEL_V1 — declared conversion/value model (online-purchase / offline-sales / lead); Lora reads it to interpret conversions + ROAS
     businessDescriptor?: string  // LORAMER_CLIENT_DESCRIPTOR_V1 — free-text "what this business does" (primary signal; falls back to businessType)
     serviceArea?: string         // LORAMER_CLIENT_DESCRIPTOR_V1
     naicsCodes?: { code: string; title: string }[]  // LORAMER_NAICS_V1 — official definitions resolved server-side at prompt time

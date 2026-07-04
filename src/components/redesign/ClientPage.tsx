@@ -30,6 +30,13 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
 const TOLD = new Set(['user_explicit', 'user_conversation', 'bootstrap_legacy'])
 
+// LORAMER_CLIENT_VALUE_MODEL_V1 — the declared conversion/value model (multi-select; ≥1 required, hard-gated below).
+const VALUE_MODELS: { key: string; label: string }[] = [
+  { key: 'online-purchase', label: 'Online purchase' },
+  { key: 'offline-sales', label: 'Offline sales' },
+  { key: 'lead', label: 'Lead / engagement' },
+]
+
 export default function ClientPage({ clientId, clientName, connections }: { clientId: string; clientName: string; connections: Conn[] }) {
   const [descriptor, setDescriptor] = useState('')
   const [serviceArea, setServiceArea] = useState('')
@@ -40,6 +47,11 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   const [status, setStatus] = useState<Record<GenField, SaveState>>({ business_descriptor: 'idle', service_area: 'idle', website: 'idle' })
   const setFieldStatus = (f: GenField, s: SaveState) => setStatus(prev => ({ ...prev, [f]: s }))
   const current = (f: GenField) => (f === 'business_descriptor' ? descriptor : f === 'service_area' ? serviceArea : website)
+  // LORAMER_CLIENT_VALUE_MODEL_V1 — declared value model (jsonb array); the client surface is hard-gated until ≥1 is set.
+  const [valueModel, setValueModel] = useState<string[]>([])
+  const [vmLoaded, setVmLoaded] = useState(false)
+  const [vmStatus, setVmStatus] = useState<SaveState>('idle')
+  const [gateDraft, setGateDraft] = useState<string[]>([])
   const [memory, setMemory] = useState<Fact[]>([])
   const [newRule, setNewRule] = useState('')
   const [newFact, setNewFact] = useState('')
@@ -57,6 +69,9 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
       const bd = c.business_descriptor || '', sa = c.service_area || '', ws = c.website || ''
       setDescriptor(bd); setServiceArea(sa); setWebsite(ws)
       setNaicsInitial(Array.isArray(c.naics_codes) ? c.naics_codes : [])
+      // LORAMER_CLIENT_VALUE_MODEL_V1 — load the declared value model; vmLoaded gates the blocking prompt (no flash pre-load).
+      const vm = Array.isArray(c.value_model) ? c.value_model : []
+      setValueModel(vm); setVmStatus(vm.length ? 'saved' : 'idle'); setVmLoaded(true)
       saved.current = { business_descriptor: bd, service_area: sa, website: ws }
       // A persisted (non-empty) field starts in a steady "Saved" state; empty fields stay quiet (idle).
       setStatus({ business_descriptor: bd ? 'saved' : 'idle', service_area: sa ? 'saved' : 'idle', website: ws ? 'saved' : 'idle' })
@@ -88,6 +103,19 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
       setFieldStatus(field, 'error') // stays until a successful retry — never silently dropped
     }
   }
+  // LORAMER_CLIENT_VALUE_MODEL_V1 — persist the value-model array via the generic /api/context spread (no server change).
+  async function saveValueModel(next: string[]) {
+    setValueModel(next); setVmStatus('saving')
+    try {
+      const res = await fetch('/api/context', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, updates: { value_model: next } }) })
+      if (!res.ok) throw new Error('save ' + res.status)
+      setVmStatus(next.length ? 'saved' : 'idle')
+    } catch (e) {
+      console.error('[client-page] saveValueModel failed:', e); setVmStatus('error') // stays until a successful retry
+    }
+  }
+  const toggleValueModel = (key: string) => saveValueModel(valueModel.includes(key) ? valueModel.filter(k => k !== key) : [...valueModel, key])
+
   async function addItem(content: string, category: 'directive' | 'fact', reset: () => void) {
     if (!content.trim()) return
     await fetch('/api/memory', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, content: content.trim(), category }) })
@@ -158,6 +186,36 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
 
   return (
     <>
+      {/* LORAMER_CLIENT_VALUE_MODEL_V1 — HARD GATE: non-dismissable blocking prompt until value_model has ≥1 selection. */}
+      {vmLoaded && valueModel.length === 0 && (
+        <div role="dialog" aria-modal="true"
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: 'var(--paper, #12141a)', color: 'inherit', border: '1px solid var(--border, #33384a)', borderRadius: 16, padding: 24, width: '100%', maxWidth: 440 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Set this client’s value model to continue</h2>
+            <p style={{ fontSize: 14, opacity: 0.75, marginBottom: 16 }}>How does {clientName} make money? Pick all that apply — Lora uses this to read conversions and ROAS correctly.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+              {VALUE_MODELS.map(vm => {
+                const on = gateDraft.includes(vm.key)
+                return (
+                  <button key={vm.key} type="button"
+                    onClick={() => setGateDraft(d => d.includes(vm.key) ? d.filter(k => k !== vm.key) : [...d, vm.key])}
+                    style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'left', fontSize: 15, cursor: 'pointer', color: 'inherit',
+                      border: on ? '2px solid #2563eb' : '1px solid var(--border, #33384a)', background: on ? 'rgba(37,99,235,0.12)' : 'transparent' }}>
+                    <span style={{ marginRight: 8 }}>{on ? '☑' : '☐'}</span>{vm.label}
+                  </button>
+                )
+              })}
+            </div>
+            <button type="button" disabled={gateDraft.length === 0 || vmStatus === 'saving'} onClick={() => saveValueModel(gateDraft)}
+              style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', fontSize: 15, fontWeight: 600, color: '#fff',
+                background: gateDraft.length ? '#2563eb' : '#3a3f4d', cursor: gateDraft.length ? 'pointer' : 'not-allowed' }}>
+              {vmStatus === 'saving' ? 'Saving…' : 'Save & continue'}
+            </button>
+            {vmStatus === 'error' && <p style={{ color: '#f87171', fontSize: 13, marginTop: 8 }}>Couldn’t save — try again.</p>}
+          </div>
+        </div>
+      )}
+
       <h1 className={styles.title}>Client</h1>
 
       {/* 1) GENERAL */}
@@ -191,6 +249,27 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
                 placeholder="https://…" />
             </label>
           </div>
+          {/* LORAMER_CLIENT_VALUE_MODEL_V1 — inline editor (the hard gate below forces ≥1 before the client is usable). */}
+          <label className={styles.field}>
+            <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>Value model</span>
+              {vmStatus === 'saving' && <span className={styles.fieldStatus}>Saving…</span>}
+              {vmStatus === 'saved' && <span className={styles.fieldStatus}>Saved</span>}
+              {vmStatus === 'error' && <span className={styles.fieldStatus}>Couldn’t save</span>}
+            </span>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {VALUE_MODELS.map(vm => {
+                const on = valueModel.includes(vm.key)
+                return (
+                  <button key={vm.key} type="button" onClick={() => toggleValueModel(vm.key)}
+                    style={{ padding: '6px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+                      border: on ? '1px solid #2563eb' : '1px solid var(--border, #33384a)',
+                      background: on ? '#2563eb' : 'transparent', color: on ? '#fff' : 'inherit' }}>
+                    {vm.label}
+                  </button>
+                )
+              })}
+            </div>
+          </label>
         </div>
       </section>
 
