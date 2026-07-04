@@ -50,3 +50,9 @@ Operator hypothesis: **"Meta's Andromeda change around Labor Day 2024 destroyed 
 **THE 95% PATH** (in order): `query_metrics` mandatory → per-platform Skills docs → provenance footers → offline evals → same-commit doc maintenance.
 
 **ACCURACY NORTH STAR** (calibrated): relentlessly **maximize accuracy** (95%+ and climbing) **AND never present uncertain as certain** (provenance + honest "incomplete because X"). Literal 100% is an asymptote (even Anthropic lands ~95%); the trust engine is **high accuracy + honesty about the rest.** Correct data (this stack) is the **FLOOR**; the substance/quality of the growth recommendations is the intelligence built **ON** correct data — you cannot give good advice on wrong numbers. (This operationalizes the honesty clause + the metric-vs-context frame above.)
+
+## MULTI-SOURCE METRIC PROVENANCE (governing)
+MULTI-SOURCE METRIC PROVENANCE: Any metric that can differ by source (ROAS, conversions, CPA, revenue, attribution) surfaces EVERY source's value, each labeled with its origin and basis. Never hide, blend, collapse, or silently pick one. The store is source-of-truth only for explicit store-truth questions; each platform's value stands on its own for platform questions; offline-uploaded sales enable a valid ROAS even without online purchase. Lora holds all sources at once, distinguishes them, and explains WHY they differ (web-researching the explanation when it helps). Every metric, every surface.
+
+## THE MOAT — EXPLAIN THE WHY
+THE MOAT — EXPLAIN THE WHY: Competitors compute spend ÷ revenue and stop; anyone can do that math. LoraMer's differentiator is explaining WHY a number is what it is — why platforms, the store, and GA disagree, which conversion actions drive it, where attribution overlaps. That explanation is impossible without the full conversion-action capture floor beneath it. Capture floor → provenance → the "why" nobody else gives. This is the product, not a feature.
