@@ -14,8 +14,18 @@
 // CAP: inherits the live query's LIMIT 200 (top actions by conversions) — a logged, deliberate noise cap.
 // Idempotent: aggregates by (campaignId, actionName); skips zero-conversion rows.
 import type { IntelligenceConversionByCampaign } from './intelligence-types'
+import { enums } from 'google-ads-api' // LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 — decode the segment's raw ConversionActionCategory ordinal → NAME
 
 type Agg = { campaignId: string; campaignName: string; actionName: string; category: string; conversions: number; value: number }
+
+// LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 — the single decode used by BOTH forward capture and the
+// idempotent backfill. Raw ordinal string → enum NAME; blank/non-numeric → null (never a fabricated value).
+export function decodeCategoryName(ordinal: string | null | undefined): string | null {
+  if (ordinal == null || ordinal === '') return null
+  const n = Number(ordinal)
+  if (!Number.isInteger(n)) return null
+  return (enums.ConversionActionCategory as Record<number, string>)[n] ?? null
+}
 
 export function buildGoogleConversionActionRows(
   clientId: string,
@@ -47,7 +57,9 @@ export function buildGoogleConversionActionRows(
       date: captureDate, breakdown_type: 'conversion_action', breakdown_value: a.actionName,
       spend: 0, impressions: 0, clicks: 0,
       conversions: Number(a.conversions.toFixed(2)), conversion_value: Number(a.value.toFixed(2)), revenue: 0,
-      extra: { conversion_action_category: a.category },
+      // LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 — raw ordinal kept byte-for-byte; NAME added additively.
+      // Blank ordinal → null (not a fabricated UNSPECIFIED); the segment stores 0 as '' since `0 || ''` is falsy.
+      extra: { conversion_action_category: a.category, conversion_action_category_name: decodeCategoryName(a.category) },
     })
   }
   return out
