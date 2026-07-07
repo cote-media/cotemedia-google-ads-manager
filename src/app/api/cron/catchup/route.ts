@@ -41,9 +41,16 @@ const METRICS_DAILY_CONFLICT =
 const CATCHUP_WINDOW_DAYS = 35
 const CATCHUP_DAY_CAP = 14
 
-// 300s = the Pro serverless max — catchup runs in its OWN fresh budget, separate from
-// the forward cron, so a multi-day repair never competes with the nightly yesterday run.
-export const maxDuration = 300
+// WS1C-WIDE forward paging mirrored onto catchup: each platform loop pages the least-recently-SERVED slice per
+// fire under a '__catchup_'+platform claim/lease + CATCHUP_BUDGET_MS, fired on a windowed */10 cadence — so the
+// multi-day repair can no longer be dropped by a maxDuration kill (the next fire re-derives the remaining holes
+// via computeFillDays; catchup keeps NO cursor, presence IS the resume signal). 800s = the verified Pro-Fluid
+// ceiling the drain route already runs in prod (LORAMER_DRAIN_FREEMAX_V1). LORAMER_WS1C_WIDE_FORWARD_PAGING_V1.
+export const maxDuration = 800
+
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire wall-clock budget (mirrors forward/drain; ~120s headroom under
+// 800s so a whole-DAY fill that starts just under budget finishes before the ceiling).
+const CATCHUP_BUDGET_MS = 680_000
 
 type PlatformConnection = {
   platform: string
@@ -126,6 +133,56 @@ async function computeFillDays(
   return missing.slice(0, CATCHUP_DAY_CAP)
 }
 
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — catchup paging: the clients CONNECTED to `platform`, ordered
+// LEAST-RECENTLY-SERVED first via the '__catchup_'+platform claim's backfill_claimed_at (NULLS FIRST =
+// never-served), stable id tie-break (mirrors the drain's round-robin so no client's holes are ever starved).
+// Catchup keeps NO durable cursor — computeFillDays re-derives the remaining holes each run, so this only decides
+// ORDER + fairness. Connection source = platform_connections for all 5 (GA is present there too, verified).
+async function pendingCatchupClients(platform: string, clientRows: ClientRow[]): Promise<ClientRow[]> {
+  const connected = clientRows.filter(
+    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform)
+  )
+  if (connected.length === 0) return []
+  const { data: claimRows } = await supabaseAdmin
+    .from('sync_state')
+    .select('client_id, backfill_claimed_at')
+    .eq('platform', '__catchup_' + platform)
+    .in('client_id', connected.map((c) => c.id))
+  const claimedAt = new Map<string, string | null>()
+  for (const r of claimRows || []) {
+    claimedAt.set(
+      (r as { client_id: string }).client_id,
+      (r as { backfill_claimed_at: string | null }).backfill_claimed_at
+    )
+  }
+  const ordered = [...connected]
+  ordered.sort((a, b) => {
+    const ta = claimedAt.get(a.id) ?? '' // null/never-served → '' sorts first (least-recently-served)
+    const tb = claimedAt.get(b.id) ?? ''
+    if (ta !== tb) return ta < tb ? -1 : 1
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+  return ordered
+}
+
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — atomic per-client claim under a DISTINCT '__catchup_'+platform namespace
+// (4th sync_state PK, disjoint from '<platform>', '__fwd_'+platform, '__drain_'+platform). Reuses the migration-
+// 014/021 CAS RPC (480s self-healing lease). Loser/error → skip (client's holes retried next fire, round-robin).
+async function claimCatchup(platform: string, clientId: string): Promise<boolean> {
+  const token = `catchup-${platform}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const { data: claimRows, error } = await supabaseAdmin.rpc('claim_backfill_cursor', {
+    p_client_id: clientId,
+    p_platform: '__catchup_' + platform,
+    p_token: token,
+  })
+  if (error) {
+    console.error(`[cron/catchup] claim failed platform=${platform} client=${clientId}: ${error.message}`)
+    return false
+  }
+  const claim = Array.isArray(claimRows) ? (claimRows[0] as { claimed?: boolean }) : (claimRows as { claimed?: boolean })
+  return Boolean(claim?.claimed)
+}
+
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
@@ -144,6 +201,7 @@ export async function GET(request: Request) {
 
   const yesterday = resolveDateWindow('YESTERDAY').startDate
   const windowStart = addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
+  const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for CATCHUP_BUDGET_MS paging
 
   const summary = {
     mode: 'catchup',
@@ -222,7 +280,10 @@ export async function GET(request: Request) {
   // ── SHOPIFY ──────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'shopify') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingCatchupClients('shopify', clientRows) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
+    if (!(await claimCatchup('shopify', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
     const shopifyConnections = (client.platform_connections || []).filter(c => c.platform === 'shopify')
     if (shopifyConnections.length === 0) continue
 
@@ -257,6 +318,7 @@ export async function GET(request: Request) {
       }
 
       for (const d of fillDays) {
+        if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
         try {
           const intel = await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', d, d, { throwOnError: true }) // LORAMER_SHOPIFY_SWALLOW_FIX_V1
           const rows = buildShopifyMetricsRows(client.id, userEmail, d, shopDomain, intel)
@@ -294,7 +356,10 @@ export async function GET(request: Request) {
   // ── META ─────────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'meta') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingCatchupClients('meta', clientRows) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
+    if (!(await claimCatchup('meta', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
     const metaConnections = (client.platform_connections || []).filter(c => c.platform === 'meta')
     if (metaConnections.length === 0) continue
 
@@ -331,6 +396,7 @@ export async function GET(request: Request) {
       }
 
       for (const d of fillDays) {
+        if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
         try {
           const intel = await fetchMetaIntelligence(accessToken, accountId, 'CUSTOM', d, d)
           const rows = buildMetaMetricsRows(client.id, userEmail, d, accountId, conn.account_name, intel)
@@ -353,7 +419,10 @@ export async function GET(request: Request) {
   // ── GOOGLE ───────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'google') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingCatchupClients('google', clientRows) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
+    if (!(await claimCatchup('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
     const googleConnections = (client.platform_connections || []).filter(c => c.platform === 'google')
     if (googleConnections.length === 0) continue
 
@@ -390,6 +459,7 @@ export async function GET(request: Request) {
       }
 
       for (const d of fillDays) {
+        if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
         try {
           const intel = await fetchGoogleIntelligence(
             refreshToken,
@@ -509,7 +579,10 @@ export async function GET(request: Request) {
   // ── WOOCOMMERCE ──────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'woocommerce') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingCatchupClients('woocommerce', clientRows) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
+    if (!(await claimCatchup('woocommerce', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
     const wooConnections = (client.platform_connections || []).filter(c => c.platform === 'woocommerce')
     if (wooConnections.length === 0) continue
 
@@ -552,6 +625,7 @@ export async function GET(request: Request) {
       processedClientIds.add(client.id)
 
       for (const d of fillDays) {
+        if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
         try {
           const intel = await fetchWooCommerceIntelligence(storeUrl, consumerKey, consumerSecret, 'CUSTOM', d, d)
           const rows = buildWooMetricsRows(client.id, userEmail, d, storeUrl, intel)
@@ -574,7 +648,10 @@ export async function GET(request: Request) {
   // ── GA ───────────────────────────────────────────────────────────────────
   if (platform === 'all' || platform === 'ga') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length, gaps: summary.accountsWithGaps, days: summary.daysFilled } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingCatchupClients('ga', clientRows) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between CLIENTS
+    if (!(await claimCatchup('ga', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__catchup_' claim
     // GA's account_id (property id) lives in ga_tokens. Read it cheaply FIRST so the
     // presence query can run BEFORE the expensive getValidGaToken refresh.
     let gaUserEmail: string
@@ -623,6 +700,7 @@ export async function GET(request: Request) {
     }
 
     for (const d of fillDays) {
+      if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
       try {
         const intel = await fetchGaIntelligence(
           gaToken.gaPropertyId,

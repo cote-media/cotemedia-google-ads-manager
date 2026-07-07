@@ -22,23 +22,23 @@
     },
     {
       "path": "/api/cron/catchup?platform=ga",
-      "schedule": "30 8 * * *"
+      "schedule": "1-51/10 8-11 * * *"
     },
     {
       "path": "/api/cron/catchup?platform=woocommerce",
-      "schedule": "35 8 * * *"
+      "schedule": "3-53/10 8-11 * * *"
     },
     {
       "path": "/api/cron/catchup?platform=shopify",
-      "schedule": "40 8 * * *"
+      "schedule": "5-55/10 8-11 * * *"
     },
     {
       "path": "/api/cron/catchup?platform=meta",
-      "schedule": "45 8 * * *"
+      "schedule": "7-57/10 8-11 * * *"
     },
     {
       "path": "/api/cron/catchup?platform=google",
-      "schedule": "50 8 * * *"
+      "schedule": "9-59/10 8-11 * * *"
     },
     {
       "path": "/api/cron/drain?platform=ga",
