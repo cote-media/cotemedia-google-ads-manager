@@ -12,7 +12,8 @@ Status: 2026-06-08. Source of truth = this file + repo. Supersedes any "Shopify 
 - anthropic_spend_log exists (per-call cost log, not a quota). No Stripe columns/tables/env anywhere — greenfield.
 - beta_unlimited = founding-cohort mechanism (uncapped, hand-onboarded, bypasses gating).
 
-## Entitlement matrix (LOCKED — from published landing pricing) — Pricing source of truth = LORAMER_DECISIONS.md (the canonical locked matrix)
+## Entitlement matrix (LOCKED — mirror of the canonical matrix)
+> CANONICAL PRICING SOURCE = **LORAMER_DECISIONS.md** (§LOCKED PRODUCT/POLICY/DATA DECISIONS → the "Entitlement matrix LOCKED" line). The rows below MIRROR it for context; on any discrepancy, LORAMER_DECISIONS.md wins. This is a one-way pointer (the old "source of truth = each other" DECISIONS↔STRIPE loop was broken 2026-07-05). A PROPOSED successor matrix (soft-locked 2026-07-05, NOT enforced) lives in **docs/PRICING_MODEL_2026_07.md** — do not enforce until Phase-5 gating ships.
 - free / Free / $0 / 1 workspace / 5 Q-mo / 30-day view window / no flags
 - business / Business / $79-mo / $750-yr / 1 workspace / 100 Q-mo / 12-month (365d) view window / no flags
 - agency / Agency / $199-mo / $1900-yr / 10 workspaces / 500 Q-mo / full history / flags: wyws, priority_support

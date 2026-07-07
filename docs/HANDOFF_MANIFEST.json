@@ -6,16 +6,16 @@
     "line_count": 127
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "ed96e741ea07270593d32892e1876096ab9421dcfd189ccdfac12b666273296e",
-    "last_reconciled_date": "2026-07-03",
-    "last_reconciled_head": "ef6ab8f",
-    "line_count": 735
+    "content_hash": "291e4a2408f647b048a8427aefb09f0ace2c226a83101226f8c82f7b14552a22",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 743
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "98a95011fecc63bd9dd5bd827fcdeb52482ceedce770260dd88aeec3645bfdc5",
-    "last_reconciled_date": "2026-07-03",
-    "last_reconciled_head": "ef6ab8f",
-    "line_count": 225
+    "content_hash": "e7e2bee65fa3dec7b106d27d9618f56b0908f1a9aef56482b8139d31bfaf5df3",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 227
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "5a28e5819f6c83e384865ec0d22e7f9585f5ebcf0b8f3d044d6daede76941519",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "7d3a15259b5631846372d2afa5352f3a7fcc5c116e07ed06e84b994432ea1d4d",
-    "last_reconciled_date": "2026-07-03",
-    "last_reconciled_head": "ef6ab8f",
-    "line_count": 289
+    "content_hash": "e239cf9eab852248bab53c4ac1bfb476300adfa73f22991479683650354a9c31",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 295
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "7a84d8eccdeada8f06f81877dbcf0e049a232444c527c6db3a64d4aeeb153fe5",
-    "last_reconciled_date": "2026-07-03",
-    "last_reconciled_head": "ef6ab8f",
-    "line_count": 499
+    "content_hash": "f21437f51bfd466d5f035c2bd74a751f344ffd6777715e1057b6e0c7a430683e",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 509
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147",
@@ -144,10 +144,10 @@
     "line_count": 98
   },
   "STRIPE_BILLING_PLAN.md": {
-    "content_hash": "023fdfbbd0a88f847e6507320d03a3e96747b05b76d70aeba3684b8e769d0d42",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 61
+    "content_hash": "544cc9b4f99e5f2bce5d432f264d29fb5f864bda2e5820fd4a9941b63af2fb81",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 62
   },
   "docs/GA_CONNECTOR_DESIGN_2026_05_29.md": {
     "content_hash": "085f18b800eaab80a41330fb5d99353969c618b3851ee115410f219a19595093",
@@ -256,5 +256,11 @@
     "last_reconciled_date": "2026-06-29",
     "last_reconciled_head": "51f338e",
     "line_count": 136
+  },
+  "docs/PRICING_MODEL_2026_07.md": {
+    "content_hash": "b61e5ad941dd94bd6ac757ba0e9b0dc87e2842e3b0f973c7c0bac51628fbd223",
+    "last_reconciled_date": "2026-07-05",
+    "last_reconciled_head": "fae78f8",
+    "line_count": 93
   }
 }
