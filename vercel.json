@@ -2,23 +2,23 @@
   "crons": [
     {
       "path": "/api/cron/sync?platform=ga",
-      "schedule": "0 8 * * *"
+      "schedule": "0-50/10 8-10 * * *"
     },
     {
       "path": "/api/cron/sync?platform=woocommerce",
-      "schedule": "5 8 * * *"
+      "schedule": "2-52/10 8-10 * * *"
     },
     {
       "path": "/api/cron/sync?platform=shopify",
-      "schedule": "10 8 * * *"
+      "schedule": "4-54/10 8-10 * * *"
     },
     {
       "path": "/api/cron/sync?platform=meta",
-      "schedule": "15 8 * * *"
+      "schedule": "6-56/10 8-10 * * *"
     },
     {
       "path": "/api/cron/sync?platform=google",
-      "schedule": "20 8 * * *"
+      "schedule": "8-58/10 8-10 * * *"
     },
     {
       "path": "/api/cron/catchup?platform=ga",

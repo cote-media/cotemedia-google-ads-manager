@@ -75,11 +75,69 @@ function serializeCaughtError(value: unknown): string {
   }
 }
 
-// WS1a — cron maxDuration band-aid to stop loop-tail starvation. The 5 sequential
-// per-client platform loops (Shopify→Meta→Google→Woo→GA) were exceeding the default
-// serverless duration cap, silently dropping the tail (GA + Woo + Google-tail clients).
-// 300s = the Pro serverless max — full headroom for all 5 platform loops. Real fix = WS1c.
-export const maxDuration = 300
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire wall-clock budget for the paged forward loops (mirrors the drain
+// BUDGET_MS pattern; ~120s headroom under the 800s maxDuration so a client that starts just under budget finishes
+// before the platform ceiling → no 504).
+const FORWARD_BUDGET_MS = 680_000
+
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — forward paging: the clients CONNECTED to `platform` whose forward cursor
+// (sync_state.last_forward_sync_date) is not yet captureDate, LEAST-RECENTLY-SYNCED first (NULLS-FIRST via '' key),
+// stable id tie-break. Connection source = platform_connections for ALL 5 (GA is present there too, verified). This
+// inverts the old physical-order full scan that always died before the tail.
+async function pendingForwardClients(
+  platform: string,
+  clientRows: ClientRow[],
+  captureDate: string
+): Promise<ClientRow[]> {
+  const connected = clientRows.filter(
+    (c) => (c.platform_connections || []).some((pc) => pc.platform === platform)
+  )
+  if (connected.length === 0) return []
+  const { data: ssRows } = await supabaseAdmin
+    .from('sync_state')
+    .select('client_id, last_forward_sync_date')
+    .eq('platform', platform)
+    .in('client_id', connected.map((c) => c.id))
+  const lastByClient = new Map<string, string | null>()
+  for (const r of ssRows || []) {
+    lastByClient.set(
+      (r as { client_id: string }).client_id,
+      (r as { last_forward_sync_date: string | null }).last_forward_sync_date
+    )
+  }
+  const pending = connected.filter((c) => lastByClient.get(c.id) !== captureDate)
+  pending.sort((a, b) => {
+    const la = lastByClient.get(a.id) ?? '' // null/missing → '' sorts first (NULLS FIRST = never-synced/most-stale)
+    const lb = lastByClient.get(b.id) ?? ''
+    if (la !== lb) return la < lb ? -1 : 1
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+  return pending
+}
+
+// LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — atomic per-client claim under a DISTINCT '__fwd_'+platform namespace (never
+// collides with the drain's '__drain_'+platform or the real '<platform>' cursor row; sync_state PK = client_id,platform).
+// Reuses the migration-014/021 CAS RPC (480s self-healing lease). Loser/error → skip (client stays pending, retried next fire).
+async function claimForward(platform: string, clientId: string): Promise<boolean> {
+  const token = `fwd-${platform}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const { data: claimRows, error } = await supabaseAdmin.rpc('claim_backfill_cursor', {
+    p_client_id: clientId,
+    p_platform: '__fwd_' + platform,
+    p_token: token,
+  })
+  if (error) {
+    console.error(`[cron/sync] forward claim failed platform=${platform} client=${clientId}: ${error.message}`)
+    return false
+  }
+  const claim = Array.isArray(claimRows) ? (claimRows[0] as { claimed?: boolean }) : (claimRows as { claimed?: boolean })
+  return Boolean(claim?.claimed)
+}
+
+// WS1a band-aid (maxDuration) SUPERSEDED by the WS1C-WIDE forward paging above: each platform loop now pages the
+// least-recently-synced unsynced slice per fire under a '__fwd_'+platform claim/lease + FORWARD_BUDGET_MS, fired on a
+// windowed */10 cadence — so a maxDuration kill can no longer drop the tail (the next fire resumes it). 800s = the
+// verified Pro-Fluid ceiling already run in prod by the drain route (LORAMER_DRAIN_FREEMAX_V1). LORAMER_WS1C_WIDE_FORWARD_PAGING_V1.
+export const maxDuration = 800
 
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
@@ -98,6 +156,7 @@ export async function GET(request: Request) {
   }
 
   const { startDate: captureDate } = resolveDateWindow('YESTERDAY')
+  const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for FORWARD_BUDGET_MS paging
 
   const summary = {
     date: captureDate,
@@ -170,7 +229,10 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'shopify') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingForwardClients('shopify', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!(await claimForward('shopify', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const shopifyConnections = connections.filter(c => c.platform === 'shopify')
 
@@ -289,7 +351,10 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'meta') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingForwardClients('meta', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!(await claimForward('meta', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const metaConnections = connections.filter(c => c.platform === 'meta')
 
@@ -383,7 +448,10 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'google') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingForwardClients('google', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!(await claimForward('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const googleConnections = connections.filter(c => c.platform === 'google')
 
@@ -617,7 +685,10 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'woocommerce') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingForwardClients('woocommerce', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!(await claimForward('woocommerce', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const wooConnections = connections.filter(c => c.platform === 'woocommerce')
 
@@ -709,7 +780,10 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'ga') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  for (const client of clientRows) {
+  const __pending = await pendingForwardClients('ga', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  for (const client of __pending) {
+    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!(await claimForward('ga', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const userEmail = client.user_email
     let gaPropertyIdForHealth = '' // LORAMER_CONNECTION_HEALTH_V1 — hoisted so the catch can address the row
 
