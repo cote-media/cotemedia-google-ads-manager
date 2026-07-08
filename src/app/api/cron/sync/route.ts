@@ -489,6 +489,16 @@ export async function GET(request: Request) {
           captureDate
         )
 
+        // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — surface degraded Google sub-fetches (a query threw → returned []).
+        // The base account/campaign rows are unaffected (campaigns throws → the outer catch, no cursor stamp); this
+        // makes a PARTIAL capture VISIBLE in cron_runs.error_count instead of a silent false-zero. Cursor stamp unchanged.
+        if (intel.fetchErrors && intel.fetchErrors.length > 0) {
+          for (const fe of intel.fetchErrors) {
+            console.error(`[cron/sync] client=${client.id} platform=google DEGRADED sub-fetch ${fe.label}: ${fe.message}`)
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `google fetch ${fe.label}: ${fe.message}` })
+          }
+        }
+
         const rows = buildGoogleMetricsRows(
           client.id,
           userEmail,

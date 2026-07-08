@@ -485,6 +485,10 @@ export interface PlatformIntelligence {
   // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — Meta-only: campaign × placement breakdown (for metrics_daily persistence)
   campaignPlacements?: IntelligenceCampaignPlacement[]
   totals: IntelligenceMetrics
+  // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — per-sub-query fetch failures (resolve=[] is a true zero; reject is
+  // recorded here). Present + non-empty ⇒ a DEGRADED fetch (a sub-query threw and returned [] instead of throwing).
+  // The base account/campaign rows are NOT affected (the campaigns query is un-swallowed → it throws on failure).
+  fetchErrors?: { label: string; message: string }[]
 }
 
 // LORAMER_PROJECT_3_STEP_4A_V1

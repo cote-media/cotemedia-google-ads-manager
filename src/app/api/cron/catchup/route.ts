@@ -472,6 +472,14 @@ export async function GET(request: Request) {
             d,
             d
           )
+          // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — surface degraded Google sub-fetches (base rows unaffected —
+          // campaigns throws; this makes a partial fill VISIBLE in cron_runs.error_count, not a silent false-zero).
+          if (intel.fetchErrors && intel.fetchErrors.length > 0) {
+            for (const fe of intel.fetchErrors) {
+              console.error(`[cron/catchup] client=${client.id} platform=google ${d} DEGRADED sub-fetch ${fe.label}: ${fe.message}`)
+              summary.errors.push({ clientId: client.id, platform: 'google', message: `google fetch ${fe.label} ${d}: ${fe.message}` })
+            }
+          }
           const rows = buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')

@@ -110,6 +110,28 @@ function computeCampaignStatus(rawStatus: string, primaryStatus: string): string
   return 'active'
 }
 
+// LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — replaces the bare `.catch(() => [])` swallows. A GAQL call that RESOLVES
+// (even to []) is a TRUE ZERO (the API affirmatively reported no rows); a call that REJECTS is a real FETCH FAILURE
+// (auth/network/quota/API). On reject we log LOUD + record {label,message} into fetchErrors, then return [] — the
+// non-throwing behavior is byte-identical to the old swallow, so nothing downstream regresses; the failure is now
+// VISIBLE (the cron pushes fetchErrors into summary.errors → cron_runs.error_count). The BASE campaigns query is
+// deliberately NOT routed through this — it must THROW so the cron never stamps the cursor on a failed base fetch.
+type GaqlFetchError = { label: string; message: string }
+async function safeQuery(
+  label: string,
+  fn: () => Promise<any>,
+  fetchErrors: GaqlFetchError[]
+): Promise<any[]> {
+  try {
+    const rows = await fn()
+    return Array.isArray(rows) ? rows : []
+  } catch (e: any) {
+    console.error(`[google-intel] ${label} query FAILED (returned [] — DEGRADED, not a true zero):`, e?.message, e?.errors)
+    fetchErrors.push({ label, message: String(e?.message ?? e) })
+    return []
+  }
+}
+
 export async function fetchGoogleIntelligence(
   refreshToken: string,
   customerId: string,
@@ -124,6 +146,7 @@ export async function fetchGoogleIntelligence(
   const client = new GoogleAdsApi({ client_id: clientId, client_secret: clientSecret, developer_token: developerToken })
   const customer = client.Customer({ customer_id: customerId, refresh_token: refreshToken, login_customer_id: managerAccountId })
   const dateFilter = buildDateFilter(dateRange, customStart, customEnd)
+  const fetchErrors: GaqlFetchError[] = [] // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — sub-query failures collected here
 
   // ── Campaigns ──────────────────────────────────────────────────────────────
   // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — the ENRICHED select adds
@@ -146,6 +169,10 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
   `
+  // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — INVARIANT: the base campaigns query MUST stay un-swallowed (it THROWS on
+  // failure). data.totals = campaigns.reduce(...) → the account base row; if this query ever returned [] on failure
+  // (a `.catch(() => [])` or a safeQuery wrap) the account/campaign rows become a FALSE ZERO and the cron would stamp
+  // last_forward_sync_date on a failed fetch. NEVER route this query through safeQuery / any swallowing catch.
   let campaignRows: any[]
   let campaignStatusEnriched = true
   try {
@@ -179,7 +206,7 @@ export async function fetchGoogleIntelligence(
   })
 
   // ── Ad Groups ──────────────────────────────────────────────────────────────
-  const adGroupRows = await customer.query(`
+  const adGroupRows = await safeQuery('ad_group', () => customer.query(`
     SELECT ad_group.id, ad_group.name, ad_group.status,
     campaign.id, campaign.name,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
@@ -191,7 +218,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 200
-  `).catch(() => [])
+  `), fetchErrors)
 
   const adGroups: IntelligenceAdGroup[] = adGroupRows.map((row: any) => ({
     id: String(row.ad_group?.id || ''),
@@ -204,7 +231,7 @@ export async function fetchGoogleIntelligence(
   }))
 
   // ── Ads ────────────────────────────────────────────────────────────────────
-  const adRows = await customer.query(`
+  const adRows = await safeQuery('ad', () => customer.query(`
     SELECT ad_group_ad.ad.id, ad_group_ad.ad.name,
     ad_group_ad.ad.type,
     ad_group_ad.ad.responsive_search_ad.headlines,
@@ -222,7 +249,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 200
-  `).catch(() => [])
+  `), fetchErrors)
 
   const ads: IntelligenceAd[] = adRows.map((row: any) => {
     const adType = String(row.ad_group_ad?.ad?.type || '')
@@ -246,7 +273,7 @@ export async function fetchGoogleIntelligence(
   })
 
   // ── Keywords ───────────────────────────────────────────────────────────────
-  const kwRows = await customer.query(`
+  const kwRows = await safeQuery('keyword', () => customer.query(`
     SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type,
     ad_group_criterion.status, ad_group_criterion.quality_info.quality_score,
     ad_group.name, campaign.name,
@@ -258,7 +285,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 100
-  `).catch(() => [])
+  `), fetchErrors)
 
   const keywords: IntelligenceKeyword[] = kwRows.map((row: any) => ({
     text: String(row.ad_group_criterion?.keyword?.text || ''),
@@ -275,7 +302,7 @@ export async function fetchGoogleIntelligence(
   // Independent of the keywords we bid on. Reveals where money is going.
   // Cached for 15 min by the intelligence route; this query is relatively
   // expensive so we cap at top 100 by spend.
-  const searchTermRows = await customer.query(`
+  const searchTermRows = await safeQuery('search_term', () => customer.query(`
     SELECT search_term_view.search_term, search_term_view.status,
     segments.search_term_match_type,
     campaign.id, campaign.name,
@@ -287,7 +314,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 100
-  `).catch(() => [])
+  `), fetchErrors)
 
   const searchTerms: IntelligenceSearchTerm[] = searchTermRows.map((row: any) => {
     const statusRaw = String(row.search_term_view?.status || '')
@@ -309,14 +336,14 @@ export async function fetchGoogleIntelligence(
   })
 
   // ── Conversion Actions ─────────────────────────────────────────────────────
-  const convRows = await customer.query(`
+  const convRows = await safeQuery('conversion_action', () => customer.query(`
     SELECT conversion_action.id, conversion_action.name, conversion_action.category,
     conversion_action.include_in_conversions_metric,
     metrics.conversions
     FROM conversion_action
     WHERE ${dateFilter}
     AND conversion_action.status = 'ENABLED'
-  `).catch(() => [])
+  `), fetchErrors)
 
   const conversionActions: IntelligenceConversionAction[] = convRows.map((row: any) => ({
     id: String(row.conversion_action?.id || ''),
@@ -331,7 +358,7 @@ export async function fetchGoogleIntelligence(
   // Per-campaign breakdown of which conversion actions fired where.
   // segments.conversion_action gives one row per (campaign, conv_action) pair.
   // Filters out rows with 0 conversions to keep the payload tight.
-  const convByCampaignRows = await customer.query(`
+  const convByCampaignRows = await safeQuery('conv_by_campaign', () => customer.query(`
     SELECT campaign.id, campaign.name,
     segments.conversion_action_name, segments.conversion_action_category,
     metrics.conversions, metrics.conversions_value
@@ -341,7 +368,7 @@ export async function fetchGoogleIntelligence(
     AND metrics.conversions > 0
     ORDER BY metrics.conversions DESC
     LIMIT 200
-  `).catch(() => [])
+  `), fetchErrors)
 
   const conversionsByCampaign: IntelligenceConversionByCampaign[] = convByCampaignRows.map((row: any) => ({
     campaignId: String(row.campaign?.id || ''),
@@ -358,7 +385,7 @@ export async function fetchGoogleIntelligence(
   // For PMax / Display / Discovery accounts this is gold — reveals which
   // audience signals (in-market, affinity, lookalike, custom) actually drive
   // conversions vs. just spending.
-  const audienceRows = await customer.query(`
+  const audienceRows = await safeQuery('audience', () => customer.query(`
     SELECT campaign.id, campaign.name,
     ad_group.id, ad_group.name,
     audience.id, audience.name, audience.description,
@@ -370,7 +397,7 @@ export async function fetchGoogleIntelligence(
     AND metrics.cost_micros > 0
     ORDER BY metrics.cost_micros DESC
     LIMIT 200
-  `).catch(() => [])
+  `), fetchErrors)
 
   const audiences: IntelligenceAudience[] = audienceRows.map((row: any) => ({
     id: String(row.audience?.id || ''),
@@ -388,7 +415,7 @@ export async function fetchGoogleIntelligence(
   // demographic breakdowns. Both queried independently, results flattened
   // into one demographics array distinguished by `dimension`.
   const [ageRows, genderRows] = await Promise.all([
-    customer.query(`
+    safeQuery('age_range', () => customer.query(`
       SELECT campaign.id, campaign.name,
       ad_group.id, ad_group.name,
       ad_group_criterion.age_range.type,
@@ -400,8 +427,8 @@ export async function fetchGoogleIntelligence(
       AND metrics.cost_micros > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
-    `).catch(() => []),
-    customer.query(`
+    `), fetchErrors),
+    safeQuery('gender', () => customer.query(`
       SELECT campaign.id, campaign.name,
       ad_group.id, ad_group.name,
       ad_group_criterion.gender.type,
@@ -413,7 +440,7 @@ export async function fetchGoogleIntelligence(
       AND metrics.cost_micros > 0
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
-    `).catch(() => []),
+    `), fetchErrors),
   ])
 
   // Normalize Google's enum-style age and gender labels for readability
@@ -491,7 +518,7 @@ export async function fetchGoogleIntelligence(
   // Google's BEST/GOOD/LOW performance labels. Filters to text assets only
   // (HEADLINE or DESCRIPTION field types). PMax asset-group assets handled
   // separately in 2f.
-  const adAssetRows = await customer.query(`
+  const adAssetRows = await safeQuery('ad_asset', () => customer.query(`
     SELECT campaign.name,
     ad_group.name,
     ad_group_ad.ad.id,
@@ -504,7 +531,7 @@ export async function fetchGoogleIntelligence(
     AND ad_group_ad.status != 'REMOVED'
     AND ad_group_ad_asset_view.field_type IN ('HEADLINE', 'DESCRIPTION')
     LIMIT 500
-  `).catch(() => [])
+  `), fetchErrors)
 
   const adAssets: IntelligenceAdAsset[] = adAssetRows.map((row: any) => {
     const ft = String(row.ad_group_ad_asset_view?.field_type || '')
@@ -534,7 +561,7 @@ export async function fetchGoogleIntelligence(
   //      the real north-star signal. Per-asset BEST/GOOD/LOW labels are UI-only
   //      in v23 (validator-confirmed), so we do NOT attempt to read them.
   const [assetGroupRows, assetGroupAssetRows, assetCombinationRows] = await Promise.all([
-    customer.query(`
+    safeQuery('pmax_asset_group', () => customer.query(`
       SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.ad_strength,
       campaign.id, campaign.name,
       metrics.impressions, metrics.clicks, metrics.cost_micros,
@@ -545,8 +572,8 @@ export async function fetchGoogleIntelligence(
       AND asset_group.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
       LIMIT 100
-    `).catch((e: any) => { console.error('[PMax asset_group query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
-    customer.query(`
+    `), fetchErrors),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    safeQuery('pmax_asset_group_asset', () => customer.query(`
       SELECT asset_group.id, asset_group.name,
       campaign.name,
       asset_group_asset.asset,
@@ -556,15 +583,15 @@ export async function fetchGoogleIntelligence(
       WHERE asset_group_asset.status != 'REMOVED'
       AND campaign.status != 'REMOVED'
       LIMIT 500
-    `).catch((e: any) => { console.error('[PMax asset_group_asset query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
-    customer.query(`
+    `), fetchErrors),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    safeQuery('pmax_top_combination', () => customer.query(`
       SELECT campaign.id, campaign.name,
       asset_group.id, asset_group.name, asset_group.ad_strength,
       asset_group_top_combination_view.asset_group_top_combinations
       FROM asset_group_top_combination_view
       WHERE ${dateFilter}
       AND campaign.status != 'REMOVED'
-    `).catch((e: any) => { console.error('[PMax asset_group_top_combination_view query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    `), fetchErrors),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
   ])
 
   const assetGroups: IntelligenceAssetGroup[] = assetGroupRows.map((row: any) => ({
@@ -639,7 +666,7 @@ export async function fetchGoogleIntelligence(
   // Three Tier-2 segmentations of campaign performance, batched. No UI surfaces;
   // these flow into Claude's context only.
   const [geoRows, deviceRows, hourRows] = await Promise.all([
-    customer.query(`
+    safeQuery('geographic', () => customer.query(`
       SELECT campaign.id, campaign.name,
       geographic_view.country_criterion_id, geographic_view.location_type,
       metrics.impressions, metrics.clicks, metrics.cost_micros,
@@ -648,8 +675,8 @@ export async function fetchGoogleIntelligence(
       WHERE ${dateFilter}
       ORDER BY metrics.cost_micros DESC
       LIMIT 200
-    `).catch((e: any) => { console.error('[Geographic query failed]', e?.message, e?.errors); return [] }),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
-    customer.query(`
+    `), fetchErrors),  // LORAMER_PMAX_CATCH_INSTRUMENTATION_V1
+    safeQuery('device', () => customer.query(`
       SELECT campaign.id, campaign.name, segments.device,
       metrics.impressions, metrics.clicks, metrics.cost_micros,
       metrics.conversions, metrics.conversions_value
@@ -658,8 +685,8 @@ export async function fetchGoogleIntelligence(
       AND campaign.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
       LIMIT 500
-    `).catch((e: any) => { console.error('[Device query failed]', e?.message, e?.errors); return [] }),
-    customer.query(`
+    `), fetchErrors),
+    safeQuery('hour', () => customer.query(`
       SELECT campaign.id, campaign.name, segments.hour, segments.day_of_week,
       metrics.impressions, metrics.clicks, metrics.cost_micros,
       metrics.conversions, metrics.conversions_value
@@ -668,7 +695,7 @@ export async function fetchGoogleIntelligence(
       AND campaign.status != 'REMOVED'
       ORDER BY metrics.cost_micros DESC
       LIMIT 1000
-    `).catch((e: any) => { console.error('[Hour query failed]', e?.message, e?.errors); return [] }),
+    `), fetchErrors),
   ])
 
   const geographics: IntelligenceGeographic[] = geoRows.map((row: any) => ({
@@ -712,7 +739,7 @@ export async function fetchGoogleIntelligence(
   // The API-accessible auction signal: how much of available impressions are
   // captured, and how much is lost to budget vs. rank. True Auction Insights
   // (competitor domains, overlap rate, outranking share) is UI-only in v23.
-  const impressionShareRows = await customer.query(`
+  const impressionShareRows = await safeQuery('impression_share', () => customer.query(`
     SELECT campaign.id, campaign.name, campaign.advertising_channel_type,
     metrics.search_impression_share,
     metrics.search_top_impression_share,
@@ -727,7 +754,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
     LIMIT 200
-  `).catch((e: any) => { console.error('[Impression Share query failed]', e?.message, e?.errors); return [] })
+  `), fetchErrors)
 
   const impressionShares: IntelligenceImpressionShare[] = impressionShareRows
     .map((row: any) => {
@@ -760,12 +787,12 @@ export async function fetchGoogleIntelligence(
   // Google's own optimization suggestions. Bias-warning: these are calibrated
   // for Google's revenue, not the operator's outcomes. Claude evaluates each
   // against the client's actual data (see prompt section).
-  const recommendationRows = await customer.query(`
+  const recommendationRows = await safeQuery('recommendation', () => customer.query(`
     SELECT recommendation.resource_name, recommendation.type, recommendation.campaign, recommendation.impact, recommendation.dismissed
     FROM recommendation
     WHERE recommendation.dismissed = FALSE
     LIMIT 200
-  `).catch((e: any) => { console.error('[Recommendations query failed]', e?.message, e?.errors); return [] })
+  `), fetchErrors)
 
   const microsToDollars = (v: any): number => Number(v || 0) / 1e6
   // LORAMER_PROJECT_3_STEP_3E_HOTFIX_V1 — recommendation.type comes back as
@@ -851,5 +878,6 @@ export async function fetchGoogleIntelligence(
     impressionShares,       // LORAMER_PROJECT_3_STEP_3D_V1
     recommendations,        // LORAMER_PROJECT_3_STEP_3E_V1
     totals,
+    fetchErrors,            // LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1
   }
 }
