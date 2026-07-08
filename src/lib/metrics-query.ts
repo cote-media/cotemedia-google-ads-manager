@@ -10,6 +10,7 @@
 // may move the sums into a Postgres RPC if query volume warrants it.
 
 import { supabaseAdmin } from '@/lib/supabase'
+import { projectActionCanon } from '@/lib/meta-action-canon' // LORAMER_META_ALIAS_CANON — opt-in read-layer Meta action_type alias collapse
 import { resolveDateWindow } from '@/lib/date-range'
 import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surface' // LORAMER_QUERY_MONEY_V1 — reuse the canonical money aggregation (reconciles with /api/next/money by construction)
 
@@ -269,6 +270,7 @@ export async function queryBreakdown(opts: {
   parentEntityId?: string
   entityId?: string
   entityLevel?: string // LORAMER_QUERY_NONADDITIVE_V1 — video only: which entity grain to scope to (default 'campaign')
+  canonicalize?: boolean // LORAMER_META_ALIAS_CANON — opt-in Meta action_type alias collapse (default OFF = byte-identical). -next card path only.
 }): Promise<QueryBreakdownResult> {
   const bt = BREAKDOWN_ALIAS[opts.breakdownType] || opts.breakdownType // canonicalize legacy read-names (§3)
   const ISO = /^\d{4}-\d{2}-\d{2}$/
@@ -397,7 +399,19 @@ export async function queryBreakdown(opts: {
     return result
   }
 
-  const sorted = Array.from(byValue.values()).sort((a, b) => {
+  // LORAMER_META_ALIAS_CANON — opt-in read-layer collapse of Meta action_type aliases. OFF by default
+  // (aggList = the raw value-grouped set → BYTE-IDENTICAL to today). ONLY the -next card path passes
+  // canonicalize:true. Runs AFTER the entity-level scope + value aggregation, BEFORE rank/topN. Projects the
+  // already-read set — raw metrics_daily rows are untouched. No effect on any other breakdown_type/platform.
+  let aggList = Array.from(byValue.values())
+  if (opts.canonicalize && bt === 'action_type' && platform === 'meta') {
+    const canon = projectActionCanon(aggList)
+    aggList = canon.rows
+    result.distinctValueCount = aggList.length
+    for (const n of canon.notes) result.note = result.note ? `${result.note} ${n}` : n
+  }
+
+  const sorted = aggList.sort((a, b) => {
     const av = (a as any)[rankBy] as number
     const bv = (b as any)[rankBy] as number
     if (av !== bv) return orderDir === 'asc' ? av - bv : bv - av

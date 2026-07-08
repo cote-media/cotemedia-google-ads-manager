@@ -33,6 +33,7 @@ export async function GET(request: Request) {
 
   const result = await queryBreakdown({
     clientId, breakdownType, rankBy, topN,
+    canonicalize: true, // LORAMER_META_ALIAS_CANON — -next card path opts in; no-op for non-(action_type,meta)
     ...(hasWin ? { startDate: qs!, endDate: qe! } : { baseRange: period }),
   })
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
   // compare-window rankBy metric (cmpRank) so the card renders a per-row delta. WRITE-nothing; metrics_daily reads only.
   let withCmp = result.rows as any[]
   if (qcs && qce && ISO.test(qcs) && ISO.test(qce)) {
-    const cmp = await queryBreakdown({ clientId, breakdownType, rankBy, topN: 50, startDate: qcs, endDate: qce })
+    const cmp = await queryBreakdown({ clientId, breakdownType, rankBy, topN: 50, startDate: qcs, endDate: qce, canonicalize: true }) // LORAMER_META_ALIAS_CANON — MUST match primary or compare deltas mis-join canonical-vs-raw
     const cmpByValue = new Map<string, number>()
     for (const r of cmp.rows as any[]) cmpByValue.set(r.value, Number((r as any)[rankBy] ?? r.spend ?? 0))
     withCmp = result.rows.map((r: any) => ({ ...r, cmpRank: cmpByValue.get(r.value) ?? 0 }))
