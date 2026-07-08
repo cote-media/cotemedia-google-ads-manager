@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-08T02:09:40.282Z
-- built_from HEAD: cdddeb3caa3eb64934dc77f270267324986def27  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-08T16:28:06.332Z
+- built_from HEAD: 5b20a3b5eb891276e6711ce2a7292f9189f2981f  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: 5a28e5819f6c83e384865ec0d22e7f9585f5ebcf0b8f3d044d6daede76941519
     - LORAMER_HANDOFF.md: de4ddb9dfbd65f0211b831dc399ece1aae213567a15c337c40e529706753a580
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
-    - LORAMER_DECISIONS.md: e7e2bee65fa3dec7b106d27d9618f56b0908f1a9aef56482b8139d31bfaf5df3
-    - LORAMER_QUEUE_OF_RECORD.md: e239cf9eab852248bab53c4ac1bfb476300adfa73f22991479683650354a9c31
+    - LORAMER_DECISIONS.md: fcf246e356c580b8890859f1da91ca48412c3728d5beb3fe08adec2d58974c0b
+    - LORAMER_QUEUE_OF_RECORD.md: ddd4d0b02d0d122e3a4723013e009ca576ae635dcfd989e0ddf823cb6cea6d64
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147
@@ -264,7 +264,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - INSTANT CROSS-DEVICE SYNC is a product principle: same state phone+desktop instantly; LoraMer must NEVER fork or lag across devices (URL-held state + Supabase realtime). | ROADMAP:1387 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
-- ⭐ TOP VERIFY (2026-07-05) — GOOGLE CONV-ACTION CATEGORY NAME forward emission. LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 (commit fae78f8, Vercel READY): the forward writer (google-conversion-action.ts) now emits extra.conversion_action_category_name, decoded from the raw ConversionActionCategory ordinal via the already-imported google-ads-api enums (raw ordinal RETAINED byte-for-byte); 120 existing rows backfilled + Gate-B passed (120 named / 0 null / raw intact; ordinals 5,10,11,13,17,18 → SIGNUP/SUBSCRIBE_PAID/PHONE_CALL_LEAD/SUBMIT_LEAD_FORM/OUTBOUND_CLICK/CONTACT). ⚠ OPEN — NATIVE forward emission UNPROVEN: today's Google cron (~08:55Z) ran on the OLD pre-deploy code. VERIFY on the NEXT Google sync — rows with synced_at AFTER the deploy must carry conversion_action_category_name natively (SELECT breakdown_type='conversion_action' AND synced_at > deploy; named_fresh == total_fresh; the writer's upsert replaces `extra` wholesale, so a fresh row that keeps the name proves the WRITER emitted it, not the backfill). SEPARATE open thread surfaced same session: Escential (c39ee088) Google forward capture STALLED since 06-26 (Meta/Shopify/GA current to 07-04) → 0 Google conv-action rows there; diagnose independently. src: Flight 1 EOD 2026-07-05. open(verify) [LC]
+- ⭐ ESCENTIAL (c39ee088 = "The Escential Group") GOOGLE FORWARD STALL — Google forward capture STALLED since 06-26 while Meta/Shopify/GA stayed current; CONFIRMED STILL OPEN 2026-07-08 (0 fresh conv-action rows post-deploy — absent from all 3 sync-days 07-06/07/08 that 7 other google clients emitted on). ROOT CAUSE NOT yet diagnosed. Diagnose read-only: sync_state google / __fwd_google cursor + platform_connections google health/token + last google metrics_daily date via an INDEXED predicate (bare client_id is NOT independently indexed → a client_id-only scan trips the statement timeout on ~1.5M rows; the fast path is breakdown_type/synced_at, migration 024). Likely a cursor/lease/token stall, not a code bug (other platforms current); the 07-07 __fwd_ forward-paging (488de1d) may be relevant. src: Flight 1 EOD 2026-07-05, confirmed 2026-07-08. open(diagnose) [LC]
 - Google 2025-floor clients — confirm forward-only vs new: Inside google(2025-06), Thought Streams google(2025-04), Ennis google(2025-02) — probe pre-2025. src: fleet audit. open(verify) [LC]
 - Ennis Exterminating — shallow GA (5 days): run gaBackfillAdapter to floor. src: DATA_COMPLETENESS, CONTINUE_HERE. open [LC]
 - Verify Veterinary + Escential GA depth (~5mo) — new-property vs un-backfilled. src: CONTINUE_HERE Wave0. open(verify) [LC]
