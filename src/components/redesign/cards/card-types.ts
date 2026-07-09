@@ -37,10 +37,14 @@ export interface GridItem { i: string; x: number; y: number; w: number; h: numbe
 
 // RESHAPE FIX 2 — the page-level GLOBAL date range + COMPARE selection persist in the view (dashboard_layouts jsonb)
 // so they survive a refresh (saved on change, hydrated on load).
+// LORAMER_NEXT_MOBILE_LAYOUT_V1 — `layout` is the DESKTOP (lg/md) arrangement, unchanged. `layoutSm` is an ADDITIVE,
+// OPTIONAL per-breakpoint MOBILE (sm) arrangement — independent of desktop by design. Absent/empty layoutSm → the
+// mobile grid falls back to cards[]-order stacking (a pre-existing row renders identically until reordered on mobile).
 export interface SavedView {
   name: string
   cards: CardConfig[]
   layout: GridItem[]
+  layoutSm?: GridItem[]
   pinned?: string[]
   globalPeriod?: string
   globalCustom?: Win | null

@@ -36,7 +36,10 @@ function revalidate(v: SavedView): SavedView {
   const base = defaultOverviewView()
   const cards = Array.isArray(v.cards) && v.cards.length ? v.cards : base.cards
   const layout = Array.isArray(v.layout) && v.layout.length ? v.layout : base.layout
-  return { ...v, cards, layout, pinned: v.pinned || [], globalPeriod: period, globalCustom: custom, compareMode: v.compareMode || 'none', customCompare: v.customCompare || null }
+  // LORAMER_NEXT_MOBILE_LAYOUT_V1 — mobile (sm) layout is ADDITIVE + OPTIONAL: normalize to [] when absent so a
+  // legacy row (desktop layout only) falls back to cards[]-order stacking on mobile (renders identically to before).
+  const layoutSm = Array.isArray(v.layoutSm) ? v.layoutSm : []
+  return { ...v, cards, layout, layoutSm, pinned: v.pinned || [], globalPeriod: period, globalCustom: custom, compareMode: v.compareMode || 'none', customCompare: v.customCompare || null }
 }
 
 export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey: string; clientId: string; defaultView?: SavedView }) {
@@ -44,6 +47,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const [snapshots, setSnapshots] = useState<SavedView[]>([]) // named saved views (name !== WORKING); the picker only
   const [cards, setCards] = useState<CardConfig[]>(fallback.cards)
   const [layout, setLayout] = useState<GridItem[]>(fallback.layout)
+  const [layoutSm, setLayoutSm] = useState<GridItem[]>(fallback.layoutSm || []) // LORAMER_NEXT_MOBILE_LAYOUT_V1 — sm arrangement, independent of desktop `layout`
   const [pinned, setPinned] = useState<Set<string>>(new Set(fallback.pinned || []))
   const [customizing, setCustomizing] = useState(false)
   const [editing, setEditing] = useState<string | 'new' | null>(null)
@@ -66,7 +70,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<any | null>(null)
 
-  const buildWorkingView = (): SavedView => ({ name: WORKING, cards, layout, pinned: Array.from(pinned), globalPeriod, globalCustom, compareMode, customCompare })
+  const buildWorkingView = (): SavedView => ({ name: WORKING, cards, layout, layoutSm, pinned: Array.from(pinned), globalPeriod, globalCustom, compareMode, customCompare })
   const flushWorking = () => {
     const body = pendingRef.current
     if (!body) return
@@ -76,7 +80,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   // apply a view into the live working state (re-validated per Lesson 53).
   const applyWorking = (v: SavedView) => {
     const r = revalidate(v)
-    setCards(r.cards); setLayout(r.layout); setPinned(new Set(r.pinned || []))
+    setCards(r.cards); setLayout(r.layout); setLayoutSm(r.layoutSm || []); setPinned(new Set(r.pinned || []))
     setGlobalPeriod(r.globalPeriod || 'LAST_30_DAYS'); setGlobalCustom(r.globalCustom || null)
     setCompareMode(r.compareMode || 'none'); setCustomCompare(r.customCompare || null)
   }
@@ -111,7 +115,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(flushWorking, SAVE_DEBOUNCE_MS)
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current) }
-  }, [cards, layout, pinned, globalPeriod, globalCustom, compareMode, customCompare])
+  }, [cards, layout, layoutSm, pinned, globalPeriod, globalCustom, compareMode, customCompare])
 
   // flush the last edit if the tab is hidden/closed mid-debounce.
   useEffect(() => {
@@ -222,9 +226,9 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
       </div>
 
       <CardGrid
-        clientId={clientId} cards={cards} layout={layout} pinned={pinned} customizing={customizing}
+        clientId={clientId} cards={cards} layout={layout} layoutSm={layoutSm} pinned={pinned} customizing={customizing}
         globalPeriod={globalPeriod} globalCustom={globalCustom} compareMode={compareMode} customCompare={customCompare}
-        onLayoutChange={setLayout} onEdit={(id) => setEditing(id)} onRemove={removeCard} onTogglePin={togglePin}
+        onLayoutChange={setLayout} onLayoutSmChange={setLayoutSm} onEdit={(id) => setEditing(id)} onRemove={removeCard} onTogglePin={togglePin}
       />
 
       {editingCfg && <CardConfigPanel initial={editingCfg} onApply={applyCfg} onClose={() => setEditing(null)} />}

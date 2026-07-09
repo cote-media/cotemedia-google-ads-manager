@@ -47,7 +47,8 @@ export async function POST(request: Request) {
   if (!body?.view?.name || !body?.pageKey) return NextResponse.json({ error: 'pageKey + view.name required' }, { status: 400 })
   const clientId = body.clientId || null
   // RESHAPE FIX 2 — persist the page settings (global date range + compare) alongside cards/layout so they survive refresh.
-  const { name, cards, layout, pinned, globalPeriod, globalCustom, compareMode, customCompare } = body.view
+  // LORAMER_NEXT_MOBILE_LAYOUT_V1 — layoutSm (the mobile sm arrangement) rides along in the same view JSONB; additive, no migration.
+  const { name, cards, layout, layoutSm, pinned, globalPeriod, globalCustom, compareMode, customCompare } = body.view
 
   if (body.setDefault) {
     let clr = supabaseAdmin.from('dashboard_layouts').update({ is_default: false }).eq('user_email', email).eq('page_key', body.pageKey)
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     .from('dashboard_layouts')
     .upsert({
       user_email: email, page_key: body.pageKey, client_id: clientId, name,
-      view: { cards, layout, pinned: pinned || [], globalPeriod, globalCustom, compareMode, customCompare }, is_default: !!body.setDefault, updated_at: new Date().toISOString(),
+      view: { cards, layout, layoutSm: layoutSm || [], pinned: pinned || [], globalPeriod, globalCustom, compareMode, customCompare }, is_default: !!body.setDefault, updated_at: new Date().toISOString(),
     }, { onConflict: 'user_email,page_key,client_id,name' })
   if (error) return NextResponse.json({ error: 'save failed', detail: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
