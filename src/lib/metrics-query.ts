@@ -242,6 +242,10 @@ export type BreakdownRow = {
   // LORAMER_QUERY_NONADDITIVE_V1 — for impression_share/video rows: the projected metrics (IS ratios / video counts
   // + rates). null = not aggregatable (multi-day rate) or non-eligible (IS -1). Absent on additive-breakdown rows.
   nonAdditiveMetrics?: Record<string, number | null>
+  // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — Meta-REPORTED ROAS (extra.purchase_roas ?? website_purchase_roas)
+  // for the canonicalized action_type card ONLY. null = Meta reports none (e.g. view_content/lead). NEVER
+  // value÷spend (action_type spend=0). Absent on every other breakdown (carried only when canonicalize+action_type+meta).
+  metaRoas?: number | null
 }
 
 export type QueryBreakdownResult = {
@@ -353,14 +357,17 @@ export async function queryBreakdown(opts: {
     return result
   }
 
-  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number }
+  // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — carry Meta-reported ROAS ONLY on the canonicalized action_type card
+  // path (GATED on canonicalize, so the shared query_breakdown tool + every other breakdown stay byte-identical).
+  const carryRoas = !!opts.canonicalize && bt === 'action_type' && platform === 'meta'
+  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; metaRoas?: number | null; metaRoasDate?: string }
   const byValue = new Map<string, Agg>()
   const PAGE = 1000
   let from = 0
   for (;;) {
     let q = supabaseAdmin
       .from('metrics_daily')
-      .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue')
+      .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue' + (carryRoas ? ', date, extra' : '')) // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — date+extra fetched ONLY when carrying Meta ROAS; byte-identical select for every other breakdown
       .eq('client_id', opts.clientId)
       .eq('platform', platform)
       .eq('breakdown_type', bt) // NEVER '' — base rows are physically excluded (double-count guard)
@@ -374,7 +381,7 @@ export async function queryBreakdown(opts: {
     if (error) throw new Error('metrics_daily breakdown query failed: ' + error.message)
     const rows = data || []
     for (const r of rows) {
-      const row = r as Record<string, unknown>
+      const row = r as unknown as Record<string, unknown> // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — via unknown: the conditional `extra`/`date` select makes supabase-js infer GenericStringError; runtime-identical cast
       const value = String(row.breakdown_value ?? '')
       let agg = byValue.get(value)
       if (!agg) {
@@ -388,6 +395,15 @@ export async function queryBreakdown(opts: {
       agg.conversions += Number(row.conversions || 0)
       agg.conversionValue += Number(row.conversion_value || 0)
       agg.revenue += Number(row.revenue || 0)
+      if (carryRoas) {
+        // Meta-REPORTED ROAS only (purchase_roas, else website_purchase_roas); NEVER value/spend (spend=0). ROAS is
+        // a ratio = non-additive → keep the MOST-RECENT day's value in-window (mirrors the impression_share posture).
+        const ex = (row.extra || {}) as Record<string, unknown>
+        const roasRaw = ex.purchase_roas ?? ex.website_purchase_roas
+        const roas = roasRaw == null ? null : Number(roasRaw)
+        const dt = String(row.date ?? '')
+        if (roas != null && Number.isFinite(roas) && dt >= (agg.metaRoasDate || '')) { agg.metaRoas = roas; agg.metaRoasDate = dt }
+      }
     }
     if (rows.length < PAGE) break
     from += PAGE
@@ -425,6 +441,7 @@ export async function queryBreakdown(opts: {
       parentEntityId: a.parents.size === 1 ? Array.from(a.parents)[0] : undefined,
       spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: a.revenue,
       derived: derive(totals),
+      ...(carryRoas ? { metaRoas: a.metaRoas ?? null } : {}), // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — absent for every other breakdown
     }
   })
   if (result.truncated) {

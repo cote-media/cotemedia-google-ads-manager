@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 import type { CardConfig } from './card-types'
 import type { Win } from '@/lib/next/card-windows'
 
-export interface BreakdownRow { value: string; spend: number; conversions: number; conversionValue: number; impressions: number; clicks: number; revenue: number; cmpRank?: number }
+export interface BreakdownRow { value: string; spend: number; conversions: number; conversionValue: number; impressions: number; clicks: number; revenue: number; metaRoas?: number | null; cmpRank?: number } // metaRoas: LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — Meta-reported ROAS, present only on the canonicalized action_type card rows
 export interface CardData {
   loading: boolean
   error: string | null

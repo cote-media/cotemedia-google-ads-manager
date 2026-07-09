@@ -48,12 +48,16 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
   const money = rankBy === 'spend' || rankBy === 'conversionValue' || rankBy === 'revenue'
   const val = (r: BreakdownRow) => (r as any)[rankBy] ?? r.spend
   const caption = d.note ? <p className={styles.muted}>{d.note}</p> : null
+  // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — the canonicalized Meta conversion-action card adds a $Value column
+  // (conversionValue, additive) + a Meta-REPORTED ROAS column (r.metaRoas; "—" when Meta reports none). Table viz only.
+  const isAction = cfg.breakdownType === 'action_type'
+  const fmtRoas = (v: number | null | undefined) => (v == null ? '—' : `${v.toFixed(2)}×`)
 
   if (cfg.viz === 'table') {
     return (
       <div className={styles.tableWrap}>
         <table className={styles.table}>
-          <thead><tr><th>Value</th><th className={styles.numCol}>{rankBy}</th>{d.hasCompare && <th className={styles.numCol}>Δ</th>}</tr></thead>
+          <thead><tr><th>{isAction ? 'Action' : 'Value'}</th><th className={styles.numCol}>{rankBy}</th>{isAction && <><th className={styles.numCol}>Value</th><th className={styles.numCol}>ROAS (Meta-reported)</th></>}{d.hasCompare && <th className={styles.numCol}>Δ</th>}</tr></thead>
           <tbody>
             {rows.map((r) => {
               const dl = d.hasCompare ? deltaLabel(val(r), r.cmpRank ?? 0) : null
@@ -61,6 +65,7 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
                 <tr key={r.value}>
                   <td>{r.value || '(none)'}</td>
                   <td className={styles.numCol}>{money ? fmtMoney(val(r)) : fmtNum(val(r))}</td>
+                  {isAction && <><td className={styles.numCol}>{fmtMoney(r.conversionValue)}</td><td className={styles.numCol}>{fmtRoas(r.metaRoas)}</td></>}
                   {d.hasCompare && <td className={`${styles.numCol} ${deltaCls(dl!.dir)}`}>{dl!.text}</td>}
                 </tr>
               )
