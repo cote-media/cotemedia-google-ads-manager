@@ -31,6 +31,17 @@
 .muted { font-size: 12px; color: #94a3b8; }
 .err { font-size: 12px; color: #b45309; }
 
+/* LORAMER_NEXT_ROAS_CARD_V1 — multi-source ROAS card: one basis-labeled row per source, big value + basis sentence. */
+.roasBody { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: auto; }
+.roasRow { border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+.roasRow:last-of-type { border-bottom: none; }
+.roasHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.roasLabel { font-size: 12px; font-weight: 600; color: #334155; }
+.roasVal { font-size: 22px; font-weight: 700; color: #0f172a; line-height: 1.1; white-space: nowrap; }
+.roasAbsent { font-size: 12px; color: #94a3b8; font-style: italic; white-space: nowrap; }
+.roasBasis { font-size: 11px; color: #94a3b8; margin-top: 2px; line-height: 1.35; }
+.roasFoot { margin-top: auto; font-size: 11px; color: #94a3b8; padding-top: 4px; border-top: 1px solid #eef0f3; }
+
 .tableWrap { overflow: auto; height: 100%; }
 .table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .table th { text-align: left; color: #94a3b8; font-weight: 600; padding: 4px 6px; border-bottom: 1px solid #eef0f3; position: sticky; top: 0; background: #fff; }

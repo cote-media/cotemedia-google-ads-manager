@@ -6,8 +6,10 @@ import type { ComparePreset, Win } from '@/lib/next/card-windows'
 
 // LORAMER_NEXT_MONEY_CARD_V1 — 'money' is an ADDITIVE kind (a full-order money waterfall on captured extra.money).
 // Existing kinds/vizes are unchanged; a money card flows through Card.tsx (shared window) + CardViz (a new branch).
-export type CardKind = 'stat' | 'breakdown' | 'timeseries' | 'money'
-export type VizType = 'stat' | 'bar' | 'table' | 'line' | 'money'
+// LORAMER_NEXT_ROAS_CARD_V1 — 'roas' is a second ADDITIVE kind (multi-source ROAS: 3 basis-labeled sources, user
+// picks which via roasBases). Flows through Card.tsx (shared window) + CardViz (a new branch, its own isolated read).
+export type CardKind = 'stat' | 'breakdown' | 'timeseries' | 'money' | 'roas'
+export type VizType = 'stat' | 'bar' | 'table' | 'line' | 'money' | 'roas'
 export type PageKey = 'overview' | 'portfolio' | 'client'
 
 export interface CardConfig {
@@ -25,6 +27,9 @@ export interface CardConfig {
   breakdownType?: string       // one of the query-exposed families
   rankBy?: string              // spend | conversions | …
   topN?: number
+  // roas: LORAMER_NEXT_ROAS_CARD_V1 — which basis-labeled ROAS sources the user has checked ON. Undefined/empty →
+  // the card shows every AVAILABLE basis (default = all). Persisted inside the `view` JSONB; no schema change.
+  roasBases?: string[]
 }
 
 // react-grid-layout item (subset we persist).
@@ -77,6 +82,17 @@ export const BREAKDOWN_CATALOG: BreakdownOption[] = [
   { key: 'geo_city', label: 'Geo — all grains (Google)', platform: 'google', coming: true },
 ]
 export const breakdownOption = (k?: string): BreakdownOption | undefined => BREAKDOWN_CATALOG.find((b) => b.key === k)
+
+// LORAMER_NEXT_ROAS_CARD_V1 — the multi-source ROAS basis catalog (the checkbox set in the config panel). Keys +
+// order match the route's bases (src/lib/next/roas-bases.ts). Each basis is basis-LABELED in the card so a value
+// can never read as store-verified revenue (the value-column landmine). ALL_ROAS_BASES = the default (all checked).
+export interface RoasBaseOption { key: string; label: string }
+export const ROAS_BASES: RoasBaseOption[] = [
+  { key: 'meta_purchase_roas', label: 'Meta purchase ROAS (window)' },
+  { key: 'value_per_meta_spend', label: 'Value ÷ total Meta spend' },
+  { key: 'blended_store', label: 'Blended store ÷ Meta spend' },
+]
+export const ALL_ROAS_BASES: string[] = ROAS_BASES.map((b) => b.key)
 
 export const DATE_RANGES: { key: string; label: string }[] = [
   { key: 'LAST_7_DAYS', label: 'Last 7 days' },

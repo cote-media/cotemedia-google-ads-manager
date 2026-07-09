@@ -4,7 +4,7 @@
 'use client'
 import { useState } from 'react'
 import type { CardConfig, CardKind, VizType } from './card-types'
-import { STAT_METRICS, BREAKDOWN_CATALOG, DATE_RANGES } from './card-types'
+import { STAT_METRICS, BREAKDOWN_CATALOG, DATE_RANGES, ROAS_BASES, ALL_ROAS_BASES } from './card-types'
 import styles from './cards.module.css'
 
 const VIZ_FOR: Record<CardKind, VizType[]> = {
@@ -12,6 +12,7 @@ const VIZ_FOR: Record<CardKind, VizType[]> = {
   breakdown: ['bar', 'table'],
   timeseries: ['line'],
   money: ['money'], // LORAMER_NEXT_MONEY_CARD_V1 — additive; no metric/breakdown config (auto-detects the store platform)
+  roas: ['roas'],   // LORAMER_NEXT_ROAS_CARD_V1 — additive; config = which basis-labeled sources are checked (below)
 }
 
 // LORAMER_META_CONV_ACTION_CARD_ENABLE_V1 — PER-BREAKDOWN config defaults applied when the user picks that
@@ -25,7 +26,7 @@ const BREAKDOWN_DEFAULTS: Record<string, Partial<CardConfig>> = {
 export default function CardConfigPanel({ initial, onApply, onClose }: { initial: CardConfig; onApply: (c: CardConfig) => void; onClose: () => void }) {
   const [cfg, setCfg] = useState<CardConfig>(initial)
   const set = (patch: Partial<CardConfig>) => setCfg((c) => ({ ...c, ...patch }))
-  const setKind = (kind: CardKind) => set({ kind, viz: VIZ_FOR[kind][0], ...(kind === 'stat' ? { metric: 'spend' } : {}), ...(kind === 'breakdown' ? { breakdownType: 'age', rankBy: 'spend', topN: 8 } : {}) })
+  const setKind = (kind: CardKind) => set({ kind, viz: VIZ_FOR[kind][0], ...(kind === 'stat' ? { metric: 'spend' } : {}), ...(kind === 'breakdown' ? { breakdownType: 'age', rankBy: 'spend', topN: 8 } : {}), ...(kind === 'roas' ? { roasBases: ALL_ROAS_BASES } : {}) })
 
   return (
     <div className={styles.panel} role="dialog" aria-label="Card settings">
@@ -36,7 +37,7 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
       <div className={styles.panelBody}>
         <label className={styles.fLabel}>Type</label>
         <div className={styles.seg}>
-          {(['stat', 'breakdown', 'timeseries', 'money'] as CardKind[]).map((k) => (
+          {(['stat', 'breakdown', 'timeseries', 'money', 'roas'] as CardKind[]).map((k) => (
             <button key={k} type="button" className={cfg.kind === k ? styles.segOn : styles.segBtn} onClick={() => setKind(k)}>{k}</button>
           ))}
         </div>
@@ -64,6 +65,27 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
             </select>
             <label className={styles.fLabel}>Top N</label>
             <input className={styles.sel} type="number" min={1} max={50} value={cfg.topN || 8} onChange={(e) => set({ topN: Math.max(1, Math.min(50, Number(e.target.value) || 8)) })} />
+          </>
+        )}
+
+        {/* LORAMER_NEXT_ROAS_CARD_V1 — the multi-source ROAS card: user checks which basis-labeled sources to show.
+            Default = all checked (ALL_ROAS_BASES). Persisted as roasBases[] on the CardConfig (view JSONB). */}
+        {cfg.kind === 'roas' && (
+          <>
+            <label className={styles.fLabel}>ROAS sources</label>
+            {ROAS_BASES.map((b) => {
+              const on = (cfg.roasBases ?? ALL_ROAS_BASES).includes(b.key)
+              return (
+                <label key={b.key} className={styles.checkRow}>
+                  <input type="checkbox" checked={on} onChange={(e) => {
+                    const cur = new Set(cfg.roasBases ?? ALL_ROAS_BASES)
+                    if (e.target.checked) cur.add(b.key); else cur.delete(b.key)
+                    set({ roasBases: ROAS_BASES.map((x) => x.key).filter((k) => cur.has(k)) }) // keep catalog order
+                  }} />
+                  {b.label}
+                </label>
+              )
+            })}
           </>
         )}
 

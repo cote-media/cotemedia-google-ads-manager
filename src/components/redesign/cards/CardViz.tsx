@@ -143,6 +143,48 @@ function MoneyBody({ clientId, current }: { clientId: string; current: Win }) {
   return <MoneyWaterfall clientId={clientId} start={current.startDate} end={current.endDate} bare />
 }
 
+// LORAMER_NEXT_ROAS_CARD_V1 — multi-source ROAS card. Its OWN isolated read (/api/next/card-roas → queryRoasBases,
+// NOT queryBreakdown). Renders only the bases the user checked (cfg.roasBases; empty/undefined → all available).
+// Every value carries its BASIS sentence (value-column landmine); an absent basis shows its reason, never a $0/0×
+// (false-zero law); the footer labels the ACTUAL captured span (action_type back-drain lag ≠ nominal window edge).
+type RoasBasisView = { key: string; label: string; basis: string; value: number | null; absent: boolean; absentReason?: string }
+type RoasResult = { captured: { start: string; end: string } | null; window: { start: string; end: string }; bases: RoasBasisView[] }
+function RoasBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfig; current: Win }) {
+  const [d, setD] = useState<RoasResult | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  useEffect(() => {
+    let alive = true; setD(null); setErr(null)
+    const p = new URLSearchParams({ clientId, start: current.startDate, end: current.endDate })
+    fetch(`/api/next/card-roas?${p.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((j: RoasResult) => { if (alive) setD(j) })
+      .catch(() => { if (alive) setErr('Couldn’t load') })
+    return () => { alive = false }
+  }, [clientId, current.startDate, current.endDate])
+
+  if (err) return <p className={styles.err}>{err}</p>
+  if (!d) return <p className={styles.muted}>Loading…</p>
+  const wanted = cfg.roasBases && cfg.roasBases.length ? new Set(cfg.roasBases) : null // null → all available
+  const shown = d.bases.filter((b) => !wanted || wanted.has(b.key))
+  if (shown.length === 0) return <p className={styles.muted}>No ROAS sources selected</p>
+  return (
+    <div className={styles.roasBody}>
+      {shown.map((b) => (
+        <div key={b.key} className={styles.roasRow}>
+          <div className={styles.roasHead}>
+            <span className={styles.roasLabel}>{b.label}</span>
+            <span className={b.absent ? styles.roasAbsent : styles.roasVal}>{b.absent ? (b.absentReason || 'Not available') : b.value!.toFixed(2) + '×'}</span>
+          </div>
+          <div className={styles.roasBasis}>{b.basis}</div>
+        </div>
+      ))}
+      <div className={styles.roasFoot}>
+        {d.captured ? `Captured ${d.captured.start} → ${d.captured.end}` : 'No Meta purchase data captured in this window'}
+      </div>
+    </div>
+  )
+}
+
 export default function CardViz({ clientId, cfg, current, compare }: { clientId: string; cfg: CardConfig; current: Win; compare: Win | null }) {
   if (cfg.kind === 'timeseries') {
     return compare
@@ -151,5 +193,6 @@ export default function CardViz({ clientId, cfg, current, compare }: { clientId:
   }
   if (cfg.kind === 'stat') return <StatBody clientId={clientId} cfg={cfg} current={current} compare={compare} />
   if (cfg.kind === 'money') return <MoneyBody clientId={clientId} current={current} />
+  if (cfg.kind === 'roas') return <RoasBody clientId={clientId} cfg={cfg} current={current} />
   return <BreakdownBody clientId={clientId} cfg={cfg} current={current} compare={compare} />
 }

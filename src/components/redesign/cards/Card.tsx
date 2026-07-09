@@ -13,6 +13,7 @@ function cardTitle(cfg: CardConfig): string {
   if (cfg.title) return cfg.title
   if (cfg.kind === 'stat') return statMetric(cfg.metric).label
   if (cfg.kind === 'breakdown') return breakdownOption(cfg.breakdownType)?.label || cfg.breakdownType || 'Breakdown'
+  if (cfg.kind === 'roas') return 'ROAS — multi-source' // LORAMER_NEXT_ROAS_CARD_V1
   return 'Chart'
 }
 
