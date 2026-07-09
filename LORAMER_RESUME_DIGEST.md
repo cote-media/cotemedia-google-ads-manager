@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-09T06:11:45.872Z
-- built_from HEAD: b31aa3ebd54665c8d1039ddd89c0679e76ab1e4e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-09T06:19:31.152Z
+- built_from HEAD: cf516ec3ad72337f57821387759ff112968d99d9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,7 +17,7 @@
     - LORAMER_ESSENCE.md: 5a28e5819f6c83e384865ec0d22e7f9585f5ebcf0b8f3d044d6daede76941519
     - LORAMER_HANDOFF.md: 94b6f63a41107db9093d42b247d65081ca2a2bac176db58ec402a3fcfacda5c2
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
-    - LORAMER_DECISIONS.md: 96b54b88638c44c7ff29ba8cb300402eaffa1c9fc69067046f13e3d0b527225a
+    - LORAMER_DECISIONS.md: 9571b9f4ec11d80c12d8904f6f2c53820fa2400462936a440f1c282a3c54634d
     - LORAMER_QUEUE_OF_RECORD.md: 2da28a35fb2326f15f041f07e55e67342921e9de552743720588b6e3c7cda340
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
@@ -163,6 +163,7 @@ PRIOR REDESIGN ARC (cont.4, still the standing direction once -next is wired to 
 - DESKTOP=MOBILE PARITY — ONE responsive app, verify both per increment, never fork. | HANDOFF GOSPEL + STANDING | do not relitigate.
 PARITY — CANONICAL DEFINITION (2026-07-08, Russ): the BARE word "parity" ALWAYS means MACHINE PARITY — the iMac and the MacBook Air can perform ALL the same tasks, fully. A machine that cannot complete a build/push/deploy gate the other can is a MACHINE-PARITY VIOLATION to fix, not a footnote to route around. All OTHER parities MUST carry an explicit qualifier and are never written as bare "parity": "desktop=mobile visual coherence" (one responsive app, both surfaces coherent, never forked — cf. :18); "-next↔live capability parity" (the cutover flip gate — a FLIP surface is at parity when it shows the same data, correctly, as the current app; cf. LORAMER_NEXT_FLIP_PROGRAM.md); "connection-state probe parity" (all 5 platforms probed equivalently); and misc technical axes (quota parity, forward/backfill parity, writer-behavior parity) which stay locally qualified at their use site. Rule: if a doc says "parity" with no qualifier, it means MACHINE parity; every non-machine sense REQUIRES its qualifier. | LORAMER_PARITY_GLOSSARY, 2026-07-08 | do not relitigate.
 - The MOAT is the intelligence/memory/recommendations layer, NOT the dashboard. Goal = real-world recommendations & growth, not data display. | HANDOFF North-Star, ROADMAP Strategy | do not relitigate.
+SEARCH-BEFORE-FORKING (2026-07-08, Russ): Before presenting ANY principle, default, product direction, or governing rule as if it needs deciding — i.e. before offering Russ a fork/option-menu on something that sounds like product law — Claude MUST first search past chats (conversation_search) and the repo docs for a prior decision. If it's already decided, CITE it and build to it; do NOT re-offer it as open. The tell that triggers this: Claude catching itself about to say "your call / here are the options" on anything resembling a settled principle. Re-litigating closed decisions is the single biggest waste of Russ's time. This session alone, mobile-first-standard, store-truth ROAS law, and "both ROAS labeled" were all already banked and got mistakenly re-opened. Searching first turns "let me propose this" into "you already decided this, building to it." | LORAMER_SEARCH_BEFORE_FORKING, 2026-07-08 | do not relitigate.
 - DEEP KNOWLEDGE: LoraMer = "lore + sea" = accumulated deep knowledge; every feature judged on whether it makes Claude know the customer better. | HANDOFF/ROADMAP Brand | do not relitigate.
 - A REAL HUMAN, ALWAYS: every customer reaches a real person on every plan, every time — operational not just marketing (Project 15 SLAs). | ROADMAP Project 15, HANDOFF | do not relitigate.
 - PROMPT HONESTY: Lora never says what it can't show/prove; connected-but-empty surfaced explicitly; never fabricate (margin, audience, $0 false-zero). | ESSENCE, L11/L46/L47 | do not relitigate.
