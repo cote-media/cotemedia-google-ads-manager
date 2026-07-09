@@ -70,7 +70,7 @@ export const BREAKDOWN_CATALOG: BreakdownOption[] = [
   // CAPTURED, not yet query-exposed (dep #2):
   { key: 'placement', label: 'Placement (Meta)', platform: 'meta', coming: true },
   { key: 'device', label: 'Device', platform: '', coming: true },
-  { key: 'action_type', label: 'Conversion action (Meta)', platform: 'meta', coming: true },
+  { key: 'action_type', label: 'Conversion action (Meta)', platform: 'meta', coming: false }, // LORAMER_META_CONV_ACTION_CARD_ENABLE_V1 — query-exposed (allowlist since 07-02) + canonicalized (RESOLVER_V1); freeze retired
   { key: 'conversion_action', label: 'Conversion action (Google)', platform: 'google', coming: true },
   { key: 'impression_share', label: 'Impression share (Google)', platform: 'google', coming: true },
   { key: 'hour', label: 'Hour', platform: '', coming: true },

@@ -14,6 +14,14 @@ const VIZ_FOR: Record<CardKind, VizType[]> = {
   money: ['money'], // LORAMER_NEXT_MONEY_CARD_V1 — additive; no metric/breakdown config (auto-detects the store platform)
 }
 
+// LORAMER_META_CONV_ACTION_CARD_ENABLE_V1 — PER-BREAKDOWN config defaults applied when the user picks that
+// breakdown. action_type is a spend=0 WRITE-ONLY family, so a default rank-by-spend ties every row at 0 →
+// default it to rank-by-conversions + a table viz (user still overridable below). Absent key → NO override,
+// so every other breakdown type keeps its existing defaults untouched.
+const BREAKDOWN_DEFAULTS: Record<string, Partial<CardConfig>> = {
+  action_type: { rankBy: 'conversions', viz: 'table' },
+}
+
 export default function CardConfigPanel({ initial, onApply, onClose }: { initial: CardConfig; onApply: (c: CardConfig) => void; onClose: () => void }) {
   const [cfg, setCfg] = useState<CardConfig>(initial)
   const set = (patch: Partial<CardConfig>) => setCfg((c) => ({ ...c, ...patch }))
@@ -45,7 +53,7 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
         {cfg.kind === 'breakdown' && (
           <>
             <label className={styles.fLabel}>Breakdown</label>
-            <select className={styles.sel} value={cfg.breakdownType} onChange={(e) => set({ breakdownType: e.target.value })}>
+            <select className={styles.sel} value={cfg.breakdownType} onChange={(e) => set({ breakdownType: e.target.value, ...(BREAKDOWN_DEFAULTS[e.target.value] || {}) })}>
               {BREAKDOWN_CATALOG.map((b) => (
                 <option key={b.key} value={b.key} disabled={b.coming}>{b.label}{b.coming ? ' — coming' : ''}</option>
               ))}
