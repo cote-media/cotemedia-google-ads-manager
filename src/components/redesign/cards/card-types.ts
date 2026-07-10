@@ -15,6 +15,7 @@ export type PageKey = 'overview' | 'portfolio' | 'client'
 export interface CardConfig {
   id: string
   title?: string
+  subtitle?: string            // LORAMER_NEXT_MER_SUBTITLE_V1 — optional basis/definition line under a stat value (replaces the plain window label; delta still wins)
   kind: CardKind
   viz: VizType
   // LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — by DEFAULT a card inherits the page-level GLOBAL date range. useCustomRange
@@ -115,7 +116,7 @@ export function defaultOverviewView(): SavedView {
     { id: 'd-spend', kind: 'stat', viz: 'stat', metric: 'spend', dateRange: 'LAST_30_DAYS' },
     { id: 'd-rev', kind: 'stat', viz: 'stat', metric: 'revenue', dateRange: 'LAST_30_DAYS' },
     { id: 'd-conv', kind: 'stat', viz: 'stat', metric: 'conversions', dateRange: 'LAST_30_DAYS' },
-    { id: 'd-roas', kind: 'stat', viz: 'stat', metric: 'roas', dateRange: 'LAST_30_DAYS' },
+    { id: 'd-roas', kind: 'stat', viz: 'stat', metric: 'roas', title: 'MER', subtitle: 'Marketing Efficiency Ratio · blended revenue ÷ all ad spend', dateRange: 'LAST_30_DAYS' },
     { id: 'd-ts', kind: 'timeseries', viz: 'line', dateRange: 'LAST_30_DAYS', title: 'Combined performance' },
     { id: 'd-age', kind: 'breakdown', viz: 'bar', breakdownType: 'age', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Age (Meta)' },
     // LORAMER_NEXT_MONEY_CARD_V1 — the money breakdown = the drill-down behind Revenue (Net sales == the Revenue

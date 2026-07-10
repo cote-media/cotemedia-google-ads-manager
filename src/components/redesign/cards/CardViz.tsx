@@ -27,10 +27,15 @@ function StatBody({ clientId, cfg, current, compare }: { clientId: string; cfg: 
   const v = d.statValue
   const val = m.money ? fmtMoney(v) : m.suffix ? v.toFixed(2) + m.suffix : fmtNum(v)
   const dl = d.hasCompare ? deltaLabel(v, d.statCompare ?? null) : null
+  const sub = cfg.subtitle // LORAMER_NEXT_MER_SUBTITLE_V1 — basis line replaces the plain window label; delta still wins (B2 delta-priority)
   return (
     <div className={styles.statBody}>
       <div className={styles.statV}>{val}</div>
-      {dl ? <div className={deltaCls(dl.dir)}>{dl.text} vs {winLabel(compare!)}</div> : <div className={styles.muted}>{winLabel(current)}</div>}
+      {dl
+        ? <div className={deltaCls(dl.dir)}>{dl.text} vs {winLabel(compare!)}</div>
+        : sub
+          ? <div className={styles.roasBasis}>{sub}</div>
+          : <div className={styles.muted}>{winLabel(current)}</div>}
     </div>
   )
 }
