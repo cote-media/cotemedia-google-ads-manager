@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-10T18:13:04.787Z
-- built_from HEAD: 629034e141caa90a35203209b4b9725d90ce942c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-10T20:26:27.067Z
+- built_from HEAD: d4a5a17684bbdd0ee04746ba1f3fe65d9699dbae  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 94b6f63a41107db9093d42b247d65081ca2a2bac176db58ec402a3fcfacda5c2
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
     - LORAMER_DECISIONS.md: abe62ccc3d41fbd3c5d9b669871a5e9c544478af9c73e12d901fefdf7178d96a
-    - LORAMER_QUEUE_OF_RECORD.md: 8e232c308cbbd5302e4b3f56e6cc58f6f35805cddab25dcbbc75064ff14eedf2
+    - LORAMER_QUEUE_OF_RECORD.md: 037ca22f4f86c49a00d152e43757c3e8650bd1817ff3482cafdf7a158720d0c2
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147
@@ -327,7 +327,7 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - NICETY: soften encrypted-PDF rejection copy in /api/knowledge. src: CONTINUE_HERE QUEUED. open [NP]
 - Privacy / no-training copy (folds into homepage unification). src: CONTINUE_HERE QUEUED. open [LC]
 - Universal table SORT — every table sortable on every column (build into redesign tables, not legacy). src: AUDIT 2026-06-18, Flight-2#? . open [LC]
-- 'd-roas' STAT card vs new 'roas' MULTI-SOURCE card — naming/label collision: give the two DISTINCT user-facing labels before launch (the legacy single-value 'd-roas' STAT vs the LORAMER_NEXT_ROAS_CARD_V1 multi-source 'roas' card). src: 2026-07-09 remote-control bank. open [LC]
+- ✅ BUILT 2026-07-10 (LORAMER_NEXT_MER_SUBTITLE_V1, d4a5a17) — 'd-roas' STAT relabeled ROAS→MER + basis subtitle, RESOLVING the d-roas/'roas' naming collision. The default Overview tile now shows headline 'MER' + a basis line 'Marketing Efficiency Ratio · blended revenue ÷ all ad spend' (distinct from the multi-source 'ROAS — multi-source' card + its 3 basis-labeled sources). MECHANISM: NEW additive CardConfig.subtitle (StatBody renders it via styles.roasBasis; B2 DELTA-PRIORITY = the subtitle REPLACES the plain window label, but a delta still wins when a compare window is active); d-roas card carries title:'MER' + subtitle (card-types.ts defaultOverviewView). STAT_METRICS UNTOUCHED (no shared-label edit → no metric-picker change, no other stat card, no live-app reach); math unchanged (value still 'N.NNx'). Gate-A: npm run build + tsc --noEmit GREEN (build exit 0); renderToStaticMarkup 4-scenario branch proof ALL PASS (MER headline · two-line value+basis · delta-priority when comparing · subtitle-less tiles byte-identical to pre-change). Deployed d4a5a17. src: 2026-07-10 build. open(Gate B — on-device sm+desktop render: MER + basis two lines, no clip in the h:2 ~112px tile; delta shows when comparing) [LC]
 - #1/#6 Backfill AUTO-CONTINUE to completion (drop manual Resume; 20-lap cap = safety) + progress meter, ALL platforms. src: CONTINUE_HERE Flight-2. open [LC]
 - #2 Lora content bleed on mobile+desktop (tables overflow) — responsive across ALL Lora surfaces. src: Flight-2. open [LC]
 - #3 Mobile: no path to /clients cards grid (dropdown lacks "all clients") — mobile nav gap. src: Flight-2. open [LC]
