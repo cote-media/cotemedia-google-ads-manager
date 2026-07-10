@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-10T17:15:29.843Z
-- built_from HEAD: bfe1a3d46284266ef30dacc9759ba3b3bdb87f13  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-10T17:47:21.922Z
+- built_from HEAD: babb45a31e65579564f6e0723e6b854e1d70bf1a  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 94b6f63a41107db9093d42b247d65081ca2a2bac176db58ec402a3fcfacda5c2
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
     - LORAMER_DECISIONS.md: abe62ccc3d41fbd3c5d9b669871a5e9c544478af9c73e12d901fefdf7178d96a
-    - LORAMER_QUEUE_OF_RECORD.md: e63ed6aaab1165e16be7e0fe5d96ca0feadd05309837b6f22f9f8f9e11255731
+    - LORAMER_QUEUE_OF_RECORD.md: e53ba18543247d0da3ea716852467c3c22603eef950658319325eec164306632
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147
@@ -316,7 +316,6 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
 - Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
 - CLIENT VALUE_MODEL (LORAMER_CLIENT_VALUE_MODEL_V1) — Layer 1 ✅ SHIPPED 2026-07-03 (ef6ab8f, migration 025): additive nullable jsonb value_model on client_context (online-purchase / offline-sales / lead, multi-select) + Lora ALWAYS-ON emit ("Client value model: …" in build-claude-context, never suppressed by business_descriptor) + -next multi-select & NON-DISMISSABLE HARD GATE (≥1 required before the client surface is usable). /api/context unchanged (generic spread stores it). DEPLOYED; Gate-B on-device PENDING (do NOT mark fully done). Layer 2 = QUEUED, not built: legacy /clients form field + server-side onboarding gate + the ROADMAP "Data Completeness Onboarding" meter / soft+hard-gate framework / per-source N/A / nudge engine (d5bf56e). src: value-model build 2026-07-03. Layer-1 done; Layer-2 open [LC]
-- ✅ BUILT 2026-07-09 (LORAMER_NEXT_MOBILE_LAYOUT_V1) — PER-BREAKPOINT (mobile sm) CARD-ORDER persistence in the -next CardEngine. ROOT CAUSE: CardGrid dropped onLayoutChange on mobile (`if (!isMobile)`) + regenerated the sm layout from cards[] every render → mobile drags never reached layout[], Done saved nothing. FIX (4 files, additive, NO migration): SavedView gains optional `layoutSm` (desktop stays `layout`); CardGrid captures a genuine mobile reorder into a SEPARATE slot via onLayoutSmChange (never desktop lg/md coords) + hydrates sm order from layoutSm else cards[]-order stacking (FIX-1 cumulative-height preserved); CardEngine layoutSm state → hydrate/debounced-autosave/Done-flush/buildWorkingView; /api/next/layouts stores layoutSm in the `view` JSONB. Desktop+mobile INDEPENDENT by design (Russ-confirmed); a layoutSm-less legacy row renders identically until reordered on mobile. queryBreakdown/metrics-query UNTOUCHED; -next preview-gated only (not live/reviewer). Gate-A GREEN: tsc+build exit 0; ordering loop proven (legacy=cards[] order · mount/breakpoint fire skips · drag→re-mount holds · convergence no-thrash · new-card appends · removed-card drops). Gate-B on-device (mobile persist loop + desktop untouched + legacy row intact) PENDING. src: DECISIONS PER-BREAKPOINT CARD ORDER + MOBILE-PARITY GATE, 2026-07-09. open(Gate B render verify) [LC]
   - [SUPERSEDED — fixed above] The additive queryBreakdown path SUMS all entity levels for a breakdown_type → double-counts multi-level breakdowns: Google hour all-levels $3,945.88 = campaign $2,427.36 + ad_group $1,518.52 (true = campaign level); ALSO inflates the Meta hour numbers Lora reports (summed across account+campaign+ad_set+ad — the "4 PM $437.68" figure is inflated) + pre-existing age/gender/geo(meta). FIX: scope additive breakdowns to ONE entity level (coarsest present, or an entityLevel arg like the P1b video projection); the new index already includes entity_level to serve it. Shared read-path (metrics-query.ts) — freeze-sensitive; STOP-and-confirm. src: 2026-07-02 timeout diagnosis (found while investigating). open [LC]
 - Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes→Facts. src: CONTINUE_HERE QUEUED. open [LC]
 - Agency profile route (stub) → unlocks agency-level Knowledge UI. src: CONTINUE_HERE QUEUED. open [LC]
@@ -327,7 +326,6 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - NICETY: soften encrypted-PDF rejection copy in /api/knowledge. src: CONTINUE_HERE QUEUED. open [NP]
 - Privacy / no-training copy (folds into homepage unification). src: CONTINUE_HERE QUEUED. open [LC]
 - Universal table SORT — every table sortable on every column (build into redesign tables, not legacy). src: AUDIT 2026-06-18, Flight-2#? . open [LC]
-- MOBILE GATE-B — on-device render-verify of bfe1a3d (LORAMER_NEXT_MOBILE_LAYOUT_V1): mobile drag→Done→reload HOLDS the sm order; a mobile reorder leaves the desktop (lg/md) order UNMOVED; a Shelley-style legacy no-layoutSm row renders intact (falls back to cards[]-order stacking). DO FIRST per the MOBILE-PARITY GATE. src: 2026-07-09 remote-control bank. open(Gate B) [LC]
 - MOBILE-PARITY SWEEP (read-only) — check whether any OTHER -next card shares the mobile-persist gap (the CardGrid `if (!isMobile)` drop) or whether the shared CardGrid fix (LORAMER_NEXT_MOBILE_LAYOUT_V1) already clears the whole class. Per the MOBILE-PARITY GATE. src: 2026-07-09 remote-control bank. open(sweep) [LC]
 - 'd-roas' STAT card vs new 'roas' MULTI-SOURCE card — naming/label collision: give the two DISTINCT user-facing labels before launch (the legacy single-value 'd-roas' STAT vs the LORAMER_NEXT_ROAS_CARD_V1 multi-source 'roas' card). src: 2026-07-09 remote-control bank. open [LC]
 - #1/#6 Backfill AUTO-CONTINUE to completion (drop manual Resume; 20-lap cap = safety) + progress meter, ALL platforms. src: CONTINUE_HERE Flight-2. open [LC]
@@ -386,6 +384,7 @@ P14 CONVERSATION SURFACE: Phase1 remaining (drop legacy conversations JSONB afte
 P15 HUMAN SUPPORT: "Talk to a human" link+button (always visible) + response-time promise; App Store/pricing human-commitment copy; footer→support 1-click; agency/business/pricing marketing callouts; help-desk tooling at 50 customers. src: ROADMAP P15. open [LC]
 P16 GLOBAL PREFERENCES: user_preferences table+UI; build-claude-context reads user-prefs-first; cross-client directive propagation; operator-model (Phase3/P9). src: ROADMAP P16. open [NP]
 P18 CUSTOMIZABLE DASHBOARDS: dashboard_layouts table; Card abstraction; react-grid-layout (Shopify proving ground→all tabs); templates; cross-platform "My Overview"; AI-suggested layouts. src: ROADMAP P18, CONTINUE_HERE redesign(d). open [LC foundation; AI NP]
+- ALWAYS-ON DRAG (extends P18) — persistent 9-dot drag handle on EVERY card, draggable ANYTIME with NO customize/edit-mode toggle to enter first (Russ's cited exemplar: "TW"). Applies across ALL dashboard tabs; extends the drag/reorder work in the -next CardEngine (Project 18). Deferred — NOT launch-blocking. src: 2026-07-10 remote-control bank. deferred [NP]
 P19 CANVA CLOSED-LOOP / design phase (2027+ horizon). src: ROADMAP P19, Redesign post-launch. open [NP]
 P20 MULTI-USER WORKSPACES: workspaces+workspace_members; backfill user_email→workspace_id; Owner/Member roles; invite flow; audit log; Viewer/Billing roles; SSO (Enterprise). (overlaps RBAC LC item.) src: ROADMAP P20. open [NP/LC overlap]
 P21 EXPORT & SHARING: Markdown/txt → PDF/Word/XLSX → HTML-email/bulk → scheduled-digest/JSON/white-label. src: ROADMAP P21. open [NP]
