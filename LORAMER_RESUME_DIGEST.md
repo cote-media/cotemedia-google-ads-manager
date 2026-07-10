@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-10T17:47:21.922Z
-- built_from HEAD: babb45a31e65579564f6e0723e6b854e1d70bf1a  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-10T18:13:04.787Z
+- built_from HEAD: 629034e141caa90a35203209b4b9725d90ce942c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 94b6f63a41107db9093d42b247d65081ca2a2bac176db58ec402a3fcfacda5c2
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
     - LORAMER_DECISIONS.md: abe62ccc3d41fbd3c5d9b669871a5e9c544478af9c73e12d901fefdf7178d96a
-    - LORAMER_QUEUE_OF_RECORD.md: e53ba18543247d0da3ea716852467c3c22603eef950658319325eec164306632
+    - LORAMER_QUEUE_OF_RECORD.md: 8e232c308cbbd5302e4b3f56e6cc58f6f35805cddab25dcbbc75064ff14eedf2
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147
@@ -316,6 +316,7 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
 - Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
 - CLIENT VALUE_MODEL (LORAMER_CLIENT_VALUE_MODEL_V1) — Layer 1 ✅ SHIPPED 2026-07-03 (ef6ab8f, migration 025): additive nullable jsonb value_model on client_context (online-purchase / offline-sales / lead, multi-select) + Lora ALWAYS-ON emit ("Client value model: …" in build-claude-context, never suppressed by business_descriptor) + -next multi-select & NON-DISMISSABLE HARD GATE (≥1 required before the client surface is usable). /api/context unchanged (generic spread stores it). DEPLOYED; Gate-B on-device PENDING (do NOT mark fully done). Layer 2 = QUEUED, not built: legacy /clients form field + server-side onboarding gate + the ROADMAP "Data Completeness Onboarding" meter / soft+hard-gate framework / per-source N/A / nudge engine (d5bf56e). src: value-model build 2026-07-03. Layer-1 done; Layer-2 open [LC]
+- MOBILE-PARITY WATCH (guardrail) — any FUTURE -next page that persists card order via a NEW path OUTSIDE CardEngine reintroduces the bfe1a3d mobile-persist gap. Pages that REUSE CardEngine inherit the layoutSm fix BY CONSTRUCTION (safe). GUARD: new card-order persistence MUST go through CardEngine/layoutSm or explicitly carry its OWN per-breakpoint slot. NOT a current gap — Overview (dashboard-next/page.tsx, pageKey='overview') is the only CardEngine mount today. src: MOBILE-PARITY SWEEP 2026-07-10. standing [NP]
   - [SUPERSEDED — fixed above] The additive queryBreakdown path SUMS all entity levels for a breakdown_type → double-counts multi-level breakdowns: Google hour all-levels $3,945.88 = campaign $2,427.36 + ad_group $1,518.52 (true = campaign level); ALSO inflates the Meta hour numbers Lora reports (summed across account+campaign+ad_set+ad — the "4 PM $437.68" figure is inflated) + pre-existing age/gender/geo(meta). FIX: scope additive breakdowns to ONE entity level (coarsest present, or an entityLevel arg like the P1b video projection); the new index already includes entity_level to serve it. Shared read-path (metrics-query.ts) — freeze-sensitive; STOP-and-confirm. src: 2026-07-02 timeout diagnosis (found while investigating). open [LC]
 - Connect flow (stubbed "+ Connect a source"); saved-chats browser; logo upload; contacts; migrate user_notes→Facts. src: CONTINUE_HERE QUEUED. open [LC]
 - Agency profile route (stub) → unlocks agency-level Knowledge UI. src: CONTINUE_HERE QUEUED. open [LC]
@@ -326,7 +327,6 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - NICETY: soften encrypted-PDF rejection copy in /api/knowledge. src: CONTINUE_HERE QUEUED. open [NP]
 - Privacy / no-training copy (folds into homepage unification). src: CONTINUE_HERE QUEUED. open [LC]
 - Universal table SORT — every table sortable on every column (build into redesign tables, not legacy). src: AUDIT 2026-06-18, Flight-2#? . open [LC]
-- MOBILE-PARITY SWEEP (read-only) — check whether any OTHER -next card shares the mobile-persist gap (the CardGrid `if (!isMobile)` drop) or whether the shared CardGrid fix (LORAMER_NEXT_MOBILE_LAYOUT_V1) already clears the whole class. Per the MOBILE-PARITY GATE. src: 2026-07-09 remote-control bank. open(sweep) [LC]
 - 'd-roas' STAT card vs new 'roas' MULTI-SOURCE card — naming/label collision: give the two DISTINCT user-facing labels before launch (the legacy single-value 'd-roas' STAT vs the LORAMER_NEXT_ROAS_CARD_V1 multi-source 'roas' card). src: 2026-07-09 remote-control bank. open [LC]
 - #1/#6 Backfill AUTO-CONTINUE to completion (drop manual Resume; 20-lap cap = safety) + progress meter, ALL platforms. src: CONTINUE_HERE Flight-2. open [LC]
 - #2 Lora content bleed on mobile+desktop (tables overflow) — responsive across ALL Lora surfaces. src: Flight-2. open [LC]
