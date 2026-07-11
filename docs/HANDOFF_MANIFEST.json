@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "3c8c5e85477be6550394ea0e9ca75e5ebd9ac5ed32775be1b6467b2921395ba0",
+    "content_hash": "57d4d9c15452264a8893e29e49e165962c8842c558ac7d921e61b3df74f3e580",
     "last_reconciled_date": "2026-07-11",
-    "last_reconciled_head": "d096067",
-    "line_count": 312
+    "last_reconciled_head": "27b5e23",
+    "line_count": 317
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "e06dfa224e9cae241966174b284e72508f577e83f8e3a94ebd06b495cd6c3db4",
+    "content_hash": "3bae12f10f9698ba2d8e2e4b87561e7898820baaee698479e5b286b7a71a2c73",
     "last_reconciled_date": "2026-07-11",
-    "last_reconciled_head": "d096067",
-    "line_count": 539
+    "last_reconciled_head": "27b5e23",
+    "line_count": 543
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147",
