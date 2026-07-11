@@ -569,7 +569,27 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
 ═══ NEXT STEP ═══
-▶▶ 2026-07-05 EOD — IMMEDIATE NEXT = the ⭐ TOP VERIFY at the head of the LORAMER_QUEUE_OF_RECORD.md ACTIVE WORKSTREAM: prove Google conv-action category NAME emits NATIVELY on the next Google sync (rows with synced_at AFTER the fae78f8 deploy must carry conversion_action_category_name; named_fresh == total_fresh — the upsert replaces `extra` wholesale, so a fresh named row proves the WRITER, not the backfill). THEN resume the CONVERSION-ACTION CAPTURE FLOOR: Meta ~5-alias canonicalization before ANY value/ROAS card · Google conv-action history (T2.3, quota-gated) · Google channel_type/bidding_strategy persist. Also shipped/authored 2026-07-05: the PROPOSED pricing model (docs/PRICING_MODEL_2026_07.md, soft-locked, PENDING Phase-5) + broke the circular DECISIONS↔STRIPE pricing pointer (LORAMER_DECISIONS.md now canonical). The June PRIORITY ORDER list below is HISTORICAL context, not the current front of queue.
+▶▶ 2026-07-11 EOD (SESSION WRAP — resume HERE). The cadence this session IS the target pace: verify-first → ONE flight → Gate-A → Russ approves → ship (build+commit+push+deploy+docs) → RESTATE Gate-B → hold. Keep that rhythm; deliberate speed, RIGHT>FAST.
+
+SHIPPED + VERIFIED THIS SESSION (don't rebuild; -next is preview-gated so most carry Gate-B on-device PENDING): MER tile rename + basis subtitle (LORAMER_NEXT_MER_SUBTITLE_V1) · Shelley Woo recent-days "stall" → NOT-A-BUG (live-probed true no-sale) · /api/next/entities captured entity read (LORAMER_NEXT_ENTITIES_V1) · the -next PLATFORM PAGE + shared drill, Google+Meta (LORAMER_NEXT_PLATFORM_PAGE_V1 / _SPINE_V3) + ga/shopify shells + column-picker portal fix · the STORE PLATFORM PAGE — Shopify+Woo, connection-aware, money fold-in + revenue/orders/AOV + timeseries + top products + customer-mix coming-soon, single connection-aware Store rail + MobileNav tab (LORAMER_NEXT_STORE_READS_V1 flight 1 + LORAMER_NEXT_STORE_PAGE_V1 flight 2) · store client-switch crash fix S-PL#1 (remount key, LORAMER_NEXT_STORE_SWITCH_FIX_V1) · store revenue COMPARE S-PL#2 (LORAMER_NEXT_STORE_COMPARE_V1) · protocol hardening (launch posture / EOD terseness / one-in-flight / completeness-first — all in DECISIONS OPERATING PROTOCOL).
+
+NEXT-UP QUEUE (launch-critical, ORDERED — THIS is the current front of queue):
+(1) STORE CARD CATALOG — S-PL#3+#4 (store-relevant add-card options only + addable product/variant/store-breakdown cards, re-keyed platform+breakdown_type) + S-PL#5 (compare legend distinct current-vs-prior labels + real-date axis that handles sparse days). See STORE PAGE GATE-B FINDINGS in QUEUE.
+(2) RBAC PATH B — org/workspace entity + invite + per-client checkbox + member Lora access. Russ wants Haley testing EARLY; fully scoped; highest-value unbuilt. (Prior order put RBAC behind cutover-parity; Russ has PRIORITIZED it up for early member testing.)
+(3) CONNECT/RECONNECT flow in -next (the stubbed "+ Connect a source").
+(4) GA ANALYTICS page (N4) — needs the columns-vs-jsonb capture decision (QUEUE [NP]) FIRST.
+(5) P-PL#1 date presets + custom + "today" (live-view LABELED provisional, NOT folded into the store-of-record per Direction B) — folded into the granularity-toggle flight.
+(6) P-PL#3 mobile Lora chat (Claude-caliber; SHARED ChatLauncher → every -next surface).
+(7) CONTEXTUAL Ask-Lora (N2).
+(8) SAVABLE/EXPORTABLE chats (N5; Drive export deferred post-Google-verify).
+(9) CUTOVER FLIP (LAST — legacy retires only once -next is the complete app for all users).
+(10) HOMEPAGE rewrite + auth unify (loramer-landing repo) + billing page (target 2026-07-13) + cross-customer corpus logging (needs privacy/terms disclosure FIRST).
+
+EXTERNAL CLOCK (the ONLY external launch risk): Google OAuth adwords verification submitted 2026-06-06, status UNCONFIRMED — needs Russ to screenshot the Cloud Console OAuth consent/verification screen. (Meta approved; Shopify approved.)
+
+DISCIPLINE (restated so it's not re-derived; full rules = DECISIONS OPERATING PROTOCOL + the QUEUE STANDING UX BAR): deliberate speed, RIGHT>FAST; terse, no editorializing, no task spanning turns; ONE change in flight (NEVER paste while a flight runs); RESTATE Gate-B in every ship report (Russ cannot see Claude Code's Gate-B lines); verify-first on load-bearing claims; completeness-before-build; keep a RUNNING PUNCH-LIST — fix crashes/blockers/cheap-local NOW, bank the rest with reasons + clear before the relevant cutover.
+
+(The 2026-07-05 conversion-action-floor lead + the June PRIORITY ORDER list below are HISTORICAL context, not the current front of queue. 2026-07-05 IMMEDIATE-NEXT was: prove Google conv-action category NAME emits natively on the next sync, then resume the CONVERSION-ACTION CAPTURE FLOOR — Meta ~5-alias canonicalization / Google conv-action history [T2.3, quota-gated] / Google channel_type+bidding_strategy persist; also authored the proposed pricing model docs/PRICING_MODEL_2026_07.md [soft-locked, PENDING Phase-5].)
 
 ACTIVE WORKSTREAM: DATA COMPLETENESS PROGRAM. GOVERNING RULE — capture EVERYTHING from EVERYWHERE, store FOREVER, full grain WITH history. Plan: docs/LORAMER_DATA_COMPLETENESS.md. FULL queue: LORAMER_QUEUE_OF_RECORD.md. Settled decisions: LORAMER_DECISIONS.md. (Both registers are MANDATORY session reading — restate the relevant ones before proposing anything.)
 
