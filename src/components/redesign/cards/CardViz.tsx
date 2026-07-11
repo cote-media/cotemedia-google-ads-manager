@@ -156,36 +156,77 @@ function MoneyBody({ clientId, current }: { clientId: string; current: Win }) {
 // LORAMER_NEXT_STORE_PAGE_V1 — store revenue/orders timeseries (reads /api/next/store-timeseries; store-scoped, NOT
 // the google+meta CombinedPerformanceChart). One metric at a time via a Revenue|Orders toggle (mirrors CompareLine's
 // segmented control). No-sale days are ABSENT by the writer's false-zero law → the line connects captured days only.
+// LORAMER_NEXT_STORE_COMPARE_V1 (S-PL#2) — when the page COMPARE is on, overlays a current (solid) + prior (dashed)
+// series with a dual-range legend, the SAME treatment as CompareLine. Additive: the compare window is a SECOND read
+// of the SAME /api/next/store-timeseries (no route change). Alignment is by DAY-OFFSET from each window's start (day 1
+// vs day 1) — offset-based, not array-index, because store days are SPARSE; absent days stay gaps (null), never a $0.
 type StorePt = { date: string; revenue: number; orders: number }
 const STORE_TS: { key: 'revenue' | 'orders'; label: string; money: boolean }[] = [{ key: 'revenue', label: 'Revenue', money: true }, { key: 'orders', label: 'Orders', money: false }]
-function StoreTimeseriesBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfig; current: Win }) {
-  const [series, setSeries] = useState<StorePt[] | null>(null)
+const dayOffset = (winStart: string, date: string) => Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(winStart + 'T00:00:00Z')) / 86400000)
+function StoreTimeseriesBody({ clientId, cfg, current, compare }: { clientId: string; cfg: CardConfig; current: Win; compare: Win | null }) {
+  const [cur, setCur] = useState<StorePt[] | null>(null)
+  const [cmp, setCmp] = useState<StorePt[] | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [metric, setMetric] = useState<'revenue' | 'orders'>('revenue')
+  const cmpKey = compare ? compare.startDate + compare.endDate : ''
   useEffect(() => {
-    let alive = true; setSeries(null); setErr(null)
-    const p = new URLSearchParams({ clientId, start: current.startDate, end: current.endDate })
-    if (cfg.storePlatform) p.set('platform', cfg.storePlatform)
-    fetch(`/api/next/store-timeseries?${p.toString()}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d) => { if (alive) setSeries(Array.isArray(d.series) ? d.series : []) })
-      .catch(() => { if (alive) setErr('Couldn’t load') })
+    let alive = true; setCur(null); setCmp(null); setErr(null)
+    const load = (w: Win) => {
+      const p = new URLSearchParams({ clientId, start: w.startDate, end: w.endDate })
+      if (cfg.storePlatform) p.set('platform', cfg.storePlatform)
+      return fetch(`/api/next/store-timeseries?${p.toString()}`).then((r) => (r.ok ? r.json() : Promise.reject())).then((d) => (Array.isArray(d.series) ? (d.series as StorePt[]) : []))
+    }
+    load(current).then((s) => { if (alive) setCur(s) }).catch(() => { if (alive) setErr('Couldn’t load') })
+    if (compare) load(compare).then((s) => { if (alive) setCmp(s) }).catch(() => { if (alive) setErr('Couldn’t load') })
     return () => { alive = false }
-  }, [clientId, current.startDate, current.endDate, cfg.storePlatform])
+  }, [clientId, current.startDate, current.endDate, cmpKey, cfg.storePlatform])
 
   if (err) return <p className={styles.err}>{err}</p>
-  if (!series) return <p className={styles.muted}>Loading…</p>
-  if (series.length === 0) return <p className={styles.muted}>No sales in this range</p>
+  if (!cur || (compare && !cmp)) return <p className={styles.muted}>Loading…</p>
+  if (cur.length === 0 && (!compare || !cmp || cmp.length === 0)) return <p className={styles.muted}>No sales in this range</p>
   const money = metric === 'revenue'
-  const data = series.map((s) => ({ date: s.date.slice(5), v: money ? s.revenue : s.orders }))
+  const val = (s: StorePt) => (money ? s.revenue : s.orders)
   const fmt = (x: number) => (money ? fmtMoney(x) : fmtNum(x))
+  const toggle = (
+    <div className={styles.tsToggle}>
+      {STORE_TS.map((mt) => (
+        <button key={mt.key} type="button" className={metric === mt.key ? styles.segOn : styles.segBtn} onClick={() => setMetric(mt.key)}>{mt.label}</button>
+      ))}
+    </div>
+  )
+
+  // COMPARE ON — overlay current (solid) + prior (dashed) aligned by day-offset from each window's start, dual-range
+  // legend (the CompareLine treatment). Absent no-sale days stay gaps (null) — never a fabricated $0.
+  if (compare && cmp) {
+    const curMap = new Map<number, number>(cur.map((s) => [dayOffset(current.startDate, s.date), val(s)] as [number, number]))
+    const cmpMap = new Map<number, number>(cmp.map((s) => [dayOffset(compare.startDate, s.date), val(s)] as [number, number]))
+    let maxOff = 0
+    curMap.forEach((_, k) => { if (k > maxOff) maxOff = k })
+    cmpMap.forEach((_, k) => { if (k > maxOff) maxOff = k })
+    const data = Array.from({ length: maxOff + 1 }, (_, i) => ({ i: i + 1, current: curMap.get(i) ?? null, compare: cmpMap.get(i) ?? null }))
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {toggle}
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" />
+            <XAxis dataKey="i" tick={{ fontSize: 11 }} minTickGap={24} />
+            <YAxis tick={{ fontSize: 11 }} width={48} tickFormatter={fmt} />
+            <Tooltip formatter={(x: any) => fmt(Number(x))} />
+            <Legend />
+            <Line type="monotone" dataKey="current" name={winLabel(current)} stroke="#2563eb" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="compare" name={winLabel(compare)} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    )
+  }
+
+  // COMPARE OFF — unchanged from before: a single current line on a date axis.
+  const data = cur.map((s) => ({ date: s.date.slice(5), v: val(s) }))
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className={styles.tsToggle}>
-        {STORE_TS.map((mt) => (
-          <button key={mt.key} type="button" className={metric === mt.key ? styles.segOn : styles.segBtn} onClick={() => setMetric(mt.key)}>{mt.label}</button>
-        ))}
-      </div>
+      {toggle}
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" />
@@ -243,7 +284,7 @@ function RoasBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfi
 
 export default function CardViz({ clientId, cfg, current, compare }: { clientId: string; cfg: CardConfig; current: Win; compare: Win | null }) {
   if (cfg.kind === 'timeseries') {
-    if (cfg.source === 'store') return <StoreTimeseriesBody clientId={clientId} cfg={cfg} current={current} /> // LORAMER_NEXT_STORE_PAGE_V1 — store revenue/orders, not the ad-platform combined chart
+    if (cfg.source === 'store') return <StoreTimeseriesBody clientId={clientId} cfg={cfg} current={current} compare={compare} /> // LORAMER_NEXT_STORE_PAGE_V1 — store revenue/orders (+ compare overlay), not the ad-platform combined chart
     return compare
       ? <CompareLine clientId={clientId} current={current} compare={compare} />
       : <CombinedPerformanceChart clientId={clientId} period="LAST_30_DAYS" start={current.startDate} end={current.endDate} />
