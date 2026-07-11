@@ -4,7 +4,6 @@
 import { Fragment } from 'react'
 import Link from 'next/link'
 import styles from './redesign.module.css'
-import ShopifyIcon from './ShopifyIcon'
 import SignOutButton from './SignOutButton'
 
 type NavItem = { id: string; label: string; icon: string; href: string; group?: 'channel'; connect?: boolean }
@@ -15,7 +14,10 @@ const NAV: NavItem[] = [
   { id: 'google-ads', label: 'Google Ads', icon: 'ti-brand-google', href: '/dashboard-next/google-ads', group: 'channel' },
   { id: 'meta-ads', label: 'Meta Ads', icon: 'ti-brand-meta', href: '/dashboard-next/meta-ads', group: 'channel' },
   { id: 'analytics', label: 'Analytics', icon: 'ti-chart-bar', href: '/dashboard-next/analytics', group: 'channel' },
-  { id: 'shopify', label: 'Shopify', icon: 'ti-brand-shopify', href: '/dashboard-next/shopify', group: 'channel' },
+  // LORAMER_NEXT_STORE_PAGE_V1 — ONE connection-aware "Store" entry (routes to /dashboard-next/store, which resolves
+  // shopify|woo per captured data) REPLACES the separate 'shopify' interstitial. No 'woocommerce' entry — the single
+  // Store entry serves both stores per detection.
+  { id: 'store', label: 'Store', icon: 'ti-building-store', href: '/dashboard-next/store', group: 'channel' },
   { id: 'connect', label: 'Connect a source', icon: 'ti-plus', href: '/clients', group: 'channel', connect: true },
   { id: 'lora', label: 'Lora', icon: 'ti-sparkles', href: '/dashboard-next/lora' },
   { id: 'mer', label: 'Mer', icon: 'ti-atom', href: '/dashboard-next/mer' },
@@ -61,10 +63,7 @@ export default function RailContent({
               {groupLabel}
               {sep}
               <Link href={item.connect ? item.href : withClient(item.href)} className={cls}>
-                {/* Shopify: inline SVG (Tabler v3 webfont dropped brand-shopify); every other channel = webfont. */}
-                {item.id === 'shopify'
-                  ? <ShopifyIcon size={18} />
-                  : <i className={`ti ${item.icon}`} />}
+                <i className={`ti ${item.icon}`} />
                 {item.label}
               </Link>
             </Fragment>

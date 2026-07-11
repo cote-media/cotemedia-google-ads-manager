@@ -1,4 +1,5 @@
-// LORAMER_REDESIGN_INCA — the mobile bottom tab bar (Overview · Lora · Mer). Hidden ≥ md via CSS.
+// LORAMER_REDESIGN_INCA — the mobile bottom tab bar (Overview · Store · Lora · Mer). Hidden ≥ md via CSS.
+// LORAMER_NEXT_STORE_PAGE_V1 — added the Store tab (→ /dashboard-next/store, connection-aware shopify|woo).
 // LORAMER_NEXT_PARITY_V1 (P2-A): the Lora tab now OPENS the Ask-Lora chat sheet (dispatches 'loramer:open-chat',
 // which ChatLauncher listens for) instead of routing to a stub page → 'use client'. Overview/Mer stay Links.
 'use client'
@@ -11,6 +12,9 @@ export default function MobileNav({ active, clientId }: { active: string; client
     <nav className={styles.bottomBar}>
       <Link href={withClient('/dashboard-next')} className={`${styles.barItem} ${active === 'overview' ? styles.barActive : ''}`}>
         <i className="ti ti-layout-dashboard" /><span>Overview</span>
+      </Link>
+      <Link href={withClient('/dashboard-next/store')} className={`${styles.barItem} ${active === 'store' ? styles.barActive : ''}`}>
+        <i className="ti ti-building-store" /><span>Store</span>
       </Link>
       <button
         type="button"

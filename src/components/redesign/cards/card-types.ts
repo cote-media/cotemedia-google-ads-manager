@@ -31,6 +31,13 @@ export interface CardConfig {
   // roas: LORAMER_NEXT_ROAS_CARD_V1 — which basis-labeled ROAS sources the user has checked ON. Undefined/empty →
   // the card shows every AVAILABLE basis (default = all). Persisted inside the `view` JSONB; no schema change.
   roasBases?: string[]
+  // LORAMER_NEXT_STORE_PAGE_V1 — store cards read the STORE-scoped reads instead of the portfolio-combined ones.
+  // source==='store' switches useCardData/CardViz to /api/next/store-stats · /store-timeseries · /entities(product).
+  // storePlatform = the resolved store platform (shopify|woocommerce), baked into the products/timeseries reads
+  // (entities needs an explicit platform). ABSENT on every Overview card → those take the exact existing portfolio
+  // path, byte-identical. metric on a store stat card = revenue | orders | aov (mapped to store-stats fields).
+  source?: 'store'
+  storePlatform?: string
 }
 
 // react-grid-layout item (subset we persist).
@@ -138,6 +145,34 @@ export function defaultOverviewView(): SavedView {
     { i: 'd-money', x: 3, y: 7, w: 6, h: 6 }, // new bottom row → existing card positions unchanged
     { i: 'd-kw', x: 0, y: 13, w: 6, h: 6 }, // LORAMER_NEXT_KW_ST_CARD_V1 — new bottom row (nothing above moves)
     { i: 'd-st', x: 6, y: 13, w: 6, h: 6 },
+  ]
+  return { name: 'Default', cards, layout, pinned: [], globalPeriod: 'LAST_30_DAYS', globalCustom: null, compareMode: 'none', customCompare: null }
+}
+
+// LORAMER_NEXT_STORE_PAGE_V1 — the built-in STORE view (FLIGHT 2 of the Shopify/Woo store platform page). Cards read
+// the store-scoped reads shipped in FLIGHT 1: net revenue · orders · AOV (store-stats) + a revenue/orders timeseries
+// (store-timeseries) + top products (entities, product grain) + the money-breakdown waterfall (the existing 'money'
+// kind, /api/next/money — folded in from the old standalone store page) + an honest customer-mix "coming soon" (the
+// 0-PII customer engine is unbuilt — NEVER fabricated). `platform` = the resolved store platform (shopify|
+// woocommerce), baked into the product + timeseries reads. All cards add/remove/rearrangeable (grid-native law).
+export function storeDefaultView(platform: string): SavedView {
+  const cards: CardConfig[] = [
+    { id: 's-rev', kind: 'stat', viz: 'stat', source: 'store', storePlatform: platform, metric: 'revenue', dateRange: 'LAST_30_DAYS', title: 'Net revenue' },
+    { id: 's-orders', kind: 'stat', viz: 'stat', source: 'store', storePlatform: platform, metric: 'orders', dateRange: 'LAST_30_DAYS', title: 'Orders' },
+    { id: 's-aov', kind: 'stat', viz: 'stat', source: 'store', storePlatform: platform, metric: 'aov', dateRange: 'LAST_30_DAYS', title: 'AOV' },
+    { id: 's-ts', kind: 'timeseries', viz: 'line', source: 'store', storePlatform: platform, dateRange: 'LAST_30_DAYS', title: 'Revenue & orders' },
+    { id: 's-products', kind: 'breakdown', viz: 'table', source: 'store', storePlatform: platform, breakdownType: 'product', rankBy: 'revenue', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Top products' },
+    { id: 's-money', kind: 'money', viz: 'money', dateRange: 'LAST_30_DAYS', title: 'Money breakdown' }, // reuses /api/next/money (auto-detects the store platform)
+    { id: 's-customers', kind: 'breakdown', viz: 'table', source: 'store', breakdownType: 'customer_mix', dateRange: 'LAST_30_DAYS', title: 'Customer mix' }, // coming-soon (0-PII engine unbuilt)
+  ]
+  const layout: GridItem[] = [
+    { i: 's-rev', x: 0, y: 0, w: 3, h: 2 },
+    { i: 's-orders', x: 3, y: 0, w: 3, h: 2 },
+    { i: 's-aov', x: 6, y: 0, w: 3, h: 2 },
+    { i: 's-ts', x: 0, y: 2, w: 8, h: 5 },
+    { i: 's-products', x: 8, y: 2, w: 4, h: 5 },
+    { i: 's-money', x: 0, y: 7, w: 6, h: 6 },
+    { i: 's-customers', x: 6, y: 7, w: 6, h: 6 },
   ]
   return { name: 'Default', cards, layout, pinned: [], globalPeriod: 'LAST_30_DAYS', globalCustom: null, compareMode: 'none', customCompare: null }
 }

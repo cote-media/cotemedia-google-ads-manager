@@ -25,7 +25,12 @@ function StatBody({ clientId, cfg, current, compare }: { clientId: string; cfg: 
   if (d.error) return <p className={styles.err}>{d.error}</p>
   if (d.statValue == null) return <p className={styles.muted}>No data</p>
   const v = d.statValue
-  const val = m.money ? fmtMoney(v) : m.suffix ? v.toFixed(2) + m.suffix : fmtNum(v)
+  // LORAMER_NEXT_STORE_PAGE_V1 — store stat cards (revenue/orders/aov) format by field, not the STAT_METRICS catalog:
+  // revenue + aov are money, orders is a count. Non-store cards keep the exact existing catalog-driven formatting.
+  const storeMoney = cfg.metric === 'revenue' || cfg.metric === 'aov'
+  const val = cfg.source === 'store'
+    ? (storeMoney ? fmtMoney(v) : fmtNum(v))
+    : m.money ? fmtMoney(v) : m.suffix ? v.toFixed(2) + m.suffix : fmtNum(v)
   const dl = d.hasCompare ? deltaLabel(v, d.statCompare ?? null) : null
   const sub = cfg.subtitle // LORAMER_NEXT_MER_SUBTITLE_V1 — basis line replaces the plain window label; delta still wins (B2 delta-priority)
   return (
@@ -148,6 +153,52 @@ function MoneyBody({ clientId, current }: { clientId: string; current: Win }) {
   return <MoneyWaterfall clientId={clientId} start={current.startDate} end={current.endDate} bare />
 }
 
+// LORAMER_NEXT_STORE_PAGE_V1 — store revenue/orders timeseries (reads /api/next/store-timeseries; store-scoped, NOT
+// the google+meta CombinedPerformanceChart). One metric at a time via a Revenue|Orders toggle (mirrors CompareLine's
+// segmented control). No-sale days are ABSENT by the writer's false-zero law → the line connects captured days only.
+type StorePt = { date: string; revenue: number; orders: number }
+const STORE_TS: { key: 'revenue' | 'orders'; label: string; money: boolean }[] = [{ key: 'revenue', label: 'Revenue', money: true }, { key: 'orders', label: 'Orders', money: false }]
+function StoreTimeseriesBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfig; current: Win }) {
+  const [series, setSeries] = useState<StorePt[] | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [metric, setMetric] = useState<'revenue' | 'orders'>('revenue')
+  useEffect(() => {
+    let alive = true; setSeries(null); setErr(null)
+    const p = new URLSearchParams({ clientId, start: current.startDate, end: current.endDate })
+    if (cfg.storePlatform) p.set('platform', cfg.storePlatform)
+    fetch(`/api/next/store-timeseries?${p.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => { if (alive) setSeries(Array.isArray(d.series) ? d.series : []) })
+      .catch(() => { if (alive) setErr('Couldn’t load') })
+    return () => { alive = false }
+  }, [clientId, current.startDate, current.endDate, cfg.storePlatform])
+
+  if (err) return <p className={styles.err}>{err}</p>
+  if (!series) return <p className={styles.muted}>Loading…</p>
+  if (series.length === 0) return <p className={styles.muted}>No sales in this range</p>
+  const money = metric === 'revenue'
+  const data = series.map((s) => ({ date: s.date.slice(5), v: money ? s.revenue : s.orders }))
+  const fmt = (x: number) => (money ? fmtMoney(x) : fmtNum(x))
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className={styles.tsToggle}>
+        {STORE_TS.map((mt) => (
+          <button key={mt.key} type="button" className={metric === mt.key ? styles.segOn : styles.segBtn} onClick={() => setMetric(mt.key)}>{mt.label}</button>
+        ))}
+      </div>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" />
+          <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={24} />
+          <YAxis tick={{ fontSize: 11 }} width={48} tickFormatter={fmt} />
+          <Tooltip formatter={(x: any) => fmt(Number(x))} />
+          <Line type="monotone" dataKey="v" name={money ? 'Revenue' : 'Orders'} stroke="#2563eb" strokeWidth={2} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 // LORAMER_NEXT_ROAS_CARD_V1 — multi-source ROAS card. Its OWN isolated read (/api/next/card-roas → queryRoasBases,
 // NOT queryBreakdown). Renders only the bases the user checked (cfg.roasBases; empty/undefined → all available).
 // Every value carries its BASIS sentence (value-column landmine); an absent basis shows its reason, never a $0/0×
@@ -192,6 +243,7 @@ function RoasBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfi
 
 export default function CardViz({ clientId, cfg, current, compare }: { clientId: string; cfg: CardConfig; current: Win; compare: Win | null }) {
   if (cfg.kind === 'timeseries') {
+    if (cfg.source === 'store') return <StoreTimeseriesBody clientId={clientId} cfg={cfg} current={current} /> // LORAMER_NEXT_STORE_PAGE_V1 — store revenue/orders, not the ad-platform combined chart
     return compare
       ? <CompareLine clientId={clientId} current={current} compare={compare} />
       : <CombinedPerformanceChart clientId={clientId} period="LAST_30_DAYS" start={current.startDate} end={current.endDate} />

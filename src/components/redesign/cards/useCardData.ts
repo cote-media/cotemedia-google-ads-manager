@@ -36,6 +36,44 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
     setData({ loading: true, error: null, hasCompare: !!compare })
     const fail = () => { if (alive) setData({ loading: false, error: 'Couldn’t load', hasCompare: !!compare }) }
 
+    // LORAMER_NEXT_STORE_PAGE_V1 — STORE cards read the store-scoped reads (FLIGHT 1) instead of the portfolio-combined
+    // ones. Gated on cfg.source==='store' → every non-store (Overview) card falls through to the UNCHANGED paths below.
+    if (cfg.source === 'store') {
+      if (cfg.kind === 'stat') {
+        const field = cfg.metric === 'orders' ? 'orders' : cfg.metric === 'aov' ? 'aov' : 'revenue' // store-stats fields
+        const one = (w: Win) => {
+          const p = new URLSearchParams({ clientId, start: w.startDate, end: w.endDate })
+          if (cfg.storePlatform) p.set('platform', cfg.storePlatform)
+          return fetch(`/api/next/store-stats?${p.toString()}`).then((r) => (r.ok ? r.json() : Promise.reject()))
+        }
+        Promise.all([one(current), compare ? one(compare) : Promise.resolve(null)])
+          .then(([cur, cmp]) => { if (alive) setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(cur?.[field]), statCompare: cmp ? num(cmp[field]) : null }) })
+          .catch(fail)
+        return () => { alive = false }
+      }
+      if (cfg.kind === 'breakdown' && cfg.breakdownType === 'customer_mix') {
+        // Honest coming-soon: the privacy-safe (0-PII) customer engine is unbuilt → a note, NEVER fabricated rows.
+        if (alive) setData({ loading: false, error: null, hasCompare: false, rows: [], note: 'Customer mix (new vs returning) is coming soon — the privacy-safe customer engine is not built yet.' })
+        return () => { alive = false }
+      }
+      if (cfg.kind === 'breakdown' && cfg.breakdownType === 'product') {
+        const p = new URLSearchParams({ clientId, platform: cfg.storePlatform || 'shopify', level: 'product', start: current.startDate, end: current.endDate })
+        fetch(`/api/next/entities?${p.toString()}`)
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((d) => {
+            if (!alive) return
+            const rows: BreakdownRow[] = (Array.isArray(d.rows) ? d.rows : []).map((r: any) => ({
+              value: r.entityName || '(unnamed)', spend: 0, impressions: 0, clicks: 0,
+              conversions: Number(r.conversions || 0), conversionValue: Number(r.conversionValue || 0), revenue: Number(r.revenue || 0),
+            }))
+            rows.sort((a, b) => b.revenue - a.revenue) // entities returns ad-grain ordering; the store card ranks by revenue
+            setData({ loading: false, error: null, hasCompare: false, rows: rows.slice(0, cfg.topN || 8) })
+          })
+          .catch(fail)
+        return () => { alive = false }
+      }
+    }
+
     if (cfg.kind === 'stat') {
       const m = cfg.metric || 'spend'
       const p = new URLSearchParams({ clientId, ...winParams(current, compare) })
@@ -60,7 +98,7 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
       if (alive) setData({ loading: false, error: null, hasCompare: !!compare })
     }
     return () => { alive = false }
-  }, [clientId, cfg.kind, cfg.metric, cfg.breakdownType, cfg.rankBy, cfg.topN, current.startDate, current.endDate, cmpKey])
+  }, [clientId, cfg.kind, cfg.metric, cfg.breakdownType, cfg.rankBy, cfg.topN, cfg.source, cfg.storePlatform, current.startDate, current.endDate, cmpKey])
 
   return data
 }

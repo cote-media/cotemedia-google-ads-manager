@@ -1,19 +1,23 @@
-// LORAMER_ECOM_MONEY_SURFACE_DISPLAY_V1 — -NEXT-ONLY per-platform STORE drill page (the store tab that didn't
-// exist yet). Guard-first (requirePreviewUser as the FIRST line): a non-allowlisted request redirects to
-// /dashboard BEFORE any data is computed. Resolves ?clientId (verified to belong to the user) or the first
-// client; ?platform selects the store (auto-detected by the money route when absent). Hosts the full
-// MoneyWaterfall now and is structured so more store cards drop in later. Reviewer path untouched.
+// LORAMER_NEXT_STORE_PAGE_V1 — the -next STORE platform page (FLIGHT 2). Guard-first (requirePreviewUser as the FIRST
+// line): a non-allowlisted request redirects to /dashboard BEFORE any data is computed. Resolves ?clientId (owner-
+// scoped; resolveAccess swap later, same as Overview) or the first client, then CONNECTION-AWARE via
+// resolveStorePlatform (shopify|woo per captured data): a store with data → the full CardEngine store view (net
+// revenue · orders · AOV · revenue/orders timeseries · top products · money-breakdown waterfall + a customer-mix
+// coming-soon); NEITHER connected/captured → an honest empty/connect state (hasDataEver law, NEVER a false $0).
+// The old MoneyWaterfall-only store page is RETIRED — the money surface is now the in-grid 'money' card here.
 import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
-import MoneyWaterfall from '@/components/redesign/MoneyWaterfall'
+import CardEngine from '@/components/redesign/cards/CardEngine'
+import { storeDefaultView } from '@/components/redesign/cards/card-types'
+import { resolveStorePlatform } from '@/lib/next/store-detect'
 
 // Auth-gated (requirePreviewUser reads headers/session) → always server-rendered on demand; skip static prerender.
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardNextStorePage({ searchParams }: { searchParams: { clientId?: string; platform?: string; period?: string } }) {
+export default async function DashboardNextStorePage({ searchParams }: { searchParams: { clientId?: string; platform?: string } }) {
   await requirePreviewUser()
 
   const session = await getServerSession(authOptions)
@@ -34,16 +38,34 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
     )
   }
 
-  const platform = searchParams?.platform && ['woocommerce', 'shopify'].includes(searchParams.platform) ? searchParams.platform : undefined
-  const period = searchParams?.period || 'LAST_30_DAYS'
+  // Connection/data-aware: an explicit ?platform (if it has data) else the store with the most-recent captured data;
+  // chosen=null → this client has NO captured store data on either platform → the honest empty/connect state below.
+  const requested = searchParams?.platform && ['woocommerce', 'shopify'].includes(searchParams.platform) ? searchParams.platform : undefined
+  const { chosen } = await resolveStorePlatform(resolved.id, requested)
 
   return (
     <Shell active="store" clientName={resolved.name} clientId={resolved.id}>
-      {/* Store drill container — a simple stack so additional store cards (orders, products, customers, …) drop in
-          later without restructuring. Money surface is the first card. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 0' }}>
-        <MoneyWaterfall clientId={resolved.id} platform={platform} period={period} />
-      </div>
+      {chosen
+        ? <CardEngine pageKey={`store:${resolved.id}`} clientId={resolved.id} defaultView={storeDefaultView(chosen)} />
+        : <StoreEmpty />}
     </Shell>
+  )
+}
+
+// Honest empty/connect state — the client has no captured Shopify/WooCommerce data (hasDataEver law: absence renders
+// as "connect a store", NEVER a fabricated $0). Links to /clients where a store gets connected.
+function StoreEmpty() {
+  return (
+    <div style={{ maxWidth: 460, margin: '48px auto', textAlign: 'center', color: '#334155', fontFamily: 'Instrument Sans, system-ui, sans-serif' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🛍</div>
+      <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No store connected</div>
+      <p style={{ fontSize: 14, lineHeight: 1.5, color: '#64748b', marginBottom: 16 }}>
+        Connect Shopify or WooCommerce to see net revenue, orders, AOV, top products, and the money breakdown here.
+        (No store sales have been captured for this client yet.)
+      </p>
+      <a href="/clients" style={{ display: 'inline-block', padding: '8px 16px', borderRadius: 8, background: '#2563eb', color: '#fff', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
+        Connect a source →
+      </a>
+    </div>
   )
 }
