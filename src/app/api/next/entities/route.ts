@@ -13,8 +13,11 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const PLATFORMS = new Set(['google', 'meta'])
-const LEVELS = new Set(['campaign', 'ad_group', 'ad_set', 'ad'])
+// LORAMER_NEXT_STORE_READS_V1 — allowlist widened to the STORE product grain (shopify|woo · product|variant) for
+// the store platform page's top-products card. queryEntities is grain-generic (entity_level + platform + parent
+// filter), so ad-platform behavior (google|meta · campaign→ad) is BYTE-IDENTICAL — only the allowlist grew.
+const PLATFORMS = new Set(['google', 'meta', 'shopify', 'woocommerce'])
+const LEVELS = new Set(['campaign', 'ad_group', 'ad_set', 'ad', 'product', 'variant'])
 
 export async function GET(request: Request) {
   const session = (await getServerSession(authOptions)) as any
@@ -29,8 +32,8 @@ export async function GET(request: Request) {
 
   const platform = sp.get('platform') || ''
   const level = sp.get('level') || ''
-  if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'platform must be google or meta' }, { status: 400 })
-  if (!LEVELS.has(level)) return NextResponse.json({ error: 'level must be campaign|ad_group|ad_set|ad' }, { status: 400 })
+  if (!PLATFORMS.has(platform)) return NextResponse.json({ error: 'platform must be google|meta|shopify|woocommerce' }, { status: 400 })
+  if (!LEVELS.has(level)) return NextResponse.json({ error: 'level must be campaign|ad_group|ad_set|ad|product|variant' }, { status: 400 })
   const parentId = sp.get('parentId') || undefined
 
   const ISO = /^\d{4}-\d{2}-\d{2}$/

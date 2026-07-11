@@ -757,3 +757,41 @@ export async function queryEntities(opts: {
     entityCount: rows.length,
   }
 }
+
+// LORAMER_NEXT_STORE_READS_V1 — daily store timeseries (revenue + orders) for the -next store platform page. Reads
+// CAPTURED metrics_daily ACCOUNT rows for ONE store platform (shopify|woocommerce), one point per captured day
+// (no-sale days are absent by the writer's false-zero discipline — a gap, not a $0). orders = account.conversions
+// (= data.totalOrders, verified in the row builders). NO live call. Separate from queryMetrics (which sums a window).
+export type StoreDayPoint = { date: string; revenue: number; orders: number }
+export async function queryStoreTimeseries(opts: { clientId: string; platform: string; startDate: string; endDate: string }): Promise<StoreDayPoint[]> {
+  const byDay = new Map<string, { revenue: number; orders: number }>()
+  const PAGE = 1000
+  let from = 0
+  for (;;) {
+    const { data, error } = await supabaseAdmin
+      .from('metrics_daily')
+      .select('date, revenue, conversions')
+      .eq('client_id', opts.clientId)
+      .eq('platform', opts.platform)
+      .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
+      .gte('date', opts.startDate).lte('date', opts.endDate)
+      .order('date', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error('metrics_daily store timeseries query failed: ' + error.message)
+    const rows = data || []
+    for (const r of rows) {
+      const row = r as Record<string, unknown>
+      const d = String(row.date ?? '')
+      if (!d) continue
+      const cur = byDay.get(d) || { revenue: 0, orders: 0 }
+      cur.revenue += Number(row.revenue || 0)
+      cur.orders += Number(row.conversions || 0) // account conversions = order count (verified)
+      byDay.set(d, cur)
+    }
+    if (rows.length < PAGE) break
+    from += PAGE
+  }
+  return Array.from(byDay.entries())
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([date, v]) => ({ date, revenue: Number(v.revenue.toFixed(2)), orders: v.orders }))
+}
