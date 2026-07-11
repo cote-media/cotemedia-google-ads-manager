@@ -6,7 +6,7 @@ import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
-import { supabaseAdmin } from '@/lib/supabase'  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+import { resolveAccess } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 — membership-aware gate
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -32,19 +32,16 @@ export async function POST(request: Request) {
 
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
-  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — when a client is in scope, the
-  // signed-in user MUST own it before we fetch its intelligence or expose the
-  // query_metrics tool. Same proven gate as /api/backfill/run. clientId is
-  // optional on this route, so only gate when present.
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1 — when a client is in scope, the signed-in
+  // viewer MUST have ACCESS (owner ∪ org-grant ∪ legacy) before we fetch its intelligence or expose query_metrics.
+  // resolveAccess is membership-aware and fails closed → this unblocks a GRANTED member's Ask-Lora on a shared
+  // client while cross-org isolation still 404s. clientId is optional here, so only gate when present. Downstream
+  // owner-keyed reads run on ownerEmail (via /api/intelligence's own resolveAccess gate + the tool loop), NEVER the
+  // viewer — the share-runs-on-the-owner keystone is preserved.
   if (clientId) {
-    const { data: owned, error: ownErr } = await supabaseAdmin
-      .from('clients')
-      .select('id')
-      .eq('id', clientId)
-      .eq('user_email', session.user.email)
-      .maybeSingle()
-    if (ownErr || !owned) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    const access = await resolveAccess(clientId, session.user.email)
+    if (!access?.ok) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 }) // 404, don't confirm the id
     }
   }
 

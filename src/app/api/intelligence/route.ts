@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { resolveAccess } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — membership-aware gate; reads run on ownerEmail
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
@@ -78,21 +79,16 @@ export async function GET(request: Request) {
 
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
-  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — ownership gate. This route fetches
-  // platform_connections/clients by client_id with the service role, so without
-  // this check any signed-in user could read another tenant's live data. Same
-  // proven gate as /api/backfill/run; 404 (not 403) to avoid confirming the id.
-  {
-    const { data: owned, error: ownErr } = await supabaseAdmin
-      .from('clients')
-      .select('id')
-      .eq('id', clientId)
-      .eq('user_email', session.user.email)
-      .maybeSingle()
-    if (ownErr || !owned) {
-      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-    }
+  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1 — ACCESS gate (membership/org-aware). This route
+  // reads platform_connections/clients + owner-keyed rows by the service role, so it MUST gate. resolveAccess returns
+  // the client's REAL owner; EVERY owner-keyed read below runs on `ownerEmail` (never the viewer) — the share-runs-on-
+  // the-owner keystone. A GRANTED member reads the OWNER's data; a cross-org viewer 404s. 404 (not 403) hides the id.
+  const viewerEmail = (session?.user?.email || '') as string
+  const access = await resolveAccess(clientId, viewerEmail)
+  if (!access?.ok) {
+    return NextResponse.json({ error: 'Client not found' }, { status: 404 })
   }
+  const ownerEmail = access.ownerEmail
 
   // ── Fetch client data from Supabase ────────────────────────────────────────
   // LORAMER_CONV_API_V1_INTELLIGENCE
@@ -107,19 +103,19 @@ export async function GET(request: Request) {
   const [connectionsResult, clientResult, contextResult, conversationsResult, memoryResult, knowledgeResult] = await Promise.all([
     supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId),
     supabaseAdmin.from('clients').select('name').eq('id', clientId).single(),
-    supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', session.user.email).single(),
+    supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', ownerEmail).single(),
     supabaseAdmin
       .from('client_conversations')
       .select('surface, scope, role, content, created_at')
       .eq('client_id', clientId)
-      .eq('user_email', session.user.email)
+      .eq('user_email', ownerEmail)
       .order('created_at', { ascending: true })
       .limit(500),
     supabaseAdmin
       .from('client_memory')
       .select('id, content, category, confidence, pinned, source')
       .eq('client_id', clientId)
-      .eq('user_email', session.user.email)
+      .eq('user_email', ownerEmail)
       .is('archived_at', null)
       .order('pinned', { ascending: false })
       .order('confidence', { ascending: false })
@@ -130,7 +126,7 @@ export async function GET(request: Request) {
       .from('uploaded_docs')
       .select('scope, filename, extracted_text, word_count')
       .is('deleted_at', null)
-      .or(`and(scope.eq.client,client_id.eq.${clientId}),and(scope.eq.agency,owner_email.eq.${session.user.email})`),
+      .or(`and(scope.eq.client,client_id.eq.${clientId}),and(scope.eq.agency,owner_email.eq.${ownerEmail})`),
   ])
   const memory = memoryResult.data || []
   const knowledgeDocs = (knowledgeResult.data || []).map((d: any) => ({
@@ -233,7 +229,7 @@ export async function GET(request: Request) {
       try {
         intelligence.woocommerce = await fetchWooCommerceIntelligenceCaptured(
           wooConn.client_id,
-          session.user.email,
+          ownerEmail,
           dateRange,
           customStart,
           customEnd
@@ -252,7 +248,7 @@ export async function GET(request: Request) {
         .from('client_context')
         .upsert({
           client_id: clientId,
-          user_email: session.user.email,
+          user_email: ownerEmail,
           intelligence_cache: JSON.stringify(existingCache),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'client_id,user_email' })
@@ -262,12 +258,22 @@ export async function GET(request: Request) {
     return NextResponse.json({ intelligence })
   }
 
+  // LORAMER_RBAC_ACCESS_ORG_V1 — Google Ads runs on the OWNER's refresh token (google_tokens by ownerEmail), NOT the
+  // viewer's session token: a member has no owner Google token in their session. For an OWNER this equals their
+  // session.refreshToken (login writes both from the same value), so owner behavior is byte-identical.
+  let ownerGoogleRefreshToken: string | null = null
+  if (googleConn) {
+    const { data: gt } = await supabaseAdmin
+      .from('google_tokens').select('refresh_token').eq('user_email', ownerEmail).maybeSingle()
+    ownerGoogleRefreshToken = (gt?.refresh_token as string) || null
+  }
+
   // ── Fetch all platforms in parallel ───────────────────────────────────────
   const [googleResult, metaResult, shopifyResult, wooResult, gaResult] = await Promise.allSettled([
     // Google
-    googleConn && session.refreshToken
+    googleConn && ownerGoogleRefreshToken
       ? fetchGoogleIntelligence(
-          session.refreshToken,
+          ownerGoogleRefreshToken,
           googleConn.account_id,
           dateRange,
           process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
@@ -284,7 +290,7 @@ export async function GET(request: Request) {
       ? supabaseAdmin
           .from('meta_tokens')
           .select('access_token')
-          .eq('user_email', session.user.email)
+          .eq('user_email', ownerEmail)
           .single()
           .then(({ data: tokenRow }) => {
             if (!tokenRow?.access_token) throw new Error('No Meta token found')
@@ -300,7 +306,7 @@ export async function GET(request: Request) {
 
     // Shopify — uses getValidShopifyToken which auto-refreshes expired tokens
     shopifyConn
-      ? getValidShopifyToken(session.user.email, shopifyConn.account_id).then(tokenResult => {
+      ? getValidShopifyToken(ownerEmail, shopifyConn.account_id).then(tokenResult => {
           if (!tokenResult.ok) {
             throw new Error(`Shopify token unavailable: ${tokenResult.reason}${tokenResult.detail ? ' - ' + tokenResult.detail : ''}`)
           }
@@ -319,7 +325,7 @@ export async function GET(request: Request) {
     wooConn
       ? fetchWooCommerceIntelligenceCaptured(
           wooConn.client_id,
-          session.user.email,
+          ownerEmail,
           dateRange,
           customStart,
           customEnd
@@ -331,11 +337,11 @@ export async function GET(request: Request) {
       .from('ga_tokens')
       .select('ga_property_id, ga_property_name')
       .eq('client_id', clientId)
-      .eq('user_email', session.user.email)
+      .eq('user_email', ownerEmail)
       .maybeSingle()
       .then(({ data: gaRow }) => {
         if (!gaRow?.ga_property_id) return null
-        return getValidGaToken(clientId, session.user.email).then((tokenResult) => {
+        return getValidGaToken(clientId, ownerEmail).then((tokenResult) => {
           if (!tokenResult.ok) {
             throw new Error(
               `GA token unavailable: ${tokenResult.reason}${tokenResult.detail ? ' - ' + tokenResult.detail : ''}`
@@ -409,7 +415,7 @@ export async function GET(request: Request) {
           platform: 'google',
           clientId,
           accountId: googleConn.account_id,
-          userEmail: session.user.email,
+          userEmail: ownerEmail,
           error: googleResult.status === 'rejected' ? googleResult.reason : (googleResult.value ? undefined : new Error('skip')),
         })
       : Promise.resolve(),
@@ -418,7 +424,7 @@ export async function GET(request: Request) {
           platform: 'meta',
           clientId,
           accountId: metaConn.account_id,
-          userEmail: session.user.email,
+          userEmail: ownerEmail,
           error: metaResult.status === 'rejected' ? metaResult.reason : (metaResult.value ? undefined : new Error('skip')),
         })
       : Promise.resolve(),
@@ -427,7 +433,7 @@ export async function GET(request: Request) {
           platform: 'shopify',
           clientId,
           accountId: shopifyConn.account_id,
-          userEmail: session.user.email,
+          userEmail: ownerEmail,
           error: shopifyResult.status === 'rejected' ? shopifyResult.reason : (shopifyResult.value ? undefined : new Error('skip')),
         })
       : Promise.resolve(),
@@ -436,7 +442,7 @@ export async function GET(request: Request) {
           platform: 'woocommerce',
           clientId,
           accountId: wooConn.account_id,
-          userEmail: session.user.email,
+          userEmail: ownerEmail,
           error: wooResult.status === 'rejected' ? wooResult.reason : (wooResult.value ? undefined : new Error('skip')),
         })
       : Promise.resolve(),
@@ -449,7 +455,7 @@ export async function GET(request: Request) {
         platform: 'ga',
         clientId,
         accountId: gaConn.account_id,
-        userEmail: session.user.email,
+        userEmail: ownerEmail,
         error: gaResult.status === 'rejected' ? gaResult.reason : undefined,
       })
     })(),
@@ -477,7 +483,7 @@ export async function GET(request: Request) {
       .from('client_context')
       .upsert({
         client_id: clientId,
-        user_email: session.user.email,
+        user_email: ownerEmail,
         intelligence_cache: JSON.stringify(existingCache),
         updated_at: new Date().toISOString(),
       }, { onConflict: 'client_id,user_email' })

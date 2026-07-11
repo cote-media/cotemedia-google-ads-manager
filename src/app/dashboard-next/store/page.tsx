@@ -13,6 +13,7 @@ import Shell from '@/components/redesign/Shell'
 import CardEngine from '@/components/redesign/cards/CardEngine'
 import { storeDefaultView } from '@/components/redesign/cards/card-types'
 import { resolveStorePlatform } from '@/lib/next/store-detect'
+import { listAccessibleClients } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
 
 // Auth-gated (requirePreviewUser reads headers/session) → always server-rendered on demand; skip static prerender.
 export const dynamic = 'force-dynamic'
@@ -23,10 +24,13 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
 
-  const { data: clients } = await supabaseAdmin
-    .from('clients').select('id, name')
-    .eq('user_email', email)
-    .order('created_at', { ascending: true })
+  // LORAMER_RBAC_ACCESS_ORG_V1 — resolve over ACCESSIBLE clients (owned ∪ org-grant ∪ legacy), not owner-only. The
+  // store reads (/api/next/store-*) are resolveAccess-gated; resolveStorePlatform reads metrics_daily by client_id
+  // (owner-agnostic), so a granted member sees the store they can access.
+  const ids = await listAccessibleClients(email)
+  const { data: clients } = ids.length
+    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).order('created_at', { ascending: true })
+    : { data: [] as { id: string; name: string }[] }
   const list = clients || []
   const resolved = (searchParams?.clientId && list.find((c) => c.id === searchParams.clientId)) || list[0] || null
 

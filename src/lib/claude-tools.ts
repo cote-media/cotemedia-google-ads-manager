@@ -9,22 +9,17 @@
 // the caller - it is NEVER a model-controlled input.
 
 import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { resolveAccess } from '@/lib/access/can-access'
 
-// LORAMER_QUERY_METRICS_OWNERSHIP_V1
-// Defense-in-depth ownership check (the routes also gate before calling the
-// loop). A signed-in user may only query a client they own. Same proven
-// pattern as /api/backfill/run. Fails CLOSED: any error or missing input
-// returns false, so the tool is simply not exposed.
-async function userOwnsClient(userEmail: string, clientId: string): Promise<boolean> {
-  if (!userEmail || !clientId) return false
-  const { data, error } = await supabaseAdmin
-    .from('clients')
-    .select('id')
-    .eq('id', clientId)
-    .eq('user_email', userEmail)
-    .maybeSingle()
-  return !error && !!data
+// LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1
+// Defense-in-depth ACCESS check (the routes also gate before calling the loop). Now membership/org-AWARE via
+// resolveAccess (owner ∪ org-grant ∪ legacy client_members), not owner-only — so a GRANTED member gets the tools.
+// The query tools read metrics_daily BY clientId (owner-agnostic data), so a member's read == the owner's; no
+// owner-keyed data is read here. Fails CLOSED: any error / no access → false → tools withheld, single-shot loop.
+async function viewerCanAccess(viewerEmail: string, clientId: string): Promise<boolean> {
+  if (!viewerEmail || !clientId) return false
+  const a = await resolveAccess(clientId, viewerEmail)
+  return !!a?.ok
 }
 
 export const QUERY_METRICS_TOOL: any = {
@@ -215,7 +210,7 @@ export async function runClaudeToolLoop(opts: {
   // signed-in user owns this client. Without a verified owner the tool is
   // withheld and the loop degrades to a single-shot call (no cross-tenant read).
   const tools: any[] | undefined =
-    clientId && (await userOwnsClient(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
+    clientId && (await viewerCanAccess(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
   const convo: any[] = [...messages]
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5

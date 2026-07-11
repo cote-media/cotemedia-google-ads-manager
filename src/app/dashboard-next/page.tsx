@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
+import { listAccessibleClients } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
 // LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
 // built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
 import CardEngine from '@/components/redesign/cards/CardEngine'
@@ -19,10 +20,13 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
 
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
-  const { data: clients } = await supabaseAdmin
-    .from('clients').select('id, name')
-    .eq('user_email', email)
-    .order('created_at', { ascending: true })
+  // LORAMER_RBAC_ACCESS_ORG_V1 — resolve over ACCESSIBLE clients (owned ∪ org-grant ∪ legacy), not owner-only, so a
+  // granted member lands on a client they can see. The CardEngine's per-card reads are resolveAccess-gated (/api/next/*),
+  // so access is enforced there too; picking from the accessible set is the page-level gate.
+  const ids = await listAccessibleClients(email)
+  const { data: clients } = ids.length
+    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).order('created_at', { ascending: true })
+    : { data: [] as { id: string; name: string }[] }
   const list = clients || []
   const resolved = (searchParams?.clientId && list.find(c => c.id === searchParams.clientId)) || list[0] || null
 
