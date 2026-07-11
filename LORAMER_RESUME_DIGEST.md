@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-11T02:09:26.234Z
-- built_from HEAD: 6682280b13eb3730ec5303e493ffee59c2e1b9ed  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-11T02:48:22.665Z
+- built_from HEAD: d68b781466307f0d3d62c81d66db0cf39245268c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 94b6f63a41107db9093d42b247d65081ca2a2bac176db58ec402a3fcfacda5c2
     - CONTINUE_HERE.md: deeb32aa5f7e0614f77791fda3d7e481b4ddd567e51dbae6fb47e6b6d48641f9
     - LORAMER_DECISIONS.md: 5c9977eeb297c51b83445a7ce382d3e4070a02d95a4110520e25a9544ce079aa
-    - LORAMER_QUEUE_OF_RECORD.md: f778005df5913a637277a450d63e4f9a68d6d9fce75d2600dff633de5eb2eab9
+    - LORAMER_QUEUE_OF_RECORD.md: e63f1f79c32974b1a35290e3c3e769c35afa939c3c6e9bab19dcd7728bd19f05
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 753c341678acdc2559f08f0736f066448384b6d9a21e59ec29e65c2bb46a33f5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: ce287ed918e5febbda76037f436040f17d3ce1d6fc1f76163e1efece907f4bb0
     - RESUME_INSTRUCTIONS.md: f6aa218b90fb6b83f1cd346759c51f4da339a9eb163b0c27320da396e2c47147
@@ -326,7 +326,7 @@ CONTRADICTION STOP (2026-07-09, Russ): when an instruction contradicts a banked 
 - Per-client profile card (Mer front: identity/context/thresholds/rules; logo upload + monogram). src: ROADMAP Redesign LC. open [LC]
 - Team members & permissions (RBAC): role tiers, per-client scoping, capability gates, 2 admin scopes. (RBAC foundation slice 1A shipped — migration 018, wired nowhere.) src: ROADMAP Redesign LC, CONTINUE_HERE RBAC. partial [LC]
 - P-PL#1 DATE RANGE — the platform page offers only Last 7/14/30/90; needs the FULL preset set + CUSTOM picker to match the range control used elsewhere (or adopt Google's default set). SHARED date-control work → FOLD into the timeseries-GRANULARITY-TOGGLE flight (same date machinery). src: Gate-B 2026-07-10. open(deferred-polish) [LC]
-- P-PL#2 COLUMN PICKER CLIPPED — DrillTable "Columns ▾" dropdown renders INSIDE the table frame/overflow → unusable (the options can't be reached). LOCAL DrillTable fix (overflow/z-index — portal the menu or lift it out of .tableWrap's overflow). src: Gate-B 2026-07-10. open(deferred-polish) [LC]
+- P-PL#2 COLUMN PICKER — ✅ FIX BUILT 2026-07-10 (LORAMER_NEXT_PLATFORM_SPINE_V3, d68b781): the "Columns ▾" menu is now PORTALED to <body> (position:fixed at the button rect + max-height 60vh/overflow-y scroll + full-viewport backdrop) → escapes .tableCard's overflow:hidden clip; all options reachable. Gate-A render/CSS proof passed. Gate-B on-device (tap-reachability sm+desktop) PENDING. src: fix 2026-07-10. open(Gate B) [LC]
 - P-PL#3 MOBILE LORA CHAT — the Ask-Lora input box is far too small on mobile; must match Claude/Anthropic mobile chat: auto-scroll to bottom on new message, input GROWS with content, finger/scroll-reactive, full-height sheet. SHARED ChatLauncher work → its OWN flight, inherited by EVERY -next surface. src: Gate-B 2026-07-10. open(deferred-polish) [LC]
 - CLIENT VALUE_MODEL (LORAMER_CLIENT_VALUE_MODEL_V1) — Layer 1 ✅ SHIPPED 2026-07-03 (ef6ab8f, migration 025): additive nullable jsonb value_model on client_context (online-purchase / offline-sales / lead, multi-select) + Lora ALWAYS-ON emit ("Client value model: …" in build-claude-context, never suppressed by business_descriptor) + -next multi-select & NON-DISMISSABLE HARD GATE (≥1 required before the client surface is usable). /api/context unchanged (generic spread stores it). DEPLOYED; Gate-B on-device PENDING (do NOT mark fully done). Layer 2 = QUEUED, not built: legacy /clients form field + server-side onboarding gate + the ROADMAP "Data Completeness Onboarding" meter / soft+hard-gate framework / per-source N/A / nudge engine (d5bf56e). src: value-model build 2026-07-03. Layer-1 done; Layer-2 open [LC]
 - MOBILE-PARITY WATCH (guardrail) — any FUTURE -next page that persists card order via a NEW path OUTSIDE CardEngine reintroduces the bfe1a3d mobile-persist gap. Pages that REUSE CardEngine inherit the layoutSm fix BY CONSTRUCTION (safe). GUARD: new card-order persistence MUST go through CardEngine/layoutSm or explicitly carry its OWN per-breakpoint slot. NOT a current gap — Overview (dashboard-next/page.tsx, pageKey='overview') is the only CardEngine mount today. src: MOBILE-PARITY SWEEP 2026-07-10. standing [NP]
