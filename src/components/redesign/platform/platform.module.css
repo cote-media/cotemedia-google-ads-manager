@@ -1,0 +1,53 @@
+/* LORAMER_NEXT_PLATFORM_PAGE_V1 — styles for the per-platform drill page (matches cards.module.css light theme). */
+.page { display: flex; flex-direction: column; gap: 16px; padding: 4px 0; }
+.header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.title { font-size: 20px; font-weight: 700; color: #0f172a; margin: 0; }
+.dateSel { font-size: 13px; font-family: monospace; color: #334155; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.note { color: #64748b; font-size: 13px; padding: 24px 4px; }
+
+.drill { display: flex; flex-direction: column; gap: 14px; }
+
+/* breadcrumb */
+.crumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; font-family: monospace; }
+.crumbBack { background: transparent; border: none; color: #2563eb; cursor: pointer; font-weight: 600; padding: 2px 4px; }
+.crumbSep { color: #94a3b8; }
+.crumbLink { background: transparent; border: none; color: #2563eb; cursor: pointer; padding: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumbLink:hover { text-decoration: underline; }
+.crumbHere { color: #0f172a; font-weight: 600; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* summary stat strip (the level's platform-scoped totals) */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.statLabel { font-size: 11px; font-family: monospace; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.04em; }
+.statVal { font-size: 20px; font-weight: 700; color: #0f172a; line-height: 1.1; }
+
+.muted { font-size: 13px; color: #94a3b8; padding: 8px 4px; }
+.err { font-size: 13px; color: #b91c1c; padding: 8px 4px; }
+
+/* table card */
+.tableCard { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+.tableTop { display: flex; justify-content: flex-end; padding: 8px 10px; border-bottom: 1px solid #eef0f3; background: #fbfaf7; }
+.colWrap { position: relative; }
+.colBtn { font-size: 12px; font-family: monospace; color: #334155; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+.colMenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,0.12); padding: 8px; display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.colOpt { font-size: 12px; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table thead th { position: sticky; top: 0; background: #f8fafc; text-align: right; padding: 10px 12px; font-family: monospace; font-size: 11px; color: #64748b; letter-spacing: 0.03em; white-space: nowrap; cursor: pointer; user-select: none; border-bottom: 1px solid #eef0f3; }
+.table thead th:first-child { text-align: left; cursor: default; }
+.nameCol { text-align: left; padding: 10px 12px; max-width: 220px; }
+.numCol { text-align: right; padding: 10px 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.askCol { text-align: center; padding: 8px 6px; width: 34px; }
+.table tbody tr { border-bottom: 1px solid #f1f5f9; }
+.table tbody tr:hover { background: #f8fafc; }
+.drillName { background: transparent; border: none; color: #2563eb; cursor: pointer; text-align: left; padding: 0; font-size: 13px; font-weight: 500; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drillName:hover { text-decoration: underline; }
+.askBtn { background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 6px; }
+.askBtn:hover { color: #2563eb; background: #eff6ff; }
+.totalRow td { border-top: 2px solid #e2e8f0; background: #f8fafc; font-weight: 600; color: #0f172a; }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .statVal { font-size: 18px; }
+}

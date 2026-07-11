@@ -30,13 +30,23 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
+  const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
 
-  // Any surface (mobile Lora tab, a card CTA) can open the chat by dispatching this event.
+  // Any surface (mobile Lora tab, a drill row's ✦) can open the chat by dispatching this event; detail may carry
+  // { rowContext, prompt } to open Lora focused on a specific entity. No detail → identical to before.
   useEffect(() => {
-    const openIt = () => setOpen(true)
+    const openIt = (e: Event) => {
+      const d = (e as CustomEvent).detail as { rowContext?: string; prompt?: string } | undefined
+      if (d?.rowContext) rowCtxRef.current = d.rowContext
+      if (d?.prompt) setInput(d.prompt)
+      setOpen(true)
+    }
     window.addEventListener('loramer:open-chat', openIt)
     return () => window.removeEventListener('loramer:open-chat', openIt)
   }, [])
+
+  // clear any carried row context when the panel closes (a fresh open without context starts clean).
+  useEffect(() => { if (!open) rowCtxRef.current = null }, [open])
 
   // Ambient window follows the shared CardEngine date picker (period-bus): seed on mount + subscribe to changes.
   useEffect(() => {
@@ -79,6 +89,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           customStart: period.customStart,
           customEnd: period.customEnd,
           location: 'chat',
+          ...(rowCtxRef.current ? { rowContext: rowCtxRef.current } : {}), // LORAMER_NEXT_PLATFORM_PAGE_V1 — per-row focus (drill ✦); absent otherwise
         }),
       })
       const d = await res.json().catch(() => ({}))
