@@ -30,7 +30,18 @@ export default function PlatformPage({ platform, label, clientId, clientName }: 
       </div>
       {HAS_DRILL.has(platform)
         ? <DrillView platform={platform} clientId={clientId} clientName={clientName} period={period} />
-        : <p className={styles.note}>No campaign hierarchy to drill on this channel. Store money lives on the Store page; Analytics breakdowns are a later increment.</p>}
+        : (
+          <div className={styles.comingCard}>
+            <div className={styles.comingIcon}>{platform === 'ga' ? '📊' : '🛍'}</div>
+            <div className={styles.comingTitle}>{label}</div>
+            <p className={styles.comingText}>
+              {platform === 'ga'
+                ? 'Analytics breakdowns — sessions, users, source / medium, landing pages — are coming to the redesign. This channel has no campaign hierarchy to drill.'
+                : 'Store money already lives on the Store page. Product, customer & channel cards are coming to the redesign; there is no ad-campaign hierarchy to drill here.'}
+            </p>
+            {platform === 'shopify' && <a className={styles.comingLink} href={`/dashboard-next/store?clientId=${clientId}`}>Open the Store page →</a>}
+          </div>
+        )}
     </div>
   )
 }

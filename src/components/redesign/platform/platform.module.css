@@ -5,6 +5,14 @@
 .dateSel { font-size: 13px; font-family: monospace; color: #334155; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
 .note { color: #64748b; font-size: 13px; padding: 24px 4px; }
 
+/* coming-soon shell for the non-drill channels (ga/shopify) — a styled empty state, NOT a bare note / 404. */
+.comingCard { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 44px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.comingIcon { font-size: 30px; line-height: 1; }
+.comingTitle { font-size: 18px; font-weight: 700; color: #0f172a; }
+.comingText { font-size: 13px; color: #64748b; max-width: 440px; line-height: 1.55; margin: 0; }
+.comingLink { font-size: 13px; font-family: monospace; color: #2563eb; text-decoration: none; margin-top: 6px; }
+.comingLink:hover { text-decoration: underline; }
+
 .drill { display: flex; flex-direction: column; gap: 14px; }
 
 /* breadcrumb */
@@ -29,8 +37,11 @@
 .tableTop { display: flex; justify-content: flex-end; padding: 8px 10px; border-bottom: 1px solid #eef0f3; background: #fbfaf7; }
 .colWrap { position: relative; }
 .colBtn { font-size: 12px; font-family: monospace; color: #334155; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px 10px; cursor: pointer; }
-.colMenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,0.12); padding: 8px; display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
-.colOpt { font-size: 12px; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap; }
+/* P-PL#2 — the picker menu is portaled to <body> (position:fixed) so no ancestor overflow clips it; a full-viewport
+   backdrop sits under it to close on outside tap (and covers scroll). max-height + scroll so long lists stay reachable. */
+.menuBackdrop { position: fixed; inset: 0; z-index: 40; background: transparent; }
+.colMenuPortal { position: fixed; z-index: 50; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,0.16); padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 172px; max-height: 60vh; overflow-y: auto; }
+.colOpt { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; padding: 4px 2px; }
 
 .tableWrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 13px; }

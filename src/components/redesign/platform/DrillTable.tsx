@@ -4,7 +4,8 @@
 // that row loaded (rowContext flows to /api/chat, which already accepts it — /api/chat UNTOUCHED). Columns match the
 // /api/next/entities response (base + derived); no legacy COLUMN_DEFS import.
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import styles from './platform.module.css'
 
 type Ent = { entityId: string; entityName: string; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; derived: Record<string, number> }
@@ -38,6 +39,8 @@ export default function DrillTable({ rows, totals, nameLabel, canDrill, platform
 }) {
   const [active, setActive] = useState<string[]>(() => COLUMNS.filter((c) => c.defaultOn).map((c) => c.id))
   const [pickerOpen, setPickerOpen] = useState(false)
+  const colBtnRef = useRef<HTMLButtonElement>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null) // P-PL#2 — portal-positioned so overflow can't clip it
   const [sortCol, setSortCol] = useState('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
@@ -49,6 +52,14 @@ export default function DrillTable({ rows, totals, nameLabel, canDrill, platform
   })
   const handleSort = (id: string) => { if (sortCol === id) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc')); else { setSortCol(id); setSortDir('desc') } }
   const toggleCol = (id: string, on: boolean) => setActive((a) => (on ? [...a, id] : a.length > 1 ? a.filter((x) => x !== id) : a))
+  // P-PL#2 — the "Columns ▾" menu is PORTALED to <body> at the button's viewport rect so no ancestor overflow (the
+  // table card's overflow:hidden) can clip it. Position is captured on open (a backdrop closes it, covering scroll).
+  const openPicker = () => {
+    const el = colBtnRef.current
+    if (el && typeof window !== 'undefined') { const r = el.getBoundingClientRect(); setMenuPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) }) }
+    setPickerOpen(true)
+  }
+  const closePicker = () => { setPickerOpen(false); setMenuPos(null) }
 
   const askLora = (row: Ent) => {
     const roas = row.derived?.roas ? `, ROAS ${row.derived.roas.toFixed(2)}×` : ''
@@ -60,18 +71,22 @@ export default function DrillTable({ rows, totals, nameLabel, canDrill, platform
     <div className={styles.tableCard}>
       <div className={styles.tableTop}>
         <div className={styles.colWrap}>
-          <button type="button" className={styles.colBtn} onClick={() => setPickerOpen((o) => !o)}>Columns ▾</button>
-          {pickerOpen && (
-            <div className={styles.colMenu}>
-              {COLUMNS.map((c) => (
-                <label key={c.id} className={styles.colOpt}>
-                  <input type="checkbox" checked={active.includes(c.id)} onChange={(e) => toggleCol(c.id, e.target.checked)} /> {c.label}
-                </label>
-              ))}
-            </div>
-          )}
+          <button ref={colBtnRef} type="button" className={styles.colBtn} onClick={() => (pickerOpen ? closePicker() : openPicker())}>Columns ▾</button>
         </div>
       </div>
+      {pickerOpen && menuPos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className={styles.menuBackdrop} onClick={closePicker} />
+          <div className={styles.colMenuPortal} style={{ top: menuPos.top, right: menuPos.right }} role="menu">
+            {COLUMNS.map((c) => (
+              <label key={c.id} className={styles.colOpt}>
+                <input type="checkbox" checked={active.includes(c.id)} onChange={(e) => toggleCol(c.id, e.target.checked)} /> {c.label}
+              </label>
+            ))}
+          </div>
+        </>,
+        document.body,
+      )}
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
