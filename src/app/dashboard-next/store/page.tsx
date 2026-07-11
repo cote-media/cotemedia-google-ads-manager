@@ -46,7 +46,12 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
   return (
     <Shell active="store" clientName={resolved.name} clientId={resolved.id}>
       {chosen
-        ? <CardEngine pageKey={`store:${resolved.id}`} clientId={resolved.id} defaultView={storeDefaultView(chosen)} />
+        // LORAMER_NEXT_STORE_PAGE_V1 (S-PL#1 fix) — key by the resolved client id so a SOFT client switch MOUNTS a
+        // fresh CardEngine seeded from the correct storeDefaultView(chosen). Without this, the client switcher's
+        // router.push(?clientId=…) REUSES the CardEngine instance → it keeps the prior client's cards + baked
+        // storePlatform (+ reused RGL/recharts subtree) through the async re-apply window → the client-side crash.
+        // Remounting per client kills the whole stale-transition class at the source (no band-aid boundaries).
+        ? <CardEngine key={`store-${resolved.id}`} pageKey={`store:${resolved.id}`} clientId={resolved.id} defaultView={storeDefaultView(chosen)} />
         : <StoreEmpty />}
     </Shell>
   )
