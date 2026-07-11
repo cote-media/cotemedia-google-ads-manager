@@ -72,6 +72,16 @@ export const STAT_METRICS: StatMetric[] = [
 ]
 export const statMetric = (k?: string): StatMetric => STAT_METRICS.find((m) => m.key === k) || STAT_METRICS[0]
 
+// LORAMER_NEXT_STORE_CATALOG_V1 — the STORE stat catalog (what the store page renders): net revenue · orders · AOV.
+// SEPARATE from the ad STAT_METRICS (spend/roas/clicks are meaningless on a store). The source-aware config panel +
+// cardTitle use this for source==='store' stat cards. revenue/aov are money, orders is a count (StatBody formats on it).
+export const STORE_STAT_METRICS: StatMetric[] = [
+  { key: 'revenue', label: 'Net revenue', money: true },
+  { key: 'orders', label: 'Orders', money: false },
+  { key: 'aov', label: 'AOV', money: true },
+]
+export const storeStatMetric = (k?: string): StatMetric => STORE_STAT_METRICS.find((m) => m.key === k) || STORE_STAT_METRICS[0]
+
 // BREAKDOWN catalog. coming=false → query-EXPOSED today (in the metrics-query allowlist + matching stored rows) →
 // a card built on it WORKS on real data. coming=true → CAPTURED but NOT query-exposed yet (surfacing dep #2 =
 // the allowlist/(platform,breakdown_type) expansion, freeze-sensitive/post-Meta). The picker lists them but the
@@ -92,8 +102,21 @@ export const BREAKDOWN_CATALOG: BreakdownOption[] = [
   { key: 'impression_share', label: 'Impression share (Google)', platform: 'google', coming: true },
   { key: 'hour', label: 'Hour', platform: '', coming: true },
   { key: 'geo_city', label: 'Geo — all grains (Google)', platform: 'google', coming: true },
+  // LORAMER_NEXT_STORE_CATALOG_V1 — STORE families, keyed platform+breakdown_type (shopify|woocommerce). product +
+  // variant are query-exposed via /api/next/entities (coming:false, read-probed on real Foam OH rows); customer_mix is
+  // the 0-PII customer engine, UNBUILT → coming:true (picker shows it disabled; the card body renders its coming-soon note).
+  { key: 'product', label: 'Top products (store)', platform: 'shopify', coming: false },
+  { key: 'product', label: 'Top products (store)', platform: 'woocommerce', coming: false },
+  { key: 'variant', label: 'Top variants (store)', platform: 'shopify', coming: false },
+  { key: 'variant', label: 'Top variants (store)', platform: 'woocommerce', coming: false },
+  { key: 'customer_mix', label: 'Customer mix (store)', platform: 'shopify', coming: true },
+  { key: 'customer_mix', label: 'Customer mix (store)', platform: 'woocommerce', coming: true },
 ]
 export const breakdownOption = (k?: string): BreakdownOption | undefined => BREAKDOWN_CATALOG.find((b) => b.key === k)
+// LORAMER_NEXT_STORE_CATALOG_V1 — the store-scoped breakdown families. The config panel PARTITIONS on this: source==='store'
+// shows ONLY these (filtered to the active storePlatform); the ad panel shows ONLY the non-store families. Keeps 'product'
+// off the Overview add-card list and the ad families off the store add-card list.
+export const STORE_FAMILIES = new Set(['product', 'variant', 'customer_mix'])
 
 // LORAMER_NEXT_ROAS_CARD_V1 — the multi-source ROAS basis catalog (the checkbox set in the config panel). Keys +
 // order match the route's bases (src/lib/next/roas-bases.ts). Each basis is basis-LABELED in the card so a value

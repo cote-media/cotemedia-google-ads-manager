@@ -4,14 +4,14 @@
 // its own dateRange. The page-level compare mode applies to every card (compared against the card's own window).
 'use client'
 import type { CardConfig } from './card-types'
-import { statMetric, breakdownOption } from './card-types'
+import { statMetric, storeStatMetric, breakdownOption } from './card-types'
 import { resolveCardWindows, type ComparePreset, type Win } from '@/lib/next/card-windows'
 import CardViz from './CardViz'
 import styles from './cards.module.css'
 
 function cardTitle(cfg: CardConfig): string {
   if (cfg.title) return cfg.title
-  if (cfg.kind === 'stat') return statMetric(cfg.metric).label
+  if (cfg.kind === 'stat') return (cfg.source === 'store' ? storeStatMetric(cfg.metric) : statMetric(cfg.metric)).label // LORAMER_NEXT_STORE_CATALOG_V1
   if (cfg.kind === 'breakdown') return breakdownOption(cfg.breakdownType)?.label || cfg.breakdownType || 'Breakdown'
   if (cfg.kind === 'roas') return 'ROAS — multi-source' // LORAMER_NEXT_ROAS_CARD_V1
   return 'Chart'

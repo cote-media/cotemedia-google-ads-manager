@@ -42,7 +42,10 @@ function revalidate(v: SavedView): SavedView {
   return { ...v, cards, layout, layoutSm, pinned: v.pinned || [], globalPeriod: period, globalCustom: custom, compareMode: v.compareMode || 'none', customCompare: v.customCompare || null }
 }
 
-export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey: string; clientId: string; defaultView?: SavedView }) {
+export default function CardEngine({ pageKey, clientId, defaultView, source, storePlatform }: { pageKey: string; clientId: string; defaultView?: SavedView; source?: string; storePlatform?: string }) {
+  // LORAMER_NEXT_STORE_CATALOG_V1 — a store page passes source='store' + the resolved storePlatform; they thread to the
+  // config panel (store-scoped add-card options) and seed the NEW-card default so "Add card" mints a store card, not a
+  // portfolio spend card. Off a store page both are undefined → every path is byte-identical to before.
   const fallback = revalidate(defaultView || defaultOverviewView())
   const [snapshots, setSnapshots] = useState<SavedView[]>([]) // named saved views (name !== WORKING); the picker only
   const [cards, setCards] = useState<CardConfig[]>(fallback.cards)
@@ -125,8 +128,10 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
   }, [])
 
   const editingCfg: CardConfig | null =
-    editing === 'new' ? { id: newCardId(), kind: 'stat', viz: 'stat', metric: 'spend', dateRange: 'LAST_30_DAYS', useCustomRange: false }
-    : editing ? cards.find((c) => c.id === editing) || null : null
+    editing === 'new'
+      ? { id: newCardId(), kind: 'stat', viz: 'stat', dateRange: 'LAST_30_DAYS', useCustomRange: false,
+          ...(source === 'store' ? { source: 'store' as const, storePlatform, metric: 'revenue' } : { metric: 'spend' }) }
+      : editing ? cards.find((c) => c.id === editing) || null : null
 
   const applyCfg = (cfg: CardConfig) => {
     if (editing === 'new') {
@@ -231,7 +236,7 @@ export default function CardEngine({ pageKey, clientId, defaultView }: { pageKey
         onLayoutChange={setLayout} onLayoutSmChange={setLayoutSm} onEdit={(id) => setEditing(id)} onRemove={removeCard} onTogglePin={togglePin}
       />
 
-      {editingCfg && <CardConfigPanel initial={editingCfg} onApply={applyCfg} onClose={() => setEditing(null)} />}
+      {editingCfg && <CardConfigPanel initial={editingCfg} source={source} storePlatform={storePlatform} onApply={applyCfg} onClose={() => setEditing(null)} />}
     </div>
   )
 }

@@ -51,7 +51,7 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
         // router.push(?clientId=…) REUSES the CardEngine instance → it keeps the prior client's cards + baked
         // storePlatform (+ reused RGL/recharts subtree) through the async re-apply window → the client-side crash.
         // Remounting per client kills the whole stale-transition class at the source (no band-aid boundaries).
-        ? <CardEngine key={`store-${resolved.id}`} pageKey={`store:${resolved.id}`} clientId={resolved.id} defaultView={storeDefaultView(chosen)} />
+        ? <CardEngine key={`store-${resolved.id}`} pageKey={`store:${resolved.id}`} clientId={resolved.id} defaultView={storeDefaultView(chosen)} source="store" storePlatform={chosen} />
         : <StoreEmpty />}
     </Shell>
   )

@@ -56,8 +56,10 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
         if (alive) setData({ loading: false, error: null, hasCompare: false, rows: [], note: 'Customer mix (new vs returning) is coming soon — the privacy-safe customer engine is not built yet.' })
         return () => { alive = false }
       }
-      if (cfg.kind === 'breakdown' && cfg.breakdownType === 'product') {
-        const p = new URLSearchParams({ clientId, platform: cfg.storePlatform || 'shopify', level: 'product', start: current.startDate, end: current.endDate })
+      if (cfg.kind === 'breakdown' && (cfg.breakdownType === 'product' || cfg.breakdownType === 'variant')) {
+        // LORAMER_NEXT_STORE_CATALOG_V1 — product AND variant grains both read /api/next/entities (level = the family);
+        // variant read-probed clean on real Foam OH rows (named, revenue>0, no false zeros).
+        const p = new URLSearchParams({ clientId, platform: cfg.storePlatform || 'shopify', level: cfg.breakdownType, start: current.startDate, end: current.endDate })
         fetch(`/api/next/entities?${p.toString()}`)
           .then((r) => (r.ok ? r.json() : Promise.reject()))
           .then((d) => {

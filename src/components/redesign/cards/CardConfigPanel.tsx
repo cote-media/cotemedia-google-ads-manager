@@ -4,7 +4,7 @@
 'use client'
 import { useState } from 'react'
 import type { CardConfig, CardKind, VizType } from './card-types'
-import { STAT_METRICS, BREAKDOWN_CATALOG, DATE_RANGES, ROAS_BASES, ALL_ROAS_BASES } from './card-types'
+import { STAT_METRICS, STORE_STAT_METRICS, BREAKDOWN_CATALOG, STORE_FAMILIES, DATE_RANGES, ROAS_BASES, ALL_ROAS_BASES } from './card-types'
 import styles from './cards.module.css'
 
 const VIZ_FOR: Record<CardKind, VizType[]> = {
@@ -23,10 +23,26 @@ const BREAKDOWN_DEFAULTS: Record<string, Partial<CardConfig>> = {
   action_type: { rankBy: 'conversions', viz: 'table' },
 }
 
-export default function CardConfigPanel({ initial, onApply, onClose }: { initial: CardConfig; onApply: (c: CardConfig) => void; onClose: () => void }) {
+export default function CardConfigPanel({ initial, onApply, onClose, source, storePlatform }: { initial: CardConfig; onApply: (c: CardConfig) => void; onClose: () => void; source?: string; storePlatform?: string }) {
   const [cfg, setCfg] = useState<CardConfig>(initial)
   const set = (patch: Partial<CardConfig>) => setCfg((c) => ({ ...c, ...patch }))
-  const setKind = (kind: CardKind) => set({ kind, viz: VIZ_FOR[kind][0], ...(kind === 'stat' ? { metric: 'spend' } : {}), ...(kind === 'breakdown' ? { breakdownType: 'age', rankBy: 'spend', topN: 8 } : {}), ...(kind === 'roas' ? { roasBases: ALL_ROAS_BASES } : {}) })
+  // LORAMER_NEXT_STORE_CATALOG_V1 — SOURCE-AWARE: on a store page (source==='store') the panel offers ONLY store-relevant
+  // options (net revenue/orders/AOV · store product/variant families for the active storePlatform), sets store setKind
+  // defaults, and stamps source:'store'+storePlatform on apply. Off a store page it is UNCHANGED (ad metrics/families).
+  const isStore = source === 'store'
+  const metricList = isStore ? STORE_STAT_METRICS : STAT_METRICS
+  const breakdownList = isStore
+    ? BREAKDOWN_CATALOG.filter((b) => STORE_FAMILIES.has(b.key) && b.platform === storePlatform)
+    : BREAKDOWN_CATALOG.filter((b) => !STORE_FAMILIES.has(b.key))
+  const rankByList = isStore ? ['revenue', 'conversions'] : ['spend', 'conversions', 'conversionValue', 'clicks', 'impressions']
+  const setKind = (kind: CardKind) => set({
+    kind, viz: VIZ_FOR[kind][0],
+    ...(kind === 'stat' ? { metric: isStore ? 'revenue' : 'spend' } : {}),
+    ...(kind === 'breakdown' ? (isStore ? { breakdownType: 'product', rankBy: 'revenue', topN: 8 } : { breakdownType: 'age', rankBy: 'spend', topN: 8 }) : {}),
+    ...(kind === 'roas' ? { roasBases: ALL_ROAS_BASES } : {}),
+  })
+  // stamp source+storePlatform onto every store-panel apply (belt-and-suspenders; the engine default already carries them).
+  const apply = () => onApply(isStore ? { ...cfg, source: 'store', storePlatform } : cfg)
 
   return (
     <div className={styles.panel} role="dialog" aria-label="Card settings">
@@ -46,7 +62,7 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
           <>
             <label className={styles.fLabel}>Metric</label>
             <select className={styles.sel} value={cfg.metric} onChange={(e) => set({ metric: e.target.value })}>
-              {STAT_METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+              {metricList.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
             </select>
           </>
         )}
@@ -55,13 +71,13 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
           <>
             <label className={styles.fLabel}>Breakdown</label>
             <select className={styles.sel} value={cfg.breakdownType} onChange={(e) => set({ breakdownType: e.target.value, ...(BREAKDOWN_DEFAULTS[e.target.value] || {}) })}>
-              {BREAKDOWN_CATALOG.map((b) => (
-                <option key={b.key} value={b.key} disabled={b.coming}>{b.label}{b.coming ? ' — coming' : ''}</option>
+              {breakdownList.map((b) => (
+                <option key={`${b.key}:${b.platform}`} value={b.key} disabled={b.coming}>{b.label}{b.coming ? ' — coming' : ''}</option>
               ))}
             </select>
             <label className={styles.fLabel}>Rank by</label>
-            <select className={styles.sel} value={cfg.rankBy || 'spend'} onChange={(e) => set({ rankBy: e.target.value })}>
-              {['spend', 'conversions', 'conversionValue', 'clicks', 'impressions'].map((r) => <option key={r} value={r}>{r}</option>)}
+            <select className={styles.sel} value={cfg.rankBy || (isStore ? 'revenue' : 'spend')} onChange={(e) => set({ rankBy: e.target.value })}>
+              {rankByList.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
             <label className={styles.fLabel}>Top N</label>
             <input className={styles.sel} type="number" min={1} max={50} value={cfg.topN || 8} onChange={(e) => set({ topN: Math.max(1, Math.min(50, Number(e.target.value) || 8)) })} />
@@ -114,7 +130,7 @@ export default function CardConfigPanel({ initial, onApply, onClose }: { initial
         <input className={styles.sel} type="text" value={cfg.title || ''} placeholder="Auto" onChange={(e) => set({ title: e.target.value || undefined })} />
       </div>
       <div className={styles.panelFoot}>
-        <button type="button" className={styles.primary} onClick={() => onApply(cfg)}>Apply</button>
+        <button type="button" className={styles.primary} onClick={apply}>Apply</button>
         <button type="button" className={styles.ghost} onClick={onClose}>Cancel</button>
       </div>
     </div>
