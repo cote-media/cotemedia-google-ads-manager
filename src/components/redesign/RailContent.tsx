@@ -21,6 +21,9 @@ const NAV: NavItem[] = [
   { id: 'connect', label: 'Connect a source', icon: 'ti-plus', href: '/clients', group: 'channel', connect: true },
   { id: 'lora', label: 'Lora', icon: 'ti-sparkles', href: '/dashboard-next/lora' },
   { id: 'mer', label: 'Mer', icon: 'ti-atom', href: '/dashboard-next/mer' },
+  // LORAMER_RBAC_INVITE_V1 — org Team surface (invite/manage teammates + per-client access). Owner/admin only (the
+  // page renders an honest "only owner/admin" state otherwise); the rail entry is always present (like the channels).
+  { id: 'team', label: 'Team', icon: 'ti-users-group', href: '/dashboard-next/team' },
 ]
 
 export default function RailContent({

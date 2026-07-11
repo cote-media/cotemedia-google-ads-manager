@@ -1,0 +1,50 @@
+/* LORAMER_RBAC_INVITE_V1 — Team surface. Mobile-first, TW-caliber; labels never truncate (word-break on emails). */
+.wrap { max-width: 720px; margin: 0 auto; padding: 8px 4px 40px; font-family: 'Instrument Sans', system-ui, sans-serif; color: #0f172a; }
+.h1 { font-size: 22px; font-weight: 600; margin: 8px 0 2px; }
+.sub { font-size: 14px; color: #64748b; margin: 0 0 16px; }
+.muted { color: #64748b; }
+.err { color: #dc2626; }
+
+.card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.cardTitle { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+
+.label { display: block; font-size: 12px; font-weight: 600; color: #334155; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: .02em; }
+.input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; font-family: inherit; }
+.input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.hint { font-size: 12px; color: #64748b; margin: 6px 0 0; }
+
+.seg { display: flex; gap: 6px; }
+.segBtn, .segOn { flex: 1; padding: 9px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; font-size: 14px; font-family: inherit; cursor: pointer; color: #334155; }
+.segOn { background: #2563eb; border-color: #2563eb; color: #fff; font-weight: 600; }
+
+.checkAll { display: flex; align-items: flex-start; gap: 10px; font-size: 15px; padding: 6px 0; cursor: pointer; }
+.checkAll input { margin-top: 3px; width: 17px; height: 17px; flex: none; }
+.checklist { margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 8px; max-height: 320px; overflow-y: auto; }
+.checkRow { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border-bottom: 1px solid #f1f5f9; font-size: 15px; cursor: pointer; }
+.checkRow:last-child { border-bottom: none; }
+.checkRow input { margin-top: 3px; width: 17px; height: 17px; flex: none; }
+.checkRow span { word-break: break-word; }
+
+.primary { width: 100%; margin-top: 16px; padding: 12px; border: none; border-radius: 9px; background: #2563eb; color: #fff; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.primary:disabled { opacity: .5; cursor: default; }
+.msg { font-size: 13px; color: #334155; margin: 10px 0 0; }
+
+.members { list-style: none; margin: 0; padding: 0; }
+.member { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "main revoke" "access revoke"; gap: 2px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+.member:last-child { border-bottom: none; }
+.memMain { grid-area: main; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.memEmail { font-size: 15px; font-weight: 500; word-break: break-all; }
+.role { font-size: 11px; font-weight: 600; color: #2563eb; background: #eff6ff; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+.memAccess { grid-area: access; font-size: 13px; }
+.memAccess span { word-break: break-word; }
+.revoke { grid-area: revoke; align-self: center; padding: 7px 12px; border: 1px solid #fecaca; background: #fff; color: #dc2626; border-radius: 8px; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap; }
+.revoke:disabled { opacity: .5; }
+
+/* Dark theme — the -next shell is light today; this keeps the surface neutral if the shell flips. */
+@media (prefers-color-scheme: dark) {
+  .wrap { color: #e2e8f0; }
+  .card { background: #0b1220; border-color: #1e293b; }
+  .input { background: #0b1220; border-color: #334155; color: #e2e8f0; }
+  .checklist { border-color: #1e293b; }
+  .checkRow { border-color: #14203a; }
+}
