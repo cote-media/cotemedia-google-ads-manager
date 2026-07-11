@@ -641,3 +641,119 @@ export async function queryMoney(opts: {
   result.note = notes.join(' ')
   return result
 }
+
+// LORAMER_NEXT_ENTITIES_V1 — per-ENTITY base-row aggregation for the -next platform drill spine (Flight 1).
+// Reads CAPTURED metrics_daily base rows (breakdown_type='') at ONE entity_level, optionally filtered to the
+// children of parentEntityId, and groups by entity_id over the window. SEPARATE from aggregateWindow (which sums a
+// whole level into ONE total) and from queryBreakdown (which reads breakdown_type != '' dimensions). Reuses the
+// canonical derive()/MetricTotals/emptyTotals + the same paginated sum pattern; adds convRate (conversions/clicks)
+// on top of derive(). NO live platform call — captured store only. The parent_entity_id filter is the drill mechanic
+// (campaign→ad_group/ad_set→ad); linkage is 100% populated for google + meta (verified 2026-07-10).
+export type EntityRow = {
+  entityId: string
+  entityName: string
+  parentEntityId?: string
+  spend: number
+  impressions: number
+  clicks: number
+  conversions: number
+  conversionValue: number
+  revenue: number
+  derived: Record<string, number>
+}
+
+export type QueryEntitiesResult = {
+  platform: string
+  level: string
+  window: { startDate: string; endDate: string }
+  parentEntityId?: string
+  rows: EntityRow[]
+  totals: { spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; derived: Record<string, number> }
+  entityCount: number
+}
+
+// derive() + convRate (the DrillTable's derived column set: ctr/roas/cpc/cpa + convRate).
+function deriveEntity(t: MetricTotals): Record<string, number> {
+  const d = derive(t)
+  if (t.clicks > 0) d.convRate = Number((t.conversions / t.clicks * 100).toFixed(2))
+  return d
+}
+
+export async function queryEntities(opts: {
+  clientId: string
+  platform: string
+  level: string // campaign | ad_group | ad_set | ad
+  parentEntityId?: string
+  baseRange?: string
+  startDate?: string
+  endDate?: string
+}): Promise<QueryEntitiesResult> {
+  const ISO = /^\d{4}-\d{2}-\d{2}$/
+  let startDate: string, endDate: string
+  if (opts.startDate && opts.endDate && ISO.test(opts.startDate) && ISO.test(opts.endDate) && opts.startDate <= opts.endDate) {
+    startDate = opts.startDate; endDate = opts.endDate
+  } else {
+    const w = resolveDateWindow(opts.baseRange || 'LAST_30_DAYS'); startDate = w.startDate; endDate = w.endDate
+  }
+
+  type Ent = { entityId: string; entityName: string; parentEntityId: string; t: MetricTotals }
+  const byEntity = new Map<string, Ent>()
+  const grand = emptyTotals()
+  const PAGE = 1000
+  let from = 0
+  for (;;) {
+    let q = supabaseAdmin
+      .from('metrics_daily')
+      .select('entity_id, entity_name, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue')
+      .eq('client_id', opts.clientId)
+      .eq('platform', opts.platform)
+      .eq('entity_level', opts.level)
+      .eq('breakdown_type', '') // base rows only — NEVER a breakdown dimension (double-count guard)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .range(from, from + PAGE - 1)
+    if (opts.parentEntityId) q = q.eq('parent_entity_id', opts.parentEntityId) // the drill filter → children of this entity
+    const { data, error } = await q
+    if (error) throw new Error('metrics_daily entities query failed: ' + error.message)
+    const rows = data || []
+    for (const r of rows) {
+      const row = r as Record<string, unknown>
+      const eid = String(row.entity_id ?? '')
+      if (!eid) continue
+      let e = byEntity.get(eid)
+      if (!e) { e = { entityId: eid, entityName: String(row.entity_name ?? ''), parentEntityId: String(row.parent_entity_id ?? ''), t: emptyTotals() }; byEntity.set(eid, e) }
+      if (!e.entityName && row.entity_name) e.entityName = String(row.entity_name)
+      const s = Number(row.spend || 0), im = Number(row.impressions || 0), cl = Number(row.clicks || 0)
+      const cv = Number(row.conversions || 0), cvv = Number(row.conversion_value || 0), rv = Number(row.revenue || 0)
+      e.t.spend += s; e.t.impressions += im; e.t.clicks += cl; e.t.conversions += cv; e.t.conversionValue += cvv; e.t.revenue += rv; e.t.rowCount += 1
+      grand.spend += s; grand.impressions += im; grand.clicks += cl; grand.conversions += cv; grand.conversionValue += cvv; grand.revenue += rv; grand.rowCount += 1
+    }
+    if (rows.length < PAGE) break
+    from += PAGE
+  }
+
+  const rows: EntityRow[] = Array.from(byEntity.values())
+    .map((e) => ({
+      entityId: e.entityId,
+      entityName: e.entityName,
+      parentEntityId: e.parentEntityId || undefined,
+      spend: e.t.spend, impressions: e.t.impressions, clicks: e.t.clicks,
+      conversions: e.t.conversions, conversionValue: e.t.conversionValue, revenue: e.t.revenue,
+      derived: deriveEntity(e.t),
+    }))
+    .sort((a, b) => b.spend - a.spend) // default spend desc (the legacy DrillTable default; UI re-sorts)
+
+  return {
+    platform: opts.platform,
+    level: opts.level,
+    window: { startDate, endDate },
+    parentEntityId: opts.parentEntityId,
+    rows,
+    totals: {
+      spend: grand.spend, impressions: grand.impressions, clicks: grand.clicks,
+      conversions: grand.conversions, conversionValue: grand.conversionValue, revenue: grand.revenue,
+      derived: deriveEntity(grand),
+    },
+    entityCount: rows.length,
+  }
+}
