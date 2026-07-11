@@ -53,6 +53,32 @@ const EMPTY_PLATFORM: PlatformIntelligence = {
   },
 }
 
+// LORAMER_INTELLIGENCE_HARDENING_V1 — read resilience for the shared /api/intelligence read path. FAIL PARTIAL +
+// LOUD, never fail-closed-silent. readOnce gives each Supabase read ONE retry on a transient network fault
+// (ECONNRESET, "fetch failed"); settledRead turns a still-rejected read into a degraded {data:null} + a STRUCTURED
+// error log so that ONE flaky source drops out while its siblings + the client profile still populate. No silent
+// .catch(()=>[]); the route always returns the PARTIAL context it assembled, so "platform undefined" is unreachable
+// once the client is accessible.
+async function readOnce<T>(label: string, fn: () => PromiseLike<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (e: any) {
+    console.error(`[intelligence] read "${label}" threw once (transient?), retrying:`, e?.message || e)
+    await new Promise((r) => setTimeout(r, 150))
+    return await fn() // final attempt; if it throws again the caller's allSettled/try-catch degrades the source
+  }
+}
+// Extract {data,error} from a settled read: fulfilled → the supabase result (log its .error, if any); REJECTED (network
+// after retry) → a degraded {data:null} + a LOUD log. A network fault drops ONE source, it does NOT blank the context.
+function settledRead(label: string, r: PromiseSettledResult<any>): { data: any; error: any } {
+  if (r.status === 'fulfilled') {
+    if (r.value?.error) console.error(`[intelligence] read "${label}" returned an error (source degraded):`, r.value.error?.message || r.value.error)
+    return { data: r.value?.data ?? null, error: r.value?.error ?? null }
+  }
+  console.error(`[intelligence] read "${label}" REJECTED after retry (network/transient) — degrading THIS source, siblings continue:`, r.reason?.message || r.reason)
+  return { data: null, error: r.reason }
+}
+
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) {
@@ -100,18 +126,22 @@ export async function GET(request: Request) {
   // Read active (non-archived) facts only; pinned first, then highest
   // confidence, then most recent. The prompt builder uses these to inject
   // a "WHAT YOU KNOW ABOUT [CLIENT]" block in Claude's system prompt.
-  const [connectionsResult, clientResult, contextResult, conversationsResult, memoryResult, knowledgeResult] = await Promise.all([
-    supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId),
-    supabaseAdmin.from('clients').select('name').eq('id', clientId).single(),
-    supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', ownerEmail).single(),
-    supabaseAdmin
+  // LORAMER_INTELLIGENCE_HARDENING_V1 — allSettled (was Promise.all): a single flaky Supabase read (ECONNRESET) now
+  // degrades ONLY its own source instead of rejecting the whole handler → 500 → empty context. Each read gets one
+  // retry (readOnce); a still-rejected read becomes {data:null} + a loud log (settledRead). Same var names + {data,error}
+  // shape as before, so ALL downstream assembly is untouched (byte-identical on the all-succeed path).
+  const _settled = await Promise.allSettled([
+    readOnce('platform_connections', () => supabaseAdmin.from('platform_connections').select('*').eq('client_id', clientId)),
+    readOnce('clients', () => supabaseAdmin.from('clients').select('name').eq('id', clientId).single()),
+    readOnce('client_context', () => supabaseAdmin.from('client_context').select('*').eq('client_id', clientId).eq('user_email', ownerEmail).single()),
+    readOnce('client_conversations', () => supabaseAdmin
       .from('client_conversations')
       .select('surface, scope, role, content, created_at')
       .eq('client_id', clientId)
       .eq('user_email', ownerEmail)
       .order('created_at', { ascending: true })
-      .limit(500),
-    supabaseAdmin
+      .limit(500)),
+    readOnce('client_memory', () => supabaseAdmin
       .from('client_memory')
       .select('id, content, category, confidence, pinned, source')
       .eq('client_id', clientId)
@@ -120,20 +150,26 @@ export async function GET(request: Request) {
       .order('pinned', { ascending: false })
       .order('confidence', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(200),
+      .limit(200)),
     // LORAMER_KNOWLEDGE_INGEST_V1 — recall: this client's docs + this owner's agency-wide docs (non-deleted)
-    supabaseAdmin
+    readOnce('uploaded_docs', () => supabaseAdmin
       .from('uploaded_docs')
       .select('scope, filename, extracted_text, word_count')
       .is('deleted_at', null)
-      .or(`and(scope.eq.client,client_id.eq.${clientId}),and(scope.eq.agency,owner_email.eq.${ownerEmail})`),
+      .or(`and(scope.eq.client,client_id.eq.${clientId}),and(scope.eq.agency,owner_email.eq.${ownerEmail})`)),
   ])
+  const connectionsResult = settledRead('platform_connections', _settled[0])
+  const clientResult = settledRead('clients', _settled[1])
+  const contextResult = settledRead('client_context', _settled[2])
+  const conversationsResult = settledRead('client_conversations', _settled[3])
+  const memoryResult = settledRead('client_memory', _settled[4])
+  const knowledgeResult = settledRead('uploaded_docs', _settled[5])
   const memory = memoryResult.data || []
   const knowledgeDocs = (knowledgeResult.data || []).map((d: any) => ({
     scope: d.scope as 'client' | 'agency', filename: d.filename, text: d.extracted_text || '', wordCount: d.word_count || 0,
   }))
 
-  const connections = connectionsResult.data || []
+  const connections: any[] = connectionsResult.data || [] // LORAMER_INTELLIGENCE_HARDENING_V1 — settledRead flattens data to any; keep the array type for .find below
   const client = clientResult.data
   const context = contextResult.data
   // Build conversations object keyed by "surface:scope" to match the
@@ -263,9 +299,16 @@ export async function GET(request: Request) {
   // session.refreshToken (login writes both from the same value), so owner behavior is byte-identical.
   let ownerGoogleRefreshToken: string | null = null
   if (googleConn) {
-    const { data: gt } = await supabaseAdmin
-      .from('google_tokens').select('refresh_token').eq('user_email', ownerEmail).maybeSingle()
-    ownerGoogleRefreshToken = (gt?.refresh_token as string) || null
+    try {
+      const { data: gt } = await readOnce('google_tokens', () => supabaseAdmin
+        .from('google_tokens').select('refresh_token').eq('user_email', ownerEmail).maybeSingle())
+      ownerGoogleRefreshToken = (gt?.refresh_token as string) || null
+    } catch (e: any) {
+      // LORAMER_INTELLIGENCE_HARDENING_V1 — a rejected google_tokens read must NOT 500 the whole context. Degrade
+      // Google to "no token" (fetchFailed downstream); every other platform + the profile still populate.
+      console.error('[intelligence] read "google_tokens" REJECTED after retry — Google degraded to unavailable, others continue:', e?.message || e)
+      ownerGoogleRefreshToken = null
+    }
   }
 
   // ── Fetch all platforms in parallel ───────────────────────────────────────
@@ -465,11 +508,18 @@ export async function GET(request: Request) {
   // Re-read health AFTER the writes above so a connection this very fetch just flipped is
   // reflected immediately (no one-call lag). Only when the flag is on (skips a query otherwise).
   if (HEALTH_UI) {
-    const { data: freshConns } = await supabaseAdmin
-      .from('platform_connections')
-      .select('platform, account_id, account_name, health')
-      .eq('client_id', clientId)
-    intelligence.connectionHealth = buildConnectionHealth(freshConns || connections)
+    try {
+      const { data: freshConns } = await readOnce('platform_connections_health', () => supabaseAdmin
+        .from('platform_connections')
+        .select('platform, account_id, account_name, health')
+        .eq('client_id', clientId))
+      intelligence.connectionHealth = buildConnectionHealth(freshConns || connections)
+    } catch (e: any) {
+      // LORAMER_INTELLIGENCE_HARDENING_V1 — a flaky health re-read must not 500 the assembled context; fall back to
+      // the connections we already read this call.
+      console.error('[intelligence] read "platform_connections_health" REJECTED after retry — using already-read connections:', e?.message || e)
+      intelligence.connectionHealth = buildConnectionHealth(connections)
+    }
   }
 
   // ── Cache the result ───────────────────────────────────────────────────────
