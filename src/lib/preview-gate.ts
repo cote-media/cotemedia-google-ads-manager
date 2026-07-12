@@ -13,13 +13,17 @@ import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
 
-function allowlist(): Set<string> {
-  return new Set(
-    (process.env.PREVIEW_ALLOWLIST || '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => e.length > 0)
-  )
+// LORAMER_NEXT_CUTOVER_V1 — the build-dark allowlist is RETIRED: -next is now the DEFAULT surface for every
+// authenticated user. The ONLY exception is the LEGACY COHORT — the Shopify/Meta REVIEW + demo fixture accounts,
+// which MUST stay on the CURRENT screencast-matching UI while the Shopify App Store review is still OPEN (compliance
+// hold). Real merchants (incl. real Shopify-install sessions with their own email) get -next; only the loramer.app
+// review/demo fixtures are held. Exported so the /dashboard cutover redirect uses the SAME predicate (no divergence).
+export function isLegacyCohort(email: string | null | undefined): boolean {
+  const e = (email || '').trim().toLowerCase()
+  if (!e) return false
+  if (e === 'shopify-reviewer@loramer.app' || e === 'demo@loramer.com') return true
+  if (/^shopify\+.*@loramer\.app$/.test(e)) return true // Shopify App-Store install test fixtures
+  return false
 }
 
 export async function isPreviewUser(): Promise<boolean> {
@@ -27,7 +31,8 @@ export async function isPreviewUser(): Promise<boolean> {
     const session = await getServerSession(authOptions)
     const email = session?.user?.email?.trim().toLowerCase()
     if (!email) return false
-    return allowlist().has(email)
+    // CUTOVER: any authenticated user gets -next, EXCEPT the held legacy-review/demo cohort.
+    return !isLegacyCohort(email)
   } catch (e) {
     console.error('[preview-gate] check failed, defaulting to CURRENT UI:', e)
     return false

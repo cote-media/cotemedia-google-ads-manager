@@ -104,7 +104,7 @@ export default function TopBar({
               <div className={`${styles.menu} ${styles.menuRight}`}>
                 {/* Inert stubs (visible, labeled, non-navigating). */}
                 <button className={styles.menuItem} onClick={() => setAcctOpen(false)}><i className="ti ti-settings" /> Agency settings</button>
-                <button className={styles.menuItem} onClick={() => setAcctOpen(false)}><i className="ti ti-credit-card" /> Billing</button>
+                <Link href="/billing" className={styles.menuItem} onClick={() => setAcctOpen(false)}><i className="ti ti-credit-card" /> Billing</Link>
                 <button className={styles.menuItem} onClick={() => setAcctOpen(false)}><i className="ti ti-shield-lock" /> Privacy</button>
                 <button className={styles.menuItem} onClick={() => setAcctOpen(false)}><i className="ti ti-file-text" /> Terms</button>
                 <div className={styles.menuSep} />
