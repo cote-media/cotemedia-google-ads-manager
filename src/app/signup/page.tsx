@@ -52,6 +52,17 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, account_type: effectiveType || undefined }),
       })
+      if (res.status === 403) {
+        // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — not on the invite list → the invite-only screen (prefill email).
+        const j = await res.json().catch(() => ({} as any))
+        if (j.error === 'not_invited') {
+          router.push('/request-access?email=' + encodeURIComponent(email))
+          return
+        }
+        setError('Sign-up failed. Try again.')
+        setLoading(false)
+        return
+      }
       if (res.status === 409) {
         setError('An account with that email already exists. Try signing in.')
         setLoading(false)

@@ -3,6 +3,7 @@ import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials' // LORAMER_REVIEWER_BYPASS_V1
 import { verifyInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
 import { compare } from 'bcryptjs' // LORAMER_NATIVE_AUTH_V1 — email/password authorize
+import { isAllowed } from '@/lib/access/allowlist' // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — invite-only gate
 import { supabaseAdmin } from '@/lib/supabase'
 
 declare module 'next-auth' {
@@ -83,6 +84,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
+    // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — invite-only gate. ONLY Google is gated HERE, because Google's first
+    // sign-in IS the signup (no separate route). reviewer-token / shopify-install / password ALWAYS pass:
+    // reviewer + Shopify-install must never break, and a password login only reaches here if signup already
+    // passed the same gate (/api/auth/signup). Returning a URL string blocks session issuance (the jwt/session
+    // callbacks below never run for a rejected sign-in) and redirects to the invite-only screen.
+    async signIn({ user, account }) {
+      if (account?.provider === 'google') {
+        const email = (user?.email || '').trim().toLowerCase()
+        if (await isAllowed(email)) return true
+        return '/request-access?email=' + encodeURIComponent(email)
+      }
+      return true
+    },
     async jwt({ token, account, user }) {
       if (account) {
         token.accessToken = account.access_token

@@ -49,6 +49,12 @@ export async function POST(request: Request) {
     .upsert({ org_id: caller.orgId, member_email: memberEmail, role, invited_by: email }, { onConflict: 'org_id,member_email' })
   if (mErr) return NextResponse.json({ error: 'failed to write membership', detail: mErr.message }, { status: 500 })
 
+  // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — auto-allowlist the invited email so they can sign up via EITHER door
+  // (Google or email/password). ON CONFLICT DO NOTHING (ignoreDuplicates) — never clobber an existing seed source.
+  await supabaseAdmin
+    .from('signup_allowlist')
+    .upsert({ email: memberEmail, source: 'rbac_invite' }, { onConflict: 'email', ignoreDuplicates: true })
+
   await supabaseAdmin.from('org_client_grants').delete().eq('org_id', caller.orgId).eq('member_email', memberEmail)
   const grantRows = allClients
     ? [{ org_id: caller.orgId, member_email: memberEmail, all_clients: true }]

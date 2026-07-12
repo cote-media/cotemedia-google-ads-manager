@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { hash } from 'bcryptjs'
+import { isAllowed } from '@/lib/access/allowlist' // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — same gate as the Google door
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD = 8
@@ -26,6 +27,12 @@ export async function POST(request: Request) {
   }
   if (password.length < MIN_PASSWORD) {
     return NextResponse.json({ error: `password must be at least ${MIN_PASSWORD} characters` }, { status: 400 })
+  }
+
+  // LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — invite-only gate (SAME predicate as the Google door). Reject a
+  // non-allowlisted email BEFORE any credential is written; the client routes a 403 not_invited to /request-access.
+  if (!(await isAllowed(email))) {
+    return NextResponse.json({ error: 'not_invited' }, { status: 403 })
   }
 
   // Reject an existing account (409). The unique PK also guards a race below.
