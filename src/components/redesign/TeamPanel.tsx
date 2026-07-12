@@ -16,7 +16,9 @@ export default function TeamPanel() {
   const [state, setState] = useState<'loading' | 'ready' | 'forbidden' | 'error'>('loading')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'admin' | 'member'>('member')
-  const [allClients, setAllClients] = useState(true)
+  // LORAMER_RBAC_INVITE_GRANT_UX_V1 — SAFE default: an explicit "Specific clients" | "All clients" choice, defaulting
+  // to specific, so all-clients is NEVER the accidental result of a one-click master checkbox (the bug-A trap).
+  const [grantMode, setGrantMode] = useState<'specific' | 'all'>('specific')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -25,7 +27,7 @@ export default function TeamPanel() {
     setState('loading')
     fetch('/api/org/team')
       .then((r) => (r.status === 403 ? Promise.reject('forbidden') : r.ok ? r.json() : Promise.reject('error')))
-      .then((d: TeamData) => { setData(d); setAllClients(d.orgType === 'solo'); setState('ready') })
+      .then((d: TeamData) => { setData(d); setState('ready') })
       .catch((e) => setState(e === 'forbidden' ? 'forbidden' : 'error'))
   }
   useEffect(load, [])
@@ -34,14 +36,18 @@ export default function TeamPanel() {
 
   const invite = async () => {
     setMsg(null)
-    const grants = allClients ? { all_clients: true } : { all_clients: false, client_ids: Array.from(picked) }
-    if (!allClients && picked.size === 0) { setMsg('Pick at least one client, or choose “All clients”.'); return }
+    // LORAMER_RBAC_INVITE_GRANT_UX_V1 — all-clients is a DELIBERATE choice (grantMode==='all'); solo orgs grant
+    // all-clients implicitly (a single business). Specific + nothing picked is BLOCKED — no accidental all-clients.
+    const isAgencyOrg = data?.orgType === 'agency'
+    if (isAgencyOrg && grantMode === 'specific' && picked.size === 0) { setMsg('Pick at least one client, or choose “All clients”.'); return }
+    const chooseAll = isAgencyOrg ? grantMode === 'all' : true
+    const grants = chooseAll ? { all_clients: true } : { all_clients: false, client_ids: Array.from(picked) }
     setBusy(true)
     try {
       const r = await fetch('/api/org/invite', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ member_email: email, role, grants }) })
       const j = await r.json()
       if (!r.ok) { setMsg(j?.error || 'Invite failed'); setBusy(false); return }
-      setMsg(`Invited ${email}`); setEmail(''); setPicked(new Set()); setAllClients(data?.orgType === 'solo'); setRole('member')
+      setMsg(`Invited ${email}`); setEmail(''); setPicked(new Set()); setGrantMode('specific'); setRole('member')
       load()
     } catch { setMsg('Invite failed') }
     setBusy(false)
@@ -84,11 +90,13 @@ export default function TeamPanel() {
         {isAgency && (
           <>
             <label className={styles.label}>Client access</label>
-            <label className={styles.checkAll}>
-              <input type="checkbox" checked={allClients} onChange={(e) => setAllClients(e.target.checked)} />
-              <span>All clients <span className={styles.muted}>(including ones you add later)</span></span>
-            </label>
-            {!allClients && (
+            {/* LORAMER_RBAC_INVITE_GRANT_UX_V1 — explicit either/or; "Specific clients" is the SAFE default. All-clients
+                is only granted when the owner deliberately picks it (no accidental select-all). */}
+            <div className={styles.seg}>
+              <button type="button" className={grantMode === 'specific' ? styles.segOn : styles.segBtn} onClick={() => setGrantMode('specific')}>Specific clients</button>
+              <button type="button" className={grantMode === 'all' ? styles.segOn : styles.segBtn} onClick={() => setGrantMode('all')}>All clients</button>
+            </div>
+            {grantMode === 'specific' ? (
               <div className={styles.checklist}>
                 {data.clients.length === 0 && <p className={styles.muted}>No clients yet.</p>}
                 {data.clients.map((c) => (
@@ -98,6 +106,8 @@ export default function TeamPanel() {
                   </label>
                 ))}
               </div>
+            ) : (
+              <p className={styles.hint}>This teammate will see every client in your org, including ones you add later.</p>
             )}
           </>
         )}
