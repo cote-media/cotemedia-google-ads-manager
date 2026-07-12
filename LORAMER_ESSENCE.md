@@ -24,6 +24,7 @@ High-stakes = any claim gating a destructive/rotate/delete action, a "this is a 
 - PROACTIVELY SURFACE non-coder-relevant risks/needs (token cliffs, scope gaps, cost/billing, reliability) the MOMENT they're visible — Russ is a non-coder; never wait to be asked.
 - SEARCH-BEFORE-NEW — before presenting anything as a NEW finding/caveat/gap, search the docs + prior chats; if it's already decided, CITE the decision, do NOT reopen it.
 - MULTI-SOURCE METRIC PROVENANCE: Any metric that can differ by source (ROAS, conversions, CPA, revenue, attribution) surfaces EVERY source's value, each labeled with its origin and basis. Never hide, blend, collapse, or silently pick one. The store is source-of-truth only for explicit store-truth questions; each platform's value stands on its own for platform questions; offline-uploaded sales enable a valid ROAS even without online purchase. Lora holds all sources at once, distinguishes them, and explains WHY they differ (web-researching the explanation when it helps). Every metric, every surface.
+- VERIFICATION — REAL-PATH: a Gate-A proof traverses the REAL entry path (login / route / page) through EVERY gate/guard/middleware to the answer — isolated-function proofs are necessary, NEVER sufficient; on-device Gate-B on real data is the mandatory final backstop. (2026-07-11: two isolated-pass / live-fail misses. Full: DECISIONS VERIFICATION LAWS 1–3.)
 
 # THE ESSENCE OF LORAMER — read this every session, before anything else
 
