@@ -76,7 +76,12 @@ export default function AgencyPage() {
         {/* CTA */}
         <div>
           <button
-            onClick={() => signIn('google', { callbackUrl: '/dashboard?type=agency' })}
+            onClick={() => {
+              // LORAMER_ORG_TYPE_PERSIST_V1 — carry the two-door choice across the OAuth roundtrip.
+              // A cookie survives the redirect (the ?type= URL param does not); /welcome reads it.
+              document.cookie = 'signup_org_type=agency; path=/; max-age=1800; samesite=lax'
+              signIn('google', { callbackUrl: '/dashboard?type=agency' })
+            }}
             className="btn-primary flex items-center gap-3 w-fit mb-4"
           >
             <GoogleIcon />

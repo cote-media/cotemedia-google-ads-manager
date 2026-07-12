@@ -27,11 +27,14 @@ export async function enforceWelcomeGate(): Promise<void> {
   try {
     const { data, error } = await supabaseAdmin
       .from('user_profiles')
-      .select('welcome_seen_at')
+      .select('welcome_seen_at, account_type')
       .eq('user_email', email)
       .maybeSingle()
-    // Already saw welcome → definitely not new; done.
-    if (!error && data && data.welcome_seen_at !== null) return
+    // LORAMER_ORG_TYPE_PERSIST_V1 — an OWNER is fully onboarded only once BOTH welcome_seen_at AND the
+    // two-door account_type are recorded. welcome_seen_at alone no longer passes: a user missing
+    // account_type falls through to the has-clients / is-member checks below (so existing owners + members
+    // are never re-onboarded), and only a genuinely-new owner is routed to /welcome to make the choice.
+    if (!error && data && data.welcome_seen_at !== null && data.account_type !== null) return
 
     // LORAMER_NEXT_CUTOVER_V1 — welcome_seen_at is null / no profile, BUT that alone no longer means "new user":
     // an org MEMBER or anyone with ACCESS to a client is NOT new (bug B: a member owns 0 clients directly and was
