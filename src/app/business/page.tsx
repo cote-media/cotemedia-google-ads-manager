@@ -87,6 +87,14 @@ export default function BusinessPage() {
             <GoogleIcon />
             Connect with Google
           </button>
+          {/* LORAMER_NATIVE_AUTH_V1 — email signup carries the same two-door choice via the cookie. */}
+          <a
+            href="/signup"
+            onClick={() => { document.cookie = 'signup_org_type=business; path=/; max-age=1800; samesite=lax' }}
+            className="block text-sm text-accent hover:underline w-fit mb-4"
+          >
+            or sign up with email →
+          </a>
           <p className="text-xs text-muted font-mono">Free during beta. No credit card required.</p>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { NextAuthOptions, DefaultSession } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import CredentialsProvider from 'next-auth/providers/credentials' // LORAMER_REVIEWER_BYPASS_V1
 import { verifyInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
+import { compare } from 'bcryptjs' // LORAMER_NATIVE_AUTH_V1 — email/password authorize
 import { supabaseAdmin } from '@/lib/supabase'
 
 declare module 'next-auth' {
@@ -52,6 +53,32 @@ export const authOptions: NextAuthOptions = {
           email: payload.userEmail,
           name: payload.userEmail,
         }
+      },
+    }),
+    // LORAMER_NATIVE_AUTH_V1 — email/password login. Same {id,email,name} shape as the two providers
+    // above, so a native session is byte-identical downstream (session.user.email drives everything).
+    // Verify-only: it never CREATES a user (signup mints the credential); it looks up auth_credentials
+    // and bcrypt-compares. Purely additive — Google/reviewer/shopify providers + callbacks are untouched.
+    CredentialsProvider({
+      id: 'password',
+      name: 'Email and Password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        const email = (credentials?.email || '').trim().toLowerCase()
+        const password = credentials?.password || ''
+        if (!email || !password) return null
+        const { data, error } = await supabaseAdmin
+          .from('auth_credentials')
+          .select('password_hash')
+          .eq('email', email)
+          .maybeSingle()
+        if (error || !data?.password_hash) return null
+        const ok = await compare(password, data.password_hash as string)
+        if (!ok) return null
+        return { id: email, email, name: email }
       },
     }),
   ],
