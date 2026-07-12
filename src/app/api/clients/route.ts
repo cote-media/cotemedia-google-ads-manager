@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { ensureOrgForOwner } from '@/lib/access/ensure-org' // LORAMER_RBAC_ORG_PROVISION_V1 — every new client gets an org_id
 
 export async function GET() {
   const session = await getServerSession(authOptions) as any
@@ -24,9 +25,19 @@ export async function POST(request: Request) {
   const { name } = await request.json()
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
+  // LORAMER_RBAC_ORG_PROVISION_V1 — resolve-or-create the creator's org so the client is born WITH an org_id (the
+  // precondition for the NOT-NULL lock). defaultType 'agency' is the Add-client placeholder (two-door homepage overrides).
+  let orgId: string
+  try {
+    orgId = await ensureOrgForOwner(session.user.email, { defaultType: 'agency' })
+  } catch (e: any) {
+    console.error('[clients POST] org provisioning failed:', e?.message || e)
+    return NextResponse.json({ error: 'could not resolve your organization' }, { status: 500 })
+  }
+
   const { data, error } = await supabase
     .from('clients')
-    .insert({ name, user_email: session.user.email })
+    .insert({ name, user_email: session.user.email, org_id: orgId })
     .select()
     .single()
 

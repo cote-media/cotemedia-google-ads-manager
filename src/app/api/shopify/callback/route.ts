@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import crypto from 'crypto'
 import { signInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
 import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
+import { ensureOrgForOwner } from '@/lib/access/ensure-org' // LORAMER_RBAC_ORG_PROVISION_V1 — the auto-created client gets an org_id
 
 const GRAPHQL_API_VERSION = '2025-01' // LORAMER_GRAPHQL_MIGRATION_V1
 
@@ -160,10 +161,22 @@ export async function GET(request: Request) {
     if (existingInstall?.client_id) {
       clientId = existingInstall.client_id
     } else {
-      // Brand new install — create a client row first
+      // Brand new install — create a client row first.
+      // LORAMER_RBAC_ORG_PROVISION_V1 — resolve-or-create the merchant's org so the client is born WITH an org_id
+      // (precondition for the NOT-NULL lock). defaultType 'solo' — a single store install = a single business;
+      // the two-door homepage overrides org_type if the merchant later signs up as an agency. LIVE-PATH: a failure
+      // here must abort the install cleanly (never insert an org-less client), same contract as the client-insert below.
+      let orgId: string
+      try {
+        orgId = await ensureOrgForOwner(userEmail, { defaultType: 'solo', name: shopName })
+      } catch (e: any) {
+        console.error('Failed to provision org for Shopify install:', e?.message || e)
+        return NextResponse.redirect(new URL('/?install_error=client_create_failed', request.url))
+      }
+
       const { data: newClient, error: clientErr } = await supabaseAdmin
         .from('clients')
-        .insert({ name: shopName, user_email: userEmail })
+        .insert({ name: shopName, user_email: userEmail, org_id: orgId })
         .select('id')
         .single()
 
