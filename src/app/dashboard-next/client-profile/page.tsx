@@ -9,6 +9,8 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
 import ClientPage from '@/components/redesign/ClientPage'
+import { reconcile } from '@/lib/completeness/reconcile' // LORAMER_COMPLETENESS_GATE_V1 F(b) — data-capture verdict (REUSED)
+import { computeReadiness, type ReadinessResult } from '@/lib/completeness/readiness'
 
 export default async function DashboardNextClientProfilePage({ searchParams }: { searchParams: { clientId?: string } }) {
   await requirePreviewUser()
@@ -46,9 +48,30 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
     .from('google_tokens').select('user_email').eq('user_email', email).maybeSingle()
   const hasGoogleAdsToken = !!gadsTok
 
+  // LORAMER_COMPLETENESS_GATE_V1 F(b) — per-client Lora-readiness meter. `resolved.id` is ALREADY owner-verified
+  // above (list from clients WHERE user_email = caller), so the access-gated RPC never sees a client the caller
+  // can't access. RPC → reconcile (data-capture, REUSED) → composer (brain/context). Non-fatal on error.
+  let readiness: ReadinessResult | null = null
+  try {
+    const { data: sig } = await supabaseAdmin.rpc('get_client_readiness_signals', { p_client_id: resolved.id })
+    if (sig) {
+      const byPlatform: Record<string, { entity_level: string; breakdown_type: string }[]> = {}
+      for (const r of (Array.isArray(sig.realAgg) ? sig.realAgg : [])) (byPlatform[r.platform] ||= []).push({ entity_level: r.entity_level, breakdown_type: r.breakdown_type })
+      const [clientResult] = reconcile({
+        floors: sig.floors || [], connections: sig.connections || [], cursors: sig.cursors || [],
+        realAgg: { [resolved.id]: byPlatform }, nowIso: new Date().toISOString(), clientIds: [resolved.id],
+      })
+      if (clientResult) readiness = computeReadiness({
+        clientResult,
+        connections: (sig.connections || []).map((c: any) => ({ platform: c.platform, health: c.health })),
+        brain: sig.brain || {}, docs: sig.docs || {}, memory: sig.memory || {},
+      })
+    }
+  } catch (e) { console.error('[client-profile] readiness failed (non-fatal):', e) }
+
   return (
     <Shell active="clients" clientName={resolved.name} clientId={resolved.id}>
-      <ClientPage clientId={resolved.id} clientName={resolved.name} connections={conns || []} hasGoogleAdsToken={hasGoogleAdsToken} />
+      <ClientPage clientId={resolved.id} clientName={resolved.name} connections={conns || []} hasGoogleAdsToken={hasGoogleAdsToken} readiness={readiness} />
     </Shell>
   )
 }

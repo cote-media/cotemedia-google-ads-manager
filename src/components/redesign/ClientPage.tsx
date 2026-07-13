@@ -15,6 +15,7 @@ import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
 import NaicsPicker from './NaicsPicker'
 import KnowledgePanel from './KnowledgePanel'
+import type { ReadinessResult, PlatformCompleteness } from '@/lib/completeness/readiness' // LORAMER_COMPLETENESS_GATE_V1 F(b)
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -40,6 +41,14 @@ type GaProperty = { account_id: string; account_name: string; property_id: strin
 const connectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', cursor: 'not-allowed', flexShrink: 0 }
 const connectBtnActiveStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#0f172a', background: 'none', border: '1px solid #cbd5e1', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
 const disconnectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
+// LORAMER_COMPLETENESS_GATE_V1 F(b) — Lora-readiness meter (mobile-first: full-width bar, relative units, wrap).
+const BADGE_COLOR = { green: '#16a34a', amber: '#d97706', red: '#dc2626' } as const
+function CompletePill({ cp }: { cp?: PlatformCompleteness | null }) {
+  if (!cp) return null
+  const c = cp.status === 'complete' ? '#16a34a' : cp.status === 'importing' ? '#d97706' : '#dc2626'
+  const label = cp.status === 'complete' ? 'Complete' : cp.status === 'importing' ? 'Importing…' : 'Syncing'
+  return <span title={cp.note} style={{ fontSize: 11, fontWeight: 600, color: c, border: `1px solid ${c}33`, background: `${c}14`, borderRadius: 8, padding: '2px 7px', flexShrink: 0 }}>{label}</span>
+}
 type Fact = { id: number; content: string; category: string; source: string; pinned: boolean }
 type GenField = 'business_descriptor' | 'service_area' | 'website'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -53,7 +62,8 @@ const VALUE_MODELS: { key: string; label: string }[] = [
   { key: 'lead', label: 'Lead / engagement' },
 ]
 
-export default function ClientPage({ clientId, clientName, connections, hasGoogleAdsToken }: { clientId: string; clientName: string; connections: Conn[]; hasGoogleAdsToken?: boolean }) {
+export default function ClientPage({ clientId, clientName, connections, hasGoogleAdsToken, readiness }: { clientId: string; clientName: string; connections: Conn[]; hasGoogleAdsToken?: boolean; readiness?: ReadinessResult | null }) {
+  const completenessFor = (pf: string): PlatformCompleteness | null => readiness?.perPlatform.find((x) => x.platform === pf) || null
   const [descriptor, setDescriptor] = useState('')
   const [serviceArea, setServiceArea] = useState('')
   const [website, setWebsite] = useState('')
@@ -386,6 +396,22 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
               <input className={styles.formInput} type="text" value={serviceArea}
                 onChange={e => onEdit('service_area', e.target.value, setServiceArea)} onBlur={e => saveField('service_area', e.target.value)}
                 placeholder="Nationwide (US) · Local — Atlanta metro · Global" />
+              {/* LORAMER_COMPLETENESS_GATE_V1 F(b) — additive quick-picks; free-text input stays the source of truth
+                  (custom areas still work). Mobile-first: wrap under the input at sm, ≥32px tap targets. */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                {['United States', 'Global'].map(preset => {
+                  const on = serviceArea.trim() === preset
+                  return (
+                    <button key={preset} type="button"
+                      onClick={() => { setServiceArea(preset); saveField('service_area', preset) }}
+                      style={{ fontSize: 12.5, padding: '6px 12px', minHeight: 32, borderRadius: 999, cursor: 'pointer',
+                        border: on ? '1px solid #2563eb' : '1px solid var(--border, #33384a)',
+                        background: on ? '#2563eb' : 'transparent', color: on ? '#fff' : 'inherit' }}>
+                      {preset}
+                    </button>
+                  )
+                })}
+              </div>
             </label>
             <label className={styles.field}>
               <span className={styles.fieldLabelRow}><span className={styles.fieldLabel}>Website</span><FieldStatus field="website" /></span>
@@ -424,6 +450,31 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
           mid-next reads as broken, so an honestly-disabled control is the less-misleading state. */}
       <section className={styles.section}>
         <div className={styles.sectionHead}><span className={styles.sectionTitle}>Connections</span></div>
+        {/* LORAMER_COMPLETENESS_GATE_V1 F(b) — Lora-readiness meter + to-green tasks (mobile-first). Distinct from
+            per-connection health below (health = login alive; this = data captured + Lora primed). */}
+        {readiness && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Lora readiness</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: BADGE_COLOR[readiness.badge] }}>{readiness.pct}%{readiness.badge === 'green' ? ' · Ready' : readiness.badge === 'amber' ? ' · Almost there' : ' · Needs setup'}</span>
+            </div>
+            <div role="progressbar" aria-valuenow={readiness.pct} aria-valuemin={0} aria-valuemax={100} style={{ height: 8, borderRadius: 999, background: '#e2e8f0', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${readiness.pct}%`, background: BADGE_COLOR[readiness.badge], borderRadius: 999, transition: 'width .3s' }} />
+            </div>
+            {readiness.tasks.length > 0 ? (
+              <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {readiness.tasks.map((t, i) => (
+                  <li key={i} style={{ display: 'flex', gap: 8, fontSize: 12.5, lineHeight: 1.35, color: t.kind === 'auto' ? '#94a3b8' : '#334155' }}>
+                    <span aria-hidden style={{ flexShrink: 0 }}>{t.kind === 'auto' ? '⏳' : '○'}</span>
+                    <span>{t.label}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ margin: '10px 0 0', fontSize: 12.5, color: '#16a34a' }}>Fully set up — Lora has everything it needs.</p>
+            )}
+          </div>
+        )}
         <div className={styles.connList}>
           {CONNECT_PLATFORMS.map((pf) => {
             const meta = PLATFORM_META[pf] || { label: pf, icon: 'ti-plug' }
@@ -444,6 +495,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                     <span className={styles.connAcct}>{gc?.account_name ? gc.account_name : authorized ? 'Authorized — choose this client’s ad account' : 'Not connected'}</span>
                   </div>
                   <span className={`${styles.healthBadge} ${gBadge}`}>{gc ? 'Connected' : authorized ? 'Authorized' : 'Not connected'}</span>
+                  <CompletePill cp={completenessFor('google')} />{/* LORAMER_COMPLETENESS_GATE_V1 F(b) — data completeness, distinct from health */}
                   {/* LORAMER_NEXT_CONNECT_V1 F3b — assign/change the customer_id mapping in-app (no more "current app" hop). */}
                   {authorized && <button type="button" onClick={openGooglePicker} disabled={googleLoading} title={gc ? 'Choose a different Google Ads account for this client' : 'Choose this client’s Google Ads account'} style={{ ...connectBtnActiveStyle, opacity: googleLoading ? 0.5 : 1 }}>{googleLoading ? 'Loading…' : gc ? 'Change account' : 'Choose account'}</button>}
                   <button type="button" onClick={() => startConnect('google', '')} title={authorized ? 'Re-authorize Google Ads' : 'Authorize Google Ads for your account'} style={connectBtnActiveStyle}>{authorized ? 'Reconnect' : 'Connect Google Ads'}</button>
@@ -483,6 +535,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                     {c.account_name && <span className={styles.connAcct}>{c.account_name}</span>}
                   </div>
                   <span className={`${styles.healthBadge} ${hCls}`}>{hLabel}</span>
+                  <CompletePill cp={completenessFor(pf)} />{/* LORAMER_COMPLETENESS_GATE_V1 F(b) */}
                   {NEXT_CONNECTABLE.has(pf) ? (
                     <button type="button" onClick={() => startConnect(pf, c.account_id || '')} disabled={!c.account_id} title="Re-authorize this connection" style={connectBtnActiveStyle}>Reconnect</button>
                   ) : (
