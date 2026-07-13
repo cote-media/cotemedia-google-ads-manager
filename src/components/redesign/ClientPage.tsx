@@ -35,6 +35,7 @@ const NEXT_CONNECTABLE = new Set<string>(['shopify', 'woocommerce', 'meta', 'ga'
 // AFTER, back on -next: Meta reads the account list from the URL, GA fetches /api/ga/properties from the cookie).
 const MODAL_PLATFORMS = new Set<string>(['shopify', 'woocommerce'])
 type MetaAccount = { id: string; name: string }
+type GoogleAccount = { id: string; name: string } // LORAMER_NEXT_CONNECT_V1 F3b — Google Ads customer picker
 type GaProperty = { account_id: string; account_name: string; property_id: string; property_name: string }
 const connectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', cursor: 'not-allowed', flexShrink: 0 }
 const connectBtnActiveStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#0f172a', background: 'none', border: '1px solid #cbd5e1', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
@@ -118,6 +119,10 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   // (via returnTo): Meta with ?meta_accounts=<list>, GA with ?ga_oauth=success (+ the path=/ ga_oauth_tokens cookie).
   const [metaPicker, setMetaPicker] = useState<MetaAccount[] | null>(null)
   const [gaPicker, setGaPicker] = useState<GaProperty[] | null>(null)
+  // LORAMER_NEXT_CONNECT_V1 F3b — Google Ads customer picker (opened on demand from the Google row, not from a
+  // callback param): googleLoading gates the fetch, googlePicker holds the accessible customer list.
+  const [googlePicker, setGooglePicker] = useState<GoogleAccount[] | null>(null)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [pickerBusy, setPickerBusy] = useState(false)
   const [pickerError, setPickerError] = useState('')
 
@@ -167,6 +172,35 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
       if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the property. Try again.'); setPickerBusy(false); return }
       setGaPicker(null); setPickerBusy(false); router.refresh()
     } catch { setPickerError('Could not connect the property. Try again.'); setPickerBusy(false) }
+  }
+
+  // LORAMER_NEXT_CONNECT_V1 F3b — port of the legacy googleModal/connectGoogleAccount picker. Lists the owner's
+  // accessible Google Ads customers from the STORED token (works for native owners too) → pick → POST the (client,
+  // google, customer_id) mapping (same shape/route as legacy connectGoogleAccount) → refresh.
+  async function openGooglePicker() {
+    setPickerError(''); setGoogleLoading(true)
+    try {
+      const r = await fetch('/api/google-ads/accounts')
+      const d = await r.json().catch(() => ({} as any))
+      if (!r.ok || d.error) {
+        setPickerError(d.error === 'not_authorized' ? 'Authorize Google Ads first, then choose an account.' : (d.error || 'Could not list your Google Ads accounts.'))
+        setGoogleLoading(false); return
+      }
+      setGooglePicker(Array.isArray(d.accounts) ? (d.accounts as GoogleAccount[]) : [])
+      setGoogleLoading(false)
+    } catch { setPickerError('Could not reach Google Ads. Try again.'); setGoogleLoading(false) }
+  }
+
+  async function finalizeGoogle(acct: GoogleAccount) {
+    setPickerBusy(true); setPickerError('')
+    try {
+      const res = await fetch('/api/clients/connections', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, platform: 'google', account_id: acct.id, account_name: acct.name }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the account. Try again.'); setPickerBusy(false); return }
+      setGooglePicker(null); setPickerBusy(false); router.refresh()
+    } catch { setPickerError('Could not connect the account. Try again.'); setPickerBusy(false) }
   }
 
   async function loadMemory() {
@@ -407,9 +441,11 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                   {icon}
                   <div className={styles.connMeta}>
                     <span className={styles.connName}>Google Ads</span>
-                    <span className={styles.connAcct}>{gc?.account_name ? gc.account_name : authorized ? 'Authorized — assign this client’s ad account in the current app' : 'Not connected'}</span>
+                    <span className={styles.connAcct}>{gc?.account_name ? gc.account_name : authorized ? 'Authorized — choose this client’s ad account' : 'Not connected'}</span>
                   </div>
                   <span className={`${styles.healthBadge} ${gBadge}`}>{gc ? 'Connected' : authorized ? 'Authorized' : 'Not connected'}</span>
+                  {/* LORAMER_NEXT_CONNECT_V1 F3b — assign/change the customer_id mapping in-app (no more "current app" hop). */}
+                  {authorized && <button type="button" onClick={openGooglePicker} disabled={googleLoading} title={gc ? 'Choose a different Google Ads account for this client' : 'Choose this client’s Google Ads account'} style={{ ...connectBtnActiveStyle, opacity: googleLoading ? 0.5 : 1 }}>{googleLoading ? 'Loading…' : gc ? 'Change account' : 'Choose account'}</button>}
                   <button type="button" onClick={() => startConnect('google', '')} title={authorized ? 'Re-authorize Google Ads' : 'Authorize Google Ads for your account'} style={connectBtnActiveStyle}>{authorized ? 'Reconnect' : 'Connect Google Ads'}</button>
                   {gc && <button type="button" onClick={() => disconnect(gc)} disabled={busyG} style={{ ...disconnectBtnStyle, opacity: busyG ? 0.5 : 1 }}>{busyG ? 'Disconnecting…' : 'Disconnect'}</button>}
                 </div>
@@ -465,13 +501,22 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         {/* LORAMER_NEXT_CONNECT_V1 F2b — Meta account-picker / GA property-picker (single-select; UNIQUE(client_id,
             platform) = one per client). Shown when the callback returned here with a list; pick → REUSED finalize
             (Meta: POST /api/clients/connections [hardened] · GA: POST /api/ga/connect) → refresh. mobile-clean. */}
-        {(metaPicker || gaPicker) && (
-          <div onClick={() => { if (!pickerBusy) { setMetaPicker(null); setGaPicker(null) } }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+        {(metaPicker || gaPicker || googlePicker || googleLoading) && (
+          <div onClick={() => { if (!pickerBusy) { setMetaPicker(null); setGaPicker(null); setGooglePicker(null) } }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
             <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 460, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-              <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{metaPicker ? 'Choose a Meta ad account' : 'Choose a Google Analytics property'}</h3>
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{metaPicker ? 'Choose a Meta ad account' : (googlePicker || googleLoading) ? 'Choose a Google Ads account' : 'Choose a Google Analytics property'}</h3>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Connect one to this client.</p>
               {pickerError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{pickerError}</div>}
               <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                {googleLoading && <p style={{ fontSize: 13, color: '#64748b' }}>Loading your Google Ads accounts…</p>}
+                {googlePicker && (googlePicker.length === 0
+                  ? <p style={{ fontSize: 13, color: '#64748b' }}>No Google Ads accounts found for this login.</p>
+                  : googlePicker.map((a) => (
+                    <button key={a.id} type="button" disabled={pickerBusy} onClick={() => finalizeGoogle(a)} style={{ textAlign: 'left', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', cursor: pickerBusy ? 'default' : 'pointer', opacity: pickerBusy ? 0.6 : 1 }}>
+                      <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 500 }}>{a.name || a.id}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{a.id}</div>
+                    </button>
+                  )))}
                 {metaPicker && (metaPicker.length === 0
                   ? <p style={{ fontSize: 13, color: '#64748b' }}>No Meta ad accounts found on this login.</p>
                   : metaPicker.map((a) => (
@@ -490,7 +535,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                   )))}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button type="button" disabled={pickerBusy} onClick={() => { setMetaPicker(null); setGaPicker(null) }} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>{pickerBusy ? 'Connecting…' : 'Cancel'}</button>
+                <button type="button" disabled={pickerBusy} onClick={() => { setMetaPicker(null); setGaPicker(null); setGooglePicker(null) }} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>{pickerBusy ? 'Connecting…' : 'Cancel'}</button>
               </div>
             </div>
           </div>
