@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2 — same open-redirect guard
 
 // LORAMER_WOO_RETURN_V1
 // GET /api/woocommerce/return?clientId=X&success=1   (after approval)
@@ -12,7 +13,10 @@ export async function GET(request: Request) {
   const clientId = searchParams.get('clientId') || ''
   const success = searchParams.get('success')
 
-  const target = new URL('/clients', request.url)
+  // LORAMER_NEXT_CONNECT_V1 F2 — return to the -next client-profile when a valid returnTo was threaded; else the
+  // existing /clients redirect, byte-identical. Same open-redirect guard as the Shopify Branch A path.
+  const rt = safeReturnTo(searchParams.get('returnTo'))
+  const target = rt ? new URL(rt, request.url) : new URL('/clients', request.url)
 
   if (success === '0') {
     target.searchParams.set('woo_error', 'denied')

@@ -43,7 +43,10 @@ export async function GET(request: Request) {
 
   const scopes = 'read_orders,read_all_orders,read_products,read_customers'
   const redirectUri = `${process.env.NEXTAUTH_URL}/api/shopify/callback`
-  const state = Buffer.from(JSON.stringify({ clientId, userEmail: session.user.email })).toString('base64')
+  // LORAMER_NEXT_CONNECT_V1 F2 — carry an OPTIONAL returnTo in the state (Branch A only). Absent → state shape
+  // identical to before; the callback validates it and falls back to /clients when absent/invalid.
+  const returnTo = searchParams.get('returnTo') || undefined
+  const state = Buffer.from(JSON.stringify({ clientId, userEmail: session.user.email, ...(returnTo ? { returnTo } : {}) })).toString('base64')
 
   const authUrl = `https://${shopDomain}/admin/oauth/authorize?client_id=${process.env.SHOPIFY_CLIENT_ID}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
 

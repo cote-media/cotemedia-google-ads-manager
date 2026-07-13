@@ -48,9 +48,13 @@ export async function GET(request: Request) {
     encodeURIComponent(clientId) +
     '&shop=' + encodeURIComponent(shop)
 
+  // LORAMER_NEXT_CONNECT_V1 F2 — carry an OPTIONAL returnTo on the USER-facing return_url (WordPress redirects the
+  // user here after POSTing creds to callback_url). Absent → return_url identical to before. woo/return validates it.
+  const returnTo = searchParams.get('returnTo')
   const returnUrl =
     origin + '/api/woocommerce/return?clientId=' +
-    encodeURIComponent(clientId)
+    encodeURIComponent(clientId) +
+    (returnTo ? '&returnTo=' + encodeURIComponent(returnTo) : '')
 
   const params = new URLSearchParams({
     app_name: 'LoraMer',

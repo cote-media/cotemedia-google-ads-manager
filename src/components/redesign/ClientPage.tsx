@@ -24,13 +24,16 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   woocommerce: { label: 'WooCommerce', icon: 'ti-shopping-cart' },
 }
 
-type Conn = { id: string; platform: string; account_name: string | null; health: string | null }
+type Conn = { id: string; platform: string; account_name: string | null; account_id: string | null; health: string | null }
 
 // LORAMER_NEXT_CONNECT_V1 — the 5 platforms rendered with truthful per-platform state (connected rows + a
 // "not connected" row for any platform with no connection). Keys match PLATFORM_META + platform_connections.platform.
 const CONNECT_PLATFORMS: string[] = ['google', 'meta', 'shopify', 'woocommerce', 'ga']
-// Connect/Reconnect are DISABLED this flight (return-to-next is Flight 2); disconnect is live. mobile-clean tap targets.
+// F2 (option A): Shopify + Woo connect/reconnect are LIVE from -next (single-step OAuth → returnTo). Meta + GA
+// stay DISABLED here (two-step account/property picker is legacy-only; ported in Flight 2b).
+const NEXT_CONNECTABLE = new Set<string>(['shopify', 'woocommerce'])
 const connectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', cursor: 'not-allowed', flexShrink: 0 }
+const connectBtnActiveStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#0f172a', background: 'none', border: '1px solid #cbd5e1', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
 const disconnectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
 type Fact = { id: number; content: string; category: string; source: string; pinned: boolean }
 type GenField = 'business_descriptor' | 'service_area' | 'website'
@@ -90,6 +93,18 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
       setConnError(`Could not disconnect ${label}. Try again.`)
       setDisconnectingId(null)
     }
+  }
+
+  // LORAMER_NEXT_CONNECT_V1 F2 — Shopify/Woo connect + reconnect from -next: navigate to the EXISTING start route
+  // with returnTo = this client-profile, so the OAuth callback (Branch A / woo_return, validated) returns here.
+  const [connectModal, setConnectModal] = useState<string | null>(null) // platform being connected: shopify | woocommerce
+  const [connectShop, setConnectShop] = useState('')
+  function startConnect(platform: string, shop: string) {
+    const rt = encodeURIComponent('/dashboard-next/client-profile?clientId=' + clientId)
+    const s = encodeURIComponent(shop.trim())
+    const cid = encodeURIComponent(clientId)
+    if (platform === 'shopify') window.location.href = `/api/shopify/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
+    else if (platform === 'woocommerce') window.location.href = `/api/woocommerce/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
   }
 
   async function loadMemory() {
@@ -328,7 +343,11 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
                     <span className={styles.connAcct}>Not connected</span>
                   </div>
                   <span className={`${styles.healthBadge} ${styles.hDisconnected}`}>Not connected</span>
-                  <button type="button" disabled title="Connecting from here arrives in the next update" style={connectBtnStyle}>Connect</button>
+                  {NEXT_CONNECTABLE.has(pf) ? (
+                    <button type="button" onClick={() => { setConnectShop(''); setConnectModal(pf) }} style={connectBtnActiveStyle}>Connect</button>
+                  ) : (
+                    <button type="button" disabled title="Connecting from here arrives in the next update" style={connectBtnStyle}>Connect</button>
+                  )}
                 </div>
               )
             }
@@ -345,7 +364,11 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
                     {c.account_name && <span className={styles.connAcct}>{c.account_name}</span>}
                   </div>
                   <span className={`${styles.healthBadge} ${hCls}`}>{hLabel}</span>
-                  <button type="button" disabled title="Reconnecting from here arrives in the next update" style={connectBtnStyle}>Reconnect</button>
+                  {NEXT_CONNECTABLE.has(pf) ? (
+                    <button type="button" onClick={() => startConnect(pf, c.account_id || '')} disabled={!c.account_id} title="Re-authorize this connection" style={connectBtnActiveStyle}>Reconnect</button>
+                  ) : (
+                    <button type="button" disabled title="Reconnecting from here arrives in the next update" style={connectBtnStyle}>Reconnect</button>
+                  )}
                   <button type="button" onClick={() => disconnect(c)} disabled={busy} style={{ ...disconnectBtnStyle, opacity: busy ? 0.5 : 1 }}>
                     {busy ? 'Disconnecting…' : 'Disconnect'}
                   </button>
@@ -355,6 +378,38 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
           })}
         </div>
         {connError && <p className={styles.emptyNote} style={{ color: '#b91c1c' }} role="alert">{connError}</p>}
+
+        {/* LORAMER_NEXT_CONNECT_V1 F2 — Shopify/Woo connect modal (collects the shop domain / store URL, then
+            navigates to the existing start route with returnTo). mobile-clean: max-w 420, full-width input. */}
+        {connectModal && (
+          <div onClick={() => setConnectModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 420, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>Connect {connectModal === 'shopify' ? 'Shopify' : 'WooCommerce'}</h3>
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>
+                {connectModal === 'shopify' ? 'Enter your Shopify store domain — you’ll authorize LoraMer on Shopify.' : 'Enter your WooCommerce store URL — you’ll approve access on your store.'}
+              </p>
+              <input
+                type="text"
+                value={connectShop}
+                onChange={(e) => setConnectShop(e.target.value)}
+                placeholder={connectModal === 'shopify' ? 'your-store.myshopify.com' : 'https://yourstore.com'}
+                autoFocus
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, marginBottom: 12, outline: 'none' }}
+              />
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setConnectModal(null)} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => startConnect(connectModal, connectShop)}
+                  disabled={connectModal === 'shopify' ? !connectShop.includes('.myshopify.com') : !connectShop.trim()}
+                  style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#0f172a', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: (connectModal === 'shopify' ? !connectShop.includes('.myshopify.com') : !connectShop.trim()) ? 0.5 : 1 }}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 3) RULES */}

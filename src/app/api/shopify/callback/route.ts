@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { signInstallToken } from '@/lib/shopify-install-token' // LORAMER_SHOPIFY_INSTALL_V1
 import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SPINE_V1 step 2
 import { ensureOrgForOwner } from '@/lib/access/ensure-org' // LORAMER_RBAC_ORG_PROVISION_V1 — the auto-created client gets an org_id
+import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2 — Branch A returnTo guard (Branch B never uses it)
 
 const GRAPHQL_API_VERSION = '2025-01' // LORAMER_GRAPHQL_MIGRATION_V1
 
@@ -135,7 +136,13 @@ export async function GET(request: Request) {
 
     // LORAMER_SELFSERVE_SPINE_V1 step 2 — connect-kickoff.
     kickoffBackfill(new URL(request.url).origin, clientId, 'shopify')
-    return NextResponse.redirect(new URL('/clients?shopify_connected=true', request.url))
+    // LORAMER_NEXT_CONNECT_V1 F2 — BRANCH A ONLY: return to the -next client-profile when a valid returnTo was
+    // threaded through /api/shopify/auth; otherwise the existing /clients?shopify_connected=true redirect,
+    // byte-identical. (decodedState here is the Branch A shape {clientId,userEmail,returnTo?}.)
+    const rtA = safeReturnTo(decodedState.returnTo)
+    const destA = rtA ? new URL(rtA, request.url) : new URL('/clients', request.url)
+    destA.searchParams.set('shopify_connected', 'true')
+    return NextResponse.redirect(destA)
   }
 
   // ─── BRANCH B: Shopify-initiated install (LORAMER_SHOPIFY_INSTALL_V1) ────
