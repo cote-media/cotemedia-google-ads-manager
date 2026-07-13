@@ -6,10 +6,10 @@
     "line_count": 130
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "b01fa10547f5acfce2fa7150dca86059910e21dd2266d10b692646de45d1ebd5",
+    "content_hash": "7c1f7b6adb230b140216d3ff96e15bec2a76e6aa9362ddba84ff2d9f3c7ee724",
     "last_reconciled_date": "2026-07-12",
-    "last_reconciled_head": "fd5c34d",
-    "line_count": 779
+    "last_reconciled_head": "82dd819",
+    "line_count": 798
   },
   "LORAMER_DECISIONS.md": {
     "content_hash": "49ba86afbd8f2c51d0db32d385ee205c5cd0e58621f56cab9d0a82bd5c92c35a",
@@ -18,16 +18,16 @@
     "line_count": 259
   },
   "LORAMER_ESSENCE.md": {
-    "content_hash": "8602d7e24c4f2c437a7d3216d4210eeac984341a5912355061a7705ef575a90f",
+    "content_hash": "d119604005535e4921405603da2adc217628f124fa7142db0275d908ee12e6fb",
     "last_reconciled_date": "2026-07-12",
-    "last_reconciled_head": "d591bb2",
-    "line_count": 129
+    "last_reconciled_head": "82dd819",
+    "line_count": 130
   },
   "LORAMER_HANDOFF.md": {
-    "content_hash": "e68dc732e8b18d3041667659f6d3faf63ab2ede3424b63663a9506173b3b3fff",
+    "content_hash": "441ec131b4e02d18cab2b7b3ca58346fe52f5e6c386a5a59865fca9276d8c101",
     "last_reconciled_date": "2026-07-12",
-    "last_reconciled_head": "d591bb2",
-    "line_count": 893
+    "last_reconciled_head": "82dd819",
+    "line_count": 902
   },
   "LORAMER_LORA_INTELLIGENCE_BAR.md": {
     "content_hash": "a8c8b590c66fe6147f059dceadb5ac311fdd43f5489407a73b063690b77935a4",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "005dde3c7f2c46944e1ce6870c69ab2a7d3134249171c3f250a2e40018be2c18",
+    "content_hash": "382bdfe213640c164235d24567422aeda9977397b4377c9b52dde303b1beb2d4",
     "last_reconciled_date": "2026-07-12",
-    "last_reconciled_head": "fd5c34d",
-    "line_count": 333
+    "last_reconciled_head": "82dd819",
+    "line_count": 335
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "6f49012c39aabf7bf530f29a2066409cb7c1cb9c62313a0af36efdce2f37a9ef",
+    "content_hash": "93037492019cf2a9d54738fa8ce4f8c880eef615912c7ea925a448fa11f84d92",
     "last_reconciled_date": "2026-07-12",
-    "last_reconciled_head": "fd5c34d",
-    "line_count": 601
+    "last_reconciled_head": "82dd819",
+    "line_count": 623
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "705cf9569e6775f793dac32776858e3eb03869bb852d6292cdc517ca51d2c786",
