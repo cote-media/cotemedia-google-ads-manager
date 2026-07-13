@@ -52,7 +52,7 @@ const VALUE_MODELS: { key: string; label: string }[] = [
   { key: 'lead', label: 'Lead / engagement' },
 ]
 
-export default function ClientPage({ clientId, clientName, connections }: { clientId: string; clientName: string; connections: Conn[] }) {
+export default function ClientPage({ clientId, clientName, connections, hasGoogleAdsToken }: { clientId: string; clientName: string; connections: Conn[]; hasGoogleAdsToken?: boolean }) {
   const [descriptor, setDescriptor] = useState('')
   const [serviceArea, setServiceArea] = useState('')
   const [website, setWebsite] = useState('')
@@ -111,6 +111,7 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
     else if (platform === 'woocommerce') window.location.href = `/api/woocommerce/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
     else if (platform === 'meta') window.location.href = `/api/meta/auth?clientId=${cid}&returnTo=${rt}`
     else if (platform === 'ga') window.location.href = `/api/ga/start?clientId=${cid}&returnTo=${rt}`
+    else if (platform === 'google') window.location.href = `/api/google-ads/connect/start?returnTo=${rt}` // decoupler (owner-level; no clientId)
   }
 
   // LORAMER_NEXT_CONNECT_V1 F2b — Meta/GA two-step PICKERS ported to -next. After OAuth the callback returns HERE
@@ -135,8 +136,12 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
     } else if (gaOauth && gaOauth !== 'success') {
       setPickerError('Google Analytics authorization did not complete. Try again.')
     }
-    // Clean the connect params from the URL so a refresh doesn't re-open the picker.
-    if (metaAccounts || gaOauth) window.history.replaceState({}, '', '/dashboard-next/client-profile?clientId=' + clientId)
+    // LORAMER_NEXT_CONNECT_V1 F3 — the decoupler returns here with gads_connected=true (server hasGoogleAdsToken is
+    // now true → the Google row shows Authorized on this render) or gads_error=<reason>.
+    const gadsErr = p.get('gads_error')
+    if (gadsErr) setPickerError('Google Ads authorization did not complete (' + gadsErr + '). Try again.')
+    // Clean the connect params from the URL so a refresh doesn't re-trigger.
+    if (metaAccounts || gaOauth || p.get('gads_connected') || gadsErr) window.history.replaceState({}, '', '/dashboard-next/client-profile?clientId=' + clientId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -389,6 +394,27 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
           {CONNECT_PLATFORMS.map((pf) => {
             const meta = PLATFORM_META[pf] || { label: pf, icon: 'ti-plug' }
             const icon = meta.icon === '__shopify__' ? <ShopifyIcon size={18} /> : <i className={`ti ${meta.icon} ${styles.connIcon}`} />
+            // LORAMER_NEXT_CONNECT_V1 F3 — Google Ads is TWO-LEVEL: the owner adwords token (hasGoogleAdsToken, the
+            // decoupler's target) + a per-client customer_id mapping (the legacy account picker — F3b). Connect/
+            // Reconnect key on the owner token; assigning THIS client's ad account is flagged as the current-app step.
+            if (pf === 'google') {
+              const gc = connections.find((c) => c.platform === 'google')
+              const authorized = !!hasGoogleAdsToken
+              const busyG = gc ? disconnectingId === gc.id : false
+              const gBadge = gc ? (gc.health === 'healthy' ? styles.hHealthy : gc.health === 'reconnect' ? styles.hReconnect : styles.hUnknown) : authorized ? styles.hUnknown : styles.hDisconnected
+              return (
+                <div key="google" className={styles.connRow}>
+                  {icon}
+                  <div className={styles.connMeta}>
+                    <span className={styles.connName}>Google Ads</span>
+                    <span className={styles.connAcct}>{gc?.account_name ? gc.account_name : authorized ? 'Authorized — assign this client’s ad account in the current app' : 'Not connected'}</span>
+                  </div>
+                  <span className={`${styles.healthBadge} ${gBadge}`}>{gc ? 'Connected' : authorized ? 'Authorized' : 'Not connected'}</span>
+                  <button type="button" onClick={() => startConnect('google', '')} title={authorized ? 'Re-authorize Google Ads' : 'Authorize Google Ads for your account'} style={connectBtnActiveStyle}>{authorized ? 'Reconnect' : 'Connect Google Ads'}</button>
+                  {gc && <button type="button" onClick={() => disconnect(gc)} disabled={busyG} style={{ ...disconnectBtnStyle, opacity: busyG ? 0.5 : 1 }}>{busyG ? 'Disconnecting…' : 'Disconnect'}</button>}
+                </div>
+              )
+            }
             const rows = connections.filter((c) => c.platform === pf)
             if (rows.length === 0) {
               // NOT connected — truthful; no false "connected".

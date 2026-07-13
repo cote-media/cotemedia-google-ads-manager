@@ -39,9 +39,16 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
     .eq('user_email', email)
     .order('platform', { ascending: true })
 
+  // LORAMER_NEXT_CONNECT_V1 F3 — owner-level Google Ads authorization (google_tokens keyed by user_email). Google Ads
+  // is a two-level connection: (1) this owner token, captured by the decoupler; (2) per-client customer_id mapping
+  // (the legacy account picker — F3b). The -next Google row keys its Connect/Reconnect on this token.
+  const { data: gadsTok } = await supabaseAdmin
+    .from('google_tokens').select('user_email').eq('user_email', email).maybeSingle()
+  const hasGoogleAdsToken = !!gadsTok
+
   return (
     <Shell active="clients" clientName={resolved.name} clientId={resolved.id}>
-      <ClientPage clientId={resolved.id} clientName={resolved.name} connections={conns || []} />
+      <ClientPage clientId={resolved.id} clientName={resolved.name} connections={conns || []} hasGoogleAdsToken={hasGoogleAdsToken} />
     </Shell>
   )
 }
