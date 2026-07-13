@@ -8,7 +8,7 @@ import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Shell from '@/components/redesign/Shell'
 import PlatformPage from '@/components/redesign/platform/PlatformPage'
 
@@ -17,12 +17,25 @@ export const dynamic = 'force-dynamic'
 // rail slug → the metrics_daily platform value ('ga'/'shopify' are the non-ad-entity channels; DrillView gates them).
 const SLUG_TO_PLATFORM: Record<string, string> = { 'google-ads': 'google', 'meta-ads': 'meta', analytics: 'ga', shopify: 'shopify' }
 const LABEL: Record<string, string> = { google: 'Google Ads', meta: 'Meta Ads', ga: 'Analytics', shopify: 'Shopify' }
+// LORAMER_NEXT_STORE_TAB_REUSE_V1 — store platforms have a full, membership-aware Store surface at /dashboard-next/store
+// (CardEngine: revenue/orders/AOV/timeseries/top-products/money). Route those tabs there instead of the DrillView
+// shell — no duplicate data layer; the ad platforms (google/meta) keep the DrillView spine untouched.
+const STORE_PLATFORMS = new Set(['shopify', 'woocommerce'])
 
 export default async function DashboardNextPlatformPage({ params, searchParams }: { params: { platform: string }; searchParams: { clientId?: string } }) {
   await requirePreviewUser()
   const slug = params.platform
   const platform = SLUG_TO_PLATFORM[slug]
   if (!platform) notFound()
+
+  // LORAMER_NEXT_STORE_TAB_REUSE_V1 — reuse the canonical Store page (membership-aware + connection-aware) for
+  // shopify/woo; preserve the client context. The Store page does its own resolveAccess-based resolution + store
+  // detection (shopify|woo, honest empty state), so no data layer is duplicated here.
+  if (STORE_PLATFORMS.has(platform)) {
+    const qs = new URLSearchParams({ platform })
+    if (searchParams?.clientId) qs.set('clientId', searchParams.clientId)
+    redirect('/dashboard-next/store?' + qs.toString())
+  }
 
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
