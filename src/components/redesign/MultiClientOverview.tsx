@@ -7,6 +7,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import { deltaLabel, DEFAULT_PERIOD, type Delta } from '@/lib/next/portfolio-windows'
@@ -37,7 +38,43 @@ function DeltaTag({ d }: { d: Delta }) {
   return <span style={{ fontSize: 11, fontWeight: 500, color, marginTop: 1 }}>{d.text}</span>
 }
 
-export default function MultiClientOverview({ clients }: { clients: ClientLite[] }) {
+export default function MultiClientOverview({ clients, canAddClient }: { clients: ClientLite[]; canAddClient: boolean }) {
+  // LORAMER_NEXT_ADD_CLIENT_V1 — manual add-client, REUSING the existing POST /api/clients (org_id +
+  // account_type provisioning). Authoritative: on failure show inline error and DO NOT close/navigate.
+  const router = useRouter()
+  const [addOpen, setAddOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [addError, setAddError] = useState('')
+
+  async function createClient() {
+    const name = newName.trim()
+    if (!name) return
+    setCreating(true)
+    setAddError('')
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as any))
+        setAddError(j.error || 'Could not create the client. Try again.')
+        setCreating(false)
+        return
+      }
+      // Success — reveal the new client in the portfolio (the server component re-runs with the new list).
+      setNewName('')
+      setAddOpen(false)
+      setCreating(false)
+      router.refresh()
+    } catch {
+      setAddError('Could not create the client. Try again.')
+      setCreating(false)
+    }
+  }
+
   const [period, setPeriod] = useState<string>(DEFAULT_PERIOD)
   const [metrics, setMetrics] = useState<Record<string, Metric>>({})
   const [fresh, setFresh] = useState<{ end: string | null; latest: string | null }>({ end: null, latest: null })
@@ -87,6 +124,12 @@ export default function MultiClientOverview({ clients }: { clients: ClientLite[]
         <button className={styles.sortStub} type="button">
           <i className="ti ti-adjustments-horizontal" /> Sort &amp; filter
         </button>
+        {/* LORAMER_NEXT_ADD_CLIENT_V1 — owner-only entry (hidden for members via canAddClient). */}
+        {canAddClient && (
+          <button className={styles.sortStub} type="button" onClick={() => { setAddError(''); setNewName(''); setAddOpen(true) }}>
+            <i className="ti ti-plus" /> Add client
+          </button>
+        )}
       </div>
 
       {stale && (
@@ -132,6 +175,37 @@ export default function MultiClientOverview({ clients }: { clients: ClientLite[]
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* LORAMER_NEXT_ADD_CLIENT_V1 — add-client modal (name-only, matching legacy's required set). Mobile-clean:
+          max-width 420, full-width input + tap targets. Authoritative: failure keeps the modal open with an inline error. */}
+      {addOpen && (
+        <div
+          onClick={() => { if (!creating) setAddOpen(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 420, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 12 }}>Add a client</h3>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') createClient() }}
+              placeholder="Client name"
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 14, marginBottom: 12, outline: 'none' }}
+            />
+            {addError && (
+              <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 12 }}>{addError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setAddOpen(false)} disabled={creating} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+              <button type="button" onClick={createClient} disabled={creating || !newName.trim()} style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#0f172a', color: '#fff', fontSize: 14, fontWeight: 500, cursor: 'pointer', opacity: creating || !newName.trim() ? 0.5 : 1 }}>
+                {creating ? 'Creating…' : 'Create client'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

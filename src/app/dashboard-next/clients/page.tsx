@@ -24,9 +24,20 @@ export default async function DashboardNextClientsPage() {
     clients = data || []
   }
 
+  // LORAMER_NEXT_ADD_CLIENT_V1 — owner-only Add-client entry. Allow owners (own an org) AND brand-new users
+  // (no org yet → their first client makes them the owner); HIDE for a pure member/admin of someone else's org
+  // (they view the owner's clients here, they don't create). resolveCallerOrgAdmin conflates member with new,
+  // so we compute the precise signal directly.
+  const normEmail = email.trim().toLowerCase()
+  const { data: ownedOrg } = await supabaseAdmin
+    .from('organizations').select('id').eq('owner_email', normEmail).maybeSingle()
+  const { data: anyMembership } = await supabaseAdmin
+    .from('org_members').select('org_id').eq('member_email', normEmail).limit(1).maybeSingle()
+  const canAddClient = !!ownedOrg || !anyMembership
+
   return (
     <Shell active="clients">
-      <MultiClientOverview clients={clients} />
+      <MultiClientOverview clients={clients} canAddClient={canAddClient} />
     </Shell>
   )
 }
