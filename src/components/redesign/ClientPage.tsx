@@ -29,9 +29,13 @@ type Conn = { id: string; platform: string; account_name: string | null; account
 // LORAMER_NEXT_CONNECT_V1 — the 5 platforms rendered with truthful per-platform state (connected rows + a
 // "not connected" row for any platform with no connection). Keys match PLATFORM_META + platform_connections.platform.
 const CONNECT_PLATFORMS: string[] = ['google', 'meta', 'shopify', 'woocommerce', 'ga']
-// F2 (option A): Shopify + Woo connect/reconnect are LIVE from -next (single-step OAuth → returnTo). Meta + GA
-// stay DISABLED here (two-step account/property picker is legacy-only; ported in Flight 2b).
-const NEXT_CONNECTABLE = new Set<string>(['shopify', 'woocommerce'])
+// F2(a): Shopify+Woo. F2b: Meta+GA now LIVE from -next (their account/property pickers ported below).
+const NEXT_CONNECTABLE = new Set<string>(['shopify', 'woocommerce', 'meta', 'ga'])
+// Shopify/Woo need a shop-domain / store-URL modal BEFORE OAuth; Meta/GA go straight to OAuth (the picker comes
+// AFTER, back on -next: Meta reads the account list from the URL, GA fetches /api/ga/properties from the cookie).
+const MODAL_PLATFORMS = new Set<string>(['shopify', 'woocommerce'])
+type MetaAccount = { id: string; name: string }
+type GaProperty = { account_id: string; account_name: string; property_id: string; property_name: string }
 const connectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', cursor: 'not-allowed', flexShrink: 0 }
 const connectBtnActiveStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#0f172a', background: 'none', border: '1px solid #cbd5e1', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
 const disconnectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
@@ -105,6 +109,59 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
     const cid = encodeURIComponent(clientId)
     if (platform === 'shopify') window.location.href = `/api/shopify/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
     else if (platform === 'woocommerce') window.location.href = `/api/woocommerce/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
+    else if (platform === 'meta') window.location.href = `/api/meta/auth?clientId=${cid}&returnTo=${rt}`
+    else if (platform === 'ga') window.location.href = `/api/ga/start?clientId=${cid}&returnTo=${rt}`
+  }
+
+  // LORAMER_NEXT_CONNECT_V1 F2b — Meta/GA two-step PICKERS ported to -next. After OAuth the callback returns HERE
+  // (via returnTo): Meta with ?meta_accounts=<list>, GA with ?ga_oauth=success (+ the path=/ ga_oauth_tokens cookie).
+  const [metaPicker, setMetaPicker] = useState<MetaAccount[] | null>(null)
+  const [gaPicker, setGaPicker] = useState<GaProperty[] | null>(null)
+  const [pickerBusy, setPickerBusy] = useState(false)
+  const [pickerError, setPickerError] = useState('')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const p = new URLSearchParams(window.location.search)
+    const metaAccounts = p.get('meta_accounts')
+    const gaOauth = p.get('ga_oauth')
+    if (metaAccounts) {
+      try { setMetaPicker(JSON.parse(metaAccounts) as MetaAccount[]) } catch { setPickerError('Could not read the Meta account list. Try reconnecting.') }
+    } else if (gaOauth === 'success') {
+      fetch('/api/ga/properties').then(r => r.json()).then(d => {
+        if (Array.isArray(d.properties)) setGaPicker(d.properties as GaProperty[])
+        else setPickerError(d.error || 'Could not list Google Analytics properties.')
+      }).catch(() => setPickerError('Could not reach Google Analytics.'))
+    } else if (gaOauth && gaOauth !== 'success') {
+      setPickerError('Google Analytics authorization did not complete. Try again.')
+    }
+    // Clean the connect params from the URL so a refresh doesn't re-open the picker.
+    if (metaAccounts || gaOauth) window.history.replaceState({}, '', '/dashboard-next/client-profile?clientId=' + clientId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function finalizeMeta(acct: MetaAccount) {
+    setPickerBusy(true); setPickerError('')
+    try {
+      const res = await fetch('/api/clients/connections', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, platform: 'meta', account_id: acct.id, account_name: acct.name }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the Meta account. Try again.'); setPickerBusy(false); return }
+      setMetaPicker(null); setPickerBusy(false); router.refresh()
+    } catch { setPickerError('Could not connect the Meta account. Try again.'); setPickerBusy(false) }
+  }
+
+  async function finalizeGa(p: GaProperty) {
+    setPickerBusy(true); setPickerError('')
+    try {
+      const res = await fetch('/api/ga/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: p.property_id, property_name: p.property_name, account_id: p.account_id, account_name: p.account_name }),
+      })
+      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the property. Try again.'); setPickerBusy(false); return }
+      setGaPicker(null); setPickerBusy(false); router.refresh()
+    } catch { setPickerError('Could not connect the property. Try again.'); setPickerBusy(false) }
   }
 
   async function loadMemory() {
@@ -344,7 +401,7 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
                   </div>
                   <span className={`${styles.healthBadge} ${styles.hDisconnected}`}>Not connected</span>
                   {NEXT_CONNECTABLE.has(pf) ? (
-                    <button type="button" onClick={() => { setConnectShop(''); setConnectModal(pf) }} style={connectBtnActiveStyle}>Connect</button>
+                    <button type="button" onClick={() => { if (MODAL_PLATFORMS.has(pf)) { setConnectShop(''); setConnectModal(pf) } else { startConnect(pf, '') } }} style={connectBtnActiveStyle}>Connect</button>
                   ) : (
                     <button type="button" disabled title="Connecting from here arrives in the next update" style={connectBtnStyle}>Connect</button>
                   )}
@@ -378,6 +435,40 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
           })}
         </div>
         {connError && <p className={styles.emptyNote} style={{ color: '#b91c1c' }} role="alert">{connError}</p>}
+
+        {/* LORAMER_NEXT_CONNECT_V1 F2b — Meta account-picker / GA property-picker (single-select; UNIQUE(client_id,
+            platform) = one per client). Shown when the callback returned here with a list; pick → REUSED finalize
+            (Meta: POST /api/clients/connections [hardened] · GA: POST /api/ga/connect) → refresh. mobile-clean. */}
+        {(metaPicker || gaPicker) && (
+          <div onClick={() => { if (!pickerBusy) { setMetaPicker(null); setGaPicker(null) } }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 460, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{metaPicker ? 'Choose a Meta ad account' : 'Choose a Google Analytics property'}</h3>
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Connect one to this client.</p>
+              {pickerError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{pickerError}</div>}
+              <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                {metaPicker && (metaPicker.length === 0
+                  ? <p style={{ fontSize: 13, color: '#64748b' }}>No Meta ad accounts found on this login.</p>
+                  : metaPicker.map((a) => (
+                    <button key={a.id} type="button" disabled={pickerBusy} onClick={() => finalizeMeta(a)} style={{ textAlign: 'left', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', cursor: pickerBusy ? 'default' : 'pointer', opacity: pickerBusy ? 0.6 : 1 }}>
+                      <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 500 }}>{a.name || a.id}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{a.id}</div>
+                    </button>
+                  )))}
+                {gaPicker && (gaPicker.length === 0
+                  ? <p style={{ fontSize: 13, color: '#64748b' }}>No Google Analytics properties found on this login.</p>
+                  : gaPicker.map((p) => (
+                    <button key={p.property_id} type="button" disabled={pickerBusy} onClick={() => finalizeGa(p)} style={{ textAlign: 'left', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', cursor: pickerBusy ? 'default' : 'pointer', opacity: pickerBusy ? 0.6 : 1 }}>
+                      <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 500 }}>{p.property_name}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{p.account_name} · {p.property_id}</div>
+                    </button>
+                  )))}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" disabled={pickerBusy} onClick={() => { setMetaPicker(null); setGaPicker(null) }} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>{pickerBusy ? 'Connecting…' : 'Cancel'}</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* LORAMER_NEXT_CONNECT_V1 F2 — Shopify/Woo connect modal (collects the shop domain / store URL, then
             navigates to the existing start route with returnTo). mobile-clean: max-w 420, full-width input. */}

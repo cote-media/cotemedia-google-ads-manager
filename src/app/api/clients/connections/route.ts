@@ -18,6 +18,19 @@ export async function POST(request: Request) {
     .maybeSingle()
   if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // LORAMER_NEXT_CONNECT_V1 F2b — delete-then-insert on (client_id, platform), matching the house pattern
+  // (ga/connect, shopify/callback, woo/callback). FIRST connect: nothing to delete → BYTE-IDENTICAL insert.
+  // RECONNECT: removes the single existing row (UNIQUE(client_id,platform)) so the insert succeeds instead of a
+  // unique-violation 500 — fixes Meta reconnect for BOTH -next AND legacy. Scoped + ownership-gated identically to
+  // the insert (client_id + platform + user_email); touches ONLY platform_connections — NEVER *_tokens or
+  // metrics_daily (store-forever).
+  await supabase
+    .from('platform_connections')
+    .delete()
+    .eq('client_id', client_id)
+    .eq('platform', platform)
+    .eq('user_email', session.user.email)
+
   const { data, error } = await supabase
     .from('platform_connections')
     .insert({ client_id, platform, account_id, account_name, user_email: session.user.email, backfill_priority: 10 })

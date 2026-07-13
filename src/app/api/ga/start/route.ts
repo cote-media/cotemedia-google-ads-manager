@@ -32,8 +32,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   const targetClientId = request.nextUrl.searchParams.get('clientId') || ''
+  // LORAMER_NEXT_CONNECT_V1 F2b — carry an OPTIONAL returnTo in the state (r). Absent → '' (callback falls back to /clients).
+  const returnTo = request.nextUrl.searchParams.get('returnTo') || ''
   const nonce = randomUUID()
-  const statePayload = JSON.stringify({ n: nonce, c: targetClientId })
+  const statePayload = JSON.stringify({ n: nonce, c: targetClientId, r: returnTo })
   const state = base64url(statePayload)
 
   const authUrl = new URL(GOOGLE_AUTH_ENDPOINT)

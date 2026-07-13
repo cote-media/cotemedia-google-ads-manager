@@ -5,6 +5,7 @@
 // picker. Does NOT write to ga_tokens yet (that is Phase 3).
 
 import { NextRequest, NextResponse } from 'next/server'
+import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2b — same open-redirect guard as F2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,17 +22,19 @@ type GoogleTokenResponse = {
 type DecodedState = {
   n: string
   c: string
+  r?: string // LORAMER_NEXT_CONNECT_V1 F2b — optional returnTo
 }
 
 function decodeState(state: string): DecodedState | null {
   try {
     const b64 = state.replace(/-/g, '+').replace(/_/g, '/')
     const json = Buffer.from(b64, 'base64').toString('utf8')
-    const parsed = JSON.parse(json) as { n?: unknown; c?: unknown }
+    const parsed = JSON.parse(json) as { n?: unknown; c?: unknown; r?: unknown }
     if (typeof parsed.n === 'string') {
       return {
         n: parsed.n,
         c: typeof parsed.c === 'string' ? parsed.c : '',
+        r: typeof parsed.r === 'string' ? parsed.r : '',
       }
     }
     return null
@@ -40,8 +43,10 @@ function decodeState(state: string): DecodedState | null {
   }
 }
 
-function redirectClients(request: NextRequest, status: string): NextResponse {
-  const url = new URL('/clients', request.nextUrl.origin)
+// LORAMER_NEXT_CONNECT_V1 F2b — honor a valid -next returnTo (guarded); absent/invalid → /clients, byte-identical.
+function redirectClients(request: NextRequest, status: string, returnTo?: string | null): NextResponse {
+  const safe = safeReturnTo(returnTo)
+  const url = safe ? new URL(safe, request.nextUrl.origin) : new URL('/clients', request.nextUrl.origin)
   url.searchParams.set('ga_oauth', status)
   return NextResponse.redirect(url.toString())
 }
@@ -62,14 +67,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const decoded = decodeState(stateParam)
   const cookieNonce = request.cookies.get('ga_oauth_state')?.value
   if (!decoded || !cookieNonce || decoded.n !== cookieNonce) {
-    return redirectClients(request, 'error')
+    return redirectClients(request, 'error', decoded?.r)
   }
 
   const clientId = process.env.GOOGLE_ANALYTICS_CLIENT_ID
   const clientSecret = process.env.GOOGLE_ANALYTICS_CLIENT_SECRET
   const redirectUri = process.env.GOOGLE_ANALYTICS_REDIRECT_URI
   if (!clientId || !clientSecret || !redirectUri) {
-    return redirectClients(request, 'error')
+    return redirectClients(request, 'error', decoded?.r)
   }
 
   const body = new URLSearchParams()
@@ -86,13 +91,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       body: body.toString(),
     })
     if (!tokenRes.ok) {
-      return redirectClients(request, 'error')
+      return redirectClients(request, 'error', decoded?.r)
     }
 
     const tokenJson = (await tokenRes.json()) as GoogleTokenResponse
     const accessToken = tokenJson.access_token
     if (!accessToken) {
-      return redirectClients(request, 'error')
+      return redirectClients(request, 'error', decoded?.r)
     }
 
     const refreshToken = tokenJson.refresh_token || ''
@@ -107,7 +112,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       clientId: decoded.c || '',
     }
 
-    const response = redirectClients(request, 'success')
+    const response = redirectClients(request, 'success', decoded?.r)
     response.cookies.set('ga_oauth_tokens', JSON.stringify(pending), {
       httpOnly: true,
       secure: true,
@@ -124,6 +129,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     })
     return response
   } catch {
-    return redirectClients(request, 'error')
+    return redirectClients(request, 'error', decoded?.r)
   }
 }

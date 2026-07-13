@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2b — same open-redirect guard as F2
 
 async function getAllMetaAccounts(accessToken: string): Promise<any[]> {
   const accounts: any[] = []
@@ -57,12 +58,20 @@ export async function GET(request: Request) {
   if (error) return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=' + error)
   if (!code || !state) return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=missing_params')
 
-  let stateData: { clientId: string; email: string }
+  let stateData: { clientId: string; email: string; returnTo?: string }
   try {
     stateData = JSON.parse(Buffer.from(state, 'base64').toString())
   } catch {
     return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=invalid_state')
   }
+
+  // LORAMER_NEXT_CONNECT_V1 F2b — POST-decode redirects honor a valid -next returnTo (carrying the same query the
+  // legacy /clients redirect carries); absent/invalid → the existing /clients redirect, BYTE-IDENTICAL. Pre-decode
+  // error redirects above stay /clients (returnTo not yet known). Same safeReturnTo guard as F2.
+  const rt = safeReturnTo(stateData.returnTo)
+  const metaDest = (qs: string) =>
+    rt ? `${process.env.NEXTAUTH_URL}${rt}${rt.includes('?') ? '&' : '?'}${qs}`
+       : `${process.env.NEXTAUTH_URL}/clients?${qs}`
 
   const appId = process.env.META_APP_ID!
   const appSecret = process.env.META_APP_SECRET!
@@ -72,7 +81,7 @@ export async function GET(request: Request) {
     // Exchange code for short-lived token
     const tokenRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`)
     const tokenData = await tokenRes.json()
-    if (!tokenData.access_token) return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=no_token')
+    if (!tokenData.access_token) return NextResponse.redirect(metaDest('meta_error=no_token'))
 
     // Exchange for long-lived token
     const longLivedRes = await fetch(`https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${tokenData.access_token}`)
@@ -110,15 +119,15 @@ export async function GET(request: Request) {
     }, { onConflict: 'user_email' })
     if (tokenErr) {
       console.error('Meta token upsert failed:', { email: stateData.email, detail: tokenErr.message })
-      return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=token_store_failed')
+      return NextResponse.redirect(metaDest('meta_error=token_store_failed'))
     }
 
     const accountsEncoded = encodeURIComponent(JSON.stringify(adAccounts))
     return NextResponse.redirect(
-      process.env.NEXTAUTH_URL + '/clients?meta_accounts=' + accountsEncoded + '&client_id=' + stateData.clientId
+      metaDest('meta_accounts=' + accountsEncoded + '&client_id=' + stateData.clientId)
     )
   } catch (e: any) {
     console.error('Meta OAuth error:', e)
-    return NextResponse.redirect(process.env.NEXTAUTH_URL + '/clients?meta_error=oauth_failed')
+    return NextResponse.redirect(metaDest('meta_error=oauth_failed'))
   }
 }

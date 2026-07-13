@@ -16,7 +16,9 @@ export async function GET(request: Request) {
   // kept business_management (needed to enumerate BM owned/client ad accounts
   // in the callback). Affects NEW authorizations only; existing tokens unchanged.
   const scope = 'ads_read,business_management'
-  const state = Buffer.from(JSON.stringify({ clientId, email: session.user.email })).toString('base64')
+  // LORAMER_NEXT_CONNECT_V1 F2b — carry an OPTIONAL returnTo in the state (absent → state shape identical to before).
+  const returnTo = searchParams.get('returnTo') || undefined
+  const state = Buffer.from(JSON.stringify({ clientId, email: session.user.email, ...(returnTo ? { returnTo } : {}) })).toString('base64')
   const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}&response_type=code`
   return NextResponse.redirect(authUrl)
 }
