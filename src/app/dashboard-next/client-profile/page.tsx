@@ -31,8 +31,10 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
     )
   }
 
+  // LORAMER_NEXT_CONNECT_V1 — include `id` so the -next Connections section can DISCONNECT via the existing
+  // DELETE /api/clients/connections?id=<id> (ownership-gated; removes the connection row only, history kept).
   const { data: conns } = await supabaseAdmin
-    .from('platform_connections').select('platform, account_name, health')
+    .from('platform_connections').select('id, platform, account_name, health')
     .eq('client_id', resolved.id)
     .eq('user_email', email)
     .order('platform', { ascending: true })

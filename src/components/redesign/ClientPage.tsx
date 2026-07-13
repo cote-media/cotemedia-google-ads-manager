@@ -8,7 +8,8 @@
 // from the UI (the blob is retired as a field — build-claude-context still READS user_notes elsewhere, so
 // nothing is lost). Facts is now purely the structured list, parallel to Rules.
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useRouter } from 'next/navigation' // LORAMER_NEXT_CONNECT_V1 — refresh connections after disconnect
 import styles from './redesign.module.css'
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
@@ -23,7 +24,14 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   woocommerce: { label: 'WooCommerce', icon: 'ti-shopping-cart' },
 }
 
-type Conn = { platform: string; account_name: string | null; health: string | null }
+type Conn = { id: string; platform: string; account_name: string | null; health: string | null }
+
+// LORAMER_NEXT_CONNECT_V1 — the 5 platforms rendered with truthful per-platform state (connected rows + a
+// "not connected" row for any platform with no connection). Keys match PLATFORM_META + platform_connections.platform.
+const CONNECT_PLATFORMS: string[] = ['google', 'meta', 'shopify', 'woocommerce', 'ga']
+// Connect/Reconnect are DISABLED this flight (return-to-next is Flight 2); disconnect is live. mobile-clean tap targets.
+const connectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', cursor: 'not-allowed', flexShrink: 0 }
+const disconnectBtnStyle: CSSProperties = { marginLeft: 8, fontSize: 12, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 10px', cursor: 'pointer', flexShrink: 0 }
 type Fact = { id: number; content: string; category: string; source: string; pinned: boolean }
 type GenField = 'business_descriptor' | 'service_area' | 'website'
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
@@ -57,6 +65,32 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
   const [newFact, setNewFact] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editText, setEditText] = useState('')
+  // LORAMER_NEXT_CONNECT_V1 — disconnect lifecycle (destructive; confirm-guarded; authoritative on failure).
+  const router = useRouter()
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
+  const [connError, setConnError] = useState('')
+
+  async function disconnect(conn: Conn) {
+    const label = (PLATFORM_META[conn.platform] || { label: conn.platform }).label
+    // Destructive-action guard — history is explicitly kept (store-forever); only the live connection is removed.
+    if (!confirm(`Disconnect ${label}? Captured history is kept; this removes the live connection.`)) return
+    setConnError('')
+    setDisconnectingId(conn.id)
+    try {
+      const res = await fetch('/api/clients/connections?id=' + encodeURIComponent(conn.id), { method: 'DELETE' })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as any))
+        setConnError(j.error || `Could not disconnect ${label}. Try again.`)
+        setDisconnectingId(null)
+        return
+      }
+      setDisconnectingId(null)
+      router.refresh() // re-run the server page → connections re-query without the removed row
+    } catch {
+      setConnError(`Could not disconnect ${label}. Try again.`)
+      setDisconnectingId(null)
+    }
+  }
 
   async function loadMemory() {
     const r = await fetch('/api/memory?clientId=' + clientId)
@@ -273,35 +307,54 @@ export default function ClientPage({ clientId, clientName, connections }: { clie
         </div>
       </section>
 
-      {/* 2) CONNECTIONS (read-only this pass + stubbed connect) */}
+      {/* 2) CONNECTIONS — LORAMER_NEXT_CONNECT_V1: truthful per-platform state + working DISCONNECT (reuse
+          DELETE /api/clients/connections — removes the connection row ONLY, captured history kept). Connect/
+          Reconnect are DISABLED this flight (return-to-next wiring is Flight 2); a cross-app bounce to legacy
+          mid-next reads as broken, so an honestly-disabled control is the less-misleading state. */}
       <section className={styles.section}>
         <div className={styles.sectionHead}><span className={styles.sectionTitle}>Connections</span></div>
-        {connections.length === 0 ? (
-          <p className={styles.emptyNote}>No sources connected yet.</p>
-        ) : (
-          <div className={styles.connList}>
-            {connections.map((c, i) => {
-              const meta = PLATFORM_META[c.platform] || { label: c.platform, icon: 'ti-plug' }
+        <div className={styles.connList}>
+          {CONNECT_PLATFORMS.map((pf) => {
+            const meta = PLATFORM_META[pf] || { label: pf, icon: 'ti-plug' }
+            const icon = meta.icon === '__shopify__' ? <ShopifyIcon size={18} /> : <i className={`ti ${meta.icon} ${styles.connIcon}`} />
+            const rows = connections.filter((c) => c.platform === pf)
+            if (rows.length === 0) {
+              // NOT connected — truthful; no false "connected".
+              return (
+                <div key={pf} className={styles.connRow}>
+                  {icon}
+                  <div className={styles.connMeta}>
+                    <span className={styles.connName}>{meta.label}</span>
+                    <span className={styles.connAcct}>Not connected</span>
+                  </div>
+                  <span className={`${styles.healthBadge} ${styles.hDisconnected}`}>Not connected</span>
+                  <button type="button" disabled title="Connecting from here arrives in the next update" style={connectBtnStyle}>Connect</button>
+                </div>
+              )
+            }
+            return rows.map((c) => {
               const h = c.health
               const hCls = h === 'healthy' ? styles.hHealthy : h === 'reconnect' ? styles.hReconnect : h === 'disconnected' ? styles.hDisconnected : styles.hUnknown
               const hLabel = h === 'healthy' ? 'Healthy' : h === 'reconnect' ? 'Reconnect' : h === 'disconnected' ? 'Disconnected' : 'Connected'
+              const busy = disconnectingId === c.id
               return (
-                <div key={i} className={styles.connRow}>
-                  {meta.icon === '__shopify__' ? <ShopifyIcon size={18} /> : <i className={`ti ${meta.icon} ${styles.connIcon}`} />}
+                <div key={c.id} className={styles.connRow}>
+                  {icon}
                   <div className={styles.connMeta}>
                     <span className={styles.connName}>{meta.label}</span>
                     {c.account_name && <span className={styles.connAcct}>{c.account_name}</span>}
                   </div>
                   <span className={`${styles.healthBadge} ${hCls}`}>{hLabel}</span>
+                  <button type="button" disabled title="Reconnecting from here arrives in the next update" style={connectBtnStyle}>Reconnect</button>
+                  <button type="button" onClick={() => disconnect(c)} disabled={busy} style={{ ...disconnectBtnStyle, opacity: busy ? 0.5 : 1 }}>
+                    {busy ? 'Disconnecting…' : 'Disconnect'}
+                  </button>
                 </div>
               )
-            })}
-          </div>
-        )}
-        {/* Stubbed connect affordance — does NOT bounce to legacy; real connect flow is a later build. */}
-        <button className={styles.connectStub} type="button" disabled title="Connect flow coming soon">
-          <i className="ti ti-plus" /> Connect a source <span>coming soon</span>
-        </button>
+            })
+          })}
+        </div>
+        {connError && <p className={styles.emptyNote} style={{ color: '#b91c1c' }} role="alert">{connError}</p>}
       </section>
 
       {/* 3) RULES */}
