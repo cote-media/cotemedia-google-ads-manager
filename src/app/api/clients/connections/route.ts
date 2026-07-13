@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   // (this file aliases supabaseAdmin as `supabase`; var is client_id, not clientId)
   const { data: owned } = await supabase
     .from('clients').select('id')
-    .eq('id', client_id).eq('user_email', session.user.email)
+    .eq('id', client_id).eq('user_email', session.user.email).is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived → 404
     .maybeSingle()
   if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 

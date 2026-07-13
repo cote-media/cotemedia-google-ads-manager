@@ -29,10 +29,12 @@ export async function resolveAccess(clientId: string, viewerEmail: string): Prom
 
     const { data: client, error } = await supabaseAdmin
       .from('clients')
-      .select('user_email, org_id') // LORAMER_RBAC_ACCESS_ORG_V1 — org_id drives the Path-B grant check
+      .select('user_email, org_id, deleted_at') // LORAMER_RBAC_ACCESS_ORG_V1 org_id; LORAMER_DELETE_CLIENT_V1 deleted_at
       .eq('id', clientId)
       .maybeSingle()
-    if (error || !client?.user_email) return null
+    // LORAMER_DELETE_CLIENT_V1 — an ARCHIVED (soft-deleted) client is denied to EVERY viewer incl. its owner, so no
+    // surface (chat/intelligence/context/etc.) can load it. Its rows persist untouched; only access is withdrawn.
+    if (error || !client?.user_email || (client as any).deleted_at) return null
     const ownerEmail = client.user_email as string
     const orgId = (client as any).org_id as string | null
 
@@ -113,6 +115,14 @@ export async function listAccessibleClients(viewerEmail: string): Promise<string
           .in('org_id', Array.from(allClientsOrgs))
         for (const c of orgClients || []) if ((c as any)?.id) ids.add((c as any).id as string)
       }
+    }
+    // LORAMER_DELETE_CLIENT_V1 — final archived sweep: whatever the source (owned / legacy / grant / all_clients),
+    // drop any id that is soft-deleted so an archived client vanishes from EVERY list. Rows persist; only listing stops.
+    const idArr = Array.from(ids)
+    if (idArr.length) {
+      const { data: archived } = await supabaseAdmin
+        .from('clients').select('id').in('id', idArr).not('deleted_at', 'is', null)
+      for (const a of archived || []) ids.delete((a as any).id as string)
     }
     return Array.from(ids)
   } catch (e) {

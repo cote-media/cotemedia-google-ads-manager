@@ -84,7 +84,7 @@ export async function runMetaDeviceBackfill(
   clientId: string, startDate: string, endDate: string, opts: { dryRun?: boolean } = {}
 ): Promise<DeviceBackfillResult> {
   const { data: clientRow, error: cErr } = await supabaseAdmin
-    .from('clients').select('id, user_email, platform_connections(*)').eq('id', clientId).single()
+    .from('clients').select('id, user_email, platform_connections(*)').eq('id', clientId).is('deleted_at', null).single() // LORAMER_DELETE_CLIENT_V1 — archived client → no row → no-op
   if (cErr || !clientRow) return { status: 404, body: { error: 'Client not found', detail: cErr?.message } }
   const conn = (clientRow.platform_connections || []).find((c: any) => c.platform === 'meta')
   if (!conn) return { status: 400, body: { error: 'Client has no Meta connection' } }

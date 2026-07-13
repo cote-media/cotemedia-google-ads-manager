@@ -19,7 +19,7 @@ export default async function DashboardNextTeamPage() {
   const email = session?.user?.email || ''
   const ids = await listAccessibleClients(email)
   const { data: clients } = ids.length
-    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).order('created_at', { ascending: true })
+    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
     : { data: [] as { id: string; name: string }[] }
   const first = (clients || [])[0] || null
 

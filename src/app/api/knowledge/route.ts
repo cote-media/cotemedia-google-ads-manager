@@ -36,7 +36,7 @@ async function resolveScope(scope: string | null, clientIdRaw: string | null, em
   if (scope !== 'client' && scope !== 'agency') return { ok: false as const, status: 400, error: "scope must be 'client' or 'agency'" }
   if (scope === 'agency') return { ok: true as const, scope, clientId: null as string | null }
   if (!clientIdRaw) return { ok: false as const, status: 400, error: 'clientId required for client scope' }
-  const { data: owned } = await supabaseAdmin.from('clients').select('id').eq('id', clientIdRaw).eq('user_email', email).maybeSingle()
+  const { data: owned } = await supabaseAdmin.from('clients').select('id').eq('id', clientIdRaw).eq('user_email', email).is('deleted_at', null).maybeSingle() // LORAMER_DELETE_CLIENT_V1 — archived → not found
   if (!owned) return { ok: false as const, status: 404, error: 'Client not found' }
   return { ok: true as const, scope, clientId: clientIdRaw }
 }
@@ -194,7 +194,7 @@ export async function DELETE(request: Request) {
     .select('id, owner_email, scope, client_id, filename, deleted_at').eq('id', id).maybeSingle()
   if (!doc || doc.owner_email !== sess.email || doc.deleted_at) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (doc.scope === 'client') {
-    const { data: owned } = await supabaseAdmin.from('clients').select('id').eq('id', doc.client_id).eq('user_email', sess.email).maybeSingle()
+    const { data: owned } = await supabaseAdmin.from('clients').select('id').eq('id', doc.client_id).eq('user_email', sess.email).is('deleted_at', null).maybeSingle() // LORAMER_DELETE_CLIENT_V1 — archived → not found
     if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

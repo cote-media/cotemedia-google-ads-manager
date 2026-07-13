@@ -212,6 +212,7 @@ export async function GET(request: Request) {
   const { data: clients, error: clientsError } = await supabaseAdmin
     .from('clients')
     .select('id, user_email, platform_connections(*)')
+    .is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived clients: forward daily capture halts (history kept)
 
   if (clientsError) {
     console.error('[cron/sync] failed to load clients:', clientsError)

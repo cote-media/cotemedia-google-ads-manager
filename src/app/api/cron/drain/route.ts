@@ -88,10 +88,21 @@ export async function GET(request: Request) {
   const { data: rows, error: connErr } = await q
   if (connErr) return NextResponse.json({ error: 'connection query failed', detail: connErr.message }, { status: 500 })
 
+  // LORAMER_DELETE_CLIENT_V1 — stop FORWARD capture for ARCHIVED clients: their platform_connections rows still
+  // exist (soft-delete touches nothing), so the drain must skip them. Existing captured history is untouched.
+  const connClientIds = Array.from(new Set((rows ?? []).map((r: any) => r.client_id).filter(Boolean)))
+  const archivedClientIds = new Set<string>()
+  if (connClientIds.length) {
+    const { data: arch } = await supabaseAdmin
+      .from('clients').select('id').in('id', connClientIds).not('deleted_at', 'is', null)
+    for (const a of arch || []) archivedClientIds.add((a as any).id as string)
+  }
+
   // 2) Pending = required ⊄ done, real connection (account_id present), deduped by (client_id) for this platform.
   const seen = new Set<string>()
   const pending = (rows ?? []).filter((r: any) => {
     if (!r.account_id) return false
+    if (archivedClientIds.has(r.client_id)) return false // LORAMER_DELETE_CLIENT_V1 — archived → no new capture
     if (seen.has(r.client_id)) return false
     const done: string[] = Array.isArray(r.onboard_steps_done) ? r.onboard_steps_done : []
     const isPending = [...requiredSet].some((k) => !done.includes(k))

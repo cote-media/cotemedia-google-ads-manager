@@ -37,3 +37,29 @@ export function kickoffBackfill(origin: string, clientId: string, platform: stri
       })
   )
 }
+
+// LORAMER_DELETE_CLIENT_V1 slice 2 — RESTORE gap-fill kickoff. Fires the catchup cron in RESTORE mode for ONE client
+// across [since, today] (ALL its platforms, floor-clamped per platform), on the SAME metered __catchup_ lane. Same
+// fire-and-forget waitUntil + 8s-abort + never-throws contract as kickoffBackfill; the */10 catchup cron is the
+// fallback (though it won't re-enter restore mode — a very deep gap needs a re-kick, logged below).
+export function kickoffGapBackfill(origin: string, clientId: string, sinceDate: string): void {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    console.error(`[kickoff-gap] CRON_SECRET missing — skipping restore gap-fill (client=${clientId}); forward capture still resumes`)
+    return
+  }
+  const url = `${origin}/api/cron/catchup?clientId=${encodeURIComponent(clientId)}&since=${encodeURIComponent(sinceDate)}`
+  waitUntil(
+    fetch(url, {
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(8000),
+    })
+      .then((r) => {
+        if (!r.ok) console.error(`[kickoff-gap] catchup returned ${r.status} (client=${clientId} since=${sinceDate})`)
+      })
+      .catch((err: any) => {
+        if (err?.name === 'TimeoutError') return
+        console.error(`[kickoff-gap] failed (client=${clientId} since=${sinceDate}):`, err?.message ?? err)
+      })
+  )
+}

@@ -27,7 +27,7 @@ export default async function DashboardNextPlatformPage({ params, searchParams }
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
   const { data: clients } = await supabaseAdmin
-    .from('clients').select('id, name').eq('user_email', email).order('created_at', { ascending: true })
+    .from('clients').select('id, name').eq('user_email', email).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
   const list = clients || []
   const resolved = (searchParams?.clientId && list.find((c) => c.id === searchParams.clientId)) || list[0] || null
 

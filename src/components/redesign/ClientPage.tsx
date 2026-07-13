@@ -135,6 +135,12 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [googleLoading, setGoogleLoading] = useState(false)
   const [pickerBusy, setPickerBusy] = useState(false)
   const [pickerError, setPickerError] = useState('')
+  // LORAMER_DELETE_CLIENT_V1 slice 1 — archive (soft-delete) danger zone. Owner-only by construction (the profile
+  // page loads only caller-owned clients); the DELETE route re-checks owner server-side. Type-to-confirm guard.
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveConfirm, setArchiveConfirm] = useState('')
+  const [archiving, setArchiving] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -211,6 +217,17 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
       if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the account. Try again.'); setPickerBusy(false); return }
       setGooglePicker(null); setPickerBusy(false); router.refresh()
     } catch { setPickerError('Could not connect the account. Try again.'); setPickerBusy(false) }
+  }
+
+  // LORAMER_DELETE_CLIENT_V1 slice 1 — archive (soft-delete). DELETE sets clients.deleted_at server-side; deletes
+  // NO rows. On success the client vanishes from lists → leave the now-inaccessible profile for the clients list.
+  async function archiveClient() {
+    setArchiving(true); setArchiveError('')
+    try {
+      const res = await fetch('/api/clients?id=' + encodeURIComponent(clientId), { method: 'DELETE' })
+      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setArchiveError(j.error || 'Could not archive this client. Try again.'); setArchiving(false); return }
+      router.push('/dashboard-next/clients')
+    } catch { setArchiveError('Could not archive this client. Try again.'); setArchiving(false) }
   }
 
   async function loadMemory() {
@@ -665,6 +682,38 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         </div>
         <KnowledgePanel scope="client" clientId={clientId} />
       </section>
+
+      {/* 6) DANGER ZONE — LORAMER_DELETE_CLIENT_V1 slice 1: archive (soft-delete). Hides the client everywhere;
+          deletes NO data (store-forever). Owner-only surface; server re-checks owner. Mobile-first. */}
+      <section className={styles.section}>
+        <div className={styles.brainHead}>
+          <span className={styles.brainLabel} style={{ color: '#b91c1c' }}>Danger zone</span>
+          <span className={styles.brainExplainer}>— archive hides this client everywhere; its captured history is kept, never deleted</span>
+        </div>
+        <button type="button" onClick={() => { setArchiveConfirm(''); setArchiveError(''); setArchiveOpen(true) }}
+          style={{ fontSize: 13, color: '#b91c1c', background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', minHeight: 40 }}>
+          Archive client
+        </button>
+      </section>
+
+      {archiveOpen && (
+        <div onClick={() => { if (!archiving) setArchiveOpen(false) }} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 50 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', width: '100%', maxWidth: 440, borderRadius: 16, padding: 24, boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>Archive {clientName}?</h3>
+            <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>This hides the client from every screen. Nothing is deleted — all captured history and settings are kept and can be restored later. To confirm, type the client name.</p>
+            {archiveError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{archiveError}</div>}
+            <input type="text" value={archiveConfirm} onChange={e => setArchiveConfirm(e.target.value)} placeholder={clientName}
+              style={{ width: '100%', fontSize: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px', marginBottom: 14, boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button type="button" disabled={archiving} onClick={() => setArchiveOpen(false)} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', fontSize: 14, cursor: 'pointer' }}>Cancel</button>
+              <button type="button" disabled={archiving || archiveConfirm.trim() !== clientName.trim()} onClick={archiveClient}
+                style={{ padding: '9px 14px', borderRadius: 10, border: 'none', background: '#b91c1c', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (archiving || archiveConfirm.trim() !== clientName.trim()) ? 'default' : 'pointer', opacity: (archiving || archiveConfirm.trim() !== clientName.trim()) ? 0.5 : 1 }}>
+                {archiving ? 'Archiving…' : 'Archive client'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { listAccessibleClients } from '@/lib/access/can-access'
 import Shell from '@/components/redesign/Shell'
 import MultiClientOverview from '@/components/redesign/MultiClientOverview'
+import ArchivedClients from '@/components/redesign/ArchivedClients' // LORAMER_DELETE_CLIENT_V1 slice 2
 
 export default async function DashboardNextClientsPage() {
   await requirePreviewUser()
@@ -20,7 +21,7 @@ export default async function DashboardNextClientsPage() {
   let clients: { id: string; name: string }[] = []
   if (ids.length) {
     const { data } = await supabaseAdmin
-      .from('clients').select('id, name').in('id', ids).order('created_at', { ascending: true })
+      .from('clients').select('id, name').in('id', ids).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
     clients = data || []
   }
 
@@ -35,9 +36,18 @@ export default async function DashboardNextClientsPage() {
     .from('org_members').select('org_id').eq('member_email', normEmail).limit(1).maybeSingle()
   const canAddClient = !!ownedOrg || !anyMembership
 
+  // LORAMER_DELETE_CLIENT_V1 slice 2 — owner-scoped ARCHIVED list (intentionally deleted_at IS NOT NULL). Only the
+  // owner sees + restores their own archived clients; the rows persist untouched (store-forever).
+  const { data: archivedRows } = await supabaseAdmin
+    .from('clients').select('id, name, deleted_at')
+    .eq('user_email', email).not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+  const archived = (archivedRows || []) as { id: string; name: string; deleted_at: string }[]
+
   return (
     <Shell active="clients">
       <MultiClientOverview clients={clients} canAddClient={canAddClient} />
+      <ArchivedClients archived={archived} />
     </Shell>
   )
 }

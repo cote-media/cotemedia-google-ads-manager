@@ -33,6 +33,7 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+import { readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 
 const METRICS_DAILY_CONFLICT =
@@ -40,6 +41,13 @@ const METRICS_DAILY_CONFLICT =
 
 const CATCHUP_WINDOW_DAYS = 35
 const CATCHUP_DAY_CAP = 14
+// LORAMER_DELETE_CLIENT_V1 slice 2 — RESTORE GAP-BACKFILL. When a soft-deleted client is restored, the gap it left
+// can be ANY length up to the platform retention floor — NOT 35 days. Restore mode drives the SAME per-day builders
+// across the FULL [archivedAt, today] window (per-platform floor-clamped via known_floors), on this SAME metered
+// __catchup_ lane (claim/lease + Google quota guard). The 35-day CATCHUP_WINDOW_DAYS is the interior-cron bound ONLY;
+// it does NOT bound restore recovery — retention floor does. RESTORE_DAY_CAP is a per-fire safety cap (the per-day
+// CATCHUP_BUDGET_MS check stops a fire before maxDuration); a gap deeper than one fire's budget continues on re-kick.
+const RESTORE_DAY_CAP = 400
 
 // WS1C-WIDE forward paging mirrored onto catchup: each platform loop pages the least-recently-SERVED slice per
 // fire under a '__catchup_'+platform claim/lease + CATCHUP_BUDGET_MS, fired on a windowed */10 cadence — so the
@@ -88,12 +96,35 @@ function serializeCaughtError(value: unknown): string {
 // Presence-based gap detection for ONE (client, platform, account). Returns the
 // oldest-first list of missing day strings to fill this run (≤ CATCHUP_DAY_CAP),
 // or [] when there is no recent baseline (skip) or no interior holes.
+// LORAMER_DELETE_CLIENT_V1 slice 2 — per-platform retention-floor START for restore gap-fill, from known_floors
+// (per-client override wins, else platform default). relative_months → today−N months; absolute_date → the date;
+// dynamic_merchant_start/unbounded/unknown → null (no extra clamp — the per-day fetch returns empty past merchant
+// start). This is the retention-floor bound the task requires; it does NOT touch reconcile.ts (reads the table).
+async function restoreFloorStart(platform: string, clientId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('known_floors')
+    .select('floor_kind, floor_months, floor_date, client_id')
+    .eq('platform', platform)
+    .or(`client_id.eq.${clientId},client_id.is.null`)
+  const rows = (data || []) as { floor_kind: string; floor_months: number | null; floor_date: string | null; client_id: string | null }[]
+  const row = rows.find((r) => r.client_id === clientId) || rows.find((r) => r.client_id === null)
+  if (!row) return null
+  if (row.floor_kind === 'absolute_date') return row.floor_date
+  if (row.floor_kind === 'relative_months' && row.floor_months != null) {
+    const d = new Date()
+    d.setUTCMonth(d.getUTCMonth() - row.floor_months)
+    return d.toISOString().slice(0, 10)
+  }
+  return null // dynamic_merchant_start / unbounded / unknown
+}
+
 async function computeFillDays(
   clientId: string,
   platform: string,
   accountId: string,
   windowStart: string,
-  yesterday: string
+  yesterday: string,
+  opts?: { restore?: boolean; cap?: number }
 ): Promise<string[]> {
   const { data, error } = await supabaseAdmin
     .from('metrics_daily')
@@ -113,6 +144,20 @@ async function computeFillDays(
   for (const row of data || []) {
     // normalize whatever the column returns to 'YYYY-MM-DD'
     present.add(String((row as { date: string }).date).slice(0, 10))
+  }
+
+  // LORAMER_DELETE_CLIENT_V1 slice 2 — RESTORE mode: fill EVERY missing day in [effStart, yesterday], NOT gated on a
+  // presence baseline (the archived gap has NO rows, so the normal baseline guard would wrongly skip it) and NOT
+  // capped at 35 days. effStart = max(windowStart, per-platform retention floor) → below-floor days are never fetched
+  // (documented gap, never fabricated); within-floor missing days are refetched. cap = per-fire safety bound only.
+  if (opts?.restore) {
+    const floorStart = await restoreFloorStart(platform, clientId)
+    const effStart = floorStart && floorStart > windowStart ? floorStart : windowStart
+    const missingR: string[] = []
+    for (let d = effStart; d <= yesterday; d = addDaysIso(d, 1)) {
+      if (!present.has(d)) missingR.push(d)
+    }
+    return missingR.slice(0, opts.cap ?? CATCHUP_DAY_CAP)
   }
 
   // No recent baseline in the window -> NOT catchup's job (forward cron / deep backfill).
@@ -200,7 +245,18 @@ export async function GET(request: Request) {
   }
 
   const yesterday = resolveDateWindow('YESTERDAY').startDate
-  const windowStart = addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
+  // LORAMER_DELETE_CLIENT_V1 slice 2 — RESTORE gap-fill mode: ?clientId=&since= drives the FULL [since, today] window
+  // for ONE client (fired by client-restore), replacing the 35-day interior bound with the retention-floor bound.
+  // Absent → the global catchup below is BYTE-IDENTICAL to before.
+  const __url = new URL(request.url)
+  const restoreClientId = __url.searchParams.get('clientId')
+  const restoreSince = __url.searchParams.get('since')
+  const restoreMode = !!(restoreClientId && restoreSince)
+  const fillOpts = restoreMode ? { restore: true as const, cap: RESTORE_DAY_CAP } : undefined
+  // Same Google quota guard as the drain: in restore mode, skip google fill while the developer-token quota is paused
+  // (never bypass it). Non-restore catchup is unaffected.
+  const googleQuotaPaused = restoreMode ? (await readGoogleQuotaPause()).paused : false
+  const windowStart = restoreMode ? (restoreSince as string) : addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
   const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for CATCHUP_BUDGET_MS paging
 
   const summary = {
@@ -264,6 +320,7 @@ export async function GET(request: Request) {
   const { data: clients, error: clientsError } = await supabaseAdmin
     .from('clients')
     .select('id, user_email, platform_connections(*)')
+    .is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived clients: interior-hole catchup halts (history kept)
 
   if (clientsError) {
     console.error('[cron/catchup] failed to load clients:', clientsError)
@@ -273,7 +330,9 @@ export async function GET(request: Request) {
     )
   }
 
-  const clientRows = (clients || []) as ClientRow[]
+  const allClientRows = (clients || []) as ClientRow[]
+  // LORAMER_DELETE_CLIENT_V1 slice 2 — restore mode processes ONLY the restored client; the global cron is unchanged.
+  const clientRows = restoreMode ? allClientRows.filter((c) => c.id === restoreClientId) : allClientRows
 
   // Same ?platform= gate as the forward cron (`platform` parsed above): no param / 'all' = all 5; else just that one.
 
@@ -294,7 +353,7 @@ export async function GET(request: Request) {
 
       let fillDays: string[] = []
       try {
-        fillDays = await computeFillDays(client.id, 'shopify', shopDomain, windowStart, yesterday)
+        fillDays = await computeFillDays(client.id, 'shopify', shopDomain, windowStart, yesterday, fillOpts)
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'shopify', message: serializeCaughtError(err) })
         continue
@@ -370,7 +429,7 @@ export async function GET(request: Request) {
 
       let fillDays: string[] = []
       try {
-        fillDays = await computeFillDays(client.id, 'meta', accountId, windowStart, yesterday)
+        fillDays = await computeFillDays(client.id, 'meta', accountId, windowStart, yesterday, fillOpts)
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'meta', message: serializeCaughtError(err) })
         continue
@@ -433,7 +492,7 @@ export async function GET(request: Request) {
 
       let fillDays: string[] = []
       try {
-        fillDays = await computeFillDays(client.id, 'google', customerId, windowStart, yesterday)
+        fillDays = (restoreMode && googleQuotaPaused) ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'google', message: serializeCaughtError(err) })
         continue
@@ -623,7 +682,7 @@ export async function GET(request: Request) {
 
       let fillDays: string[] = []
       try {
-        fillDays = await computeFillDays(client.id, 'woocommerce', storeUrl, windowStart, yesterday)
+        fillDays = await computeFillDays(client.id, 'woocommerce', storeUrl, windowStart, yesterday, fillOpts)
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'woocommerce', message: serializeCaughtError(err) })
         continue
@@ -686,7 +745,7 @@ export async function GET(request: Request) {
 
     let fillDays: string[] = []
     try {
-      fillDays = await computeFillDays(client.id, 'ga', propertyId, windowStart, yesterday)
+      fillDays = await computeFillDays(client.id, 'ga', propertyId, windowStart, yesterday, fillOpts)
     } catch (err) {
       summary.errors.push({ clientId: client.id, platform: 'ga', message: serializeCaughtError(err) })
       continue

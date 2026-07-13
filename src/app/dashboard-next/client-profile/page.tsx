@@ -21,6 +21,7 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
   const { data: clients } = await supabaseAdmin
     .from('clients').select('id, name')
     .eq('user_email', email)
+    .is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived clients never resolve on the profile page
     .order('created_at', { ascending: true })
   const list = clients || []
   const resolved = (searchParams?.clientId && list.find(c => c.id === searchParams.clientId)) || list[0] || null

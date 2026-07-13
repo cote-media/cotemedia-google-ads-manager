@@ -25,7 +25,7 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
   // so access is enforced there too; picking from the accessible set is the page-level gate.
   const ids = await listAccessibleClients(email)
   const { data: clients } = ids.length
-    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).order('created_at', { ascending: true })
+    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
     : { data: [] as { id: string; name: string }[] }
   const list = clients || []
   const resolved = (searchParams?.clientId && list.find(c => c.id === searchParams.clientId)) || list[0] || null

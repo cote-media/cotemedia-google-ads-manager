@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   // LORAMER_OWNERSHIP_GATE_20260616 (#16) — same proven gate as /api/insight, /api/intelligence, /api/backfill/run.
   const { data: owned } = await supabaseAdmin
     .from('clients').select('id')
-    .eq('id', clientId).eq('user_email', session.user.email)
+    .eq('id', clientId).eq('user_email', session.user.email).is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived → 404
     .maybeSingle()
   if (!owned) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
