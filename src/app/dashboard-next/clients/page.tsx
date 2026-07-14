@@ -45,7 +45,7 @@ export default async function DashboardNextClientsPage() {
   const archived = (archivedRows || []) as { id: string; name: string; deleted_at: string }[]
 
   return (
-    <Shell active="clients">
+    <Shell active="clients" clientName="All clients">
       <MultiClientOverview clients={clients} canAddClient={canAddClient} />
       <ArchivedClients archived={archived} />
     </Shell>

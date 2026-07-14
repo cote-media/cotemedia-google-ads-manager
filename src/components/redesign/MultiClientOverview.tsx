@@ -79,13 +79,22 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
   const [metrics, setMetrics] = useState<Record<string, Metric>>({})
   const [fresh, setFresh] = useState<{ end: string | null; latest: string | null }>({ end: null, latest: null })
   const [loading, setLoading] = useState(false)
+  // LORAMER_NEXT_PORTFOLIO_METRICS_INDEX_V1 — HONEST error state: a non-200 (e.g. the old query-timeout 500) must
+  // NOT silently collapse every card to "—" as if the data were empty. On failure we flag `loadError` and show a
+  // neutral "couldn't load — retry" banner; `reloadKey` re-runs the fetch on Retry. Genuine $0/$0 stays honest.
+  const [loadError, setLoadError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let alive = true
     setLoading(true)
+    setLoadError(false)
     setMetrics({})
     fetch('/api/next/portfolio-metrics?period=' + encodeURIComponent(period))
-      .then((r) => (r.ok ? r.json() : { metrics: [] }))
+      .then((r) => {
+        if (!r.ok) throw new Error('portfolio-metrics ' + r.status)
+        return r.json()
+      })
       .then((d) => {
         if (!alive) return
         const map: Record<string, Metric> = {}
@@ -93,10 +102,10 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
         setMetrics(map)
         setFresh({ end: d.current?.endDate || null, latest: d.latestCapturedDate || null })
       })
-      .catch(() => {})
+      .catch(() => { if (alive) setLoadError(true) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [period])
+  }, [period, reloadKey])
 
   // Honest freshness: selected window runs past the latest captured day (e.g. early-ET-morning pre-cron gap).
   const stale = !!(fresh.end && fresh.latest && fresh.end > fresh.latest)
@@ -135,6 +144,20 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
       {stale && (
         <div className={styles.metaLabel} style={{ color: '#b45309', marginBottom: 4 }}>
           Selected period runs to {fresh.end}, but data is only captured through {fresh.latest} — recent day(s) not in yet.
+        </div>
+      )}
+
+      {/* LORAMER_NEXT_PORTFOLIO_METRICS_INDEX_V1 — honest load-failure state (never masquerade a 500 as empty "—"). */}
+      {loadError && (
+        <div className={styles.metaLabel} style={{ color: '#b91c1c', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+          Couldn&rsquo;t load metrics for this period.
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            style={{ padding: '2px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fff', color: '#b91c1c', fontSize: 12, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
         </div>
       )}
 

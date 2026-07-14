@@ -10,7 +10,10 @@ import ChatLauncher from './ChatLauncher' // LORAMER_NEXT_PARITY_V1 (P2-A) — r
 
 export default function Shell({
   active,
-  clientName = 'The Escential Group',
+  // LORAMER_NEXT_PORTFOLIO_METRICS_INDEX_V1 — neutral default (was a real client-name literal, which made any page
+  // that omits clientName — the portfolio + empty-state fallbacks — falsely show "The Escential Group"). Portfolio
+  // passes clientName="All clients" explicitly; this default keeps every other no-clientName render honest.
+  clientName = 'All clients',
   clientId,
   children,
 }: {
