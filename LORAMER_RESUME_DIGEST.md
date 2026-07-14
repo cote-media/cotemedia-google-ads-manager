@@ -7,14 +7,14 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-14T22:04:16.035Z
-- built_from HEAD: 185369a7de1046d5068b88191cacecaf0fc2c68b  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-14T22:10:24.688Z
+- built_from HEAD: c841902f20395a3aa02a34d08863ac689e387118  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_ESSENCE.md: d119604005535e4921405603da2adc217628f124fa7142db0275d908ee12e6fb
+    - LORAMER_ESSENCE.md: 98538074477f86794f3411d138b31410ab097c8e83e17f60912125ed31ba6a00
     - LORAMER_HANDOFF.md: 441ec131b4e02d18cab2b7b3ca58346fe52f5e6c386a5a59865fca9276d8c101
     - CONTINUE_HERE.md: 34d57f81330e329ff2a3bb90e9b3799d035c5e0ae74b814f37a07283d11e64bf
     - LORAMER_DECISIONS.md: ebaec41d77ff7e98d6952ff9ab2fe50c8aeb470de2f0d423c2b0a25e56b4c99f
@@ -67,6 +67,38 @@ High-stakes = any claim gating a destructive/rotate/delete action, a "this is a 
 - MULTI-SOURCE METRIC PROVENANCE: Any metric that can differ by source (ROAS, conversions, CPA, revenue, attribution) surfaces EVERY source's value, each labeled with its origin and basis. Never hide, blend, collapse, or silently pick one. The store is source-of-truth only for explicit store-truth questions; each platform's value stands on its own for platform questions; offline-uploaded sales enable a valid ROAS even without online purchase. Lora holds all sources at once, distinguishes them, and explains WHY they differ (web-researching the explanation when it helps). Every metric, every surface.
 - VERIFICATION — REAL-PATH: a Gate-A proof traverses the REAL entry path (login / route / page) through EVERY gate/guard/middleware to the answer — isolated-function proofs are necessary, NEVER sufficient; on-device Gate-B on real data is the mandatory final backstop. (2026-07-11: two isolated-pass / live-fail misses. Full: DECISIONS VERIFICATION LAWS 1–3.)
 - LORAMER_CADENCE_V1 — HOW WE WORK (full spec: LORAMER_HANDOFF.md ## ⛔ LORAMER_CADENCE_V1). DELIBERATE SPEED / right-the-first-time: speed = NOT redoing work; verification ENABLES speed, never traded against it. COMMS: no commentary AFTER a code block (the block is LAST in the turn); exactly ONE code block per turn, newest in the message; ONE change in flight (no new paste while a report is outstanding — "logged, holding"); plain English + HALF THE WORDS for anything Russ reads/does; NO option-menus for a decision that is Claude's ROUTE. OWNERSHIP: Claude owns ROUTE (sequencing / build-order / blast-radius) and DECIDES + proceeds with a one-line reason — asks ONLY for (a) live-path/destructive/deploy/migration approval, (b) a real product fork the docs don't answer, (c) a real-world action only Russ can take. CADENCE: resume→freshness→restate→next→go, then Gate-A→ship→Gate-B auto-advancing down the queue; verify load-bearing claims via Claude Code BEFORE building (CHECK FIRST, don't ask what the repo answers); blast-radius one line per flight; live-path = graduated care, not a freeze and not a permission-gate for its own sake. KILL: narrating instead of executing · piecemeal plans (audit the WHOLE finish-line, then execute top-down BLOCKS-first) · over-cautious framing that gates low-stakes changes · post-code commentary.
+
+## ⛔ DETERMINISM OF JUDGMENT [LAW]
+Given the same question over the same finite data, Lora must reach the same conclusion 100% of the time. Her answer may change ONLY when new or different information exists — and when it does, she must be able to say WHY it changed (attribution, not silent drift). This holds across model upgrades: Opus 4.8 → 4.9 → any successor must not change a conclusion.
+MECHANISM (the model is never the thing that decides):
+- NUMBERS: computed in code via ONE canonical settle. Lora REPORTS, never derives. (Fix #1 Part B is the first brick.)
+- RECOMMENDATIONS: derived from deterministic, versioned, testable RULES. The model's job is to EXPLAIN the rule's output in English, never to originate the judgment.
+- PROSE: not bitwise stable and does not need to be. If literal repeatability is ever required: hash (question + data fingerprint + memory state + prompt version + corpus version + model ID) → return the cached answer.
+- MEMORY is INSIDE the exception: a stored correction IS new information. Requirement is ATTRIBUTION — Lora must cite which correction changed her answer.
+- MODEL UPGRADES are gated by the eval. No model reaches users until the golden set passes with CONCLUSIONS unchanged. Precedent: Sonnet→Opus flipped B1 and D2 with identical code; the eval caught both.
+
+[VERIFIED 2026-07-14, Anthropic docs — platform.claude.com/docs/en/about-claude/models/model-ids-and-versions + /overview]
+- claude-opus-4-8 is a PINNED SNAPSHOT, not an alias. From the 4.6 generation on, the dateless ID IS the snapshot; Anthropic does not update weights or config under an existing ID. New versions ship under new IDs. LoraMer is correctly pinned.
+- CAVEAT: weights are fixed per ID, but SERVING INFRASTRUCTURE (request router, safety classifiers, sampling logic) can change under the same ID. So bitwise output stability is NOT guaranteed even on a pinned ID. This is why determinism must live in code, not in the model.
+- CAVEAT: every model ID has its own deprecation/retirement schedule. Migration is eventually mandatory; the eval gate is what makes it safe.
+- CAVEAT: Opus 4.8 uses adaptive thinking with effort defaulting to HIGH on all surfaces — a live variance source today.
+
+## ⛔ GROUNDED RECOMMENDATIONS / THE CORPUS [LAW]
+- Lora's recommendations are grounded in a FROZEN, VERSIONED best-practice corpus — NEVER a live web search. Live search is a determinism bomb: same data, different day, different answer, no new information from the user. A corpus VERSION BUMP is new information: dated, attributable, eval-gated, roll-back-able.
+- The corpus feeds the RULES, not the prose. Every recommendation CITES its source (corpus / the user's own correction / the platform's own doc). "Argue with her" is the product: she shows her sources, the user can dispute them. Same moat as multi-source metric provenance — explaining WHY, applied to judgment.
+- POSITIONING (true, defensible): Google's and Meta's recommendation engines are structurally conflicted — their revenue IS the advertiser's spend. LoraMer's revenue is a subscription. Frame as INCENTIVE ASYMMETRY, never "they lie" — some of their advice is good, and overclaiming hands a skeptic an easy win.
+- HONESTY BOUND: much of marketing canon is contested (brand vs. performance, attribution, incrementality). Never claim Lora knows THE truth. The claim is that she shows her sources and can be argued with.
+- RISK FLAGGED, UNRESOLVED: ingesting third-party copyrighted marketing material into a corpus whose output is resold is real IP exposure, distinct from a human reading it. Public-domain / licensed / primary sources / Russ's own writing are clean. NOT legal advice — needs a real lawyer before the corpus scales.
+
+## ⛔ "MAKE LORA YOUR OWN" — WHAT THE PROMISE CAN AND CANNOT CASH [LAW]
+CAN: her name/voice/tone; the org's definitions (net sales, value model, ROAS basis); their documents; their retained corrections; their guardrails. All config, all real.
+CANNOT: "a different mind" (weights are shared and rented); "she knows everything about us" (the librarian SELECTS — omission is the mechanism, not a bug); "exclusively yours" (direct tension with the cross-agency LoraMer tier — a POSITIONING FORK, unresolved: exclusive-yours vs compounding-across-agencies cannot both be headlined); "you own her" (implies portability/export — a moat hole if yes, marketing if no; decide knowingly).
+COST LAW: per-org memory grows the briefing packet forever → input tokens rise per turn, per customer, permanently. Cost scales with ENGAGEMENT; best customers cost most. Must be budgeted before memory ships.
+COPY GUARD: "she learns YOUR WAY OF WORKING" is true and defensible. "She BECOMES yours" is the check that bounces.
+
+## HOMEPAGE / BOTTOM-OF-PAGE MESSAGE (banked for the two-door homepage item)
+"The model is rented. The memory isn't." Every tool in the category runs on the same frontier AI anyone can rent — that's the starting line, not an edge. LoraMer's edge is what it KEEPS: every platform captured at full grain from the day you connect. So when Shopify and GA disagree, Lora shows BOTH, labeled by source, and explains why — the question every other tool hides from. A competitor can rent the same model tomorrow. They can't rent your history.
+GUARDS: (a) "from the day you connect" is load-bearing — backfill is bounded by platform retention; never let it be edited into "all your history." (b) The cross-agency brain is ANONYMIZED PATTERNS, not data — any line implying Lora learns across agencies must read that way, or it reads as "your client data feeds your competitor."
 
 If a change makes Lora more confident but not more provable, it is wrong.
 
