@@ -12,19 +12,11 @@
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
-
-// LORAMER_NEXT_CUTOVER_V1 — the build-dark allowlist is RETIRED: -next is now the DEFAULT surface for every
-// authenticated user. The ONLY exception is the LEGACY COHORT — the Shopify/Meta REVIEW + demo fixture accounts,
-// which MUST stay on the CURRENT screencast-matching UI while the Shopify App Store review is still OPEN (compliance
-// hold). Real merchants (incl. real Shopify-install sessions with their own email) get -next; only the loramer.app
-// review/demo fixtures are held. Exported so the /dashboard cutover redirect uses the SAME predicate (no divergence).
-export function isLegacyCohort(email: string | null | undefined): boolean {
-  const e = (email || '').trim().toLowerCase()
-  if (!e) return false
-  if (e === 'shopify-reviewer@loramer.app' || e === 'demo@loramer.com') return true
-  if (/^shopify\+.*@loramer\.app$/.test(e)) return true // Shopify App-Store install test fixtures
-  return false
-}
+// LORAMER_LEGACY_COHORT_V1 — the cohort predicate now lives in an EDGE-SAFE module (no node-only imports) so the
+// -next preview gate (here, Node) and the legacy-surface middleware (src/middleware.ts, Edge) share ONE source of
+// truth. Re-exported so existing consumers (e.g. src/app/dashboard/layout.tsx) keep importing it from preview-gate.
+import { isLegacyCohort } from './legacy-cohort'
+export { isLegacyCohort }
 
 export async function isPreviewUser(): Promise<boolean> {
   try {
