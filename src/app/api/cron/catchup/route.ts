@@ -34,6 +34,7 @@ import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
+import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — interior-gap dimensional fill
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 
 const METRICS_DAILY_CONFLICT =
@@ -784,6 +785,18 @@ export async function GET(request: Request) {
         if (metricsError) throw metricsError
         summary.rowsWritten += rows.length
         summary.daysFilled += 1
+        // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — fill dimensional breadth for this interior-gap day too, ISOLATED (own
+        // try/catch so a dimensional failure never drops the account fill already committed above).
+        try {
+          const { rows: dimRows } = await fetchGaDimensionalRows({ clientId: client.id, userEmail: gaUserEmail, accessToken: gaToken.accessToken, propertyId: gaToken.gaPropertyId, propertyName: gaToken.gaPropertyName, startDate: d, endDate: d })
+          if (dimRows.length > 0) {
+            const { error: dimErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
+            if (dimErr) throw dimErr
+            summary.rowsWritten += dimRows.length
+          }
+        } catch (dimErr) {
+          console.warn(`[cron/catchup] client=${client.id} GA dimensional (non-fatal) ${d}: ${serializeCaughtError(dimErr)}`)
+        }
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'ga', message: `${d}: ${serializeCaughtError(err)}` })
         continue

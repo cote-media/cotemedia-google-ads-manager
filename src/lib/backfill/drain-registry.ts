@@ -29,6 +29,7 @@ import { runMetaHourBackfill } from './meta-hour-backfill' // LORAMER_META_HOUR_
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
+import { runGaDimensionalBackfill } from './ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1
 
 export interface DrainConn {
   client_id: string
@@ -403,6 +404,19 @@ export const DRAIN_REGISTRY: DrainStep[] = [
       if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_money') — writer has no dryRun; live lap pending" } }
       const { body } = await runWooCommerceBackfill(conn.client_id, { cursorPlatform: 'woocommerce_money' })
       if (body?.skipped) return { done: false, detail: { note: 'woo money writer claim held by another invocation', body } }
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
+    // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — GA4 dimensional breadth (families A–I) as metrics_daily breakdown rows on
+    // the 7-col key. WRITE-ONLY (GA = attribution/label, never reconcile). Cursor-resuming ('ga_dimensional'), walks
+    // to the property data-start; runs under the drain's per-client __drain_ga claim (= per-property lease; GA quota
+    // is per-property, no global guard). One entry → cohort-wide back-drain, NO per-client special-casing.
+    key: 'ga_dimensional',
+    platforms: ['ga'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: 'runGaDimensionalBackfill — writer has no dryRun; live lap pending' } }
+      const { body } = await runGaDimensionalBackfill(conn.client_id, {})
       return { done: body?.complete === true, detail: body }
     },
   },

@@ -22,6 +22,7 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
+import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — forward dimensional breadth
 import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
@@ -862,6 +863,20 @@ export async function GET(request: Request) {
 
       if (syncError) {
         throw syncError
+      }
+
+      // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — forward dimensional breadth (families A–I) for the captured day. ADDITIVE
+      // + fully ISOLATED (its OWN try/catch): a dimensional failure NEVER affects the account row / sync cursor /
+      // health already committed above. A missed forward-dim day self-heals on the ga_dimensional backfill re-walk.
+      try {
+        const { rows: dimRows } = await fetchGaDimensionalRows({ clientId: client.id, userEmail, accessToken: gaToken.accessToken, propertyId: gaToken.gaPropertyId, propertyName: gaToken.gaPropertyName, startDate: captureDate, endDate: captureDate })
+        if (dimRows.length > 0) {
+          const { error: dimErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
+          if (dimErr) throw dimErr
+          summary.rowsWritten += dimRows.length
+        }
+      } catch (dimErr) {
+        console.warn(`[cron/sync] client=${client.id} GA dimensional forward (non-fatal): ${serializeCaughtError(dimErr)}`)
       }
 
       // LORAMER_CONNECTION_HEALTH_V1 — GA property authenticated; heal it.
