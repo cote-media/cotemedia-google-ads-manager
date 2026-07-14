@@ -41,7 +41,10 @@ export type CursorRow = {
 // (client_id, platform) -> the set of persisted (entity_level, breakdown_type) pairs in metrics_daily.
 export type RealAgg = Record<string, Record<string, RealPair[]>>
 
-export type Status = 'GREEN' | 'GREEN_TO_RECORDED_FLOOR' | 'DRAINING' | 'RED_OUR_DEFECT' | 'UNKNOWN_BLOCK'
+// LORAMER_RECONCILE_ZERO_DELIVERY_V1 — GREEN_WITH_CAVEAT: reached floor but the ad account never DELIVERED in-window,
+// so there are legitimately no breakdown rows to persist (false-zero discipline). It is a GREEN (not a defect, not
+// draining); the caveat carries the honest "zero delivery" note. Distinct from RED_OUR_DEFECT (empty DESPITE delivery).
+export type Status = 'GREEN' | 'GREEN_TO_RECORDED_FLOOR' | 'GREEN_WITH_CAVEAT' | 'DRAINING' | 'RED_OUR_DEFECT' | 'UNKNOWN_BLOCK'
 
 export type StepResult = {
   step: string
@@ -83,6 +86,10 @@ export function reconcile(input: {
   realAgg: RealAgg
   nowIso: string
   clientIds: string[]
+  // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — per (client_id → platform) "did this ad account actually deliver in-window"
+  // (any account-grain row with spend>0 OR impressions>0). Ad platforms only (google/meta). Undefined/absent ⇒ no
+  // delivery signal available → the gate stays inert (strict RED preserved), so store/ga behaviour is unchanged.
+  delivery?: Record<string, Record<string, boolean>>
 }): ClientResult[] {
   const { floors, connections, cursors, realAgg, nowIso, clientIds } = input
 
@@ -109,6 +116,11 @@ export function reconcile(input: {
       const pairs = realAgg[clientId]?.[platform] ?? []
       const pFloor = platformFloor.get(platform)
       const override = clientFloor.get(`${clientId}|${platform}`) || null
+
+      // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — the zero-delivery gate is per (client, platform), constant across steps.
+      // Ad platforms only; a connected-but-never-delivered account has honest-empty breakdowns, not a capture defect.
+      const isAdPlatform = platform === 'google' || platform === 'meta'
+      const hasDelivery = input.delivery?.[clientId]?.[platform] === true
 
       const stepResults: StepResult[] = steps.map((sd) => {
         const cur = cursorByKey.get(`${clientId}|${sd.cursor}`) || null
@@ -158,7 +170,13 @@ export function reconcile(input: {
         }
         // 3) Cursor complete.
         if (cur.backfill_complete === true) {
-          if (rp === false) return { ...base, status: 'RED_OUR_DEFECT' as Status, cause: 'cursor complete but ZERO persisted rows (false-complete / fetched-but-unpersisted)' }
+          if (rp === false) {
+            // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — complete-to-floor but empty. LOAD-BEARING split: if the ad account
+            // never delivered in-window, empty breakdowns are honest (nothing existed to persist) → GREEN_WITH_CAVEAT.
+            // If it DID deliver, an empty breakdown is a genuine fetched-but-unpersisted defect → keep RED.
+            if (isAdPlatform && !hasDelivery) return { ...base, status: 'GREEN_WITH_CAVEAT' as Status, cause: 'reached floor; account has zero delivery in window — empty breakdown is honest, not a defect', caveat: 'zero-delivery ad account: no rows to persist' }
+            return { ...base, status: 'RED_OUR_DEFECT' as Status, cause: 'cursor complete but ZERO persisted rows (false-complete / fetched-but-unpersisted)' }
+          }
           return { ...base, status: 'GREEN' as Status, cause: 'reached floor, rows present' }
         }
         // 4) Incomplete, not blocked.
@@ -178,6 +196,9 @@ export function reconcile(input: {
         if (daysSince(nowIso, cur.updated_at) <= STALE_DAYS) {
           return { ...base, status: 'DRAINING' as Status, cause: `backfilling: earliest ${cur.backfill_earliest_date}, floor ${floorLabel}, last advanced ${cur.updated_at}` }
         }
+        // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — incomplete + idle + empty on a zero-delivery ad account is NOT a stall
+        // defect: there is no data to fetch, so an idle empty grain is honest. Keep RED only when the account delivered.
+        if (isAdPlatform && !hasDelivery && rp === false) return { ...base, status: 'GREEN_WITH_CAVEAT' as Status, cause: `zero delivery in window; incomplete+idle at ${cur.backfill_earliest_date} — honest empty, not a stall`, caveat: 'zero-delivery ad account: no rows to persist' }
         return { ...base, status: 'RED_OUR_DEFECT' as Status, cause: `stalled: incomplete at ${cur.backfill_earliest_date}, no advance since ${cur.updated_at}, not blocked, no reason` }
       })
 

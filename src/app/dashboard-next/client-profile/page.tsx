@@ -61,6 +61,9 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
       const [clientResult] = reconcile({
         floors: sig.floors || [], connections: sig.connections || [], cursors: sig.cursors || [],
         realAgg: { [resolved.id]: byPlatform }, nowIso: new Date().toISOString(), clientIds: [resolved.id],
+        // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — zero-delivery gate: RPC returns per-ad-platform delivery bool so a
+        // connected-but-$0 ad account reads honest-empty instead of a false "needs a fix" defect.
+        delivery: { [resolved.id]: sig.delivery || {} },
       })
       if (clientResult) readiness = computeReadiness({
         clientResult,

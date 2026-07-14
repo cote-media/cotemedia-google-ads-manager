@@ -56,7 +56,9 @@ export function computeReadiness(input: {
 
   const redCount = steps.filter((s) => s.status === 'RED_OUR_DEFECT' || s.status === 'UNKNOWN_BLOCK').length
   const drainingCount = steps.filter((s) => s.status === 'DRAINING').length
-  const greenish = steps.filter((s) => s.status === 'GREEN' || s.status === 'GREEN_TO_RECORDED_FLOOR').length
+  // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — GREEN_WITH_CAVEAT (zero-delivery honest-empty) counts as captured/green: it
+  // is NOT a defect and NOT draining, so it must not dock the depth score or block green.
+  const greenish = steps.filter((s) => s.status === 'GREEN' || s.status === 'GREEN_TO_RECORDED_FLOOR' || s.status === 'GREEN_WITH_CAVEAT').length
   const captureCompleteFraction = steps.length ? greenish / steps.length : 0
 
   const connectionsPresent = connections.length >= 1
@@ -102,8 +104,13 @@ export function computeReadiness(input: {
   for (const p of clientResult.platforms) {
     const red = p.steps.some((s) => s.status === 'RED_OUR_DEFECT' || s.status === 'UNKNOWN_BLOCK')
     const draining = p.steps.some((s) => s.status === 'DRAINING')
+    // LORAMER_RECONCILE_ZERO_DELIVERY_V1 — a connected ad account that simply never delivered in-window: empty
+    // breakdowns are honest (GREEN_WITH_CAVEAT), NOT a defect. `red` still wins (empty-DESPITE-delivery stays alarming),
+    // so this only fires when the platform's only not-green cells are zero-delivery caveats → neutral, no scary line.
+    const zeroDelivery = p.steps.some((s) => s.status === 'GREEN_WITH_CAVEAT')
     if (red) { perPlatform.push({ platform: p.platform, status: 'issue', note: `${pretty(p.platform)} data capture needs a fix` }); tasks.push({ label: `${pretty(p.platform)} data capture needs a fix — we're on it`, kind: 'auto', blocksGreen: true }) }
     else if (draining) { perPlatform.push({ platform: p.platform, status: 'importing', note: `${pretty(p.platform)} is still importing history` }); tasks.push({ label: `${pretty(p.platform)} is still importing history — no action needed`, kind: 'auto', blocksGreen: false }) }
+    else if (zeroDelivery) { perPlatform.push({ platform: p.platform, status: 'complete', note: `No ${pretty(p.platform)} delivery in range — capture is up to date` }) }
     else { const floor = p.steps[0]?.floor || 'platform floor'; perPlatform.push({ platform: p.platform, status: 'complete', note: `Captured to floor (${floor})` }) }
   }
 
