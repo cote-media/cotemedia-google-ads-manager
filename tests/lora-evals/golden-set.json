@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "note": "LoraMer Lora accuracy eval — golden set v1. Every `expected` value was HAND-VERIFIED against metrics_daily (account-canonical rows: entity_level='account', breakdown_type='', breakdown_value='') on 2026-07-14 via the Supabase MCP; see LORAMER_LORA_AUDIT for the ground-truth queries. Window LAST_MONTH == June 2026 (today 2026-07-14). Assertions score Lora's REAL /api/chat answer, not a self-grade.",
+    "toleranceNote": "Numeric match uses +/-2% tolerance so natural rounding ('~$82K') passes but a wrong-SOURCE number (usually >10% off) fails — the surface-sync signal."
+  },
+  "questions": [
+    { "id": "A1", "cat": "A", "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8", "clientName": "Bath Fitter | O'Gorman Bros", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was the total ad spend for June 2026?", "assert": { "type": "number", "expected": 81989.49, "label": "ads spend" } },
+    { "id": "A2", "cat": "A", "clientId": "366afedc-c6e5-4863-bc7b-6a3146ea5115", "clientName": "Champion Cleaning Systems", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was the total Google Ads spend in June 2026?", "assert": { "type": "number", "expected": 6659.45, "label": "google spend" } },
+    { "id": "A3", "cat": "A", "clientId": "7d90cce7-3fb5-41d7-ab2b-5678bd71614e", "clientName": "Glass Plus, Inc.", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "How much did we spend on ads in June 2026?", "assert": { "type": "number", "expected": 4150.99, "label": "ads spend" } },
+    { "id": "A4", "cat": "A", "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15", "clientName": "Influential Drones", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was our store revenue in June 2026?", "assert": { "type": "number", "expected": 128896.56, "label": "store revenue" } },
+    { "id": "A5", "cat": "A", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was Meta ad spend and store revenue in June 2026?", "assert": { "type": "numbers", "expected": [997.72, 2885.45], "label": "meta spend + woo revenue" } },
+    { "id": "A6", "cat": "A", "clientId": "f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2", "clientName": "Veterinary mastermind", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was total ad spend in June 2026?", "assert": { "type": "number", "expected": 5120.85, "label": "ads spend" } },
+    { "id": "A7", "cat": "A", "clientId": "07aa6cdb-d57e-4c17-8d74-3e6a2235c379", "clientName": "BusyBee Bookkeeping", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was total ad spend in June 2026?", "assert": { "type": "number", "expected": 608.07, "label": "ads spend" } },
+    { "id": "A8", "cat": "A", "clientId": "c39ee088-c635-4bfe-b308-43fe9640f1ca", "clientName": "The Escential Group", "dateRange": "LAST_MONTH", "cardCheck": true,
+      "message": "What was ad spend and store revenue in June 2026?", "assert": { "type": "numbers", "expected": [3836.56, 229.95], "label": "spend + store revenue" } },
+
+    { "id": "B1", "cat": "B", "clientId": "f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2", "clientName": "Veterinary mastermind", "dateRange": "LAST_MONTH",
+      "message": "What was our Google Ads spend in January 2025?", "assert": { "type": "honesty", "note": "google data starts 2026-03-23; Jan 2025 is before data start → must say no data, never $0" } },
+    { "id": "B2", "cat": "B", "clientId": "c39ee088-c635-4bfe-b308-43fe9640f1ca", "clientName": "The Escential Group", "dateRange": "LAST_MONTH",
+      "message": "What was our total revenue in 2023?", "assert": { "type": "honesty", "note": "store starts 2025-12-16; 2023 is before any data → must say no data, never $0" } },
+    { "id": "B3", "cat": "B", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH",
+      "message": "What was our Google Ads spend in June 2026?", "assert": { "type": "honesty", "note": "Shelley has NO Google Ads connection → must say not connected / no Google Ads, never $0" } },
+    { "id": "B4", "cat": "B", "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8", "clientName": "Bath Fitter | O'Gorman Bros", "dateRange": "LAST_MONTH",
+      "message": "How much did we spend on Meta ads in June 2026?", "assert": { "type": "honesty", "note": "Bath Fitter has NO Meta connection → must say not connected / no Meta, never $0" } },
+    { "id": "B5", "cat": "B", "clientId": "366afedc-c6e5-4863-bc7b-6a3146ea5115", "clientName": "Champion Cleaning Systems", "dateRange": "LAST_MONTH",
+      "message": "What was our ROAS in June 2026?", "assert": { "type": "honesty", "note": "Champion has google spend but NO store/GA revenue source → ROAS uncomputable; must say no revenue data to compute ROAS, never fabricate a ratio or 0" } },
+    { "id": "B6", "cat": "B", "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8", "clientName": "Bath Fitter | O'Gorman Bros", "dateRange": "LAST_MONTH",
+      "message": "What was our Google Ads spend in 2019?", "assert": { "type": "honesty", "note": "google data starts 2020-01-27; 2019 is before data start → must say no data, never $0" } },
+    { "id": "B7", "cat": "B", "clientId": "f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2", "clientName": "Veterinary mastermind", "dateRange": "LAST_MONTH",
+      "message": "What was our Shopify store revenue in June 2026?", "assert": { "type": "honesty", "note": "Veterinary has NO store connection (GA only) → must say no store connected, never invent a store number" } },
+    { "id": "B8", "cat": "B", "clientId": "07aa6cdb-d57e-4c17-8d74-3e6a2235c379", "clientName": "BusyBee Bookkeeping", "dateRange": "LAST_MONTH",
+      "message": "What was our Meta ad spend in January 2024?", "assert": { "type": "honesty", "note": "Meta data starts 2025-03-17; Jan 2024 is before Meta data → must say no Meta data then, never $0" } },
+
+    { "id": "C1", "cat": "C", "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15", "clientName": "Influential Drones", "dateRange": "LAST_MONTH",
+      "message": "What is our ROAS for June 2026? Show it from each data source we have.", "assert": { "type": "sources", "note": "store $128,896.56 vs GA $13,609.20 vs Meta purchase-ROAS all differ on ad spend $1,382.36 — must surface DISTINCT values labeled by source, not one collapsed number", "sourceWords": ["store", "shopify", "ga", "analytics", "google analytics", "meta"], "minSources": 2, "minDistinctNumbers": 2 } },
+    { "id": "C2", "cat": "C", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH",
+      "message": "What was our return on ad spend in June 2026, broken down by each source you have?", "assert": { "type": "sources", "note": "woo store $2,885.45 vs GA $2,438.54 vs Meta on meta spend $997.72 — distinct sources", "sourceWords": ["store", "woocommerce", "woo", "ga", "analytics", "meta"], "minSources": 2, "minDistinctNumbers": 2 } },
+    { "id": "C3", "cat": "C", "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15", "clientName": "Influential Drones", "dateRange": "LAST_MONTH",
+      "message": "My Shopify says a different ROAS than my ad platform. Why do the ROAS numbers differ across sources for June 2026?", "assert": { "type": "sources", "note": "must EXPLAIN the difference (attribution/window/store-net vs platform-reported), naming ≥2 sources", "sourceWords": ["store", "shopify", "ga", "analytics", "meta", "google"], "minSources": 2, "minDistinctNumbers": 1, "mustPhraseAny": ["attribut", "window", "different", "measur", "click", "view", "credit"] } },
+
+    { "id": "D1", "cat": "D", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH",
+      "message": "How many conversions did Meta drive in June 2026?", "assert": { "type": "ceiling", "expected": 18, "ceiling": 30, "floor": 9, "note": "account-deduped Meta conversions = 18; a campaign-summed / action-type-double-counted answer would overstate well above 18" } },
+    { "id": "D2", "cat": "D", "clientId": "7d90cce7-3fb5-41d7-ab2b-5678bd71614e", "clientName": "Glass Plus, Inc.", "dateRange": "LAST_MONTH",
+      "message": "How many Meta conversions did we get in June 2026?", "assert": { "type": "ceiling", "expected": 1, "ceiling": 4, "floor": 0, "note": "account-deduped Meta conversions = 1" } },
+
+    { "id": "E1", "cat": "E", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH",
+      "message": "Our cost of goods is 40% of revenue. Based on June 2026 store revenue, what is our gross margin in dollars?", "assert": { "type": "number", "expected": 1731.27, "tolerancePct": 3, "label": "margin = 2885.45 * 0.60" } },
+    { "id": "E2", "cat": "E", "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15", "clientName": "Influential Drones", "dateRange": "LAST_MONTH",
+      "message": "If COGS is 60% of revenue, what was our gross profit in dollars for June 2026 store revenue?", "assert": { "type": "number", "expected": 51558.62, "tolerancePct": 3, "label": "margin = 128896.56 * 0.40" } },
+    { "id": "E3", "cat": "E", "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_MONTH",
+      "message": "[FORMAT PROBE] XLSX ingestion — a customer uploads an .xlsx COGS sheet.", "assert": { "type": "autofail", "reason": "upload/route.ts supports only txt/csv/pdf/docx; XLSX → 400 'Unsupported file type'. The spreadsheet the customer actually has cannot be ingested → automatic format fail (no live call)." } },
+
+    { "id": "F1", "cat": "F", "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8", "clientName": "Bath Fitter | O'Gorman Bros", "dateRange": "LAST_90_DAYS",
+      "message": "Compare Google Ads spend in Q4 2024 versus Q4 2023.", "assert": { "type": "numbers", "expected": [127677.28, 111683.47], "label": "Q4-2024 vs Q4-2023" } },
+    { "id": "F2", "cat": "F", "clientId": "366afedc-c6e5-4863-bc7b-6a3146ea5115", "clientName": "Champion Cleaning Systems", "dateRange": "LAST_90_DAYS",
+      "message": "How did Google Ads spend in Q1 2025 compare to Q1 2024?", "assert": { "type": "numbers", "expected": [23301.34, 18348.74], "label": "Q1-2025 vs Q1-2024" } },
+    { "id": "F3", "cat": "F", "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8", "clientName": "Bath Fitter | O'Gorman Bros", "dateRange": "LAST_90_DAYS",
+      "message": "What was our Google Ads spend for the full year 2024? And for Q4 2024 specifically?", "assert": { "type": "number", "expected": 127677.28, "label": "Q4-2024 (subset of year) — must at least get Q4 right + label windows" } }
+  ]
+}
