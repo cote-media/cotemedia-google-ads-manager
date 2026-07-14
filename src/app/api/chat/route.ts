@@ -10,6 +10,10 @@ import { resolveAccess } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// LORAMER_LORA_CHAT_MODEL_ENV_V1 — the chat model is env-selectable so the eval A/B (Sonnet vs Opus) can switch it
+// without a code edit. Default MUST stay claude-sonnet-4-6 so production behavior is byte-identical unless overridden.
+const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-sonnet-4-6'
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -143,7 +147,7 @@ export async function POST(request: Request) {
   try {
     const { responseText, usage } = await runClaudeToolLoop({
       anthropic,
-      model: 'claude-sonnet-4-6',
+      model: LORA_CHAT_MODEL,
       maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
       system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
       messages,
@@ -161,9 +165,11 @@ export async function POST(request: Request) {
       userEmail: session.user.email,
       clientId,
       endpoint: 'chat',
-      model: 'claude-sonnet-4-6',
+      model: LORA_CHAT_MODEL,
       inputTokens: usage.input,
       outputTokens: usage.output,
+      cacheReadTokens: usage.cache_read,        // LORAMER_LORA_MODEL_PRICING_V1 — honest cache-token cost
+      cacheCreationTokens: usage.cache_create,
     })
     return NextResponse.json({ response: finalText })
   } catch (e: any) {
