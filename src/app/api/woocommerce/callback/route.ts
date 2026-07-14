@@ -51,6 +51,35 @@ export async function POST(request: Request) {
     )
   }
 
+  // LORAMER_WOO_CALLBACK_NONCE_V1 (C2) — VERIFY the state nonce BEFORE any write. This POST is unauthenticated
+  // (WordPress → server, no session/cookie); the nonce (minted in /api/woocommerce/auth under an authenticated
+  // session, carried on the callback_url) is what binds it to the real initiator. The body.user_id === minted
+  // user_email check is the core: it rejects a forged POST claiming a victim's identity. Any failure → LOG + NO
+  // WRITE, and return 200 to suppress a WordPress retry storm (a bad/expired/forged nonce never becomes valid).
+  const nonce = searchParams.get('nonce')
+  const { data: nrow } = nonce
+    ? await supabaseAdmin
+        .from('woo_connect_nonce')
+        .select('client_id, user_email, shop, expires_at, consumed_at')
+        .eq('nonce', nonce)
+        .maybeSingle()
+    : { data: null as any }
+  const notExpired = !!nrow && new Date(nrow.expires_at).getTime() > Date.now()
+  const nonceOk =
+    !!nrow &&
+    nrow.consumed_at == null &&
+    notExpired &&
+    nrow.client_id === clientId &&
+    nrow.shop === shop &&
+    nrow.user_email === userEmail
+  if (!nonceOk) {
+    const reason = !nonce ? 'missing' : !nrow ? 'not-found' : nrow.consumed_at != null ? 'consumed'
+      : !notExpired ? 'expired' : nrow.client_id !== clientId ? 'client-mismatch'
+      : nrow.shop !== shop ? 'shop-mismatch' : 'identity-mismatch'
+    console.error(`[woo callback] REJECTED — nonce ${reason} (clientId=${clientId} shop=${shop} bodyUser=${userEmail})`)
+    return NextResponse.json({ ok: false, error: 'invalid or expired authorization' }, { status: 200 })
+  }
+
   // Save the credentials. Upsert on (user_email, client_id) because
   // the table has a unique index on that pair; reconnecting overwrites.
   const tokenWrite = await supabaseAdmin
@@ -70,8 +99,14 @@ export async function POST(request: Request) {
 
   if (tokenWrite.error) {
     console.error('[woo callback] woocommerce_tokens write failed:', tokenWrite.error)
+    // Nonce UNCONSUMED on purpose: a WordPress retry within the TTL re-attempts the (idempotent) upsert.
     return NextResponse.json({ error: 'token save failed' }, { status: 500 })
   }
+
+  // LORAMER_WOO_CALLBACK_NONCE_V1 (C2) — CONSUME the nonce only NOW, after the credential write SUCCEEDED. A
+  // transient failure above left it unconsumed (retry-safe); the idempotent upsert makes a post-success retry a
+  // no-op. One-time consume also blocks replay of a captured callback_url.
+  await supabaseAdmin.from('woo_connect_nonce').update({ consumed_at: new Date().toISOString() }).eq('nonce', nonce)
 
   // Register the platform connection so the clients list / dashboard
   // know this client has WooCommerce. Use the Shopify pattern of

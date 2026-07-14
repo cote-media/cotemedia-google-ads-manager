@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { supabaseAdmin } from '@/lib/supabase' // LORAMER_WOO_CALLBACK_NONCE_V1 (C2) — persist the state nonce
+import { randomUUID } from 'crypto'
 
 // LORAMER_WOO_AUTH_V1
 // GET /api/woocommerce/auth?clientId=X&shop=https://store.example.com
@@ -40,13 +42,31 @@ export async function GET(request: Request) {
   // also uses, so we know it's set in env).
   const origin = process.env.NEXTAUTH_URL || new URL(request.url).origin
 
+  // LORAMER_WOO_CALLBACK_NONCE_V1 (C2) — mint a short-TTL state nonce, bound to THIS authenticated session's
+  // (client_id, user_email, shop), and carry it on the callback_url (WordPress echoes callback_url query params).
+  // The wc-auth callback is a WP→server POST with no browser/cookie, so the cookie CSRF pattern can't reach it;
+  // this DB-backed nonce is what the callback verifies + one-time-consumes to bind the POST to the real initiator.
+  const nonce = randomUUID()
+  const { error: nonceErr } = await supabaseAdmin.from('woo_connect_nonce').insert({
+    nonce,
+    client_id: clientId,
+    user_email: session.user.email,
+    shop,
+    expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10-min TTL
+  })
+  if (nonceErr) {
+    console.error('[woo auth] nonce insert failed:', nonceErr.message)
+    return NextResponse.redirect(new URL('/clients?woo_error=nonce', request.url))
+  }
+
   // LORAMER_WOO_AUTH_V2 - shop is round-tripped through callback so the
   // callback route knows which store the credentials belong to (WordPress
   // does not include the shop URL in the credentials POST body).
   const callbackUrl =
     origin + '/api/woocommerce/callback?clientId=' +
     encodeURIComponent(clientId) +
-    '&shop=' + encodeURIComponent(shop)
+    '&shop=' + encodeURIComponent(shop) +
+    '&nonce=' + encodeURIComponent(nonce)
 
   // LORAMER_NEXT_CONNECT_V1 F2 — carry an OPTIONAL returnTo on the USER-facing return_url (WordPress redirects the
   // user here after POSTing creds to callback_url). Absent → return_url identical to before. woo/return validates it.
