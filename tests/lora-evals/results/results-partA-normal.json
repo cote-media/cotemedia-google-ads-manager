@@ -1,0 +1,365 @@
+{
+  "base": "http://localhost:3111",
+  "owner": "cotebrandmarketing@gmail.com",
+  "cats": {
+    "A": {
+      "p": 7,
+      "n": 8
+    },
+    "B": {
+      "p": 8,
+      "n": 8
+    },
+    "C": {
+      "p": 3,
+      "n": 3
+    },
+    "D": {
+      "p": 0,
+      "n": 2
+    },
+    "E": {
+      "p": 2,
+      "n": 3
+    },
+    "F": {
+      "p": 3,
+      "n": 3
+    }
+  },
+  "overall": {
+    "pass": 23,
+    "n": 27
+  },
+  "results": [
+    {
+      "id": "A1",
+      "cat": "A",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was the total ad spend for June 2026?",
+      "pass": true,
+      "detail": "expected 81989.49 (ads spend); closest-in-answer 81989.49 | card spend=81989.49 rev=0",
+      "httpStatus": 200,
+      "response": "Total ad spend for June 2026 was **$81,989.49** (Google Ads).\n\nA note on provenance: Google's live snapshot failed to load this turn, so I pulled this from the captured historical store (the same figures the dashboard cards use). Google is the only connected ad platform on this account, so this is the full total.\n\nSupporting figures for the month:\n- **Impressions:** 47,088\n- **Clicks:** 3,599 (CTR 7.64%, CPC $22.78)\n- **Conversions:** 661.26 (CPA $123.99)\n\nWant me to break this down by campaign or look at any specific segment?",
+      "card": {
+        "spend": 81989.49,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A2",
+      "cat": "A",
+      "client": "Champion Cleaning Systems",
+      "message": "What was the total Google Ads spend in June 2026?",
+      "pass": true,
+      "detail": "expected 6659.45 (google spend); closest-in-answer 6659.45 | card spend=6659.45 rev=null",
+      "httpStatus": 200,
+      "response": "Total Google Ads spend for June 2026 was **$6,659.45**.\n\n(The live Google snapshot failed to load this turn, so this figure comes from LoraMer's captured historical store — it matches the dashboard cards and is not affected by the live fetch failure.)\n\nFor context over the same window:\n- Impressions: 49,236\n- Clicks: 831 (CTR 1.69%, CPC $8.01)\n- Conversions: 22 (CPA $302.70)\n\nLet me know if you want a breakdown by campaign, search term, or keyword.",
+      "card": {
+        "spend": 6659.45,
+        "revenue": null,
+        "roas": null
+      }
+    },
+    {
+      "id": "A3",
+      "cat": "A",
+      "client": "Glass Plus, Inc.",
+      "message": "How much did we spend on ads in June 2026?",
+      "pass": true,
+      "detail": "expected 4150.99 (ads spend); closest-in-answer 4150.99 | card spend=4150.99 rev=0",
+      "httpStatus": 200,
+      "response": "Total ad spend in June 2026 was **$4,150.99** across both platforms:\n\n- **Google:** ~$3,038.51 (from the captured store — Google's live snapshot failed to load this turn, so this comes from our historical data, which matches the dashboard cards)\n- **Meta:** $1,112.48\n\nThat's on 179,565 impressions and 8,581 clicks account-wide (4.78% CTR, $0.48 CPC).\n\nMeta's spend, clicks, and impressions are exact. If you want the Google side broken out on its own or by campaign, just say the word.",
+      "card": {
+        "spend": 4150.99,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A4",
+      "cat": "A",
+      "client": "Influential Drones",
+      "message": "What was our store revenue in June 2026?",
+      "pass": true,
+      "detail": "expected 128896.56 (store revenue); closest-in-answer 128914.06 | card spend=1382.36 rev=128896.56",
+      "httpStatus": 200,
+      "response": "Your Shopify store revenue for June 2026 was **$128,914.06** in net sales (after refunds, excluding shipping & tax) across **25 orders**, at an AOV of **$5,156.56**.\n\nA couple of things worth noting:\n\n- Revenue was highly concentrated — the **top 10% of orders drove 84.4%** of that total. Two orders alone account for the bulk of it: **26-CA-ABMHS-JMG-0227** at $74,462.78 and **Hubspot Deal- 26-CA-UASSBD-DK-0529** at $28,627.98, together ~$103K of the $129K.\n- **0 refunded orders** (0% refund rate) this month.\n\nThis is Shopify only — the store revenue figure. Let me know if you'd like the gross-sales breakdown (discounts, shipping, tax) or Google Ads revenue pulled in as well.",
+      "card": {
+        "spend": 1382.36,
+        "revenue": 128896.56,
+        "roas": 93.24
+      }
+    },
+    {
+      "id": "A5",
+      "cat": "A",
+      "client": "Shelley Kyle",
+      "message": "What was Meta ad spend and store revenue in June 2026?",
+      "pass": true,
+      "detail": "997.72→ok , 2885.45→ok",
+      "httpStatus": 200,
+      "response": "For **June 2026** (full month):\n\n| Metric | Value |\n|---|---|\n| 📣 **Meta ad spend** | **$997.72** |\n| 🛒 **WooCommerce revenue** | **$2,885.45** |\n\nStore revenue outpaced ad spend roughly 2.9:1 for the month. Note that WooCommerce is the only connected store — Shopify is not connected, so there's no additional store revenue beyond this.",
+      "card": {
+        "spend": 997.72,
+        "revenue": 2885.45,
+        "roas": 2.89
+      }
+    },
+    {
+      "id": "A6",
+      "cat": "A",
+      "client": "Veterinary mastermind",
+      "message": "What was total ad spend in June 2026?",
+      "pass": false,
+      "detail": "expected 5120.85 (ads spend); closest-in-answer 2634.78 | card spend=5120.85 rev=1771.86",
+      "httpStatus": 200,
+      "response": "The captured-store query timed out twice, so I can't give you the verified all-platform total this turn.\n\nWhat I can confirm from the data loaded here:\n\n- **Meta: $2,634.78** for June 2026\n- **Google: not available this turn** — the live snapshot failed to load, and the historical-store query timed out on retry, so I can't report a Google figure right now.\n\nSo I can't give you a reliable combined total yet — I'd only be showing you the Meta portion. Ask me again in a moment and I'll re-run the store query to pull Google and the true combined total.",
+      "card": {
+        "spend": 5120.85,
+        "revenue": 1771.86,
+        "roas": 0.35
+      }
+    },
+    {
+      "id": "A7",
+      "cat": "A",
+      "client": "BusyBee Bookkeeping",
+      "message": "What was total ad spend in June 2026?",
+      "pass": true,
+      "detail": "expected 608.07 (ads spend); closest-in-answer 608.07 | card spend=608.07 rev=0",
+      "httpStatus": 200,
+      "response": "**Total ad spend in June 2026 was $608.07** across all platforms.\n\nBreakdown:\n- **Meta:** $299.29\n- **Google:** ~$308.78 (from the captured historical store — Google's live snapshot failed to load this turn, but this is the exact stored figure the dashboard uses)\n\nCombined, that's 68,633 impressions and 1,983 clicks at a blended CTR of 2.89% and CPC of $0.31.",
+      "card": {
+        "spend": 608.07,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A8",
+      "cat": "A",
+      "client": "The Escential Group",
+      "message": "What was ad spend and store revenue in June 2026?",
+      "pass": true,
+      "detail": "3836.56→ok , 229.95→ok",
+      "httpStatus": 200,
+      "response": "Here are the June 2026 totals from the captured store (Google's live snapshot failed this turn, so these come from the historical store that backs the dashboard cards).\n\n### Ad Spend & Store Revenue — June 2026\n\n| Metric | Google | Meta | Combined |\n|---|---|---|---|\n| Ad spend | $1,593.99 | $2,246.92 | **$3,836.56** |\n| Store revenue (Shopify net sales) | — | — | **$229.95** |\n\n**Notes:**\n- **Ad spend** figures are exact. Combined spend across Google + Meta was **$3,836.56**.\n- **Store revenue** is Shopify net sales ($229.95, after refunds, excluding shipping & tax) across 10 orders. WooCommerce isn't connected, so there's no other store to add.\n- Google's live snapshot failed this turn, but the captured store had it — no gap in the numbers above.\n\nWant me to break spend down by campaign objective, or look at the Meta placement split?",
+      "card": {
+        "spend": 3836.56,
+        "revenue": 229.95,
+        "roas": 0.06
+      }
+    },
+    {
+      "id": "B1",
+      "cat": "B",
+      "client": "Veterinary mastermind",
+      "message": "What was our Google Ads spend in January 2025?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "The captured store returned no Google data for January 2025 — zero rows across the whole month. That means there's genuinely no Google Ads history on file for that period (this client's Google data doesn't appear to go back that far), not a fetch problem on my end.\n\nIf you meant a more recent January or a different window, let me know and I'll pull it. I do have Google captured for 2026 periods if that's useful.",
+      "card": null
+    },
+    {
+      "id": "B2",
+      "cat": "B",
+      "client": "The Escential Group",
+      "message": "What was our total revenue in 2023?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "The captured historical store has **no data for 2023** for this account — zero rows across all platforms. That means 2023 predates the connected data history we hold for The Escential Group, so I can't report a total revenue figure for that year.\n\nThe earliest data we have appears to start later than 2023. If you tell me which year or period you want (e.g. 2024, 2025, or a specific quarter), I can pull the actual totals. Want me to check when the data history actually begins?",
+      "card": null
+    },
+    {
+      "id": "B3",
+      "cat": "B",
+      "client": "Shelley Kyle",
+      "message": "What was our Google Ads spend in June 2026?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "Google Ads is **not connected** for Shelley Kyle's account — there's no Google Ads data available for June 2026 or any other period.\n\nThe only ad platform connected here is **Meta**, which spent **$999.50** in June 2026. If you'd like Google Ads reporting, the account would need to be connected through the platform integrations settings.",
+      "card": null
+    },
+    {
+      "id": "B4",
+      "cat": "B",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "How much did we spend on Meta ads in June 2026?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "Meta isn't connected for Bath Fitter | O'Gorman Bros., so there's no Meta ad spend to report for June 2026 — that channel simply isn't wired up in the account.\n\nThe only advertising platform connected here is Google Ads. If you'd like, I can pull the Google spend for June 2026 instead.",
+      "card": null
+    },
+    {
+      "id": "B5",
+      "cat": "B",
+      "client": "Champion Cleaning Systems",
+      "message": "What was our ROAS in June 2026?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "Your Google Ads account for June 2026 shows **no ROAS to report** — and here's why:\n\n- **Spend:** $6,659.45\n- **Conversions:** 22 (CPA $302.70)\n- **Conversion value / revenue:** $0\n\nThe captured store recorded 22 conversions but **$0 in conversion value/revenue**, so ROAS calculates to 0. This almost always means conversion actions are firing but no revenue value is attached to them (e.g. lead-gen conversions with no assigned value, or value tracking not configured) — which is common and appropriate for a service business like Champion Cleaning Systems where conversions are leads/calls rather than transactions.\n\nSo the honest answer: ROAS isn't a meaningful metric here as tracked. If the goal is lead generation, **CPA of $302.70 across 22 conversions** is the number to judge performance on. If you expect revenue values to be flowing in, that's a conversion-tracking gap worth fixing.\n\nNote: this is Google only — it's the only connected ad platform, and its live snapshot failed this turn, so these figures come from the captured historical store.",
+      "card": null
+    },
+    {
+      "id": "B6",
+      "cat": "B",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was our Google Ads spend in 2019?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "There's no Google Ads spend recorded for 2019 — the captured store returned zero rows for that entire year. This means we don't have any data going that far back for this account (the Google connection almost certainly began later), so there's nothing to report for 2019 rather than it being a genuine $0 of spend.\n\nIf you'd like, I can pull the earliest period we do have data for, or check a more recent year.",
+      "card": null
+    },
+    {
+      "id": "B7",
+      "cat": "B",
+      "client": "Veterinary mastermind",
+      "message": "What was our Shopify store revenue in June 2026?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "Shopify isn't connected for this client, so there's no store revenue data available to report — no Shopify order or revenue figures flow into LoraMer here.\n\nIf you're tracking revenue elsewhere (e.g., through your ad platforms' conversion value), I can pull that instead — just let me know. Otherwise, you'd need to connect Shopify to LoraMer or check the June 2026 totals directly in your Shopify admin.",
+      "card": null
+    },
+    {
+      "id": "B8",
+      "cat": "B",
+      "client": "BusyBee Bookkeeping",
+      "message": "What was our Meta ad spend in January 2024?",
+      "pass": true,
+      "detail": "honestPhrase=true fabricatedZero=false",
+      "httpStatus": 200,
+      "response": "There's no Meta spend recorded for January 2024 — the historical store returned zero rows for that window. This most likely means the Meta account wasn't connected or wasn't running any ads that far back (the data we have for this client centers on more recent activity).\n\nIf you were thinking of a different period, or want me to check when Meta activity actually starts in the record, let me know and I'll pull it.",
+      "card": null
+    },
+    {
+      "id": "C1",
+      "cat": "C",
+      "client": "Influential Drones",
+      "message": "What is our ROAS for June 2026? Show it from each data source we have.",
+      "pass": true,
+      "detail": "sources=[store,shopify,ga,meta] distinctNums=10 phraseOk=true",
+      "httpStatus": 200,
+      "response": "Here's June 2026 ROAS by source. Note: Google's live snapshot failed this turn, so these come from LoraMer's captured store (matches the dashboard cards).\n\n## Google Ads\n- **Spend:** $1,382.36\n- **Conversion value:** $0 (no revenue value tracked on Google conversions)\n- **ROAS: 0.0x** — Google recorded 4 conversions but $0 conversion value, so a true ROAS can't be computed from Google's own tracking. This is a conversion-value tracking gap, not zero performance.\n\n## Shopify\n- Shopify is a store, not an ad platform — it reports **revenue, not ad spend**, so it has no standalone ROAS. For reference: **$128,914.06 net sales** across 25 orders in June.\n\n## Meta\n- **Not connected** — no data.\n\n## Blended / account-level (ad spend vs. store revenue)\nPairing the only ad spend we have (Google: $1,382.36) against Shopify revenue:\n- Using captured account revenue **$142,505.76** ÷ $1,382.36 spend → **≈103x blended ROAS**\n- Using Shopify net sales **$128,914.06** ÷ $1,382.36 → **≈93x**\n\n**Bottom line:** There's no clean per-platform ROAS. Google's own conversion value is $0 (tracking gap worth fixing if you want platform-level ROAS), and Shopify only supplies revenue. The meaningful number is a **blended ~93–103x** — driven by very high AOV, low-volume Google spend rather than a scaled paid program.\n\nOne caveat on the account total: the conversion count (48) blends in historical figures that are directionally accurate but may not perfectly reconcile with campaign-level numbers; spend, clicks, and impressions are exact.",
+      "card": null
+    },
+    {
+      "id": "C2",
+      "cat": "C",
+      "client": "Shelley Kyle",
+      "message": "What was our return on ad spend in June 2026, broken down by each source you have?",
+      "pass": true,
+      "detail": "sources=[store,woocommerce,woo,ga,meta] distinctNums=11 phraseOk=true",
+      "httpStatus": 200,
+      "response": "Here's the ROAS picture for **June 2026** by source:\n\n## Return on Ad Spend — June 2026\n\n| Source | Ad Spend | Attributed Value | ROAS |\n|---|---|---|---|\n| **Meta Ads** | $997.72 | $1,031.39 | **1.03x** |\n| **WooCommerce (store)** | — | $2,885.45 revenue | not an ad source |\n\n### The key caveat\n**Meta is the only paid advertising source connected** for this account — Google, Shopify, and GA are not connected. So a true \"ROAS by ad source\" is really just **one source: Meta at 1.03x**, essentially breakeven on Meta's own attributed conversion value.\n\nWooCommerce isn't an ad platform — it has no spend, so it has no ROAS of its own. But it's worth framing the two together:\n\n- If you measure Meta's spend ($997.72) against **total store revenue** ($2,885.45), you get a **blended ~2.89x** — but that credits all store revenue to Meta, including organic/direct/repeat orders Meta didn't drive.\n- Meta's *own* reported value of $1,031.39 (1.03x) only counts conversions it attributed to itself.\n\nThe real answer sits between those two — Meta is likely running above breakeven on a blended basis but at/near breakeven on last-click attribution.\n\n*Meta conversion counts and the value behind that 1.03x are account-level historical figures — directionally accurate but may not perfectly reconcile with campaign-level numbers; Meta spend, clicks, and impressions are exact.*\n\nOne thing worth flagging: within Meta, the **Summer 15 sale** campaign spent $499.85 with **zero attributed conversions**, while the **Sales - June '26** campaign carried all 18 conversions at 2.06x. The account-level 1.03x is being dragged to breakeven by that second campaign. Want me to dig into that split?",
+      "card": null
+    },
+    {
+      "id": "C3",
+      "cat": "C",
+      "client": "Influential Drones",
+      "message": "My Shopify says a different ROAS than my ad platform. Why do the ROAS numbers differ across sources for June 2026?",
+      "pass": true,
+      "detail": "sources=[store,shopify,ga,meta,google] distinctNums=18 phraseOk=true",
+      "httpStatus": 200,
+      "response": "Here's what's actually going on for June 2026. The two \"ROAS\" numbers differ because they're built from completely different inputs — they're measuring different things.\n\n## The underlying numbers (from the captured store)\n\n| Source | Spend | Conversions | Revenue/Value | Implied ROAS |\n|---|---|---|---|---|\n| **Google Ads** | $1,382.36 | 4 conversions | $0 conversion value | — (no revenue tracked) |\n| **Shopify** | $0 (no ad spend) | 25 orders | $128,896.56 net sales | — (no spend to divide by) |\n\n## Why they don't match\n\n**1. Neither source has both halves of the ROAS equation.**\n- Google knows your **spend** ($1,382.36) but is recording **$0 conversion value** — its 4 conversions came in without revenue attached. So Google can't compute a real revenue ROAS; anything it shows is either a conversion-based proxy or zero.\n- Shopify knows your **revenue** ($128,896.56 net across 25 orders) but has **no ad spend**, so any \"ROAS-like\" figure it shows is really just total store revenue, not revenue-per-ad-dollar.\n\n**2. Different attribution models.**\n- Google credits revenue to a click using its own attribution window (last-click/data-driven, with view-through), and attributes on the **click date**.\n- Shopify credits revenue to whatever it thinks the source was, on the **order date**, and counts *every* order — including direct, organic, email, and referral traffic that Google never touched.\n\n**3. Different revenue definitions.**\nShopify's $128,896.56 is **net sales** (after refunds, excluding shipping and tax). Google's conversion value — when populated — typically includes the full order total. So even with perfect attribution the dollar bases wouldn't line up.\n\n**4. This account's revenue is extremely concentrated.**\nTop 10% of orders drove 84.4% of June revenue, and two line items (`26-CA-ABMHS-JMG-0227` at $74.5K and a HubSpot deal at $28.6K) account for ~$103K of the $128.9K. Those look like high-touch B2B/sales-assisted deals that would almost never be click-attributed to a Google ad — so Shopify sees the revenue but Google correctly claims none of it.\n\n## Bottom line\nThe mismatch isn't an error — it's that **Google is measuring ad-attributed performance with no revenue value populated, while Shopify is measuring total store sales with no spend.** Neither can produce a valid revenue ROAS on its own right now.\n\nThe most actionable fix: **get conversion value flowing into Google Ads** (the 4 June conversions came through with $0 value). Until that's fixed, Google can't report a real ROAS, and you'll only ever have a blended view — total Google spend ($1,382.36) against total Shopify net sales ($128,896.56), which is a blended ~93x but says nothing about what the ads actually drove.\n\nOne caveat: Google's live snapshot failed this turn, so the figures above are from LoraMer's captured store (same as the dashboard cards). Meta and WooCommerce aren't connected, so no data from those.",
+      "card": null
+    },
+    {
+      "id": "D1",
+      "cat": "D",
+      "client": "Shelley Kyle",
+      "message": "How many conversions did Meta drive in June 2026?",
+      "pass": false,
+      "detail": "expected≈18 ceiling 30; in-band=[18,26,18,27.76,15,26,9.59] overstated=true",
+      "httpStatus": 200,
+      "response": "Meta drove **18 conversions** in June 2026.\n\nAll of them came from the **Sales - June '26** campaign (18 purchases, $27.76 CPA, 2.06x ROAS). The other campaign, **Sales - Summer 15 sale June '26**, drove **0 conversions** despite spending nearly the same ($499.85) — it was optimized for link clicks, not conversions, so it generated traffic (4,129 clicks, 9.59% CTR) and just 5 add-to-carts, but no purchases.\n\nNote: Google, Shopify, and GA are not connected, so this is Meta only.",
+      "card": null
+    },
+    {
+      "id": "D2",
+      "cat": "D",
+      "client": "Glass Plus, Inc.",
+      "message": "How many Meta conversions did we get in June 2026?",
+      "pass": false,
+      "detail": "expected≈1 ceiling 4; in-band=[0.14] overstated=true",
+      "httpStatus": 200,
+      "response": "The Meta campaign running in June 2026 was **Traffic - June '25 (daily)**, which is a traffic objective optimizing for **link clicks** — it isn't set up to track conversions, so there are no Meta conversions to report for that period.\n\nWhat it did deliver in June 2026:\n- **7,936 clicks** at a **$0.14 CPC**\n- **4.70% CTR** across **168,876 impressions**\n- **$1,112.48 spend**, reaching **91,474 people**\n\nIf you want, I can pull the **Google** conversions for June 2026 (that data lives in the captured store and I can retrieve it), since that's where your actual lead conversions are tracked for Glass Plus.",
+      "card": null
+    },
+    {
+      "id": "E1",
+      "cat": "E",
+      "client": "Shelley Kyle",
+      "message": "Our cost of goods is 40% of revenue. Based on June 2026 store revenue, what is our gross margin in dollars?",
+      "pass": true,
+      "detail": "expected 1731.27 (margin = 2885.45 * 0.60); closest-in-answer 1731.27",
+      "httpStatus": 200,
+      "response": "Based on June 2026 WooCommerce store revenue:\n\n- **Revenue:** $2,885.45\n- **COGS (40%):** $1,154.18\n- **Gross margin (60%):** **$1,731.27**\n\n> Note: This is a straight COGS-only gross margin. It does **not** subtract your Meta ad spend ($999.50 in June) or WooCommerce fees/discounts/shipping/taxes. If you want a fuller contribution-margin view that nets out ad spend, that would bring it down to roughly **$731.77** — happy to break that out.",
+      "card": null
+    },
+    {
+      "id": "E2",
+      "cat": "E",
+      "client": "Influential Drones",
+      "message": "If COGS is 60% of revenue, what was our gross profit in dollars for June 2026 store revenue?",
+      "pass": true,
+      "detail": "expected 51558.62 (margin = 128896.56 * 0.40); closest-in-answer 51558.62",
+      "httpStatus": 200,
+      "response": "Here's the gross profit at a 60% COGS assumption. Which revenue base you use matters, so here are the two most defensible:\n\n| Revenue base | Amount | COGS (60%) | Gross profit (40%) |\n|---|---|---|---|\n| **Net sales** (after discounts & refunds, excl. shipping/tax) | $128,896.56 | $77,337.94 | **$51,558.62** |\n| **Gross sales** (before discounts) | $129,130.56 | $77,478.34 | **$51,652.22** |\n\n**Recommended figure: ~$51,559** using net sales — that's the cleanest product-revenue basis to apply a COGS % against (shipping, tax, and tips aren't product cost).\n\nNotes:\n- Refunds were $0 this month, so net vs. total is driven only by $234 in discounts.\n- This is a flat 60%-of-revenue assumption applied uniformly. Actual gross margin would vary by product mix — and this month's revenue is heavily concentrated (the top order, `26-CA-ABMHS-JMG-0227` at $74,462.78, is 58% of revenue), so the real blended margin hinges almost entirely on the true COGS of that one line. If you have actual COGS on the big-ticket items, I can recompute.",
+      "card": null
+    },
+    {
+      "id": "E3",
+      "cat": "E",
+      "client": "Shelley Kyle",
+      "message": "[FORMAT PROBE] XLSX ingestion — a customer uploads an .xlsx COGS sheet.",
+      "pass": false,
+      "detail": "upload/route.ts supports only txt/csv/pdf/docx; XLSX → 400 'Unsupported file type'. The spreadsheet the customer actually has cannot be ingested → automatic format fail (no live call).",
+      "httpStatus": -1,
+      "response": "(autofail — no call)",
+      "card": null
+    },
+    {
+      "id": "F1",
+      "cat": "F",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "Compare Google Ads spend in Q4 2024 versus Q4 2023.",
+      "pass": true,
+      "detail": "127677.28→ok , 111683.47→ok",
+      "httpStatus": 200,
+      "response": "Here's the Google Ads Q4 year-over-year comparison for Bath Fitter | O'Gorman Bros. (from the captured store — the live Google snapshot failed this turn, so these numbers come from the historical database that backs the dashboard cards):\n\n| Metric | Q4 2023 | Q4 2024 | Change |\n|---|---|---|---|\n| **Spend** | $111,683.47 | $127,677.28 | **+$15,993.81 (+14.3%)** |\n| Impressions | 84,185 | 92,845 | +10.3% |\n| Clicks | 2,721 | 5,010 | +84.1% |\n| CTR | 3.23% | 5.40% | +2.17 pts |\n| CPC | $41.05 | $25.48 | −37.9% |\n| Conversions | 155 | 683 | +340.6% |\n| CPA | $720.54 | $186.94 | −74.1% |\n\n**Bottom line:** Spend rose ~14% YoY, but efficiency improved dramatically. For 14% more budget you got 84% more clicks (CPC dropped from $41 to $25) and 4.4× the conversions, driving CPA down from $720 to $187 — a 74% reduction in cost per conversion. This was a much more productive Q4 despite the modest spend increase.\n\nNote: no revenue/conversion value is tracked in this account (ROAS shows 0), so the story is entirely on volume, cost, and lead conversions.",
+      "card": null
+    },
+    {
+      "id": "F2",
+      "cat": "F",
+      "client": "Champion Cleaning Systems",
+      "message": "How did Google Ads spend in Q1 2025 compare to Q1 2024?",
+      "pass": true,
+      "detail": "23301.34→ok , 18348.74→ok",
+      "httpStatus": 200,
+      "response": "Here's the Google Ads spend comparison (from the captured store — the live snapshot failed this turn, but these are the real figures):\n\n| Metric | Q1 2024 | Q1 2025 | Change |\n|---|---|---|---|\n| **Spend** | $18,348.74 | $23,301.34 | **+$4,952.60 (+27.0%)** |\n| Impressions | 61,490 | 267,989 | +336% |\n| Clicks | 7,572 | 43,108 | +469% |\n| CTR | 12.31% | 16.09% | +3.78 pts |\n| CPC | $2.42 | $0.54 | −78% |\n| Conversions | 1,033 | 52,308 | +50x |\n| CPA | $17.76 | $0.45 | −97% |\n\n**Bottom line:** Spend rose ~27% YoY (about $5K more). But the more striking story is efficiency — for a 27% budget increase you got roughly 4.4x the clicks and vastly cheaper traffic (CPC down from $2.42 to $0.54).\n\nOne caveat worth flagging: the conversion figures are hard to take at face value. Q1 2025 shows 52,308 conversions on 43,108 clicks — a conversion count exceeding clicks — which usually signals a conversion-tracking or counting-setup change between the two periods (e.g. counting \"every\" vs \"one\" conversion, or a new action added). So treat the CPA/conversion improvement as likely inflated by a tracking change rather than a pure performance gain. The spend, impression, click, CTR and CPC comparisons are solid.\n\nWant me to break the spend down by campaign for either quarter to see where the extra budget went?",
+      "card": null
+    },
+    {
+      "id": "F3",
+      "cat": "F",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was our Google Ads spend for the full year 2024? And for Q4 2024 specifically?",
+      "pass": true,
+      "detail": "expected 127677.28 (Q4-2024 (subset of year) — must at least get Q4 right + label windows); closest-in-answer 127677.28",
+      "httpStatus": 200,
+      "response": "Here's your Google Ads spend from the captured store (Google's live snapshot failed this turn, but these figures come from the historical store that backs the dashboard cards):\n\n- **Full year 2024:** $532,087.07\n- **Q4 2024 (Oct–Dec):** $127,677.28\n\nSo Q4 accounted for about 24% of the full-year spend. Worth noting Q4 ran a higher CPC ($25.48 vs. $20.11 for the full year) and CPA ($186.94 vs. $136.43), so cost efficiency was softer in the quarter. Want me to break the year down by quarter or by campaign?",
+      "card": null
+    }
+  ]
+}
