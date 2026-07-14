@@ -39,7 +39,9 @@ export default function WelcomePage() {
       })
       if (!res.ok) throw new Error('welcome write failed: ' + res.status)
       clearCookie('signup_org_type')
-      router.push('/clients')
+      // LORAMER_SIGNUP_FUNNEL_FIX_V1 — land directly on the -next portfolio (was '/clients', which the legacy-surface
+      // middleware would then bounce to /dashboard-next/clients — a needless double-redirect during onboarding).
+      router.push('/dashboard-next/clients')
     } catch {
       // AUTHORITATIVE: a failed write must NOT proceed. Surface the error + allow retry via the buttons.
       submittingRef.current = false

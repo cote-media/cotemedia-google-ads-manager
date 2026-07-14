@@ -1,9 +1,10 @@
 // LORAMER_LEGACY_SURFACE_GATE_V1 (H1/H2) — restrict the un-hardened LEGACY surface to the LEGACY COHORT only.
-// The legacy pages (/dashboard family, /clients, /agency, /business) and the session-only Google DATA routes
-// (/api/campaigns, /keywords, /daily, /google/ads, /google/adgroups(+/daily), /accounts) have NO per-tenant
-// ownership check — they fetch a caller-supplied accountId via the shared app MCC (the H1 IDOR) and were reachable
-// by any authenticated user (H2). Real cohort users live on -next; gating this surface to isLegacyCohort (the
-// Shopify/Meta review + demo fixtures) closes H2 and BOUNDS H1 to the tiny fixture set.
+// The legacy pages (/dashboard family, /clients) and the session-only Google DATA routes (/api/campaigns,
+// /keywords, /daily, /google/ads, /google/adgroups(+/daily), /accounts) have NO per-tenant ownership check —
+// they fetch a caller-supplied accountId via the shared app MCC (the H1 IDOR) and were reachable by any
+// authenticated user (H2). Real cohort users live on -next; gating this surface to isLegacyCohort (the Shopify/
+// Meta review + demo fixtures) closes H2 and BOUNDS H1 to the tiny fixture set. NOTE: /agency + /business are
+// PUBLIC pre-auth signup doors (NOT legacy tenant pages) and are intentionally NOT gated (LORAMER_SIGNUP_FUNNEL_FIX_V1).
 //
 // EDGE-SAFE: getToken (JWT cookie, no DB) + the pure isLegacyCohort; imports NOTHING Node-only. The `config.matcher`
 // below is an EXPLICIT allow-list of ONLY the legacy paths — everything else (all of -next, the connect helpers
@@ -43,10 +44,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    // /agency + /business are PUBLIC pre-auth signup doors (they set the signup_org_type cookie before login),
+    // NOT legacy tenant pages — they must stay ungated (exempt like /login, /signup). Only real legacy surfaces below.
     '/dashboard/:path*',
     '/clients/:path*',
-    '/agency/:path*',
-    '/business/:path*',
     '/api/campaigns',
     '/api/keywords',
     '/api/daily',
