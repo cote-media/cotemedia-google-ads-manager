@@ -11,6 +11,8 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { listAccessibleClients } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
+// LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (store>ga>none; NEVER summed).
+import { emptyRevenueAcc, settleRevenue, type RevenueAcc } from '@/lib/next/revenue-settle'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,15 +20,6 @@ export const fetchCache = 'force-no-store'
 
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
-
-type Acc = { spend: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }
-const emptyAcc = (): Acc => ({ spend: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 })
-function settle(a: Acc): { spend: number; revenue: number | null; revenueSource: 'store' | 'ga' | 'none' } {
-  const spend = Number(a.spend.toFixed(2))
-  if (a.storeRows > 0) return { spend, revenue: Number(a.storeRev.toFixed(2)), revenueSource: 'store' }
-  if (a.gaRows > 0) return { spend, revenue: Number(a.gaRev.toFixed(2)), revenueSource: 'ga' }
-  return { spend, revenue: null, revenueSource: 'none' }
-}
 
 export async function GET(request: Request) {
   const session = (await getServerSession(authOptions)) as any
@@ -42,9 +35,9 @@ export async function GET(request: Request) {
   const clientIds = await listAccessibleClients(email)
   if (!clientIds.length) return NextResponse.json({ period, current, prior, metrics: [] })
 
-  const cur: Record<string, Acc> = {}
-  const prev: Record<string, Acc> = {}
-  for (const id of clientIds) { cur[id] = emptyAcc(); prev[id] = emptyAcc() }
+  const cur: Record<string, RevenueAcc> = {}
+  const prev: Record<string, RevenueAcc> = {}
+  for (const id of clientIds) { cur[id] = emptyRevenueAcc(); prev[id] = emptyRevenueAcc() }
 
   const PAGE = 1000
   let from = 0
@@ -79,8 +72,8 @@ export async function GET(request: Request) {
   }
 
   const metrics = clientIds.map((id) => {
-    const c = settle(cur[id])
-    const p = settle(prev[id])
+    const c = settleRevenue(cur[id])
+    const p = settleRevenue(prev[id])
     return {
       clientId: id,
       spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,

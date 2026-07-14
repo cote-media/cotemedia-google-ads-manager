@@ -21,6 +21,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
+// LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (store>ga>none; NEVER summed).
+import { emptyRevenueAcc, settleRevenue, type RevenueAcc } from '@/lib/next/revenue-settle'
 
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
@@ -32,15 +34,6 @@ type ClientRollup = {
   roas: number | null
   lastActive: string | null
   convValue30: number
-}
-
-type Bucket = {
-  spend: number
-  convValue: number
-  storeRev: number
-  gaRev: number
-  storeRows: number
-  gaRows: number
 }
 
 export async function GET() {
@@ -66,9 +59,9 @@ export async function GET() {
   if (clientIds.length === 0) {
     return NextResponse.json({ metrics })
   }
-  const buckets: Record<string, Bucket> = {}
+  const buckets: Record<string, RevenueAcc> = {}
   for (const id of clientIds) {
-    buckets[id] = { spend: 0, convValue: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 }
+    buckets[id] = emptyRevenueAcc()
   }
 
   // 30-day window from the ONE date resolver (Lesson 19).
@@ -101,7 +94,7 @@ export async function GET() {
       const platform = r.platform as string
       if (ADS_PLATFORMS.includes(platform)) {
         b.spend += Number(r.spend || 0)
-        b.convValue += Number(r.conversion_value || 0)
+        b.conversionValue += Number(r.conversion_value || 0)
       } else if (STORE_PLATFORMS.includes(platform)) {
         b.storeRev += Number(r.revenue || 0)
         b.storeRows += 1
@@ -115,27 +108,16 @@ export async function GET() {
   }
 
   for (const id of clientIds) {
-    const b = buckets[id]
-    const spend30 = Number(b.spend.toFixed(2))
-    const convValue30 = Number(b.convValue.toFixed(2))
-    // Revenue precedence — NEVER store + GA: store rows present win (source of
-    // truth for sales); else GA's reported revenue; else honest null.
-    let revenue30: number | null = null
-    let revenueSource: ClientRollup['revenueSource'] = 'none'
-    if (b.storeRows > 0) {
-      revenue30 = Number(b.storeRev.toFixed(2))
-      revenueSource = 'store'
-    } else if (b.gaRows > 0) {
-      revenue30 = Number(b.gaRev.toFixed(2))
-      revenueSource = 'ga'
-    }
+    // Canonical settle (store>ga>none, never summed; roas = revenue/spend). Field names mapped to the
+    // legacy /clients rollup contract (spend30/revenue30/convValue30) — values byte-identical.
+    const c = settleRevenue(buckets[id])
     metrics[id] = {
-      spend30,
-      revenue30,
-      revenueSource,
-      roas: revenue30 != null && spend30 > 0 ? Number((revenue30 / spend30).toFixed(2)) : null,
+      spend30: c.spend,
+      revenue30: c.revenue,
+      revenueSource: c.revenueSource,
+      roas: c.roas,
       lastActive: null,
-      convValue30,
+      convValue30: c.conversionValue,
     }
   }
 

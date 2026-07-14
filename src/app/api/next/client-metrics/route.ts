@@ -9,6 +9,8 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
+// LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (extracted verbatim from this file).
+import { emptyRevenueAcc, settleRevenue } from '@/lib/next/revenue-settle'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,31 +19,8 @@ export const fetchCache = 'force-no-store'
 const ADS_PLATFORMS = ['google', 'meta']
 const STORE_PLATFORMS = ['shopify', 'woocommerce']
 
-type Acc = { spend: number; conversions: number; conversionValue: number; impressions: number; clicks: number; storeRev: number; gaRev: number; storeRows: number; gaRows: number }
-const emptyAcc = (): Acc => ({ spend: 0, conversions: 0, conversionValue: 0, impressions: 0, clicks: 0, storeRev: 0, gaRev: 0, storeRows: 0, gaRows: 0 })
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
-// guarded ratio: returns null on /0 or non-finite (never NaN/∞)
-const ratio = (num: number, den: number, scale = 1): number | null =>
-  den > 0 && Number.isFinite(num / den) ? Number(((num / den) * scale).toFixed(2)) : null
-
-function settle(a: Acc) {
-  const spend = Number(a.spend.toFixed(2))
-  let revenue: number | null = null
-  let revenueSource: 'store' | 'ga' | 'none' = 'none'
-  if (a.storeRows > 0) { revenue = Number(a.storeRev.toFixed(2)); revenueSource = 'store' }
-  else if (a.gaRows > 0) { revenue = Number(a.gaRev.toFixed(2)); revenueSource = 'ga' }
-  const conversions = Number(a.conversions.toFixed(2))
-  const conversionValue = Number(a.conversionValue.toFixed(2))
-  const impressions = Math.round(a.impressions)
-  const clicks = Math.round(a.clicks)
-  const roas = spend > 0 && revenue != null && Number.isFinite(revenue / spend) ? Number((revenue / spend).toFixed(2)) : null
-  return {
-    spend, revenue, revenueSource, conversions, conversionValue, roas, impressions, clicks,
-    ctr: ratio(a.clicks, a.impressions, 100), // percentage
-    cpc: ratio(a.spend, a.clicks),
-    cpa: ratio(a.spend, a.conversions),
-  }
-}
+// Acc shape + settle now live in @/lib/next/revenue-settle (settleRevenue) — this file was the reference.
 
 export async function GET(request: Request) {
   const session = (await getServerSession(authOptions)) as any
@@ -66,7 +45,7 @@ export async function GET(request: Request) {
   const overallStart = current.startDate < prior.startDate ? current.startDate : prior.startDate
   const overallEnd = current.endDate > prior.endDate ? current.endDate : prior.endDate
 
-  const cur = emptyAcc(), prev = emptyAcc()
+  const cur = emptyRevenueAcc(), prev = emptyRevenueAcc()
   const curByPlatform: Record<string, number> = { google: 0, meta: 0 } // per-platform ads SPEND, CURRENT window only
   const curStoreRev: Record<string, number> = { shopify: 0, woocommerce: 0 } // per-platform store REVENUE, CURRENT window
   let curGaRev = 0, curGaConv = 0 // GA revenue + conversions, CURRENT window only
@@ -110,7 +89,7 @@ export async function GET(request: Request) {
     from += PAGE
   }
 
-  const c = settle(cur), p = settle(prev)
+  const c = settleRevenue(cur), p = settleRevenue(prev)
 
   // hasDataEver: does this client have ANY metrics_daily rows for the platform across all time (honest
   // "is it connected" proxy) — so an unconnected platform renders "not connected", never a fabricated $0.
