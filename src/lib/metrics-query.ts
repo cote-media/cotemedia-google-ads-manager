@@ -91,6 +91,11 @@ async function aggregateWindow(
       .eq('client_id', clientId)
       .eq('entity_level', level)
       .eq('breakdown_type', '')
+      // LORAMER_LORA_QUERYMETRICS_INDEX_MATCH_V1 (Fix #1 A6) — complete the account-canonical predicate so the query
+      // matches the migration-035 partial index (WHERE entity_level='account' AND breakdown_type='' AND breakdown_value='').
+      // Verified drops ZERO rows: base rows are ALWAYS (breakdown_type='' ⟺ breakdown_value=''); dimensional rows carry
+      // both non-empty. aggregateWindow ONLY — NOT queryBreakdown/queryMoney (they read breakdown rows, bt≠'').
+      .eq('breakdown_value', '')
       .gte('date', startDate)
       .lte('date', endDate)
       .range(from, from + PAGE - 1)
