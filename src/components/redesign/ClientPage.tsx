@@ -88,6 +88,50 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null)
   const [connError, setConnError] = useState('')
 
+  // LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 — owner-only "Backfill history". Fire-and-forget POST /api/clients/backfill
+  // kicks the deep-history drain (+ interior-gap repair) for every connected platform; we then POLL
+  // /api/backfill/status for per-platform captured depth. NOT a synchronous watch — the drain runs for minutes/hours
+  // on its own invocations; polling shows the earliest captured day advancing, then backs off to background.
+  const [bfStatus, setBfStatus] = useState<Record<string, { earliestDate: string | null; complete: boolean }>>({})
+  const [bfLoading, setBfLoading] = useState(false)
+  const [bfKicked, setBfKicked] = useState(false)
+  const [bfError, setBfError] = useState('')
+
+  async function loadBackfillStatus() {
+    try {
+      const r = await fetch('/api/backfill/status?clientId=' + encodeURIComponent(clientId))
+      if (!r.ok) return
+      const d = await r.json()
+      if (d && d.platforms) {
+        const next: Record<string, { earliestDate: string | null; complete: boolean }> = {}
+        for (const [pf, v] of Object.entries<any>(d.platforms)) next[pf] = { earliestDate: v?.earliestDate ?? null, complete: !!v?.complete }
+        setBfStatus(next)
+      }
+    } catch { /* non-fatal — depth is best-effort */ }
+  }
+
+  async function runBackfill() {
+    if (bfLoading || bfKicked) return
+    setBfLoading(true); setBfError('')
+    try {
+      const r = await fetch('/api/clients/backfill?id=' + encodeURIComponent(clientId), { method: 'POST' })
+      const d = await r.json().catch(() => ({} as any))
+      if (!r.ok) { setBfError(d?.error || 'Could not start the import.'); setBfLoading(false); return }
+      setBfKicked(true); setBfLoading(false)
+    } catch { setBfError('Could not start the import.'); setBfLoading(false) }
+  }
+
+  // Initial per-platform depth on mount (shows current history state before any click).
+  useEffect(() => { loadBackfillStatus() }, [clientId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // After a kick, poll depth ~every 8s for ~1.5 min to show progress, then stop (the drain continues in the
+  // background; depth is re-read on the next page load). Fire-and-forget, never a synchronous watch.
+  useEffect(() => {
+    if (!bfKicked) return
+    let n = 0
+    const iv = setInterval(() => { n += 1; loadBackfillStatus(); if (n >= 12) clearInterval(iv) }, 8000)
+    return () => clearInterval(iv)
+  }, [bfKicked]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function disconnect(conn: Conn) {
     const label = (PLATFORM_META[conn.platform] || { label: conn.platform }).label
     // Destructive-action guard — history is explicitly kept (store-forever); only the live connection is removed.
@@ -567,6 +611,52 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
           })}
         </div>
         {connError && <p className={styles.emptyNote} style={{ color: '#b91c1c' }} role="alert">{connError}</p>}
+
+        {/* LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 — owner-only manual full-history import. DISTINCT from health
+            (login alive) + completeness (Lora-primed) pills: this reports CAPTURED DEPTH and kicks the SAME drain the
+            cron runs (no guard bypassed). Fire-and-forget + poll; mobile-first (wraps, relative units). */}
+        {(() => {
+          const bfPlatforms = Array.from(new Set(connections.map((c) => c.platform).filter(Boolean)))
+          if (bfPlatforms.length === 0) return null
+          return (
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #eef0f3' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Data history</div>
+                  <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>Import all available history for every connected platform, back to each platform’s limit.</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={runBackfill}
+                  disabled={bfLoading || bfKicked}
+                  style={{ ...connectBtnActiveStyle, marginLeft: 0, opacity: bfLoading || bfKicked ? 0.6 : 1, cursor: bfLoading || bfKicked ? 'default' : 'pointer' }}
+                >
+                  {bfLoading ? 'Starting…' : bfKicked ? 'Importing…' : 'Backfill history'}
+                </button>
+              </div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {bfPlatforms.map((pf) => {
+                  const label = (PLATFORM_META[pf] || { label: pf }).label
+                  const st = bfStatus[pf]
+                  let text: string
+                  let color = '#64748b'
+                  if (st?.complete) { text = 'Complete back to ' + (st.earliestDate || 'start'); color = '#16a34a' }
+                  else if (bfKicked) { text = st?.earliestDate ? 'Importing… back to ' + st.earliestDate : 'Importing…'; color = '#d97706' }
+                  else if (st?.earliestDate) { text = 'Partial — back to ' + st.earliestDate }
+                  else { text = 'Not imported yet' }
+                  return (
+                    <li key={pf} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, color: '#334155' }}>
+                      <span>{label}</span>
+                      <span style={{ color, fontWeight: 500, textAlign: 'right' }}>{text}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              {bfKicked && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#94a3b8' }}>Importing in the background — deep history can take a while. You can leave this page.</p>}
+              {bfError && <p style={{ margin: '8px 0 0', fontSize: 12, color: '#b91c1c' }} role="alert">{bfError}</p>}
+            </div>
+          )
+        })()}
 
         {/* LORAMER_NEXT_CONNECT_V1 F2b — Meta account-picker / GA property-picker (single-select; UNIQUE(client_id,
             platform) = one per client). Shown when the callback returned here with a list; pick → REUSED finalize
