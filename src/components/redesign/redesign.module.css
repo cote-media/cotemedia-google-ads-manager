@@ -187,7 +187,7 @@
 .loraStripHead i { font-size: 16px; }
 .loraStripText { font-size: 14px; margin-top: 8px; color: var(--ink); max-width: 80ch; }
 
-.clientsHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.clientsHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .clientsTitle { font-family: var(--serif); font-size: 24px; font-weight: 400; letter-spacing: -.01em; }
 .sortStub {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;

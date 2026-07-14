@@ -5,7 +5,7 @@
 // Proactive status/"needs attention" analysis is still deferred (parity [LATER]) → neutral chip + neutral strip;
 // never fabricated status beside real client names.
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import styles from './redesign.module.css'
@@ -28,6 +28,23 @@ const PERIOD_OPTIONS: { value: string; label: string }[] = [
   { value: 'LAST_MONTH', label: 'Last month' },
   { value: 'LAST_7_DAYS', label: 'Last 7 days' },
   { value: 'LAST_30_DAYS', label: 'Last 30 days' },
+]
+
+// LORAMER_NEXT_ALL_CLIENTS_SORTFILTER_V1 — sort keys + status filters for the (previously inert) Sort & filter
+// control. Keys derive from the in-state metrics map; ROAS/Δ are null when their inputs are missing → sort last.
+type SortKey = 'spend' | 'revenue' | 'roas' | 'spendDelta' | 'name'
+type StatusFilter = 'all' | 'has-spend' | 'zero'
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: 'spend', label: 'Spend' },
+  { key: 'revenue', label: 'Revenue' },
+  { key: 'roas', label: 'ROAS' },
+  { key: 'spendDelta', label: 'Δ Spend' },
+  { key: 'name', label: 'Name' },
+]
+const STATUS_OPTIONS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'has-spend', label: 'Has spend' },
+  { key: 'zero', label: '$0' },
 ]
 
 const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
@@ -85,6 +102,16 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
   const [loadError, setLoadError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
+  // LORAMER_NEXT_ALL_CLIENTS_SORTFILTER_V1 — wire the previously-inert "Sort & filter" stub. Operates on the
+  // clients list joined to the in-state metrics map (NO new fetch; the metrics endpoint is untouched). Default:
+  // spend desc so active clients surface. Name filter + status filter narrow the grid; clients with no/loading
+  // metrics or a null value for the chosen key sort LAST (never dropped silently).
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('spend')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [filterText, setFilterText] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+
   useEffect(() => {
     let alive = true
     setLoading(true)
@@ -110,6 +137,46 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
   // Honest freshness: selected window runs past the latest captured day (e.g. early-ET-morning pre-cron gap).
   const stale = !!(fresh.end && fresh.latest && fresh.end > fresh.latest)
 
+  // Derived grid view: filter (name text + status) → sort, joined to metrics[c.id]. A client with no metric row
+  // yet (loading), or a metric with no value for the chosen key (null revenue / undefined ROAS / no prior for Δ),
+  // ALWAYS sorts last — both directions — and is never dropped. Empty metrics map (pre-load) bypasses status.
+  const metricsLoaded = Object.keys(metrics).length > 0
+  const visible = useMemo(() => {
+    const valueOf = (c: ClientLite): number | null => {
+      const m = metrics[c.id]
+      if (!m) return null
+      if (sortKey === 'spend') return m.spend
+      if (sortKey === 'revenue') return m.revenue
+      if (sortKey === 'roas') return m.spend > 0 && m.revenue != null ? m.revenue / m.spend : null
+      if (sortKey === 'spendDelta') return m.spendPrior > 0 ? (m.spend - m.spendPrior) / m.spendPrior : null
+      return null
+    }
+    const q = filterText.trim().toLowerCase()
+    const rows = clients.filter((c) => {
+      if (q && !c.name.toLowerCase().includes(q)) return false
+      if (metricsLoaded && statusFilter !== 'all') {
+        const m = metrics[c.id]
+        if (statusFilter === 'has-spend' && !(m && m.spend > 0)) return false
+        if (statusFilter === 'zero' && !(m && m.spend === 0 && (m.revenue == null || m.revenue === 0))) return false
+      }
+      return true
+    })
+    const dir = sortDir === 'asc' ? 1 : -1
+    return rows.sort((a, b) => {
+      if (sortKey === 'name') return a.name.localeCompare(b.name) * dir
+      const av = valueOf(a)
+      const bv = valueOf(b)
+      if (av == null && bv == null) return a.name.localeCompare(b.name) // nulls grouped, stable A→Z
+      if (av == null) return 1 // nulls last, both directions
+      if (bv == null) return -1
+      if (av === bv) return a.name.localeCompare(b.name)
+      return (av - bv) * dir
+    })
+  }, [clients, metrics, metricsLoaded, filterText, statusFilter, sortKey, sortDir])
+
+  const sortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label || 'Spend'
+  const filterActive = !!filterText.trim() || statusFilter !== 'all'
+
   return (
     <>
       {/* 1) Portfolio insights — NEUTRAL placeholder until the proactive engine lands (parity [LATER]). */}
@@ -130,9 +197,93 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
         >
           {PERIOD_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        <button className={styles.sortStub} type="button">
-          <i className="ti ti-adjustments-horizontal" /> Sort &amp; filter
-        </button>
+        {/* LORAMER_NEXT_ALL_CLIENTS_SORTFILTER_V1 — real Sort & filter (was an inert stub). Mobile-first popover:
+            name filter + sort key + direction + status. Reads/derives from the in-state metrics map; no new fetch. */}
+        <div style={{ position: 'relative' }}>
+          <button
+            className={styles.sortStub}
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <i className="ti ti-adjustments-horizontal" /> Sort: {sortLabel} {sortDir === 'asc' ? '↑' : '↓'}{filterActive ? ' • filtered' : ''}
+          </button>
+          {menuOpen && (
+            <>
+              {/* click-away backdrop */}
+              <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 39 }} aria-hidden="true" />
+              <div
+                role="menu"
+                style={{
+                  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 40,
+                  background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.14)', padding: 12,
+                  width: 248, maxWidth: 'calc(100vw - 32px)',
+                }}
+              >
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Filter by name</label>
+                <input
+                  type="text"
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  placeholder="Type a client name…"
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', marginBottom: 12 }}
+                />
+
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Sort by</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                  {SORT_OPTIONS.map((o) => {
+                    const on = sortKey === o.key
+                    return (
+                      <button
+                        key={o.key}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={on}
+                        onClick={() => {
+                          if (on) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+                          else { setSortKey(o.key); setSortDir(o.key === 'name' ? 'asc' : 'desc') }
+                        }}
+                        style={{
+                          padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+                          border: on ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                          background: on ? '#0f172a' : '#fff', color: on ? '#fff' : '#0f172a',
+                        }}
+                      >
+                        {o.label}{on ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 12 }}>Tap the active sort again to flip ↑/↓.</div>
+
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Status</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {STATUS_OPTIONS.map((o) => {
+                    const on = statusFilter === o.key
+                    return (
+                      <button
+                        key={o.key}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={on}
+                        onClick={() => setStatusFilter(o.key)}
+                        style={{
+                          padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
+                          border: on ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                          background: on ? '#0f172a' : '#fff', color: on ? '#fff' : '#0f172a',
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         {/* LORAMER_NEXT_ADD_CLIENT_V1 — owner-only entry (hidden for members via canAddClient). */}
         {canAddClient && (
           <button className={styles.sortStub} type="button" onClick={() => { setAddError(''); setNewName(''); setAddOpen(true) }}>
@@ -164,9 +315,11 @@ export default function MultiClientOverview({ clients, canAddClient }: { clients
       {/* 3) Real client cards: identity + real Spend/Revenue + honest Δ for the selected period. */}
       {clients.length === 0 ? (
         <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: '8px 2px' }}>No clients yet.</p>
+      ) : visible.length === 0 ? (
+        <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: '8px 2px' }}>No clients match this filter.</p>
       ) : (
         <div className={styles.clientGrid}>
-          {clients.map((c) => {
+          {visible.map((c) => {
             const m = metrics[c.id]
             const spendD = m ? deltaLabel(m.spend, m.spendPrior) : null
             const revD = m ? deltaLabel(m.revenue, m.revenuePrior) : null
