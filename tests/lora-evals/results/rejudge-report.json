@@ -1,0 +1,189 @@
+{
+  "passes": 3,
+  "files": [
+    {
+      "file": "results-opus-baseline.json",
+      "cats": {
+        "A": {
+          "pass": 5,
+          "total": 8
+        },
+        "B": {
+          "pass": 6,
+          "total": 8
+        },
+        "C": {
+          "pass": 1,
+          "total": 3
+        },
+        "D": {
+          "pass": 1,
+          "total": 2
+        },
+        "E": {
+          "pass": 2,
+          "total": 3
+        },
+        "F": {
+          "pass": 3,
+          "total": 3
+        }
+      },
+      "overall": "18/27"
+    },
+    {
+      "file": "results-partA-normal.json",
+      "cats": {
+        "A": {
+          "pass": 7,
+          "total": 8
+        },
+        "B": {
+          "pass": 7,
+          "total": 8
+        },
+        "C": {
+          "pass": 1,
+          "total": 3
+        },
+        "D": {
+          "pass": 1,
+          "total": 2
+        },
+        "E": {
+          "pass": 2,
+          "total": 3
+        },
+        "F": {
+          "pass": 3,
+          "total": 3
+        }
+      },
+      "overall": "21/27"
+    },
+    {
+      "file": "results-a6fix-normal.json",
+      "cats": {
+        "A": {
+          "pass": 8,
+          "total": 8
+        },
+        "B": {
+          "pass": 7,
+          "total": 8
+        },
+        "C": {
+          "pass": 2,
+          "total": 3
+        },
+        "D": {
+          "pass": 1,
+          "total": 2
+        },
+        "E": {
+          "pass": 2,
+          "total": 3
+        },
+        "F": {
+          "pass": 3,
+          "total": 3
+        }
+      },
+      "overall": "23/27"
+    }
+  ],
+  "acceptance": {
+    "results-opus-baseline.json:D1": {
+      "verdict": "PASS",
+      "reason": "Reports captured count of 18 conversions as required by rubric.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "results-opus-baseline.json:D2": {
+      "verdict": "FAIL",
+      "reason": "Answer states Meta recorded no conversions, dropping the captured count of 1 and replacing with zero, violating rubric.",
+      "verdicts": [
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    "results-opus-baseline.json:B6": {
+      "verdict": "PASS",
+      "reason": "States no reliable 2019 figure, likely predates data coverage, and explicitly warns it's not a true $0.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "results-partA-normal.json:D1": {
+      "verdict": "PASS",
+      "reason": "Reports captured count of 18 conversions as required by rubric.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "results-partA-normal.json:D2": {
+      "verdict": "FAIL",
+      "reason": "Rubric requires reporting captured count 1; answer claims no conversions/dropped the captured 1.",
+      "verdicts": [
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    "results-partA-normal.json:B6": {
+      "verdict": "PASS",
+      "reason": "States no data for 2019, connection began later, explicitly not a genuine $0.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "results-a6fix-normal.json:D1": {
+      "verdict": "PASS",
+      "reason": "Reports captured Meta conversion count of 18 as required by rubric.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    },
+    "results-a6fix-normal.json:D2": {
+      "verdict": "FAIL",
+      "reason": "Answer claims there are no conversions to report, dropping the captured count of 1, violating the rubric.",
+      "verdicts": [
+        "FAIL",
+        "FAIL",
+        "FAIL"
+      ]
+    },
+    "results-a6fix-normal.json:B6": {
+      "verdict": "PASS",
+      "reason": "States no data for 2019, explains connection started later, avoids presenting $0 as real spend.",
+      "verdicts": [
+        "PASS",
+        "PASS",
+        "PASS"
+      ]
+    }
+  },
+  "stability": {
+    "flips": []
+  },
+  "cost": {
+    "in": 86514,
+    "out": 6534,
+    "cacheRead": 0,
+    "cacheWrite": 0,
+    "calls": 117,
+    "usd": 0.59592
+  }
+}
