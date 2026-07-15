@@ -6,21 +6,21 @@
     "line_count": 130
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "34d57f81330e329ff2a3bb90e9b3799d035c5e0ae74b814f37a07283d11e64bf",
-    "last_reconciled_date": "2026-07-14",
-    "last_reconciled_head": "138a820",
-    "line_count": 828
+    "content_hash": "f39f916ef7ce7e978e2e39d6894266417e2b29cd82e9c7d2d9e74f43de930271",
+    "last_reconciled_date": "2026-07-15",
+    "last_reconciled_head": "4f2e32d",
+    "line_count": 829
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "1fdf7e6825e6aa2fc1621b12dc9b5559375225470bfe4adc063e3d184bed7a4a",
+    "content_hash": "bade12bb64444a39a4b0d0bc8b6ca0cabf85bfb3e44fa56374fbfa7b3f3a12d4",
     "last_reconciled_date": "2026-07-15",
-    "last_reconciled_head": "355a17d",
-    "line_count": 318
+    "last_reconciled_head": "4f2e32d",
+    "line_count": 330
   },
   "LORAMER_ESSENCE.md": {
-    "content_hash": "16c2048e04d06aa0bff67ac53c46eda33924a0983e7c557d0c7b02a2bbd6c76d",
+    "content_hash": "5f827661cbf5eb7ad422314c5d8d281ff268fa5e7c211dc7266ffc4b2b345e26",
     "last_reconciled_date": "2026-07-15",
-    "last_reconciled_head": "355a17d",
+    "last_reconciled_head": "4f2e32d",
     "line_count": 168
   },
   "LORAMER_HANDOFF.md": {
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "341e1bd57028b6b44f86346b59410d34e5e46a57da66c93f90454c02c2b6a931",
+    "content_hash": "51e16b7d146de7f496c90842fa4594e741fd6a97e5aa2953fd38db3690edd852",
     "last_reconciled_date": "2026-07-15",
-    "last_reconciled_head": "355a17d",
-    "line_count": 373
+    "last_reconciled_head": "4f2e32d",
+    "line_count": 378
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "25f2cac10e870029be28306d7aba8594555666f9fe0b1f902bd8d25d7fd39e11",
+    "content_hash": "dfaae42fae4553704204101cfc778391f71ae533375792ad0697677a1df6302a",
     "last_reconciled_date": "2026-07-15",
-    "last_reconciled_head": "355a17d",
-    "line_count": 772
+    "last_reconciled_head": "4f2e32d",
+    "line_count": 789
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "705cf9569e6775f793dac32776858e3eb03869bb852d6292cdc517ca51d2c786",
