@@ -122,12 +122,21 @@ export async function GET() {
   }
 
   // lastActive = true MAX(date) across ALL of the client's rows (not 30d-capped).
+  // LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1 — the account-grain triple below is LOAD-BEARING, not redundant: it
+  // satisfies migration 035's partial-index predicate (entity_level='account' AND breakdown_type='' AND
+  // breakdown_value=''), turning this into an Index Only Scan Backward instead of scanning EVERY grain — which
+  // on heavy clients exceeds the 8s live statement_timeout → 57014 → swallowed → a silent null lastActive.
+  // Rests on the EMPIRICAL invariant that an account row is written on every day any grain is written
+  // (verified 23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
   await Promise.all(
     clientIds.map(async id => {
       const { data } = await supabaseAdmin
         .from('metrics_daily')
         .select('date')
         .eq('client_id', id)
+        .eq('entity_level', 'account')
+        .eq('breakdown_type', '')
+        .eq('breakdown_value', '')
         .order('date', { ascending: false })
         .limit(1)
         .maybeSingle()

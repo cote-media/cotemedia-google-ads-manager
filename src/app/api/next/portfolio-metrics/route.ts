@@ -82,8 +82,15 @@ export async function GET(request: Request) {
   })
 
   // Global freshness: most-recent captured day across the accessible clients (for the data-through guard).
+  // LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1 — the account-grain triple below is LOAD-BEARING, not redundant: it
+  // satisfies migration 035's partial-index predicate (entity_level='account' AND breakdown_type='' AND
+  // breakdown_value=''), turning this into an Index Only Scan Backward instead of scanning EVERY grain — which
+  // on heavy clients exceeds the 8s live statement_timeout → 57014 → swallowed → a silent null. Correctness
+  // rests on the EMPIRICAL invariant that an account row is written on every day any grain is written
+  // (verified 23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
   const { data: latest } = await supabaseAdmin
     .from('metrics_daily').select('date').in('client_id', clientIds)
+    .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
 
   return NextResponse.json({ period, current, prior, latestCapturedDate: latest?.date || null, metrics })

@@ -84,8 +84,14 @@ export async function GET(request: Request) {
   const series = Array.from(seriesMap.values()).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
 
   // Connected proxy: any GA account row EVER for this client. + latest captured GA day (unbounded) for the freshness note.
+  // LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1 — breakdown_type='' + breakdown_value='' are LOAD-BEARING, not redundant:
+  // entity_level='account' ALONE does NOT satisfy migration 035's partial-index predicate, so the planner cannot
+  // prove implication and the index is silently unusable — post GA-dimensional capture this client×platform holds
+  // many breakdown rows to scan. Rests on the EMPIRICAL invariant that an account row exists on every captured day
+  // (23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
   const { data: latest } = await supabaseAdmin
     .from('metrics_daily').select('date').eq('client_id', clientId).eq('platform', 'ga').eq('entity_level', 'account')
+    .eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
   const hasGaEver = !!latest
   const hasSignalInRange = c.sessions > 0 || c.users > 0 || c.revenue > 0 || c.conversions > 0 || c.transactions > 0

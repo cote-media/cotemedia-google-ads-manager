@@ -17,12 +17,17 @@ export const fetchCache = 'force-no-store'
 const STORE_PLATFORMS = ['woocommerce', 'shopify'] as const
 
 // Most-recent money-bearing date for a store platform (scans the latest account rows). null = no money captured.
+// LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1 — breakdown_value='' is LOAD-BEARING, not redundant: migration 035's partial
+// index requires ALL THREE of entity_level='account', breakdown_type='' and breakdown_value='', so without it the
+// planner cannot prove implication and the index is silently unusable. Rests on the EMPIRICAL invariant that an
+// account row exists on every captured day (23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced).
+// Do not delete as redundant.
 async function latestMoneyDate(clientId: string, pf: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('metrics_daily')
     .select('date, extra')
     .eq('client_id', clientId).eq('platform', pf)
-    .eq('entity_level', 'account').eq('breakdown_type', '')
+    .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false })
     .limit(90)
   const row = (data || []).find((r: any) => r?.extra && r.extra.money)
