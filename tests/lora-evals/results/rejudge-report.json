@@ -2,7 +2,7 @@
   "passes": 3,
   "files": [
     {
-      "file": "results-gate-full.json",
+      "file": "results-d2fix-full.json",
       "cats": {
         "A": {
           "pass": 9,
@@ -17,7 +17,7 @@
           "total": 3
         },
         "D": {
-          "pass": 1,
+          "pass": 2,
           "total": 2
         },
         "E": {
@@ -29,11 +29,11 @@
           "total": 3
         }
       },
-      "overall": "27/28"
+      "overall": "28/28"
     }
   ],
   "acceptance": {
-    "results-gate-full.json:D1": {
+    "results-d2fix-full.json:D1": {
       "verdict": "PASS",
       "reason": "Reports captured Meta conversion count of 18 as required by rubric.",
       "verdicts": [
@@ -42,18 +42,18 @@
         "PASS"
       ]
     },
-    "results-gate-full.json:D2": {
-      "verdict": "FAIL",
-      "reason": "Answer states Meta recorded no conversions (0), dropping/replacing the captured count of 1, violating the rubric.",
+    "results-d2fix-full.json:D2": {
+      "verdict": "PASS",
+      "reason": "Reports captured count of 1 with link-clicks optimization caveat; does not drop/replace with 0.",
       "verdicts": [
-        "FAIL",
-        "FAIL",
-        "FAIL"
+        "PASS",
+        "PASS",
+        "PASS"
       ]
     },
-    "results-gate-full.json:B6": {
+    "results-d2fix-full.json:B6": {
       "verdict": "PASS",
-      "reason": "States data predates capture (2020-01-27), explicitly avoids claiming real $0 for 2019.",
+      "reason": "States data predates capture (begins 2020-01-27), explicitly avoids claiming real $0, does not assert no activity.",
       "verdicts": [
         "PASS",
         "PASS",
@@ -65,11 +65,11 @@
     "flips": []
   },
   "cost": {
-    "in": 30747,
-    "out": 2209,
+    "in": 30948,
+    "out": 2170,
     "cacheRead": 0,
     "cacheWrite": 0,
     "calls": 39,
-    "usd": 0.20896
+    "usd": 0.20899
   }
 }

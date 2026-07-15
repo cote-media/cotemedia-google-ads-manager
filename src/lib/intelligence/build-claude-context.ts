@@ -20,19 +20,24 @@ import type {
 import { resolveNaicsBlock } from '../naics/resolve-definitions' // LORAMER_NAICS_V1 — server-only resolver
 import { CLIENT_WORD_BUDGET, AGENCY_WORD_BUDGET } from '../knowledge/budgets' // LORAMER_KNOWLEDGE_INGEST_V1
 
+// LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2 fix) — GOVERNING BOUND: an objective rule may PRIORITIZE which
+// metric to judge success by; it may NEVER deny, suppress, or omit a CAPTURED figure. Lora must see, know, and say
+// what everything is (within what the user is entitled to see). The old absolutes (NEVER/ONLY/irrelevant/"do NOT
+// evaluate conversions") made her deny captured facts — e.g. she denied a captured registration conversion because the
+// campaign objective was OUTCOME_TRAFFIC. A rule sets the LENS, never a gag order.
 const OBJECTIVE_RULES: Record<string, string> = {
-  OUTCOME_AWARENESS: 'Brand Awareness — evaluate CPM/reach ONLY. NEVER mention CTR or ROAS.',
-  OUTCOME_ENGAGEMENT: 'Engagement — evaluate CPE and engagement rate only.',
-  OUTCOME_LEADS: 'Lead Generation — CPL is the ONLY metric that matters.',
+  OUTCOME_AWARENESS: 'Brand Awareness — reach, frequency, and CPM are the primary metrics to judge success by. If CTR or ROAS are captured, report them when asked and note they are not this objective’s goal. Never omit a captured figure.',
+  OUTCOME_ENGAGEMENT: 'Engagement — CPE and engagement rate are primary. Report any other captured metric truthfully when asked; it simply isn’t the objective.',
+  OUTCOME_LEADS: 'Lead Generation — CPL and lead volume are primary. Other captured metrics are still reported truthfully when asked; they just aren’t the objective.',
   OUTCOME_SALES: 'Sales/Conversions — ROAS and CPA are primary.',
-  OUTCOME_TRAFFIC: 'Traffic — CTR and CPC matter. Do NOT expect or evaluate conversions.',
-  REACH: 'Reach — maximize reach at lowest CPM. CTR irrelevant.',
-  VIDEO_VIEWS: 'Video Views — view rate and ThruPlays ONLY. CTR is irrelevant.',
+  OUTCOME_TRAFFIC: 'Traffic — CTR and CPC are primary. Conversions are INCIDENTAL to this objective, not the goal — but if the captured data HAS conversions, REPORT them as fact, say what TYPE they are (e.g. a registration or lead), and note they are incidental to a traffic objective. NEVER deny or omit a captured conversion.',
+  REACH: 'Reach — maximize reach at the lowest CPM (primary). CTR is not the objective here; still report it truthfully when asked.',
+  VIDEO_VIEWS: 'Video Views — view rate and ThruPlays are primary. CTR is not the objective; report it when asked, don’t dismiss it.',
   SEARCH: 'Search — CTR, Quality Score, CPC. Conversions expected.',
-  DISPLAY: 'Display — 0.1-0.35% CTR is completely normal. NEVER call display CTR low.',
-  PERFORMANCE_MAX: 'Performance Max — evaluate conversion efficiency and ROAS only.',
-  SHOPPING: 'Shopping — ROAS and CPA primary.',
-  DISCOVERY: 'Discovery/Demand Gen — upper funnel. Do not expect high conversion volume.',
+  DISPLAY: 'Display — a 0.1–0.35% CTR is completely normal; report it and don’t mislabel that range as "low". Other captured metrics reported truthfully.',
+  PERFORMANCE_MAX: 'Performance Max — conversion efficiency and ROAS are primary. Report other captured metrics truthfully when asked.',
+  SHOPPING: 'Shopping — ROAS and CPA are primary.',
+  DISCOVERY: 'Discovery/Demand Gen — upper funnel, so conversion VOLUME is typically low; report any captured conversions truthfully, do not dismiss them as zero.',
 }
 
 // LORAMER_PROJECT_3_STEP_1_V1 ─────────────────────────────────────────────────
@@ -1031,6 +1036,8 @@ export function buildClaudeContextCacheable(
 - trailing_gap — the window extends PAST our latest captured data. Say the period is beyond our latest capture; a zero there is UNCONFIRMED, not a proven real zero.
 - covered — we have captured data covering the window. Report the figures. A zero here IS REAL: say it plainly ("$0 — no spend that period"). This is the ONLY state in which a zero is a confident real zero.
 WHEN state is 'covered', the canonical rules apply: the headline total is canonical.revenue / canonical.roas (they MATCH THE DASHBOARD CARDS: store > ga > none, never summed; roas = revenue/spend). NEVER report totals.revenue as the total — it is a RAW cross-platform sum that double-counts store + GA. When bySource shows MORE THAN ONE revenue source, surface ALL of them labeled by origin, each with its OWN ROAS (that source's revenue ÷ ad spend), and explain WHY they differ (attribution window, measurement basis, click- vs order-date credit) — showing both and the reason is the product, not a hedge. Report the CAPTURED figure and caveat it; NEVER replace, drop, or fabricate it by inference. If ROAS is UNCOMPUTABLE because there is no revenue source (canonical.roas null), say it CANNOT be computed — never "0". The notes field also spells out any non-covered state in words — obey it.`)
+  // LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2) — what the Meta `conversions` number IS, so an objective rule can never make her deny it.
+  lines.push(`META CONVERSIONS — what the number IS: Meta's account-grain conversions metric is a NARROW, CURATED set (purchase, lead, complete_registration, offsite_conversion, submit_application). It is NOT engagement or clicks — page_engagement, link_click, and landing_page_view are captured but are NOT conversions, and they dwarf real conversions by volume. So a small captured conversions count (even 1) is a REAL conversion — report it, never say "no conversions" because the campaign optimizes for traffic/clicks. To NAME what a Meta conversion was, call query_breakdown(breakdownType="action_type"): the curated conversion types (a registration, lead, or purchase) are what the conversions metric counts, even though action_type ranked by volume is dominated by engagement rows. The registration aliases complete_registration / offsite_conversion.fb_pixel_complete_registration / offsite_complete_registration_add_meta_leads are ONE event — never triple-count them.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
   // LORAMER_DATE_RANGE_CANONICAL_V1
   if (intelligence.resolvedStartDate && intelligence.resolvedEndDate) {
