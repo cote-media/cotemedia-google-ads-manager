@@ -13,6 +13,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { projectActionCanon } from '@/lib/meta-action-canon' // LORAMER_META_ALIAS_CANON — opt-in read-layer Meta action_type alias collapse
 import { resolveDateWindow } from '@/lib/date-range'
 import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surface' // LORAMER_QUERY_MONEY_V1 — reuse the canonical money aggregation (reconciles with /api/next/money by construction)
+// LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (Fix #1 B2) — CONSUME the ONE canonical settle (B1). Do NOT write a 4th settle.
+import { settleRevenue, emptyRevenueAcc, type RevenueAcc } from '@/lib/next/revenue-settle'
 
 export type MetricTotals = {
   spend: number
@@ -24,12 +26,30 @@ export type MetricTotals = {
   rowCount: number
 }
 
+// LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (Fix #1 B2) — the card-canonical figure + labeled per-source split.
+export type Canonical = {
+  revenue: number | null
+  revenueSource: 'store' | 'ga' | 'none'
+  roas: number | null
+}
+export type BySource = {
+  store: { revenue: number; rows: number }
+  ga: { revenue: number; rows: number }
+  google: { spend: number; conversionValue: number }
+  meta: { spend: number; conversionValue: number }
+}
+
 export type WindowResult = {
   label: string
   startDate: string
   endDate: string
   totals: MetricTotals
   derived: Record<string, number>
+  // ADDITIVE (B2): canonical = the dashboard-card number (store>ga>none, never summed; roas = revenue/spend).
+  // bySource = every source visible in ONE result, for multi-source ROAS honesty. Only Lora reads these;
+  // totals/derived are UNCHANGED so store-stats and the headless route stay byte-identical.
+  canonical: Canonical
+  bySource: BySource
 }
 
 export type QueryMetricsResult = {
@@ -42,6 +62,31 @@ export type QueryMetricsResult = {
 
 function emptyTotals(): MetricTotals {
   return { spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0, rowCount: 0 }
+}
+
+// LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (Fix #1 B2) — aggregateWindow carries the raw totals (unchanged) PLUS
+// the per-source accumulation needed for the canonical settle and the labeled bySource split.
+type WindowAgg = {
+  totals: MetricTotals
+  acc: RevenueAcc // ads spend/conv (google+meta) + store/ga revenue split — the card's RevenueAcc shape
+  google: { spend: number; conversionValue: number }
+  meta: { spend: number; conversionValue: number }
+}
+function emptyAgg(): WindowAgg {
+  return { totals: emptyTotals(), acc: emptyRevenueAcc(), google: { spend: 0, conversionValue: 0 }, meta: { spend: 0, conversionValue: 0 } }
+}
+// Build the card-canonical figure + labeled per-source split from an aggregate, via the ONE settle (B1).
+function buildCanonical(agg: WindowAgg): { canonical: Canonical; bySource: BySource } {
+  const s = settleRevenue(agg.acc)
+  return {
+    canonical: { revenue: s.revenue, revenueSource: s.revenueSource, roas: s.roas },
+    bySource: {
+      store: { revenue: Number(agg.acc.storeRev.toFixed(2)), rows: agg.acc.storeRows },
+      ga: { revenue: Number(agg.acc.gaRev.toFixed(2)), rows: agg.acc.gaRows },
+      google: { spend: Number(agg.google.spend.toFixed(2)), conversionValue: Number(agg.google.conversionValue.toFixed(2)) },
+      meta: { spend: Number(agg.meta.spend.toFixed(2)), conversionValue: Number(agg.meta.conversionValue.toFixed(2)) },
+    },
+  }
 }
 
 function addDaysUTC(iso: string, n: number): string {
@@ -74,20 +119,25 @@ function derive(t: MetricTotals): Record<string, number> {
   return d
 }
 
+const AGG_ADS = ['google', 'meta']
+const AGG_STORE = ['shopify', 'woocommerce']
 async function aggregateWindow(
   clientId: string,
   platforms: string[],
   level: string,
   startDate: string,
   endDate: string
-): Promise<MetricTotals> {
-  const totals = emptyTotals()
+): Promise<WindowAgg> {
+  const out = emptyAgg()
+  const { totals, acc } = out
   const PAGE = 1000
   let from = 0
   for (;;) {
     let q = supabaseAdmin
       .from('metrics_daily')
-      .select('spend,impressions,clicks,conversions,conversion_value,revenue')
+      // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (B2) — `platform` added to the SELECT (covered by the 035 index INCLUDE,
+      // so the index-only scan / A6 latency is preserved) to split revenue per source for the canonical settle.
+      .select('platform,spend,impressions,clicks,conversions,conversion_value,revenue')
       .eq('client_id', clientId)
       .eq('entity_level', level)
       .eq('breakdown_type', '')
@@ -106,18 +156,34 @@ async function aggregateWindow(
     const rows = data || []
     for (const r of rows) {
       const row = r as Record<string, unknown>
-      totals.spend += Number(row.spend || 0)
-      totals.impressions += Number(row.impressions || 0)
-      totals.clicks += Number(row.clicks || 0)
-      totals.conversions += Number(row.conversions || 0)
-      totals.conversionValue += Number(row.conversion_value || 0)
-      totals.revenue += Number(row.revenue || 0)
+      const spend = Number(row.spend || 0)
+      const impressions = Number(row.impressions || 0)
+      const clicks = Number(row.clicks || 0)
+      const conversions = Number(row.conversions || 0)
+      const conversionValue = Number(row.conversion_value || 0)
+      const revenue = Number(row.revenue || 0)
+      const platform = String(row.platform || '')
+      // totals — UNCHANGED raw cross-platform sums (additive law; store-stats + headless route must not move).
+      totals.spend += spend
+      totals.impressions += impressions
+      totals.clicks += clicks
+      totals.conversions += conversions
+      totals.conversionValue += conversionValue
+      totals.revenue += revenue
       totals.rowCount += 1
+      // per-source canonical accumulation — mirrors the card's RevenueAcc (store>ga>none, ads-only spend/conv).
+      if (AGG_ADS.includes(platform)) {
+        acc.spend += spend; acc.conversions += conversions; acc.conversionValue += conversionValue
+        acc.impressions += impressions; acc.clicks += clicks
+        if (platform === 'google') { out.google.spend += spend; out.google.conversionValue += conversionValue }
+        else { out.meta.spend += spend; out.meta.conversionValue += conversionValue }
+      } else if (AGG_STORE.includes(platform)) { acc.storeRev += revenue; acc.storeRows += 1 }
+      else if (platform === 'ga') { acc.gaRev += revenue; acc.gaRows += 1 }
     }
     if (rows.length < PAGE) break
     from += PAGE
   }
-  return totals
+  return out
 }
 
 // Multi-period comparison. Two mutually-exclusive modes:
@@ -150,10 +216,10 @@ export async function queryMetrics(opts: {
       const endDate = typeof w?.endDate === 'string' ? w.endDate.trim() : ''
       const label = typeof w?.label === 'string' && w.label.trim() ? w.label.trim() : `${startDate}..${endDate}`
       const valid = ISO.test(startDate) && ISO.test(endDate) && startDate <= endDate
-      const totals = valid
+      const agg = valid
         ? await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
-        : emptyTotals()
-      windows.push({ label, startDate, endDate, totals, derived: derive(totals) })
+        : emptyAgg()
+      windows.push({ label, startDate, endDate, totals: agg.totals, derived: derive(agg.totals), ...buildCanonical(agg) })
     }
   } else {
     const offsets = opts.offsetsMonths && opts.offsetsMonths.length ? opts.offsetsMonths : [0, 6, 12, 18]
@@ -162,13 +228,14 @@ export async function queryMetrics(opts: {
     for (const off of offsets) {
       const endDate = off === 0 ? base.endDate : shiftMonthsUTC(base.endDate, -off)
       const startDate = off === 0 ? base.startDate : addDaysUTC(endDate, -(span - 1))
-      const totals = await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
+      const agg = await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
       windows.push({
         label: off === 0 ? baseRange : off + 'mo ago',
         startDate,
         endDate,
-        totals,
-        derived: derive(totals),
+        totals: agg.totals,
+        derived: derive(agg.totals),
+        ...buildCanonical(agg),
       })
     }
   }
@@ -178,6 +245,13 @@ export async function queryMetrics(opts: {
   const metaInScope = resolvedPlatforms.includes('meta') || resolvedPlatforms.includes('all')
   if (metaInScope) {
     notes.push('IMPORTANT - when this answer reports Meta conversion counts or CPA, you MUST add one brief sentence telling the user these are Meta account-level historical figures that are directionally accurate but may not perfectly reconcile with campaign-level conversion numbers, while Meta spend, clicks, and impressions are exact. Omit this note entirely when the answer does not discuss conversions or CPA.')
+  }
+  // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (B2) — steer Lora onto canonical.*, away from the raw totals.revenue double-count.
+  if (level === 'account') {
+    notes.push('REVENUE/ROAS: the headline TOTAL is canonical.revenue and canonical.roas — these MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue / spend). totals.revenue is a RAW cross-platform SUM that DOUBLE-COUNTS store + GA — NEVER report totals.revenue as total revenue. derived.roas is AD-ATTRIBUTED (platform conversionValue / spend), a DIFFERENT basis — it is NOT the card ROAS; use canonical.roas for the dashboard figure.')
+  }
+  if (windows.some(w => w.bySource.store.rows > 0 && w.bySource.ga.rows > 0)) {
+    notes.push('MULTIPLE REVENUE SOURCES present (bySource shows BOTH store and ga). When the user asks about revenue or ROAS, surface BOTH sources labeled by origin, each with its own ROAS (that source’s revenue ÷ ad spend), and explain WHY they differ (attribution window / measurement basis). Do NOT collapse them into one number and do NOT silently drop the smaller source.')
   }
   return { level, platforms: resolvedPlatforms, baseRange, windows, notes: notes.length ? notes : undefined }
 }

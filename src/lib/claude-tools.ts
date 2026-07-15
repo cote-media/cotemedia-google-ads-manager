@@ -9,6 +9,8 @@
 // the caller - it is NEVER a model-controlled input.
 
 import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
+// LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
+import { getCoverageForWindows, coverageNotes } from '@/lib/next/coverage'
 import { resolveAccess } from '@/lib/access/can-access'
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1
@@ -25,14 +27,14 @@ async function viewerCanAccess(viewerEmail: string, clientId: string): Promise<b
 export const QUERY_METRICS_TOOL: any = {
   name: 'query_metrics',
   description:
-    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
+    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. REVENUE & ROAS — READ THIS: for any total-revenue or ROAS answer use `canonical` — canonical.revenue and canonical.roas are the figures that MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue/spend). `totals.revenue` is a RAW cross-platform SUM that double-counts store + GA — NEVER report totals.revenue as the total revenue. `bySource` breaks revenue/spend out by origin (store, ga, google, meta), each labeled — when more than one revenue source is present, surface them ALL with their own ROAS and explain why they differ. `derived.roas` is AD-ATTRIBUTED (platform conversionValue/spend) and is NOT the card ROAS. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
   input_schema: {
     type: 'object',
     properties: {
       platform: {
         type: 'string',
         enum: ['google', 'meta', 'shopify', 'woocommerce', 'ga', 'all'],
-        description: 'Which platform to query. Use "all" to sum across every connected platform. Defaults to all if omitted.',
+        description: 'Which platform to query. Use "all" (default) to query every connected platform in ONE call: the result’s `canonical` gives the correctly-settled total (store>ga>none, never summed) and `bySource` the labeled per-source split. Do NOT read the raw `totals.revenue` as the total (it double-counts store+GA). Defaults to all if omitted.',
       },
       level: {
         type: 'string',
@@ -182,7 +184,20 @@ export async function runQueryMetricsTool(input: any, clientId: string) {
         }))
     : undefined
   const platforms = platform && platform !== 'all' ? [platform] : []
-  return queryMetrics({ clientId, platforms, level, baseRange, offsetsMonths, windows })
+  const result = await queryMetrics({ clientId, platforms, level, baseRange, offsetsMonths, windows })
+  // LORAMER_LORA_COVERAGE_V1 — annotate each window with the coverage FACT (state) so Lora answers from FACT, not
+  // from ambiguous rowCount-0 zeros (identical for not-connected / pre-capture / true-zero). ADDITIVE + best-effort:
+  // wrapped in try/catch so it NEVER breaks the tool; account grain only (coverage is an account-grain concept).
+  if (level && level !== 'account') return result
+  try {
+    const wins = result.windows.map((w) => ({ startDate: w.startDate, endDate: w.endDate }))
+    const cov = await getCoverageForWindows(clientId, platforms, wins)
+    const windows2 = result.windows.map((w, i) => ({ ...w, coverage: cov[i] }))
+    const notes = [...(result.notes || []), ...coverageNotes(cov)]
+    return { ...result, windows: windows2, notes: notes.length ? notes : undefined }
+  } catch {
+    return result
+  }
 }
 
 export type ToolLoopResult = {

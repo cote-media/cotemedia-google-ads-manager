@@ -123,6 +123,21 @@
       }
     },
     {
+      "id": "A9",
+      "cat": "A",
+      "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15",
+      "clientName": "Influential Drones",
+      "dateRange": "LAST_MONTH",
+      "cardCheck": true,
+      "message": "What was our total revenue in June 2026?",
+      "assert": {
+        "type": "number",
+        "expected": 128896.56,
+        "tolerancePct": 2,
+        "label": "canonical revenue (store precedence — NOT the store+GA raw sum 142505.76)"
+      }
+    },
+    {
       "id": "B1",
       "cat": "B",
       "clientId": "f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2",
