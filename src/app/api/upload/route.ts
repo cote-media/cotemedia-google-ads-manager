@@ -51,8 +51,15 @@ export async function POST(request: Request) {
       const mammoth = require('mammoth')
       const result = await mammoth.extractRawText({ buffer })
       extractedText = result.value
+    } else if (fileType === 'xlsx') {
+      // LORAMER_UPLOAD_XLSX_V1 — ADDITIVE: parse XLSX to CSV-per-sheet (SheetJS `xlsx`, already a dep; mirrors the
+      // extraction in /api/knowledge). Text-only, never executes; a malformed workbook throws → caught below (500).
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const XLSX = require('xlsx')
+      const wb = XLSX.read(buffer, { type: 'buffer' })
+      extractedText = wb.SheetNames.map((n: string) => `# ${n}\n` + XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n\n')
     } else {
-      return NextResponse.json({ error: 'Unsupported file type. Please upload PDF, DOCX, TXT, or CSV.' }, { status: 400 })
+      return NextResponse.json({ error: 'Unsupported file type. Please upload PDF, DOCX, XLSX, TXT, or CSV.' }, { status: 400 })
     }
 
     // Clean up extracted text

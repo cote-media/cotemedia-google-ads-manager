@@ -385,10 +385,14 @@
       "clientId": "23c697bb-5255-4289-9329-659544ba8e6e",
       "clientName": "Shelley Kyle",
       "dateRange": "LAST_MONTH",
-      "message": "[FORMAT PROBE] XLSX ingestion — a customer uploads an .xlsx COGS sheet.",
+      "upload": "cogs-shelley.xlsx",
+      "message": "I just uploaded our COGS spreadsheet. Based on it and our June 2026 store revenue, what is our gross margin in dollars?",
       "assert": {
-        "type": "autofail",
-        "reason": "upload/route.ts supports only txt/csv/pdf/docx; XLSX → 400 'Unsupported file type'. The spreadsheet the customer actually has cannot be ingested → automatic format fail (no live call)."
+        "type": "number",
+        "expected": 1298.45,
+        "tolerancePct": 3,
+        "label": "margin = 2885.45 * 0.45 (COGS 55% read from the uploaded .xlsx)",
+        "note": "Probes XLSX FORMAT INGESTION via the CUSTOMER path (/api/upload), NOT the structured per-SKU COGS join (V2, banked). The COGS% comes ONLY from the uploaded sheet; Lora applies it to June store revenue $2,885.45."
       }
     },
     {
