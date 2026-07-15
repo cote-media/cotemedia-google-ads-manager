@@ -27,6 +27,70 @@ function secret() {
   if (!s) throw new Error('NEXTAUTH_SECRET not found in .env.local')
   return s
 }
+function envVal(name) {
+  const env = fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8')
+  const m = env.match(new RegExp('^' + name + '=(.*)$', 'm'))
+  return m ? m[1].trim().replace(/^["']|["']$/g, '') : ''
+}
+const SB_URL = envVal('NEXT_PUBLIC_SUPABASE_URL') || envVal('SUPABASE_URL')
+const SB_KEY = envVal('SUPABASE_SERVICE_ROLE_KEY')
+const SBH = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }
+
+// LORAMER_LORA_EVAL_UPLOAD_V1 — E3 uploads a real .xlsx through the CUSTOMER route (/api/upload), then the harness
+// CLEANS UP: uploaded text persists in client_context.user_notes and would leak into every later run on that client,
+// silently mutating the golden set. Snapshot before, restore after (try/finally), and verify the pre-state returns.
+async function uploadFixture(cookie, clientId, fixture) {
+  const buf = fs.readFileSync(path.join(ROOT, 'tests/lora-evals/fixtures', fixture))
+  const fd = new FormData()
+  fd.append('file', new Blob([buf]), fixture)
+  fd.append('clientId', clientId)
+  const res = await fetch(`${BASE}/api/upload`, { method: 'POST', headers: { Cookie: `next-auth.session-token=${cookie}` }, body: fd })
+  return { status: res.status, body: await res.json().catch(() => ({})) }
+}
+async function currentNotes(clientId) {
+  const r = await fetch(`${SB_URL}/rest/v1/client_context?client_id=eq.${clientId}&user_email=eq.${encodeURIComponent(OWNER)}&select=user_notes`, { headers: SBH })
+  const rows = await r.json().catch(() => [])
+  return Array.isArray(rows) && rows.length ? { existed: true, notes: rows[0].user_notes ?? null } : { existed: false, notes: null }
+}
+async function restoreCtx(clientId, snap) {
+  const url = `${SB_URL}/rest/v1/client_context?client_id=eq.${clientId}&user_email=eq.${encodeURIComponent(OWNER)}`
+  if (snap.existed) await fetch(url, { method: 'PATCH', headers: { ...SBH, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ user_notes: snap.notes }) })
+  else await fetch(url, { method: 'DELETE', headers: { ...SBH, Prefer: 'return=minimal' } })
+}
+
+// LORAMER_LORA_EVAL_CONFIG_GUARD_V1 — a mismatched server NEXTAUTH_URL silently reduces the eval to the TOOL-ONLY path:
+// /api/chat fetches its intelligence via `${NEXTAUTH_URL}/api/intelligence`; if that doesn't point at THIS server the
+// internal fetch throws, /api/chat falls back to a minimal system prompt, and the entire build-claude-context prompt
+// (Part A fallback, coverage/canonical guidance, user_notes/uploaded docs) NEVER loads. This happened on 2026-07-15
+// (server on :3111, NEXTAUTH_URL=:3000) and invalidated a full flight's runs. Assert config BEFORE any scoring; abort loud.
+function abort(msg) { console.error(`\n❌ EVAL ABORTED — ${msg}\n`); process.exit(2) }
+function assertConfig() {
+  // The operator MUST pass the SAME NEXTAUTH_URL to the harness that the dev server was started with, and it MUST equal BASE.
+  const nextAuth = process.env.NEXTAUTH_URL || envVal('NEXTAUTH_URL')
+  if (nextAuth !== BASE) {
+    abort(`NEXTAUTH_URL (${nextAuth || 'unset'}) must equal BASE (${BASE}).\n` +
+      `  /api/chat loads its intelligence prompt via NEXTAUTH_URL. If it doesn't point at this server, the intelligence\n` +
+      `  prompt silently fails to load and the eval tests ONLY the query_metrics tool path — every scorecard is then a lie.\n` +
+      `  FIX: start the server AND run the harness with a matching NEXTAUTH_URL, e.g.\n` +
+      `    NEXTAUTH_URL=${BASE} PORT=${(BASE.split(':')[2] || '3111')} LORA_CHAT_MODEL=claude-opus-4-8 npm run dev\n` +
+      `    NEXTAUTH_URL=${BASE} BASE=${BASE} OWNER=${OWNER} node tests/lora-evals/run-evals.mjs`)
+  }
+  const model = process.env.LORA_CHAT_MODEL || envVal('LORA_CHAT_MODEL')
+  if (model && model !== 'claude-opus-4-8') abort(`LORA_CHAT_MODEL (${model}) must be claude-opus-4-8 (the ship/eval model floor).`)
+  if (!model) console.warn('⚠ LORA_CHAT_MODEL not visible to the harness — ensure the dev server was started with LORA_CHAT_MODEL=claude-opus-4-8.')
+  console.log(`[config] NEXTAUTH_URL=${nextAuth} == BASE ✓ · model=${model || '(server-side; verify)'}`)
+}
+// PREFLIGHT (costs ~1 chat call) — behavioral confirmation the intelligence prompt actually loaded, not just the tool path.
+// Set PREFLIGHT=off to skip. NOTE: the fully-robust version wants a /api/chat ?debug=intel flag (proposed prod change);
+// this best-effort probe asks for a profile fact that ONLY exists in build-claude-context (never in any tool result).
+async function preflight(cookie) {
+  if (process.env.PREFLIGHT === 'off') { console.log('[preflight] skipped (PREFLIGHT=off)'); return }
+  const q = { message: 'PREFLIGHT CHECK: reply with the single token INTEL_LOADED if you can see this client’s configured business profile / connection status in your context, otherwise reply INTEL_MISSING. One token only.', clientId: '23c697bb-5255-4289-9329-659544ba8e6e', clientName: 'Shelley Kyle', dateRange: 'LAST_MONTH' }
+  const got = await callChat(cookie, q)
+  const ok = /INTEL_LOADED/i.test(got.response || '')
+  console.log(`[preflight] intelligence prompt loaded: ${ok} · reply="${(got.response || '').replace(/\s+/g, ' ').slice(0, 60)}"`)
+  if (!ok) abort('preflight: /api/chat did not reflect the intelligence prompt — it likely fell back to the tool-only path. Fix NEXTAUTH_URL and retry. (Set PREFLIGHT=off only if you have independently confirmed the prompt loads.)')
+}
 
 // --- number extraction / matching ------------------------------------------------------------
 function extractNumbers(text) {
@@ -110,19 +174,36 @@ async function fetchCard(cookie, clientId) {
 
 async function main() {
   const gold = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/lora-evals/golden-set.json'), 'utf8'))
+  assertConfig() // LORAMER_LORA_EVAL_CONFIG_GUARD_V1 — abort on NEXTAUTH_URL/model mismatch BEFORE spending a token
   const cookie = await encode({ token: { email: OWNER, name: 'Eval', sub: 'eval-' + OWNER }, secret: secret() })
+  await preflight(cookie) // 1-token behavioral confirmation the intelligence prompt loaded (PREFLIGHT=off to skip)
   const results = []
-  for (const q of gold.questions) {
-    process.stdout.write(`[${q.id}/${q.cat}] ${q.clientName} … `)
-    let card = null, got = { status: -1, response: '(autofail — no call)' }
-    if (q.assert.type !== 'autofail') {
-      if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
-      got = await callChat(cookie, q)
+  // eval hygiene — snapshot every upload client's context so we can restore it after the run (uploads persist)
+  const uploadClients = [...new Set(gold.questions.filter(q => q.upload).map(q => q.clientId))]
+  const snaps = {}
+  for (const cid of uploadClients) { snaps[cid] = await currentNotes(cid); console.log(`[hygiene] snapshot ${cid}: existed=${snaps[cid].existed} notesLen=${(snaps[cid].notes || '').length}`) }
+  try {
+    for (const q of gold.questions) {
+      process.stdout.write(`[${q.id}/${q.cat}] ${q.clientName} … `)
+      let card = null, got = { status: -1, response: '(autofail — no call)' }, up = null
+      if (q.assert.type !== 'autofail') {
+        if (q.upload) { up = await uploadFixture(cookie, q.clientId, q.upload); process.stdout.write(`[upload ${q.upload}→${up.status}${up.body?.truncated ? ' TRUNCATED' : ''}] `) }
+        if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
+        got = await callChat(cookie, q)
+      }
+      const sc = (got.status === 200 || q.assert.type === 'autofail') ? score(q, got.response || '', card)
+                : { pass: false, detail: `HTTP ${got.status} ${got.error || got.response}` }
+      results.push({ id: q.id, cat: q.cat, client: q.clientName, message: q.message, pass: sc.pass, detail: sc.detail, httpStatus: got.status, response: got.response, card: card && { spend: card.spend, revenue: card.revenue, roas: card.roas }, upload: up ? { file: q.upload, status: up.status, truncated: !!up.body?.truncated } : undefined })
+      console.log(sc.pass ? 'PASS' : 'FAIL')
     }
-    const sc = (got.status === 200 || q.assert.type === 'autofail') ? score(q, got.response || '', card)
-              : { pass: false, detail: `HTTP ${got.status} ${got.error || got.response}` }
-    results.push({ id: q.id, cat: q.cat, client: q.clientName, message: q.message, pass: sc.pass, detail: sc.detail, httpStatus: got.status, response: got.response, card: card && { spend: card.spend, revenue: card.revenue, roas: card.roas } })
-    console.log(sc.pass ? 'PASS' : 'FAIL')
+  } finally {
+    for (const cid of uploadClients) {
+      const before = await currentNotes(cid)
+      await restoreCtx(cid, snaps[cid])
+      const after = await currentNotes(cid)
+      const clean = (after.notes ?? null) === (snaps[cid].notes ?? null) && after.existed === snaps[cid].existed
+      console.log(`[hygiene] restore ${cid}: during-run-had-upload=${(before.notes || '').includes('[Uploaded:')} → restored-to-pre-state=${clean}`)
+    }
   }
   // scorecard
   const cats = {}
