@@ -21,6 +21,7 @@ import { buildGoogleMetricsRows } from '@/lib/intelligence/google-metrics-row'
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
+import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — full-grain repair of a filled hole (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
@@ -466,6 +467,28 @@ export async function GET(request: Request) {
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
+
+          // LORAMER_META_BREADTH_FORWARD_V1 — the 10 Meta breadth dims for this repaired day, so a filled hole is
+          // filled at FULL grain and not just at the base row (G1: "forward covers ALL grains"). Own try/catch PER DIM
+          // so a breadth failure never drops the main row (mirrors the Shopify depth block above). Runs AFTER the base
+          // upsert: the reconcile anchor must exist for this day first.
+          //
+          // HONEST BOUND: computeFillDays derives holes from the BASE row (breakdown_type=''), so this repairs days
+          // where the base is ALSO missing. It CANNOT see a breadth-only hole (base present, breadth absent) — which is
+          // exactly the shape of the existing 2026-06-27→today hole. That hole is G1(b)'s cursor unseal, NOT this.
+          for (const dim of META_BREADTH_FORWARD) {
+            if (Date.now() - started > CATCHUP_BUDGET_MS) break // budget stop between DIMS (each is ~3-9s; mirrors the per-day guard)
+            try {
+              const { status, body } = await dim.run(client.id, d, d, {})
+              if (status !== 200) {
+                summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: writer status ${status} — ${JSON.stringify(body)}` })
+                continue
+              }
+              summary.rowsWritten += Number(body?.totalWritten ?? 0)
+            } catch (dimErr) {
+              summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: ${serializeCaughtError(dimErr)}` })
+            }
+          }
         } catch (err) {
           summary.errors.push({ clientId: client.id, platform: 'meta', message: `${d}: ${serializeCaughtError(err)}` })
           continue

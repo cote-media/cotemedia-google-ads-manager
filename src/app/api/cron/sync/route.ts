@@ -10,6 +10,7 @@ import { buildMetaMetricsRows } from '@/lib/intelligence/meta-metrics-row'
 import { buildGoogleMetricsRows } from '@/lib/intelligence/google-metrics-row'
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
+import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dims (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
@@ -410,6 +411,45 @@ export async function GET(request: Request) {
         }
 
         summary.rowsWritten += rows.length
+
+        // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dimensions (device,
+        // device_platform, age, gender, age_gender, action_type, video, geo_country, geo_region, hour) across all 4
+        // entity levels. Closes G1: these dims had NO forward writer at all, so they froze at their drain's ship date
+        // while clients kept spending (the drain's rangeLap only walks BACKWARD and can never reach today).
+        // Each entry REUSES its existing range writer with startDate === endDate === captureDate — a one-day range —
+        // so no row-building logic is duplicated and every guard (full pagination, FLAG-NOT-BLOCK reconcile, spend>0
+        // filter, no fabricated keys) is inherited. Mirrors the Google breadth blocks above: own try/catch PER DIM so
+        // one dim's failure logs LOUD and is recorded but NEVER drops the base rows, a sibling dim, or sync_state.
+        // 0 rows = logged empty, not an error. No forward reconcile gate (the writers flag-not-block internally).
+        //
+        // PLACEMENT IS LOAD-BEARING — this block sits AFTER the base upsert (the reconcile anchor must exist) and
+        // BEFORE the sync_state write below, exactly like Google (breadth :554-658 → sync_state :661). A client stays
+        // PENDING until every dim has been attempted, so a maxDuration kill mid-breadth is retried on the next fire
+        // instead of being silently marked synced. Do NOT move this below the sync_state write.
+        for (const dim of META_BREADTH_FORWARD) {
+          try {
+            const { status, body } = await dim.run(client.id, captureDate, captureDate, {})
+            if (status !== 200) {
+              // The writers RETURN non-200 (they do not throw) for resolution/upsert failures — surface it LOUD
+              // rather than treating a failed capture as a silent success (L63: a dead lap must never read green).
+              const detail = JSON.stringify(body)
+              console.error(`[cron/sync] client=${client.id} platform=meta ${dim.key} breadth capture FAILED (status ${status}):`, detail)
+              summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key}: writer status ${status} — ${detail}` })
+              continue
+            }
+            const written = Number(body?.totalWritten ?? 0)
+            summary.rowsWritten += written
+            if (written === 0) {
+              console.log(`[cron/sync] client=${client.id} platform=meta ${dim.key} breadth capture: 0 rows (empty, not an error)`)
+            }
+          } catch (dimErr) {
+            // A Meta Graph error propagates OUT of the writer (metaFetchAllPaged throws after its retry ladder is
+            // exhausted — it never returns a silent partial). Catch it here so it cannot drop the base row.
+            const message = serializeCaughtError(dimErr)
+            console.error(`[cron/sync] client=${client.id} platform=meta ${dim.key} breadth capture FAILED:`, message)
+            summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key}: ${message}` })
+          }
+        }
 
         const { error: syncError } = await supabaseAdmin
           .from('sync_state')

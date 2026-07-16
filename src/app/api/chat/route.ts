@@ -10,9 +10,14 @@ import { resolveAccess } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// LORAMER_LORA_CHAT_MODEL_ENV_V1 — the chat model is env-selectable so the eval A/B (Sonnet vs Opus) can switch it
-// without a code edit. Default MUST stay claude-sonnet-4-6 so production behavior is byte-identical unless overridden.
-const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-sonnet-4-6'
+// LORAMER_LORA_CHAT_MODEL_ENV_V1 + LORAMER_LORA_MODEL_FLOOR_DEFAULT_V1 — the chat model is env-selectable, but the
+// CODE DEFAULT IS THE FLOOR. It was 'claude-sonnet-4-6' with a comment ordering future sessions to keep it that way;
+// that comment was written for the Sonnet-vs-Opus A/B, which was KILLED 2026-07-14 (ship model = eval model =
+// claude-opus-4-8, and the Opus floor is LAW). The stale default cost us: no LORA_CHAT_MODEL env var existed in
+// Vercel, so PRODUCTION Lora answered on Sonnet while the 28/28 accuracy gate was measured on a local Opus process —
+// the gate did not describe production (2026-07-15 master audit, G10; closed by setting the prod env var).
+// An env var is not a law: if the var is ever deleted, this default is what ships. It must BE the floor.
+const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-opus-4-8'
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any

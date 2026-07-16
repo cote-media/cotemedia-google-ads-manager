@@ -1,6 +1,15 @@
 # LoraMer — DEFINITIVE CAPTURE INVENTORY (master surface map)
 <!-- LORAMER_DEFINITIVE_CAPTURE_INVENTORY_V1 -->
 
+⚠ STALENESS WARNING (added 2026-07-15) — THIS MAP IS DATED 2026-06-29 AND PRE-DATES SIX SHIPPED WRITERS. Do NOT read it as
+current capture state; verify against the writers + live rows before acting on any [GAP] tag. Shipped AFTER this map was
+written and therefore mis-tagged below: meta video (T1.4) · meta geo_country/geo_region (T1.9) · meta hour (T1.10) ·
+meta action_type full taxonomy (T1.1) · Shopify/Woo variant-SKU + money surfaces (T1.5/T1.6/T1.7) · GA4 dimensional
+capture, all families A-I (2026-07-13) — GA is NO LONGER the thin slice §3 describes. Corrections applied in place where
+found (§1G Meta tier). ROOT CAUSE, generalized: the freshness gate hashes docs against DOCS, so it can never catch a doc
+that is honest-but-false about CODE — a map can rot silently while every hash stays green. The structural fix is to
+DERIVE the registry from the writers rather than hand-maintain it (QUEUE: MAP-vs-CODE DRIFT).
+
 STATUS: ACTIVE master map of EVERYTHING each connected platform exposes — the source of the cross-platform gap list
 + value-ordered writer queue. Governing law: capture EVERYTHING from EVERYWHERE, store FOREVER, full grain WITH history.
 SEQUENCING (settled): map ALL FIVE platforms FIRST → ONE master gap list + value-ordered build queue → THEN build. Do
@@ -57,7 +66,14 @@ UNIFORM 37-month #3018 ("start date cannot be beyond 37 months") across ALL Insi
 
 ### G. QUOTA / RATE
 Business Use Case (BUC) rate limits. Header X-Business-Use-Case-Usage: {call_count, total_cputime, total_time (% of limit), estimated_time_to_regain_access,
-ads_api_access_tier}. ★ OUR TIER = "development_access" (tightest) — promote to Standard/Advanced (Meta analog of Google Standard). ads_insights throttles on
+ads_api_access_tier}. ★ ⚠ CORRECTED 2026-07-15 — **OUR TIER IS `standard_access`, NOT `development_access`. Nothing to request; already granted, already in use.**
+VERIFIED live off the API's own X-Business-Use-Case-Usage header on 4 ad accounts (act_1176521366133508, act_916558565662035, act_735865779578613,
+act_3769140430018695 — all http 200, all `ads_api_access_tier: standard_access`, usage 0-1% at probe time ~23:40 UTC). The superseded line read: "OUR TIER =
+'development_access' (tightest) — promote to Standard/Advanced". It was written 2026-06-28, FOUR DAYS BEFORE Meta App Review was APPROVED on 2026-07-02, which
+lifted the tier server-side; nobody re-probed, so a stale "tightest tier" premise sat in the master map for two weeks and was still being reasoned from on 07-15.
+The tier is an APP-level attribute Meta resolves server-side — there is no config to change and no request to file. HONEST LIMIT: 0-1% was measured at a QUIET
+moment (meta forward cron runs 08-10 UTC; drain at :15 of 0/6/12/18) — peak headroom under concurrent forward+drain is still UNMEASURED, and metaFetchAllPaged
+reads no usage header, so we have zero proactive throttle awareness (QUEUE). ads_insights throttles on
 CPU/time → async jobs for heavy pulls. metaFetchAllPaged retries {1,2,4,17,32,341,613,80000,80004}+429 (exp backoff); #100/1487534 = query-too-heavy → narrow window. No pause-marker (resets hourly; 6h drain gentle).
 
 ### META GAP → WRITER QUEUE (value-ordered)

@@ -329,3 +329,82 @@ EARLY "NO SAME MISTAKE TWICE" PATTERNS (HANDOFF Operator-Level-Truth, pre-number
 ═══════════════════════════════════════════════════════════════════
 - Claude.ai cannot read the local repo — use Claude Code for whole-repo audits/multi-file reads; don't guess from the lagging project panel.
 - Right > fast cost: doing it twice always costs more time than doing it right once + the emotional cost on Russ.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907
+rows / 28GB), never from the map. Method: recursive row-value skip-scan over idx_metrics_daily_client_platform_bt_level_date
+(all 4 key cols NOT NULL → skip-scan ≡ DISTINCT, the migration-037 theorem); every query under an 8s statement_timeout.
+The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do not relitigate.
+
+- [G1, THE HEADLINE — FIXED THIS COMMIT] META BREADTH FORWARD-CAPTURE HOLE, SEALED. The only Meta forward writer
+  (meta-metrics-row.ts:60,131) emits breakdown_type '' and 'placement' — nothing else. cron/sync:354-395 and cron/catchup
+  called nothing else. So 10 breadth dims (device, device_platform, age, gender, age_gender, action_type, video,
+  geo_country, geo_region, hour) × 4 entity levels existed ONLY via the drain's rangeLap (drain-registry.ts:152-168),
+  which walks strictly BACKWARD and can never reach today. Each dim FROZE at its own ship date (device/age/gender
+  2026-06-27/28 · action_type 06-29 · video/geo 06-30 · hour 07-02) while clients kept spending. meta_device and
+  meta_video had reached floor with backfill_complete=13/13 → the drain will never run them again → the hole was
+  PERMANENT. Nothing failed: cron returned 200, sync_state read complete. PROVEN, not theorised: 4 Meta-active clients
+  (Veterinary f5fbe7e5 $1,222.95 · Escential c39ee088 $1,038.88 · Glass Plus 7d90cce7 $514.90 · Shelley 23c697bb $143.91,
+  2026-07-01..14) had base rows current to 07-14 and ZERO breadth rows for those days; a 1-day dryRun on Veterinary for
+  2026-07-14 returned 1,903 rows Meta serves and we were not storing. FIXED by LORAMER_META_BREADTH_FORWARD_V1 (this
+  commit). The existing 06-27→today hole is NOT fixed — G1(b), next flight. | do not relitigate.
+- [G2] CAPTURED BUT INVISIBLE TO LORA — violates LORA SEES EVERYTHING. Google's ENTIRE geo family (19 breakdown_types ×
+  2 entity levels, captured to floor) is absent from metrics-query.ts:279-289 BREAKDOWN_PLATFORMS, and geo_country/
+  geo_region are keyed ['shopify','meta'] — Google EXCLUDED. All 12 GA dimensional types are invisible: query_breakdown's
+  platform enum is ['google','meta','shopify'] — 'ga' is not an option, so the whole LORAMER_GA_DIMENSIONAL_CAPTURE_V1
+  flight cannot be read. Meta age_gender captured at 4 levels, absent from the enum. entityLevel enum is
+  [account,campaign,ad_set,ad] → Google's ad_group + keyword device grains unreachable. Millions of paid-for rows, dead.
+  Blast radius: LIVE-PATH (shared read path) = STOP-and-confirm. Cheapest large win in the system. | do not relitigate.
+- [G3 — CORRECTED IN THE REGISTRY THIS COMMIT] GOOGLE age/gender FETCHED-BUT-DROPPED = a DEFECT per BEDROCK (4).
+  google-intelligence.ts:414-437 fetches age_range_view + gender_view every run; ZERO rows have ever landed; the only
+  age/gender row-builder is meta-age-gender-backfill.ts. BREAKDOWN_REGISTRY §4:89-90 said "VERIFIED in-code
+  (google-intelligence:392)" — that attests the FETCH, not persistence, and was read as capture for three weeks. | do not relitigate.
+- [G4] ASSET LAYER = 0%, the CORE capability. Tables ad_assets / asset_membership / asset_combinations DO NOT EXIST
+  (pg_class). Zero writers. All three layers absent (content catalog, per-asset perf, modeling engine) and the joint is
+  unserved by BOTH platforms (Meta #100 rejects any two asset breakdowns; Google gives qualitative top-combinations only)
+  → per-combination attribution REQUIRES a modeling layer. Post-launch flagship; nothing in the queue moves it. | do not relitigate.
+- [G5] VIDEO — ALL MEANS ALL UNMET: Meta's metric family captured (10 columns, 4 levels) but was frozen+sealed by G1;
+  Google's video family (video_trueview_*/quartiles/watch_time/trueview_average_cpv) has ZERO rows and NO writer; the
+  video ASSET half is zero on both (G4). | do not relitigate.
+- [G6] META placement is CAMPAIGN-ONLY (landed rows) — ad_set + ad missing. BREAKDOWN_REGISTRY:25: "a campaign-only
+  breadth dim is unfinished code." Deliberately NOT bundled into G1(a). | do not relitigate.
+- [G7] GOOGLE T2 BREADTH ENTIRELY ABSENT — network · all_conversions · video · product/shopping · audience · quality ·
+  click_type/slot · engagement: zero rows, no writers. Quota is NOT the "platform doesn't serve it" exception → work to
+  do, not out of scope. Google OAuth verification is DONE; Standard Access (free, unlimited ops) applied 2026-06-19,
+  still pending; Basic 15k ops/day is the live constraint. | do not relitigate.
+- [G8] COMMERCE BREADTH — Shopify: catalog content 0 · channel/discount/tags/payment/fulfillment/billing-geo GAP · COGS
+  read_inventory-scope-blocked. Woo: ZERO breakdown rows of any kind · geo/coupon/payment/category GAP · catalog 0.
+  Customer/LTV/RFM both platforms GAP (0-PII design unbuilt). | do not relitigate.
+- [G9] GA SESSION/USER METRICS NOT QUERYABLE — metrics-query.ts:140 aggregates only spend/impressions/clicks/conversions/
+  conversion_value/revenue; GA sessions/users/engagement sit in extra-JSONB. This is the OPEN columns-vs-jsonb fork
+  (inventory §8) = RUSS'S CALL. Banked recommendation: HYBRID (~8 columns + tail in jsonb). | do not relitigate.
+- [G10 — ✅ CLOSED 2026-07-15] MODEL FLOOR. chat/route.ts:15 defaulted to 'claude-sonnet-4-6' and NO LORA_CHAT_MODEL env
+  var existed in Vercel (verified by CLI: 26 vars, zero matching /lora|model/i) → PRODUCTION Lora ran on SONNET while the
+  28/28 accuracy gate was measured on a LOCAL Opus process (run-evals.mjs:75 starts the dev server with an inline
+  LORA_CHAT_MODEL=claude-opus-4-8; the var was never in .env.local and never in Vercel — which is exactly why the spend
+  log showed 336 Opus calls that were all local). The gate did not describe production, 7 days from launch.
+  CLOSED: env var set on Production + the deployment redeployed at the SAME commit (dpl_fsk51R9oc9JevSUN8mJtLYXTfy4G,
+  meta.action=redeploy, originalDeploymentId=dpl_FGY5xpvYKTPzA3ofYsXq8qnKuz11, githubCommitSha 6a541c44dda…) → the next
+  real prod chat turn logged model=claude-opus-4-8 (anthropic_spend_log 2026-07-15 23:28:38, client Ennis 1b7b073f).
+  HONEST BOUND: two-signal correlation (row newer than the redeploy + no local dev server listening) — NOT a host-stamped
+  record; anthropic_spend_log has no deployment/environment column (spend-logger.ts:62-70). Durable fix = that column (QUEUE).
+  THIS COMMIT makes the CODE DEFAULT the floor so it survives a deleted env var. PREVIEW env NOT set: `vercel env add …
+  preview` returns action_required/git_branch_required on every non-interactive form (the CLI auto-detects an agent and
+  skips the prompt that offers "all Preview branches"). Not needed for -next (a route INSIDE production). | do not relitigate.
+- [G11] THE EVAL SET IS BLIND TO THE BREADTH LAYER. 28 cases (A9·B8·C3·D2·E3·F3) across 9 of 28 clients. ZERO of 28 touch
+  ANY dimension (device/geo/hour/age/gender/placement/search_term/keyword/action_type/impression_share/video/
+  conversion_action); zero touch campaign/ad_group/ad depth grain; zero touch GA, the asset layer, or Woo's net-basis.
+  G1 — ten dims frozen 16 days on live spending clients — would have passed 28/28 without a flicker. The gate is real for
+  what it asks; it does not ask about breadth at all. | do not relitigate.
+- [VALUE-ORDERED QUEUE, route — Russ may reprioritize any line] 1 G1(a) forward wiring (FIXED this commit; stops the
+  bleeding) · 2 G10 model-floor verify (CLOSED) · 3 G2 Lora visibility (largest capability-per-line win; rows already
+  paid for) · 4 G3 Google age/gender persist (~free, already fetched) · 5 G11 eval breadth coverage (VERIFY-THE-INSTRUMENT
+  — everything above is unprovable until the gate can see breadth) · 6 G6 placement full grain · 7 G9 GA columns-vs-jsonb
+  (Russ's call) · 8 G7 Google T2 ×8 (behind Standard Access) · 9 G8 commerce breadth · 10 G5 Google video · 11 G4 asset
+  flagship (post-launch; needs Fork 1 answered). | do not relitigate.
+- [AUDIT BOUNDS, honest] Zero platform API calls were made for the gap map — "platform serves X" is DERIVED from the
+  inventory's prior probes. "No writer exists" and "never captured" are VERIFIED (ls + grep + live rows). Google
+  geo_province (latest 2024-07-01, 4 clients) and geo_district (2026-04-09, 6 clients) look stale but are sparse
+  non-US-shaped dims — NOT probed, NOT called defects. | do not relitigate.
