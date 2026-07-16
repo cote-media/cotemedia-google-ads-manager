@@ -6,9 +6,8 @@
 import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
-import { listAccessibleClients } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
+import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1 — the ONE client-context resolver // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
 // LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
 // built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
 import CardEngine from '@/components/redesign/cards/CardEngine'
@@ -23,12 +22,9 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
   // LORAMER_RBAC_ACCESS_ORG_V1 — resolve over ACCESSIBLE clients (owned ∪ org-grant ∪ legacy), not owner-only, so a
   // granted member lands on a client they can see. The CardEngine's per-card reads are resolveAccess-gated (/api/next/*),
   // so access is enforced there too; picking from the accessible set is the page-level gate.
-  const ids = await listAccessibleClients(email)
-  const { data: clients } = ids.length
-    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
-    : { data: [] as { id: string; name: string }[] }
-  const list = clients || []
-  const resolved = (searchParams?.clientId && list.find(c => c.id === searchParams.clientId)) || list[0] || null
+  // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set,
+  // fall back deterministically. One resolver for every Shell page (Lesson 53 / HANDOFF:847).
+  const { client: resolved } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (

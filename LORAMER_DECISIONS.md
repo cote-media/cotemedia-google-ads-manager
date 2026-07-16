@@ -408,3 +408,27 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   inventory's prior probes. "No writer exists" and "never captured" are VERIFIED (ls + grep + live rows). Google
   geo_province (latest 2024-07-01, 4 clients) and geo_district (2026-04-09, 6 clients) look stale but are sparse
   non-US-shaped dims — NOT probed, NOT called defects. | do not relitigate.
+
+- [LAW, 2026-07-16] **A PARITY / INVENTORY AUDIT IS NOT A CORRECTNESS AUDIT — AND MUST STATE WHAT IT DOES NOT COVER.**
+  The 2026-07-11 legacy→-next parity audit (LORAMER_NEXT_TO_LIVE_AUDIT_V1) asked EXISTS / PARTIAL / MISSING. It passed
+  every page it examined, and it could NOT have caught a single bug found on 2026-07-15/16 — because "the page exists"
+  and "the page shows the RIGHT CLIENT'S data" are DIFFERENT CLAIMS, and an inventory question can only answer the
+  first. Team existed. The profile existed. Both served the wrong client. Same class as BREAKDOWN_REGISTRY §4:89-90
+  attesting a FETCH ("VERIFIED in-code") and being read for three weeks as persistence (G3, zero rows ever), and as
+  sync_state reading backfill_complete=13/13 over a forward-capture hole that did not exist (G1). THE COMMON SHAPE: a
+  check that answers a NARROWER question than the reader believes it answers is worse than no check — it manufactures
+  false confidence and closes the very investigation that would have found the defect. RULE: every audit states, in
+  its own output, the class of defect it CANNOT see. An audit without that sentence is incomplete on its face.
+  | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
+- [LESSON, 2026-07-16] A GUARD THAT FIRES ON PROSE TRAINS PEOPLE TO IGNORE IT. The shell-client guard's FIRST run
+  false-positived on team/page.tsx — the fix's own comment QUOTES the old buggy expression `(clients||[])[0]` to
+  explain what regressed, and a raw-text regex cannot tell code from a comment. Fixed with codeOnly() (strips comments
+  + string literals; strings matter too — 'https://…' reads as a line comment). A guard is a CODE check: match code.
+  Found only because the guard was PROVEN failing before shipping, per FIX-WITH-GUARD — the proof step is not ceremony.
+  | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
+- [DECIDED 2026-07-16, RUSS] MEMBER ACCESS on client-profile + [platform] SHIPS. Both resolved OWNER-ONLY
+  (.eq('user_email', email)) and were never swapped onto the org-aware access layer (LORAMER_RBAC_ACCESS_ORG_V1), so an
+  org member with a valid grant saw "No clients yet" on both. RBAC Path B is banked law — a member with a grant sees
+  granted clients — so this is a LATENT BUG the law already answers, not a new product decision, and not bundling:
+  collapsing to ONE resolver necessarily adopts its access semantics, and preserving owner-only there would reintroduce
+  the exact divergence this flight kills. | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.

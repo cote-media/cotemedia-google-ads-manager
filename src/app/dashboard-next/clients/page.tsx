@@ -17,6 +17,9 @@ export default async function DashboardNextClientsPage() {
   // Real client list, membership-aware (owned ∪ shared). client_members empty → owner-only today.
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
+  // LORAMER_SHELL_CLIENT_CONTEXT_V1 — ALLOWLISTED: genuinely CLIENT-LESS by design. This is the PORTFOLIO (all
+  // clients) surface — it has no single active client, so it does NOT call resolveShellClient and mounts <Shell>
+  // with no clientId. That is correct, not an oversight: the guard's allowlist requires this justification in-file.
   const ids = await listAccessibleClients(email)
   let clients: { id: string; name: string }[] = []
   if (ids.length) {

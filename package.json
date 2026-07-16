@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "guard": "node tests/guards/meta-breadth-forward.guard.mjs",
+    "guard": "node tests/guards/meta-breadth-forward.guard.mjs && node tests/guards/shell-client-context.guard.mjs",
     "build": "npm run guard && next build",
     "start": "next start",
     "lint": "next lint",

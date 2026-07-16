@@ -52,7 +52,24 @@ export default function Shell({
             <ChatLauncher clientId={clientId} clientName={clientName} />
           </div>
 
-          {children}
+          {/* LORAMER_SHELL_CLIENT_CONTEXT_V1 — THE MOUNT KEY, at SHELL level, ONE place, keyed on clientId.
+              WHY: TopBar.tsx:82 switches clients with router.push(`${pathname}?clientId=`) — a SOFT nav that keeps the
+              pathname, so React REUSES every component in the subtree and their useState SURVIVES the switch. That is
+              how client A's data ends up displayed under client B, and — because the save handlers close over the NEW
+              clientId while the state is still A's — how a single click can WRITE A's value onto B's row. Confirmed
+              live on client-profile: NaicsPicker's `query` and `selected` (its `touched` ref permanently blocks
+              re-hydration) and ClientPage's `gateDraft` all carried across a switch; gateDraft pre-ticked the previous
+              client's answers on the next client's forced-choice value-model gate, one click from mis-configuring
+              GOVERNING-LAW input for every client after the first.
+              Changing this key unmounts the ENTIRE page subtree, so NO client-scoped state can outlive a switch — by
+              construction, for every -next surface at once. store/page.tsx:58 solved exactly this with a per-page key
+              (S-PL#1/aa357c7) and no other page ever got one; per-page is how we got here, so it lives HERE.
+              It is also the product requirement: the remount IS the blink that makes the switch perceptible — today a
+              client switch looks like nothing happened. Accepted tradeoff (Russ): a real remount re-fetches on switch
+              and is marginally slower than the soft nav. Correctness and legibility beat the saved milliseconds. */}
+          <div key={clientId || '__no_client__'} className={styles.clientScope}>
+            {children}
+          </div>
         </main>
       </div>
 

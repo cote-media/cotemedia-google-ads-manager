@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
+import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1
 import ClientPage from '@/components/redesign/ClientPage'
 import { reconcile } from '@/lib/completeness/reconcile' // LORAMER_COMPLETENESS_GATE_V1 F(b) — data-capture verdict (REUSED)
 import { computeReadiness, type ReadinessResult } from '@/lib/completeness/readiness'
@@ -18,13 +19,12 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
   const session = await getServerSession(authOptions)
   const email = session?.user?.email || ''
 
-  const { data: clients } = await supabaseAdmin
-    .from('clients').select('id, name')
-    .eq('user_email', email)
-    .is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — archived clients never resolve on the profile page
-    .order('created_at', { ascending: true })
-  const list = clients || []
-  const resolved = (searchParams?.clientId && list.find(c => c.id === searchParams.clientId)) || list[0] || null
+  // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set, fall
+  // back deterministically. ONE resolver for every Shell page (Lesson 53 / HANDOFF:847).
+  // NOTE: this page previously resolved OWNER-ONLY via .eq('user_email', email) and was never swapped onto the
+  // org-aware access layer (LORAMER_RBAC_ACCESS_ORG_V1) — so an org MEMBER with a valid grant saw "No clients
+  // yet" here. resolveShellClient uses listAccessibleClients (owner ∪ org-grant ∪ legacy), which fixes that.
+  const { client: resolved } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (

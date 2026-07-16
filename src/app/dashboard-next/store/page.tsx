@@ -8,12 +8,11 @@
 import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
 import CardEngine from '@/components/redesign/cards/CardEngine'
 import { storeDefaultView } from '@/components/redesign/cards/card-types'
 import { resolveStorePlatform } from '@/lib/next/store-detect'
-import { listAccessibleClients } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
+import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1 — the ONE client-context resolver // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
 
 // Auth-gated (requirePreviewUser reads headers/session) → always server-rendered on demand; skip static prerender.
 export const dynamic = 'force-dynamic'
@@ -27,12 +26,9 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
   // LORAMER_RBAC_ACCESS_ORG_V1 — resolve over ACCESSIBLE clients (owned ∪ org-grant ∪ legacy), not owner-only. The
   // store reads (/api/next/store-*) are resolveAccess-gated; resolveStorePlatform reads metrics_daily by client_id
   // (owner-agnostic), so a granted member sees the store they can access.
-  const ids = await listAccessibleClients(email)
-  const { data: clients } = ids.length
-    ? await supabaseAdmin.from('clients').select('id, name').in('id', ids).is('deleted_at', null).order('created_at', { ascending: true }) // LORAMER_DELETE_CLIENT_V1
-    : { data: [] as { id: string; name: string }[] }
-  const list = clients || []
-  const resolved = (searchParams?.clientId && list.find((c) => c.id === searchParams.clientId)) || list[0] || null
+  // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set,
+  // fall back deterministically. One resolver for every Shell page (Lesson 53 / HANDOFF:847).
+  const { client: resolved } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (

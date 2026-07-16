@@ -452,3 +452,19 @@
   }
   .drawerOpen { transform: translateX(0); }
 }
+
+/* LORAMER_SHELL_CLIENT_CONTEXT_V1 — the client-scope remount boundary (Shell.tsx). Keyed on clientId, so switching
+   clients unmounts + remounts the whole page subtree: no client-scoped component state can survive a switch.
+   THE BLINK IS THE PRODUCT REQUIREMENT (Russ): today a client switch looks like nothing happened. The remount gives
+   us a real signal for free — a fast fade-in so the user KNOWS the client changed. Short + subtle: legible, never a
+   flash that reads as a bug. Honours prefers-reduced-motion (the switch stays correct without the animation). */
+.clientScope {
+  animation: clientScopeIn 180ms ease-out;
+}
+@keyframes clientScopeIn {
+  from { opacity: 0.3; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .clientScope { animation: none; }
+}
