@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-16T03:14:26.719Z
-- built_from HEAD: 28f431f5c2ecb486f573cd205d787f0b90587ad0  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-16T04:47:59.120Z
+- built_from HEAD: 60269f7620e9c02f83cb377a09b87436da9e45bc  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: 2fa8b1eafdc7a94ce7baadaf5caa5a3d2d50954fa18f8413bf3f08f94c1494b3
     - LORAMER_HANDOFF.md: 441ec131b4e02d18cab2b7b3ca58346fe52f5e6c386a5a59865fca9276d8c101
     - CONTINUE_HERE.md: 9d15ce726eb8b7a0f44cfe0d197d49dc0e8fc1cb571858e2de9b1f960035ecd0
-    - LORAMER_DECISIONS.md: 5408e0de36897141d408037e14134fb944bebe064d2168dea4a5b11bc32ba11c
-    - LORAMER_QUEUE_OF_RECORD.md: ae225f62970ef31c105017ded12099aea4910fb6f22229984276e2e33bcca088
+    - LORAMER_DECISIONS.md: b67cce251e7928b17c04010759932631c8c074b2c71ba9139e373afeed96cf17
+    - LORAMER_QUEUE_OF_RECORD.md: 52cbd4d9e50cab048ce70839debb91d897f1e27c4b99a61bc67ec54d68fcf735
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 35ffaae6d7d773d69062bc49713b6454dbe28a1a4ec1ebd22f2395066b7e73b1
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4b491536357481c7027e01b626e7de5aa8058dd40a9cc2acf156d2f745f63a5b
     - RESUME_INSTRUCTIONS.md: 705cf9569e6775f793dac32776858e3eb03869bb852d6292cdc517ca51d2c786
@@ -508,6 +508,10 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
   | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
   the exact divergence this flight kills. | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
+- [GATE-B PASSED 2026-07-16, RUSS'S OWN EYEBALL ON PROD] LORAMER_SHELL_CLIENT_CONTEXT_V1 verified live, all four checks: the switch BLINK is visible · the NAICS search box CLEARS across a client switch · the value-model forced-choice gate arrives BLANK (not pre-ticked) on fresh clients (Glenn Stearns + Inside) · the Team header FOLLOWS THE URL and changes on switch. The class is dead on the surfaces that carried it. Claude could NOT run this gate — a prod-cookie UI drive is impossible from Claude Code (Lesson 45), so the human eyeball WAS the gate, exactly as the verification laws require. | LORAMER_SHELL_CLIENT_CONTEXT_V1, 2026-07-16 | do not relitigate.
+- [CLOSED 2026-07-16, RUSS] The Champion / Glass Plus value_model ambiguity is RESOLVED: both legitimately hold ['offline-sales','lead'] — Russ confirmed each is CORRECT for that business on its own merits. The identical values written 2 minutes apart in the pre-ticked-gate window were coincidence, not bleed. No cleanup. DO NOT RE-ASK. Claude was right to flag it as undecidable from the data (only Russ could know) and right not to build a re-confirm flow for it. | 2026-07-16 | do not relitigate.
+- [VERIFIED 2026-07-16 — CORRECTS THE "UNSEAL" FRAMING, which was MINE and WRONG] Filling a Meta breadth hole needs NO cursor write. The 6 writers touch sync_state ZERO times (grep), and the 6 thin routes touch it zero times in CODE — their only "reference" is the header comment stating the fact (api/backfill/meta-device/route.ts:4: "STATELESS bounded-range loop … NO cursor / NO sync_state (the drain's rangeLap owns the 'meta_device' cursor)"). backfill_complete=13/13 gates EXACTLY ONE line — drain-registry.ts:155 `if (st?.backfill_complete) return { done: true }` — i.e. the DRAIN's rangeLap ONLY. It does not gate the thin-route path at all. So a hole fill = invoke the existing routes with explicit startDate/endDate. Do NOT write cursors "for consistency": a cursor write would be a lie about what the drain did, and the drain's cursor is correct — it DID reach floor. | LORAMER_META_BREADTH_HOLE_FILL, 2026-07-16 | do not relitigate.
+- [LESSON 2026-07-16, RUSS'S FRAMING — banked at HIS instruction because the error was his and the refutation was code] **(a) THE CURSOR "UNSEAL" NEVER EXISTED.** The G1(b) spec called for a sync_state cursor write to "unseal" meta_device/meta_video (backfill_complete=13/13) before the hole could be filled. It was asserted for hours, carried forward from a prior-session summary, and it was FALSE: the 6 writers touch sync_state ZERO times and the 6 thin routes touch it zero times in CODE — they are STATELESS and take explicit startDate/endDate (api/backfill/meta-device/route.ts:4 says so in its own header). backfill_complete gates EXACTLY ONE line — drain-registry.ts:155, the DRAIN's rangeLap — and nothing on the fill path. The fill needed no cursor write and no new code; it was 78 invocations of routes that already existed. **(b) 33.2s/client/DAY DOES NOT EXTRAPOLATE.** The spec predicted 17 days × 33.2s ≈ 564s/client, "far past the 680s budget", and specced a cron/paging plan around it. MEASURED: the whole 16-day hole cost **98s/client** — because the writers use monthChunks(), so a 16-day range is ONE chunk costing the same CALL COUNT as one day (time_increment=1 returns every day in one report), just more rows. ~3× one day, not 17×. The cron/paging plan was solving a problem that did not exist. **THE RULE: MEASURE, DON'T REASON — AND CHALLENGE THE FRAMING EVERY TIME, INCLUDING RUSS'S.** A spec handed down with confidence is still a hypothesis; both of these were refuted in minutes by reading code and running one dryRun. Inheriting a framing is how a prior session's guess becomes this session's fact — the exact mechanism behind G3 (a doc attesting a FETCH, read as persistence) and G1 (sync_state reading complete over a hole that had no forward writer). | LORAMER_META_BREADTH_HOLE_FILL, 2026-07-16 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - Google 2025-floor clients — confirm forward-only vs new: Inside google(2025-06), Thought Streams google(2025-04), Ennis google(2025-02) — probe pre-2025. src: fleet audit. open(verify) [LC]

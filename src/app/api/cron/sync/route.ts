@@ -437,7 +437,7 @@ export async function GET(request: Request) {
               summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key}: writer status ${status} — ${detail}` })
               continue
             }
-            const written = Number(body?.totalWritten ?? 0)
+            const written = Number(body?.written ?? 0)
             summary.rowsWritten += written
             if (written === 0) {
               console.log(`[cron/sync] client=${client.id} platform=meta ${dim.key} breadth capture: 0 rows (empty, not an error)`)

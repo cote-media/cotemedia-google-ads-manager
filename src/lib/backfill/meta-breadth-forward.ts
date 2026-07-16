@@ -30,6 +30,26 @@ import { runMetaVideoBackfill } from './meta-video-backfill'
 import { runMetaGeoBackfill } from './meta-geo-backfill'
 import { runMetaHourBackfill } from './meta-hour-backfill'
 
+// LORAMER_META_BREADTH_COUNTER_TYPE_V1 — the writer's ACTUAL body shape, declared CLOSED so the COMPILER is the guard.
+// WHY THIS TYPE EXISTS (a real bug, shipped 2026-07-15 in 28f431f, caught only by Gate-B on the real path): the
+// callers read `body?.totalWritten` and got 0 on every dim — 3,494 breadth rows landed and were reported as ZERO.
+// `totalWritten` is the THIN ROUTE's field (it aggregates the writer's `written` across sub-ranges —
+// api/backfill/meta-device/route.ts:67,76); the WRITER returns `written` (meta-device-backfill.ts:196). The Step-2
+// measurement ran through the ROUTE, saw `totalWritten` in its JSON, and the wiring then used the route's field name
+// against the WRITER's body. The data was always correct; the COUNTER lied — the exact "instrument that under-reports"
+// class L63 exists for, and a lying instrument is what this whole session has been about.
+// A CLOSED object type makes that mistake a COMPILE ERROR (`body.totalWritten` → TS2339) instead of a silent 0.
+// This is FIX-WITH-GUARD for this class: a type IS a mechanical check, and unlike a human it cannot forget.
+export type MetaBreadthWriterBody = {
+  /** Rows written by THIS writer call. NOT `totalWritten` — that is the thin route's cross-sub-range aggregate. */
+  written?: number
+  range?: string
+  daysFlagged?: number
+  reconcile?: unknown[]
+  flagged?: unknown[]
+  error?: string
+}
+
 // Structurally identical to drain-registry's RangeWriter (every writer already returns { status, body }); redeclared
 // here rather than exported from there so the forward path takes no dependency on the drain's internals.
 export type MetaBreadthWriter = (
@@ -37,7 +57,7 @@ export type MetaBreadthWriter = (
   startDate: string,
   endDate: string,
   opts: { dryRun?: boolean }
-) => Promise<{ status: number; body: Record<string, any> }>
+) => Promise<{ status: number; body: MetaBreadthWriterBody }>
 
 // key = the log/error label (NOT a breakdown_type — several writers emit more than one family, e.g. 'device' writes
 // both 'device' and 'device_platform'; 'age_gender' writes 'age', 'gender' and 'age_gender').

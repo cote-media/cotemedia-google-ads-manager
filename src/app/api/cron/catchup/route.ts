@@ -484,7 +484,7 @@ export async function GET(request: Request) {
                 summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: writer status ${status} — ${JSON.stringify(body)}` })
                 continue
               }
-              summary.rowsWritten += Number(body?.totalWritten ?? 0)
+              summary.rowsWritten += Number(body?.written ?? 0)
             } catch (dimErr) {
               summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: ${serializeCaughtError(dimErr)}` })
             }
