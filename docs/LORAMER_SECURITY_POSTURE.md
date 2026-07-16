@@ -56,7 +56,7 @@ userOwnsClient (owner-only), inline user_email, listAccessibleClients (owner+mem
 ## 5. Session / auth model
 NextAuth JWT (no DB adapter; encrypted-cookie sessions). Cookie flags = NextAuth defaults (httpOnly · secure prod ·
 sameSite lax). Providers: Google OAuth (adwords scope, offline) + 2 CredentialsProviders — 'reviewer-token' (shared
-REVIEWER_LOGIN_TOKEN → demo account; LEFTOVER from the completed Meta App Review [approved 2026-07-02] — now dead infra, remove in a code flight, see §7.9) + 'shopify-install' (signed JWT). No admin/escalation role.
+REVIEWER_LOGIN_TOKEN → shopify-reviewer@loramer.app — the SHOPIFY reviewer's entry point, NOT a Meta leftover; carries an ONGOING Shopify reviewer-credential obligation, see the CORRECTED §7 item 9) + 'shopify-install' (signed JWT). No admin/escalation role.
 ⚠ session.refreshToken = the Google REFRESH TOKEN is placed on the session → served to the browser via /api/auth/session
 (useSession is on 4 pages). Own-token (not cross-tenant), but a persistent adwords-scope credential in the browser.
 
@@ -96,6 +96,6 @@ FAST-FOLLOW (hardening):
 6. Bind accountId→owned-client on the live-data routes (#18).
 7. query-metrics + /api/backfill/* are CRON_SECRET-only (#19) — keep CRON_SECRET tight/rotated; consider an owner gate.
 8. Extract ONE assertOwnsClient helper, route all gated endpoints through it; delete the dead anon export / de-alias.
-9. REMOVE the reviewer-token credential login — Meta + Shopify review are COMPLETE (both approved 2026-07-02); it is now DEAD infra (a code flight, not a docs change). Google Ads Standard Access is separate + still pending and does NOT use this login.
+9. reviewer-token credential login — STATUS CORRECTED 2026-07-16 (the prior text — "REMOVE … now DEAD infra … both approved 2026-07-02" — was WRONG on three counts; see LORAMER_DECISIONS "SHOPIFY/META TWO DATES" + "REVIEWER-TOKEN LOGIN IS THE SHOPIFY REVIEWER'S ENTRY POINT"). FACTS, no recommendation: (a) DATES — Shopify App Store was approved 2026-05-26 (ROADMAP:30, HANDOFF:464); META was approved 2026-07-02. Two platforms, two dates — the prior text conflated them, and that conflation is what made "both approved ⇒ dead" read cleanly when the facts did not support it. (b) IDENTITY — the reviewer-token provider (auth.ts) returns shopify-reviewer@loramer.app; it is the SHOPIFY reviewer's entry point, NOT a Meta leftover. shopify-reviewer@loramer.app owns LoraMer Demo (efe036b4) + Test 2 (6e5e441b) and the store loramer-reviewer-demo.myshopify.com (refreshed 2026-07-16, refresh token valid to 2026-10-14, kept alive by cron). (c) OBLIGATION — the 2026-07-13 platform-doc check found Shopify requires submitted reviewer test credentials to stay VALID and grant full access to the app's COMPLETE feature set, kept current — an ONGOING obligation that does NOT end at approval. Whether that obligation binds the login, the store, or both is UNVERIFIED — answerable only from Russ's Shopify Partner dashboard. This item removes the false "dead infra" basis and recommends nothing either way. (Google Ads Standard Access is separate + still pending and does NOT use this login.)
 10. resolveAccess on next/layouts client-scoped saves; align Lora's owner-only gate with resolveAccess (member access).
 11. Upgrade next 14.2.3 → latest 14.2.x.
