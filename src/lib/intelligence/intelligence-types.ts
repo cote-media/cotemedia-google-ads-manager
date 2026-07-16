@@ -166,10 +166,11 @@ export interface IntelligenceDemographic {
   metrics: IntelligenceMetrics
 }
 
-// LORAMER_PROJECT_3_STEP_3A_V1
-// Geographic performance from geographic_view. country_criterion_id and
-// location_type are what the API exposes; further resolution to readable
-// country/region names is deferred (Google's geo_target_constant lookup).
+// LORAMER_PROJECT_3_STEP_3A_V1 / LORAMER_GEO_RESOLVE_V1
+// Geographic performance from geographic_view. country_criterion_id + location_type are what the API exposes;
+// criterion ids RESOLVE to readable place names via the geo_target_constant reference — the query_breakdown tool
+// returns geoName + geoCanonicalName. Metro/DMA ids do NOT resolve (not in Google's geotargets CSV) — reported as
+// unresolved codes, never fabricated.
 export interface IntelligenceGeographic {
   campaignId: string
   campaignName: string

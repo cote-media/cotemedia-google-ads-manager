@@ -324,6 +324,14 @@ export type BreakdownRow = {
   // for the canonicalized action_type card ONLY. null = Meta reports none (e.g. view_content/lead). NEVER
   // value÷spend (action_type spend=0). Absent on every other breakdown (carried only when canonicalize+action_type+meta).
   metaRoas?: number | null
+  // LORAMER_GEO_RESOLVE_V1 (geo STEP 2) — GOOGLE geo breakdowns only: the raw `value` stays the geoTargetConstants
+  // id (with any :LOCATION_TYPE suffix); these ADD the resolved place. geoResolved=false = a DMA/metro id Google's
+  // reference does not name (never fabricate a name; the spend is still real). Absent on every non-google-geo row.
+  geoId?: string
+  geoName?: string
+  geoCanonicalName?: string
+  geoLocationType?: string // 'presence' (physically there) | 'interest' (showed interest) | 'unspecified'
+  geoResolved?: boolean
 }
 
 export type QueryBreakdownResult = {
@@ -337,6 +345,49 @@ export type QueryBreakdownResult = {
   note?: string
   nonAdditive?: boolean       // LORAMER_QUERY_NONADDITIVE_V1 — rows are per-entity projections, not summed base metrics
   entityLevel?: string        // video only — which entity grain the rows are scoped to
+}
+
+// LORAMER_GEO_RESOLVE_V1 (geo STEP 2) — resolve GOOGLE geo criterion ids to place names on the topN rows ONLY.
+// Presentation-only: parses the bare id off breakdown_value ("geoTargetConstants/<id>[:<TYPE>]"), KEEPS the raw
+// value + the location_type meaning, ADDS geoName/geoCanonicalName from the geo_target_constant reference (migration
+// 040). A miss (DMA/metro — Google's CSV carries no DMA type) is marked geoResolved:false, never fabricated, never
+// dropped. Numbers are untouched. Appends a note so Lora reads names + presence/interest + unresolved codes correctly.
+const GEO_LOCTYPE: Record<string, string> = { LOCATION_OF_PRESENCE: 'presence', AREA_OF_INTEREST: 'interest' }
+async function resolveGeoRows(result: QueryBreakdownResult, platform: string, bt: string): Promise<void> {
+  if (platform !== 'google' || !(bt.startsWith('geo_') || bt.startsWith('user_geo_')) || result.rows.length === 0) return
+  const parse = (v: string) => {
+    const c = v.indexOf(':')
+    const pre = c >= 0 ? v.slice(0, c) : v
+    const type = c >= 0 ? v.slice(c + 1) : ''
+    const slash = pre.lastIndexOf('/')
+    return { id: slash >= 0 ? pre.slice(slash + 1) : pre, type }
+  }
+  const ids = [...new Set(result.rows.map((r) => parse(r.value).id).filter(Boolean))]
+  const byId = new Map<string, { name: string; canonical: string }>()
+  if (ids.length) {
+    const { data, error } = await supabaseAdmin
+      .from('geo_target_constant')
+      .select('criteria_id, name, canonical_name')
+      .in('criteria_id', ids)
+    if (error) throw new Error('geo_target_constant lookup failed: ' + error.message)
+    for (const g of (data || []) as Array<Record<string, unknown>>) {
+      byId.set(String(g.criteria_id), { name: String(g.name ?? ''), canonical: String(g.canonical_name ?? '') })
+    }
+  }
+  let anyUnresolved = false
+  for (const r of result.rows) {
+    const { id, type } = parse(r.value)
+    r.geoId = id
+    // user_location_view (user_geo_*, no suffix) is the person's PHYSICAL location → 'presence'.
+    r.geoLocationType = type ? (GEO_LOCTYPE[type] || type.toLowerCase()) : (bt.startsWith('user_geo_') ? 'presence' : 'unspecified')
+    const hit = byId.get(id)
+    if (hit) { r.geoName = hit.name; r.geoCanonicalName = hit.canonical; r.geoResolved = true }
+    else { r.geoResolved = false; anyUnresolved = true }
+  }
+  const parts = ['geo rows carry geoName + geoCanonicalName (the place) + geoLocationType (presence = the person was PHYSICALLY there, interest = they showed interest); the raw geoTargetConstants id stays in `value`. Answer with geoName, not the id.']
+  if (anyUnresolved) parts.push("Rows with geoResolved:false are DMA/metro codes Google's geo reference does not name — report them as unresolved DMA codes, NEVER invent a place name; their spend is real.")
+  const z = parts.join(' ')
+  result.note = result.note ? `${result.note} ${z}` : z
 }
 
 export async function queryBreakdown(opts: {
@@ -504,6 +555,7 @@ export async function queryBreakdown(opts: {
       const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }
 
@@ -638,6 +690,7 @@ export async function queryBreakdown(opts: {
     const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
     result.note = result.note ? `${result.note} ${z}` : z
   }
+  await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (all-groups path)
   return result
 }
 

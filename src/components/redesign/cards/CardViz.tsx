@@ -73,7 +73,7 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
               const dl = d.hasCompare ? deltaLabel(val(r), r.cmpRank ?? 0) : null
               return (
                 <tr key={r.value}>
-                  <td>{r.value || '(none)'}</td>
+                  <td>{r.geoName || r.value || '(none)'}</td>{/* LORAMER_GEO_RESOLVE_V1 — show resolved place name; raw geoTargetConstants id stays in r.value */}
                   <td className={styles.numCol}>{money ? fmtMoney(val(r)) : fmtNum(val(r))}</td>
                   {isAction && <td className={styles.numCol}>{fmtMoney(r.conversionValue)}</td>}
                   {d.hasCompare && <td className={`${styles.numCol} ${deltaCls(dl!.dir)}`}>{dl!.text}</td>}
@@ -86,7 +86,7 @@ function BreakdownBody({ clientId, cfg, current, compare }: { clientId: string; 
       </div>
     )
   }
-  const data = rows.map((r) => ({ name: (r.value || '(none)').slice(0, 18), v: val(r) }))
+  const data = rows.map((r) => ({ name: (r.geoName || r.value || '(none)').slice(0, 18), v: val(r) })) // LORAMER_GEO_RESOLVE_V1 — bar label prefers the resolved place name
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ResponsiveContainer width="100%" height="100%">

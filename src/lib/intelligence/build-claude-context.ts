@@ -625,12 +625,15 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`  (Reasoning guide: when combinations exist, the recurring assets across them are what Google is rotating most heavily — that is the working creative pattern. When combinations are empty, do not invent a pattern from the inventory list; instead diagnose using the inline empty-state guidance above. Ad Strength is the upstream lever for asset variety; conversion tracking is the upstream lever for combinations existing at all.)`)
   }
 
-  // LORAMER_PROJECT_3_STEP_3A_V1 — Geographic performance (Claude-context-only)
-  // INTERNAL_GROUNDING (do not narrate to user): geographic_view exposes
-  // country_criterion_id and location_type but NOT readable country/region names.
-  // Resolution against geo_target_constant is deferred. If the user asks "which
-  // states/cities" treat the raw IDs as opaque and answer by location_type
-  // breakdown (e.g. "X% of spend went to physical-location targeting vs interest").
+  // LORAMER_PROJECT_3_STEP_3A_V1 / LORAMER_GEO_RESOLVE_V1 — Geographic performance (Claude-context-only)
+  // INTERNAL_GROUNDING (do not narrate to user): geo criterion IDs NOW RESOLVE to readable place names via the
+  // geo_target_constant reference (loaded from Google's zero-quota geotargets CSV). For NAMED per-place geo — "which
+  // cities / states / ZIPs" — use the query_breakdown tool (breakdownType 'geo' / geo_country / geo_region): it returns
+  // geoName + geoCanonicalName alongside the raw id, plus geoLocationType (presence = the person was physically there,
+  // interest = they showed interest). This live summary below is per-CAMPAIGN and still shows the raw criterion id +
+  // location_type (this builder is synchronous — it does not hit the DB); route "which places" questions through
+  // query_breakdown for names. EXCEPTION: metro/DMA ids do NOT resolve (Google's CSV carries no DMA type) — report
+  // those as unresolved DMA codes, never invent a place name.
   if (platform.geographics && platform.geographics.length > 0) {
     const totalSpend = platform.geographics.reduce((s, g) => s + g.metrics.spend, 0)
     lines.push(`\nGeographic Performance (top by spend, ${platform.geographics.length} rows):`)
