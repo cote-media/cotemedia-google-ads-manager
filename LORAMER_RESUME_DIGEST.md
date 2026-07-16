@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-16T15:54:15.161Z
-- built_from HEAD: 80a6233487e3d769c638ec1a1a3febd2c45eb151  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-16T17:20:40.003Z
+- built_from HEAD: 1d0a9239d730702fa358ae22c7d7f2898720058f  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: f44c26bd57f166afd0507b34c64b796c7eca0263bb2cb26a38cf532626d8a35b
     - LORAMER_HANDOFF.md: c0b7593dcb46fd3029988461199e627ee1a4f82adca43012b2f32f9f8618344e
     - CONTINUE_HERE.md: 229b6136dae8bcf20a77c55cf5b11f3cad905acad17ba04e01b602e8c852f493
-    - LORAMER_DECISIONS.md: 185bcf8027d06a6804f07ef9b6763668a0ddeea2aafbeca94e48546a0b644cb2
-    - LORAMER_QUEUE_OF_RECORD.md: 6cbaac0e4e521bddd1b749940b94b341267dc72c4cbea43086ce30c09f886575
+    - LORAMER_DECISIONS.md: 0f01cf06fadc2428e8b299c374e85fb67716cde582b21c9326af0c10b01dc12e
+    - LORAMER_QUEUE_OF_RECORD.md: 3222ab4721b8765184f8bc79ff354e41d6c483bc7b995703b281331ecaa905f4
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 35ffaae6d7d773d69062bc49713b6454dbe28a1a4ec1ebd22f2395066b7e73b1
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4b491536357481c7027e01b626e7de5aa8058dd40a9cc2acf156d2f745f63a5b
     - RESUME_INSTRUCTIONS.md: ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191
@@ -536,6 +536,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - [RETIRED 2026-07-16] **LESSON 42 — the consent-screen edit freeze — LIFTED.** The freeze existed because an OPEN GA analytics.readonly submission would re-trigger verification on any consent-screen / client-config / secret edit. Nothing is open now (Google OAuth verification CLOSED, above), so the freeze is retired. ⚠ Google Ads STANDARD ACCESS remains PENDING — a SEPARATE application, separate reviewers, unaffected by this closure; the 15k/day Basic dev-token cap still binds until Standard clears. | 2026-07-16 | do not relitigate.
 - [VERIFIED 2026-07-16] **GEO ABSENCE — absence is COMPUTED, never stored.** Zero-activity geos are NEVER captured because platforms never serve them — Google returns zero rows for zero-activity geos (banked 2026-06-28, correct behavior, NOT a false-zero bug). There are no empty geo rows to filter. "Where am I blind" = targeted universe MINUS observed rows, computed at question-time (see QUEUE ★G2.5 geo-absence diagnosis). Do NOT relitigate. | 2026-07-16 | do not relitigate.
 - [LAW 2026-07-16] **META APP REVIEW — APPROVED 2026-07-02. There is no Meta review, no reviewer path, no reviewer surface, no reviewer-driven hold.** Blast radius on shared surfaces is about BLAST RADIUS ALONE — every client, every live surface — never about a reviewer. Any output invoking a Meta reviewer is WRONG and must be corrected on sight. The data-deletion/deauth callback is a permanent PRODUCTION requirement and is NOT a review artifact. | 2026-07-16 | do not relitigate.
+- [LESSON 2026-07-16] **POSTGREST 1000-ROW CAP.** Any PostgREST RPC that returns SETOF (a table / rows) is SILENTLY capped at 1000 rows AND returned UNORDERED — no error, no warning. An aggregation that can exceed 1000 groups MUST return a SINGLE jsonb array (the groups live inside one scalar row, where the row cap cannot bite). Caught in G2 2A Gate-A by a distinct-count mismatch (1000 vs 3169): a top-N over a silently-truncated, unordered set is a WRONG ANSWER THAT LOOKS RIGHT. The SETOF→jsonb return-type change needs DROP+CREATE, not CREATE OR REPLACE. | LORAMER_BREAKDOWN_SQL_AGG_V1, 2026-07-16 | do not relitigate.
+- [DECISION 2026-07-16] **SQL-SIDE BREAKDOWN AGGREGATION = the scoped RPC `query_breakdown_agg`** (migration 038): a client-anchored GROUP BY on idx_metrics_daily_client_platform_bt_level_date, returning a jsonb array of (breakdown_value, parent_entity_id, sums); the JS layer keeps entity-level scope + canonicalize + sort + value-ASC tiebreak + topN + notes, so it stays byte-identical to the cent. PostgREST `db-aggregates-enabled` was REJECTED — it opens aggregate surface on EVERY table for EVERY caller to solve one query. Do NOT raise again. | LORAMER_BREAKDOWN_SQL_AGG_V1, 2026-07-16 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - Google 2025-floor clients — confirm forward-only vs new: Inside google(2025-06), Thought Streams google(2025-04), Ennis google(2025-02) — probe pre-2025. src: fleet audit. open(verify) [LC]

@@ -441,40 +441,44 @@ export async function queryBreakdown(opts: {
   const carryRoas = !!opts.canonicalize && bt === 'action_type' && platform === 'meta'
   type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; metaRoas?: number | null; metaRoasDate?: string }
   const byValue = new Map<string, Agg>()
-  const PAGE = 1000
-  let from = 0
-  for (;;) {
-    let q = supabaseAdmin
-      .from('metrics_daily')
-      .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue' + (carryRoas ? ', date, extra' : '')) // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — date+extra fetched ONLY when carrying Meta ROAS; byte-identical select for every other breakdown
-      .eq('client_id', opts.clientId)
-      .eq('platform', platform)
-      .eq('breakdown_type', bt) // NEVER '' — base rows are physically excluded (double-count guard)
-      .eq('entity_level', level) // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — one level only (coarsest present / override); no cross-level double-count
-      .gte('date', startDate)
-      .lte('date', endDate)
-      .range(from, from + PAGE - 1)
-    if (opts.parentEntityId) q = q.eq('parent_entity_id', opts.parentEntityId)
-    if (opts.entityId) q = q.eq('entity_id', opts.entityId)
-    const { data, error } = await q
-    if (error) throw new Error('metrics_daily breakdown query failed: ' + error.message)
-    const rows = data || []
-    for (const r of rows) {
-      const row = r as unknown as Record<string, unknown> // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — via unknown: the conditional `extra`/`date` select makes supabase-js infer GenericStringError; runtime-identical cast
-      const value = String(row.breakdown_value ?? '')
-      let agg = byValue.get(value)
-      if (!agg) {
-        agg = { value, parents: new Set<string>(), spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0 }
-        byValue.set(value, agg)
-      }
-      if (row.parent_entity_id) agg.parents.add(String(row.parent_entity_id))
-      agg.spend += Number(row.spend || 0)
-      agg.impressions += Number(row.impressions || 0)
-      agg.clicks += Number(row.clicks || 0)
-      agg.conversions += Number(row.conversions || 0)
-      agg.conversionValue += Number(row.conversion_value || 0)
-      agg.revenue += Number(row.revenue || 0)
-      if (carryRoas) {
+  if (carryRoas) {
+    // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — carryRoas (canonicalize + action_type + meta) KEEPS the row-paging
+    // aggregation UNCHANGED. It is low-cardinality (Meta action_type ~dozens of values) so it never hits the
+    // paging-timeout class, and it preserves the MOST-RECENT-day Meta ROAS per value EXACTLY — that value is
+    // per-row (date + extra), not derivable from a SQL sum, so it stays on the row path.
+    const PAGE = 1000
+    let from = 0
+    for (;;) {
+      let q = supabaseAdmin
+        .from('metrics_daily')
+        .select('breakdown_value, parent_entity_id, spend, impressions, clicks, conversions, conversion_value, revenue, date, extra')
+        .eq('client_id', opts.clientId)
+        .eq('platform', platform)
+        .eq('breakdown_type', bt) // NEVER '' — base rows are physically excluded (double-count guard)
+        .eq('entity_level', level) // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — one level only (coarsest present / override)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .range(from, from + PAGE - 1)
+      if (opts.parentEntityId) q = q.eq('parent_entity_id', opts.parentEntityId)
+      if (opts.entityId) q = q.eq('entity_id', opts.entityId)
+      const { data, error } = await q
+      if (error) throw new Error('metrics_daily breakdown query failed: ' + error.message)
+      const rows = data || []
+      for (const r of rows) {
+        const row = r as unknown as Record<string, unknown>
+        const value = String(row.breakdown_value ?? '')
+        let agg = byValue.get(value)
+        if (!agg) {
+          agg = { value, parents: new Set<string>(), spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0 }
+          byValue.set(value, agg)
+        }
+        if (row.parent_entity_id) agg.parents.add(String(row.parent_entity_id))
+        agg.spend += Number(row.spend || 0)
+        agg.impressions += Number(row.impressions || 0)
+        agg.clicks += Number(row.clicks || 0)
+        agg.conversions += Number(row.conversions || 0)
+        agg.conversionValue += Number(row.conversion_value || 0)
+        agg.revenue += Number(row.revenue || 0)
         // Meta-REPORTED ROAS only (purchase_roas, else website_purchase_roas); NEVER value/spend (spend=0). ROAS is
         // a ratio = non-additive → keep the MOST-RECENT day's value in-window (mirrors the impression_share posture).
         const ex = (row.extra || {}) as Record<string, unknown>
@@ -483,9 +487,38 @@ export async function queryBreakdown(opts: {
         const dt = String(row.date ?? '')
         if (roas != null && Number.isFinite(roas) && dt >= (agg.metaRoasDate || '')) { agg.metaRoas = roas; agg.metaRoasDate = dt }
       }
+      if (rows.length < PAGE) break
+      from += PAGE
     }
-    if (rows.length < PAGE) break
-    from += PAGE
+  } else {
+    // LORAMER_QUERY_BREAKDOWN_SQL_AGG_V1 — SQL-side GROUP BY (migration 038: public.query_breakdown_agg). Postgres
+    // sums the (client, platform, breakdown_type, level, window) slice grouped by (breakdown_value,
+    // parent_entity_id) on idx_metrics_daily_client_platform_bt_level_date; ONLY the aggregated groups cross the
+    // wire (not the raw rows), so the row ceiling stops being the client's problem (search_term 12mo: ~37 JS
+    // pages / ~18s → one indexed GROUP BY, ~9ms). Sums are EXACT numeric (vs the JS-float paging) → results match
+    // the pre-change path to the cent. Parent-set logic preserved: SQL groups BY parent, JS merges across parents
+    // per value + tracks the distinct non-empty parents (parents.size===1 → parentEntityId), byte-identical.
+    const { data, error } = await supabaseAdmin.rpc('query_breakdown_agg', {
+      p_client_id: opts.clientId, p_platform: platform, p_breakdown_type: bt, p_entity_level: level,
+      p_start: startDate, p_end: endDate,
+      p_parent_entity_id: opts.parentEntityId || null, p_entity_id: opts.entityId || null,
+    })
+    if (error) throw new Error('query_breakdown_agg RPC failed: ' + error.message)
+    for (const g of (data || []) as Array<Record<string, unknown>>) {
+      const value = String(g.breakdown_value ?? '')
+      let agg = byValue.get(value)
+      if (!agg) {
+        agg = { value, parents: new Set<string>(), spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, revenue: 0 }
+        byValue.set(value, agg)
+      }
+      if (g.parent_entity_id) agg.parents.add(String(g.parent_entity_id))
+      agg.spend += Number(g.spend || 0)
+      agg.impressions += Number(g.impressions || 0)
+      agg.clicks += Number(g.clicks || 0)
+      agg.conversions += Number(g.conversions || 0)
+      agg.conversionValue += Number(g.conversion_value || 0)
+      agg.revenue += Number(g.revenue || 0)
+    }
   }
 
   result.distinctValueCount = byValue.size
