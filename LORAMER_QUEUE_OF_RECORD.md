@@ -150,7 +150,7 @@ Governing law: capture EVERYTHING from EVERYWHERE, store FOREVER, full grain + h
 - GA page-level capture (pagePath/landingPage × views/sessions/engagement/conversions/day) → metrics_daily + query_metrics. src: AUDIT 2026-06-18. open [LC]
 - Shopify deep re-backfill to full history (read_all_orders now granted on Foam OH; Influential+Escential still 3-scope — re-auth) — corrects #6 cancelled-history for free; no false-zeros. src: AUDIT#6/#7, inventory §6, LAUNCH_PARKING. open [LC]
 - Shopify dimensional re-backfill beyond 60-day wall (wall lifted on re-auth). src: inventory §6. open [LC]
-- Drop Woo top-10 product cap also in the captured-READ display (woocommerce-intelligence.ts:228-230) — frozen reviewer surface, post-Meta. src: this-session 1a notes. open(frozen) [EXT]
+- Drop Woo top-10 product cap also in the captured-READ display (woocommerce-intelligence.ts:228-230) — live-path shared read-path change (Meta approved; no freeze), do with graduated care. src: this-session 1a notes. open [EXT]
 - Per-platform revenue-basis tooltips (authoritative wording — Shopify subtotal-excl, Woo incl-shipping/tax-prorata; reflect stored extra.netBasis). src: ROADMAP §Revenue-basis-tooltips. open [LC]
 
 ═══════════════════════════════════════════════════════════════════

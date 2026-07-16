@@ -1,5 +1,7 @@
 # Meta App Review — answer pack (`ads_read`)
 
+> ⚠ ARCHIVED / HISTORICAL RECORD — Meta App Review was APPROVED 2026-07-02. This is the submitted answer pack, kept for the record. There is NO active Meta review, no reviewer path, no reviewer-driven hold; blast radius on shared surfaces is about BLAST RADIUS ALONE (see LORAMER_DECISIONS "META APP REVIEW — APPROVED"). The data-deletion/deauth callback referenced below is a permanent PRODUCTION requirement, not a review artifact.
+
 Where: Meta App Dashboard → App Review → Permissions and Features → request
 `Ads Read` (and see the SCOPE DECISION below re: `business_management`).
 Purpose: get the permissions approved + flip the app Development → Live so the

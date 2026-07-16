@@ -101,17 +101,17 @@ Overview-first home, Channels group [SHIPPED], Mer, MER/blended viz, profit laye
 
 OPERATING MODEL — BUILD-DARK BEHIND A PER-USER PREVIEW GATE (set 2026-06-18)
 
-Constraint: the Meta App Review reviewer signs in as demo@loramer.com at app.loramer.com and must see UI identical to the submitted screencast (sign-in → /clients cards → +Meta connect → blue Meta pill → dashboard Meta tab → Ask Lora). The reviewer-path UI freeze ("no visual changes that diverge from the screencast") covers the shared app shell, /clients, the Meta connect flow, the dashboard Meta tab, and Ask-Lora's Meta answer.
+Constraint (RETIRED — Meta App Review APPROVED 2026-07-02; there is no reviewer and no screencast-match freeze): historically the redesign avoided diverging the shared app shell, /clients, the Meta connect flow, the dashboard Meta tab, and Ask-Lora's Meta answer from the submitted screencast. That hold is GONE; changes to those LIVE surfaces are now governed by BLAST RADIUS (shared read-path, every client), never a reviewer.
 
 Model: the entire redesign is built in production but DARK, rendered ONLY for an allowlist of Russ's own accounts (a per-user gate). demo@loramer.com and every non-allowlisted user see the CURRENT screencast-matching UI. Russ signs in as himself → sees the full redesign with real client data. No OAuth/consent/domain config is touched (the gate is purely application-level), so the preview cannot disturb the Google or Meta reviews.
 
-Discipline: the redesign is built as NEW, ISOLATED components gated by the preview flag; current production components are NOT refactored in place until flip day, so the live reviewer path stays byte-identical and instantly revert-safe. Default is always the OLD UI; the allowlist is an explicit positive list; any gate failure falls back to OLD UI.
+Discipline: the redesign is built as NEW, ISOLATED components gated by the preview flag; current production components are NOT refactored in place until flip day, so the live production path stays byte-identical and instantly revert-safe. Default is always the OLD UI; the allowlist is an explicit positive list; any gate failure falls back to OLD UI.
 
-Go-live: flipping the redesign ON for everyone is META-GATED — only after Meta App Review approval, never before. If Meta has not cleared by July 14, soft launch runs on the current UI and the redesign flips the day approval lands. Building dark does not change this; it ensures the redesign is DONE and ready to flip.
+Go-live: Meta App Review is APPROVED (2026-07-02), so the flip is NO LONGER Meta-gated — it is gated on -next feature parity (chat + drill) per LORAMER_NEXT_TO_LIVE_AUDIT_V1. Building dark ensures the redesign is DONE and ready to flip.
 
-DO-NOT-CROSS until Meta clears: any visible change to the LIVE /clients, the Meta connect flow, the dashboard Meta tab, or Ask-Lora's Meta answer for non-allowlisted users.
+LIVE-PATH (Meta cleared 2026-07-02 — no longer a DO-NOT-CROSS): visible changes to the LIVE /clients, the Meta connect flow, the dashboard Meta tab, or Ask-Lora's Meta answer are now allowed with graduated care (blast radius: every client).
 
-Clean rule: until Meta clears, ship ONLY backend/data/invisible work LIVE; ALL UI builds behind the preview gate. No per-screen guesswork.
+Clean rule (Meta cleared 2026-07-02): live UI changes are allowed with graduated care; -next stays the primary build target and preview-gated until parity. No per-screen guesswork.
 
 ---
 
@@ -119,7 +119,7 @@ Clean rule: until Meta clears, ship ONLY backend/data/invisible work LIVE; ALL U
 
 QUEUE SORT — SHIP-NOW-LIVE vs BUILD-DARK (set 2026-06-18)
 
-SHIP-NOW-LIVE (backend / data / capture / investigation — invisible to the reviewer):
+SHIP-NOW-LIVE (backend / data / capture / investigation — invisible to end users):
 - Auto-backfill-on-connect ENGINE (cron sweep + 'pending' cursor; the UI control builds dark).
 - Flight-2 #9 — more Meta data: the CAPTURE half (adapters / metrics_daily columns / intelligence). Display half builds dark.
 - Flight-2 #4 — Shopify month-view perf (live-fetch-vs-metrics_daily / missing index). GO so long as no visual change.
@@ -129,14 +129,14 @@ SHIP-NOW-LIVE (backend / data / capture / investigation — invisible to the rev
 - Carry-overs: token-dedup hardening; WS1b-2 cron alert+prune; write-boundary chokepoint extension.
 - Stripe Phase 6 go-live (external lead-time; not UI-frozen).
 
-BUILD-DARK (all UI — behind the per-user preview gate; flips on Meta approval):
+BUILD-DARK (all UI — behind the per-user preview gate; flips when -next reaches parity — Meta approved 2026-07-02, so the flip is parity-gated, not Meta-gated):
 - The full mockup: app shell / rail / client switcher; Overview (drag-reorder Top stats, open-to-drill Channels cards, Add section, Save view) = Project 18; channel drill-down shell + sub-tabs; the "one picture" viz (MER, revenue-by-source, full funnel, profit layer) = the moat; Lora "reads the unified picture" card; Mer destination.
 - Flight-2 #7 — Overview-as-default (folds into new shell).
 - Flight-2 #3 — mobile path to /clients (folds into new nav).
 - hasBoth per-connection nav fix (explicitly frozen) — folds into new nav.
 - Meta-pill routing fix (explicitly frozen).
 - TOP OF QUEUE 2 — Budget-utilization fix, daily vs lifetime (explicitly frozen; Meta tab).
-- Flight-2 #2 — Lora content bleed / table overflow, mobile + desktop (Lora is on the reviewer path).
+- Flight-2 #2 — Lora content bleed / table overflow, mobile + desktop (Lora is on the live path).
 - Flight-2 #9 display half (Meta conversions / ROAS display).
 - Flight-2 #5 — Shopify graph day/week/month toggle.
 - Flight-2 #1 + #6 — backfill progress meter + auto-continue UI.

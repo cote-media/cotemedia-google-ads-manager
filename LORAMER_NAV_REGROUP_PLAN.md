@@ -5,7 +5,7 @@ Design + plan owner for the left-nav / channel-rail regroup (branch `nav-regroup
 ## Status
 - SHIPPED (LORAMER_NAV_REGROUP_V1, 2026-06-06): Channels group in the rail (dynamic per connected source); Campaigns + Keywords demoted from top-level to in-channel tabs.
 - OPEN VIOLATION: the channel-rail pushes the Google and Meta rail items only inside the `hasBoth` (hasGoogle && hasMeta) branch, so single-ad-platform clients (e.g. Meta-only) get no standalone platform tab. ROADMAP marks "dynamic per connected source, scales to N" as done — treat that as PARTIAL until this gate is removed.
-- HELD: reviewer-path UI freeze (until the Meta decision). No build until then.
+- UNBLOCKED (Meta APPROVED 2026-07-02 — no freeze): a live-path shared-UI change; build with graduated care (blast radius: every client).
 
 ## DESIGN INVARIANT — per-connection nav visibility (decided 2026-06-17)
 A platform's visibility in nav/rail depends on exactly ONE condition: whether the client has connected it. Every connected platform gets its own nav entry, unconditionally. No rule may hide a platform a customer brought in — no `hasBoth`-style gates, no "show X only if Y". Test for any nav rule: does it ever hide a connected platform? If yes, it is wrong. Combination-aware logic is permitted ONLY to ADD aggregate/cross-platform views (e.g. a blended Google+Meta "Combined" view that appears only with 2+ ad platforms) — never to gate individual platform visibility. Per the IA direction, per-connection visibility lives at the secondary (within-client) platform selector; top-level nav stays scoped to clients + cross-cutting surfaces, so the model scales to any number of platform combinations.

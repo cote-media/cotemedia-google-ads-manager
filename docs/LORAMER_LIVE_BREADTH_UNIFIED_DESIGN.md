@@ -2,7 +2,7 @@
 <!-- LORAMER_LIVE_BREADTH_UNIFIED_DESIGN_V1 -->
 
 STATUS: ACTIVE design of record for the Live + Breadth workstream (locked 2026-06-26). This doc encodes
-DECISIONS, not options. It is freeze-safe: it touches no reviewer-path/live code and no -next UI. Build
+DECISIONS, not options. It is backend/docs-only: it touches no live code and no -next UI. Build
 follows the phase order in §11; every build step obeys the standing project rules (Gate A, freeze posture,
 docs-with-code). Ground-truth facts this rests on are in the Appendix (all VERIFIED by repo/DB read 2026-06-26).
 
@@ -119,9 +119,9 @@ one model without weakening the provability that is LoraMer's moat.
   (continuous polling hits it; on-demand fine); Woo = no live path.
 
 ## 10. FREEZE POSTURE
-- `/api/intelligence` reshape + 15-min cache retirement = FREEZE-GATED (it feeds the FROZEN reviewer path) →
-  post-Meta-decision ONLY.
-- ALL new UI targets `-next` (the live app is frozen until the Meta decision).
+- `/api/intelligence` reshape + 15-min cache retirement = handle with graduated care (it feeds the live shared read-path;
+  Meta approved 2026-07-02 — no freeze).
+- ALL new UI targets `-next` (the live app is no longer frozen — Meta approved 2026-07-02; -next stays the primary build target).
 - Keep live pulls OFF the cron window (~08:45 UTC sync/catchup band; the drain crons already avoid it).
 - Backend writers/primitives/new stores are freeze-safe and may proceed before unfreeze.
 

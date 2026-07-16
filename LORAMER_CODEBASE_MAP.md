@@ -30,7 +30,7 @@ A Next.js business-intelligence app for marketing agencies and store owners. The
 - `/clients` — client management: clients grid, connection rows per platform, backfill controls, the "Mer" client deep-dive surface
 - `/billing` — plan & billing: current tier, annual/monthly toggle, self-serve upgrade cards → Stripe Checkout, post-Checkout success polling (waits for the webhook to flip the tier). Linked from the dashboard account menu
 - `/install/complete` — landing page after a Shopify-initiated app-store install
-- `/reviewer-login` — app-store reviewer bypass login
+- `/reviewer-login` — app-store reviewer bypass login (LEFTOVER from the completed review, approved 2026-07-02; dead infra, removable in a code flight)
 - `/privacy`, `/terms` — legal pages (these keep the Anthropic/Claude engine credit verbatim)
 
 ## API routes

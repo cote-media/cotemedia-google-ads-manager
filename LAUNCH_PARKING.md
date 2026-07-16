@@ -36,13 +36,13 @@ CURRENT STATE: Shelley Kyle backfill captured 2018-12-13 → 2026-06-15 (~7.5yr,
 
 **PRE-LAUNCH AUDIT (light, managed-API hygiene):** confirm the Google Ads / Meta / Shopify / GA adapters back off cleanly on HTTP 429 and don't burst (these are the robust MANAGED class — overload = clean 429/backoff, not a customer outage — so standard rate-limit hygiene is sufficient here).
 
-## 🟡 POST-META-APPROVAL UI BATCH — backfill completeness semantics + Woo Phase 2b trigger (reviewer-path UI, FROZEN until the Meta decision)
+## 🟢 UI BATCH (UNBLOCKED — Meta APPROVED 2026-07-02) — backfill completeness semantics + Woo Phase 2b trigger (live-path shared UI; ship with graduated care)
 
-Ship together in the post-Meta-approval UI batch (all touch reviewer-path shared UI; bundle with the Meta breakdowns/completeness-label item, AUDIT_FINDINGS #4):
+Ship together as one UI batch (all touch live-path shared UI; bundle with the Meta breakdowns/completeness-label item, AUDIT_FINDINGS #4):
 - [ ] **Step 1 — read-only investigation**: the backfill "complete" predicate across platforms + Shelley's Meta cursor state; document where "complete" is computed/surfaced and what it currently means.
 - [ ] **Step 2 — completeness-semantics fix (platform-general)**: "complete" should mean "reached the max RETRIEVABLE history" (not a fixed floor); surface the first-activity date; show "Resume" ONLY when genuinely incomplete. Avoid implying a store has no older data when the source simply won't serve it.
 - [ ] **Step 3 — Woo Phase 2b UI trigger**: run-backfill Woo branch + BackfillControl mount on the Woo connection row (gated behind the HARD GATE above for live stores).
-Reason parked: reviewer-path shared UI is frozen until the Meta decision; these change what the reviewer sees.
+Reason parked (RESOLVED 2026-07-02): the Meta freeze is retired (approved). These are now unblocked live-path shared-UI changes — ship with graduated care (blast radius: every client).
 
 ---
 
@@ -88,7 +88,7 @@ Project 3 Step 2 (a-f) shipped end-to-end this session. All six sub-steps deploy
 <!-- LORAMER_PARK_UPLOAD_MALWARE_V1 -->
 ### Uploads — best-practice malware scanning + final security review (POST-FREEZE)
 Decided 2026-06-18 (Russ). Launch ships the Knowledge-store security FLOOR; managed malware scanning is the
-first hardening step once the Meta App Review freeze lifts, before the wider Q4 opening.
+first hardening step (the Meta App Review freeze has LIFTED — approved 2026-07-02), before the wider Q4 opening.
 
 Already in place at launch (the floor):
 - Magic-byte / content validation (not extension), 25 MB cap, parse timeouts (zip-bomb / DoS guard)

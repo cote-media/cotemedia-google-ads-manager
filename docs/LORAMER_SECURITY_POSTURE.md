@@ -2,8 +2,8 @@
 
 STATUS: current-state MAP from the 2026-06-29 read-only security audit. PROGRESS 2026-06-29 (LORAMER_SAFE_SECURITY_FIXES_V1):
 FIX 1 (remove /api/test) CODE-RESOLVED; FIX 2 (NEXTAUTH_SECRET) + FIX 3 (demo@ MCC) = RUSS CONSOLE ACTIONS pending
-(exact steps in §7); the refresh-token-in-session + token-column-encryption items remain the POST-META auth-path flight
-(they touch the live reviewer auth — not a casual edit). This doc is the system-of-record; re-audit on any auth/route/
+(exact steps in §7); the refresh-token-in-session + token-column-encryption items remain a live-auth-path flight
+(they touch the shared live auth surface — care because of blast radius across every user, NOT a review; Meta App Review was APPROVED 2026-07-02 and no longer gates them). This doc is the system-of-record; re-audit on any auth/route/
 token change. Multi-tenant app holding 18+ clients' Google/Meta/Shopify/GA OAuth tokens + Stripe + ad data.
 All access/token/grant removals are subject to the DESTRUCTIVE-ACTION GATE (DECISIONS) — verify why-it-exists before recommending.
 
@@ -56,7 +56,7 @@ userOwnsClient (owner-only), inline user_email, listAccessibleClients (owner+mem
 ## 5. Session / auth model
 NextAuth JWT (no DB adapter; encrypted-cookie sessions). Cookie flags = NextAuth defaults (httpOnly · secure prod ·
 sameSite lax). Providers: Google OAuth (adwords scope, offline) + 2 CredentialsProviders — 'reviewer-token' (shared
-REVIEWER_LOGIN_TOKEN → demo/reviewer account) + 'shopify-install' (signed JWT). No admin/escalation role.
+REVIEWER_LOGIN_TOKEN → demo account; LEFTOVER from the completed Meta App Review [approved 2026-07-02] — now dead infra, remove in a code flight, see §7.9) + 'shopify-install' (signed JWT). No admin/escalation role.
 ⚠ session.refreshToken = the Google REFRESH TOKEN is placed on the session → served to the browser via /api/auth/session
 (useSession is on 4 pages). Own-token (not cross-tenant), but a persistent adwords-scope credential in the browser.
 
@@ -68,18 +68,18 @@ export (supabase.ts:8) is DEAD (imported nowhere). next@14.2.3 is behind the 14.
 no middleware auth); upgrade fast-follow.
 
 ## 7. GAP LIST
-LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAUTH_SECRET = Russ console action · demo@ RECLASSIFIED (HOLD-not-remove; the real fix is #18, fast-follow) · refresh-token-in-session = post-Meta. → 1 done · 1 Russ-action · 2 sequenced; NONE requires demo@ removal.
-1. [POST-META] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
-   callback; live routes read DB google_tokens / getToken() server-side. Touches the LIVE reviewer auth path → sequence
-   post-Meta / with extreme care, NOT a casual edit.
+LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAUTH_SECRET = Russ console action · demo@ RECLASSIFIED (HOLD-not-remove; the real fix is #18, fast-follow) · refresh-token-in-session = now unblocked (Meta approved). → 1 done · 1 Russ-action · 2 sequenced; NONE requires demo@ removal.
+1. [UNBLOCKED — Meta approved 2026-07-02] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
+   callback; live routes read DB google_tokens / getToken() server-side. Touches the shared LIVE auth path → sequence
+   with extreme care because of blast radius (every user), NOT because of any review.
 2. [HOLD — do NOT remove; CORRECTED 2026-06-29] demo@'s MCC access is LOAD-BEARING, NOT a stray grant. It is a
    deliberate READ-ONLY MCC grant (the 2026-06-10 onboarding workaround) and demo@loramer.com is the PERMANENT test
    fixture for onboarding shape (b) direct-grant single-account business owner (LAUNCH_PARKING / LORAMER_ONBOARDING_
    IDENTITY_MATRIX_V1). HOLD for two reasons: (1) the Google Ads API Tool Change Form (submitted ~2026-06-10) was filed
    with demo@ connected to a client as the working integration demo and is STILL PENDING a reply — revoking demo@'s MCC
    access mid-review could undercut the very submission under review; (2) the MCC-revoke is a LAUNCH-PARKING test-gated
-   step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Does NOT affect Meta
-   review (demo@ reviews Meta, separate from Google). ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
+   step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Meta App Review is COMPLETE
+   (approved 2026-07-02) and is NOT the pending item here — this caution is the GOOGLE Standard Access application only. ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
    bind accountId→owned-client, which is what lets ANY MCC identity (not just demo@) read any child account. Binding
    accountId→owned-client (FAST-FOLLOW CODE — item 6 below) closes the hole WITHOUT touching demo@. So: demo@ MCC access
    = HOLD (load-bearing); #18 accountId-binding = the actual remediation.
@@ -96,6 +96,6 @@ FAST-FOLLOW (hardening):
 6. Bind accountId→owned-client on the live-data routes (#18).
 7. query-metrics + /api/backfill/* are CRON_SECRET-only (#19) — keep CRON_SECRET tight/rotated; consider an owner gate.
 8. Extract ONE assertOwnsClient helper, route all gated endpoints through it; delete the dead anon export / de-alias.
-9. Rotate/disable the reviewer-token credential login after Meta + Shopify review.
+9. REMOVE the reviewer-token credential login — Meta + Shopify review are COMPLETE (both approved 2026-07-02); it is now DEAD infra (a code flight, not a docs change). Google Ads Standard Access is separate + still pending and does NOT use this login.
 10. resolveAccess on next/layouts client-scoped saves; align Lora's owner-only gate with resolveAccess (member access).
 11. Upgrade next 14.2.3 → latest 14.2.x.

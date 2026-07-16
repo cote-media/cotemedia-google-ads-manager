@@ -15,12 +15,12 @@ Build the COMPLETE new frontend + read/presentation layer (`/api/next/*`) **dark
 on the **existing shared backend** (same Supabase data, same capture/backfill/token machinery), and **cut over**
 to it as the default app once:
 
-- Meta App Review is approved, AND
+- Meta App Review is approved (✅ DONE 2026-07-02 — this precondition is met), AND
 - Google Ads permissible-use is flipped to external (see CONTINUE_HERE date-gated item 3), AND
 - -next **parity** is verified on desktop AND mobile.
 
 -next is not a rewrite of the product — it is a new presentation of the same system of record. The current app
-stays the live reviewer + customer app until the cutover; -next replaces it only when it is at least at parity
+stays the live customer app until the cutover; -next replaces it only when it is at least at parity
 and the approvals are in.
 
 ---
@@ -43,7 +43,7 @@ frontends during the window.
 
 ## 3. FREEZE-SAFETY INVARIANT
 
-Never modify the frozen reviewer surfaces or their backing routes:
+Never casually modify the live production surfaces or their backing routes (Meta approved 2026-07-02 — no reviewer freeze; the caution now is BLAST RADIUS on shared live surfaces, every client):
 
 - Frozen UI: current `/dashboard`, `/clients`, the connect flows, the dashboard Meta tab.
 - Frozen routes: the **20 owner-gate files / 58 `.eq('user_email', session.user.email)` sites**, including
@@ -52,8 +52,8 @@ Never modify the frozen reviewer surfaces or their backing routes:
 
 ALL -next work = **new routes + new components + additive migrations behind the preview gate.** Because the
 owner-gate files stay byte-identical and `client_members` is empty until a real invite, the system behaves
-exactly as today until cutover. **Freeze-safe by construction** — no reviewer surface diverges from the
-screencast.
+exactly as today until cutover. **Additive / revert-safe by construction** — no live production surface diverges
+from the current app.
 
 ---
 
@@ -116,7 +116,7 @@ FLIP:
 4. THEN retire the old app — only after the monitoring window is clean.
 
 ROLLBACK: revert the default-route swap → the old/frozen app is instantly the live app again. The old app stays
-fully functional as the reviewer + customer app right up to (and after) cutover, as the safety net.
+fully functional as the customer app right up to (and after) cutover, as the safety net.
 
 DECOUPLE FROM JULY-14 LAUNCH: the **current app is the launch vehicle and safety net** for the founding cohort.
 -next flips **when ready — at or after launch**, never as a launch dependency. The soft launch must not wait on
@@ -151,7 +151,7 @@ built once, never owner-only-then-rewritten:
 ## 7. DECISIONS K1–K5 (recommended calls — PENDING RUSS CONFIRM)
 
 - **K1 — knowledge route.** EDIT `/api/knowledge` in place to be resolveAccess-aware. It's new this session,
-  -next-only, zero reviewer coupling → editing it avoids a needless clone. **RECOMMEND: edit-in-place.**
+  -next-only, zero live-app coupling → editing it avoids a needless clone. **RECOMMEND: edit-in-place.**
   *(PENDING RUSS CONFIRM)*
 - **K2 — chat threads.** Per-actor member threads: a member's Lora chats are keyed to HER email; the shared
   brain (Rules/Facts/context/knowledge) stays owner-keyed and shared. Additive (no migration). **RECOMMEND:
@@ -161,7 +161,7 @@ built once, never owner-only-then-rewritten:
 - **K4 — grant scope.** Per-client only first (the `client_members` table); agency-wide "all my clients" grant
   deferred to a later increment. **RECOMMEND: per-client.** *(PENDING RUSS CONFIRM)*
 - **K5 — freeze reading.** New `/api/next/*` + a new table + the 20 owner-gate files byte-identical = freeze-safe
-  by the letter (no reviewer surface changes). **AGREE; Russ to confirm acceptance.** *(PENDING RUSS CONFIRM)*
+  by the letter (no live production surface changes). **AGREE; Russ to confirm acceptance.** *(PENDING RUSS CONFIRM)*
 
 ---
 
