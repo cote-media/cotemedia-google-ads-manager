@@ -12,10 +12,10 @@
     "line_count": 849
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "0f01cf06fadc2428e8b299c374e85fb67716cde582b21c9326af0c10b01dc12e",
+    "content_hash": "488d1473d9932d124920bc63c5a37c997137f25b0c7a1d9bf4c9c845fea82607",
     "last_reconciled_date": "2026-07-16",
-    "last_reconciled_head": "1d0a923",
-    "line_count": 448
+    "last_reconciled_head": "c120e19",
+    "line_count": 451
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "f44c26bd57f166afd0507b34c64b796c7eca0263bb2cb26a38cf532626d8a35b",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "3222ab4721b8765184f8bc79ff354e41d6c483bc7b995703b281331ecaa905f4",
+    "content_hash": "241c80fe1a054efdf2f3b05ff686a4b72ccc949ba0ed4776ce00396ceb489bf0",
     "last_reconciled_date": "2026-07-16",
-    "last_reconciled_head": "1d0a923",
-    "line_count": 430
+    "last_reconciled_head": "c120e19",
+    "line_count": 431
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "faafb4a35b74c20de82a5a84e000973a5bc785078a0e3f32defa40060e15c72b",
+    "content_hash": "29290f436b279cdd01dd42214b27680fb0a425cdb34ef7b758317d6b35d41a7f",
     "last_reconciled_date": "2026-07-16",
-    "last_reconciled_head": "1d0a923",
-    "line_count": 843
+    "last_reconciled_head": "c120e19",
+    "line_count": 846
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -264,10 +264,10 @@
     "line_count": 93
   },
   "docs/LORAMER_LORA_SPEC.md": {
-    "content_hash": "a711128768ec5b996bc6ee54bab76594bc6b4499093a02a930a910867d8ad73d",
-    "last_reconciled_date": "2026-07-15",
-    "last_reconciled_head": "355a17d",
-    "line_count": 64
+    "content_hash": "f2ed91269e9e820867f6097bb16cc08818ecab4362c8079b1136a812d1155ddd",
+    "last_reconciled_date": "2026-07-16",
+    "last_reconciled_head": "c120e19",
+    "line_count": 65
   },
   "docs/LORAMER_LORA_AUDIT_2026-07-14.md": {
     "content_hash": "3fd2958fadaa8404c0f7bd17fcf80c2709b1baa6875ff4a2b65247c1cc60dbc8",

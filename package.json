@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "guard": "node tests/guards/meta-breadth-forward.guard.mjs && node tests/guards/shell-client-context.guard.mjs",
+    "guard": "node tests/guards/meta-breadth-forward.guard.mjs && node tests/guards/shell-client-context.guard.mjs && node tests/guards/breakdown-registry-drift.guard.mjs",
     "build": "npm run guard && next build",
     "start": "next start",
     "lint": "next lint",
@@ -45,6 +45,7 @@
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
+    "pg": "^8.22.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5",

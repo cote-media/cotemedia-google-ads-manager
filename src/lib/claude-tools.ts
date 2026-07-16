@@ -9,6 +9,9 @@
 // the caller - it is NEVER a model-controlled input.
 
 import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
+// LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the query_breakdown enums are GENERATED from the ONE declared
+// source (breakdown-registry.ts), never hand-written, so the tool schema and the query layer cannot drift.
+import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes } from '@/lib/next/coverage'
 import { resolveAccess } from '@/lib/access/can-access'
@@ -90,13 +93,23 @@ export const QUERY_BREAKDOWN_TOOL: any = {
     properties: {
       breakdownType: {
         type: 'string',
-        enum: ['search_term', 'keyword', 'placement', 'age', 'gender', 'device', 'device_platform', 'hour', 'action_type', 'conversion_action', 'impression_share', 'video', 'geo_country', 'geo_region'],
-        description: 'Which dimension to list. Google-only: search_term, keyword, conversion_action, impression_share. Meta-only: placement (publisher:position), age, gender, device_platform, action_type, video. MULTI-PLATFORM (Meta AND Google) — you MUST pass platform for these: device, hour. CAVEAT for platform="google" hour: hour "00" (midnight) is a Google CATCH-ALL that absorbs the full-day spend of campaigns without hourly segmentation (Display, some Performance Max) — it is inflated and NOT genuine midnight activity, so never call hour 0 a real dayparting peak or suggest a midnight bid-down from it. geo_country/geo_region are captured on BOTH Shopify (ship-to; the default when platform is omitted) AND Meta (audience geo; pass platform:"meta"). action_type/conversion_action carry per-action conversions, not spend — rank them by conversions. NON-ADDITIVE per-entity families (rows are one-per-entity, metrics under nonAdditiveMetrics): impression_share (per Google campaign — POINT-IN-TIME search IS ratios; shows the MOST RECENT day in-window, never aggregated) and video (per Meta entity — 8 view counts summed + avg-time/cost-per-thruplay rates that are null across multi-day windows; pass entityLevel, default campaign). (Product/variant performance is NOT here — use query_metrics with level="product"/"variant".)',
+        enum: breakdownToolTypes(),
+        description: 'Which dimension to list. GOOGLE ads: search_term, keyword, conversion_action, impression_share, device, hour, and the GEO family via breakdownType "geo" + geoGrain + geoScope (city/county/metro/state/province/district/postal/most_specific/region). META ads: placement (publisher:position), age, gender, age_gender, device_platform, action_type, video, device, hour. GA4 SITE ANALYTICS (pass platform "ga"): ga_source_medium, ga_channel, ga_campaign, ga_landing_page, ga_device, ga_geo_country, ga_geo_region, ga_geo_city, ga_age, ga_gender, ga_event, ga_item — these are SITE analytics (sessions/users/revenue), NOT ad spend. CROSS-PLATFORM: geo_country/geo_region are on Shopify (ship-to, the default) AND Meta AND Google (pass platform). CAVEAT platform="google" hour: hour "00" is a Google CATCH-ALL absorbing the full-day spend of campaigns without hourly segmentation (Display, some Performance Max) — inflated, NOT genuine midnight; never call hour 0 a dayparting peak or suggest a midnight bid-down. action_type/conversion_action carry per-action conversions, not spend — ranked by conversions. NON-ADDITIVE per-entity families (metrics under nonAdditiveMetrics): impression_share (per Google campaign — POINT-IN-TIME, most-recent day in-window) and video (per Meta entity — view counts summed + avg-time/cost-per-thruplay rates null across multi-day windows). (Product/variant performance → query_metrics with level="product"/"variant".)',
       },
       platform: {
         type: 'string',
-        enum: ['google', 'meta', 'shopify'],
-        description: 'Which platform this dimension is on. REQUIRED for multi-platform dimensions (device, hour). For geo_country/geo_region, omit for Shopify ship-to geo (the default) or pass "meta" for Meta audience geo. For single-platform dimensions it is implied and can be omitted. A platform the dimension is not captured on is rejected.',
+        enum: breakdownPlatforms(),
+        description: 'Which platform this dimension is on. "ga" = GA4 site analytics (the ga_* types). REQUIRED for multi-platform dimensions (device, hour). For geo_country/geo_region omit for Shopify ship-to geo (the default) or pass "meta"/"google". For single-platform dimensions it is implied and can be omitted. A platform the dimension is not captured on is rejected.',
+      },
+      geoGrain: {
+        type: 'string',
+        enum: geoGrains(),
+        description: 'For breakdownType "geo" ONLY: the geographic grain (city, county, metro, state, province, district, postal, most_specific, region). For country- or region-level totals that also span Shopify/Meta, use breakdownType geo_country / geo_region instead.',
+      },
+      geoScope: {
+        type: 'string',
+        enum: geoScopes(),
+        description: 'For breakdownType "geo" ONLY, and it MATTERS: "ad" = where you TARGETED the ad (ad-location); "user" = where the person PHYSICALLY WAS (user-location). These are DIFFERENT — someone in Boston can see an ad targeted to New York. Pick deliberately; conflating ad-location with user-location yields a confident WRONG answer.',
       },
       baseRange: {
         type: 'string',
@@ -115,8 +128,8 @@ export const QUERY_BREAKDOWN_TOOL: any = {
       entityId: { type: 'string', description: 'Optional: restrict to one ad group id.' },
       entityLevel: {
         type: 'string',
-        enum: ['account', 'campaign', 'ad_set', 'ad'],
-        description: 'For breakdownType="video" ONLY: which entity grain to scope to (prevents cross-level double-counting of view counts). Default "campaign". Ignored for other breakdown types.',
+        enum: breakdownEntityLevels(),
+        description: 'Which entity grain to scope the breakdown to. Default = the COARSEST grain present for the family (so metrics are never double-counted across levels). It is honored for ALL breakdown types — e.g. Google device or hour at ad_group or keyword — NOT video-only. For breakdownType="video" it additionally prevents cross-level double-counting of view counts.',
       },
     },
     required: ['breakdownType'],
@@ -137,6 +150,8 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
     parentEntityId: typeof input?.parentEntityId === 'string' ? input.parentEntityId : undefined,
     entityId: typeof input?.entityId === 'string' ? input.entityId : undefined,
     entityLevel: typeof input?.entityLevel === 'string' ? input.entityLevel : undefined,
+    geoGrain: typeof input?.geoGrain === 'string' ? input.geoGrain : undefined, // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B)
+    geoScope: typeof input?.geoScope === 'string' ? input.geoScope : undefined,
   })
 }
 

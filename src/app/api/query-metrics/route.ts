@@ -98,6 +98,8 @@ export async function GET(request: Request) {
         parentEntityId: searchParams.get('parentEntityId') || undefined,
         entityId: searchParams.get('entityId') || undefined,
         entityLevel: searchParams.get('entityLevel') || undefined,
+        geoGrain: searchParams.get('geoGrain') || undefined, // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — geo collapse proving
+        geoScope: searchParams.get('geoScope') || undefined,
       })
       return NextResponse.json({ ok: true, mode: 'breakdown', ...result })
     } catch (e) {

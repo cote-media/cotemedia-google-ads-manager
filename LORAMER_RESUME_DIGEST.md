@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-16T17:20:40.003Z
-- built_from HEAD: 1d0a9239d730702fa358ae22c7d7f2898720058f  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-16T18:37:23.443Z
+- built_from HEAD: c120e19e2ae5d475f562825c00646b17f5d3e9dd  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: f44c26bd57f166afd0507b34c64b796c7eca0263bb2cb26a38cf532626d8a35b
     - LORAMER_HANDOFF.md: c0b7593dcb46fd3029988461199e627ee1a4f82adca43012b2f32f9f8618344e
     - CONTINUE_HERE.md: 229b6136dae8bcf20a77c55cf5b11f3cad905acad17ba04e01b602e8c852f493
-    - LORAMER_DECISIONS.md: 0f01cf06fadc2428e8b299c374e85fb67716cde582b21c9326af0c10b01dc12e
-    - LORAMER_QUEUE_OF_RECORD.md: 3222ab4721b8765184f8bc79ff354e41d6c483bc7b995703b281331ecaa905f4
+    - LORAMER_DECISIONS.md: 488d1473d9932d124920bc63c5a37c997137f25b0c7a1d9bf4c9c845fea82607
+    - LORAMER_QUEUE_OF_RECORD.md: 241c80fe1a054efdf2f3b05ff686a4b72ccc949ba0ed4776ce00396ceb489bf0
     - docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md: 35ffaae6d7d773d69062bc49713b6454dbe28a1a4ec1ebd22f2395066b7e73b1
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: 4b491536357481c7027e01b626e7de5aa8058dd40a9cc2acf156d2f745f63a5b
     - RESUME_INSTRUCTIONS.md: ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191
@@ -538,6 +538,9 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - [LAW 2026-07-16] **META APP REVIEW — APPROVED 2026-07-02. There is no Meta review, no reviewer path, no reviewer surface, no reviewer-driven hold.** Blast radius on shared surfaces is about BLAST RADIUS ALONE — every client, every live surface — never about a reviewer. Any output invoking a Meta reviewer is WRONG and must be corrected on sight. The data-deletion/deauth callback is a permanent PRODUCTION requirement and is NOT a review artifact. | 2026-07-16 | do not relitigate.
 - [LESSON 2026-07-16] **POSTGREST 1000-ROW CAP.** Any PostgREST RPC that returns SETOF (a table / rows) is SILENTLY capped at 1000 rows AND returned UNORDERED — no error, no warning. An aggregation that can exceed 1000 groups MUST return a SINGLE jsonb array (the groups live inside one scalar row, where the row cap cannot bite). Caught in G2 2A Gate-A by a distinct-count mismatch (1000 vs 3169): a top-N over a silently-truncated, unordered set is a WRONG ANSWER THAT LOOKS RIGHT. The SETOF→jsonb return-type change needs DROP+CREATE, not CREATE OR REPLACE. | LORAMER_BREAKDOWN_SQL_AGG_V1, 2026-07-16 | do not relitigate.
 - [DECISION 2026-07-16] **SQL-SIDE BREAKDOWN AGGREGATION = the scoped RPC `query_breakdown_agg`** (migration 038): a client-anchored GROUP BY on idx_metrics_daily_client_platform_bt_level_date, returning a jsonb array of (breakdown_value, parent_entity_id, sums); the JS layer keeps entity-level scope + canonicalize + sort + value-ASC tiebreak + topN + notes, so it stays byte-identical to the cent. PostgREST `db-aggregates-enabled` was REJECTED — it opens aggregate surface on EVERY table for EVERY caller to solve one query. Do NOT raise again. | LORAMER_BREAKDOWN_SQL_AGG_V1, 2026-07-16 | do not relitigate.
+- [LESSON 2026-07-16] **PAYLOAD IS A GATE, NOT JUST TIME.** G2 2B measured DB execution at ~300ms (passing an 8s check) while the return-all-groups RPC handed back **32.4 MB** for ga_landing_page — 80,638 groups moved over the wire and JSON-parsed in a serverless lambda to return 20 rows. An 8s statement_timeout check ALONE would have waved this through. MEASURE THE PAYLOAD, not just execution time. Fix: a bounded topN RPC (migration 039) does ORDER BY + LIMIT in SQL → 4.5 KB. | LORAMER_BREAKDOWN_BOUNDED_TOPN_V1, 2026-07-16 | do not relitigate.
+- [DECISION 2026-07-16] **BOUNDED-RPC SCOPE.** bounded = a NEW tool type (geo / ga_* / age_gender) OR an existing type at an EXPLICITLY-requested entityLevel (Google device/hour at ad_group/keyword). The 14 EXISTING tool types at their DEFAULT level keep the all-groups path, preserving byte-identical (proven, 6 pairs). The bounded branch THROWS if canonicalize is set — canonicalization collapses values AFTER aggregation, so a SQL topN taken BEFORE the collapse ranks the wrong things. Never silently degrade. | LORAMER_BREAKDOWN_BOUNDED_TOPN_V1, 2026-07-16 | do not relitigate.
+- [DECISION 2026-07-16] **A GENERATED SCHEMA CHANGES WHAT A GUARD CAN PROVE.** Once claude-tools' query_breakdown enums GENERATE from breakdown-registry, "schema == registry" is tautological — a guard comparing them is always green. The drift guard was re-pointed at REGISTRY INTEGRITY (both files generate from the registry; every geo tuple is resolvable) — a real, build-blocking failure, proven RED with `next build` never running. Live-DB reachability (is every CAPTURED tuple declared?) stays the SEPARATE non-build script (scripts/breakdown-reachability-check.mjs) — CI has no network. A green build guard is not "Lora sees everything." | LORAMER_BREAKDOWN_REGISTRY_V1, 2026-07-16 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - Google 2025-floor clients — confirm forward-only vs new: Inside google(2025-06), Thought Streams google(2025-04), Ennis google(2025-02) — probe pre-2025. src: fleet audit. open(verify) [LC]

@@ -15,6 +15,8 @@ import { resolveDateWindow } from '@/lib/date-range'
 import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surface' // LORAMER_QUERY_MONEY_V1 — reuse the canonical money aggregation (reconciles with /api/next/money by construction)
 // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (Fix #1 B2) — CONSUME the ONE canonical settle (B1). Do NOT write a 4th settle.
 import { settleRevenue, emptyRevenueAcc, type RevenueAcc } from '@/lib/next/revenue-settle'
+// LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the ONE declared source for the breakdown allowlist + geo collapse.
+import { breakdownPlatformsMap, spendZeroTypes, breakdownToolTypes, resolveGeo, geoGrains, entryFor, EXISTING_TOOL_TYPES } from '@/lib/breakdown-registry'
 
 export type MetricTotals = {
   spend: number
@@ -275,22 +277,19 @@ export async function queryMetrics(opts: {
 // platform is REQUIRED (a loud note, never a guess). Adds device/device_platform/hour + Meta on geo_* +
 // action_type/conversion_action. NON-additive families (impression_share, video) are NOT here — they need a
 // singleVal/extra-aware path (P1b), never this sum-6-metrics path (which would return misleading zero rows).
-const BREAKDOWN_ALIAS: Record<string, string> = { publisher_platform: 'placement' } // writer stores 'placement'; repoint the legacy read-name (§3)
-const BREAKDOWN_PLATFORMS: Record<string, string[]> = {
-  search_term: ['google'], keyword: ['google'],
-  placement: ['meta'], age: ['meta'], gender: ['meta'],
-  device: ['meta', 'google'], device_platform: ['meta'], hour: ['meta', 'google'],
-  action_type: ['meta'], conversion_action: ['google'],
-  impression_share: ['google'], video: ['meta'], // LORAMER_QUERY_NONADDITIVE_V1 — per-entity NON-additive projection (below)
-  geo_country: ['shopify', 'meta'], geo_region: ['shopify', 'meta'],
-}
-// Multi-platform types with a documented PRIMARY (their historical single platform) → the back-compat default when
-// opts.platform is omitted, so existing calls stay byte-identical. Multi-platform types NOT listed (device, hour)
-// have no historical behavior to preserve → platform is REQUIRED.
-const BREAKDOWN_PRIMARY: Record<string, string> = { geo_country: 'shopify', geo_region: 'shopify' }
-// action_type/conversion_action carry per-action CONVERSIONS, not partitioned spend (spend cols = 0) → default rank
-// by conversions (never spend, which is 0) and flag it. WRITE-ONLY families; still a SUBSET of the entity total.
-const SPEND_ZERO_BREAKDOWNS = new Set(['action_type', 'conversion_action'])
+// LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the allowlist + rank/spend-zero semantics DERIVE from the ONE
+// declared source (src/lib/breakdown-registry.ts). The hand-maintained literals that used to live here are DELETED
+// so the tool schema (claude-tools.ts) and this query layer cannot drift. geo / GA / age_gender and every other
+// captured tuple become reachable BY CONSTRUCTION of the registry.
+const BREAKDOWN_ALIAS: Record<string, string> = { publisher_platform: 'placement' } // the ONE legacy read-name (writer stores 'placement') — an alias, not registry data
+const BREAKDOWN_PLATFORMS: Record<string, string[]> = breakdownPlatformsMap() // REAL breakdown_type → platforms that serve it
+// Back-compat PRIMARY: a multi-platform commerce type served on Shopify defaults to Shopify when platform is omitted
+// (the historical geo_country/geo_region behavior) — DERIVED from the platform map, not a literal. Multi-platform ad
+// types (device, hour) have no Shopify member → no primary → platform REQUIRED, exactly as before.
+const BREAKDOWN_PRIMARY: Record<string, string> = Object.fromEntries(
+  Object.entries(BREAKDOWN_PLATFORMS).filter(([, ps]) => ps.length > 1 && ps.includes('shopify')).map(([bt]) => [bt, 'shopify'])
+)
+const SPEND_ZERO_BREAKDOWNS = spendZeroTypes() // per-action-conversion families (rankBy conversions): action_type + conversion_action
 // LORAMER_QUERY_NONADDITIVE_V1 — impression_share + video are PER-ENTITY metric families (their breakdown_value is a
 // constant/empty marker), so they are grouped by ENTITY, not value, and their non-additive fields are NEVER summed
 // as base metrics. Handled by projectNonAdditive() below — NOT the additive sum-6-metrics path. Zero effect on any
@@ -354,8 +353,10 @@ export async function queryBreakdown(opts: {
   entityId?: string
   entityLevel?: string // LORAMER_QUERY_NONADDITIVE_V1 — video only: which entity grain to scope to (default 'campaign')
   canonicalize?: boolean // LORAMER_META_ALIAS_CANON — opt-in Meta action_type alias collapse (default OFF = byte-identical). -next card path only.
+  geoGrain?: string // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — for breakdownType 'geo': city|county|metro|state|province|district|postal|most_specific|region
+  geoScope?: string // 'ad' = where you TARGETED, 'user' = where the person PHYSICALLY WAS
 }): Promise<QueryBreakdownResult> {
-  const bt = BREAKDOWN_ALIAS[opts.breakdownType] || opts.breakdownType // canonicalize legacy read-names (§3)
+  const loraTT = BREAKDOWN_ALIAS[opts.breakdownType] || opts.breakdownType // legacy read-name canonicalize (§3)
   const ISO = /^\d{4}-\d{2}-\d{2}$/
   let startDate: string
   let endDate: string
@@ -367,27 +368,38 @@ export async function queryBreakdown(opts: {
     startDate = w.startDate
     endDate = w.endDate
   }
-  const allowed = BREAKDOWN_PLATFORMS[bt]
-  const rankBy = RANKABLE.has(opts.rankBy || '')
-    ? (opts.rankBy as string)
-    : (SPEND_ZERO_BREAKDOWNS.has(bt) ? 'conversions' : 'spend')
   const topN = Math.max(1, Math.min(50, opts.topN || 20))
   const orderDir: 'asc' | 'desc' = opts.orderDir === 'asc' ? 'asc' : 'desc'
 
   const result: QueryBreakdownResult = {
-    breakdownType: bt, platform: '', window: { startDate, endDate }, rankBy,
+    breakdownType: loraTT, platform: '', window: { startDate, endDate }, rankBy: 'spend',
     rows: [], distinctValueCount: 0, truncated: false,
   }
 
+  // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — GEO COLLAPSE: the tool exposes ONE type 'geo' + (geoGrain,
+  // geoScope); resolve it to the REAL Google geo breakdown_type (e.g. city + user → user_geo_city). country/region
+  // stay their own cross-platform tool types (geo_country/geo_region).
+  let bt = loraTT
+  if (loraTT === 'geo') {
+    const real = opts.geoGrain && opts.geoScope ? resolveGeo(opts.geoGrain, opts.geoScope) : undefined
+    if (!real) {
+      result.note = `breakdownType "geo" needs geoGrain (${geoGrains().join('/')}) + geoScope (ad|user); for country/region use breakdownType geo_country/geo_region instead.`
+      return result
+    }
+    bt = real
+  }
+  result.breakdownType = bt
+
+  const allowed = BREAKDOWN_PLATFORMS[bt]
   if (!allowed) {
-    result.note = `Unknown breakdownType "${bt}". Supported: ${Object.keys(BREAKDOWN_PLATFORMS).join(', ')}.`
+    result.note = `Unknown breakdownType "${opts.breakdownType}". Supported: ${breakdownToolTypes().join(', ')}.`
     return result
   }
   // Resolve the platform (multi-platform aware; back-compat default via BREAKDOWN_PRIMARY; never guess a multi type).
   let platform: string
   if (opts.platform) {
     if (!allowed.includes(opts.platform)) {
-      result.note = `breakdownType "${bt}" is not captured on platform "${opts.platform}" — it exists on: ${allowed.join(', ')}.`
+      result.note = `breakdownType "${loraTT}" is not captured on platform "${opts.platform}" — it exists on: ${allowed.join(', ')}.`
       return result
     }
     platform = opts.platform
@@ -396,10 +408,19 @@ export async function queryBreakdown(opts: {
   } else if (BREAKDOWN_PRIMARY[bt]) {
     platform = BREAKDOWN_PRIMARY[bt]
   } else {
-    result.note = `breakdownType "${bt}" is captured on multiple platforms (${allowed.join(', ')}); pass platform to choose one.`
+    result.note = `breakdownType "${loraTT}" is captured on multiple platforms (${allowed.join(', ')}); pass platform to choose one.`
     return result
   }
   result.platform = platform
+
+  // rankBy default: EXISTING tool types keep the exact HEAD default (byte-identical); NEW types use the registry's
+  // per-(platform, breakdown_type) default (e.g. GA → revenue) so a spend=0 store/analytics dim ranks sensibly.
+  const isExisting = EXISTING_TOOL_TYPES.has(loraTT)
+  let rankBy: string
+  if (RANKABLE.has(opts.rankBy || '')) rankBy = opts.rankBy as string
+  else if (isExisting) rankBy = SPEND_ZERO_BREAKDOWNS.has(bt) ? 'conversions' : 'spend'
+  else { const rb = entryFor(platform, bt)?.rankBy; rankBy = rb && RANKABLE.has(rb) ? rb : 'spend' }
+  result.rankBy = rankBy
 
   // LORAMER_QUERY_NONADDITIVE_V1 — impression_share/video are per-ENTITY projections (their non-additive fields are
   // never summed as base metrics). Everything BELOW this branch is the untouched additive sum-by-value path.
@@ -439,6 +460,53 @@ export async function queryBreakdown(opts: {
   // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — carry Meta-reported ROAS ONLY on the canonicalized action_type card
   // path (GATED on canonicalize, so the shared query_breakdown tool + every other breakdown stay byte-identical).
   const carryRoas = !!opts.canonicalize && bt === 'action_type' && platform === 'meta'
+
+  // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — BOUNDED PATH for NEW reach (geo family, GA, age_gender, and any
+  // existing type at an explicitly-requested finer level). SQL does ORDER BY rankBy + LIMIT topN and returns the TRUE
+  // distinct count (migration 039: query_breakdown_agg_topn), so the payload is KB-class regardless of cardinality
+  // (measured: ga_landing_page 32.4 MB all-groups → 4.5 KB bounded). The 14 EXISTING tool types at their default level
+  // keep the return-all-groups path below, byte-identical. Canonicalize is FORBIDDEN here (route decision G2-2B-2): it
+  // collapses AFTER aggregation, so a top-N taken BEFORE the collapse would rank the wrong values — assert, never degrade.
+  const bounded = !carryRoas && (!isExisting || !!opts.entityLevel)
+  if (bounded) {
+    if (opts.canonicalize) throw new Error('query_breakdown_agg_topn: canonicalize is unsupported on the bounded path — it must collapse before ranking (G2-2B route decision 2).')
+    const { data, error } = await supabaseAdmin.rpc('query_breakdown_agg_topn', {
+      p_client_id: opts.clientId, p_platform: platform, p_breakdown_type: bt, p_entity_level: level,
+      p_start: startDate, p_end: endDate, p_rank_by: rankBy, p_top_n: topN, p_order_dir: orderDir,
+      p_parent_entity_id: opts.parentEntityId || null, p_entity_id: opts.entityId || null,
+    })
+    if (error) throw new Error('query_breakdown_agg_topn RPC failed: ' + error.message)
+    const payload = (data || { total_groups: 0, rows: [] }) as { total_groups: number; rows: Array<Record<string, unknown>> }
+    result.distinctValueCount = payload.total_groups
+    if (!payload.total_groups) {
+      result.note = `No ${bt} data captured for this client in ${startDate}..${endDate}.`
+      return result
+    }
+    result.truncated = payload.total_groups > topN
+    result.rows = (payload.rows || []).map((g) => {
+      const totals: MetricTotals = { spend: Number(g.spend || 0), impressions: Number(g.impressions || 0), clicks: Number(g.clicks || 0), conversions: Number(g.conversions || 0), conversionValue: Number(g.conversion_value || 0), revenue: Number(g.revenue || 0), rowCount: 0 }
+      const value = String(g.breakdown_value ?? '')
+      return {
+        value: value.length > VALUE_MAXLEN ? value.slice(0, VALUE_MAXLEN) + '…' : value,
+        parentEntityId: g.parent_entity_id ? String(g.parent_entity_id) : undefined,
+        spend: totals.spend, impressions: totals.impressions, clicks: totals.clicks, conversions: totals.conversions, conversionValue: totals.conversionValue, revenue: totals.revenue,
+        derived: derive(totals),
+      }
+    })
+    if (result.truncated) {
+      result.note = `Showing top ${topN} of ${payload.total_groups} ${bt} values by ${rankBy}; more exist (these are a SUBSET of total activity, not the account/campaign total).`
+    }
+    if (SPEND_ZERO_BREAKDOWNS.has(bt)) {
+      const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (platform === 'google' && bt === 'hour') {
+      const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    return result
+  }
+
   type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; metaRoas?: number | null; metaRoasDate?: string }
   const byValue = new Map<string, Agg>()
   if (carryRoas) {
