@@ -34,7 +34,8 @@ export default function TopBar({
   const [acctOpen, setAcctOpen] = useState(false)
 
   // LORAMER_NEXT_DATAWIRE_PORTFOLIO_V1 — real, membership-aware client list from /api/next/clients.
-  // Selecting NAVIGATES to that client's per-client page. Falls back to the current client until loaded/on error.
+  // Selecting: on a per-client page keep the current view and swap the client (change WHO, keep WHERE); from the
+  // all-clients list (no current client) route to that client's profile. Falls back to the current client until loaded/on error.
   const [clients, setClients] = useState<{ id: string; name: string }[]>([])
   useEffect(() => {
     let alive = true
@@ -78,8 +79,12 @@ export default function TopBar({
                       className={styles.menuItem}
                       onClick={() => {
                         setSwitcherOpen(false)
-                        // Change WHO, keep WHERE: re-navigate the current view with the picked client.
-                        if (c.id) router.push(`${pathname}?clientId=${c.id}`)
+                        // LORAMER_NEXT_SWITCHER_LIST_NAV_V1 — Change WHO: on a per-client page KEEP WHERE (a current client
+                        // exists → swap it on the same view, unchanged); from the all-clients list (no current client →
+                        // clientId is null) route to that client's PROFILE — the same target as the cards
+                        // (MultiClientOverview.tsx:327) and the switcher's own avatar (TopBar.tsx:63). clientId (what Shell
+                        // passes down) is the "is there a current client?" signal, so no route-name string check is needed.
+                        if (c.id) router.push(clientId ? `${pathname}?clientId=${c.id}` : `/dashboard-next/client-profile?clientId=${c.id}`)
                       }}
                     >
                       <Avatar name={c.name} kind="client" />

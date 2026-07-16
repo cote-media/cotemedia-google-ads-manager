@@ -128,7 +128,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
             <div className={styles.scroll} ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className={styles.empty}>
-                  <p className={styles.emptyLead}>Ask about this client’s performance — spend, revenue, breakdowns, or how the money splits.</p>
+                  {/* LORAMER_NEXT_CHAT_EMPTYSTATE_NAME_V1 — name the client when there IS one. clientId is the real-client
+                      signal (clientName defaults to "All clients" on the portfolio Shell, which must NOT become a possessive). */}
+                  <p className={styles.emptyLead}>{clientId && clientName ? `Ask about ${clientName}’s performance — spend, revenue, breakdowns, or how the money splits.` : 'Ask about this client’s performance — spend, revenue, breakdowns, or how the money splits.'}</p>
                   <div className={styles.suggestions}>
                     {SUGGESTIONS.map((s) => (
                       <button key={s} type="button" className={styles.suggestion} onClick={() => send(s)}>{s}</button>
