@@ -20,11 +20,47 @@ WHY THIS EXISTS: on 2026-07-16 the strategy Claude sent four pastes on top of li
 
 **RULE-HOME LAW.** When a rule is broken more than once, it does not need to be written down again — it needs an ENFORCER. Ask where the rule LIVES versus where it is BROKEN. A rule the strategy Claude reads cannot bind the strategy Claude. A rule in CLAUDE.md binds YOU, Claude Code, and you are the gate every instruction passes through. Repeat-offense rules belong HERE, or in a build guard, or nowhere. (Cross-ref DECISIONS: banking a repeat-offense rule as prose is the failure mode, not the fix — see LORAMER_CLAUDE_MD_INFLIGHT_GATE_V1.)
 
+## ⛔ DOC-OWNERSHIP GATES — REFUSE, DO NOT EXECUTE (these bind YOU, Claude Code)
+
+46 docs and ~27 copied facts all arrived by paste, and nothing at the receiving end ever said no. These are the refusals that say no. Russ can override any of them in one line; the DEFAULT is refuse.
+
+⛔ **NO NEW DOCS.** Every doc in this repo exists because a paste told you to create one — that is how 46 happened. If an instruction says create a doc, REFUSE in one line and name which existing owner should hold it instead:
+
+> `NEW-DOC GATE — refusing. <fact/topic> belongs in <owner>. Say 'new doc anyway' to override.`
+
+⛔ **NO WRITING A FACT ANOTHER DOC OWNS.** Before writing any status / approval / date / next-step fact, GREP it. If it lives in another gated doc, REFUSE:
+
+> `OWNERSHIP GATE — refusing. <fact> is owned by <doc>:<line>. Write a pointer, not a copy.`
+
+This is the rule that would have prevented ~27 copies and 5 of the 7 silent-drift defects of 07-16/17. THE EXCEPTIONS, narrow and explicit:
+- **TENSE-LOCKED HISTORY.** A dated log entry ("2026-07-02: Meta approved") is a record of a moment and cannot drift — ALLOWED. A present-tense assertion ("Meta is approved") is a copy — REFUSED.
+- **REFERENCE-WITH-CONTEXT.** Where a fact carries pedagogical weight (ESSENCE's blast-radius gate teaching WHY the reviewer-path framing died), keep the teaching, point the value. Judgment, stated on the face of it.
+
+⛔ **NO BANKING A REPEAT-OFFENSE RULE AS PROSE.** If an instruction says bank a rule that has been broken before, REFUSE:
+
+> `RULE-HOME GATE — refusing. <rule> was banked <N> times and broken anyway. It needs an enforcer, not an entry. Where does it execute?`
+
+Precedent: "a green check answers a narrower question than the reader assumes" was banked FOUR times in two days and prevented nothing. Banking a lesson is the cheapest possible response to a structural problem and it FEELS like progress. Prose in a doc is not a guard (banked law).
+
+### OWNERSHIP MAP — who owns which fact (you cannot enforce the gates above without this)
+
+- **LORAMER_ESSENCE.md** — the governing law + product philosophy. NOT status.
+- **LORAMER_HANDOFF.md** — how we work: session gate, cadence, standing rules, lessons.
+- **CONTINUE_HERE.md** — session NARRATIVE + the authored next-step opener. NOT status.
+- **LORAMER_DECISIONS.md** — settled decisions + ALL external status (approvals, gates, dates). THE owner of every derived status claim.
+- **LORAMER_QUEUE_OF_RECORD.md** — what is open. The owner of open/closed per item.
+- **docs/LORAMER_BREAKDOWN_REGISTRY.md** — per-dimension truth; code GENERATES from it. The model doc.
+- **RESUME_INSTRUCTIONS.md** — the canonical resume wording. Single-source by its own declaration.
+- **docs/LORAMER_ASSET_LAYER_SCOPE_V1.md** — the T3b scope, frozen.
+- **docs/LORAMER_SECURITY_POSTURE.md** — security system of record. Does NOT own approval dates.
+
+THE LIMIT, stated plainly: these are refusals by a model reading instructions — STRONGER than prose the strategy Claude reads (you re-read this every session; you are the last thing between an instruction and the repo), WEAKER than a build guard (which cannot be talked out of it). The real, un-talk-out-of-able version is a script (`check-doc-ownership.mjs`: grep owned facts, fail the build) — QUEUED as ★DOC-OWNERSHIP-GUARD, NOT built now.
+
 ## Read these first
 
 This is **LoraMer** — an active, multi-week, multi-hundred-commit build of a business intelligence platform for marketing agencies. The repo carries its own institutional memory; do not design or patch anything non-trivial before consulting:
 
-1. **`LORAMER_HANDOFF.md`** — the operating manual: working relationship, discipline rules, and ~30 numbered "lessons" (failure modes that actually bit this project). If you make a new class of mistake, add it there before the session ends.
+1. **`LORAMER_HANDOFF.md`** — the operating manual: working relationship, discipline rules, and ~30 numbered "lessons" (failure modes that actually bit this project). If you make a FIRST-TIME class of mistake, add the lesson there before the session ends — but a rule ALREADY banked and broken AGAIN needs an ENFORCER, not another entry (see the RULE-HOME GATE / RULE-HOME LAW above).
 2. **`CONTINUE_HERE.md`** — the current resume point (what shipped last session, what's next).
 3. **`ROADMAP.md`** — project-by-project status; **docs move with code**: a commit that ships a feature also flips its own ROADMAP checkbox in the same commit.
 4. **`docs/*.md`** — design docs for shipped/planned features. Check here before designing anything; a prior Claude once rebuilt a feature whose design doc already existed.
