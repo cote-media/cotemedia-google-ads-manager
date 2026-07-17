@@ -3,7 +3,7 @@
 STATUS: current-state MAP from the 2026-06-29 read-only security audit. PROGRESS 2026-06-29 (LORAMER_SAFE_SECURITY_FIXES_V1):
 FIX 1 (remove /api/test) CODE-RESOLVED; FIX 2 (NEXTAUTH_SECRET) + FIX 3 (demo@ MCC) = RUSS CONSOLE ACTIONS pending
 (exact steps in §7); the refresh-token-in-session + token-column-encryption items remain a live-auth-path flight
-(they touch the shared live auth surface — care because of blast radius across every user, NOT a review; Meta App Review was APPROVED 2026-07-02 and no longer gates them). This doc is the system-of-record; re-audit on any auth/route/
+(they touch the shared live auth surface — care because of blast radius across every user, NOT a review; the Meta App Review outcome that lifted that gate is owned by DECISIONS, not restated here). This doc is the system-of-record; re-audit on any auth/route/
 token change. Multi-tenant app holding 18+ clients' Google/Meta/Shopify/GA OAuth tokens + Stripe + ad data.
 All access/token/grant removals are subject to the DESTRUCTIVE-ACTION GATE (DECISIONS) — verify why-it-exists before recommending.
 
@@ -68,8 +68,8 @@ export (supabase.ts:8) is DEAD (imported nowhere). next@14.2.3 is behind the 14.
 no middleware auth); upgrade fast-follow.
 
 ## 7. GAP LIST
-LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAUTH_SECRET = Russ console action · demo@ RECLASSIFIED (HOLD-not-remove; the real fix is #18, fast-follow) · refresh-token-in-session = now unblocked (Meta approved). → 1 done · 1 Russ-action · 2 sequenced; NONE requires demo@ removal.
-1. [UNBLOCKED — Meta approved 2026-07-02] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
+LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAUTH_SECRET = Russ console action · demo@ RECLASSIFIED (HOLD-not-remove; the real fix is #18, fast-follow) · refresh-token-in-session = now unblocked (the Meta approval that unblocked it is owned by DECISIONS). → 1 done · 1 Russ-action · 2 sequenced; NONE requires demo@ removal.
+1. [UNBLOCKED — see DECISIONS for the Meta approval that lifted this] Google refresh token in the browser session — remove session.refreshToken from the NextAuth session
    callback; live routes read DB google_tokens / getToken() server-side. Touches the shared LIVE auth path → sequence
    with extreme care because of blast radius (every user), NOT because of any review.
 2. [HOLD — do NOT remove; CORRECTED 2026-06-29] demo@'s MCC access is LOAD-BEARING, NOT a stray grant. It is a
@@ -78,8 +78,9 @@ LAUNCH-CRITICAL (pre-7/14) — TALLY 2026-06-29: /api/test DONE (code) · NEXTAU
    IDENTITY_MATRIX_V1). HOLD for two reasons: (1) the Google Ads API Tool Change Form (submitted ~2026-06-10) was filed
    with demo@ connected to a client as the working integration demo and is STILL PENDING a reply — revoking demo@'s MCC
    access mid-review could undercut the very submission under review; (2) the MCC-revoke is a LAUNCH-PARKING test-gated
-   step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Meta App Review is COMPLETE
-   (approved 2026-07-02) and is NOT the pending item here — this caution is the GOOGLE Standard Access application only. ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
+   step — run ONLY when walking matrix test (b) on Russ's schedule, NOT as a security cleanup. Meta App Review is NOT the
+   pending item here — this caution is the GOOGLE Standard Access application only (both platforms' live approval/pending
+   status is owned by DECISIONS/QUEUE, not restated here). ⇒ THE REAL SECURITY FIX is finding #18: the live-data routes don't
    bind accountId→owned-client, which is what lets ANY MCC identity (not just demo@) read any child account. Binding
    accountId→owned-client (FAST-FOLLOW CODE — item 6 below) closes the hole WITHOUT touching demo@. So: demo@ MCC access
    = HOLD (load-bearing); #18 accountId-binding = the actual remediation.
@@ -96,6 +97,6 @@ FAST-FOLLOW (hardening):
 6. Bind accountId→owned-client on the live-data routes (#18).
 7. query-metrics + /api/backfill/* are CRON_SECRET-only (#19) — keep CRON_SECRET tight/rotated; consider an owner gate.
 8. Extract ONE assertOwnsClient helper, route all gated endpoints through it; delete the dead anon export / de-alias.
-9. reviewer-token credential login — STATUS CORRECTED 2026-07-16 (the prior text — "REMOVE … now DEAD infra … both approved 2026-07-02" — was WRONG on three counts; see LORAMER_DECISIONS "SHOPIFY/META TWO DATES" + "REVIEWER-TOKEN LOGIN IS THE SHOPIFY REVIEWER'S ENTRY POINT"). FACTS, no recommendation: (a) DATES — Shopify App Store was approved 2026-05-26 (ROADMAP:30, HANDOFF:464); META was approved 2026-07-02. Two platforms, two dates — the prior text conflated them, and that conflation is what made "both approved ⇒ dead" read cleanly when the facts did not support it. (b) IDENTITY — the reviewer-token provider (auth.ts) returns shopify-reviewer@loramer.app; it is the SHOPIFY reviewer's entry point, NOT a Meta leftover. shopify-reviewer@loramer.app owns LoraMer Demo (efe036b4) + Test 2 (6e5e441b) and the store loramer-reviewer-demo.myshopify.com (refreshed 2026-07-16, refresh token valid to 2026-10-14, kept alive by cron). (c) OBLIGATION — the 2026-07-13 platform-doc check found Shopify requires submitted reviewer test credentials to stay VALID and grant full access to the app's COMPLETE feature set, kept current — an ONGOING obligation that does NOT end at approval. Whether that obligation binds the login, the store, or both is UNVERIFIED — answerable only from Russ's Shopify Partner dashboard. This item removes the false "dead infra" basis and recommends nothing either way. (Google Ads Standard Access is separate + still pending and does NOT use this login.)
+9. reviewer-token credential login — STATUS CORRECTED 2026-07-16 (the prior text — "REMOVE … now DEAD infra … both approved 2026-07-02" — was WRONG on three counts; see LORAMER_DECISIONS "SHOPIFY/META TWO DATES" + "REVIEWER-TOKEN LOGIN IS THE SHOPIFY REVIEWER'S ENTRY POINT"). FACTS, no recommendation: (a) DATES — Shopify and Meta were approved on DIFFERENT dates (the two values + the two-platform distinction are owned by DECISIONS: SHOPIFY/META TWO DATES — not restated here). The prior §7.9 text CONFLATED them into one date, and that conflation is what made "both approved ⇒ dead" read cleanly when the facts did not support it — the security lesson, independent of the values. (b) IDENTITY — the reviewer-token provider (auth.ts) returns shopify-reviewer@loramer.app; it is the SHOPIFY reviewer's entry point, NOT a Meta leftover. shopify-reviewer@loramer.app owns LoraMer Demo (efe036b4) + Test 2 (6e5e441b) and the store loramer-reviewer-demo.myshopify.com (kept alive by cron; the refresh-token expiry is owned by DECISIONS: REVIEWER-TOKEN, not restated here). (c) OBLIGATION — the 2026-07-13 platform-doc check found Shopify requires submitted reviewer test credentials to stay VALID and grant full access to the app's COMPLETE feature set, kept current — an ONGOING obligation that does NOT end at approval. Whether that obligation binds the login, the store, or both is UNVERIFIED — answerable only from Russ's Shopify Partner dashboard. This item removes the false "dead infra" basis and recommends nothing either way. (Google Ads Standard Access is separate and does NOT use this login; its live status is owned by DECISIONS/QUEUE.)
 10. resolveAccess on next/layouts client-scoped saves; align Lora's owner-only gate with resolveAccess (member access).
 11. Upgrade next 14.2.3 → latest 14.2.x.

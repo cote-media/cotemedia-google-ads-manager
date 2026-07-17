@@ -1,0 +1,385 @@
+{
+  "base": "http://localhost:3111",
+  "owner": "cotebrandmarketing@gmail.com",
+  "cats": {
+    "A": {
+      "p": 9,
+      "n": 9
+    },
+    "B": {
+      "p": 0,
+      "n": 8
+    },
+    "C": {
+      "p": 0,
+      "n": 3
+    },
+    "D": {
+      "p": 0,
+      "n": 2
+    },
+    "E": {
+      "p": 0,
+      "n": 3
+    },
+    "F": {
+      "p": 0,
+      "n": 3
+    }
+  },
+  "overall": {
+    "pass": 9,
+    "n": 28
+  },
+  "results": [
+    {
+      "id": "A1",
+      "cat": "A",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was the total ad spend for June 2026?",
+      "pass": true,
+      "detail": "expected 81989.49 (ads spend); closest-in-answer 81989.49 | card spend=81989.49 rev=0",
+      "httpStatus": 200,
+      "response": "Total ad spend for June 2026 was **$81,989.49**.\n\nThis is Google Ads only — the sole connected ad platform for this account (Meta and the store platforms aren't connected). The figure comes from the captured historical store since the live Google snapshot failed this turn.\n\nFor context that month:\n- **Impressions:** 47,088\n- **Clicks:** 3,599 (CTR 7.64%, CPC $22.78)\n- **Conversions:** 661.3 (CPA $123.99)\n\nLet me know if you want a breakdown by campaign.",
+      "card": {
+        "spend": 81989.49,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A2",
+      "cat": "A",
+      "client": "Champion Cleaning Systems",
+      "message": "What was the total Google Ads spend in June 2026?",
+      "pass": true,
+      "detail": "expected 6659.45 (google spend); closest-in-answer 6659.45 | card spend=6659.45 rev=null",
+      "httpStatus": 200,
+      "response": "**Total Google Ads spend in June 2026: $6,659.45**\n\nThe live Google snapshot failed this turn, so this comes from the captured historical store (which matches the dashboard cards). The window is fully covered.\n\nSupporting context for the month:\n- **Impressions:** 49,236\n- **Clicks:** 831 (CTR 1.69%)\n- **CPC:** $8.01\n- **Conversions:** 22 (CPA $302.70)\n\nGoogle Ads is the only connected ad platform for Champion Cleaning Systems, so this is also the account-wide spend for the period.",
+      "card": {
+        "spend": 6659.45,
+        "revenue": null,
+        "roas": null
+      }
+    },
+    {
+      "id": "A3",
+      "cat": "A",
+      "client": "Glass Plus, Inc.",
+      "message": "How much did we spend on ads in June 2026?",
+      "pass": true,
+      "detail": "expected 4150.99 (ads spend); closest-in-answer 4150.99 | card spend=4150.99 rev=0",
+      "httpStatus": 200,
+      "response": "You spent **$4,150.99** on ads in June 2026:\n\n- **Google Ads: $3,038.72**\n- **Meta: $1,112.27**\n\nBoth platforms are fully covered for the window, so these are complete figures (Google was pulled from the captured store since its live snapshot failed this turn).",
+      "card": {
+        "spend": 4150.99,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A4",
+      "cat": "A",
+      "client": "Influential Drones",
+      "message": "What was our store revenue in June 2026?",
+      "pass": true,
+      "detail": "expected 128896.56 (store revenue); closest-in-answer 128914.06 | card spend=1382.36 rev=128896.56",
+      "httpStatus": 200,
+      "response": "Your Shopify store revenue for June 2026 was **$128,914.06** in net sales (after refunds, excluding shipping and tax), across **25 orders** with an AOV of **$5,156.56**.\n\nA few notes worth flagging:\n\n- **Refunds:** 0 refunded orders (0% refund rate), so gross and net are clean here.\n- **Concentration:** The top 10% of orders drove **84.4%** of revenue — heavily skewed by two large deals: `26-CA-ABMHS-JMG-0227` at $74,462.78 and `Hubspot Deal- 26-CA-UASSBD-DK-0529` at $28,627.98. Those two alone are ~80% of the month.\n- **Customer mix:** 15 new / 4 returning, but returning-customer AOV ($12,382.32) dwarfs new-customer AOV ($1,092.07) — the big-ticket deals came from repeat buyers.\n\nOnly Shopify is connected as a store platform (WooCommerce and GA aren't connected), so this is your complete store revenue picture for the month.\n\nIf you want the net-sales breakdown (gross → discounts → refunds → net) or want to fold in Google Ads spend/ROAS for the month, just say the word.",
+      "card": {
+        "spend": 1382.36,
+        "revenue": 128896.56,
+        "roas": 93.24
+      }
+    },
+    {
+      "id": "A5",
+      "cat": "A",
+      "client": "Shelley Kyle",
+      "message": "What was Meta ad spend and store revenue in June 2026?",
+      "pass": true,
+      "detail": "997.72→ok , 2885.45→ok",
+      "httpStatus": 200,
+      "response": "For **June 2026** (full month), both platforms are fully covered:\n\n## Meta Ad Spend\n**$997.72** — exact for the month (Google isn't connected, so this is all ad spend).\n\n## Store Revenue\n**$2,885.45** — from WooCommerce (39 orders, ~$73.99 AOV). This is the headline/dashboard figure.\n\n---\n\n### One note on revenue sources\nThere are two revenue measurements for June, and they don't perfectly agree:\n\n| Source | Revenue | ROAS (÷ $997.72 spend) |\n|---|---|---|\n| **WooCommerce (store — headline)** | $2,885.45 | **2.89x** |\n| **GA4** | $2,438.54 | 2.45x |\n\nThe store number is the source of truth for actual orders. GA4 runs lower here because of its attribution basis — session/click-based credit with its own attribution window vs. WooCommerce's order-of-record — so the two won't tie out exactly. The dashboard card uses the **store figure ($2,885.45)**.\n\nBlended ROAS on store revenue is a healthy **2.89x** against $997.72 in Meta spend.",
+      "card": {
+        "spend": 997.72,
+        "revenue": 2885.45,
+        "roas": 2.89
+      }
+    },
+    {
+      "id": "A6",
+      "cat": "A",
+      "client": "Veterinary mastermind",
+      "message": "What was total ad spend in June 2026?",
+      "pass": true,
+      "detail": "expected 5120.85 (ads spend); closest-in-answer 5120.85 | card spend=5120.85 rev=1771.86",
+      "httpStatus": 200,
+      "response": "**Total ad spend in June 2026 was $5,120.85**, from the captured store (matches the dashboard cards — the live Google fetch failed this turn, but this figure doesn't depend on it).\n\nBreakdown by platform:\n- **Google Ads:** $2,492.75\n- **Meta Ads:** $2,628.10\n\nBoth platforms are confirmed covered for the full month, so these are solid figures.\n\nOn the free-conversion side — which is where the focus is right now — the month landed **1,934 conversions at a $2.65 blended CPA**, driven heavily by Meta's Leads – Free tier campaign. Worth noting those Meta conversion counts are account-level historical figures that are directionally accurate but may not perfectly reconcile with campaign-level numbers; Meta spend, clicks, and impressions are exact.\n\nWant me to break the free signups down by campaign or source?",
+      "card": {
+        "spend": 5120.85,
+        "revenue": 1771.86,
+        "roas": 0.35
+      }
+    },
+    {
+      "id": "A7",
+      "cat": "A",
+      "client": "BusyBee Bookkeeping",
+      "message": "What was total ad spend in June 2026?",
+      "pass": true,
+      "detail": "expected 608.07 (ads spend); closest-in-answer 608.07 | card spend=608.07 rev=0",
+      "httpStatus": 200,
+      "response": "**Total ad spend in June 2026 was $608.07**, across both connected ad platforms:\n\n| Platform | Spend |\n|---|---|\n| Google Ads | $310.47 |\n| Meta | $297.60 |\n| **Total** | **$608.07** |\n\nNote: Google's live snapshot failed to load this turn, so this figure comes from LoraMer's captured historical store (the same source behind the dashboard cards) — it's the real number, not a partial. Both platforms are fully covered for the window.\n\n(The slight difference between the $297.60 Meta figure here and the $299.29 in the live panel is just historical-store rounding/reconciliation; spend is exact to within a fraction.)",
+      "card": {
+        "spend": 608.07,
+        "revenue": 0,
+        "roas": 0
+      }
+    },
+    {
+      "id": "A8",
+      "cat": "A",
+      "client": "The Escential Group",
+      "message": "What was ad spend and store revenue in June 2026?",
+      "pass": true,
+      "detail": "3836.56→ok , 229.95→ok",
+      "httpStatus": 200,
+      "response": "Here are the captured figures for **June 2026** (all platforms covered; Google's live snapshot failed this turn, so these come from the historical store that matches the dashboard cards).\n\n## Ad Spend — June 2026\n\n| Platform | Spend |\n|---|---|\n| Google Ads | $1,593.99 |\n| Meta | $2,242.57 |\n| **Total ad spend** | **$3,836.56** |\n\n## Store Revenue — June 2026\n\n| Source | Revenue |\n|---|---|\n| Shopify (store) | $229.95 |\n| GA4 | $229.95 |\n| **Headline store revenue** | **$229.95** |\n\nBoth revenue sources land at the same **$229.95** this month — store (Shopify order-date) and GA4 (session-attributed) happen to agree here, which isn't always the case since they use different measurement bases (order date vs. attributed session, different attribution windows). The headline figure is the Shopify store number.\n\n**Quick context:** $3,836.56 in ad spend against $229.95 in store revenue. Worth keeping the campaign objectives in view when reading that gap — the bulk of Meta spend ($1,495.82) sits in the **Traffic - May '26 Evergreen** campaign (OUTCOME_TRAFFIC), which is optimized for landing-page views / clicks, not purchases, so it isn't expected to convert directly. The **Sales - Bundles April '26** campaign (OUTCOME_SALES) is the one built to drive revenue.\n\nWant me to break spend or revenue down further — by campaign, or day-over-day within June?",
+      "card": {
+        "spend": 3836.56,
+        "revenue": 229.95,
+        "roas": 0.06
+      }
+    },
+    {
+      "id": "A9",
+      "cat": "A",
+      "client": "Influential Drones",
+      "message": "What was our total revenue in June 2026?",
+      "pass": true,
+      "detail": "expected 128896.56 (canonical revenue (store precedence — NOT the store+GA raw sum 142505.76)); closest-in-answer 128896.56 | card spend=1382.36 rev=128896.56",
+      "httpStatus": 200,
+      "response": "**Total revenue in June 2026: $128,896.56** (Shopify store) — this is the headline figure that matches your dashboard cards.\n\nA couple of things worth surfacing:\n\n**Two revenue sources are in play:**\n\n| Source | Revenue | Ad spend | ROAS |\n|---|---|---|---|\n| **Shopify (store)** — headline | $128,896.56 | $1,382.36 (Google) | **93.2×** |\n| **GA (Google Analytics)** | $13,609.20 | $1,382.36 | 9.8× |\n\nThe **$128,896.56 store figure is the total** — I'm not summing these. They differ because they measure different things: Shopify records actual store sales (order-based), while GA attributes revenue through its own click/session attribution window. Store is the source of truth for total revenue here; GA is a smaller, ad-attributed slice.\n\n**Notes on data availability this turn:**\n- Google's live snapshot failed to load, but I pulled its spend ($1,382.36) from the captured store — it's covered, not zero.\n- **Meta is not connected**, and the window also extends past our latest Meta capture, so no Meta revenue is included (and none is expected here).\n\nBottom line: **$128,896.56** in store revenue for June 2026 on $1,382.36 of Google ad spend.",
+      "card": {
+        "spend": 1382.36,
+        "revenue": 128896.56,
+        "roas": 93.24
+      }
+    },
+    {
+      "id": "B1",
+      "cat": "B",
+      "client": "Veterinary mastermind",
+      "message": "What was our Google Ads spend in January 2025?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45et7EEwzYXMHVk5ynJ\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45et7EEwzYXMHVk5ynJ\"}",
+      "card": null
+    },
+    {
+      "id": "B2",
+      "cat": "B",
+      "client": "The Escential Group",
+      "message": "What was our total revenue in 2023?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45f1MYckjJTNGBWKtuf\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45f1MYckjJTNGBWKtuf\"}",
+      "card": null
+    },
+    {
+      "id": "B3",
+      "cat": "B",
+      "client": "Shelley Kyle",
+      "message": "What was our Google Ads spend in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45f6Jhkkdc8dpvLRRzr\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45f6Jhkkdc8dpvLRRzr\"}",
+      "card": null
+    },
+    {
+      "id": "B4",
+      "cat": "B",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "How much did we spend on Meta ads in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fCdTPGVYinA5pXw4n\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fCdTPGVYinA5pXw4n\"}",
+      "card": null
+    },
+    {
+      "id": "B5",
+      "cat": "B",
+      "client": "Champion Cleaning Systems",
+      "message": "What was our ROAS in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fJH36MhbvFQaZNiLr\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fJH36MhbvFQaZNiLr\"}",
+      "card": null
+    },
+    {
+      "id": "B6",
+      "cat": "B",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was our Google Ads spend in 2019?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fS7phkk8BgbCX8mUh\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fS7phkk8BgbCX8mUh\"}",
+      "card": null
+    },
+    {
+      "id": "B7",
+      "cat": "B",
+      "client": "Veterinary mastermind",
+      "message": "What was our Shopify store revenue in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45faYpzsKRWX4GkwSWN\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45faYpzsKRWX4GkwSWN\"}",
+      "card": null
+    },
+    {
+      "id": "B8",
+      "cat": "B",
+      "client": "BusyBee Bookkeeping",
+      "message": "What was our Meta ad spend in January 2024?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fhGe5EqiVgBXCTib7\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45fhGe5EqiVgBXCTib7\"}",
+      "card": null
+    },
+    {
+      "id": "C1",
+      "cat": "C",
+      "client": "Influential Drones",
+      "message": "What is our ROAS for June 2026? Show it from each data source we have.",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45foJnHxEkrH5GbdXgD\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45foJnHxEkrH5GbdXgD\"}",
+      "card": null
+    },
+    {
+      "id": "C2",
+      "cat": "C",
+      "client": "Shelley Kyle",
+      "message": "What was our return on ad spend in June 2026, broken down by each source you have?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45ftoS8WUBug2uDVHod\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45ftoS8WUBug2uDVHod\"}",
+      "card": null
+    },
+    {
+      "id": "C3",
+      "cat": "C",
+      "client": "Influential Drones",
+      "message": "My Shopify says a different ROAS than my ad platform. Why do the ROAS numbers differ across sources for June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45g1W1LKt9pcnm84u1c\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45g1W1LKt9pcnm84u1c\"}",
+      "card": null
+    },
+    {
+      "id": "D1",
+      "cat": "D",
+      "client": "Shelley Kyle",
+      "message": "How many conversions did Meta drive in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45g8WCBahFLJ5Kt5gBh\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45g8WCBahFLJ5Kt5gBh\"}",
+      "card": null
+    },
+    {
+      "id": "D2",
+      "cat": "D",
+      "client": "Glass Plus, Inc.",
+      "message": "How many Meta conversions did we get in June 2026?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gHMFR35ZPhKL7V5RT\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gHMFR35ZPhKL7V5RT\"}",
+      "card": null
+    },
+    {
+      "id": "E1",
+      "cat": "E",
+      "client": "Shelley Kyle",
+      "message": "Our cost of goods is 40% of revenue. Based on June 2026 store revenue, what is our gross margin in dollars?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gNckr6GfFnNXMJnVN\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gNckr6GfFnNXMJnVN\"}",
+      "card": null
+    },
+    {
+      "id": "E2",
+      "cat": "E",
+      "client": "Influential Drones",
+      "message": "If COGS is 60% of revenue, what was our gross profit in dollars for June 2026 store revenue?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gURkc7jYoHjbUYNMM\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45gURkc7jYoHjbUYNMM\"}",
+      "card": null
+    },
+    {
+      "id": "E3",
+      "cat": "E",
+      "client": "Shelley Kyle",
+      "message": "I just uploaded our COGS spreadsheet. Based on it and our June 2026 store revenue, what is our gross margin in dollars?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45h87QUVTMsVZRTQ8Xj\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45h87QUVTMsVZRTQ8Xj\"}",
+      "card": null,
+      "upload": {
+        "file": "cogs-shelley.xlsx",
+        "status": 200,
+        "truncated": false
+      }
+    },
+    {
+      "id": "F1",
+      "cat": "F",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "Compare Google Ads spend in Q4 2024 versus Q4 2023.",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45hNw8pYXhiHRQdyrLS\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45hNw8pYXhiHRQdyrLS\"}",
+      "card": null
+    },
+    {
+      "id": "F2",
+      "cat": "F",
+      "client": "Champion Cleaning Systems",
+      "message": "How did Google Ads spend in Q1 2025 compare to Q1 2024?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45hW13HPDRqzhigi55p\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45hW13HPDRqzhigi55p\"}",
+      "card": null
+    },
+    {
+      "id": "F3",
+      "cat": "F",
+      "client": "Bath Fitter | O'Gorman Bros",
+      "message": "What was our Google Ads spend for the full year 2024? And for Q4 2024 specifically?",
+      "pass": false,
+      "detail": "HTTP 500 400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45he1F33pqzjwqN27BN\"}",
+      "httpStatus": 500,
+      "response": "400 {\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\"},\"request_id\":\"req_011Cd45he1F33pqzjwqN27BN\"}",
+      "card": null
+    }
+  ]
+}

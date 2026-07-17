@@ -1,6 +1,8 @@
 # LoraMer — DEFINITIVE CAPTURE INVENTORY (master surface map)
 <!-- LORAMER_DEFINITIVE_CAPTURE_INVENTORY_V1 -->
 
+⛔ RETIRED FROM THE GATED SET 2026-07-17 (LORAMER_DOCS_SINGLE_OWNER_V1). This map is no longer one of the freshness-gated SOURCE_DOCS — a doc that admits it is stale must not be hashed as a current source (its own warning below: "a map can rot silently while every hash stays green"). It remains TRACKED and in place ONLY so the ~10 live §6 gap-list references do not dangle; treat it as ARCHIVAL, not current. The live gap-truth is the WRITERS + docs/LORAMER_DATA_COMPLETENESS.md. Replacement is QUEUED: derive this map from the writers (QUEUE: MAP-vs-CODE DRIFT / derive-INVENTORY-from-writers). Do NOT act on any [GAP] tag here without verifying against the writers + live rows first.
+
 ⚠ STALENESS WARNING (added 2026-07-15) — THIS MAP IS DATED 2026-06-29 AND PRE-DATES SIX SHIPPED WRITERS. Do NOT read it as
 current capture state; verify against the writers + live rows before acting on any [GAP] tag. Shipped AFTER this map was
 written and therefore mis-tagged below: meta video (T1.4) · meta geo_country/geo_region (T1.9) · meta hour (T1.10) ·
