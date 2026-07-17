@@ -88,7 +88,7 @@ There is no test suite. Verification = local build + production verification (he
 
 ## Architecture
 
-Next.js 14 App Router + TypeScript + Tailwind. Supabase (Postgres) for storage. NextAuth (Google OAuth) for auth. Anthropic API: `claude-haiku-4-5` for the insight banner (`/api/insight`), `claude-sonnet-4-6` for chat (`/api/chat`, 16k max_tokens, prompt caching via `cache_control` on the prefix block). Hosted on Vercel.
+Next.js 14 App Router + TypeScript + Tailwind. Supabase (Postgres) for storage. NextAuth (Google OAuth) for auth. Anthropic API powers the insight banner (`/api/insight`) and chat (`/api/chat`, 16k max_tokens, prompt caching via `cache_control` on the prefix block). **Model IDs are OWNED BY THE CODE — never named here** (a named model drifts: this line asserted a stale `claude-sonnet-4-6` for chat while the code ran the Opus floor — DECISIONS LORAMER_CLAUDE_MD_MODEL_POINTER_V1). Chat model = `LORA_CHAT_MODEL`, defaulted with the Opus floor in `src/app/api/chat/route.ts`; insight-banner model(s) live in `src/app/api/insight/route.ts` — read the code for the current value. Hosted on Vercel.
 
 ### The intelligence layer (the core of the product)
 
