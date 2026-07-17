@@ -83,19 +83,67 @@ const dateGated = must('F date-gated', fenceSection(queue, 'DATE-GATED (CONTINUE
 // ── G. settled-decisions index (every do-not-relitigate line) ──
 const settled = must('G settled-decisions', decisions.split('\n').filter((l) => /\|\s*do not relitigate/i.test(l)).join('\n'))
 
-// ── H. open-queue index (active region only; DONE appendix + resolved items excluded) ──
+// ── H. open-queue index — SELECT BY MEANING, NOT BY POSITION ──
+// Emit one line per OPEN queue item — its header line. An item is its header PLUS the continuation
+// lines under it (up to the next item / section boundary), so a multi-line item whose status tag sits
+// on a later line ("src: … open [LC]") is still seen. Two independent filters:
+//   • CANDIDACY (INCLUDE_RE): the block carries an open-ish status keyword followed by a bracket tag —
+//     the same breadth the old per-line filter had, now evaluated over the whole block.
+//   • DONE-OVERRIDE (statusIsDone): on the LAST tag-bearing line, after stripping parentheticals, a
+//     done word (resolved/done/closed) sits ADJACENT (≤26 chars) to the FINAL tag. Narrow on purpose —
+//     a mid-history "CLOSED"/"done" far from the tag must NOT bury an open item (RBAC, P8), and
+//     "partial(V1 done) [LC]" is partial, not done.
+// POSITION-INDEPENDENT: an item appended ANYWHERE is considered; the ONLY region skipped wholesale is
+// the fenced "DONE — DO NOT REBUILD" appendix blob (bounded by its own fences, so items added AFTER it
+// are unaffected). Guards the class the 2026-07-17 omission exposed: the old code sliced qLines at the
+// marker and silently dropped EVERY item banked below it (the whole post-07-15 audit list + every ★
+// follow-on). See DECISIONS LORAMER_SOURCE_CONFLICT_GATE_V1.
 const qLines = queue.split('\n')
-const doneIdx = qLines.findIndex((l) => l.includes('DONE — DO NOT REBUILD'))
-if (doneIdx === -1) throw new Error('queue DONE appendix marker not found')
-const openItems = must('H open-queue', qLines.slice(0, doneIdx).filter((l) => {
-  const t = l.trimStart()
-  const isItem = t.startsWith('- ') || /^P\d+ /.test(t) || t.startsWith('DATA COMPLETENESS ONBOARDING')
-  if (!isItem) return false
-  const m = l.match(/\b(open(?:\([^)]*\))?|partial|blocked|decision-pending|deferred|banked|parked|resolved|mostly-closed)\b[^[]*\[/i)
-  if (m && /^resolved/i.test(m[1])) return false           // drop inline-resolved items
-  if (/✅\s*(RESOLVED|FIXED|DONE)\b/i.test(l)) return false  // drop ✅-stamped done items
-  return true
-}).join('\n'))
+const doneMarker = qLines.findIndex((l) => l.includes('DONE — DO NOT REBUILD'))
+if (doneMarker === -1) throw new Error('queue DONE appendix marker not found')
+const fenceRe = /^═+/u
+// appendix span = [marker, the fence/header that ENDS the appendix blob]. The marker sits inside a
+// fence box; the blob ends at the next ═══ fence or ## header after that box.
+const fenceAfterMarker = qLines.findIndex((l, i) => i > doneMarker && fenceRe.test(l))
+let appendixEnd = qLines.length
+for (let i = (fenceAfterMarker === -1 ? doneMarker : fenceAfterMarker) + 1; i < qLines.length; i++) {
+  if (fenceRe.test(qLines[i]) || /^##\s/.test(qLines[i])) { appendixEnd = i; break }
+}
+const isItemStart = (l) => { const t = l.trimStart(); return t.startsWith('- ') || /^P\d+ /.test(t) || t.startsWith('DATA COMPLETENESS ONBOARDING') }
+const TAG = /\[(?:LC|NP|EXT|DG)[^\]]*\]/
+const INCLUDE_RE = /\b(open(?:\([^)]*\))?|partial|blocked|decision-pending|deferred|banked|parked|mostly-closed|proposed|standing)\b[^[]*\[/i
+const statusIsDone = (block) => {
+  let statusLine = ''
+  for (const l of block) if (TAG.test(l)) statusLine = l                 // LAST tag-bearing line = the authored status
+  if (!statusLine) return false
+  const s = statusLine.replace(/\([^)]*\)/g, ' ')                        // drop parentheticals like "(V1 done)"
+  let lastTag = -1, re = /\[(?:LC|NP|EXT|DG)[^\]]*\]/g, m
+  while ((m = re.exec(s))) lastTag = m.index
+  if (lastTag < 0) return false
+  const window = s.slice(Math.max(0, lastTag - 26), lastTag)            // the keyword governing the final tag
+  const kws = [...window.matchAll(/\b(open(?:-watch)?|partial|blocked|decision-pending|deferred|banked|parked|mostly-closed|proposed|standing|resolved|done|closed)\b/gi)]
+  return kws.length ? /^(resolved|done|closed)$/i.test(kws[kws.length - 1][1]) : false
+}
+const openHeaders = []
+for (let hdr = 0; hdr < qLines.length; hdr++) {
+  if (!isItemStart(qLines[hdr])) continue
+  // gather this item's block: header + continuations until the next item-start / section boundary
+  let end = hdr + 1
+  const block = [qLines[hdr]]
+  for (; end < qLines.length; end++) {
+    const t = qLines[end]
+    if (isItemStart(t) || /^##\s/.test(t) || fenceRe.test(t) || t.includes('DONE — DO NOT REBUILD')) break
+    block.push(t)
+  }
+  const headerIdx = hdr
+  hdr = end - 1
+  if (headerIdx >= doneMarker && headerIdx < appendixEnd) continue                 // skip the DONE appendix blob
+  if (/✅\s*(RESOLVED|FIXED|DONE)\b/i.test(qLines[headerIdx]) || /^-\s*\[x\]/i.test(qLines[headerIdx])) continue
+  if (!INCLUDE_RE.test(block.join('\n'))) continue                                 // not an open-ish tracked item
+  if (statusIsDone(block)) continue                                               // terminal tag says done → exclude
+  openHeaders.push(qLines[headerIdx])
+}
+const openItems = must('H open-queue', openHeaders.join('\n'))
 
 // ── I. lessons index ──
 const lessons = must('I lessons', fenceSection(decisions, 'LESSONS 1–'))
