@@ -10,6 +10,16 @@ import { supabaseAdmin } from '@/lib/supabase'  // LORAMER_QUERY_METRICS_OWNERSH
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// LORAMER_ONE_LORA_ONE_MODEL_V1 + LORAMER_LORA_MODEL_FLOOR_DEFAULT_V1 — implements the banked 2026-07-14 decision
+// "OPUS 4.8 EVERYWHERE (chat AND insight/alert bar)". Env-selectable, but the CODE DEFAULT IS THE FLOOR (an env var is
+// not a law — G10: prod ran the stale default while the eval measured Opus). BOTH branches below resolve to this: the
+// auto one-liner banner AND the typed follow-up; and both logSpend labels match the model actually used. WHY Opus here,
+// not route-by-difficulty: banner output can enter conversation history that chat later reads, so the conversation's
+// floor becomes the WORST model that ever wrote into it (DECISIONS "ONE LORA, ONE MODEL" — the continuity law); and the
+// 2026-05-23 failure was Haiku ignoring Escential's "ignore ROAS" directive in 50-word mode = a capability floor. Cost
+// is not the gate (~1.67x Sonnet; opus-4-8 is priced in MODEL_PRICING so the spend log stays honest).
+const LORA_INSIGHT_MODEL = process.env.LORA_INSIGHT_MODEL || 'claude-opus-4-8'
+
 // The initial-insight user prompt. The obedience imperative lives in the user
 // message (not just the system prompt) because Haiku in 50-word mode under-follows
 // the system prompt. Worded WITHOUT referencing the prompt's own structure — the
@@ -91,7 +101,7 @@ export async function POST(request: Request) {
     if (isInitial) {
       // Auto one-liner banner — stays Haiku, no tool (proactive summary, not a question).
       const response = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+        model: LORA_INSIGHT_MODEL, // LORAMER_ONE_LORA_ONE_MODEL_V1 (was claude-haiku-4-5-20251001)
         max_tokens: 150,
         system: systemArr,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
         messages,
@@ -108,7 +118,7 @@ export async function POST(request: Request) {
         userEmail: session.user.email,
         clientId,
         endpoint: 'insight',
-        model: 'claude-haiku-4-5-20251001',
+        model: LORA_INSIGHT_MODEL, // LORAMER_ONE_LORA_ONE_MODEL_V1 (was claude-haiku-4-5-20251001)
         inputTokens: response.usage?.input_tokens || 0,
         outputTokens: response.usage?.output_tokens || 0,
       })
@@ -121,7 +131,7 @@ export async function POST(request: Request) {
     // comparison questions work here too. The auto one-liner above stays Haiku.
     const { responseText, usage } = await runClaudeToolLoop({
       anthropic,
-      model: 'claude-sonnet-4-6',
+      model: LORA_INSIGHT_MODEL, // LORAMER_ONE_LORA_ONE_MODEL_V1 (was claude-sonnet-4-6)
       maxTokens: 2000,
       system: systemArr,
       messages,
@@ -139,7 +149,7 @@ export async function POST(request: Request) {
       userEmail: session.user.email,
       clientId,
       endpoint: 'insight',
-      model: 'claude-sonnet-4-6',
+      model: LORA_INSIGHT_MODEL, // LORAMER_ONE_LORA_ONE_MODEL_V1 (was claude-sonnet-4-6)
       inputTokens: usage.input,
       outputTokens: usage.output,
     })
