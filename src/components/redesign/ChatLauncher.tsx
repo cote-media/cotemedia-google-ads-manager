@@ -29,6 +29,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const scrimRef = useRef<HTMLDivElement>(null) // LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1 — the fixed sheet, bound to visualViewport below
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
 
@@ -68,6 +69,33 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading])
+
+  // LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1 — the sheet is position:fixed but sized in dvh, and dvh does NOT shrink for
+  // the on-screen keyboard (only for the address bar). Bind the fixed .scrim to the VISUAL viewport — its height and
+  // top offset — so the sheet covers exactly the visible area and tracks the keyboard raise/dismiss. This fixes the
+  // pan-on-dismiss AND the page bleeding through the gap (both were the sheet not knowing where the screen actually is).
+  // We drive the .scrim (the position:fixed element, where top/height are honored directly) rather than the .panel (a
+  // static flex child whose transform would fight the slideUp animation); .panel is height:100% so it tracks the scrim.
+  // We do NOT touch the browser's own scroll-into-view. If window.visualViewport is absent, the CSS vars stay unset and
+  // .scrim/.panel fall back to 100dvh (degraded, not broken).
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const sync = () => {
+      const el = scrimRef.current
+      if (!el) return
+      el.style.setProperty('--chat-h', `${vv.height}px`)
+      el.style.setProperty('--chat-top', `${vv.offsetTop}px`)
+    }
+    sync()
+    vv.addEventListener('resize', sync)
+    vv.addEventListener('scroll', sync)
+    return () => {
+      vv.removeEventListener('resize', sync)
+      vv.removeEventListener('scroll', sync)
+    }
+  }, [open])
 
   const send = useCallback(async (text: string) => {
     const q = text.trim()
@@ -118,7 +146,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
       </button>
 
       {open && (
-        <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
+        <div ref={scrimRef} className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
           <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
               <div className={styles.headTitle}><i className="ti ti-sparkles" /> Ask Lora{clientName ? <span className={styles.headClient}>· {clientName}</span> : null}</div>

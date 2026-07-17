@@ -1,6 +1,8 @@
 /* LORAMER_NEXT_PARITY_V1 (P2 increment A) — Ask-Lora chat. Uses the redesign tokens (var(--ink/--accent/--muted/
    --surface)) inherited from .root. Mobile-first full-screen sheet; desktop (>=768px) right-docked slide-over.
-   Input pinned to the bottom, 100dvh so the mobile keyboard shrinks the sheet (input stays reachable). */
+   Input pinned to the bottom. The sheet is bound to window.visualViewport (JS — LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1):
+   the on-screen keyboard shrinks the VISUAL viewport, NOT dvh, so ChatLauncher drives .scrim height/top from
+   visualViewport.height/offsetTop; 100dvh is only the FALLBACK when visualViewport is unavailable. */
 
 .trigger {
   display: inline-flex; align-items: center; gap: 6px;
@@ -12,17 +14,22 @@
 .trigger i { font-size: 15px; color: var(--accent); }
 
 .scrim {
-  position: fixed; inset: 0; z-index: 60;
+  /* LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1 — top/height come from window.visualViewport (--chat-top/--chat-h set by
+     ChatLauncher) so the fixed sheet covers exactly the visible area and tracks the on-screen keyboard raise/dismiss.
+     Fallback when visualViewport is unavailable = full layout viewport (top 0, height 100dvh) = the prior behavior. */
+  position: fixed; top: var(--chat-top, 0px); left: 0; right: 0; height: var(--chat-h, 100dvh); z-index: 60;
   background: rgba(15, 23, 42, .38);
   display: flex; justify-content: flex-end;
   animation: fade .12s ease-out;
 }
 @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
 
-/* Mobile: full-screen sheet. 100dvh so the on-screen keyboard shrinks the sheet and the input stays visible. */
+/* Mobile: full-screen sheet. Height fills the .scrim, which is sized to window.visualViewport (--chat-h/--chat-top set
+   by ChatLauncher) so the sheet tracks the on-screen keyboard; dvh is the FALLBACK only — dvh does NOT shrink for the
+   keyboard, only for the address bar (LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1). */
 .panel {
   display: flex; flex-direction: column;
-  width: 100%; min-width: 0; height: 100dvh; background: #fff; /* LORAMER_NEXT_CHAT_TABLE_SCROLL_V1 — min-width:0 down the flex chain so a wide table/pre defers to its own overflow-x scroll instead of widening the panel (iOS flex-min-width:auto trap) */
+  width: 100%; min-width: 0; height: 100%; background: #fff; /* height:100% fills the visualViewport-sized .scrim. min-width:0: LORAMER_NEXT_CHAT_TABLE_SCROLL_V1 — a wide table/pre defers to its own overflow-x scroll instead of widening the panel (iOS flex-min-width:auto trap) */
   box-shadow: -8px 0 40px rgba(15, 23, 42, .18);
   animation: slideUp .18s ease-out;
 }
@@ -30,7 +37,7 @@
 
 /* Desktop: right-docked panel. */
 @media (min-width: 768px) {
-  .panel { width: 420px; max-width: 92vw; height: 100dvh; animation: slideIn .18s ease-out; }
+  .panel { width: 420px; max-width: 92vw; height: 100%; animation: slideIn .18s ease-out; } /* height:100% fills the visualViewport-sized .scrim (LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V1) */
   @keyframes slideIn { from { transform: translateX(24px); opacity: .5 } to { transform: translateX(0); opacity: 1 } }
 }
 
