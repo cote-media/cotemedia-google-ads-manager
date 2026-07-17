@@ -108,3 +108,17 @@
   transition: opacity .15s;
 }
 .sendBtn:disabled { opacity: .4; cursor: default; }
+
+/* LORAMER_NEXT_CHAT_DEBUG_V1 — debug-gated (?debug=chat) horizontal-axis readout. Rendered ONLY when the param is
+   present (ChatLauncher gates it); additive, no default-path effect. position:fixed at the visible top-left; its
+   transform is bound to window.visualViewport.offset* in JS so a visual-viewport pan cannot carry it off-screen
+   (and if the OS moves it anyway, the offsetLeft it prints still captures the pan magnitude — that is itself a reading). */
+.debug {
+  position: fixed; top: 0; left: 0; z-index: 99999;
+  margin: 6px; padding: 8px 10px;
+  background: rgba(2, 6, 23, .92); color: #e2f0ff;
+  font: 600 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre; border-radius: 8px; pointer-events: none;
+  max-width: calc(100vw - 12px); overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .4);
+}

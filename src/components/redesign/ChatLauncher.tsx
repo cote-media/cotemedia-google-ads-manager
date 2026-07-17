@@ -31,6 +31,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
+  const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
+  const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
+  const [debug, setDebug] = useState(false)        // LORAMER_NEXT_CHAT_DEBUG_V1 — true only when ?debug=chat is in the URL
 
   // Any surface (mobile Lora tab, a drill row's ✦) can open the chat by dispatching this event; detail may carry
   // { rowContext, prompt } to open Lora focused on a specific entity. No detail → identical to before.
@@ -68,6 +71,55 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading])
+
+  // LORAMER_NEXT_CHAT_DEBUG_V1 — ?debug=chat opens a live HORIZONTAL-AXIS readout (visualViewport.offsetLeft has never
+  // been measured; the reverted fix bound offsetTop = the VERTICAL axis, against a horizontal symptom). Detect the param
+  // CLIENT-ONLY (post-mount) so there is zero SSR/default-path effect; absent it, `debug` stays false and NOTHING below runs.
+  useEffect(() => {
+    try { setDebug(new URLSearchParams(window.location.search).get('debug') === 'chat') } catch { /* URL unavailable — stay off */ }
+  }, [])
+
+  // LORAMER_NEXT_CHAT_DEBUG_V1 — the readout. GUARD (proven in Gate-A): this effect early-returns unless debug===true, so
+  // with no param there are ZERO listeners, ZERO interval, ZERO DOM writes. Writes textContent directly (no React re-render).
+  useEffect(() => {
+    if (!debug) return
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null // may be undefined — guarded everywhere below
+    const n = (v: number | undefined | null, d = 0) => (v == null || Number.isNaN(v) ? '—' : v.toFixed(d))
+    const update = () => {
+      const el = dbgRef.current
+      if (!el) return
+      const panel = panelRef.current?.getBoundingClientRect()
+      const scroll = scrollRef.current
+      const table = scrollRef.current?.querySelector('table') as HTMLElement | null // .md table is display:block; overflow-x:auto → itself the scroller
+      const de = document.scrollingElement as HTMLElement | null
+      el.textContent = [
+        `vv.offsetLeft   ${vv ? n(vv.offsetLeft, 1) : 'no-vv'}   <- THE number`,
+        `vv.offsetTop    ${vv ? n(vv.offsetTop, 1) : 'no-vv'}`,
+        `vv.pageLeft     ${vv ? n(vv.pageLeft, 1) : 'no-vv'}`,
+        `vv.width/inner  ${vv ? n(vv.width, 0) : 'no-vv'} / ${n(window.innerWidth, 0)}`,
+        `panel.left/w    ${n(panel?.left, 1)} / ${n(panel?.width, 0)}`,
+        `docEl.scrollL   ${n(de?.scrollLeft, 1)}`,
+        `.scroll L/sw/cw ${n(scroll?.scrollLeft)} / ${n(scroll?.scrollWidth)} / ${n(scroll?.clientWidth)}`,
+        `table   L/sw/cw ${table ? `${n(table.scrollLeft)} / ${n(table.scrollWidth)} / ${n(table.clientWidth)}` : 'no-table'}`,
+      ].join('\n')
+      // keep the overlay glued to the VISIBLE viewport so a pan cannot carry it off-screen
+      if (vv) el.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)`
+    }
+    update()
+    // 'scroll' with capture:true catches NESTED-element scrolls (scroll events don't bubble) + the vv pan events + resize.
+    window.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+    vv?.addEventListener('resize', update)
+    vv?.addEventListener('scroll', update)
+    const iv = window.setInterval(update, 200) // iOS pan events are flaky — poll as a backstop (debug-only, so no default-path cost)
+    return () => {
+      window.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+      vv?.removeEventListener('resize', update)
+      vv?.removeEventListener('scroll', update)
+      window.clearInterval(iv)
+    }
+  }, [debug])
 
   const send = useCallback(async (text: string) => {
     const q = text.trim()
@@ -117,9 +169,12 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         <i className="ti ti-sparkles" /> Ask Lora
       </button>
 
+      {/* LORAMER_NEXT_CHAT_DEBUG_V1 — horizontal-axis readout; only mounts when ?debug=chat is present. */}
+      {debug && <div ref={dbgRef} className={styles.debug} aria-hidden="true" />}
+
       {open && (
         <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
-          <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
+          <div className={styles.panel} ref={panelRef} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
               <div className={styles.headTitle}><i className="ti ti-sparkles" /> Ask Lora{clientName ? <span className={styles.headClient}>· {clientName}</span> : null}</div>
               <button type="button" className={styles.close} onClick={() => setOpen(false)} aria-label="Close"><i className="ti ti-x" /></button>
