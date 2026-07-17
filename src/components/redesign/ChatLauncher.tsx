@@ -79,31 +79,44 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     try { setDebug(new URLSearchParams(window.location.search).get('debug') === 'chat') } catch { /* URL unavailable — stay off */ }
   }, [])
 
-  // LORAMER_NEXT_CHAT_DEBUG_V1 — the readout. GUARD (proven in Gate-A): this effect early-returns unless debug===true, so
-  // with no param there are ZERO listeners, ZERO interval, ZERO DOM writes. Writes textContent directly (no React re-render).
+  // LORAMER_NEXT_CHAT_DEBUG_V1 — the readout. GUARD (proven in Gate-A): early-returns unless debug===true → with no param,
+  // ZERO listeners, ZERO interval, ZERO DOM writes. Writes textContent/title/placeholder directly (no React re-render).
+  // The v1 floating overlay panned off-screen WITH the sheet (every fixed element does, regardless of z-index — a finding),
+  // so the readout is IN-FLOW (sticky inside the message list) and mirrored to document.title + the input placeholder.
+  // It tracks the PEAK |value| each number reaches while open: the pan may spike then settle to 0, so the peak is the
+  // signal and the current value is a lie. Re-runs on `open` → peaks reset per open (fresh measurement each time).
   useEffect(() => {
     if (!debug) return
     const vv = typeof window !== 'undefined' ? window.visualViewport : null // may be undefined — guarded everywhere below
-    const n = (v: number | undefined | null, d = 0) => (v == null || Number.isNaN(v) ? '—' : v.toFixed(d))
+    const peaks: Record<string, number> = {}
+    const titleWas = document.title
+    const fmt = (v: number | undefined | null, d = 0) => (v == null || Number.isNaN(v) ? '—' : v.toFixed(d))
+    const trk = (k: string, v: number | undefined | null, d = 0) => { // track peak |value|, return "current / pk<peak>"
+      if (v == null || Number.isNaN(v)) return `— / pk${fmt(peaks[k] ?? 0, d)}`
+      peaks[k] = Math.max(peaks[k] ?? 0, Math.abs(v))
+      return `${v.toFixed(d)} / pk${peaks[k].toFixed(d)}`
+    }
     const update = () => {
-      const el = dbgRef.current
-      if (!el) return
       const panel = panelRef.current?.getBoundingClientRect()
       const scroll = scrollRef.current
       const table = scrollRef.current?.querySelector('table') as HTMLElement | null // .md table is display:block; overflow-x:auto → itself the scroller
       const de = document.scrollingElement as HTMLElement | null
-      el.textContent = [
-        `vv.offsetLeft   ${vv ? n(vv.offsetLeft, 1) : 'no-vv'}   <- THE number`,
-        `vv.offsetTop    ${vv ? n(vv.offsetTop, 1) : 'no-vv'}`,
-        `vv.pageLeft     ${vv ? n(vv.pageLeft, 1) : 'no-vv'}`,
-        `vv.width/inner  ${vv ? n(vv.width, 0) : 'no-vv'} / ${n(window.innerWidth, 0)}`,
-        `panel.left/w    ${n(panel?.left, 1)} / ${n(panel?.width, 0)}`,
-        `docEl.scrollL   ${n(de?.scrollLeft, 1)}`,
-        `.scroll L/sw/cw ${n(scroll?.scrollLeft)} / ${n(scroll?.scrollWidth)} / ${n(scroll?.clientWidth)}`,
-        `table   L/sw/cw ${table ? `${n(table.scrollLeft)} / ${n(table.scrollWidth)} / ${n(table.clientWidth)}` : 'no-table'}`,
-      ].join('\n')
-      // keep the overlay glued to the VISIBLE viewport so a pan cannot carry it off-screen
-      if (vv) el.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)`
+      const docRect = document.documentElement.getBoundingClientRect()
+      const lines = [
+        `vv.offsetLeft   ${vv ? trk('voL', vv.offsetLeft, 1) : 'no-vv'}   <- THE number`,
+        `vv.offsetTop    ${vv ? trk('voT', vv.offsetTop, 1) : 'no-vv'}`,
+        `vv.pageLeft     ${vv ? fmt(vv.pageLeft, 1) : 'no-vv'}`,
+        `vv.width/inner  ${vv ? fmt(vv.width) : 'no-vv'} / ${fmt(window.innerWidth)}`,
+        `window.scrollX  ${trk('wsx', window.scrollX, 1)}`,
+        `docEl.rect.left ${trk('drl', docRect.left, 1)}`,
+        `docEl.scrollL   ${trk('dsl', de?.scrollLeft, 1)}`,
+        `panel.left/w    ${trk('pnl', panel?.left, 1)} / ${fmt(panel?.width)}`,
+        `.scroll L/sw/cw ${trk('scl', scroll?.scrollLeft)} / ${fmt(scroll?.scrollWidth)} / ${fmt(scroll?.clientWidth)}`,
+        `table   L/sw/cw ${table ? `${trk('tbl', table.scrollLeft)} / ${fmt(table.scrollWidth)} / ${fmt(table.clientWidth)}` : 'no-table'}`,
+      ]
+      if (dbgRef.current) dbgRef.current.textContent = lines.join('\n')       // PRIMARY — in-flow, survives (Russ scrolls to it)
+      document.title = vv ? `oL ${fmt(vv.offsetLeft)}/pk${fmt(peaks['voL'] ?? 0)} pL ${fmt(panel?.left)}/pk${fmt(peaks['pnl'] ?? 0)}` : 'no-vv' // tab backstop
+      if (inputRef.current) inputRef.current.placeholder = vv ? `oL ${fmt(vv.offsetLeft)}/pk${fmt(peaks['voL'] ?? 0)} · pL ${fmt(panel?.left)}/pk${fmt(peaks['pnl'] ?? 0)}` : 'Ask Lora…' // placeholder backstop
     }
     update()
     // 'scroll' with capture:true catches NESTED-element scrolls (scroll events don't bubble) + the vv pan events + resize.
@@ -111,15 +124,17 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     window.addEventListener('resize', update)
     vv?.addEventListener('resize', update)
     vv?.addEventListener('scroll', update)
-    const iv = window.setInterval(update, 200) // iOS pan events are flaky — poll as a backstop (debug-only, so no default-path cost)
+    const iv = window.setInterval(update, 120) // poll fast — the pan may be transient, and peak-tracking needs the samples
     return () => {
       window.removeEventListener('scroll', update, true)
       window.removeEventListener('resize', update)
       vv?.removeEventListener('resize', update)
       vv?.removeEventListener('scroll', update)
       window.clearInterval(iv)
+      document.title = titleWas
+      if (inputRef.current) inputRef.current.placeholder = 'Ask Lora…'
     }
-  }, [debug])
+  }, [debug, open])
 
   const send = useCallback(async (text: string) => {
     const q = text.trim()
@@ -169,9 +184,6 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         <i className="ti ti-sparkles" /> Ask Lora
       </button>
 
-      {/* LORAMER_NEXT_CHAT_DEBUG_V1 — horizontal-axis readout; only mounts when ?debug=chat is present. */}
-      {debug && <div ref={dbgRef} className={styles.debug} aria-hidden="true" />}
-
       {open && (
         <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
           <div className={styles.panel} ref={panelRef} onClick={(e) => e.stopPropagation()}>
@@ -181,6 +193,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
             </header>
 
             <div className={styles.scroll} ref={scrollRef}>
+              {/* LORAMER_NEXT_CHAT_DEBUG_V1 — in-flow horizontal-axis readout; only mounts with ?debug=chat. Sticky to the
+                  top of the message list; pans with the sheet but is readable after the pan settles (peak-tracked). */}
+              {debug && <div ref={dbgRef} className={styles.debug} aria-hidden="true" />}
               {messages.length === 0 ? (
                 <div className={styles.empty}>
                   {/* LORAMER_NEXT_CHAT_EMPTYSTATE_NAME_V1 — name the client when there IS one. clientId is the real-client
