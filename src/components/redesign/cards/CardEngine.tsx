@@ -29,6 +29,15 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/
 // LORAMER_NEXT_WORKING_LAYOUT_V1 — Lesson 53: re-validate a restored working view against the incoming client before it
 // renders. Never carry a stale blank: land on a valid non-blank period, a non-empty card set, and drop an incomplete
 // custom range. (Cards themselves render honestly empty/no-data per client, so no per-card capability pruning here.)
+// LORAMER_NEXT_GRID_BP_REF_V1 — the corrupt-DESKTOP-layout signature: EVERY item is w:1 AND x:0, with >=2 items. That
+// is the sm `stacked` shape that the pre-fix CardGrid.onLayoutChange leaked into the desktop slot + autosaved (the
+// collapse). A DELIBERATE all-1-col desktop cannot produce it — RGL vertical-compaction spreads x to 0,1,2…, so
+// all-x:0 never occurs legitimately (verified: 0 live rows match all-w:1-but-x-spread). Desktop-only: callers pass
+// view.layout, NEVER view.layoutSm, so a correct mobile (sm) w:1/x:0 layout is never flagged.
+function isCorruptDesktopLayout(layout: GridItem[] | undefined | null): boolean {
+  return Array.isArray(layout) && layout.length >= 2 && layout.every((g) => Number(g.w) === 1 && Number(g.x) === 0)
+}
+
 function revalidate(v: SavedView): SavedView {
   const presets = new Set(RANGE_PRESETS.map((r) => r.key))
   const period = presets.has(v.globalPeriod || '') ? (v.globalPeriod as string) : 'LAST_30_DAYS'
@@ -82,7 +91,14 @@ export default function CardEngine({ pageKey, clientId, defaultView, source, sto
   }
   // apply a view into the live working state (re-validated per Lesson 53).
   const applyWorking = (v: SavedView) => {
-    const r = revalidate(v)
+    // LORAMER_NEXT_GRID_BP_REF_V1 detect-at-load HEAL — a loaded working view whose DESKTOP layout is the corrupt
+    // all-w:1/x:0 sm-stacked shape (leaked + autosaved before the CardGrid ref fix) is discarded and replaced by the
+    // PAGE's own default (defaultView = storeDefaultView on store pages, else defaultOverviewView), swapping cards +
+    // layout together so they stay consistent and RGL can never re-collapse an unmatched card. NO DB write — the next
+    // autosave persists the heal. Checks view.layout ONLY (never view.layoutSm), so a correct sm layout is never healed.
+    const corrupt = isCorruptDesktopLayout(v.layout)
+    if (corrupt) console.warn(`[CardEngine] LORAMER_NEXT_GRID_BP_REF_V1 heal: discarded a corrupt all-w:1/x:0 desktop layout (pageKey=${pageKey}, clientId=${clientId}) → page default`)
+    const r = revalidate(corrupt ? (defaultView || defaultOverviewView()) : v)
     setCards(r.cards); setLayout(r.layout); setLayoutSm(r.layoutSm || []); setPinned(new Set(r.pinned || []))
     setGlobalPeriod(r.globalPeriod || 'LAST_30_DAYS'); setGlobalCustom(r.globalCustom || null)
     setCompareMode(r.compareMode || 'none'); setCustomCompare(r.customCompare || null)

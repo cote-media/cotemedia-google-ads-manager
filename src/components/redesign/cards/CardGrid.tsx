@@ -5,7 +5,7 @@
 // LORAMER_NEXT_MOBILE_LAYOUT_V1 — the mobile (sm) reorder now PERSISTS into a SEPARATE slot (view.layoutSm) via
 // onLayoutSmChange; it never writes the desktop lg/md layout. Desktop + mobile arrangements are independent by design.
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -38,6 +38,13 @@ export default function CardGrid({
 }) {
   const [bp, setBp] = useState<string>('lg')
   const isMobile = bp === 'sm'
+  // LORAMER_NEXT_CARD_GRID_SM_LEAK_V1 — synchronously-current breakpoint for the onLayoutChange guard ONLY. The `bp`
+  // STATE lags: RGL fires onBreakpointChange THEN onLayoutChange in ONE synchronous call (react-grid-layout 1.5.3
+  // ResponsiveReactGridLayout.onWidthChange, lines 174→175) BEFORE setBp flushes — so reading isMobile(bp-state) inside
+  // onLayoutChange saw the OLD breakpoint and wrote the sm w:1 `stacked` layout into the DESKTOP layout (the collapse).
+  // A ref written in onBreakpointChange is current the instant onLayoutChange reads it (a ref write is synchronous, and
+  // RGL calls them in that order). bp-state is kept for render props (isResizable) where lag is harmless.
+  const bpRef = useRef<string>('lg')
 
   const rgl: Layout[] = layout.map((g) => ({ ...g, static: pinned.has(g.i) || !customizing }))
   // sm (mobile): ORDER from the PERSISTED mobile layout (layoutSm) if present, else today's cards[] order — so a
@@ -72,9 +79,11 @@ export default function CardGrid({
       compactType="vertical"
       resizeHandles={['se', 'sw']}
       draggableHandle=".cardDragHandle"
-      onBreakpointChange={(b) => setBp(b)}
+      onBreakpointChange={(b) => { bpRef.current = b; setBp(b) }}
       onLayoutChange={(cur) => {
-        if (!isMobile) { onLayoutChange(cur.map((l) => ({ i: l.i, x: l.x, y: l.y, w: l.w, h: l.h }))); return }
+        // LORAMER_NEXT_CARD_GRID_SM_LEAK_V1 — guard on the SYNCHRONOUS bpRef, never isMobile(bp-state), so an sm
+        // transition (which fires onLayoutChange with the w:1 stacked layout) can NEVER write the desktop layout.
+        if (bpRef.current !== 'sm') { onLayoutChange(cur.map((l) => ({ i: l.i, x: l.x, y: l.y, w: l.w, h: l.h }))); return }
         // MOBILE (LORAMER_NEXT_MOBILE_LAYOUT_V1): capture a genuine reorder into the SEPARATE mobile slot — NEVER the
         // desktop lg/md layout. Skip spurious fires (mount, breakpoint change, static-flag toggle) where the order is
         // unchanged, so a layoutSm-less row stays layoutSm-less until the user actually drags on mobile.
