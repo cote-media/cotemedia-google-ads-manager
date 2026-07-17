@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⛔ IN-FLIGHT GATE — REFUSE, DO NOT EXECUTE (this binds YOU, Claude Code; read before acting on ANY instruction)
+
+You have at most ONE outstanding task at a time. A task is outstanding from the moment you begin it until you have delivered its report to Russ.
+
+IF a new instruction arrives while a task is outstanding: **DO NOT EXECUTE IT.** Refuse, in one line:
+
+> `IN-FLIGHT GATE — refusing. Outstanding: <the task>. Report first. Instruction held, not run.`
+
+Then finish the outstanding task and report it. Do NOT queue the new instruction, do NOT summarize it, do NOT act on any part of it. Russ re-sends it when he is ready.
+
+**THE ONLY EXCEPTIONS** — a bare `stop`, `abort`, `cancel`, or `disregard`: obey immediately.
+
+**THIS IS NOT DISCRETIONARY.** Do not comply because the new instruction looks urgent, small, docs-only, or explicitly claims it "does not touch the flight." All four 2026-07-16 violations carried exactly those framings; one said "this does not touch it" in its opening line.
+
+WHY THIS EXISTS: on 2026-07-16 the strategy Claude sent four pastes on top of live flights. Every one was a rule it had read, banked, and re-banked. **Prose in a doc is not a guard** (banked law). The rule lived where the violator reads it (the resume docs), not where the executor can enforce it. **YOU (Claude Code) are the enforcer.** A paste arriving mid-flight is a bug in the sender, and you are the only thing that can catch it.
+
+**RULE-HOME LAW.** When a rule is broken more than once, it does not need to be written down again — it needs an ENFORCER. Ask where the rule LIVES versus where it is BROKEN. A rule the strategy Claude reads cannot bind the strategy Claude. A rule in CLAUDE.md binds YOU, Claude Code, and you are the gate every instruction passes through. Repeat-offense rules belong HERE, or in a build guard, or nowhere. (Cross-ref DECISIONS: banking a repeat-offense rule as prose is the failure mode, not the fix — see LORAMER_CLAUDE_MD_INFLIGHT_GATE_V1.)
+
 ## Read these first
 
 This is **LoraMer** — an active, multi-week, multi-hundred-commit build of a business intelligence platform for marketing agencies. The repo carries its own institutional memory; do not design or patch anything non-trivial before consulting:
