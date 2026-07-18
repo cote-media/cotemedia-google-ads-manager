@@ -17,6 +17,7 @@ import { runGoogleAdGroupAdBackfill } from './google-adgroup-ad-backfill'
 import { runGoogleDeviceBackfill } from './google-device-backfill'
 import { runGoogleGeoBackfill, runGoogleUserGeoBackfill } from './google-geo-backfill'
 import { runGoogleHourBackfill } from './google-hour-backfill'
+import { runGoogleAgeBackfill, runGoogleGenderBackfill } from './google-demographic-backfill' // LORAMER_GOOGLE_DEMOGRAPHIC_BACKFILL_V1 (G-FILL#3)
 import { runMetaPlacementBackfill } from './meta-placement-backfill'
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
@@ -227,6 +228,25 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'google_hour',
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_hour', runGoogleHourBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_GOOGLE_DEMOGRAPHIC_BACKFILL_V1 (G-FILL#3) — age BREADTH (campaign×age + ad_group×age from
+    // age_range_view). Closes G3 (fetched-then-dropped). FLAG-NOT-BLOCK vs the per-day campaign anchor (a
+    // demographic bucket partitions a demographics-reporting campaign's spend; PMax carries no age criteria →
+    // excluded from both the view and the anchor). After google_hour so the campaign anchor is present.
+    // Stateless-range, same driver as google_device/hour; default 365-day window (age cardinality is tiny —
+    // ad_groups × ≤7 buckets). Stop-at-floor = empty-success (L61).
+    key: 'google_age',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_age', runGoogleAgeBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_GOOGLE_DEMOGRAPHIC_BACKFILL_V1 (G-FILL#3) — gender BREADTH (campaign×gender + ad_group×gender from
+    // gender_view). SEPARATE breakdown_type family from age (each its own partition; NEVER summed together).
+    // Same posture/window as google_age.
+    key: 'google_gender',
+    platforms: ['google'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_gender', runGoogleGenderBackfill as RangeWriter, dryRun),
   },
   {
     // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — parent grain, BEFORE meta_placement. Reconciles

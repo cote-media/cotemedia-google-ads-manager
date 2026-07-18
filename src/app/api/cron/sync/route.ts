@@ -16,6 +16,7 @@ import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intell
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
+import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -695,6 +696,35 @@ export async function GET(request: Request) {
           const message = serializeCaughtError(hourErr)
           console.error(`[cron/sync] client=${client.id} platform=google hour capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `hour: ${message}` })
+        }
+
+        // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3) — age + gender breakdown (campaign + ad_group grains,
+        // from age_range_view / gender_view). Closes G3: these views were ALREADY fetched for the Lora prompt and
+        // dropped; now persisted. Own try/catch: a demographic failure logs LOUD and is recorded, but NEVER drops
+        // base/dimensional/device/geo/hour rows or sync_state. ONE view fetch per dimension → both grains. No
+        // forward reconcile (matches device/geo/hour — the backfill/drain carries FLAG-NOT-BLOCK).
+        try {
+          let demoRows = 0
+          for (const dim of DEMO_DIMENSIONS) {
+            const dayRows = await fetchDemographicDay(dim, tokenRow.refresh_token, customerId, captureDate)
+            for (const grain of DEMO_GRAINS) {
+              const built = buildDemographicGrainRows(dim, grain, client.id, userEmail, captureDate, customerId, dayRows)
+              if (built.length > 0) {
+                const { error: demoError } = await supabaseAdmin
+                  .from('metrics_daily')
+                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                if (demoError) throw demoError
+                summary.rowsWritten += built.length; demoRows += built.length
+              }
+            }
+          }
+          if (demoRows === 0) {
+            console.log(`[cron/sync] client=${client.id} platform=google demographic capture: 0 rows (empty, not an error)`)
+          }
+        } catch (demoErr) {
+          const message = serializeCaughtError(demoErr)
+          console.error(`[cron/sync] client=${client.id} platform=google demographic capture FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `demographic: ${message}` })
         }
 
         const { error: syncError } = await supabaseAdmin

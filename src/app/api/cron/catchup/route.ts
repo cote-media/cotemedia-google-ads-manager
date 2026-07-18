@@ -29,6 +29,7 @@ import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conve
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
+import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
@@ -656,6 +657,26 @@ export async function GET(request: Request) {
             }
           } catch (hourErr) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `hour ${d}: ${serializeCaughtError(hourErr)}` })
+          }
+
+          // Google demographic breakdown (age + gender; campaign + ad_group grains) — own try/catch, mirrors
+          // device/hour. ONE view fetch per dimension → both grains. LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3).
+          try {
+            for (const dim of DEMO_DIMENSIONS) {
+              const dayRows = await fetchDemographicDay(dim, refreshToken, customerId, d)
+              for (const grain of DEMO_GRAINS) {
+                const built = buildDemographicGrainRows(dim, grain, client.id, userEmail, d, customerId, dayRows)
+                if (built.length > 0) {
+                  const { error: demoError } = await supabaseAdmin
+                    .from('metrics_daily')
+                    .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                  if (demoError) throw demoError
+                  summary.rowsWritten += built.length
+                }
+              }
+            }
+          } catch (demoErr) {
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `demographic ${d}: ${serializeCaughtError(demoErr)}` })
           }
         } catch (err) {
           summary.errors.push({ clientId: client.id, platform: 'google', message: `${d}: ${serializeCaughtError(err)}` })
