@@ -26,21 +26,71 @@ COST: each fill = more rows + more Google Ads API ops/client/day against the Bas
 
 RANKED FILL QUEUE (G-FILL#1..#10 + ON-DEMAND + DEFERRED) lives in LORAMER_QUEUE_OF_RECORD.md under ★ PLATFORM-SURFACE-AUDIT — that queue owns the build ORDER; this section owns the offered-vs-captured DELTA. DEPTH status (owned by LORAMER_DECISIONS / the QUEUE, pointer only): campaign backfill WIRED+SCALED cohort-wide; ad_group/ad + keyword/search_term ~90d unchanged.
 
-## GA4
-Have: account daily totalRevenue + conversions (spend=0). DEEP BACKFILL EXISTS — mechanism built and run for multiple clients (years).
-Gap: DEPTH — none structural; aggregated revenue/conversions backfills YEARS via Data API (the 2–14mo limit is granular user/event-scope ONLY, not aggregated date-scoped metrics). ACTION: confirm per-client coverage, run existing backfill for any shallow/recently-connected client. BREADTH — sessions/users/engagement, source/medium/campaign/channel, landing pages, device, geo, demographics, events, item-level ecommerce — not persisted (only revenue+conversions).
+## META ADS — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+Reference = Meta Marketing / Insights API field reference, the VENDOR'S own docs — NOT our writers/inventory. OFFERED (vendor docs) vs CAPTURED (metrics_daily). [VERIFIED] = doc-confirmed; [DERIVED] = inferred, not yet doc-confirmed.
 
-## META ADS
-Have: account+campaign+adset+ad spend/clicks/impr/conv/conv_value + reach/frequency + funnel actions + extra. Placement (publisher_platform,platform_position) NOW PERSISTED (breakdown_type='placement', forward + history backfill, 2026-06-22); device + age/gender breakdowns also persisted (2026-06-28).
-Gap: DEPTH — campaign/adset/ad forward-only (being fixed). BREADTH — placement dropped-on-write (HIGH, free win); age/gender, geo (country/region/dma), device, hourly not requested; ALL video metrics; ranking diagnostics; outbound/inline clicks; full cost_per_action_type set.
+HAVE (CAPTURED): base 4-grain (acct/campaign/adset/ad); breakdowns placement (campaign-only), device, device_platform, age, gender, age_gender, geo_country, geo_region, hour, action_type (full taxonomy), video (10 dedicated cols).
 
-## SHOPIFY (best-covered)
-Have: account NET revenue + orders + customer mix + refund stats + AOV; product rows (NET, ALL products, units); geo_country + geo_region.
-Gap: shipping/tax components (totals only); discount codes as dimension; variant/SKU; customer LTV/email (id only — intentional); abandoned-checkout value (count only); fulfillment/inventory, tags, sales channel.
+GAP — OFFERED, NOT CAPTURED:
+A. [LAW-CORE] creative-asset breakdowns: image_asset / video_asset / title_asset / body_asset / call_to_action_asset / description_asset / link_url_asset [VERIFIED] — the Meta analog of Google asset-combination attribution.
+B. attribution-window dimension — we store 7d_click only; 1d_click / 7d_click / 1d_view are served [VERIFIED].
+C. DMA / metro geo grain (below region) [VERIFIED].
+D. product_id catalog grain [VERIFIED].
+E. click variants: outbound_clicks / inline_link_clicks / unique_clicks [VERIFIED].
+F. quality / engagement-rate / conversion-rate ranking [DERIVED].
+G. frequency_value, SKAN / coarse_conversion_value [LOW / on-demand].
 
-## WOOCOMMERCE
-Have: account NET (sale-only) revenue + orders; topProducts TOP-N only (top-10 cap).
-Gap: ACTIVE LOSS — product rows capped at top-10 → real loss on >10-product days (Shopify captures all). shipping/tax components not separated; NO geo; NO customer/new-vs-returning; variants/coupons/fulfillment ignored; WC Analytics reports unused.
+## SHOPIFY — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+Reference = Shopify Admin GraphQL/REST API docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
+
+HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split, new-vs-returning, AOV; geo country/region (account grain).
+
+GAP — OFFERED, NOT CAPTURED:
+A. sales channel / order attribution (online store / POS / Meta / Google) [VERIFIED].
+B. abandoned checkouts — value + contents + timestamps [VERIFIED]. (Note: loramer.com advertises this analysis; the data is uncaptured.)
+C. discount-code performance [VERIFIED].
+D. product type / vendor / collection / tags grouping [VERIFIED].
+E. fulfillment + financial + chargeback status [VERIFIED].
+F. customer cohorts / LTV / order-count (aggregate, non-PII) [DERIVED].
+G. order time-of-day — the writer discards timestamps [VERIFIED].
+H. city-grain + product-grain geo [DERIVED].
+CONSTRAINT: read_all_orders scope gates >60-day history — the 2019 backfill implies we hold it; VERIFY before Shopify backfill work [DERIVED].
+
+## WOOCOMMERCE — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+Reference = WooCommerce REST API v3 + WC-Analytics reports docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
+
+HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split. ZERO breadth.
+
+GAP — OFFERED, NOT CAPTURED:
+A. coupons / discount codes (coupons API + reports/coupons/totals) [VERIFIED].
+B. product category + tag grain (native Sales-by-category report) [VERIFIED].
+C. geo — zero today, vs Shopify's country/region [DERIVED].
+D. customer new-vs-returning / cohorts (reports/customers) [VERIFIED].
+E. order-status dimension [DERIVED].
+F. payment / shipping method [DERIVED].
+G. order time-of-day — the writer discards timestamps [VERIFIED].
+
+## GA4 — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+Reference = GA4 Data API (dimensions & metrics) docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
+
+HAVE (CAPTURED): property grain; base sessions / users / conversions / revenue; breakdown families A–I (source_medium, channel, campaign, landing_page, device, geo country/region/city, age, gender, event, item).
+
+GAP — OFFERED, NOT CAPTURED:
+A. ecommerce funnel steps view_item / add_to_cart / begin_checkout + purchase-to-view rate + AOV + refunds [VERIFIED].
+B. Google-Ads-linkage dims (googleAdsCampaignName / network / query — the GA-vs-Google cross-check layer) [DERIVED].
+C. first-user acquisition scope (vs the session scope we have) [VERIFIED].
+D. item category / brand / variant (we have name/id) [VERIFIED].
+E. engagement / retention (bounce, avg session duration, active / returning / N-day actives) [VERIFIED].
+F. full page-path perf (landing page only today) [DERIVED].
+CONSTRAINTS [all VERIFIED]: scope compatibility (event / user / session / item dimensions cannot be freely mixed in one report); high-cardinality bucketing + thresholding can silently drop rows (a capture-completeness risk); custom dimensions are forward-only, no backfill.
+
+## CROSS-PLATFORM PATTERNS (the surface audit's meta-findings, 2026-07-18)
+(a) CREATIVE / ASSET ATTRIBUTION missing on BOTH ad platforms [LAW-CORE] — Google assets/asset_group (G-FILL#2) AND Meta creative-asset breakdowns (M-FILL#1). The single highest-value cross-platform gap.
+(b) DISCOUNT / COUPON performance missing on BOTH stores — Shopify discount-code (S-FILL#3) + Woo coupons (W-FILL#1).
+(c) PRODUCT-GROUPING (category/type/vendor/collection/tag) missing across Shopify (S-FILL#4) + Woo (W-FILL#2) + GA4 item-cat/brand (GA-FILL#4).
+(d) FUNNEL / ABANDONED-CHECKOUT uncaptured on Shopify (S-FILL#2) + GA4 (GA-FILL#1) — the pre-purchase journey is invisible.
+(e) STORES CAPTURED UNEVENLY — Shopify has geo + money-split + customer-mix; Woo has ZERO breadth. Same commerce questions, different answerable-ness by platform.
+(f) TIME-OF-DAY DISCARDED on all 3 commerce sources (Shopify + Woo + GA4) — the writers aggregate to a daily row and drop the timestamp (cross-ref ★ HOUR-GRAIN-CAPTURE-HOLE). "Someone ordered at 3am" is unanswerable by choice, not by API limit.
 
 ## BOTTOM LINE — ACTION
 Depth: (1) campaign Google+Meta — writers proven, scale all clients. (2) GA — run existing backfill for shallow clients (years deep).

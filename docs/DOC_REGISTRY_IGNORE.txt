@@ -18,4 +18,5 @@ docs/META_APP_REVIEW_ANSWERS.md                    # form-record
 LORAMER_CATCHUP_LOOP_PLAN.md                        # closed-plan
 LORAMER_COMPLETENESS_AUDIT_PLAN_V1.md              # executed-plan
 docs/DOC_REGISTRY_IGNORE.txt                        # registry-self
+AGENTS.md                                           # harness-mirror
 
