@@ -479,6 +479,7 @@ Shopify App Store approved+live; Google Ads/Meta/Shopify/GA-V1 connectors; Unive
     M-FILL#3  DMA / metro geo grain (below region) [LC]
     M-FILL#4  product_id catalog grain [LC]
     M-FILL#5  click-variants (outbound_clicks / inline_link_clicks / unique_clicks) [LC]
+    M-FILL placement grain-completion  ✅ SHIPPED 2026-07-18 (LORAMER_META_PLACEMENT_ADSET_AD_V1) — placement campaign → campaign+ad_set+ad (account = derive-not-capture, the clean rollup of campaign, Σ placement == account spend to the cent). CLOSES the completion-gate's SEED slice (meta.placement — the first red→green); capture-completeness KNOWN_INCOMPLETE 3→2. FLAG-NOT-BLOCK vs account anchor (partitions exactly on settled data; recent stale-STORED-anchor days flagged-but-written). breakdown_value='<pub>:<pos>' raw composite; publisher_platform = facebook/instagram/messenger/audience_network (WhatsApp is NOT a placement — click-to-WhatsApp delivers on FB/IG, measured as messaging action_types); positions complete by composite (no hardcoded list). Forward 'placement_adset_ad' + drain 'meta_placement_adset_ad'; registry entityLevels [campaign,ad_set,ad]. [LC]
     ── SHOPIFY (S-FILL) ──
     S-FILL#1  sales channel / order attribution (online store / POS / Meta / Google) [LC]
     S-FILL#2  abandoned checkouts (value + contents + timestamps — loramer.com advertises this analysis; data uncaptured) [LC]

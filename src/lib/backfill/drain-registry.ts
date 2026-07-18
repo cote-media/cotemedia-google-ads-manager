@@ -18,7 +18,7 @@ import { runGoogleDeviceBackfill } from './google-device-backfill'
 import { runGoogleGeoBackfill, runGoogleUserGeoBackfill } from './google-geo-backfill'
 import { runGoogleHourBackfill } from './google-hour-backfill'
 import { runGoogleAgeBackfill, runGoogleGenderBackfill } from './google-demographic-backfill' // LORAMER_GOOGLE_DEMOGRAPHIC_BACKFILL_V1 (G-FILL#3)
-import { runMetaPlacementBackfill } from './meta-placement-backfill'
+import { runMetaPlacementCampaignBackfill, runMetaPlacementAdsetAdBackfill } from './meta-placement-backfill' // LORAMER_META_PLACEMENT_ADSET_AD_V1
 import { runMetaCampaignBackfill } from './meta-campaign-backfill'
 import { runMetaAdSetAdBackfill } from './meta-adset-ad-backfill'
 import { runMetaDeviceBackfill } from './meta-device-backfill'
@@ -131,6 +131,11 @@ const META_ASSET_WINDOW_DAYS = 15
 // 4 levels). Start conservative at 15d, tune UP after a Gate-B live lap timing. WRITE-ONLY (windows overlap → never
 // reconciled). floor36. After meta_asset.
 const META_ATTR_WINDOW_DAYS = 15
+
+// LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement grain-completion window. 2 levels (ad_set + ad) × 1 insights call
+// each = 2 reports/lap, but ad-level placement is ROW-HEAVY (ads × placements × days). 60d, tune up after Gate-B.
+// FLAG-NOT-BLOCK vs account anchor (partitions exactly per probe). floor36. Campaign placement stays on 'meta_placement'.
+const META_PLACEMENT_ADSET_AD_WINDOW_DAYS = 60
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -274,7 +279,16 @@ export const DRAIN_REGISTRY: DrainStep[] = [
   {
     key: 'meta_placement',
     platforms: ['meta'],
-    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_placement', runMetaPlacementBackfill as RangeWriter, dryRun),
+    // CAMPAIGN grain only (byte-identical to Slice 2). ad_set+ad ride the separate 'meta_placement_adset_ad' step so
+    // the new grains back-drain the cohort (this step is already onboard_steps_done for existing clients → skipped).
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_placement', runMetaPlacementCampaignBackfill as RangeWriter, dryRun),
+  },
+  {
+    // LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement grain-completion: ad_set + ad (campaign is 'meta_placement').
+    // NEW key → not-done for every connection → back-drains the cohort. FLAG-NOT-BLOCK vs account anchor. After meta_placement.
+    key: 'meta_placement_adset_ad',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_placement_adset_ad', runMetaPlacementAdsetAdBackfill as RangeWriter, dryRun, META_PLACEMENT_ADSET_AD_WINDOW_DAYS),
   },
   {
     // LORAMER_META_ADSET_AD_BACKFILL_V1 — deepest Meta grain (ad_set + ad, one writer/one pass). Reconciles

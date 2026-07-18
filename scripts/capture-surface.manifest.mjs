@@ -30,7 +30,7 @@ const GA_FAMILIES = ['ga_source_medium', 'ga_channel', 'ga_campaign', 'ga_landin
 export const VENDOR_SURFACE = {
   meta: {
     // ── ad breakdowns, vendor-complete = 4 grains ──
-    placement: { grains: G4, status: 'captured', confidence: V, note: 'Meta serves placement (publisher_platform,platform_position) at ALL 4 grains; writer is campaign-only → SLICE (queue G6).' },
+    placement: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'publisher_platform×platform_position at campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1). account is DERIVE-NOT-CAPTURE — the clean rollup of campaign (Σ placement == account spend to the cent), so complete = 3 grains, not 4.' },
     device: { grains: G4, status: 'captured', confidence: V },
     device_platform: { grains: G4, status: 'captured', confidence: V },
     age: { grains: G4, status: 'captured', confidence: V },
@@ -87,7 +87,7 @@ export const VENDOR_SURFACE = {
 // Populated from the first discovery run (2026-07-18). DO NOT auto-fix the underlying slices; work them off deliberately.
 export const KNOWN_INCOMPLETE = [
   // SLICE — captured at fewer grains than the vendor serves (deepen the writer to full grain):
-  'meta.placement',              // campaign-only → +account, ad_set, ad (G6)
+  // (2026-07-18) meta.placement COMPLETED to campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1) — removed here.
   'google.conversion_action',    // campaign-only → +ad_group, keyword (G-FILL#9)
   'google.impression_share',     // campaign-only → +ad_group (G-FILL#9)
   // (2026-07-18) The 10 UNWIRED families — the 7 Meta assets, meta.attribution_window, google.age, google.gender —

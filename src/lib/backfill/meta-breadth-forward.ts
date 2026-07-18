@@ -31,6 +31,7 @@ import { runMetaGeoBackfill } from './meta-geo-backfill'
 import { runMetaHourBackfill } from './meta-hour-backfill'
 import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
 import { runMetaAttributionWindowBackfill } from './meta-attribution-window-backfill' // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2)
+import { runMetaPlacementAdsetAdBackfill } from './meta-placement-backfill' // LORAMER_META_PLACEMENT_ADSET_AD_V1 — ad_set+ad grains (campaign forward is meta-metrics-row)
 
 // LORAMER_META_BREADTH_COUNTER_TYPE_V1 — the writer's ACTUAL body shape, declared CLOSED so the COMPILER is the guard.
 // WHY THIS TYPE EXISTS (a real bug, shipped 2026-07-15 in 28f431f, caught only by Gate-B on the real path): the
@@ -73,8 +74,8 @@ export type MetaBreadthWriter = (
 //   asset       → image/video/title/body/CTA/description/link_url_asset  (3 levels [NO account — served-empty] x 7 = 21)
 //   attribution_window → per-window decomposition of every action_type   (4 levels, 1 call/level = 4; row-heavy)
 //                                                            TOTAL/client/day = 65 reports
-// placement is NOT here: it already HAS forward capture (meta-metrics-row.ts:131). Its campaign-only grain gap is a
-// separate item (G6) — do not fold it in here.
+// placement CAMPAIGN grain is NOT here: it already HAS forward capture (meta-metrics-row.ts:131). Only the ad_set+ad
+// grains (LORAMER_META_PLACEMENT_ADSET_AD_V1) ride this list — the 'placement_adset_ad' entry below; campaign stays there.
 export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
   { key: 'device', run: runMetaDeviceBackfill as MetaBreadthWriter },
   { key: 'age_gender', run: runMetaAgeGenderBackfill as MetaBreadthWriter },
@@ -88,4 +89,6 @@ export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
   // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — per-window attribution decomposition of every action_type
   // (breakdown_type='attribution_window', value='<action_type>:<window>'). 4 levels, 1 call/level. WRITE-ONLY.
   { key: 'attribution_window', run: runMetaAttributionWindowBackfill as MetaBreadthWriter },
+  // LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement at ad_set + ad ONLY (campaign forward = meta-metrics-row). 2 calls/day.
+  { key: 'placement_adset_ad', run: runMetaPlacementAdsetAdBackfill as MetaBreadthWriter },
 ]
