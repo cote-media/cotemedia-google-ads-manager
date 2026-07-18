@@ -30,6 +30,7 @@ import { runMetaVideoBackfill } from './meta-video-backfill'
 import { runMetaGeoBackfill } from './meta-geo-backfill'
 import { runMetaHourBackfill } from './meta-hour-backfill'
 import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
+import { runMetaAttributionWindowBackfill } from './meta-attribution-window-backfill' // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2)
 
 // LORAMER_META_BREADTH_COUNTER_TYPE_V1 — the writer's ACTUAL body shape, declared CLOSED so the COMPILER is the guard.
 // WHY THIS TYPE EXISTS (a real bug, shipped 2026-07-15 in 28f431f, caught only by Gate-B on the real path): the
@@ -70,7 +71,8 @@ export type MetaBreadthWriter = (
 //   geo         → geo_country, geo_region      (4 levels x 2 fields =  8)
 //   hour        → hour                         (4 levels, field-widen =  4)
 //   asset       → image/video/title/body/CTA/description/link_url_asset  (3 levels [NO account — served-empty] x 7 = 21)
-//                                                            TOTAL/client/day = 61 reports
+//   attribution_window → per-window decomposition of every action_type   (4 levels, 1 call/level = 4; row-heavy)
+//                                                            TOTAL/client/day = 65 reports
 // placement is NOT here: it already HAS forward capture (meta-metrics-row.ts:131). Its campaign-only grain gap is a
 // separate item (G6) — do not fold it in here.
 export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
@@ -83,4 +85,7 @@ export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
   // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — 7 asset breakdown_types × 3 levels (campaign/adset/ad; NO account) =
   // 21 reports/day (the heaviest breadth fan-out). WRITE-ONLY, no reconcile. One writer emits all 7 families.
   { key: 'asset', run: runMetaAssetBackfill as MetaBreadthWriter },
+  // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — per-window attribution decomposition of every action_type
+  // (breakdown_type='attribution_window', value='<action_type>:<window>'). 4 levels, 1 call/level. WRITE-ONLY.
+  { key: 'attribution_window', run: runMetaAttributionWindowBackfill as MetaBreadthWriter },
 ]

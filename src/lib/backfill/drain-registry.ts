@@ -28,6 +28,7 @@ import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VID
 import { runMetaGeoBackfill } from './meta-geo-backfill' // LORAMER_META_GEO_BACKFILL_V1
 import { runMetaHourBackfill } from './meta-hour-backfill' // LORAMER_META_HOUR_V1
 import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
+import { runMetaAttributionWindowBackfill } from './meta-attribution-window-backfill' // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2)
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -124,6 +125,12 @@ const META_HOUR_WINDOW_DAYS = 15
 // 15d (matches hour) and tune UP after a Gate-B live lap timing. WRITE-ONLY (no reconcile). floor36 (assets ride the
 // ~37mo Meta aggregate #3018 wall). Only Advantage+/Dynamic-Creative ads populate these; single-creative → empty.
 const META_ASSET_WINDOW_DAYS = 15
+
+// LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — attribution-window window. LOW API fan-out (ONE insights call per
+// entity level = 4 reports/lap, like action_type), but ROW-HEAVY (every action_type × every populated window ×
+// 4 levels). Start conservative at 15d, tune UP after a Gate-B live lap timing. WRITE-ONLY (windows overlap → never
+// reconciled). floor36. After meta_asset.
+const META_ATTR_WINDOW_DAYS = 15
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -354,6 +361,16 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_asset',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_asset', runMetaAssetBackfill as RangeWriter, dryRun, META_ASSET_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — Meta per-window attribution decomposition of every action_type.
+    // breakdown_type='attribution_window', breakdown_value='<action_type>:<window>' (composite — preserves action_type;
+    // window alone would mix leads+purchases). All 4 levels (account/campaign/ad_set/ad). WRITE-ONLY, NEVER reconciled
+    // (windows overlap 1d⊂7d⊂28d + view/click double-count). spend=0 (base owns spend; windows are attribution outputs).
+    // Stateless-range. After meta_asset. NEW key → next meta drain back-fills the cohort to floor (Meta = no quota wall).
+    key: 'meta_attribution_window',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_attribution_window', runMetaAttributionWindowBackfill as RangeWriter, dryRun, META_ATTR_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
