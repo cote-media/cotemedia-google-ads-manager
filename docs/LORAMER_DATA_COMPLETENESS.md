@@ -10,9 +10,21 @@ GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the 
 
 AVAILABLE (official API docs, Jun 2026) vs HAVE (adapter inventory) vs GAP. Two gap types: DEPTH = a grain we capture forward but never backfilled (silent risk); BREADTH = a dimension the API offers we don't capture at all (future scope, not lost).
 
-## GOOGLE ADS
-Have: account(summed)+campaign+ad_group+ad spend/impr/clicks/conv/conv_value; search_term+keyword ~90d; QS/budget/bidding. Only segment captured = date (+conversion_action).
-Gap: DEPTH — Google campaign backfill WIRED + SCALED 2026-06-24 across ALL clients (LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1, /api/backfill/google-campaign; residual 0 everywhere; deep accounts to the floor ~2023-06-25, sparse advertisers campaign-forward-only/nothing-owed; 23,771 campaign rows total, idempotent); ad_group/ad still no backfill (forward-only); keyword/search_term ~90d only. BREADTH — device, ad_network_type, geo, age/gender, hour/day-of-week, impression-share family (budget/rank-lost, top%), video metrics, all_conversions, view-through, conversion lag, audiences/assets/asset_groups — none captured.
+## GOOGLE ADS — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+This is the real ★ PLATFORM-SURFACE-AUDIT result for Google (LORAMER_QUEUE_OF_RECORD.md ★ PLATFORM-SURFACE-AUDIT). Reference = Google Ads API field reference, v22–v25, the VENDOR'S own docs — NOT our writers/inventory/registry. It REPLACES the prior hand-from-memory "AVAILABLE" line. OFFERED (vendor docs) vs CAPTURED (metrics_daily). Confidence tags are load-bearing: [VERIFIED] = confirmed against the field reference; [DERIVED] = inferred, NOT yet doc-confirmed — do not act as if proven.
+
+HAVE (CAPTURED): base grains account→ad + keyword; breakdowns search_term, keyword, device (4-grain), geo (19 grains, both families), hour (campaign+ad_group), conversion_action (campaign-only), impression_share (campaign-only).
+
+GAP — OFFERED, NOT CAPTURED:
+A. FETCHED-THEN-DROPPED: age_range_view, gender_view — pulled live, 0 rows persist (defect G3). [VERIFIED]
+B. METRICS: all_conversions + all_conversions_value [VERIFIED]; view_through_conversions [VERIFIED]; video views/view_rate/quartile_p25/p50/p75/p100_rate [VERIFIED]; interactions/interaction_rate/engagements [VERIFIED]; cross_device_conversions [DERIVED]; phone-call metrics [DERIVED].
+C. SEGMENTS: ad_network_type (Search/Display/YouTube/Partners) [VERIFIED]; product_* family = Google Shopping product grain (product_item_id/brand/type/channel) [VERIFIED]; click_type [VERIFIED]; slot [VERIFIED]; conversion_or_adjustment_lag_bucket [VERIFIED]; niche: SKAdNetwork, hotel_* [DERIVED, on-demand].
+D. REPORT VIEWS: assets/asset_group/asset_group_top_combination_view = PMax asset-combination attribution, LAW-CORE [DERIVED-strong, we have queried this view before]; Google Display/YouTube placements group_placement_view/detail_placement_view [DERIVED]; audiences ad_group_audience_view/campaign_audience_view [VERIFIED reportable]; landing_page_view/expanded_landing_page_view [DERIVED]; distance_view/store-visits [DERIVED, niche].
+E. GRAIN TOO SHALLOW: conversion_action campaign-only → offered at ad_group+keyword; impression_share campaign-only → offered at ad_group.
+EXCLUDED (Russ, deferred not dropped): click_view / GCLID / click-level identifiers — PII line, revisit later.
+COST: each fill = more rows + more Google Ads API ops/client/day against the Basic 15k/day cap (already starved the cron once). Filling raises ops → Standard Access application is now a real dependency, start regardless of build order.
+
+RANKED FILL QUEUE (G-FILL#1..#10 + ON-DEMAND + DEFERRED) lives in LORAMER_QUEUE_OF_RECORD.md under ★ PLATFORM-SURFACE-AUDIT — that queue owns the build ORDER; this section owns the offered-vs-captured DELTA. DEPTH status (owned by LORAMER_DECISIONS / the QUEUE, pointer only): campaign backfill WIRED+SCALED cohort-wide; ad_group/ad + keyword/search_term ~90d unchanged.
 
 ## GA4
 Have: account daily totalRevenue + conversions (spend=0). DEEP BACKFILL EXISTS — mechanism built and run for multiple clients (years).
