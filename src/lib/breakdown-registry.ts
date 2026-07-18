@@ -81,6 +81,10 @@ export const REGISTRY: BreakdownEntry[] = [
   { platform: 'google', breakdownType: 'impression_share', toolType: 'impression_share', surface: 'breakdown', entityLevels: ['campaign'], rankBy: 'spend', additive: false, highCardinality: false, note: 'NON-ADDITIVE point-in-time ratios — never summed; most-recent in-window per campaign.' },
   { platform: 'google', breakdownType: 'keyword', toolType: 'keyword', surface: 'breakdown', entityLevels: ['ad_group'], rankBy: 'spend', additive: true, highCardinality: false },
   { platform: 'google', breakdownType: 'search_term', toolType: 'search_term', surface: 'breakdown', entityLevels: ['ad_group'], rankBy: 'spend', additive: true, highCardinality: false, note: 'wide-window reads page all rows to JS — the 12mo≈18s ROUTE finding; STEP 2 must SQL-aggregate.' },
+  // Google age/gender (G-FILL#3) — SAME cross-platform toolType as Meta age/gender (query requires platform now).
+  // age_range_view/gender_view served at campaign + ad_group only; value = the raw enum (AGE_RANGE_* / MALE/FEMALE/UNDETERMINED).
+  { platform: 'google', breakdownType: 'age', toolType: 'age', surface: 'breakdown', entityLevels: ['campaign', 'ad_group'], rankBy: 'spend', additive: true, highCardinality: false, note: 'google age (age_range_view); value = AGE_RANGE_* enum. FLAG-NOT-BLOCK partition of campaign spend.' },
+  { platform: 'google', breakdownType: 'gender', toolType: 'gender', surface: 'breakdown', entityLevels: ['campaign', 'ad_group'], rankBy: 'spend', additive: true, highCardinality: false, note: 'google gender (gender_view); value = MALE/FEMALE/UNDETERMINED. FLAG-NOT-BLOCK partition of campaign spend.' },
 
   // ── GOOGLE GEO FAMILY — 19 real types, collapsed to toolType 'geo' EXCEPT geo_country/geo_region ──────────
   // ad-location scope (segments.geo_target_*)
@@ -117,6 +121,20 @@ export const REGISTRY: BreakdownEntry[] = [
   { platform: 'meta', breakdownType: 'hour', toolType: 'hour', surface: 'breakdown', entityLevels: ['account', 'campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false },
   { platform: 'meta', breakdownType: 'placement', toolType: 'placement', surface: 'breakdown', entityLevels: ['campaign'], rankBy: 'spend', additive: true, highCardinality: false, note: 'writer stores publisher:position as breakdown_type=placement; legacy read-name publisher_platform aliases here.' },
   { platform: 'meta', breakdownType: 'video', toolType: 'video', surface: 'breakdown', entityLevels: ['account', 'campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: false, highCardinality: false, note: 'NON-ADDITIVE per-entity projection — view counts summed, rates null across multi-day windows.' },
+
+  // ── META creative-ASSET family (M-FILL#1) — 7 breakdown_types, campaign/ad_set/ad ONLY (account served-empty). ─
+  // WRITE-ONLY component attribution: per-asset spend is NOT a partition — NEVER sum across asset types or to the ad
+  // total (title over-counts under Dynamic Creative). breakdown_value = the canonical label per type (description=id).
+  { platform: 'meta', breakdownType: 'image_asset', toolType: 'image_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'creative image; value = image name. Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'video_asset', toolType: 'video_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'creative video; value = video name. Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'title_asset', toolType: 'title_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'headline text; value = the headline. Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'body_asset', toolType: 'body_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'primary text; value = the body (capped). Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'call_to_action_asset', toolType: 'call_to_action_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'CTA enum (LEARN_MORE…). Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'description_asset', toolType: 'description_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'link description; value = ASSET ID ONLY (Meta serves no label). Component attribution — never sum across asset types or to the ad total.' },
+  { platform: 'meta', breakdownType: 'link_url_asset', toolType: 'link_url_asset', surface: 'breakdown', entityLevels: ['campaign', 'ad_set', 'ad'], rankBy: 'spend', additive: true, highCardinality: false, note: 'destination URL; value = website_url (else asset id). Component attribution — never sum across asset types or to the ad total.' },
+
+  // ── META attribution windows (M-FILL#2) — per (action_type × window) conversions/value; spend 0 (SPEND_ZERO). ──
+  { platform: 'meta', breakdownType: 'attribution_window', toolType: 'attribution_window', surface: 'breakdown', entityLevels: ['account', 'campaign', 'ad_set', 'ad'], rankBy: 'conversions', additive: true, highCardinality: false, note: 'value = "<action_type>:<window>" (1d_click/7d_click/28d_click/1d_view). Windows OVERLAP (1d⊂7d⊂28d) + view/click double-count → NEVER sum across windows.' },
 
   // ── SHOPIFY dimensional (store ship-to geo) ──────────────────────────────────────────────────────────────
   { platform: 'shopify', breakdownType: 'geo_country', toolType: 'geo_country', surface: 'breakdown', entityLevels: ['account'], rankBy: 'revenue', additive: true, highCardinality: false, geoGrain: 'country', geoScope: 'ad' },

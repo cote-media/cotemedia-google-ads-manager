@@ -90,11 +90,9 @@ export const KNOWN_INCOMPLETE = [
   'meta.placement',              // campaign-only → +account, ad_set, ad (G6)
   'google.conversion_action',    // campaign-only → +ad_group, keyword (G-FILL#9)
   'google.impression_share',     // campaign-only → +ad_group (G-FILL#9)
-  // UNWIRED — captured by a writer but not in breakdown-registry.ts (add the registry entry → Lora can read it):
-  'meta.image_asset', 'meta.video_asset', 'meta.title_asset', 'meta.body_asset',
-  'meta.call_to_action_asset', 'meta.description_asset', 'meta.link_url_asset', // M-FILL#1 (7 asset types)
-  'meta.attribution_window',     // M-FILL#2
-  'google.age', 'google.gender', // G-FILL#3
+  // (2026-07-18) The 10 UNWIRED families — the 7 Meta assets, meta.attribution_window, google.age, google.gender —
+  // were WIRED into src/lib/breakdown-registry.ts (LORAMER_ASSET_ATTRWINDOW_WIRE_V1) and REMOVED here; the gate's
+  // stale-baseline check now confirms they are complete (captured + query-readable).
 ]
 
 export default VENDOR_SURFACE

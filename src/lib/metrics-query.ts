@@ -295,6 +295,9 @@ const SPEND_ZERO_BREAKDOWNS = spendZeroTypes() // per-action-conversion families
 // as base metrics. Handled by projectNonAdditive() below — NOT the additive sum-6-metrics path. Zero effect on any
 // other breakdown_type.
 const NONADDITIVE_BREAKDOWNS = new Set(['impression_share', 'video'])
+// LORAMER_ASSET_ATTRWINDOW_WIRE_V1 (M-FILL#1/#2 read-path) — the 7 Meta creative-asset breakdown_types. Their spend is
+// COMPONENT ATTRIBUTION (additive WITHIN a type for ranking, but never a partition of the ad total) → a provenance note.
+const ASSET_BREAKDOWNS = new Set(['image_asset', 'video_asset', 'title_asset', 'body_asset', 'call_to_action_asset', 'description_asset', 'link_url_asset'])
 // impression_share (google, campaign): 7 POINT-IN-TIME ratios in extra — never summed; per campaign take the MOST
 // RECENT captured day in-window (a real value, flagged), never an aggregate. null = the API -1 non-eligible sentinel.
 const IS_RATIO_FIELDS = ['search_impression_share', 'search_top_impression_share', 'search_absolute_top_impression_share', 'search_budget_lost_impression_share', 'search_rank_lost_impression_share', 'search_budget_lost_top_impression_share', 'search_rank_lost_top_impression_share']
@@ -553,6 +556,15 @@ export async function queryBreakdown(opts: {
     }
     if (platform === 'google' && bt === 'hour') {
       const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    // LORAMER_ASSET_ATTRWINDOW_WIRE_V1 — provenance caveats (mirror the hour-0 pattern) so Lora never mis-sums these.
+    if (platform === 'meta' && ASSET_BREAKDOWNS.has(bt)) {
+      const z = `Meta creative-asset spend is COMPONENT ATTRIBUTION, not a partition — over/under the ad total by design (title over-counts under Dynamic Creative). Compare assets WITHIN this type; NEVER sum asset spend across asset types or up to the ad/campaign total.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (bt === 'attribution_window') {
+      const z = `Attribution windows OVERLAP (1d_click ⊂ 7d_click ⊂ 28d_click) and view+click double-count — each value is one action_type×window. NEVER sum across windows; the account default (already in the base conversion number) = the account's own window setting (typically 7d_click+1d_view).`
       result.note = result.note ? `${result.note} ${z}` : z
     }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
