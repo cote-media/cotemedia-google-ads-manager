@@ -471,7 +471,9 @@ Shopify App Store approved+live; Google Ads/Meta/Shopify/GA-V1 connectors; Unive
     G-FILL ON-DEMAND (build when a client needs it): SKAdNetwork, hotel_*, distance_view, cross_device, phone metrics
     G-FILL DEFERRED (Russ PII call): click_view / GCLID / click-level identifiers
     ── META (M-FILL) ──
-    M-FILL#1  creative-asset breakdowns (image/video/title/body/CTA/description/link_url_asset) — LAW-CORE, the Meta analog of Google asset-combination attribution [LC]
+    M-FILL#1  ✅ SHIPPED 2026-07-18 (LORAMER_META_ASSET_CAPTURE_V1) — 7 creative-asset breakdowns (image/video/title/body/call_to_action/description/link_url_asset) at campaign+ad_set+ad (NOT account — served-empty false-zero trap). WRITE-ONLY, NEVER reconciled (assets do not partition spend — probed 07-18: CTA/link 1.0×, image+video complementary subsets, title over-counts under Dynamic Creative). breakdown_value = REAL labels (headline text / CTA enum / video name / url; description_asset = id, name-lookup deferred); id + secondaries → extra. NO migration (breakdown_value + extra on the existing 7-col key). Forward-wired (META_BREADTH_FORWARD 'asset') + drain step 'meta_asset' after meta_hour. Gate-A (Veterinary dry): 1,998 rows, 7×3 matrix, conversions=0, 0 flagged, account not queried. LAW-CORE (Meta analog of Google asset attribution). [LC]
+    M-FILL#1b  MORE asset dims (probe-then-add) — ad_format_asset, media_type / media_format, creative_relaxation_asset_type, flexible_format_asset_type, gen_ai_asset_type. #1 shipped a slice; this completes the asset-breakdown surface. Read-only probe first. [LC]
+    M-FILL asset-inventory  ACCOUNT MEDIA-LIBRARY = the asset STRUCTURE layer (which images/videos/copy EXIST, independent of delivery) — distinct from the performance breakdowns #1 captures. Its own read-only probe first; performance-vs-structure split, same class as the audience/signal layer. [LC]
     M-FILL#2  attribution-window dimension (1d_click/7d_click/1d_view; we store 7d_click only) [LC]
     M-FILL#3  DMA / metro geo grain (below region) [LC]
     M-FILL#4  product_id catalog grain [LC]

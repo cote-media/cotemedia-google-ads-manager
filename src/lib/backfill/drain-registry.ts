@@ -27,6 +27,7 @@ import { runMetaActionTypeBackfill } from './meta-action-type-backfill' // LORAM
 import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VIDEO_CAPTURE_V1
 import { runMetaGeoBackfill } from './meta-geo-backfill' // LORAMER_META_GEO_BACKFILL_V1
 import { runMetaHourBackfill } from './meta-hour-backfill' // LORAMER_META_HOUR_V1
+import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
@@ -117,6 +118,12 @@ const META_GEO_WINDOW_DAYS = 20
 // timing (mirrors age_gender's row-heavy 30d posture, but hour's 24× ad-level fan-out can exceed it). floor36 (hour
 // rides the ~37mo Meta aggregate #3018 wall). FLAG-NOT-BLOCK on spend (hour partitions the day's spend).
 const META_HOUR_WINDOW_DAYS = 15
+
+// LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — asset window. HEAVIEST Meta breadth fan-out: 7 asset breakdowns ×
+// 3 entity levels (campaign/adset/ad; NO account — served-empty) = 21 insights reports/lap. Start conservative at
+// 15d (matches hour) and tune UP after a Gate-B live lap timing. WRITE-ONLY (no reconcile). floor36 (assets ride the
+// ~37mo Meta aggregate #3018 wall). Only Advantage+/Dynamic-Creative ads populate these; single-creative → empty.
+const META_ASSET_WINDOW_DAYS = 15
 
 async function readRangeCursor(clientId: string, key: string) {
   const { data } = await supabaseAdmin
@@ -337,6 +344,16 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_hour',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_hour', runMetaHourBackfill as RangeWriter, dryRun, META_HOUR_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — Meta creative-ASSET breadth: 7 breakdown_types (image/video/title/
+    // body/call_to_action/description/link_url_asset) at campaign+ad_set+ad (NO account — served-empty). ONE writer,
+    // ONE drain entry covers all 7 (mirrors device→device/device_platform, age_gender→age/gender/age_gender).
+    // WRITE-ONLY, NEVER reconciled (assets do not partition spend — probed 2026-07-18). Stateless-range. After
+    // meta_hour (breadth after depth). NEW key → next meta drain back-fills the cohort to floor (Meta = no quota wall).
+    key: 'meta_asset',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_asset', runMetaAssetBackfill as RangeWriter, dryRun, META_ASSET_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',

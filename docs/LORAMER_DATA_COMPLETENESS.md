@@ -32,7 +32,7 @@ Reference = Meta Marketing / Insights API field reference, the VENDOR'S own docs
 HAVE (CAPTURED): base 4-grain (acct/campaign/adset/ad); breakdowns placement (campaign-only), device, device_platform, age, gender, age_gender, geo_country, geo_region, hour, action_type (full taxonomy), video (10 dedicated cols).
 
 GAP — OFFERED, NOT CAPTURED:
-A. [LAW-CORE] creative-asset breakdowns: image_asset / video_asset / title_asset / body_asset / call_to_action_asset / description_asset / link_url_asset [VERIFIED] — the Meta analog of Google asset-combination attribution.
+A. [LAW-CORE] creative-asset breakdowns: image_asset / video_asset / title_asset / body_asset / call_to_action_asset / description_asset / link_url_asset [VERIFIED] — the Meta analog of Google asset-combination attribution. → 🔄 IN PROGRESS 2026-07-18 (M-FILL#1 SHIPPED, LORAMER_META_ASSET_CAPTURE_V1): all 7 now FORWARD-WIRED + drain-registered at campaign/adset/ad (NOT account — served-empty), WRITE-ONLY, real labels. More asset dims (ad_format/media_type/creative_relaxation/flexible_format/gen_ai) = M-FILL#1b; account media-library structure = M-FILL asset-inventory.
 B. attribution-window dimension — we store 7d_click only; 1d_click / 7d_click / 1d_view are served [VERIFIED].
 C. DMA / metro geo grain (below region) [VERIFIED].
 D. product_id catalog grain [VERIFIED].

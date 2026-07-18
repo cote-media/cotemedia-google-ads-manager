@@ -29,6 +29,7 @@ import { runMetaActionTypeBackfill } from './meta-action-type-backfill'
 import { runMetaVideoBackfill } from './meta-video-backfill'
 import { runMetaGeoBackfill } from './meta-geo-backfill'
 import { runMetaHourBackfill } from './meta-hour-backfill'
+import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
 
 // LORAMER_META_BREADTH_COUNTER_TYPE_V1 — the writer's ACTUAL body shape, declared CLOSED so the COMPILER is the guard.
 // WHY THIS TYPE EXISTS (a real bug, shipped 2026-07-15 in 28f431f, caught only by Gate-B on the real path): the
@@ -68,7 +69,8 @@ export type MetaBreadthWriter = (
 //   video       → video                        (4 levels, field-widen =  4)
 //   geo         → geo_country, geo_region      (4 levels x 2 fields =  8)
 //   hour        → hour                         (4 levels, field-widen =  4)
-//                                                            TOTAL/client/day = 40 reports
+//   asset       → image/video/title/body/CTA/description/link_url_asset  (3 levels [NO account — served-empty] x 7 = 21)
+//                                                            TOTAL/client/day = 61 reports
 // placement is NOT here: it already HAS forward capture (meta-metrics-row.ts:131). Its campaign-only grain gap is a
 // separate item (G6) — do not fold it in here.
 export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
@@ -78,4 +80,7 @@ export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
   { key: 'video', run: runMetaVideoBackfill as MetaBreadthWriter },
   { key: 'geo', run: runMetaGeoBackfill as MetaBreadthWriter },
   { key: 'hour', run: runMetaHourBackfill as MetaBreadthWriter },
+  // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — 7 asset breakdown_types × 3 levels (campaign/adset/ad; NO account) =
+  // 21 reports/day (the heaviest breadth fan-out). WRITE-ONLY, no reconcile. One writer emits all 7 families.
+  { key: 'asset', run: runMetaAssetBackfill as MetaBreadthWriter },
 ]
