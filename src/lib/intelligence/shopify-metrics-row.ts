@@ -158,6 +158,94 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_BATCH_A1_V1 — geo_city: the third rung of the geo ladder, same shape and same net basis
+  // as the country/region loops directly above. breakdown_value keeps the family's composite convention
+  // ('<country>-<province>' → '<country>-<province>-<city>') so all three read as one hierarchy. PARTITIONS
+  // the day's net (one shipping address per order); missing city buckets UNKNOWN, never dropped.
+  for (const g of data.geoCities || []) {
+    if (!g?.city) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'geo_city',
+      breakdown_value: g.city,
+      revenue: g.netRevenue,
+      conversions: g.orders,
+      extra: { orders: g.orders, currencyCode: cur, currencyMixed: curMixed },
+    })
+  }
+
+  // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1) — sales_channel: which channel the order came through.
+  // PARTITIONS the day's net — an order arrives through exactly ONE channel, so Σ sales_channel ≡ account
+  // net and it reconciles FLAG-NOT-BLOCK against the account anchor, exactly like geo. breakdown_value =
+  // channelDefinition.handle (stable, machine-readable); the human channelName rides extra. An order with
+  // no channelInformation buckets as UNKNOWN — a missing channel is a fact about the order, never a reason
+  // to drop its revenue out of the partition.
+  for (const c of data.salesChannelCapture || []) {
+    if (!c?.channel) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: shopDomain,
+      entity_name: shopDomain,
+      parent_entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'sales_channel',
+      breakdown_value: c.channel,
+      revenue: c.netRevenue,
+      conversions: c.orders,
+      extra: { orders: c.orders, channelName: c.channelName, currencyCode: cur, currencyMixed: curMixed, basis: 'currentSubtotalPriceSet_net' },
+    })
+  }
+
+  // LORAMER_SHOPIFY_BATCH_A1_V1 — discount_type: the TYPE axis of discounting (code / manual / automatic /
+  // script), sibling to discount_code's per-CODE axis. Captures ALL application subtypes including code so
+  // the axis is complete and self-describing. WRITE-ONLY + NON-ADDITIVE for the SAME reasons already banked
+  // on discount_code: allocations OVERLAP, they are a SUBSET of total discounting, and one allocation can
+  // exceed an order's current discount total. Money lands in conversion_value, orders-carrying-that-type in
+  // conversions, revenue FORCED 0 — NEVER summed or reconciled into net sales or the order discount total.
+  // Orders are counted ONCE per type per order (not once per allocation), so the count means "orders that
+  // used this kind of discount".
+  for (const d of data.discountTypeCapture || []) {
+    if (!d?.type) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: shopDomain,
+      entity_name: shopDomain,
+      parent_entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'discount_type',
+      breakdown_value: d.type,
+      spend: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: d.orders,
+      conversion_value: d.discountedAmount,
+      revenue: 0,
+      extra: {
+        discounted_amount: d.discountedAmount,
+        orders: d.orders,
+        label: d.label,
+        currencyCode: cur,
+        currencyMixed: curMixed,
+        basis: 'lineitem_allocations',
+        caveat: 'discount TYPE amounts are a subset of total discounting and overlap; never sum/reconcile into net sales or the order discount total',
+      },
+    })
+  }
+
   // LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — abandoned-checkout POTENTIAL/LOST revenue, first-class
   // breakdown_type='abandoned_checkout', account-day grain, single 'all' bucket. WRITE-ONLY + NON-ADDITIVE:
   // it is NOT order revenue and must NEVER be summed into or reconciled against net sales — so the money lives

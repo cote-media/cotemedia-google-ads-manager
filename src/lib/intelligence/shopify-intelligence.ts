@@ -92,9 +92,12 @@ type GraphQLOrderNode = {
   currentShippingPriceSet: { shopMoney: { amount: string } }
   totalTipReceivedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
+  // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1) — the sales channel this order came through (online store, POS,
+  // Meta, Google, draft). handle is the canonical value; channelName is the human label, kept in extra.
+  channelInformation: { channelDefinition: { handle: string | null; channelName: string | null } | null } | null
   discountCodes: string[] | null // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — the code strings on the order ([String!]!; multiple allowed)
   customer: { id: string } | null // LORAMER_CUSTOMER_MIX_FIX_V1 — numberOfOrders dropped (string scalar + lifetime-only; classify by first-order date instead)
-  shippingAddress: { countryCodeV2: string | null; provinceCode: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1
+  shippingAddress: { countryCodeV2: string | null; provinceCode: string | null; city: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1 + city (LORAMER_SHOPIFY_BATCH_A1_V1)
   lineItems: {
     edges: Array<{
       node: {
@@ -110,7 +113,7 @@ type GraphQLOrderNode = {
         // gross figure), NOT the applied money — wrong for percentage codes.
         discountAllocations: Array<{
           allocatedAmountSet: { shopMoney: { amount: string } }
-          discountApplication: { __typename: string; code?: string | null }
+          discountApplication: { __typename: string; code?: string | null; title?: string | null } // title = the non-code label (LORAMER_SHOPIFY_BATCH_A1_V1)
         }>
       }
     }>
@@ -262,9 +265,10 @@ export async function fetchShopifyIntelligence(
             currentShippingPriceSet { shopMoney { amount } }
             totalTipReceivedSet { shopMoney { amount } }
             displayFinancialStatus
+            channelInformation { channelDefinition { handle channelName } }
             discountCodes
             customer { id }
-            shippingAddress { countryCodeV2 provinceCode }
+            shippingAddress { countryCodeV2 provinceCode city }
             lineItems(first: 50) {
               edges {
                 node {
@@ -275,7 +279,7 @@ export async function fetchShopifyIntelligence(
                   variant { id sku title }
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
-                  discountAllocations { allocatedAmountSet { shopMoney { amount } } discountApplication { __typename ... on DiscountCodeApplication { code } } }
+                  discountAllocations { allocatedAmountSet { shopMoney { amount } } discountApplication { __typename ... on DiscountCodeApplication { code } ... on ManualDiscountApplication { title } ... on AutomaticDiscountApplication { title } ... on ScriptDiscountApplication { title } } }
                 }
               }
             }
@@ -437,6 +441,66 @@ export async function fetchShopifyIntelligence(
     const geoCountries = Object.entries(geoC).map(([country, v]) => ({ country, ...v }))
     const geoRegions = Object.entries(geoR).map(([region, v]) => ({ region, ...v }))
 
+    // ── LORAMER_SHOPIFY_BATCH_A1_V1 ────────────────────────────────────────────────────────────────────
+    // Three families off the SAME widened OrdersInRange response. No second request, no new fetch path.
+    //
+    // geo_city — the third rung of the geo ladder, same composite convention as geo_region
+    // ('<country>-<province>' → '<country>-<province>-<city>') so the family reads as one hierarchy.
+    // PARTITIONS the day's net exactly like country/region: one shipping address per order. Missing city
+    // buckets as UNKNOWN, never dropped (same rule the country/region loops already follow).
+    //
+    // sales_channel — PARTITIONS: an order arrives through exactly one channel, so Σ channel ≡ account net.
+    // Canonical value = channelDefinition.handle (stable, machine-readable); channelName is the human label
+    // and rides extra. Orders with no channelInformation bucket as UNKNOWN rather than vanishing — a
+    // missing channel is a fact about the order, not a reason to lose its revenue from the partition.
+    //
+    // discount_type — the TYPE axis of discounting, the sibling of discount_code's per-code axis. Captures
+    // ALL application subtypes including code (so the axis is complete and self-describing), keyed by the
+    // GraphQL __typename mapped to a short label. WRITE-ONLY and NON-ADDITIVE for exactly the reasons
+    // already banked on discount_code: allocations overlap, they are a SUBSET of total discounting, and a
+    // single allocation can exceed an order's current discount total. NEVER summed into net sales.
+    const geoCity: Record<string, { netRevenue: number; orders: number }> = {}
+    const chan: Record<string, { netRevenue: number; orders: number; channelName: string | null }> = {}
+    const discT: Record<string, { discountedAmount: number; orders: number; label: string | null }> = {}
+    const TYPE_LABEL: Record<string, string> = {
+      DiscountCodeApplication: 'code',
+      ManualDiscountApplication: 'manual',
+      AutomaticDiscountApplication: 'automatic',
+      ScriptDiscountApplication: 'script',
+    }
+    for (const o of liveOrders) {
+      const net = parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || "0") // SAME basis as the country/region loop above
+      const country = o.shippingAddress?.countryCodeV2 || 'UNKNOWN'
+      const province = o.shippingAddress?.provinceCode || 'UNKNOWN'
+      const cityKey = `${country}-${province}-${o.shippingAddress?.city || 'UNKNOWN'}`
+      if (!geoCity[cityKey]) geoCity[cityKey] = { netRevenue: 0, orders: 0 }
+      geoCity[cityKey].netRevenue += net
+      geoCity[cityKey].orders += 1
+
+      const def = o.channelInformation?.channelDefinition
+      const handle = def?.handle || 'UNKNOWN'
+      if (!chan[handle]) chan[handle] = { netRevenue: 0, orders: 0, channelName: def?.channelName ?? null }
+      chan[handle].netRevenue += net
+      chan[handle].orders += 1
+
+      const seenTypesOnOrder = new Set<string>()
+      for (const le of o.lineItems?.edges || []) {
+        for (const a of le.node.discountAllocations || []) {
+          const tn = a.discountApplication?.__typename
+          if (!tn) continue
+          const key = TYPE_LABEL[tn] || tn
+          if (!discT[key]) discT[key] = { discountedAmount: 0, orders: 0, label: a.discountApplication?.title ?? null }
+          discT[key].discountedAmount += parseFloat(a.allocatedAmountSet?.shopMoney?.amount || '0')
+          if (!discT[key].label && a.discountApplication?.title) discT[key].label = a.discountApplication.title
+          seenTypesOnOrder.add(key) // orders counted ONCE per type per order, not once per allocation
+        }
+      }
+      for (const k of seenTypesOnOrder) discT[k].orders += 1
+    }
+    const geoCities = Object.entries(geoCity).map(([city, v]) => ({ city, ...v }))
+    const salesChannelCapture = Object.entries(chan).map(([channel, v]) => ({ channel, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders, channelName: v.channelName }))
+    const discountTypeCapture = Object.entries(discT).map(([type, v]) => ({ type, discountedAmount: Math.round(v.discountedAmount * 100) / 100, orders: v.orders, label: v.label }))
+
     // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — per discount-code capture. orders = count of orders carrying the
     // code (order.discountCodes). discountedAmount = Σ line-item allocatedAmountSet whose allocation came from a
     // DiscountCodeApplication for that code — the EXACT applied money (handles % + fixed; top-level applications.value
@@ -574,6 +638,9 @@ export async function fetchShopifyIntelligence(
       variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
       geoCountries,
       geoRegions,
+      geoCities, // LORAMER_SHOPIFY_BATCH_A1_V1
+      salesChannelCapture, // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1)
+      discountTypeCapture, // LORAMER_SHOPIFY_BATCH_A1_V1
       discountCodeCapture, // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
       orderTimesCapture, // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — raw UTC order timestamps, unbucketed
       currencyCode,
@@ -616,6 +683,9 @@ export async function fetchShopifyIntelligence(
       productsCapture: [],
       geoCountries: [],
       geoRegions: [],
+      geoCities: [], // LORAMER_SHOPIFY_BATCH_A1_V1 — fetch failed → no rows, never a fabricated bucket
+      salesChannelCapture: [],
+      discountTypeCapture: [],
       discountCodeCapture: [], // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
       orderTimesCapture: [], // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — fetch failed → NO timestamps, never a fabricated one
       unknownGeoOrders: 0,

@@ -393,6 +393,14 @@ export interface IntelligenceShopify {
   variantsCapture?: { id: string; parentProductId: string; name: string; sku?: string; variantTitle?: string; units: number; revenue?: number; netRevenue?: number; grossRevenue?: number }[]
   geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
   geoRegions?: { region: string; netRevenue: number; orders: number }[]
+  // LORAMER_SHOPIFY_BATCH_A1_V1 — three families off the SAME widened OrdersInRange response.
+  // geoCities: third rung of the geo ladder, composite '<country>-<province>-<city>'. PARTITIONS net.
+  // salesChannelCapture: PARTITIONS net (one channel per order); channel = channelDefinition.handle.
+  // discountTypeCapture: the TYPE axis of discounting (code/manual/automatic/script). WRITE-ONLY and
+  //   NON-ADDITIVE — a subset of discounting whose allocations overlap; never summed into net sales.
+  geoCities?: { city: string; netRevenue: number; orders: number }[]
+  salesChannelCapture?: { channel: string; netRevenue: number; orders: number; channelName: string | null }[]
+  discountTypeCapture?: { type: string; discountedAmount: number; orders: number; label: string | null }[]
   // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — per discount-code performance, WRITE-ONLY. discountedAmount = exact
   // applied money from line-item allocations; a SUBSET of total discounting (excludes manual/automatic non-code
   // discounts) that must NEVER sum into or reconcile against the order discount total (currentTotalDiscountsSet) or net sales.

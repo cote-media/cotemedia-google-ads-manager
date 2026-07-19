@@ -84,6 +84,10 @@ export const VENDOR_SURFACE = {
     // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
     // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
     // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    // BATCH A1 — three families off the SAME widened OrdersInRange call (no second request, no migration).
+    geo_city: { grains: ['account'], status: 'captured', confidence: V, note: 'ship-to CITY, composite "<country>-<province>-<city>"; partitions day net like country/region; high cardinality (LORAMER_SHOPIFY_BATCH_A1_V1).' },
+    sales_channel: { grains: ['account'], status: 'captured', confidence: V, note: 'order attribution by channelDefinition.handle; PARTITIONS day net (one channel per order), FLAG-NOT-BLOCK vs the account anchor (S-FILL#1, LORAMER_SHOPIFY_BATCH_A1_V1).' },
+    discount_type: { grains: ['account'], status: 'captured', confidence: V, note: 'TYPE axis of discounting (code/manual/automatic/script), sibling to discount_code. WRITE-ONLY, non-additive, overlapping subset — never net sales (LORAMER_SHOPIFY_BATCH_A1_V1).' },
     order_time: { grains: ['account'], status: 'captured', confidence: V, note: 'RAW UTC order timestamps to the second, unbucketed; entity_id = order id so same-second orders cannot collide; additive to account net (LORAMER_SHOPIFY_ORDER_TIME_V1).' },
   },
   woocommerce: {
