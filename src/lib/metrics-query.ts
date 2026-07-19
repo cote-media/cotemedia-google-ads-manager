@@ -577,6 +577,26 @@ export async function queryBreakdown(opts: {
       const z = `Discount-code amounts are the EXACT per-code applied money (Σ line-item allocations, in conversionValue) with orders-using-the-code in conversions; spend and revenue are 0. They are a SUBSET of total order discounting — manual and automatic (non-code) discounts are NOT included here — so NEVER sum or reconcile them into net sales or the order discount total (currentTotalDiscountsSet); a single code's allocation can even exceed an order's current discount total. Each value is one code, and multiple codes can apply to one order.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_SHOPIFY_BATCH_A3_V1 — SNAPSHOT-SEMANTICS caveat (the hour-0 note pattern). This is the one
+    // that actually protects Lora: the registry note and the row's extra are storage-side, but THIS is what
+    // reaches her at answer time. Without it she would read a status distribution as history and a
+    // settlement shift as a trend, which is exactly the false conclusion the family invites.
+    if (platform === 'shopify' && (bt === 'financial_status' || bt === 'fulfillment_status')) {
+      const z = `Order ${bt === 'financial_status' ? 'FINANCIAL' : 'FULFILLMENT'} status is a CAPTURE-TIME SNAPSHOT, not an order-date fact. Status is mutable (pending→paid, unfulfilled→fulfilled), so each row records what was true WHEN THE DAY WAS CAPTURED — re-capturing the same day can legitimately produce different values. CONSEQUENCE: older history is systematically MORE SETTLED than recent days (old orders have long since resolved to PAID/FULFILLED while this week's have not), so a rising "% paid" toward the past is an ARTIFACT OF CAPTURE TIMING, never a trend in the business. Comparing status mixes across periods compares two different observation ages. Values DO partition the day's net (one status per order), so they sum to net sales within a single day.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    // LORAMER_SHOPIFY_BATCH_A2_V1 — tag over-count caveat. product_tag is the only Shopify grouping family
+    // that is NOT a partition, and the over-count is large (measured 7.3× on FoamOh), so it needs the same
+    // never-mis-sum protection the Meta asset families already carry.
+    if (platform === 'shopify' && bt === 'product_tag') {
+      const z = `Product TAGS are NOT a partition: a product carries MANY tags, so its full net revenue is counted under EVERY tag it holds. Σ product_tag therefore EXCEEDS net sales — measured 7.3× on a real store day. A row answers "how much revenue touched this tag", NEVER "what share of the day was this tag". Compare tags to EACH OTHER; never sum them and never reconcile them to net sales.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    // LORAMER_SHOPIFY_BATCH_A1_V1 — discount TYPE is the same subset-not-partition shape as discount_code.
+    if (platform === 'shopify' && bt === 'discount_type') {
+      const z = `Discount TYPE amounts (code / manual / automatic / script) are Σ line-item allocations per application type, in conversionValue, with orders-using-that-type in conversions; spend and revenue are 0. Allocations OVERLAP and are a SUBSET of total discounting, so NEVER sum or reconcile them into net sales or the order discount total. This is the TYPE axis; discount_code is the per-CODE axis of the same money.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

@@ -158,6 +158,36 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_BATCH_A3_V1 — ORDER STATUS. Both PARTITION the day's net (one financial and one
+  // fulfillment status per order), so Σ status ≡ account net and they reconcile FLAG-NOT-BLOCK like geo.
+  // SNAPSHOT SEMANTICS — the reason this family got its own flight: status is MUTABLE. These rows record
+  // what was true WHEN WE ASKED, not as of the order date. A re-walk of the same day can legitimately
+  // return different values, and backfilled history is systematically more settled than recent days
+  // (old orders have resolved to PAID/FULFILLED; this week's have not). extra.semantics carries that on
+  // every row, and metrics-query.ts attaches the same warning to Lora's query results — a caveat that
+  // lives only in a comment is how a capture artifact becomes a reported "trend".
+  for (const [fam, list] of [
+    ['financial_status', data.financialStatusCapture || []],
+    ['fulfillment_status', data.fulfillmentStatusCapture || []],
+  ] as [string, { status: string; netRevenue: number; orders: number }[]][]) {
+    for (const s of list) {
+      if (!s?.status) continue
+      rows.push({
+        client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+        entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+        date: captureDate, breakdown_type: fam, breakdown_value: s.status,
+        revenue: s.netRevenue, conversions: s.orders,
+        extra: {
+          orders: s.orders, currencyCode: cur, currencyMixed: curMixed,
+          basis: 'currentSubtotalPriceSet_net',
+          semantics: 'CAPTURE_TIME_SNAPSHOT',
+          captured_at: new Date().toISOString(),
+          caveat: 'order status is MUTABLE — this row records the status as of CAPTURE, not as of the order date. Re-walking the same day can return different values, and older history is systematically more settled than recent days. Never read a status distribution over time as a trend.',
+        },
+      })
+    }
+  }
+
   // LORAMER_SHOPIFY_BATCH_A2_V1 — product GROUPING families. All three project the SAME per-line net the
   // product/variant grains already use, so type and vendor inherit the product grain's exact reconciliation
   // (Σ ≡ account net, order-level residual allocated pro-rata) with no second basis to drift from.

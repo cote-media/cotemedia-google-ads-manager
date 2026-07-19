@@ -405,6 +405,12 @@ export interface IntelligenceShopify {
   productTypeCapture?: { productType: string; netRevenue: number }[]
   productVendorCapture?: { vendor: string; netRevenue: number }[]
   productTagCapture?: { tag: string; netRevenue: number; units: number }[]
+  // LORAMER_SHOPIFY_BATCH_A3_V1 — ORDER STATUS, CAPTURE-TIME SNAPSHOT (not order-date-historical).
+  // Both PARTITION the day net at query time. Status is MUTABLE, so these record what was true WHEN WE
+  // ASKED: a re-walk of the same day can legitimately return different values, and backfilled history is
+  // systematically more settled than recent days. Never read a status distribution as a trend.
+  financialStatusCapture?: { status: string; netRevenue: number; orders: number }[]
+  fulfillmentStatusCapture?: { status: string; netRevenue: number; orders: number }[]
   geoCities?: { city: string; netRevenue: number; orders: number }[]
   salesChannelCapture?: { channel: string; netRevenue: number; orders: number; channelName: string | null }[]
   discountTypeCapture?: { type: string; discountedAmount: number; orders: number; label: string | null }[]

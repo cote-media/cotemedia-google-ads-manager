@@ -92,6 +92,9 @@ type GraphQLOrderNode = {
   currentShippingPriceSet: { shopMoney: { amount: string } }
   totalTipReceivedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
+  // LORAMER_SHOPIFY_BATCH_A3_V1 — fulfillment state. SNAPSHOT: like displayFinancialStatus above, this is the
+  // status AS OF THE QUERY, not as of the order date. See the snapshot note on the writer.
+  displayFulfillmentStatus: string | null
   // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1) — the sales channel this order came through (online store, POS,
   // Meta, Google, draft). handle is the canonical value; channelName is the human label, kept in extra.
   channelInformation: { channelDefinition: { handle: string | null; channelName: string | null } | null } | null
@@ -269,6 +272,7 @@ export async function fetchShopifyIntelligence(
             currentShippingPriceSet { shopMoney { amount } }
             totalTipReceivedSet { shopMoney { amount } }
             displayFinancialStatus
+            displayFulfillmentStatus
             channelInformation { channelDefinition { handle channelName } }
             discountCodes
             customer { id }
@@ -501,6 +505,37 @@ export async function fetchShopifyIntelligence(
       }
       for (const k of seenTypesOnOrder) discT[k].orders += 1
     }
+    // ── LORAMER_SHOPIFY_BATCH_A3_V1 — ORDER STATUS, A CAPTURE-TIME SNAPSHOT ───────────────────────────
+    // These two PARTITION the day's net at query time (an order has exactly one financial and one
+    // fulfillment status), so Σ status ≡ account net and they reconcile FLAG-NOT-BLOCK like geo.
+    //
+    // BUT THE SEMANTICS ARE DIFFERENT FROM EVERY OTHER FAMILY WE CAPTURE, and that difference is the
+    // whole point of this flight: STATUS IS MUTABLE. A pending order becomes paid; an unfulfilled order
+    // ships. So a row records the status AS OF THE MOMENT WE ASKED, not as of the order date, and a
+    // re-walk of the SAME day will legitimately produce DIFFERENT values. The upsert stays idempotent —
+    // the same key is overwritten — but the MEANING is a snapshot, not a historical fact.
+    // TWO CONSEQUENCES a reader must know, or they will draw a false conclusion:
+    //   1. Backfilled history is systematically MORE SETTLED than recent days: old orders have long since
+    //      resolved to PAID/FULFILLED, while the last week still holds PENDING/UNFULFILLED. A chart of
+    //      "% paid over time" therefore slopes upward toward the past — that is an artifact of WHEN we
+    //      captured, not a trend in the business.
+    //   2. Comparing a status distribution across periods compares two different observation ages.
+    // The caveat is carried to Lora at query time in metrics-query.ts (the hour-0 note pattern), not just
+    // in this comment — a comment nobody reads is exactly how a snapshot becomes a "trend".
+    const finStat: Record<string, { netRevenue: number; orders: number }> = {}
+    const fulStat: Record<string, { netRevenue: number; orders: number }> = {}
+    for (const o of liveOrders) {
+      const net = parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0')
+      const f = (o.displayFinancialStatus || '').trim().toUpperCase() || 'UNKNOWN'
+      if (!finStat[f]) finStat[f] = { netRevenue: 0, orders: 0 }
+      finStat[f].netRevenue += net; finStat[f].orders += 1
+      const u = (o.displayFulfillmentStatus || '').trim().toUpperCase() || 'UNKNOWN'
+      if (!fulStat[u]) fulStat[u] = { netRevenue: 0, orders: 0 }
+      fulStat[u].netRevenue += net; fulStat[u].orders += 1
+    }
+    const financialStatusCapture = Object.entries(finStat).map(([status, v]) => ({ status, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders }))
+    const fulfillmentStatusCapture = Object.entries(fulStat).map(([status, v]) => ({ status, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders }))
+
     const geoCities = Object.entries(geoCity).map(([city, v]) => ({ city, ...v }))
     const salesChannelCapture = Object.entries(chan).map(([channel, v]) => ({ channel, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders, channelName: v.channelName }))
     const discountTypeCapture = Object.entries(discT).map(([type, v]) => ({ type, discountedAmount: Math.round(v.discountedAmount * 100) / 100, orders: v.orders, label: v.label }))
@@ -670,6 +705,8 @@ export async function fetchShopifyIntelligence(
       productTypeCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productTagCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
+      financialStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
+      fulfillmentStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
       geoCities, // LORAMER_SHOPIFY_BATCH_A1_V1
       salesChannelCapture, // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1)
       discountTypeCapture, // LORAMER_SHOPIFY_BATCH_A1_V1
@@ -718,6 +755,8 @@ export async function fetchShopifyIntelligence(
       productTypeCapture: [], // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture: [],
       productTagCapture: [],
+      financialStatusCapture: [], // LORAMER_SHOPIFY_BATCH_A3_V1
+      fulfillmentStatusCapture: [],
       geoCities: [], // LORAMER_SHOPIFY_BATCH_A1_V1 — fetch failed → no rows, never a fabricated bucket
       salesChannelCapture: [],
       discountTypeCapture: [],

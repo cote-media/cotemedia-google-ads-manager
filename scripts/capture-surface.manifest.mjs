@@ -84,6 +84,11 @@ export const VENDOR_SURFACE = {
     // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
     // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
     // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    // BATCH A3 — order status. CAPTURE-TIME SNAPSHOT families: mutable, so a re-walk of the same day can
+    // return different values and backfilled history reads as more settled than recent days. That is an
+    // artifact of WHEN we captured, not a trend; the caveat is surfaced to Lora in metrics-query.ts.
+    financial_status: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net; CAPTURE-TIME SNAPSHOT, mutable, re-walk-unstable (LORAMER_SHOPIFY_BATCH_A3_V1).' },
+    fulfillment_status: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net; CAPTURE-TIME SNAPSHOT, same semantics as financial_status (LORAMER_SHOPIFY_BATCH_A3_V1).' },
     // BATCH A2 — product grouping, widened off lineItems.product (scalars + tags list, same single call).
     // NOTE collections is deliberately ABSENT: a nested connection inside paginated lineItems inside
     // paginated orders is the payload shape that produced Meta's 1/99 today — it needs its own batched call.
