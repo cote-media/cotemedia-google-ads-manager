@@ -95,8 +95,11 @@ export const VENDOR_SURFACE = {
 export const KNOWN_INCOMPLETE = [
   // SLICE — captured at fewer grains than the vendor serves (deepen the writer to full grain):
   // (2026-07-18) meta.placement COMPLETED to campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1) — removed here.
-  'google.conversion_action',    // campaign-only → +ad_group, keyword (G-FILL#9)
-  'google.impression_share',     // campaign-only → +ad_group (G-FILL#9)
+  // HELD-FOR-4AM: the deepened writers ARE authored (G-FILL#9) but live on branch wip/google-gfill1-9-held-4am,
+  // NOT on main — their Gate-A (live GAQL validation) is blocked on the 2026-07-19 ~04:03 ET Google quota reset.
+  // These two stay baselined on main (NOT silently passing) until that branch proves + merges. Do NOT hand-remove.
+  'google.conversion_action',    // campaign-only on main → +ad_group,keyword on wip (G-FILL#9, HELD-FOR-4AM)
+  'google.impression_share',     // campaign-only on main → +ad_group on wip (G-FILL#9, HELD-FOR-4AM)
   // (2026-07-18) The 10 UNWIRED families — the 7 Meta assets, meta.attribution_window, google.age, google.gender —
   // were WIRED into src/lib/breakdown-registry.ts (LORAMER_ASSET_ATTRWINDOW_WIRE_V1) and REMOVED here; the gate's
   // stale-baseline check now confirms they are complete (captured + query-readable).
