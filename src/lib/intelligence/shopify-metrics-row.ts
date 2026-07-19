@@ -196,5 +196,42 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — one row per discount code, account-day grain, breakdown_value=code.
+  // WRITE-ONLY + NON-ADDITIVE: discounted_amount is the EXACT per-code applied money (Σ line-item allocations), a SUBSET
+  // of total discounting (manual/automatic non-code discounts are NOT captured here) — money in conversion_value, orders
+  // carrying the code in conversions, revenue FORCED 0. NEVER sum/reconcile into net sales OR the order discount total
+  // (currentTotalDiscountsSet): a single code's allocation can exceed an order's current discount total, and codes overlap
+  // with non-code discounts. No code on an order → no row (absence of a code is not a partition, so no 'unknown' bucket).
+  for (const d of data.discountCodeCapture || []) {
+    if (!d?.code) continue
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: shopDomain,
+      entity_name: shopDomain,
+      parent_entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'discount_code',
+      breakdown_value: d.code,
+      spend: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: d.orders,               // orders carrying this code
+      conversion_value: d.discountedAmount, // exact applied money for this code (line-item allocations)
+      revenue: 0,                           // NEVER net sales
+      extra: {
+        discounted_amount: d.discountedAmount,
+        orders: d.orders,
+        currencyCode: cur,
+        currencyMixed: curMixed,
+        basis: 'lineitem_allocations',
+        caveat: 'discount-code amount is a subset of total discounting (excludes manual/automatic non-code discounts); never sum/reconcile into the order discount total or net sales',
+      },
+    })
+  }
+
   return rows
 }

@@ -77,6 +77,9 @@ export const VENDOR_SURFACE = {
     // (never summed into net sales). Shopify retains abandoned checkouts only ~90 days → forward-first + shallow
     // backfill; the completion-gate must NOT expect orders-depth full history here. Complete at account grain.
     abandoned_checkout: { grains: ['account'], status: 'captured', confidence: V, note: 'value+count, WRITE-ONLY (potential/lost, never net sales); ~90-day retention floor, forward-first, NOT full history (LORAMER_SHOPIFY_ABANDONED_VALUE_V1).' },
+    // S-FILL#3 — per discount-code applied amount (line-item allocations) + orders-using, account-day, WRITE-ONLY
+    // (a SUBSET of total discounting; never summed into net sales or the order discount total).
+    discount_code: { grains: ['account'], status: 'captured', confidence: V, note: 'per-code applied amount + orders-using, account-day, WRITE-ONLY (subset of total discounting; never net sales / order discount total) (LORAMER_SHOPIFY_DISCOUNT_CODE_V1).' },
   },
   woocommerce: {
     // ZERO breadth today — every dimension is a gap (coupons/category/geo/customer-mix/status/time-of-day). Nothing

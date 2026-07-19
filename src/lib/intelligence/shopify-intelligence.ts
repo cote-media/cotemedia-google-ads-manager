@@ -87,6 +87,7 @@ type GraphQLOrderNode = {
   currentShippingPriceSet: { shopMoney: { amount: string } }
   totalTipReceivedSet: { shopMoney: { amount: string } }
   displayFinancialStatus: string | null
+  discountCodes: string[] | null // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — the code strings on the order ([String!]!; multiple allowed)
   customer: { id: string } | null // LORAMER_CUSTOMER_MIX_FIX_V1 — numberOfOrders dropped (string scalar + lifetime-only; classify by first-order date instead)
   shippingAddress: { countryCodeV2: string | null; provinceCode: string | null } | null // LORAMER_SHOPIFY_DEPTH_2A_V1
   lineItems: {
@@ -99,6 +100,13 @@ type GraphQLOrderNode = {
         variant: { id: string; sku: string | null; title: string | null } | null // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant gid + sku + variant title (same node, one field-add)
         originalUnitPriceSet: { shopMoney: { amount: string } }
         discountedTotalSet: { shopMoney: { amount: string } } // LORAMER_SHOPIFY_DEPTH_2A_V1 — line net (after discounts)
+        // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — per-allocation applied money + which application (code) it came
+        // from. THIS is the exact per-code discounted amount; top-level discountApplications.value is the SPEC (a % or a
+        // gross figure), NOT the applied money — wrong for percentage codes.
+        discountAllocations: Array<{
+          allocatedAmountSet: { shopMoney: { amount: string } }
+          discountApplication: { __typename: string; code?: string | null }
+        }>
       }
     }>
   }
@@ -248,6 +256,7 @@ export async function fetchShopifyIntelligence(
             currentShippingPriceSet { shopMoney { amount } }
             totalTipReceivedSet { shopMoney { amount } }
             displayFinancialStatus
+            discountCodes
             customer { id }
             shippingAddress { countryCodeV2 provinceCode }
             lineItems(first: 50) {
@@ -260,6 +269,7 @@ export async function fetchShopifyIntelligence(
                   variant { id sku title }
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
+                  discountAllocations { allocatedAmountSet { shopMoney { amount } } discountApplication { __typename ... on DiscountCodeApplication { code } } }
                 }
               }
             }
@@ -421,6 +431,31 @@ export async function fetchShopifyIntelligence(
     const geoCountries = Object.entries(geoC).map(([country, v]) => ({ country, ...v }))
     const geoRegions = Object.entries(geoR).map(([region, v]) => ({ region, ...v }))
 
+    // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — per discount-code capture. orders = count of orders carrying the
+    // code (order.discountCodes). discountedAmount = Σ line-item allocatedAmountSet whose allocation came from a
+    // DiscountCodeApplication for that code — the EXACT applied money (handles % + fixed; top-level applications.value
+    // is the spec, not the applied amount). WRITE-ONLY, NON-ADDITIVE: codes are a SUBSET of total discounting (manual/
+    // automatic non-code discounts are excluded here) and per-code amounts do NOT reconcile to currentTotalDiscountsSet
+    // (probed: a $1,400 code allocation on an order whose current discount total is $0) — never summed into net sales
+    // or the order discount total. A code that appears with no allocation (e.g. a manual label) → orders>0, amount 0.
+    const discC: Record<string, { discountedAmount: number; orders: number }> = {}
+    for (const o of liveOrders) {
+      for (const code of o.discountCodes || []) {
+        if (!code) continue
+        if (!discC[code]) discC[code] = { discountedAmount: 0, orders: 0 }
+        discC[code].orders += 1
+      }
+      for (const le of o.lineItems?.edges || []) {
+        for (const a of le.node.discountAllocations || []) {
+          const code = a.discountApplication?.__typename === 'DiscountCodeApplication' ? a.discountApplication.code : null
+          if (!code) continue
+          if (!discC[code]) discC[code] = { discountedAmount: 0, orders: 0 }
+          discC[code].discountedAmount += parseFloat(a.allocatedAmountSet?.shopMoney?.amount || '0')
+        }
+      }
+    }
+    const discountCodeCapture = Object.entries(discC).map(([code, v]) => ({ code, discountedAmount: Math.round(v.discountedAmount * 100) / 100, orders: v.orders }))
+
     // Full product mix with NET revenue. LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — REFUND-NET per line so
     // Σ product net == account net (currentSubtotalPriceSet) EXACTLY, with per-SKU refunds landing on the
     // refunded SKU. Per line: discountedTotal − that line's refunded SUBTOTAL (from refundLineItems.subtotalSet,
@@ -520,6 +555,7 @@ export async function fetchShopifyIntelligence(
       variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
       geoCountries,
       geoRegions,
+      discountCodeCapture, // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
       currencyCode,
       currencyMixed,
       unknownGeoOrders,
@@ -560,6 +596,7 @@ export async function fetchShopifyIntelligence(
       productsCapture: [],
       geoCountries: [],
       geoRegions: [],
+      discountCodeCapture: [], // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
       unknownGeoOrders: 0,
     }
   }

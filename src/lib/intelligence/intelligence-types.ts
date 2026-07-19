@@ -393,6 +393,10 @@ export interface IntelligenceShopify {
   variantsCapture?: { id: string; parentProductId: string; name: string; sku?: string; variantTitle?: string; units: number; revenue?: number; netRevenue?: number; grossRevenue?: number }[]
   geoCountries?: { country: string; netRevenue: number; orders: number; refunded: number }[]
   geoRegions?: { region: string; netRevenue: number; orders: number }[]
+  // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — per discount-code performance, WRITE-ONLY. discountedAmount = exact
+  // applied money from line-item allocations; a SUBSET of total discounting (excludes manual/automatic non-code
+  // discounts) that must NEVER sum into or reconcile against the order discount total (currentTotalDiscountsSet) or net sales.
+  discountCodeCapture?: { code: string; discountedAmount: number; orders: number }[]
   currencyCode?: string
   currencyMixed?: boolean // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — window spans >1 base currency (rare)
   unknownGeoOrders?: number

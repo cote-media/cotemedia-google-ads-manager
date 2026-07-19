@@ -572,6 +572,11 @@ export async function queryBreakdown(opts: {
       const z = `Abandoned-checkout value is POTENTIAL / LOST revenue (Σ abandoned-checkout totalPriceSet, reported in conversionValue) with the abandoned COUNT in conversions — spend and revenue are 0. It is NEVER actual revenue: never sum or reconcile it into net sales or order counts. Shopify retains abandoned checkouts only ~90 days, so this is forward-first and NOT full history like orders — treat the earliest date as a retention floor, not a true start.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3) — subset-not-partition caveat.
+    if (platform === 'shopify' && bt === 'discount_code') {
+      const z = `Discount-code amounts are the EXACT per-code applied money (Σ line-item allocations, in conversionValue) with orders-using-the-code in conversions; spend and revenue are 0. They are a SUBSET of total order discounting — manual and automatic (non-code) discounts are NOT included here — so NEVER sum or reconcile them into net sales or the order discount total (currentTotalDiscountsSet); a single code's allocation can even exceed an order's current discount total. Each value is one code, and multiple codes can apply to one order.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

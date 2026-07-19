@@ -43,12 +43,12 @@ G. frequency_value, SKAN / coarse_conversion_value [LOW / on-demand].
 ## SHOPIFY — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
 Reference = Shopify Admin GraphQL/REST API docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
 
-HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split, new-vs-returning, AOV; geo country/region (account grain); abandoned-checkout VALUE + count (S-FILL#2, breakdown_type='abandoned_checkout', account-day, WRITE-ONLY potential/lost revenue, ~90d retention floor).
+HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split, new-vs-returning, AOV; geo country/region (account grain); abandoned-checkout VALUE + count (S-FILL#2, breakdown_type='abandoned_checkout', account-day, WRITE-ONLY potential/lost revenue, ~90d retention floor); discount-code performance (S-FILL#3, breakdown_type='discount_code', account-day, WRITE-ONLY per-code applied amount from line-item allocations + orders-using, subset of total discounting never net sales).
 
 GAP — OFFERED, NOT CAPTURED:
 A. sales channel / order attribution (online store / POS / Meta / Google) [VERIFIED].
 B. abandoned checkouts — ✅ VALUE + count FORWARD-WIRED 2026-07-18 (S-FILL#2, LORAMER_SHOPIFY_ABANDONED_VALUE_V1): Σ totalPriceSet + count, account-day, write-only (potential/LOST revenue, NEVER net sales), forward-first with a shallow ~90-day Shopify retention floor (NOT full history like orders). Contents (line-item detail) stay UNCAPTURED by design — PII lock (id + money + timestamp only). [VERIFIED]
-C. discount-code performance [VERIFIED].
+C. discount-code performance — ✅ FORWARD-WIRED 2026-07-18 (S-FILL#3, LORAMER_SHOPIFY_DISCOUNT_CODE_V1): per-code applied amount (EXACT, from line-item allocations — not top-level discountApplications.value) + orders-using, account-day, breakdown_type='discount_code', write-only. A SUBSET of total discounting (manual/automatic non-code discounts excluded) — never summed into net sales or the order discount total. Manual/automatic non-code discounts remain a GAP (future 'discount_type' fill). [VERIFIED]
 D. product type / vendor / collection / tags grouping [VERIFIED].
 E. fulfillment + financial + chargeback status [VERIFIED].
 F. customer cohorts / LTV / order-count (aggregate, non-PII) [DERIVED].
