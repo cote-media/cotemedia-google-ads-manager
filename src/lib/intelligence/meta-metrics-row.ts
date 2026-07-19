@@ -4,7 +4,7 @@
 // ga-metrics-row.ts / shopify-metrics-row.ts). No logic change from cron/sync.
 import type { IntelligenceMetrics, PlatformIntelligence } from './intelligence-types'
 
-function metaMetricsExtra(metrics: IntelligenceMetrics): Record<string, unknown> {
+function metaMetricsExtra(metrics: IntelligenceMetrics, entityLevel?: string): Record<string, unknown> {
   const extra: Record<string, unknown> = {
     ctr: metrics.ctr,
     cpc: metrics.cpc,
@@ -27,6 +27,23 @@ function metaMetricsExtra(metrics: IntelligenceMetrics): Record<string, unknown>
   if (metrics.costPerAddToCart != null) {
     extra.costPerAddToCart = metrics.costPerAddToCart
   }
+  // LORAMER_META_BATCH_MA_V1 — click variants onto the base row's extra. != null so a genuine 0 is kept and
+  // only a truly absent field is skipped.
+  if (metrics.outboundClicks != null) extra.outboundClicks = metrics.outboundClicks
+  if (metrics.inlineLinkClicks != null) extra.inlineLinkClicks = metrics.inlineLinkClicks
+  if (metrics.uniqueClicks != null) {
+    extra.uniqueClicks = metrics.uniqueClicks
+    // uniqueClicks counts PEOPLE. At campaign/ad_set/ad grain it is Meta's own de-duplicated figure; at the
+    // ACCOUNT grain it is a SUM of per-campaign uniques, so anyone reached by two campaigns is counted twice.
+    // Labelled rather than silently summed — an upper bound is honest, a fake de-duplication is not.
+    extra.uniqueClicksBasis = entityLevel === 'account' ? 'summed_across_campaigns_UPPER_BOUND' : 'meta_deduplicated'
+  }
+  // RANKING — write the key whenever we ASKED (i.e. !== undefined), INCLUDING when the value is null.
+  // Present-with-null = "Meta had no ranking for this ad"; absent = "not an ad row / not requested".
+  if (metrics.qualityRanking !== undefined) extra.qualityRanking = metrics.qualityRanking
+  if (metrics.engagementRateRanking !== undefined) extra.engagementRateRanking = metrics.engagementRateRanking
+  if (metrics.conversionRateRanking !== undefined) extra.conversionRateRanking = metrics.conversionRateRanking
+  if (metrics.qualityRanking !== undefined) extra.rankingSemantics = 'ORDINAL_WRITE_ONLY_NEVER_SUMMED'
   return extra
 }
 
@@ -65,7 +82,7 @@ export function buildMetaMetricsRows(
       conversions: metrics.conversions ?? 0,
       conversion_value: metrics.conversionValue ?? 0,
       revenue: 0,
-      extra: metaMetricsExtra(metrics),
+      extra: metaMetricsExtra(metrics, entityLevel),
     }
     if (parentEntityId) {
       row.parent_entity_id = parentEntityId

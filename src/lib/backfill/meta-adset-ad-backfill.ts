@@ -1,3 +1,15 @@
+// LORAMER_META_BATCH_MA_V1 — CLICK VARIANTS (M1) + RANKING (M2). Both are Insights METRIC FIELDS, not
+// breakdowns: they widen the field string on calls we ALREADY make, add ZERO reports, ZERO rows and ZERO
+// breakdown_types, and land in the base row's extra.
+// M1 outbound_clicks / inline_link_clicks / unique_clicks — "clicks" alone conflates every click on the ad
+//   (including likes, comments, profile taps). outbound/inline_link are the ones that actually left for the
+//   site; unique_clicks is people rather than events. Reported side by side, never replacing clicks.
+// M2 quality_ranking / engagement_rate_ranking / conversion_rate_ranking — AD LEVEL ONLY (Meta does not
+//   serve them above ad). ORDINAL BUCKETS ("above_average"/"average"/"below_average"), NOT money: they can
+//   never partition or reconcile — WRITE-ONLY, same class as Google impression_share.
+//   ⚠ NULL IS A REAL ANSWER. Meta returns null (or omits the field) for ads under its impression threshold.
+//   That null is STORED AS null and never coerced to a default — a fabricated "below_average" would be a
+//   false fact about someone's creative, which is exactly the false-zero class this repo already outlaws.
 // LORAMER_META_ADSET_AD_BACKFILL_V1
 // Ad-set-grain AND ad-grain backfill writer for Meta (NEW, backfill-only — does NOT touch forward capture).
 // Mirrors src/lib/backfill/meta-campaign-backfill.ts (parseInsight/metaExtra/fetchAllWithRetry/monthChunks,
@@ -56,12 +68,23 @@ function parseInsight(insight: any) {
   const initiateCheckout = getAction(actions, 'offsite_conversion.fb_pixel_initiate_checkout')
   const viewContent = getAction(actions, 'offsite_conversion.fb_pixel_view_content')
   const convValue = parseFloat(insight?.action_values?.find((x: any) => x.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0')
+  // LORAMER_META_BATCH_MA_V1 — see the campaign writer for why absent stays undefined rather than 0.
+  const actionSum = (arr: any[]): number | undefined => Array.isArray(arr) ? arr.reduce((t, x) => t + (parseFloat(x?.value) || 0), 0) : undefined
+  const outboundClicks = actionSum(insight?.outbound_clicks)
+  const inlineLinkClicks = insight?.inline_link_clicks != null ? parseInt(insight.inline_link_clicks) : actionSum(insight?.inline_link_clicks)
+  const uniqueClicks = insight?.unique_clicks != null ? parseInt(insight.unique_clicks) : undefined
+  // M2 RANKING — ordinal, ad-level, and NULL IS A REAL ANSWER (below Meta's impression threshold). Passed
+  // through verbatim; never defaulted, never coerced.
+  const qualityRanking = insight?.quality_ranking ?? null
+  const engagementRateRanking = insight?.engagement_rate_ranking ?? null
+  const conversionRateRanking = insight?.conversion_rate_ranking ?? null
   const reach = parseInt(insight?.reach || '0')
   const frequency = parseFloat(insight?.frequency || '0')
   return {
     spend: fin(spend), clicks: fin(clicks), impressions: fin(impressions), conversions: fin(conversions),
     conversionValue: fin(convValue), ctr: fin(ctr), reach: fin(reach), frequency: fin(frequency),
     purchases: fin(purchases), addToCart: fin(addToCart), initiateCheckout: fin(initiateCheckout), viewContent: fin(viewContent),
+    outboundClicks, inlineLinkClicks, uniqueClicks, qualityRanking, engagementRateRanking, conversionRateRanking, // LORAMER_META_BATCH_MA_V1
   }
 }
 
@@ -76,6 +99,17 @@ function metaExtra(m: ReturnType<typeof parseInsight>): Record<string, unknown> 
   if (m.addToCart) e.addToCart = m.addToCart
   if (m.initiateCheckout) e.initiateCheckout = m.initiateCheckout
   if (m.viewContent) e.viewContent = m.viewContent
+  // LORAMER_META_BATCH_MA_V1
+  if (m.outboundClicks != null) e.outboundClicks = m.outboundClicks
+  if (m.inlineLinkClicks != null) e.inlineLinkClicks = m.inlineLinkClicks
+  if (m.uniqueClicks != null) e.uniqueClicks = m.uniqueClicks
+  // RANKING: write the key whenever the AD-level call was made, INCLUDING when the value is null. A present
+  // key with a null value says "Meta was asked and had no ranking for this ad"; an absent key says "not
+  // asked". Those are different facts and collapsing them would lose the distinction.
+  if (m.qualityRanking !== undefined) e.qualityRanking = m.qualityRanking
+  if (m.engagementRateRanking !== undefined) e.engagementRateRanking = m.engagementRateRanking
+  if (m.conversionRateRanking !== undefined) e.conversionRateRanking = m.conversionRateRanking
+  e.rankingSemantics = m.qualityRanking !== undefined ? 'ORDINAL_WRITE_ONLY_NEVER_SUMMED' : undefined
   return e
 }
 
@@ -100,7 +134,10 @@ export async function runMetaAdSetAdBackfill(
   if (tErr || !tok?.access_token) return { status: 400, body: { error: 'No Meta access token', detail: tErr?.message } }
   const token = tok.access_token as string
 
-  const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
+  // LORAMER_META_BATCH_MA_V1 — click variants at BOTH grains; the three ranking fields are appended for the
+  // AD grain ONLY below, because Meta does not serve them above ad (asking at ad_set is an error, not a null).
+  const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions,outbound_clicks,inline_link_clicks,unique_clicks'
+  const AD_ONLY_FIELDS = ',quality_ranking,engagement_rate_ranking,conversion_rate_ranking'
   const stats: Record<'ad_set' | 'ad', GrainStat> = { ad_set: emptyStat(), ad: emptyStat() }
   const flagged: any[] = []
   const sampleRow: Record<string, unknown> = {} // dryRun diagnostic: first built row per grain
@@ -134,7 +171,7 @@ export async function runMetaAdSetAdBackfill(
     ]
 
     for (const grain of grains) {
-      const url = `${META_API}/${actId}/insights?level=${grain.metaLevel}&time_range=${timeRange}&time_increment=1&fields=${grain.idFields},${insightFields}&filtering=${filtering}&limit=500`
+      const url = `${META_API}/${actId}/insights?level=${grain.metaLevel}&time_range=${timeRange}&time_increment=1&fields=${grain.idFields},${insightFields}${grain.metaLevel === 'ad' ? AD_ONLY_FIELDS : ''}&filtering=${filtering}&limit=500`
       const insights = await metaFetchAllPaged(url, token, { guard: 200 })
       const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number }> = {}
       for (const ins of insights) {

@@ -4,6 +4,18 @@
 // SAME spend>0 basis as forward capture (meta-intelligence.ts:97) so campaign Σ reconciles to the account grain.
 // Parsing mirrors meta-intelligence.ts buildMetrics (conversions from actions[], convValue from action_values[],
 // reach/frequency) and meta-metrics-row.ts extra shape. Idempotent upsert + per-day SPEND reconcile.
+// LORAMER_META_BATCH_MA_V1 — CLICK VARIANTS (M1) + RANKING (M2). Both are Insights METRIC FIELDS, not
+// breakdowns: they widen the field string on calls we ALREADY make, add ZERO reports, ZERO rows and ZERO
+// breakdown_types, and land in the base row's extra.
+// M1 outbound_clicks / inline_link_clicks / unique_clicks — "clicks" alone conflates every click on the ad
+//   (including likes, comments, profile taps). outbound/inline_link are the ones that actually left for the
+//   site; unique_clicks is people rather than events. Reported side by side, never replacing clicks.
+// M2 quality_ranking / engagement_rate_ranking / conversion_rate_ranking — AD LEVEL ONLY (Meta does not
+//   serve them above ad). ORDINAL BUCKETS ("above_average"/"average"/"below_average"), NOT money: they can
+//   never partition or reconcile — WRITE-ONLY, same class as Google impression_share.
+//   ⚠ NULL IS A REAL ANSWER. Meta returns null (or omits the field) for ads under its impression threshold.
+//   That null is STORED AS null and never coerced to a default — a fabricated "below_average" would be a
+//   false fact about someone's creative, which is exactly the false-zero class this repo already outlaws.
 // LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2: reconcile = FLAG-NOT-BLOCK (the settled Meta-placement /
 // google-adgroup-ad posture), NOT block. Gate A proved finalized days reconcile EXACTLY but RECENT days show
 // small (<1%) deltas because the stored account anchor is a few days STALE vs the live campaign fetch (Meta
@@ -49,12 +61,20 @@ function parseInsight(insight: any) {
   const initiateCheckout = getAction(actions, 'offsite_conversion.fb_pixel_initiate_checkout')
   const viewContent = getAction(actions, 'offsite_conversion.fb_pixel_view_content')
   const convValue = parseFloat(insight?.action_values?.find((x: any) => x.action_type === 'offsite_conversion.fb_pixel_purchase')?.value || '0')
+  // LORAMER_META_BATCH_MA_V1 — outbound_clicks/inline_link_clicks arrive as ACTION ARRAYS (not scalars);
+  // unique_clicks is a scalar. Absent → undefined, never 0: "we did not receive it" and "there were none"
+  // are different facts and the extra builder below only writes what actually came back.
+  const actionSum = (arr: any[]): number | undefined => Array.isArray(arr) ? arr.reduce((t, x) => t + (parseFloat(x?.value) || 0), 0) : undefined
+  const outboundClicks = actionSum(insight?.outbound_clicks)
+  const inlineLinkClicks = insight?.inline_link_clicks != null ? parseInt(insight.inline_link_clicks) : actionSum(insight?.inline_link_clicks)
+  const uniqueClicks = insight?.unique_clicks != null ? parseInt(insight.unique_clicks) : undefined
   const reach = parseInt(insight?.reach || '0')
   const frequency = parseFloat(insight?.frequency || '0')
   return {
     spend: fin(spend), clicks: fin(clicks), impressions: fin(impressions), conversions: fin(conversions),
     conversionValue: fin(convValue), ctr: fin(ctr), reach: fin(reach), frequency: fin(frequency),
     purchases: fin(purchases), addToCart: fin(addToCart), initiateCheckout: fin(initiateCheckout), viewContent: fin(viewContent),
+    outboundClicks, inlineLinkClicks, uniqueClicks, // LORAMER_META_BATCH_MA_V1 — undefined when Meta did not serve it
   }
 }
 
@@ -69,6 +89,10 @@ function metaExtra(m: ReturnType<typeof parseInsight>): Record<string, unknown> 
   if (m.addToCart) e.addToCart = m.addToCart
   if (m.initiateCheckout) e.initiateCheckout = m.initiateCheckout
   if (m.viewContent) e.viewContent = m.viewContent
+  // LORAMER_META_BATCH_MA_V1 — write only what Meta actually returned (!= null, so a real 0 is kept)
+  if (m.outboundClicks != null) e.outboundClicks = m.outboundClicks
+  if (m.inlineLinkClicks != null) e.inlineLinkClicks = m.inlineLinkClicks
+  if (m.uniqueClicks != null) e.uniqueClicks = m.uniqueClicks
   return e
 }
 
@@ -90,7 +114,8 @@ export async function runMetaCampaignBackfill(
   if (tErr || !tok?.access_token) return { status: 400, body: { error: 'No Meta access token', detail: tErr?.message } }
   const token = tok.access_token as string
 
-  const insightFields = 'campaign_id,campaign_name,spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
+  // LORAMER_META_BATCH_MA_V1 — +3 click-variant fields on the SAME call (no extra report, no extra row).
+  const insightFields = 'campaign_id,campaign_name,spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions,outbound_clicks,inline_link_clicks,unique_clicks'
   const flagged: any[] = []
   let written = 0, daysWritten = 0, daysFlagged = 0, campaignDayRows = 0
   const otherDeltas = { clicks: 0, impressions: 0, conversions: 0 }

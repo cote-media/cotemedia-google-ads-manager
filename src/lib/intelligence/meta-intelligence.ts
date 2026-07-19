@@ -38,7 +38,24 @@ function buildMetrics(insight: any): IntelligenceMetrics {
   const reach = parseInt(insight?.reach || '0')
   const frequency = parseFloat(insight?.frequency || '0')
 
+  // LORAMER_META_BATCH_MA_V1 — absent stays undefined (never 0): "not served" and "none" are different facts.
+  const actionSum = (arr: any): number | undefined => Array.isArray(arr) ? arr.reduce((t: number, x: any) => t + (parseFloat(x?.value) || 0), 0) : undefined
+  const outboundClicks = actionSum(insight?.outbound_clicks)
+  const inlineLinkClicks = insight?.inline_link_clicks != null ? parseInt(String(insight.inline_link_clicks)) : actionSum(insight?.inline_link_clicks)
+  const uniqueClicks = insight?.unique_clicks != null ? parseInt(String(insight.unique_clicks)) : undefined
+  // M2 RANKING — passed through VERBATIM. Meta omits the key entirely for non-ad levels (we never ask) and
+  // returns null for ads under its impression threshold. Both states are preserved: 'in' distinguishes
+  // "asked and got null" from "never asked", and a fabricated default would be a false fact about creative.
+  const qualityRanking = insight && 'quality_ranking' in insight ? (insight.quality_ranking ?? null) : undefined
+  const engagementRateRanking = insight && 'engagement_rate_ranking' in insight ? (insight.engagement_rate_ranking ?? null) : undefined
+  const conversionRateRanking = insight && 'conversion_rate_ranking' in insight ? (insight.conversion_rate_ranking ?? null) : undefined
   return {
+    qualityRanking,
+    engagementRateRanking,
+    conversionRateRanking,
+    outboundClicks,
+    inlineLinkClicks,
+    uniqueClicks,
     spend,
     clicks,
     impressions,
@@ -175,7 +192,12 @@ export async function fetchMetaIntelligence(
     ? `time_range={"since":"${customStart}","until":"${customEnd}"}`
     : `date_preset=${buildDatePreset(dateRange)}`
 
-  const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions'
+  // LORAMER_META_BATCH_MA_V1 — click variants (M1) on the SAME calls. "clicks" conflates every click on the
+  // ad including likes/comments/profile taps; outbound + inline_link are the ones that actually left for the
+  // site, unique_clicks is people not events. Reported alongside clicks, never replacing it. Ranking (M2) is
+  // AD-LEVEL ONLY and is added to the ad call below — asking for it above ad is an error, not a null.
+  const insightFields = 'spend,clicks,impressions,ctr,reach,frequency,actions,action_values,conversions,outbound_clicks,inline_link_clicks,unique_clicks'
+  const AD_ONLY_FIELDS = ',quality_ranking,engagement_rate_ranking,conversion_rate_ranking'
   // LORAMER_META_PLACEMENT_FIELDS_FIX_V1 — breakdowns go in &breakdowns=, NOT &fields=.
   // LORAMER_META_PLACEMENT_PERSIST_SLICE1_V1 — campaign_id,campaign_name added (additive response columns)
   // so the SAME response feeds BOTH the unchanged account-level `placements` sum AND the new per-campaign map.
@@ -257,7 +279,7 @@ export async function fetchMetaIntelligence(
 
   // ── Ads ────────────────────────────────────────────────────────────────────
   const adInsights = await fetchAll(
-    `${META_API}/${actId}/insights?level=ad&${dateParam}&fields=ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,${insightFields}&filtering=[{"field":"spend","operator":"GREATER_THAN","value":"0"}]&limit=100`,
+    `${META_API}/${actId}/insights?level=ad&${dateParam}&fields=ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,${insightFields}${AD_ONLY_FIELDS}&filtering=[{"field":"spend","operator":"GREATER_THAN","value":"0"}]&limit=100`,
     accessToken
   )
 
@@ -391,7 +413,26 @@ export async function fetchMetaIntelligence(
   const totalConvValue = campaigns.reduce((s, c) => s + c.metrics.conversionValue, 0)
   const totalReach = campaigns.reduce((s, c) => s + (c.metrics.reach || 0), 0)
 
+  // LORAMER_META_BATCH_MA_V1 — the ACCOUNT row's totals are SUMMED from campaigns (not fetched), so the
+  // click variants have to be summed here too or the account row silently lacks fields every campaign row
+  // has. Summed only over campaigns that actually reported the field: if NO campaign returned it, the total
+  // stays undefined rather than becoming a fake 0 — "not served" and "none" stay distinguishable at the
+  // account grain exactly as they are per-campaign.
+  const sumOpt = (pick: (m: IntelligenceMetrics) => number | undefined): number | undefined => {
+    const vals = campaigns.map((c) => pick(c.metrics)).filter((v): v is number => v != null)
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : undefined
+  }
+  const totalOutboundClicks = sumOpt((m) => m.outboundClicks)
+  const totalInlineLinkClicks = sumOpt((m) => m.inlineLinkClicks)
+  const totalUniqueClicks = sumOpt((m) => m.uniqueClicks)
+
   const totals: IntelligenceMetrics = {
+    outboundClicks: totalOutboundClicks,
+    inlineLinkClicks: totalInlineLinkClicks,
+    // NOTE unique_clicks is PEOPLE, not events — summing it across campaigns DOUBLE-COUNTS anyone reached by
+    // more than one campaign. It is carried at the account grain as an upper bound and labelled as such;
+    // Meta's own de-duplicated account figure would need its own account-level call.
+    uniqueClicks: totalUniqueClicks,
     spend: totalSpend,
     clicks: totalClicks,
     impressions: totalImpressions,

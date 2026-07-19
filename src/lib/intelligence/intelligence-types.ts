@@ -24,6 +24,18 @@ export interface IntelligenceMetrics {
   viewContent?: number
   costPerPurchase?: number
   costPerAddToCart?: number
+  // LORAMER_META_BATCH_MA_V1 — click variants (Meta). Optional: undefined = Meta did not serve it, which is
+  // NOT the same as zero. They ride the base row's extra and never replace `clicks`.
+  outboundClicks?: number
+  inlineLinkClicks?: number
+  uniqueClicks?: number
+  // LORAMER_META_BATCH_MA_V1 — Meta ranking (M2). AD LEVEL ONLY; undefined at every other grain because the
+  // field is only requested on the ad call. ORDINAL buckets, never numbers: WRITE-ONLY, never summed, never
+  // reconciled. `null` is a REAL value meaning Meta was asked and had no ranking (ad below its impression
+  // threshold) — distinct from undefined, which means we never asked. Never coerce either to a default.
+  qualityRanking?: string | null
+  engagementRateRanking?: string | null
+  conversionRateRanking?: string | null
 }
 
 export interface IntelligenceCampaign {

@@ -50,9 +50,14 @@ export const VENDOR_SURFACE = {
     call_to_action_asset: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V },
     description_asset: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V },
     link_url_asset: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V },
+    // LORAMER_META_BATCH_MA_V1 — M1 click variants (outbound/inline_link/unique) and M2 ranking (quality/
+    // engagement_rate/conversion_rate, AD LEVEL ONLY) are INSIGHTS METRIC FIELDS that ride the base row's
+    // extra. They are NOT breakdown families: no breakdown_type, no rows of their own, nothing for the
+    // grain gate to check. Recorded here so nobody re-proposes them as missing families.
+    // ranking's 'gap' entry below is therefore RETIRED — it is captured, just not as a breakdown.
     // ── gaps (vendor serves, not built) — never flagged ──
     geo_dma: { grains: G4, status: 'gap', confidence: V, note: 'M-FILL#3. `dma` REMOVED by Meta 2026 → comscore_market (market/DMA), FORWARD-ONLY (~2026-06+), only comScore-measured campaigns populate. Not built.' },
-    ranking: { grains: ['ad'], status: 'gap', confidence: D, note: 'quality/engagement/conversion rank — M-FILL (ranking). ad grain.' },
+    ranking: { grains: ['ad'], status: 'removed', confidence: V, note: 'CAPTURED as base-row extra at ad grain (LORAMER_META_BATCH_MA_V1) — quality/engagement_rate/conversion_rate_ranking are metric FIELDS, not a breakdown, so there is no breakdown_type and nothing for the grain gate to check. Marked removed (not gap) so it is neither flagged nor re-proposed.' },
     product_id: { grains: G4, status: 'gap', confidence: V, note: 'catalog product_id grain — M-FILL#4.' },
   },
   google: {
