@@ -88,6 +88,51 @@ async function fetchFirstOrderDates(
   return map
 }
 
+// LORAMER_SHOPIFY_BATCH_B_V1 — PRODUCT COLLECTIONS, fetched SEPARATELY and never on the orders query.
+// Shape and failure posture are lifted from the Meta creative fix (LORAMER_META_CREATIVE_FAIL_PARTIAL_V1,
+// 27470cd), for the same reason: a nested expansion that the vendor may refuse must never be able to abort
+// the day's capture. Batched by explicit product id (25/batch — MEASURED requested 6 / actual 1, i.e. well
+// under 1% of the 1,000-point ceiling), each batch INDEPENDENT, and on failure the batch is re-fetched one
+// id at a time so the blast radius collapses to the product(s) Shopify genuinely cannot serve.
+const COLLECTION_BATCH_SIZE = 25
+async function fetchProductCollections(
+  endpoint: string,
+  headers: Record<string, string>,
+  productIds: string[],
+  throttleDeadline?: number
+): Promise<{ byProductId: Record<string, string[]>; batchesTotal: number; batchesFailed: number; productsMissing: number }> {
+  const byProductId: Record<string, string[]> = {}
+  let batchesFailed = 0
+  const query = `query($ids: [ID!]!) { nodes(ids: $ids) { ... on Product { id collections(first: 5) { edges { node { title } } } } } }`
+  const batches: string[][] = []
+  for (let i = 0; i < productIds.length; i += COLLECTION_BATCH_SIZE) batches.push(productIds.slice(i, i + COLLECTION_BATCH_SIZE))
+
+  const run = async (ids: string[]): Promise<void> => {
+    const json = await shopifyGraphQL(endpoint, headers, query, { ids }, throttleDeadline)
+    if (json.errors) throw new Error('Shopify GraphQL error: ' + JSON.stringify(json.errors).slice(0, 200))
+    for (const n of json.data?.nodes || []) {
+      if (!n?.id) continue
+      byProductId[n.id] = (n.collections?.edges || []).map((e: any) => String(e?.node?.title || '').trim()).filter(Boolean)
+    }
+  }
+
+  for (const batch of batches) {
+    try {
+      await run(batch)
+    } catch (e: any) {
+      if (e?.throttleBudget) throw e // budget signal must propagate so the backfill can persist its cursor
+      batchesFailed += 1
+      console.warn(`[shopify] collections batch (${batch.length} products) failed — splitting to isolate: ${String(e?.message ?? e).slice(0, 160)}`)
+      for (const id of batch) {
+        try { await run([id]) } catch { /* this product alone loses its collections */ }
+      }
+    }
+  }
+  const productsMissing = productIds.filter((id) => !byProductId[id]).length
+  if (batchesFailed) console.warn(`[shopify] collections DEGRADED-NOT-DROPPED: ${batches.length - batchesFailed}/${batches.length} batches ok · ${productsMissing} product(s) without collections · order rows UNAFFECTED`)
+  return { byProductId, batchesTotal: batches.length, batchesFailed, productsMissing }
+}
+
 // LORAMER_SHOPIFY_NET_SALES_V1
 type GraphQLOrderNode = {
   id: string
@@ -271,6 +316,17 @@ export async function fetchShopifyIntelligence(
 
   // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — cursor pagination: accumulate ALL pages, not just the first 250.
   // (abandonedCheckouts(first:250) is still single-page — count-only, understates on huge days; paginate later.)
+  // ⛔ DO NOT ADD product.collections (OR ANY NESTED CONNECTION) TO THIS QUERY — LORAMER_SHOPIFY_BATCH_B_V1.
+  // MEASURED 2026-07-19 against the live API: this query as it stands costs 651 of the 1,000-point single-query
+  // ceiling (actual 134). Adding product { collections(first: 5) { … } } takes it to 1,036 and Shopify REJECTS it
+  // BEFORE EXECUTION with MAX_COST_EXCEEDED — "Query cost is 1036, which exceeds the single query max cost limit
+  // (1000)". Not a throttle, not a degradation: a hard refusal on every store, every time. Because this ONE call
+  // also produces base/product/variant/geo/sales_channel/discount/order_time/status/cohort rows, that field would
+  // take the ENTIRE Shopify capture down for every client.
+  // WHY SCALARS ARE FINE AND CONNECTIONS ARE NOT: scalar fields cost 0 points; a connection costs 2 + 1 per item
+  // AND MULTIPLIES through nesting (first × (1 + nested)). Today's widens (productType, vendor, tags, city,
+  // channelInformation, displayFulfillmentStatus, createdAt) were free for exactly that reason.
+  // ~349 points of headroom remain. Anything nested goes in its OWN batched call — see fetchProductCollections.
   const gqlQuery = `
     query OrdersInRange($query: String!, $after: String) {
       orders(first: 250, after: $after, query: $query) {
@@ -719,6 +775,30 @@ export async function fetchShopifyIntelligence(
       }
     }
     const productsCapture = Object.entries(prodCap).map(([id, v]) => ({ id, ...v }))
+    // LORAMER_SHOPIFY_BATCH_B_V1 — product_collection. Product ids are DEDUPLICATED (prodCap is already keyed
+    // by product id, so each product is fetched ONCE per day regardless of how many line items referenced it),
+    // then collections come from the SEPARATE batched call — never from the orders query, which Shopify hard-
+    // rejects at 1,036 points with that field attached. Each product's net is projected onto EVERY collection
+    // it belongs to, so this OVER-COUNTS by design exactly like product_tag: additive:false is mandatory.
+    const collectionProductIds = Object.keys(prodCap).filter((id) => id.startsWith('gid://'))
+    const collectionsResult = collectionProductIds.length
+      ? await fetchProductCollections(endpoint, headers, collectionProductIds, opts?.throttleDeadline)
+      : { byProductId: {} as Record<string, string[]>, batchesTotal: 0, batchesFailed: 0, productsMissing: 0 }
+    const collCap: Record<string, { netRevenue: number; products: Set<string> }> = {}
+    for (const [pid, v] of Object.entries(prodCap)) {
+      const titles = collectionsResult.byProductId[pid] || []
+      if (!titles.length) continue // no collections (or degraded) → NO row; never a fabricated 'UNCOLLECTED' bucket
+      for (const t of titles) {
+        if (!collCap[t]) collCap[t] = { netRevenue: 0, products: new Set() }
+        collCap[t].netRevenue += v.netRevenue
+        collCap[t].products.add(pid)
+      }
+    }
+    const productCollectionCapture = Object.entries(collCap).map(([collection, v]) => ({
+      collection,
+      netRevenue: Math.round(v.netRevenue * 100) / 100,
+      products: v.products.size,
+    }))
     const r2 = (n: number) => Math.round(n * 100) / 100
     const productTypeCapture = Object.entries(typeCap).map(([productType, netRevenue]) => ({ productType, netRevenue: r2(netRevenue) }))
     const productVendorCapture = Object.entries(vendorCap).map(([vendor, netRevenue]) => ({ vendor, netRevenue: r2(netRevenue) }))
@@ -771,6 +851,7 @@ export async function fetchShopifyIntelligence(
       productTypeCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productTagCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
+      productCollectionCapture, // LORAMER_SHOPIFY_BATCH_B_V1 (separate batched call)
       customerCohortCapture, // LORAMER_SHOPIFY_BATCH_C_V1
       financialStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
       fulfillmentStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
@@ -822,6 +903,7 @@ export async function fetchShopifyIntelligence(
       productTypeCapture: [], // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture: [],
       productTagCapture: [],
+      productCollectionCapture: [], // LORAMER_SHOPIFY_BATCH_B_V1
       customerCohortCapture: [], // LORAMER_SHOPIFY_BATCH_C_V1
       financialStatusCapture: [], // LORAMER_SHOPIFY_BATCH_A3_V1
       fulfillmentStatusCapture: [],

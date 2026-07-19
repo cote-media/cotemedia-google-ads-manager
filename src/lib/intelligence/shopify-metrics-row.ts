@@ -158,6 +158,30 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_BATCH_B_V1 — product_collection, from the SEPARATE batched call. NON-PARTITIONING: a
+  // product belongs to many collections, so its full net is counted under each and Σ collection EXCEEDS net
+  // sales — the same over-count shape as product_tag. additive:false is mandatory, not cosmetic.
+  // CAPTURE-TIME SNAPSHOT: collection membership is mutable and is NOT reconstructable historically — Shopify
+  // exposes today's membership, not the membership as of the order date. A re-walk of an old day therefore
+  // records TODAY's collections against those orders. That is the honest representation (the alternative is
+  // inventing history), and it is stamped on every row and carried to Lora at query time.
+  for (const c of data.productCollectionCapture || []) {
+    if (!c?.collection) continue
+    rows.push({
+      client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+      entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+      date: captureDate, breakdown_type: 'product_collection', breakdown_value: c.collection,
+      revenue: c.netRevenue, conversions: c.products,
+      extra: {
+        products: c.products, currencyCode: cur, currencyMixed: curMixed,
+        basis: 'perline_net_same_as_product_grain',
+        semantics: 'CAPTURE_TIME_SNAPSHOT',
+        captured_at: new Date().toISOString(),
+        caveat: 'collection membership is as of CAPTURE, not as of the order date (Shopify does not expose historical membership), AND a product belongs to many collections so this OVER-COUNTS — never sum collections or reconcile them to net sales.',
+      },
+    })
+  }
+
   // LORAMER_SHOPIFY_BATCH_C_V1 — customer_cohort. PARTITIONS the day net (each order maps to exactly one
   // bucket through its customer's lifetime order count), so Σ cohort ≡ account net and it reconciles
   // FLAG-NOT-BLOCK. Orders with no linked customer bucket UNKNOWN and stay IN the partition.

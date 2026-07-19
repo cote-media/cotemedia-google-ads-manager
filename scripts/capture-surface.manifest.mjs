@@ -84,6 +84,9 @@ export const VENDOR_SURFACE = {
     // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
     // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
     // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    // BATCH B — collection membership via a SEPARATE id-batched call (the orders-query widen is rejected
+    // by Shopify at 1,036 pts). Non-additive + capture-time snapshot.
+    product_collection: { grains: ['account'], status: 'captured', confidence: V, note: 'separate batched call (widen rejected at 1036 pts); NON-ADDITIVE over-count like product_tag; CAPTURE-TIME SNAPSHOT membership (LORAMER_SHOPIFY_BATCH_B_V1).' },
     // BATCH C — customer cohort. Rides the EXISTING customer nodes(ids:) call (two scalars widened, no
     // new request). LTV is carried in extra as a labelled LIFETIME attribute, never a summable column.
     customer_cohort: { grains: ['account'], status: 'captured', confidence: V, note: 'lifetime-order-count buckets 1/2-3/4-9/10+; partitions day net; extra.avgLifetimeSpent is LIFETIME, not windowed, never summed; non-PII (LORAMER_SHOPIFY_BATCH_C_V1).' },
@@ -93,8 +96,6 @@ export const VENDOR_SURFACE = {
     financial_status: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net; CAPTURE-TIME SNAPSHOT, mutable, re-walk-unstable (LORAMER_SHOPIFY_BATCH_A3_V1).' },
     fulfillment_status: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net; CAPTURE-TIME SNAPSHOT, same semantics as financial_status (LORAMER_SHOPIFY_BATCH_A3_V1).' },
     // BATCH A2 — product grouping, widened off lineItems.product (scalars + tags list, same single call).
-    // NOTE collections is deliberately ABSENT: a nested connection inside paginated lineItems inside
-    // paginated orders is the payload shape that produced Meta's 1/99 today — it needs its own batched call.
     product_type: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net (one type per product), same per-line net basis as the product grain (LORAMER_SHOPIFY_BATCH_A2_V1).' },
     product_vendor: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net (one vendor per product) (LORAMER_SHOPIFY_BATCH_A2_V1).' },
     product_tag: { grains: ['account'], status: 'captured', confidence: V, note: 'NON-ADDITIVE by construction — many tags per product, so Σ tag EXCEEDS day net; never sum or reconcile. High cardinality (LORAMER_SHOPIFY_BATCH_A2_V1).' },

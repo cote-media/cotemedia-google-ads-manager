@@ -36,9 +36,9 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "2a1df57020bace694f680cc66fc1512aabc69a806b3b3fab9fb07f485a85fb33",
+    "content_hash": "a56b7bc9c2b3611a55e411a0eeb3ab90a7b63aa85134a1ba71f905ddaee7ea78",
     "last_reconciled_date": "2026-07-19",
-    "last_reconciled_head": "a8db2e6",
+    "last_reconciled_head": "d159910",
     "line_count": 517
   },
   "LORAMER_RESUME_DIGEST.md": {
@@ -108,10 +108,10 @@
     "line_count": 102
   },
   "CLAUDE.md": {
-    "content_hash": "a86422cee4cb7ac5f8023ca4b38d9ea890e0a46087346287dbea8bfbf8a26984",
-    "last_reconciled_date": "2026-07-17",
-    "last_reconciled_head": "cbd4f69",
-    "line_count": 120
+    "content_hash": "49f8c98fb9c1c050908819b967adb78e7380a18d33e185e0ca3658b8c52b30d7",
+    "last_reconciled_date": "2026-07-19",
+    "last_reconciled_head": "d159910",
+    "line_count": 122
   },
   "LAUNCH_PARKING.md": {
     "content_hash": "ba7cdb85b424b2ae91ce94c44af1a362aebc85beb3718a285e1fba5b36a6de08",

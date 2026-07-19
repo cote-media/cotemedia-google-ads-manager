@@ -604,6 +604,11 @@ export async function queryBreakdown(opts: {
       const z = `Customer cohorts bucket each order by its customer's LIFETIME order count (1 / 2-3 / 4-9 / 10+; UNKNOWN = guest checkout or no linked customer). The revenue and order counts on these rows ARE windowed and DO partition the day's net sales. BUT extra.avgLifetimeSpent is a LIFETIME figure for the customers who ordered that day — it is NOT revenue in this window, it CANNOT be summed across days (a customer ordering on ten days would contribute their whole lifetime value ten times), and it must never be compared to net sales. Cohorts are aggregate and non-PII: there are no per-customer rows.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_SHOPIFY_BATCH_B_V1 — collections carry TWO traps at once, so the note covers both.
+    if (platform === 'shopify' && bt === 'product_collection') {
+      const z = `Product COLLECTIONS are NOT a partition: a product belongs to MANY collections, so its full net revenue is counted under EVERY collection it sits in — the sum EXCEEDS net sales. Compare collections to EACH OTHER; never sum them and never reconcile them to net sales. SEPARATELY: collection membership is a CAPTURE-TIME SNAPSHOT — Shopify exposes today's membership, not the membership as of the order date, so historical rows reflect how products are organised NOW. A product moved between collections changes what past days look like on re-capture. Products whose collections could not be fetched emit no row rather than a fabricated bucket.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

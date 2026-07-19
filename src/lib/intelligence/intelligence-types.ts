@@ -415,6 +415,11 @@ export interface IntelligenceShopify {
   // avgLifetimeSpent, a LABELED LIFETIME attribute that must never be summed across days: a customer who
   // orders on ten days would have their whole lifetime value counted ten times. Non-PII: buckets, counts
   // and money only, never a per-customer row.
+  // LORAMER_SHOPIFY_BATCH_B_V1 — collection membership from a SEPARATE batched call (never the orders query;
+  // Shopify rejects that widen at 1,036 pts). NON-ADDITIVE: a product belongs to many collections, so the same
+  // net is counted under each. Membership is a CAPTURE-TIME SNAPSHOT — it is mutable and not reconstructable
+  // historically, so a re-walk records today's membership against old orders.
+  productCollectionCapture?: { collection: string; netRevenue: number; products: number }[]
   customerCohortCapture?: { bucket: string; netRevenue: number; orders: number; customers: number; avgLifetimeSpent: number | null }[]
   geoCities?: { city: string; netRevenue: number; orders: number }[]
   salesChannelCapture?: { channel: string; netRevenue: number; orders: number; channelName: string | null }[]
