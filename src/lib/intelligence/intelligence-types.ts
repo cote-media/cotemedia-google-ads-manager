@@ -398,6 +398,13 @@ export interface IntelligenceShopify {
   // salesChannelCapture: PARTITIONS net (one channel per order); channel = channelDefinition.handle.
   // discountTypeCapture: the TYPE axis of discounting (code/manual/automatic/script). WRITE-ONLY and
   //   NON-ADDITIVE — a subset of discounting whose allocations overlap; never summed into net sales.
+  // LORAMER_SHOPIFY_BATCH_A2_V1 — product GROUPING attributes, accumulated off the same per-line net as
+  // productsCapture. type/vendor PARTITION the day net (one of each per product). tag does NOT: a product
+  // carries many tags, so the same net lands in every tag it holds — over-counting BY DESIGN, which is why
+  // the family is additive:false and must never be summed as a share of the day.
+  productTypeCapture?: { productType: string; netRevenue: number }[]
+  productVendorCapture?: { vendor: string; netRevenue: number }[]
+  productTagCapture?: { tag: string; netRevenue: number; units: number }[]
   geoCities?: { city: string; netRevenue: number; orders: number }[]
   salesChannelCapture?: { channel: string; netRevenue: number; orders: number; channelName: string | null }[]
   discountTypeCapture?: { type: string; discountedAmount: number; orders: number; label: string | null }[]

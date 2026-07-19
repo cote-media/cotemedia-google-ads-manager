@@ -84,6 +84,12 @@ export const VENDOR_SURFACE = {
     // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
     // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
     // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    // BATCH A2 — product grouping, widened off lineItems.product (scalars + tags list, same single call).
+    // NOTE collections is deliberately ABSENT: a nested connection inside paginated lineItems inside
+    // paginated orders is the payload shape that produced Meta's 1/99 today — it needs its own batched call.
+    product_type: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net (one type per product), same per-line net basis as the product grain (LORAMER_SHOPIFY_BATCH_A2_V1).' },
+    product_vendor: { grains: ['account'], status: 'captured', confidence: V, note: 'partitions day net (one vendor per product) (LORAMER_SHOPIFY_BATCH_A2_V1).' },
+    product_tag: { grains: ['account'], status: 'captured', confidence: V, note: 'NON-ADDITIVE by construction — many tags per product, so Σ tag EXCEEDS day net; never sum or reconcile. High cardinality (LORAMER_SHOPIFY_BATCH_A2_V1).' },
     // BATCH A1 — three families off the SAME widened OrdersInRange call (no second request, no migration).
     geo_city: { grains: ['account'], status: 'captured', confidence: V, note: 'ship-to CITY, composite "<country>-<province>-<city>"; partitions day net like country/region; high cardinality (LORAMER_SHOPIFY_BATCH_A1_V1).' },
     sales_channel: { grains: ['account'], status: 'captured', confidence: V, note: 'order attribution by channelDefinition.handle; PARTITIONS day net (one channel per order), FLAG-NOT-BLOCK vs the account anchor (S-FILL#1, LORAMER_SHOPIFY_BATCH_A1_V1).' },

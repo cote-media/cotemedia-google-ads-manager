@@ -104,7 +104,11 @@ type GraphQLOrderNode = {
         id: string // LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — match refundLineItems.lineItem.id
         title: string
         quantity: number
-        product: { id: string } | null
+        // LORAMER_SHOPIFY_BATCH_A2_V1 — product ATTRIBUTES for the grouping families. Scalars + a string
+        // list, so this stays a widen of the SAME node; collections is deliberately NOT here (a nested
+        // connection inside paginated lineItems inside paginated orders is the payload shape that produced
+        // Meta code 1/subcode 99 today — it gets its own batched call in a later flight).
+        product: { id: string; productType?: string | null; vendor?: string | null; tags?: string[] | null } | null
         variant: { id: string; sku: string | null; title: string | null } | null // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant gid + sku + variant title (same node, one field-add)
         originalUnitPriceSet: { shopMoney: { amount: string } }
         discountedTotalSet: { shopMoney: { amount: string } } // LORAMER_SHOPIFY_DEPTH_2A_V1 — line net (after discounts)
@@ -275,7 +279,7 @@ export async function fetchShopifyIntelligence(
                   id
                   title
                   quantity
-                  product { id }
+                  product { id productType vendor tags }
                   variant { id sku title }
                   originalUnitPriceSet { shopMoney { amount } }
                   discountedTotalSet { shopMoney { amount } }
@@ -549,6 +553,11 @@ export async function fetchShopifyIntelligence(
     const prodCap: Record<string, { name: string; netRevenue: number; grossRevenue: number; units: number }> = {}
     // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain rides the SAME per-line nets as prodCap (each order
     // line is exactly one variant), keyed by the bare variant gid → Σ variant ≡ Σ product ≡ account by construction.
+    // LORAMER_SHOPIFY_BATCH_A2_V1 — product grouping accumulators (net keyed by attribute value)
+    const typeCap: Record<string, number> = {}
+    const vendorCap: Record<string, number> = {}
+    const tagCap: Record<string, number> = {}
+    const tagUnits: Record<string, number> = {}
     const varCap: Record<string, { name: string; sku: string | null; variantTitle: string | null; parentProductId: string; netRevenue: number; grossRevenue: number; units: number }> = {}
     for (const order of liveOrders) {
       // refunded SUBTOTAL per lineItem id (sum across all refunds on the order)
@@ -590,9 +599,29 @@ export async function fetchShopifyIntelligence(
         varCap[varKey].netRevenue += net
         varCap[varKey].grossRevenue += lineGross
         varCap[varKey].units += l.item.quantity
+
+        // LORAMER_SHOPIFY_BATCH_A2_V1 — product GROUPING attributes, accumulated off the SAME per-line net
+        // that product/variant already use, so type and vendor inherit the exact reconciliation the product
+        // grain has (Σ ≡ account net, residual allocated pro-rata) with no second basis to drift from.
+        // type + vendor: each line's product has exactly ONE of each → they PARTITION the day's net.
+        // tag: a product carries MANY tags, so the SAME net is added to EVERY tag it holds. That is a
+        // deliberate over-count and it is why the family is additive:false — a tag row answers "how much
+        // revenue touched this tag", never "what share of the day was this tag".
+        const pt = (l.item.product?.productType || '').trim() || 'UNKNOWN'
+        typeCap[pt] = (typeCap[pt] || 0) + net
+        const vd = (l.item.product?.vendor || '').trim() || 'UNKNOWN'
+        vendorCap[vd] = (vendorCap[vd] || 0) + net
+        const tags = (l.item.product?.tags || []).map((t) => String(t).trim()).filter(Boolean)
+        if (!tags.length) tagCap['UNTAGGED'] = (tagCap['UNTAGGED'] || 0) + net
+        else for (const tg of tags) tagCap[tg] = (tagCap[tg] || 0) + net
+        for (const tg of tags.length ? tags : ['UNTAGGED']) tagUnits[tg] = (tagUnits[tg] || 0) + l.item.quantity
       }
     }
     const productsCapture = Object.entries(prodCap).map(([id, v]) => ({ id, ...v }))
+    const r2 = (n: number) => Math.round(n * 100) / 100
+    const productTypeCapture = Object.entries(typeCap).map(([productType, netRevenue]) => ({ productType, netRevenue: r2(netRevenue) }))
+    const productVendorCapture = Object.entries(vendorCap).map(([vendor, netRevenue]) => ({ vendor, netRevenue: r2(netRevenue) }))
+    const productTagCapture = Object.entries(tagCap).map(([tag, netRevenue]) => ({ tag, netRevenue: r2(netRevenue), units: tagUnits[tag] || 0 }))
     // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain capture. id = bare variant gid; parentProductId = the
     // product entity_id (written as parent_entity_id). Same per-line nets as productsCapture → Σ variant ≡ Σ product ≡ account net.
     const variantsCapture = Object.entries(varCap).map(([id, v]) => ({
@@ -638,6 +667,9 @@ export async function fetchShopifyIntelligence(
       variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
       geoCountries,
       geoRegions,
+      productTypeCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
+      productVendorCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
+      productTagCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       geoCities, // LORAMER_SHOPIFY_BATCH_A1_V1
       salesChannelCapture, // LORAMER_SHOPIFY_BATCH_A1_V1 (S-FILL#1)
       discountTypeCapture, // LORAMER_SHOPIFY_BATCH_A1_V1
@@ -683,6 +715,9 @@ export async function fetchShopifyIntelligence(
       productsCapture: [],
       geoCountries: [],
       geoRegions: [],
+      productTypeCapture: [], // LORAMER_SHOPIFY_BATCH_A2_V1
+      productVendorCapture: [],
+      productTagCapture: [],
       geoCities: [], // LORAMER_SHOPIFY_BATCH_A1_V1 — fetch failed → no rows, never a fabricated bucket
       salesChannelCapture: [],
       discountTypeCapture: [],

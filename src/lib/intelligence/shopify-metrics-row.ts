@@ -158,6 +158,50 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_BATCH_A2_V1 — product GROUPING families. All three project the SAME per-line net the
+  // product/variant grains already use, so type and vendor inherit the product grain's exact reconciliation
+  // (Σ ≡ account net, order-level residual allocated pro-rata) with no second basis to drift from.
+  // entity_level is 'account': these are ATTRIBUTES of revenue, not a deeper entity — the product grain
+  // already exists at entity_level='product' and answers a different question.
+  for (const t of data.productTypeCapture || []) {
+    if (!t?.productType) continue
+    rows.push({
+      client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+      entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+      date: captureDate, breakdown_type: 'product_type', breakdown_value: t.productType,
+      revenue: t.netRevenue,
+      extra: { currencyCode: cur, currencyMixed: curMixed, basis: 'perline_net_same_as_product_grain' },
+    })
+  }
+  for (const v of data.productVendorCapture || []) {
+    if (!v?.vendor) continue
+    rows.push({
+      client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+      entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+      date: captureDate, breakdown_type: 'product_vendor', breakdown_value: v.vendor,
+      revenue: v.netRevenue,
+      extra: { currencyCode: cur, currencyMixed: curMixed, basis: 'perline_net_same_as_product_grain' },
+    })
+  }
+  // product_tag — OVER-COUNTS BY DESIGN and that is the whole point of additive:false. A product with 5
+  // tags adds its full net to all 5 buckets, so Σ product_tag EXCEEDS the day's net by exactly the average
+  // tags-per-product multiple. A tag row answers "how much revenue touched this tag", NEVER "what share of
+  // the day was this tag". Summing tags to compare against net sales is the misuse this flag exists to stop.
+  for (const t of data.productTagCapture || []) {
+    if (!t?.tag) continue
+    rows.push({
+      client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+      entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+      date: captureDate, breakdown_type: 'product_tag', breakdown_value: t.tag,
+      revenue: t.netRevenue, conversions: t.units,
+      extra: {
+        units: t.units, currencyCode: cur, currencyMixed: curMixed,
+        basis: 'perline_net_same_as_product_grain',
+        caveat: 'a product carries MANY tags, so the same revenue is counted under every tag it holds — NEVER sum product_tag across values or compare the sum to net sales',
+      },
+    })
+  }
+
   // LORAMER_SHOPIFY_BATCH_A1_V1 — geo_city: the third rung of the geo ladder, same shape and same net basis
   // as the country/region loops directly above. breakdown_value keeps the family's composite convention
   // ('<country>-<province>' → '<country>-<province>-<city>') so all three read as one hierarchy. PARTITIONS
