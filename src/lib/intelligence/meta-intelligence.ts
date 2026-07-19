@@ -77,6 +77,92 @@ async function fetchAll(url: string, token: string): Promise<any[]> {
   return results
 }
 
+// LORAMER_META_CREATIVE_FAIL_PARTIAL_V1
+// SOFT variant of fetchAll for ENRICHMENT-ONLY edges (ad entity rows, creative detail). It NEVER throws:
+// a Graph error stops pagination and returns whatever pages already succeeded, plus a degradation record.
+// WHY THIS EXISTS: /ads with creative{...} expansion returns HTTP 500 code 1 / subcode 99 (Meta internal)
+// on page 2 for large accounts — PROVEN 2026-07-19 on act_584246708329858, which has 179 campaigns,
+// 182 ad sets and 100+ ads. The hard throw at fetchAll aborted the ENTIRE client's day, so that account has
+// written ZERO metrics_daily rows since 2025-09-02 while its spend, campaign, ad-set and ad PERFORMANCE
+// were all returning 200 the whole time. Creative text is enrichment; spend is the system of record. An
+// enrichment failure must degrade that field, never discard the day (the fail-partial / never-fail-closed
+// law the read path already follows — LORAMER_INTELLIGENCE_HARDENING_V1).
+async function fetchAllSoft(url: string, token: string, label: string): Promise<{ rows: any[]; degraded: boolean; detail: string | null }> {
+  const results: any[] = []
+  let nextUrl: string | null = url
+  let page = 0
+  while (nextUrl) {
+    const sep = nextUrl.includes('?') ? '&' : '?'
+    const fullUrl = nextUrl + sep + 'access_token=' + token
+    try {
+      const res: Response = await fetch(fullUrl)
+      const d: any = await res.json()
+      if (d.error) throw new Error('Meta Graph error: ' + JSON.stringify(d.error))
+      if (d.data) results.push(...d.data)
+      nextUrl = d.paging?.next || null
+      page += 1
+    } catch (e: any) {
+      const detail = String(e?.message ?? e)
+      console.warn(`[meta-intelligence] ${label}: page ${page + 1} FAILED after ${results.length} row(s) — degrading, NOT aborting: ${detail}`)
+      return { rows: results, degraded: true, detail }
+    }
+    if (results.length > 500) break
+  }
+  return { rows: results, degraded: false, detail: null }
+}
+
+// LORAMER_META_CREATIVE_FAIL_PARTIAL_V1 — creative detail fetched BY EXPLICIT ID BATCH, not by cursor page.
+// Cursor pagination is the trap: when page 2 fails there is no cursor for page 3, so ONE bad page blocks
+// every ad after it. Batching by id makes each batch INDEPENDENT — a batch Meta cannot serve costs only the
+// ads in that batch, and every later batch still runs. Small batches (25) keep the expansion light, which is
+// what triggers the 500 in the first place. Preserves EXACTLY the creative fields we already captured
+// (title, body, call_to_action_type, image_url, video_id) — this is the asset-attribution flagship's input
+// and must not be thinned.
+const CREATIVE_BATCH_SIZE = 25
+async function fetchCreativesBatched(
+  adIds: string[],
+  token: string
+): Promise<{ byAdId: Record<string, any>; batchesTotal: number; batchesFailed: number; adsMissing: number; firstError: string | null }> {
+  const byAdId: Record<string, any> = {}
+  let batchesFailed = 0
+  let firstError: string | null = null
+  const batches: string[][] = []
+  for (let i = 0; i < adIds.length; i += CREATIVE_BATCH_SIZE) batches.push(adIds.slice(i, i + CREATIVE_BATCH_SIZE))
+
+  const fetchIds = async (ids: string[]): Promise<void> => {
+    const url = `${META_API}/?ids=${ids.join(',')}&fields=creative{title,body,call_to_action_type,image_url,video_id}&access_token=${token}`
+    const res = await fetch(url)
+    const d: any = await res.json()
+    if (d.error) throw new Error('Meta Graph error: ' + JSON.stringify(d.error))
+    for (const id of ids) if (d[id]) byAdId[id] = d[id]
+  }
+
+  for (const batch of batches) {
+    try {
+      await fetchIds(batch)
+    } catch (e: any) {
+      batchesFailed += 1
+      if (!firstError) firstError = String(e?.message ?? e)
+      // SPLIT-ON-FAILURE. Meta's code-1/subcode-99 is raised for the WHOLE batch when (apparently) a single
+      // ad's creative cannot be expanded, so accepting the batch failure costs 24 healthy creatives to
+      // quarantine 1 bad one — measured on act_584246708329858, where the ONE delivering ad of the day sat in
+      // the poisoned batch and lost its creative for no reason. Re-fetch the batch ONE ID AT A TIME so the
+      // blast radius collapses to exactly the ad(s) Meta genuinely cannot serve. Only runs on failure, so the
+      // healthy path costs nothing extra.
+      console.warn(`[meta-intelligence] creative batch (${batch.length} ads) failed — splitting to isolate the bad ad(s): ${String(e?.message ?? e)}`)
+      for (const id of batch) {
+        try {
+          await fetchIds([id])
+        } catch {
+          // this specific ad is the unservable one — it alone loses creative detail
+        }
+      }
+    }
+  }
+  const adsMissing = adIds.filter((id) => !byAdId[id]).length
+  return { byAdId, batchesTotal: batches.length, batchesFailed, adsMissing, firstError }
+}
+
 export async function fetchMetaIntelligence(
   accessToken: string,
   accountId: string,
@@ -175,13 +261,40 @@ export async function fetchMetaIntelligence(
     accessToken
   )
 
-  const adDetails = await fetchAll(
-    `${META_API}/${actId}/ads?fields=id,name,status,effective_status,adset_id,campaign_id,creative{title,body,call_to_action_type,image_url,video_id}&limit=100`,
-    accessToken
+  // LORAMER_META_CREATIVE_FAIL_PARTIAL_V1 — SPLIT into (1) a light ad-ENTITY page walk with NO creative
+  // expansion, and (2) creative detail by independent id batch. The old single call combined both and was
+  // fatal: one 500 on the creative expansion threw away the whole client's day (act_584246708329858, zero
+  // rows since 2025-09-02). Both halves are now SOFT — enrichment can degrade, performance cannot be lost.
+  const adEntityResult = await fetchAllSoft(
+    `${META_API}/${actId}/ads?fields=id,name,status,effective_status,adset_id,campaign_id&limit=100`,
+    accessToken,
+    'ad entities'
   )
+  const adDetails = adEntityResult.rows
 
   const adDetailMap: Record<string, any> = {}
   adDetails.forEach((a: any) => { adDetailMap[a.id] = a })
+
+  // Creative detail for the ads that actually DELIVERED (the insight set) plus any entity rows we hold —
+  // never the whole account. Fewer ids = fewer batches = less of the expansion that triggers Meta's 500.
+  // DELIVERING ADS FIRST. Ads that actually spent are the asset-attribution flagship's real input, so they
+  // go in the earliest batches — they get their creative before any budget/limit is reached, and they are
+  // never queued behind a poisoned batch of dormant ads.
+  const creativeAdIds = Array.from(new Set<string>([
+    ...adInsights.map((i: any) => String(i.ad_id)).filter(Boolean),
+    ...adDetails.map((a: any) => String(a.id)).filter(Boolean),
+  ]))
+  const creativeResult = await fetchCreativesBatched(creativeAdIds, accessToken)
+  for (const [adId, node] of Object.entries(creativeResult.byAdId)) {
+    adDetailMap[adId] = { ...(adDetailMap[adId] || { id: adId }), creative: (node as any).creative }
+  }
+  if (adEntityResult.degraded || creativeResult.batchesFailed > 0) {
+    console.warn(
+      `[meta-intelligence] ${actId} DEGRADED-NOT-DROPPED: adEntities=${adDetails.length}${adEntityResult.degraded ? ' (page walk cut short)' : ''} · ` +
+      `creative batches ${creativeResult.batchesTotal - creativeResult.batchesFailed}/${creativeResult.batchesTotal} ok · ` +
+      `${creativeResult.adsMissing} ad(s) without creative detail · performance rows UNAFFECTED`
+    )
+  }
 
   const ads: IntelligenceAd[] = adInsights.map((insight: any) => {
     const detail = adDetailMap[insight.ad_id] || {}
