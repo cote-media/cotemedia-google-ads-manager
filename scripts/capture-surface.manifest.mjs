@@ -55,6 +55,16 @@ export const VENDOR_SURFACE = {
     // extra. They are NOT breakdown families: no breakdown_type, no rows of their own, nothing for the
     // grain gate to check. Recorded here so nobody re-proposes them as missing families.
     // ranking's 'gap' entry below is therefore RETIRED — it is captured, just not as a breakdown.
+    // LORAMER_META_BATCH_MB_V1 (M-FILL#1b) — four MORE individual asset dims, probed before adding.
+    ad_format_asset: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#1b, probed-then-added 2026-07-19. WRITE-ONLY non-additive asset dim; account served-empty → 3 grains complete (LORAMER_META_BATCH_MB_V1).' },
+    creative_relaxation_asset_type: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#1b, probed-then-added 2026-07-19. WRITE-ONLY non-additive asset dim; account served-empty → 3 grains complete (LORAMER_META_BATCH_MB_V1).' },
+    flexible_format_asset_type: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#1b, probed-then-added 2026-07-19. WRITE-ONLY non-additive asset dim; account served-empty → 3 grains complete (LORAMER_META_BATCH_MB_V1).' },
+    gen_ai_asset_type: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#1b, probed-then-added 2026-07-19. WRITE-ONLY non-additive asset dim; account served-empty → 3 grains complete (LORAMER_META_BATCH_MB_V1).' },
+    // NOT ADDED and recorded so they are not re-proposed: media_type_asset is NOT a valid breakdown name
+    // (Meta's 89-value list does not contain it — the audit's name was wrong); media_type / media_format are
+    // ACTION breakdowns Meta rejects in this combination; creative_automation_asset_id is valid but returned
+    // ZERO rows on both probe clients.
+    creative_automation_asset_id: { grains: ['campaign', 'ad_set', 'ad'], status: 'on-demand', confidence: V, note: 'valid breakdown, ZERO rows on both probe clients 2026-07-19 — not worth a report/level/lap until a client populates it (same posture as SKAN).' },
     // ── gaps (vendor serves, not built) — never flagged ──
     geo_dma: { grains: G4, status: 'gap', confidence: V, note: 'M-FILL#3. `dma` REMOVED by Meta 2026 → comscore_market (market/DMA), FORWARD-ONLY (~2026-06+), only comScore-measured campaigns populate. Not built.' },
     ranking: { grains: ['ad'], status: 'removed', confidence: V, note: 'CAPTURED as base-row extra at ad grain (LORAMER_META_BATCH_MA_V1) — quality/engagement_rate/conversion_rate_ranking are metric FIELDS, not a breakdown, so there is no breakdown_type and nothing for the grain gate to check. Marked removed (not gap) so it is neither flagged nor re-proposed.' },

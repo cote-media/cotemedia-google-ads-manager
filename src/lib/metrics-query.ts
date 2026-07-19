@@ -297,7 +297,13 @@ const SPEND_ZERO_BREAKDOWNS = spendZeroTypes() // per-action-conversion families
 const NONADDITIVE_BREAKDOWNS = new Set(['impression_share', 'video'])
 // LORAMER_ASSET_ATTRWINDOW_WIRE_V1 (M-FILL#1/#2 read-path) — the 7 Meta creative-asset breakdown_types. Their spend is
 // COMPONENT ATTRIBUTION (additive WITHIN a type for ranking, but never a partition of the ad total) → a provenance note.
-const ASSET_BREAKDOWNS = new Set(['image_asset', 'video_asset', 'title_asset', 'body_asset', 'call_to_action_asset', 'description_asset', 'link_url_asset'])
+// LORAMER_META_BATCH_MB_V1 — the four M-FILL#1b dims are ADDED HERE, not just to the registry. This set is
+// an explicit allowlist, so a new asset dim that is not listed silently loses the never-mis-sum caveat while
+// looking fully wired everywhere else — exactly the kind of half-shipped family this repo keeps finding.
+const ASSET_BREAKDOWNS = new Set([
+  'image_asset', 'video_asset', 'title_asset', 'body_asset', 'call_to_action_asset', 'description_asset', 'link_url_asset',
+  'ad_format_asset', 'creative_relaxation_asset_type', 'flexible_format_asset_type', 'gen_ai_asset_type',
+])
 // impression_share (google, campaign): 7 POINT-IN-TIME ratios in extra — never summed; per campaign take the MOST
 // RECENT captured day in-window (a real value, flagged), never an aggregate. null = the API -1 non-eligible sentinel.
 const IS_RATIO_FIELDS = ['search_impression_share', 'search_top_impression_share', 'search_absolute_top_impression_share', 'search_budget_lost_impression_share', 'search_rank_lost_impression_share', 'search_budget_lost_top_impression_share', 'search_rank_lost_top_impression_share']

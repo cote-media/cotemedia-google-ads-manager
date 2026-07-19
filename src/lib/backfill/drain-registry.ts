@@ -120,11 +120,18 @@ const META_GEO_WINDOW_DAYS = 20
 // rides the ~37mo Meta aggregate #3018 wall). FLAG-NOT-BLOCK on spend (hour partitions the day's spend).
 const META_HOUR_WINDOW_DAYS = 15
 
-// LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — asset window. HEAVIEST Meta breadth fan-out: 7 asset breakdowns ×
-// 3 entity levels (campaign/adset/ad; NO account — served-empty) = 21 insights reports/lap. Start conservative at
-// 15d (matches hour) and tune UP after a Gate-B live lap timing. WRITE-ONLY (no reconcile). floor36 (assets ride the
-// ~37mo Meta aggregate #3018 wall). Only Advantage+/Dynamic-Creative ads populate these; single-creative → empty.
-const META_ASSET_WINDOW_DAYS = 15
+// LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1) — asset window. HEAVIEST Meta breadth fan-out. WRITE-ONLY (no
+// reconcile). floor36 (assets ride the ~37mo Meta aggregate #3018 wall). Only Advantage+/Dynamic-Creative ads
+// populate these; single-creative → empty.
+// LORAMER_META_BATCH_MB_V1 — WINDOW BROUGHT DOWN 15d → 9d because the fan-out grew 7 → 11 breakdowns.
+// THE ARITHMETIC, since lap cost is reports × days-of-rows, not reports alone:
+//   before  7 breakdowns × 3 levels = 21 reports/lap × 15d = 315 report-days
+//   after  11 breakdowns × 3 levels = 33 reports/lap ×  9d = 297 report-days  → SLIGHTLY UNDER the proven load
+// 33 reports at the measured 0.5–2.3s each (probe, 2026-07-19) is ~17–75s of API time before row-building, so
+// 9d keeps the lap inside the ~120s ceiling with the same conservatism 15d was chosen with. Tune UP only after
+// a Gate-B live lap timing — the previous note said the same about 15d and it was never measured, so treat 9d
+// as the new conservative floor, not as a tuned value.
+const META_ASSET_WINDOW_DAYS = 9
 
 // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — attribution-window window. LOW API fan-out (ONE insights call per
 // entity level = 4 reports/lap, like action_type), but ROW-HEAVY (every action_type × every populated window ×

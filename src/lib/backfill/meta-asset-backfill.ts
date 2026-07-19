@@ -80,11 +80,45 @@ const ASSET_BREAKDOWNS: AssetCfg[] = [
   { bt: 'call_to_action_asset', valueField: 'name', extraFields: [] },
   { bt: 'description_asset', valueField: null, extraFields: [] }, // id-only; no label served → name-lookup deferred
   { bt: 'link_url_asset', valueField: 'website_url', extraFields: [] },
+  // LORAMER_META_BATCH_MB_V1 (M-FILL#1b) — four MORE individual asset dimensions, PROBED BEFORE ADDING
+  // (2026-07-19, FoamOh 2024-11-29 + Glass Plus 2026-07-17, level=ad):
+  //   ad_format_asset               rows on BOTH clients; value is an ID with no label served → id-only,
+  //                                 same shape as description_asset.
+  //   creative_relaxation_asset_type  Glass Plus "original"; 0 rows on FoamOh 2024 (feature postdates it).
+  //   flexible_format_asset_type      Glass Plus "unknown";  0 rows on FoamOh 2024.
+  //   gen_ai_asset_type               Glass Plus "original"; 0 rows on FoamOh 2024.
+  // The last three are near-constant single-value enums on today's cohort — LOW information right now, but
+  // they are the Advantage+/AI-creative axis and will separate as adoption grows. They cost one report each.
+  // NOT ADDED, deliberately, and both are recorded rather than silently dropped:
+  //   media_type_asset — NOT A VALID BREAKDOWN NAME AT ALL. Meta's own error enumerates 89 valid values and
+  //     that is not among them; the audit's name was wrong. The real fields are media_type / media_format,
+  //     and those are ACTION breakdowns (Meta rejects them as "combination of (action_type, media_type) is
+  //     invalid" even when we request no action fields) — a different family, not this writer's shape.
+  //   creative_automation_asset_id — valid name, ZERO rows on BOTH probe clients. Left out rather than
+  //     paying a report per level per lap for guaranteed-empty data (same call as SKAN/M7).
+  { bt: 'ad_format_asset', valueField: null, extraFields: [] },
+  { bt: 'creative_relaxation_asset_type', valueField: null, extraFields: [] },
+  { bt: 'flexible_format_asset_type', valueField: null, extraFields: [] },
+  { bt: 'gen_ai_asset_type', valueField: null, extraFields: [] },
 ]
 
 // Canonical breakdown_value + extra for one asset object. value = human label (capped), id + secondaries → extra.
 function assetValue(cfg: AssetCfg, obj: any): { value: string; extra: Record<string, unknown> } | null {
-  if (obj == null || typeof obj !== 'object') return null
+  if (obj == null) return null
+  // LORAMER_META_BATCH_MB_V1 — the original seven asset breakdowns return an OBJECT ({id, name, url, …}).
+  // The four added in M-β return a bare SCALAR instead: ad_format_asset is an id string, and
+  // creative_relaxation / flexible_format / gen_ai_asset_type are enum strings ("original", "unknown").
+  // Without this branch the object-only guard below would reject every one of them and the four dims would
+  // silently write ZERO rows while every gate stayed green — the exact shape of a captured-but-never-landing
+  // family. Scalars are keyed on their own value; there is no id/label split to make.
+  if (typeof obj !== 'object') {
+    const raw = String(obj).trim()
+    if (!raw) return null
+    const value = raw.length > VALUE_CAP ? raw.slice(0, VALUE_CAP) : raw
+    const extra: Record<string, unknown> = { asset_id: raw, value_shape: 'scalar' }
+    if (value !== raw) { extra.value_full = raw; extra.value_capped = true }
+    return { value, extra }
+  }
   const id = obj.id != null ? String(obj.id) : ''
   const extra: Record<string, unknown> = { asset_id: id }
   for (const f of cfg.extraFields) if (obj[f] != null) extra[f] = String(obj[f])
