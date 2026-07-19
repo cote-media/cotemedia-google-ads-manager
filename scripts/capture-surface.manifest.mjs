@@ -93,13 +93,13 @@ export const VENDOR_SURFACE = {
 // (full vendor grains + wired into breakdown-registry.ts), REMOVE it here — the gate's stale-baseline check enforces that.
 // Populated from the first discovery run (2026-07-18). DO NOT auto-fix the underlying slices; work them off deliberately.
 export const KNOWN_INCOMPLETE = [
-  // SLICE — captured at fewer grains than the vendor serves (deepen the writer to full grain):
-  // (2026-07-18) meta.placement COMPLETED to campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1) — removed here.
-  'google.conversion_action',    // campaign-only → +ad_group, keyword (G-FILL#9)
-  'google.impression_share',     // campaign-only → +ad_group (G-FILL#9)
-  // (2026-07-18) The 10 UNWIRED families — the 7 Meta assets, meta.attribution_window, google.age, google.gender —
-  // were WIRED into src/lib/breakdown-registry.ts (LORAMER_ASSET_ATTRWINDOW_WIRE_V1) and REMOVED here; the gate's
-  // stale-baseline check now confirms they are complete (captured + query-readable).
+  // (2026-07-18) THE QUEUE IS EMPTY — every discovered slice/unwired family is resolved:
+  //   meta.placement → campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1);
+  //   the 10 UNWIRED (7 Meta assets + meta.attribution_window + google.age/gender) → wired into breakdown-registry.ts
+  //     (LORAMER_ASSET_ATTRWINDOW_WIRE_V1);
+  //   google.conversion_action → +ad_group+keyword, google.impression_share → +ad_group
+  //     (G-FILL#9, LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 / _IS_DEEP_V1).
+  // Code-parity (registry↔manifest) is COMPLETE; the G-FILL#9 live rows land at the 07-19 ~04:03 ET Google quota reset.
 ]
 
 export default VENDOR_SURFACE

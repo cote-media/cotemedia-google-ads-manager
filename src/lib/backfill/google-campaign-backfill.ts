@@ -64,7 +64,8 @@ export async function runGoogleCampaignBackfill(
   const otherDeltas = { clicks: 0, impressions: 0, conversions: 0 } // Σ(campaign − account) over written days
 
   for (const chunk of monthChunks(startDate, endDate)) {
-    const gaql = `SELECT campaign.id, campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
+    // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — +all_conversions/_value/view_through (migration-gated columns, see row build below).
+    const gaql = `SELECT campaign.id, campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
     const rows = await gaqlWithRetry(customer, gaql)
     const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number; clicks: number; impressions: number; conversions: number }> = {}
     for (const r of rows) {
@@ -75,6 +76,9 @@ export async function runGoogleCampaignBackfill(
       const impressions = fin(r.metrics?.impressions)
       const conversions = fin(r.metrics?.conversions)
       const convValue = fin(r.metrics?.conversions_value)
+      const allConversions = fin(r.metrics?.all_conversions)
+      const allConversionsValue = fin(r.metrics?.all_conversions_value)
+      const viewThroughConversions = fin(r.metrics?.view_through_conversions)
       if (!byDate[date]) byDate[date] = { rows: [], spend: 0, clicks: 0, impressions: 0, conversions: 0 }
       const b = byDate[date]
       b.spend += spend; b.clicks += clicks; b.impressions += impressions; b.conversions += conversions
@@ -83,6 +87,8 @@ export async function runGoogleCampaignBackfill(
         entity_level: 'campaign', entity_id: String(r.campaign?.id), entity_name: String(r.campaign?.name || ''),
         parent_entity_id: customerId, date, breakdown_type: '', breakdown_value: '',
         spend: Number(spend.toFixed(2)), impressions, clicks, conversions, conversion_value: Number(convValue.toFixed(2)), revenue: 0,
+        // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — DEDICATED COLUMNS. ⚠ MIGRATION-GATED (see google-metrics-row.ts).
+        all_conversions: allConversions, all_conversions_value: Number(allConversionsValue.toFixed(2)), view_through_conversions: viewThroughConversions,
         extra: {
           ctr: ratio(clicks, impressions, 100), cpc: ratio(spend, clicks), cpm: ratio(spend, impressions, 1000),
           roas: ratio(convValue, spend), cpa: ratio(spend, conversions), convRate: ratio(conversions, clicks, 100),

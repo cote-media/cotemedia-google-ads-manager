@@ -48,6 +48,13 @@ export function buildGoogleMetricsRows(
       clicks: metrics.clicks ?? 0,
       conversions: metrics.conversions ?? 0,
       conversion_value: metrics.conversionValue ?? 0,
+      // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — DEDICATED COLUMNS (mirror conversions/conversion_value).
+      // ⚠ MIGRATION-GATED: these three columns DO NOT EXIST until migration 0XX adds them (3 nullable numeric).
+      // MUST NOT be committed/deployed before that migration + its PostgREST schema-cache reload, or every Google
+      // base-row upsert 400s (unknown column) and ALL Google base capture breaks. Author-only until then.
+      all_conversions: metrics.allConversions ?? 0,
+      all_conversions_value: metrics.allConversionsValue ?? 0,
+      view_through_conversions: metrics.viewThroughConversions ?? 0,
       revenue: 0,
       extra: googleMetricsExtra(metrics),
     }

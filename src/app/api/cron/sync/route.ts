@@ -17,6 +17,8 @@ import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
+import { CONV_DEEP_GRAINS, fetchConvDeepGrainDay, buildConvDeepGrainRows } from '@/lib/intelligence/google-conversion-action-deep' // LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 (G-FILL#9)
+import { fetchISDeepDay, buildISDeepRows } from '@/lib/intelligence/google-impression-share-deep' // LORAMER_GOOGLE_IS_DEEP_V1 (G-FILL#9)
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -643,6 +645,33 @@ export async function GET(request: Request) {
           const message = serializeCaughtError(t0Err)
           console.error(`[cron/sync] client=${client.id} platform=google conv-action/IS persist FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS: ${message}` })
+        }
+
+        // LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 + _IS_DEEP_V1 (G-FILL#9) — conversion_action at ad_group+keyword +
+        // impression_share at ad_group (the campaign grain rides the T0 intel block above; these DEEPER grains need a
+        // NEW GAQL per grain). Own try/catch: fail-soft, NEVER drops base/dimensional/device/geo/hour rows. Adds Google
+        // ops → fail-soft when the developer-scope quota is exhausted (records the error, doesn't crash the loop).
+        try {
+          let deepRows = 0
+          for (const grain of CONV_DEEP_GRAINS) {
+            const built = buildConvDeepGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchConvDeepGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+            if (built.length > 0) {
+              const { error: cdErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+              if (cdErr) throw cdErr
+              summary.rowsWritten += built.length; deepRows += built.length
+            }
+          }
+          const isBuilt = buildISDeepRows(client.id, userEmail, captureDate, customerId, await fetchISDeepDay(tokenRow.refresh_token, customerId, captureDate))
+          if (isBuilt.length > 0) {
+            const { error: isErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(isBuilt), { onConflict: METRICS_DAILY_CONFLICT })
+            if (isErr) throw isErr
+            summary.rowsWritten += isBuilt.length; deepRows += isBuilt.length
+          }
+          if (deepRows === 0) console.log(`[cron/sync] client=${client.id} platform=google conv-action/IS DEEP capture: 0 rows (empty, not an error)`)
+        } catch (deepErr) {
+          const message = serializeCaughtError(deepErr)
+          console.error(`[cron/sync] client=${client.id} platform=google conv-action/IS DEEP capture FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS deep: ${message}` })
         }
 
         // LORAMER_GOOGLE_GEO_CAPTURE_V1 — geo breakdown FAMILY (per-grain, both resources: 10 geographic_view +

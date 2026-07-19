@@ -23,12 +23,19 @@ function buildMetrics(row: any): IntelligenceMetrics {
   const impressions = Number(row.metrics?.impressions || 0)
   const conversions = Number(row.metrics?.conversions || 0)
   const convValue = Number(row.metrics?.conversions_value || 0)
+  // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — conversion-correctness metrics (undefined for pre-widen callers → 0).
+  const allConversions = Number(row.metrics?.all_conversions || 0)
+  const allConversionsValue = Number(row.metrics?.all_conversions_value || 0)
+  const viewThroughConversions = Number(row.metrics?.view_through_conversions || 0)
   return {
     spend,
     clicks,
     impressions,
     conversions,
     conversionValue: convValue,
+    allConversions,
+    allConversionsValue,
+    viewThroughConversions,
     ctr: impressions > 0 ? (clicks / impressions) * 100 : 0,
     cpc: clicks > 0 ? spend / clicks : 0,
     cpm: impressions > 0 ? (spend / impressions) * 1000 : 0,
@@ -161,6 +168,7 @@ export async function fetchGoogleIntelligence(
     campaign_budget.amount_micros, campaign_budget.type,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.conversions_value,
+    metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions,
     metrics.ctr, metrics.average_cpc`
   const campaignQuery = (fields: string) => `
     SELECT ${fields}
@@ -211,6 +219,7 @@ export async function fetchGoogleIntelligence(
     campaign.id, campaign.name,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.conversions_value,
+    metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions,
     metrics.ctr, metrics.average_cpc
     FROM ad_group
     WHERE ${dateFilter}
@@ -242,7 +251,8 @@ export async function fetchGoogleIntelligence(
     ad_group.id, ad_group.name,
     campaign.id, campaign.name,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
-    metrics.conversions, metrics.conversions_value, metrics.ctr
+    metrics.conversions, metrics.conversions_value,
+    metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions, metrics.ctr
     FROM ad_group_ad
     WHERE ${dateFilter}
     AND ad_group_ad.status != 'REMOVED'
@@ -839,6 +849,10 @@ export async function fetchGoogleIntelligence(
   const totalImpressions = campaigns.reduce((s, c) => s + c.metrics.impressions, 0)
   const totalConversions = campaigns.reduce((s, c) => s + c.metrics.conversions, 0)
   const totalConvValue = campaigns.reduce((s, c) => s + c.metrics.conversionValue, 0)
+  // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — account totals carry the new conversion-correctness metrics too.
+  const totalAllConversions = campaigns.reduce((s, c) => s + (c.metrics.allConversions ?? 0), 0)
+  const totalAllConversionsValue = campaigns.reduce((s, c) => s + (c.metrics.allConversionsValue ?? 0), 0)
+  const totalViewThrough = campaigns.reduce((s, c) => s + (c.metrics.viewThroughConversions ?? 0), 0)
 
   const totals: IntelligenceMetrics = {
     spend: totalSpend,
@@ -846,6 +860,9 @@ export async function fetchGoogleIntelligence(
     impressions: totalImpressions,
     conversions: totalConversions,
     conversionValue: totalConvValue,
+    allConversions: totalAllConversions,
+    allConversionsValue: totalAllConversionsValue,
+    viewThroughConversions: totalViewThrough,
     ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
     cpc: totalClicks > 0 ? totalSpend / totalClicks : 0,
     cpm: totalImpressions > 0 ? (totalSpend / totalImpressions) * 1000 : 0,

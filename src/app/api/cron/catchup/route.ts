@@ -27,6 +27,8 @@ import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intell
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
+import { CONV_DEEP_GRAINS, fetchConvDeepGrainDay, buildConvDeepGrainRows } from '@/lib/intelligence/google-conversion-action-deep' // LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 (G-FILL#9)
+import { fetchISDeepDay, buildISDeepRows } from '@/lib/intelligence/google-impression-share-deep' // LORAMER_GOOGLE_IS_DEEP_V1 (G-FILL#9)
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
 import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
 import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
@@ -621,6 +623,27 @@ export async function GET(request: Request) {
             }
           } catch (t0Err) {
             summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS ${d}: ${serializeCaughtError(t0Err)}` })
+          }
+
+          // LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 + _IS_DEEP_V1 (G-FILL#9) — conversion_action ad_group+keyword + IS
+          // ad_group (NEW GAQL, NOT intel-riding). Own try/catch, fail-soft (adds Google ops; quota-fail-soft).
+          try {
+            for (const grain of CONV_DEEP_GRAINS) {
+              const built = buildConvDeepGrainRows(grain, client.id, userEmail, d, customerId, await fetchConvDeepGrainDay(grain, refreshToken, customerId, d))
+              if (built.length > 0) {
+                const { error: cdErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
+                if (cdErr) throw cdErr
+                summary.rowsWritten += built.length
+              }
+            }
+            const isBuilt = buildISDeepRows(client.id, userEmail, d, customerId, await fetchISDeepDay(refreshToken, customerId, d))
+            if (isBuilt.length > 0) {
+              const { error: isErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(isBuilt), { onConflict: METRICS_DAILY_CONFLICT })
+              if (isErr) throw isErr
+              summary.rowsWritten += isBuilt.length
+            }
+          } catch (deepErr) {
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS deep ${d}: ${serializeCaughtError(deepErr)}` })
           }
 
           // Google geo breakdown FAMILY (per-grain, both resources) — own try/catch PER FAMILY. WRITE-ONLY.
