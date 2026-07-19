@@ -411,6 +411,11 @@ export interface IntelligenceShopify {
   // systematically more settled than recent days. Never read a status distribution as a trend.
   financialStatusCapture?: { status: string; netRevenue: number; orders: number }[]
   fulfillmentStatusCapture?: { status: string; netRevenue: number; orders: number }[]
+  // LORAMER_SHOPIFY_BATCH_C_V1 — customer cohort (PARTITIONS the day net via each order's customer) plus
+  // avgLifetimeSpent, a LABELED LIFETIME attribute that must never be summed across days: a customer who
+  // orders on ten days would have their whole lifetime value counted ten times. Non-PII: buckets, counts
+  // and money only, never a per-customer row.
+  customerCohortCapture?: { bucket: string; netRevenue: number; orders: number; customers: number; avgLifetimeSpent: number | null }[]
   geoCities?: { city: string; netRevenue: number; orders: number }[]
   salesChannelCapture?: { channel: string; netRevenue: number; orders: number; channelName: string | null }[]
   discountTypeCapture?: { type: string; discountedAmount: number; orders: number; label: string | null }[]

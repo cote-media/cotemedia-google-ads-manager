@@ -597,6 +597,13 @@ export async function queryBreakdown(opts: {
       const z = `Discount TYPE amounts (code / manual / automatic / script) are Σ line-item allocations per application type, in conversionValue, with orders-using-that-type in conversions; spend and revenue are 0. Allocations OVERLAP and are a SUBSET of total discounting, so NEVER sum or reconcile them into net sales or the order discount total. This is the TYPE axis; discount_code is the per-CODE axis of the same money.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_SHOPIFY_BATCH_C_V1 — lifetime-vs-windowed caveat. The row's revenue IS windowed and does
+    // partition the day; extra.avgLifetimeSpent is NOT. Without this Lora would read a lifetime average as
+    // period revenue, which is the exact mistake the lifetime numberOfOrders bug already caused once.
+    if (platform === 'shopify' && bt === 'customer_cohort') {
+      const z = `Customer cohorts bucket each order by its customer's LIFETIME order count (1 / 2-3 / 4-9 / 10+; UNKNOWN = guest checkout or no linked customer). The revenue and order counts on these rows ARE windowed and DO partition the day's net sales. BUT extra.avgLifetimeSpent is a LIFETIME figure for the customers who ordered that day — it is NOT revenue in this window, it CANNOT be summed across days (a customer ordering on ten days would contribute their whole lifetime value ten times), and it must never be compared to net sales. Cohorts are aggregate and non-PII: there are no per-customer rows.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

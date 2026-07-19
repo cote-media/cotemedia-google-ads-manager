@@ -84,6 +84,9 @@ export const VENDOR_SURFACE = {
     // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
     // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
     // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    // BATCH C — customer cohort. Rides the EXISTING customer nodes(ids:) call (two scalars widened, no
+    // new request). LTV is carried in extra as a labelled LIFETIME attribute, never a summable column.
+    customer_cohort: { grains: ['account'], status: 'captured', confidence: V, note: 'lifetime-order-count buckets 1/2-3/4-9/10+; partitions day net; extra.avgLifetimeSpent is LIFETIME, not windowed, never summed; non-PII (LORAMER_SHOPIFY_BATCH_C_V1).' },
     // BATCH A3 — order status. CAPTURE-TIME SNAPSHOT families: mutable, so a re-walk of the same day can
     // return different values and backfilled history reads as more settled than recent days. That is an
     // artifact of WHEN we captured, not a trend; the caveat is surfaced to Lora in metrics-query.ts.

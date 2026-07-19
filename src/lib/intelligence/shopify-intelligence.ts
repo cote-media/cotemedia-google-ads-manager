@@ -45,6 +45,9 @@ export async function shopifyGraphQL(
   throw new Error('Shopify GraphQL still throttled after retries')
 }
 
+// LORAMER_SHOPIFY_BATCH_C_V1 — non-PII customer facts. Counts and money ONLY.
+type CustomerFacts = { firstOrderAt: string | null; lifetimeOrders: number | null; lifetimeSpent: number | null }
+
 // LORAMER_CUSTOMER_MIX_FIX_V1 — map each customer id → their TRUE first-order date via
 // Customer.orders(first:1, sortKey:CREATED_AT) (the reliable first-order anchor; customer.createdAt
 // can predate the first order). Bulk via nodes(ids:) in chunks of 250. Ids that error or have no
@@ -54,10 +57,14 @@ async function fetchFirstOrderDates(
   headers: Record<string, string>,
   customerIds: string[],
   throttleDeadline?: number
-): Promise<Map<string, string | null>> {
-  const map = new Map<string, string | null>()
+): Promise<Map<string, CustomerFacts>> {
+  const map = new Map<string, CustomerFacts>()
+  // LORAMER_SHOPIFY_BATCH_C_V1 — WIDENED, same single nodes(ids:) request: numberOfOrders (lifetime order
+  // count, used ONLY to bucket a cohort) + amountSpent (lifetime money, carried as a LABELED attribute and
+  // never summed). PII LOCK HELD: id + counts + money only — no email, name, phone or address enters the
+  // intelligence layer, exactly as before.
   const query = `query($ids: [ID!]!) {
-    nodes(ids: $ids) { ... on Customer { id orders(first: 1, sortKey: CREATED_AT) { edges { node { createdAt } } } } }
+    nodes(ids: $ids) { ... on Customer { id numberOfOrders amountSpent { amount } orders(first: 1, sortKey: CREATED_AT) { edges { node { createdAt } } } } }
   }`
   for (let i = 0; i < customerIds.length; i += 250) {
     const chunk = customerIds.slice(i, i + 250)
@@ -67,7 +74,15 @@ async function fetchFirstOrderDates(
       continue
     }
     for (const n of json.data?.nodes || []) {
-      if (n?.id) map.set(n.id, n.orders?.edges?.[0]?.node?.createdAt || null)
+      if (!n?.id) continue
+      // numberOfOrders is a STRING scalar on this API (the bug LORAMER_CUSTOMER_MIX_FIX_V1 was born from) —
+      // parse it, never compare it directly.
+      const cnt = Number.parseInt(String(n.numberOfOrders ?? ''), 10)
+      map.set(n.id, {
+        firstOrderAt: n.orders?.edges?.[0]?.node?.createdAt || null,
+        lifetimeOrders: Number.isFinite(cnt) ? cnt : null,
+        lifetimeSpent: n.amountSpent?.amount != null ? parseFloat(n.amountSpent.amount) : null,
+      })
     }
   }
   return map
@@ -362,11 +377,11 @@ export async function fetchShopifyIntelligence(
     const customerIds = Array.from(new Set(liveOrders.map((o) => o.customer?.id).filter(Boolean))) as string[]
     const firstOrderByCustomer = customerIds.length
       ? await fetchFirstOrderDates(endpoint, headers, customerIds, opts?.throttleDeadline)
-      : new Map<string, string | null>()
+      : new Map<string, CustomerFacts>()
     const bucketOf = (o: GraphQLOrderNode): 'new' | 'returning' | 'unknown' => {
       const id = o.customer?.id
       if (!id) return 'unknown'
-      const fo = firstOrderByCustomer.get(id)
+      const fo = firstOrderByCustomer.get(id)?.firstOrderAt
       if (!fo) return 'unknown'
       return new Date(fo).getTime() >= windowStartMs ? 'new' : 'returning'
     }
@@ -374,7 +389,9 @@ export async function fetchShopifyIntelligence(
     let returningCustomers = 0
     let unknownCustomers = 0
     for (const id of customerIds) {
-      const fo = firstOrderByCustomer.get(id)
+      // LORAMER_SHOPIFY_BATCH_C_V1 — the map now holds CustomerFacts, not a bare date string. Read
+      // .firstOrderAt; the new-vs-returning classification is otherwise BYTE-IDENTICAL to before.
+      const fo = firstOrderByCustomer.get(id)?.firstOrderAt
       if (!fo) unknownCustomers++
       else if (new Date(fo).getTime() >= windowStartMs) newCustomers++
       else returningCustomers++
@@ -535,6 +552,55 @@ export async function fetchShopifyIntelligence(
     }
     const financialStatusCapture = Object.entries(finStat).map(([status, v]) => ({ status, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders }))
     const fulfillmentStatusCapture = Object.entries(fulStat).map(([status, v]) => ({ status, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders }))
+
+    // ── LORAMER_SHOPIFY_BATCH_C_V1 — CUSTOMER COHORT + LIFETIME VALUE ────────────────────────────────
+    // Rides the customer call that ALREADY runs for the new-vs-returning mix — two extra scalars on the
+    // same nodes(ids:) request, no new round trip.
+    //
+    // customer_cohort PARTITIONS the day's net: every order maps to exactly ONE bucket via its customer's
+    // lifetime order count, so Σ cohort ≡ account net. Orders with no linked customer (guest checkout,
+    // deleted customer, failed lookup) bucket UNKNOWN and STAY IN THE PARTITION — dropping them would
+    // silently shrink a total that is supposed to reconcile, the same rule sales_channel follows.
+    //
+    // LTV IS DELIBERATELY NOT A ROW OF ITS OWN. amountSpent is a LIFETIME figure: a customer who orders on
+    // ten days would have their whole lifetime value counted on all ten. Summing it per day is meaningless
+    // and actively misleading — the same trap that made numberOfOrders unusable for the new-vs-returning
+    // classification (see LORAMER_CUSTOMER_MIX_FIX_V1 above). So it rides in extra as a LABELED lifetime
+    // attribute: the average lifetime spend of the customers who ordered that day, plus the cohort's
+    // customer count, and it is never placed in a summable column.
+    //
+    // PII LOCK: buckets and aggregates only. No per-customer rows are emitted — that would be both a
+    // cardinality explosion and a PII-adjacency we deliberately avoid. No email, name, phone or address is
+    // ever read.
+    const COHORT_OF = (n: number | null): string => {
+      if (n == null || !Number.isFinite(n) || n <= 0) return 'UNKNOWN'
+      if (n === 1) return '1'
+      if (n <= 3) return '2-3'
+      if (n <= 9) return '4-9'
+      return '10+'
+    }
+    const cohort: Record<string, { netRevenue: number; orders: number; customers: Set<string>; ltvSum: number; ltvCount: number }> = {}
+    for (const o of liveOrders) {
+      const net = parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0')
+      const cid = o.customer?.id || null
+      const facts = cid ? firstOrderByCustomer.get(cid) : undefined
+      const key = cid ? COHORT_OF(facts?.lifetimeOrders ?? null) : 'UNKNOWN'
+      if (!cohort[key]) cohort[key] = { netRevenue: 0, orders: 0, customers: new Set(), ltvSum: 0, ltvCount: 0 }
+      const c = cohort[key]
+      c.netRevenue += net
+      c.orders += 1
+      if (cid && !c.customers.has(cid)) {
+        c.customers.add(cid)
+        if (facts?.lifetimeSpent != null && Number.isFinite(facts.lifetimeSpent)) { c.ltvSum += facts.lifetimeSpent; c.ltvCount += 1 }
+      }
+    }
+    const customerCohortCapture = Object.entries(cohort).map(([bucket, v]) => ({
+      bucket,
+      netRevenue: Math.round(v.netRevenue * 100) / 100,
+      orders: v.orders,
+      customers: v.customers.size,
+      avgLifetimeSpent: v.ltvCount > 0 ? Math.round((v.ltvSum / v.ltvCount) * 100) / 100 : null,
+    }))
 
     const geoCities = Object.entries(geoCity).map(([city, v]) => ({ city, ...v }))
     const salesChannelCapture = Object.entries(chan).map(([channel, v]) => ({ channel, netRevenue: Math.round(v.netRevenue * 100) / 100, orders: v.orders, channelName: v.channelName }))
@@ -705,6 +771,7 @@ export async function fetchShopifyIntelligence(
       productTypeCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
       productTagCapture, // LORAMER_SHOPIFY_BATCH_A2_V1
+      customerCohortCapture, // LORAMER_SHOPIFY_BATCH_C_V1
       financialStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
       fulfillmentStatusCapture, // LORAMER_SHOPIFY_BATCH_A3_V1 (capture-time SNAPSHOT)
       geoCities, // LORAMER_SHOPIFY_BATCH_A1_V1
@@ -755,6 +822,7 @@ export async function fetchShopifyIntelligence(
       productTypeCapture: [], // LORAMER_SHOPIFY_BATCH_A2_V1
       productVendorCapture: [],
       productTagCapture: [],
+      customerCohortCapture: [], // LORAMER_SHOPIFY_BATCH_C_V1
       financialStatusCapture: [], // LORAMER_SHOPIFY_BATCH_A3_V1
       fulfillmentStatusCapture: [],
       geoCities: [], // LORAMER_SHOPIFY_BATCH_A1_V1 — fetch failed → no rows, never a fabricated bucket

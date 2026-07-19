@@ -158,6 +158,34 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_BATCH_C_V1 — customer_cohort. PARTITIONS the day net (each order maps to exactly one
+  // bucket through its customer's lifetime order count), so Σ cohort ≡ account net and it reconciles
+  // FLAG-NOT-BLOCK. Orders with no linked customer bucket UNKNOWN and stay IN the partition.
+  // LTV RIDES IN extra, NEVER IN A SUMMABLE COLUMN: avgLifetimeSpent is the average LIFETIME spend of the
+  // customers who ordered that day. Lifetime figures cannot be summed across days — a customer ordering on
+  // ten days would contribute their whole lifetime value ten times. That is the same trap that made
+  // numberOfOrders unusable for new-vs-returning (LORAMER_CUSTOMER_MIX_FIX_V1); it is labelled here and
+  // caveated to Lora in metrics-query.ts so it cannot be mistaken for windowed revenue.
+  // PII: buckets and counts only — no per-customer rows, no email/name/address anywhere in this path.
+  for (const c of data.customerCohortCapture || []) {
+    if (!c?.bucket) continue
+    rows.push({
+      client_id: clientId, user_email: userEmail, platform: 'shopify', account_id: shopDomain,
+      entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
+      date: captureDate, breakdown_type: 'customer_cohort', breakdown_value: c.bucket,
+      revenue: c.netRevenue, conversions: c.orders,
+      extra: {
+        orders: c.orders,
+        customers: c.customers,
+        avgLifetimeSpent: c.avgLifetimeSpent,
+        ltvSemantics: 'LIFETIME_NOT_WINDOWED',
+        currencyCode: cur, currencyMixed: curMixed,
+        basis: 'currentSubtotalPriceSet_net',
+        caveat: 'avgLifetimeSpent is a LIFETIME figure for the customers who ordered this day — never sum it across days and never treat it as revenue in the window; revenue/conversions on this row ARE windowed and do partition the day.',
+      },
+    })
+  }
+
   // LORAMER_SHOPIFY_BATCH_A3_V1 — ORDER STATUS. Both PARTITION the day's net (one financial and one
   // fulfillment status per order), so Σ status ≡ account net and they reconcile FLAG-NOT-BLOCK like geo.
   // SNAPSHOT SEMANTICS — the reason this family got its own flight: status is MUTABLE. These rows record

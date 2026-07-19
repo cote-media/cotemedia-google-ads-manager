@@ -771,6 +771,25 @@ Onboarding coachmarks, token-expired prompts, tier nudges, upload prompts. Broad
 
 ---
 
+## 🥊 COMPETITIVE LANDSCAPE — banked 2026-07-19
+<!-- LORAMER_COMPETITIVE_LANDSCAPE_V1 -->
+Lives here because ROADMAP owns strategy. NOT copied into DECISIONS — one owner per fact.
+
+**THREE MARKET SHAPES, and none of them is what we are building.**
+- **DTC attribution** (Triple Whale, Polar, Northbeam): Shopify-centric, and they sell ONE attribution model AS truth. Not a permanent cross-platform record — the product IS the model, so the data serves the model rather than the other way round.
+- **Enterprise data platforms** (Improvado, Daasity): warehouse-native and genuinely multi-platform, but enterprise-priced, enterprise-complex, weeks to onboard.
+- **Pipes** (Cogny): an MCP wrapper that explicitly stores NO data — "Query results passed through to your MCP client — Cogny doesn't store your data." They market "no native API work" as the feature. That is the ARCHITECTURAL OPPOSITE of the system-of-record thesis: a pipe answers today's question and remembers nothing.
+
+**NEAREST TRUE COMPETITOR IS IMPROVADO, NOT TRIPLE WHALE.** This is the correction worth carrying: Improvado shares all three pillars — multi-platform capture, warehouse-permanent history, an AI agent over unified data, agency multi-client — and makes the same provenance argument we do. Benchmarking against Triple Whale flatters us and aims at the wrong target.
+
+**THE DIVERGENCE — and it is the defensible fork:** a DEEP PER-CLIENT analyst with memory. Improvado's own docs concede their agent is shallower per tenant (it runs across thousands of tenants and shares only metadata with the LLM). LoraMer aims at the self-serve small-agency / operator tier with minutes-to-connect, against Improvado's enterprise complexity.
+
+**THE BET, STATED HONESTLY:** the lane — enterprise-grade reconciled multi-platform capture + deep per-client AI + self-serve price and simplicity, ALL THREE AT ONCE — is currently UNOCCUPIED but NOT UNTHREATENED. Improvado can move down-market; Triple Whale can deepen. Defensibility is not any one pillar, it is depth-of-AI-per-client × breadth-of-reconciled-history × price/simplicity TOGETHER. Any one alone is copyable.
+
+**WHY THE CAPTURE PROGRAM IS THE MOAT WORK, not plumbing:** every family closed widens a reservoir-vs-pipe gap none of them optimise for. A pipe cannot answer a question about last year. An attribution product cannot show you the source it disagrees with. Reconciled multi-platform history, kept forever, is the asset the AI depth compounds on — cross-ref the multi-source metric provenance law and "The model is rented. The memory isn't."
+
+---
+
 ## 🏷 Naming (Done)
 
 LoraMer is the final name. Trademark research clear (May 2026).
