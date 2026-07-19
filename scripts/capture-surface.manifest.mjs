@@ -80,6 +80,11 @@ export const VENDOR_SURFACE = {
     // S-FILL#3 — per discount-code applied amount (line-item allocations) + orders-using, account-day, WRITE-ONLY
     // (a SUBSET of total discounting; never summed into net sales or the order discount total).
     discount_code: { grains: ['account'], status: 'captured', confidence: V, note: 'per-code applied amount + orders-using, account-day, WRITE-ONLY (subset of total discounting; never net sales / order discount total) (LORAMER_SHOPIFY_DISCOUNT_CODE_V1).' },
+    // S-FILL#7 — order time-of-day, RAW. One row per order; breakdown_value = verbatim Shopify UTC timestamp to the
+    // second, NEVER bucketed at write time (a later client-timezone model re-buckets history with zero recapture).
+    // Vendor serves Order.createdAt on the SAME OrdersInRange call — a field-widen, not a second request. Account grain
+    // is the full served surface here (an order is an account-level event; product/variant are line grains, not orders).
+    order_time: { grains: ['account'], status: 'captured', confidence: V, note: 'RAW UTC order timestamps to the second, unbucketed; entity_id = order id so same-second orders cannot collide; additive to account net (LORAMER_SHOPIFY_ORDER_TIME_V1).' },
   },
   woocommerce: {
     // ZERO breadth today — every dimension is a gap (coupons/category/geo/customer-mix/status/time-of-day). Nothing

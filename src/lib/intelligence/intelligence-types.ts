@@ -397,6 +397,10 @@ export interface IntelligenceShopify {
   // applied money from line-item allocations; a SUBSET of total discounting (excludes manual/automatic non-code
   // discounts) that must NEVER sum into or reconcile against the order discount total (currentTotalDiscountsSet) or net sales.
   discountCodeCapture?: { code: string; discountedAmount: number; orders: number }[]
+  // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — RAW order placement timestamps, one entry per live order.
+  // createdAt is the verbatim Shopify UTC ISO-8601 string (to the second); it is NEVER bucketed to an hour at
+  // write time so a later client-timezone model can re-bucket the full history with zero recapture.
+  orderTimesCapture?: { orderId: string; createdAt: string; netRevenue: number }[]
   currencyCode?: string
   currencyMixed?: boolean // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — window spans >1 base currency (rare)
   unknownGeoOrders?: number

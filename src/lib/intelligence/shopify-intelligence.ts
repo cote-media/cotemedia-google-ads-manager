@@ -77,6 +77,11 @@ async function fetchFirstOrderDates(
 type GraphQLOrderNode = {
   id: string
   cancelledAt: string | null // LORAMER_SHOPIFY_DEPTH_2A_V1
+  // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — the order's UTC placement timestamp, to the second, EXACTLY as
+  // Shopify returns it. Captured RAW and never bucketed at write time: a later client-timezone model must be able
+  // to re-bucket the whole history (shop-local hour, overnight windows) with ZERO recapture. The daily-row UTC day
+  // boundary is deliberately NOT touched by this change.
+  createdAt: string
   currentSubtotalPriceSet: { shopMoney: { amount: string; currencyCode?: string } }
   totalRefundedSet: { shopMoney: { amount: string } }
   // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — full order money split (all non-null MoneyBag in 2025-01;
@@ -248,6 +253,7 @@ export async function fetchShopifyIntelligence(
           node {
             id
             cancelledAt
+            createdAt
             currentSubtotalPriceSet { shopMoney { amount currencyCode } }
             totalRefundedSet { shopMoney { amount } }
             currentTotalPriceSet { shopMoney { amount } }
@@ -456,6 +462,19 @@ export async function fetchShopifyIntelligence(
     }
     const discountCodeCapture = Object.entries(discC).map(([code, v]) => ({ code, discountedAmount: Math.round(v.discountedAmount * 100) / 100, orders: v.orders }))
 
+    // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — ORDER TIME-OF-DAY, captured RAW. One entry per live order:
+    // the full UTC createdAt (to the second, verbatim from Shopify) + that order's NET revenue (the same
+    // currentSubtotalPriceSet basis the account row uses, so Σ order_time revenue ≡ account net for the day).
+    // NO BUCKETING HERE, BY DESIGN: bucketing to an hour at write time would bake in UTC and make a later
+    // client-timezone model (DIGEST-WINDOW-MODEL — timezone is a property of the CLIENT) require a full
+    // recapture to re-answer "what happened at 3am THEIR time". Raw timestamps re-bucket for free, forever.
+    // Cancelled orders are already excluded upstream (liveOrders), same as every other depth grain.
+    const orderTimesCapture = liveOrders.map((o) => ({
+      orderId: String(o.id),
+      createdAt: o.createdAt, // ISO-8601 UTC, e.g. '2024-11-29T14:03:27Z' — stored verbatim, never parsed into an hour
+      netRevenue: Math.round(parseFloat(o.currentSubtotalPriceSet?.shopMoney?.amount || '0') * 100) / 100,
+    }))
+
     // Full product mix with NET revenue. LORAMER_SHOPIFY_PRODUCT_REFUND_NET_V1 — REFUND-NET per line so
     // Σ product net == account net (currentSubtotalPriceSet) EXACTLY, with per-SKU refunds landing on the
     // refunded SKU. Per line: discountedTotal − that line's refunded SUBTOTAL (from refundLineItems.subtotalSet,
@@ -556,6 +575,7 @@ export async function fetchShopifyIntelligence(
       geoCountries,
       geoRegions,
       discountCodeCapture, // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
+      orderTimesCapture, // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — raw UTC order timestamps, unbucketed
       currencyCode,
       currencyMixed,
       unknownGeoOrders,
@@ -597,6 +617,7 @@ export async function fetchShopifyIntelligence(
       geoCountries: [],
       geoRegions: [],
       discountCodeCapture: [], // LORAMER_SHOPIFY_DISCOUNT_CODE_V1 (S-FILL#3)
+      orderTimesCapture: [], // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — fetch failed → NO timestamps, never a fabricated one
       unknownGeoOrders: 0,
     }
   }

@@ -433,6 +433,24 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     },
   },
   {
+    // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) + the S-FILL#3 discount-code HISTORY unseal, in ONE re-walk.
+    // WHY A NEW CURSOR NAMESPACE, NOT A RESET: 'shopify_deep'/'shopify_dimensional' read backfill_complete=true on
+    // most stores, and a completed cursor is never re-walked — that sealed cursor is exactly why discount_code has
+    // ZERO historical rows despite a correct, wired writer (same failure class as the Meta breadth freeze). Resetting
+    // an existing cursor would also destroy its completion record. Instead this rides the PROVEN 'shopify_variant' /
+    // 'shopify_money' pattern: the SAME deep writer under a SEPARATE namespace, so already-complete clients re-emit
+    // depth rows idempotently and the old cursors keep their history. One re-walk lands BOTH new families, because
+    // both ride buildShopifyDepthRows. Deepest floor = the store's first order (no 90-day dimensional cap).
+    // The deep writer's Σ product == account AND Σ variant == account HALT guards still gate every day written.
+    key: 'shopify_order_time',
+    platforms: ['shopify'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_order_time') — writer has no dryRun; live lap pending" } }
+      const { body } = await runShopifyDeepBackfill(conn.client_id, { cursorPlatform: 'shopify_order_time' })
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
     // WOO last + gentlest (live self-hosted). Its own circuit-breaker + claim already guard the store.
     key: 'woo',
     platforms: ['woocommerce'],

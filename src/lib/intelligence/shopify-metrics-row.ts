@@ -233,5 +233,44 @@ export function buildShopifyDepthRows(
     })
   }
 
+  // LORAMER_SHOPIFY_ORDER_TIME_V1 (S-FILL#7) — ORDER TIME-OF-DAY, one row per order, breakdown_type='order_time'.
+  // breakdown_value = the RAW Shopify UTC timestamp, to the second, VERBATIM. Deliberately NOT bucketed to an hour
+  // here: bucketing at write time would bake UTC into history, and re-answering "what sold at 3am THEIR time" would
+  // then need a full recapture. Raw timestamps re-bucket for free under any later client-timezone model
+  // (DIGEST-WINDOW-MODEL: the timezone is a property of the CLIENT, not of the capture).
+  // KEY SHAPE: entity_id = the order id, so the conflict key (…, entity_id, date, breakdown_type, breakdown_value)
+  // is unique PER ORDER — two orders placed in the SAME second cannot collide and silently overwrite each other.
+  // ADDITIVE: revenue is the order's NET on the SAME currentSubtotalPriceSet basis as the account row, so
+  // Σ order_time revenue for a day ≡ that day's account net. No new entity_level, no schema change, no migration.
+  // The daily row's UTC day boundary is UNCHANGED by this change (separate, gated item).
+  for (const o of data.orderTimesCapture || []) {
+    if (!o?.orderId || !o?.createdAt) continue // no fabricated timestamp, ever
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: o.orderId,
+      entity_name: shopDomain,
+      parent_entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'order_time',
+      breakdown_value: o.createdAt, // e.g. '2024-11-29T14:03:27Z' — RAW UTC, unbucketed
+      revenue: o.netRevenue,
+      conversions: 1, // exactly one order per row
+      extra: {
+        orderId: o.orderId,
+        createdAtUtc: o.createdAt,
+        netRevenue: o.netRevenue,
+        currencyCode: cur,
+        currencyMixed: curMixed,
+        basis: 'currentSubtotalPriceSet_net',
+        tzBasis: 'UTC_raw_unbucketed',
+        caveat: 'timestamp is RAW UTC to the second; bucket to an hour ONLY at read time, against the client timezone — never assume UTC is the merchant clock',
+      },
+    })
+  }
+
   return rows
 }
