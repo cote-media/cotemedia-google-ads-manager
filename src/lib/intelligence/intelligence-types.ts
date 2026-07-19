@@ -9,6 +9,13 @@ export interface IntelligenceMetrics {
   impressions: number
   conversions: number
   conversionValue: number
+  // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — Google conversion-correctness metrics. Optional (Google-only;
+  // other platforms omit). all_conversions = ALL conversion actions incl. those not in the primary Conversions
+  // column; view_through = impression-attributed (no click). Stored in DEDICATED metrics_daily columns (mirrors
+  // conversions/conversion_value) → REQUIRES migration (3 nullable numeric columns); see the writer TODOs.
+  allConversions?: number
+  allConversionsValue?: number
+  viewThroughConversions?: number
   ctr: number
   cpc: number
   cpm: number

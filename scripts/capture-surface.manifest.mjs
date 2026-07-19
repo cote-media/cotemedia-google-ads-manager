@@ -76,8 +76,8 @@ export const VENDOR_SURFACE = {
     keyword: { grains: ['ad_group'], status: 'captured', confidence: V },
     device: { grains: ['campaign', 'ad_group', 'ad', 'keyword'], status: 'captured', confidence: V },
     hour: { grains: GEO_CA, status: 'captured', confidence: V, note: 'ad/keyword REJECTED by Google → campaign+ad_group is complete.' },
-    conversion_action: { grains: ['campaign', 'ad_group', 'keyword'], status: 'captured', confidence: V, note: 'vendor serves conv-action at ad_group + keyword too; writer is campaign-only → SLICE (queue G-FILL#9).' },
-    impression_share: { grains: ['campaign', 'ad_group'], status: 'captured', confidence: V, note: 'vendor serves IS at ad_group too; writer is campaign-only → SLICE (queue G-FILL#9).' },
+    conversion_action: { grains: ['campaign', 'ad_group', 'keyword'], status: 'captured', confidence: V, note: 'G-FILL#9 DEEPENED (LORAMER_GOOGLE_CONV_ACTION_DEEP_V1) — was campaign-only; writer now covers the ad_group + keyword grains the vendor serves. Grain parity proven by this gate; landed rows are check-capture-landing.mjs.' },
+    impression_share: { grains: ['campaign', 'ad_group'], status: 'captured', confidence: V, note: 'G-FILL#9 DEEPENED (LORAMER_GOOGLE_IS_DEEP_V1) — was campaign-only; writer now covers ad_group. NON-ADDITIVE point-in-time ratios (see breakdown-registry).' },
     age: { grains: GEO_CA, status: 'captured', confidence: V, note: 'G-FILL#3. age_range_view served at campaign+ad_group (ad/keyword not served). Captured; verify wired into breakdown-registry.ts.' },
     gender: { grains: GEO_CA, status: 'captured', confidence: V, note: 'G-FILL#3. gender_view campaign+ad_group. Captured; verify wired into breakdown-registry.ts.' },
     // gaps
@@ -169,16 +169,17 @@ export const VENDOR_SURFACE = {
 // (full vendor grains + wired into breakdown-registry.ts), REMOVE it here — the gate's stale-baseline check enforces that.
 // Populated from the first discovery run (2026-07-18). DO NOT auto-fix the underlying slices; work them off deliberately.
 export const KNOWN_INCOMPLETE = [
-  // SLICE — captured at fewer grains than the vendor serves (deepen the writer to full grain):
-  // (2026-07-18) meta.placement COMPLETED to campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1) — removed here.
-  // HELD-FOR-4AM: the deepened writers ARE authored (G-FILL#9) but live on branch wip/google-gfill1-9-held-4am,
-  // NOT on main — their Gate-A (live GAQL validation) is blocked on the 2026-07-19 ~04:03 ET Google quota reset.
-  // These two stay baselined on main (NOT silently passing) until that branch proves + merges. Do NOT hand-remove.
-  'google.conversion_action',    // campaign-only on main → +ad_group,keyword on wip (G-FILL#9, HELD-FOR-4AM)
-  'google.impression_share',     // campaign-only on main → +ad_group on wip (G-FILL#9, HELD-FOR-4AM)
-  // (2026-07-18) The 10 UNWIRED families — the 7 Meta assets, meta.attribution_window, google.age, google.gender —
-  // were WIRED into src/lib/breakdown-registry.ts (LORAMER_ASSET_ATTRWINDOW_WIRE_V1) and REMOVED here; the gate's
-  // stale-baseline check now confirms they are complete (captured + query-readable).
+  // THE QUEUE IS EMPTY — every discovered slice/unwired family is resolved:
+  //   (2026-07-18) meta.placement → campaign+ad_set+ad (LORAMER_META_PLACEMENT_ADSET_AD_V1);
+  //   (2026-07-18) the 10 UNWIRED (7 Meta assets + meta.attribution_window + google.age/gender) → wired into
+  //     src/lib/breakdown-registry.ts (LORAMER_ASSET_ATTRWINDOW_WIRE_V1);
+  //   (2026-07-20) google.conversion_action → +ad_group+keyword, google.impression_share → +ad_group
+  //     (G-FILL#9, LORAMER_GOOGLE_CONV_ACTION_DEEP_V1 / _IS_DEEP_V1) — the two entries baselined here on main as
+  //     HELD-FOR-4AM are removed BECAUSE the deepened writers now exist on main (rebased off
+  //     wip/google-gfill1-9-held-4am); leaving them listed would trip the gate's own stale-baseline check.
+  // Code-parity (registry↔manifest) is COMPLETE. CODE-PARITY IS NOT LANDED ROWS: G-FILL#9's live GAQL Gate-A runs
+  // against the 2026-07-20 quota window, and live-DB reachability is scripts/check-capture-landing.mjs's question,
+  // never this manifest's (this file gates GRAIN PARITY and says so on its own face).
 ]
 
 export default VENDOR_SURFACE

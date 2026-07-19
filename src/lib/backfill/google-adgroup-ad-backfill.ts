@@ -56,13 +56,16 @@ function monthChunks(start: string, end: string): { from: string; to: string }[]
 function buildRow(
   clientId: string, userEmail: string, customerId: string,
   entityLevel: string, entityId: string, entityName: string, parentEntityId: string,
-  date: string, spend: number, impressions: number, clicks: number, conversions: number, convValue: number
+  date: string, spend: number, impressions: number, clicks: number, conversions: number, convValue: number,
+  allConversions: number, allConversionsValue: number, viewThroughConversions: number // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1)
 ): Record<string, unknown> {
   return {
     client_id: clientId, user_email: userEmail, platform: 'google', account_id: customerId,
     entity_level: entityLevel, entity_id: entityId, entity_name: entityName,
     parent_entity_id: parentEntityId, date, breakdown_type: '', breakdown_value: '',
     spend: Number(spend.toFixed(2)), impressions, clicks, conversions, conversion_value: Number(convValue.toFixed(2)), revenue: 0,
+    // LORAMER_GOOGLE_ALL_CONVERSIONS_V1 (G-FILL#1) — DEDICATED COLUMNS. ⚠ MIGRATION-GATED (see google-metrics-row.ts).
+    all_conversions: allConversions, all_conversions_value: Number(allConversionsValue.toFixed(2)), view_through_conversions: viewThroughConversions,
     extra: {
       ctr: ratio(clicks, impressions, 100), cpc: ratio(spend, clicks), cpm: ratio(spend, impressions, 1000),
       roas: ratio(convValue, spend), cpa: ratio(spend, conversions), convRate: ratio(conversions, clicks, 100),
@@ -131,12 +134,12 @@ export async function runGoogleAdGroupAdBackfill(
     const grains: { level: 'ad_group' | 'ad'; gaql: string; extract: (r: any) => { entityId: string; entityName: string; parentId: string; campaignId: string } }[] = [
       {
         level: 'ad_group',
-        gaql: `SELECT ad_group.id, ad_group.name, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ad_group WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
+        gaql: `SELECT ad_group.id, ad_group.name, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions, segments.date FROM ad_group WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
         extract: (r) => ({ entityId: String(r.ad_group?.id), entityName: String(r.ad_group?.name || ''), parentId: String(r.campaign?.id), campaignId: String(r.campaign?.id) }),
       },
       {
         level: 'ad',
-        gaql: `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group.id, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ad_group_ad WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
+        gaql: `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group.id, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, metrics.all_conversions, metrics.all_conversions_value, metrics.view_through_conversions, segments.date FROM ad_group_ad WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
         extract: (r) => ({ entityId: String(r.ad_group_ad?.ad?.id), entityName: String(r.ad_group_ad?.ad?.name || ''), parentId: String(r.ad_group?.id), campaignId: String(r.campaign?.id) }),
       },
     ]
@@ -153,11 +156,14 @@ export async function runGoogleAdGroupAdBackfill(
         const impressions = fin(r.metrics?.impressions)
         const conversions = fin(r.metrics?.conversions)
         const convValue = fin(r.metrics?.conversions_value)
+        const allConversions = fin(r.metrics?.all_conversions)
+        const allConversionsValue = fin(r.metrics?.all_conversions_value)
+        const viewThroughConversions = fin(r.metrics?.view_through_conversions)
         if (!byDate[date]) byDate[date] = { rows: [], spend: 0, campaignIds: new Set() }
         const b = byDate[date]
         b.spend += spend
         if (campaignId) b.campaignIds.add(campaignId)
-        b.rows.push(buildRow(clientId, userEmail, customerId, grain.level, entityId, entityName, parentId, date, spend, impressions, clicks, conversions, convValue))
+        b.rows.push(buildRow(clientId, userEmail, customerId, grain.level, entityId, entityName, parentId, date, spend, impressions, clicks, conversions, convValue, allConversions, allConversionsValue, viewThroughConversions))
       }
       const stat = stats[grain.level]
       stat.grainDayRows += Object.values(byDate).reduce((s, d) => s + d.rows.length, 0)
