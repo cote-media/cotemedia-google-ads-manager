@@ -118,18 +118,23 @@ type GraphQLOrderNode = {
 // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1
 // Separate query with its own try/catch. Returns undefined on any failure
 // (permission denied / network / GraphQL error) so the rest of the Shopify
-// intelligence fetch keeps working. Fetches ONLY the id field — no customer
-// data, no email, no addresses, no line items. PII never enters the
-// intelligence layer.
-async function fetchAbandonedCheckoutCount(
+// intelligence fetch keeps working. PII-LOCKED: fetches ONLY id + money
+// (totalPriceSet) + createdAt — no customer, email, address, or line-item
+// contents. PII never enters the intelligence layer.
+// LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — FIELD-WIDEN of the count query (SAME single
+// call, no new request) to also sum abandoned-checkout VALUE = Σ totalPriceSet. That value is
+// POTENTIAL/LOST revenue, NEVER actual revenue — the caller persists it write-only and it is
+// never summed into net sales. Single-page (first:250) exactly like the count it extends: it
+// understates on huge days the same way the count already does (a known limit, not a regression).
+async function fetchAbandonedCheckoutSummary(
   endpoint: string,
   headers: Record<string, string>,
   queryString: string,
-): Promise<number | undefined> {
+): Promise<{ count: number; value: number } | undefined> {
   const gql = `
     query AbandonedInRange($query: String!) {
       abandonedCheckouts(first: 250, query: $query) {
-        edges { node { id } }
+        edges { node { id totalPriceSet { shopMoney { amount } } createdAt } }
       }
     }
   `
@@ -141,12 +146,17 @@ async function fetchAbandonedCheckoutCount(
     })
     const json = await res.json()
     if (json.errors) {
-      console.warn('[abandonedCheckouts] GraphQL error (likely missing manage_abandoned_checkouts permission):',
+      console.warn('[abandonedCheckouts] GraphQL error (likely missing read_orders / abandoned-checkout permission):',
         JSON.stringify(json.errors).slice(0, 200))
       return undefined
     }
     const nodes = json.data?.abandonedCheckouts?.edges || []
-    return nodes.length
+    let value = 0
+    for (const e of nodes) {
+      const amt = parseFloat(e?.node?.totalPriceSet?.shopMoney?.amount || '0')
+      if (Number.isFinite(amt)) value += amt
+    }
+    return { count: nodes.length, value: Math.round(value * 100) / 100 }
   } catch (e) {
     console.warn('[abandonedCheckouts] fetch failed:', e)
     return undefined
@@ -478,10 +488,10 @@ export async function fetchShopifyIntelligence(
       grossRevenue: v.grossRevenue,
     }))
 
-    // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — separate fail-soft fetch.
-    // Reuses the same date queryString as the orders query so the count is
-    // scoped to the same window.
-    const abandonedCheckoutCount = await fetchAbandonedCheckoutCount(endpoint, headers, queryString)
+    // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 / _VALUE_V1 (S-FILL#2) — separate fail-soft fetch.
+    // Reuses the same date queryString as the orders query so count + value are
+    // scoped to the same window. undefined ⟺ permission/network failure.
+    const abandonedSummary = await fetchAbandonedCheckoutSummary(endpoint, headers, queryString)
 
     return {
       connected: true,
@@ -501,8 +511,9 @@ export async function fetchShopifyIntelligence(
       newCustomerAov,
       returningCustomerAov,
       revenueConcentration,
-      // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 — undefined when permission/perm or network failed
-      abandonedCheckoutCount,
+      // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 / _VALUE_V1 — undefined when permission or network failed
+      abandonedCheckoutCount: abandonedSummary?.count,
+      abandonedCheckoutValue: abandonedSummary?.value, // S-FILL#2 — potential/LOST revenue, never actual
       topProducts,
       // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth
       productsCapture,

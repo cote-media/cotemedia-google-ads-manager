@@ -25,6 +25,7 @@ export function shopifyAccountExtra(data: IntelligenceShopify): Record<string, u
     returningCustomerAov: data.returningCustomerAov,
     revenueConcentration: data.revenueConcentration,
     abandonedCheckoutCount: data.abandonedCheckoutCount,
+    abandonedCheckoutValue: data.abandonedCheckoutValue, // LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — potential/LOST, never actual
     currencyCode: data.currencyCode, // LORAMER_SHOPIFY_DEPTH_2A_V1
     // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.5/T1.6) — full order money split, namespaced under extra.money when the
     // fetcher computed it. Additive-only: never touches revenue/conversions. Shared by Shopify + Woo (Woo's
@@ -154,6 +155,44 @@ export function buildShopifyDepthRows(
       revenue: g.netRevenue,
       conversions: g.orders,
       extra: { orders: g.orders, currencyCode: cur, currencyMixed: curMixed },
+    })
+  }
+
+  // LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — abandoned-checkout POTENTIAL/LOST revenue, first-class
+  // breakdown_type='abandoned_checkout', account-day grain, single 'all' bucket. WRITE-ONLY + NON-ADDITIVE:
+  // it is NOT order revenue and must NEVER be summed into or reconciled against net sales — so the money lives
+  // in conversion_value (NEVER `revenue`, which stays 0) and the count in conversions. Emitted ONLY when
+  // count>0: a pre-retention / purged day returns 0 abandoned from Shopify → NO row (never a FALSE ZERO), which
+  // makes the ~90-day Shopify retention floor an emergent property (forward-first, not full history like orders).
+  // undefined count (permission denied / fetch failed) → also no row (fail-soft undefined-never-0 preserved).
+  if (data.abandonedCheckoutCount != null && data.abandonedCheckoutCount > 0) {
+    rows.push({
+      client_id: clientId,
+      user_email: userEmail,
+      platform: 'shopify',
+      account_id: shopDomain,
+      entity_level: 'account',
+      entity_id: shopDomain,
+      entity_name: shopDomain,
+      parent_entity_id: shopDomain,
+      date: captureDate,
+      breakdown_type: 'abandoned_checkout',
+      breakdown_value: 'all',
+      spend: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: data.abandonedCheckoutCount,           // COUNT of abandoned checkouts (queryable)
+      conversion_value: data.abandonedCheckoutValue ?? 0, // POTENTIAL/LOST value = Σ totalPriceSet (queryable)
+      revenue: 0,                                         // NEVER net sales — potential revenue is not actual revenue
+      extra: {
+        potential_value: data.abandonedCheckoutValue ?? 0,
+        count: data.abandonedCheckoutCount,
+        currencyCode: cur,
+        currencyMixed: curMixed,
+        basis: 'sum_totalPriceSet',
+        retention_floor_days: 90,
+        caveat: 'abandoned-checkout value = potential/lost revenue, never actual; never sum/reconcile into net sales',
+      },
     })
   }
 

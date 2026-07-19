@@ -420,6 +420,10 @@ export interface IntelligenceShopify {
   // "zero abandoned in this window". Claude is instructed to honor the
   // distinction in build-claude-context.ts.
   abandonedCheckoutCount?: number
+  // LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — Σ totalPriceSet of the abandoned checkouts
+  // in-window. POTENTIAL/LOST revenue, NEVER actual; persisted write-only, never summed into net
+  // sales. undefined ⟺ abandonedCheckoutCount undefined (same fail-soft, same id+money PII lock).
+  abandonedCheckoutValue?: number
   // Attribution (when connected to ad platforms)
   adAttributedRevenue?: number
   adAttributedOrders?: number

@@ -139,6 +139,7 @@ export const REGISTRY: BreakdownEntry[] = [
   // ── SHOPIFY dimensional (store ship-to geo) ──────────────────────────────────────────────────────────────
   { platform: 'shopify', breakdownType: 'geo_country', toolType: 'geo_country', surface: 'breakdown', entityLevels: ['account'], rankBy: 'revenue', additive: true, highCardinality: false, geoGrain: 'country', geoScope: 'ad' },
   { platform: 'shopify', breakdownType: 'geo_region', toolType: 'geo_region', surface: 'breakdown', entityLevels: ['account'], rankBy: 'revenue', additive: true, highCardinality: false, geoGrain: 'region', geoScope: 'ad' },
+  { platform: 'shopify', breakdownType: 'abandoned_checkout', toolType: 'abandoned_checkout', surface: 'breakdown', entityLevels: ['account'], rankBy: 'conversions', additive: false, highCardinality: false, note: 'WRITE-ONLY POTENTIAL/LOST revenue — Σ abandoned-checkout totalPriceSet in conversionValue + abandoned count in conversions; spend/revenue are 0. NEVER actual revenue; never sum/reconcile into net sales or order counts. ~90-day Shopify retention floor → forward-first, NOT full history like orders (S-FILL#2, LORAMER_SHOPIFY_ABANDONED_VALUE_V1).' },
 ]
 
 // ── DERIVATIONS — the single source the tool schema (STEP 2) and this file's guard both read ─────────────────

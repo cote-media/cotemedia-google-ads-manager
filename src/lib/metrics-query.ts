@@ -567,6 +567,11 @@ export async function queryBreakdown(opts: {
       const z = `Attribution windows OVERLAP (1d_click ⊂ 7d_click ⊂ 28d_click) and view+click double-count — each value is one action_type×window. NEVER sum across windows; the account default (already in the base conversion number) = the account's own window setting (typically 7d_click+1d_view).`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_SHOPIFY_ABANDONED_VALUE_V1 (S-FILL#2) — potential/lost-revenue caveat (mirror the hour-0 pattern).
+    if (platform === 'shopify' && bt === 'abandoned_checkout') {
+      const z = `Abandoned-checkout value is POTENTIAL / LOST revenue (Σ abandoned-checkout totalPriceSet, reported in conversionValue) with the abandoned COUNT in conversions — spend and revenue are 0. It is NEVER actual revenue: never sum or reconcile it into net sales or order counts. Shopify retains abandoned checkouts only ~90 days, so this is forward-first and NOT full history like orders — treat the earliest date as a retention floor, not a true start.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }
