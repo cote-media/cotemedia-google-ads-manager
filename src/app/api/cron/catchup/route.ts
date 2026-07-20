@@ -736,10 +736,15 @@ export async function GET(request: Request) {
       summary.accountsWithGaps += 1
       processedClientIds.add(client.id)
 
+      // LORAMER_WOO_BATCH_WB_V1 — ONE product-attribute cache per CLIENT, hoisted OUTSIDE the day loop, so a
+      // multi-day catch-up pays per PRODUCT once rather than once per day (the same once-per-lap rule the
+      // backfill follows). Passing it is also what keeps product_category/product_tag off the backfill-only
+      // path that would freeze them at their ship date.
+      const wooProductAttrCache = new Map()
       for (const d of fillDays) {
         if (Date.now() - started > CATCHUP_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — budget stop between DAYS
         try {
-          const intel = await fetchWooCommerceIntelligence(storeUrl, consumerKey, consumerSecret, 'CUSTOM', d, d)
+          const intel = await fetchWooCommerceIntelligence(storeUrl, consumerKey, consumerSecret, 'CUSTOM', d, d, { productAttrCache: wooProductAttrCache })
           const rows = buildWooMetricsRows(client.id, userEmail, d, storeUrl, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')

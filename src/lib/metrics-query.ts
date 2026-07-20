@@ -639,6 +639,14 @@ export async function queryBreakdown(opts: {
       const z = `WooCommerce order_time is one row PER ORDER carrying a RAW timestamp — bucket it to hours at READ time against the CLIENT's timezone, never assume the raw value is the merchant's clock. WOO-SPECIFIC: Woo's date_created carries no UTC offset, so the value is date_created_gmt (UTC); extra.tzBasis states which, and a store that returned no GMT field is labelled SITE_LOCAL and must not be read as UTC. The row's DATE is the store-local capture day, so a late-evening order can carry a UTC timestamp on the following calendar day. Revenue is order net on the account basis, so these DO sum to the day's net sales.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_WOO_BATCH_WB_V1 — category/tag carry TWO traps at once (over-count AND snapshot), same as the
+    // Shopify collections note, plus a third that is specific to Woo tags: an EMPTY family here is a fact about
+    // the merchant, not a hole in our capture, and Lora must not report it as missing data.
+    if (platform === 'woocommerce' && (bt === 'product_category' || bt === 'product_tag')) {
+      const noun = bt === 'product_category' ? 'CATEGORIES' : 'TAGS'
+      const z = `WooCommerce product ${noun} are NOT a partition: a product belongs to MANY of them (measured up to 11 categories on one product), so its full net revenue is counted under EVERY one — Σ ${bt} EXCEEDS net sales, measured 4.43× on a real window. Compare values to EACH OTHER; never sum them and never reconcile them to net sales. SEPARATELY: membership is a CAPTURE-TIME SNAPSHOT — WooCommerce exposes how products are organised NOW, not as of the order date, so re-capturing an old day can legitimately change it (extra.captured_at records when we asked). ${bt === 'product_tag' ? 'FINALLY: Woo tags are OPTIONAL and many stores use none (measured 0 of 71 products tagged on one real store while 70 of 71 carried a category). An empty product_tag result means THIS STORE DOES NOT TAG ITS PRODUCTS — say that; it is not a gap in what we captured.' : 'Products whose category lookup failed emit no row rather than a fabricated bucket.'}`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

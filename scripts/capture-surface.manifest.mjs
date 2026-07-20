@@ -150,8 +150,12 @@ export const VENDOR_SURFACE = {
     // countedFetch so it stays inside the throttle + outbound budget + breaker. Cohort is blocked on a
     // decision, not on engineering: customer_id is 0 for GUEST checkout (measured on a real order), so
     // identity would have to come from the billing email — a new PII call that is Russ's to make.
-    product_category: { grains: ['account'], status: 'gap', confidence: V, note: 'W-FILL — needs the separate /wc/v3/products call (line_items carry NO category, confirmed on a real payload). MANY-TO-MANY (measured up to 9 categories on one product) → will be WRITE-ONLY like Shopify product_collection, never a partition.' },
-    product_tag: { grains: ['account'], status: 'gap', confidence: V, note: 'W-FILL — same /wc/v3/products call as product_category. Measured 0/25 products tagged on the probe store: expect thin, and an empty family must read as "this store does not use tags", not as a capture gap.' },
+    // BATCH W-B — the ONE Woo family needing a second endpoint. Id-batched (<=100), _fields-trimmed (measured
+    // 321 bytes/product vs 10,130 untrimmed), fetched ONCE PER LAP not per day, and routed through the
+    // backfill's counted+throttled wrapper so it sits inside MAX_OUTBOUND_FETCHES, THROTTLE_MS, the CAS claim
+    // and the circuit-breaker. Gate-A lap: 11 sale-days cost 2 product requests, 4 outbound total of 500.
+    product_category: { grains: ['account'], status: 'captured', confidence: V, note: 'separate id-batched /wc/v3/products call (line_items carry NO category). NON-ADDITIVE over-count — measured 4.43× net on a real window, up to 11 categories on one product. CAPTURE-TIME SNAPSHOT (LORAMER_WOO_BATCH_WB_V1).' },
+    product_tag: { grains: ['account'], status: 'captured', confidence: V, note: 'rides the SAME batched call as product_category (no extra request). Measured 0/71 products tagged on the probe store — an EMPTY family means this store does not tag, NOT a capture gap. Same non-additive + snapshot semantics (LORAMER_WOO_BATCH_WB_V1).' },
     customer_cohort: { grains: ['account'], status: 'gap', confidence: D, note: 'W-FILL, DECISION-REQUIRED not unbuilt: customer_id is 0 for guest checkout (measured), so lifetime identity needs the billing EMAIL — a new PII touch beyond the Batch-C lock. Path (a) /wc/v3/customers sees registered customers only and collapses a guest-heavy store into one UNKNOWN bucket.' },
   },
 }

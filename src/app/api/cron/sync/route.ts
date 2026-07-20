@@ -796,13 +796,18 @@ export async function GET(request: Request) {
           throw new Error(tokError?.message || 'No WooCommerce credentials found')
         }
 
+        // LORAMER_WOO_BATCH_WB_V1 — product_category/product_tag need the /wc/v3/products side-call, so
+        // forward capture must pass a cache or the family would be BACKFILL-ONLY and freeze at its ship date
+        // the moment forward moved past it (the G1 class this repo keeps rediscovering). One client, one day
+        // → one id-batched, _fields-trimmed request (~321 bytes/product measured).
         const intel = await fetchWooCommerceIntelligence(
           tok.store_url,
           tok.consumer_key,
           tok.consumer_secret,
           'YESTERDAY',
           captureDate,
-          captureDate
+          captureDate,
+          { productAttrCache: new Map() }
         )
 
         const rows = buildWooMetricsRows(

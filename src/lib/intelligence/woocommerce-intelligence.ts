@@ -74,6 +74,100 @@ export function buildWooMoneySurface(saleOrders: any[]): NonNullable<Intelligenc
   return { netSales, grossSales, discounts, discountTax, taxes, cartTax, shipping, shippingTax, fees, totalSales, refunds, residual, moneyBasis: 'woo_total_incl_shipping_tax_refundNetted' }
 }
 
+// ── LORAMER_WOO_BATCH_WB_V1 — PRODUCT CATEGORY + TAG: THE ONE WOO FAMILY NEEDING A SECOND ENDPOINT ─────
+// line_items carry NO category and NO tags — confirmed on a real order payload, not inferred from docs (the
+// full measured key set is id, name, product_id, variation_id, quantity, sku, price, subtotal, subtotal_tax,
+// total, total_tax, taxes, tax_class, meta_data, image, parent_name, global_unique_id). So this family, alone
+// among the eleven, costs outbound requests to a MERCHANT'S OWN SELF-HOSTED SERVER. Four mitigations, all
+// mandatory, all measured:
+//   1. ONCE PER LAP, NOT PER DAY — the product→category mapping is store-level, not daily. The caller owns a
+//      lap-scoped cache and only ids MISSING from it are ever requested, so a 7-year re-walk pays for each
+//      product ONCE rather than once per day it sold on.
+//   2. _fields=id,categories,tags — MEASURED 10,130 → 341 bytes per product, a 30× cut.
+//   3. include= batched at <=100 ids per request (WP REST per_page ceiling); measured working at 25/25.
+//   4. The HTTP call is INJECTED (WooProductFetchFn), never made here. The backfill passes a wrapper that
+//      shares the engine's outbound counter and throttle, so this cannot bypass the request budget. A raw
+//      fetch() added anywhere in this path IS the 2026-06-16 Shelley incident (Lesson 51) reproduced.
+// SOFT + SPLIT-ON-FAILURE, never fatal: the orders capture is the product and it must not die because a
+// product lookup failed. A failing batch is halved and retried once per half; ids that still fail are marked
+// so they are not retried for the rest of the lap and simply emit NO row — never a fabricated bucket.
+// The window ladder in woo-adaptive.ts deliberately does NOT apply here: it de-escalates DATE windows, and an
+// id batch has no dates to de-escalate. Split-on-failure is its id-space equivalent, the Shopify Batch-B shape.
+export type WooProductAttrs = { categories: string[]; tags: string[] }
+export type WooProductFetchFn = (ids: string[]) => Promise<any[]>
+export const WOO_PRODUCT_BATCH_SIZE = 100 // WP REST per_page ceiling
+
+// The real HTTP batch. Returned as a function so every caller (forward, catchup, backfill) can wrap it with
+// its own accounting before it ever runs — the injection point that makes mitigation 4 enforceable.
+export function makeWooProductFetcher(storeUrl: string, consumerKey: string, consumerSecret: string): WooProductFetchFn {
+  const base = storeUrl.replace(/\/+$/, '') + '/wp-json/wc/v3'
+  const headers = { Authorization: basicAuth(consumerKey, consumerSecret), Accept: 'application/json' }
+  return async (ids: string[]): Promise<any[]> => {
+    const url = base + '/products?per_page=' + WOO_PRODUCT_BATCH_SIZE +
+      '&include=' + encodeURIComponent(ids.join(',')) +
+      '&_fields=id,categories,tags' // mitigation 2 — 341 vs 10,130 bytes/product
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 35_000)
+    try {
+      const res = await fetch(url, { headers, signal: ctrl.signal })
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error('WooCommerce products fetch failed: ' + res.status + ' ' + txt.slice(0, 160))
+      }
+      const json = await res.json()
+      return Array.isArray(json) ? json : []
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+}
+
+// Fill `cache` for every id in productIds that is not already in it. Mutates the cache in place (that IS the
+// once-per-lap mechanism) and NEVER throws. A cached `null` = this id was tried and failed; it is not retried
+// again this lap and it emits no row, which is honest absence rather than an invented category.
+export async function fetchWooProductAttrs(
+  fetchBatch: WooProductFetchFn,
+  productIds: string[],
+  cache: Map<string, WooProductAttrs | null>
+): Promise<{ requested: number; batches: number; failedIds: number }> {
+  const missing = [...new Set(productIds.filter((id) => id && !cache.has(id)))]
+  let batches = 0
+  let failedIds = 0
+  const runBatch = async (ids: string[], canSplit: boolean): Promise<void> => {
+    if (ids.length === 0) return
+    batches += 1
+    try {
+      const products = await fetchBatch(ids)
+      const seen = new Set<string>()
+      for (const p of products) {
+        const pid = String(p?.id ?? '')
+        if (!pid) continue
+        seen.add(pid)
+        cache.set(pid, {
+          categories: ((p?.categories as any[]) || []).map((c) => cleanStr(c?.name)).filter((x): x is string => !!x),
+          tags: ((p?.tags as any[]) || []).map((t) => cleanStr(t?.name)).filter((x): x is string => !!x),
+        })
+      }
+      // Requested-but-absent = deleted product. Cache the empty shape so the id is not re-requested all lap;
+      // it is a genuine "no attributes", distinct from the null failure marker.
+      for (const id of ids) if (!seen.has(id)) cache.set(id, { categories: [], tags: [] })
+    } catch (e: any) {
+      console.error(`[woo-product-attrs] batch of ${ids.length} failed: ${e?.message ?? e}`)
+      if (canSplit && ids.length > 1) {
+        const mid = Math.floor(ids.length / 2)
+        await runBatch(ids.slice(0, mid), false)
+        await runBatch(ids.slice(mid), false)
+        return
+      }
+      for (const id of ids) { cache.set(id, null); failedIds += 1 } // tried, failed, not retried this lap
+    }
+  }
+  for (let i = 0; i < missing.length; i += WOO_PRODUCT_BATCH_SIZE) {
+    await runBatch(missing.slice(i, i + WOO_PRODUCT_BATCH_SIZE), true) // mitigation 3
+  }
+  return { requested: missing.length, batches, failedIds }
+}
+
 // ── LORAMER_WOO_BATCH_WA_V1 — WOO BREADTH: NINE FAMILIES, ZERO NEW VENDOR REQUESTS ─────────────────────
 // Every field below is ALREADY in the /wc/v3/orders payload we download today and then throw away. Measured
 // live on shelleykyle.com 2026-07-19: one order is 8,935 bytes and we were reading about six fields of it.
@@ -313,7 +407,10 @@ export async function fetchWooOrdersRaw(
 // exactly one family (order_status, which must see the failed/cancelled/pending orders the sale filter drops)
 // and DEFAULTS to saleOrders, so every existing caller keeps byte-identical behaviour on the other eight
 // families and a caller without the wider set degrades to sale-statuses-only rather than fabricating.
-export function summarizeWooOrders(saleOrders: any[], allOrders?: any[]): IntelligenceShopify {
+// LORAMER_WOO_BATCH_WB_V1 — `productAttrs` is the LAP-SCOPED product→category/tag cache (see
+// fetchWooProductAttrs). Optional: absent → the two families simply do not emit, and the other nine are
+// byte-identical. Passing a cache never triggers a fetch here; this function stays pure.
+export function summarizeWooOrders(saleOrders: any[], allOrders?: any[], productAttrs?: Map<string, WooProductAttrs | null>): IntelligenceShopify {
   const totalOrders = saleOrders.length
   const totalRevenue = saleOrders.reduce((s: number, o: any) => s + wooNetOf(o), 0)
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
@@ -361,6 +458,9 @@ export function summarizeWooOrders(saleOrders: any[], allOrders?: any[]): Intell
   // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1 — variant grain rides the SAME per-line pro-rata net as prodCap,
   // keyed by COMPOSITE `${productId}:${variationId}` (variation_id=0 = simple product → `${productId}:0`).
   const varCap: Record<string, { name: string; sku: string | null; parentProductId: string; netRevenue: number; grossRevenue: number; units: number }> = {}
+  // LORAMER_WOO_BATCH_WB_V1 — category/tag accumulators (populated only when a product-attribute cache is passed)
+  const catCap: Record<string, { netRevenue: number; units: number; products: Set<string> }> = {}
+  const tagCap: Record<string, { netRevenue: number; units: number; products: Set<string> }> = {}
   saleOrders.forEach((o: any) => {
     const items = (o.line_items || []) as any[]
     if (items.length === 0) return // no lines → nothing to attribute (order net still in account grain)
@@ -384,6 +484,27 @@ export function summarizeWooOrders(saleOrders: any[], allOrders?: any[]): Intell
       varCap[varKey].netRevenue += netContribution
       varCap[varKey].grossRevenue += grossLine
       varCap[varKey].units += fin(Number(item.quantity || 0))
+      // LORAMER_WOO_BATCH_WB_V1 — product CATEGORY + TAG ride the SAME per-line pro-rata net as prodCap, so a
+      // category figure is directly comparable to a product figure. They are NOT a partition: a product sits in
+      // MANY categories (measured up to 9 on one product), so the same net lands under EVERY one of them and
+      // Σ category EXCEEDS the day net. That over-count is BY DESIGN and is why both families are additive:false.
+      // A product missing from the cache (never fetched) or cached null (fetch failed) emits NOTHING — absence
+      // is honest; an "UNKNOWN" bucket would imply we asked and the store said none.
+      const attrs = productAttrs?.get(id)
+      if (attrs) {
+        for (const cat of attrs.categories) {
+          if (!catCap[cat]) catCap[cat] = { netRevenue: 0, units: 0, products: new Set<string>() }
+          catCap[cat].netRevenue += netContribution
+          catCap[cat].units += fin(Number(item.quantity || 0))
+          catCap[cat].products.add(id)
+        }
+        for (const tg of attrs.tags) {
+          if (!tagCap[tg]) tagCap[tg] = { netRevenue: 0, units: 0, products: new Set<string>() }
+          tagCap[tg].netRevenue += netContribution
+          tagCap[tg].units += fin(Number(item.quantity || 0))
+          tagCap[tg].products.add(id)
+        }
+      }
     })
   })
   const productsCapture = Object.entries(prodCap)
@@ -408,6 +529,19 @@ export function summarizeWooOrders(saleOrders: any[], allOrders?: any[]): Intell
     variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
     money: buildWooMoneySurface(saleOrders), // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.6) — full money split → account extra
     wooBreadth: buildWooBreadth(saleOrders, allOrders ?? saleOrders), // LORAMER_WOO_BATCH_WA_V1 — nine families, no new fetch
+    // LORAMER_WOO_BATCH_WB_V1 — emitted ONLY when a product-attribute cache was supplied. `undefined` (no cache)
+    // and `[]` (cache supplied, store uses none) are deliberately different: the first is "we did not ask", the
+    // second is "we asked and this store has none" — and the row builder must never turn the first into a zero.
+    // Deliberately woo-namespaced rather than reusing Shopify's productTagCapture: the shapes differ (we carry a
+    // product count) and, more importantly, the net basis differs (Woo net INCLUDES shipping + tax). Sharing the
+    // field name would make two different quantities look interchangeable — the same reason wooBreadth is separate.
+    wooProductCategoryCapture: productAttrs
+      ? Object.entries(catCap).map(([value, v]) => ({ value, netRevenue: r2(v.netRevenue), units: v.units, products: v.products.size }))
+      : undefined,
+    wooProductTagCapture: productAttrs
+      ? Object.entries(tagCap).map(([value, v]) => ({ value, netRevenue: r2(v.netRevenue), units: v.units, products: v.products.size }))
+      : undefined,
+    wooProductAttrsCapturedAt: productAttrs ? new Date().toISOString() : undefined,
   }
 }
 
@@ -418,7 +552,11 @@ export async function fetchWooCommerceIntelligence(
   dateRange: string,
   customStart?: string,
   customEnd?: string,
-  opts?: { maxPages?: number } // LORAMER_WOO_BACKFILL_2A_V1 — forward defaults to 10; backfill raises it
+  // LORAMER_WOO_BATCH_WB_V1 — productAttrCache: pass a Map to enable product_category/product_tag. The caller
+  // OWNS the cache, which is what makes it lap-scoped rather than call-scoped: the backfill hands the same Map
+  // to every day of a lap, so each product is fetched once for the whole re-walk. Omit it and the two families
+  // silently do not emit — no fetch, no rows, no zeros.
+  opts?: { maxPages?: number; productAttrCache?: Map<string, WooProductAttrs | null> } // LORAMER_WOO_BACKFILL_2A_V1 — forward defaults to 10; backfill raises it
 ): Promise<IntelligenceShopify> {
   // LORAMER_DATE_RANGE_CANONICAL_V1
   const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
@@ -429,10 +567,20 @@ export async function fetchWooCommerceIntelligence(
     const allOrders = await fetchWooOrdersRaw(storeUrl, consumerKey, consumerSecret, after, before, opts?.maxPages ?? 10)
     // LORAMER_WOO_STATUS_ACCURACY_V1 — sale-only + refund-netting (see summarizeWooOrders).
     const saleOrders = allOrders.filter((o: any) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
+    // LORAMER_WOO_BATCH_WB_V1 — fill the caller's product-attribute cache for any product this window sold
+    // that the cache has not seen yet. On a backfill lap the cache is shared across every day, so this is a
+    // no-op for all but the first appearance of each product. The fetch is SOFT: a failure logs and leaves the
+    // two attribute families empty for the affected products, never taking the orders capture down with it.
+    let productAttrs: Map<string, WooProductAttrs | null> | undefined
+    if (opts?.productAttrCache) {
+      productAttrs = opts.productAttrCache
+      const ids = [...new Set(saleOrders.flatMap((o: any) => ((o.line_items as any[]) || []).map((li) => String(li?.product_id ?? ''))).filter(Boolean))]
+      await fetchWooProductAttrs(makeWooProductFetcher(storeUrl, consumerKey, consumerSecret), ids, productAttrs)
+    }
     // LORAMER_WOO_BATCH_WA_V1 — hand the status=any set through so order_status sees the failed/cancelled/
     // pending orders this line filters out. This ONE argument is what makes forward capture AND the catchup
     // loop (both of which enter here) carry the family — no separate wiring in either route.
-    return summarizeWooOrders(saleOrders, allOrders)
+    return summarizeWooOrders(saleOrders, allOrders, productAttrs)
   } catch (e) {
     console.error('WooCommerce intelligence error:', e)
     return {

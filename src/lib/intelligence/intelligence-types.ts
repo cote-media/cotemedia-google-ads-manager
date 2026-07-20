@@ -475,6 +475,18 @@ export interface IntelligenceShopify {
     // value is SITE-LOCAL, labelled as such rather than mislabelled UTC.
     orderTimes: { orderId: string; createdAtUtc: string; rawGmt: string | null; rawSiteLocal: string | null; gmtAvailable: boolean; netRevenue: number }[]
   }
+  // LORAMER_WOO_BATCH_WB_V1 — product CATEGORY + TAG from the ONE Woo family that needs a second endpoint
+  // (/wc/v3/products, id-batched, _fields-trimmed; line_items carry neither). Net rides the same per-line
+  // pro-rata basis as the product grain, so a category figure is comparable to a product figure.
+  // NON-ADDITIVE: a product belongs to MANY categories, so its net is counted under every one and Σ category
+  // EXCEEDS the day net — by design, never a partition. CAPTURE-TIME SNAPSHOT: the vendor exposes today's
+  // categorisation, not the categorisation as of the order date, so re-walking old days records how products
+  // are organised NOW; wooProductAttrsCapturedAt stamps when we asked.
+  // undefined (no attribute cache was supplied) is deliberately DISTINCT from [] (asked, and this store uses
+  // none) — the row builder must never collapse the first into a zero.
+  wooProductCategoryCapture?: { value: string; netRevenue: number; units: number; products: number }[]
+  wooProductTagCapture?: { value: string; netRevenue: number; units: number; products: number }[]
+  wooProductAttrsCapturedAt?: string
   currencyCode?: string
   currencyMixed?: boolean // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — window spans >1 base currency (rare)
   unknownGeoOrders?: number

@@ -275,5 +275,48 @@ export function buildWooMetricsRows(
     }
   }
 
+  // ── LORAMER_WOO_BATCH_WB_V1 — PRODUCT CATEGORY + TAG ─────────────────────────────────────────────────
+  // The only two Woo families sourced from a SECOND endpoint. `undefined` means no attribute cache was
+  // supplied for this capture (forward without the fetch, or an older cached intel shape) and MUST emit
+  // nothing — silence, not zeros. `[]` means we DID ask and the store has none, which also emits nothing but
+  // for the opposite reason; the distinction is preserved upstream and matters when reading coverage.
+  //
+  // NON-ADDITIVE, and the over-count is the whole shape of the family: a product sits in MANY categories, so
+  // its net is added under every one of them. Σ product_category EXCEEDS the day's net sales. A row answers
+  // "how much revenue touched this category", never "what share of the day was this category".
+  const attrCapturedAt = data.wooProductAttrsCapturedAt ?? null
+  const attrFamilies: [string, { value: string; netRevenue: number; units: number; products: number }[] | undefined][] = [
+    ['product_category', data.wooProductCategoryCapture],
+    ['product_tag', data.wooProductTagCapture],
+  ]
+  for (const [bt, list] of attrFamilies) {
+    for (const a of list || []) {
+      if (!a?.value) continue
+      rows.push({
+        client_id: clientId,
+        user_email: userEmail,
+        platform: 'woocommerce',
+        account_id: storeUrl,
+        entity_level: 'account',
+        entity_id: storeUrl,
+        entity_name: storeUrl,
+        parent_entity_id: storeUrl,
+        date: captureDate,
+        breakdown_type: bt,
+        breakdown_value: a.value,
+        revenue: a.netRevenue,
+        conversions: a.units,
+        extra: {
+          units: a.units,
+          products: a.products,
+          netBasis: 'woo_total_incl_shipping_tax_refundNetted_perline_prorata',
+          semantics: 'CAPTURE_TIME_SNAPSHOT',
+          captured_at: attrCapturedAt,
+          caveat: `a product belongs to MANY ${bt === 'product_category' ? 'categories' : 'tags'}, so its full net is counted under each — Σ ${bt} EXCEEDS net sales and must never be summed or reconciled. Membership is what the store says TODAY, not as of the order date.`,
+        },
+      })
+    }
+  }
+
   return rows
 }

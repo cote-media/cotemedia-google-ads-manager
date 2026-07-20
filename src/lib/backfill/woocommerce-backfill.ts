@@ -22,6 +22,10 @@ import {
   fetchWooOrdersRaw,
   WOO_SALE_STATUSES,
   summarizeWooOrders,
+  fetchWooProductAttrs,
+  makeWooProductFetcher,
+  type WooProductAttrs,
+  type WooProductFetchFn,
 } from '@/lib/intelligence/woocommerce-intelligence'
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { adaptiveFetchWindow, type WooFetchFn } from '@/lib/backfill/woo-adaptive'
@@ -178,6 +182,32 @@ export async function runWooCommerceBackfill(
     outbound += 1
     return baseFetch(s, e)
   }
+  // LORAMER_WOO_BATCH_WB_V1 — the product-attribute fetch, wrapped in the SAME accounting as countedFetch
+  // directly above: it increments the SAME `outbound` counter (so it counts against MAX_OUTBOUND_FETCHES and
+  // against the chunk-top budget check), waits the SAME THROTTLE_MS, runs inside the SAME CAS claim, and stops
+  // the moment the lap stops. That is mitigation 4, and it is the whole reason the HTTP call is injected from
+  // woocommerce-intelligence rather than made there: a raw fetch() in the intelligence module would be outside
+  // every one of these controls, which is precisely the 2026-06-16 Shelley over-request incident (Lesson 51).
+  // It is NOT inside woo-adaptive's ladder — that de-escalates DATE windows and an id batch has no dates;
+  // fetchWooProductAttrs carries the id-space equivalent (halve-and-retry, then mark the ids and move on).
+  const countedProductFetch: WooProductFetchFn = async (ids) => {
+    if (THROTTLE_MS > 0 && outbound > 0) await new Promise((r) => setTimeout(r, THROTTLE_MS))
+    outbound += 1
+    return makeWooProductFetcher(storeUrl, tok.consumer_key as string, tok.consumer_secret as string)(ids)
+  }
+  // LAP-SCOPED cache — created ONCE per invocation, shared by every chunk and every day within the lap. This is
+  // mitigation 1: the product→category mapping is store-level, not daily, so a multi-year re-walk pays for each
+  // product ONCE instead of once per day it sold on.
+  const productAttrCache = new Map<string, WooProductAttrs | null>()
+  // ...but ONLY the breadth namespace pays for it. The 'woo', 'woocommerce_variant' and 'woocommerce_money'
+  // laps re-walk the SAME store, so fetching attributes on all four would quadruple the one family that costs
+  // requests, to write rows the breadth lap already covers for the same history. Those laps still emit the
+  // nine free W-A families; they simply pass no cache, so product_category/product_tag emit NOTHING (silence,
+  // not zeros — the undefined-vs-[] distinction the row builder preserves).
+  const wantsProductAttrs = cursorKey === 'woocommerce_breadth'
+  let productBatches = 0
+  let productIdsFetched = 0
+  let productIdsFailed = 0
 
   let chunks = 0
   let daysWritten = 0
@@ -221,6 +251,22 @@ export async function runWooCommerceBackfill(
         if (!byDay[day]) byDay[day] = []
         byDay[day].push(o)
       }
+      // LORAMER_WOO_BATCH_WB_V1 — one attribute top-up per CHUNK (not per day), for the product ids this chunk
+      // introduced that the lap has not already resolved. Soft by construction: fetchWooProductAttrs never
+      // throws, so a product-lookup failure can never take the orders capture down with it.
+      const chunkProductIds = [...new Set(
+        res.orders
+          .filter((o: any) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
+          .flatMap((o: any) => ((o.line_items as any[]) || []).map((li) => String(li?.product_id ?? '')))
+          .filter(Boolean)
+      )]
+      if (wantsProductAttrs) {
+        const attrStats = await fetchWooProductAttrs(countedProductFetch, chunkProductIds, productAttrCache)
+        productBatches += attrStats.batches
+        productIdsFetched += attrStats.requested
+        productIdsFailed += attrStats.failedIds
+      }
+
       const rows: Record<string, unknown>[] = []
       for (const [day, dayOrders] of Object.entries(byDay)) {
         const saleDay = dayOrders.filter((o) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
@@ -231,7 +277,7 @@ export async function runWooCommerceBackfill(
         // failed/cancelled/pending orders this loop otherwise discards, while every other family stays keyed
         // to the sale anchor. The day key is UNCHANGED: `day` still comes from date_created.slice(0,10)
         // (site-local) exactly as before — order_time's UTC instant lives in breakdown_value, never here.
-        rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summarizeWooOrders(saleDay, dayOrders)))
+        rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summarizeWooOrders(saleDay, dayOrders, wantsProductAttrs ? productAttrCache : undefined)))
         daysWritten += 1
       }
       if (rows.length > 0) {
@@ -305,6 +351,7 @@ export async function runWooCommerceBackfill(
         window: blockWindow, reason: blockReason, blockFails,
         chunksThisRun: chunks, daysWritten, rowsWritten, ordersSeen, saleOrdersSeen,
         earliest: earliestWritten, target: targetStart, outbound,
+        productBatches, productIdsFetched, productIdsFailed, // LORAMER_WOO_BATCH_WB_V1 — attribute-fetch accounting
       },
     }
   }
@@ -321,6 +368,7 @@ export async function runWooCommerceBackfill(
       complete, reachedHistoryStart, timedOut, budgetHit,
       chunksThisRun: chunks, daysWritten, rowsWritten, ordersSeen, saleOrdersSeen,
       earliest: earliestWritten, target: targetStart, outbound,
+      productBatches, productIdsFetched, productIdsFailed, // LORAMER_WOO_BATCH_WB_V1 — attribute-fetch accounting
       resumeFrom: complete ? null : addDays(earliestWritten, -1),
     },
   }
