@@ -226,7 +226,12 @@ export async function runWooCommerceBackfill(
         const saleDay = dayOrders.filter((o) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
         if (saleDay.length === 0) continue // false-zero discipline: no sale that day → write nothing
         saleOrdersSeen += saleDay.length
-        rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summarizeWooOrders(saleDay)))
+        // LORAMER_WOO_BATCH_WA_V1 — `dayOrders` is the status=any set for this day (res.orders is already
+        // status=any; saleDay is the filtered anchor set). Passing BOTH is what lets order_status write the
+        // failed/cancelled/pending orders this loop otherwise discards, while every other family stays keyed
+        // to the sale anchor. The day key is UNCHANGED: `day` still comes from date_created.slice(0,10)
+        // (site-local) exactly as before — order_time's UTC instant lives in breakdown_value, never here.
+        rows.push(...buildWooMetricsRows(clientId, userEmail, day, storeUrl, summarizeWooOrders(saleDay, dayOrders)))
         daysWritten += 1
       }
       if (rows.length > 0) {

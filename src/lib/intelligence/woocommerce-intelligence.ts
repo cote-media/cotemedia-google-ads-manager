@@ -74,6 +74,174 @@ export function buildWooMoneySurface(saleOrders: any[]): NonNullable<Intelligenc
   return { netSales, grossSales, discounts, discountTax, taxes, cartTax, shipping, shippingTax, fees, totalSales, refunds, residual, moneyBasis: 'woo_total_incl_shipping_tax_refundNetted' }
 }
 
+// ── LORAMER_WOO_BATCH_WA_V1 — WOO BREADTH: NINE FAMILIES, ZERO NEW VENDOR REQUESTS ─────────────────────
+// Every field below is ALREADY in the /wc/v3/orders payload we download today and then throw away. Measured
+// live on shelleykyle.com 2026-07-19: one order is 8,935 bytes and we were reading about six fields of it.
+// So this is a pure read-more-of-what-we-have change — no second endpoint, no extra load on the merchant's
+// WordPress server, and nothing new for the throttle / adaptive ladder / circuit-breaker to guard.
+//
+// TWO ORDER SETS, DELIBERATELY. saleOrders is the anchor set (WOO_SALE_STATUSES, refund-netted) that every
+// partitioning family must sum to. allOrders is the status=any set we ALSO already fetch — order_status is
+// the one family that must see it, because failed/cancelled/pending orders are real demand that is currently
+// written NOWHERE. allOrders defaults to saleOrders so a caller that does not have the wider set degrades to
+// sale-statuses-only rather than crashing or fabricating.
+//
+// PII LOCK (tighter than the vendor gives us): billing carries email, phone, first_name, last_name, company,
+// address_1 and address_2, and we read NONE of them. country / state / city only. Postcode is deliberately
+// excluded too — at a small store's order volume a postcode is close to identifying and it buys nothing over
+// city. That is a judgment and it is stated on its face rather than buried.
+function r2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+const UNK = 'UNKNOWN'
+function cleanStr(v: unknown): string | null {
+  const s = String(v ?? '').trim()
+  return s.length > 0 ? s : null
+}
+
+export function buildWooBreadth(saleOrders: any[], allOrders: any[]): NonNullable<IntelligenceShopify['wooBreadth']> {
+  // Accumulators. Every partitioning family keys on a bucket that EVERY sale order lands in (UNKNOWN
+  // included) — dropping an unbucketable order would silently shrink a total that is supposed to reconcile,
+  // which is the sales_channel rule and the reason geo reconciles at all.
+  const country: Record<string, { netRevenue: number; orders: number }> = {}
+  const region: Record<string, { netRevenue: number; orders: number }> = {}
+  const city: Record<string, { netRevenue: number; orders: number }> = {}
+  const payment: Record<string, { slug: string | null; netRevenue: number; orders: number }> = {}
+  const shipMethod: Record<string, { methodId: string | null; shippingCharge: number; orders: number }> = {}
+  const couponCode: Record<string, { discountAmount: number; discountTax: number; orders: number }> = {}
+  const couponType: Record<string, { discountAmount: number; orders: number }> = {}
+  const orderTimes: NonNullable<IntelligenceShopify['wooBreadth']>['orderTimes'] = []
+
+  for (const o of saleOrders) {
+    const net = wooNetOf(o)
+
+    // ── GEO (billing basis) ──────────────────────────────────────────────────────────────────────────
+    // BILLING, not shipping: shipping is legitimately empty for digital goods, virtual products and local
+    // pickup, so a shipping basis would push those orders into UNKNOWN for no reason. Billing is collected
+    // at every checkout. Composite values mirror the Shopify geo ladder so the three rungs read as one
+    // hierarchy and a bare "Springfield" is never ambiguous.
+    const cc = cleanStr(o.billing?.country) ?? UNK
+    const st = cleanStr(o.billing?.state) ?? UNK
+    const ct = cleanStr(o.billing?.city) ?? UNK
+    const rKey = `${cc}-${st}`
+    const cKey = `${cc}-${st}-${ct}`
+    if (!country[cc]) country[cc] = { netRevenue: 0, orders: 0 }
+    country[cc].netRevenue += net; country[cc].orders += 1
+    if (!region[rKey]) region[rKey] = { netRevenue: 0, orders: 0 }
+    region[rKey].netRevenue += net; region[rKey].orders += 1
+    if (!city[cKey]) city[cKey] = { netRevenue: 0, orders: 0 }
+    city[cKey].netRevenue += net; city[cKey].orders += 1
+
+    // ── PAYMENT METHOD ───────────────────────────────────────────────────────────────────────────────
+    // breakdown_value = the human title the merchant sees; the STABLE slug rides extra. payment_method_title
+    // is merchant-editable free text ("Credit Card (Stripe)" → "Card") and will drift across a rename;
+    // payment_method is the gateway slug and is the join key that survives it.
+    const payTitle = cleanStr(o.payment_method_title) ?? cleanStr(o.payment_method) ?? UNK
+    if (!payment[payTitle]) payment[payTitle] = { slug: cleanStr(o.payment_method), netRevenue: 0, orders: 0 }
+    payment[payTitle].netRevenue += net; payment[payTitle].orders += 1
+
+    // ── SHIPPING METHOD ──────────────────────────────────────────────────────────────────────────────
+    // shipping_lines is an ARRAY — a split shipment produces several lines on ONE order (measured: 3 distinct
+    // methods across 5 recent orders on the probe store). So the money here is the shipping CHARGE for that
+    // method, NEVER the order net: attributing net would count the same order under every method it used.
+    // An order is counted ONCE per distinct method even if that method appears on two lines.
+    const linesByMethod: Record<string, { methodId: string | null; charge: number }> = {}
+    for (const sl of (o.shipping_lines as any[]) || []) {
+      const title = cleanStr(sl?.method_title) ?? cleanStr(sl?.method_id) ?? UNK
+      if (!linesByMethod[title]) linesByMethod[title] = { methodId: cleanStr(sl?.method_id), charge: 0 }
+      linesByMethod[title].charge += parseFloat(sl?.total || '0')
+    }
+    for (const [title, v] of Object.entries(linesByMethod)) {
+      if (!shipMethod[title]) shipMethod[title] = { methodId: v.methodId, shippingCharge: 0, orders: 0 }
+      shipMethod[title].shippingCharge += v.charge
+      shipMethod[title].orders += 1
+    }
+
+    // ── COUPONS (code + type) ────────────────────────────────────────────────────────────────────────
+    // MEASURED on the probe store: coupon_lines carries MORE than the published docs list — code, discount,
+    // discount_tax, discount_type, free_shipping, nominal_amount. discount_type is what makes coupon_type a
+    // free second family off the same array (percent / fixed_cart / fixed_product).
+    // NOT the Reports API: /reports/coupons/totals takes NO date parameter, breaks down by discount TYPE not
+    // by CODE, counts coupon DEFINITIONS rather than redemptions, and is transient-cached for a YEAR
+    // (verified in the WC_REST_Report_Coupons_Totals_Controller source). It cannot answer a per-day question.
+    // No coupon on an order → NO row. Absence of a coupon is not a bucket: this family is a subset of
+    // discounting, not a partition of it, so an "UNKNOWN" bucket would imply a completeness it does not have.
+    const seenTypes = new Set<string>()
+    for (const cl of (o.coupon_lines as any[]) || []) {
+      const code = cleanStr(cl?.code)
+      if (!code) continue
+      const amt = parseFloat(cl?.discount || '0')
+      const tax = parseFloat(cl?.discount_tax || '0')
+      if (!couponCode[code]) couponCode[code] = { discountAmount: 0, discountTax: 0, orders: 0 }
+      couponCode[code].discountAmount += amt
+      couponCode[code].discountTax += Number.isFinite(tax) ? tax : 0
+      couponCode[code].orders += 1
+      const ctype = cleanStr(cl?.discount_type) ?? UNK // older WC omits it — labelled, never guessed
+      if (!couponType[ctype]) couponType[ctype] = { discountAmount: 0, orders: 0 }
+      couponType[ctype].discountAmount += amt
+      if (!seenTypes.has(ctype)) { couponType[ctype].orders += 1; seenTypes.add(ctype) } // once per order per type
+    }
+
+    // ── ORDER TIME ───────────────────────────────────────────────────────────────────────────────────
+    // RAW timestamp, NO write-time bucketing — the S-FILL#7 pattern. Bucketing to an hour here would bake a
+    // timezone into history and re-answering "what sold at 3am THEIR time" would need a full recapture; a raw
+    // instant re-buckets for free under any later client-timezone model.
+    //
+    // WOO-SPECIFIC, AND THE REASON THIS IS NOT A COPY OF THE SHOPIFY FAMILY: Shopify's createdAt carries its
+    // offset. Woo's date_created does NOT (measured: 19 chars, no suffix) — it is SITE-LOCAL against an offset
+    // the payload never states, so the string alone is unusable as an instant. date_created_gmt IS present and
+    // IS the unambiguous one, so it becomes the value, with 'Z' appended when the vendor omits it purely so a
+    // reader calling Date.parse() gets UTC instead of silently reinterpreting it as their own local time.
+    // BOTH verbatim vendor strings ride in extra, so normalizing loses nothing and hides nothing.
+    const rawGmt = cleanStr(o.date_created_gmt)
+    const rawLocal = cleanStr(o.date_created)
+    const stamp = rawGmt ?? rawLocal
+    if (stamp) {
+      orderTimes.push({
+        orderId: String(o.id),
+        createdAtUtc: rawGmt ? (/[Zz]|[+-]\d{2}:?\d{2}$/.test(rawGmt) ? rawGmt : rawGmt + 'Z') : (rawLocal as string),
+        rawGmt,
+        rawSiteLocal: rawLocal,
+        gmtAvailable: rawGmt !== null, // false → the value is SITE-LOCAL and says so; never mislabelled UTC
+        netRevenue: r2(net),
+      })
+    }
+  }
+
+  // ── ORDER STATUS — the ONE family that reads the WIDER set ───────────────────────────────────────────
+  // We already fetch status=any and then discard everything outside WOO_SALE_STATUSES, so failed / cancelled /
+  // pending / on-hold orders are demand the platform has never written anywhere (measured: 1 of 5 recent
+  // orders on the probe store is `failed`).
+  //
+  // WHY WRITE-ONLY AND NOT FLAG-NOT-BLOCK, spelled out because the subset is so tempting: the sale-status
+  // subset {completed, processing, refunded} partitions account net EXACTLY and WOULD reconcile. But this
+  // family is all statuses, which is a SUPERSET of the anchor, and the reconcile-posture law tests whether a
+  // grain PARTITIONS the anchor — a superset does not. Shipping it as two families (one reconciling, one not)
+  // would let them drift apart; shipping only the sale subset would throw away the failed orders, which is the
+  // whole reason to build it. So: ONE family, additive:false, with isSale labelling the subset that ties.
+  // ONE MONEY BASIS THROUGHOUT: wooNetOf applied to every order regardless of status. Mixing net for sales
+  // with gross for non-sales would put two different quantities in the same summable column.
+  const status: Record<string, { orderValue: number; orders: number; isSale: boolean }> = {}
+  for (const o of allOrders) {
+    const s = String(o.status || '').toLowerCase().trim() || UNK
+    if (!status[s]) status[s] = { orderValue: 0, orders: 0, isSale: WOO_SALE_STATUSES.has(s) }
+    status[s].orderValue += wooNetOf(o)
+    status[s].orders += 1
+  }
+
+  return {
+    geoCountries: Object.entries(country).map(([value, v]) => ({ value, netRevenue: r2(v.netRevenue), orders: v.orders })),
+    geoRegions: Object.entries(region).map(([value, v]) => ({ value, netRevenue: r2(v.netRevenue), orders: v.orders })),
+    geoCities: Object.entries(city).map(([value, v]) => ({ value, netRevenue: r2(v.netRevenue), orders: v.orders })),
+    paymentMethods: Object.entries(payment).map(([value, v]) => ({ value, slug: v.slug, netRevenue: r2(v.netRevenue), orders: v.orders })),
+    orderStatuses: Object.entries(status).map(([value, v]) => ({ value, orderValue: r2(v.orderValue), orders: v.orders, isSale: v.isSale })),
+    shippingMethods: Object.entries(shipMethod).map(([value, v]) => ({ value, methodId: v.methodId, shippingCharge: r2(v.shippingCharge), orders: v.orders })),
+    couponCodes: Object.entries(couponCode).map(([value, v]) => ({ value, discountAmount: r2(v.discountAmount), discountTax: r2(v.discountTax), orders: v.orders })),
+    couponTypes: Object.entries(couponType).map(([value, v]) => ({ value, discountAmount: r2(v.discountAmount), orders: v.orders })),
+    orderTimes,
+  }
+}
+
 // Raw window fetch (status=any) with a PARAMETRIZED page cap: forward keeps the default (10); the
 // backfill passes a high cap so large windows don't truncate. Throws on a non-OK response (Lesson 15 —
 // never swallow a fetch failure into empty data).
@@ -141,7 +309,11 @@ export async function fetchWooOrdersRaw(
 // Aggregate a set of SALE orders into the IntelligenceShopify shape. Shared by forward (per window) and
 // backfill (per day) so both produce byte-identical rows. Revenue uses wooNetOf (refund-netted);
 // topProducts use line-item gross (unchanged from Phase 1).
-export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
+// LORAMER_WOO_BATCH_WA_V1 — `allOrders` is the status=any set the SAME fetch already returned. It exists for
+// exactly one family (order_status, which must see the failed/cancelled/pending orders the sale filter drops)
+// and DEFAULTS to saleOrders, so every existing caller keeps byte-identical behaviour on the other eight
+// families and a caller without the wider set degrades to sale-statuses-only rather than fabricating.
+export function summarizeWooOrders(saleOrders: any[], allOrders?: any[]): IntelligenceShopify {
   const totalOrders = saleOrders.length
   const totalRevenue = saleOrders.reduce((s: number, o: any) => s + wooNetOf(o), 0)
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
@@ -235,6 +407,7 @@ export function summarizeWooOrders(saleOrders: any[]): IntelligenceShopify {
     productsCapture,
     variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
     money: buildWooMoneySurface(saleOrders), // LORAMER_ECOM_MONEY_SURFACE_V1 (T1.6) — full money split → account extra
+    wooBreadth: buildWooBreadth(saleOrders, allOrders ?? saleOrders), // LORAMER_WOO_BATCH_WA_V1 — nine families, no new fetch
   }
 }
 
@@ -256,7 +429,10 @@ export async function fetchWooCommerceIntelligence(
     const allOrders = await fetchWooOrdersRaw(storeUrl, consumerKey, consumerSecret, after, before, opts?.maxPages ?? 10)
     // LORAMER_WOO_STATUS_ACCURACY_V1 — sale-only + refund-netting (see summarizeWooOrders).
     const saleOrders = allOrders.filter((o: any) => WOO_SALE_STATUSES.has(String(o.status || '').toLowerCase()))
-    return summarizeWooOrders(saleOrders)
+    // LORAMER_WOO_BATCH_WA_V1 — hand the status=any set through so order_status sees the failed/cancelled/
+    // pending orders this line filters out. This ONE argument is what makes forward capture AND the catchup
+    // loop (both of which enter here) carry the family — no separate wiring in either route.
+    return summarizeWooOrders(saleOrders, allOrders)
   } catch (e) {
     console.error('WooCommerce intelligence error:', e)
     return {

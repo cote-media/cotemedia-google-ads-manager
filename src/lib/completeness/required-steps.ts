@@ -75,6 +75,11 @@ export const REQUIRED_STEPS: Record<string, StepDef[]> = {
     { key: 'woo',               cursor: 'woocommerce_backfill', real: { entityLevels: ['account'] } },
     { key: 'woo_variant',       cursor: 'woocommerce_variant',  real: { entityLevels: ['variant'] } },
     { key: 'woocommerce_money', cursor: 'woocommerce_money',    real: { ridesAccount: true } },
+    // LORAMER_WOO_BATCH_WA_V1 — ONE step, ONE cursor, all NINE breadth families (see drain-registry for why
+    // Woo must not follow the one-namespace-per-family convention). geo_country is the REAL probe: it is the
+    // family that must land for a store with ANY billing address on file, so its presence proves the whole
+    // breadth lap ran rather than proving one cheap dimension did.
+    { key: 'woocommerce_breadth', cursor: 'woocommerce_breadth', real: { breakdownTypes: ['geo_country'] } },
   ],
 }
 

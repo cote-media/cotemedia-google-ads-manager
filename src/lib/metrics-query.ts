@@ -615,6 +615,30 @@ export async function queryBreakdown(opts: {
       const z = `Product COLLECTIONS are NOT a partition: a product belongs to MANY collections, so its full net revenue is counted under EVERY collection it sits in — the sum EXCEEDS net sales. Compare collections to EACH OTHER; never sum them and never reconcile them to net sales. SEPARATELY: collection membership is a CAPTURE-TIME SNAPSHOT — Shopify exposes today's membership, not the membership as of the order date, so historical rows reflect how products are organised NOW. A product moved between collections changes what past days look like on re-capture. Products whose collections could not be fetched emit no row rather than a fabricated bucket.`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // ── LORAMER_WOO_BATCH_WA_V1 — WooCommerce breadth caveats (the hour-0 pattern) ──────────────────────
+    // These are what actually reach Lora at answer time; the registry note and the row's extra are
+    // storage-side. Four of the nine Woo families are WRITE-ONLY for four DIFFERENT reasons, and each reason
+    // produces a different wrong answer if she is not told.
+    if (platform === 'woocommerce' && bt === 'order_status') {
+      const z = `WooCommerce order_status covers ALL statuses, INCLUDING failed / cancelled / pending / on-hold — orders that are NOT sales and are NOT in net revenue. It is a SUPERSET of net sales, never a partition of it: NEVER sum these rows to a revenue total. Only the rows with extra.isSale=true ({completed, processing, refunded}) sum to account net sales. The non-sale rows are genuine DEMAND (attempted orders that failed or were cancelled) and are worth reporting as such — just never as revenue.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (platform === 'woocommerce' && bt === 'shipping_method') {
+      const z = `WooCommerce shipping_method money (in conversionValue) is the SHIPPING CHARGE collected for that method, NOT order revenue — revenue is 0 on these rows by design. An order with a split shipment appears under EVERY method it used, so the order counts also over-count against total orders. Compare methods to EACH OTHER; never sum shipping_method into net sales or into a total order count.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (platform === 'woocommerce' && (bt === 'coupon_code' || bt === 'coupon_type')) {
+      const z = `WooCommerce ${bt} amounts (in conversionValue) are coupon DISCOUNT money — what was taken OFF — with orders carrying the coupon in conversions; spend and revenue are 0. Orders with NO coupon produce no row at all, so this is a SUBSET of the day's activity and not a partition of anything: never sum or reconcile it into net sales or into the order discount total. coupon_code is the per-CODE axis and coupon_type is the TYPE axis of the SAME money — never add the two together. Coupon TYPES are an OPEN set, not a fixed enum: WooCommerce core ships percent / fixed_cart / fixed_product but plugins register their own (a real store returned "wbte_sc_bogo"), so an unfamiliar type is a plugin's, not an error. A coupon showing $0 discount is usually a BOGO/free-product coupon whose benefit is not money off — report it as a real use, never as missing data.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (platform === 'woocommerce' && (bt === 'geo_country' || bt === 'geo_region' || bt === 'geo_city')) {
+      const z = `WooCommerce geo is the BILLING address (not ship-to: Woo shipping is empty for digital, virtual and local-pickup orders). It PARTITIONS the day's net sales — one billing address per order — so these rows DO sum to net revenue, with UNKNOWN kept in the partition rather than dropped. CAUTION comparing to Shopify geo: the two use different bases (Woo net INCLUDES shipping and tax and is billing-address; Shopify net EXCLUDES them and is ship-to), so never treat them as like-for-like or add them together.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
+    if (platform === 'woocommerce' && bt === 'order_time') {
+      const z = `WooCommerce order_time is one row PER ORDER carrying a RAW timestamp — bucket it to hours at READ time against the CLIENT's timezone, never assume the raw value is the merchant's clock. WOO-SPECIFIC: Woo's date_created carries no UTC offset, so the value is date_created_gmt (UTC); extra.tzBasis states which, and a store that returned no GMT field is labelled SITE_LOCAL and must not be read as UTC. The row's DATE is the store-local capture day, so a late-evening order can carry a UTC timestamp on the following calendar day. Revenue is order net on the account basis, so these DO sum to the day's net sales.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

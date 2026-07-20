@@ -122,8 +122,37 @@ export const VENDOR_SURFACE = {
     order_time: { grains: ['account'], status: 'captured', confidence: V, note: 'RAW UTC order timestamps to the second, unbucketed; entity_id = order id so same-second orders cannot collide; additive to account net (LORAMER_SHOPIFY_ORDER_TIME_V1).' },
   },
   woocommerce: {
-    // ZERO breadth today — every dimension is a gap (coupons/category/geo/customer-mix/status/time-of-day). Nothing
-    // `captured` to grain-check; the W-FILL queue owns these.
+    // BATCH W-A (LORAMER_WOO_BATCH_WA_V1) — NINE families, all read off the /wc/v3/orders payload we ALREADY
+    // download (measured 8,935 bytes/order on the probe store, of which we previously read ~six fields). ZERO
+    // new vendor requests, so no additional load on the merchant's self-hosted WordPress server.
+    //
+    // THIS BLOCK USED TO BE EMPTY, WHICH MEANT THE COMPLETENESS GATE CHECKED **ZERO** FAMILIES FOR AN ENTIRE
+    // PLATFORM — and not only because nothing was listed: check-capture-completeness.mjs:54 grain-checks
+    // `captured` families ONLY, so listing the gaps would not have helped either. Shipping these nine as
+    // `captured` is what actually switches the gate on for WooCommerce.
+    //
+    // GRAIN COMPLETENESS: `account` IS the full served surface for every one of these. An order is an
+    // account-level event; product and variant are LINE grains and carry no billing address, no payment
+    // method, no order status and no coupon. Declaring them would over-declare a surface the vendor does not
+    // serve — the honesty this manifest's header calls out as what keeps the gate from false-flagging.
+    geo_country: { grains: ['account'], status: 'captured', confidence: V, note: 'BILLING-address country (billing, not ship-to: Woo shipping is empty for digital/pickup). Partitions day net on the wooNetOf basis (incl shipping+tax, refund-netted) — NOT the Shopify net basis (LORAMER_WOO_BATCH_WA_V1).' },
+    geo_region: { grains: ['account'], status: 'captured', confidence: V, note: 'BILLING state/province, composite "<cc>-<state>"; partitions day net (LORAMER_WOO_BATCH_WA_V1).' },
+    geo_city: { grains: ['account'], status: 'captured', confidence: V, note: 'BILLING city, composite "<cc>-<state>-<city>" (bare city is ambiguous); partitions day net; high cardinality. PII: country/state/city only — never postcode/street/email/phone/name (LORAMER_WOO_BATCH_WA_V1).' },
+    payment_method: { grains: ['account'], status: 'captured', confidence: V, note: 'one gateway per order → partitions day net; value = editable title, stable slug in extra (LORAMER_WOO_BATCH_WA_V1).' },
+    order_status: { grains: ['account'], status: 'captured', confidence: V, note: 'ALL statuses incl. failed/cancelled/pending — previously fetched then DISCARDED. WRITE-ONLY: a SUPERSET of account net, not a partition of it; only the isSale subset {completed,processing,refunded} ties to net (LORAMER_WOO_BATCH_WA_V1).' },
+    shipping_method: { grains: ['account'], status: 'captured', confidence: V, note: 'WRITE-ONLY — shipping_lines is an ARRAY (split shipments), so money is the shipping CHARGE in conversionValue and revenue is forced 0; orders counted once PER METHOD (LORAMER_WOO_BATCH_WA_V1).' },
+    coupon_code: { grains: ['account'], status: 'captured', confidence: V, note: 'per-code applied discount from order.coupon_lines. WRITE-ONLY subset of discounting, never net sales. NOT /reports/coupons/totals — that endpoint is date-less, type-not-code, counts definitions not redemptions, cached a year (LORAMER_WOO_BATCH_WA_V1).' },
+    coupon_type: { grains: ['account'], status: 'captured', confidence: V, note: 'coupon_lines.discount_type. OPEN value set, not a 3-value enum — falsified at Gate-A: a real store returned the plugin type "wbte_sc_bogo" beside core "fixed_cart" (wc_get_coupon_types is a filter). BOGO coupons report $0 discount (benefit is a free product) — a real use, not a missing value. Same WRITE-ONLY posture as coupon_code (LORAMER_WOO_BATCH_WA_V1).' },
+    order_time: { grains: ['account'], status: 'captured', confidence: V, note: 'RAW timestamps, unbucketed, one row per order (entity_id = order id). WOO-SPECIFIC: date_created carries NO offset, so the value is date_created_gmt normalized to UTC with both verbatim strings in extra. Row date stays the SITE-LOCAL capture day — the day key is deliberately unchanged (LORAMER_WOO_BATCH_WA_V1).' },
+    // ── STILL GAP (the W-FILL queue; never grain-checked) ──
+    // Category/tag is the only remaining family needing a SECOND endpoint (/wc/v3/products, id-batched with
+    // _fields — measured 341 bytes/product trimmed vs 10,130 untrimmed) and must route through the backfill's
+    // countedFetch so it stays inside the throttle + outbound budget + breaker. Cohort is blocked on a
+    // decision, not on engineering: customer_id is 0 for GUEST checkout (measured on a real order), so
+    // identity would have to come from the billing email — a new PII call that is Russ's to make.
+    product_category: { grains: ['account'], status: 'gap', confidence: V, note: 'W-FILL — needs the separate /wc/v3/products call (line_items carry NO category, confirmed on a real payload). MANY-TO-MANY (measured up to 9 categories on one product) → will be WRITE-ONLY like Shopify product_collection, never a partition.' },
+    product_tag: { grains: ['account'], status: 'gap', confidence: V, note: 'W-FILL — same /wc/v3/products call as product_category. Measured 0/25 products tagged on the probe store: expect thin, and an empty family must read as "this store does not use tags", not as a capture gap.' },
+    customer_cohort: { grains: ['account'], status: 'gap', confidence: D, note: 'W-FILL, DECISION-REQUIRED not unbuilt: customer_id is 0 for guest checkout (measured), so lifetime identity needs the billing EMAIL — a new PII touch beyond the Batch-C lock. Path (a) /wc/v3/customers sees registered customers only and collapses a guest-heavy store into one UNKNOWN bucket.' },
   },
 }
 

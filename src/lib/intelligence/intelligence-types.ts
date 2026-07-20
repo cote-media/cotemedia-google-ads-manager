@@ -444,6 +444,37 @@ export interface IntelligenceShopify {
   // createdAt is the verbatim Shopify UTC ISO-8601 string (to the second); it is NEVER bucketed to an hour at
   // write time so a later client-timezone model can re-bucket the full history with zero recapture.
   orderTimesCapture?: { orderId: string; createdAt: string; netRevenue: number }[]
+  // LORAMER_WOO_BATCH_WA_V1 — WooCommerce breadth: NINE families read off the order JSON we ALREADY fetch
+  // (zero new vendor requests). Deliberately woo-namespaced rather than reusing the Shopify capture fields
+  // above: the money BASES differ (Woo net = o.total INCL shipping+tax, refund-netted; Shopify net EXCLUDES
+  // them) and the geo BASIS differs (Woo = BILLING address, Shopify = ship-to). Sharing the field names would
+  // make two different quantities look interchangeable to any future reader — the exact confusion the
+  // money-surface flight's moneyBasis label exists to prevent.
+  //
+  // POSTURES, per the reconcile-posture law and NOT uniform (see the registry notes for the derivations):
+  //   PARTITION the day net → geoCountries/geoRegions/geoCities (one billing address per order),
+  //     paymentMethods (one per order), orderTimes (one timestamp per order).
+  //   NOT a partition → orderStatuses (a SUPERSET of the anchor: it includes the failed/cancelled/pending
+  //     orders we fetch and currently discard), shippingMethods (shipping_lines is an ARRAY — split
+  //     shipments would double-count net), couponCodes/couponTypes (discount money, not a share of net,
+  //     and non-coupon orders are excluded entirely).
+  wooBreadth?: {
+    geoCountries: { value: string; netRevenue: number; orders: number }[]
+    geoRegions: { value: string; netRevenue: number; orders: number }[]
+    geoCities: { value: string; netRevenue: number; orders: number }[]
+    paymentMethods: { value: string; slug: string | null; netRevenue: number; orders: number }[]
+    // orderValue is wooNetOf applied UNIFORMLY to every status (ONE basis, never mixed); isSale marks the
+    // {completed,processing,refunded} subset that sums to account net by construction.
+    orderStatuses: { value: string; orderValue: number; orders: number; isSale: boolean }[]
+    // shippingCharge = Σ shipping_lines.total for that method — the CHARGE, never the order net.
+    shippingMethods: { value: string; methodId: string | null; shippingCharge: number; orders: number }[]
+    couponCodes: { value: string; discountAmount: number; discountTax: number; orders: number }[]
+    couponTypes: { value: string; discountAmount: number; orders: number }[]
+    // createdAtUtc = date_created_gmt normalized to an unambiguous ISO-8601 UTC instant; both verbatim vendor
+    // strings are carried so nothing is lost. gmtAvailable=false → the store returned no GMT field and the
+    // value is SITE-LOCAL, labelled as such rather than mislabelled UTC.
+    orderTimes: { orderId: string; createdAtUtc: string; rawGmt: string | null; rawSiteLocal: string | null; gmtAvailable: boolean; netRevenue: number }[]
+  }
   currencyCode?: string
   currencyMixed?: boolean // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — window spans >1 base currency (rare)
   unknownGeoOrders?: number

@@ -525,6 +525,33 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     },
   },
   {
+    // LORAMER_WOO_BATCH_WA_V1 — WooCommerce BREADTH: geo_country + geo_region + geo_city + payment_method +
+    // order_status + shipping_method + coupon_code + coupon_type + order_time.
+    //
+    // ⛔ ONE STEP FOR ALL NINE FAMILIES. DO NOT SPLIT THIS INTO ONE STEP PER FAMILY.
+    // The one-module-per-family convention that the Meta and Shopify breadth steps follow is WRONG HERE, and
+    // this is the single most important line in the file for WooCommerce. Woo runs on the MERCHANT'S OWN
+    // self-hosted WordPress server — the same box that serves their live storefront — and a cursor namespace
+    // is a full history re-walk of it (Shelley: 7.5 years, 2018-12-11 to today). Nine namespaces would be
+    // NINE re-walks of a live customer's server to collect data that all arrives in the SAME response bytes.
+    // One namespace, one re-walk, nine families. The gentle-citizen posture (Lesson 51, the 2026-06-16
+    // Shelley incident) is not just throttle + breaker; it is also refusing to ask twice for what one ask
+    // already returned.
+    //
+    // ZERO new vendor requests: every field is already in the /wc/v3/orders payload we download today. This
+    // step costs exactly what the existing 'woo' step costs — it is the same fetch, read properly.
+    // Rides the SAME writer, so the throttle (300ms), adaptive 21→7→1 ladder, CAS claim and circuit-breaker
+    // all carry over unchanged. After 'woocommerce_money'; last and gentlest, as every Woo step is.
+    key: 'woocommerce_breadth',
+    platforms: ['woocommerce'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_breadth') — writer has no dryRun; live lap pending" } }
+      const { body } = await runWooCommerceBackfill(conn.client_id, { cursorPlatform: 'woocommerce_breadth' })
+      if (body?.skipped) return { done: false, detail: { note: 'woo breadth writer claim held by another invocation', body } }
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
     // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — GA4 dimensional breadth (families A–I) as metrics_daily breakdown rows on
     // the 7-col key. WRITE-ONLY (GA = attribution/label, never reconcile). Cursor-resuming ('ga_dimensional'), walks
     // to the property data-start; runs under the drain's per-client __drain_ga claim (= per-property lease; GA quota
