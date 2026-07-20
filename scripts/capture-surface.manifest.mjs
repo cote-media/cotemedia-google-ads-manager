@@ -66,9 +66,10 @@ export const VENDOR_SURFACE = {
     // ZERO rows on both probe clients.
     creative_automation_asset_id: { grains: ['campaign', 'ad_set', 'ad'], status: 'on-demand', confidence: V, note: 'valid breakdown, ZERO rows on both probe clients 2026-07-19 — not worth a report/level/lap until a client populates it (same posture as SKAN).' },
     // ── gaps (vendor serves, not built) — never flagged ──
-    geo_dma: { grains: G4, status: 'gap', confidence: V, note: 'M-FILL#3. `dma` REMOVED by Meta 2026 → comscore_market (market/DMA), FORWARD-ONLY (~2026-06+), only comScore-measured campaigns populate. Not built.' },
+    comscore_market: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#3 SHIPPED — the forward-only replacement for the REMOVED `dma`. Empty = account not comScore-measured, NOT a gap (LORAMER_META_BATCH_MG_V1).' },
+    frequency_value: { grains: G4, status: 'on-demand', confidence: V, note: 'NOT BUILT — deliberately. MEASURED 2026-07-19: zero rows on every probe account — Meta serves it only for reach/frequency-optimised buys, which no cohort client runs. A writer WAS written and then REMOVED: the meta-breadth-forward guard correctly refuses a writer that exists without forward wiring (a backfill-only dim freezes at its ship date — the G1 lesson), and weakening that guard to house dead code would be the wrong trade. The shared engine (meta-simple-breakdown-core.ts) is shipped, so re-adding this is a ~6-line FieldCfg plus its forward+drain entries when a client with reach/frequency buys arrives (same posture as SKAN).' },
     ranking: { grains: ['ad'], status: 'removed', confidence: V, note: 'CAPTURED as base-row extra at ad grain (LORAMER_META_BATCH_MA_V1) — quality/engagement_rate/conversion_rate_ranking are metric FIELDS, not a breakdown, so there is no breakdown_type and nothing for the grain gate to check. Marked removed (not gap) so it is neither flagged nor re-proposed.' },
-    product_id: { grains: G4, status: 'gap', confidence: V, note: 'catalog product_id grain — M-FILL#4.' },
+    product_id: { grains: ['campaign', 'ad_set', 'ad'], status: 'captured', confidence: V, note: 'M-FILL#4 SHIPPED. WRITE-ONLY (measured: does not partition even within catalog campaigns); account derive-not-capture → 3 grains complete (LORAMER_META_BATCH_MG_V1).' },
   },
   google: {
     search_term: { grains: ['ad_group'], status: 'captured', confidence: V },

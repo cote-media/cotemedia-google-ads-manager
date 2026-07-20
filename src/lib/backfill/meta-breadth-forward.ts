@@ -30,6 +30,8 @@ import { runMetaVideoBackfill } from './meta-video-backfill'
 import { runMetaGeoBackfill } from './meta-geo-backfill'
 import { runMetaHourBackfill } from './meta-hour-backfill'
 import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
+import { runMetaProductIdBackfill } from './meta-product-id-backfill'
+import { runMetaComscoreMarketBackfill } from './meta-comscore-market-backfill'
 import { runMetaAttributionWindowBackfill } from './meta-attribution-window-backfill' // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2)
 import { runMetaPlacementAdsetAdBackfill } from './meta-placement-backfill' // LORAMER_META_PLACEMENT_ADSET_AD_V1 — ad_set+ad grains (campaign forward is meta-metrics-row)
 
@@ -88,6 +90,8 @@ export const META_BREADTH_FORWARD: { key: string; run: MetaBreadthWriter }[] = [
   { key: 'asset', run: runMetaAssetBackfill as MetaBreadthWriter },
   // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2) — per-window attribution decomposition of every action_type
   // (breakdown_type='attribution_window', value='<action_type>:<window>'). 4 levels, 1 call/level. WRITE-ONLY.
+  { key: 'product_id', run: runMetaProductIdBackfill as MetaBreadthWriter }, // LORAMER_META_BATCH_MG_V1
+  { key: 'comscore_market', run: runMetaComscoreMarketBackfill as MetaBreadthWriter }, // LORAMER_META_BATCH_MG_V1
   { key: 'attribution_window', run: runMetaAttributionWindowBackfill as MetaBreadthWriter },
   // LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement at ad_set + ad ONLY (campaign forward = meta-metrics-row). 2 calls/day.
   { key: 'placement_adset_ad', run: runMetaPlacementAdsetAdBackfill as MetaBreadthWriter },

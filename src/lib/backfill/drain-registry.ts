@@ -28,6 +28,8 @@ import { runMetaVideoBackfill } from './meta-video-backfill' // LORAMER_META_VID
 import { runMetaGeoBackfill } from './meta-geo-backfill' // LORAMER_META_GEO_BACKFILL_V1
 import { runMetaHourBackfill } from './meta-hour-backfill' // LORAMER_META_HOUR_V1
 import { runMetaAssetBackfill } from './meta-asset-backfill' // LORAMER_META_ASSET_CAPTURE_V1 (M-FILL#1)
+import { runMetaProductIdBackfill } from './meta-product-id-backfill'
+import { runMetaComscoreMarketBackfill } from './meta-comscore-market-backfill' // LORAMER_META_BATCH_MG_V1
 import { runMetaAttributionWindowBackfill } from './meta-attribution-window-backfill' // LORAMER_META_ATTRIBUTION_WINDOW_V1 (M-FILL#2)
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
@@ -138,6 +140,13 @@ const META_ASSET_WINDOW_DAYS = 9
 // 4 levels). Start conservative at 15d, tune UP after a Gate-B live lap timing. WRITE-ONLY (windows overlap → never
 // reconciled). floor36. After meta_asset.
 const META_ATTR_WINDOW_DAYS = 15
+
+// LORAMER_META_BATCH_MG_V1 — product_id + comscore_market. ONE breakdown each × 3 levels = 3 reports/lap,
+// the lightest fan-out of any Meta breadth step. 15d matches asset/attribution conservatism.
+// frequency_value is deliberately NOT given a step: MEASURED zero rows on every probe account (Meta serves
+// it only for reach/frequency-optimised buys, which nobody in the cohort runs). The writer exists; wiring it
+// would pay a report per level per lap for guaranteed-empty data.
+const META_SIMPLE_WINDOW_DAYS = 15
 
 // LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement grain-completion window. 2 levels (ad_set + ad) × 1 insights call
 // each = 2 reports/lap, but ad-level placement is ROW-HEAVY (ads × placements × days). 60d, tune up after Gate-B.
@@ -392,6 +401,21 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     key: 'meta_attribution_window',
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_attribution_window', runMetaAttributionWindowBackfill as RangeWriter, dryRun, META_ATTR_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_BATCH_MG_V1 — catalog/Advantage+ product grain. WRITE-ONLY (measured: does NOT partition
+    // even within catalog campaigns), so the writer runs no reconcile. Empty on non-catalog accounts BY DESIGN.
+    key: 'meta_product_id',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_product_id', runMetaProductIdBackfill as RangeWriter, dryRun, META_SIMPLE_WINDOW_DAYS),
+  },
+  {
+    // LORAMER_META_BATCH_MG_V1 — comscore_market, the forward-only replacement for the REMOVED `dma`.
+    // Populates ONLY for comScore-measured accounts and only from ~2026-06. Empty is the expected answer
+    // everywhere else and must never be read as a capture gap.
+    key: 'meta_comscore_market',
+    platforms: ['meta'],
+    runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_comscore_market', runMetaComscoreMarketBackfill as RangeWriter, dryRun, META_SIMPLE_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
