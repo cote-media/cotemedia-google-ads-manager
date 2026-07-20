@@ -647,6 +647,14 @@ export async function queryBreakdown(opts: {
       const z = `WooCommerce product ${noun} are NOT a partition: a product belongs to MANY of them (measured up to 11 categories on one product), so its full net revenue is counted under EVERY one — Σ ${bt} EXCEEDS net sales, measured 4.43× on a real window. Compare values to EACH OTHER; never sum them and never reconcile them to net sales. SEPARATELY: membership is a CAPTURE-TIME SNAPSHOT — WooCommerce exposes how products are organised NOW, not as of the order date, so re-capturing an old day can legitimately change it (extra.captured_at records when we asked). ${bt === 'product_tag' ? 'FINALLY: Woo tags are OPTIONAL and many stores use none (measured 0 of 71 products tagged on one real store while 70 of 71 carried a category). An empty product_tag result means THIS STORE DOES NOT TAG ITS PRODUCTS — say that; it is not a gap in what we captured.' : 'Products whose category lookup failed emit no row rather than a fabricated bucket.'}`
       result.note = result.note ? `${result.note} ${z}` : z
     }
+    // LORAMER_WOO_COHORT_V1 — the Woo cohort is a DIFFERENT construction from the Shopify one and the
+    // difference matters at answer time: identity is the EMAIL (so guest checkouts, the majority of orders on
+    // a real Woo store, are matched), and the lifetime count comes from a full-history sweep rather than a
+    // vendor-supplied counter. Lora should say what the number is, and what it is not.
+    if (platform === 'woocommerce' && bt === 'customer_cohort') {
+      const z = `WooCommerce cohorts bucket each order by its customer's TRUE LIFETIME order count across the store's ENTIRE history (1 / 2-3 / 4-9 / 10+), matched by EMAIL — so GUEST checkouts are matched too, which matters because guests are the majority of orders on a typical Woo store (measured 86% on one real window). This is a lifetime fact, not a within-window one: a customer whose first purchase was years ago reads as a repeat buyer even in a window containing only their latest order. UNKNOWN = the order carried no usable email; it stays IN the partition, so the buckets DO sum to the day's net sales. Identity is computed from a hash held in memory only and is never stored — there are no per-customer rows, no emails and no hashes in the data, only buckets, counts and money.`
+      result.note = result.note ? `${result.note} ${z}` : z
+    }
     await resolveGeoRows(result, platform, bt) // LORAMER_GEO_RESOLVE_V1 — name the topN google-geo ids (bounded path)
     return result
   }

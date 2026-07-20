@@ -80,6 +80,8 @@ export const REQUIRED_STEPS: Record<string, StepDef[]> = {
     // family that must land for a store with ANY billing address on file, so its presence proves the whole
     // breadth lap ran rather than proving one cheap dimension did.
     { key: 'woocommerce_breadth', cursor: 'woocommerce_breadth', real: { breakdownTypes: ['geo_country'] } },
+    // LORAMER_WOO_COHORT_V1 — one-shot full-history pass, its own cursor; terminal once complete.
+    { key: 'woocommerce_cohort',  cursor: 'woocommerce_cohort',  real: { breakdownTypes: ['customer_cohort'] } },
   ],
 }
 

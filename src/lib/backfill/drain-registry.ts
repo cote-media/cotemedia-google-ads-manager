@@ -34,6 +34,7 @@ import { runMetaAttributionWindowBackfill } from './meta-attribution-window-back
 import { runGoogleDimensionalBackfill } from './google-dimensional-backfill'
 import { runShopifyDeepBackfill } from './shopify-dimensional-backfill'
 import { runWooCommerceBackfill } from './woocommerce-backfill'
+import { runWooCohortPass } from './woo-cohort-backfill'
 import { runGaDimensionalBackfill } from './ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1
 
 export interface DrainConn {
@@ -548,6 +549,24 @@ export const DRAIN_REGISTRY: DrainStep[] = [
       if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_breadth') — writer has no dryRun; live lap pending" } }
       const { body } = await runWooCommerceBackfill(conn.client_id, { cursorPlatform: 'woocommerce_breadth' })
       if (body?.skipped) return { done: false, detail: { note: 'woo breadth writer claim held by another invocation', body } }
+      return { done: body?.complete === true, detail: body }
+    },
+  },
+  {
+    // LORAMER_WOO_COHORT_V1 — WooCommerce customer_cohort. The ONE Woo step that is NOT a chunked lap, and it
+    // has its own step precisely BECAUSE it cannot be one: a lifetime cohort needs every order a customer ever
+    // placed, and a 21-day chunk cannot supply that. It sweeps the full history once, builds an in-memory
+    // email-hash identity map, writes every day's cohort rows, and marks complete — terminal, idempotent, and
+    // never re-walked. Its own ~400s budget (measured: the real store is 109 pages / ~215s) fits inside the
+    // drain's 680s fire and 800s maxDuration. Over its store-size ceiling it emits NOTHING, loudly, and does
+    // NOT mark complete — a partial sweep would under-count lifetimes and mislabel loyal customers as
+    // first-timers, which is worse than the family being absent. Last: gentlest position for the heaviest pass.
+    key: 'woocommerce_cohort',
+    platforms: ['woocommerce'],
+    runLap: async (conn, { dryRun }) => {
+      if (dryRun) return { done: false, detail: { plan: 'runWooCohortPass — one-shot full-history sweep; live pass pending' } }
+      const { body } = await runWooCohortPass(conn.client_id, {})
+      if (body?.skipped) return { done: false, detail: { note: 'woo cohort claim held by another invocation', body } }
       return { done: body?.complete === true, detail: body }
     },
   },

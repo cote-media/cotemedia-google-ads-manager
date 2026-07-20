@@ -156,7 +156,10 @@ export const VENDOR_SURFACE = {
     // and the circuit-breaker. Gate-A lap: 11 sale-days cost 2 product requests, 4 outbound total of 500.
     product_category: { grains: ['account'], status: 'captured', confidence: V, note: 'separate id-batched /wc/v3/products call (line_items carry NO category). NON-ADDITIVE over-count — measured 4.43× net on a real window, up to 11 categories on one product. CAPTURE-TIME SNAPSHOT (LORAMER_WOO_BATCH_WB_V1).' },
     product_tag: { grains: ['account'], status: 'captured', confidence: V, note: 'rides the SAME batched call as product_category (no extra request). Measured 0/71 products tagged on the probe store — an EMPTY family means this store does not tag, NOT a capture gap. Same non-additive + snapshot semantics (LORAMER_WOO_BATCH_WB_V1).' },
-    customer_cohort: { grains: ['account'], status: 'gap', confidence: D, note: 'W-FILL, DECISION-REQUIRED not unbuilt: customer_id is 0 for guest checkout (measured), so lifetime identity needs the billing EMAIL — a new PII touch beyond the Batch-C lock. Path (a) /wc/v3/customers sees registered customers only and collapses a guest-heavy store into one UNKNOWN bucket.' },
+    // LORAMER_WOO_COHORT_V1 — one-shot full-history sweep with its OWN drain step: a lifetime question cannot
+    // be answered from a 21-day chunk. Email identity, hashed in memory, never stored. Ceiling 20,000 orders;
+    // over it the family emits NOTHING loudly rather than a partial sweep carrying wrong lifetime counts.
+    customer_cohort: { grains: ['account'], status: 'captured', confidence: V, note: 'TRUE-lifetime buckets 1/2-3/4-9/10+ via EMAIL identity (registered AND guest — customer_id is 0 for guests, who are 86% of orders on the real store). Identity = in-memory sha256, NEVER stored; only bucket + money land. UNKNOWN = no email on the order, kept IN the partition. Partitions day net. Store-size ceiling 20,000 orders (LORAMER_WOO_COHORT_V1).' },
   },
 }
 

@@ -415,18 +415,20 @@ export function summarizeWooOrders(saleOrders: any[], allOrders?: any[], product
   const totalRevenue = saleOrders.reduce((s: number, o: any) => s + wooNetOf(o), 0)
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
-  const orderCountByCustomer: Record<string, number> = {}
-  saleOrders.forEach((o: any) => {
-    const cid = String(o.customer_id || 'guest_' + o.id)
-    orderCountByCustomer[cid] = (orderCountByCustomer[cid] || 0) + 1
-  })
-  let newCustomers = 0
-  let returningCustomers = 0
-  saleOrders.forEach((o: any) => {
-    const cid = String(o.customer_id || 'guest_' + o.id)
-    if (orderCountByCustomer[cid] === 1) newCustomers++
-    else returningCustomers++
-  })
+  // LORAMER_WOO_COHORT_V1 — THE WITHIN-WINDOW NEW-VS-RETURNING SPLIT IS DELETED, NOT REPAIRED.
+  // What used to live here counted each customer's orders WITHIN THE WINDOW and called a customer with one
+  // order "new". That is definitionally wrong: a customer's second-ever order reads as new whenever their
+  // first fell outside the window, and every guest order read as new always (the old code keyed guests as
+  // `guest_<orderId>`, so one person checking out twice was two brand-new customers). It is the exact
+  // LORAMER_CUSTOMER_MIX_FIX_V1 trap Shopify already had removed, and it survived here only because the
+  // captured render path suppressed it behind customerMixComingSoon.
+  // A window CANNOT answer a lifetime question, so this function no longer pretends to. The real answer now
+  // exists: breakdown_type='customer_cohort', built by woo-cohort-backfill.ts from a full-history sweep with
+  // email identity, where a repeat customer is one because their whole history says so. Consumers read the
+  // cohort family; this flag tells the UI to render an honest "unavailable" rather than a fabricated split.
+  const newCustomers = undefined
+  const returningCustomers = undefined
+  const customerMixUnavailable = true
 
   const productSales: Record<string, { name: string; revenue: number; units: number }> = {}
   saleOrders.forEach((o: any) => {
@@ -524,6 +526,7 @@ export function summarizeWooOrders(saleOrders: any[], allOrders?: any[], product
     avgOrderValue,
     newCustomers,
     returningCustomers,
+    customerMixUnavailable, // LORAMER_WOO_COHORT_V1 — honest "unavailable"; the real split is the cohort family
     topProducts,
     productsCapture,
     variantsCapture, // LORAMER_VARIANT_SKU_CAPTURE_T1_7_V1
