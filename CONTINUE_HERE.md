@@ -34,6 +34,57 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-19 — THE CAPTURE-BREADTH DAY: three platforms closed their never-started list) — SHIPPED
+
+Eleven commits, all deployed. Shopify never-started 7 → 0, Meta 8 → 3, WooCommerce 0 → 12 breadth families.
+The completeness gate now checks 91 captured families. Status per family is NOT restated here — it lives in
+src/lib/breakdown-registry.ts (per-family postures + measurements), scripts/capture-surface.manifest.mjs (the
+gated surface) and docs/LORAMER_DATA_COMPLETENESS.md (the offered-vs-captured delta). Open items and the
+build order live in LORAMER_QUEUE_OF_RECORD.md. This entry is the NARRATIVE: what we learned.
+
+WHAT THE DAY ACTUALLY TAUGHT, in the order it bit:
+· MEASUREMENT BEAT THE BRIEF, FOUR TIMES, and each time the plan was mine and the correction was the data's.
+  Meta product_id was specified FLAG-NOT-BLOCK and measured a 49% shortfall against the campaigns it appears
+  on → WRITE-ONLY. Shopify collections were specified as a field-widen and measured 1,036 points against a
+  1,000-point ceiling that Shopify enforces BEFORE execution → a separate batched call. Woo coupon_type was
+  specified as a 3-value enum and returned a plugin type ("wbte_sc_bogo") → an open set. Woo cohort was
+  approved as registered-only and the vendor field did not exist on an HPOS store at all → email identity.
+  The pattern is not "briefs are wrong"; it is that a posture asserted from docs is a hypothesis, and the
+  only honest place to settle it is a live probe against a real account before authoring.
+· THE GUARDS REFUSED ME TWICE AND WERE RIGHT BOTH TIMES. The breadth-forward guard rejected a shared module
+  exporting three runners, and later refused a writer that existed without forward wiring — I conformed to
+  the convention and DELETED the dead writer rather than relaxing the check. The capture gate then caught a
+  half-shipped family: the manifest declared woo customer_cohort `captured` while a scripted edit had
+  silently failed to apply to the registry, so it would have been invisible to Lora while looking complete.
+  Every one of those was cheaper to obey than to argue with, which is the whole case for build guards over
+  banked prose.
+· SELF-HOSTED SOURCES ARE A DIFFERENT ANIMAL, and WooCommerce forced the rule into code. Woo runs on the
+  merchant's own WordPress box — the same server serving their storefront — so a cursor namespace is a full
+  history re-walk of a live business. Nine families that arrive in the SAME response bytes ride ONE
+  namespace. Being a gentle citizen is not just throttle and breaker; it is refusing to ask twice for what
+  one ask already returned.
+· THE CHEAPEST BREADTH WAS ALREADY PAID FOR. Nine of Woo's twelve families came out of bytes we were already
+  downloading and discarding — an 8,935-byte order payload of which the writer read about six fields. Before
+  adding a request, read what the response already contains.
+· AND ONE FEATURE OUTRAN ITS PAPERWORK. The Woo cohort is PII-safe in code — email hashed in memory,
+  discarded on return, nothing identifying stored, name/phone/address never even received — but processing a
+  customer email is a legal posture, not only an engineering one. It opened a launch blocker
+  (★COHORT-PRIVACY-DOCS in the QUEUE): Privacy Policy section + DPA before any real merchant uses it.
+
+NEXT STEP (authoritative, in priority order):
+1. GOOGLE G-FILL Gate-A at the 2026-07-20 ~04:03 ET quota reset. ⛔ FIRST MOVE IS A REBASE, NOT A MERGE:
+   branch wip/google-gfill1-9-held-4am (4fcf717) is based BEFORE today's eleven commits, so a straight merge
+   would REVERT the capture work. Rebase onto main, or cherry-pick the code files only. Then G-FILL#3 Gate-B,
+   G-FILL#1 Gate-A (migration already applied to prod), G-FILL#9 Gate-A, then forward-wire Google's 16
+   never-started and run history at the reset — with the DRAIN HELD OFF the window so Gate-A gets first quota.
+2. GA4 LEG — 7 never-started families, ga_age/ga_gender frozen since 2026-05-19, and dimensional depth that
+   starts 2026-01-01 against base rows going back to 2022. BLOCKED on Air env parity: GOOGLE_ANALYTICS_CLIENT_ID
+   and _SECRET are PLACEHOLDERS on the MacBook Air, and `vercel env pull` returns them blank because they are
+   sensitive. The real values live in the Google Cloud Console project "LoraMer GA Connector" — that needs a
+   computer, so it cannot be unblocked from the phone. Do it at the iMac.
+3. THEN, in order: the standard-C live-DB landing gate (blocked behind META-BACKFILL-OBSERVED-ZERO) → the
+   Meta M8 asset-media-library storage decision → the cohort Privacy-Policy/DPA drafting flight.
+
 ## Session log (2026-07-14 — portfolio-metrics 500 fix + header label) — SHIPPED + GATE-A PROVEN (LORAMER_NEXT_PORTFOLIO_METRICS_INDEX_V1)
 -next All-clients portfolio showed "—" Spend/Revenue for EVERY client. ROOT: /api/next/portfolio-metrics was 500-ing — its account-canonical scan (entity_level='account' AND breakdown_type='' AND breakdown_value='') across all accessible clients had NO supporting index (every metrics_daily index leads with (client_id, platform, …) and the query constrains ALL platforms), so on the grown table (33M rows / 27GB after GA-dimensional + geo/dimensional breadth) it exceeded the 2-min statement timeout → PostgREST error → the route's `if(error) return 500` → the client's `r.ok?…:{metrics:[]}` emptied the map → "—" everywhere. The DATA was real all along (Veterinary $2,079.58 spend / $29 GA rev; Ennis + My Vacation Network honest $0). FIX (migration 035 — INDEX ONLY, no rows/writers/reconcile/readiness touched): partial index idx_metrics_daily_account_canonical ON metrics_daily (client_id, date) INCLUDE (platform, spend, revenue) WHERE entity_level='account' AND breakdown_type='' AND breakdown_value='' — applied via MCP in one txn with statement_timeout lifted (non-concurrent; a 27GB CONCURRENTLY build exceeds the pooled 2-min ceiling), index valid, 1976 kB. EXPLAIN before = filter-scan on idx_metrics_daily_client_platform_date, cost 35061/client, TIMEOUT; after = Index Only Scan on the new index, 81.9 ms for the full This-month window across all clients. Code: (a) MultiClientOverview flags loadError on ANY non-200 and shows a neutral "Couldn't load — retry" banner (a 500 can never again masquerade as empty "—"; genuine $0/$0 stays honest); (b) header no longer falsely shows "The Escential Group" on the portfolio — Shell's default clientName changed off the real-name literal to 'All clients' + clients/page.tsx passes clientName="All clients". Bugs #1 and #3 did NOT share a cause (query timeout vs display default) — the stale/default active client was NOT why metrics were "—". Sort & filter is a separately-tracked inert stub (not this ship). GATE-A tsc=0 build=0. SHIPPED this commit.
 

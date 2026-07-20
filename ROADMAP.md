@@ -1,7 +1,7 @@
 # LoraMer — Product Roadmap
 <!-- LORAMER_ROADMAP_REFRESH_V1 -->
 
-*Last updated: June 25, 2026*
+*Last updated: July 19, 2026*
 
 LoraMer is a business intelligence platform for marketing agencies and business owners. It pulls every signal a business produces (Shopify, Google Ads, Meta Ads, and more) into a unified intelligence layer, then lets Claude reason across all of it.
 
@@ -1448,6 +1448,22 @@ STATUS:
     proven on My Vacation Network 1266 rows + a second client).
 - Shopify - forward-capture + deep backfill: DONE (LORAMER_SHOPIFY_DEEP_BACKFILL_V1; 3 stores reconciled $0.00 residual; read_all_orders, no purge clock).
 - WooCommerce - forward-capture + backfill: DONE (LORAMER_WOO_BACKFILL_2A_V1 + atomic breaker; Shelley 2018-12→2026, ~7.5yr; deep tail 2016-2018 deferred under the live-store HARD GATE).
+
+BREADTH STATUS (2026-07-19) — depth was never the whole job; a platform can be backfilled to the floor and
+still be answering a fraction of the questions its API serves. The capture surface is GENERATED and
+build-gated (scripts/capture-surface.manifest.mjs + check-capture-completeness.mjs), and it now checks
+**91 captured families**: google 27 · meta 25 · shopify 15 · woocommerce 12 · ga 12.
+- Shopify breadth: never-started 7 → 0.
+- Meta breadth: never-started 8 → 3, and all three remaining are RECORDED DECISIONS rather than unbuilt work
+  (frequency_value + SKAN are on-demand with measured-empty cohorts; the asset media library needs a storage
+  decision because it has no date, spend or metric and does not belong in metrics_daily).
+- WooCommerce breadth: 0 → 12, from a standing start where the manifest block was EMPTY — meaning the gate
+  had been checking nothing at all for the platform.
+- GA4 breadth: 12 families captured, 7 never-started, and two REAL problems the grain-count hides — ga_age and
+  ga_gender have written nothing since 2026-05-19, and every dimensional family starts 2026-01-01 while the
+  base account rows go back to 2022. Grain-complete is not depth-complete. Both open; see the QUEUE.
+Per-family postures, measurements and caveats live in src/lib/breakdown-registry.ts (the model doc) and
+docs/LORAMER_DATA_COMPLETENESS.md (the offered-vs-captured delta). Build ORDER stays in the QUEUE.
 
 PER-PLATFORM RETENTION (drives urgency):
 | Platform | Granular limit | Aggregate | LoraMer urgency |
