@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-22T17:42:42.527Z
-- built_from HEAD: 8ffe7b0c30535ea709774c19fc986747b7c0b4db  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-22T18:01:26.330Z
+- built_from HEAD: 8860e54d30b34af1f7678c3ae0106085440b838a  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,7 +16,7 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 55848026e41dbd2afb1775a876e3090b44c7d891732529f77df838bc44fb7a08
     - LORAMER_HANDOFF.md: b3786f881543ba94d0a36a9da169fb42fe53407f8268d1f5aa4a87fe6a4e8d19
-    - CONTINUE_HERE.md: b387598841a7c38cb261cae66923e801da4c3df85917e50110e94dd996ee9bf6
+    - CONTINUE_HERE.md: 535715f137d6f25ec3c43cb6e6743f0ff4772b11a32b9a111077bb2013f34300
     - LORAMER_DECISIONS.md: ca2316fc818bae7e8f9d1af015ca599fb607c03a8aee4eb1194b74386cc111ba
     - LORAMER_QUEUE_OF_RECORD.md: 759071b4c3d5a6206567fccdb69f4e9eb2a8b3b252d7e2ef4022d7b8792de28e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1

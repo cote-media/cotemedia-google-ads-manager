@@ -71,8 +71,11 @@ WHAT THE DAY ACTUALLY TAUGHT, in the order it bit:
   customer email is a legal posture, not only an engineering one. It opened a launch blocker
   (★COHORT-PRIVACY-DOCS in the QUEUE): Privacy Policy section + DPA before any real merchant uses it.
 
-NEXT STEP (authoritative, in priority order):
-1. GOOGLE G-FILL Gate-A at the 2026-07-20 ~04:03 ET quota reset. ⛔ FIRST MOVE IS A REBASE, NOT A MERGE:
+NEXT STEP — the SINGLE authoritative order is LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER
+(LORAMER_COMPLETION_PRIORITY_V1, 2026-07-22): **T0 #1 = WOO SHELLEY STALL DIAGNOSIS**, then down the tiers,
+no date (completeness is the gate). The numbered items below are NO LONGER a competing priority order — they
+are the T3 CAPTURE-COMPLETENESS detail (Google gated on the ~04:03 ET quota reset + Standard Access), kept for the HOW:
+1. (T3 — NOT the next step; T0 #1 = Woo Shelley) GOOGLE G-FILL Gate-A at the ~04:03 ET quota reset. ⛔ FIRST MOVE IS A REBASE, NOT A MERGE:
    branch wip/google-gfill1-9-held-4am (4fcf717) is based BEFORE today's eleven commits, so a straight merge
    would REVERT the capture work. Rebase onto main, or cherry-pick the code files only. Then G-FILL#3 Gate-B,
    G-FILL#1 Gate-A (migration already applied to prod), G-FILL#9 Gate-A, then forward-wire Google's 16
