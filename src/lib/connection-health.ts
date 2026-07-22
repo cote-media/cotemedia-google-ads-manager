@@ -158,6 +158,39 @@ async function applyUpdate(filter: HealthFilter, patch: Record<string, unknown>)
   }
 }
 
+// LORAMER_CONN_FAILURE_STREAK_V1 — a compact, honest code for a NON-auth failure: the HTTP status if the
+// message carries one, else a coarse token. (Auth failures already carry a classify code.)
+function transientFailureCode(err: unknown): string {
+  const m = err == null ? '' : typeof err === 'string' ? err : String((err as any)?.message ?? err)
+  const s = m.match(/\b(5\d\d|429|406|408)\b/)
+  if (s) return s[1]
+  if (/deadline|timeout|etimedout|econnreset|socket hang up/i.test(m)) return 'timeout'
+  return 'transient'
+}
+
+// LORAMER_CONN_FAILURE_STREAK_V1 — THE ONE failure-recording path. Every failure branch that (correctly)
+// does NOT flip health — the transient/empty/unknown branch of recordConnectionResult and the indeterminate
+// probe branch of recordConnectionAuthFailure — routes HERE instead of returning silently, so a PERSISTENT
+// failure accrues a visible streak. Atomic +1 via the SQL function (supabase-js cannot express col+1).
+// NEVER throws (rule 3) — swallow + log; a streak-write failure must not break the data write that triggered it.
+async function recordFailureStreak(
+  scope: { platform: string; clientId?: string | null; accountId?: string | null; userEmail?: string | null },
+  code: string | null
+): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.rpc('bump_connection_failures', {
+      p_platform: scope.platform,
+      p_client_id: scope.clientId ?? null,
+      p_account_id: scope.accountId ?? null,
+      p_user_email: scope.userEmail ?? null,
+      p_code: code,
+    })
+    if (error) console.error('[conn-health] failure-streak bump failed:', error.message)
+  } catch (e) {
+    console.error('[conn-health] failure-streak bump threw:', (e as any)?.message ?? e)
+  }
+}
+
 // Success: this exact connection authenticated. Heal it (clears any stale 'reconnect').
 export async function recordConnectionSuccess(args: {
   clientId: string
@@ -167,7 +200,8 @@ export async function recordConnectionSuccess(args: {
   const nowIso = new Date().toISOString()
   await applyUpdate(
     { client_id: args.clientId, platform: args.platform, account_id: args.accountId },
-    { health: 'healthy', last_ok_at: nowIso, last_error_code: null }
+    // LORAMER_CONN_FAILURE_STREAK_V1 — a successful fetch CLEARS the streak (recovered → no longer failing).
+    { health: 'healthy', last_ok_at: nowIso, last_error_code: null, consecutive_failures: 0, first_failure_at: null, last_failure_code: null }
   )
 }
 
@@ -281,6 +315,15 @@ export async function recordConnectionAuthFailure(args: {
       console.warn(
         `[conn-health] ${args.platform} ${subject}: probe INDETERMINATE (err ${args.code ?? 'auth'}) — leaving health unchanged (fail-safe)`
       )
+      // LORAMER_CONN_FAILURE_STREAK_V1 — same blind spot as the transient branch: an indeterminate probe
+      // still must NOT flip, but must NOT be silent. Record at the SAME scope the flip would use (woo =
+      // per-connection; google/meta = credential-wide).
+      await recordFailureStreak(
+        wooCred
+          ? { platform: args.platform, clientId: args.clientId, accountId: args.accountId ?? null }
+          : { platform: args.platform, userEmail: args.userEmail },
+        args.code ?? 'indeterminate'
+      )
       return
     }
     // probe === 'dead' → fall through to the flip below.
@@ -310,7 +353,15 @@ export async function recordConnectionResult(args: {
     return
   }
   const { authClass, code } = classifyConnectionError(args.platform, args.error)
-  if (authClass == null) return // transient / empty / unknown → never flip
+  if (authClass == null) {
+    // LORAMER_CONN_FAILURE_STREAK_V1 — transient/empty/unknown STILL does not flip health (rule 1), but it
+    // is NO LONGER silent: record the streak so a persistent failure (Shelley: a 5xx every fire) accrues state.
+    await recordFailureStreak(
+      { platform: args.platform, clientId: args.clientId, accountId: args.accountId, userEmail: args.userEmail },
+      transientFailureCode(args.error)
+    )
+    return
+  }
   await recordConnectionAuthFailure({
     platform: args.platform,
     authClass,
