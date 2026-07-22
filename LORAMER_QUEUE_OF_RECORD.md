@@ -9,6 +9,39 @@ structure. SHIPPED/[x] items live in the DONE appendix (do-not-rebuild). Nothing
 marked "status-unclear (verify)". Conflicts resolved from repo ground truth 2026-06-22 (commits cited inline).
 RULE: before proposing any action, restate the queued items here that bear on it — to prove you read them.
 
+## RANKED COMPLETION ORDER (LORAMER_COMPLETION_PRIORITY_V1, 2026-07-22)
+Supersedes LORAMER_LAUNCH_LIST_V1's date framing per DECISIONS 2026-07-22 — no date, completeness is the gate. This is the ranking Claude owns per "prioritization is Claude's job." Authored 2026-07-22 by Claude (no prior ranking existed; this IS the deliverable LORAMER_LAUNCH_LIST_V1 owed). Tiers are priority order (T0 = most urgent); items inside a tier are roughly co-equal. Per-item detail + status live in each item's own QUEUE entry — this section owns ORDER, not status.
+
+T0 — LIVE-BROKEN / BLEEDING (fix before ANY new build):
+  1. WOO SHELLEY re-capture stall — SKIP bug, frozen ~12d; 1-row unstall + make the cursor the single completion authority.
+  2. Error-path false-zero hardening — a captured-read failure can show $0 instead of "couldn't load" (MUST-HARDEN-BEFORE-LAUNCH).
+  3. G1(b) META BREADTH UNSEAL — the 2026-06-27→ hole; forward can't fill it, catchup can't see it.
+
+T1 — RELIABILITY FOUNDATIONS (a cohort member hits these day one):
+  Anthropic credit auto-reload · Token-lifecycle mgmt (Shopify 90d rotate) · readiness-RPC timeout on heavy clients.
+
+T2 — SECURITY / LEGAL (pre-cohort):
+  C1 RLS posture decision · pre-launch hardening audit · fast-follow M1 upload cap / M2 injection-delimit / M3 / M4 · ★COHORT-PRIVACY-DOCS (gates the Woo cohort feature — internal-only until drafted + lawyered).
+
+T3 — CAPTURE COMPLETENESS (law-core; Google gated on the ~04:03 ET quota reset + Standard Access):
+  Finish the held G-FILL branch (re-rebase onto current main → 4 AM Gate-A → build the drain-hold) · G-FILL#2 ASSETS first · META-BACKFILL-OBSERVED-ZERO → then wire the standard-C landing gate · Meta M-FILL#6 creative TEXT · GA-FILL#1-6 · Shopify deep re-backfill.
+
+T4 — LORA COMPLETENESS:
+  LORA-COMPLETENESS arc L2 / L3-in-context / L4 / L5 / L6 · per-platform skills (.md) · readiness gap list · TRUE retrieval + retire the raw regex scorer.
+
+T5 — -NEXT CUTOVER PARITY:
+  per-platform drill pages · mobile Lora chat · ★UI-OVERFLOW (+ legacy-chat-overflow / chat-gate-zindex / mobile-width-guard) · STANDING UX BAR · legacy retirement.
+
+T6 — MASTER-AUDIT 7/15 RESIDUALS:
+  team nav placement · readiness checklist reflects saved state · scroll-to-top on switch · map-vs-code drift · metaFetchAllPaged silent truncation.
+
+T7 — GO-TO-MARKET SURFACE:
+  homepage unification (on the external-gate critical path) · onboarding nudges · onboarding + platform-wide playbooks · billing Phase 5/6 go-live · pricing + spend-logger opus-4-8 rate.
+
+T8 — POST-LAUNCH FLAGSHIP:
+  asset-combination MODELING · 2027 write destination · exportable client Skill · support-bot · G2.5-2.9 (geo / denominator / tail) · platform-expansion ranking.
+═══════════════════════════════════════════════════════════════════
+
 ═══ 2026-07-19 SESSION END STATE (resume aid — the one clock, the one blocker, the next order) ═══
 TONIGHT, THREE PLATFORMS CLOSED THEIR NEVER-STARTED LIST. Shopify 7 → 0 · Meta 8 → 3 (all three remaining are
 RECORDED DECISIONS, not unbuilt work) · WooCommerce 0 → 12 breadth families from a standing start where the
