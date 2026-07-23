@@ -14,6 +14,7 @@ import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
 import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes } from '@/lib/next/coverage'
+import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess } from '@/lib/access/can-access'
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1
@@ -30,7 +31,7 @@ async function viewerCanAccess(viewerEmail: string, clientId: string): Promise<b
 export const QUERY_METRICS_TOOL: any = {
   name: 'query_metrics',
   description:
-    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. REVENUE & ROAS — READ THIS: for any total-revenue or ROAS answer use `canonical` — canonical.revenue and canonical.roas are the figures that MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue/spend). `totals.revenue` is a RAW cross-platform SUM that double-counts store + GA — NEVER report totals.revenue as the total revenue. `bySource` breaks revenue/spend out by origin (store, ga, google, meta), each labeled — when more than one revenue source is present, surface them ALL with their own ROAS and explain why they differ. `derived.roas` is AD-ATTRIBUTED (platform conversionValue/spend) and is NOT the card ROAS. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
+    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. REVENUE & ROAS — READ THIS: for any total-revenue or ROAS answer use `canonical` — canonical.revenue and canonical.roas are the figures that MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue/spend). `totals.revenue` is a RAW cross-platform SUM that double-counts store + GA — NEVER report totals.revenue as the total revenue. `bySource` breaks revenue/spend out by origin (store, ga, google, meta), each labeled — when more than one revenue source is present, surface them ALL with their own ROAS and explain why they differ. `derived.roas` is AD-ATTRIBUTED (platform conversionValue/spend) and is NOT the card ROAS. COMPLETENESS — READ BEFORE STATING ANY TOTAL: the result carries a top-level `complete` (boolean) and each window carries `complete` plus a per-platform `contribution` array (each item has platform + status: ok / capture_failing / trailing_gap / predates_capture / draining / not_connected). If `complete` is false, or any platform`s contribution status is `capture_failing` or `trailing_gap`, the total is PARTIAL — state it AS incomplete and NAME the platform (e.g. "this is the Google total; WooCommerce capture is currently failing, so the store side is missing and the combined figure is understated"). NEVER present a partial total as a whole number, and NEVER report $0 for a platform whose status is capture_failing / trailing_gap / predates_capture — that is NOT $0 and NOT disconnected; its data simply was not captured for that period. A platform with status `ok` and zero rows IS a genuine zero — say so plainly. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
   input_schema: {
     type: 'object',
     properties: {
@@ -207,9 +208,13 @@ export async function runQueryMetricsTool(input: any, clientId: string) {
   try {
     const wins = result.windows.map((w) => ({ startDate: w.startDate, endDate: w.endDate }))
     const cov = await getCoverageForWindows(clientId, platforms, wins)
-    const windows2 = result.windows.map((w, i) => ({ ...w, coverage: cov[i] }))
-    const notes = [...(result.notes || []), ...coverageNotes(cov)]
-    return { ...result, windows: windows2, notes: notes.length ? notes : undefined }
+    // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1) — per-platform CONTRIBUTION flag + a top-level completeness
+    // verdict, so a total that silently omits a currently-FAILING platform (Shelley's woo) is marked incomplete
+    // instead of stated as a whole number. A total is NEVER emitted here without `complete`.
+    const comp = await annotateContribution(clientId, wins, cov)
+    const windows2 = result.windows.map((w, i) => ({ ...w, coverage: cov[i], contribution: comp.perWindow[i], complete: comp.completePerWindow[i] }))
+    const notes = [...(result.notes || []), ...coverageNotes(cov), ...comp.notes]
+    return { ...result, windows: windows2, complete: comp.overallComplete, notes: notes.length ? notes : undefined }
   } catch {
     return result
   }
@@ -264,21 +269,24 @@ export async function runClaudeToolLoop(opts: {
       const toolResults: any[] = []
       for (const tu of toolUses) {
         let payload: any
+        let isError = false
         try {
-          payload = tu.name === 'query_metrics'
-            ? await runQueryMetricsTool(tu.input, clientId)
-            : tu.name === 'query_breakdown'
-              ? await runQueryBreakdownTool(tu.input, clientId)
-              : tu.name === 'query_money'
-                ? await runQueryMoneyTool(tu.input, clientId)
-                : { error: 'unknown tool: ' + tu.name }
+          if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, clientId)
+          else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, clientId)
+          else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, clientId)
+          else { payload = { error: 'unknown tool: ' + tu.name }; isError = true }
         } catch (err) {
           payload = { error: err instanceof Error ? err.message : String(err) }
+          isError = true
         }
         toolResults.push({
           type: 'tool_result',
           tool_use_id: tu.id,
           content: JSON.stringify(payload),
+          // LORAMER_LORA_TOOL_HARD_ERROR_V1 (T0#2 slice 1) — a THROWN query (e.g. a DB failure) is a HARD tool
+          // error, not error-text riding as normal content, so the model treats a real read failure as a failure
+          // and never reads it as data / a false number.
+          ...(isError ? { is_error: true } : {}),
         })
       }
       convo.push({ role: 'user', content: toolResults })
