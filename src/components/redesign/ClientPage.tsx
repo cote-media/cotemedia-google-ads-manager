@@ -17,6 +17,7 @@ import ShopifyIcon from './ShopifyIcon'
 import NaicsPicker from './NaicsPicker'
 import KnowledgePanel from './KnowledgePanel'
 import type { ReadinessResult, PlatformCompleteness } from '@/lib/completeness/readiness' // LORAMER_COMPLETENESS_GATE_V1 F(b)
+import { sortMetaAccounts } from '@/lib/next/sort-meta-accounts' // LORAMER_NEXT_META_ACCOUNT_SORT_V1 — display order only (named A→Z, numeric-only last)
 
 const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   google: { label: 'Google Ads', icon: 'ti-brand-google' },
@@ -681,7 +682,9 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                   )))}
                 {metaPicker && (metaPicker.length === 0
                   ? <p style={{ fontSize: 13, color: '#64748b' }}>No Meta ad accounts found on this login.</p>
-                  : metaPicker.map((a) => (
+                  // LORAMER_NEXT_META_ACCOUNT_SORT_V1 — sort a COPY for display: named accounts A→Z, numeric-only
+                  // names last (a naive sort floats numeric-named accounts to the top). See the module for why.
+                  : sortMetaAccounts(metaPicker).map((a) => (
                     <button key={a.id} type="button" disabled={pickerBusy} onClick={() => finalizeMeta(a)} style={{ textAlign: 'left', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: 10, background: '#fff', cursor: pickerBusy ? 'default' : 'pointer', opacity: pickerBusy ? 0.6 : 1 }}>
                       <div style={{ fontSize: 14, color: '#0f172a', fontWeight: 500 }}>{a.name || a.id}</div>
                       <div style={{ fontSize: 12, color: '#64748b' }}>{a.id}</div>
