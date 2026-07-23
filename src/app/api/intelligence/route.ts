@@ -34,9 +34,11 @@ const HEALTH_UI = process.env.NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI === '1'
 // leaves the intelligence object — and therefore the prompt + UI — byte-identical to today.
 function buildConnectionHealth(connections: any[]): Array<{ platform: string; accountName: string }> | undefined {
   if (!HEALTH_UI) return undefined
-  const dead = (connections || []).filter((c) => c?.health === 'reconnect')
-  if (dead.length === 0) return undefined
-  return dead.map((c) => ({ platform: c.platform, accountName: c.account_name || c.account_id || c.platform }))
+  // LORAMER_CONN_DEGRADED_STATE_V1 — surface BOTH a dead credential (reconnect) AND a persistently-failing but
+  // logged-in connection (degraded), tagged so build-claude-context tells Lora the right thing about each.
+  const flagged = (connections || []).filter((c) => c?.health === 'reconnect' || c?.health === 'degraded')
+  if (flagged.length === 0) return undefined
+  return flagged.map((c) => ({ platform: c.platform, accountName: c.account_name || c.account_id || c.platform, state: (c.health === 'degraded' ? 'degraded' : 'reconnect') as 'reconnect' | 'degraded' }))
 }
 
 const EMPTY_PLATFORM: PlatformIntelligence = {
@@ -425,14 +427,17 @@ export async function GET(request: Request) {
     intelligence.shopify = shopifyResult.value
   } else if (shopifyConn) {
     console.error('Shopify intelligence failed:', shopifyResult.status === 'rejected' ? shopifyResult.reason?.message : 'unknown')
-    intelligence.shopify = { connected: false }
+    // LORAMER_CONN_DEGRADED_STATE_V1 — a FAILED live fetch is "connected, fetch failed", NOT "not connected"
+    // (a 500'ing store must not read as disconnected). Mirrors the Google path; build-claude-context honors fetchFailed.
+    intelligence.shopify = { connected: true, fetchFailed: true }
   }
   // LORAMER_WOO_INTEL_V1
   if (wooResult.status === 'fulfilled' && wooResult.value) {
     intelligence.woocommerce = wooResult.value
   } else if (wooConn) {
     console.error('WooCommerce intelligence failed:', wooResult.status === 'rejected' ? wooResult.reason?.message : 'unknown')
-    intelligence.woocommerce = { connected: false }
+    // LORAMER_CONN_DEGRADED_STATE_V1 — "connected, fetch failed", NOT "not connected" (Shelley's 500'ing store).
+    intelligence.woocommerce = { connected: true, fetchFailed: true }
   }
 
   // LORAMER_GA_INTELLIGENCE_V1

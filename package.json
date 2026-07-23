@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "guard": "node tests/guards/meta-breadth-forward.guard.mjs && node tests/guards/shell-client-context.guard.mjs && node tests/guards/breakdown-registry-drift.guard.mjs && node tests/guards/digest-queue-coverage.guard.mjs && node scripts/check-capture-completeness.mjs && node scripts/check-lora-grounding.mjs && node scripts/check-connection-failure-recording.mjs",
+    "guard": "node tests/guards/meta-breadth-forward.guard.mjs && node tests/guards/shell-client-context.guard.mjs && node tests/guards/breakdown-registry-drift.guard.mjs && node tests/guards/digest-queue-coverage.guard.mjs && node scripts/check-capture-completeness.mjs && node scripts/check-lora-grounding.mjs && node scripts/check-connection-failure-recording.mjs && node scripts/check-connection-degraded-readers.mjs",
     "build": "npm run guard && next build",
     "start": "next start",
     "lint": "next lint",

@@ -1100,9 +1100,12 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   if (platformIsPopulated(intelligence.meta)) platformStatus.push('Meta: populated')
   else if (platformIsEmpty(intelligence.meta)) platformStatus.push('Meta: connected but no spend in this date range')
   else platformStatus.push('Meta: not connected')
-  if (intelligence.shopify?.connected) platformStatus.push('Shopify: populated')
+  // LORAMER_CONN_DEGRADED_STATE_V1 — a failed live store fetch is "connected, fetch failed", never "not connected" / $0.
+  if (intelligence.shopify?.fetchFailed) platformStatus.push('Shopify: CONNECTED but data fetch FAILED this turn (stale, not $0, not disconnected — use query_metrics)')
+  else if (intelligence.shopify?.connected) platformStatus.push('Shopify: populated')
   else platformStatus.push('Shopify: not connected')
-  if (intelligence.woocommerce?.connected) platformStatus.push('WooCommerce: populated')
+  if (intelligence.woocommerce?.fetchFailed) platformStatus.push('WooCommerce: CONNECTED but data fetch FAILED this turn (stale, not $0, not disconnected — use query_metrics)')
+  else if (intelligence.woocommerce?.connected) platformStatus.push('WooCommerce: populated')
   else platformStatus.push('WooCommerce: not connected')
   // LORAMER_GA_CLAUDE_CONTEXT_V1
   if (intelligence.ga?.connected && (intelligence.ga.sessions ?? 0) > 0) {
@@ -1128,18 +1131,33 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
       google: 'Google Ads', meta: 'Meta Ads', shopify: 'Shopify',
       woocommerce: 'WooCommerce', ga: 'Google Analytics',
     }
-    lines.push('\n=== CONNECTIONS NEEDING RECONNECT ===')
-    lines.push('These connections FAILED to authenticate on the most recent fetch — access was revoked or expired. This is a CREDENTIAL failure, NOT a temporary blip and NOT "no data". Their numbers are missing or stale for an auth reason, not a business reason:')
-    intelligence.connectionHealth.forEach(c => {
-      lines.push(`  • ${PLATFORM_LABEL[c.platform] || c.platform} — ${c.accountName}: reconnect needed`)
-    })
-    lines.push('If the user asks about one of these platforms, tell them the connection needs to be reconnected (its data cannot be trusted until then). Do NOT report $0 or "no activity" for these — that would be a false business conclusion drawn from an authentication failure.')
+    // LORAMER_CONN_DEGRADED_STATE_V1 — two DISTINCT failure kinds, never conflated: a dead credential
+    // (reconnect → user re-auths) vs persistently-failing capture on a live login (degraded → usually the
+    // store's own server; re-auth would NOT help).
+    const reconnects = intelligence.connectionHealth.filter(c => c.state !== 'degraded')
+    const degradeds = intelligence.connectionHealth.filter(c => c.state === 'degraded')
+    if (reconnects.length > 0) {
+      lines.push('\n=== CONNECTIONS NEEDING RECONNECT ===')
+      lines.push('These connections FAILED to authenticate on the most recent fetch — access was revoked or expired. This is a CREDENTIAL failure, NOT a temporary blip and NOT "no data". Their numbers are missing or stale for an auth reason, not a business reason:')
+      reconnects.forEach(c => {
+        lines.push(`  • ${PLATFORM_LABEL[c.platform] || c.platform} — ${c.accountName}: reconnect needed`)
+      })
+      lines.push('If the user asks about one of these platforms, tell them the connection needs to be reconnected (its data cannot be trusted until then). Do NOT report $0 or "no activity" for these — that would be a false business conclusion drawn from an authentication failure.')
+    }
+    if (degradeds.length > 0) {
+      lines.push('\n=== CONNECTIONS WITH FAILING CAPTURE (login is fine) ===')
+      lines.push('These connections are LOGGED IN and authenticated, but their capture has been FAILING continuously for over a day — usually the platform’s / store’s OWN server, NOT a credential problem. Their latest data is STALE, NOT $0 and NOT disconnected:')
+      degradeds.forEach(c => {
+        lines.push(`  • ${PLATFORM_LABEL[c.platform] || c.platform} — ${c.accountName}: capture failing >24h (data may be out of date)`)
+      })
+      lines.push('If the user asks about one of these, use query_metrics for the last captured values, say plainly the data may be out of date, and do NOT report "$0", "no activity", "not connected", or "reconnect needed" — the login is fine; it is a capture/server issue.')
+    }
   }
 
   if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
   if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
 
-  if (intelligence.shopify?.connected) {
+  if (intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch (platformStatus already flagged it)
     const s = intelligence.shopify
     lines.push('\n=== SHOPIFY ===')
     // LORAMER_SHOPIFY_NET_SALES_V1
@@ -1175,7 +1193,7 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
 
 
   // LORAMER_WOO_INTEL_V1
-  if (intelligence.woocommerce?.connected) {
+  if (intelligence.woocommerce?.connected && !intelligence.woocommerce?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch
     const w = intelligence.woocommerce
     lines.push('\n=== WOOCOMMERCE ===')
     if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
@@ -1198,7 +1216,7 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   // LORAMER_GA_CLAUDE_CONTEXT_V1
   const gaSection = buildGaSection(intelligence.ga, limits)
   if (gaSection) lines.push(gaSection)
-  if (intelligence.ga?.connected && intelligence.shopify?.connected) {
+  if (intelligence.ga?.connected && intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — no reconcile against a failed shopify fetch
     lines.push(buildGaShopifyReconciliation(intelligence.ga, intelligence.shopify))
   }
 

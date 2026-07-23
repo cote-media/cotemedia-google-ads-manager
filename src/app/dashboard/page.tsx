@@ -208,14 +208,18 @@ const PLATFORM_LABEL_DASH: Record<string, string> = {
 function ConnectionHealthBanner({ client }: { client: Client | null }) {
   if (!HEALTH_UI || !client) return null
   const dead = client.platform_connections.filter(c => c.health === 'reconnect')
-  if (dead.length === 0) return null
+  // LORAMER_CONN_DEGRADED_STATE_V1 — login-alive but capture failing >24h: a DISTINCT message (not "reconnect").
+  const degraded = client.platform_connections.filter(c => c.health === 'degraded')
+  if (dead.length === 0 && degraded.length === 0) return null
   const names = dead.map(c => PLATFORM_LABEL_DASH[c.platform] || c.platform).join(', ')
+  const degNames = degraded.map(c => PLATFORM_LABEL_DASH[c.platform] || c.platform).join(', ')
   return (
     <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border px-4 py-3" style={{ borderColor: '#FCD34D', background: '#FFFBEB' }}>
       <p className="text-sm font-sans" style={{ color: '#92400E' }}>
-        <span className="font-medium">Reconnect needed:</span> {names}. Its data can&apos;t be trusted until reconnected — figures shown may be stale or missing.
+        {dead.length > 0 && (<><span className="font-medium">Reconnect needed:</span> {names}. Its data can&apos;t be trusted until reconnected — figures shown may be stale or missing. </>)}
+        {degraded.length > 0 && (<><span className="font-medium">Capture failing:</span> {degNames}. The login is fine — this is usually the platform&apos;s own server; figures shown may be stale until it clears.</>)}
       </p>
-      <a href="/clients" className="text-xs font-sans font-medium text-white rounded px-3 py-1.5 flex-shrink-0 transition-colors" style={{ background: '#D97706' }}>Fix in Clients →</a>
+      {dead.length > 0 && <a href="/clients" className="text-xs font-sans font-medium text-white rounded px-3 py-1.5 flex-shrink-0 transition-colors" style={{ background: '#D97706' }}>Fix in Clients →</a>}
     </div>
   )
 }

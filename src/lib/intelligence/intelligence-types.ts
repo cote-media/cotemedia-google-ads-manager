@@ -384,6 +384,7 @@ export interface IntelligenceGa {
 // Shopify — ready to plug in
 export interface IntelligenceShopify {
   connected: boolean
+  fetchFailed?: boolean   // LORAMER_CONN_DEGRADED_STATE_V1 — connected, but the live store fetch threw this turn (a 500'ing store is "fetch failed", NOT "not connected" and NOT $0)
   // Orders
   totalOrders?: number
   // LORAMER_SHOPIFY_NET_SALES_V1 — totalRevenue is net sales (after refunds, excludes shipping/tax)
@@ -661,7 +662,7 @@ export interface ClientIntelligence {
 
   // LORAMER_CONNECTION_HEALTH_V1 — reconnect-needed connections (only populated when the
   // NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flag is on; absent → no honesty block in the prompt).
-  connectionHealth?: Array<{ platform: string; accountName: string }>
+  connectionHealth?: Array<{ platform: string; accountName: string; state?: 'reconnect' | 'degraded' }> // LORAMER_CONN_DEGRADED_STATE_V1 — state distinguishes a dead credential (reconnect) from persistently-failing capture (degraded)
 
   // Future platforms plug in here:
   // tiktok?: PlatformIntelligence

@@ -1162,6 +1162,8 @@ function ClientsContent() {
                                 </div>
                                 {HEALTH_UI && googleConn.health === 'reconnect' ? (
                                   <ReconnectControl onClick={() => signIn('google', { callbackUrl: '/clients' })} scopeNote="Reconnects ALL your Google Ads accounts — they share one agency login." />
+                                ) : googleConn.health === 'degraded' ? (
+                                  <span className="text-xs font-sans" style={{ color: '#b45309' }}>Capture failing</span>
                                 ) : (
                                   <span className="text-xs font-sans text-muted">Connected</span>
                                 )}
@@ -1180,6 +1182,8 @@ function ClientsContent() {
                                 </div>
                                 {HEALTH_UI && metaConn.health === 'reconnect' ? (
                                   <ReconnectControl href={'/api/meta/auth?clientId=' + client.id} scopeNote="Reconnects ALL your Meta accounts — they share one login." />
+                                ) : metaConn.health === 'degraded' ? (
+                                  <span className="text-xs font-sans" style={{ color: '#b45309' }}>Capture failing</span>
                                 ) : (
                                   <button onClick={() => disconnectMeta(client.id, metaConn.id)} className="text-xs font-sans text-red-500 hover:text-red-700 hover:underline flex-shrink-0 ml-2">
                                     Disconnect
@@ -1228,6 +1232,8 @@ function ClientsContent() {
                                 </div>
                                 {HEALTH_UI && wooConn.health === 'reconnect' ? (
                                   <ReconnectControl onClick={() => { setWooModal(client.id); setWooDomain('') }} scopeNote="Re-enter this store's WooCommerce API keys." />
+                                ) : wooConn.health === 'degraded' ? (
+                                  <span className="text-xs font-sans" style={{ color: '#b45309' }}>Capture failing</span>
                                 ) : (
                                   <button onClick={async (e) => {
                                     e.stopPropagation()
@@ -1251,6 +1257,8 @@ function ClientsContent() {
                                 </div>
                                 {HEALTH_UI && gaConn.health === 'reconnect' ? (
                                   <ReconnectControl href={'/api/ga/start?clientId=' + client.id} scopeNote="Re-authorize Google Analytics for this client." />
+                                ) : gaConn.health === 'degraded' ? (
+                                  <span className="text-xs font-sans" style={{ color: '#b45309' }}>Capture failing</span>
                                 ) : (
                                   <span className="text-xs font-sans text-muted">Connected</span>
                                 )}

@@ -5,6 +5,7 @@
 // and a per-platform completeness row for the Connections UI. Pure: same inputs → same output; no DB, no clock.
 
 import type { ClientResult, StepResult } from './reconcile'
+import { blocksGreen, isDegraded, degradedTask, type Health } from '@/lib/connection-health-view' // LORAMER_CONN_DEGRADED_STATE_V1
 
 export type Brain = {
   value_model?: unknown
@@ -62,7 +63,9 @@ export function computeReadiness(input: {
   const captureCompleteFraction = steps.length ? greenish / steps.length : 0
 
   const connectionsPresent = connections.length >= 1
-  const connectionsHealthy = connectionsPresent && connections.every((c) => c.health !== 'reconnect' && c.health !== 'disconnected')
+  // LORAMER_CONN_DEGRADED_STATE_V1 — blocksGreen() covers reconnect + disconnected + degraded (a persistently-
+  // failing but logged-in connection is NOT green: its data is stale).
+  const connectionsHealthy = connectionsPresent && connections.every((c) => !blocksGreen(c.health as Health))
   const dataCaptureClean = redCount === 0
 
   const valueModelSet = arrLen(brain.value_model) >= 1
@@ -91,7 +94,10 @@ export function computeReadiness(input: {
   // ── to-green tasks: user-actionable required → soft-user → auto (system/importing) ──────────────────────
   const tasks: Task[] = []
   if (!connectionsPresent) tasks.push({ label: 'Connect an ad or store platform so Lora has data', kind: 'user', blocksGreen: true })
-  else for (const c of connections) if (c.health === 'reconnect' || c.health === 'disconnected') tasks.push({ label: `Reconnect ${pretty(c.platform)} — its login needs refreshing`, kind: 'user', blocksGreen: true })
+  else for (const c of connections) {
+    if (c.health === 'reconnect' || c.health === 'disconnected') tasks.push({ label: `Reconnect ${pretty(c.platform)} — its login needs refreshing`, kind: 'user', blocksGreen: true })
+    else if (isDegraded(c.health as Health)) tasks.push({ label: degradedTask(pretty(c.platform)), kind: 'user', blocksGreen: true }) // LORAMER_CONN_DEGRADED_STATE_V1 — failing >24h, NOT a re-auth
+  }
   if (!valueModelSet) tasks.push({ label: 'Set the value model — tell Lora where your conversions and ROAS come from', kind: 'user', blocksGreen: true })
   if (!filled(brain.website)) tasks.push({ label: 'Add your website', kind: 'user', blocksGreen: true })
   if (!filled(brain.business_descriptor)) tasks.push({ label: 'Add a short business description so Lora knows what you do', kind: 'user', blocksGreen: true })

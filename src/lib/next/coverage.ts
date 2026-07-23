@@ -14,6 +14,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { reconcile, type StepResult } from '@/lib/completeness/reconcile'
+import { isConnectedForCoverage, type Health } from '@/lib/connection-health-view' // LORAMER_CONN_DEGRADED_STATE_V1
 
 export type CoverageState = 'not_connected' | 'predates_capture' | 'covered' | 'draining_unknown' | 'trailing_gap'
 export type CoverageResult = {
@@ -28,7 +29,9 @@ export type CoverageResult = {
 
 // account-grain step key per platform (required-steps.ts: shopify→shopify_deep, woo→woo, everything else→'account').
 const ACCOUNT_STEP: Record<string, string> = { google: 'account', meta: 'account', ga: 'account', shopify: 'shopify_deep', woocommerce: 'woo' }
-const BAD_HEALTH = new Set(['reconnect', 'disconnected'])
+// LORAMER_CONN_DEGRADED_STATE_V1 — "connected for coverage" lives in connection-health-view now:
+// isConnectedForCoverage(h) = !(reconnect||disconnected). 'degraded' is STILL connected (it IS connected, just
+// failing) so it is not dropped from the coverage scope — its staleness is surfaced by readiness, not here.
 
 // Pure window classifier — the ONLY new logic here. Everything upstream is reconcile's.
 export function resolveCoverageState(
@@ -76,7 +79,7 @@ export async function getCoverageForWindows(
     supabaseAdmin.from('sync_state').select('client_id,platform,backfill_complete,backfill_earliest_date,backfill_target_date,backfill_blocked,backfill_block_reason,backfill_block_window,updated_at').eq('client_id', clientId),
   ])
   const connections: any[] = connsRaw || []
-  const connectedSet = new Set(connections.filter((c) => c.account_id && !BAD_HEALTH.has(c.health)).map((c) => c.platform))
+  const connectedSet = new Set(connections.filter((c) => c.account_id && isConnectedForCoverage(c.health as Health)).map((c) => c.platform))
   const scope = requestedPlatforms.length ? requestedPlatforms : Array.from(connectedSet)
 
   // MIN/MAX per scope platform (indexed) — also derives the account-presence realAgg reconcile needs (min!=null ⇒ account rows).

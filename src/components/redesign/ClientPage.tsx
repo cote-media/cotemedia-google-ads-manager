@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation' // LORAMER_NEXT_CONNECT_V1 — refresh connections after disconnect
 import styles from './redesign.module.css'
+import { badgeFor, type Health } from '@/lib/connection-health-view' // LORAMER_CONN_DEGRADED_STATE_V1
 import Avatar from './Avatar'
 import ShopifyIcon from './ShopifyIcon'
 import NaicsPicker from './NaicsPicker'
@@ -547,7 +548,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
               const gc = connections.find((c) => c.platform === 'google')
               const authorized = !!hasGoogleAdsToken
               const busyG = gc ? disconnectingId === gc.id : false
-              const gBadge = gc ? (gc.health === 'healthy' ? styles.hHealthy : gc.health === 'reconnect' ? styles.hReconnect : styles.hUnknown) : authorized ? styles.hUnknown : styles.hDisconnected
+              const gBadge = gc ? (gc.health === 'healthy' ? styles.hHealthy : gc.health === 'degraded' ? styles.hDegraded : gc.health === 'reconnect' ? styles.hReconnect : styles.hUnknown) : authorized ? styles.hUnknown : styles.hDisconnected // LORAMER_CONN_DEGRADED_STATE_V1
               return (
                 <div key="google" className={styles.connRow}>
                   {icon}
@@ -585,8 +586,9 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
             }
             return rows.map((c) => {
               const h = c.health
-              const hCls = h === 'healthy' ? styles.hHealthy : h === 'reconnect' ? styles.hReconnect : h === 'disconnected' ? styles.hDisconnected : styles.hUnknown
-              const hLabel = h === 'healthy' ? 'Healthy' : h === 'reconnect' ? 'Reconnect' : h === 'disconnected' ? 'Disconnected' : 'Connected'
+              // LORAMER_CONN_DEGRADED_STATE_V1 — label from the one source (badgeFor); 'degraded' = amber "Capture failing".
+              const hCls = h === 'healthy' ? styles.hHealthy : h === 'degraded' ? styles.hDegraded : h === 'reconnect' ? styles.hReconnect : h === 'disconnected' ? styles.hDisconnected : styles.hUnknown
+              const hLabel = badgeFor(h as Health).label
               const busy = disconnectingId === c.id
               return (
                 <div key={c.id} className={styles.connRow}>
