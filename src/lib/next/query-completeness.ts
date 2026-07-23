@@ -38,6 +38,24 @@ const INCOMPLETE: ReadonlySet<ContributionStatus> = new Set<ContributionStatus>(
 // is normal fleet-wide capture lag and would false-alarm on every healthy client; >= 2 days catches a real stall.
 const LAG_TOLERANCE_DAYS = 2
 const daysBetween = (a: string, b: string): number => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000)
+const isoOfDate = (d: Date): string => d.toISOString().slice(0, 10)
+const isoAddDays = (iso: string, n: number): string => new Date(Date.parse(iso + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
+
+// LORAMER_QUERY_COMPLETENESS_V1 slice 5 — the CAPTURABLE FRONTIER: the most-recent day the forward cron is EXPECTED to
+// have captured by `now`. stale_tail MUST measure against this, not the raw window end — else a window ending TODAY
+// trips amber on every healthy client during the nightly pre-window gap (today is not capturable until the cron runs).
+// DERIVATION: the forward cron (vercel.json /api/cron/sync) runs daily in UTC hours 8-10 and captures
+// resolveDateWindow('YESTERDAY') (sync/route.ts:161). That window is 04:00-06:59 ET, so the ET date == the UTC date →
+// captureDate = (run's UTC day) − 1 in EST and EDT alike (confirmed live: the 07-22 08:18 UTC run wrote 07-21). So the
+// last day we expect captured = UTCtoday−1 if today's window has finished, else UTCtoday−2 (yesterday's window captured
+// the day before). FORWARD_WINDOW_END_HOUR_UTC is stamped from vercel.json's forward schedule (max hour + 1) and
+// GUARDED against drift (check-query-completeness.mjs re-derives it from vercel.json and fails the build on mismatch),
+// so this rule stays true if the schedule moves — it is not a free-floating hardcode.
+export const FORWARD_WINDOW_END_HOUR_UTC = 11
+export function capturableFrontier(now: Date): string {
+  const windowDoneToday = now.getUTCHours() >= FORWARD_WINDOW_END_HOUR_UTC
+  return isoAddDays(isoOfDate(now), windowDoneToday ? -1 : -2)
+}
 
 // PURE — no I/O. Given a pre-fetched health map + coverage, compute the contribution + verdicts. Exported so a
 // multi-client caller (portfolio-metrics) batches the platform_connections read once and calls this per client.
@@ -45,10 +63,12 @@ export function computeContribution(
   health: Map<string, HealthRow>,
   windows: { startDate: string; endDate: string }[],
   coveragePerWindow: CoverageResult[][],
+  now: Date = new Date(), // LORAMER_QUERY_COMPLETENESS_V1 slice 5 — for the capturable frontier (injectable for tests)
 ): CompletenessResult {
   const perWindow: PlatformContribution[][] = []
   const completePerWindow: boolean[] = []
   const noteSet = new Set<string>()
+  const frontier = capturableFrontier(now) // slice 5 — the last day we expect captured; stale_tail measures to here
 
   windows.forEach((w, i) => {
     const row: PlatformContribution[] = (coveragePerWindow[i] || []).map((c) => {
@@ -62,10 +82,13 @@ export function computeContribution(
         (c.lastCaptured != null && w.endDate > c.lastCaptured) ||
         (!!firstFailDay && w.endDate >= firstFailDay)
       )
-      // stale_tail — window ends >= LAG_TOLERANCE_DAYS past the last captured day. INDEPENDENT of the streak: this is
-      // the fact a stale-but-not-yet-flagged connection carries (Shelley's woo, lastCaptured 2+ days behind the window
-      // end while her streak had not yet fired). Distinct from capture_failing (a KNOWN failing connection).
-      const staleTail = c.lastCaptured != null && daysBetween(c.lastCaptured, w.endDate) >= LAG_TOLERANCE_DAYS
+      // stale_tail — captured >= LAG_TOLERANCE_DAYS behind the last CAPTURABLE day. INDEPENDENT of the streak: this is
+      // the fact a stale-but-not-yet-flagged connection carries (Shelley's woo, 2+ days behind while her streak had not
+      // yet fired). Distinct from capture_failing (a KNOWN failing connection). MEASURED AGAINST THE FRONTIER, NOT the
+      // raw window end (slice 5): when the window ends today, today is not yet capturable, so a healthy client sitting
+      // at the frontier would false-alarm nightly. Clamp the comparison end to the frontier.
+      const staleEnd = w.endDate < frontier ? w.endDate : frontier
+      const staleTail = c.lastCaptured != null && daysBetween(c.lastCaptured, staleEnd) >= LAG_TOLERANCE_DAYS
 
       if (!c.connected || c.state === 'not_connected') {
         return { platform: p, status: 'not_connected', contributed: false, detail: `${p} is not connected for this client.` }
@@ -77,7 +100,7 @@ export function computeContribution(
       }
       if (staleTail) {
         return { platform: p, status: 'stale_tail', contributed: true,
-          detail: `${p} is captured only through ${c.lastCaptured}; this window ends ${w.endDate}, so its last ${daysBetween(c.lastCaptured!, w.endDate)} day(s) are not yet captured — the ${p} total is UNDERSTATED (not $0). This is a stale tail (capture is behind), distinct from a failing connection.` }
+          detail: `${p} is captured only through ${c.lastCaptured}, but the last capturable day is ${staleEnd} — its most recent ${daysBetween(c.lastCaptured!, staleEnd)} capturable day(s) are missing, so the ${p} total is UNDERSTATED (not $0). This is a stale tail (capture is behind), distinct from a failing connection.` }
       }
       if (c.state === 'trailing_gap') {
         return { platform: p, status: 'trailing_gap', contributed: false,
@@ -132,9 +155,10 @@ export async function annotateContribution(
   clientId: string,
   windows: { startDate: string; endDate: string }[],
   coveragePerWindow: CoverageResult[][],
+  now: Date = new Date(), // slice 5 — passthrough for the capturable frontier (routes use real now; Gate-A injects)
 ): Promise<CompletenessResult> {
   const byClient = await readHealthForClients([clientId])
-  return computeContribution(byClient.get(clientId) || new Map(), windows, coveragePerWindow)
+  return computeContribution(byClient.get(clientId) || new Map(), windows, coveragePerWindow, now)
 }
 
 // BATCH (portfolio-metrics, many clients): one health query for all clients, then computeContribution per client

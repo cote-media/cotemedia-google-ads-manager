@@ -105,9 +105,34 @@ try {
   if (convNote) findings.push(`BEHAVIORAL: Conversions is captioned for a woo stale tail — WooCommerce does not feed ad conversions.`)
   if (!revNote || !/WooCommerce/.test(revNote)) findings.push(`BEHAVIORAL: Revenue is NOT captioned (or omits WooCommerce) for a woo stale tail — revenue IS understated by it.`)
   if (!roasNote || !/WooCommerce/.test(roasNote)) findings.push(`BEHAVIORAL: ROAS (blended-store) is NOT captioned for a woo stale tail — the blended basis IS understated by it.`)
+
+  // SLICE 5 — stale_tail must measure against the CAPTURABLE FRONTIER, not the raw window end. Pre-window case: now
+  // 2026-07-23T04:29Z (before the 08:00 UTC forward window), window ends TODAY (07-23) → frontier 07-21. A HEALTHY
+  // client captured through 07-21 must NOT be stale; one captured through 07-19 (2 behind the frontier) MUST be.
+  const now5 = new Date('2026-07-23T04:29:00Z')
+  const win5 = [{ startDate: '2026-05-01', endDate: '2026-07-23' }]
+  const mk5 = (last) => [[{ platform: 'meta', connected: true, isNA: false, captureFloor: null, floorConfirmed: false, coversWindow: true, state: 'covered', lastCaptured: last }]]
+  const healthyStatus = m.exports.computeContribution(new Map(), win5, mk5('2026-07-21'), now5)?.perWindow?.[0]?.[0]?.status
+  if (healthyStatus === 'stale_tail') findings.push(`BEHAVIORAL: a HEALTHY client captured through the capturable frontier (07-21) is flagged stale_tail for a TODAY-ending window at pre-window time (04:29 UTC) — stale_tail measures the raw window end (07-23), not the frontier; the nightly false alarm.`)
+  const staleStatus = m.exports.computeContribution(new Map(), win5, mk5('2026-07-19'), now5)?.perWindow?.[0]?.[0]?.status
+  if (staleStatus !== 'stale_tail') findings.push(`BEHAVIORAL: a client 2 days behind the capturable frontier (captured 07-19, frontier 07-21) is NOT flagged stale_tail — a real stall is missed.`)
 } catch (e) {
   findings.push('BEHAVIORAL stale-tail / per-metric check could not run: ' + (e?.message || String(e)))
 }
+
+// SLICE 5 STATIC — the capturable-frontier window-end hour must track vercel.json's forward cron schedule, so the rule
+// stays true if the schedule moves. Re-derive the max forward UTC hour from vercel.json and assert the constant = max+1.
+try {
+  const vj = JSON.parse(read('vercel.json') || '{}')
+  const fwd = (vj.crons || []).filter((c) => /\/api\/cron\/sync/.test(c.path || ''))
+  let maxHour = -1
+  for (const c of fwd) { const hf = (c.schedule || '').split(/\s+/)[1] || ''; const nums = (hf.match(/\d+/g) || []).map(Number); if (nums.length) maxHour = Math.max(maxHour, ...nums) }
+  const want = maxHour + 1
+  const gm = (mod || '').match(/FORWARD_WINDOW_END_HOUR_UTC\s*=\s*(\d+)/)
+  const got = gm ? Number(gm[1]) : null
+  if (!fwd.length) findings.push('SLICE 5: no /api/cron/sync crons found in vercel.json to anchor the capturable-frontier window — the frontier rule is unanchored.')
+  else if (got !== want) findings.push(`SLICE 5: FORWARD_WINDOW_END_HOUR_UTC=${got} but vercel.json forward crons (/api/cron/sync) end at UTC hour ${maxHour} (expected ${want}) — the capturable-frontier rule is out of sync with the cron schedule.`)
+} catch (e) { findings.push('SLICE 5 vercel.json schedule check could not run: ' + (e?.message || String(e))) }
 
 // SLICE 4 STATIC — the per-metric caption must reach the stat cards (route returns the map; the card reads its own).
 if (mod && !mod.includes('metricContributors')) findings.push('query-completeness.ts does not define metricContributors — the ONE metric→platform map is missing.')
