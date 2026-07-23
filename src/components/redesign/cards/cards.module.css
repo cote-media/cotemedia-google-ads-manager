@@ -32,8 +32,12 @@
 .err { font-size: 12px; color: #b45309; }
 
 /* LORAMER_NEXT_ROAS_CARD_V1 — multi-source ROAS card: one basis-labeled row per source, big value + basis sentence. */
-.roasBody { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow: auto; }
-.roasRow { border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
+/* LORAMER_QUERY_COMPLETENESS_V1 slice 4 — overflow:auto made this a HORIZONTAL scroll region, so stretched flex items
+   (the ⚠ partial caption) sized to the widest row's scroll-width instead of the visible card width → overflow-wrap
+   never engaged and the caption truncated at the card edge. Clip horizontal (never scroll sideways in a card, matching
+   .card overflow:hidden / .statBody), keep vertical scroll. min-width:0 lets rows shrink instead of forcing overflow. */
+.roasBody { display: flex; flex-direction: column; gap: 10px; height: 100%; overflow-x: hidden; overflow-y: auto; }
+.roasRow { border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; min-width: 0; }
 .roasRow:last-of-type { border-bottom: none; }
 .roasHead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .roasLabel { font-size: 12px; font-weight: 600; color: #334155; }

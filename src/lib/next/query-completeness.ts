@@ -171,11 +171,41 @@ export function substitutedStorePlatform(revenueSource: string, contributionForW
 // it ready as `incompleteNote`, so every -next render (stat cards, ROAS card, store cards, MerView) just DISPLAYS
 // d.incompleteNote — one pattern, no client import of this server-only module.
 const PLABEL: Record<string, string> = { google: 'Google', meta: 'Meta', shopify: 'Shopify', woocommerce: 'WooCommerce', ga: 'GA' }
-export function buildIncompleteNote(contribution: PlatformContribution[] | undefined, revenueSourceSubstituted?: string | null): string | undefined {
+
+// LORAMER_QUERY_COMPLETENESS_V1 slice 4 — WHICH platforms actually FEED a given metric. A stale/failing platform only
+// makes a metric's total wrong if it CONTRIBUTES to that metric; captioning a metric it does not touch is a FALSE
+// statement (Shelley's woo stale tail does NOT touch Spend or Conversions — the live defect). This is the ONE map
+// (guarded), DERIVED from client-metrics/route.ts — the single place the metric math lives:
+//   ads (google/meta) → spend/clicks/impressions/conversions/conversionValue/ctr/cpc/cpa
+//   store (shopify/woo) + ga → revenue (settle store-wins, GA fallback) · store → orders/aov/money · ga → sessions
+//   roas/mer → span the revenue numerator + the ad-spend denominator (every contributing class).
+const AD_PLATFORMS_SET: ReadonlySet<string> = new Set(['google', 'meta'])
+const REVENUE_PLATFORMS_SET: ReadonlySet<string> = new Set(['shopify', 'woocommerce', 'ga'])
+const AD_METRICS: ReadonlySet<string> = new Set(['spend', 'clicks', 'impressions', 'conversions', 'conversionValue', 'ctr', 'cpc', 'cpa'])
+const STORE_ONLY_METRICS: ReadonlySet<string> = new Set(['orders', 'aov', 'money'])
+const BLENDED_METRICS: ReadonlySet<string> = new Set(['roas', 'mer'])
+// Returns the contributing-platform set for a metric, or null for an unknown metric (→ no scoping = caption over the
+// full contribution, the pre-slice-4 client-wide behavior). Exported so a caller/guard can assert the mapping.
+export function metricContributors(metric: string): ReadonlySet<string> | null {
+  if (AD_METRICS.has(metric)) return AD_PLATFORMS_SET
+  if (metric === 'revenue') return REVENUE_PLATFORMS_SET
+  if (STORE_ONLY_METRICS.has(metric)) return STORE_PLATFORMS
+  if (BLENDED_METRICS.has(metric)) return new Set<string>([...AD_PLATFORMS_SET, ...REVENUE_PLATFORMS_SET])
+  if (metric === 'sessions' || metric === 'gaRevenue') return new Set<string>(['ga'])
+  return null
+}
+
+// metric (optional): when given, the note is scoped to ONLY the platforms that feed that metric (metricContributors);
+// a stale/failing platform outside the metric's set is ignored — no false caption. Omit metric for a client-wide
+// (all-platform) total, e.g. MER, which every platform class feeds.
+export function buildIncompleteNote(contribution: PlatformContribution[] | undefined, revenueSourceSubstituted?: string | null, metric?: string): string | undefined {
+  // SLICE 4 — scope to the metric's contributing platforms FIRST, so a store stale tail never captions Spend.
+  let scoped = contribution || []
+  if (metric) { const contributors = metricContributors(metric); if (contributors) scoped = scoped.filter((c) => contributors.has(c.platform)) }
   // Failing (a KNOWN-broken connection) and stale (capture merely BEHIND) are DIFFERENT facts — wording them the
   // same ("capture is failing") states a false thing about a healthy-but-lagging connection (prompt-honesty). Split.
-  const failing = (contribution || []).filter((c) => c.status === 'capture_failing' || c.status === 'trailing_gap')
-  const stale = (contribution || []).filter((c) => c.status === 'stale_tail')
+  const failing = scoped.filter((c) => c.status === 'capture_failing' || c.status === 'trailing_gap')
+  const stale = scoped.filter((c) => c.status === 'stale_tail')
   if (!failing.length && !stale.length && !revenueSourceSubstituted) return undefined
   const nm = (arr: PlatformContribution[]) => Array.from(new Set(arr.map((c) => PLABEL[c.platform] || c.platform)))
   const parts: string[] = []

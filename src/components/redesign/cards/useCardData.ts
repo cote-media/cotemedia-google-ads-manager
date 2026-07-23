@@ -87,7 +87,10 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
         .then((d) => {
           if (!alive) return
           const priorKey = m === 'spend' ? 'spendPrior' : m === 'revenue' ? 'revenuePrior' : m === 'conversions' ? 'conversionsPrior' : m === 'clicks' ? 'clicksPrior' : m === 'impressions' ? 'impressionsPrior' : null
-          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null, incompleteNote: d.incompleteNote }) // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — route-provided caption
+          // LORAMER_QUERY_COMPLETENESS_V1 slice 4 — this card reads ITS OWN metric's note (scoped to the platforms that
+          // feed that metric), NOT the client-wide note — else Spend/Conversions get captioned for a store stale tail
+          // that feeds neither. Fall back to undefined (never the wrong client-wide note) if the per-metric map is absent.
+          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null, incompleteNote: d.incompleteNotes ? d.incompleteNotes[m] : undefined })
         })
         .catch(fail)
     } else if (cfg.kind === 'breakdown') {

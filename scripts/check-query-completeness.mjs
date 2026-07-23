@@ -89,9 +89,32 @@ try {
   const r = m.exports.computeContribution(health, [{ startDate: '2026-05-02', endDate: '2026-07-21' }], cov)
   const st = r?.perWindow?.[0]?.[0]?.status
   if (st !== 'stale_tail') findings.push(`BEHAVIORAL: a healthy connection (no streak) with lastCaptured 2 days behind the window end returns '${st}', not 'stale_tail' — the stale-tail flag is gated behind the health signal (the live defect that shipped in slice 2).`)
+
+  // SLICE 4 PER-METRIC — a store stale tail must NOT caption a metric it does not feed (the live Shelley Spend false
+  // statement). Same real shape: google/meta ok, woo stale_tail. Spend/Conversions → NO note; Revenue/ROAS → named.
+  const shelley = [
+    { platform: 'google', status: 'ok', contributed: true, detail: '' },
+    { platform: 'meta', status: 'ok', contributed: true, detail: '' },
+    { platform: 'woocommerce', status: 'stale_tail', contributed: true, detail: '' },
+  ]
+  const spendNote = m.exports.buildIncompleteNote(shelley, null, 'spend')
+  const convNote = m.exports.buildIncompleteNote(shelley, null, 'conversions')
+  const revNote = m.exports.buildIncompleteNote(shelley, null, 'revenue')
+  const roasNote = m.exports.buildIncompleteNote(shelley, null, 'roas')
+  if (spendNote) findings.push(`BEHAVIORAL: Spend is captioned ("${spendNote}") for a woo stale tail — WooCommerce feeds no spend; a metric captioned for a platform that does not contribute to it is a FALSE statement (the live defect).`)
+  if (convNote) findings.push(`BEHAVIORAL: Conversions is captioned for a woo stale tail — WooCommerce does not feed ad conversions.`)
+  if (!revNote || !/WooCommerce/.test(revNote)) findings.push(`BEHAVIORAL: Revenue is NOT captioned (or omits WooCommerce) for a woo stale tail — revenue IS understated by it.`)
+  if (!roasNote || !/WooCommerce/.test(roasNote)) findings.push(`BEHAVIORAL: ROAS (blended-store) is NOT captioned for a woo stale tail — the blended basis IS understated by it.`)
 } catch (e) {
-  findings.push('BEHAVIORAL stale-tail check could not run: ' + (e?.message || String(e)))
+  findings.push('BEHAVIORAL stale-tail / per-metric check could not run: ' + (e?.message || String(e)))
 }
+
+// SLICE 4 STATIC — the per-metric caption must reach the stat cards (route returns the map; the card reads its own).
+if (mod && !mod.includes('metricContributors')) findings.push('query-completeness.ts does not define metricContributors — the ONE metric→platform map is missing.')
+const CM2 = read('src/app/api/next/client-metrics/route.ts')
+if (CM2 && !CM2.includes('incompleteNotes')) findings.push('client-metrics/route.ts does not return incompleteNotes — every stat card would share one client-wide note (Spend captioned for a store stale tail).')
+const UCD2 = read('src/components/redesign/cards/useCardData.ts')
+if (UCD2 && !UCD2.includes('incompleteNotes')) findings.push('useCardData.ts does not read incompleteNotes — the stat card shows the client-wide note on every metric.')
 
 if (findings.length) {
   console.error('✗ GATE FAILED — query_metrics / the -next routes can hand a silently-incomplete total:')

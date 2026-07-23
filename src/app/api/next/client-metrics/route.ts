@@ -127,19 +127,30 @@ export async function GET(request: Request) {
   let contribution: unknown
   let revenueSourceSubstituted: string | null = null
   let incompleteNote: string | undefined
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 4 — PER-METRIC captions. One client-metrics response feeds every stat card;
+  // a single client-wide note captioned Spend/Conversions for a store stale tail that feeds NEITHER (the live false
+  // statement). Each stat card reads its OWN metric's note (scoped to the platforms that feed that metric). The
+  // client-wide `incompleteNote` stays for MerView (MER = revenue ÷ ad spend, fed by every platform class).
+  let incompleteNotes: Record<string, string | undefined> | undefined
+  const STAT_METRICS = ['spend', 'revenue', 'conversions', 'conversionValue', 'clicks', 'impressions', 'ctr', 'cpc', 'cpa', 'roas']
   try {
     const win = [{ startDate: current.startDate, endDate: current.endDate }]
     const cov = await getCoverageForWindows(clientId, [], win)
     const comp = await annotateContribution(clientId, win, cov)
     complete = comp.overallComplete
     contribution = comp.perWindow[0]
-    revenueSourceSubstituted = substitutedStorePlatform(c.revenueSource, comp.perWindow[0] || [])
-    incompleteNote = buildIncompleteNote(comp.perWindow[0], revenueSourceSubstituted)
+    const contrib = comp.perWindow[0] || []
+    revenueSourceSubstituted = substitutedStorePlatform(c.revenueSource, contrib)
+    incompleteNote = buildIncompleteNote(contrib, revenueSourceSubstituted) // client-wide (MerView)
+    incompleteNotes = {}
+    // revenue is the only metric the GA-substitution label applies to; ad metrics never carry it.
+    for (const mk of STAT_METRICS) incompleteNotes[mk] = buildIncompleteNote(contrib, mk === 'revenue' ? revenueSourceSubstituted : null, mk)
   } catch { /* best-effort: a completeness-annotation failure never blanks the metrics */ }
 
   return NextResponse.json({
     clientId, period, current, prior,
     complete, contribution, revenueSourceSubstituted, incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 2
+    incompleteNotes, // LORAMER_QUERY_COMPLETENESS_V1 slice 4 — per-metric captions (stat cards read their own metric's note)
     spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,
     conversions: c.conversions, conversionValue: c.conversionValue, roas: c.roas,
     impressions: c.impressions, clicks: c.clicks, ctr: c.ctr, cpc: c.cpc, cpa: c.cpa,
