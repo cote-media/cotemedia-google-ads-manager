@@ -71,22 +71,25 @@ WHAT THE DAY ACTUALLY TAUGHT, in the order it bit:
   customer email is a legal posture, not only an engineering one. It opened a launch blocker
   (★COHORT-PRIVACY-DOCS in the QUEUE): Privacy Policy section + DPA before any real merchant uses it.
 
-NEXT STEP — the SINGLE authoritative order is LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER
-(LORAMER_COMPLETION_PRIORITY_V1, 2026-07-22): **T0 #1 = WOO SHELLEY STALL DIAGNOSIS**, then down the tiers,
-no date (completeness is the gate). The numbered items below are NO LONGER a competing priority order — they
-are the T3 CAPTURE-COMPLETENESS detail (Google gated on the ~04:03 ET quota reset + Standard Access), kept for the HOW:
-1. (T3 — NOT the next step; T0 #1 = Woo Shelley) GOOGLE G-FILL Gate-A at the ~04:03 ET quota reset. ⛔ FIRST MOVE IS A REBASE, NOT A MERGE:
-   branch wip/google-gfill1-9-held-4am (4fcf717) is based BEFORE today's eleven commits, so a straight merge
-   would REVERT the capture work. Rebase onto main, or cherry-pick the code files only. Then G-FILL#3 Gate-B,
-   G-FILL#1 Gate-A (migration already applied to prod), G-FILL#9 Gate-A, then forward-wire Google's 16
-   never-started and run history at the reset — with the DRAIN HELD OFF the window so Gate-A gets first quota.
-2. GA4 LEG — 7 never-started families, ga_age/ga_gender frozen since 2026-05-19, and dimensional depth that
-   starts 2026-01-01 against base rows going back to 2022. BLOCKED on Air env parity: GOOGLE_ANALYTICS_CLIENT_ID
-   and _SECRET are PLACEHOLDERS on the MacBook Air, and `vercel env pull` returns them blank because they are
-   sensitive. The real values live in the Google Cloud Console project "LoraMer GA Connector" — that needs a
-   computer, so it cannot be unblocked from the phone. Do it at the iMac.
-3. THEN, in order: the standard-C live-DB landing gate (blocked behind META-BACKFILL-OBSERVED-ZERO) → the
-   Meta M8 asset-media-library storage decision → the cohort Privacy-Policy/DPA drafting flight.
+NEXT STEP — ⏱ RUN THE CARRIED GATE-Bs FIRST (time-gated; they cannot be re-created on demand), THEN advance the queue.
+
+⏱ **GATE-B a — SHELLEY STREAK PROOF** (~04:02 ET 2026-07-23, her woo forward fire): after the fire, her woo connection should show consecutive_failures ≥ 1 and first_failure_at SET while health STAYS 'healthy' (the streak records BEFORE the 24h 'degraded' promotion — this proves LORAMER_CONN_FAILURE_STREAK_V1 on a real SECOND case). Ready-to-run — paste into the Supabase SQL Editor:
+```sql
+select platform, health, consecutive_failures, first_failure_at, last_failure_code,
+       to_char(last_ok_at,   'MM-DD HH24:MI') as last_ok,
+       to_char(last_error_at,'MM-DD HH24:MI') as last_err
+from platform_connections
+where client_id = '23c697bb-5255-4289-9329-659544ba8e6e' and platform = 'woocommerce';
+```
+   PASS = consecutive_failures ≥ 1, first_failure_at set, health STILL 'healthy'.
+
+⏱ **GATE-B b — SHELLEY DEGRADED PROMOTION** (~04:0x ET 2026-07-24, ≥24h after first_failure_at): re-run the SAME SQL — health should now read **'degraded'** (login alive, capture persistently failing), consecutive_failures climbing. Proves migration 042's time-based promotion end-to-end on a real connection.
+
+📱 **GATE-B c — ON-DEVICE sm CAPTION WRAP** (Russ's phone, not automatable): open Shelley on -next at the sm breakpoint — the ROAS card + stat-card amber captions must WRAP across lines, never truncate at the card edge (slice-4 fix, cards.module.css .roasBody overflow).
+
+THEN — the SINGLE authoritative order is LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER. **T0 #1 / #2 / #3 are CLOSED** (masking closed, stall is merchant-side; all 5 completeness slices live; the 2026-06-27 breadth hole was filled — its residual is the T3 META CURSOR RE-SEAL GUARD). ▶▶ **NEXT BUILD = T0 #4 — ACCOUNT-ROW-PER-DAY INVARIANT (enforce or guard).** The 6-site latest-captured-date fix (LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1) rests on the EMPIRICAL invariant that an account row (entity_level='account', breakdown_type='', breakdown_value='') exists on EVERY captured day — verified 23/23 fleet-wide 2026-07-15 but NOT schema-enforced. If a captured day ever lacks that row, those 6 latest-date reads (migration-035 partial index) silently return a stale/null date. Build the guard (or a schema/DB-level enforcement) so the invariant can't silently break. Then down the tiers.
+
+For the T3 CAPTURE-COMPLETENESS detail (the held Google G-FILL branch — REBASE onto current main, NOT merge, at the ~04:03 ET quota reset with the drain held off; the GA4 env-parity leg — iMac only; the standard-C landing gate) see LORAMER_QUEUE_OF_RECORD.md T3 — kept for the HOW, not the priority.
 
 ## Session log (2026-07-14 — portfolio-metrics 500 fix + header label) — SHIPPED + GATE-A PROVEN (LORAMER_NEXT_PORTFOLIO_METRICS_INDEX_V1)
 -next All-clients portfolio showed "—" Spend/Revenue for EVERY client. ROOT: /api/next/portfolio-metrics was 500-ing — its account-canonical scan (entity_level='account' AND breakdown_type='' AND breakdown_value='') across all accessible clients had NO supporting index (every metrics_daily index leads with (client_id, platform, …) and the query constrains ALL platforms), so on the grown table (33M rows / 27GB after GA-dimensional + geo/dimensional breadth) it exceeded the 2-min statement timeout → PostgREST error → the route's `if(error) return 500` → the client's `r.ok?…:{metrics:[]}` emptied the map → "—" everywhere. The DATA was real all along (Veterinary $2,079.58 spend / $29 GA rev; Ennis + My Vacation Network honest $0). FIX (migration 035 — INDEX ONLY, no rows/writers/reconcile/readiness touched): partial index idx_metrics_daily_account_canonical ON metrics_daily (client_id, date) INCLUDE (platform, spend, revenue) WHERE entity_level='account' AND breakdown_type='' AND breakdown_value='' — applied via MCP in one txn with statement_timeout lifted (non-concurrent; a 27GB CONCURRENTLY build exceeds the pooled 2-min ceiling), index valid, 1976 kB. EXPLAIN before = filter-scan on idx_metrics_daily_client_platform_date, cost 35061/client, TIMEOUT; after = Index Only Scan on the new index, 81.9 ms for the full This-month window across all clients. Code: (a) MultiClientOverview flags loadError on ANY non-200 and shows a neutral "Couldn't load — retry" banner (a 500 can never again masquerade as empty "—"; genuine $0/$0 stays honest); (b) header no longer falsely shows "The Escential Group" on the portfolio — Shell's default clientName changed off the real-name literal to 'All clients' + clients/page.tsx passes clientName="All clients". Bugs #1 and #3 did NOT share a cause (query timeout vs display default) — the stale/default active client was NOT why metrics were "—". Sort & filter is a separately-tracked inert stub (not this ship). GATE-A tsc=0 build=0. SHIPPED this commit.
