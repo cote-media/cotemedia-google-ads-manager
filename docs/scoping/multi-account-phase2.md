@@ -1,6 +1,7 @@
 # Multi-Account Phase 2 — widen the `metrics_daily` conflict key to include `account_id`
 
 <!-- LORAMER_MULTIACCOUNT_PHASE2_SCOPING -->
+<!-- QUEUE-KEY: metrics_daily conflict key, platform_connections uniqueness, sync_state keying, query-layer account filter -->
 Status: **SCOPING ONLY** (2026-06-05). No code changed, nothing executed.
 Prereq: Phase 1 DONE (`migrations/005_metrics_daily_account_id.sql` run + verified;
 see `docs/scoping/multi-account-phase1.md`).

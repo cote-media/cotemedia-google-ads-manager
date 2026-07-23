@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: query_metrics API reference, not a build plan. -->
 # query_metrics / query_breakdown — reference
 
 Seed of the future `query_metrics` Skill (structured-accuracy program). This is the authoritative

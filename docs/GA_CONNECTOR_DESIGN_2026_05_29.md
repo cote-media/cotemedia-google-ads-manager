@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: GA V1 connector shipped; historical design record, not a build backlog. -->
 # Google Analytics 4 Connector — V1 Design Doc
 
 *Filed May 29, 2026. Written BEFORE any code so the V1 build sequence has a

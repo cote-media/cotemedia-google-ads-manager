@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: active design-of-record for the Live+Breadth workstream; build order lives in the QUEUE. -->
 # LORAMER — Unified Live + Breadth Data Model (Design)
 <!-- LORAMER_LIVE_BREADTH_UNIFIED_DESIGN_V1 -->
 

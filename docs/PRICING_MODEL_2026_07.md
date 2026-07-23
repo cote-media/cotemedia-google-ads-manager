@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: pricing model reference, not a build backlog. -->
 # LoraMer — PROPOSED Pricing Model (2026-07)
 <!-- LORAMER_PRICING_MODEL_2026_07_V1 -->
 

@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: read-only architecture audit, not a build plan. -->
 # Intelligence Architecture Audit — Per-Platform Tabs vs. "Claude Sees Everything"
 
 *Read-only audit. No code was changed. Written May 29, 2026.*

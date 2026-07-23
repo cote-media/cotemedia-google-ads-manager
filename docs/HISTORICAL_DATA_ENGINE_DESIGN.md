@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: historical data engine shipped; design record, not backlog. -->
 # LoraMer Historical Data Engine — Design
 <!-- LORAMER_HISTORICAL_DATA_ENGINE_DESIGN_V1 -->
 

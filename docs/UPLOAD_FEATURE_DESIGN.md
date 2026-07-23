@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: upload feature shipped; M1 size cap is tracked in the QUEUE security block. -->
 # Upload / Knowledge Feature — Design
 <!-- LORAMER_DOCS_UPLOAD_DESIGN_V1 -->
 

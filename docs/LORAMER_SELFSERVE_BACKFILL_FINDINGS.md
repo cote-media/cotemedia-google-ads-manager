@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: findings for the shipped self-serve spine; reference. -->
 # LoraMer — Self-Serve Backfill Investigation Findings
 
 ## Self-Serve Backfill — investigation findings (2026-06-27, not yet designed)

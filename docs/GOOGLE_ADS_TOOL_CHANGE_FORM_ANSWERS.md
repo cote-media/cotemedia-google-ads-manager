@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: form-answers doc; Standard Access is tracked in QUEUE T3. -->
 # Google Ads API — Tool Change Form answer pack
 
 Form: https://support.google.com/adspolicy/contact/tool_change

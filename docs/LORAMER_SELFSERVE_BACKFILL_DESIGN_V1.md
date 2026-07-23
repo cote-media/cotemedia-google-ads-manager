@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: self-serve backfill spine SHIPPED; design record. -->
 # LoraMer — Self-Serve Concurrent Backfill Spine (DESIGN)
 <!-- LORAMER_SELFSERVE_BACKFILL_DESIGN_V1 -->
 

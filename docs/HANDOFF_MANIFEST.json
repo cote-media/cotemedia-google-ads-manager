@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "651b0e197e32de56d0dd9bdad806073996663a5bf126b5fdb9104d390991d4cb",
+    "content_hash": "3bac44a734d1ba75d70581e27e9271126c08cc34de4a026e207e849c14535e65",
     "last_reconciled_date": "2026-07-23",
-    "last_reconciled_head": "c4b1795",
-    "line_count": 583
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 587
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "ed69729866c6e40f0ecb90bce4e37b76260fdc1786aa4d1adce0ff30299c8239",
+    "content_hash": "a4ef16e47df95e68c71cfb92ccfe588018db0a3991f1b6a1df38ae0474693098",
     "last_reconciled_date": "2026-07-23",
-    "last_reconciled_head": "c4b1795",
-    "line_count": 963
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 967
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -84,22 +84,22 @@
     "line_count": 64
   },
   "docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md": {
-    "content_hash": "0cddb5b95948d96873aeaf8ab678e440bd79ad6392068f9d8c686a09367d6681",
-    "last_reconciled_date": "2026-07-16",
-    "last_reconciled_head": "80a6233",
-    "line_count": 169
+    "content_hash": "9e0d0eb5c30d5bc92afea9a9b5e1e77cd0d908e43ca8cf139f1e38ba5a94dc67",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 171
   },
   "docs/LORAMER_SELFSERVE_BACKFILL_FINDINGS.md": {
-    "content_hash": "6402d0565d0f32e8ec499f63e37003e2d6fa6ecd7e062a45ba067effabd5a4ed",
-    "last_reconciled_date": "2026-06-27",
-    "last_reconciled_head": "ef7575e",
-    "line_count": 13
+    "content_hash": "f178e951698a1889f5bf64685ff479298190c91b174dfcdd824ce57a4b0b19aa",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 15
   },
   "docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md": {
-    "content_hash": "abe3de92f54c6513a5f827b5abff3ac8008ff8b0dc2664b37ec9cacbf5ed2e4d",
-    "last_reconciled_date": "2026-06-27",
-    "last_reconciled_head": "60dbc57",
-    "line_count": 125
+    "content_hash": "cb92fc99fd1fcac7931ebcf57a808246ae9aff473028a3bc87f45556b135d969",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 127
   },
   "docs/LORAMER_SECURITY_POSTURE.md": {
     "content_hash": "a283fa6f55f64dc91dd52bcf8dbf6c2a38e90dba993fde72d9ae9f6b68c98444",
@@ -150,10 +150,10 @@
     "line_count": 62
   },
   "docs/GA_CONNECTOR_DESIGN_2026_05_29.md": {
-    "content_hash": "085f18b800eaab80a41330fb5d99353969c618b3851ee115410f219a19595093",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 232
+    "content_hash": "af2f63b69fd73c1516f7e2690bfce230562bfc69cb758137c1ed9340a487ce9c",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 234
   },
   "docs/GOOGLE_ADS_API_DESIGN.md": {
     "content_hash": "f736c01f1dc566c26dca0a333797506bfff7f997b32e75bbe7b6efc66d274448",
@@ -168,10 +168,10 @@
     "line_count": 38
   },
   "docs/HISTORICAL_DATA_ENGINE_DESIGN.md": {
-    "content_hash": "6a48615705c7eefda211f89e81d5930d64e66c3e13d1b7a2bcab7fd4c9c517cf",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 121
+    "content_hash": "cff1e8acfb56ef9e6e1fee3fee69ff2a6ecef554b958d37774300ebd7d38b1ce",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 123
   },
   "docs/LAUNCH_CONSOLIDATION_DESIGN_2026_05_29.md": {
     "content_hash": "4519303c2113c94f526c2992ebd3826ea2afb6f0e6d2250d9df16d549af575cf",
@@ -228,10 +228,10 @@
     "line_count": 280
   },
   "docs/QUERY_METRICS_REFERENCE.md": {
-    "content_hash": "8c76395c34424337aff2aee8701f195ca634f8f75b26288b092f9e1784e4f1c4",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 106
+    "content_hash": "a72f736f5a2615a36f2a4d6895c94c0889f0cb91b3c3f20508215135c1d926bb",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 108
   },
   "docs/SHOPIFY_LTV_DESIGN_2026_05_29.md": {
     "content_hash": "11c3ebf5a6408afae5701656d4522ce0279363a6411e72c065f5cbb44bb62f77",
@@ -240,10 +240,10 @@
     "line_count": 167
   },
   "docs/UPLOAD_FEATURE_DESIGN.md": {
-    "content_hash": "eae55548af8c8c0c70b714335b717b696949c80cf5b89835d49751ad3c2307ad",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 93
+    "content_hash": "a8691728fb853174cc275f680792877d726e60651c0a13871502fb35a88a1398",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 95
   },
   "docs/scoping/multi-account-phase1.md": {
     "content_hash": "630d1ccc67eb39f8d8297c32512ef181452eb2405d66f44ea2a7a9a5555735b9",
@@ -252,27 +252,45 @@
     "line_count": 94
   },
   "docs/scoping/multi-account-phase2.md": {
-    "content_hash": "11e8c7e9127f937a081581e8ee49eebed425d66cde1559b32ada901ac19e7d86",
-    "last_reconciled_date": "2026-06-29",
-    "last_reconciled_head": "51f338e",
-    "line_count": 136
+    "content_hash": "1daefd45b09f0824d48b1b018386afdb4e77cb8e735f88fb58fbdf6104349ade",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 138
   },
   "docs/PRICING_MODEL_2026_07.md": {
-    "content_hash": "b61e5ad941dd94bd6ac757ba0e9b0dc87e2842e3b0f973c7c0bac51628fbd223",
-    "last_reconciled_date": "2026-07-05",
-    "last_reconciled_head": "fae78f8",
-    "line_count": 93
+    "content_hash": "a4a5c8f1f9756e920d44ad0e52338f4e8ac466a40491e05ea91faac7a64b194e",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 95
   },
   "docs/LORAMER_LORA_SPEC.md": {
-    "content_hash": "f2ed91269e9e820867f6097bb16cc08818ecab4362c8079b1136a812d1155ddd",
-    "last_reconciled_date": "2026-07-16",
-    "last_reconciled_head": "c120e19",
-    "line_count": 65
+    "content_hash": "d058e830c8462de86f70294168e5f625580e4e9a515c89a81341d69047d70cf1",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 67
   },
   "docs/LORAMER_LORA_AUDIT_2026-07-14.md": {
     "content_hash": "3fd2958fadaa8404c0f7bd17fcf80c2709b1baa6875ff4a2b65247c1cc60dbc8",
     "last_reconciled_date": "2026-07-14",
     "last_reconciled_head": "fb0273e",
     "line_count": 62
+  },
+  "docs/INTELLIGENCE_ARCHITECTURE_AUDIT_2026_05_29.md": {
+    "content_hash": "5f45b47c7d2f1b035960847bf8f1b44590d0bd7ec4f0591ce006abef4563d763",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 312
+  },
+  "docs/META_APP_REVIEW_ANSWERS.md": {
+    "content_hash": "090808f16a3c049315189753595d79975009e738bb643888fe4154d98690d0ef",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 231
+  },
+  "docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md": {
+    "content_hash": "d5f8cfb5fcb68bdd8db6e9a9dc32f430cd144f343ee70f91293167caa487f5de",
+    "last_reconciled_date": "2026-07-23",
+    "last_reconciled_head": "2f0d31d",
+    "line_count": 86
   }
 }

@@ -1,3 +1,4 @@
+<!-- QUEUE-EXEMPT: Lora product spec (reference), not a build backlog. -->
 # LORAMER_LORA_SPEC.md — Lora's GOVERNING LAW
 <!-- LORAMER_LORA_SPEC_V1 -->
 
