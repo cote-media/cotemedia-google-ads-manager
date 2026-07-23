@@ -13,6 +13,7 @@ import { listAccessibleClients } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 // LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (store>ga>none; NEVER summed).
 import { emptyRevenueAcc, settleRevenue, type RevenueAcc } from '@/lib/next/revenue-settle'
+import { annotateContributionBatch } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -71,13 +72,22 @@ export async function GET(request: Request) {
     from += PAGE
   }
 
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — per-client completeness for the CURRENT window (batched: ONE health
+  // query for all clients). Additive + best-effort. Flags a client whose total silently omits a FAILING platform.
+  let compByClient = new Map<string, any>()
+  try { compByClient = await annotateContributionBatch(clientIds, current) } catch { /* best-effort */ }
+
   const metrics = clientIds.map((id) => {
     const c = settleRevenue(cur[id])
     const p = settleRevenue(prev[id])
+    const comp: any = compByClient.get(id)
     return {
       clientId: id,
       spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,
       spendPrior: p.spend, revenuePrior: p.revenue,
+      // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — undefined when the annotation was unavailable (never a false "complete").
+      complete: comp ? comp.overallComplete : undefined,
+      incompletePlatforms: comp ? (comp.perWindow[0] || []).filter((x: any) => x.status === 'capture_failing' || x.status === 'trailing_gap').map((x: any) => ({ platform: x.platform, status: x.status })) : undefined,
     }
   })
 

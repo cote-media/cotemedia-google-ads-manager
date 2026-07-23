@@ -8,6 +8,8 @@ import { authOptions } from '@/lib/auth'
 import { resolveAccess } from '@/lib/access/can-access'
 import { resolveCardWindows } from '@/lib/next/card-windows'
 import { queryRoasBases } from '@/lib/next/roas-bases'
+import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
+import { annotateContribution, buildIncompleteNote } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,5 +36,18 @@ export async function GET(request: Request) {
   )
 
   const result = await queryRoasBases({ clientId, startDate: current.startDate, endDate: current.endDate })
-  return NextResponse.json(result)
+
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — a PARTIAL ROAS is the highest-visibility false-whole-number on the
+  // page; flag it when a platform's capture is failing/stale. Additive + best-effort.
+  let complete: boolean | undefined
+  let incompleteNote: string | undefined
+  try {
+    const win = [{ startDate: current.startDate, endDate: current.endDate }]
+    const cov = await getCoverageForWindows(clientId, [], win)
+    const comp = await annotateContribution(clientId, win, cov)
+    complete = comp.overallComplete
+    incompleteNote = buildIncompleteNote(comp.perWindow[0])
+  } catch { /* best-effort */ }
+
+  return NextResponse.json({ ...result, complete, incompleteNote })
 }

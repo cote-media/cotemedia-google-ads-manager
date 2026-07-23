@@ -41,6 +41,8 @@ function StatBody({ clientId, cfg, current, compare }: { clientId: string; cfg: 
         : sub
           ? <div className={styles.roasBasis}>{sub}</div>
           : <div className={styles.muted}>{winLabel(current)}</div>}
+      {/* LORAMER_QUERY_COMPLETENESS_V1 slice 2 — a partial total is VISIBLY marked, never silently whole. */}
+      {d.incompleteNote && <div className={styles.partial}>⚠ {d.incompleteNote}</div>}
     </div>
   )
 }
@@ -245,7 +247,7 @@ function StoreTimeseriesBody({ clientId, cfg, current, compare }: { clientId: st
 // Every value carries its BASIS sentence (value-column landmine); an absent basis shows its reason, never a $0/0×
 // (false-zero law); the footer labels the ACTUAL captured span (action_type back-drain lag ≠ nominal window edge).
 type RoasBasisView = { key: string; label: string; basis: string; value: number | null; absent: boolean; absentReason?: string }
-type RoasResult = { captured: { start: string; end: string } | null; window: { start: string; end: string }; bases: RoasBasisView[] }
+type RoasResult = { captured: { start: string; end: string } | null; window: { start: string; end: string }; bases: RoasBasisView[]; complete?: boolean; incompleteNote?: string } // LORAMER_QUERY_COMPLETENESS_V1 slice 2
 function RoasBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfig; current: Win }) {
   const [d, setD] = useState<RoasResult | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -278,6 +280,8 @@ function RoasBody({ clientId, cfg, current }: { clientId: string; cfg: CardConfi
       <div className={styles.roasFoot}>
         {d.captured ? `Captured ${d.captured.start} → ${d.captured.end}` : 'No Meta purchase data captured in this window'}
       </div>
+      {/* LORAMER_QUERY_COMPLETENESS_V1 slice 2 — a PARTIAL ROAS must never render clean; same caption pattern as the stat card. */}
+      {d.incompleteNote && <div className={styles.partial}>⚠ {d.incompleteNote}</div>}
     </div>
   )
 }

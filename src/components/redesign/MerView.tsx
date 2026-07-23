@@ -13,6 +13,8 @@ type Channel = { platform: string; spend: number | null; revenue: number | null;
 type Metrics = {
   spend: number; revenue: number | null; revenueSource: string; roas: number | null
   latestCapturedDate: string | null; current?: { startDate: string; endDate: string }; channels?: Channel[]
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — the server builds the partial caption (one place); MerView displays it.
+  complete?: boolean; incompleteNote?: string
 }
 
 const PERIOD_OPTIONS: { value: string; label: string }[] = [
@@ -49,6 +51,8 @@ export default function MerView({ clientId, clientName }: { clientId: string; cl
   const google = ch('google'), meta = ch('meta'), shopify = ch('shopify'), woo = ch('woocommerce'), ga = ch('ga')
   const share = (s: number | null | undefined) => (spend > 0 && s != null ? Math.round((s / spend) * 100) + '%' : '—')
   const stale = !!(m && m.current && m.latestCapturedDate && m.current.endDate > m.latestCapturedDate)
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — the server-built partial/substitution caption (one place).
+  const incompleteNote = m?.incompleteNote || null
 
   // Why MER is "—": distinguish "$0 ad spend" from "no revenue" so the empty state is honest, never a fake number.
   const merNote = merUndefined
@@ -71,6 +75,8 @@ export default function MerView({ clientId, clientName }: { clientId: string; cl
         <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Blended MER (Marketing Efficiency Ratio)</div>
         <div style={{ fontSize: 44, fontWeight: 700, color: merUndefined ? '#94a3b8' : '#0f172a', lineHeight: 1.1 }}>{merValue}</div>
         <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>{merNote}</div>
+        {/* LORAMER_QUERY_COMPLETENESS_V1 slice 2 — amber warning wraps naturally (mobile-safe at sm); never red/error. */}
+        {incompleteNote && <div style={{ fontSize: 12, color: '#b45309', marginTop: 6, overflowWrap: 'anywhere' }}>⚠ {incompleteNote}</div>}
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 14 }}>
           <div>
             <div style={{ fontSize: 12, color: '#94a3b8' }}>Revenue{revSource ? ` (${revSource})` : ''}</div>

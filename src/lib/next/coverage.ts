@@ -25,6 +25,7 @@ export type CoverageResult = {
   floorConfirmed: boolean       // account-grain backfill_complete === true (only this licenses a confirmed-floor claim)
   coversWindow: boolean
   state: CoverageState
+  lastCaptured: string | null   // LORAMER_QUERY_COMPLETENESS_V1 (slice 2) — most recent captured day for this platform (null=none). The failing-window test uses THIS, not only first_failure_at, so a window that ends past the last captured day while capture is failing is flagged even before the streak clock (07-19→07-23 sliver).
 }
 
 // account-grain step key per platform (required-steps.ts: shopify→shopify_deep, woo→woo, everything else→'account').
@@ -105,9 +106,9 @@ export async function getCoverageForWindows(
 
   return windows.map((w) => scope.map((p) => {
     const pp = perPlatform[p]
-    if (!pp.connected) return { platform: p, connected: false, isNA: false, captureFloor: null, floorConfirmed: false, coversWindow: false, state: 'not_connected' as CoverageState }
+    if (!pp.connected) return { platform: p, connected: false, isNA: false, captureFloor: null, floorConfirmed: false, coversWindow: false, state: 'not_connected' as CoverageState, lastCaptured: null }
     const r = resolveCoverageState(stepOf(p), pp.min, pp.max, w)
-    return { platform: p, connected: true, isNA: false, ...r }
+    return { platform: p, connected: true, isNA: false, ...r, lastCaptured: pp.max } // LORAMER_QUERY_COMPLETENESS_V1 slice 2
   }))
 }
 

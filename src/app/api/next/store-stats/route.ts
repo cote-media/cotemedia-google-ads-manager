@@ -11,6 +11,8 @@ import { resolveAccess } from '@/lib/access/can-access'
 import { resolveStorePlatform } from '@/lib/next/store-detect'
 import { queryMetrics } from '@/lib/metrics-query'
 import { resolveDateWindow } from '@/lib/date-range'
+import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
+import { annotateContribution, buildIncompleteNote } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,6 +43,17 @@ export async function GET(request: Request) {
 
   const r = await queryMetrics({ clientId, platforms: [chosen], level: 'account', windows: [{ startDate: win.startDate, endDate: win.endDate }] })
   const w = r.windows[0]
+
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — flag a store total whose OWN capture is failing/stale (scoped to the
+  // chosen store platform), so a store stat card marks it partial instead of showing an understated number as whole.
+  let incompleteNote: string | undefined
+  try {
+    const cw = [{ startDate: win.startDate, endDate: win.endDate }]
+    const cov = await getCoverageForWindows(clientId, [chosen], cw)
+    const comp = await annotateContribution(clientId, cw, cov)
+    incompleteNote = buildIncompleteNote(comp.perWindow[0])
+  } catch { /* best-effort */ }
+
   return NextResponse.json({
     clientId, platform: chosen, availablePlatforms: available, multiStore: available.length > 1, hasStoreData: true,
     window: { startDate: win.startDate, endDate: win.endDate },
@@ -49,5 +62,6 @@ export async function GET(request: Request) {
     aov: w.derived.aov ?? null,   // revenue ÷ orders
     rowCount: w.totals.rowCount,
     noDataInRange: w.totals.rowCount === 0, // captured no data in this window → don't read 0 as "no sales"
+    incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 2
   })
 }

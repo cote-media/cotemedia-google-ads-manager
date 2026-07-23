@@ -40,6 +40,9 @@
 .roasVal { font-size: 22px; font-weight: 700; color: #0f172a; line-height: 1.1; white-space: nowrap; }
 .roasAbsent { font-size: 12px; color: #94a3b8; font-style: italic; white-space: nowrap; }
 .roasBasis { font-size: 11px; color: #94a3b8; margin-top: 2px; line-height: 1.35; }
+/* LORAMER_QUERY_COMPLETENESS_V1 slice 2 — a partial total's warning caption. Wraps naturally (no fixed width) so
+   it is mobile-safe at the sm breakpoint; amber = a warning, not an error/red. */
+.partial { font-size: 11px; color: #b45309; margin-top: 4px; line-height: 1.35; overflow-wrap: anywhere; }
 .roasFoot { margin-top: auto; font-size: 11px; color: #94a3b8; padding-top: 4px; border-top: 1px solid #eef0f3; }
 
 .tableWrap { overflow: auto; height: 100%; }

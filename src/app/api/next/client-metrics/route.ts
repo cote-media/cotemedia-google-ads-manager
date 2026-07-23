@@ -11,6 +11,8 @@ import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 // LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (extracted verbatim from this file).
 import { emptyRevenueAcc, settleRevenue } from '@/lib/next/revenue-settle'
+import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
+import { annotateContribution, substitutedStorePlatform, buildIncompleteNote } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 2
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -117,8 +119,27 @@ export async function GET(request: Request) {
     .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
 
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — flag a CURRENT-window total that omits a failing/stale platform, so
+  // the -next cards mark it partial instead of showing it as a whole number. Additive + best-effort (never breaks
+  // the response). `complete` mirrors money/route.ts:127 coverageComplete; `revenueSourceSubstituted` names a
+  // store platform whose FAILING capture caused the settle to fall back to GA (revenue-settle.ts:60-61).
+  let complete: boolean | undefined
+  let contribution: unknown
+  let revenueSourceSubstituted: string | null = null
+  let incompleteNote: string | undefined
+  try {
+    const win = [{ startDate: current.startDate, endDate: current.endDate }]
+    const cov = await getCoverageForWindows(clientId, [], win)
+    const comp = await annotateContribution(clientId, win, cov)
+    complete = comp.overallComplete
+    contribution = comp.perWindow[0]
+    revenueSourceSubstituted = substitutedStorePlatform(c.revenueSource, comp.perWindow[0] || [])
+    incompleteNote = buildIncompleteNote(comp.perWindow[0], revenueSourceSubstituted)
+  } catch { /* best-effort: a completeness-annotation failure never blanks the metrics */ }
+
   return NextResponse.json({
     clientId, period, current, prior,
+    complete, contribution, revenueSourceSubstituted, incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 2
     spend: c.spend, revenue: c.revenue, revenueSource: c.revenueSource,
     conversions: c.conversions, conversionValue: c.conversionValue, roas: c.roas,
     impressions: c.impressions, clicks: c.clicks, ctr: c.ctr, cpc: c.cpc, cpa: c.cpa,

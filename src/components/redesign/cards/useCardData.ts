@@ -17,9 +17,12 @@ export interface CardData {
   statCompare?: number | null
   rows?: BreakdownRow[]
   note?: string
+  incompleteNote?: string // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — set when a platform's failing/stale capture makes this total PARTIAL
 }
 
 const num = (v: any): number | null => { const n = Number(v); return Number.isFinite(n) ? n : null }
+// LORAMER_QUERY_COMPLETENESS_V1 slice 2 — the "partial" caption is built SERVER-SIDE (one place, buildIncompleteNote)
+// and returned as d.incompleteNote by client-metrics / store-stats; this hook just carries it through.
 const winParams = (cur: Win, cmp: Win | null) => {
   const p: Record<string, string> = { start: cur.startDate, end: cur.endDate }
   if (cmp) { p.cmpStart = cmp.startDate; p.cmpEnd = cmp.endDate }
@@ -47,7 +50,7 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
           return fetch(`/api/next/store-stats?${p.toString()}`).then((r) => (r.ok ? r.json() : Promise.reject()))
         }
         Promise.all([one(current), compare ? one(compare) : Promise.resolve(null)])
-          .then(([cur, cmp]) => { if (alive) setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(cur?.[field]), statCompare: cmp ? num(cmp[field]) : null }) })
+          .then(([cur, cmp]) => { if (alive) setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(cur?.[field]), statCompare: cmp ? num(cmp[field]) : null, incompleteNote: cur?.incompleteNote }) }) // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — store card partial marker
           .catch(fail)
         return () => { alive = false }
       }
@@ -84,7 +87,7 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
         .then((d) => {
           if (!alive) return
           const priorKey = m === 'spend' ? 'spendPrior' : m === 'revenue' ? 'revenuePrior' : m === 'conversions' ? 'conversionsPrior' : m === 'clicks' ? 'clicksPrior' : m === 'impressions' ? 'impressionsPrior' : null
-          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null })
+          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null, incompleteNote: d.incompleteNote }) // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — route-provided caption
         })
         .catch(fail)
     } else if (cfg.kind === 'breakdown') {

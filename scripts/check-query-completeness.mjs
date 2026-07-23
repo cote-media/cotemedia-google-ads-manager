@@ -50,8 +50,24 @@ else {
   }
 }
 
+// SLICE 2 — the -next metric ROUTES attach the flag, and the render SURFACES it (a partial total can't render whole).
+const CM = read('src/app/api/next/client-metrics/route.ts')
+if (CM && !(CM.includes('annotateContribution(') && CM.includes('revenueSourceSubstituted'))) findings.push('client-metrics/route.ts does not attach the completeness flag (annotateContribution + revenueSourceSubstituted) — a card total can omit a failing platform silently.')
+const PM = read('src/app/api/next/portfolio-metrics/route.ts')
+if (PM && !(PM.includes('annotateContributionBatch(') && PM.includes('complete'))) findings.push('portfolio-metrics/route.ts does not attach the batched completeness flag.')
+const CR = read('src/app/api/next/card-roas/route.ts')
+if (CR && !(CR.includes('annotateContribution(') && CR.includes('incompleteNote'))) findings.push('card-roas/route.ts does not attach incompleteNote — a partial ROAS (the highest-visibility false-whole-number) renders clean.')
+const SS = read('src/app/api/next/store-stats/route.ts')
+if (SS && !(SS.includes('annotateContribution(') && SS.includes('incompleteNote'))) findings.push('store-stats/route.ts does not attach incompleteNote — a partial store stat renders whole.')
+const MV = read('src/components/redesign/MerView.tsx')
+if (MV && !MV.includes('incompleteNote')) findings.push('MerView.tsx does not SURFACE incompleteNote — a partial blended total would render as whole.')
+const CV = read('src/components/redesign/cards/CardViz.tsx')
+if (CV && !CV.includes('incompleteNote')) findings.push('CardViz.tsx does not render incompleteNote — stat/ROAS cards cannot mark a partial total.')
+const UCD = read('src/components/redesign/cards/useCardData.ts')
+if (UCD && !UCD.includes('incompleteNote')) findings.push('useCardData.ts does not carry incompleteNote — stat cards cannot mark a partial total.')
+
 if (findings.length) {
-  console.error('✗ GATE FAILED — query_metrics can hand Lora a silently-incomplete total:')
+  console.error('✗ GATE FAILED — query_metrics / the -next routes can hand a silently-incomplete total:')
   for (const f of findings) console.error('  · ' + f)
   console.error(`\n${findings.length} finding(s). Every coverage-annotated total must also carry the contribution + complete flag (from the real health signal), the description must teach it, and a thrown query must be is_error. (Guards the attach class; NOT a proof Lora words it correctly.)`)
   process.exit(1)
