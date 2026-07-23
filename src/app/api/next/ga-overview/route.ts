@@ -11,6 +11,8 @@ import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
+import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 3
+import { annotateContribution, buildIncompleteNote } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 3
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -96,10 +98,19 @@ export async function GET(request: Request) {
   const hasGaEver = !!latest
   const hasSignalInRange = c.sessions > 0 || c.users > 0 || c.revenue > 0 || c.conversions > 0 || c.transactions > 0
 
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 3 — GA totals are a total surface too; flag a stale/failing GA tail.
+  let incompleteNote: string | undefined
+  try {
+    const cov = await getCoverageForWindows(clientId, ['ga'], [current])
+    const comp = await annotateContribution(clientId, [current], cov)
+    incompleteNote = buildIncompleteNote(comp.perWindow[0])
+  } catch { /* best-effort */ }
+
   return NextResponse.json({
     clientId, period, current, prior,
     hasGaEver, hasSignalInRange,
     totals: c, priorTotals: p, series,
     latestCapturedDate: latest?.date || null,
+    incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 3
   })
 }

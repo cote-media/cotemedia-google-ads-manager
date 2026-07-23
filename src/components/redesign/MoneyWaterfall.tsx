@@ -25,6 +25,7 @@ interface MoneyData {
   coverageComplete: boolean
   components: Record<string, Comp>
   latestCapturedDate: string | null
+  incompleteNote?: string // LORAMER_QUERY_COMPLETENESS_V1 slice 3 — stale-tail/partial caption (server-built)
 }
 
 const PLATFORM_LABEL: Record<string, string> = { woocommerce: 'WooCommerce', shopify: 'Shopify' }
@@ -114,6 +115,11 @@ export default function MoneyWaterfall({
             <div className={styles.coverage}>
               Money is missing for {data.saleDaysMissingMoney} sale-day{data.saleDaysMissingMoney === 1 ? '' : 's'} in this range — they predate the money back-drain. (No-sale days are excluded, not missing.)
             </div>
+          ) : null}
+
+          {/* LORAMER_QUERY_COMPLETENESS_V1 slice 3 — stale-tail/partial caption (was unwired; the screenshot found it). */}
+          {data.incompleteNote ? (
+            <div className={styles.coverage} style={{ color: '#b45309', overflowWrap: 'anywhere' }}>⚠ {data.incompleteNote}</div>
           ) : null}
 
           {data.basis === 'woo_total_incl_shipping_tax_refundNetted' ? (

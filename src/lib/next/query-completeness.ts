@@ -16,7 +16,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import type { CoverageResult } from './coverage'
 
 export type ContributionStatus =
-  | 'ok' | 'capture_failing' | 'trailing_gap' | 'predates_capture' | 'draining' | 'not_connected'
+  | 'ok' | 'capture_failing' | 'stale_tail' | 'trailing_gap' | 'predates_capture' | 'draining' | 'not_connected'
 export type PlatformContribution = { platform: string; status: ContributionStatus; contributed: boolean; detail: string; since?: string }
 export type HealthRow = { health: string | null; consecutive_failures: number; first_failure_at: string | null }
 export type CompletenessResult = {
@@ -27,10 +27,17 @@ export type CompletenessResult = {
 }
 
 const STORE_PLATFORMS: ReadonlySet<string> = new Set(['shopify', 'woocommerce'])
-// A total is INCOMPLETE iff a platform is actively FAILING or has a trailing gap — the two understatement cases.
-// predates_capture / not_connected / draining are honest absence (already in coverage.state) and do NOT alone make
-// a total a wrong number.
-const INCOMPLETE: ReadonlySet<ContributionStatus> = new Set<ContributionStatus>(['capture_failing', 'trailing_gap'])
+// A total is INCOMPLETE iff a platform is actively failing, has a stale tail, or a trailing gap — the understatement
+// cases. predates_capture / not_connected / draining are honest absence (already in coverage.state) and do NOT alone
+// make a total a wrong number.
+const INCOMPLETE: ReadonlySet<ContributionStatus> = new Set<ContributionStatus>(['capture_failing', 'stale_tail', 'trailing_gap'])
+
+// LORAMER_QUERY_COMPLETENESS_V1 slice 3 — the STALE-TAIL threshold. A platform whose last captured day is >= this many
+// days behind the window's end is understated, INDEPENDENT of any failure streak (the slice-2 gate required a streak,
+// so a stale tail on a healthy connection whose streak was not yet recorded rendered clean — the live defect). 1 day
+// is normal fleet-wide capture lag and would false-alarm on every healthy client; >= 2 days catches a real stall.
+const LAG_TOLERANCE_DAYS = 2
+const daysBetween = (a: string, b: string): number => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000)
 
 // PURE — no I/O. Given a pre-fetched health map + coverage, compute the contribution + verdicts. Exported so a
 // multi-client caller (portfolio-metrics) batches the platform_connections read once and calls this per client.
@@ -55,14 +62,22 @@ export function computeContribution(
         (c.lastCaptured != null && w.endDate > c.lastCaptured) ||
         (!!firstFailDay && w.endDate >= firstFailDay)
       )
+      // stale_tail — window ends >= LAG_TOLERANCE_DAYS past the last captured day. INDEPENDENT of the streak: this is
+      // the fact a stale-but-not-yet-flagged connection carries (Shelley's woo, lastCaptured 2+ days behind the window
+      // end while her streak had not yet fired). Distinct from capture_failing (a KNOWN failing connection).
+      const staleTail = c.lastCaptured != null && daysBetween(c.lastCaptured, w.endDate) >= LAG_TOLERANCE_DAYS
 
       if (!c.connected || c.state === 'not_connected') {
         return { platform: p, status: 'not_connected', contributed: false, detail: `${p} is not connected for this client.` }
       }
-      if (failing) {
+      if (failing) { // a KNOWN failure (streak) wins over a mere stale tail
         const stopped = c.lastCaptured || firstFailDay
         return { platform: p, status: 'capture_failing', contributed: false, since: h!.first_failure_at || undefined,
           detail: `${p} capture is CURRENTLY FAILING${stopped ? ` (last captured ${stopped})` : ''}${h!.health === 'degraded' ? ' — flagged degraded (over a day)' : ''}; this window's ${p} total is UNDERSTATED — recent days were not captured. Not $0, not disconnected.` }
+      }
+      if (staleTail) {
+        return { platform: p, status: 'stale_tail', contributed: true,
+          detail: `${p} is captured only through ${c.lastCaptured}; this window ends ${w.endDate}, so its last ${daysBetween(c.lastCaptured!, w.endDate)} day(s) are not yet captured — the ${p} total is UNDERSTATED (not $0). This is a stale tail (capture is behind), distinct from a failing connection.` }
       }
       if (c.state === 'trailing_gap') {
         return { platform: p, status: 'trailing_gap', contributed: false,
@@ -84,6 +99,7 @@ export function computeContribution(
     for (const r of row) {
       if (r.status === 'capture_failing') noteSet.add(`${r.platform} capture is CURRENTLY FAILING${r.since ? ' (since ' + String(r.since).slice(0, 10) + ')' : ''} — any total that includes ${r.platform} is INCOMPLETE. State it AS partial and NAME ${r.platform}; never present it as a whole number and never as $0 for ${r.platform} (its recent data simply has not been captured — not $0, not disconnected).`)
       if (r.status === 'trailing_gap') noteSet.add(`${r.platform} has no captured data for the most recent part of the window — the ${r.platform} total is understated; say so and do not present it as complete.`)
+      if (r.status === 'stale_tail') noteSet.add(`${r.platform} capture is BEHIND (its most recent days in this window are not yet captured) — the ${r.platform} total is understated. Say the ${r.platform} figure covers only through the last captured day; do NOT present it as complete and never as $0 for the missing tail.`)
     }
   })
 
@@ -147,7 +163,7 @@ export async function annotateContributionBatch(
 // empty), that substitution must be LABELED, not silent. Returns the failing store platform, else null.
 export function substitutedStorePlatform(revenueSource: string, contributionForWindow: PlatformContribution[]): string | null {
   if (revenueSource !== 'ga') return null
-  const failingStore = contributionForWindow.find((c) => STORE_PLATFORMS.has(c.platform) && (c.status === 'capture_failing' || c.status === 'trailing_gap'))
+  const failingStore = contributionForWindow.find((c) => STORE_PLATFORMS.has(c.platform) && (c.status === 'capture_failing' || c.status === 'trailing_gap' || c.status === 'stale_tail'))
   return failingStore ? failingStore.platform : null
 }
 
@@ -156,10 +172,16 @@ export function substitutedStorePlatform(revenueSource: string, contributionForW
 // d.incompleteNote — one pattern, no client import of this server-only module.
 const PLABEL: Record<string, string> = { google: 'Google', meta: 'Meta', shopify: 'Shopify', woocommerce: 'WooCommerce', ga: 'GA' }
 export function buildIncompleteNote(contribution: PlatformContribution[] | undefined, revenueSourceSubstituted?: string | null): string | undefined {
+  // Failing (a KNOWN-broken connection) and stale (capture merely BEHIND) are DIFFERENT facts — wording them the
+  // same ("capture is failing") states a false thing about a healthy-but-lagging connection (prompt-honesty). Split.
   const failing = (contribution || []).filter((c) => c.status === 'capture_failing' || c.status === 'trailing_gap')
-  if (!failing.length && !revenueSourceSubstituted) return undefined
-  const names = Array.from(new Set(failing.map((c) => PLABEL[c.platform] || c.platform)))
-  let note = names.length ? `Partial — ${names.join(', ')} capture is failing, so this total is understated (not $0)` : undefined
+  const stale = (contribution || []).filter((c) => c.status === 'stale_tail')
+  if (!failing.length && !stale.length && !revenueSourceSubstituted) return undefined
+  const nm = (arr: PlatformContribution[]) => Array.from(new Set(arr.map((c) => PLABEL[c.platform] || c.platform)))
+  const parts: string[] = []
+  if (failing.length) parts.push(`${nm(failing).join(', ')} capture is failing, so this total is understated (not $0)`)
+  if (stale.length) parts.push(`${nm(stale).join(', ')} capture is behind — its most recent days aren't captured yet, so this total is understated (not $0)`)
+  let note = parts.length ? `Partial — ${parts.join('; ')}` : undefined
   if (revenueSourceSubstituted) note = (note ? note + '. ' : '') + `Revenue shown is GA — the ${PLABEL[revenueSourceSubstituted] || revenueSourceSubstituted} store total is missing (its capture is failing, not $0, not disconnected)`
   return note
 }

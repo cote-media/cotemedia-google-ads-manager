@@ -9,6 +9,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 import { aggregateMoney, MONEY_KEYS } from '@/lib/next/money-surface'
+import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 3
+import { annotateContribution, buildIncompleteNote } from '@/lib/next/query-completeness' // LORAMER_QUERY_COMPLETENESS_V1 slice 3
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -111,9 +113,19 @@ export async function GET(request: Request) {
 
   const latestOverall = available.find((a) => a.pf === chosen)?.date || null
 
+  // LORAMER_QUERY_COMPLETENESS_V1 slice 3 — the money card must show the SAME stale-tail/partial caption as the
+  // other cards (the screenshot found it unwired). Scoped to the chosen store platform. Additive + best-effort.
+  let incompleteNote: string | undefined
+  try {
+    const cov = await getCoverageForWindows(clientId, [chosen], [current])
+    const comp = await annotateContribution(clientId, [current], cov)
+    incompleteNote = buildIncompleteNote(comp.perWindow[0])
+  } catch { /* best-effort */ }
+
   return NextResponse.json({
     clientId,
     platform: chosen,
+    incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 3
     hasStoreMoney: true,
     availablePlatforms: available.map((a) => a.pf),
     multiStore: available.length > 1,

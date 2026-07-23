@@ -9,7 +9,7 @@ import { deltaLabel, DEFAULT_PERIOD, type Delta } from '@/lib/next/portfolio-win
 
 type Totals = { sessions: number; users: number; newUsers: number; conversions: number; revenue: number; transactions: number; engagementRate: number | null }
 type Pt = { date: string; sessions: number; users: number; revenue: number }
-type Resp = { hasGaEver: boolean; hasSignalInRange: boolean; totals: Totals; priorTotals: Totals; series: Pt[]; latestCapturedDate: string | null; current?: { startDate: string; endDate: string } }
+type Resp = { hasGaEver: boolean; hasSignalInRange: boolean; totals: Totals; priorTotals: Totals; series: Pt[]; latestCapturedDate: string | null; current?: { startDate: string; endDate: string }; incompleteNote?: string /* LORAMER_QUERY_COMPLETENESS_V1 slice 3 */ }
 
 const PERIOD_OPTIONS = [
   { value: 'TODAY', label: 'Today' }, { value: 'YESTERDAY', label: 'Yesterday' }, { value: 'THIS_WEEK', label: 'This week' },
@@ -99,6 +99,8 @@ export default function GaOverview({ clientId, clientName }: { clientId: string;
           <Stat label="Transactions" value={loading && !d ? '…' : (t ? num(t.transactions) : '—')} delta={dl(t?.transactions, p?.transactions)} />
         </div>
         <div className={styles.metaLabel} style={{ marginTop: 6 }}>{d?.latestCapturedDate ? `Captured data through ${d.latestCapturedDate}` : 'Captured data (system of record)'}</div>
+        {/* LORAMER_QUERY_COMPLETENESS_V1 slice 3 — stale/failing GA tail marker (mobile-safe wrap). */}
+        {d?.incompleteNote ? <div className={styles.metaLabel} style={{ marginTop: 6, color: '#b45309', overflowWrap: 'anywhere' }}>⚠ {d.incompleteNote}</div> : null}
       </div>
 
       <div style={{ marginTop: 16, maxWidth: 720 }}>

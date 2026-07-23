@@ -11,6 +11,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { createRequire } from 'node:module'
 
 const ROOT = process.cwd()
 const read = (p) => { try { return fs.readFileSync(path.join(ROOT, p), 'utf8') } catch { return null } }
@@ -65,6 +66,32 @@ const CV = read('src/components/redesign/cards/CardViz.tsx')
 if (CV && !CV.includes('incompleteNote')) findings.push('CardViz.tsx does not render incompleteNote — stat/ROAS cards cannot mark a partial total.')
 const UCD = read('src/components/redesign/cards/useCardData.ts')
 if (UCD && !UCD.includes('incompleteNote')) findings.push('useCardData.ts does not carry incompleteNote — stat cards cannot mark a partial total.')
+// SLICE 3 — the money + ga-overview TOTAL surfaces (the two that were missed) attach + render the flag.
+const MO = read('src/app/api/next/money/route.ts')
+if (MO && !(MO.includes('annotateContribution(') && MO.includes('incompleteNote'))) findings.push('money/route.ts does not attach incompleteNote — the money card renders a partial total whole (the live defect).')
+const GO = read('src/app/api/next/ga-overview/route.ts')
+if (GO && !(GO.includes('annotateContribution(') && GO.includes('incompleteNote'))) findings.push('ga-overview/route.ts does not attach incompleteNote — a stale GA total renders whole.')
+const MW = read('src/components/redesign/MoneyWaterfall.tsx')
+if (MW && !MW.includes('incompleteNote')) findings.push('MoneyWaterfall.tsx does not render incompleteNote.')
+
+// SLICE 3 BEHAVIORAL — the stale-tail flag must NOT be gated behind the health streak. Transpile computeContribution
+// and run the EXACT live case that shipped broken: healthy connection, no streak, coverage 'covered', lastCaptured 2
+// days behind the window end → it MUST return 'stale_tail'. On the pre-slice-3 code (gated on streakActive) it returns
+// 'ok' → this fails. This guards the CLASS: any future edit that re-gates the tail test behind health breaks the build.
+try {
+  const require = createRequire(path.join(ROOT, 'package.json'))
+  const ts = require('typescript')
+  const js = ts.transpileModule(read('src/lib/next/query-completeness.ts') || '', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText
+  const m = { exports: {} }
+  new Function('exports', 'require', 'module', js)(m.exports, (s) => s === '@/lib/supabase' ? { supabaseAdmin: {} } : s === './coverage' ? {} : require(s), m)
+  const health = new Map([['woocommerce', { health: 'healthy', consecutive_failures: 0, first_failure_at: null }]])
+  const cov = [[{ platform: 'woocommerce', connected: true, isNA: false, captureFloor: '2018-12-11', floorConfirmed: true, coversWindow: true, state: 'covered', lastCaptured: '2026-07-19' }]]
+  const r = m.exports.computeContribution(health, [{ startDate: '2026-05-02', endDate: '2026-07-21' }], cov)
+  const st = r?.perWindow?.[0]?.[0]?.status
+  if (st !== 'stale_tail') findings.push(`BEHAVIORAL: a healthy connection (no streak) with lastCaptured 2 days behind the window end returns '${st}', not 'stale_tail' — the stale-tail flag is gated behind the health signal (the live defect that shipped in slice 2).`)
+} catch (e) {
+  findings.push('BEHAVIORAL stale-tail check could not run: ' + (e?.message || String(e)))
+}
 
 if (findings.length) {
   console.error('✗ GATE FAILED — query_metrics / the -next routes can hand a silently-incomplete total:')
