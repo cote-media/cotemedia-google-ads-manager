@@ -42,18 +42,42 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import pg from 'pg'
+import { KNOWN_ACCOUNT_ROW_VIOLATIONS } from './account-row-invariant.baseline.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { return null } }
 const arg = (k, d) => { const a = process.argv.find((s) => s.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d }
 const WINDOW_DAYS = Number(arg('days', 90))
 const AS_JSON = process.argv.includes('--json')
+// LORAMER_ACCOUNT_ROW_INVARIANT_V1 — the second assertion (see the block at the foot of this file).
+// --invariant-only : run ONLY the account-row-per-day invariant (skip the STANDARD-C landing probes).
+// --gate-a         : also run the real-input Gate-A proof that the detector catches a missing-account-row day.
+const INVARIANT_ONLY = process.argv.includes('--invariant-only')
+const RUN_GATE_A = process.argv.includes('--gate-a')
+// --guard        : blocking mode — exit 1 on any violation NOT covered by the baseline.
+//                  Run ONLY via `npm run check:data` (pre-push, DB-dependent). ⛔ NEVER add this invocation to
+//                  `npm run guard` or `npm run build`: guard is 100% hermetic and sits in the Vercel deploy chain
+//                  (vercel.json has no buildCommand → Vercel runs `npm run build`), and this is a live-DB check that
+//                  would couple deploys to data state. The code-gate / data-gate split is DELIBERATE (DECISIONS
+//                  LORAMER_ACCOUNT_ROW_INVARIANT_V1) — do not re-merge them.
+// --prove-exact  : inject a synthetic in-memory violation OUTSIDE the baseline range to prove the baseline is a
+//                  bounded window, not a blanket client+platform mute (must make --guard fail). No DB writes.
+const GUARD = process.argv.includes('--guard')
+const PROVE_EXACT = process.argv.includes('--prove-exact')
 
 for (const line of (read('.env.local') || '').split('\n')) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
 }
-if (!process.env.SUPABASE_DB_URL) { console.error('✗ landing gate: SUPABASE_DB_URL missing (.env.local)'); process.exit(2) }
+if (!process.env.SUPABASE_DB_URL) {
+  // FAIL LOUD, NEVER SKIP. The account-row invariant is a DATA-integrity check run ONLY at the pre-push gate
+  // (`npm run check:data`), never inside `npm run guard` / `npm run build` / the Vercel deploy chain. A silent no-op
+  // is worse than no check: a missing DB URL here means the pre-push environment is misconfigured, and that must STOP
+  // the push, not pass quietly. (An earlier revision skipped for Vercel-safety; the check now lives OUT of the deploy
+  // path entirely — see the --guard flag note above + DECISIONS LORAMER_ACCOUNT_ROW_INVARIANT_V1 — so loud is right.)
+  console.error('✗ SUPABASE_DB_URL missing (.env.local) — required for the data-integrity check; refusing to pass quietly.')
+  process.exit(2)
+}
 
 // ── 1. families from the code registry (the ONE declared source) ────────────────────────────────────────────────
 const registrySrc = read('src/lib/breakdown-registry.ts')
@@ -123,6 +147,13 @@ const conns = await q(
      from platform_connections pc join clients c on c.id = pc.client_id
     where c.deleted_at is null order by c.name, pc.platform`)
 
+// LORAMER_ACCOUNT_ROW_INVARIANT_V1 — focused mode: run only the second assertion, reusing this connection.
+if (INVARIANT_ONLY) {
+  const { exitCode } = await runAccountRowInvariant(conns, q, { gateA: RUN_GATE_A, guard: GUARD, proveExact: PROVE_EXACT })
+  await client.end()
+  process.exit(exitCode)
+}
+
 // anchor activity: a day the account grain shows real delivery. GA carries sessions in extra, not spend/revenue.
 const ACTIVE = `(m.spend > 0 or m.revenue > 0 or m.conversions > 0 or coalesce((m.extra->>'sessions')::numeric, 0) > 0)`
 
@@ -184,6 +215,9 @@ for (const c of conns) {
     })
   }
 }
+// ── SECOND ASSERTION (LORAMER_ACCOUNT_ROW_INVARIANT_V1) — also runs in the full pass, reusing this connection ──
+await runAccountRowInvariant(conns, q, { gateA: RUN_GATE_A })
+
 await client.end()
 
 // ── 4. verdicts ─────────────────────────────────────────────────────────────────────────────────────────────────
@@ -234,3 +268,188 @@ console.log('export const KNOWN_NOT_LANDING = [')
 for (const k of [...byFamily.keys()].sort()) console.log(`  '${k}',`.padEnd(46) + `// ${byFamily.get(k).tag}, ${byFamily.get(k).clients.length} client(s)`)
 console.log(']')
 console.log('\n(read-only; nothing written, nothing wired into npm run guard)')
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LORAMER_ACCOUNT_ROW_INVARIANT_V1 — SECOND ASSERTION: the account-row-per-day invariant.
+//
+// RULE: for every (client_id, platform, date) that has ANY row in metrics_daily, a row with
+//   entity_level='account' AND breakdown_type='' AND breakdown_value=''  MUST exist for that same
+//   (client_id, platform, date). A day with rows but no account row = INVARIANT VIOLATION.
+// UNIFORM — NO family exemption (not for conditional / non-partitioning / write-only families): any row on a day
+//   means the day WAS captured, so the account anchor must be there. This is deliberately stricter than the
+//   landing gate's PARTITIONING/CONDITIONAL split above — that gate asks "should this breakdown exist on this day";
+//   this assertion asks the platform-neutral question "does the anchor exist on any day we wrote anything".
+// WHY IT MATTERS: this is the schema-UNENFORCED invariant the six latest-date reads
+//   (LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1: money, store-detect, client-metrics, portfolio-metrics, ga-overview,
+//   clients/metrics) silently depend on. A day with breakdown rows but no account row makes those reads skip it and
+//   return a STALE (or null) "latest captured date" with NO error raised — a quiet-stale failure.
+//
+// INDEX DISCIPLINE (live statement_timeout is 8s; metrics_daily is ~34M rows): never an unconstrained scan. Every
+// probe is bounded by client_id + platform so it rides the client-leading indexes, exactly like the landing gate:
+//   allDates  — distinct date for (client, platform)            → idx_metrics_daily_client_platform_date
+//   acctDates — distinct date + entity_level='account' filter   → idx_metrics_daily_client_platform_level_date
+// Both are index-only distinct-date scans over ONE client×platform range; the diff (allDates − acctDates) is in JS.
+// SCOPE (stated, not papered over): the driver is the connected (client, platform) pairs from platform_connections
+// (same driver as the landing gate). A (client, platform) with historical metrics_daily rows but no current
+// connection row is out of scope — deriving the pair-set from a fleet-wide DISTINCT would be the unbounded scan the
+// 8s ceiling forbids.
+
+// PURE core — Gate-A drives this directly with a modified comparison set, so a real catch is proven with NO DB write.
+function accountRowViolations(allDates, acctDates) {
+  const acct = new Set(acctDates)
+  return allDates.filter((d) => !acct.has(d)).sort()
+}
+
+// Local-component date format (node-pg returns a DATE as a local-midnight JS Date, so getFullYear/Month/Date give the
+// true calendar day). Both date-sets pass through this identically, so the set diff is timezone-invariant regardless.
+function fmtDate(d) {
+  const dt = d instanceof Date ? d : new Date(d)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
+// Distinct captured dates for one (client, platform). accountOnly=true adds the account-triple filter.
+//
+// LOOSE INDEX SCAN (skip-scan emulation via a recursive CTE): enumerate DISTINCT dates with ONE index seek per date
+// — anchor seeks MIN(date), each step seeks the next date > previous — instead of scanning the whole (client,
+// platform) grain range. Cost is O(distinct-days), NOT O(rows). A plain GROUP BY/DISTINCT over the heaviest pair
+// (Veterinary google = 4.8M rows) blows the pooled statement timeout; this recursive form returned its 122 distinct
+// days in 243ms (EXPLAIN ANALYZE, all Index Only Scan limit-1 on idx_metrics_daily_client_platform_date; acctDates'
+// triple predicate rides the partial idx_metrics_daily_account_canonical). No ceiling-raise — honours the 8s law.
+// Formatting is done in JS so the index sort order is preserved.
+async function datesFor(q, clientId, platform, accountOnly) {
+  const filt = accountOnly ? `and m.entity_level = 'account' and m.breakdown_type = '' and m.breakdown_value = ''` : ``
+  const rows = await q(
+    `with recursive dd as (
+        select (select m.date from metrics_daily m
+                 where m.client_id = $1 and m.platform = $2 ${filt}
+                 order by m.date asc limit 1) as date
+      union all
+        select (select m.date from metrics_daily m
+                 where m.client_id = $1 and m.platform = $2 ${filt} and m.date > dd.date
+                 order by m.date asc limit 1) as date
+        from dd where dd.date is not null)
+      select date from dd where date is not null order by date`,
+    [clientId, platform])
+  return rows.map((r) => fmtDate(r.date))
+}
+
+async function runAccountRowInvariant(conns, q, { gateA, guard, proveExact }) {
+  console.log('\n════════════════════════════════════════════════════════════════════════════════════════════════════')
+  console.log('LORAMER_ACCOUNT_ROW_INVARIANT_V1 (SECOND ASSERTION — live DB, read-only)')
+  console.log("  rule: every (client, platform, date) with ANY row must carry an account row")
+  console.log("        (entity_level='account', breakdown_type='', breakdown_value=''). Uniform — no family exemption.")
+
+  let tuplesChecked = 0
+  const violations = []
+  const scannedPairs = new Set()
+  for (const c of conns) {
+    scannedPairs.add(`${c.client_id}|${c.platform}`)
+    const allDates = await datesFor(q, c.client_id, c.platform, false)
+    const acctDates = await datesFor(q, c.client_id, c.platform, true)
+    tuplesChecked += allDates.length
+    for (const d of accountRowViolations(allDates, acctDates))
+      violations.push({ clientId: c.client_id, client: c.name, platform: c.platform, date: d })
+  }
+
+  // --prove-exact: inject a synthetic violation OUTSIDE the baselined range (in memory only, no DB write) to prove
+  // the baseline is a bounded [from..to] window — this out-of-range Shelley woo day must NOT be baselined → guard fails.
+  if (proveExact) {
+    violations.push({ clientId: '23c697bb-5255-4289-9329-659544ba8e6e', client: 'Shelley Kyle (SYNTHETIC out-of-range)', platform: 'woocommerce', date: '2025-06-15', synthetic: true })
+    console.log('\n  [--prove-exact] injected synthetic Shelley woo violation on 2025-06-15 (OUTSIDE the 2016..2018 baseline).')
+  }
+
+  console.log(`\n  (client, platform, date) tuples checked : ${tuplesChecked}`)
+  console.log(`  invariant violations                    : ${violations.length}`)
+
+  if (violations.length > 0) {
+    // Full accounting so the total is never just "first 20" — one line per (client, platform) with count + date span.
+    const byPair = new Map()
+    for (const v of violations) {
+      const k = `${v.client} (${String(v.clientId).slice(0, 8)}) · ${v.platform}`
+      const e = byPair.get(k) || { n: 0, lo: v.date, hi: v.date }
+      e.n++; if (v.date < e.lo) e.lo = v.date; if (v.date > e.hi) e.hi = v.date
+      byPair.set(k, e)
+    }
+    console.log('\n  BY (client, platform) — all violations accounted for:')
+    for (const [k, e] of [...byPair.entries()].sort((a, b) => b[1].n - a[1].n))
+      console.log(`     ${k.padEnd(48)} ${String(e.n).padStart(5)} day(s)   ${e.lo} .. ${e.hi}`)
+
+    console.log('\n  VIOLATIONS (up to 20) — client, platform, date, breakdown-rows-that-day:')
+    for (const v of violations.slice(0, 20)) {
+      const [row] = await q(
+        `select count(*)::int as n from metrics_daily
+          where client_id = $1 and platform = $2 and date = $3::date`,
+        [v.clientId, v.platform, v.date])
+      const label = `${v.client} (${String(v.clientId).slice(0, 8)})`
+      console.log(`     ${label.padEnd(42)} ${v.platform.padEnd(12)} ${v.date}   rows=${row.n} (all breakdown; no account row)`)
+    }
+    if (violations.length > 20) console.log(`     … and ${violations.length - 20} more`)
+  } else {
+    console.log('  → invariant HOLDS across all connections in scope.')
+  }
+
+  if (gateA) await runGateA(conns, q)
+
+  // GUARD verdict (blocking): classify every violation against the EXACT baseline windows.
+  let exitCode = 0
+  if (guard) {
+    const { novel, stale } = classifyAgainstBaseline(violations, scannedPairs)
+    console.log('\n  GUARD — baseline classification:')
+    console.log(`     violations ${violations.length} · baselined ${violations.length - novel.length} · NEW ${novel.length} · stale-baseline ${stale.length}`)
+    for (const b of stale)
+      console.log(`     ⚠ STALE baseline (data now clean — remove this entry): ${String(b.clientId).slice(0, 8)} ${b.platform} ${b.from}..${b.to}`)
+    if (novel.length) {
+      console.error(`\n✗ ACCOUNT-ROW-INVARIANT GUARD FAILED — ${novel.length} violation(s) NOT covered by the baseline:`)
+      for (const v of novel.slice(0, 20))
+        console.error(`     ${v.client} (${String(v.clientId).slice(0, 8)}) ${v.platform} ${v.date}`)
+      if (novel.length > 20) console.error(`     … and ${novel.length - 20} more`)
+      console.error('  A day with rows but no account row breaks the six latest-date reads silently (LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1).')
+      console.error('  FIX the capture, or (deliberately) extend scripts/account-row-invariant.baseline.mjs to grandfather a KNOWN hole.')
+      exitCode = 1
+    } else {
+      console.log('  ✓ ACCOUNT-ROW-INVARIANT GUARD PASSED — every violation is within a baselined window (stale entries warned, non-fatal).')
+    }
+  }
+  return { tuplesChecked, violations, exitCode }
+}
+
+// Classify violations against the EXACT baseline windows. A violation is baselined iff some entry matches its
+// (clientId, platform) AND from <= date <= to. `stale` = baseline entries whose (client, platform) WAS scanned this
+// run but produced zero matching violations (the hole is filled → the entry is clearable). Only scanned pairs can be
+// judged stale, so a disconnected client is never falsely read as "fixed". Stale is a WARNING, not a failure: data
+// getting BETTER must never brick a code deploy — the entry is simply owed removal at the next docs pass.
+function classifyAgainstBaseline(violations, scannedPairs) {
+  const inRange = (v, b) => v.clientId === b.clientId && v.platform === b.platform && v.date >= b.from && v.date <= b.to
+  const novel = violations.filter((v) => !KNOWN_ACCOUNT_ROW_VIOLATIONS.some((b) => inRange(v, b)))
+  const stale = KNOWN_ACCOUNT_ROW_VIOLATIONS.filter((b) =>
+    scannedPairs.has(`${b.clientId}|${b.platform}`) && !violations.some((v) => inRange(v, b)))
+  return { novel, stale }
+}
+
+// GATE-A (real inputs, no fixtures, no writes): prove the detector catches a missing-account-row day using REAL rows.
+// Pick a real client+platform with a CLEAN baseline (0 real violations, ≥5 account dates), take its REAL account
+// dates, EXCLUDE a handful from the comparison set IN MEMORY (nothing is deleted), and confirm accountRowViolations
+// flags EXACTLY the excluded dates and nothing else. Each excluded date is a real captured day that carries an
+// account row, so dropping it from the comparison set is a faithful stand-in for "the day has rows but its account
+// row is gone" — precisely the violation this invariant exists to catch.
+async function runGateA(conns, q) {
+  console.log('\n  ── GATE-A (real-input, no fixtures, no writes) ──')
+  for (const c of conns) {
+    const allDates = await datesFor(q, c.client_id, c.platform, false)
+    const acctDates = await datesFor(q, c.client_id, c.platform, true)
+    const baseline = accountRowViolations(allDates, acctDates)
+    if (baseline.length !== 0 || acctDates.length < 5) continue // need a clean baseline with room to exclude
+    const pick = [...new Set([acctDates[1], acctDates[Math.floor(acctDates.length / 2)], acctDates[acctDates.length - 2]])].sort()
+    const reducedAcct = acctDates.filter((d) => !pick.includes(d))
+    const flagged = accountRowViolations(allDates, reducedAcct)
+    const exact = flagged.length === pick.length && flagged.every((d, i) => d === pick[i])
+    console.log(`  client   : ${c.name} (${String(c.client_id).slice(0, 8)})  platform=${c.platform}`)
+    console.log(`  real set : ${allDates.length} total dates · ${acctDates.length} account dates · ${baseline.length} baseline violations`)
+    console.log(`  excluded : ${pick.join(', ')}   (removed from the comparison set only — no DB rows touched)`)
+    console.log(`  flagged  : ${flagged.join(', ') || '(none)'}`)
+    console.log(`  result   : ${exact ? 'PASS — flagged EXACTLY the excluded dates, nothing else' : 'FAIL — mismatch'}`)
+    return { exact, client: c.name, platform: c.platform, excluded: pick, flagged }
+  }
+  console.log('  (no client+platform with a clean baseline and ≥5 account dates found — cannot run Gate-A cleanly)')
+  return null
+}
