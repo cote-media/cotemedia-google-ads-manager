@@ -26,7 +26,11 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // Vercel, so PRODUCTION Lora answered on Sonnet while the 28/28 accuracy gate was measured on a local Opus process —
 // the gate did not describe production (2026-07-15 master audit, G10; closed by setting the prod env var).
 // An env var is not a law: if the var is ever deleted, this default is what ships. It must BE the floor.
-const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-opus-4-8'
+// LORAMER_LORA_OPUS5_MIGRATION_V1 (2026-07-24) — floor raised to claude-opus-5 on Russ's go. Opus 5 re-baselined
+// 28/28 corrected (vs 4.8's 27/28 on the same set — it fixed D2, the false-zero Meta-dedup drop) with ZERO
+// regressions and IDENTICAL input-token cost (same tokenizer as 4.8; only output is ~2x more verbose). The Vercel
+// env var LORA_CHAT_MODEL is flipped to opus-5 the same day; this default must track it (env var is not a law).
+const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-opus-5'
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
