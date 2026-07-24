@@ -37,9 +37,10 @@ const US_REGION_TO_ISO: Record<string, string> = {
 }
 const regionCode = (country: string, region: string) => `${country || '(not set)'}-${US_REGION_TO_ISO[region] || region || '(not set)'}`
 
-type Metric = { name: string; to: 'conversions' | 'revenue' | 'extra' }
+type Metric = { name: string; to: 'conversions' | 'revenue' | 'extra'; additive?: boolean } // LORAMER_GA_DIM_DEDUP_V1 — additive:false marks a RATE (never summed when merging duplicate-key rows)
 type Family = { bt: string; dims: string[]; metrics: Metric[]; value: (d: string[]) => string }
-const S = (n: string): Metric => ({ name: n, to: 'extra' }) // session/behavioral metric → extra JSONB
+const S = (n: string): Metric => ({ name: n, to: 'extra' }) // session/behavioral COUNT metric → extra JSONB (additive)
+const RATE = (n: string): Metric => ({ name: n, to: 'extra', additive: false }) // LORAMER_GA_DIM_DEDUP_V1 — a RATE (e.g. sessionConversionRate): extra JSONB but NON-additive; dropped on merge (a rate over a merged bucket is not recoverable from the component rates)
 const C: Metric = { name: 'conversions', to: 'conversions' }
 const R: Metric = { name: 'totalRevenue', to: 'revenue' }
 const SESSION_METRICS: Metric[] = [S('sessions'), S('engagedSessions'), C, R]
@@ -50,7 +51,7 @@ const FAMILIES: Family[] = [
   { bt: 'ga_source_medium', dims: ['sessionSource', 'sessionMedium'], metrics: SESSION_METRICS, value: (d) => `${d[0]} / ${d[1]}` },        // A
   { bt: 'ga_channel', dims: ['sessionDefaultChannelGroup'], metrics: SESSION_METRICS, value: (d) => d[0] },                                   // B
   { bt: 'ga_campaign', dims: ['sessionCampaignName'], metrics: SESSION_METRICS, value: (d) => d[0] },                                          // C
-  { bt: 'ga_landing_page', dims: ['landingPagePlusQueryString'], metrics: [S('sessions'), S('engagedSessions'), C, S('sessionConversionRate'), R], value: (d) => d[0] }, // D
+  { bt: 'ga_landing_page', dims: ['landingPagePlusQueryString'], metrics: [S('sessions'), S('engagedSessions'), C, RATE('sessionConversionRate'), R], value: (d) => d[0] }, // D — sessionConversionRate is a RATE (LORAMER_GA_DIM_DEDUP_V1)
   { bt: 'ga_device', dims: ['deviceCategory'], metrics: SESSION_METRICS, value: (d) => d[0] },                                                 // E
   { bt: 'ga_geo_country', dims: ['country'], metrics: GEO_METRICS, value: (d) => d[0] },                                                       // F1
   { bt: 'ga_geo_region', dims: ['country', 'region'], metrics: GEO_METRICS, value: (d) => regionCode(d[0], d[1]) },                            // F2
@@ -60,6 +61,38 @@ const FAMILIES: Family[] = [
   { bt: 'ga_event', dims: ['eventName'], metrics: [S('eventCount'), S('eventValue')], value: (d) => d[0] },                                    // H (event-scoped)
   { bt: 'ga_item', dims: ['itemName', 'itemId'], metrics: [S('itemsPurchased'), S('itemRevenue')], value: (d) => `${d[0]}${d[1] ? ' (' + d[1] + ')' : ''}` }, // I (item-scoped)
 ]
+
+// LORAMER_GA_DIM_DEDUP_V1 — the non-additive extra metric names, DERIVED from the family metric defs (single source:
+// mark a rate with RATE()). Used by mergeConflictKeyDupes to know which extra fields must NOT be summed.
+const NON_ADDITIVE_EXTRA = new Set(FAMILIES.flatMap((f) => f.metrics).filter((m) => m.additive === false).map((m) => m.name))
+
+// LORAMER_GA_DIM_DEDUP_V1 — GENERAL guard against a duplicate metrics_daily conflict key. A family can emit TWO rows
+// with the SAME (entity_level, entity_id, date, breakdown_type, breakdown_value) — e.g. GA returns both '(not set)'
+// AND an empty sessionCampaignName that value()'s `|| '(not set)'` collapses to '(not set)'. They are the SAME
+// semantic bucket (an empty campaign name IS "not set"), so we MERGE, not keep-distinct: SUM the additive metrics
+// (conversions, revenue, and additive extra COUNTS) and DROP non-additive extra rates (a rate over the merged bucket
+// is not recoverable from the two component rates — keeping either would misrepresent it). Without this, the ATOMIC
+// batch upsert throws "ON CONFLICT DO UPDATE command cannot affect row a second time" and writes NOTHING for the whole
+// batch (the confirmed Bath Fitter freeze). Runs on the ASSEMBLED rows, so EVERY family is covered — not ga_campaign
+// only. A row with no duplicate passes through byte-identical (same object reference).
+export function mergeConflictKeyDupes(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const byKey = new Map<string, Record<string, unknown>>()
+  for (const r of rows) {
+    const key = [r.entity_level, r.entity_id, r.date, r.breakdown_type, r.breakdown_value].join('')
+    const prev = byKey.get(key)
+    if (!prev) { byKey.set(key, r); continue }
+    prev.conversions = fin(prev.conversions) + fin(r.conversions)
+    prev.revenue = fin(prev.revenue) + fin(r.revenue)
+    const pe = (prev.extra as Record<string, unknown>) || {}, re = (r.extra as Record<string, unknown>) || {}
+    const out: Record<string, unknown> = {}
+    for (const k of new Set([...Object.keys(pe), ...Object.keys(re)])) {
+      if (NON_ADDITIVE_EXTRA.has(k)) continue // DROP the rate — it cannot be re-derived over the merged bucket
+      out[k] = fin(pe[k]) + fin(re[k])
+    }
+    prev.extra = out
+  }
+  return Array.from(byKey.values())
+}
 
 type GaRow = { dimensionValues?: Array<{ value?: string }>; metricValues?: Array<{ value?: string }> }
 
@@ -132,7 +165,7 @@ export async function fetchGaDimensionalRows(args: {
       skipped.push(fam.bt)
     }
   }
-  return { rows, perFamily, skipped }
+  return { rows: mergeConflictKeyDupes(rows), perFamily, skipped } // LORAMER_GA_DIM_DEDUP_V1 — merge duplicate-conflict-key rows before any upsert (else the atomic batch throws + writes nothing)
 }
 
 async function upsertCursor(clientId: string, earliest: string, target: string, complete: boolean) {
