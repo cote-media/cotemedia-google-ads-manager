@@ -72,12 +72,15 @@ function assertConfig() {
       `  /api/chat loads its intelligence prompt via NEXTAUTH_URL. If it doesn't point at this server, the intelligence\n` +
       `  prompt silently fails to load and the eval tests ONLY the query_metrics tool path — every scorecard is then a lie.\n` +
       `  FIX: start the server AND run the harness with a matching NEXTAUTH_URL, e.g.\n` +
-      `    NEXTAUTH_URL=${BASE} PORT=${(BASE.split(':')[2] || '3111')} LORA_CHAT_MODEL=claude-opus-4-8 npm run dev\n` +
+      `    NEXTAUTH_URL=${BASE} PORT=${(BASE.split(':')[2] || '3111')} LORA_CHAT_MODEL=claude-opus-5 npm run dev\n` +
       `    NEXTAUTH_URL=${BASE} BASE=${BASE} OWNER=${OWNER} node tests/lora-evals/run-evals.mjs`)
   }
+  // LORAMER_LORA_OPUS5_MIGRATION_V1 — transitional: accept the outgoing floor (opus-4-8) AND the incoming floor (opus-5)
+  // so the 4.8 baseline stays reproducible while the Opus 5 re-baseline runs. Narrow back to opus-5-only once the prod flip lands.
+  const ALLOWED_MODELS = new Set(['claude-opus-4-8', 'claude-opus-5'])
   const model = process.env.LORA_CHAT_MODEL || envVal('LORA_CHAT_MODEL')
-  if (model && model !== 'claude-opus-4-8') abort(`LORA_CHAT_MODEL (${model}) must be claude-opus-4-8 (the ship/eval model floor).`)
-  if (!model) console.warn('⚠ LORA_CHAT_MODEL not visible to the harness — ensure the dev server was started with LORA_CHAT_MODEL=claude-opus-4-8.')
+  if (model && !ALLOWED_MODELS.has(model)) abort(`LORA_CHAT_MODEL (${model}) must be one of: ${[...ALLOWED_MODELS].join(', ')} (the ship/eval model floor).`)
+  if (!model) console.warn('⚠ LORA_CHAT_MODEL not visible to the harness — ensure the dev server was started with LORA_CHAT_MODEL set to the model under test.')
   console.log(`[config] NEXTAUTH_URL=${nextAuth} == BASE ✓ · model=${model || '(server-side; verify)'}`)
 }
 // PREFLIGHT (costs ~1 chat call) — behavioral confirmation the intelligence prompt actually loaded, not just the tool path.
@@ -178,12 +181,26 @@ async function main() {
   const cookie = await encode({ token: { email: OWNER, name: 'Eval', sub: 'eval-' + OWNER }, secret: secret() })
   await preflight(cookie) // 1-token behavioral confirmation the intelligence prompt loaded (PREFLIGHT=off to skip)
   const results = []
+  // LORAMER_LORA_CACHE_WARM_REORDER_V1 — group questions BY CLIENT (stable: client blocks in first-appearance order,
+  // original order preserved within each block) so each client's ~12k cacheable prefix is WRITTEN once and READ by the
+  // rest of that client's questions inside the 5-min prompt-cache TTL. Score-neutral: every /api/chat call is stateless
+  // (history:[]); the only cross-call state — E3's persisted upload — stays LAST within its client block (Shelley:
+  // A5,B3,C2,D1,E1,E3), so no question sees a contamination it wouldn't in golden order. Pure cost/latency optimization.
+  const _clientOrder = []
+  const _byClient = new Map()
+  for (const q of gold.questions) {
+    if (!_byClient.has(q.clientId)) { _byClient.set(q.clientId, []); _clientOrder.push(q.clientId) }
+    _byClient.get(q.clientId).push(q)
+  }
+  const runOrder = _clientOrder.flatMap(cid => _byClient.get(cid))
+  console.log(`[cache-warm] ${runOrder.length} questions in ${_clientOrder.length} client blocks: ` +
+    _clientOrder.map(cid => `${(_byClient.get(cid)[0].clientName || '').slice(0, 12)}(${_byClient.get(cid).length})`).join(' '))
   // eval hygiene — snapshot every upload client's context so we can restore it after the run (uploads persist)
   const uploadClients = [...new Set(gold.questions.filter(q => q.upload).map(q => q.clientId))]
   const snaps = {}
   for (const cid of uploadClients) { snaps[cid] = await currentNotes(cid); console.log(`[hygiene] snapshot ${cid}: existed=${snaps[cid].existed} notesLen=${(snaps[cid].notes || '').length}`) }
   try {
-    for (const q of gold.questions) {
+    for (const q of runOrder) {
       process.stdout.write(`[${q.id}/${q.cat}] ${q.clientName} … `)
       let card = null, got = { status: -1, response: '(autofail — no call)' }, up = null
       if (q.assert.type !== 'autofail') {

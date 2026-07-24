@@ -13,9 +13,15 @@ export const MODEL_PRICING: Record<string, { input: number; output: number; cach
   'claude-haiku-4-5':          { input: 1.00, output: 5.00,  cacheRead: 0.10, cacheWrite5m: 1.25 },
   'claude-sonnet-4-6':         { input: 3.00, output: 15.00, cacheRead: 0.30, cacheWrite5m: 3.75 },
   'claude-sonnet-4-6-20251022':{ input: 3.00, output: 15.00, cacheRead: 0.30, cacheWrite5m: 3.75 },
+  // LORAMER_LORA_OPUS5_MIGRATION_V1 — Opus 5 is the incoming chat/eval floor. Rates VERIFIED 2026-07-24 against
+  // Anthropic's live models overview ($5 in / $25 out) + the universal cache structure (read 0.1x → $0.50; 5m-write
+  // 1.25x → $6.25). This entry MUST exist before the model flips, or an unmapped model logs $0 and cost lies (banked law).
+  'claude-opus-5':             { input: 5.00, output: 25.00, cacheRead: 0.50, cacheWrite5m: 6.25 },
   'claude-opus-4-8':           { input: 5.00, output: 25.00, cacheRead: 0.50, cacheWrite5m: 6.25 }, // verified 2026-07-14
-  'claude-opus-4-6':           { input: 15.00, output: 75.00 }, // legacy/unused — no cache rates (falls back + warns if cache tokens seen)
-  'claude-opus-4-7':           { input: 15.00, output: 75.00 }, // legacy/unused — no cache rates (falls back + warns if cache tokens seen)
+  // 4.6/4.7 were stale at $15/$75; current published is $5/$25 (verified 2026-07-24, live overview) — corrected + cache
+  // rates added so a fallback to either never mis-prices. Both are currently unused (spend log shows no rows). (OPUS5_MIGRATION_V1)
+  'claude-opus-4-7':           { input: 5.00, output: 25.00, cacheRead: 0.50, cacheWrite5m: 6.25 },
+  'claude-opus-4-6':           { input: 5.00, output: 25.00, cacheRead: 0.50, cacheWrite5m: 6.25 },
 }
 
 // Exported so the eval/pricing tooling can compute cost without a DB round-trip.
