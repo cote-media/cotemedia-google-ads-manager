@@ -8,6 +8,15 @@ import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 — membership-aware gate
 
+// LORAMER_CHAT_MAXDURATION_V1 — make the function ceiling EXPLICIT instead of inheriting the (invisible, dashboard-
+// settable) project default. A real turn on 2026-07-24 ran ~59s server-side (multi-tool Opus loop) and returned 200,
+// but the browser had already given up → the user saw a failure for an answer that existed. 300s is the Vercel Pro
+// DEFAULT with fluid compute (verified 2026-07-24: Pro default 300s, max 800s, extended 1800s beta) — ~5× the
+// observed worst case, so the SERVER is never the limiter within any realistic turn; the deliberate cap the user
+// feels is the SHORTER client-side AbortController in ChatLauncher. This is a STOPGAP — the durable fix is streaming
+// (QUEUE ★CHAT-STREAMING); a 59s answer that renders progressively is alive, a 59s spinner is dead.
+export const maxDuration = 300
+
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // LORAMER_LORA_CHAT_MODEL_ENV_V1 + LORAMER_LORA_MODEL_FLOOR_DEFAULT_V1 — the chat model is env-selectable, but the

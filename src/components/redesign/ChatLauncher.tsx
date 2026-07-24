@@ -150,9 +150,16 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
     // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
     logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
+    // LORAMER_CHAT_CLIENT_ABORT_V1 — a DELIBERATE client-side ceiling SHORTER than the server maxDuration (300s), so a
+    // slow turn fails at a KNOWN bound with an HONEST message instead of at an unknown browser/gateway limit that
+    // surfaced a misleading "Network error." 120s clears the observed ~59s worst case (and heavier multi-tool turns),
+    // so normal turns are untouched. Stopgap; the durable fix is streaming (★CHAT-STREAMING).
+    const controller = new AbortController()
+    const abortTimer = setTimeout(() => controller.abort(), 120_000)
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: q,
@@ -177,9 +184,16 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
       // response). The fallback/error strings above are client-side placeholders, NOT Lora's output — logging
       // them would poison the cross-surface memory recap. Fire-and-forget; never awaited, never throws.
       if (res.ok && d.response) logNextConversationTurn({ clientId, role: 'assistant', content: d.response, scope: turnScope })
-    } catch {
-      setMessages((m) => [...m, { role: 'assistant', content: 'Network error reaching Lora. Please try again.' }])
+    } catch (e) {
+      // LORAMER_CHAT_CLIENT_ABORT_V1 — HONEST failure. On OUR deliberate timeout (AbortError) say the request took too
+      // long and the answer MAY have completed on the server — do NOT claim a network failure that did not happen
+      // (the 2026-07-24 turn actually returned 200). A genuine connection error stays a truthful "couldn't reach" line.
+      const timedOut = (e as any)?.name === 'AbortError'
+      setMessages((m) => [...m, { role: 'assistant', content: timedOut
+        ? 'That’s taking longer than I can wait here, so I stopped watching — Lora may have finished the answer on the server. Please ask again.'
+        : 'I couldn’t reach Lora just now. Please try again.' }])
     } finally {
+      clearTimeout(abortTimer)
       setLoading(false)
     }
   }, [messages, loading, clientId, clientName, period])
