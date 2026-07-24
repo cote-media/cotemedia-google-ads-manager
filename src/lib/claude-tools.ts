@@ -16,6 +16,7 @@ import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrain
 import { getCoverageForWindows, coverageNotes } from '@/lib/next/coverage'
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess } from '@/lib/access/can-access'
+import { logToolDecision } from '@/lib/lora-tool-log' // LORAMER_LORA_TOOL_DECISION_LOG_V1 — L2-retrieval instrument (fire-and-forget)
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1
 // Defense-in-depth ACCESS check (the routes also gate before calling the loop). Now membership/org-AWARE via
@@ -247,6 +248,12 @@ export async function runClaudeToolLoop(opts: {
   const tools: any[] | undefined =
     clientId && (await viewerCanAccess(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
   const convo: any[] = [...messages]
+  // LORAMER_LORA_TOOL_DECISION_LOG_V1 — capture the user's QUESTION once for the decision instrument; on later turns
+  // the last message is a tool_result, not the question.
+  const originalQuestion: string = (() => {
+    const lu = [...messages].reverse().find((m: any) => m?.role === 'user' && typeof m?.content === 'string')
+    return (lu?.content as string) || ''
+  })()
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5
 
@@ -262,6 +269,14 @@ export async function runClaudeToolLoop(opts: {
     usage.output += u.output_tokens || 0
     usage.cache_create += u.cache_creation_input_tokens || 0
     usage.cache_read += u.cache_read_input_tokens || 0
+
+    // LORAMER_LORA_TOOL_DECISION_LOG_V1 — FIRE-AND-FORGET (not awaited) L2-retrieval instrument. Never blocks the
+    // response and never breaks the turn (the try guards input-building; logToolDecision swallows internally).
+    // BEHAVIOR UNCHANGED: no tool_choice added, tools array untouched, system prompt untouched — this only WATCHES.
+    try {
+      const decidedTool = (resp.content as any[])?.find((b) => b?.type === 'tool_use')
+      void logToolDecision({ clientId, questionText: originalQuestion, toolCalled: !!decidedTool, toolName: decidedTool?.name ?? null, turnIndex: turn, model })
+    } catch { /* never break the turn */ }
 
     if (resp.stop_reason === 'tool_use' && tools && clientId) {
       const toolUses = (resp.content as any[]).filter(b => b.type === 'tool_use')
