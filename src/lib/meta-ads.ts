@@ -16,6 +16,8 @@ export type MetaDailyRow = {
   cost: number
   clicks: number
   impressions: number
+  reach: number
+  frequency: number
   conversions: number
   conversionValue: number
 }
@@ -34,6 +36,8 @@ export function mapMetaDailyInsightRow(row: any): MetaDailyRow {
     cost: parseFloat(row.spend || '0'),
     clicks: parseInt(row.clicks || '0', 10),
     impressions: parseInt(row.impressions || '0', 10),
+    reach: parseInt(row.reach || '0', 10),
+    frequency: parseFloat(row.frequency || '0'),
     conversions: parseFloat(conversions.toFixed(1)),
     conversionValue: parseFloat(convValue.toFixed(2)),
   }
@@ -50,7 +54,7 @@ export async function fetchMetaDailyMetrics(
   until: string
 ): Promise<MetaDailyRow[]> {
   const id = accountId.startsWith('act_') ? accountId : 'act_' + accountId
-  const fields = 'spend,clicks,impressions,actions,action_values'
+  const fields = 'spend,clicks,impressions,reach,frequency,actions,action_values' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — reach/frequency for the account-grain restatement row (Meta serves both at account level)
   const timeRange = '{"since":"' + since + '","until":"' + until + '"}'
   let nextUrl: string | null =
     'https://graph.facebook.com/v18.0/' + id + '/insights?fields=' + fields +

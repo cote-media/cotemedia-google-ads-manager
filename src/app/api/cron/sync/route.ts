@@ -6,10 +6,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
 import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
 import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row' // LORAMER_SHOPIFY_DEPTH_2A_V1
-import { buildMetaMetricsRows } from '@/lib/intelligence/meta-metrics-row'
+import { runMetaCampaignBackfill } from '@/lib/backfill/meta-campaign-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
+import { runMetaAdSetAdBackfill } from '@/lib/backfill/meta-adset-ad-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
 import { buildGoogleMetricsRows } from '@/lib/intelligence/google-metrics-row'
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
-import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
+import { fetchMetaDailyMetrics } from '@/lib/meta-ads' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1 account grain)
 import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dims (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
@@ -404,32 +405,59 @@ export async function GET(request: Request) {
           )
         }
 
-        const intel = await fetchMetaIntelligence(
-          tokenRow.access_token,
-          accountId,
-          'YESTERDAY',
-          captureDate,
-          captureDate
-        )
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta Tier-1 BASE — Approach B) — restate the last
+        // META_RESTATE_LOOKBACK_DAYS of BASE rows (account/campaign/adset/ad, breakdown_type='') so late-attributed
+        // conversions + any under-captured spend restate. This REPLACES the single-shot
+        // fetchMetaIntelligence(captureDate,captureDate) base: that path AGGREGATES a period into ONE summary and
+        // buildMetaMetricsRows stamps one date, so it cannot be range-widened; these per-day range writers can.
+        // ORDER IS LOAD-BEARING: account rows go FIRST — the campaign/adset/ad writers FLAG-NOT-BLOCK reconcile each
+        // day against that day's account anchor. TRADEOFF (accepted per Approach B): the account grain comes from
+        // fetchMetaDailyMetrics, which is leaner than buildMetaMetricsRows — its derived metrics are RECOMPUTED here
+        // and account-grain reach/frequency/purchases are dropped (they remain captured at campaign grain by the
+        // writer below, and placement is captured by the widened META_BREADTH_FORWARD 'placement_adset_ad' dim).
+        const metaRestateStart = addDaysUTC(captureDate, -META_RESTATE_LOOKBACK_DAYS)
 
-        const rows = buildMetaMetricsRows(
-          client.id,
-          userEmail,
-          captureDate,
-          accountId,
-          conn.account_name,
-          intel
-        )
-
-        const { error: metricsError } = await supabaseAdmin
-          .from('metrics_daily')
-          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
-
-        if (metricsError) {
-          throw metricsError
+        // (1) ACCOUNT grain — per-day rows via fetchMetaDailyMetrics (time_increment=1). Upsert REPLACES per the
+        // date-keyed conflict key (never additive).
+        const dailyAcct = await fetchMetaDailyMetrics(tokenRow.access_token, accountId, metaRestateStart, captureDate)
+        const acctRows = dailyAcct.map((d) => {
+          const ctr = d.impressions > 0 ? (d.clicks / d.impressions) * 100 : 0
+          const cpc = d.clicks > 0 ? d.cost / d.clicks : null
+          const cpm = d.impressions > 0 ? (d.cost / d.impressions) * 1000 : null
+          const roas = d.cost > 0 ? d.conversionValue / d.cost : null
+          const cpa = d.conversions > 0 ? d.cost / d.conversions : null
+          const convRate = d.clicks > 0 ? d.conversions / d.clicks : null
+          return {
+            client_id: client.id, user_email: userEmail, platform: 'meta', account_id: accountId,
+            entity_level: 'account', entity_id: accountId, entity_name: conn.account_name || accountId,
+            date: d.date, breakdown_type: '', breakdown_value: '',
+            spend: d.cost, impressions: d.impressions, clicks: d.clicks,
+            conversions: d.conversions, conversion_value: d.conversionValue, revenue: 0,
+            extra: { ctr, cpc, cpm, roas, cpa, convRate, reach: d.reach, frequency: d.frequency, restated: true },
+          }
+        })
+        if (acctRows.length > 0) {
+          const { error: acctErr } = await supabaseAdmin
+            .from('metrics_daily')
+            .upsert(normalizeMetricsRows(acctRows), { onConflict: METRICS_DAILY_CONFLICT })
+          if (acctErr) throw acctErr
+          summary.rowsWritten += acctRows.length
         }
 
-        summary.rowsWritten += rows.length
+        // (2) CAMPAIGN + (3) AD_SET/AD grains over the SAME window — the depth range writers (self-contained: fetch
+        // their own token/account, walk the explicit range via monthChunks, bucket per-day, carry the FULL extra shape
+        // incl. reach/frequency/ranking/click-variants, and FLAG-NOT-BLOCK reconcile to the account anchor written
+        // above). Own try/catch each so one grain's failure never drops the others or the account rows.
+        try {
+          const r = await runMetaCampaignBackfill(client.id, metaRestateStart, captureDate, {})
+          if (r.status !== 200) { console.error(`[cron/sync] client=${client.id} meta base campaign restate FAILED (${r.status}):`, JSON.stringify(r.body)); summary.errors.push({ clientId: client.id, platform: 'meta', message: `base-campaign: status ${r.status}` }) }
+          else summary.rowsWritten += Number((r.body as any)?.written ?? 0)
+        } catch (e) { const message = serializeCaughtError(e); console.error(`[cron/sync] client=${client.id} meta base campaign restate FAILED:`, message); summary.errors.push({ clientId: client.id, platform: 'meta', message: `base-campaign: ${message}` }) }
+        try {
+          const r = await runMetaAdSetAdBackfill(client.id, metaRestateStart, captureDate, {})
+          if (r.status !== 200) { console.error(`[cron/sync] client=${client.id} meta base adset/ad restate FAILED (${r.status}):`, JSON.stringify(r.body)); summary.errors.push({ clientId: client.id, platform: 'meta', message: `base-adset-ad: status ${r.status}` }) }
+          else summary.rowsWritten += Number((r.body as any)?.written ?? 0)
+        } catch (e) { const message = serializeCaughtError(e); console.error(`[cron/sync] client=${client.id} meta base adset/ad restate FAILED:`, message); summary.errors.push({ clientId: client.id, platform: 'meta', message: `base-adset-ad: ${message}` }) }
 
         // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dimensions (device,
         // device_platform, age, gender, age_gender, action_type, video, geo_country, geo_region, hour) across all 4
