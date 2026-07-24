@@ -11,6 +11,7 @@
     "mcp": "node mcp-server.js",
     "check:data": "node scripts/check-capture-landing.mjs --invariant-only --guard",
     "prepush": "npm run build && npm run check:data",
+    "evals": "node tests/lora-evals/run-evals.mjs",
     "stripe:sync": "node scripts/stripe-sync-products.mjs"
   },
   "dependencies": {

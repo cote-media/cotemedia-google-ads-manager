@@ -82,9 +82,10 @@ npm run build      # full Next.js build — the pre-push gate (requires .env.loc
 npm run lint       # next lint
 npm run mcp        # standalone MCP server (mcp-server.js) for Claude Desktop
 npx tsc --noEmit   # fast type check (NOT a substitute for npm run build)
+npm run evals      # Lora accuracy eval — 28 golden questions through the REAL /api/chat (needs a local dev server + the harness env; see tests/lora-evals/run-evals.mjs header)
 ```
 
-There is no test suite. Verification = local build + production verification (headless `curl` against routes, or live Ask Claude read-back tests).
+There is no unit-test suite. Verification = local build + production verification (headless `curl` against routes, or live Ask Claude read-back tests). **`npm run evals` is the one accuracy check for LORA** (28 hand-verified golden questions scored against `/api/chat`'s real answer): run it before shipping ANY change that touches Lora's prompt, tools, context builder (`build-claude-context.ts`), or the query layer (`metrics-query.ts` / `claude-tools.ts` / `query-completeness.ts` / the breakdown registry). It is **NOT in the deploy path** and never runs on Vercel — it calls Opus (~$4–5 per run) and needs a running dev server with `NEXTAUTH_URL==BASE`, so it is a manual pre-ship gate, same posture as `check:data` (DB/paid work kept out of `guard`/`build`). Report its scorecard in the ship report the same way check:data is reported. (The determinism rung on top of it is DECISIONS LORAMER_L4_DETERMINISM_LAW_V1 + QUEUE ★LORA-DETERMINISM-HARNESS — not built.)
 
 ## Architecture
 
