@@ -5,6 +5,7 @@ import { Fragment } from 'react'
 import Link from 'next/link'
 import styles from './redesign.module.css'
 import SignOutButton from './SignOutButton'
+import LoraRailButton from './LoraRailButton' // LORAMER_NEXT_RAIL_LORA_TRIGGER_V1 — Lora opens the chat, not a dead route
 
 type NavItem = { id: string; label: string; icon: string; href: string; group?: 'channel'; connect?: boolean }
 
@@ -65,10 +66,16 @@ export default function RailContent({
             <Fragment key={item.id}>
               {groupLabel}
               {sep}
-              <Link href={item.connect ? item.href : withClient(item.href)} className={cls}>
-                <i className={`ti ${item.icon}`} />
-                {item.label}
-              </Link>
+              {item.id === 'lora' ? (
+                // LORAMER_NEXT_RAIL_LORA_TRIGGER_V1 — dispatch 'loramer:open-chat' (same as MobileNav) instead of
+                // rendering a Link to /dashboard-next/lora, which does not exist and 404s via [platform] notFound().
+                <LoraRailButton className={cls} icon={item.icon} label={item.label} />
+              ) : (
+                <Link href={item.connect ? item.href : withClient(item.href)} className={cls}>
+                  <i className={`ti ${item.icon}`} />
+                  {item.label}
+                </Link>
+              )}
             </Fragment>
           )
         })}

@@ -129,7 +129,7 @@ export default function TopBar({
       />
       <div
         className={`${styles.drawer} ${drawerOpen ? styles.drawerOpen : ''}`}
-        onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setDrawerOpen(false) }}
+        onClick={(e) => { if ((e.target as HTMLElement).closest('a, button')) setDrawerOpen(false) }} /* LORAMER_NEXT_RAIL_LORA_TRIGGER_V1 — the Lora rail entry is now a <button> (dispatches open-chat, no nav), so close the drawer on button taps too, not just links */
       >
         <button className={styles.closeBtn} onClick={() => setDrawerOpen(false)} aria-label="Close menu">
           <i className="ti ti-x" />
