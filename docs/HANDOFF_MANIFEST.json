@@ -12,10 +12,10 @@
     "line_count": 903
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "baffa184c06f10b9ba0f292da235b92edca50e3bdaaa5532a1d55299f61a83e8",
+    "content_hash": "8db17211cae00a1e794b18e5523057571dde08aa212e5d7a584d79673099c629",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "07b0a7b",
-    "line_count": 509
+    "last_reconciled_head": "f2a4882",
+    "line_count": 510
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "c0e523eb67c118ac6a142584eb3ee0bbaad33324c008beb40f83526497623652",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "65dd1cd301051bd72ac978e76a8af62343ccf480aa04134b95e540228fbb7b7a",
+    "content_hash": "3dd8539d4e669e7a97f1fafb298e921d45537a0488e8435e69f799edc21fc7a5",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "07b0a7b",
-    "line_count": 612
+    "last_reconciled_head": "f2a4882",
+    "line_count": 616
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "914a0f025a67813306bfd1bf02c634d9b4b7fe82ed3bd0319d98671cd3b5c250",
+    "content_hash": "b8e157e22c9126c85fec659b6f082d7d89bbd4ec9787f351906aa4eb83fa18a4",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "07b0a7b",
-    "line_count": 998
+    "last_reconciled_head": "f2a4882",
+    "line_count": 1003
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -60,10 +60,10 @@
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "790e849e27f19a02b1d79f31745fdfc70dbd15329e16bb92d7f1a75e889a131b",
-    "last_reconciled_date": "2026-07-18",
-    "last_reconciled_head": "92d684d",
-    "line_count": 110
+    "content_hash": "d953772b0fdd45290e3601e4431b6531ac5d2eecdf2c48c7ab2f00c18dbe4728",
+    "last_reconciled_date": "2026-07-24",
+    "last_reconciled_head": "f2a4882",
+    "line_count": 154
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
     "content_hash": "56563be5110b1e396db4b5c9d4b0640a21be4c8f5cd4bc3bbbfb3c2dfb9939fc",

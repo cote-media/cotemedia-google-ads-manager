@@ -56,6 +56,15 @@ H. creative-asset SHAPE dims: ad_format_asset / creative_relaxation_asset_type /
 I. account-level asset MEDIA LIBRARY (M8) — still open and DECISION-REQUIRED, not unbuilt: it has no date, no spend and no metric, so it does not belong in metrics_daily at all. Needs a storage decision first.
 
 ## SHOPIFY — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+> **STATUS CORRECTED 2026-07-24: OPEN, not closed.** The daily-aggregate FAMILIES below are captured, but TWO grains
+> below them are NOT, so Shopify is NOT complete: (1) NO ORDER-LEVEL storage — orders are fetched, summed in memory,
+> and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). An order is the store's true grain — the thing
+> that gets refunded/edited/cancelled. (2) NO RESTATEMENT — the forward writer filters on order CREATED date
+> (created_at) and never re-fetches, so a refund/edit/cancel AFTER a day was captured leaves that day's aggregate
+> permanently wrong (★RESTATEMENT-SWEEP-FLEET; DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1 — Shopify/Woo want
+> change-based updated_at sync). WOO CARRIES THE SAME TWO GAPS (filters date_created_gmt, no order grain). The
+> capture-completeness gate read GREEN because it checks families at the daily-AGGREGATE grain only — a missing grain
+> BELOW that is invisible to it.
 Reference = Shopify Admin GraphQL/REST API docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
 
 HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split, new-vs-returning, AOV; geo country/region (account grain); abandoned-checkout VALUE + count (S-FILL#2, breakdown_type='abandoned_checkout', account-day, WRITE-ONLY potential/lost revenue, ~90d retention floor); discount-code performance (S-FILL#3, breakdown_type='discount_code', account-day, WRITE-ONLY per-code applied amount from line-item allocations + orders-using, subset of total discounting never net sales).
