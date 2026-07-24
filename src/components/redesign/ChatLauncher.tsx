@@ -12,6 +12,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
+import { logNextConversationTurn } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island)
 import styles from './chat.module.css'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -139,10 +140,16 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const send = useCallback(async (text: string) => {
     const q = text.trim()
     if (!q || loading) return
+    // LORAMER_NEXT_CONV_WRITE_V1 — snapshot the drill focus at turn start so BOTH turns of one exchange share a
+    // scope even if the panel closes mid-flight (rowCtxRef is cleared on close). 'drill' = opened from a drill row.
+    const turnScope = rowCtxRef.current ? 'drill' : null
     const next = [...messages, { role: 'user' as const, content: q }]
     setMessages(next)
     setInput('')
     setLoading(true)
+    // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
+    // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
+    logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -166,6 +173,10 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
             ? 'I can’t access this client’s data from here.'
             : 'Something went wrong reaching Lora. Please try again.')
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
+      // LORAMER_NEXT_CONV_WRITE_V1 — persist the ASSISTANT turn ONLY on a genuine Lora reply (res.ok + real
+      // response). The fallback/error strings above are client-side placeholders, NOT Lora's output — logging
+      // them would poison the cross-surface memory recap. Fire-and-forget; never awaited, never throws.
+      if (res.ok && d.response) logNextConversationTurn({ clientId, role: 'assistant', content: d.response, scope: turnScope })
     } catch {
       setMessages((m) => [...m, { role: 'assistant', content: 'Network error reaching Lora. Please try again.' }])
     } finally {
