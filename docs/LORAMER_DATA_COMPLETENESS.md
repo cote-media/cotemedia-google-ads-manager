@@ -83,6 +83,13 @@ H. city-grain + product-grain geo [DERIVED]. → ✅ geo_city SHIPPED 2026-07-19
 CONSTRAINT: read_all_orders scope gates >60-day history — the 2019 backfill implies we hold it; VERIFY before Shopify backfill work [DERIVED].
 
 ## WOOCOMMERCE — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+> **STATUS CORRECTED 2026-07-24: OPEN, not closed — SAME TWO GAPS as Shopify.** The twelve daily-aggregate breadth
+> families below are captured, but the two grains BELOW them are NOT: (1) NO ORDER-LEVEL storage — Woo orders are
+> fetched, summed in memory, and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). (2) NO RESTATEMENT
+> — the forward writer filters on order created date (date_created_gmt) and never re-fetches, so a refund/edit/cancel
+> AFTER a day was captured leaves that day's aggregate permanently wrong (★RESTATEMENT-SWEEP-FLEET; DECISIONS
+> LORAMER_RESTATEMENT_WINDOW_LAW_V1 — Shopify/Woo want change-based updated_at sync). The capture-completeness gate
+> reads GREEN because it checks families at the daily-AGGREGATE grain only — a missing grain BELOW that is invisible.
 Reference = WooCommerce REST API v3 + WC-Analytics reports docs, the VENDOR'S own docs — NOT our writers. OFFERED vs CAPTURED. [VERIFIED] doc-confirmed; [DERIVED] inferred.
 
 HAVE (CAPTURED): acct / product / variant grains; net revenue, orders, full money-split; and — as of 2026-07-19

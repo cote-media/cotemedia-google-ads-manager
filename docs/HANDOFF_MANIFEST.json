@@ -12,10 +12,10 @@
     "line_count": 953
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "8db17211cae00a1e794b18e5523057571dde08aa212e5d7a584d79673099c629",
+    "content_hash": "41b33478e8d84e5aef01d875d7670635464f3b01f8dba57d1f879f3062752588",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "f2a4882",
-    "line_count": 510
+    "last_reconciled_head": "dc4119d",
+    "line_count": 509
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "c0e523eb67c118ac6a142584eb3ee0bbaad33324c008beb40f83526497623652",
@@ -42,9 +42,9 @@
     "line_count": 616
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "defd887d6e4564c5d0bc4844c1035417e5b0ce6cca3c46ab9d0c158cdf52ecb8",
+    "content_hash": "600a354dbf5a5d7959a056c6cf4f1217e9441456cc11c5a916893ca1fce15f78",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "f1c41d1",
+    "last_reconciled_head": "dc4119d",
     "line_count": 1005
   },
   "RESUME_INSTRUCTIONS.md": {
@@ -60,10 +60,10 @@
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "d953772b0fdd45290e3601e4431b6531ac5d2eecdf2c48c7ab2f00c18dbe4728",
+    "content_hash": "d0d3b3904145df7122819192dc26488c1125f3598e21255cdb8ced300731058d",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "f2a4882",
-    "line_count": 154
+    "last_reconciled_head": "dc4119d",
+    "line_count": 160
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
     "content_hash": "56563be5110b1e396db4b5c9d4b0640a21be4c8f5cd4bc3bbbfb3c2dfb9939fc",
@@ -288,9 +288,9 @@
     "line_count": 231
   },
   "docs/GOOGLE_ADS_TOOL_CHANGE_FORM_ANSWERS.md": {
-    "content_hash": "d5f8cfb5fcb68bdd8db6e9a9dc32f430cd144f343ee70f91293167caa487f5de",
-    "last_reconciled_date": "2026-07-23",
-    "last_reconciled_head": "2f0d31d",
-    "line_count": 86
+    "content_hash": "48a7c9a92e68aa47d9df111c0d9b25842171ca455ee9493cd0d9c81266b2f806",
+    "last_reconciled_date": "2026-07-24",
+    "last_reconciled_head": "dc4119d",
+    "line_count": 91
   }
 }

@@ -1,6 +1,12 @@
 <!-- QUEUE-EXEMPT: form-answers doc; Standard Access is tracked in QUEUE T3. -->
 # Google Ads API — Tool Change Form answer pack
 
+> ⚠ STATUS SUPERSEDED 2026-07-24 — read this pack as HISTORY (drafted 2026-06-10), NOT current status. Per Google's
+> own reply email (2026-07-24), a Standard Access APPLICATION is SUBMITTED and PENDING (not granted; Google asked us
+> to clarify the company website). The "we are NOT applying for Standard Access now — deferred" wording below was the
+> 2026-06-10 plan and no longer holds. The live-status owner is LORAMER_DECISIONS.md (G7 entry); this doc is retained
+> for the answer wording only.
+
 Form: https://support.google.com/adspolicy/contact/tool_change
 Purpose: update the developer token's permissible use to REPORTING + external
 (client) access, reflecting LoraMer's evolution from an internal Cote Media tool
