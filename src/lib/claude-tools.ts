@@ -36,6 +36,10 @@ export const QUERY_METRICS_TOOL: any = {
   input_schema: {
     type: 'object',
     properties: {
+      clientId: {
+        type: 'string',
+        description: 'The target client’s id, taken ONLY from the "clients you can access" list in your instructions. REQUIRED at the agency / all-clients view (no client is selected). At a single-client view it is IGNORED — the current client is always used. Never invent an id.', // LORAMER_AGENCY_SCOPE_LORA_V1
+      },
       platform: {
         type: 'string',
         enum: ['google', 'meta', 'shopify', 'woocommerce', 'ga', 'all'],
@@ -93,6 +97,10 @@ export const QUERY_BREAKDOWN_TOOL: any = {
   input_schema: {
     type: 'object',
     properties: {
+      clientId: {
+        type: 'string',
+        description: 'The target client’s id, taken ONLY from the "clients you can access" list in your instructions. REQUIRED at the agency / all-clients view; IGNORED at a single-client view (the current client is used). Never invent an id.', // LORAMER_AGENCY_SCOPE_LORA_V1
+      },
       breakdownType: {
         type: 'string',
         enum: breakdownToolTypes(),
@@ -165,6 +173,7 @@ export const QUERY_MONEY_TOOL: any = {
   input_schema: {
     type: 'object',
     properties: {
+      clientId: { type: 'string', description: 'The target client’s id, taken ONLY from the "clients you can access" list in your instructions. REQUIRED at the agency / all-clients view; IGNORED at a single-client view (the current client is used). Never invent an id.' }, // LORAMER_AGENCY_SCOPE_LORA_V1
       platform: { type: 'string', enum: ['shopify', 'woocommerce'], description: 'Which store platform’s money to break down. Required — money is per-store (different net basis); never summed across platforms.' },
       baseRange: { type: 'string', description: 'Single-window preset: LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, LAST_90_DAYS, THIS_MONTH, LAST_MONTH. Default LAST_30_DAYS. Ignored if startDate+endDate are given.' },
       startDate: { type: 'string', description: 'Optional explicit window start, YYYY-MM-DD (use with endDate).' },
@@ -242,11 +251,13 @@ export async function runClaudeToolLoop(opts: {
   const { anthropic, model, maxTokens, system, messages } = opts
   const clientId = opts.clientId || ''
   const userEmail = opts.userEmail || ''
-  // LORAMER_QUERY_METRICS_OWNERSHIP_V1 — expose query_metrics ONLY when the
-  // signed-in user owns this client. Without a verified owner the tool is
-  // withheld and the loop degrades to a single-shot call (no cross-tenant read).
+  // LORAMER_AGENCY_SCOPE_LORA_V1 — tools attach for ANY authenticated viewer, INCLUDING the agency / all-clients
+  // scope (where clientId is empty). The old `clientId && viewerCanAccess(...)` presence-gate is REMOVED: withholding
+  // tools was the only thing scoping access, which is why agency scope had none. Cross-client safety is now enforced
+  // PER TOOL CALL in the executor below (resolve the TARGET client, viewerCanAccess that target, FAIL CLOSED) — the
+  // right place, because at agency scope the target is chosen by the model per call, not fixed for the loop.
   const tools: any[] | undefined =
-    clientId && (await viewerCanAccess(userEmail, clientId)) ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
+    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
   const convo: any[] = [...messages]
   // LORAMER_LORA_TOOL_DECISION_LOG_V1 — capture the user's QUESTION once for the decision instrument; on later turns
   // the last message is a tool_result, not the question.
@@ -278,7 +289,7 @@ export async function runClaudeToolLoop(opts: {
       void logToolDecision({ clientId, questionText: originalQuestion, toolCalled: !!decidedTool, toolName: decidedTool?.name ?? null, turnIndex: turn, model })
     } catch { /* never break the turn */ }
 
-    if (resp.stop_reason === 'tool_use' && tools && clientId) {
+    if (resp.stop_reason === 'tool_use' && tools) {   // LORAMER_AGENCY_SCOPE_LORA_V1 — dropped `&& clientId`: agency scope has no bound client; the target is resolved + access-checked per call below
       const toolUses = (resp.content as any[]).filter(b => b.type === 'tool_use')
       convo.push({ role: 'assistant', content: resp.content })
       const toolResults: any[] = []
@@ -286,9 +297,21 @@ export async function runClaudeToolLoop(opts: {
         let payload: any
         let isError = false
         try {
-          if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, clientId)
-          else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, clientId)
-          else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, clientId)
+          // LORAMER_AGENCY_SCOPE_LORA_V1 — THE RBAC CHECK. Resolve the TARGET client for THIS call: the bound scope
+          // client wins (single-client tab — unchanged, and the model cannot steer it elsewhere); at agency scope
+          // there is none, so the model must name one via tu.input.clientId. Then viewerCanAccess THAT target on
+          // EVERY call and FAIL CLOSED — with tools now attached at agency scope this per-call check is the only
+          // thing preventing cross-client access, so it runs before any query touches the DB.
+          const target = clientId || (typeof tu.input?.clientId === 'string' ? tu.input.clientId.trim() : '')
+          if (!target) {
+            payload = { error: 'No client specified. Name one of the clients you can access (use its id as clientId), or ask the user which client to look at — do not answer without a client.' }
+            isError = true
+          } else if (!(await viewerCanAccess(userEmail, target))) {
+            payload = { error: 'Access denied: you do not have access to that client. Do not report any data for it, and tell the user you cannot access it.' }
+            isError = true
+          } else if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, target)
+          else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, target)
+          else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, target)
           else { payload = { error: 'unknown tool: ' + tu.name }; isError = true }
         } catch (err) {
           payload = { error: err instanceof Error ? err.message : String(err) }

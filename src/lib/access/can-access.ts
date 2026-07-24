@@ -130,3 +130,18 @@ export async function listAccessibleClients(viewerEmail: string): Promise<string
     return []
   }
 }
+
+// LORAMER_AGENCY_SCOPE_LORA_V1 — the accessible roster WITH names (id + name), for the agency-scope Lora prompt so
+// she can resolve a client the user names to its id. Reuses listAccessibleClients (SAME RBAC precedence + archived
+// drop), then looks up names for exactly those ids — so it can NEVER widen the set. Fails closed to [].
+export async function listAccessibleClientsWithNames(viewerEmail: string): Promise<Array<{ id: string; name: string }>> {
+  try {
+    const ids = await listAccessibleClients(viewerEmail)
+    if (!ids.length) return []
+    const { data } = await supabaseAdmin.from('clients').select('id, name').in('id', ids)
+    return (data || []).map((c: any) => ({ id: c.id as string, name: (c.name as string) || 'Unnamed client' }))
+  } catch (e) {
+    console.error('[can-access] listAccessibleClientsWithNames failed:', e)
+    return []
+  }
+}

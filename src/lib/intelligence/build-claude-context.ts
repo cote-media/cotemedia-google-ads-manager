@@ -912,6 +912,33 @@ function buildConversationContext(conversations: Record<string, any[]>): string 
   return lines.join('\n')
 }
 
+// LORAMER_AGENCY_SCOPE_LORA_V1 — the AGENCY (all-clients) system prompt. No single client is selected, but the data
+// tools ARE attached at this scope and each reads ONE client at a time, so Lora needs (1) the RBAC-scoped roster to
+// resolve a client the user names to its id, and (2) the resolve-or-ask rule (Russ, 2026-07-24). Cross-client
+// comparison ("which client had the best ROAS") is NOT in this near-term slice — that stays the Agency Lora tier in
+// docs/LORAMER_LORA_SPEC.md. `clients` is ALREADY RBAC-filtered by the caller (listAccessibleClientsWithNames) — this
+// function only renders it; it never widens the set.
+export function buildAgencyScopeContext(clients: Array<{ id: string; name: string }>): string {
+  const lines: string[] = []
+  lines.push('You are Lora, an expert marketing analyst in LoraMer. Always refer to yourself as Lora.')
+  lines.push('')
+  lines.push('You are at the AGENCY (all-clients) view — no single client is selected. Your data tools (query_metrics, query_breakdown, query_money) each read ONE client at a time, so every tool call MUST target a specific client by its id.')
+  lines.push('')
+  lines.push('HOW TO ANSWER:')
+  lines.push('- If the user NAMES a client that appears in your list below, resolve it to that client’s id and answer using its data — pass the id as `clientId` to your tools.')
+  lines.push('- If the question is GENERIC (no client named — e.g. "how did we do last month"), do NOT guess and do NOT call a tool. Ask which client they mean, or tell them to click into a client first.')
+  lines.push('- You cannot yet compare or rank ACROSS clients (e.g. "which client had the best ROAS"). If asked for that, say cross-client analysis isn’t available at this view yet and offer to answer for one named client.')
+  lines.push('- NEVER answer about, or call a tool for, a client that is not in the list below — that list is the complete set you are allowed to see.')
+  lines.push('')
+  if (clients.length) {
+    lines.push('CLIENTS YOU CAN ACCESS (name — id):')
+    for (const c of clients) lines.push(`- ${c.name} — ${c.id}`)
+  } else {
+    lines.push('You currently have NO clients you can access. Tell the user there are no clients available to you here and that they may need to be granted access; do not attempt any data lookup.')
+  }
+  return lines.join('\n')
+}
+
 // LORAMER_PROMPT_CACHING_PHASE_1_REFACTOR_V1
 // Internal helper that splits the prompt into cacheable prefix + dynamic suffix.
 // Behavior is unchanged from the previous single-string version: prefix and

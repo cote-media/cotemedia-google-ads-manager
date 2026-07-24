@@ -3,10 +3,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
-import { buildClaudeContext, buildClaudeContextCacheable } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+import { buildClaudeContext, buildClaudeContextCacheable, buildAgencyScopeContext } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 + LORAMER_AGENCY_SCOPE_LORA_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
-import { resolveAccess } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 — membership-aware gate
+import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
 
 // LORAMER_CHAT_MAXDURATION_V1 — make the function ceiling EXPLICIT instead of inheriting the (invisible, dashboard-
 // settable) project default. A real turn on 2026-07-24 ran ~59s server-side (multi-tool Opus loop) and returned 200,
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     clientId,
     clientName,
     dateRange,
-    platform,
+    platform = '',  // LORAMER_CHAT_PLATFORM_UNDEFINED_FIX_V1 — default so an absent platform is '' (falsy), never the literal "undefined"
     drillLevel,
     drillCampaign,
     drillAdGroup,
@@ -115,9 +115,17 @@ export async function POST(request: Request) {
     }
   }
 
-  // Fallback system prompt if intelligence fetch failed
+  // Fallback system prompt: agency/all-clients scope (no clientId), OR a single-client intelligence-fetch failure.
   if (!systemPrompt) {
-    systemPrompt = `You are Lora, an expert digital advertising analyst in LoraMer. Always refer to yourself as Lora. Client: ${clientName}. Platform: ${platform}. Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
+    if (!clientId) {
+      // LORAMER_AGENCY_SCOPE_LORA_V1 — no single client is selected. Tools ARE attached at this scope, so give Lora
+      // the RBAC-SCOPED roster (only clients THIS viewer can access) + the resolve-a-named-client-or-ask rule.
+      const roster = await listAccessibleClientsWithNames(session.user.email)
+      systemPrompt = buildAgencyScopeContext(roster)
+    } else {
+      // LORAMER_CHAT_PLATFORM_UNDEFINED_FIX_V1 — omit the Platform clause entirely when absent; never render "undefined".
+      systemPrompt = `You are Lora, an expert digital advertising analyst in LoraMer. Always refer to yourself as Lora. Client: ${clientName}.${platform ? ` Platform: ${platform}.` : ''} Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
+    }
   }
 
   // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
