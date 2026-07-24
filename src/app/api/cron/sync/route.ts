@@ -433,7 +433,18 @@ export async function GET(request: Request) {
             date: d.date, breakdown_type: '', breakdown_value: '',
             spend: d.cost, impressions: d.impressions, clicks: d.clicks,
             conversions: d.conversions, conversion_value: d.conversionValue, revenue: 0,
-            extra: { ctr, cpc, cpm, roas, cpa, convRate, reach: d.reach, frequency: d.frequency, restated: true },
+            extra: {
+              ctr, cpc, cpm, roas, cpa, convRate,
+              cpp: d.reach > 0 ? (d.cost / d.reach) * 1000 : null, // Meta cpp = cost per 1,000 people reached
+              reach: d.reach, frequency: d.frequency,
+              outboundClicks: d.outboundClicks, inlineLinkClicks: d.inlineLinkClicks,
+              uniqueClicks: d.uniqueClicks, uniqueClicksBasis: 'meta_native_deduplicated', // account-NATIVE, not the summed-campaign upper bound
+              uniqueInlineLinkClicks: d.uniqueInlineLinkClicks, uniqueOutboundClicks: d.uniqueOutboundClicks,
+              purchases: d.purchases, addToCart: d.addToCart, initiateCheckout: d.initiateCheckout, viewContent: d.viewContent,
+              costPerPurchase: d.costPerPurchase, costPerAddToCart: d.costPerAddToCart,
+              attributionSetting: d.attributionSetting,
+              restated: true,
+            },
           }
         })
         if (acctRows.length > 0) {

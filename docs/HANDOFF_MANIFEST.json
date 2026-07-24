@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "941badb54e6454a2a654a237b28eafefbada3b1c645f417d9fd29a5356023770",
+    "content_hash": "fab3c0791bc23a813be6b2b0ce6145e8aac4ca5471e29eeaec5fedb2263bc429",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "f1c41d1",
-    "line_count": 616
+    "last_reconciled_head": "a5c8791",
+    "line_count": 618
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "600a354dbf5a5d7959a056c6cf4f1217e9441456cc11c5a916893ca1fce15f78",
+    "content_hash": "a5d75efa1be16bac6d2874ae407451a93413401579f6eff5c0696ff95e3149b3",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "dc4119d",
-    "line_count": 1005
+    "last_reconciled_head": "a5c8791",
+    "line_count": 1006
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -60,10 +60,10 @@
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "d0d3b3904145df7122819192dc26488c1125f3598e21255cdb8ced300731058d",
+    "content_hash": "76b987cadd82eb8925f16363153b154730706aabdf02072fcae37970c1c2da44",
     "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "dc4119d",
-    "line_count": 160
+    "last_reconciled_head": "a5c8791",
+    "line_count": 168
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
     "content_hash": "56563be5110b1e396db4b5c9d4b0640a21be4c8f5cd4bc3bbbfb3c2dfb9939fc",

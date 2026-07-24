@@ -44,6 +44,14 @@ Reference = Meta Marketing / Insights API field reference, the VENDOR'S own docs
 
 HAVE (CAPTURED): base 4-grain (acct/campaign/adset/ad); breakdowns placement (campaign+ad_set+ad — grain-complete 2026-07-18, LORAMER_META_PLACEMENT_ADSET_AD_V1; account = derive-not-capture, clean rollup of campaign; publisher_platform = facebook/instagram/messenger/audience_network, WhatsApp is NOT a placement [click-to-WhatsApp delivers on FB/IG, measured as messaging action_types], platform_position complete by raw-composite), device, device_platform, age, gender, age_gender, geo_country, geo_region, hour, action_type (full taxonomy), video (10 dedicated cols).
 
+> **ACCOUNT-GRAIN PARITY RESTORED 2026-07-24 (LORAMER_META_ACCOUNT_FIELD_PARITY_V1).** The base-restatement account
+> row (fetchMetaDailyMetrics, bumped v18.0→v21.0) now carries the FULL field set account-NATIVE: reach/frequency +
+> outbound/inline/unique clicks (+ unique_inline/unique_outbound) — unique_* is Meta's DE-DUPLICATED account figure,
+> NOT a campaign sum (proven live: account unique_clicks ≠ Σ campaign) — plus purchases/add_to_cart/initiate_checkout/
+> view_content + cost-per DERIVED from actions[] (no new call), cpp, and attribution_setting (PROVENANCE: the base
+> conversion number is normalized to an explicit 7d_click,1d_view attribution window). Ad-account reach is NOT
+> affected by the 2026-06 ORGANIC reach-metric retirement (that targets Post/Page/story reach, not act_/insights).
+
 GAP — OFFERED, NOT CAPTURED:
 A. [LAW-CORE] creative-asset breakdowns: image_asset / video_asset / title_asset / body_asset / call_to_action_asset / description_asset / link_url_asset [VERIFIED] — the Meta analog of Google asset-combination attribution. → 🔄 IN PROGRESS 2026-07-18 (M-FILL#1 SHIPPED, LORAMER_META_ASSET_CAPTURE_V1): all 7 now FORWARD-WIRED + drain-registered at campaign/adset/ad (NOT account — served-empty), WRITE-ONLY, real labels. More asset dims (ad_format/media_type/creative_relaxation/flexible_format/gen_ai) = M-FILL#1b; account media-library structure = M-FILL asset-inventory.
 B. attribution-window dimension — we store 7d_click only; 1d_click / 7d_click / 1d_view are served [VERIFIED]. → ✅ FORWARD-WIRED 2026-07-18 (M-FILL#2 SHIPPED, LORAMER_META_ATTRIBUTION_WINDOW_V1): breakdown_type='attribution_window' captures per (action_type × window) at all 4 grains, full populated set incl 28d_click (probe: 28d NOT deprecated), write-only. Moved from GAP to HAVE.
