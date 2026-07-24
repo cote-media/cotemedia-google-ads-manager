@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-07-24T00:18:40.551Z
-- built_from HEAD: 5ef9d085122d4bc1d1a6b34392f9163455064542  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-07-24T01:20:58.926Z
+- built_from HEAD: d22a42406c83780b5232a6587d6feb4bd2179856  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: f84246cf99fb144290726d81c43c08566babb69e16a4e79222ebfa404c564c3a
     - CONTINUE_HERE.md: 6afa953ed8809b527be39deae2fd30faaed829027932ec621d2e9e6594ad848a
     - LORAMER_DECISIONS.md: 151fd6f1c45a187aadf41c9d3055eeb81aa0dde0f3697f78044052a52473629b
-    - LORAMER_QUEUE_OF_RECORD.md: 3bac44a734d1ba75d70581e27e9271126c08cc34de4a026e207e849c14535e65
+    - LORAMER_QUEUE_OF_RECORD.md: 86de085b0a396e4585e813be77beb9c160955b1ea0a4f1b472da93eeaac3c726
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -751,6 +751,14 @@ P10 UPLOADS: V1 ✅ SHIPPED via Uploads Pass B (repo-verified: /api/knowledge ro
 - MULTI-ACCOUNT sub-items (the line-354 umbrella broken out so each is tracked, per the docs→queue guard): (1) platform_connections uniqueness — swap UNIQUE(client_id,platform) → (client_id,platform,account_id); (2) sync_state keying — add account_id + key each cursor per account; (3) query-layer account filter — queryMetrics' account total sums across entity_id today, needs per-account scoping/grouping. All THREE ride META-MULTIACCOUNT-FLIGHT1-PART2 (migration 043 covers the DDL). src: docs/scoping/multi-account-phase2.md §6 + 2026-07-23 recon. open [LC]
 - MULTI-ACCOUNT rollup-vs-breakout DECISION is OPEN — RUSS'S CALL: when a client has >1 account on a platform, does Lora report a ROLLUP (summed), a per-account BREAKOUT, or BOTH? The scoping doc leans per-account but is explicitly SCOPING-ONLY; this gates the query-layer sub-item's shape. Not Claude's to decide. src: line 354 + docs/scoping/multi-account-phase2.md. open(decision) [LC]
 - STRIPE-PHASE-4 — Stripe billing Customer Portal (self-serve plan + payment-method management for cohort members): UNBUILT, launch-relevant. src: STRIPE_BILLING_PLAN.md (the stripe billing plan, 2026-06-08). open [LC]
+- ★N5 — SAVABLE + EXPORTABLE CHATS. RUNS IMMEDIATELY AFTER T3 (capture completeness) + T4 (Lora completeness) — not before. Legacy had chat export; it was DROPPED in the -next port. The data already exists in client_conversations, LINE-FOR-LINE (one row per turn, user and assistant as separate rows — 2026-07-23 schema read). Russ DECIDED 2026-07-11: export to PDF, Excel, Word, Google Drive, and desktop — as many formats as ship cleanly. This is NOT a new decision — do NOT re-ask it. Sub-items tracked separately below (each rides ★N5; ordering above is the gate). src: 2026-07-11 Russ decision + 2026-07-23 client_conversations read. open [LC]
+  - N5.1 export UI on the -next chat surface. [LC]
+  - N5.2 PDF / Word / Excel / plain-text / desktop download (the formats that ship cleanly without a new vendor). [LC]
+  - N5.3 Google Drive export — DO THIS LAST. Needs a Drive OAuth scope, and adding a scope to a verified app can RESTART Google verification. [LC]
+  - N5.4 "Email me this conversation" — needs a TRANSACTIONAL provider (Resend / Postmark / SES). Mailchimp is marketing lists, NOT transactional. New vendor + domain auth (SPF/DKIM). [LC]
+  - N5.5 scheduled digests / bulk export — ALREADY PROMISED IN PRICING (Pro $299 + Scale $999 both list bulk export). A tier promise with no build behind it; N5 is where it gets built. [LC]
+- ★CHAT-THREAD-IDENTITY — client_conversations has NO conversation/thread/session id. The PK is a per-MESSAGE bigint; a "conversation" is only the tuple (client_id, user_email, surface, created_at). This BLOCKS ★N5 from exporting "a conversation" as a unit rather than a date range. DECIDE: add a first-class thread id going forward, derive threads by time-gap over the existing rows, or both. src: 2026-07-23 client_conversations read. open(decision+build) [LC]
+- ★LORA-CROSS-SURFACE-HISTORY — VIOLATES the banked one-continuous-mind law in docs/LORAMER_LORA_SPEC.md. chat/route.ts:28 takes `history` from the request BODY and builds messages at :142-143; it NEVER queries client_conversations. So Lora's turn-by-turn memory is the CURRENT browser tab only — not prior sessions, devices, or surfaces. Partial mitigation: the intelligence profile carries a SEPARATE `conversations` field (a different injection than the messages history), contents UNREAD as of 2026-07-23 — read it before scoping the fix. Belongs in the T4 Lora-completeness arc. src: 2026-07-23 chat/route.ts read + docs/LORAMER_LORA_SPEC.md one-continuous-mind law. open [LC]
 P11 ATTENTION SURFACE v2: dismissible alerts (track in client_memory); severity tiers; consistent across panels. src: ROADMAP P11. open [NP]
 P12 USER-DEFINED ALERT RULES: alert_rules+alert_events schema; rule builder UI; email digest; AI-suggested rules; agent automations. src: ROADMAP P12. open [NP]
 P13 MOBILE QA CADENCE + pre-launch mobile checklist (auth/clients/dashboard/campaigns/keywords/shopify/floating-claude/profile/error-states + known-issues); mobile right-panel bottom-sheet sizing. src: ROADMAP P13. open [LC]
