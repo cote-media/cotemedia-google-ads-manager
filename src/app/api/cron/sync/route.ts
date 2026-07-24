@@ -93,6 +93,12 @@ const FORWARD_BUDGET_MS = 680_000
 // GA4 default late-arrival window; Airbyte ships a configurable GA4 lookback for the same reason. DO NOT reduce to 1
 // — that reintroduces the intraday-permanence bug.
 const GA_FORWARD_DIM_LOOKBACK_DAYS = 7
+// LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Meta Tier-1 breadth restatement window (per LORAMER_RESTATEMENT_WINDOW_LAW_V1:
+// Meta 9d min). Each forward fire re-walks the last 9 days of the Meta BREADTH writers so late-attributed conversions
+// (which keep maturing for up to the account's attribution window) restate; the upsert REPLACES per the date-keyed
+// conflict key, so re-walking a day overwrites it — never additive. BASE rows are NOT covered by this (see the note
+// at the dim loop): the base path aggregates a period and stamps one date, so it needs a separate per-day change.
+const META_RESTATE_LOOKBACK_DAYS = 9
 const addDaysUTC = (iso: string, n: number): string => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
 // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — forward paging: the clients CONNECTED to `platform` whose forward cursor
@@ -439,9 +445,16 @@ export async function GET(request: Request) {
         // BEFORE the sync_state write below, exactly like Google (breadth :554-658 → sync_state :661). A client stays
         // PENDING until every dim has been attempted, so a maxDuration kill mid-breadth is retried on the next fire
         // instead of being silently marked synced. Do NOT move this below the sync_state write.
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta Tier 1) — widen each breadth writer from a single day to the last
+        // META_RESTATE_LOOKBACK_DAYS. These dims ARE the range backfill writers (meta-breadth-forward.ts): they walk a
+        // range, bucket per-day (Meta insights time_increment=1), and FLAG-NOT-BLOCK reconcile each day against that
+        // day's account anchor — so a range is safe + idempotent, and re-emitting a day upsert-REPLACES it (date is in
+        // the conflict key), never accumulates. NOTE the BASE rows above stay single-day ON PURPOSE: fetchMetaIntelligence
+        // AGGREGATES a period and buildMetaMetricsRows stamps one captureDate, so range-widening the base there would
+        // write summed spend onto one date — base restatement is a separate change, held.
         for (const dim of META_BREADTH_FORWARD) {
           try {
-            const { status, body } = await dim.run(client.id, captureDate, captureDate, {})
+            const { status, body } = await dim.run(client.id, addDaysUTC(captureDate, -META_RESTATE_LOOKBACK_DAYS), captureDate, {})
             if (status !== 200) {
               // The writers RETURN non-200 (they do not throw) for resolution/upsert failures — surface it LOUD
               // rather than treating a failed capture as a silent success (L63: a dead lap must never read green).
