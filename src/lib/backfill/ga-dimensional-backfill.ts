@@ -230,3 +230,29 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
     },
   }
 }
+
+// LORAMER_GA_FORWARD_DIM_LOOKBACK_V1 — ONE-TIME forward RE-WALK of an explicit [from..to] window for ONE client.
+// Purpose: recover a gap the forward-dim path missed (e.g. Bath Fitter 07-15..today, frozen by the old single-shot
+// captureDate fetch). It does NOT touch either cursor (account 'ga' or 'ga_dimensional') and never marks anything
+// complete — it just re-fetches the window and upserts on the conflict key (finalized values overwrite intraday),
+// scoped to `clientId` only (fetchGaDimensionalRows stamps client_id, so no other client's rows are touched). Invoked
+// ONLY behind the explicit /api/backfill/ga-dimensional-recover route (CRON_SECRET + required from/to) — it is NOT on
+// any cron and NEVER fires on deploy.
+export async function recoverGaDimensionalForward(clientId: string, from: string, to: string): Promise<GaDimBackfillResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
+    return { status: 400, body: { error: 'from/to must be YYYY-MM-DD with from<=to', clientId, from, to } }
+  }
+  const { data: gaRow } = await supabaseAdmin.from('ga_tokens').select('user_email, ga_property_id').eq('client_id', clientId).maybeSingle()
+  if (!gaRow?.user_email || !gaRow?.ga_property_id) return { status: 400, body: { error: 'Client has no GA connection', clientId } }
+  const userEmail = gaRow.user_email as string
+  const tok = await getValidGaToken(clientId, userEmail)
+  if (!tok.ok) return { status: 400, body: { error: 'GA token unavailable', detail: tok.reason, clientId } }
+  const { rows, perFamily, skipped } = await fetchGaDimensionalRows({ clientId, userEmail, accessToken: tok.accessToken, propertyId: tok.gaPropertyId, propertyName: tok.gaPropertyName, startDate: from, endDate: to })
+  let rowsWritten = 0
+  if (rows.length > 0) {
+    const { error } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(rows), { onConflict: CONFLICT })
+    if (error) return { status: 500, body: { error: error.message, clientId, from, to } }
+    rowsWritten = rows.length
+  }
+  return { status: 200, body: { clientId, from, to, rowsWritten, perFamily, skippedFamilies: skipped } }
+}

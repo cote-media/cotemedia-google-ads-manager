@@ -83,6 +83,18 @@ function serializeCaughtError(value: unknown): string {
 // before the platform ceiling → no 504).
 const FORWARD_BUDGET_MS = 680_000
 
+// LORAMER_GA_FORWARD_DIM_LOOKBACK_V1 — GA4 dimensional data is NOT final at T+1. Google's processing takes 24-48h and
+// the values CHANGE during it: intraday data has GAPS in event-scoped traffic-source dims (source/medium/campaign/
+// channel group) and applies STRICTER cardinality limits (more "(other)" rows). A single-shot T+1 fetch therefore
+// stores intraday-quality rows PERMANENTLY (the prior bug: cron/sync re-fetched captureDate ONLY and never re-touched
+// a day — the "self-heals on the backfill re-walk" claim was FALSE because the ga_dimensional backfill sets
+// backfill_complete=true and returns early). The fix: forward-dim re-fetches a TRAILING WINDOW ending at captureDate
+// and upserts on the conflict key, so late-finalized values OVERWRITE the intraday ones. 7 days matches Fivetran's
+// GA4 default late-arrival window; Airbyte ships a configurable GA4 lookback for the same reason. DO NOT reduce to 1
+// — that reintroduces the intraday-permanence bug.
+const GA_FORWARD_DIM_LOOKBACK_DAYS = 7
+const addDaysUTC = (iso: string, n: number): string => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+
 // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — forward paging: the clients CONNECTED to `platform` whose forward cursor
 // (sync_state.last_forward_sync_date) is not yet captureDate, LEAST-RECENTLY-SYNCED first (NULLS-FIRST via '' key),
 // stable id tie-break. Connection source = platform_connections for ALL 5 (GA is present there too, verified). This
@@ -940,18 +952,29 @@ export async function GET(request: Request) {
         throw syncError
       }
 
-      // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — forward dimensional breadth (families A–I) for the captured day. ADDITIVE
-      // + fully ISOLATED (its OWN try/catch): a dimensional failure NEVER affects the account row / sync cursor /
-      // health already committed above. A missed forward-dim day self-heals on the ga_dimensional backfill re-walk.
+      // LORAMER_GA_FORWARD_DIM_LOOKBACK_V1 — forward dimensional breadth (families A–I) over a 7-DAY TRAILING WINDOW
+      // ending at captureDate (was single-shot captureDate-only). GA4 dimensional data finalizes over 24-48h and
+      // CHANGES during it, so each night we re-fetch the trailing window and UPSERT on the conflict key → finalized
+      // values overwrite the intraday ones. This REPLACES the old (false) "self-heals on the ga_dimensional backfill
+      // re-walk" claim: the backfill sets backfill_complete=true and returns early, so it NEVER re-walks recent days;
+      // this trailing re-fetch is the actual self-correction. Still fully ISOLATED (its OWN try/catch): a failure
+      // NEVER touches the account row / sync cursor / health already committed above — but it is now RECORDED to
+      // cron_runs (via summary.errors → finalizeSection('ga') → error_count), not just a 1h console.warn.
       try {
-        const { rows: dimRows } = await fetchGaDimensionalRows({ clientId: client.id, userEmail, accessToken: gaToken.accessToken, propertyId: gaToken.gaPropertyId, propertyName: gaToken.gaPropertyName, startDate: captureDate, endDate: captureDate })
+        const dimStart = addDaysUTC(captureDate, -(GA_FORWARD_DIM_LOOKBACK_DAYS - 1)) // LORAMER_GA_FORWARD_DIM_LOOKBACK_V1
+        const { rows: dimRows } = await fetchGaDimensionalRows({ clientId: client.id, userEmail, accessToken: gaToken.accessToken, propertyId: gaToken.gaPropertyId, propertyName: gaToken.gaPropertyName, startDate: dimStart, endDate: captureDate })
         if (dimRows.length > 0) {
           const { error: dimErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
           if (dimErr) throw dimErr
           summary.rowsWritten += dimRows.length
         }
       } catch (dimErr) {
-        console.warn(`[cron/sync] client=${client.id} GA dimensional forward (non-fatal): ${serializeCaughtError(dimErr)}`)
+        const message = serializeCaughtError(dimErr)
+        console.warn(`[cron/sync] client=${client.id} GA dimensional forward (non-fatal): ${message}`)
+        // LORAMER_GA_FORWARD_DIM_LOOKBACK_V1 — DURABLE record (was expiring in 1h). Identical pattern to the google
+        // dimensional branch: pushing to summary.errors makes finalizeSection('ga') count it into cron_runs
+        // error_count + connections_errored, so a failed forward-dim night is visible after the fact.
+        summary.errors.push({ clientId: client.id, platform: 'ga', message: `dimensional forward: ${message}` })
       }
 
       // LORAMER_CONNECTION_HEALTH_V1 — GA property authenticated; heal it.
