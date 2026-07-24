@@ -20,6 +20,7 @@ import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '
 import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
 import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 import { readGoogleQuotaPause, writeGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
+import { googleForwardReserveDecision } from '@/lib/backfill/google-forward-reserve' // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
 // sweeps instead of ~3. SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep
@@ -76,6 +77,29 @@ export async function GET(request: Request) {
     const qp = await readGoogleQuotaPause()
     if (qp.paused) {
       return NextResponse.json({ platform, dryRun, trigger, cap, ok: true, selected: 0, quotaPaused: true, quotaUntil: qp.until, note: `google quota paused until ${qp.until}`, results: [] }, { status: 200 })
+    }
+    // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1 — reserve the daily forward slice: within N minutes of the ~08:03:57 UTC
+    // quota reset, if today's google FORWARD pass has not finished, hold the deep-history drain OFF google so forward
+    // gets first, uncontested access to the fresh 15k-op quota. Releases the instant forward finishes (forwardPending
+    // flips) and never past the reset+N cap. Scoped to the broad scheduled fire — a targeted single-connection run
+    // (onlyClientId: manual recovery / new-client onboarding kickoff) bypasses the polite hold. See ★GOOGLE-QUOTA-
+    // PRIORITY-INVERSION; this is the ALLOCATE half the reactive LORAMER_GOOGLE_QUOTA_GUARD_V1 pause never had.
+    if (!onlyClientId) {
+      const reserve = await googleForwardReserveDecision(Date.now())
+      if (reserve.skip) {
+        return NextResponse.json({
+          platform, dryRun, trigger, cap, ok: true, selected: 0,
+          skipQuotaReserve: true,
+          reserveWindowMinutes: reserve.windowMinutes,
+          minutesSinceReset: reserve.minutesSinceReset,
+          resetTimeUtc: reserve.resetTimeUtc,
+          captureDate: reserve.captureDate,
+          forwardActiveClients: reserve.activeClients,
+          forwardCompletedClients: reserve.completedClients,
+          note: `google forward-reserve: ${reserve.minutesSinceReset}m after the ${reserve.resetTimeUtc} UTC reset (window ${reserve.windowMinutes}m) and forward not finished (${reserve.completedClients}/${reserve.activeClients} clients synced ${reserve.captureDate}) — holding drain off google so forward gets the fresh quota`,
+          results: [],
+        }, { status: 200 })
+      }
     }
   }
 
