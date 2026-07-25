@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveDateWindow } from '@/lib/date-range'
-import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligence'
+import { fetchShopifyIntelligenceByDay } from '@/lib/intelligence/shopify-intelligence' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Shopify Tier-1 21-day per-day re-sum
 import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row' // LORAMER_SHOPIFY_DEPTH_2A_V1
 import { runMetaCampaignBackfill } from '@/lib/backfill/meta-campaign-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
 import { runMetaAdSetAdBackfill } from '@/lib/backfill/meta-adset-ad-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
@@ -200,6 +200,15 @@ export async function GET(request: Request) {
   // BEFORE the clients query / heavy work, so a crash or maxDuration kill still leaves a started
   // row with finished_at NULL (the silent-hole signal). Observability only; never throws.
   const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Shopify forward Tier-1 restatement controls. dryRun re-sums the
+  // trailing window against live Shopify WITHOUT any write (no metrics upsert, no claim, no cursor, no
+  // health), scoped to `client` (CSV); it early-returns a per-day would-write report. Production writes.
+  // SHOPIFY_FWD_RESTATE_DAYS is the trailing window the forward pass re-sums and REPLACEs day-by-day.
+  const gForwardParams = new URL(request.url).searchParams
+  const gDryRun = gForwardParams.get('dryRun') === 'true'
+  const gOnlyClients = (gForwardParams.get('client') || '').split(',').map((s) => s.trim()).filter(Boolean)
+  const SHOPIFY_FWD_RESTATE_DAYS = 21 // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Shopify Tier-1 trailing re-sum window (day-level REPLACE)
+  const gWidenReport: Array<Record<string, unknown>> = []
   const cronTrigger = detectTrigger(request)
   const cronRunIds = await startCronRuns({
     mode: 'forward',
@@ -252,10 +261,14 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'shopify') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  const __pending = await pendingForwardClients('shopify', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run scopes to the requested clients (no cursor dependence) and never claims.
+  const __pending = gDryRun
+    ? clientRows.filter((c) => gOnlyClients.includes(c.id))
+    : await pendingForwardClients('shopify', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  const sStart = addDaysUTC(captureDate, -SHOPIFY_FWD_RESTATE_DAYS) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — trailing 21-day re-sum window start
   for (const client of __pending) {
-    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
-    if (!(await claimForward('shopify', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
+    if (!gDryRun && Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!gDryRun && !(await claimForward('shopify', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const shopifyConnections = connections.filter(c => c.platform === 'shopify')
 
@@ -278,81 +291,103 @@ export async function GET(request: Request) {
           )
         }
 
-        const intel = await fetchShopifyIntelligence(
-          tokenResult.accessToken,
-          shopDomain,
-          'YESTERDAY',
-          captureDate,
-          captureDate,
-          { throwOnError: true } // LORAMER_SHOPIFY_SWALLOW_FIX_V1 — halt on a real fetch error, never write a false-zero
-        )
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Shopify Tier-1) — re-sum the trailing 21 days by created_at every run and
+        // upsert-REPLACE each day's account + depth rows (7-col conflict key). ONE window fetch + hoisted sub-fetches
+        // (fetchShopifyIntelligenceByDay) → NOT 21 per-day fetches. Net is re-derived from CURRENT refund-adjusted money
+        // (currentSubtotalPriceSet / totalRefundedSet), so refunds/edits/cancels that landed since original capture are
+        // picked up and REPLACE the stored day. Account main row + depth keep their separate try/catch per day.
+        const byDay = await fetchShopifyIntelligenceByDay(tokenResult.accessToken, shopDomain, sStart, captureDate, { throwOnError: true })
 
-        const rows = buildShopifyMetricsRows(
-          client.id,
-          userEmail,
-          captureDate,
-          shopDomain,
-          intel
-        )
-
-        const { error: metricsError } = await supabaseAdmin
-          .from('metrics_daily')
-          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
-
-        if (metricsError) {
-          throw metricsError
+        // dry-run only: read the currently-stored account net per day to SHOW drift (unchanged → same net; a late refund → moves).
+        const storedNetByDay: Record<string, number> = {}
+        if (gDryRun) {
+          const { data: storedRows } = await supabaseAdmin
+            .from('metrics_daily').select('date, revenue')
+            .eq('client_id', client.id).eq('platform', 'shopify').eq('entity_level', 'account')
+            .eq('breakdown_type', '').eq('breakdown_value', '').gte('date', sStart).lte('date', captureDate)
+          for (const r of storedRows || []) storedNetByDay[String((r as any).date)] = Number((r as any).revenue) || 0
         }
 
-        summary.rowsWritten += rows.length
-
-        // LORAMER_SHOPIFY_DEPTH_2A_V1 — product-net + ship-to geo depth in its OWN try/catch:
-        // a depth failure logs LOUD and is recorded, but NEVER drops the account main row or
-        // sync_state. 0 rows = logged empty (not error); UNKNOWN-address share logged.
-        try {
-          const depthRows = buildShopifyDepthRows(client.id, userEmail, captureDate, shopDomain, intel)
-          if (intel.unknownGeoOrders) {
-            console.warn(
-              `[cron/sync] client=${client.id} platform=shopify geo UNKNOWN-address orders=${intel.unknownGeoOrders}`
-            )
+        let shopWritten = 0
+        const sDays: Array<Record<string, unknown>> = []
+        for (const [day, intel] of byDay) {
+          const rows = buildShopifyMetricsRows(client.id, userEmail, day, shopDomain, intel)
+          if (rows.length > 0) {
+            if (!gDryRun) {
+              const { error: metricsError } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
+              if (metricsError) throw metricsError
+            }
+            shopWritten += rows.length
           }
-          if (depthRows.length === 0) {
-            console.log(
-              `[cron/sync] client=${client.id} platform=shopify depth: 0 product/geo rows (empty, not an error)`
-            )
-          } else {
-            const { error: depthError } = await supabaseAdmin
-              .from('metrics_daily')
-              .upsert(normalizeMetricsRows(depthRows), { onConflict: METRICS_DAILY_CONFLICT })
-            if (depthError) throw depthError
-            summary.rowsWritten += depthRows.length
+          // LORAMER_SHOPIFY_DEPTH_2A_V1 — depth in its OWN try/catch PER DAY: a depth failure logs LOUD + is recorded,
+          // but never drops that day's account row. 0 rows = logged empty (not error).
+          try {
+            const depthRows = buildShopifyDepthRows(client.id, userEmail, day, shopDomain, intel)
+            if (intel.unknownGeoOrders) {
+              console.warn(`[cron/sync] client=${client.id} platform=shopify day=${day} geo UNKNOWN-address orders=${intel.unknownGeoOrders}`)
+            }
+            if (depthRows.length > 0) {
+              if (!gDryRun) {
+                const { error: depthError } = await supabaseAdmin
+                  .from('metrics_daily')
+                  .upsert(normalizeMetricsRows(depthRows), { onConflict: METRICS_DAILY_CONFLICT })
+                if (depthError) throw depthError
+              }
+              shopWritten += depthRows.length
+            }
+            if (gDryRun) {
+              const resummedNet = Number((intel.totalRevenue ?? 0).toFixed(2))
+              const sumProductNet = Number((intel.productsCapture || []).reduce((s: number, p: { netRevenue?: number }) => s + (p.netRevenue ?? 0), 0).toFixed(2))
+              const stored = storedNetByDay[day]
+              sDays.push({
+                day,
+                resummedNet,
+                storedNet: stored === undefined ? null : Number(stored.toFixed(2)),
+                deltaVsStored: stored === undefined ? null : Number((resummedNet - stored).toFixed(2)),
+                sumProductNet,
+                reconcileOk: Math.abs(resummedNet - sumProductNet) < 0.02, // Σ product net ≡ account net (partition)
+                depthRows: depthRows.length,
+              })
+            }
+          } catch (depthErr) {
+            const message = serializeCaughtError(depthErr)
+            console.error(`[cron/sync] client=${client.id} platform=shopify day=${day} depth capture FAILED:`, message)
+            summary.errors.push({ clientId: client.id, platform: 'shopify', message: `depth ${day}: ${message}` })
           }
-        } catch (depthErr) {
-          const message = serializeCaughtError(depthErr)
-          console.error(
-            `[cron/sync] client=${client.id} platform=shopify depth capture FAILED:`,
-            message
-          )
-          summary.errors.push({ clientId: client.id, platform: 'shopify', message: `depth: ${message}` })
         }
+        if (!gDryRun) summary.rowsWritten += shopWritten
+        else gWidenReport.push({
+          client: client.id, shopDomain, family: 'shopify-resum', window: `${sStart} → ${captureDate}`,
+          days: byDay.size, wouldWriteRows: shopWritten,
+          reconcileAllOk: sDays.every((d) => d.reconcileOk !== false),
+          driftDays: sDays.filter((d) => d.deltaVsStored != null && Math.abs(d.deltaVsStored as number) > 0.01)
+            .map((d) => ({ day: d.day, storedNet: d.storedNet, resummedNet: d.resummedNet, delta: d.deltaVsStored })),
+          sampleDays: sDays.slice(-6),
+        })
 
-        const { error: syncError } = await supabaseAdmin
-          .from('sync_state')
-          .upsert(
-            {
-              client_id: client.id,
-              platform: 'shopify',
-              last_forward_sync_date: captureDate,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'client_id,platform' }
-          )
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run writes NOTHING: no cursor advance, no connection-health stamp.
+        if (!gDryRun) {
+          const { error: syncError } = await supabaseAdmin
+            .from('sync_state')
+            .upsert(
+              {
+                client_id: client.id,
+                platform: 'shopify',
+                last_forward_sync_date: captureDate,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'client_id,platform' }
+            )
 
-        if (syncError) {
-          throw syncError
+          if (syncError) {
+            throw syncError
+          }
+
+          // LORAMER_CONNECTION_HEALTH_V1 — this shop authenticated; heal it.
+          await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail })
         }
-
-        // LORAMER_CONNECTION_HEALTH_V1 — this shop authenticated; heal it.
-        await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -365,11 +400,25 @@ export async function GET(request: Request) {
           message,
         })
         // LORAMER_CONNECTION_HEALTH_V1 — AUTH-class only; transient/empty leaves health untouched.
-        await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail, error: err })
+        if (!gDryRun) await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail, error: err }) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — no health write in dry-run
       }
     }
   }
   await finalizeSection('shopify', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a Shopify dry-run short-circuits here with the per-day re-sum report (no meta/google/woo; no writes anywhere above).
+  if (gDryRun) {
+    return NextResponse.json({
+      dryRun: true,
+      platform: 'shopify',
+      captureDate,
+      window: `${sStart} → ${captureDate}`,
+      restateDays: SHOPIFY_FWD_RESTATE_DAYS,
+      clients: gOnlyClients,
+      note: 'Shopify Tier-1 21-day re-sum (per created_at day; account + depth REPLACE on the 7-col key). Net re-derived from CURRENT refund-adjusted money (currentSubtotalPriceSet / totalRefundedSet). Zero rows written.',
+      shopifyResum: gWidenReport,
+      errors: summary.errors,
+    })
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end shopify guard
 
   if (platform === 'all' || platform === 'meta') {

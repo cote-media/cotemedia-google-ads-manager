@@ -246,6 +246,49 @@ async function fetchAbandonedCheckoutSummary(
   }
 }
 
+// LORAMER_RESTATEMENT_SWEEP_FLEET_V1 Stage 2 — abandoned checkouts bucketed by created_at DAY for the per-day re-sum.
+// Same PII-locked AbandonedInRange query (id + totalPriceSet + createdAt) as the window summary; the per-order nodes are
+// grouped by their createdAt UTC day instead of collapsed. Fail-soft: any error → empty map (each day's abandoned then
+// resolves to undefined, exactly as the window summary returns undefined on failure).
+async function fetchAbandonedByDay(
+  endpoint: string,
+  headers: Record<string, string>,
+  queryString: string,
+): Promise<Map<string, { count: number; value: number }>> {
+  const out = new Map<string, { count: number; value: number }>()
+  const gql = `
+    query AbandonedInRange($query: String!) {
+      abandonedCheckouts(first: 250, query: $query) {
+        edges { node { id totalPriceSet { shopMoney { amount } } createdAt } }
+      }
+    }
+  `
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: gql, variables: { query: queryString } }),
+    })
+    const json = await res.json()
+    if (json.errors) {
+      console.warn('[abandonedCheckouts/byDay] GraphQL error (likely missing abandoned-checkout permission):', JSON.stringify(json.errors).slice(0, 200))
+      return out
+    }
+    for (const e of json.data?.abandonedCheckouts?.edges || []) {
+      const day = String(e?.node?.createdAt || '').slice(0, 10)
+      if (!day) continue
+      const amt = parseFloat(e?.node?.totalPriceSet?.shopMoney?.amount || '0')
+      const cur = out.get(day) || { count: 0, value: 0 }
+      cur.count += 1
+      if (Number.isFinite(amt)) cur.value = Math.round((cur.value + amt) * 100) / 100
+      out.set(day, cur)
+    }
+  } catch (e) {
+    console.warn('[abandonedCheckouts/byDay] fetch failed:', e)
+  }
+  return out
+}
+
 // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — Shopify full-order money split beyond NET, per-day ACCOUNT grain,
 // from the widened OrdersInRange fields (no extra call). Basis: net = currentSubtotal (EXCLUDES shipping/tax,
 // after refunds); the additive parts decompose currentTotalPrice. Fields cited from the Shopify 2025-01 Order
@@ -300,6 +343,10 @@ export async function fetchShopifyIntelligence(
     // persists its cursor, like Woo) instead of collapsing to an empty/zero day. Default (undefined/false) keeps
     // the swallow-to-empty for the reviewer path (/api/intelligence) → reviewer render byte-identical.
     throwOnError?: boolean
+    // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 Stage 2 — byDay re-sum: when byDay+onDay are set, the SAME window fetch is
+    // bucketed by created_at day and onDay(day, intel) fires per day (fetchShopifyIntelligenceByDay collects them).
+    byDay?: boolean
+    onDay?: (day: string, intel: IntelligenceShopify) => void
   }
 ): Promise<IntelligenceShopify> {
   const endpoint = `https://${shopDomain}/admin/api/${GRAPHQL_API_VERSION}/graphql.json`
@@ -395,12 +442,32 @@ export async function fetchShopifyIntelligence(
       pages += 1
     } while (after && pages < 100) // safety cap (100 pages × 250 = 25k orders/window)
 
+    // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Shopify Tier-1, Stage 2) — the 3 window sub-fetches run ONCE here, over ALL
+    // window orders, so a per-day re-sum reuses them instead of re-fetching per day. Customer facts + product collections
+    // are CLOSED OVER by aggregateWindow (body unchanged); abandoned is passed per call (window summary for flat, per-day
+    // bucket for byDay). This is what makes the one-range-query design efficient — one orders fetch + one facts + one
+    // collections fetch cover the whole 21-day re-sum.
+    const liveOrdersWindow = orderNodes.filter((o) => !o.cancelledAt)
+    const windowCustomerIds = Array.from(new Set(liveOrdersWindow.map((o) => o.customer?.id).filter(Boolean))) as string[]
+    const firstOrderByCustomer = windowCustomerIds.length
+      ? await fetchFirstOrderDates(endpoint, headers, windowCustomerIds, opts?.throttleDeadline)
+      : new Map<string, CustomerFacts>()
+    const windowProductIds = Array.from(new Set(
+      liveOrdersWindow.flatMap((o) => (o.lineItems?.edges || []).map((e) => e.node.product?.id)).filter((id): id is string => !!id && id.startsWith('gid://'))
+    ))
+    const collectionsByProductId = windowProductIds.length
+      ? (await fetchProductCollections(endpoint, headers, windowProductIds, opts?.throttleDeadline)).byProductId
+      : ({} as Record<string, string[]>)
+
+    // The window aggregation (Stage 1 body, verbatim). Now SYNC — the 3 sub-fetches are hoisted above (closure) / passed
+    // in (abandoned). Reusable per created_at day (Stage 2). Only the two per-day-varying inputs stay parameters.
+    const aggregateWindow = (ordersForAgg: GraphQLOrderNode[], windowStart: string, abandoned: { count: number; value: number } | undefined): IntelligenceShopify => {
     // LORAMER_SHOPIFY_CANCELLED_ACCURACY_V1 (WS3 #6) — a CANCELLED order (cancelledAt != null) did not
     // result in a sale, so it contributes NOTHING to ANY metric at ANY grain. Base ALL account
     // aggregations on liveOrders (the depth grains already do). Refunds are a SEPARATE axis
     // (currentSubtotalPriceSet already nets them); a refunded-but-not-cancelled order stays a counted
     // order. (Test-order exclusion deferred — see CONTINUE_HERE WS3 #6.)
-    const liveOrders = orderNodes.filter((o) => !o.cancelledAt)
+    const liveOrders = ordersForAgg.filter((o) => !o.cancelledAt)
 
     // LORAMER_SHOPIFY_NET_SALES_V1 — headline revenue = net sales (line-item subtotal after refunds, excludes shipping/tax)
     const totalRevenue = liveOrders.reduce(
@@ -429,11 +496,9 @@ export async function fetchShopifyIntelligence(
     //  PREDATE the first order. So we use customer.orders(first:1, sortKey:CREATED_AT).)
     // new = the customer's first order ever falls within this window; returning = first order was
     // before the window start; unknown = no linked customer / first-order lookup failed.
-    const windowStartMs = new Date(startDate + 'T00:00:00Z').getTime()
+    const windowStartMs = new Date(windowStart + 'T00:00:00Z').getTime()
     const customerIds = Array.from(new Set(liveOrders.map((o) => o.customer?.id).filter(Boolean))) as string[]
-    const firstOrderByCustomer = customerIds.length
-      ? await fetchFirstOrderDates(endpoint, headers, customerIds, opts?.throttleDeadline)
-      : new Map<string, CustomerFacts>()
+    // firstOrderByCustomer is the hoisted window-wide facts map (closure above); this day's customerIds look up into it.
     const bucketOf = (o: GraphQLOrderNode): 'new' | 'returning' | 'unknown' => {
       const id = o.customer?.id
       if (!id) return 'unknown'
@@ -495,7 +560,7 @@ export async function fetchShopifyIntelligence(
     // Currency rule: use shopMoney as-is; if a window spans MULTIPLE base currencies (rare — a store
     // changed currency), the net sums mix currencies — LOG LOUD and tag (currencyMixed), never silent.
     const currencies = new Set(liveOrders.map((o) => o.currentSubtotalPriceSet?.shopMoney?.currencyCode).filter(Boolean))
-    const currencyCode = currencies.size ? (Array.from(currencies)[0] as string) : (orderNodes[0]?.currentSubtotalPriceSet?.shopMoney?.currencyCode || undefined)
+    const currencyCode = currencies.size ? (Array.from(currencies)[0] as string) : (ordersForAgg[0]?.currentSubtotalPriceSet?.shopMoney?.currencyCode || undefined)
     const currencyMixed = currencies.size > 1
     if (currencyMixed) {
       console.warn(`[shopify] MIXED CURRENCY for ${shopDomain} in ${startDate}..${endDate}: ${Array.from(currencies).join(',')} — geo/product net sums span currencies; tagged in extra`)
@@ -780,13 +845,11 @@ export async function fetchShopifyIntelligence(
     // then collections come from the SEPARATE batched call — never from the orders query, which Shopify hard-
     // rejects at 1,036 points with that field attached. Each product's net is projected onto EVERY collection
     // it belongs to, so this OVER-COUNTS by design exactly like product_tag: additive:false is mandatory.
-    const collectionProductIds = Object.keys(prodCap).filter((id) => id.startsWith('gid://'))
-    const collectionsResult = collectionProductIds.length
-      ? await fetchProductCollections(endpoint, headers, collectionProductIds, opts?.throttleDeadline)
-      : { byProductId: {} as Record<string, string[]>, batchesTotal: 0, batchesFailed: 0, productsMissing: 0 }
+    // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 Stage 2 — collections are the hoisted window-wide map (closure above), so a
+    // per-day re-sum doesn't re-fetch collections per day. This day's products look up into it.
     const collCap: Record<string, { netRevenue: number; products: Set<string> }> = {}
     for (const [pid, v] of Object.entries(prodCap)) {
-      const titles = collectionsResult.byProductId[pid] || []
+      const titles = collectionsByProductId[pid] || []
       if (!titles.length) continue // no collections (or degraded) → NO row; never a fabricated 'UNCOLLECTED' bucket
       for (const t of titles) {
         if (!collCap[t]) collCap[t] = { netRevenue: 0, products: new Set() }
@@ -816,10 +879,8 @@ export async function fetchShopifyIntelligence(
       grossRevenue: v.grossRevenue,
     }))
 
-    // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 / _VALUE_V1 (S-FILL#2) — separate fail-soft fetch.
-    // Reuses the same date queryString as the orders query so count + value are
-    // scoped to the same window. undefined ⟺ permission/network failure.
-    const abandonedSummary = await fetchAbandonedCheckoutSummary(endpoint, headers, queryString)
+    // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 Stage 2 — abandoned is PASSED IN (window summary for flat, per-day bucket for
+    // byDay), so this aggregation stays sync and a per-day re-sum reuses ONE abandoned fetch bucketed by created_at day.
 
     return {
       connected: true,
@@ -840,8 +901,8 @@ export async function fetchShopifyIntelligence(
       returningCustomerAov,
       revenueConcentration,
       // LORAMER_SHOPIFY_ABANDONED_CHECKOUTS_V1 / _VALUE_V1 — undefined when permission or network failed
-      abandonedCheckoutCount: abandonedSummary?.count,
-      abandonedCheckoutValue: abandonedSummary?.value, // S-FILL#2 — potential/LOST revenue, never actual
+      abandonedCheckoutCount: abandoned?.count,
+      abandonedCheckoutValue: abandoned?.value, // S-FILL#2 — potential/LOST revenue, never actual
       topProducts,
       // LORAMER_SHOPIFY_DEPTH_2A_V1 — capture-only depth
       productsCapture,
@@ -865,6 +926,27 @@ export async function fetchShopifyIntelligence(
       unknownGeoOrders,
       money: buildShopifyMoneySurface(liveOrders), // LORAMER_SHOPIFY_MONEY_SURFACE_V1 (T1.5) — full money split → account extra
     }
+    } // end aggregateWindow (LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — sub-fetches hoisted; sync; reusable per created_at day)
+
+    // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 Stage 2 — byDay: re-sum per created_at day off the SAME single window fetch +
+    // the hoisted sub-fetches (abandoned bucketed per day). Each day is emitted via onDay; the flat return still runs
+    // (abandoned skipped in byDay mode to avoid a second abandoned fetch — the byDay caller ignores the flat return).
+    if (opts?.byDay && opts.onDay) {
+      const abandonedByDay = await fetchAbandonedByDay(endpoint, headers, queryString)
+      const bucketByDay = new Map<string, GraphQLOrderNode[]>()
+      for (const o of orderNodes) {
+        const d = String(o.createdAt || '').slice(0, 10)
+        if (!d) continue
+        const arr = bucketByDay.get(d); if (arr) arr.push(o); else bucketByDay.set(d, [o])
+      }
+      for (const [day, dayOrders] of bucketByDay) {
+        opts.onDay(day, aggregateWindow(dayOrders, day, abandonedByDay.get(day)))
+      }
+    }
+
+    // Flat: ONE aggregation over the whole fetched window (abandoned = window summary) → byte-identical to before.
+    const abandonedWindow = (opts?.byDay && opts.onDay) ? undefined : await fetchAbandonedCheckoutSummary(endpoint, headers, queryString)
+    return aggregateWindow(orderNodes, startDate, abandonedWindow)
   } catch (e: any) {
     // LORAMER_SHOPIFY_DIM_BACKFILL_V1 — let a throttle-budget signal propagate so the backfill can
     // stop + persist its cursor (NOT collapse to empty data).
@@ -915,4 +997,25 @@ export async function fetchShopifyIntelligence(
       unknownGeoOrders: 0,
     }
   }
+}
+
+// LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Shopify Tier-1, Stage 2) — per-day re-sum. Fetches the [startDate,endDate] window
+// ONCE (orders + customer facts + collections + abandoned), buckets by created_at day, and returns a per-day
+// IntelligenceShopify map — byte-identical rows to a single-day fetchShopifyIntelligence for each day. The forward pass
+// uses it to REPLACE the last N days every run (Tier-1 restatement). throwOnError propagates so a writer HALTS on a real
+// fetch error instead of writing a false-zero day.
+export async function fetchShopifyIntelligenceByDay(
+  accessToken: string,
+  shopDomain: string,
+  startDate: string,
+  endDate: string,
+  opts?: { throttleDeadline?: number; throwOnError?: boolean },
+): Promise<Map<string, IntelligenceShopify>> {
+  const result = new Map<string, IntelligenceShopify>()
+  await fetchShopifyIntelligence(accessToken, shopDomain, 'CUSTOM', startDate, endDate, {
+    ...opts,
+    byDay: true,
+    onDay: (day, intel) => result.set(day, intel),
+  })
+  return result
 }
