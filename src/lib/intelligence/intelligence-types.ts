@@ -622,6 +622,10 @@ export interface ClientIntelligence {
   clientName: string
   fetchedAt: string
   dateRange: string
+  // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — MEASURED max captured account-grain date per platform key
+  // ('google'|'meta'|'shopify'|'woocommerce'|'ga'). Feeds the "settled through <date>" half of the source-parity
+  // block. null/absent ⇒ nothing captured yet, which the renderer states plainly rather than implying zero.
+  capturedThrough?: Record<string, string | null>
   // LORAMER_DATE_RANGE_PROMPT_CLARITY_V1 - actual start/end when custom range used
   customStart?: string
   customEnd?: string

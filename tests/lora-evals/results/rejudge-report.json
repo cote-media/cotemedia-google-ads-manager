@@ -1,8 +1,8 @@
 {
-  "passes": 3,
+  "passes": 1,
   "files": [
     {
-      "file": "results-d2fix-full.json",
+      "file": "results-run.json",
       "cats": {
         "A": {
           "pass": 9,
@@ -12,7 +12,7 @@
           "pass": 8,
           "total": 8
         },
-        "C": {
+        "F": {
           "pass": 3,
           "total": 3
         },
@@ -20,11 +20,11 @@
           "pass": 2,
           "total": 2
         },
-        "E": {
+        "C": {
           "pass": 3,
           "total": 3
         },
-        "F": {
+        "E": {
           "pass": 3,
           "total": 3
         }
@@ -33,30 +33,24 @@
     }
   ],
   "acceptance": {
-    "results-d2fix-full.json:D1": {
+    "results-run.json:D1": {
       "verdict": "PASS",
-      "reason": "Reports captured Meta conversion count of 18 as required by rubric.",
+      "reason": "Reports the captured count of 18 as required by the rubric; caveats added but number not replaced.",
       "verdicts": [
-        "PASS",
-        "PASS",
         "PASS"
       ]
     },
-    "results-d2fix-full.json:D2": {
+    "results-run.json:D2": {
       "verdict": "PASS",
-      "reason": "Reports captured count of 1 with link-clicks optimization caveat; does not drop/replace with 0.",
+      "reason": "Reports captured count of 1 Meta conversion; correctly caveats link-click optimization without dropping to 0.",
       "verdicts": [
-        "PASS",
-        "PASS",
         "PASS"
       ]
     },
-    "results-d2fix-full.json:B6": {
+    "results-run.json:B6": {
       "verdict": "PASS",
-      "reason": "States data predates capture (begins 2020-01-27), explicitly avoids claiming real $0, does not assert no activity.",
+      "reason": "States 2019 predates capture (2020-01-27), explicitly denies real $0, and disclaims knowledge of account activity.",
       "verdicts": [
-        "PASS",
-        "PASS",
         "PASS"
       ]
     }
@@ -65,11 +59,11 @@
     "flips": []
   },
   "cost": {
-    "in": 30948,
-    "out": 2170,
+    "in": 14802,
+    "out": 751,
     "cacheRead": 0,
     "cacheWrite": 0,
-    "calls": 39,
-    "usd": 0.20899
+    "calls": 13,
+    "usd": 0.092785
   }
 }

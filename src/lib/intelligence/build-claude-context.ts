@@ -220,12 +220,15 @@ function formatGaRate(value: number | undefined): string {
   return `${pct.toFixed(2)}%`
 }
 
-function buildGaSection(ga: IntelligenceGa | undefined, limits: DataLimits): string {
+// LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — `parity` optional so every existing caller keeps working; absent ⇒
+// no parity block (never a fabricated settlement date).
+function buildGaSection(ga: IntelligenceGa | undefined, limits: DataLimits, parity?: { capturedThrough: string | null | undefined; liveAsOf?: string }): string {
   if (!ga?.connected) return ''
   const lines: string[] = []
   const listLimit = 10
 
   lines.push('\n=== GOOGLE ANALYTICS ===')
+  if (parity) lines.push(...buildSourceParityLines('ga', 'GA4', parity.capturedThrough, parity.liveAsOf))
   if (ga.propertyName || ga.propertyId) {
     const idPart = ga.propertyId ? ` (${ga.propertyId})` : ''
     lines.push(`Property: ${ga.propertyName || ga.propertyId || 'Unknown'}${idPart}`)
@@ -375,6 +378,9 @@ function buildGaShopifyReconciliation(ga: IntelligenceGa, shopify: IntelligenceS
   return lines.join('\n')
 }
 
+import { buildSourceParityLines, SOURCE_PARITY_RULE, CROSS_CUTTING_WHY, BOTH_FAMILIES } from './source-parity' // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
+import type { PlatformKey } from './source-parity'
+
 // LORAMER_LORA_FETCHERRORS_DEGRADED_V1 — per-FAMILY degradation rendering.
 //
 // THE GAP THIS CLOSES: a sub-family GAQL query that REJECTS is caught by google-intelligence's safeQuery
@@ -466,7 +472,14 @@ export function buildFetchErrorLines(platform: PlatformIntelligence | undefined,
 
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
 // LORAMER_INTELLIGENCE_HONESTY_V1 — connected-but-empty no longer silently drops
-function buildPlatformSection(platform: PlatformIntelligence, name: string, limits: DataLimits = DEFAULT_LIMITS): string {
+function buildPlatformSection(
+  platform: PlatformIntelligence,
+  name: string,
+  limits: DataLimits = DEFAULT_LIMITS,
+  // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — optional so every existing caller and test keeps working; when
+  // absent the parity block simply does not render (never a fabricated settlement date).
+  parity?: { key: PlatformKey; capturedThrough: string | null | undefined; liveAsOf?: string },
+): string {
   // Not connected at all → render nothing (intelligence.<platform> guard above means this is rare)
   if (!platform?.connected) return ''
   const lines: string[] = []
@@ -488,6 +501,12 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
   // sub-families. If this sat after the `!platform.campaigns?.length` return, that turn would emit the honest-empty
   // line and silently drop every degraded family — reintroducing the exact false zero this fixes.
   lines.push(...buildFetchErrorLines(platform, name))
+  // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — the two-sources block, at the SAME seam and for the SAME
+  // structural reason as the degraded block above: after the fetchFailed short-circuit (a failed fetch has no live
+  // source to compare), and BEFORE the campaigns-empty early-return below — because "live shows nothing this
+  // window" is exactly the turn where Lora most needs to know the captured store is a second source she must check
+  // before saying zero. Placing it after that return would silence it on the highest-risk shape.
+  if (parity) lines.push(...buildSourceParityLines(parity.key, name, parity.capturedThrough, parity.liveAsOf))
   // Connected but no campaigns with spend in this date range → emit honest empty-state
   // and stop. The Meta API hard-filters insights on spend > 0, so a quiet window
   // looks identical to a disconnected account from the data shape's perspective.
@@ -1287,12 +1306,30 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
     }
   }
 
-  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits))
-  if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits))
+  // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — the standing rule is emitted ONCE for the whole prompt (not per
+  // platform) so the vocabulary is stated a single time; the per-platform detail rides each section below. Emitted
+  // only when at least one connected platform actually has a dual-source family, so a single-platform client never
+  // reads rules about sources it does not have.
+  const ct = intelligence.capturedThrough || {}
+  const parityKeys: PlatformKey[] = []
+  if (intelligence.google?.connected) parityKeys.push('google')
+  if (intelligence.meta?.connected) parityKeys.push('meta')
+  if (intelligence.shopify?.connected) parityKeys.push('shopify')
+  if (intelligence.woocommerce?.connected) parityKeys.push('woocommerce')
+  if (intelligence.ga?.connected) parityKeys.push('ga')
+  const anyDual = parityKeys.some((k) => (BOTH_FAMILIES[k]?.length ?? 0) > 0)
+  if (anyDual) {
+    lines.push(SOURCE_PARITY_RULE)
+    lines.push(CROSS_CUTTING_WHY)
+  }
+
+  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits, { key: 'google', capturedThrough: ct.google, liveAsOf: intelligence.fetchedAt }))
+  if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits, { key: 'meta', capturedThrough: ct.meta, liveAsOf: intelligence.fetchedAt }))
 
   if (intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch (platformStatus already flagged it)
     const s = intelligence.shopify
     lines.push('\n=== SHOPIFY ===')
+    lines.push(...buildSourceParityLines('shopify', 'Shopify', ct.shopify, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
     // LORAMER_SHOPIFY_NET_SALES_V1
     if (s.totalRevenue != null) {
       lines.push(`Net sales (after refunds, excludes shipping & tax): $${s.totalRevenue.toFixed(2)}`)
@@ -1329,6 +1366,7 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   if (intelligence.woocommerce?.connected && !intelligence.woocommerce?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch
     const w = intelligence.woocommerce
     lines.push('\n=== WOOCOMMERCE ===')
+    lines.push(...buildSourceParityLines('woocommerce', 'WooCommerce', ct.woocommerce, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
     if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
     // LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 — Lora was narrating the SUM OF UNITS as the order count (e.g. "37 orders").
     // Pure labeling fix (no data/basis change): make distinct orders unambiguous and label per-product units as "units sold".
@@ -1347,7 +1385,7 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   }
 
   // LORAMER_GA_CLAUDE_CONTEXT_V1
-  const gaSection = buildGaSection(intelligence.ga, limits)
+  const gaSection = buildGaSection(intelligence.ga, limits, { capturedThrough: ct.ga, liveAsOf: intelligence.fetchedAt })
   if (gaSection) lines.push(gaSection)
   if (intelligence.ga?.connected && intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — no reconcile against a failed shopify fetch
     lines.push(buildGaShopifyReconciliation(intelligence.ga, intelligence.shopify))

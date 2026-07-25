@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { capturedThroughByPlatform } from '@/lib/next/coverage' // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
 import { resolveAccess } from '@/lib/access/can-access' // LORAMER_RBAC_ACCESS_ORG_V1 — membership-aware gate; reads run on ownerEmail
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
@@ -451,6 +452,25 @@ export async function GET(request: Request) {
       )
     }
     intelligence.ga = { connected: false }
+  }
+
+  // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — the REAL "settled through" date per platform, so Lora's
+  // source-parity block states a MEASURED settlement date instead of a constant or an implied "today". Read only
+  // for platforms actually connected on this client (no wasted queries), account-grain indexed, failures → null
+  // (the renderer says "nothing captured yet" rather than implying zero). Never blocks the response.
+  try {
+    const parityPlatforms = [
+      googleConn ? 'google' : null,
+      metaConn ? 'meta' : null,
+      shopifyConn ? 'shopify' : null,
+      wooConn ? 'woocommerce' : null,
+      intelligence.ga?.connected ? 'ga' : null,
+    ].filter(Boolean) as string[]
+    if (parityPlatforms.length) {
+      intelligence.capturedThrough = await capturedThroughByPlatform(clientId, parityPlatforms)
+    }
+  } catch (e) {
+    console.error('[intelligence] capturedThrough read failed — source-parity will render without settled dates:', e)
   }
 
   // ── LORAMER_CONNECTION_HEALTH_V1 — record live-fetch health per connection ──

@@ -64,6 +64,31 @@ async function minMaxFor(clientId: string, platform: string): Promise<{ min: str
   return { min: (mn?.date as string) ?? null, max: (mx?.date as string) ?? null }
 }
 
+// LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — the REAL "settled through" date per platform, for the source-parity
+// block in Lora's prompt. Deliberately reuses minMaxFor rather than re-rolling the predicate: the account-grain
+// triple (entity_level='account' AND breakdown_type='' AND breakdown_value='') is LOAD-BEARING, not redundant —
+// it is what makes migration 035's PARTIAL index usable. Without all three the query degrades to a scan of the
+// client's millions of rows, blows the 8s PostgREST statement_timeout, and returns null while looking correct
+// (LORAMER_8S_CEILING_AUDIT_V1 / LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1 — six sites, three of them PARTIAL filters
+// that looked right). Do not "simplify" these filters away. Per-platform reads are indexed (~0.15ms measured) and
+// run in parallel; a failed read yields null, which the renderer states honestly rather than implying zero.
+export async function capturedThroughByPlatform(
+  clientId: string,
+  platforms: string[],
+): Promise<Record<string, string | null>> {
+  const entries = await Promise.all(
+    platforms.map(async (p) => {
+      try {
+        const { max } = await minMaxFor(clientId, p)
+        return [p, max] as const
+      } catch {
+        return [p, null] as const
+      }
+    }),
+  )
+  return Object.fromEntries(entries)
+}
+
 // getCoverageForWindows — per requested window, an array of per-platform coverage. requestedPlatforms=[] means 'all'
 // → every connected platform. A specific requested platform is ALWAYS resolved (not_connected if it isn't connected).
 export async function getCoverageForWindows(
