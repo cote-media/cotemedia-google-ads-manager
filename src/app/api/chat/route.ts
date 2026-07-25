@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable, buildAgencyScopeContext } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 + LORAMER_AGENCY_SCOPE_LORA_V1
+import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/lib/lora-model-chain' // LORAMER_LORA_MODEL_CHAIN_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
@@ -31,6 +32,12 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // regressions and IDENTICAL input-token cost (same tokenizer as 4.8; only output is ~2x more verbose). The Vercel
 // env var LORA_CHAT_MODEL is flipped to opus-5 the same day; this default must track it (env var is not a law).
 const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-opus-5'
+
+// LORAMER_LORA_MODEL_CHAIN_V1 — the fallback order, primary first. Every entry is present in MODEL_PRICING
+// (spend-logger.ts, verified 2026-07-25), so whichever one answers is priced honestly rather than logged at $0.
+// Sonnet is LAST and deliberately: it is the model the 74.1%-era eval baseline ran on, so a Sonnet answer is a
+// capability drop the user must be told about — see provenanceNote().
+const MODEL_CHAIN = [LORA_CHAT_MODEL, 'claude-opus-4-8', 'claude-sonnet-4-6']
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -170,18 +177,39 @@ export async function POST(request: Request) {
   // src/lib/claude-tools.ts) exposing query_metrics so chat can answer
   // historical / comparison questions from metrics_daily. Single-shot when the
   // model calls no tool or no clientId is present.
+  // LORAMER_LORA_MODEL_CHAIN_V1 — retry the primary, then FALL BACK across models on Anthropic overload.
+  // The chain owns the wall-clock budget (95s vs ChatLauncher's 120s abort); hops it cannot afford are DROPPED,
+  // never half-run. Only `overloaded_error` advances the chain — any other failure surfaces as itself.
   try {
-    const { responseText, usage } = await runClaudeToolLoop({
-      anthropic,
-      model: LORA_CHAT_MODEL,
-      maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
-      system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
-      messages,
-      clientId,
-      userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+    const chain = await runWithModelChain({
+      models: MODEL_CHAIN,
+      onOverload: (a) =>
+        // LORAMER_LORA_MODEL_CHAIN_V1 — one line per overloaded hop, carrying the Anthropic request_id and the
+        // model, so recurrence rate is MEASURABLE. We do not currently know whether 529s are rare or chronic;
+        // without the request_id there is nothing to correlate against Anthropic's side.
+        console.error(`[chat] ANTHROPIC OVERLOADED model=${a.model} request_id=${a.requestId ?? 'none'} elapsed=${a.elapsedMs}ms detail=${a.detail}`),
+      run: (model, requestOptions) =>
+        runClaudeToolLoop({
+          anthropic,
+          model,
+          maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
+          system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+          messages,
+          clientId,
+          userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+          requestOptions,
+        }),
     })
-    const finalText = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
+    const { responseText, usage } = chain.value
+    const answered = chain.modelUsed
+    // PROVENANCE (LORAMER_LIVE_VS_CAPTURED_ARE_TWO_SOURCES_V1, same law): a substituted model is NEVER silent.
+    // Code-authored, not model-authored — the model cannot forget or soften a fact about its own substitution,
+    // and the PRIMARY path's prompt stays byte-identical so the eval baseline remains comparable.
+    const body = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
+    const finalText = chain.fellBack ? provenanceNote(answered, MODEL_CHAIN[0]) + body : body
     console.log('[chat] cache:', {
+      model: answered,
+      fellBack: chain.fellBack,
       input: usage.input,
       cache_create: usage.cache_create,
       cache_read: usage.cache_read,
@@ -191,14 +219,25 @@ export async function POST(request: Request) {
       userEmail: session.user.email,
       clientId,
       endpoint: 'chat',
-      model: LORA_CHAT_MODEL,
+      // LORAMER_LORA_MODEL_CHAIN_V1 — the model that ACTUALLY answered, never the primary constant. A fallback
+      // turn logged at the primary's rate is a FALSE COST, and all three chain models are priced in MODEL_PRICING.
+      model: answered,
       inputTokens: usage.input,
       outputTokens: usage.output,
       cacheReadTokens: usage.cache_read,        // LORAMER_LORA_MODEL_PRICING_V1 — honest cache-token cost
       cacheCreationTokens: usage.cache_create,
     })
-    return NextResponse.json({ response: finalText })
+    return NextResponse.json({ response: finalText, model: answered, fellBack: chain.fellBack })
   } catch (e: any) {
+    // DISTINCT FAILURE MODES — no generic fallthrough. Each carries its own machine-readable `error` code so the
+    // client renders a DIFFERENT, TRUE sentence instead of one catch-all that hides which thing broke.
+    if (e instanceof AllModelsOverloadedError) {
+      console.error(`[chat] ALL MODELS OVERLOADED tried=${e.attempts.map((a) => a.model).join(',')} dropped=${e.droppedModels.join(',') || 'none'} request_ids=${e.attempts.map((a) => a.requestId ?? 'none').join(',')}`)
+      return NextResponse.json(
+        { error: 'overloaded', tried: e.attempts.map((a) => a.model), dropped: e.droppedModels },
+        { status: 503 },
+      )
+    }
     console.error('Chat error:', e)
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

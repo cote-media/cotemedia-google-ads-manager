@@ -202,11 +202,19 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         }),
       })
       const d = await res.json().catch(() => ({}))
+      // LORAMER_CHAT_FAILURE_BRANCHES_V1 — EVERY failure mode gets its OWN sentence. Before this, a 503 from an
+      // exhausted model chain and a 500 from a real bug rendered the SAME string, so the user could not tell
+      // "Anthropic is busy, retry in a minute" from "something is broken, tell Russ" — and neither could we,
+      // reading a screenshot. The `error` codes are machine-readable and set by the route, not sniffed from prose.
       const reply = res.ok
         ? (d.response || 'I wasn’t able to complete that — please try rephrasing.')
-        : (d.error === 'Client not found'
-            ? 'I can’t access this client’s data from here.'
-            : 'Something went wrong reaching Lora. Please try again.')
+        : d.error === 'Client not found'
+          ? 'I can’t access this client’s data from here.'
+          : d.error === 'overloaded'
+            // Chain exhausted: every model was busy. This is Anthropic-side capacity, NOT your data and NOT a
+            // bug — say so, because the honest action is "wait and re-ask", not "report a problem".
+            ? 'Claude is overloaded right now — I tried every model available to me and all of them were busy. Nothing is wrong with your data or your connection. Please try again in a minute.'
+            : 'Something went wrong on my side — this is an error, not a busy model. Please try again, and if it keeps happening it’s worth flagging.'
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
       // LORAMER_NEXT_CONV_WRITE_V1 — persist the ASSISTANT turn ONLY on a genuine Lora reply (res.ok + real
       // response). The fallback/error strings above are client-side placeholders, NOT Lora's output — logging
@@ -219,7 +227,11 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
       const timedOut = (e as any)?.name === 'AbortError'
       setMessages((m) => [...m, { role: 'assistant', content: timedOut
         ? 'That’s taking longer than I can wait here, so I stopped watching — Lora may have finished the answer on the server. Please ask again.'
-        : 'I couldn’t reach Lora just now. Please try again.' }])
+        // LORAMER_CHAT_FAILURE_BRANCHES_V1 — a genuine connection failure: the request never completed a round
+        // trip, so unlike the 503 above we CANNOT say the server was busy. Naming it as a connection problem is
+        // the only truthful reading, and it is deliberately worded differently from the overloaded string so a
+        // screenshot tells us which one happened.
+        : 'I couldn’t reach Lora just now — the connection dropped before I got an answer back. Please try again.' }])
     } finally {
       clearTimeout(abortTimer)
       setLoading(false)

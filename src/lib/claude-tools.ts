@@ -247,6 +247,9 @@ export async function runClaudeToolLoop(opts: {
   clientId?: string | null
   userEmail?: string | null  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
   maxToolTurns?: number
+  // LORAMER_LORA_MODEL_CHAIN_V1 — per-request SDK options (maxRetries + timeout) supplied by the model chain, so
+  // retry budget is owned by the caller that also owns the wall-clock deadline. Absent ⇒ SDK defaults, unchanged.
+  requestOptions?: { maxRetries?: number; timeout?: number }
 }): Promise<ToolLoopResult> {
   const { anthropic, model, maxTokens, system, messages } = opts
   const clientId = opts.clientId || ''
@@ -273,7 +276,9 @@ export async function runClaudeToolLoop(opts: {
   for (let turn = 0; turn < MAX; turn++) {
     const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
     if (tools) createParams.tools = tools
-    const resp: any = await anthropic.messages.create(createParams)
+    const resp: any = opts.requestOptions
+      ? await anthropic.messages.create(createParams, opts.requestOptions) // LORAMER_LORA_MODEL_CHAIN_V1
+      : await anthropic.messages.create(createParams)
     last = resp
     const u = resp.usage || {}
     usage.input += u.input_tokens || 0
