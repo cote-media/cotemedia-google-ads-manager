@@ -375,6 +375,95 @@ function buildGaShopifyReconciliation(ga: IntelligenceGa, shopify: IntelligenceS
   return lines.join('\n')
 }
 
+// LORAMER_LORA_FETCHERRORS_DEGRADED_V1 — per-FAMILY degradation rendering.
+//
+// THE GAP THIS CLOSES: a sub-family GAQL query that REJECTS is caught by google-intelligence's safeQuery
+// (:128-132), which returns [] and records {label,message} into `fetchErrors`. That array was returned on the
+// object and typed (intelligence-types.ts:591) but ONLY ever consumed by the two cron routes (cron/sync:657,
+// cron/catchup:561). build-claude-context NEVER read it — so on an ON-DEMAND turn a quota/API failure on
+// device / geo / keyword / audience / … reached Lora as an EMPTY family with NO label, indistinguishable from a
+// true zero, on data the captured store actually holds. That is a FALSE ZERO, which ESSENCE ranks as worse than
+// absence, and it is a LORA-SEES-EVERYTHING violation: our code denied her her own user's own data.
+// OBSERVED LIVE 2026-07-25 15:31:17Z — base campaigns SUCCEEDED (so fetchFailed stayed false and the :388 branch
+// never fired) while ELEVEN sub-families died on Google quota_error 2.
+//
+// THE IDIOM IS DELIBERATELY THE SAME as the fetchFailed branch at :388-395 — same "NOT $0 / NOT disconnected"
+// framing, same four forbidden answers, same redirect-to-the-captured-store — scoped per FAMILY instead of per
+// PLATFORM. Do not invent a second idiom for this.
+//
+// RECOVERY HONESTY: a family is only pointed at query_breakdown when that breakdown_type IS in the generated
+// registry enum (breakdown-registry.ts breakdownToolTypes(); verified against platform:'google' entries). Families
+// with NO captured equivalent (audiences, RSA assets, PMax asset groups/combinations, Google's own
+// recommendations) are labeled UNAVAILABLE with no tool redirect — sending Lora to a tool that cannot answer
+// would manufacture a second false zero one layer down.
+type FamilyRecovery = {
+  family: string
+  toolType?: string      // query_breakdown breakdownType — MUST exist in the registry enum
+  entityLevel?: string   // query_metrics entityLevel — for entity grains, not breakdowns
+}
+export const FETCH_ERROR_FAMILIES: Record<string, FamilyRecovery> = {
+  // Captured → recoverable via query_breakdown (every toolType verified present in the google registry rows)
+  keyword: { family: 'Keywords', toolType: 'keyword' },
+  search_term: { family: 'Search terms', toolType: 'search_term' },
+  device: { family: 'Device split', toolType: 'device' },
+  geographic: { family: 'Geographic performance', toolType: 'geo' },
+  hour: { family: 'Hour-of-day', toolType: 'hour' },
+  age_range: { family: 'Age demographics', toolType: 'age' },
+  gender: { family: 'Gender demographics', toolType: 'gender' },
+  impression_share: { family: 'Impression share', toolType: 'impression_share' },
+  conversion_action: { family: 'Conversion actions', toolType: 'conversion_action' },
+  conv_by_campaign: { family: 'Conversions by campaign', toolType: 'conversion_action' },
+  // Captured as ENTITY grains, not breakdowns → query_metrics with entityLevel
+  ad_group: { family: 'Ad groups', entityLevel: 'ad_group' },
+  ad: { family: 'Ads', entityLevel: 'ad' },
+  // NOT captured anywhere — live-only surfaces. No redirect; honest unavailability.
+  ad_asset: { family: 'RSA asset performance' },
+  audience: { family: 'Audiences' },
+  recommendation: { family: "Google's recommendations" },
+  pmax_asset_group: { family: 'PMax asset groups' },
+  pmax_asset_group_asset: { family: 'PMax asset-group assets' },
+  pmax_top_combination: { family: 'PMax top asset combinations' },
+}
+
+// PURE + EXPORTED so the guard can execute it (a guard that greps for a string is a comment; this one runs the
+// real renderer). Returns [] when the fetch was clean — a platform with no degradation adds nothing to the prompt.
+export function buildFetchErrorLines(platform: PlatformIntelligence | undefined, name: string): string[] {
+  const errs = platform?.fetchErrors
+  if (!errs || errs.length === 0) return []
+  const lines: string[] = []
+  lines.push(
+    `\n⚠ ${name} PARTIAL/DEGRADED FETCH — ${errs.length} data ${errs.length === 1 ? 'family' : 'families'} FAILED to load live this turn. ` +
+    `The ${name} totals above are REAL, but each family listed below is MISSING FROM THIS PROMPT because its live query errored — ` +
+    `it is NOT zero, NOT empty, and NOT disconnected. Treat an absent family below as UNKNOWN-until-you-check, never as evidence of nothing.`
+  )
+  for (const e of errs) {
+    const spec = FETCH_ERROR_FAMILIES[e.label]
+    const label = spec?.family || e.label
+    if (spec?.toolType) {
+      lines.push(
+        `  • ${label} (${e.label}) — live fetch FAILED. You MUST call query_breakdown with breakdownType='${spec.toolType}' ` +
+        `for this client and window; that reads the captured store, which does NOT depend on the live fetch and matches the dashboard cards. ` +
+        `If it returns rows, THAT is the answer — report it plainly.`
+      )
+    } else if (spec?.entityLevel) {
+      lines.push(
+        `  • ${label} (${e.label}) — live fetch FAILED. You MUST call query_metrics with entityLevel='${spec.entityLevel}' ` +
+        `for this client and window; that reads the captured store, which does NOT depend on the live fetch. If it returns rows, THAT is the answer.`
+      )
+    } else {
+      lines.push(
+        `  • ${label} (${e.label}) — live fetch FAILED, and this family is LIVE-ONLY (not in the captured store), so there is no fallback. ` +
+        `Say plainly that it could not be loaded this turn and offer to retry. Do NOT describe it as zero, none, or unavailable-because-absent.`
+      )
+    }
+  }
+  lines.push(
+    `  NEVER answer "$0", "no spend", "no data", or "temporarily unavailable" for any family above WITHOUT first calling the tool named for it. ` +
+    `Only if the tool ALSO returns zero rows for this window may you say the data is genuinely unavailable. State the degradation out loud when you answer.`
+  )
+  return lines
+}
+
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
 // LORAMER_INTELLIGENCE_HONESTY_V1 — connected-but-empty no longer silently drops
 function buildPlatformSection(platform: PlatformIntelligence, name: string, limits: DataLimits = DEFAULT_LIMITS): string {
@@ -394,6 +483,11 @@ function buildPlatformSection(platform: PlatformIntelligence, name: string, limi
     lines.push(`${name} is CONNECTED, but its LIVE snapshot FAILED to load this turn — the live ${name} numbers are missing above, but this is NOT $0 and NOT disconnected. You MUST call the query_metrics tool to get ${name}'s totals (and, if the user asked for a combined/total figure across platforms, the all-platform total) for this client and window from the captured historical store, which does NOT depend on the live fetch and matches the dashboard cards. If query_metrics returns rows, THAT is the answer — report it plainly. NEVER answer "$0", "no spend", "temporarily unavailable", or a partial single-platform number as the total for a figure the captured store can provide. Only if query_metrics ALSO returns zero rows for this window may you say the data is genuinely unavailable.`)
     return lines.join('\n')
   }
+  // LORAMER_LORA_FETCHERRORS_DEGRADED_V1 — render per-family degradation BEFORE the empty-state early-return below.
+  // Ordering is load-bearing: a turn can have a SUCCESSFUL base fetch, zero campaigns in-window, AND failed
+  // sub-families. If this sat after the `!platform.campaigns?.length` return, that turn would emit the honest-empty
+  // line and silently drop every degraded family — reintroducing the exact false zero this fixes.
+  lines.push(...buildFetchErrorLines(platform, name))
   // Connected but no campaigns with spend in this date range → emit honest empty-state
   // and stop. The Meta API hard-filters insights on spend > 0, so a quiet window
   // looks identical to a disconnected account from the data shape's perspective.
@@ -1120,12 +1214,24 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   const platformStatus: string[] = []
   const platformIsPopulated = (p: PlatformIntelligence | undefined) => !!(p?.connected && p.campaigns?.length)
   const platformIsEmpty = (p: PlatformIntelligence | undefined) => !!(p?.connected && !p.campaigns?.length)
+  // LORAMER_LORA_FETCHERRORS_DEGRADED_V1 — a DEGRADED fetch (base ok, sub-families failed) must never be summarized
+  // as "populated" or, worse, as "no spend in this date range". Both read as a clean zero to the model. The degraded
+  // suffix rides the existing statuses so the fetchFailed / populated / empty / not-connected ladder is unchanged.
+  const degradedCount = (p: PlatformIntelligence | undefined) => p?.fetchErrors?.length ?? 0
+  const gDeg = degradedCount(intelligence.google)
+  const gSuffix = gDeg > 0 ? ` — DEGRADED: ${gDeg} data ${gDeg === 1 ? 'family' : 'families'} FAILED to load live (NOT zero; see the PARTIAL/DEGRADED FETCH block and use the tools named there)` : ''
   if (intelligence.google?.fetchFailed) platformStatus.push('Google: CONNECTED but data fetch FAILED this turn (temporarily unavailable — not zero, not disconnected)')  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2
-  else if (platformIsPopulated(intelligence.google)) platformStatus.push('Google: populated')
-  else if (platformIsEmpty(intelligence.google)) platformStatus.push('Google: connected but no spend in this date range')
+  else if (platformIsPopulated(intelligence.google)) platformStatus.push(`Google: populated${gSuffix}`)
+  else if (platformIsEmpty(intelligence.google)) platformStatus.push(`Google: connected but no spend in this date range${gSuffix}`)
   else platformStatus.push('Google: not connected')
-  if (platformIsPopulated(intelligence.meta)) platformStatus.push('Meta: populated')
-  else if (platformIsEmpty(intelligence.meta)) platformStatus.push('Meta: connected but no spend in this date range')
+  // LORAMER_LORA_FETCHERRORS_DEGRADED_V1 — same treatment for Meta. Meta does not POPULATE fetchErrors today (its
+  // fetchAllSoft degradation is console-only, meta-intelligence.ts:313-315), so this is inert for Meta right now —
+  // deliberately so: the renderer is keyed on the SHARED PlatformIntelligence field, not on Google, so the day Meta
+  // (or any platform) starts recording fetchErrors it is rendered with zero further work. Guarded by the class check.
+  const mDeg = degradedCount(intelligence.meta)
+  const mSuffix = mDeg > 0 ? ` — DEGRADED: ${mDeg} data ${mDeg === 1 ? 'family' : 'families'} FAILED to load live (NOT zero; see the PARTIAL/DEGRADED FETCH block and use the tools named there)` : ''
+  if (platformIsPopulated(intelligence.meta)) platformStatus.push(`Meta: populated${mSuffix}`)
+  else if (platformIsEmpty(intelligence.meta)) platformStatus.push(`Meta: connected but no spend in this date range${mSuffix}`)
   else platformStatus.push('Meta: not connected')
   // LORAMER_CONN_DEGRADED_STATE_V1 — a failed live store fetch is "connected, fetch failed", never "not connected" / $0.
   if (intelligence.shopify?.fetchFailed) platformStatus.push('Shopify: CONNECTED but data fetch FAILED this turn (stale, not $0, not disconnected — use query_metrics)')
