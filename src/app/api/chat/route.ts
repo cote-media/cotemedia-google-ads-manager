@@ -6,7 +6,7 @@ import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable, buildAgencyScopeContext } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 + LORAMER_AGENCY_SCOPE_LORA_V1
 import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/lib/lora-model-chain' // LORAMER_LORA_MODEL_CHAIN_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
-import { runClaudeToolLoop } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
+import { runClaudeToolLoop, runClaudeToolLoopStreaming } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
 
 // LORAMER_CHAT_MAXDURATION_V1 — make the function ceiling EXPLICIT instead of inheriting the (invisible, dashboard-
@@ -38,6 +38,12 @@ const LORA_CHAT_MODEL = process.env.LORA_CHAT_MODEL || 'claude-opus-5'
 // Sonnet is LAST and deliberately: it is the model the 74.1%-era eval baseline ran on, so a Sonnet answer is a
 // capability drop the user must be told about — see provenanceNote().
 const MODEL_CHAIN = [LORA_CHAT_MODEL, 'claude-opus-4-8', 'claude-sonnet-4-6']
+
+// LORAMER_CHAT_STREAMING_V1 — STAGED BEHIND A FLAG. Unset/anything-but-'1' ⇒ the EXACT blocking path that shipped
+// in bf184a4, byte-identical: same loop, same JSON body, same status codes. Set LORA_CHAT_STREAMING=1 in Vercel
+// to turn streaming on. The client branches on the RESPONSE's content-type, not on a build-time constant, so one
+// deployed client handles both modes and the flag can be flipped (or reverted) with no redeploy.
+const CHAT_STREAMING = process.env.LORA_CHAT_STREAMING === '1'
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -177,6 +183,116 @@ export async function POST(request: Request) {
   // src/lib/claude-tools.ts) exposing query_metrics so chat can answer
   // historical / comparison questions from metrics_daily. Single-shot when the
   // model calls no tool or no clientId is present.
+  // ── LORAMER_CHAT_STREAMING_V1 ─────────────────────────────────────────────────────────────────────────────
+  // THE KNOWN FOOTGUN, handled explicitly: once SSE headers are written the status code is fixed, so a 401/404/503
+  // can no longer be expressed. We therefore do NOT commit to a stream until the model has produced its FIRST
+  // token. Every pre-token failure — auth, RBAC, a 529 that exhausts the whole model chain — is raised BEFORE the
+  // Response is returned and still comes back as ordinary JSON with its real status. Only a failure AFTER the
+  // first token (a later tool-turn dying mid-loop) degrades to an SSE `error` event, which is stated rather than
+  // hidden: at that point the user has already seen text, and a status code would be a lie.
+  if (CHAT_STREAMING) {
+    const encoder = new TextEncoder()
+    let ctrl: ReadableStreamDefaultController<Uint8Array> | undefined
+    // start() runs synchronously on construction, so `ctrl` is live before the loop below writes to it. This
+    // ordering is the whole fix: an earlier cut awaited the chain FIRST and only then built the stream, so every
+    // frame queued and replayed at the end — measured as 152 deltas delivered inside a 332ms window at the tail
+    // of a 125s turn. That is the shape of streaming with none of its value. The loop must write into a LIVE
+    // controller while it runs.
+    const stream = new ReadableStream<Uint8Array>({ start(c) { ctrl = c } })
+    const emitRaw = (event: string, data: any) => {
+      try { ctrl?.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) } catch { /* client gone */ }
+    }
+
+    // THE FOOTGUN, still handled: once SSE headers are written the status code is fixed. So we do NOT return the
+    // Response until either (a) the first token has arrived — at which point streaming is unambiguously the right
+    // answer — or (b) the chain has settled. A pre-token failure (auth, RBAC, a 529 exhausting the whole chain)
+    // therefore still returns ordinary JSON with its real status. Only a failure AFTER first token degrades to an
+    // SSE `error` event, which is honest: the user has already seen text, and a status code would be a lie.
+    let firstToken!: () => void
+    const firstTokenP = new Promise<void>((r) => { firstToken = r })
+
+    const work = runWithModelChain({
+      models: MODEL_CHAIN,
+      onOverload: (a) =>
+        console.error(`[chat] ANTHROPIC OVERLOADED model=${a.model} request_id=${a.requestId ?? 'none'} elapsed=${a.elapsedMs}ms detail=${a.detail}`),
+      run: (model, requestOptions) =>
+        runClaudeToolLoopStreaming({
+          anthropic,
+          model,
+          maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
+          system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+          messages,
+          clientId,
+          userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+          requestOptions,
+          emit: emitRaw,
+          onFirstTurnStarted: firstToken,
+        }),
+    })
+
+    // Settle-or-first-token. `settled` distinguishes "the chain finished/failed" from "text started flowing".
+    let settledErr: any = null
+    let settledOk = false
+    const settled = work.then(() => { settledOk = true }, (e) => { settledErr = e })
+    await Promise.race([firstTokenP, settled])
+
+    if (!settledOk && settledErr) {
+      // Pre-token failure — no headers written yet, real status still available. Same branches as the blocking
+      // path, so flipping the flag cannot change what an error looks like.
+      try { (ctrl as any)?.close() } catch { /* not started */ }
+      if (settledErr instanceof AllModelsOverloadedError) {
+        console.error(`[chat] ALL MODELS OVERLOADED (streaming) tried=${settledErr.attempts.map((a: any) => a.model).join(',')} dropped=${settledErr.droppedModels.join(',') || 'none'} request_ids=${settledErr.attempts.map((a: any) => a.requestId ?? 'none').join(',')}`)
+        return NextResponse.json({ error: 'overloaded', tried: settledErr.attempts.map((a: any) => a.model), dropped: settledErr.droppedModels }, { status: 503 })
+      }
+      console.error('Chat error (streaming, pre-token):', settledErr)
+      return NextResponse.json({ error: settledErr.message }, { status: 500 })
+    }
+
+    // Committed to SSE. Everything from here rides the stream; the loop is STILL RUNNING and writing deltas.
+    void (async () => {
+      try {
+        const chain = await work
+        const { responseText, usage } = chain.value
+        const answered = chain.modelUsed
+        const bodyText = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
+        const finalText = chain.fellBack ? provenanceNote(answered, MODEL_CHAIN[0]) + bodyText : bodyText
+        console.log('[chat] cache:', { model: answered, fellBack: chain.fellBack, streaming: true, input: usage.input, cache_create: usage.cache_create, cache_read: usage.cache_read, output: usage.output })
+        if (chain.fellBack) emitRaw('provenance', { model: answered, primary: MODEL_CHAIN[0] })
+        emitRaw('answer', { text: finalText, model: answered, fellBack: chain.fellBack })
+        // AWAITED, inside the stream close path, BEFORE the controller closes. In the blocking route logSpend was
+        // fire-and-forget AFTER the response returned, which is why it died on the serverless freeze — proven
+        // twice in prod (ECONNRESET 22:31:46, UND_ERR_SOCKET 16:43:27). The handler is alive while the stream is
+        // open, so the insert completes. This retires that drop class for streamed turns.
+        await logSpend({
+          userEmail: session.user.email,
+          clientId,
+          endpoint: 'chat',
+          model: answered,   // LORAMER_LORA_MODEL_CHAIN_V1 — the ANSWERING model, never the primary constant
+          inputTokens: usage.input,
+          outputTokens: usage.output,
+          cacheReadTokens: usage.cache_read,
+          cacheCreationTokens: usage.cache_create,
+        })
+        emitRaw('done', { model: answered })
+      } catch (e: any) {
+        // POST-token failure. Status is already fixed at 200, so the only honest channel is an SSE error event.
+        console.error('Chat error (streaming, post-token):', e)
+        emitRaw('error', { error: e instanceof AllModelsOverloadedError ? 'overloaded' : (e?.message || 'stream failed') })
+      } finally {
+        try { (ctrl as any)?.close() } catch { /* already closed */ }
+      }
+    })()
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no', // defeat proxy buffering, which would silently re-create the blocking behavior
+      },
+    })
+  }
+
   // LORAMER_LORA_MODEL_CHAIN_V1 — retry the primary, then FALL BACK across models on Anthropic overload.
   // The chain owns the wall-clock budget (95s vs ChatLauncher's 120s abort); hops it cannot afford are DROPPED,
   // never half-run. Only `overloaded_error` advances the chain — any other failure surfaces as itself.

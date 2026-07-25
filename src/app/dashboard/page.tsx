@@ -1,4 +1,5 @@
 'use client'
+import { readChatResponse } from '@/lib/chat-stream-read' // LORAMER_CHAT_STREAMING_V1
 import { filterAnomalies } from '@/lib/anomaly-filter'
 import { DiamondCoachmark } from '@/components/DiamondCoachmark'
 import { useSession, signOut } from 'next-auth/react'
@@ -951,7 +952,11 @@ function RightPanel({ open, onClose, onMinimize, title, context, messages, setMe
           location,  // LORAMER_FOCUS_LOCATION_V1 + LORAMER_CUSTOM_DATE_RANGE_FIX_V2
         }),
       })
-      const d = await res.json()
+      // LORAMER_CHAT_STREAMING_V1 — dual-mode read. /api/chat may return SSE when LORA_CHAT_STREAMING=1; this
+      // reader branches on the response's own content-type, so with the flag off it is the original res.json().
+      // Migrated in the SAME commit as the -next client: recon flagged the legacy pair as easy to forget, and a
+      // legacy-cohort user hitting a stream with a res.json() reader would get a silent empty answer.
+      const d = await readChatResponse(res)
       const final = [...newMessages, { role: 'assistant' as const, content: d.response || 'Something went wrong.' }]
       setMessages(final)
       saveToClient(final)
@@ -3768,8 +3773,10 @@ function DashboardContent() {
           location: activeTab,
         }),
       })
-      const data = await res.json()
-      setChatMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+      const data = await readChatResponse(res) // LORAMER_CHAT_STREAMING_V1 — dual-mode read (see the note at the first chat call site)
+      // LORAMER_CHAT_STREAMING_V1 — `response` is optional on the dual-mode read (a failed turn has none), so the
+      // empty-answer case gets the same honest placeholder the other call site already used, not `undefined`.
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.response || 'Something went wrong.' }])
       setTimeout(() => { const el = document.getElementById('chat-messages'); if (el) el.scrollTop = el.scrollHeight }, 100)
       // LORAMER_CONV_API_V1_CHATTAB + LORAMER_MEMORY_AUTODETECT_V1
       try {

@@ -124,3 +124,13 @@
   border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
   pointer-events: none; max-width: 100%;
 }
+
+/* LORAMER_CHAT_STREAMING_V1 — transient "what Lora is doing" line, shown in place of the typing dots while a
+   streamed turn is in flight. Muted and italic so it reads as status, not as Lora's answer. */
+.streamStatus {
+  display: block;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.72;
+  line-height: 1.45;
+}

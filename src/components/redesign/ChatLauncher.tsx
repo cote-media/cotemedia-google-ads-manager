@@ -9,6 +9,7 @@
 // (bold/lists/tables) via react-markdown + remark-gfm; tables scroll on mobile. (LORAMER_NEXT_CHAT_POLISH_V1.)
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read' // LORAMER_CHAT_STREAMING_V1
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
@@ -31,6 +32,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
+  const [streamStatus, setStreamStatus] = useState<string | null>(null) // LORAMER_CHAT_STREAMING_V1 — transient working copy
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
   const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
@@ -182,8 +184,13 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     // slow turn fails at a KNOWN bound with an HONEST message instead of at an unknown browser/gateway limit that
     // surfaced a misleading "Network error." 120s clears the observed ~59s worst case (and heavier multi-tool turns),
     // so normal turns are untouched. Stopgap; the durable fix is streaming (★CHAT-STREAMING).
+    // LORAMER_CHAT_STREAMING_V1 — IDLE-GAP, not total-duration. A streamed turn has no meaningful total bound; a
+    // DEAD one stops producing bytes. The timer is re-armed on every SSE event, so a legitimately long multi-tool
+    // answer never trips it while a dropped connection is caught in 45s. With streaming OFF nothing re-arms it and
+    // it degrades to exactly the original 120s total cap — byte-identical behavior, one timer, no second code path.
     const controller = new AbortController()
-    const abortTimer = setTimeout(() => controller.abort(), 120_000)
+    let abortTimer = setTimeout(() => controller.abort(), CHAT_TOTAL_MS)
+    const rearmIdle = () => { clearTimeout(abortTimer); abortTimer = setTimeout(() => controller.abort(), CHAT_IDLE_GAP_MS) }
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -201,12 +208,20 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           ...(rowCtxRef.current ? { rowContext: rowCtxRef.current } : {}), // LORAMER_NEXT_PLATFORM_PAGE_V1 — per-row focus (drill ✦); absent otherwise
         }),
       })
-      const d = await res.json().catch(() => ({}))
+      const d = await readChatResponse(res, (ev, data, live) => {
+        rearmIdle()
+        // LIVE RENDER. `live` is the answer text accumulated so far, so the user watches it appear instead of a
+        // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
+        // show what Lora is actually doing. All of this is TRANSIENT — cleared in the finally block, and
+        // logNextConversationTurn still fires only on the authoritative answer, so nothing provisional persists.
+        if (ev === 'tool' && data?.name) setStreamStatus(`Checking ${String(data.name).replace(/_/g, ' ')}…`)
+        else if (ev === 'delta') setStreamStatus(live || null)
+      })
       // LORAMER_CHAT_FAILURE_BRANCHES_V1 — EVERY failure mode gets its OWN sentence. Before this, a 503 from an
       // exhausted model chain and a 500 from a real bug rendered the SAME string, so the user could not tell
       // "Anthropic is busy, retry in a minute" from "something is broken, tell Russ" — and neither could we,
       // reading a screenshot. The `error` codes are machine-readable and set by the route, not sniffed from prose.
-      const reply = res.ok
+      const reply = d.ok
         ? (d.response || 'I wasn’t able to complete that — please try rephrasing.')
         : d.error === 'Client not found'
           ? 'I can’t access this client’s data from here.'
@@ -219,7 +234,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
       // LORAMER_NEXT_CONV_WRITE_V1 — persist the ASSISTANT turn ONLY on a genuine Lora reply (res.ok + real
       // response). The fallback/error strings above are client-side placeholders, NOT Lora's output — logging
       // them would poison the cross-surface memory recap. Fire-and-forget; never awaited, never throws.
-      if (res.ok && d.response) logNextConversationTurn({ clientId, role: 'assistant', content: d.response, scope: turnScope })
+      if (d.ok && d.response) logNextConversationTurn({ clientId, role: 'assistant', content: d.response, scope: turnScope })
     } catch (e) {
       // LORAMER_CHAT_CLIENT_ABORT_V1 — HONEST failure. On OUR deliberate timeout (AbortError) say the request took too
       // long and the answer MAY have completed on the server — do NOT claim a network failure that did not happen
@@ -234,6 +249,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         : 'I couldn’t reach Lora just now — the connection dropped before I got an answer back. Please try again.' }])
     } finally {
       clearTimeout(abortTimer)
+      setStreamStatus(null)
       setLoading(false)
     }
   }, [messages, loading, clientId, clientName, period])
@@ -284,7 +300,14 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
                 ))
               )}
               {loading && (
-                <div className={styles.rowAssistant}><div className={styles.bubbleAssistant}><span className={styles.typing}><i /><i /><i /></span></div></div>
+                <div className={styles.rowAssistant}><div className={styles.bubbleAssistant}>
+                  {/* LORAMER_CHAT_STREAMING_V1 — the spinner is what made a slow turn indistinguishable from a dead
+                      one. When streaming is on, replace it with what Lora is ACTUALLY doing. Transient: cleared in
+                      the finally block, never persisted, never logged as a turn. */}
+                  {streamStatus
+                    ? <span className={styles.streamStatus}>{streamStatus}</span>
+                    : <span className={styles.typing}><i /><i /><i /></span>}
+                </div></div>
               )}
             </div>
 

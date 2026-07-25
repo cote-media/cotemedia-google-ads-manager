@@ -238,6 +238,55 @@ export type ToolLoopResult = {
 // Capped Claude tool-use loop. Exposes query_metrics only when a clientId is in
 // scope. If the model calls no tool, this is a single create() - identical to the
 // old single-shot behavior. Usage is summed across tool round-trips.
+// LORAMER_CHAT_STREAMING_V1 — the tool executor, LIFTED VERBATIM out of runClaudeToolLoop so the blocking and
+// streaming loops run THE SAME CODE. Nothing here changed in the lift: the per-call RBAC (resolve target →
+// viewerCanAccess → FAIL CLOSED), the hard-error flag, and the payload shapes are byte-identical to what shipped.
+// This is deliberate — with tools attached at agency scope this check is the ONLY thing preventing cross-client
+// access, so it gets ONE implementation, not two that can drift.
+export async function executeToolUses(
+  toolUses: any[],
+  ctx: { clientId: string; userEmail: string },
+): Promise<any[]> {
+  const clientId = ctx.clientId
+  const userEmail = ctx.userEmail
+  const toolResults: any[] = []
+  for (const tu of toolUses) {
+    let payload: any
+    let isError = false
+    try {
+      // LORAMER_AGENCY_SCOPE_LORA_V1 — THE RBAC CHECK. Resolve the TARGET client for THIS call: the bound scope
+      // client wins (single-client tab — unchanged, and the model cannot steer it elsewhere); at agency scope
+      // there is none, so the model must name one via tu.input.clientId. Then viewerCanAccess THAT target on
+      // EVERY call and FAIL CLOSED — with tools now attached at agency scope this per-call check is the only
+      // thing preventing cross-client access, so it runs before any query touches the DB.
+      const target = clientId || (typeof tu.input?.clientId === 'string' ? tu.input.clientId.trim() : '')
+      if (!target) {
+    payload = { error: 'No client specified. Name one of the clients you can access (use its id as clientId), or ask the user which client to look at — do not answer without a client.' }
+    isError = true
+      } else if (!(await viewerCanAccess(userEmail, target))) {
+    payload = { error: 'Access denied: you do not have access to that client. Do not report any data for it, and tell the user you cannot access it.' }
+    isError = true
+      } else if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, target)
+      else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, target)
+      else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, target)
+      else { payload = { error: 'unknown tool: ' + tu.name }; isError = true }
+    } catch (err) {
+      payload = { error: err instanceof Error ? err.message : String(err) }
+      isError = true
+    }
+    toolResults.push({
+      type: 'tool_result',
+      tool_use_id: tu.id,
+      content: JSON.stringify(payload),
+      // LORAMER_LORA_TOOL_HARD_ERROR_V1 (T0#2 slice 1) — a THROWN query (e.g. a DB failure) is a HARD tool
+      // error, not error-text riding as normal content, so the model treats a real read failure as a failure
+      // and never reads it as data / a false number.
+      ...(isError ? { is_error: true } : {}),
+    })
+  }
+  return toolResults
+}
+
 export async function runClaudeToolLoop(opts: {
   anthropic: any
   model: string
@@ -297,41 +346,7 @@ export async function runClaudeToolLoop(opts: {
     if (resp.stop_reason === 'tool_use' && tools) {   // LORAMER_AGENCY_SCOPE_LORA_V1 — dropped `&& clientId`: agency scope has no bound client; the target is resolved + access-checked per call below
       const toolUses = (resp.content as any[]).filter(b => b.type === 'tool_use')
       convo.push({ role: 'assistant', content: resp.content })
-      const toolResults: any[] = []
-      for (const tu of toolUses) {
-        let payload: any
-        let isError = false
-        try {
-          // LORAMER_AGENCY_SCOPE_LORA_V1 — THE RBAC CHECK. Resolve the TARGET client for THIS call: the bound scope
-          // client wins (single-client tab — unchanged, and the model cannot steer it elsewhere); at agency scope
-          // there is none, so the model must name one via tu.input.clientId. Then viewerCanAccess THAT target on
-          // EVERY call and FAIL CLOSED — with tools now attached at agency scope this per-call check is the only
-          // thing preventing cross-client access, so it runs before any query touches the DB.
-          const target = clientId || (typeof tu.input?.clientId === 'string' ? tu.input.clientId.trim() : '')
-          if (!target) {
-            payload = { error: 'No client specified. Name one of the clients you can access (use its id as clientId), or ask the user which client to look at — do not answer without a client.' }
-            isError = true
-          } else if (!(await viewerCanAccess(userEmail, target))) {
-            payload = { error: 'Access denied: you do not have access to that client. Do not report any data for it, and tell the user you cannot access it.' }
-            isError = true
-          } else if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, target)
-          else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, target)
-          else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, target)
-          else { payload = { error: 'unknown tool: ' + tu.name }; isError = true }
-        } catch (err) {
-          payload = { error: err instanceof Error ? err.message : String(err) }
-          isError = true
-        }
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: tu.id,
-          content: JSON.stringify(payload),
-          // LORAMER_LORA_TOOL_HARD_ERROR_V1 (T0#2 slice 1) — a THROWN query (e.g. a DB failure) is a HARD tool
-          // error, not error-text riding as normal content, so the model treats a real read failure as a failure
-          // and never reads it as data / a false number.
-          ...(isError ? { is_error: true } : {}),
-        })
-      }
+      const toolResults = await executeToolUses(toolUses, { clientId, userEmail })
       convo.push({ role: 'user', content: toolResults })
       continue
     }
@@ -347,6 +362,113 @@ export async function runClaudeToolLoop(opts: {
         .map(b => b.text)
         .join('\n')
         .trim()
+    : ''
+  return { responseText, usage }
+}
+
+// LORAMER_CHAT_STREAMING_V1 — the STREAMING twin of runClaudeToolLoop.
+//
+// WHY THIS EXISTS: ★CHAT-STREAMING. Twice on 2026-07-25 (15:31 and ~18:33) a chat turn failed at the BROWSER
+// while the server was fine — the 15:31 turn returned 200 with a full 3,834-token answer that the user never saw.
+// A 59s or 147s answer that renders progressively is ALIVE; the same answer behind a spinner is DEAD, and the
+// user cannot tell a slow turn from a broken one. Blocking is the defect; streaming is the fix.
+//
+// WHAT IS SHARED, NOT FORKED: tool execution + the per-call viewerCanAccess RBAC run through executeToolUses()
+// above — the SAME function the blocking loop calls. Two copies of an access check is how one of them rots.
+//
+// CHANNEL DISTINCTION (the decision this required): the loop's intermediate turns can emit text BEFORE a tool
+// call ("Let me pull the numbers…"). The blocking loop DISCARDS that text — it returns only the final turn's
+// content — so streaming it as answer text would change what the user receives. Instead:
+//   · intermediate-turn text  → emit('status', …)   narration, rendered as transient "working" copy
+//   · tool_use blocks         → emit('tool',   …)   which tool, so the UI can say what it is doing
+//   · FINAL-turn text         → emit('delta',  …)   THE ANSWER, and the only thing persisted
+// So the answer a user reads is byte-identical to the blocking path's `responseText`; everything new is
+// additive narration they previously had no way to see.
+export type StreamEmit = (event: 'status' | 'tool' | 'delta', data: any) => void
+
+export async function runClaudeToolLoopStreaming(opts: {
+  anthropic: any
+  model: string
+  maxTokens: number
+  system: any
+  messages: any[]
+  clientId?: string | null
+  userEmail?: string | null
+  maxToolTurns?: number
+  requestOptions?: { maxRetries?: number; timeout?: number }
+  emit: StreamEmit
+  /** Awaited on the FIRST turn only, before the route commits to an SSE response — see the route's footgun note. */
+  onFirstTurnStarted?: () => void
+}): Promise<ToolLoopResult> {
+  const { anthropic, model, maxTokens, system, messages, emit } = opts
+  const clientId = opts.clientId || ''
+  const userEmail = opts.userEmail || ''
+  const tools: any[] | undefined =
+    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
+  const convo: any[] = [...messages]
+  const originalQuestion: string = (() => {
+    const lu = [...messages].reverse().find((m: any) => m?.role === 'user' && typeof m?.content === 'string')
+    return (lu?.content as string) || ''
+  })()
+  const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
+  const MAX = opts.maxToolTurns ?? 5
+
+  let last: any = null
+  for (let turn = 0; turn < MAX; turn++) {
+    const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
+    if (tools) createParams.tools = tools
+
+    // messages.stream() (not stream:true) so the SDK accumulates state and finalMessage() still yields
+    // stop_reason + usage + tool_use blocks per turn — the loop's control flow is unchanged.
+    const stream = opts.requestOptions
+      ? anthropic.messages.stream(createParams, opts.requestOptions)
+      : anthropic.messages.stream(createParams)
+
+    let sawFirst = false
+    let turnText = ''
+    // EMIT LIVE. An earlier cut buffered each turn and flushed once — which measured as first-byte 66.8s of a
+    // 67.0s turn, i.e. chunked delivery of a fully-buffered answer, not streaming at all. That ships the SHAPE of
+    // the feature and none of its value: the whole point is that a 59s answer renders progressively instead of
+    // sitting behind a dead spinner. Deltas now go out as the model produces them.
+    // Preamble on a TOOL turn is still narration, not answer: the client clears its live buffer when the `tool`
+    // event lands, and the authoritative `answer` event at the end replaces whatever is on screen — so the
+    // persisted answer stays exactly the blocking path's finalResp text.
+    stream.on('text', (t: string) => {
+      turnText += t
+      emit('delta', { text: t })
+      if (!sawFirst) { sawFirst = true; opts.onFirstTurnStarted?.() }
+    })
+
+    const resp: any = await stream.finalMessage()
+    last = resp
+    const u = resp.usage || {}
+    usage.input += u.input_tokens || 0
+    usage.output += u.output_tokens || 0
+    usage.cache_create += u.cache_creation_input_tokens || 0
+    usage.cache_read += u.cache_read_input_tokens || 0
+
+    try {
+      const decidedTool = (resp.content as any[])?.find((b) => b?.type === 'tool_use')
+      void logToolDecision({ clientId, questionText: originalQuestion, toolCalled: !!decidedTool, toolName: decidedTool?.name ?? null, turnIndex: turn, model })
+    } catch { /* never break the turn */ }
+
+    if (resp.stop_reason === 'tool_use' && tools) {
+      const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use')
+      // Tool turn: what was streamed above was preamble. Tell the client to demote it to a status line.
+      for (const tu of toolUses) emit('tool', { name: tu.name, preamble: turnText.trim() || null })
+      convo.push({ role: 'assistant', content: resp.content })
+      const toolResults = await executeToolUses(toolUses, { clientId, userEmail })
+      convo.push({ role: 'user', content: toolResults })
+      continue
+    }
+
+    // FINAL turn — its deltas already streamed above. The route's `answer` event carries the authoritative text.
+    break
+  }
+
+  const finalResp: any = last
+  const responseText = finalResp
+    ? (finalResp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim()
     : ''
   return { responseText, usage }
 }
