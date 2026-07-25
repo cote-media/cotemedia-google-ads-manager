@@ -49,7 +49,13 @@ export default function Shell({
           {/* LORAMER_NEXT_CARD_ENGINE_RESHAPE_V1 — the dead static "Customize" pill was REMOVED; the single working
               Customize (+ the global date control + compare + full-screen) lives in the CardEngine page header. */}
           <div className={styles.subheader}>
-            <ChatLauncher clientId={clientId} clientName={clientName} />
+            {/* LORAMER_CHAT_PERSISTENCE_LAW / LORAMER_CHAT_CLIENT_SCOPE_V1 — key on clientId so a SOFT client-switch
+                (TopBar router.push(?clientId=)) FULLY unmounts/remounts this panel, resetting its message useState —
+                not just re-rendering it with new props. ChatLauncher is a Shell SIBLING of the key={clientId} boundary
+                below (it lives in the chrome subheader, not {children}), so it escaped that remount and its thread
+                survived a switch — showing client A's conversation under client B's header. Pairs with ChatLauncher's
+                own fetch-on-open (per-client history from the DB); either alone is a partial fix (recon 2026-07-24). */}
+            <ChatLauncher key={clientId || '__no_client__'} clientId={clientId} clientName={clientName} />
           </div>
 
           {/* LORAMER_SHELL_CLIENT_CONTEXT_V1 — THE MOUNT KEY, at SHELL level, ONE place, keyed on clientId.

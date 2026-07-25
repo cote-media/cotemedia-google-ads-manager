@@ -12,7 +12,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
-import { logNextConversationTurn } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island)
+import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island); NEXT_CHAT_SURFACE also keys the fetch-on-open below
 import styles from './chat.module.css'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
@@ -32,6 +32,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
+  const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
   const [debug, setDebug] = useState(false)        // LORAMER_NEXT_CHAT_DEBUG_V1 — true only when ?debug=chat is in the URL
@@ -72,6 +73,33 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading])
+
+  // LORAMER_CHAT_PERSISTENCE_LAW / LORAMER_CHAT_FETCH_ON_OPEN_V1 — ports the legacy fetch-on-open the -next panel never
+  // had (dashboard/page.tsx openPanel, LORAMER_CONV_API_V1_OPENPANEL / LORAMER_CONV_API_V1_CHATTAB). On first open FOR
+  // THE CURRENT CLIENT, load that client's own thread from the DB (surface=next-ask-lora, all scopes = the one visible
+  // thread) and REPLACE the in-memory messages with it — so the panel always shows THIS client's history (empty if
+  // none), never a carried-over thread. Guarded per-clientId (hydratedForRef): fetched once per client so a
+  // mid-conversation reopen keeps the live in-memory turns (whose fire-and-forget DB writes may still be settling)
+  // instead of clobbering them with a stale read. Belt-and-suspenders with the Shell key={clientId} remount: even if
+  // this instance were reused across a switch, a clientId change re-hydrates on the next open.
+  useEffect(() => {
+    if (!open) return
+    const cid = clientId || null
+    if (hydratedForRef.current === cid) return
+    hydratedForRef.current = cid
+    if (!cid) { setMessages([]); return }   // portfolio Shell (no real client) — nothing to load
+    let cancelled = false
+    ;(async () => {
+      try {
+        const params = new URLSearchParams({ clientId: cid, surface: NEXT_CHAT_SURFACE })
+        const r = await fetch('/api/conversations?' + params.toString())
+        const d = await r.json().catch(() => ({}))
+        const prior = (Array.isArray(d.messages) ? d.messages : []).map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content }))
+        if (!cancelled) setMessages(prior)   // this client's OWN history (empty array if none) — never the prior client's
+      } catch { /* a failed load must not blank a live thread or cross-contaminate — leave the fresh-mount empty state */ }
+    })()
+    return () => { cancelled = true }
+  }, [open, clientId])
 
   // LORAMER_NEXT_CHAT_DEBUG_V1 — ?debug=chat opens a live HORIZONTAL-AXIS readout (visualViewport.offsetLeft has never
   // been measured; the reverted fix bound offsetTop = the VERTICAL axis, against a horizontal symptom). Detect the param
