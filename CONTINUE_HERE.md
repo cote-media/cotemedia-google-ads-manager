@@ -34,6 +34,27 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-24/25 — RESTATEMENT FLEET ADVANCES: Meta + Shopify Tier-1 LIVE, Google held · Opus 5 migration · full session close) — SHIPPED
+
+NARRATIVE; per-item status lives in LORAMER_QUEUE_OF_RECORD.md (open/closed) + LORAMER_DECISIONS.md (external status) — not restated here.
+
+SHIPPED (all pushed, Vercel auto-deployed):
+- SHOPIFY Tier-1 restatement (69e0d52, LORAMER_RESTATEMENT_SWEEP_FLEET_V1) — forward capture now re-sums the trailing 21 days by created_at every run and REPLACEs each day's account + depth rows on the 7-col key, net re-derived from CURRENT refund-adjusted money (currentSubtotalPriceSet minus totalRefundedSet). Dry-run proved on 2 live stores (Influential Drones 5bb9b2ff, Foam OH 957d484e): unchanged days re-sum identical, changed days move to current truth, Σ breakdown = account net every day. ISOLATED cleanly from the entangled Google widen (Russ's "isolate, rebuild" call) — a fresh tsc/build/check:data ran on the Shopify-only tree before commit; the Google widen was restored to the working tree uncommitted.
+- META Tier-1 restatement COMPLETE end-to-end (breadth b483a02 + base Approach B a5c8791 + full account-field-parity + v21 bump 82f4846).
+- OPUS 5 migration (b94b055 prod flip + code-default floor · 76dff18 MODEL_PRICING fix) — DEPLOYED, UNCONFIRMED SERVING (see NEXT STEP + DECISIONS LORAMER_OPUS5_MIGRATION_V1). opus-5 verified REAL via the live Models API.
+- ChatLauncher cross-client state bleed FIX (d55f739) — CONFIRMED WORKING by Russ live (Veterinary → Influential, correct empty state).
+
+CORRECTION TO THE RECORD:
+- Readiness-RPC "timeout [LIVE DEFECT]" (T1) is STALE — migration 037 (LORAMER_NEXT_READINESS_LOOSE_SCAN_V1) already fixed it (Bath Fitter >120,000ms → ~2.4ms indexed). Downgraded to CLOSED-PENDING-CONFIRM in the T1 queue line.
+
+HELD (blocker each — full list in QUEUE SESSION-CLOSE): Google Tier-1 BREADTH widen (uncommitted, Gate-A green, waiting on cron-f4474505 dry-run) · Google base + Shopify Tier-2 + Woo (both tiers) NOT started.
+
+NEW THIS SESSION (banked to QUEUE): ★GRAIN-RETENTION-AUDIT (new standing audit type — audits check breadth, never whether the source entity survives vs a derived aggregate) · ★GOOGLE-FORWARD-ALL-ERRORED · ★FORWARD-BUDGET-CAP-SUSPICION · ★ORDER-LEVEL-STORAGE escalated (Bulk Operations, ceiling can't be raised) · ★EVAL-SET-EXPANSION (28→100→200) · ★EVAL-PROGRESSION-DOCUMENT · ★CHAT-STREAMING escalated to demo-critical · ★VOICE-RESPONSE-LENGTH · ★PERSONALIZED-LORA · ★CHAT-RETENTION-MARKETING · ★LORA-VOICE (hard 2026-09-30) · ★CHAT-UI-DEDICATED-DAY.
+
+▶▶ NEXT STEP — FIRST THING: CONFIRM OPUS 5 IS SERVING. Send ONE real message through the LIVE app, then confirm a spend_log row shows model=claude-opus-5. ZERO prod chat rows logged since the 22:18:31Z redeploy (prod logSpend drops on the serverless freeze, so absence ≠ not-serving — it is just unconfirmed). Do NOT assume it is live until checked.
+THEN — the Google Tier-1 BREADTH dry-run: cron f4474505 (~08:20 UTC) may have fired autonomously OR need a manual re-run; if its real per-family row counts + conflict-key proof come back clean, that is Russ's go to ship the HELD Google widen (do NOT commit before that proof — his explicit hold).
+THEN — down the ranked queue: T3 CAPTURE COMPLETENESS is the active tier (the restatement fleet + the three new T3 items + ★GOOGLE-QUOTA-PRIORITY-INVERSION at the top).
+
 ## Session log (2026-07-24 — DATA-INTEGRITY CLOSE-OUT + GA UNFREEZE + the fleet-wide restatement recon) — SHIPPED
 
 ~20 hours, 15 commits, all pushed and Vercel READY. This is the NARRATIVE; per-item status lives in
