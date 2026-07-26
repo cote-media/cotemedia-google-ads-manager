@@ -170,7 +170,7 @@ export async function runShopifyDimensionalBackfill(
 // pre-Flight-1 product rows (intended cleanup). PERMANENT-HISTORY GUARD: every day self-reconciles
 // Σ product == account before write — any mismatch HALTS (no write, no cursor advance) and surfaces.
 const CURSOR_PLATFORM_DEEP = 'shopify_deep'
-const GRAPHQL_API_VERSION = '2025-01' // matches fetchShopifyIntelligence
+const GRAPHQL_API_VERSION = '2026-07' // LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1 — matches fetchShopifyIntelligence; all four pin sites move together
 const DEEP_TIME_BUDGET_MS = 45_000 // under the 60s /api/backfill/run route; cursor bridges laps
 const RECONCILE_TOLERANCE = 0.01 // 1 cent — absorbs FP noise; a real basis regression is dollars
 

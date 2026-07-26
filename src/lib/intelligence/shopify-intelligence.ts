@@ -9,7 +9,7 @@
 import { resolveDateWindow } from '@/lib/date-range'
 import type { IntelligenceShopify } from './intelligence-types'
 
-const GRAPHQL_API_VERSION = '2025-01'
+const GRAPHQL_API_VERSION = '2026-07' // LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1 — was '2025-01' (SUNSET; Shopify was silently serving 2025-10, OBSERVED)
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -17,6 +17,30 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 // On a THROTTLED error, wait the computed restore time and retry. If a throttleDeadline is given
 // (backfill route budget) and the wait would blow it, throw a budget error so the caller can stop +
 // persist its cursor and resume later (NOT treated as empty data).
+// LORAMER_SHOPIFY_VERSION_OBSERVED_V1 — PERMANENT INSTRUMENT. Shopify does NOT reject a request that
+// names a sunset API version: it "falls forward and responds using the oldest accessible stable version"
+// and reports what it actually used in the X-Shopify-API-Version response header. That is a SILENT
+// SUBSTITUTION — the URL keeps saying one version while another answers — and on 2026-07-25 we could not
+// answer "what version is serving us" at all. This log exists so that question is never unanswerable again.
+// Deduped per (host → sent → served) so a 21-day re-sum logs once, not 21 times; a MISMATCH logs LOUD via
+// console.error because it means the pin is fiction. Costs one header read per process, never a request.
+const __versionSeen = new Set<string>()
+function noteServedApiVersion(endpoint: string, res: Response): void {
+  const served = res.headers.get('x-shopify-api-version')
+  if (!served) return
+  const m = endpoint.match(/\/\/([^/]+)\/admin\/api\/([^/]+)\//)
+  const host = m?.[1] ?? endpoint
+  const sent = m?.[2] ?? 'unknown'
+  const key = `${host}|${sent}|${served}`
+  if (__versionSeen.has(key)) return
+  __versionSeen.add(key)
+  if (served !== sent) {
+    console.error(`[shopify] API VERSION MISMATCH — sent=${sent} SERVED=${served} shop=${host}. Shopify fell forward off a sunset version; the pin is not what is answering.`)
+  } else {
+    console.log(`[shopify] api version sent=${sent} served=${served} shop=${host}`)
+  }
+}
+
 export async function shopifyGraphQL(
   endpoint: string,
   headers: Record<string, string>,
@@ -26,6 +50,7 @@ export async function shopifyGraphQL(
 ): Promise<any> {
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify({ query, variables }) })
+    noteServedApiVersion(endpoint, res) // LORAMER_SHOPIFY_VERSION_OBSERVED_V1
     const json = await res.json()
     const throttled = Array.isArray(json.errors) && json.errors.some((e: any) => e?.extensions?.code === 'THROTTLED')
     if (!throttled) return json

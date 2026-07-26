@@ -6,7 +6,7 @@ import { kickoffBackfill } from '@/lib/backfill/kickoff' // LORAMER_SELFSERVE_SP
 import { ensureOrgForOwner } from '@/lib/access/ensure-org' // LORAMER_RBAC_ORG_PROVISION_V1 — the auto-created client gets an org_id
 import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2 — Branch A returnTo guard (Branch B never uses it)
 
-const GRAPHQL_API_VERSION = '2025-01' // LORAMER_GRAPHQL_MIGRATION_V1
+const GRAPHQL_API_VERSION = '2026-07' // LORAMER_GRAPHQL_MIGRATION_V1 + LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)

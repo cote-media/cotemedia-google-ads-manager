@@ -11,7 +11,7 @@ import { resolveDateWindow } from '@/lib/date-range'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { shopifyGraphQL } from '@/lib/intelligence/shopify-intelligence' // LORAMER_SHOPIFY_DAILY_HARDEN_V1 — shared pagination + throttle-retry
 
-const GRAPHQL_API_VERSION = '2025-01'
+const GRAPHQL_API_VERSION = '2026-07' // LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1
 const MAX_ORDERS = 1000
 
 // LORAMER_SHOPIFY_NET_SALES_V1
