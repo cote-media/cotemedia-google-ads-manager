@@ -2,12 +2,19 @@
 // a build-time constant, so the LORA_CHAT_STREAMING flag can be flipped or reverted server-side with no client
 // redeploy — and with the flag off this function's behavior is byte-identical to the res.json() path it replaces.
 // Returns the same shape the callers already consume, so no call site changes how it renders.
-// IDLE-GAP TIMEOUT, not total-duration: a streamed turn has no meaningful total bound (a legitimate multi-tool
-// answer can run minutes), but a DEAD one stops producing bytes. 45s of silence is the failure signal — generous
-// enough for a slow tool round-trip plus model thinking, short enough that a truly dropped connection is caught.
-// The non-streaming path keeps the original 120s total cap, unchanged.
-export const CHAT_IDLE_GAP_MS = 45_000
-export const CHAT_TOTAL_MS = 120_000
+// TIMERS — REVISED 2026-07-26 against MEASURED production durations, not estimates.
+// The 45s idle gap and the 120s total were both FALSIFIED in production on 2026-07-26: real turns on
+// Veterinary mastermind ran 78.2s, 105.3s and 125.6s server-side (user row -> awaited spend row), and
+// the 125.6s turn exceeded even the total cap. The 45s figure assumed a tool round-trip plus model
+// thinking fits in 45s of silence; a 71,857-token multi-tool Opus 5 turn does not.
+// TOTAL 240s: 1.91x the worst measured turn (125.6s), and deliberately UNDER the route's
+// maxDuration of 300s so the SERVER stays the limiter and the client never sits waiting on a lambda
+// that has already been killed.
+// IDLE 150s: we have NO per-event gap instrumentation, so the only defensible bound is that a silent
+// stretch cannot exceed the whole turn — hence idle >= the longest turn measured (125.6s), rounded up.
+// Stated plainly rather than implied: 150 is DERIVED from the total-turn bound, not measured directly.
+export const CHAT_IDLE_GAP_MS = 150_000
+export const CHAT_TOTAL_MS = 240_000
 
 export type ChatRead = { ok: boolean; status: number; response?: string; error?: string; model?: string; onStatus?: never }
 

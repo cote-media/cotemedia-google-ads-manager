@@ -13,10 +13,11 @@ import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-st
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
+import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery' // LORAMER_CHAT_ANSWER_RECOVERY_V1
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island); NEXT_CHAT_SURFACE also keys the fetch-on-open below
 import styles from './chat.module.css'
 
-type Msg = { role: 'user' | 'assistant'; content: string }
+type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
 
 const SUGGESTIONS = [
   'What were my top hours by spend last month?',
@@ -34,6 +35,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
   const [streamStatus, setStreamStatus] = useState<string | null>(null) // LORAMER_CHAT_STREAMING_V1 — transient working copy
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
+  const threadMaxIdRef = useRef<number | null>(null) // LORAMER_CHAT_ANSWER_RECOVERY_V1 — watermark for recovery
   const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
@@ -96,7 +98,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         const params = new URLSearchParams({ clientId: cid, surface: NEXT_CHAT_SURFACE })
         const r = await fetch('/api/conversations?' + params.toString())
         const d = await r.json().catch(() => ({}))
-        const prior = (Array.isArray(d.messages) ? d.messages : []).map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content }))
+        const rows = Array.isArray(d.messages) ? d.messages : []
+        threadMaxIdRef.current = rows.reduce((mx: number, m: { id?: number }) => Math.max(mx, Number(m?.id) || 0), 0) || null // LORAMER_CHAT_ANSWER_RECOVERY_V1
+        const prior = rows.map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content }))
         if (!cancelled) setMessages(prior)   // this client's OWN history (empty array if none) — never the prior client's
       } catch { /* a failed load must not blank a live thread or cross-contaminate — leave the fresh-mount empty state */ }
     })()
@@ -188,9 +192,19 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     // DEAD one stops producing bytes. The timer is re-armed on every SSE event, so a legitimately long multi-tool
     // answer never trips it while a dropped connection is caught in 45s. With streaming OFF nothing re-arms it and
     // it degrades to exactly the original 120s total cap — byte-identical behavior, one timer, no second code path.
+    // LORAMER_CHAT_ANSWER_RECOVERY_V1 — DUAL DEADLINE. The old rearmIdle REPLACED the total cap, so once
+    // the first event arrived the absolute ceiling vanished and a stream dripping one byte every 40s ran
+    // forever. The ABSOLUTE deadline is now set once and never re-armed; the IDLE timer arms only AFTER the
+    // first SSE event (rearmIdle is called from the event callback), so with streaming OFF — no events ever —
+    // the total cap alone governs and a healthy 200s blocking turn is never killed by an idle gap it was not
+    // in. Every re-arm is CLAMPED to the remaining time, so the deadline always wins.
     const controller = new AbortController()
+    const deadlineAt = Date.now() + CHAT_TOTAL_MS
     let abortTimer = setTimeout(() => controller.abort(), CHAT_TOTAL_MS)
-    const rearmIdle = () => { clearTimeout(abortTimer); abortTimer = setTimeout(() => controller.abort(), CHAT_IDLE_GAP_MS) }
+    const rearmIdle = () => {
+      clearTimeout(abortTimer)
+      abortTimer = setTimeout(() => controller.abort(), Math.max(0, Math.min(CHAT_IDLE_GAP_MS, deadlineAt - Date.now())))
+    }
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -239,17 +253,41 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
       // only if the browser survived the read, which is how two answers were lost on 2026-07-26.
       // The user turn above stays client-side (unchanged this slice).
     } catch (e) {
-      // LORAMER_CHAT_CLIENT_ABORT_V1 — HONEST failure. On OUR deliberate timeout (AbortError) say the request took too
-      // long and the answer MAY have completed on the server — do NOT claim a network failure that did not happen
-      // (the 2026-07-24 turn actually returned 200). A genuine connection error stays a truthful "couldn't reach" line.
-      const timedOut = (e as any)?.name === 'AbortError'
-      setMessages((m) => [...m, { role: 'assistant', content: timedOut
-        ? 'That’s taking longer than I can wait here, so I stopped watching — Lora may have finished the answer on the server. Please ask again.'
-        // LORAMER_CHAT_FAILURE_BRANCHES_V1 — a genuine connection failure: the request never completed a round
-        // trip, so unlike the 503 above we CANNOT say the server was busy. Naming it as a connection problem is
-        // the only truthful reading, and it is deliberately worded differently from the overloaded string so a
-        // screenshot tells us which one happened.
-        : 'I couldn’t reach Lora just now — the connection dropped before I got an answer back. Please try again.' }])
+      // LORAMER_CHAT_ANSWER_RECOVERY_V1 (amends LORAMER_CHAT_CLIENT_ABORT_V1 + LORAMER_CHAT_FAILURE_BRANCHES_V1).
+      // Classify on the SIGNAL WE OWN, not the error's name: iOS Safari reports an abort as
+      // `TypeError: Load failed`, identical to a real network drop, which is how a COMPLETED turn rendered as
+      // "the connection dropped" on 2026-07-26. No string here may assert the answer was lost — since the
+      // server persists the assistant turn from its own completion path, that claim is false and unknowable.
+      const kind = classifyTurnFailure(controller.signal.aborted, e)
+      // ONE bubble, keyed, replaced in place — never a second bubble appended.
+      const key = `rec:${Date.now()}`
+      setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])
+      const replace = (content: string) =>
+        setMessages((m) => m.map((x) => (x.recoveryKey === key ? { role: 'assistant' as const, content } : x)))
+      // RECOVERY IS A READ. It re-fetches the thread; it NEVER re-POSTs /api/chat. A silent retry would
+      // double the spend on a turn that most likely already succeeded.
+      let done = false
+      const since = threadMaxIdRef.current
+      if (clientId && since != null) {
+        const until = Date.now() + RECOVERY_WINDOW_MS
+        while (!done && Date.now() < until) {
+          try {
+            const params = new URLSearchParams({ clientId, surface: NEXT_CHAT_SURFACE })
+            const rr = await fetch('/api/conversations?' + params.toString())
+            const dd = await rr.json().catch(() => ({}))
+            const got = pickRecoveredAnswer(Array.isArray(dd.messages) ? dd.messages : [], since)
+            if (got.status === 'found') { threadMaxIdRef.current = got.maxId; replace(got.text); done = true; break }
+            if (got.status === 'ambiguous') { replace(COPY.AMBIGUOUS); done = true; break }
+          } catch { /* a failed recovery read must never throw into the turn */ }
+          await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
+        }
+      }
+      if (!done) {
+        // The answer may still land after our window closes (server maxDuration 300s > our 240s), so force
+        // the next open to re-read the thread rather than trusting the per-client hydration guard.
+        hydratedForRef.current = null
+        replace(kind === 'aborted' ? COPY.ABORTED_UNCONFIRMED : COPY.NETWORK_UNCONFIRMED)
+      }
     } finally {
       clearTimeout(abortTimer)
       setStreamStatus(null)
