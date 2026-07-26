@@ -8,6 +8,7 @@ import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/l
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop, runClaudeToolLoopStreaming } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
+import { parsePersistTarget, makeAssistantTurnWriter } from '@/lib/chat/persist-assistant-turn' // LORAMER_CHAT_SERVER_TURN_WRITE_V1
 
 // LORAMER_CHAT_MAXDURATION_V1 — make the function ceiling EXPLICIT instead of inheriting the (invisible, dashboard-
 // settable) project default. A real turn on 2026-07-24 ran ~59s server-side (multi-tool Opus loop) and returned 200,
@@ -63,9 +64,17 @@ export async function POST(request: Request) {
     customStart,
     customEnd,
     location,  // LORAMER_FOCUS_LOCATION_V1
+    persistTurn,  // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — { surface, scope } declared by the caller; absent ⇒ server writes nothing
   } = await request.json()
 
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
+
+  // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — built ONCE per request so both paths share one latch.
+  const persistAssistantTurn = makeAssistantTurnWriter({
+    clientId,
+    userEmail: session.user.email,
+    target: parsePersistTarget(persistTurn),
+  })
 
   // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1 — when a client is in scope, the signed-in
   // viewer MUST have ACCESS (owner ∪ org-grant ∪ legacy) before we fetch its intelligence or expose query_metrics.
@@ -263,6 +272,10 @@ export async function POST(request: Request) {
         // fire-and-forget AFTER the response returned, which is why it died on the serverless freeze — proven
         // twice in prod (ECONNRESET 22:31:46, UND_ERR_SOCKET 16:43:27). The handler is alive while the stream is
         // open, so the insert completes. This retires that drop class for streamed turns.
+        // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — BEFORE logSpend, deliberately: the answer must be at
+        // least as durable as its cost row. Detached close path, so a dead browser cannot skip it.
+        const persisted = await persistAssistantTurn(finalText)
+        if (persisted === 'failed') console.error(`[chat] answer NOT persisted client=${clientId}`)
         await logSpend({
           userEmail: session.user.email,
           clientId,
@@ -343,6 +356,9 @@ export async function POST(request: Request) {
       cacheReadTokens: usage.cache_read,        // LORAMER_LORA_MODEL_PRICING_V1 — honest cache-token cost
       cacheCreationTokens: usage.cache_create,
     })
+    // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — AWAITED before the response returns. logSpend above is
+    // fire-and-forget and dies on the serverless freeze (route.ts:262-265); the answer must not.
+    await persistAssistantTurn(finalText)
     return NextResponse.json({ response: finalText, model: answered, fellBack: chain.fellBack })
   } catch (e: any) {
     // DISTINCT FAILURE MODES — no generic fallthrough. Each carries its own machine-readable `error` code so the

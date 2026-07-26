@@ -205,6 +205,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           customStart: period.customStart,
           customEnd: period.customEnd,
           location: 'chat',
+          // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — declare the conversation target so the SERVER writes
+          // the assistant turn. This is what moves ownership; without it the server writes nothing.
+          persistTurn: { surface: NEXT_CHAT_SURFACE, scope: turnScope },
           ...(rowCtxRef.current ? { rowContext: rowCtxRef.current } : {}), // LORAMER_NEXT_PLATFORM_PAGE_V1 — per-row focus (drill ✦); absent otherwise
         }),
       })
@@ -231,10 +234,10 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
             ? 'Claude is overloaded right now — I tried every model available to me and all of them were busy. Nothing is wrong with your data or your connection. Please try again in a minute.'
             : 'Something went wrong on my side — this is an error, not a busy model. Please try again, and if it keeps happening it’s worth flagging.'
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
-      // LORAMER_NEXT_CONV_WRITE_V1 — persist the ASSISTANT turn ONLY on a genuine Lora reply (res.ok + real
-      // response). The fallback/error strings above are client-side placeholders, NOT Lora's output — logging
-      // them would poison the cross-surface memory recap. Fire-and-forget; never awaited, never throws.
-      if (d.ok && d.response) logNextConversationTurn({ clientId, role: 'assistant', content: d.response, scope: turnScope })
+      // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — the assistant turn is written SERVER-SIDE by /api/chat,
+      // from inside the stream close path. It is NOT written here and must never be: this line ran
+      // only if the browser survived the read, which is how two answers were lost on 2026-07-26.
+      // The user turn above stays client-side (unchanged this slice).
     } catch (e) {
       // LORAMER_CHAT_CLIENT_ABORT_V1 — HONEST failure. On OUR deliberate timeout (AbortError) say the request took too
       // long and the answer MAY have completed on the server — do NOT claim a network failure that did not happen
