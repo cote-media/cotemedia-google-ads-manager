@@ -34,6 +34,14 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-26 later — FULL-SCREEN MOBILE LORA, TRACK 1) — SHIPPED
+Recon first, and it earned its keep: the plan as originally specified would have been the SIXTH attempt at this class, and its headline constraint (dvh) was ALREADY the shipped state — `.panel` has been `height:100dvh` at both breakpoints all along, and the keyboard bleed survives it. So the work was SPLIT.
+TRACK 1 SHIPPED (LORAMER_NEXT_CHAT_FULLSCREEN_V1, full entry in DECISIONS): the scroll/containment half, every mechanism identified at its cause — two live scrollers with no overscroll containment anywhere, an unlocked body, a z-index TIE won only by DOM source order, no viewport export at all, no top safe-area, no portal, no back handling.
+TRACK 2 (the iOS keyboard bleed) STAYS BLOCKED behind LORAMER_NEXT_CHAT_KEYBOARD_BLEED_V1. The next step there is a MEASUREMENT on device, not code: with the keyboard open, read `visualViewport.scale` via the existing `?debug=chat` instrument. Leading candidate — auto-zoom on the 14px input, which would shrink the visual viewport while position:fixed stays sized to the layout viewport. NOT proven.
+maximumScale:1 was proposed and REJECTED by Russ on accessibility grounds; the 16px-input route replaces it and belongs to Track 2. Banked so it is not re-proposed.
+Gate-A 32/32 in real headless Chromium at 390x844 and 1280x900. New guard chat-scroll-chain.guard.mjs proven failing with six findings, then passing, wired into `npm run guard`.
+AWAITING: Russ's on-device Gate-B, keyboard case EXCLUDED pending the Track 2 measurement.
+
 ## Session log (2026-07-26 late — THE MESSAGE STOPS LYING TOO) — SHIPPED
 Slice 2 of the chat-honesty arc. Slice 1 made the answer durable; the client was still telling Russ the connection dropped on turns the server had completed and saved.
 WEB-FIRST paid for itself: the obvious fix was wrong. iOS Safari reports an aborted fetch as `TypeError: Load failed` — the SAME error it reports for a real network drop — so matching that string would have misclassified genuine drops as aborts. The right discriminator is `controller.signal.aborted`, the signal we own.

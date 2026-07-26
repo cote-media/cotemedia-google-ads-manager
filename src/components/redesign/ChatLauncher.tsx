@@ -9,6 +9,7 @@
 // (bold/lists/tables) via react-markdown + remark-gfm; tables scroll on mobile. (LORAMER_NEXT_CHAT_POLISH_V1.)
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom' // LORAMER_NEXT_CHAT_FULLSCREEN_V1
 import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read' // LORAMER_CHAT_STREAMING_V1
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -39,6 +40,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
+  const [mounted, setMounted] = useState(false)   // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — portal target exists only client-side
   const [debug, setDebug] = useState(false)        // LORAMER_NEXT_CHAT_DEBUG_V1 — true only when ?debug=chat is in the URL
 
   // Any surface (mobile Lora tab, a drill row's ✦) can open the chat by dispatching this event; detail may carry
@@ -78,6 +80,37 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading])
 
+  // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — BODY SCROLL LOCK. The message list is the only scroller we want
+  // moving; without this the document underneath was still scrollable and the drag chained to it once
+  // .scroll hit an edge. Restores the PRIOR inline value, not a hardcoded '' — another effect may own
+  // body.overflow and clobbering it would be a silent regression elsewhere.
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — BACK CLOSES THE CHAT, and never navigates. On open we push ONE
+  // history entry tagged as ours; a back gesture/button pops it and popstate closes the panel. If the
+  // panel is closed any OTHER way (X, scrim, Esc) we consume our own entry with history.back() so no
+  // phantom entry survives to swallow a later back press. ownedRef is what distinguishes "our entry is
+  // still on the stack" from "the user already popped it", so we never call back() twice.
+  const historyOwnedRef = useRef(false)
+  useEffect(() => {
+    if (!open) return
+    window.history.pushState({ loramerChat: true }, '')
+    historyOwnedRef.current = true
+    const onPop = () => { historyOwnedRef.current = false; setOpen(false) }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      // Closed by X / scrim / Esc / unmount while our entry is still on the stack → consume it.
+      if (historyOwnedRef.current) { historyOwnedRef.current = false; window.history.back() }
+    }
+  }, [open])
+
+
   // LORAMER_CHAT_PERSISTENCE_LAW / LORAMER_CHAT_FETCH_ON_OPEN_V1 — ports the legacy fetch-on-open the -next panel never
   // had (dashboard/page.tsx openPanel, LORAMER_CONV_API_V1_OPENPANEL / LORAMER_CONV_API_V1_CHATTAB). On first open FOR
   // THE CURRENT CLIENT, load that client's own thread from the DB (surface=next-ask-lora, all scopes = the one visible
@@ -110,6 +143,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   // LORAMER_NEXT_CHAT_DEBUG_V1 — ?debug=chat opens a live HORIZONTAL-AXIS readout (visualViewport.offsetLeft has never
   // been measured; the reverted fix bound offsetTop = the VERTICAL axis, against a horizontal symptom). Detect the param
   // CLIENT-ONLY (post-mount) so there is zero SSR/default-path effect; absent it, `debug` stays false and NOTHING below runs.
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
     try { setDebug(new URLSearchParams(window.location.search).get('debug') === 'chat') } catch { /* URL unavailable — stay off */ }
   }, [])
@@ -306,7 +340,12 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
         <i className="ti ti-sparkles" /> Ask Lora
       </button>
 
-      {open && (
+      {/* LORAMER_NEXT_CHAT_FULLSCREEN_V1 — PORTALED to document.body. No ancestor defeats position:fixed
+          today (verified 2026-07-26 down the whole chain), but this makes that permanent: a future
+          transform/filter/contain anywhere in Shell can never contain this overlay. A portal preserves
+          the React TREE position, so ChatLauncher does NOT remount and the d55f739 cross-client bleed
+          cannot be reintroduced — asserted in Gate-A. Guarded on `mounted` so SSR never touches document. */}
+      {open && mounted && createPortal(
         <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
           <div className={styles.panel} ref={panelRef} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
@@ -367,7 +406,8 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
