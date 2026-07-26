@@ -20,6 +20,11 @@ import styles from './chat.module.css'
 
 type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
 
+// LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 — "the keyboard is up" is a MEASURED geometric fact: the layout
+// viewport is materially taller than the visual one. Device values 2026-07-26: 766 vs 428 (delta 338)
+// and 766 vs 458 (delta 308). 100px sits far below both and clear of address-bar chrome jitter.
+const KEYBOARD_MIN_DELTA_PX = 100
+
 const SUGGESTIONS = [
   'What were my top hours by spend last month?',
   'Break down my store revenue — gross to net.',
@@ -38,6 +43,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
   const threadMaxIdRef = useRef<number | null>(null) // LORAMER_CHAT_ANSWER_RECOVERY_V1 — watermark for recovery
   const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
+  const scrimRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 — the element the vv vars are written to
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
   const [probeLine, setProbeLine] = useState<string | null>(null) // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the unmissable readout
@@ -207,9 +213,14 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     if (!s) return
     // "keyboard is up" = the VISUAL viewport is materially shorter than the LAYOUT viewport. Measured
     // 2026-07-26: 766 -> 428, a 338px delta. 100px is well clear of address-bar chrome jitter.
-    const keyboardUp = !!s.vv && s.doc.clientHeight - s.vv.height > 100
+    const keyboardUp = !!s.vv && s.doc.clientHeight - s.vv.height > KEYBOARD_MIN_DELTA_PX
     if (!frozenRef.current) {
-      setProbeLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}scale ${s.vv ? s.vv.scale.toFixed(4) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · overhang ${s.vv ? Math.round(s.doc.clientHeight - s.vv.height) : '—'} · panelBottom ${s.panel?.bottom ?? '—'}`)
+      // OVERHANG IS MEASURED FROM THE PANEL, NOT FROM doc.clientHeight. The first version computed
+      // docH − vvH and UNDER-REPORTED: measured 2026-07-26, `.panel` at 100dvh resolved to 874px on a
+      // 766px layout viewport (dvh takes the LARGE viewport, docH is the small one), so the real
+      // occlusion was 874 − 428 = 446px while docH − vvH said 338. The panel rect is the honest source.
+      const overhang = s.vv ? Math.round((s.panel?.h ?? s.doc.clientHeight) - s.vv.height) : null
+      setProbeLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}scale ${s.vv ? s.vv.scale.toFixed(4) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · panelH ${s.panel?.h ?? '—'} · overhang ${overhang ?? '—'}`)
       if (keyboardUp) frozenRef.current = true   // latch: this is the phase a human must see
     }
     void fetch('/api/debug/viewport-probe', {
@@ -224,6 +235,47 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     probeRef.current('focus+0')
     window.setTimeout(() => probeRef.current('focus+600'), 600)
   }, [debug])
+
+  // LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 — bind the overlay to the VISUAL viewport.
+  //
+  // MOBILE ONLY, by design: gated on the SAME 767px breakpoint the CSS uses, so desktop geometry is
+  // untouched by construction rather than by assertion. On desktop the vars are never written and the
+  // scrim falls back to top:0 / left:0 / 100% / 100dvh — byte-identical to what shipped before.
+  //
+  // THE offsetTop TRAP, handled explicitly: iOS 26 is reported not to reset visualViewport.offsetTop
+  // to 0 when the keyboard is dismissed, and our own log shows it stuck at 374-416 through an entire
+  // dismiss burst. So offsetTop is TRUSTED ONLY WHEN THE KEYBOARD IS ACTUALLY UP, and "up" is decided
+  // by a measured geometric fact (layout viewport materially taller than visual), never by offsetTop
+  // itself. Keyboard down => top/left are forced to 0 and the stuck value is ignored.
+  useEffect(() => {
+    if (!open) return
+    const vv = window.visualViewport
+    const el = scrimRef.current
+    if (!vv || !el) return
+    if (!window.matchMedia('(max-width: 767px)').matches) return   // desktop: never bind
+
+    let raf = 0
+    const apply = () => {
+      raf = 0
+      const keyboardUp = document.documentElement.clientHeight - vv.height > KEYBOARD_MIN_DELTA_PX
+      el.style.setProperty('--chat-vv-h', `${vv.height}px`)
+      el.style.setProperty('--chat-vv-w', `${vv.width}px`)
+      el.style.setProperty('--chat-vv-top', keyboardUp ? `${vv.offsetTop}px` : '0px')
+      el.style.setProperty('--chat-vv-left', keyboardUp ? `${vv.offsetLeft}px` : '0px')
+    }
+    const schedule = () => { if (!raf) raf = window.requestAnimationFrame(apply) }
+    apply()
+    vv.addEventListener('resize', schedule)
+    vv.addEventListener('scroll', schedule)
+    return () => {
+      vv.removeEventListener('resize', schedule)
+      vv.removeEventListener('scroll', schedule)
+      if (raf) window.cancelAnimationFrame(raf)
+      // Leave nothing behind: the next open re-measures from scratch.
+      el.style.removeProperty('--chat-vv-h'); el.style.removeProperty('--chat-vv-w')
+      el.style.removeProperty('--chat-vv-top'); el.style.removeProperty('--chat-vv-left')
+    }
+  }, [open])
 
   // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — SAMPLE ON VIEWPORT CHANGE, not only on focus.
   // CAUGHT IN GATE-A: the panel AUTO-FOCUSES the composer ~60ms after open, so by the time Russ taps
@@ -444,7 +496,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           the React TREE position, so ChatLauncher does NOT remount and the d55f739 cross-client bleed
           cannot be reintroduced — asserted in Gate-A. Guarded on `mounted` so SSR never touches document. */}
       {open && mounted && createPortal(
-        <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
+        <div ref={scrimRef} className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
           <div className={styles.panel} ref={panelRef} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
               <div className={styles.headTitle}><i className="ti ti-sparkles" /> Ask Lora{clientName ? <span className={styles.headClient}>· {clientName}</span> : null}</div>
