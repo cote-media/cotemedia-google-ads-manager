@@ -40,6 +40,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
+  const [probeLine, setProbeLine] = useState<string | null>(null) // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the unmissable readout
   const [mounted, setMounted] = useState(false)   // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — portal target exists only client-side
   const [debug, setDebug] = useState(false)        // LORAMER_NEXT_CHAT_DEBUG_V1 — true only when ?debug=chat is in the URL
 
@@ -145,8 +146,89 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   // CLIENT-ONLY (post-mount) so there is zero SSR/default-path effect; absent it, `debug` stays false and NOTHING below runs.
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
-    try { setDebug(new URLSearchParams(window.location.search).get('debug') === 'chat') } catch { /* URL unavailable — stay off */ }
+    // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — STICKY for the session. This effect runs once on mount and
+    // reads window.location.search; -next navigates CLIENT-SIDE (TopBar does router.push(?clientId=)),
+    // which REWRITES the query and drops `debug=chat`. That is the most likely reason the readout was
+    // invisible on 2026-07-26 — the flag was silently lost on the way to the client page. Once seen, it
+    // is remembered for the tab, and `?debug=off` clears it.
+    try {
+      const q = new URLSearchParams(window.location.search).get('debug')
+      if (q === 'off') { sessionStorage.removeItem('loramer:debug-chat'); setDebug(false); return }
+      const on = q === 'chat' || sessionStorage.getItem('loramer:debug-chat') === '1'
+      if (on) sessionStorage.setItem('loramer:debug-chat', '1')
+      setDebug(on)
+    } catch { /* URL/storage unavailable — stay off */ }
   }, [])
+
+  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — THE MEASUREMENT, automatic. On composer focus (i.e. the
+  // moment the keyboard is summoned) capture the full viewport state and POST it to the server, which
+  // logs it. Russ reads nothing and relays nothing.
+  // TWO SAMPLES, deliberately: the keyboard ANIMATES in, so a single synchronous read at focus captures
+  // the PRE-keyboard state and would lie. t=0 is the baseline, t=600ms is after the animation settles;
+  // the DIFFERENCE between them is the signal.
+  // `scale` is the number that decides the mechanism: > 1 means iOS auto-zoomed on the sub-16px input,
+  // which shrinks the VISUAL viewport while position:fixed stays sized to the LAYOUT viewport — that
+  // would explain content appearing below a "full-screen" sheet. == 1 falsifies the auto-zoom candidate.
+  const probeSample = useCallback((phase: string) => {
+    try {
+      const vv = window.visualViewport
+      const scrim = document.querySelector('[role="dialog"]')?.getBoundingClientRect()
+      const panel = panelRef.current?.getBoundingClientRect()
+      const r = (b?: DOMRect) => (b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null)
+      return {
+        probe: 'chat-viewport',
+        phase,
+        at: new Date().toISOString(),
+        route: window.location.pathname + window.location.search,
+        ua: navigator.userAgent,
+        vv: vv ? { scale: vv.scale, height: vv.height, width: vv.width, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, pageTop: vv.pageTop, pageLeft: vv.pageLeft } : null,
+        doc: { clientHeight: document.documentElement.clientHeight, clientWidth: document.documentElement.clientWidth },
+        win: { innerHeight: window.innerHeight, innerWidth: window.innerWidth, scrollY: window.scrollY },
+        scrim: r(scrim as DOMRect | undefined),
+        panel: r(panel),
+      }
+    } catch { return null }
+  }, [])
+
+  const probeRef = useRef<(p: string) => void>(() => {})
+  probeRef.current = (phase: string) => {
+    if (!debug) return   // HARD GATE — no flag, no capture, no request. Ever.
+    const s = probeSample(phase)
+    if (!s) return
+    setProbeLine(`scale ${s.vv ? s.vv.scale.toFixed(3) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · innerH ${s.win.innerHeight} · panelBottom ${s.panel?.bottom ?? '—'}`)
+    void fetch('/api/debug/viewport-probe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s),
+      keepalive: true,   // the page may be mid-layout-thrash; keepalive so the beacon still lands
+    }).catch(() => { /* a failed probe must never surface to the user */ })
+  }
+
+  // Fired from the textarea's onFocus. t=0 baseline, then t=600ms after the keyboard animation settles.
+  const onComposerFocus = useCallback(() => {
+    if (!debug) return
+    probeRef.current('focus+0')
+    window.setTimeout(() => probeRef.current('focus+600'), 600)
+  }, [debug])
+
+  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — SAMPLE ON VIEWPORT CHANGE, not only on focus.
+  // CAUGHT IN GATE-A: the panel AUTO-FOCUSES the composer ~60ms after open, so by the time Russ taps
+  // the message box the textarea is ALREADY focused and onFocus never fires again. On iOS that is
+  // fatal to the whole instrument — programmatic focus does not raise the keyboard, so the only sample
+  // would be the no-keyboard state, which is exactly the reading we already have and do not need.
+  // visualViewport.resize fires when the keyboard actually opens, whatever caused it. That is the
+  // event that matters, so it is sampled directly and the focus path is kept as a belt.
+  useEffect(() => {
+    if (!debug || !open) return
+    const vv = window.visualViewport
+    if (!vv) return
+    let t: number | undefined
+    const onResize = () => {
+      window.clearTimeout(t)
+      probeRef.current('vv-resize')                                   // immediate: the transition itself
+      t = window.setTimeout(() => probeRef.current('vv-resize+600'), 600) // settled: after the animation
+    }
+    vv.addEventListener('resize', onResize)
+    return () => { vv.removeEventListener('resize', onResize); window.clearTimeout(t) }
+  }, [debug, open])
 
   // LORAMER_NEXT_CHAT_DEBUG_V1 — the readout. GUARD (proven in Gate-A): early-returns unless debug===true → with no param,
   // ZERO listeners, ZERO interval, ZERO DOM writes. Writes textContent/title/placeholder directly (no React re-render).
@@ -352,6 +434,16 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               <div className={styles.headTitle}><i className="ti ti-sparkles" /> Ask Lora{clientName ? <span className={styles.headClient}>· {clientName}</span> : null}</div>
               <button type="button" className={styles.close} onClick={() => setOpen(false)} aria-label="Close"><i className="ti ti-x" /></button>
             </header>
+            {/* LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — UNMISSABLE readout. The previous one was a 12px
+                sticky box INSIDE the message list; on 2026-07-26 it produced no reading at all. This is
+                a flex child of .panel directly under the header, so it cannot be scrolled away, cannot
+                be pushed off by the keyboard, and is sized to be read on a phone at arm's length.
+                Debug-gated: renders nothing at all without the flag. */}
+            {debug && (
+              <div className={styles.probeBar} aria-hidden="true">
+                {probeLine || 'PROBE ARMED — tap the message box'}
+              </div>
+            )}
 
             <div className={styles.scroll} ref={scrollRef}>
               {/* LORAMER_NEXT_CHAT_DEBUG_V1 — in-flow horizontal-axis readout; only mounts with ?debug=chat. Sticky to the
@@ -398,6 +490,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={onKeyDown}
+                onFocus={onComposerFocus}   // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — no-op unless the debug flag is on
                 placeholder="Ask Lora…"
                 rows={1}
               />

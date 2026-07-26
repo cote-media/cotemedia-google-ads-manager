@@ -151,3 +151,18 @@
   opacity: 0.72;
   line-height: 1.45;
 }
+
+/* LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the UNMISSABLE debug readout. Rendered ONLY under ?debug=chat.
+   A flex child of .panel (flex-shrink:0) directly under .head, so unlike the old sticky-inside-the-list
+   box it cannot be scrolled away or pushed out of view when the keyboard opens. High contrast, large,
+   and wrapping — it is meant to be legible on a phone with the keyboard up, which the 12px monospace
+   readout was not. Never rendered for a normal user, so it has no default-path cost. */
+.probeBar {
+  flex-shrink: 0;
+  padding: 10px 12px;
+  background: #facc15; color: #0f172a;
+  font: 700 15px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: -0.01em;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+  border-bottom: 2px solid #0f172a;
+}

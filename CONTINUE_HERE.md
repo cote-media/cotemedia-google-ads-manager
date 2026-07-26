@@ -34,6 +34,14 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-26 latest — THE INSTRUMENT, NOT THE BUG) — SHIPPED
+Russ reproduced the keyboard bleed on f71d501 and got NO number, so the instrument was fixed rather than the bug. DECISIONS:505 still blocks any fix.
+WHY THE OLD READOUT GAVE NOTHING, verified field by field: it renders ten fields and every one is horizontal-axis — it was built for ★UI-OVERFLOW — and it does NOT capture visualViewport.scale at all. Separately, the debug flag was read once on mount and -next's client-side nav rewrites the query and drops it. And the box was 12px monospace sticky inside the message list, the worst place on a short screen.
+SHIPPED LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 (full entry in DECISIONS): sticky flag · a session-gated /api/debug/viewport-probe that logs one greppable line to Vercel runtime logs · full field capture including scale · TWO samples per trigger because the keyboard animates · an unmissable 15px amber readout at 11.7:1 contrast pinned under the header.
+GATE-A CAUGHT A DEFECT THAT WOULD HAVE WASTED THE DEVICE SESSION: the composer auto-focuses on open, so a later tap fires no second onFocus and on iOS the keyboard sample would never have been taken. Now also samples on visualViewport.resize.
+26/26 in real Chromium, including the end-to-end server log line. Build caught what tsc did not (a stray export in a route module).
+AWAITING: Russ opens one URL, taps the message box, sends nothing. I read the log.
+
 ## Session log (2026-07-26 later — FULL-SCREEN MOBILE LORA, TRACK 1) — SHIPPED
 Recon first, and it earned its keep: the plan as originally specified would have been the SIXTH attempt at this class, and its headline constraint (dvh) was ALREADY the shipped state — `.panel` has been `height:100dvh` at both breakpoints all along, and the keyboard bleed survives it. So the work was SPLIT.
 TRACK 1 SHIPPED (LORAMER_NEXT_CHAT_FULLSCREEN_V1, full entry in DECISIONS): the scroll/containment half, every mechanism identified at its cause — two live scrollers with no overscroll containment anywhere, an unlocked body, a z-index TIE won only by DOM source order, no viewport export at all, no top safe-area, no portal, no back handling.
