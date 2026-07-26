@@ -34,6 +34,14 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-26 final — THE MECHANISM, MEASURED) — STEP 1 SHIPPED
+The probe paid for itself immediately, and then the record nearly went in backwards.
+THE READING: keyboard occludes 338 layout px (doc.clientHeight 766 CONSTANT across 40+ samples, vv.height 766→428), and ~22ms later iOS auto-zooms 1.1431818x on the sub-16px input — proven a zoom not a resize because 440/384.890625 matches the reported scale to seven decimals. BOTH halves are real.
+THE NEAR-MISS: the on-screen readout live-updated, so the number relayed off the device was the sample from six seconds BEFORE the keyboard opened. It read as falsifying auto-zoom, and an instruction came to bank auto-zoom as REJECTED BY MEASUREMENT. The server log said the opposite. The rejection was refused before it was written and Russ accepted the correction in full. An instrument can be correct and still mislead if it does not tell you WHICH PHASE you are reading.
+CLOSED PERMANENTLY: dvh was never going to work — it tracks the layout viewport, which never moved. And 78de5ab failed because it bound height+offsetTop with no knowledge of scale, leaving the narrowed/offset horizontal axis unhandled.
+SHIPPED: LORAMER_NEXT_CHAT_INPUT_16PX_V1 (zoom trigger removed) + LORAMER_NEXT_CHAT_PROBE_FREEZE_V1 (readout latches on the keyboard-up sample). Gate-A 20/20.
+NOT FIXED: the 338px overhang. That is step 2, authored only after a device reading confirms scale holds at 1.000.
+
 ## Session log (2026-07-26 latest — THE INSTRUMENT, NOT THE BUG) — SHIPPED
 Russ reproduced the keyboard bleed on f71d501 and got NO number, so the instrument was fixed rather than the bug. DECISIONS:505 still blocks any fix.
 WHY THE OLD READOUT GAVE NOTHING, verified field by field: it renders ten fields and every one is horizontal-axis — it was built for ★UI-OVERFLOW — and it does NOT capture visualViewport.scale at all. Separately, the debug flag was read once on mount and -next's client-side nav rewrites the query and drops it. And the box was 12px monospace sticky inside the message list, the worst place on a short screen.

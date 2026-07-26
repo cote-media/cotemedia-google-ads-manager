@@ -190,12 +190,28 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     } catch { return null }
   }, [])
 
+  // LORAMER_NEXT_CHAT_PROBE_FREEZE_V1 — FREEZE THE DISPLAY ON THE FIRST KEYBOARD-OPEN SAMPLE.
+  // THE DEFECT THIS FIXES (2026-07-26): the readout live-updated, so by the time Russ looked at it, it
+  // was showing whatever the latest sample was — and he relayed `scale 1.000 / vvH 766`, which the
+  // server proved was the focus+600 sample taken SIX SECONDS BEFORE the keyboard opened. The number was
+  // true and the phase was wrong, and it very nearly banked a false falsification of the real cause.
+  // The screen now latches the first sample where the keyboard is actually up and holds it, so what a
+  // human reads is always the phase that matters. The SERVER still receives every sample.
+  const frozenRef = useRef(false)
+  useEffect(() => { if (open) frozenRef.current = false }, [open])   // fresh latch per open
+
   const probeRef = useRef<(p: string) => void>(() => {})
   probeRef.current = (phase: string) => {
     if (!debug) return   // HARD GATE — no flag, no capture, no request. Ever.
     const s = probeSample(phase)
     if (!s) return
-    setProbeLine(`scale ${s.vv ? s.vv.scale.toFixed(3) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · innerH ${s.win.innerHeight} · panelBottom ${s.panel?.bottom ?? '—'}`)
+    // "keyboard is up" = the VISUAL viewport is materially shorter than the LAYOUT viewport. Measured
+    // 2026-07-26: 766 -> 428, a 338px delta. 100px is well clear of address-bar chrome jitter.
+    const keyboardUp = !!s.vv && s.doc.clientHeight - s.vv.height > 100
+    if (!frozenRef.current) {
+      setProbeLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}scale ${s.vv ? s.vv.scale.toFixed(4) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · overhang ${s.vv ? Math.round(s.doc.clientHeight - s.vv.height) : '—'} · panelBottom ${s.panel?.bottom ?? '—'}`)
+      if (keyboardUp) frozenRef.current = true   // latch: this is the phase a human must see
+    }
     void fetch('/api/debug/viewport-probe', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s),
       keepalive: true,   // the page may be mid-layout-thrash; keepalive so the beacon still lands

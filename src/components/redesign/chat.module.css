@@ -114,8 +114,15 @@
    What it must NOT do is CHAIN when the draft hits its edge, so it gets the same containment as the
    message list. The composer BAR is still pinned by flex and does not scroll; only its text does. */
 .input {
+  /* LORAMER_NEXT_CHAT_INPUT_16PX_V1 — 14px -> 16px. iOS auto-zooms ANY focused input under 16px, and on
+     2026-07-26 that was MEASURED happening here: scale went 1 -> 1.1431818 on focus, and 440/384.890625
+     equals that to seven decimals, so the visual viewport was scaled, not resized. 16px removes the
+     trigger. ⚠ THIS FIXES THE ZOOM HALF ONLY. The keyboard still OCCLUDES 338 layout px
+     (doc.clientHeight 766 constant, vv.height 428) and .panel at 100dvh still overhangs by that much —
+     that is step 2 and this change must never be reported as fixing the bleed.
+     16px is also the platform convention we were violating regardless. */
   flex: 1; resize: none; max-height: 120px; padding: 10px 12px; overscroll-behavior: contain;
-  border: 1px solid #dbe2ea; border-radius: 12px; font: inherit; font-size: 14px; color: var(--ink);
+  border: 1px solid #dbe2ea; border-radius: 12px; font: inherit; font-size: 16px; color: var(--ink);
   outline: none; line-height: 1.4;
 }
 .input:focus { border-color: var(--accent); }
