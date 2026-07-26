@@ -34,14 +34,6 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
-## Session log (2026-07-26 close — THE BLEED, FIXED AT ITS MEASURED CAUSE) — STEP 2 SHIPPED
-Step 1 confirmed on device: scale 1.0000 across 20 samples through a full keyboard transition, down from 1.1431818. Zoom half closed, and the sequencing argument held — killing the zoom collapsed a two-axis problem to one axis, which is exactly what 78de5ab never had.
-NEW FINDING, and it is the second independent reason dvh could never have worked: `.panel` at 100dvh computed to 874px on a 766px layout viewport, because dvh takes the LARGE viewport while doc.clientHeight is the small one. The panel overhung by 108px before the keyboard existed. True occlusion 446px, not 338. My own probe's overhang math was under-reporting and was corrected to measure from the panel rect.
-iOS 26 stuck-offsetTop is now CONFIRMED IN OUR OWN DATA — 374-416 across the whole dismiss burst, never 0. The fix trusts offsetTop only when the keyboard is measurably up.
-SHIPPED LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2: the overlay is bound to the visual viewport on all four properties, mobile-gated at 767px so desktop is excluded by construction, with the old behaviour as the fallback. Gate-A 24/24 on replayed device numbers — composer top 360 / bottom 428 against a keyboard line at 428, nothing in the occluded band.
-⚠ THAT IS REPLAY, NOT DEVICE PROOF. Chromium cannot reproduce iOS occlusion. Device verification is the real gate; if it disagrees, the standing fallback is full-page, not another iteration.
-AWAITING: Russ's on-device check, keyboard case INCLUDED, both browsers, with the Track 1 regression items folded in.
-
 ## Session log (2026-07-26 final — THE MECHANISM, MEASURED) — STEP 1 SHIPPED
 The probe paid for itself immediately, and then the record nearly went in backwards.
 THE READING: keyboard occludes 338 layout px (doc.clientHeight 766 CONSTANT across 40+ samples, vv.height 766→428), and ~22ms later iOS auto-zooms 1.1431818x on the sub-16px input — proven a zoom not a resize because 440/384.890625 matches the reported scale to seven decimals. BOTH halves are real.
