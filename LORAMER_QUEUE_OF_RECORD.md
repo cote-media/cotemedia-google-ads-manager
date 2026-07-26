@@ -12,6 +12,33 @@ RULE: before proposing any action, restate the queued items here that bear on it
 ## RANKED COMPLETION ORDER (LORAMER_COMPLETION_PRIORITY_V1, 2026-07-22)
 Supersedes LORAMER_LAUNCH_LIST_V1's date framing per DECISIONS 2026-07-22 — no date, completeness is the gate. This is the ranking Claude owns per "prioritization is Claude's job." Authored 2026-07-22 by Claude (no prior ranking existed; this IS the deliverable LORAMER_LAUNCH_LIST_V1 owed). Tiers are priority order (T0 = most urgent); items inside a tier are roughly co-equal. Per-item detail + status live in each item's own QUEUE entry — this section owns ORDER, not status.
 
+TOP-UNBLOCKED: ★RESTATEMENT-SWEEP-FLEET — Google Tier-1 breadth widen: run the HELD dry-run (forward-widen-breadth.ts + cron/sync wiring, uncommitted, Gate-A green) after the 08:03:57Z Google quota reset, then prove → commit → deploy. THIS LINE IS THE RANKING'S HEAD AND IT IS MACHINE-READ — tests/guards/next-step-obeys-ranking.guard.mjs fails the wrap if CONTINUE_HERE's §E opener does not name this token or declare a DEPARTURE FROM RANKING with a reason. Updating this line IS the act of re-ranking; do not re-rank anywhere else.
+
+⚠ RECONCILED 2026-07-25/26 — what this ranking's T0 looks like after today:
+  T0 #1 WOO SHELLEY STALL — ADDRESSED, not closed. The MASKING half was already closed 07-22. Today closed the
+    part nobody had named: `fetchWooCommerceIntelligence` swallowed a thrown fetch into a zero-filled SUCCESS
+    object, so forward wrote $0 revenue rows, skipped all eleven breadth families, advanced the watermark, and
+    returned 200 (LORAMER_WOO_SILENT_ZERO_FIX_V1, 4f45fe7). Four false $0 rows deleted (3dc549d). ⚠ IT WAS HIT
+    BY ACCIDENT while chasing something else, after sitting THREE DAYS at the head of this ranking — which is
+    the entire reason the guard above now exists. STILL OPEN: WHY the forward fetch fails at all is UNKNOWN —
+    "store down since 07-17" is FALSIFIED (our probe succeeded 3×; Triple Whale shows 13 orders / $753 that
+    week). See ★WOO-FORWARD-FAILURE-CAUSE-UNKNOWN.
+  ⚠ DATE CONTRADICTION — UNVERIFIED, DO NOT GUESS: the 2026-07-22 entry describes Shelley as "12 days frozen"
+    (implying a stall from ~2026-07-10), while today's evidence — the four false $0 rows and the metrics_daily
+    row history — shows revenue reading $0 from 2026-07-17. Those do not reconcile. Either the 07-22 figure was
+    wrong, or there were TWO distinct stalls, or the earlier window failed a different way that left no $0 rows.
+    NOT resolved this session and NOT to be settled by inference; it needs the row history read directly.
+  T0 #2 ERROR-PATH FALSE-ZERO HARDENING — was already CLOSED 07-23 for the query/render layer; today EXTENDED it
+    to the two places it had never reached: the PROMPT (fetchErrors rendered per family, 8d081a2 — the cron
+    consumed that field, Lora never saw it) and the CAPTURE WRITER (the Woo swallow above). The class is the
+    same one; the closure was narrower than it read.
+  T0 #4 ACCOUNT-ROW-PER-DAY INVARIANT — HOLDING. `npm run check:data` ran green before every push today
+    (733 violations, 733 baselined, NEW 0, stale 0) across five shipping commits.
+  ⚠ NOTE ON NUMBERING: "Anthropic credit auto-reload" is a **T1** line in this ranking, not T0 #2. It was hit
+    today only because I drained the balance mid-eval (LORAMER_EVAL_RUN_VALIDITY_V1) — an accident, not a plan.
+    Russ has DECLINED auto-reload until launch; that is his call and it is not to be raised again.
+  T0 #3 G1(b) META BREADTH UNSEAL — unchanged, still closed as a data item.
+
 T0 — LIVE-BROKEN / BLEEDING (fix before ANY new build):
   1. WOO SHELLEY re-capture stall — connection-health MASKING **FULLY CLOSED** (SLICE 1 LORAMER_CONN_FAILURE_STREAK_V1 records the failure streak; SLICE 2 LORAMER_CONN_DEGRADED_STATE_V1 promotes 'degraded' at 24h + the woo/shopify {connected:false}→fetchFailed fix + HEALTH_UI flag ON in prod; both live 2026-07-22). The STALL itself **stays OPEN but is NOT ours** — it is merchant-side: shelleykyle.com's WordPress returns HTTP 500 on /wp-json/wc/v3/orders on every forward fire. A dev-handoff PDF was sent to her web developer 2026-07-22; tracked here for RECOVERY (when her host is fixed, forward resumes idempotently — no code change owed). Our code now SURFACES it honestly instead of masking it. See the detailed Woo Shelley entry below.
   2. Error-path false-zero hardening — **CLOSED 2026-07-23, all 5 slices live** (LORAMER_QUERY_COMPLETENESS_V1): SEV-1 (Lora query_metrics flag) + SEV-2 (routes + render) + slice 3 (stale_tail decoupled from the streak + money/ga-overview wired) + slice 4 (per-metric scoping + ROAS caption wrap) + slice 5 (capturable frontier). Lora (query_metrics) + the -next stat/ROAS/store cards + MerView + money + ga-overview now visibly mark a total that omits a failing/stale platform; settleRevenue store→GA substitution is labeled; the residual sliver is closed (failing-window test keyed on lastCaptured); SLICE 3 fixed the live defect where a stale tail rendered clean because the tail test was gated behind the health streak (new streak-INDEPENDENT stale_tail status, LAG_TOLERANCE_DAYS>=2) and wired the two missed total surfaces (money, ga-overview); Gate-A rebuilt to drive the REAL getCoverageForWindows against prod. SLICE 4 made the caption PER-METRIC (a store stale tail no longer captions Spend/Conversions — metricContributors is the single metric→platform map) and fixed the ROAS caption truncation (.roasBody overflow made it a horizontal scroll region). SLICE 5 made stale_tail measure against the CAPTURABLE FRONTIER (capturableFrontier: UTCtoday−1 if today's forward window has run else −2, window-end hour re-derived from vercel.json + guarded) instead of the raw window end — killing the nightly false alarm where every healthy client tripped amber before the 08:00 UTC forward window (the 07-23 investigation confirmed the fleet-at-07-21 was normal pre-window state, not a break). OPEN residuals (not blocking): portfolio grid uses health-only coverage (flags a currently-failing platform, not a pure historical trailing gap) + the on-device mobile (sm) caption render/wrap is a Gate-B. Recon: DECISIONS T0#2 (SLICE 5 owns the capturable-frontier fix).

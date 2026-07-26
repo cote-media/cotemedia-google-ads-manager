@@ -81,6 +81,39 @@ const standing = must('D standing-principles', fenceSection(decisions, 'STANDING
 
 // ── E. active workstream + next step ──
 const activeLine = must('E active-workstream', continueHere.split('\n').find((l) => l.includes('ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM**')))
+// LORAMER_DIGEST_NEXTSTEP_AMBIGUITY_V1 — FAIL LOUDLY ON AMBIGUITY, never silently read the wrong block.
+// THE 2026-07-25 DEFECT: the wrap wrote its `▶▶ NEXT STEP` opener into the session-log block near the top of
+// CONTINUE_HERE, while the ═══ NEXT STEP ═══ fence still held the 07-24 opener. This extractor read the fence,
+// so the digest body pointed at the PREVIOUS DAY — and because the manifest hashes were re-stamped correctly,
+// the freshness gate read 9/9 GREEN over it. Hash equality proves the file was not edited behind our back; it
+// proves nothing about WHICH block the body came from. So: count the openers, and refuse to guess.
+const __openerLines = continueHere.split('\n')
+  .map((l, i) => (/^▶▶\s*NEXT STEP/.test(l) ? i + 1 : 0))
+  .filter(Boolean)
+const __fenceLine = continueHere.split('\n').findIndex((l) => /^═+ NEXT STEP ═+/.test(l)) + 1
+if (__fenceLine === 0) {
+  throw new Error('DIGEST REFUSES TO GUESS: no ═══ NEXT STEP ═══ fence in CONTINUE_HERE.md — §E has no defined source.')
+}
+if (__openerLines.length !== 1) {
+  throw new Error(
+    `DIGEST REFUSES TO GUESS: found ${__openerLines.length} \`▶▶ NEXT STEP\` openers in CONTINUE_HERE.md` +
+    (__openerLines.length ? ` (lines ${__openerLines.join(', ')})` : '') +
+    `. Exactly one is required. Two openers is the 2026-07-25 defect: the digest reads the fence at line ${__fenceLine}, ` +
+    `so an opener written anywhere else is silently ignored while the hashes still read 9/9 green.`
+  )
+}
+{
+  const __ls = continueHere.split('\n')
+  let __end = __ls.length
+  for (let i = __fenceLine; i < __ls.length; i++) { if (/^═+/u.test(__ls[i])) { __end = i; break } }
+  if (!(__openerLines[0] > __fenceLine && __openerLines[0] <= __end)) {
+    throw new Error(
+      `DIGEST REFUSES TO GUESS: the single \`▶▶ NEXT STEP\` opener is on line ${__openerLines[0]}, OUTSIDE the ` +
+      `═══ NEXT STEP ═══ fence (lines ${__fenceLine}–${__end}). Move the opener into the fence — reading the fence ` +
+      `while the real opener lives elsewhere is exactly how a stale §E survived a green freshness gate.`
+    )
+  }
+}
 const nextStep = must('E next-step', sectionByHeader(continueHere, '═══ NEXT STEP ═══', /^### /))
 
 // ── F. date-gated ──
