@@ -117,6 +117,54 @@ export async function POST(request: Request) {
         break
       }
 
+      // LORAMER_SHOPIFY_ORDER_GRAIN_WRITER_V1 — bulk operation finished.
+      // Shopify pushes this instead of us holding a serverless function open to poll. The payload names the
+      // BulkOperation gid; we look up OUR op row by that gid, confirm COMPLETED, and ingest the JSONL.
+      // NOT trusted as the only signal: /api/cron/order-grain drains anything this webhook fails to deliver,
+      // because a dropped webhook would otherwise be a permanently uningested op that nothing ever notices.
+      // Writes reach ONLY store_orders / store_order_line_items / store_bulk_operations.
+      case 'bulk_operations/finish': {
+        const gid: string | undefined = payload.admin_graphql_api_id || payload.id
+        if (!gid) {
+          console.warn('[shopify webhook] bulk_operations/finish with no gid in payload')
+          break
+        }
+        const { findOpByGid, pollBulkOp, ingestBulkJsonl } = await import('@/lib/order-grain/shopify-bulk')
+        const row = await findOpByGid(String(gid))
+        if (!row) {
+          // An op we did not start (or already pruned). Not an error — say so and move on.
+          console.warn(`[shopify webhook] bulk_operations/finish for unknown gid ${gid} shop=${shopDomain}`)
+          break
+        }
+        if (row.ingested_at) {
+          console.log(`[shopify webhook] bulk op ${gid} already ingested — webhook is a duplicate, skipping`)
+          break
+        }
+        const { data: conn } = await supabaseAdmin
+          .from('platform_connections')
+          .select('user_email')
+          .eq('platform', 'shopify').eq('client_id', row.client_id).eq('account_id', row.account_id)
+          .limit(1).single()
+        if (!conn?.user_email) {
+          console.error(`[shopify webhook] bulk op ${gid} has no connection user_email — cannot poll`)
+          break
+        }
+        const polled = await pollBulkOp(row as any, conn.user_email)
+        if (!polled.ok) {
+          console.error(`[shopify webhook] poll failed for ${gid}: ${polled.detail}`)
+          break
+        }
+        if (polled.op.status !== 'COMPLETED' || !polled.op.url) {
+          console.warn(`[shopify webhook] bulk op ${gid} finished as ${polled.op.status} (errorCode=${polled.op.errorCode ?? 'none'}) — nothing to ingest`)
+          break
+        }
+        const result = await ingestBulkJsonl({
+          opRowId: row.id, clientId: row.client_id, accountId: row.account_id, url: polled.op.url,
+        })
+        console.log(`[shopify webhook] bulk op ${gid} ingested — orders=${result.orders} lineItems=${result.lineItems} pruned=${result.lineItemsDeleted} days=${result.days.length}`)
+        break
+      }
+
       default:
         console.warn('Shopify webhook: unknown topic', topic)
         // Still return 200 so Shopify doesn't retry

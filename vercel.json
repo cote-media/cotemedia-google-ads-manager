@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/drain?platform=google",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/order-grain?mode=drain",
+      "schedule": "9-59/10 8-11 * * *"
     }
   ]
 }
