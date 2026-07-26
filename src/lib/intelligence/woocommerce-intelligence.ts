@@ -585,16 +585,23 @@ export async function fetchWooCommerceIntelligence(
     // loop (both of which enter here) carry the family — no separate wiring in either route.
     return summarizeWooOrders(saleOrders, allOrders, productAttrs)
   } catch (e) {
-    console.error('WooCommerce intelligence error:', e)
-    return {
-      connected: true,
-      totalOrders: 0,
-      totalRevenue: 0,
-      avgOrderValue: 0,
-      newCustomers: 0,
-      returningCustomers: 0,
-      topProducts: [],
-    }
+    // LORAMER_WOO_SILENT_ZERO_FIX_V1 — A THROWN FETCH IS A FAILED FETCH, NOT A ZERO DAY.
+    // This catch previously returned { connected: true, totalOrders: 0, totalRevenue: 0, … } — a zero-filled
+    // SUCCESS object with no `wooBreadth` key. The consequences, all observed in production 2026-07-25:
+    //   · forward wrote a $0 revenue row for a day the merchant actually had sales;
+    //   · `if (wb)` in buildWooMetricsRows was false, so all eleven breadth families were silently skipped;
+    //   · sync_state.last_forward_sync_date still advanced, so catchup saw no gap to heal;
+    //   · the cron returned 200 and every gate read green.
+    // Shelley's store began 500ing ("There has been a critical error on this website") on 2026-07-17; Lora then
+    // reported $0 revenue for eight days on real money. A MISSING day is honest and recoverable — catchup can
+    // refill it. A $0 day is a LIE that also blocks its own repair, because the row exists.
+    // The correct posture is the one this file already states at fetchWooOrdersRaw (Lesson 15): never swallow a
+    // fetch failure into empty data. Re-throw, and let the caller's own try/catch record the connection failure
+    // and skip BOTH the metrics upsert and the sync_state write — which is exactly what cron/sync and
+    // cron/catchup already do. No new idiom; this restores the one the rest of the fleet already follows
+    // (google's base campaigns query throws, meta has no top-level catch, shopify's writers re-throw).
+    console.error('[woocommerce-intelligence] FETCH FAILED — re-throwing so no $0 row is written:', e)
+    throw e instanceof Error ? e : new Error(String(e))
   }
 }
 
