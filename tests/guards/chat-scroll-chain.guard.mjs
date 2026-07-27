@@ -240,6 +240,29 @@ if (!page || !pageTsx) {
   // glyph never existed, and a transparent borderless button with no content is invisible.
   // THE CLASS, and it is the SECOND instance: rendering outside Shell silently drops whatever Shell
   // provided. First the CSS custom properties (the invisible send button), then the icon font.
+  // ⚠ THE CLASS ENFORCER, not just today's instance. ENUMERATED 2026-07-27 (Russ's instruction): what
+  // does Shell actually provide that a Shell-less page silently loses?
+  //   1. the `.root` CSS custom-property scope  → guarded above (`shell.tokens` must be carried)
+  //   2. the Tabler icons webfont <link>        → Shell-ONLY, and it is what made the back button vanish
+  //   3. Instrument Sans                        → NOT at risk: globals.css:5 @imports it app-wide
+  //   4. TopBar / rail / MobileNav / ChatLauncher → chrome, dropped ON PURPOSE for a full-screen chat
+  //   5. the auth + onboarding gate             → never was Shell's; it is dashboard-next/layout.tsx
+  // So the standing rule is: every stylesheet Shell loads that is NOT also loaded globally is a
+  // Shell-only provision, and a Shell-less page may not depend on one. If Shell gains another, this
+  // fails until someone decides — deliberately — whether the page needs it.
+  const shellSrc = read('src/components/redesign/Shell.tsx') || ''
+  const globalsSrc = (read('src/app/globals.css') || '') + (read('src/app/layout.tsx') || '')
+  const shellOnlyHrefs = [...shellSrc.matchAll(/rel="stylesheet"\s+href="([^"]+)"|href="([^"]+)"\s+rel="stylesheet"/g)]
+    .map((m) => m[1] || m[2])
+    .filter((h) => {
+      const family = (h.match(/family=([^&:]+)/) || [])[1]
+      return !globalsSrc.includes(h) && !(family && globalsSrc.includes(family.replace(/\+/g, ' ')))
+    })
+  const KNOWN_SHELL_ONLY = ['tabler-icons']
+  const unaccounted = shellOnlyHrefs.filter((h) => !KNOWN_SHELL_ONLY.some((k) => h.includes(k)))
+  if (unaccounted.length) {
+    fail(`SHELL LOADS ${unaccounted.length} STYLESHEET(S) THAT NOTHING ELSE LOADS, AND THEY ARE NOT ACCOUNTED FOR: ${unaccounted.join(', ')}. /dashboard-next/lora renders WITHOUT Shell, so anything only Shell provides is silently absent there — twice already (the CSS custom properties, then the icon font). Decide explicitly whether the page depends on this, then add it to KNOWN_SHELL_ONLY with the reason.`)
+  }
   if (/className="ti |className=\{`ti |class="ti /.test(stripTs(pageTsx))) {
     fail('THE LORA PAGE USES THE `ti` ICON WEBFONT. It is linked ONLY from Shell.tsx and this page renders OUTSIDE Shell, so every such glyph is an empty element — which is exactly why Russ reported "there is no back button" on a button that was in the DOM and in bounds. Use inline SVG; depend on nothing handed down.')
   }

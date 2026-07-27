@@ -34,6 +34,41 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-27 — THE CHAT SURFACE, AND THE RESUME PATH ITSELF) — SHIPPED
+
+Three commits, all pushed and Vercel READY. This is the NARRATIVE; per-item status lives in
+LORAMER_QUEUE_OF_RECORD.md (open/closed) and LORAMER_DECISIONS.md (external status + settled calls) —
+not restated here.
+
+What the arc actually did. It began as a chat-reliability day and ended by fixing the thing that
+decides how every future day starts.
+
+- **The answers stopped disappearing.** The server now writes the assistant turn from inside its own
+  completion path, so a browser that dies mid-read no longer costs the answer it already paid for.
+  Recovery is a READ, never a re-POST, discriminated by a monotonic watermark; more than one fresh row
+  is refused rather than guessed. The copy stopped claiming an answer was lost, because since the
+  server owns the write, that claim is both unknowable and false.
+- **iOS gave up two facts that cost real time.** An aborted fetch reports `TypeError: Load failed`,
+  byte-identical to a genuine network drop — so classification reads the AbortSignal we own and never
+  the message. And `dvh` is closed permanently: it tracks the layout viewport, which the keyboard never
+  moves, and resolves to the LARGE viewport.
+- **Two invisible buttons, one cause, five and a half hours apart in discovery.** The send button
+  vanished because a portal severed the CSS custom properties; the back button was never drawn at all
+  because the icon webfont is linked from inside Shell and the page renders without Shell. Same class,
+  and the enumeration of what else Shell provides is now banked and guarded.
+- **The four UI fixes uncovered two older defects underneath them.** `globals.css` sets
+  `scroll-behavior: smooth`, so every scroll the page called instant had been animated since it
+  shipped — measured still moving 3.7s later. And the stick-to-bottom pin, driven by the scroll event,
+  was stale exactly when it mattered: the ResizeObserver fired 23ms before the event arrived.
+- **The wrap fixed the wrap.** The morning's freshness gate came back RED and cost the fast path. The
+  cause was structural, not clerical: the digest copies its stamps from the manifest, and it was being
+  built before the manifest was re-stamped, so it shipped mismatched every time. The order had been
+  written down since step 6b and got done wrong anyway. It is now one command and a guard that fails
+  the wrap, proven RED against this morning's actual commit.
+
+Commits: 6bb5cc4 knowledge attribution · 85667a7 the four UI fixes · this wrap.
+
+
 ## Session log (2026-07-26 end — THE INVISIBLE SEND BUTTON) — FIXED
 Russ reported the send button missing AFTER the step-2 revert, which invalidated the step-2 attribution. It was never step 2 and never the 16px change.
 ROOT CAUSE: Track 1's createPortal. Moving the overlay to document.body took it out of `.root`, severing CSS custom property inheritance, so every var(--) in the chat resolved to nothing. The button was a white glyph in a transparent circle on a white bar — present, enabled, clickable, and invisible. Invisible in PRODUCTION for ~5.5 hours across four deployments.
@@ -767,7 +802,8 @@ GOOGLE_CAMPAIGN_STATUS_FIX_V2 SHIPPED + VERIFIED end-to-end. Gate A caught the a
 - Progressive platform onboarding ("start with your strength"): platform chooser + bulk client selection from chosen platform's hierarchy.
 
 ═══ NEXT STEP ═══
-▶▶ NEXT STEP — 2026-07-26 SESSION WRAP (latest — resume HERE). **★RESTATEMENT-SWEEP-FLEET — the HELD Google Tier-1 breadth widen dry-run remains the ranking head; run it FIRST, after the 2026-07-27T08:03:57Z quota reset.** DEPARTURE FROM RANKING: on 2026-07-26 this item was BLOCKED by its own precondition — the developer-scope Google quota was fully exhausted at 11:26:15Z with retry-after 2026-07-27T08:03:57Z, so the dry-run could not have issued a single usable call, and a live chat-honesty regression took the session instead (two slices shipped: the server now owns the assistant turn, and the client no longer claims an answer was lost); the widen was not deprioritised and nothing about it changed. WHAT IS HELD, unchanged: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified) — authored, Gate-A green, deliberately UNCOMMITTED on Russ's hold pending the dry-run proof. Do the dry-run FIRST; do not commit before it proves. BEFORE SPENDING ANY QUOTA re-read the abort report: the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. AFTER THAT, in order: FULL-SCREEN MOBILE LORA (Russ is speccing it separately; it rebuilds ChatLauncher's container, which is why slices 1-2 were kept to logic and copy) · then ★LORA-MEMORY-OLDEST-500. BUILD ORDER + external status are owned by the QUEUE and DECISIONS and are NOT restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
+▶▶ NEXT STEP — 2026-07-27 SESSION WRAP (latest — resume HERE). **START WITH THE T2 CAPTURE-COMPLETENESS AUDIT — the matrix. It is ranked FIRST and the ranking is the instruction.** Platform × grain × field, three states per cell (captured / not captured / NOT OFFERED BY THE PLATFORM), with row count + date range for every captured cell. It is ranked first because everything of value above it is blocked behind it: T3 cannot be scoped without knowing what is actually held, the 100-question eval cannot separate a reasoning failure from a data hole, and the 2026-09-30 demo cannot be rehearsed against uncounted data. Parked since 2026-07-13 — fourteen days of widening capture without counting it. **THEN, in order, per LORAMER_QUEUE_OF_RECORD.md ## NEXT-SESSION RANKED ORDER (that section owns the build order; it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** the HELD Google Tier-1 breadth widen (still uncommitted in the tree, quota unblocked since 2026-07-27T08:03:57Z, and the three report-honesty fixes ship WITH it, not after) · ★LORA-MEMORY-OLDEST-500 + the 200-row GET ceiling · ★GOOGLE-QUOTA-EXHAUSTED-DAILY · the banked ★ follow-ons · the chat-UI day (research the Shopify Sidekick markdown-jank writeup BEFORE designing) · uploaded-doc hygiene as a T2 finding. **BEFORE ANYTHING ELSE, TWO SHORT HUMAN GATES:** (1) Gate-B the mobile Lora page on device — the close button, the sticky composer with the keyboard UP, and scrolling up to read history without being yanked; the replay proves the binding, not how iOS composites, and the failure mode is inset 0 which is the geometry already working. (2) Decide the 60 Gate-A rows in Veterinary mastermind's thread, ids 588–647 (contiguous, nothing else in range) — reported, deliberately NOT deleted. RUSS ACTION LIST below is unchanged and still owed.
+- (2026-07-26 opener — HISTORY, superseded by the 2026-07-27 wrap below. Its head item, the HELD Google Tier-1 widen, is NOT dropped: it is ranked #2 in the QUEUE's NEXT-SESSION RANKED ORDER, behind the T2 matrix, on Russ's 2026-07-27 instruction.) 2026-07-26 SESSION WRAP (latest — resume HERE). **★RESTATEMENT-SWEEP-FLEET — the HELD Google Tier-1 breadth widen dry-run remains the ranking head; run it FIRST, after the 2026-07-27T08:03:57Z quota reset.** DEPARTURE FROM RANKING: on 2026-07-26 this item was BLOCKED by its own precondition — the developer-scope Google quota was fully exhausted at 11:26:15Z with retry-after 2026-07-27T08:03:57Z, so the dry-run could not have issued a single usable call, and a live chat-honesty regression took the session instead (two slices shipped: the server now owns the assistant turn, and the client no longer claims an answer was lost); the widen was not deprioritised and nothing about it changed. WHAT IS HELD, unchanged: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified) — authored, Gate-A green, deliberately UNCOMMITTED on Russ's hold pending the dry-run proof. Do the dry-run FIRST; do not commit before it proves. BEFORE SPENDING ANY QUOTA re-read the abort report: the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. AFTER THAT, in order: FULL-SCREEN MOBILE LORA (Russ is speccing it separately; it rebuilds ChatLauncher's container, which is why slices 1-2 were kept to logic and copy) · then ★LORA-MEMORY-OLDEST-500. BUILD ORDER + external status are owned by the QUEUE and DECISIONS and are NOT restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
 
 ▶ RUSS ACTION LIST (ranked — human-gated, nothing here is code Claude can do):
   1. SHOPIFY REFRESH TOKENS DEAD — clients `efe036b4` (LoraMer Demo) and `bb9e2c31` (Escential Group) fail with `refresh_failed - This request requires an active refresh_token`. Their Shopify capture is DEAD until reconnected. Reconnect both.

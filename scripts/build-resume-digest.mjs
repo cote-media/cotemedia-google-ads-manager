@@ -114,7 +114,25 @@ if (__openerLines.length !== 1) {
     )
   }
 }
-const nextStep = must('E next-step', sectionByHeader(continueHere, '═══ NEXT STEP ═══', /^### /))
+// ⛔ EXTRACT FROM THE FENCE THE VALIDATOR ABOVE ALREADY FOUND — DO NOT RE-FIND IT BY SUBSTRING.
+// THE 2026-07-27 DEFECT, and it is why §E shipped a superseded opener while the checks above passed:
+// this line used to be `sectionByHeader(continueHere, '═══ NEXT STEP ═══', /^### /)`, and
+// sectionByHeader matches with `line.includes(...)`. The 2026-07-25 fix wrote an explanatory note that
+// QUOTES the fence marker in prose ("…because it lived OUTSIDE the ═══ NEXT STEP ═══ fence…") at
+// CONTINUE_HERE line 154 — 650 lines above the real fence. The substring match hit the PROSE, so the
+// digest's §E was a history paragraph about a superseded opener, permanently.
+// THE REAL BUG IS THE DISAGREEMENT: the opener validation at `__fenceLine` uses the ANCHORED regex
+// /^═+ NEXT STEP ═+/ and was therefore always right; the extraction used a substring and was always
+// wrong. One function validated a region and another read a different one, and only the second
+// reached the digest. Same shape as a guard that fires on its own documentation — a marker that also
+// appears in prose about the marker must be matched ANCHORED, never by substring.
+const nextStep = must('E next-step', (() => {
+  const ls = continueHere.split('\n')
+  const start = __fenceLine - 1                       // __fenceLine is 1-based, and already validated
+  let end = ls.length
+  for (let i = start + 1; i < ls.length; i++) { if (/^═+/u.test(ls[i]) || /^### /.test(ls[i])) { end = i; break } }
+  return ls.slice(start, end).join('\n')
+})())
 
 // ── F. date-gated ──
 const dateGated = must('F date-gated', fenceSection(queue, 'DATE-GATED (CONTINUE_HERE'))
