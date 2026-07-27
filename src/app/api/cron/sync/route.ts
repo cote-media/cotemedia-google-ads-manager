@@ -190,6 +190,9 @@ export async function GET(request: Request) {
     gaConnections: 0,
     rowsWritten: 0,
     errors: [] as SyncError[],
+    // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — per-platform count of connections that CAPTURED but had a partial /
+    // sub-fetch failure. Distinct from errored (the connection failed) and from succeeded. Surfaced, never hidden.
+    degraded: {} as Record<string, number>,
   }
   // LORAMER_CRON_DISTINCT_COUNT_V1 — FIX 5: clientsProcessed is one Set of distinct client ids
   // across the five per-platform loops, not five separate +=1 (which counted a multi-platform
@@ -227,10 +230,27 @@ export async function GET(request: Request) {
     woocommerce: 'wooConnections',
     ga: 'gaConnections',
   }
+  // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — `${platform}|${clientId}` for connections whose CONNECTION failed, i.e.
+  // the platform's OUTER catch fired. Only these may count as errored. Everything else pushed into summary.errors
+  // comes from a family/sub-fetch try/catch that exists SPECIFICALLY so a partial failure never drops the
+  // connection — those are DEGRADATIONS and must not be reported as connection failures.
+  const connFailed = new Set<string>()
   async function finalizeSection(p: string, snap: { rows: number; errs: number }) {
     const errsForP = summary.errors.slice(snap.errs)
-    const erroredConns = new Set(errsForP.map(e => e.clientId)).size
+    // THE BUG THIS FIXES, measured 2026-07-27: the google 08:08 run reported 17 attempted / 0 succeeded / 17
+    // errored WHILE WRITING 77,647 ROWS. Every client logged two DEGRADED sub-fetches (audience, conversion_action),
+    // and `new Set(errsForP.map(e => e.clientId)).size` counted each of them as a failed connection. Three days of
+    // "google forward is dead" alarm off a successful run. A degraded sub-fetch is a partial-capture warning.
+    const clientsWithEntries = [...new Set(errsForP.map((e) => e.clientId))]
+    const erroredConns = clientsWithEntries.filter((id) => connFailed.has(`${p}|${id}`)).length
+    const degradedConns = clientsWithEntries.filter((id) => !connFailed.has(`${p}|${id}`)).length
     const attempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    // DEGRADED IS SURFACED, NEVER HIDDEN — it is why conversion_action and audience are thin. It rides the JSON
+    // summary + the log rather than cron_runs, because cron_runs has no column for it and this flight adds no schema.
+    summary.degraded[p] = degradedConns
+    if (degradedConns > 0) {
+      console.warn(`[cron/sync] platform=${p} DEGRADED connections=${degradedConns} (partial capture; NOT connection failures) · failed=${erroredConns} · succeeded=${Math.max(0, attempted - erroredConns)}`)
+    }
     await finishCronRun(cronRunIds[p], {
       connectionsAttempted: attempted,
       connectionsErrored: erroredConns,
@@ -394,6 +414,7 @@ export async function GET(request: Request) {
           `[cron/sync] client=${client.id} platform=shopify shop=${shopDomain}:`,
           message
         )
+        connFailed.add('shopify|' + client.id) // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — the CONNECTION failed (outer catch), not a sub-fetch
         summary.errors.push({
           clientId: client.id,
           platform: 'shopify',
@@ -589,6 +610,7 @@ export async function GET(request: Request) {
           `[cron/sync] client=${client.id} platform=meta account=${accountId}:`,
           message
         )
+        connFailed.add('meta|' + client.id) // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — the CONNECTION failed (outer catch), not a sub-fetch
         summary.errors.push({
           clientId: client.id,
           platform: 'meta',
@@ -864,6 +886,7 @@ export async function GET(request: Request) {
           `[cron/sync] client=${client.id} platform=google customer=${customerId}:`,
           message
         )
+        connFailed.add('google|' + client.id) // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — the CONNECTION failed (outer catch), not a sub-fetch
         summary.errors.push({
           clientId: client.id,
           platform: 'google',
@@ -965,6 +988,7 @@ export async function GET(request: Request) {
           `[cron/sync] client=${client.id} platform=woocommerce:`,
           message
         )
+        connFailed.add('woocommerce|' + client.id) // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — the CONNECTION failed (outer catch), not a sub-fetch
         summary.errors.push({
           clientId: client.id,
           platform: 'woocommerce',
@@ -1086,6 +1110,7 @@ export async function GET(request: Request) {
         `[cron/sync] client=${client.id} platform=ga:`,
         message
       )
+      connFailed.add('ga|' + client.id) // LORAMER_CRON_DEGRADED_NOT_FAILED_V1 — the CONNECTION failed (outer catch), not a sub-fetch
       summary.errors.push({
         clientId: client.id,
         platform: 'ga',

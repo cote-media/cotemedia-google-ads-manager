@@ -256,9 +256,14 @@ export async function GET(request: Request) {
   const restoreSince = __url.searchParams.get('since')
   const restoreMode = !!(restoreClientId && restoreSince)
   const fillOpts = restoreMode ? { restore: true as const, cap: RESTORE_DAY_CAP } : undefined
-  // Same Google quota guard as the drain: in restore mode, skip google fill while the developer-token quota is paused
-  // (never bypass it). Non-restore catchup is unaffected.
-  const googleQuotaPaused = restoreMode ? (await readGoogleQuotaPause()).paused : false
+  // Same Google quota guard as the drain — now UNCONDITIONAL. LORAMER_CATCHUP_QUOTA_PAUSE_V1.
+  // WAS: `restoreMode ? (await readGoogleQuotaPause()).paused : false`, i.e. the global pause was honoured ONLY in
+  // restore mode and normal catchup fired into an exhausted quota every ten minutes until 11:59. MEASURED 2026-07-27:
+  // the quota tripped at 11:31:59Z and catchup kept attempting — 418 google connection-attempts that day, 211 errored.
+  // The drain has always read this guard before any outbound work (cron/drain:77); catchup is the lane that did not.
+  // NO CHANGE WHEN THE QUOTA IS HEALTHY (paused=false → identical behaviour). The pause auto-resumes on the clock
+  // inside readGoogleQuotaPause, so this can never wedge: it releases itself at the reset without manual unblock.
+  const googleQuotaPaused = (await readGoogleQuotaPause()).paused
   const windowStart = restoreMode ? (restoreSince as string) : addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
   const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for CATCHUP_BUDGET_MS paging
 
@@ -517,7 +522,10 @@ export async function GET(request: Request) {
 
       let fillDays: string[] = []
       try {
-        fillDays = (restoreMode && googleQuotaPaused) ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
+        // LORAMER_CATCHUP_QUOTA_PAUSE_V1 — the `restoreMode &&` is REMOVED. This gate is where the pause actually
+        // bites; leaving it restore-only is what let normal catchup keep firing into an exhausted quota. Now ANY
+        // google catchup yields while the global developer-token pause is active, exactly as the drain does.
+        fillDays = googleQuotaPaused ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'google', message: serializeCaughtError(err) })
         continue

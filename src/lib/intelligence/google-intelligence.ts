@@ -126,10 +126,48 @@ async function safeQuery(
     const rows = await fn()
     return Array.isArray(rows) ? rows : []
   } catch (e: any) {
-    console.error(`[google-intel] ${label} query FAILED (returned [] — DEGRADED, not a true zero):`, e?.message, e?.errors)
-    fetchErrors.push({ label, message: String(e?.message ?? e) })
+    // LORAMER_GAQL_ERROR_SERIALIZE_V1 — ★GOOGLE-ERRORS-UNREADABLE. The old two lines produced BOTH observed
+    // failure strings and neither could be read: the log printed `undefined [` because a google-ads-api rejection
+    // carries its detail on `errors[]` and leaves `.message` empty, and `String(e?.message ?? e)` fell through to
+    // String(<object>) = "[object Object]", which is what reached summary.errors → cron_runs → the Vercel error
+    // clusters for 14+ clients. LOGGING ONLY — the catch still returns [] and nothing about the fetch changes.
+    const detail = describeGaqlError(e)
+    console.error(`[google-intel] ${label} query FAILED (returned [] — DEGRADED, not a true zero): ${detail}`)
+    fetchErrors.push({ label, message: detail })
     return []
   }
+}
+
+// LORAMER_GAQL_ERROR_SERIALIZE_V1 — never return "[object Object]", "undefined" or "". Google Ads rejections put
+// the useful part in errors[].{error_code,message}; plain Errors put it in .message; everything else gets JSON.
+export function describeGaqlError(e: any): string {
+  const parts: string[] = []
+  const msg = typeof e?.message === 'string' ? e.message.trim() : ''
+  if (msg) parts.push(msg)
+  const errs = Array.isArray(e?.errors) ? e.errors : null
+  if (errs?.length) {
+    parts.push(
+      errs
+        .slice(0, 3)
+        .map((x: any) => {
+          const code = x?.error_code ? JSON.stringify(x.error_code) : ''
+          const m = typeof x?.message === 'string' ? x.message : ''
+          const trigger = x?.trigger?.string_value ? ` trigger=${x.trigger.string_value}` : ''
+          return [code, m].filter(Boolean).join(' ') + trigger
+        })
+        .filter(Boolean)
+        .join(' | ')
+    )
+  }
+  if (e?.code !== undefined && e?.code !== null) parts.push(`code=${String(e.code)}`)
+  if (parts.length === 0) {
+    try {
+      const j = JSON.stringify(e)
+      if (j && j !== '{}') parts.push(j)
+    } catch { /* circular — fall through */ }
+  }
+  if (parts.length === 0) parts.push(e?.constructor?.name ? `unserializable ${e.constructor.name}` : String(e))
+  return parts.join(' · ').slice(0, 600)
 }
 
 export async function fetchGoogleIntelligence(
