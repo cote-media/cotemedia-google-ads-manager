@@ -3,10 +3,13 @@
 // LORAMER_NEXT_PARITY_V1 (P2-A): the Lora tab now OPENS the Ask-Lora chat sheet (dispatches 'loramer:open-chat',
 // which ChatLauncher listens for) instead of routing to a stub page → 'use client'. Overview/Mer stay Links.
 'use client'
+import { useRouter } from 'next/navigation'
+import { openLora } from '@/lib/next/open-lora' // LORAMER_LORA_PAGE_V1 — ONE mobile/desktop branch for every trigger
 import Link from 'next/link'
 import styles from './redesign.module.css'
 
 export default function MobileNav({ active, clientId }: { active: string; clientId?: string }) {
+  const router = useRouter() // LORAMER_LORA_PAGE_V1
   const withClient = (href: string) => (clientId ? `${href}?clientId=${clientId}` : href)
   return (
     <nav className={styles.bottomBar}>
@@ -20,7 +23,7 @@ export default function MobileNav({ active, clientId }: { active: string; client
         type="button"
         className={`${styles.barItem} ${active === 'lora' ? styles.barActive : ''}`}
         style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-        onClick={() => window.dispatchEvent(new Event('loramer:open-chat'))}
+        onClick={() => openLora(router.push, clientId)}
       >
         <i className="ti ti-sparkles" /><span>Lora</span>
       </button>

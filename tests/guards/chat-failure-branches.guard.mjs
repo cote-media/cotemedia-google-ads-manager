@@ -26,7 +26,11 @@ import { dirname, resolve } from 'node:path'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const ROUTE = resolve(ROOT, 'src/app/api/chat/route.ts')
-const CLIENT = resolve(ROOT, 'src/components/redesign/ChatLauncher.tsx')
+// LORAMER_LORA_CHAT_HOOK_V1 — the send loop and its failure branches MOVED out of ChatLauncher into
+// the shared engine hook, because mobile Lora is now a PAGE and the shelf and the page must not fork
+// it. The guard follows the code: a guard pinned to a file the logic has left reports a false failure
+// and, worse, would report a false PASS if the logic were deleted rather than moved.
+const CLIENT = resolve(ROOT, 'src/lib/next/use-lora-chat.ts')
 const PRICING = resolve(ROOT, 'src/lib/spend-logger.ts')
 const CHAIN = resolve(ROOT, 'src/lib/lora-model-chain.ts')
 
@@ -37,7 +41,7 @@ const fail = (m) => failures.push(m)
 const route = read(ROUTE)
 const client = read(CLIENT)
 const pricing = read(PRICING)
-if (!route || !client || !pricing) { console.error('FAIL: cannot read chat route, ChatLauncher, or spend-logger'); process.exit(1) }
+if (!route || !client || !pricing) { console.error('FAIL: cannot read chat route, use-lora-chat, or spend-logger'); process.exit(1) }
 
 // ── 1. DISTINCT ERROR CODES FROM THE ROUTE ────────────────────────────────────────────────────────────────────
 // Strip comments so prose describing the codes cannot satisfy the check.
@@ -55,7 +59,7 @@ if (!/status:\s*503/.test(routeCode)) {
 const clientCode = client.replace(/\/\/[^\n]*/g, '')
 const sendBlock = clientCode.slice(clientCode.indexOf("await fetch('/api/chat'"), clientCode.indexOf('setLoading(false)'))
 if (!sendBlock) {
-  fail('CANNOT LOCATE the /api/chat send block in ChatLauncher — the guard cannot verify branches; treat as failure, never a pass.')
+  fail('CANNOT LOCATE the /api/chat send block in use-lora-chat.ts — the guard cannot verify branches; treat as failure, never a pass.')
 } else {
   const strings = [...sendBlock.matchAll(/'([^'\\]{25,}?)'/g)].map((m) => m[1]).filter((s) => /[a-z]\s/i.test(s))
   const uniq = new Set(strings)

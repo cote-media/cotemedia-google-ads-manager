@@ -6,14 +6,17 @@
 // Drawer close: when this button is tapped inside the mobile drawer, the tap bubbles to the drawer's onClick
 // delegation in TopBar.tsx, which closes the drawer on `closest('a, button')` (widened from 'a' for this button).
 'use client'
+import { useRouter } from 'next/navigation'
+import { openLora } from '@/lib/next/open-lora' // LORAMER_LORA_PAGE_V1 — ONE mobile/desktop branch for every trigger
 
-export default function LoraRailButton({ className, icon, label }: { className: string; icon: string; label: string }) {
+export default function LoraRailButton({ className, icon, label, clientId }: { className: string; icon: string; label: string; clientId?: string }) {
+  const router = useRouter()
   return (
     <button
       type="button"
       className={className}
       style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
-      onClick={() => window.dispatchEvent(new Event('loramer:open-chat'))}
+      onClick={() => openLora(router.push, clientId)}
     >
       <i className={`ti ${icon}`} />
       {label}

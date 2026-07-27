@@ -10,16 +10,13 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom' // LORAMER_NEXT_CHAT_FULLSCREEN_V1
-import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read' // LORAMER_CHAT_STREAMING_V1
+import { useRouter } from 'next/navigation'
+import { openLora } from '@/lib/next/open-lora' // LORAMER_LORA_PAGE_V1 — the pill is the fifth trigger
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
-import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery' // LORAMER_CHAT_ANSWER_RECOVERY_V1
-import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island); NEXT_CHAT_SURFACE also keys the fetch-on-open below
+import { useLoraChat, type Msg } from '@/lib/next/use-lora-chat' // LORAMER_LORA_CHAT_HOOK_V1 — the shared conversation engine
 import styles from './chat.module.css'
 import shell from './redesign.module.css' // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — token scope for the portaled overlay
-
-type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
 
 const SUGGESTIONS = [
   'What were my top hours by spend last month?',
@@ -29,21 +26,19 @@ const SUGGESTIONS = [
 
 export default function ChatLauncher({ clientId, clientName }: { clientId?: string; clientName?: string }) {
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Msg[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const router = useRouter() // LORAMER_LORA_PAGE_V1
   const scrollRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
-  const [streamStatus, setStreamStatus] = useState<string | null>(null) // LORAMER_CHAT_STREAMING_V1 — transient working copy
-  const rowCtxRef = useRef<string | null>(null) // LORAMER_NEXT_PLATFORM_PAGE_V1 — optional per-row context carried into /api/chat (additive; /api/chat already accepts rowContext)
-  const threadMaxIdRef = useRef<number | null>(null) // LORAMER_CHAT_ANSWER_RECOVERY_V1 — watermark for recovery
-  const hydratedForRef = useRef<string | null>(null) // LORAMER_CHAT_FETCH_ON_OPEN_V1 — clientId whose DB history has been loaded into this instance
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
-  const [probeLine, setProbeLine] = useState<string | null>(null) // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the unmissable readout
   const [mounted, setMounted] = useState(false)   // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — portal target exists only client-side
-  const [debug, setDebug] = useState(false)        // LORAMER_NEXT_CHAT_DEBUG_V1 — true only when ?debug=chat is in the URL
+
+  // LORAMER_LORA_CHAT_HOOK_V1 — THE ENGINE. Identical code to what used to live inline here; the shelf
+  // is now a thin container over it, and /dashboard-next/lora is a second container over the SAME hook.
+  const {
+    messages, setMessages, input, setInput, loading, streamStatus,
+    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef,
+    send, onKeyDown, onComposerFocus,
+  } = useLoraChat({ clientId, clientName, active: open, panelRef })
 
   // Any surface (mobile Lora tab, a drill row's ✦) can open the chat by dispatching this event; detail may carry
   // { rowContext, prompt } to open Lora focused on a specific entity. No detail → identical to before.
@@ -62,14 +57,6 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   useEffect(() => { if (!open) rowCtxRef.current = null }, [open])
 
   // Ambient window follows the shared CardEngine date picker (period-bus): seed on mount + subscribe to changes.
-  useEffect(() => {
-    setPeriod(getSharedPeriod())
-    const onPeriod = (e: Event) => { const d = (e as CustomEvent).detail; if (d) setPeriod(d as SharedPeriod) }
-    window.addEventListener('loramer:period', onPeriod)
-    return () => window.removeEventListener('loramer:period', onPeriod)
-  }, [])
-
-  // Esc closes; focus the input + scroll to the newest message when open/updated.
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
@@ -121,131 +108,11 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   // mid-conversation reopen keeps the live in-memory turns (whose fire-and-forget DB writes may still be settling)
   // instead of clobbering them with a stale read. Belt-and-suspenders with the Shell key={clientId} remount: even if
   // this instance were reused across a switch, a clientId change re-hydrates on the next open.
-  useEffect(() => {
-    if (!open) return
-    const cid = clientId || null
-    if (hydratedForRef.current === cid) return
-    hydratedForRef.current = cid
-    if (!cid) { setMessages([]); return }   // portfolio Shell (no real client) — nothing to load
-    let cancelled = false
-    ;(async () => {
-      try {
-        const params = new URLSearchParams({ clientId: cid, surface: NEXT_CHAT_SURFACE })
-        const r = await fetch('/api/conversations?' + params.toString())
-        const d = await r.json().catch(() => ({}))
-        const rows = Array.isArray(d.messages) ? d.messages : []
-        threadMaxIdRef.current = rows.reduce((mx: number, m: { id?: number }) => Math.max(mx, Number(m?.id) || 0), 0) || null // LORAMER_CHAT_ANSWER_RECOVERY_V1
-        const prior = rows.map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content }))
-        if (!cancelled) setMessages(prior)   // this client's OWN history (empty array if none) — never the prior client's
-      } catch { /* a failed load must not blank a live thread or cross-contaminate — leave the fresh-mount empty state */ }
-    })()
-    return () => { cancelled = true }
-  }, [open, clientId])
 
   // LORAMER_NEXT_CHAT_DEBUG_V1 — ?debug=chat opens a live HORIZONTAL-AXIS readout (visualViewport.offsetLeft has never
   // been measured; the reverted fix bound offsetTop = the VERTICAL axis, against a horizontal symptom). Detect the param
   // CLIENT-ONLY (post-mount) so there is zero SSR/default-path effect; absent it, `debug` stays false and NOTHING below runs.
   useEffect(() => { setMounted(true) }, [])
-  useEffect(() => {
-    // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — STICKY for the session. This effect runs once on mount and
-    // reads window.location.search; -next navigates CLIENT-SIDE (TopBar does router.push(?clientId=)),
-    // which REWRITES the query and drops `debug=chat`. That is the most likely reason the readout was
-    // invisible on 2026-07-26 — the flag was silently lost on the way to the client page. Once seen, it
-    // is remembered for the tab, and `?debug=off` clears it.
-    try {
-      const q = new URLSearchParams(window.location.search).get('debug')
-      if (q === 'off') { sessionStorage.removeItem('loramer:debug-chat'); setDebug(false); return }
-      const on = q === 'chat' || sessionStorage.getItem('loramer:debug-chat') === '1'
-      if (on) sessionStorage.setItem('loramer:debug-chat', '1')
-      setDebug(on)
-    } catch { /* URL/storage unavailable — stay off */ }
-  }, [])
-
-  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — THE MEASUREMENT, automatic. On composer focus (i.e. the
-  // moment the keyboard is summoned) capture the full viewport state and POST it to the server, which
-  // logs it. Russ reads nothing and relays nothing.
-  // TWO SAMPLES, deliberately: the keyboard ANIMATES in, so a single synchronous read at focus captures
-  // the PRE-keyboard state and would lie. t=0 is the baseline, t=600ms is after the animation settles;
-  // the DIFFERENCE between them is the signal.
-  // `scale` is the number that decides the mechanism: > 1 means iOS auto-zoomed on the sub-16px input,
-  // which shrinks the VISUAL viewport while position:fixed stays sized to the LAYOUT viewport — that
-  // would explain content appearing below a "full-screen" sheet. == 1 falsifies the auto-zoom candidate.
-  const probeSample = useCallback((phase: string) => {
-    try {
-      const vv = window.visualViewport
-      const scrim = document.querySelector('[role="dialog"]')?.getBoundingClientRect()
-      const panel = panelRef.current?.getBoundingClientRect()
-      const r = (b?: DOMRect) => (b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null)
-      return {
-        probe: 'chat-viewport',
-        phase,
-        at: new Date().toISOString(),
-        route: window.location.pathname + window.location.search,
-        ua: navigator.userAgent,
-        vv: vv ? { scale: vv.scale, height: vv.height, width: vv.width, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, pageTop: vv.pageTop, pageLeft: vv.pageLeft } : null,
-        doc: { clientHeight: document.documentElement.clientHeight, clientWidth: document.documentElement.clientWidth },
-        win: { innerHeight: window.innerHeight, innerWidth: window.innerWidth, scrollY: window.scrollY },
-        scrim: r(scrim as DOMRect | undefined),
-        panel: r(panel),
-      }
-    } catch { return null }
-  }, [])
-
-  // LORAMER_NEXT_CHAT_PROBE_FREEZE_V1 — FREEZE THE DISPLAY ON THE FIRST KEYBOARD-OPEN SAMPLE.
-  // THE DEFECT THIS FIXES (2026-07-26): the readout live-updated, so by the time Russ looked at it, it
-  // was showing whatever the latest sample was — and he relayed `scale 1.000 / vvH 766`, which the
-  // server proved was the focus+600 sample taken SIX SECONDS BEFORE the keyboard opened. The number was
-  // true and the phase was wrong, and it very nearly banked a false falsification of the real cause.
-  // The screen now latches the first sample where the keyboard is actually up and holds it, so what a
-  // human reads is always the phase that matters. The SERVER still receives every sample.
-  const frozenRef = useRef(false)
-  useEffect(() => { if (open) frozenRef.current = false }, [open])   // fresh latch per open
-
-  const probeRef = useRef<(p: string) => void>(() => {})
-  probeRef.current = (phase: string) => {
-    if (!debug) return   // HARD GATE — no flag, no capture, no request. Ever.
-    const s = probeSample(phase)
-    if (!s) return
-    // "keyboard is up" = the VISUAL viewport is materially shorter than the LAYOUT viewport. Measured
-    // 2026-07-26: 766 -> 428, a 338px delta. 100px is well clear of address-bar chrome jitter.
-    const keyboardUp = !!s.vv && s.doc.clientHeight - s.vv.height > 100
-    if (!frozenRef.current) {
-      setProbeLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}scale ${s.vv ? s.vv.scale.toFixed(4) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · overhang ${s.vv ? Math.round(s.doc.clientHeight - s.vv.height) : '—'} · panelBottom ${s.panel?.bottom ?? '—'}`)
-      if (keyboardUp) frozenRef.current = true   // latch: this is the phase a human must see
-    }
-    void fetch('/api/debug/viewport-probe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s),
-      keepalive: true,   // the page may be mid-layout-thrash; keepalive so the beacon still lands
-    }).catch(() => { /* a failed probe must never surface to the user */ })
-  }
-
-  // Fired from the textarea's onFocus. t=0 baseline, then t=600ms after the keyboard animation settles.
-  const onComposerFocus = useCallback(() => {
-    if (!debug) return
-    probeRef.current('focus+0')
-    window.setTimeout(() => probeRef.current('focus+600'), 600)
-  }, [debug])
-
-  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — SAMPLE ON VIEWPORT CHANGE, not only on focus.
-  // CAUGHT IN GATE-A: the panel AUTO-FOCUSES the composer ~60ms after open, so by the time Russ taps
-  // the message box the textarea is ALREADY focused and onFocus never fires again. On iOS that is
-  // fatal to the whole instrument — programmatic focus does not raise the keyboard, so the only sample
-  // would be the no-keyboard state, which is exactly the reading we already have and do not need.
-  // visualViewport.resize fires when the keyboard actually opens, whatever caused it. That is the
-  // event that matters, so it is sampled directly and the focus path is kept as a belt.
-  useEffect(() => {
-    if (!debug || !open) return
-    const vv = window.visualViewport
-    if (!vv) return
-    let t: number | undefined
-    const onResize = () => {
-      window.clearTimeout(t)
-      probeRef.current('vv-resize')                                   // immediate: the transition itself
-      t = window.setTimeout(() => probeRef.current('vv-resize+600'), 600) // settled: after the animation
-    }
-    vv.addEventListener('resize', onResize)
-    return () => { vv.removeEventListener('resize', onResize); window.clearTimeout(t) }
-  }, [debug, open])
 
   // LORAMER_NEXT_CHAT_DEBUG_V1 — the readout. GUARD (proven in Gate-A): early-returns unless debug===true → with no param,
   // ZERO listeners, ZERO interval, ZERO DOM writes. Writes textContent/title/placeholder directly (no React re-render).
@@ -304,138 +171,13 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     }
   }, [debug, open])
 
-  const send = useCallback(async (text: string) => {
-    const q = text.trim()
-    if (!q || loading) return
-    // LORAMER_NEXT_CONV_WRITE_V1 — snapshot the drill focus at turn start so BOTH turns of one exchange share a
-    // scope even if the panel closes mid-flight (rowCtxRef is cleared on close). 'drill' = opened from a drill row.
-    const turnScope = rowCtxRef.current ? 'drill' : null
-    const next = [...messages, { role: 'user' as const, content: q }]
-    setMessages(next)
-    setInput('')
-    setLoading(true)
-    // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
-    // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
-    logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
-    // LORAMER_CHAT_CLIENT_ABORT_V1 — a DELIBERATE client-side ceiling SHORTER than the server maxDuration (300s), so a
-    // slow turn fails at a KNOWN bound with an HONEST message instead of at an unknown browser/gateway limit that
-    // surfaced a misleading "Network error." 120s clears the observed ~59s worst case (and heavier multi-tool turns),
-    // so normal turns are untouched. Stopgap; the durable fix is streaming (★CHAT-STREAMING).
-    // LORAMER_CHAT_STREAMING_V1 — IDLE-GAP, not total-duration. A streamed turn has no meaningful total bound; a
-    // DEAD one stops producing bytes. The timer is re-armed on every SSE event, so a legitimately long multi-tool
-    // answer never trips it while a dropped connection is caught in 45s. With streaming OFF nothing re-arms it and
-    // it degrades to exactly the original 120s total cap — byte-identical behavior, one timer, no second code path.
-    // LORAMER_CHAT_ANSWER_RECOVERY_V1 — DUAL DEADLINE. The old rearmIdle REPLACED the total cap, so once
-    // the first event arrived the absolute ceiling vanished and a stream dripping one byte every 40s ran
-    // forever. The ABSOLUTE deadline is now set once and never re-armed; the IDLE timer arms only AFTER the
-    // first SSE event (rearmIdle is called from the event callback), so with streaming OFF — no events ever —
-    // the total cap alone governs and a healthy 200s blocking turn is never killed by an idle gap it was not
-    // in. Every re-arm is CLAMPED to the remaining time, so the deadline always wins.
-    const controller = new AbortController()
-    const deadlineAt = Date.now() + CHAT_TOTAL_MS
-    let abortTimer = setTimeout(() => controller.abort(), CHAT_TOTAL_MS)
-    const rearmIdle = () => {
-      clearTimeout(abortTimer)
-      abortTimer = setTimeout(() => controller.abort(), Math.max(0, Math.min(CHAT_IDLE_GAP_MS, deadlineAt - Date.now())))
-    }
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: q,
-          history: messages, // prior turns only (server appends the new message from `message`)
-          clientId,
-          clientName,
-          dateRange: period.dateRange || 'LAST_30_DAYS',
-          customStart: period.customStart,
-          customEnd: period.customEnd,
-          location: 'chat',
-          // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — declare the conversation target so the SERVER writes
-          // the assistant turn. This is what moves ownership; without it the server writes nothing.
-          persistTurn: { surface: NEXT_CHAT_SURFACE, scope: turnScope },
-          ...(rowCtxRef.current ? { rowContext: rowCtxRef.current } : {}), // LORAMER_NEXT_PLATFORM_PAGE_V1 — per-row focus (drill ✦); absent otherwise
-        }),
-      })
-      const d = await readChatResponse(res, (ev, data, live) => {
-        rearmIdle()
-        // LIVE RENDER. `live` is the answer text accumulated so far, so the user watches it appear instead of a
-        // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
-        // show what Lora is actually doing. All of this is TRANSIENT — cleared in the finally block, and
-        // logNextConversationTurn still fires only on the authoritative answer, so nothing provisional persists.
-        if (ev === 'tool' && data?.name) setStreamStatus(`Checking ${String(data.name).replace(/_/g, ' ')}…`)
-        else if (ev === 'delta') setStreamStatus(live || null)
-      })
-      // LORAMER_CHAT_FAILURE_BRANCHES_V1 — EVERY failure mode gets its OWN sentence. Before this, a 503 from an
-      // exhausted model chain and a 500 from a real bug rendered the SAME string, so the user could not tell
-      // "Anthropic is busy, retry in a minute" from "something is broken, tell Russ" — and neither could we,
-      // reading a screenshot. The `error` codes are machine-readable and set by the route, not sniffed from prose.
-      const reply = d.ok
-        ? (d.response || 'I wasn’t able to complete that — please try rephrasing.')
-        : d.error === 'Client not found'
-          ? 'I can’t access this client’s data from here.'
-          : d.error === 'overloaded'
-            // Chain exhausted: every model was busy. This is Anthropic-side capacity, NOT your data and NOT a
-            // bug — say so, because the honest action is "wait and re-ask", not "report a problem".
-            ? 'Claude is overloaded right now — I tried every model available to me and all of them were busy. Nothing is wrong with your data or your connection. Please try again in a minute.'
-            : 'Something went wrong on my side — this is an error, not a busy model. Please try again, and if it keeps happening it’s worth flagging.'
-      setMessages((m) => [...m, { role: 'assistant', content: reply }])
-      // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — the assistant turn is written SERVER-SIDE by /api/chat,
-      // from inside the stream close path. It is NOT written here and must never be: this line ran
-      // only if the browser survived the read, which is how two answers were lost on 2026-07-26.
-      // The user turn above stays client-side (unchanged this slice).
-    } catch (e) {
-      // LORAMER_CHAT_ANSWER_RECOVERY_V1 (amends LORAMER_CHAT_CLIENT_ABORT_V1 + LORAMER_CHAT_FAILURE_BRANCHES_V1).
-      // Classify on the SIGNAL WE OWN, not the error's name: iOS Safari reports an abort as
-      // `TypeError: Load failed`, identical to a real network drop, which is how a COMPLETED turn rendered as
-      // "the connection dropped" on 2026-07-26. No string here may assert the answer was lost — since the
-      // server persists the assistant turn from its own completion path, that claim is false and unknowable.
-      const kind = classifyTurnFailure(controller.signal.aborted, e)
-      // ONE bubble, keyed, replaced in place — never a second bubble appended.
-      const key = `rec:${Date.now()}`
-      setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])
-      const replace = (content: string) =>
-        setMessages((m) => m.map((x) => (x.recoveryKey === key ? { role: 'assistant' as const, content } : x)))
-      // RECOVERY IS A READ. It re-fetches the thread; it NEVER re-POSTs /api/chat. A silent retry would
-      // double the spend on a turn that most likely already succeeded.
-      let done = false
-      const since = threadMaxIdRef.current
-      if (clientId && since != null) {
-        const until = Date.now() + RECOVERY_WINDOW_MS
-        while (!done && Date.now() < until) {
-          try {
-            const params = new URLSearchParams({ clientId, surface: NEXT_CHAT_SURFACE })
-            const rr = await fetch('/api/conversations?' + params.toString())
-            const dd = await rr.json().catch(() => ({}))
-            const got = pickRecoveredAnswer(Array.isArray(dd.messages) ? dd.messages : [], since)
-            if (got.status === 'found') { threadMaxIdRef.current = got.maxId; replace(got.text); done = true; break }
-            if (got.status === 'ambiguous') { replace(COPY.AMBIGUOUS); done = true; break }
-          } catch { /* a failed recovery read must never throw into the turn */ }
-          await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
-        }
-      }
-      if (!done) {
-        // The answer may still land after our window closes (server maxDuration 300s > our 240s), so force
-        // the next open to re-read the thread rather than trusting the per-client hydration guard.
-        hydratedForRef.current = null
-        replace(kind === 'aborted' ? COPY.ABORTED_UNCONFIRMED : COPY.NETWORK_UNCONFIRMED)
-      }
-    } finally {
-      clearTimeout(abortTimer)
-      setStreamStatus(null)
-      setLoading(false)
-    }
-  }, [messages, loading, clientId, clientName, period])
-
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
-  }
-
   return (
     <>
       {/* Trigger — visually the same "Ask Lora" pill it replaces, now a real button. */}
-      <button type="button" className={styles.trigger} onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
+      {/* LORAMER_LORA_PAGE_V1 — the fifth trigger. On mobile this navigates to the full-screen page; on
+          desktop it opens the shelf exactly as before. Same helper as the other four, so the branch
+          cannot drift between them. */}
+      <button type="button" className={styles.trigger} onClick={() => openLora(router.push, clientId)} aria-haspopup="dialog" aria-expanded={open}>
         <i className="ti ti-sparkles" /> Ask Lora
       </button>
 

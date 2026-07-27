@@ -29,6 +29,8 @@ const failures = []
 const fail = (m) => failures.push(m)
 
 const chat = read('src/components/redesign/chat.module.css')
+const page = read('src/app/dashboard-next/lora/lora-page.module.css')
+const pageTsx = read('src/app/dashboard-next/lora/LoraPageClient.tsx')
 const shell = read('src/components/redesign/redesign.module.css')
 const launcher = read('src/components/redesign/ChatLauncher.tsx')
 if (!chat || !shell || !launcher) { console.error('FAIL: cannot read the chat chain sources'); process.exit(1) }
@@ -42,6 +44,11 @@ const rules = (css, cls) => {
   return out
 }
 const scrolls = (body) => /overflow(-y)?\s*:\s*(auto|scroll)/.test(body)
+// STRIP COMMENTS BEFORE SCANNING. Without this the guard matches its own subject matter: the page CSS
+// carries "⛔ NOTHING position:fixed" and "⛔ NO dvh ANYWHERE" as comments explaining WHY they are
+// banned, and a naive scan reads those as violations. A guard that fires on the documentation of a
+// rule is not checking the rule.
+const strip = (css) => (css || '').replace(/\/\*[\s\S]*?\*\//g, '')
 
 // ── 1. EXACTLY ONE VERTICAL SCROLLER IN THE CHAIN ─────────────────────────────────────────────────
 // The chain, verified 2026-07-26: body > .root > .body > .main > .subheader > .scrim > .panel > .scroll
@@ -102,10 +109,58 @@ if (!/createPortal\(/.test(launcher) || !/document\.body,/.test(launcher)) {
   fail('THE OVERLAY IS NOT PORTALED TO document.body. No ancestor defeats position:fixed today, but a portal makes that permanent rather than a fact that has to be re-verified every time Shell changes.')
 }
 
+// ── 7. THE PAGE CHAIN (LORAMER_LORA_PAGE_V1) ──────────────────────────────────────────────────────
+// Mobile Lora is a SECOND surface over the same engine. A guard that only covered the shelf would
+// silently guard half the product the moment the page shipped — which is exactly the gap that let an
+// invisible send button live in production for five and a half hours.
+if (!page || !pageTsx) {
+  fail('CANNOT READ the /dashboard-next/lora page sources — the page half of the chat surface is unguarded. Treat as failure, never a pass.')
+} else {
+  // The page is validated on DOCUMENT-flow scrolling. A scroll container in its chain would pin the
+  // composer to that container's height, which is the overlay pattern that failed six times.
+  const pageScrollers = ['page', 'list', 'composer', 'head'].filter((c) => rules(page, c).some(scrolls))
+  if (pageScrollers.length) {
+    fail(`THE LORA PAGE HAS ${pageScrollers.length} SCROLL CONTAINER(S) (${pageScrollers.join(', ')}). The page works BECAUSE the document scrolls — a scroller here pins the composer to its height and reintroduces the overlay geometry the probe was built to escape.`)
+  }
+  if (/position\s*:\s*fixed/.test(strip(page))) {
+    fail('THE LORA PAGE USES position:fixed. Six overlay attempts died on hand-positioned geometry; the page must stay in normal flow.')
+  }
+  if (/\bdvh\b/.test(strip(page))) {
+    fail('THE LORA PAGE USES dvh. The 874 finding: on iOS dvh resolves to the LARGE viewport (874) while documentElement.clientHeight is the small one (766), so a dvh-sized surface overhangs before the keyboard is involved.')
+  }
+  if (!rules(page, 'input').some((b) => /font-size\s*:\s*16px/.test(b))) {
+    fail('THE LORA PAGE INPUT IS NOT 16px. iOS auto-zooms any focused input under 16px — MEASURED at 1.1431818x (LORAMER_NEXT_CHAT_INPUT_16PX_V1).')
+  }
+  if (!rules(page, 'send').some((b) => /background\s*:\s*var\(--accent\)/.test(b))) {
+    fail('THE LORA PAGE SEND BUTTON does not use var(--accent) — check it has a visible background at all.')
+  }
+  // The page renders OUTSIDE Shell, so it is outside `.root` and inherits the portal trap.
+  if (!/shell\.tokens/.test(pageTsx)) {
+    fail('THE LORA PAGE DOES NOT CARRY `.tokens`. It renders outside <Shell>, therefore outside `.root`, so every var(--) resolves to nothing and every colour dies exactly as the send button did (LORAMER_PORTAL_SEVERS_CSS_VARS_V1).')
+  }
+  // The probe FALSIFIED "iOS scrolls the focused input into view". Scroll is ours to manage.
+  // Pinned to BEHAVIOUR, not to a one-liner's exact shape: the mount effect grew (it now also takes
+  // scrollRestoration off the browser), and a guard that only matched the original single line failed
+  // on an improvement. Match the things that must be TRUE, not the way they were first written.
+  for (const [what, re] of [
+    ['on mount', /history\.scrollRestoration = 'manual'[\s\S]{0,400}bottom\(\)/],
+    ['on new message', /\}, \[messages, loading, streamStatus\]\)/],
+    ['on composer focus', /onFocus=\{\(\) => \{ onComposerFocus\(\); setTimeout/],
+  ]) {
+    if (!re.test(pageTsx)) fail(`THE LORA PAGE DOES NOT SCROLL TO BOTTOM ${what}. iOS does NOT do this for us — measured: clearance -2013 at scrollY 149, -761 at 1475, +308 only at the document bottom.`)
+  }
+  if (!/requestAnimationFrame\(go\)/.test(pageTsx) || !/setTimeout\(go/.test(pageTsx)) {
+    fail('THE LORA PAGE SCROLLS ONLY ONCE PER CHANGE. A hydrated markdown thread is not laid out at commit time — measured 22,784px of content settling after React commits — so a single scroll lands against a stale scrollHeight and the page sits at the top. Scroll again on the next frame and after a beat.')
+  }
+  if (!/env\(safe-area-inset-top/.test(page) || !/env\(safe-area-inset-bottom/.test(page)) {
+    fail('THE LORA PAGE IS MISSING a safe-area inset (top and bottom are both required on a full-screen surface).')
+  }
+}
+
 if (failures.length) {
   console.error('\n❌ LORAMER_NEXT_CHAT_FULLSCREEN_GUARD_V1 FAILED\n')
   failures.forEach((f) => console.error('  • ' + f))
   console.error('')
   process.exit(1)
 }
-console.log(`chat-scroll-chain.guard: PASS — one scroller (.scroll) with overscroll containment, body lock restores prior value, nothing fixed inside .panel, scrim z=${scrimZ} > ${maxOther}, overlay portaled.`)
+console.log(`chat-scroll-chain.guard: PASS — shelf + page. one scroller (.scroll) with overscroll containment, body lock restores prior value, nothing fixed inside .panel, scrim z=${scrimZ} > ${maxOther}, overlay portaled.`)

@@ -69,7 +69,7 @@ export default function RailContent({
               {item.id === 'lora' ? (
                 // LORAMER_NEXT_RAIL_LORA_TRIGGER_V1 — dispatch 'loramer:open-chat' (same as MobileNav) instead of
                 // rendering a Link to /dashboard-next/lora, which does not exist and 404s via [platform] notFound().
-                <LoraRailButton className={cls} icon={item.icon} label={item.label} />
+                <LoraRailButton className={cls} icon={item.icon} label={item.label} clientId={clientId} />
               ) : (
                 <Link href={item.connect ? item.href : withClient(item.href)} className={cls}>
                   <i className={`ti ${item.icon}`} />

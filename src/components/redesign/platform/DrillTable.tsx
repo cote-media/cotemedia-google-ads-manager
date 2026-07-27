@@ -4,6 +4,8 @@
 // that row loaded (rowContext flows to /api/chat, which already accepts it — /api/chat UNTOUCHED). Columns match the
 // /api/next/entities response (base + derived); no legacy COLUMN_DEFS import.
 'use client'
+import { useRouter } from 'next/navigation'
+import { openLora } from '@/lib/next/open-lora' // LORAMER_LORA_PAGE_V1 — ONE mobile/desktop branch for every trigger
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './platform.module.css'
@@ -37,6 +39,7 @@ function fmt(v: number | null, kind: Kind): string {
 export default function DrillTable({ rows, totals, nameLabel, canDrill, platform, onDrill }: {
   rows: Ent[]; totals: Totals; nameLabel: string; canDrill: boolean; platform: string; onDrill: (row: Ent) => void
 }) {
+  const router = useRouter() // LORAMER_LORA_PAGE_V1
   const [active, setActive] = useState<string[]>(() => COLUMNS.filter((c) => c.defaultOn).map((c) => c.id))
   const [pickerOpen, setPickerOpen] = useState(false)
   const colBtnRef = useRef<HTMLButtonElement>(null)
@@ -64,7 +67,7 @@ export default function DrillTable({ rows, totals, nameLabel, canDrill, platform
   const askLora = (row: Ent) => {
     const roas = row.derived?.roas ? `, ROAS ${row.derived.roas.toFixed(2)}×` : ''
     const ctx = `${platform === 'meta' ? 'Meta' : 'Google'} ${nameLabel}: "${row.entityName}" — spend $${Math.round(row.spend)}, ${Math.round(row.clicks)} clicks, ${Number(row.conversions).toFixed(1)} conversions${roas}.`
-    window.dispatchEvent(new CustomEvent('loramer:open-chat', { detail: { rowContext: ctx, prompt: `How is "${row.entityName}" performing, and what should I do about it?` } }))
+    openLora(router.push, undefined, { rowContext: ctx, prompt: `How is "${row.entityName}" performing, and what should I do about it?` })
   }
 
   return (
