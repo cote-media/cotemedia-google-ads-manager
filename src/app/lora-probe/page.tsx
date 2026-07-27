@@ -13,6 +13,11 @@
 //   · page height by normal document flow; the DOCUMENT is the scroller
 //   · carried over: 16px input (no iOS auto-zoom), safe-area insets, overscroll-behavior contain
 //
+// ⚠ LIVES AT /lora-probe, THE APP ROOT — deliberately NOT under /dashboard-next. That tree's layout
+// runs isPreviewUser() and enforceWelcomeGate(), which is what blocked access. Moving the route OUT of
+// the gated tree needs ZERO middleware change: middleware's matcher only covers legacy paths
+// (/dashboard/*, /clients/*, six /api routes) and never matched this. No exemption, no hole.
+//
 // ⚠ DELIBERATELY NOT WRAPPED IN <Shell>. Shell's `.main` sets `overflow: hidden` and `.root` sets
 // `min-height: 100vh` with a flex column — that would defeat document-flow scrolling and the probe
 // would be testing the overlay pattern again by accident. NOTE FOR THE REAL BUILD: if /lora ends up
@@ -50,10 +55,11 @@ export default function LoraProbePage() {
       const clearance = composerBottomInVisual == null ? null : Math.round(visibleBottom - composerBottomInVisual)
 
       const payload = {
-        probe: 'chat-viewport',
+        probe: 'lora-page-probe',
         phase: `page-${phase}`,
         at: new Date().toISOString(),
         route: window.location.pathname,
+        note: 'lora page probe — public, dummy content only',
         ua: navigator.userAgent,
         vv: { scale: vv.scale, height: vv.height, width: vv.width, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, pageTop: vv.pageTop, pageLeft: vv.pageLeft },
         doc: { clientHeight: docH, clientWidth: document.documentElement.clientWidth, scrollHeight: document.documentElement.scrollHeight },
@@ -66,7 +72,7 @@ export default function LoraProbePage() {
         setLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}vvH ${Math.round(vv.height)} · docH ${docH} · scrollY ${Math.round(window.scrollY)} · composerBottom ${payload.verdict.composerBottomInVisual ?? '—'} · clearance ${clearance ?? '—'} · ${clearance != null && clearance >= 0 ? 'VISIBLE' : 'UNDER KEYBOARD'}`)
         if (keyboardUp) frozen.current = true   // latch the keyboard-up phase, per the 07-26 lesson
       }
-      void fetch('/api/debug/viewport-probe', {
+      void fetch('/api/debug/lora-probe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), keepalive: true,
       }).catch(() => {})
