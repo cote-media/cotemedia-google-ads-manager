@@ -23,12 +23,26 @@
   border-bottom: 1px solid var(--surface);
   padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
 }
+/* LORAMER_LORA_PAGE_ICONS_V1 — THE CLOSE AFFORDANCE PAINTS ITSELF.
+   ⛔ WHY IT WAS INVISIBLE: this rule used to be `background:none; border:none; padding:4px` around an
+   `<i class="ti ti-chevron-left">`. The Tabler webfont is linked ONLY from Shell.tsx:34 and this page
+   renders WITHOUT Shell, so the glyph never existed — leaving a transparent, borderless, contentless
+   button roughly 8px wide. It was in the DOM and in bounds and Russ could not see it, because there
+   was nothing to see. It now has its OWN size, its OWN surface and an inline SVG child, so its
+   visibility depends on nothing this page has to inherit. */
 .back {
-  background: none; border: none; padding: 4px; margin: -4px;
-  color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer;
+  flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--surface); border: 1px solid #dbe2ea;
+  color: var(--ink); cursor: pointer; padding: 0;
+  /* 36px is the painted circle; the tap target is 44px, the iOS minimum. */
+  outline-offset: 2px;
+  position: relative;
 }
+.back::after { content: ''; position: absolute; inset: -4px; }
 .title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--ink); min-width: 0; }
-.title i { color: var(--accent); }
+.spark { display: inline-flex; color: var(--accent); }
 .client { font-weight: 400; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .probe {
@@ -41,9 +55,14 @@
 
 /* overscroll-behavior is set for parity with the shelf. With document-flow scrolling it is inert
    here — stated rather than left to look load-bearing. */
+/* LORAMER_LORA_PAGE_KEYBOARD_INSET_V1 — the bottom padding COMPENSATES for the composer's lift.
+   A sticky composer pulled up by `--lora-kb-inset` paints over the last `inset` px of this list, so
+   the list grows by the same amount and the newest turn stays above the composer instead of behind
+   it. With the keyboard down the inset is 0 and this is byte-identical to the flat 16px it replaces. */
 .list {
   flex: 1; min-width: 0; overscroll-behavior: contain;
-  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  padding: 16px 16px calc(16px + var(--lora-kb-inset, 0px));
+  display: flex; flex-direction: column; gap: 12px;
 }
 .empty { margin: auto 0; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; padding: 24px 12px; }
 
@@ -83,13 +102,31 @@
 @keyframes lblink { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
 .streamStatus { display: block; font-size: 13px; font-style: italic; opacity: .72; line-height: 1.45; }
 
-/* THE COMPOSER — an ordinary in-flow element at the end of the document. Not fixed, not sticky.
-   Its visibility comes from the document being scrolled to the bottom, which this page manages
-   explicitly because iOS does not. */
+/* THE COMPOSER — LORAMER_LORA_PAGE_KEYBOARD_INSET_V1.
+   STICKY, NEVER FIXED. It is still an ordinary in-flow element at the end of the document; sticky
+   only changes where it PAINTS once it would scroll out of the visible band, so reading history no
+   longer means scrolling back down to type.
+   ⛔ position:fixed is banned here and six overlay attempts are the reason. Sticky keeps the element
+      in flow, keeps the DOCUMENT as the scroller, and needs no computed rect.
+   `bottom: var(--lora-kb-inset, 0px)` is the ENTIRE keyboard mechanism, and it is chosen for how it
+   fails: with no JS, no visualViewport, or a stale value the inset is 0, the composer pins to the
+   bottom of the layout viewport — which is precisely where it already sits, on device, today, at the
+   end of a scrolled-to-bottom document. The fallback of the new mechanism is the old mechanism. */
 .composer {
+  position: sticky; bottom: var(--lora-kb-inset, 0px); z-index: 2;
   display: flex; align-items: flex-end; gap: 8px;
   border-top: 1px solid var(--surface); background: var(--white, #fff);
   padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* LORAMER_LORA_PAGE_JUMP_TO_BOTTOM_V1 — absolute inside the sticky composer, NOT fixed to the
+   viewport. It inherits the composer's position, including the keyboard lift, for free. */
+.jump {
+  position: absolute; right: 14px; top: -48px;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  background: var(--ink); color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .28);
 }
 .input {
   /* 16px is load-bearing: iOS auto-zooms any focused input under 16px, MEASURED at 1.1431818x

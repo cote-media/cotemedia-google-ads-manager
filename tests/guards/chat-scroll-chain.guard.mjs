@@ -49,6 +49,13 @@ const scrolls = (body) => /overflow(-y)?\s*:\s*(auto|scroll)/.test(body)
 // banned, and a naive scan reads those as violations. A guard that fires on the documentation of a
 // rule is not checking the rule.
 const strip = (css) => (css || '').replace(/\/\*[\s\S]*?\*\//g, '')
+// SAME TRAP, TSX EDITION — and it caught this guard on its own first run. The banned pattern below is
+// `className="ti …"`, and the fix comments in LoraPageClient.tsx QUOTE that string to explain why it
+// is banned. A guard that fires on the documentation of a rule is not checking the rule (the CSS half
+// of this file learned it first). `//` is only a comment when it is not part of a `://` URL.
+const stripTs = (src) => (src || '')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/(^|[^:])\/\/[^\n]*/g, '$1')
 
 // ── 1. EXACTLY ONE VERTICAL SCROLLER IN THE CHAIN ─────────────────────────────────────────────────
 // The chain, verified 2026-07-26: body > .root > .body > .main > .subheader > .scrim > .panel > .scroll
@@ -148,11 +155,105 @@ if (!page || !pageTsx) {
     // Behaviour, not shape: onFocus must run the probe AND scroll. The exact one-liner changed when
     // the focus handler learned that the keyboard arrives after focus, and a shape-pinned regex failed
     // on the improvement — second time tonight, so this one matches what must be TRUE.
-    ['on composer focus', /onFocus=\{\(\) => \{[\s\S]{0,120}onComposerFocus\(\)[\s\S]{0,120}bottom\(/],
+    // (`bottom(` matches followBottom( too — the focus scroll became pin-aware in
+    // LORAMER_LORA_PAGE_STICK_TO_BOTTOM_V1 and both spellings are a scroll-to-bottom.)
+    ['on composer focus', /onFocus=\{\(\) => \{[\s\S]{0,160}onComposerFocus\(\)[\s\S]{0,160}[bB]ottom\(/],
   ]) {
     if (!re.test(pageTsx)) fail(`THE LORA PAGE DOES NOT SCROLL TO BOTTOM ${what}. iOS does NOT do this for us — measured: clearance -2013 at scrollY 149, -761 at 1475, +308 only at the document bottom.`)
   }
-  if (!/requestAnimationFrame\(go\)/.test(pageTsx) || !/setTimeout\(go/.test(pageTsx)) {
+
+  // ── 7a. STICK-TO-BOTTOM: AUTO-SCROLL MAY NEVER OVERRIDE A DELIBERATE USER SCROLL ────────────────
+  // THE BUG (2026-07-27, Russ, "worst one"): every auto-scroll was unconditional, so scrolling up to
+  // read history got yanked back down. THE CLASS: any NEW auto-scroll added to this page must be
+  // pin-aware too — which is why this checks that the pin exists AND that the two known automatic
+  // callers go through it, rather than checking one line.
+  if (!/pinnedRef/.test(pageTsx) || !/const followBottom =/.test(pageTsx)) {
+    fail('THE LORA PAGE HAS NO STICK-TO-BOTTOM PIN. Auto-scroll must follow the bottom ONLY while the user is already near it; an auto-scroll that overrides a deliberate upward scroll is worse than no auto-scroll (Russ, 2026-07-27).')
+  }
+  if (!/window\.addEventListener\('scroll'/.test(pageTsx)) {
+    fail('NOTHING WATCHES THE SCROLL POSITION, so the pin can never be released or restored. Track it: unpin when the user moves upward, re-pin when they return to the bottom.')
+  }
+  // MEASURED 2026-07-27: globals.css sets `html { scroll-behavior: smooth }`, and `behavior: 'auto'`
+  // means "use the computed scroll-behavior" — so every scroll this page called instant was ANIMATED,
+  // still moving 3.7s later on a 26,677px thread. 'instant' is the only value that ignores the CSS.
+  if (/scroll-behavior\s*:\s*smooth/.test(strip(read('src/app/globals.css') || '')) && /behavior:\s*'auto'/.test(stripTs(pageTsx))) {
+    fail("THE LORA PAGE SCROLLS WITH behavior:'auto' WHILE globals.css SETS `html { scroll-behavior: smooth }`. 'auto' defers to the CSS, so the scroll is ANIMATED — measured still moving 3.7 SECONDS later on a 26,677px thread, under the user's finger. Use 'instant' where instant is meant.")
+  }
+  // A pin that governs only the DECISION to scroll, and not the scrolls already scheduled, is not a
+  // pin. Gate-A measured this: a settle at the bottom scheduled a +250ms retry, the user scrolled up
+  // and correctly unpinned inside that window, and the orphaned timer dragged them back anyway.
+  const bottomFn = (pageTsx.match(/const bottom = \([\s\S]*?\n  \}\n/) || [''])[0]
+  if (!/requestAnimationFrame\(\(\) => \{ if \(stillFollowing\(\)\)/.test(bottomFn) || !/setTimeout\(\(\) => \{ if \(stillFollowing\(\)\)/.test(bottomFn)) {
+    fail('THE DEFERRED SCROLL RETRIES DO NOT OBEY THE PIN. `bottom()` fires three times to survive late markdown layout; if the rAF and +250ms shots run unconditionally, a user who scrolls up inside that window is dragged back by a scroll they already cancelled — measured on a 23,548px thread, every time.')
+  }
+  // ⚠ AND THE GATE MAY NOT BE THE REACT PIN ALONE. INSTRUMENTED IN WEBKIT: after a scroll to the top,
+  // the ResizeObserver fired at t+111ms and the `scroll` EVENT did not arrive until t+134ms — so a
+  // gate that learns the user's position only from the event reads a stale `true` in between and
+  // scrolls them back. The synchronous truth is "is the view now above where WE last put it".
+  if (!/const stillFollowing = \(\)/.test(pageTsx) || !/lastAutoYRef/.test(pageTsx) || !/const userMovedUp = \(\)/.test(pageTsx)) {
+    fail('THE FOLLOW GATE HAS NO SYNCHRONOUS POSITION CHECK. The scroll event LAGS (measured 134ms vs a ResizeObserver at 111ms), so a pin updated only from that event is stale exactly when it matters. Record where the last automatic scroll put the view and compare against it in the same tick.')
+  }
+  if (!/new ResizeObserver\(/.test(pageTsx)) {
+    fail('NOTHING RE-GLUES THE VIEW WHILE CONTENT IS STILL GROWING. A hydrated markdown thread lays out after our last retry — measured landing 64px short on open and 1,294px short after an answer — so a pinned view must follow the list resizing, not just fire three scrolls inside 250ms.')
+  }
+  // The NEW-MESSAGE effect and the KEYBOARD-ARRIVAL handler are the two automatic scrolls. Both must
+  // be pin-aware. A bare `bottom(` in either is the regression.
+  const msgEffect = (pageTsx.match(/const didInitialScroll[\s\S]*?\}, \[messages, loading, streamStatus\]\)/) || [''])[0]
+  if (!/followBottom\(/.test(msgEffect)) {
+    fail('THE NEW-MESSAGE AUTO-SCROLL IS NOT PIN-AWARE. A new message arriving while the user is reading history must NOT yank the view to the bottom.')
+  }
+  const vvEffect = (pageTsx.match(/const vv = typeof window[\s\S]*?removeEventListener\('resize', apply\)/) || [''])[0]
+  if (!/followBottom\(/.test(vvEffect)) {
+    fail('THE KEYBOARD-ARRIVAL SCROLL IS NOT PIN-AWARE. Russ called this one out by name: the visualViewport-resize scroll must obey the same rule as every other auto-scroll.')
+  }
+
+  // ── 7b. THE STICKY COMPOSER AND ITS KEYBOARD INSET ─────────────────────────────────────────────
+  // Russ: the composer must stay visible at every scroll position. The ONLY sanctioned way to do that
+  // here is `position: sticky` with a bottom inset — fixed is banned (checked above, and it is the
+  // pattern six overlay attempts died on).
+  const composerRules = rules(page, 'composer')
+  if (!composerRules.some((b) => /position\s*:\s*sticky/.test(b))) {
+    fail('THE COMPOSER IS NOT STICKY. At the end of the document it is only visible when the thread is scrolled to the bottom, so reading history means scrolling all the way back down to type.')
+  }
+  if (!composerRules.some((b) => /bottom\s*:\s*var\(--lora-kb-inset,\s*0px\)/.test(b))) {
+    fail('THE COMPOSER DOES NOT PIN TO `bottom: var(--lora-kb-inset, 0px)`. The default of 0 is load-bearing: with no JS, no visualViewport, or a stale value the composer must degrade to the bottom of the layout viewport, which is the geometry already proven on device. A hardcoded bottom cannot lift clear of the keyboard; a var with no fallback resolves to nothing.')
+  }
+  if (!/--lora-kb-inset/.test(pageTsx) || !/visualViewport/.test(pageTsx)) {
+    fail('NOTHING SETS `--lora-kb-inset`. The inset must be measured from visualViewport (docH - offsetTop - vvH), or the sticky composer pins to the layout-viewport bottom, which the iOS keyboard occludes.')
+  }
+  // The lift paints over the tail of the list unless the list grows by the same amount.
+  if (!rules(page, 'list').some((b) => /padding[^;]*var\(--lora-kb-inset/.test(b))) {
+    fail('THE LIST DOES NOT COMPENSATE FOR THE COMPOSER LIFT. A composer pulled up by the keyboard inset paints over the last N px of the thread — the newest turn, the one being answered — unless the list gains the same padding.')
+  }
+
+  // ── 7c. JUMP-TO-BOTTOM — what makes unpinning safe ─────────────────────────────────────────────
+  if (!/aria-label="Jump to latest"/.test(pageTsx)) {
+    fail('NO JUMP-TO-BOTTOM AFFORDANCE. Once auto-scroll stops following the user, the only way back to the newest turn is scrolling a 20,000px thread by hand.')
+  }
+  if (!rules(page, 'jump').some((b) => /position\s*:\s*absolute/.test(b))) {
+    fail('THE JUMP-TO-BOTTOM BUTTON IS NOT `position: absolute` INSIDE THE STICKY COMPOSER. A floating button is the obvious place to reach for position:fixed — which is banned on this page. Riding the composer gives it the keyboard lift for free and no geometry of its own.')
+  }
+
+  // ── 7d. NOTHING ON THIS PAGE MAY DEPEND ON A SHELL-PROVIDED STYLESHEET ─────────────────────────
+  // THE BUG (2026-07-27): the back button rendered `<i class="ti ti-chevron-left">`, but the Tabler
+  // webfont is linked from a single <link> inside Shell and this page renders WITHOUT Shell. The
+  // glyph never existed, and a transparent borderless button with no content is invisible.
+  // THE CLASS, and it is the SECOND instance: rendering outside Shell silently drops whatever Shell
+  // provided. First the CSS custom properties (the invisible send button), then the icon font.
+  if (/className="ti |className=\{`ti |class="ti /.test(stripTs(pageTsx))) {
+    fail('THE LORA PAGE USES THE `ti` ICON WEBFONT. It is linked ONLY from Shell.tsx and this page renders OUTSIDE Shell, so every such glyph is an empty element — which is exactly why Russ reported "there is no back button" on a button that was in the DOM and in bounds. Use inline SVG; depend on nothing handed down.')
+  }
+  if (!/<svg /.test(pageTsx)) {
+    fail('THE LORA PAGE RENDERS NO INLINE SVG. Its icons must be self-contained — see above.')
+  }
+  // The close affordance must paint something of its own, not rely on a glyph for its entire bulk.
+  if (!rules(page, 'back').some((b) => /background\s*:\s*var\(--/.test(b)) || !rules(page, 'back').some((b) => /width\s*:\s*\d+px/.test(b))) {
+    fail('THE CLOSE BUTTON HAS NO SURFACE AND NO SIZE OF ITS OWN. It was `background:none; border:none; padding:4px` around a glyph that did not render — roughly 8px of nothing. Give it its own box so its visibility never depends on its contents.')
+  }
+  // Behaviour, not shape (third time this file has been bitten by a shape-pinned regex): there must be
+  // a next-frame retry AND a delayed retry. How they are spelled changed when they learned to obey the
+  // pin.
+  if (!/requestAnimationFrame\(/.test(pageTsx) || !/setTimeout\([\s\S]{0,60}, 250\)/.test(pageTsx)) {
     fail('THE LORA PAGE SCROLLS ONLY ONCE PER CHANGE. A hydrated markdown thread is not laid out at commit time — measured 22,784px of content settling after React commits — so a single scroll lands against a stale scrollHeight and the page sits at the top. Scroll again on the next frame and after a beat.')
   }
   // A full-screen page with no visible exit is a trap. router.back() alone is not an exit: on a fresh
