@@ -14,6 +14,253 @@ an EMPTY manifest block — which meant the completeness gate had been checking 
 platform. Per-platform detail is in the sections below; build ORDER and open items stay owned by
 LORAMER_QUEUE_OF_RECORD.md.
 
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+# T2 CAPTURE-COMPLETENESS MATRIX — THE THREE-STATE DELIVERABLE (2026-07-27). T2 CLOSES HERE.
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+<!-- LORAMER_T2_CAPTURE_MATRIX_V1 -->
+THE THIRD STATE IS THE WHOLE POINT. "We don't capture it" and "the vendor won't serve it" have been the same
+blank in every prior audit, and only one of them is a defect. Every NOT-OFFERED cell below now carries a vendor
+citation or is demoted to DERIVED and says so.
+CONFIDENCE: **VERIFIED** = current vendor documentation, cited · **DERIVED** = our own live probe, no current doc
+found either way · **UNVERIFIED** = neither. Row counts are VERIFIED live reads of metrics_daily (2026-07-27).
+WHAT THIS SUPERSEDES: the 2026-06-20 five-platform matrix (grains, no dimensions), the 2026-07-18 surface audit
+(vendor docs vs our WRITERS — could not see whether rows landed), and the 2026-07-15 master audit (tuple existence
+via skip-scan — no volume, no dates). This is the first pass that carries row counts, date ranges AND vendor
+citations in the same table.
+
+## §T2.0 — VERSION POSTURE. READ THIS FIRST; IT REFRAMES EVERY CELL BELOW.
+Three of five platforms are pinned to a version older than the vendor's current one, and on two of them the pin is
+probably fiction — the vendor silently serves something newer. We have already been burned by exactly this once
+(Shopify: we asked 2025-01, Shopify served 2025-10, OBSERVED — LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1).
+- **GOOGLE ADS — we are on v23** (`google-ads-api` npm ^23.0.0, whose major tracks the API version). Vendor current
+  is **v25** (released 21-22 July 2026); v26 lands October 2026. v23 shipped 28 January 2026 and sunsets ~Jan/Feb
+  2027 on the 12-month lifecycle. Google moved to monthly releases in January 2026. **We are two majors behind with
+  ~6 months of runway.** [VERIFIED — Google versioning docs + release notes]
+- **META — we send v21.0** (`src/lib/meta-ads.ts:102`). **All Marketing API versions prior to v24.0 were deprecated
+  on 9 June 2026**; v23.0 expired that day; vendor current is v25.0 (18 Feb 2026). Our Meta capture is still
+  returning data, which means Meta is almost certainly serving a newer version than the one we ask for. **We do not
+  actually know which version our Meta numbers come from.** [VERIFIED for the deprecation dates; **DERIVED** for the
+  silent-upgrade inference — it is the only explanation consistent with v21 calls still succeeding, and it is the
+  identical failure shape as the Shopify pin.] ⚠ THIS IS THE HIGHEST-PRIORITY VERSION FINDING IN THIS DOCUMENT.
+- **SHOPIFY — pinned 2026-07**, which is current. [VERIFIED]
+- **GA4 Data API — v1beta**, no version pin to drift. [VERIFIED]
+- **WOOCOMMERCE — wc/v3**, the current and only production REST version. [VERIFIED]
+
+## §T2.1 — GOOGLE ADS
+CAPTURED [VERIFIED, live counts]
+- base '' — account 14,254 (2016-04-20→2026-07-26) · campaign 30,717 · ad_group 39,277 · ad 43,528 (all three
+  2023-06-24/28→2026-07-26) · 18 clients. THE DEPTH ASYMMETRY IS REAL: the account row reaches 2016; nothing below
+  it starts before 2023-06.
+- device — campaign 53,690 · ad_group 71,361 · ad 72,433 · keyword 178,768 · 2023-06-28→2026-07-26 · 16 clients
+- hour — campaign 331,549 · ad_group 406,567 · 2023-06-28→2026-07-26 · 16
+- age — campaign 98,879 · ad_group 172,584 · gender — campaign 46,027 · ad_group 83,313 · 2023-07-19→2026-07-26 · 16
+- search_term — ad_group 109,641 · keyword — ad_group 19,179 · 2026-03-14→2026-07-26 · 12
+- conversion_action — campaign 515 · impression_share — campaign 6,072 · **both 2026-06-27→2026-07-26 only** · 11/18
+- geo family, 19 types × 2 entity levels (campaign + ad_group), all 2023-07-02→2026-07-26 except where noted:
+  geo_country 55,751 · geo_region 266,335 · geo_state 251,861 · geo_metro 545,446 · user_geo_region 367,419 ·
+  user_geo_state 264,387 · user_geo_metro 524,984 · user_geo_province 45,130 · user_geo_district 60,937 ·
+  **geo_district 11,527 — STALE, max 2026-04-09** · **geo_province 4,503 — STALE, max 2024-07-01**
+  · geo_city ≈4.03M · user_geo_city ≈4.07M · geo_postal ≈4.01M · user_geo_postal ≈4.07M · geo_county ≈1.77M ·
+  user_geo_county ≈1.68M · geo_most_specific ≈4.34M · user_geo_most_specific ≈4.46M — those eight are [DERIVED]
+  counts (pg_stats × reltuples); their tuple existence, date range and client count are VERIFIED by index seek.
+NOT CAPTURED — offered, we don't take it
+- all_conversions · all_conversions_value · view_through_conversions — **the columns EXIST and are 100% NULL**
+  (0 non-null in 245,652 rows counted; null_frac 1.0 fleet-wide). Migration applied, writer never populated. [VERIFIED]
+- ad_network_type · click_type · slot · conversion_or_adjustment_lag_bucket — registry says VERIFY-AT-WRITER, unbuilt
+- product_* Shopping family · assets / asset_group / asset_group_top_combination_view (**LAW-CORE**, G-FILL#2) ·
+  group_placement_view / detail_placement_view · ad_group_audience_view / campaign_audience_view ·
+  landing_page_view / expanded_landing_page_view · distance_view
+- conversion_action and impression_share at ad_group/keyword — offered deeper than we take them (T2.3, quota-gated)
+- **CartDataSalesView** (item-level product-sold reporting) — added in v24, we cannot reach it on v23 [VERIFIED]
+NOT OFFERED — the third state, re-checked against current docs
+- **device OS / OS-version / device-model as performance segments — CONFIRMED STILL NOT OFFERED.** "There isn't a
+  reporting option that will break impressions and clicks down by device operating system"; device segmentation is
+  limited to the Device enum (DESKTOP / HIGH_END_MOBILE / TABLET). Our 2026-06-24 probe stands. [VERIFIED]
+  ⚠ **BUT THE ANSWER CHANGED UNDER US:** v24.1 (13 May 2026) ADDED `segments.mobile_device_platform` (IOS/ANDROID)
+  for campaign and customer-level reports. That is a NEW iOS-vs-Android split we do not know about and **cannot use
+  on v23**. The "not offered" claim is now only half true. [VERIFIED]
+- `user_geo_country` on user_location_view — **NOT RE-CONFIRMED.** Docs confirm `country_criterion_id` exists on
+  geographic_view (selectable/filterable/sortable) and that `segments.geo_target_country` is not selectable from
+  every resource, but no current doc states the user_location_view case either way. Our probe stands. [DERIVED]
+- ad × geo and keyword × geo — no current doc found either way; per-resource field-reference pages are the
+  authority and were not machine-checked here. Our 2026-06-27 probe stands. [DERIVED — was asserted as fact]
+- hour at ad and keyword grain — same: no current doc confirming or denying. Our probe stands. [DERIVED]
+DEPRECATED / SCHEDULED
+- **v23 sunsets ~January-February 2027.** Upgrade is mandatory, not optional. [VERIFIED]
+- **From 1 June 2026, granular date segments (segments.date, segments.week, hourly) support only a 37-month
+  lookback.** That is a vendor-imposed ceiling on FOREVER for hour-grain history and it is already in force. [VERIFIED]
+ADDED SINCE OUR WRITERS — the half a self-comparison can never see
+- v24 (Apr 2026): CartDataSalesView, nine new lead-gen conversion enums, VTC optimization for Demand Gen/App
+- v24.1 (May 2026): `segments.mobile_device_platform`, passkey field detection, expanded Experiments framework
+- v24.2 (Jun 2026): SyntheticContentInfo / SyntheticContentAttestation — **AI-generated creative is now
+  programmatically identifiable**, which is directly relevant to the asset-attribution law core
+- v25 (Jul 2026): new YouTube reporting segments, Shorts social metrics, loyalty-retention goal; **removes both
+  legacy lifecycle-goal resources** [VERIFIED]
+
+## §T2.2 — META MARKETING API
+CAPTURED [VERIFIED, live counts] — 13 clients, ≈3,939,514 rows, every family scanned
+- base 40,099 (account 5,035 · campaign 10,473 · ad_set 11,209 · ad 13,382) · 2023-06-21→2026-07-26
+- action_type 659,799 · geo_region 1,088,001 · age_gender 519,536 · hour 303,313 · attribution_window 283,455 ·
+  placement 228,109 (campaign/ad_set/ad; account is derive-not-capture) · age 214,231 · device 191,824 ·
+  gender 110,312 · device_platform 86,083 · product_id 63,604 · geo_country 32,497 · video 18,974
+- creative-asset family, campaign/ad_set/ad: body_asset 35,424 · title_asset 19,283 · image_asset 8,598 ·
+  call_to_action_asset 7,332 · video_asset 6,776 · description_asset 5,796 · link_url_asset 2,825 ·
+  gen_ai_asset_type 3,889 · creative_relaxation_asset_type 3,855 · flexible_format_asset_type 3,846 ·
+  ad_format_asset 1,951 — all 2026-02-02/03-27→2026-07-26
+- comscore_market 102 (1 client, 2026-06-24→2026-07-26)
+NOT CAPTURED — offered, we don't take it
+- account-level asset MEDIA LIBRARY (M8) — open and DECISION-REQUIRED, not unbuilt: no date, no spend, no metric,
+  so it does not belong in metrics_daily at all. Needs a storage decision first.
+- the v25 Ads Insights **Async** error fields (error_code / error_message / error_subcode / error_user_title /
+  error_user_msg) — added specifically to improve failure diagnostics, which is exactly the class of blindness
+  ★GOOGLE-ERRORS-UNREADABLE names on the other platform. [VERIFIED]
+NOT OFFERED / VENDOR-REMOVED
+- **`dma` — CONFIRMED REMOVED, and the date is now exact: 22 June 2026**, replaced by `comscore_market`; the
+  targeting-side `dma_codes` gave way to `comscore_market_codes`. Applies to ALL API versions immediately, out of
+  cycle. Historical DMA is permanently unrecoverable — a platform purge, not a gap of ours. [VERIFIED]
+- asset families at ACCOUNT grain — served-empty; 3 grains IS complete. Probe-based, doc-silent. [DERIVED]
+- **per-COMBINATION asset attribution (joint asset breakdowns) returning #100** — vendor docs do NOT document this
+  restriction either way; error 100 is the generic "invalid parameter" and the breakdown-compatibility matrix does
+  not enumerate the joint case. Our probe stands and the LAW-CORE consequence stands with it, but this is
+  **[DERIVED], not VERIFIED** — and it is the single most valuable thing in this document to re-probe, because
+  ASSET-COMBINATION CONVERSION ATTRIBUTION is a named core capability. [DERIVED]
+- `frequency_value` — vendor docs confirm it is **used with reach only**, i.e. scoped to reach-and-frequency buys,
+  which matches our 2026-07-19 measurement of zero rows on both probe accounts. [VERIFIED]
+- SKAdNetwork / coarse_conversion_value — SKAN reports through its own conversion-value mapping (1-63) and does not
+  compose with standard insights breakdowns; no doc found on frequency_value × SKAN specifically. [DERIVED]
+DEPRECATED / SCHEDULED — **and we are inside it**
+- **All Marketing API versions before v24.0 deprecated 9 June 2026. We send v21.0.** [VERIFIED]
+- Advantage+ Shopping / App campaigns can no longer be created or updated via the API from v25.0; phase-out of ASC
+  and AAC completes by September 2026. Read-only reporting is unaffected. [VERIFIED]
+- legacy reach / viewer metrics retired by June 2026 in favour of Media Views (Page-side, not ads insights); the
+  `metadata=1` query parameter is ignored from v25 and removed by May 2026. [VERIFIED]
+
+## §T2.3 — GA4 (Data API v1beta) + THE REALTIME BOUNDARY
+CAPTURED [VERIFIED, live counts] — 11 clients (10 with dimensional), ≈1,681,645 rows, account/property grain only
+- ga_landing_page 642,468 · ga_geo_city 599,646 · ga_geo_region 178,037 · ga_event 57,449 · ga_geo_country 51,965 ·
+  ga_source_medium 42,685 · ga_campaign 34,942 · ga_channel 31,384 · ga_device 17,635 · base 9,040 · ga_age 6,677 ·
+  ga_gender 6,659 · ga_item 3,058 — mostly 2023-01-01→2026-07-26
+- DEPTH NOTE: GA's own floor is 2015-08-14; our deepest row is 2022-02-02. That gap is unbackfilled history, not a
+  platform limit.
+NOT CAPTURED — offered by the Data API, we don't take it
+- ecommerce funnel steps (view_item / add_to_cart / begin_checkout), purchase-to-view rate, AOV, refunds
+- Google-Ads-linkage dimensions (googleAdsCampaignName / network / query) — the GA-vs-Google cross-check layer
+- first-user acquisition scope (we hold session scope only)
+- item category / brand / variant (we hold name/id)
+- engagement + retention (bounce, avg session duration, active / returning / N-day actives)
+- full page-path performance (we hold landing page only)
+- **predictive metrics** (purchaseProbability, churnProbability et al.) — now exposed through the Data API rather
+  than only via BigQuery export. New surface, never evaluated. [VERIFIED]
+- **`isKeyEvent`** — the replacement for the deprecated `isConversionEvent` dimension. [VERIFIED]
+- Comparisons (side-by-side subset evaluation) and the `EmptyFilter` dimension-filter type. [VERIFIED]
+⛔ **NOT OFFERED BY THE DATA API — REALTIME-ONLY, AND THEREFORE PERMANENTLY UNBACKFILLABLE. THIS IS A CAPTURE
+BOUNDARY UNDER ALL-MEANS-ALL AND IT IS STATED HERE EXPLICITLY RATHER THAN IMPLIED.** The Realtime API supports a
+DIFFERENT and much smaller schema than core reporting. Dimensions: appVersion, audienceId/Name/ResourceName,
+city, cityId, country, countryId, deviceCategory, eventName, **minutesAgo**, platform, streamId/Name,
+unifiedScreenName. Metrics: **activeUsers**, eventCount, keyEvents, screenPageViews. The `minuteRanges` /
+`minutesAgo` axis exists ONLY in the Realtime API and covers only the last 30-60 minutes. [VERIFIED]
+CONSEQUENCE, stated plainly: **"active users right now" is not a thing we can ever backfill.** If we want it, it
+must be captured as it happens, into a separate as-of-keyed store — which is precisely the SEPARATE LIVE STORE that
+docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md Direction B already specifies. It is not a metrics_daily row and never
+will be. Event-scoped custom dimensions are also unsupported in Realtime; user-scoped ones are. [VERIFIED]
+
+## §T2.4 — SHOPIFY (Admin GraphQL, pinned 2026-07)
+CAPTURED [VERIFIED, live counts 2026-07-27, re-read after the depth fix] — 7 clients, 44,122 rows
+- base — account 7,700 (2018-06-04→2026-07-26) · product 7,801 · variant 13,328 (both →2026-07-16)
+- geo_region 12,112 · geo_country 2,935 (→2026-07-16) · order_time 246 (→2026-07-14, 5 clients)
+⛔ **TWELVE FAMILIES AT ZERO ROWS — CAUSE FOUND AND FIXED 2026-07-27, NOT YET PROVEN:** sales_channel ·
+discount_code · discount_type · abandoned_checkout · product_type · product_vendor · product_tag ·
+product_collection · financial_status · fulfillment_status · geo_city · customer_cohort. They are OFFERED and our
+writers are CORRECT; every depth upsert 23502-rejected from 2026-07-19 because a key omitted on two row shapes is
+sent by PostgREST as an explicit NULL rather than the column default (DECISIONS LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1,
+deployed d86b718). **STATE: UNBLOCKED, UNPROVEN.** Counts above are pre-proof; the first forward run that attempts
+healthy connections is 08:04 UTC 2026-07-28. Re-count then — per LORAMER_LANDING_IS_THE_ONLY_SHIPPED_V1 these stay
+NOT-CAPTURED until a row count says otherwise.
+NOT CAPTURED — offered, we don't take it
+- ORDER GRAIN at scale — store_orders/store_order_line_items exist (migration 045 IS applied, contrary to that
+  file's own header) but hold 64 orders / 101 line items for ONE client, Shopify only (★ORDER-GRAIN-STEP-2-BACKFILL)
+- chargeback status · product-grain geo · manual/automatic non-code discount detail beyond discount_type
+- `LineItem.weight` — newly public in the GraphQL Admin API at **2026-07**, the exact version we are pinned to, and
+  we do not select it. [VERIFIED]
+NOT OFFERED — or rather, foreclosed by cost, which is the more useful framing
+- **The 1,000-point single-query ceiling is confirmed as a hard cap across ALL plan tiers, Plus included.** A bigger
+  plan buys a deeper bucket, not a larger individual query. Our OrdersInRange runs at 651 requested / 134 actual, so
+  ~349 points of headroom remain; scalars cost 0, a connection costs 2 + 1/item and MULTIPLIES through nesting.
+  WHAT IT FORECLOSES AT THE 2026-07 PIN: any nested connection on the orders query — measured at 1,036 points and
+  rejected BEFORE execution. **Shopify's own documented answer is Bulk Operations, which have no max-cost limit and
+  do not consume the standard bucket** — which is exactly why ★ORDER-LEVEL-STORAGE was escalated to route through
+  them rather than through a fatter query. [VERIFIED]
+DEPRECATED / SCHEDULED
+- `Order.channelInformation` (with ChannelDefinition) is deprecated in favour of `Order.attribution`; it still
+  resolves at 2026-07 and our sales_channel writer depends on it (★SHOPIFY-CHANNELINFORMATION-MIGRATION)
+- `Collection.Set` deprecated in favour of `Collection.sources` at 2026-07; deprecated members stay queryable so
+  migration can be incremental. Shopify no longer publishes traditional release notes — the developer changelog is
+  the source, which makes a periodic sweep a standing obligation rather than a one-off. [VERIFIED]
+
+## §T2.5 — WOOCOMMERCE (REST wc/v3)
+CAPTURED [VERIFIED, live counts] — 2 clients, 21,882 rows
+- base — account 2,050 (2016-10-22→2026-07-26) · product 7,686 · variant 7,686 (→2026-07-16)
+- customer_cohort 4,459 (→2026-07-16) · order_status 1 row (2026-07-18 only)
+⛔ **TEN FAMILIES AT ZERO ROWS** — geo_country · geo_region · geo_city · payment_method · shipping_method ·
+coupon_code · coupon_type · order_time · product_category · product_tag. TWO causes, both now known and neither a
+writer defect: (1) NO OPPORTUNITY — the only Woo store with orders last sold 2026-07-16, three days before the
+writer shipped, and its history re-walk is blocked by the merchant's own server returning HTTP 500; (2) a LATENT
+23502 of the same class as Shopify's, which would have taken the ACCOUNT row down with it because Woo upserts
+everything in ONE statement — CLOSED 2026-07-27 by the same normalize fix, with zero edits to the Woo builder.
+NOT OFFERED — what the REST API structurally cannot serve
+- **NO `modified_after` / `modified_before` on /orders. `after`/`before` filter DATE_CREATED only.** Filtering by
+  modification date has been an open feature request since 2017 (woocommerce#15444, woocommerce-rest-api#37) and is
+  supplied today only by third-party merchant-installed plugins we neither control nor can require. **This is the
+  structural blocker behind ★WOO-TIER2-BLOCKED-BY-PLATFORM, and it is now vendor-confirmed rather than
+  probe-asserted.** Consequence, unsoftened: Woo restatement coverage is bounded by whatever created-date window we
+  pick, and a refund on an order created outside it is never caught. The only exact fix is storing the order grain
+  and re-fetching BY ID. [VERIFIED]
+- default pagination is 10 items/page (per_page raises it) — a load characteristic on the merchant's own box, not a
+  data gap, and the reason the one-namespace load rule exists [VERIFIED]
+- reports/coupons/totals takes no date parameter, breaks down by TYPE not CODE, counts definitions not redemptions,
+  and is cached for a year — verified in the WC controller source, unchanged [VERIFIED, prior]
+
+## §T2.6 — RANKED: WHAT THE NOT-CAPTURED CELLS WOULD UNLOCK
+Ranked by what they buy Lora and the 2026-09-30 demo. Not everything here is worth taking, and the bottom of this
+list says so.
+1. **PROVE THE 22 STORE FAMILIES LANDED** (Shopify 12 + Woo 10). Zero build cost — the fix is deployed. It converts
+   the entire commerce dimensional layer from asserted to real, and until it is counted, every eval question about
+   channel, discount, product type, fulfilment or cohort is scored against data we do not have.
+2. **META VERSION PIN — establish which version we are actually being served.** Not a feature; a correctness
+   precondition. Every Meta number in the product currently comes from an unknown API version.
+3. **GOOGLE all_conversions / all_conversions_value / view_through_conversions.** Columns exist, migration applied,
+   100% NULL. This is the cheapest real capture win on the board and it closes a conversion-completeness gap Lora
+   is asked about directly.
+4. **GOOGLE ASSETS / asset_group / asset_group_top_combination_view (G-FILL#2)** and **META joint-asset re-probe.**
+   LAW-CORE: asset-combination conversion attribution is a named core capability, and the Meta half currently rests
+   on a DERIVED-not-VERIFIED restriction. Re-probing the #100 is cheap and could reopen the whole capability.
+5. **GA4 funnel steps + Google-Ads-linkage dimensions.** The pre-purchase journey is invisible today, and the
+   linkage dimensions are what let Lora explain why GA and Google Ads disagree — which is the multi-source
+   provenance promise, not a nice-to-have.
+6. **GOOGLE conversion_action + impression_share HISTORY** (both hold 30 days). Forward-only families make
+   trend questions unanswerable.
+7. **ORDER GRAIN at scale via Bulk Operations.** Prerequisite for exact restatement on both stores; the mechanism
+   is settled, the cost is a sustained vendor load.
+8. **GOOGLE v25 upgrade** — unlocks mobile_device_platform (iOS/Android), CartDataSalesView, SyntheticContentInfo
+   (AI-creative labelling), YouTube/Shorts segments. Mandatory before ~Feb 2027 regardless.
+9. GA4 predictive metrics, engagement/retention, first-user scope, item category/brand — real but second-order.
+NOT WORTH TAKING, and saying so is the point of ranking:
+- **GA4 Realtime-only metrics** are not a capture target for metrics_daily at all — they are ephemeral by
+  construction and belong to the live store or nowhere.
+- **Meta SKAN / frequency_value** — measured zero on every cohort account; no client runs reach-and-frequency or
+  app-install buys. Build when a client does, not before.
+- **Google click_view / GCLID** — Russ's PII line, deferred not dropped.
+- **Meta M8 account-level media library** — has no date, no spend and no metric; forcing it into metrics_daily
+  would be the wrong shape. It needs a storage decision first, not a writer.
+
+## §T2.7 — WHAT THIS AUDIT STILL CANNOT SEE
+Stated so the next reader does not mistake this for completeness: (a) four NOT-OFFERED claims are still DERIVED, not
+VERIFIED — Google user_geo_country / ad×geo / keyword×geo / hour-at-ad-and-keyword — because the authority is the
+per-resource field-reference page and those were not machine-checked; (b) the Meta joint-asset #100 restriction is
+probe-only and doc-silent; (c) eight Google geo row counts are estimates, exact only to ±pg_stats; (d) no vendor API
+was called in this step by design, so nothing here re-probes a live account.
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+
 ## STATUS (2026-06-29)
 - WAVE 0 audit DONE (read-only per-client × platform × grain map). Account-grain "barbell holes" (BusyBee/Glass Plus/skinregimen/Influential) DISMISSED — those accounts weren't running Google ads in the missing years (true zero, not loss); no account-range writer now, banked for future real gaps. search_term/keyword = BANKED-AND-GROWING (persist forever).
 - WAVE 1 Fix-1a SHIPPED (8377b97): Woo product capture UNCAPPED via Shopify-shaped `productsCapture` — closes the >10-product/day data-loss. Display top-10 + frozen read-cap untouched.
@@ -64,21 +311,11 @@ H. creative-asset SHAPE dims: ad_format_asset / creative_relaxation_asset_type /
 I. account-level asset MEDIA LIBRARY (M8) — still open and DECISION-REQUIRED, not unbuilt: it has no date, no spend and no metric, so it does not belong in metrics_daily at all. Needs a storage decision first.
 
 ## SHOPIFY — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
-> ⛔ **STATUS CORRECTED AGAIN 2026-07-27 — SHIPPED-BUT-NEVER-LANDED. The ✅ marks below are TRUE about the code
-> and FALSE about the database.** The T2 census counted rows for the first time and found **TWELVE families with
-> ZERO rows on every client**: sales_channel · discount_code · discount_type · abandoned_checkout · product_type ·
-> product_vendor · product_tag · product_collection · financial_status · fulfillment_status · geo_city ·
-> customer_cohort. Nothing regressed — no row ever existed. CAUSE (root-caused, fixed, not theorised):
-> `buildShopifyDepthRows` omitted `conversions` on product_type / product_vendor, and PostgREST sends a key
-> missing from SOME rows of a bulk payload as an explicit NULL rather than the column DEFAULT, so the ENTIRE depth
-> statement 23502-rejected every night from 2026-07-19 — taking product, variant, geo_country, geo_region and
-> order_time down with the twelve. Full root cause + the two-file fix + the guard: DECISIONS
-> LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1. WHY THE ✅ MARKS WERE WRONG: every 07-18/19 measurement quoted below
-> measured the FETCH or the BUILDER, never a row count — banked as law LORAMER_LANDING_IS_THE_ONLY_SHIPPED_V1.
-> **STATE AS OF 2026-07-27: UNBLOCKED, NOT CONFIRMED.** The fix is deployed; the twelve are expected to begin
-> landing at the next 08:04 UTC forward run (21-day restatement window) and to fill history as the still-incomplete
-> `shopify_order_time` cursor walks back. Row counts per family per store are OWED at the next session and this
-> block stays PENDING-ROW-COUNT until they are read.
+> ⛔ **THE ✅ MARKS BELOW ARE TRUE ABOUT THE CODE AND FALSE ABOUT THE DATABASE. Current state and row counts live in
+> §T2.4 above — read that, not these marks.** Twelve families hold zero rows; the cause is found, fixed and
+> deployed, and unproven until the 08:04 UTC re-count. Why the marks were wrong at all is banked as law:
+> LORAMER_LANDING_IS_THE_ONLY_SHIPPED_V1. The per-family notes below remain useful for their SEMANTICS (what each
+> family means, what it partitions, what it must never be summed into) — that is what they are now for.
 > **STATUS CORRECTED 2026-07-24: OPEN, not closed.** The daily-aggregate FAMILIES below are captured, but TWO grains
 > below them are NOT, so Shopify is NOT complete: (1) NO ORDER-LEVEL storage — orders are fetched, summed in memory,
 > and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). An order is the store's true grain — the thing
@@ -106,21 +343,11 @@ H. city-grain + product-grain geo [DERIVED]. → ✅ geo_city SHIPPED 2026-07-19
 CONSTRAINT: read_all_orders scope gates >60-day history — the 2019 backfill implies we hold it; VERIFY before Shopify backfill work [DERIVED].
 
 ## WOOCOMMERCE — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
-> ⛔ **STATUS CORRECTED AGAIN 2026-07-27 — SHIPPED-BUT-NEVER-LANDED, same class as Shopify, different cause.**
-> The T2 census found **TEN of the twelve families holding ZERO rows on every client**: geo_country · geo_region ·
-> geo_city · payment_method · shipping_method · coupon_code · coupon_type · order_time · product_category ·
-> product_tag. (customer_cohort and order_status DO hold rows — cohort has its own one-shot drain step; order_status
-> holds a single row from 2026-07-18.) TWO CAUSES, both now known: (1) **NO OPPORTUNITY** — the only Woo store with
-> orders (Shelley Kyle) last had an order on 2026-07-16, three days BEFORE this writer shipped on 07-19, and the
-> other Woo connection is non-production (★ADVAR-NON-PRODUCTION); the history re-walk that would have filled it is
-> blocked by the merchant's own server returning HTTP 500 on a full sweep, recorded verbatim in
-> `sync_state.backfill_block_reason`. (2) **A LATENT 23502 that had not yet fired** — `buildWooMetricsRows` emits
-> spend/impressions/clicks/conversion_value on only 3 of 13 row shapes (shipping_method, coupon_code, coupon_type),
-> and Woo upserts base + product + variant + breadth in ONE statement, so the next order-day would have rejected
-> the whole payload INCLUDING THE ACCOUNT ROW. VERIFIED by executing the real builder, not by reading it.
-> Cause (2) is CLOSED as of 2026-07-27 by the union-fill in `metrics-normalize.ts` with zero edits to the Woo
-> builder — DECISIONS LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1. Cause (1) is NOT closed and is not ours to close:
-> it needs an order-day, or the parked breadth backfill (★WOO-BREADTH-AND-TIER1-PARKED). PENDING-ROW-COUNT.
+> ⛔ **SAME SHAPE AS SHOPIFY: the ✅ marks below describe the code, not the database. Current state, row counts and
+> both causes are in §T2.5 above — read that.** Ten of twelve families hold zero rows; neither cause is a writer
+> defect (no order-day since the writer shipped + a merchant-side HTTP 500 on the history re-walk), and the latent
+> 23502 that would have taken the account row down with them is closed. The notes below remain the reference for
+> each family's SEMANTICS and for the Woo-vs-Shopify basis differences, which have not changed.
 > **STATUS CORRECTED 2026-07-24: OPEN, not closed — SAME TWO GAPS as Shopify.** The twelve daily-aggregate breadth
 > families below are captured, but the two grains BELOW them are NOT: (1) NO ORDER-LEVEL storage — Woo orders are
 > fetched, summed in memory, and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). (2) NO RESTATEMENT
