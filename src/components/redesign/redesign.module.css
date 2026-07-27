@@ -2,7 +2,17 @@
    Scoped via CSS Module. Fonts (Instrument Sans) + Tabler icon webfont are loaded via <link> in Shell.tsx,
    the same way the mockup loads them. Serif = Georgia (system), exactly as the mockup's --serif. */
 
-.root {
+/* LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — the DESIGN TOKENS, extracted into a class that carries NOTHING
+   ELSE. A React portal to document.body severs CSS custom property inheritance: a portaled subtree is
+   no longer a DOM descendant of `.root`, so every `var(--…)` in it resolves to nothing. That is what
+   made the chat send button invisible (transparent background, white glyph, white bar) from f71d501.
+   ⛔ THE OBVIOUS FIX — putting `.root` on the portal container — WAS REJECTED AFTER CHECKING IT:
+   `.root` also carries display:flex, flex-direction:column, min-height:100vh, background:var(--paper),
+   color, font-family, line-height and font-smoothing. Applying it would inject a 100vh paper-coloured
+   flex column into <body>, i.e. layout nobody asked for. This class is tokens ONLY, so a portaled
+   subtree can opt into the scale without inheriting the shell's geometry.
+   `.root` COMPOSES it rather than restating the values — one source of truth, no drift. */
+.tokens {
   --ink: #0f172a;
   --paper: #f8fafc;
   --accent: #2563eb;
@@ -13,6 +23,10 @@
   --white: #ffffff;
   --serif: Georgia, 'Times New Roman', serif;
   --sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+}
+
+.root {
+  composes: tokens;
 
   display: flex;
   flex-direction: column;        /* INC A: TopBar on top, then [rail | main] body row */

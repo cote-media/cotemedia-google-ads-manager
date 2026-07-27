@@ -17,6 +17,7 @@ import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery' // LORAMER_CHAT_ANSWER_RECOVERY_V1
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_NEXT_CONV_WRITE_V1 — persist turns (closes the -next write island); NEXT_CHAT_SURFACE also keys the fetch-on-open below
 import styles from './chat.module.css'
+import shell from './redesign.module.css' // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — token scope for the portaled overlay
 
 type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
 
@@ -444,7 +445,13 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
           the React TREE position, so ChatLauncher does NOT remount and the d55f739 cross-client bleed
           cannot be reintroduced — asserted in Gate-A. Guarded on `mounted` so SSR never touches document. */}
       {open && mounted && createPortal(
-        <div className={styles.scrim} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
+        // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — `shell.tokens` is applied HERE, on the portaled root.
+        // The portal moves this subtree out of `.root`, which severs CSS custom property inheritance
+        // and left every var(--) in the overlay unresolved: the send button rendered as a white glyph
+        // in a transparent circle on a white bar. `.tokens` carries the token declarations and NOTHING
+        // else, deliberately — `.root` would also have brought display:flex, min-height:100vh and
+        // background:var(--paper) into <body>, i.e. layout nobody asked for.
+        <div className={`${shell.tokens} ${styles.scrim}`} onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Ask Lora">
           <div className={styles.panel} ref={panelRef} onClick={(e) => e.stopPropagation()}>
             <header className={styles.head}>
               <div className={styles.headTitle}><i className="ti ti-sparkles" /> Ask Lora{clientName ? <span className={styles.headClient}>· {clientName}</span> : null}</div>

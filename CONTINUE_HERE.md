@@ -34,6 +34,16 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-26 end — THE INVISIBLE SEND BUTTON) — FIXED
+Russ reported the send button missing AFTER the step-2 revert, which invalidated the step-2 attribution. It was never step 2 and never the 16px change.
+ROOT CAUSE: Track 1's createPortal. Moving the overlay to document.body took it out of `.root`, severing CSS custom property inheritance, so every var(--) in the chat resolved to nothing. The button was a white glyph in a transparent circle on a white bar — present, enabled, clickable, and invisible. Invisible in PRODUCTION for ~5.5 hours across four deployments.
+WHY NOTHING CAUGHT IT: four separate harnesses measured the button's rect and all were correctly green, because the geometry is perfect. None read a colour. The fourth Gate-A clause now stands — contrast >= 3:1, asserted in WebKit, which was green on this bug all day.
+THE PORTAL WAS MY CALL and its cost was never assessed — the Track 1 recon named one benefit and zero costs.
+FIX: tokens extracted into a `.tokens` class carrying nothing else; `.root` composes it; the portaled scrim carries it. Putting `.root` on the portal was CHECKED and REJECTED — it would have injected a 100vh paper-coloured flex column into <body>.
+Gate-A 44/44 in WebKit, proven failing first. Three failures in that run were my harness, not the code — a container-vs-button selector, a mid-animation measurement, and browser-state contamination — and each was chased down rather than dismissed.
+ALSO RESTORED: the revert had erased measured facts along with the failed code — 16px verified on device, the 874 dvh finding, the confirmed stuck offsetTop. Re-banked; the fix failed, the measurements did not.
+STILL OPEN: the keyboard bleed itself. Overlay approach CLOSED. Full-page spec approved and queued, preview-first.
+
 ## Session log (2026-07-26 final — THE MECHANISM, MEASURED) — STEP 1 SHIPPED
 The probe paid for itself immediately, and then the record nearly went in backwards.
 THE READING: keyboard occludes 338 layout px (doc.clientHeight 766 CONSTANT across 40+ samples, vv.height 766→428), and ~22ms later iOS auto-zooms 1.1431818x on the sub-16px input — proven a zoom not a resize because 440/384.890625 matches the reported scale to seven decimals. BOTH halves are real.
