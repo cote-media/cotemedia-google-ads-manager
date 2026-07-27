@@ -64,6 +64,21 @@ H. creative-asset SHAPE dims: ad_format_asset / creative_relaxation_asset_type /
 I. account-level asset MEDIA LIBRARY (M8) — still open and DECISION-REQUIRED, not unbuilt: it has no date, no spend and no metric, so it does not belong in metrics_daily at all. Needs a storage decision first.
 
 ## SHOPIFY — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+> ⛔ **STATUS CORRECTED AGAIN 2026-07-27 — SHIPPED-BUT-NEVER-LANDED. The ✅ marks below are TRUE about the code
+> and FALSE about the database.** The T2 census counted rows for the first time and found **TWELVE families with
+> ZERO rows on every client**: sales_channel · discount_code · discount_type · abandoned_checkout · product_type ·
+> product_vendor · product_tag · product_collection · financial_status · fulfillment_status · geo_city ·
+> customer_cohort. Nothing regressed — no row ever existed. CAUSE (root-caused, fixed, not theorised):
+> `buildShopifyDepthRows` omitted `conversions` on product_type / product_vendor, and PostgREST sends a key
+> missing from SOME rows of a bulk payload as an explicit NULL rather than the column DEFAULT, so the ENTIRE depth
+> statement 23502-rejected every night from 2026-07-19 — taking product, variant, geo_country, geo_region and
+> order_time down with the twelve. Full root cause + the two-file fix + the guard: DECISIONS
+> LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1. WHY THE ✅ MARKS WERE WRONG: every 07-18/19 measurement quoted below
+> measured the FETCH or the BUILDER, never a row count — banked as law LORAMER_LANDING_IS_THE_ONLY_SHIPPED_V1.
+> **STATE AS OF 2026-07-27: UNBLOCKED, NOT CONFIRMED.** The fix is deployed; the twelve are expected to begin
+> landing at the next 08:04 UTC forward run (21-day restatement window) and to fill history as the still-incomplete
+> `shopify_order_time` cursor walks back. Row counts per family per store are OWED at the next session and this
+> block stays PENDING-ROW-COUNT until they are read.
 > **STATUS CORRECTED 2026-07-24: OPEN, not closed.** The daily-aggregate FAMILIES below are captured, but TWO grains
 > below them are NOT, so Shopify is NOT complete: (1) NO ORDER-LEVEL storage — orders are fetched, summed in memory,
 > and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). An order is the store's true grain — the thing
@@ -91,6 +106,21 @@ H. city-grain + product-grain geo [DERIVED]. → ✅ geo_city SHIPPED 2026-07-19
 CONSTRAINT: read_all_orders scope gates >60-day history — the 2019 backfill implies we hold it; VERIFY before Shopify backfill work [DERIVED].
 
 ## WOOCOMMERCE — PLATFORM-SURFACE-AUDIT RESULT (vendor-sourced 2026-07-18)
+> ⛔ **STATUS CORRECTED AGAIN 2026-07-27 — SHIPPED-BUT-NEVER-LANDED, same class as Shopify, different cause.**
+> The T2 census found **TEN of the twelve families holding ZERO rows on every client**: geo_country · geo_region ·
+> geo_city · payment_method · shipping_method · coupon_code · coupon_type · order_time · product_category ·
+> product_tag. (customer_cohort and order_status DO hold rows — cohort has its own one-shot drain step; order_status
+> holds a single row from 2026-07-18.) TWO CAUSES, both now known: (1) **NO OPPORTUNITY** — the only Woo store with
+> orders (Shelley Kyle) last had an order on 2026-07-16, three days BEFORE this writer shipped on 07-19, and the
+> other Woo connection is non-production (★ADVAR-NON-PRODUCTION); the history re-walk that would have filled it is
+> blocked by the merchant's own server returning HTTP 500 on a full sweep, recorded verbatim in
+> `sync_state.backfill_block_reason`. (2) **A LATENT 23502 that had not yet fired** — `buildWooMetricsRows` emits
+> spend/impressions/clicks/conversion_value on only 3 of 13 row shapes (shipping_method, coupon_code, coupon_type),
+> and Woo upserts base + product + variant + breadth in ONE statement, so the next order-day would have rejected
+> the whole payload INCLUDING THE ACCOUNT ROW. VERIFIED by executing the real builder, not by reading it.
+> Cause (2) is CLOSED as of 2026-07-27 by the union-fill in `metrics-normalize.ts` with zero edits to the Woo
+> builder — DECISIONS LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1. Cause (1) is NOT closed and is not ours to close:
+> it needs an order-day, or the parked breadth backfill (★WOO-BREADTH-AND-TIER1-PARKED). PENDING-ROW-COUNT.
 > **STATUS CORRECTED 2026-07-24: OPEN, not closed — SAME TWO GAPS as Shopify.** The twelve daily-aggregate breadth
 > families below are captured, but the two grains BELOW them are NOT: (1) NO ORDER-LEVEL storage — Woo orders are
 > fetched, summed in memory, and DISCARDED; only daily aggregates persist (★ORDER-LEVEL-STORAGE). (2) NO RESTATEMENT

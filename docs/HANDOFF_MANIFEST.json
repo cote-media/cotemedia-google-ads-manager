@@ -12,10 +12,10 @@
     "line_count": 1087
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "d89fa17e6f1a34c79d9209ede29b9560ab5561cbf12e00ac820956d784ada280",
+    "content_hash": "21c3a50de75b736163fc4975ef44942dcc83ebd5becc423c9cf93b83dee1d8ab",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "85667a7",
-    "line_count": 564
+    "last_reconciled_head": "bed1987",
+    "line_count": 566
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "c0e523eb67c118ac6a142584eb3ee0bbaad33324c008beb40f83526497623652",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "748ca8cecfc8d5449cbd5112492c4dec9baa210ee3e23de3afcd26a562a8f406",
+    "content_hash": "63b52f4fd6343ff162fb319d23972a663f71ee13d719436837e0857424a08978",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "85667a7",
-    "line_count": 723
+    "last_reconciled_head": "bed1987",
+    "line_count": 727
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "3ca2a307d64e7fc0f57ea5cadc79cacb09f39a543677c31892391c6bf275d4f7",
+    "content_hash": "a2c1eb4daf936d12dc47e145c8ae99d5f01fc2cf2fd411ab9bd7e6ce174d02cd",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "85667a7",
-    "line_count": 1009
+    "last_reconciled_head": "bed1987",
+    "line_count": 1015
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -60,10 +60,10 @@
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "76b987cadd82eb8925f16363153b154730706aabdf02072fcae37970c1c2da44",
-    "last_reconciled_date": "2026-07-24",
-    "last_reconciled_head": "a5c8791",
-    "line_count": 168
+    "content_hash": "688913480fc82a0664d588a68dacf4f16a84fc272ad62edb99f1576b2eef8a0b",
+    "last_reconciled_date": "2026-07-27",
+    "last_reconciled_head": "bed1987",
+    "line_count": 199
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
     "content_hash": "56563be5110b1e396db4b5c9d4b0640a21be4c8f5cd4bc3bbbfb3c2dfb9939fc",

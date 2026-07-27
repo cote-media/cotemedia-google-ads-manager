@@ -252,6 +252,14 @@ export function buildShopifyDepthRows(
       entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
       date: captureDate, breakdown_type: 'product_type', breakdown_value: t.productType,
       revenue: t.netRevenue,
+      // LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1 — explicit 0, not an omission. productTypeCapture carries
+      // {productType, netRevenue} and NO unit count (unlike product_tag, which has units), so there is no
+      // real number to put here and inventing one would be worse. 0 is honest: conversions is not the
+      // load-bearing metric for a revenue-attribute row — revenue is, and it is populated. THE KEY MUST BE
+      // PRESENT: PostgREST builds ONE column list from the UNION of keys across the payload array, so a key
+      // omitted here while a sibling row sets it arrives as an explicit NULL and 23502-rejects the WHOLE
+      // statement — every depth row for that day, not just this one.
+      conversions: 0,
       extra: { currencyCode: cur, currencyMixed: curMixed, basis: 'perline_net_same_as_product_grain' },
     })
   }
@@ -262,6 +270,10 @@ export function buildShopifyDepthRows(
       entity_level: 'account', entity_id: shopDomain, entity_name: shopDomain, parent_entity_id: shopDomain,
       date: captureDate, breakdown_type: 'product_vendor', breakdown_value: v.vendor,
       revenue: v.netRevenue,
+      // LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1 — same as product_type above: productVendorCapture is
+      // {vendor, netRevenue} with no unit count, so an explicit 0 is the honest value and the KEY'S
+      // PRESENCE is the load-bearing part.
+      conversions: 0,
       extra: { currencyCode: cur, currencyMixed: curMixed, basis: 'perline_net_same_as_product_grain' },
     })
   }
