@@ -12,10 +12,10 @@
     "line_count": 1087
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "80f13bf722a3d3704d9ee0da2930365491faaced08f1fdd1fb6cd3f79182d48d",
+    "content_hash": "96e177fc6a1ef831092795d5e2b1dc545c2d0c53d5a40b09073a1d490423f7c5",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "8bb7602",
-    "line_count": 571
+    "last_reconciled_head": "8c12ecb",
+    "line_count": 573
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "c0e523eb67c118ac6a142584eb3ee0bbaad33324c008beb40f83526497623652",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "825dbf94c8a84239522cf320809aee0161303fd48906baa247032387ea9bd007",
+    "content_hash": "3ebf35ce65acb009e3e834f5f0f68eec6d37de75bec2c0ba2e32b3442cc3d030",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "8bb7602",
-    "line_count": 731
+    "last_reconciled_head": "8c12ecb",
+    "line_count": 737
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "ec3545c9ac4ff8e88b113d652d651851210cdaa7e7f40cf30018838028075e9d",
+    "content_hash": "0903eee0c4786199a636a5f27b5f4a3d285164add32f267a2ad23ca811606b84",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "8bb7602",
-    "line_count": 1022
+    "last_reconciled_head": "8c12ecb",
+    "line_count": 1030
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",
@@ -60,10 +60,10 @@
     "line_count": 1531
   },
   "docs/LORAMER_DATA_COMPLETENESS.md": {
-    "content_hash": "d86508a20dc815aab41fba7940d813181ac9c1fda986b10d0fa24e700dec0331",
+    "content_hash": "64cc8ca604c92e1a48c6f0b35492185ff5c8657a169fc570525168156d397542",
     "last_reconciled_date": "2026-07-27",
-    "last_reconciled_head": "3771c16",
-    "line_count": 426
+    "last_reconciled_head": "8c12ecb",
+    "line_count": 428
   },
   "docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md": {
     "content_hash": "56563be5110b1e396db4b5c9d4b0640a21be4c8f5cd4bc3bbbfb3c2dfb9939fc",
