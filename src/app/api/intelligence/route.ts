@@ -142,7 +142,16 @@ export async function GET(request: Request) {
       .select('surface, scope, role, content, created_at')
       .eq('client_id', clientId)
       .eq('user_email', ownerEmail)
-      .order('created_at', { ascending: true })
+      // LORAMER_CONV_NEWEST_WINDOW_V1 — DESC so the 500 keeps the NEWEST rows; re-reversed to ascending at
+      // `conversationRows` below, before the surface:scope map is built. ascending+limit FROZE this set at the
+      // first 500 rows a client ever wrote — permanently, since the same 500 come back on every later call.
+      // Two things break past that bound, and the second is the worse one: build-claude-context's
+      // flat.slice(-20) pins the PREVIOUS-CONVERSATIONS block to rows 481-500 forever, and extractDirectives
+      // (:1079) can never see a directive stated after row 500 — so a user-stated HARD CONSTRAINT is silently
+      // never applied. id tiebreaker for the same reason as /api/conversations: created_at is not a total
+      // order here (92 migration-day rows share one), so without it the 500-row boundary is arbitrary.
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(500)),
     readOnce('client_memory', () => supabaseAdmin
       .from('client_memory')
@@ -178,7 +187,11 @@ export async function GET(request: Request) {
   // Build conversations object keyed by "surface:scope" to match the
   // JSONB shape that build-claude-context.ts expects.
   // Falls back to legacy context.conversations blob if the new table is empty.
-  const conversationRows = conversationsResult.data || []
+  // LORAMER_CONV_NEWEST_WINDOW_V1 — re-reverse to ASCENDING (oldest first) the moment the rows land, so
+  // EVERYTHING downstream sees the identical order it saw before this change: the surface:scope map built
+  // just below, flattenConversations, extractDirectives, and flat.slice(-20). The window moved; the order
+  // did not. Copy, not in-place, so the settledRead result stays untouched for any later reader.
+  const conversationRows = [...(conversationsResult.data || [])].reverse()
   let conversations: Record<string, Array<{ role: string; content: string; timestamp: string }>> = {}
   if (conversationRows.length > 0) {
     for (const row of conversationRows) {

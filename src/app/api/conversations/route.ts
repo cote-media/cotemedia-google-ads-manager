@@ -97,12 +97,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'clientId required' }, { status: 400 })
   }
 
+  // LORAMER_CONV_NEWEST_WINDOW_V1 — TRUNCATE AT THE NEWEST END, RETURN IN THE OLDEST-FIRST ORDER.
+  // ascending + limit returned the FIRST `limit` rows this thread ever wrote, so past the bound the newest
+  // turns were unreachable: the panel hydrated a frozen historical thread, and threadMaxIdRef (use-lora-chat)
+  // took its id from row `limit` instead of the thread's true max — which silently disarms answer recovery,
+  // because it then polls for an id the capped read can never return. DESC picks the right rows; the array is
+  // re-reversed to ascending before it leaves this handler (below), so every caller sees the order it expects.
+  // THE id TIEBREAKER IS LOAD-BEARING, not decoration: created_at is NOT a total order on this table — 92 rows
+  // (all stamped 2026-05-25, the legacy-blob migration) share an exact created_at with another row in the same
+  // thread. Without a tiebreaker BOTH the truncation boundary and the re-reversed order are arbitrary. `id` is
+  // a bigserial, i.e. true insert order, and is monotonic with created_at on every row written since.
   let query = supabaseAdmin
     .from('client_conversations')
     .select('id, surface, scope, role, content, created_at, hidden_at')
     .eq('client_id', clientId)
     .eq('user_email', session.user.email)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .limit(limit)
 
   if (surface) query = query.eq('surface', surface)
@@ -116,7 +127,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ messages: data || [] })
+  // LORAMER_CONV_NEWEST_WINDOW_V1 — back to ASCENDING (oldest first). That is this endpoint's documented
+  // contract (see the header) and the render order all four callers depend on: they map the array straight
+  // into message state. The DESC read above chose WHICH rows; this chooses what order they arrive in.
+  // Non-mutating (slice) so this stays correct if `data` ever stops being a fresh per-request array.
+  return NextResponse.json({ messages: (data || []).slice().reverse() })
 }
 
 export async function POST(request: Request) {
