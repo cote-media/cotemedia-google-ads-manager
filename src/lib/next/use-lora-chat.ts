@@ -267,7 +267,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
             // Chain exhausted: every model was busy. This is Anthropic-side capacity, NOT your data and NOT a
             // bug — say so, because the honest action is "wait and re-ask", not "report a problem".
             ? 'Claude is overloaded right now — I tried every model available to me and all of them were busy. Nothing is wrong with your data or your connection. Please try again in a minute.'
-            : 'Something went wrong on my side — this is an error, not a busy model. Please try again, and if it keeps happening it’s worth flagging.'
+            // LORAMER_CHAT_500_HONESTY_V1 — a DEFINITE server error gets the server string. On
+            // 2026-07-27 a 500 ("Request timed out" from the model chain) rendered as a connection
+            // story: the connection was fine, the server answered, and no answer was ever produced.
+            : COPY.SERVER_ERROR
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
       // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — the assistant turn is written SERVER-SIDE by /api/chat,
       // from inside the stream close path. It is NOT written here and must never be: this line ran
@@ -280,6 +283,20 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // "the connection dropped" on 2026-07-26. No string here may assert the answer was lost — since the
       // server persists the assistant turn from its own completion path, that claim is false and unknowable.
       const kind = classifyTurnFailure(controller.signal.aborted, e)
+      // LORAMER_CHAT_FAILURE_TELEMETRY_V1 — CAPTURE THE DECISION, do not infer it later. On 2026-07-27
+      // the server returned a definite 500 and the client took the CATCH path and showed a network
+      // story; from server logs alone it was impossible to tell whether the fetch threw, what it threw,
+      // or whether our own abort fired. One line, console only, no PII beyond the client id.
+      try {
+        console.error('[chat] TURN FAILED', JSON.stringify({
+          branch: kind,
+          signalAborted: controller.signal.aborted,
+          errName: (e as { name?: string } | null)?.name ?? null,
+          errMessage: String((e as { message?: string } | null)?.message ?? '').slice(0, 200),
+          elapsedMs: Date.now() - (deadlineAt - CHAT_TOTAL_MS),
+          clientId: clientId ?? null,
+        }))
+      } catch { /* telemetry must never break a turn */ }
       // ONE bubble, keyed, replaced in place — never a second bubble appended.
       const key = `rec:${Date.now()}`
       setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])

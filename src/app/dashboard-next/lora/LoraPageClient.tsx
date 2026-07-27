@@ -72,6 +72,21 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     didInitialScroll.current = true
   }, [messages, loading, streamStatus])
 
+  // LORAMER_LORA_PAGE_EXIT_V1 — SCROLL WHEN THE KEYBOARD ACTUALLY ARRIVES. visualViewport resize is
+  // the only event that fires at the moment the viewport really shrinks. Bound while the composer has
+  // focus so it cannot fight the user scrolling with the keyboard down.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return
+    const onResize = () => {
+      if (document.activeElement !== inputRef.current) return
+      bottom()
+      window.setTimeout(() => bottom(), 200)
+    }
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [])
+
   return (
     // `shell.tokens` is NOT optional. Outside Shell there is no `.root`, so without it every var(--…)
     // in this subtree resolves to nothing — the exact failure that made the send button invisible.
@@ -79,7 +94,29 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
       {debug && <div className={styles.probe}>{probeLine || 'PROBE ARMED — tap the box'}</div>}
 
       <header className={styles.head}>
-        <button type="button" className={styles.back} onClick={() => router.back()} aria-label="Back">
+        {/* LORAMER_LORA_PAGE_EXIT_V1 — A FULL-SCREEN PAGE MUST HAVE A VISIBLE WAY OUT. router.back()
+            alone is not one: on a fresh load (opened from a link, or after the history entry is spent)
+            there is nothing to go back TO, and the button silently does nothing — which is what a
+            trap feels like. So: go back if there is somewhere to go, otherwise route to the client's
+            own page. Either way the tap always lands somewhere. */}
+        <button
+          type="button"
+          className={styles.back}
+          onClick={() => {
+            // ⚠ `history.length > 1` IS NOT A SAFE TEST and Gate-A caught it: it counts the whole
+            // TAB's history, so back can leave the app entirely — the first cut exited to about:blank,
+            // which is still a trap, just a blank one. The honest question is "did the user arrive here
+            // from inside our app", and document.referrer answers it. Same-origin referrer → go back
+            // where they came from. Anything else (fresh tab, external link, shared URL) → route to the
+            // client's own page, which is always somewhere real.
+            const fallback = clientId ? `/dashboard-next/clients?clientId=${clientId}` : '/dashboard-next/clients'
+            let cameFromApp = false
+            try { cameFromApp = !!document.referrer && new URL(document.referrer).origin === window.location.origin } catch { cameFromApp = false }
+            if (cameFromApp) router.back()
+            else router.push(fallback)
+          }}
+          aria-label="Close Lora"
+        >
           <i className="ti ti-chevron-left" />
         </button>
         <div className={styles.title}>
@@ -128,8 +165,13 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          // (c) on focus — the probe's falsified premise, handled by us instead of by iOS.
-          onFocus={() => { onComposerFocus(); setTimeout(() => bottom('smooth'), 350) }}
+          // (c) on focus. ⚠ DIAGNOSED AGAINST THE REAL EVENT ORDER, not the harness: on iOS the tap
+          // fires focus FIRST and the keyboard animates in AFTERWARDS, so a single scroll at focus (or
+          // at a guessed 350ms) runs while the viewport is still full height and is then undone as the
+          // keyboard takes ~300-400ms to arrive. WebKit headless has no keyboard, so it passed there
+          // and failed on device. The event that actually signals "the keyboard is here" is
+          // visualViewport resize — handled in the effect below. This stays as the immediate nudge.
+          onFocus={() => { onComposerFocus(); bottom(); setTimeout(() => bottom('smooth'), 400) }}
           placeholder="Ask Lora…"
           rows={1}
         />

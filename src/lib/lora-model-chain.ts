@@ -51,12 +51,27 @@ export class AllModelsOverloadedError extends Error {
 // 95s against ChatLauncher's 120s abort leaves ~25s of headroom for the intelligence fetch that runs BEFORE the
 // model call, the tool-loop's DB reads, and the response write. Raising this without raising the client abort
 // converts a fallback into a timeout, which is strictly worse — the two numbers move together or not at all.
-export const CHAIN_BUDGET_MS = 95_000
+// ⛔ THE ORDERING IS THE RULE. THE NUMBER IS ONLY A SYMPTOM.
+//     server budget (200s)  <  client total (240s)  <  route maxDuration (300s)
+// Raising ONE of these without the others is the defect, not the value. On 2026-07-27 the client timer
+// was raised 120s -> 240s and THIS was left at 95s, so the server gave up on a real multi-tool question
+// ("Do you think our prices are good?") after 95 seconds while the client waited four minutes. The turn
+// 500'd with the SDK's "Request timed out", no answer was ever produced, and the user was shown a
+// connection story. The header of this file already warned that "the two numbers move together or not
+// at all" — the comment did not stop it, so tests/guards/chat-timer-ordering.guard.mjs now does.
+export const CHAIN_BUDGET_MS = 200_000
 // A hop needs enough runway to be worth starting. Below this we drop it rather than begin an attempt we expect the
 // clock to kill mid-flight — a half-run hop costs tokens and returns nothing.
 export const MIN_HOP_MS = 18_000
 // Per-attempt ceiling, so one wedged request cannot eat the whole chain budget.
-export const PER_ATTEMPT_TIMEOUT_MS = 45_000
+// ⛔ THIS is what actually threw on 2026-07-27, not the chain budget. The SDK is handed
+// `timeout: min(PER_ATTEMPT_TIMEOUT_MS, remaining)`, so EVERY individual model call was capped at 45s.
+// A multi-tool turn survives by making several calls each under the cap — which is why 78s and 125s
+// turns had succeeded — but a single heavy reasoning call over 45s throws "Request timed out" and
+// 500s the turn no matter how large the budget is. Raising the budget alone would NOT have fixed it.
+// 120s per attempt, inside a 200s chain budget: one slow call can now finish, and two cannot overrun
+// the budget unnoticed.
+export const PER_ATTEMPT_TIMEOUT_MS = 120_000
 
 // Retries PER HOP, on top of the attempt itself. The primary gets more budget than the fallbacks: it is the model
 // we actually want, and a transient overload usually clears in seconds. Fallbacks get one retry — if a second

@@ -145,15 +145,48 @@ if (!page || !pageTsx) {
   for (const [what, re] of [
     ['on mount', /history\.scrollRestoration = 'manual'[\s\S]{0,400}bottom\(\)/],
     ['on new message', /\}, \[messages, loading, streamStatus\]\)/],
-    ['on composer focus', /onFocus=\{\(\) => \{ onComposerFocus\(\); setTimeout/],
+    // Behaviour, not shape: onFocus must run the probe AND scroll. The exact one-liner changed when
+    // the focus handler learned that the keyboard arrives after focus, and a shape-pinned regex failed
+    // on the improvement — second time tonight, so this one matches what must be TRUE.
+    ['on composer focus', /onFocus=\{\(\) => \{[\s\S]{0,120}onComposerFocus\(\)[\s\S]{0,120}bottom\(/],
   ]) {
     if (!re.test(pageTsx)) fail(`THE LORA PAGE DOES NOT SCROLL TO BOTTOM ${what}. iOS does NOT do this for us — measured: clearance -2013 at scrollY 149, -761 at 1475, +308 only at the document bottom.`)
   }
   if (!/requestAnimationFrame\(go\)/.test(pageTsx) || !/setTimeout\(go/.test(pageTsx)) {
     fail('THE LORA PAGE SCROLLS ONLY ONCE PER CHANGE. A hydrated markdown thread is not laid out at commit time — measured 22,784px of content settling after React commits — so a single scroll lands against a stale scrollHeight and the page sits at the top. Scroll again on the next frame and after a beat.')
   }
+  // A full-screen page with no visible exit is a trap. router.back() alone is not an exit: on a fresh
+  // load there is nothing to go back to and the tap silently does nothing.
+  if (!/aria-label="Close Lora"/.test(pageTsx) || !/new URL\(document\.referrer\)\.origin === window\.location\.origin/.test(pageTsx)) {
+    fail('THE LORA PAGE HAS NO RELIABLE EXIT. It needs a visible close affordance AND a same-origin-referrer test with a real fallback route — history.length counts the whole tab, so back can exit the app entirely (measured: it landed on about:blank) — otherwise a fresh load traps the user on a full-screen surface.')
+  }
+  // The keyboard arrives AFTER focus on iOS; only visualViewport resize marks its arrival.
+  if (!/visualViewport/.test(pageTsx) || !/addEventListener\('resize'/.test(pageTsx)) {
+    fail('THE LORA PAGE DOES NOT SCROLL ON KEYBOARD ARRIVAL. focus fires before the keyboard animates in, so a focus-only scroll runs against a full-height viewport and is undone — it passes in headless (no keyboard) and fails on device.')
+  }
   if (!/env\(safe-area-inset-top/.test(page) || !/env\(safe-area-inset-bottom/.test(page)) {
     fail('THE LORA PAGE IS MISSING a safe-area inset (top and bottom are both required on a full-screen surface).')
+  }
+}
+
+// ── 8. NO TRANSPORT / PANEL LANGUAGE IN USER-FACING COPY ──────────────────────────────────────────
+// Two problems, both real: "reopen this panel" is factually FALSE on a page, and strings that narrate
+// the client's own transport read as the machinery talking rather than as Lora.
+const recovery = read('src/lib/next/chat-recovery.ts')
+if (!recovery) {
+  fail('CANNOT READ chat-recovery.ts — the user-facing copy is unguarded.')
+} else {
+  const copyBlock = (recovery.match(/export const COPY = \{[\s\S]*?\n\}/) || [''])[0]
+    .split('\n').filter((l) => !l.trim().startsWith('//')).join('\n')
+  for (const [what, re] of [
+    ['panel/shelf/overlay language', /\b(panel|shelf|overlay)\b/i],
+    ['a claim that the answer was lost', /(answer (was|is) lost|connection dropped before)/i],
+    ['an invitation to re-ask', /(ask again|try rephrasing that|re-?send your question\b(?!.*(haven|wasn)))/i],
+  ]) {
+    if (re.test(copyBlock)) fail(`USER-FACING COPY CONTAINS ${what}. Every string in this surface is Lora speaking, on a PAGE — not a client narrating its own transport, and never a claim the client cannot verify.`)
+  }
+  if (!/SERVER_ERROR:/.test(copyBlock)) {
+    fail('NO SERVER_ERROR STRING. A definite 500 must not render as a connection story — that is the 2026-07-27 defect.')
   }
 }
 

@@ -41,10 +41,16 @@ export function pickRecoveredAnswer(rows: ConvRow[], sinceId: number): Recovery 
 // these invite a re-ask: a re-ask costs a full turn (~$0.50 measured 2026-07-26) and the answer is
 // very likely already saved.
 export const COPY = {
-  CHECKING: 'That took longer than I can watch here, so I stopped waiting — but Lora saves her answer on the server, so let me check whether it landed…',
-  ABORTED_UNCONFIRMED: 'I stopped watching after four minutes. Lora may still be finishing — her answer is saved on the server when it completes, so reopen this panel in a moment to see it. I have not re-sent your question.',
-  NETWORK_UNCONFIRMED: 'I lost the connection before I could read the answer back. If Lora finished, her answer is saved on the server — reopen this panel to check. I have not re-sent your question.',
-  AMBIGUOUS: 'I stopped watching, and this client has more than one new answer saved — I will not guess which one is yours. Reopen this panel to see the full thread. I have not re-sent your question.',
+  // VOICE: this is Lora talking, not the client narrating its own transport. No "panel" (there isn't
+  // one on a page), no "connection dropped before I got an answer back", no invitation to re-ask.
+  // Still bound by the same law: never claim an answer was lost — the client cannot know that.
+  CHECKING: 'Still working on this one. Let me check whether the answer came through…',
+  ABORTED_UNCONFIRMED: 'This one is taking longer than usual. If Lora finished, her answer will be here when you come back — I haven\u2019t re-sent your question.',
+  NETWORK_UNCONFIRMED: 'I couldn\u2019t reach Lora just then. Your question wasn\u2019t re-sent, so nothing was charged twice.',
+  AMBIGUOUS: 'There\u2019s more than one new answer on this client and I won\u2019t guess which is yours. Scroll up to see the full thread.',
+  // THE 500 PATH. Added 2026-07-27: a definite server error was rendering as NETWORK_UNCONFIRMED — a
+  // connection story for a turn where the connection was fine and the server answered with a 500.
+  SERVER_ERROR: 'Something went wrong on my end — Lora never got to answer. Try again when you\u2019re ready.',
 }
 export const RECOVERY_WINDOW_MS = 90_000
 export const RECOVERY_POLL_MS = 5_000
