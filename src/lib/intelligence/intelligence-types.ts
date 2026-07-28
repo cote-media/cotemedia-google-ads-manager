@@ -668,6 +668,12 @@ export interface ClientIntelligence {
   // NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI flag is on; absent → no honesty block in the prompt).
   connectionHealth?: Array<{ platform: string; accountName: string; state?: 'reconnect' | 'degraded' }> // LORAMER_CONN_DEGRADED_STATE_V1 — state distinguishes a dead credential (reconnect) from persistently-failing capture (degraded)
 
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — the GLOBAL google developer-token quota pause, read fresh from the
+  // __google_quota sentinel on every call (never cached — a stale "all clear" is the failure this exists to stop).
+  // Absent/undefined when there is no google connection or the quota is healthy → the prompt is byte-identical to
+  // today. `since` is when it tripped, `until` is the reset the quota error itself reported.
+  googleQuota?: { paused: boolean; until: string | null; since: string | null; reason: string | null }
+
   // Future platforms plug in here:
   // tiktok?: PlatformIntelligence
   // pinterest?: PlatformIntelligence

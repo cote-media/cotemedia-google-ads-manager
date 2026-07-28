@@ -23,6 +23,7 @@ import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { resolveDateWindow } from '@/lib/date-range'
 import { recordConnectionResult } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
+import { readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
@@ -207,6 +208,22 @@ export async function GET(request: Request) {
     conversations = context.conversations as any
   }
 
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — read the GLOBAL google quota pause BEFORE the cache check, because it
+  // must be attached fresh on BOTH the cache-hit and cache-miss paths (same posture as conversations and
+  // connectionHealth). Caching this value is the one thing that would make it dangerous: a cached "all clear"
+  // outlives the outage it is describing, and a cached "exhausted" outlives the recovery. Single indexed
+  // single-row read, and only for clients that actually have a Google connection — no cost for anyone else.
+  // Best-effort: a failed read leaves it undefined, i.e. exactly today's prompt. It must never 500 the context.
+  let googleQuota: { paused: boolean; until: string | null; since: string | null; reason: string | null } | undefined
+  if (connections.some((c) => c?.platform === 'google')) {
+    try {
+      const qp = await readGoogleQuotaPause()
+      if (qp.paused) googleQuota = qp   // only attach when PAUSED — healthy leaves the object untouched
+    } catch (e: any) {
+      console.error('[intelligence] google quota sentinel read failed (prompt unchanged):', e?.message || e)
+    }
+  }
+
   // ── Check cache ────────────────────────────────────────────────────────────
   const cacheKey = `intelligence:${clientId}:${dateRange}:${customStart || ''}:${customEnd || ''}:${focus}`
 
@@ -232,6 +249,7 @@ export async function GET(request: Request) {
         entry.resolvedStartDate = resolvedStartDate
         entry.resolvedEndDate = resolvedEndDate
         entry.connectionHealth = buildConnectionHealth(connections) // LORAMER_CONNECTION_HEALTH_V1 — always fresh (connections read every call)
+        entry.googleQuota = googleQuota // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — always fresh; a cached quota state is a lie with a 15-minute tail
         return NextResponse.json({ intelligence: entry })
       }
     } catch (e) {
@@ -262,6 +280,7 @@ export async function GET(request: Request) {
       conversations, // LORAMER_CONV_API_V1_INTELLIGENCE
       memory, // LORAMER_MEMORY_V1
     },
+    googleQuota, // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — undefined when healthy/no-google ⇒ prompt byte-identical
   }
 
   const googleConn = connections.find(c => c.platform === 'google')

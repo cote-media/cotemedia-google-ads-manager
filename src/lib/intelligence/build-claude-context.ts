@@ -470,6 +470,52 @@ export function buildFetchErrorLines(platform: PlatformIntelligence | undefined,
   return lines
 }
 
+// LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — THE PLATFORM-WIDE OUTAGE Lora could not see.
+//
+// THE GAP: when the developer-scope Google quota is exhausted (observed 2026-07-26 11:26Z and 2026-07-27
+// 11:32Z, ~21h dark each time), the sentinel that records it — sync_state/__google_quota, carrying the exact
+// reset time the quota error reported — was read ONLY by the backfill lanes (cron/drain, cron/catchup,
+// google-forward-reserve). NOTHING on the answer path read it. So a user asking a Google question inside the
+// dark window got one of three shapes and NONE of them named the cause: a total fetch failure rendered the
+// honest-but-causeless "failed to load this turn" line (so Lora offers a retry that CANNOT succeed for hours);
+// the enriched-campaign fallback (google-intelligence:221) degraded status precision SILENTLY, recording
+// nothing into fetchErrors; and sub-family failures rendered per-family degradation with no hint that every
+// family died of the same platform-wide cause with a known recovery time.
+//
+// WHY IT IS ITS OWN BLOCK AND NOT A fetchErrors ENTRY: fetchErrors is PER-FAMILY and per-fetch, and on the
+// worst shape (total exhaustion) the whole platform object is replaced by EMPTY_PLATFORM at
+// intelligence/route.ts:430, which DISCARDS fetchErrors entirely. A platform-wide, time-bounded outage with a
+// known reset needs a channel that survives that substitution. The IDIOM is deliberately the same as
+// buildFetchErrorLines — NOT $0, NOT disconnected, redirect to the captured store — per the standing rule not
+// to invent a second idiom for degradation.
+//
+// THE LAW IT SERVES (ESSENCE): presenting stale data as current is worse than a false zero. The live figures
+// in this section may predate the exhaustion; without this block Lora would narrate them as today's.
+// PURE + EXPORTED so Gate-A and any future guard can EXECUTE the real renderer rather than grep for a string.
+type GoogleQuotaState = { paused: boolean; until: string | null; since: string | null; reason: string | null }
+// ONE formatter for the reset time, used by BOTH the status ladder and the block below. They render at
+// different heights in the same prompt; if they formatted independently they could disagree about the same
+// timestamp, and a prompt that contradicts itself about when data returns is worse than one that omits it.
+export function quotaResetLabel(quota: GoogleQuotaState | undefined): string {
+  return quota?.until ? new Date(quota.until).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : 'the next daily reset'
+}
+export function buildGoogleQuotaLines(
+  quota: GoogleQuotaState | undefined,
+  name = 'Google'
+): string[] {
+  if (!quota?.paused) return []   // healthy quota adds NOTHING to the prompt — byte-identical to before
+  const since = quota.since ? new Date(quota.since).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : 'earlier today'
+  const until = quotaResetLabel(quota)
+  return [
+    `\n⛔ ${name.toUpperCase()} PLATFORM API QUOTA EXHAUSTED — this is an OUTAGE ON OUR SIDE OF THE ${name.toUpperCase()} API, not a fact about this client's account. ` +
+    `The daily developer-scope quota ran out at ${since} and does NOT reset until ${until}. Until then NO live ${name} data can be fetched for ANY client.`,
+    `  • Any live ${name} figures above were fetched BEFORE the quota ran out or are missing entirely. They are NOT $0, NOT "no spend", NOT disconnected, and NOT necessarily current.`,
+    `  • The CAPTURED store is UNAFFECTED — it does not depend on the live quota. Use query_metrics / query_breakdown for anything ${name}; that is the dashboard's own source and it is the right answer here.`,
+    `  • SAY THIS OUT LOUD when you answer anything ${name}-related: that live ${name} data is unavailable because the platform quota is exhausted, that it returns at ${until}, and that your figures come from the captured store. Never present a pre-outage live figure as current.`,
+    `  • Do NOT offer to "try again in a moment" — a retry cannot succeed until ${until}. Offering one is a false promise.`,
+  ]
+}
+
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
 // LORAMER_INTELLIGENCE_HONESTY_V1 — connected-but-empty no longer silently drops
 function buildPlatformSection(
@@ -479,11 +525,19 @@ function buildPlatformSection(
   // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — optional so every existing caller and test keeps working; when
   // absent the parity block simply does not render (never a fabricated settlement date).
   parity?: { key: PlatformKey; capturedThrough: string | null | undefined; liveAsOf?: string },
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — optional, same pattern as `parity` above: every existing caller and
+  // test keeps working, and when absent (or healthy) NOTHING renders.
+  quota?: { paused: boolean; until: string | null; since: string | null; reason: string | null },
 ): string {
   // Not connected at all → render nothing (intelligence.<platform> guard above means this is rare)
   if (!platform?.connected) return ''
   const lines: string[] = []
   lines.push(`\n=== ${name.toUpperCase()} ADS ===`)
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — ORDERING IS LOAD-BEARING, for the same reason the degraded block sits
+  // above the campaigns-empty return: this must render on EVERY shape, and the fetchFailed branch below RETURNS.
+  // Placed here it survives the total-exhaustion shape (fetchFailed) — which is the shape the outage actually
+  // produces most often — as well as the degraded and populated ones.
+  lines.push(...buildGoogleQuotaLines(quota, name))
   // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — a fetch that FAILED is a different
   // fact from "no spend" and from "not connected". Say so loudly so Lora never
   // reports $0 / "disconnected" when the data simply failed to load this turn.
@@ -1247,7 +1301,14 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
   const degradedCount = (p: PlatformIntelligence | undefined) => p?.fetchErrors?.length ?? 0
   const gDeg = degradedCount(intelligence.google)
   const gSuffix = gDeg > 0 ? ` — DEGRADED: ${gDeg} data ${gDeg === 1 ? 'family' : 'families'} FAILED to load live (NOT zero; see the PARTIAL/DEGRADED FETCH block and use the tools named there)` : ''
-  if (intelligence.google?.fetchFailed) platformStatus.push('Google: CONNECTED but data fetch FAILED this turn (temporarily unavailable — not zero, not disconnected)')  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — "temporarily unavailable" is WRONG during a quota outage, and this
+  // ladder sits ABOVE the quota block in the prompt, so the wrong word is read first. When the sentinel is
+  // paused the line names the real shape (platform-wide, known reset) instead. When it is NOT paused the string
+  // is byte-identical to what shipped at LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — asserted in Gate-A both ways.
+  if (intelligence.google?.fetchFailed) platformStatus.push(
+    intelligence.googleQuota?.paused
+      ? `Google: CONNECTED but live data UNAVAILABLE PLATFORM-WIDE — our Google API quota is exhausted until ${quotaResetLabel(intelligence.googleQuota)} (not zero, not disconnected, and NOT temporary — see the QUOTA EXHAUSTED block below)`
+      : 'Google: CONNECTED but data fetch FAILED this turn (temporarily unavailable — not zero, not disconnected)')  // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2
   else if (platformIsPopulated(intelligence.google)) platformStatus.push(`Google: populated${gSuffix}`)
   else if (platformIsEmpty(intelligence.google)) platformStatus.push(`Google: connected but no spend in this date range${gSuffix}`)
   else platformStatus.push('Google: not connected')
@@ -1331,7 +1392,9 @@ WHEN state is 'covered', the canonical rules apply: the headline total is canoni
     lines.push(CROSS_CUTTING_WHY)
   }
 
-  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits, { key: 'google', capturedThrough: ct.google, liveAsOf: intelligence.fetchedAt }))
+  // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — google ONLY: the quota is a Google-developer-token fact and means
+  // nothing for meta/shopify/woo/ga, which is why it is passed here and nowhere else.
+  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits, { key: 'google', capturedThrough: ct.google, liveAsOf: intelligence.fetchedAt }, intelligence.googleQuota))
   if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits, { key: 'meta', capturedThrough: ct.meta, liveAsOf: intelligence.fetchedAt }))
 
   if (intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch (platformStatus already flagged it)

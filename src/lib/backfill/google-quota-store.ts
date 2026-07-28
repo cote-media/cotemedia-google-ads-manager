@@ -7,18 +7,22 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { GOOGLE_QUOTA_SENTINEL_CLIENT, GOOGLE_QUOTA_PLATFORM } from './google-quota'
 
 // READ the global pause. Clock-based auto-resume: an elapsed window reads as NOT paused.
-export async function readGoogleQuotaPause(): Promise<{ paused: boolean; until: string | null; reason: string | null }> {
+// LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — `since` (backfill_block_at) added so Lora can state WHEN the quota
+// went out, not just that it is out. Purely additive: every existing caller reads .paused / .until / .reason
+// and is unaffected. The paused/until/reason semantics are untouched.
+export async function readGoogleQuotaPause(): Promise<{ paused: boolean; until: string | null; since: string | null; reason: string | null }> {
   const { data } = await supabaseAdmin
     .from('sync_state')
-    .select('backfill_blocked, backfill_block_window, backfill_block_reason')
+    .select('backfill_blocked, backfill_block_window, backfill_block_reason, backfill_block_at')
     .eq('client_id', GOOGLE_QUOTA_SENTINEL_CLIENT)
     .eq('platform', GOOGLE_QUOTA_PLATFORM)
     .maybeSingle()
   const until = ((data?.backfill_block_window as string) ?? null) || null
   const reason = ((data?.backfill_block_reason as string) ?? null) || null
-  if (!data?.backfill_blocked) return { paused: false, until, reason }
-  if (until && Date.now() >= new Date(until).getTime()) return { paused: false, until, reason } // window elapsed → resumed
-  return { paused: true, until, reason }
+  const since = ((data?.backfill_block_at as string) ?? null) || null
+  if (!data?.backfill_blocked) return { paused: false, until, since, reason }
+  if (until && Date.now() >= new Date(until).getTime()) return { paused: false, until, since, reason } // window elapsed → resumed
+  return { paused: true, until, since, reason }
 }
 
 // WRITE the global pause. block_window carries the reset ISO the quota error reported.
