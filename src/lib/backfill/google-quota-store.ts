@@ -6,23 +6,73 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { GOOGLE_QUOTA_SENTINEL_CLIENT, GOOGLE_QUOTA_PLATFORM } from './google-quota'
 
-// READ the global pause. Clock-based auto-resume: an elapsed window reads as NOT paused.
-// LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — `since` (backfill_block_at) added so Lora can state WHEN the quota
-// went out, not just that it is out. Purely additive: every existing caller reads .paused / .until / .reason
-// and is unaffected. The paused/until/reason semantics are untouched.
-export async function readGoogleQuotaPause(): Promise<{ paused: boolean; until: string | null; since: string | null; reason: string | null }> {
-  const { data } = await supabaseAdmin
+// LORAMER_QUOTA_READ_SPLIT_STATE_V1 — the read has THREE outcomes, not two.
+//
+// THE BUG THIS CLOSES (live since the guard shipped; measured 2026-07-28): this function destructured only
+// `data` and threw `error` away. supabase-js NEVER throws — it returns { data, error } — so any read failure
+// produced data === null, fell into `if (!data?.backfill_blocked)`, and returned paused:false. A FAILED READ
+// WAS INDISTINGUISHABLE FROM A HEALTHY UNBLOCKED SENTINEL, silently, with no log. On 2026-07-28 the sentinel
+// was armed at 11:28:45Z with a window to 07-29T08:03:57Z, and google catchup runs starting 11:29:11, 11:39:11,
+// 11:49:11 and 11:59:11 still reported accounts_with_gaps=9 and days_filled=3/7/6/1 — counters that increment
+// ONLY downstream of the `fillDays = googleQuotaPaused ? [] : …` gate. The gate, its scope and the deployed
+// artifact were all correct; the gate variable was false anyway, and nothing logged why.
+//
+// WHY THREE STATES AND NOT A FAIL-CLOSED FLIP. This function has two KINDS of caller and they need OPPOSITE
+// defaults when the answer is unknown:
+//   · CAPTURE lanes (cron/drain, cron/catchup) turn the answer into "do I spend Google quota". Unknown must
+//     HOLD — the cost of a false hold is one lap skipped and retried ten minutes later. Self-healing.
+//   · THE ANSWER PATH (/api/intelligence) turns the answer into a USER-FACING CLAIM: buildGoogleQuotaLines
+//     renders "⛔ GOOGLE PLATFORM API QUOTA EXHAUSTED … SAY THIS OUT LOUD". Unknown must attach NOTHING — a
+//     Supabase blip must never make Lora announce a platform outage that is not happening. Flipping this one
+//     closed would re-create the incident VERIFICATION LAW 1 was written from ("Lora: /api/intelligence
+//     fail-closed on a network blip") and would break FAIL-PARTIAL READ-PATH LAW, which is do-not-relitigate.
+// So `paused` keeps its EXACT existing meaning — the sentinel says Google work is blocked — and `state` carries
+// the read outcome beside it. Unknown is paused:false + state:'unknown'. Capture lanes must call holdGoogleWork.
+//
+// Clock-based auto-resume is UNCHANGED: an elapsed window still reads paused:false (0b32f9f), same branch,
+// same comparison, same position.
+export type GoogleQuotaReadState = 'blocked' | 'not_blocked' | 'unknown'
+export interface GoogleQuotaPause {
+  paused: boolean            // the sentinel says Google work is blocked. UNCHANGED semantics; false when unknown.
+  state: GoogleQuotaReadState // how we know — 'unknown' means the READ failed, not that the quota is fine.
+  until: string | null
+  since: string | null
+  reason: string | null
+}
+
+// THE ONE PLACE the capture-lane rule lives. Every lane that spends Google quota gates on THIS, never on
+// `.paused` directly — collapsing it here is what stops the next lane hand-rolling the disjunction and
+// re-opening the hole in a file no guard is watching.
+export function holdGoogleWork(qp: GoogleQuotaPause): boolean {
+  return qp.paused || qp.state === 'unknown'
+}
+
+export async function readGoogleQuotaPause(): Promise<GoogleQuotaPause> {
+  const { data, error } = await supabaseAdmin
     .from('sync_state')
     .select('backfill_blocked, backfill_block_window, backfill_block_reason, backfill_block_at')
     .eq('client_id', GOOGLE_QUOTA_SENTINEL_CLIENT)
     .eq('platform', GOOGLE_QUOTA_PLATFORM)
     .maybeSingle()
+
+  // READ FAILURE — NOT a quota block, and it must never be reported as one. Loud on purpose: silence here is
+  // precisely why the 2026-07-28 occurrence left no evidence and could not be attributed for a full day.
+  if (error) {
+    const detail = (error as { message?: string })?.message || String(error)
+    console.error(
+      '[google-quota] SENTINEL READ FAILURE — this is a DB read error, NOT a quota block. ' +
+      'Capture lanes HOLD (holdGoogleWork=true); Lora\'s prompt is UNCHANGED (no outage claim). detail:',
+      detail
+    )
+    return { paused: false, state: 'unknown', until: null, since: null, reason: `sentinel READ FAILURE (not a quota block): ${detail}` }
+  }
+
   const until = ((data?.backfill_block_window as string) ?? null) || null
   const reason = ((data?.backfill_block_reason as string) ?? null) || null
   const since = ((data?.backfill_block_at as string) ?? null) || null
-  if (!data?.backfill_blocked) return { paused: false, until, since, reason }
-  if (until && Date.now() >= new Date(until).getTime()) return { paused: false, until, since, reason } // window elapsed → resumed
-  return { paused: true, until, since, reason }
+  if (!data?.backfill_blocked) return { paused: false, state: 'not_blocked', until, since, reason }
+  if (until && Date.now() >= new Date(until).getTime()) return { paused: false, state: 'not_blocked', until, since, reason } // window elapsed → resumed
+  return { paused: true, state: 'blocked', until, since, reason }
 }
 
 // WRITE the global pause. block_window carries the reset ISO the quota error reported.

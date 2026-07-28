@@ -35,7 +35,7 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
-import { readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
+import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
 import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — interior-gap dimensional fill
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 
@@ -263,7 +263,10 @@ export async function GET(request: Request) {
   // The drain has always read this guard before any outbound work (cron/drain:77); catchup is the lane that did not.
   // NO CHANGE WHEN THE QUOTA IS HEALTHY (paused=false → identical behaviour). The pause auto-resumes on the clock
   // inside readGoogleQuotaPause, so this can never wedge: it releases itself at the reset without manual unblock.
-  const googleQuotaPaused = (await readGoogleQuotaPause()).paused
+  // LORAMER_QUOTA_READ_SPLIT_STATE_V1 — holdGoogleWork, NOT .paused. Reading .paused here is exactly how this
+  // gate silently stopped biting on 2026-07-28: a failed sentinel read returned paused:false and 178 gap-days
+  // of Google fan-out went out against an exhausted quota. UNKNOWN now holds, same as a confirmed pause.
+  const googleQuotaPaused = holdGoogleWork(await readGoogleQuotaPause())
   const windowStart = restoreMode ? (restoreSince as string) : addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
   const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for CATCHUP_BUDGET_MS paging
 

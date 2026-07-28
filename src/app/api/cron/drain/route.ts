@@ -19,7 +19,7 @@ import { detectTrigger } from '@/lib/cron-runs'
 import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '@/lib/backfill/drain-registry'
 import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
 import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
-import { readGoogleQuotaPause, writeGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
+import { readGoogleQuotaPause, writeGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 import { googleForwardReserveDecision } from '@/lib/backfill/google-forward-reserve' // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
@@ -74,9 +74,16 @@ export async function GET(request: Request) {
   // elapses (clock-based auto-resume in readGoogleQuotaPause — no manual unblock). Non-google platforms never
   // read it. Checked BEFORE the connection query so a paused fire does zero outbound Google work.
   if (platform === 'google') {
+    // LORAMER_QUOTA_READ_SPLIT_STATE_V1 — gate on holdGoogleWork, NOT on .paused. An UNKNOWN read (the sentinel
+    // query failed) must HOLD this lane: the cost is one lap skipped and retried in ~10 min, versus spending the
+    // whole developer-scope quota against a pause we could not see. quotaState is surfaced in the JSON so an
+    // operator can tell a real pause from an unreadable sentinel without digging through logs.
     const qp = await readGoogleQuotaPause()
-    if (qp.paused) {
-      return NextResponse.json({ platform, dryRun, trigger, cap, ok: true, selected: 0, quotaPaused: true, quotaUntil: qp.until, note: `google quota paused until ${qp.until}`, results: [] }, { status: 200 })
+    if (holdGoogleWork(qp)) {
+      const note = qp.state === 'unknown'
+        ? `google quota sentinel UNREADABLE — holding this lane (not a confirmed pause): ${qp.reason}`
+        : `google quota paused until ${qp.until}`
+      return NextResponse.json({ platform, dryRun, trigger, cap, ok: true, selected: 0, quotaPaused: qp.paused, quotaState: qp.state, quotaUntil: qp.until, note, results: [] }, { status: 200 })
     }
     // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1 — reserve the daily forward slice: within N minutes of the ~08:03:57 UTC
     // quota reset, if today's google FORWARD pass has not finished, hold the deep-history drain OFF google so forward
