@@ -349,6 +349,8 @@ export type QueryBreakdownResult = {
   window: { startDate: string; endDate: string }
   rankBy: string
   rows: BreakdownRow[]
+  scopeUnavailable?: boolean          // LORAMER_SCOPED_DRILLDOWN_FALSE_ZERO_V1 — the scope missed, the DATA EXISTS
+  availableEntityLevels?: string[]    // where it IS available, so the caller can redirect instead of reporting zero
   distinctValueCount: number
   truncated: boolean
   note?: string
@@ -499,20 +501,60 @@ export async function queryBreakdown(opts: {
   // always present when the family has data). An explicit entityLevel overrides (mirrors the P1b video projection).
   // Single-level families (search_term/keyword ad_group; placement/conversion_action campaign; shopify geo account)
   // resolve to their sole level → byte-identical to the pre-scope behavior. Result shape unchanged (byte-identical).
+  // LORAMER_SCOPED_DRILLDOWN_FALSE_ZERO_V1 — THE PROBE NOW HONOURS THE SCOPE, and an unreachable scope is stated
+  // rather than reported as missing data. THE DEFECT (measured 2026-07-28): the probe below picked the COARSEST
+  // level that had rows and IGNORED parentEntityId/entityId, then filtered on that level. keyword/search_term
+  // (coarsest = ad_group) and hour (coarsest = campaign) happened to line up and worked; device (coarsest =
+  // campaign) could never match an AD-GROUP entityId, and campaign-level rows carry parent_entity_id = the
+  // customer id, so a campaign parentEntityId missed too. The result was rows=0 plus "No device data captured
+  // for this client" — FALSE, with $63,992.80 of device data sitting one level away. A model handed that
+  // sentence has been handed a wrong fact; on 2026-07-28 Lora correctly refused a drill-down chain because of it.
+  //
+  // THIRD INSTANCE OF THE FALSE-ZERO CLASS, and it reuses the shape of the prior two rather than inventing a
+  // third: LORAMER_WOO_SILENT_ZERO_FIX_V1 ("a thrown fetch is a FAILED fetch, not a $0 day") and the
+  // query_metrics pre-data-window fix. THE RULE: absence, failure and zero are three different facts and the
+  // caller must be able to tell them apart.
+  //
+  // ⛔ SINGLE-LEVEL IS PRESERVED. LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 (2026-07-02) exists because this query used to
+  // SUM every captured level and DOUBLE-COUNT (google hour $3,945.88 → true $2,427.36; the -next age card ~4x).
+  // This change moves WHICH single level is chosen when a scope is supplied; it never widens the set to more
+  // than one. Trading a false zero for a false total would be strictly worse.
   const LEVEL_ORDER = ['account', 'campaign', 'ad_group', 'ad_set', 'ad', 'keyword']
+  const scoped = !!(opts.parentEntityId || opts.entityId)
+  const probeAt = async (lv: string, withScope: boolean) => {
+    let p = supabaseAdmin
+      .from('metrics_daily')
+      .select('entity_level')
+      .eq('client_id', opts.clientId).eq('platform', platform).eq('breakdown_type', bt)
+      .eq('entity_level', lv).gte('date', startDate).lte('date', endDate)
+    if (withScope && opts.parentEntityId) p = p.eq('parent_entity_id', opts.parentEntityId)
+    if (withScope && opts.entityId) p = p.eq('entity_id', opts.entityId)
+    const { data, error: pErr } = await p.limit(1)
+    if (pErr) throw new Error('metrics_daily level probe failed: ' + pErr.message)
+    return !!(data && data.length)
+  }
   let level: string | null = opts.entityLevel && LEVEL_ORDER.includes(opts.entityLevel) ? opts.entityLevel : null
   if (!level) {
-    for (const lv of LEVEL_ORDER) {
-      const { data: probe, error: pErr } = await supabaseAdmin
-        .from('metrics_daily')
-        .select('entity_level')
-        .eq('client_id', opts.clientId).eq('platform', platform).eq('breakdown_type', bt)
-        .eq('entity_level', lv).gte('date', startDate).lte('date', endDate).limit(1)
-      if (pErr) throw new Error('metrics_daily level probe failed: ' + pErr.message)
-      if (probe && probe.length) { level = lv; break }
-    }
+    // Probe WITH the scope applied, so the level is resolved FROM the scope instead of from coarseness alone.
+    // Unscoped behaviour is byte-identical: withScope=false makes this the original coarsest-first probe.
+    for (const lv of LEVEL_ORDER) { if (await probeAt(lv, scoped)) { level = lv; break } }
   }
   if (!level) {
+    // The scope found nothing. Before claiming the data does not exist, ask whether it exists UNSCOPED — that is
+    // the difference between "we never captured this" and "we captured it, just not reachable at that scope".
+    const availableAt: string[] = []
+    if (scoped) for (const lv of LEVEL_ORDER) { if (await probeAt(lv, false)) availableAt.push(lv) }
+    if (availableAt.length) {
+      const which = opts.entityId ? `entityId=${opts.entityId}` : `parentEntityId=${opts.parentEntityId}`
+      result.note =
+        `${bt} IS captured for this client in ${startDate}..${endDate} at entity_level ${availableAt.join('/')}, ` +
+        `but NOT at the scope you asked for (${which}) — no ${bt} row carries that id. This is a SCOPE limitation, ` +
+        `NOT missing data: do NOT report it as zero, no spend, or not captured. Either ask for ${bt} at ` +
+        `${availableAt[0]} level without the scope, or scope to an id that exists at ${availableAt.join('/')}.`
+      result.scopeUnavailable = true
+      result.availableEntityLevels = availableAt
+      return result
+    }
     result.note = `No ${bt} data captured for this client in ${startDate}..${endDate}.`
     return result
   }
