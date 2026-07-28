@@ -218,6 +218,13 @@ export async function fetchGoogleIntelligence(
     campaignRows = await withGaqlRetry('intel:campaign-enriched', () => customer.query(campaignQuery(`campaign.primary_status, ${CAMPAIGN_BASE_FIELDS}`)))
   } catch (enrichErr) {
     campaignStatusEnriched = false
+    // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — RECORD IT. This catch degraded the answer and told no one:
+    // it logged, fell back, and pushed NOTHING into fetchErrors, so build-claude-context could not know and Lora
+    // reported toggle-only statuses as if they were authoritative. That is the difference between "ENABLED" and
+    // "ENABLED but not serving (payment / policy / still learning)" — a distinction she will state confidently
+    // and wrongly. describeGaqlError (LORAMER_GAQL_ERROR_SERIALIZE_V1) because a google-ads rejection leaves
+    // .message empty and would otherwise land here as "[object Object]".
+    fetchErrors.push({ label: 'campaign_status', message: describeGaqlError(enrichErr) })
     console.error('LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2: enriched campaign query failed, falling back to base fields (status precision lost, Google NOT dropped):', enrichErr instanceof Error ? enrichErr.message : enrichErr)
     campaignRows = await withGaqlRetry('intel:campaign-base', () => customer.query(campaignQuery(CAMPAIGN_BASE_FIELDS)))
   }

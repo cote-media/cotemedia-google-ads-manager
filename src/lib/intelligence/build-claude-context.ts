@@ -406,6 +406,12 @@ type FamilyRecovery = {
   family: string
   toolType?: string      // query_breakdown breakdownType — MUST exist in the registry enum
   entityLevel?: string   // query_metrics entityLevel — for entity grains, not breakdowns
+  // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — a THIRD shape, for a family that DEGRADED rather than went
+  // MISSING. The three shapes above all say "this family failed to load"; campaign_status is different in kind —
+  // the campaigns DID load, at coarser precision. Rendering it with the generic UNAVAILABLE prose would tell Lora
+  // the campaigns could not be loaded, which is false, and would invite the retry offer the quota block forbids.
+  // A misleading honesty line is worse than none, which is the whole reason this family gets its own wording.
+  degradedNote?: string
 }
 export const FETCH_ERROR_FAMILIES: Record<string, FamilyRecovery> = {
   // Captured → recoverable via query_breakdown (every toolType verified present in the google registry rows)
@@ -422,6 +428,19 @@ export const FETCH_ERROR_FAMILIES: Record<string, FamilyRecovery> = {
   // Captured as ENTITY grains, not breakdowns → query_metrics with entityLevel
   ad_group: { family: 'Ad groups', entityLevel: 'ad_group' },
   ad: { family: 'Ads', entityLevel: 'ad' },
+  // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — DEGRADED-not-missing. No redirect: campaign status has NO
+  // captured equivalent (metrics_daily stores metrics, not serving-state), and pointing Lora at a tool that
+  // cannot answer would manufacture a second false zero one layer down — the same rule that leaves audiences and
+  // PMax asset groups without a redirect.
+  campaign_status: {
+    family: 'Campaign status precision',
+    degradedNote:
+      'the campaigns above DID load and their metrics are REAL — only the authoritative serving-state field ' +
+      '(primary_status) failed, so each campaign shows its on/off toggle instead. That means you can say a campaign ' +
+      'is enabled or paused, but you can NOT tell whether an enabled campaign is actually SERVING — it may be ' +
+      'limited by payment, policy, or still learning. Do not assert or imply that any campaign is serving, ' +
+      'eligible, or healthy this turn, and say plainly that serving-state detail is unavailable if asked.',
+  },
   // NOT captured anywhere — live-only surfaces. No redirect; honest unavailability.
   ad_asset: { family: 'RSA asset performance' },
   audience: { family: 'Audiences' },
@@ -437,15 +456,26 @@ export function buildFetchErrorLines(platform: PlatformIntelligence | undefined,
   const errs = platform?.fetchErrors
   if (!errs || errs.length === 0) return []
   const lines: string[] = []
+  // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — "MISSING FROM THIS PROMPT" is true of every family that
+  // failed to LOAD, and false of one that loaded at reduced precision. The clause is widened ONLY when such a
+  // family is actually present, so a prompt without one is byte-identical to what shipped (asserted in Gate-A).
+  // Same reasoning as the shared reset-time formatter: a block that contradicts itself is worse than a blunt one.
+  const anyDegradedNote = errs.some((e) => FETCH_ERROR_FAMILIES[e.label]?.degradedNote)
   lines.push(
     `\n⚠ ${name} PARTIAL/DEGRADED FETCH — ${errs.length} data ${errs.length === 1 ? 'family' : 'families'} FAILED to load live this turn. ` +
-    `The ${name} totals above are REAL, but each family listed below is MISSING FROM THIS PROMPT because its live query errored — ` +
+    (anyDegradedNote
+      ? `The ${name} totals above are REAL, and each family listed below either went MISSING FROM THIS PROMPT or loaded at REDUCED PRECISION — each line says which — `
+      : `The ${name} totals above are REAL, but each family listed below is MISSING FROM THIS PROMPT because its live query errored — `) +
     `it is NOT zero, NOT empty, and NOT disconnected. Treat an absent family below as UNKNOWN-until-you-check, never as evidence of nothing.`
   )
   for (const e of errs) {
     const spec = FETCH_ERROR_FAMILIES[e.label]
     const label = spec?.family || e.label
-    if (spec?.toolType) {
+    // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — degraded-not-missing branch FIRST. No existing family
+    // carries degradedNote, so every one of them renders byte-identically to before (asserted in Gate-A).
+    if (spec?.degradedNote) {
+      lines.push(`  • ${label} (${e.label}) — DEGRADED, not missing: ${spec.degradedNote}`)
+    } else if (spec?.toolType) {
       lines.push(
         `  • ${label} (${e.label}) — live fetch FAILED. You MUST call query_breakdown with breakdownType='${spec.toolType}' ` +
         `for this client and window; that reads the captured store, which does NOT depend on the live fetch and matches the dashboard cards. ` +

@@ -54,6 +54,13 @@ for (const f of fetcherFiles) {
   recordingPlatforms.push(f)
   // Every soft sub-query is registered by its label as the FIRST arg to safeQuery.
   for (const m of src.matchAll(/safeQuery\(\s*'([a-z0-9_]+)'/g)) declaredLabels.add(m[1])
+  // LORAMER_ENRICHED_CAMPAIGN_FALLBACK_VISIBLE_V1 — …and a fetcher may also record DIRECTLY, outside safeQuery,
+  // when the failure is not a soft sub-query at all (google-intelligence's enriched-campaign fallback records
+  // 'campaign_status' from its own catch). Reading only safeQuery labels made this guard's "N/N families mapped"
+  // answer a NARROWER question than its name — a direct push with an unmapped label would render as a bare
+  // internal string and the guard would still print PASS. That is the banked narrow-green failure mode, so the
+  // extractor now covers BOTH recording shapes.
+  for (const m of src.matchAll(/fetchErrors\.push\(\s*\{\s*label:\s*'([a-z0-9_]+)'/g)) declaredLabels.add(m[1])
 }
 
 if (recordingPlatforms.length === 0) {
