@@ -27,12 +27,19 @@
 // Single-creative (non-Dynamic) ads return EMPTY for these — honest/expected, never an error, never a fabricated row.
 // Stateless-range: processes the [startDate,endDate] the drain's rangeLap hands it. REUSE: metaFetchAllPaged.
 import { supabaseAdmin } from '@/lib/supabase'
+import { capText } from './safe-truncate' // LORAMER_META_ASSET_CODEPOINT_TRUNCATION_V1
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { metaFetchAllPaged } from './meta-graph-paged'
 
 const META_API = 'https://graph.facebook.com/v21.0'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 const VALUE_CAP = 300 // breakdown_value char cap — protects the 7-col btree index (body text can be a paragraph)
+// LORAMER_META_ASSET_CODEPOINT_TRUNCATION_V1 — the cap is applied by CODEPOINT via capText(), never by
+// String.slice(). .slice() cuts by UTF-16 code unit and silently splits surrogate pairs: Foam OH's body_asset
+// for campaign/2024-11-01 (307 chars ending "…🟠🟡🟢") was cut at index 299 INSIDE U+1F7E2, leaving a lone high
+// surrogate that becomes EF BF BD on the wire and made Postgres reject the whole upsert with "invalid input
+// syntax for type json" — halting the lap and everything behind it. The corruption was OURS: the raw Meta
+// values were clean (all 53 rows scanned). capText also flags what it changed, so sanitisation is never silent.
 
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
 const iso = (d: Date) => d.toISOString().split('T')[0]
@@ -114,8 +121,9 @@ function assetValue(cfg: AssetCfg, obj: any): { value: string; extra: Record<str
   if (typeof obj !== 'object') {
     const raw = String(obj).trim()
     if (!raw) return null
-    const value = raw.length > VALUE_CAP ? raw.slice(0, VALUE_CAP) : raw
-    const extra: Record<string, unknown> = { asset_id: raw, value_shape: 'scalar' }
+    const cappedRaw = capText(raw, VALUE_CAP)
+    const value = cappedRaw.value
+    const extra: Record<string, unknown> = { asset_id: raw, value_shape: 'scalar', ...(cappedRaw.truncated ? { value_truncated: true } : {}), ...(cappedRaw.sanitised ? { value_sanitised: 'lone_surrogate_stripped' } : {}) }
     if (value !== raw) { extra.value_full = raw; extra.value_capped = true }
     return { value, extra }
   }
@@ -127,7 +135,11 @@ function assetValue(cfg: AssetCfg, obj: any): { value: string; extra: Record<str
   const label = rawLabel != null && String(rawLabel).trim() !== '' ? String(rawLabel) : id
   if (cfg.valueField === null) extra.name_lookup = 'deferred' // description_asset: id-only by API design
   if (!label) return null // unkeyable (no label AND no id) → skip, never a fabricated key
-  const value = label.length > VALUE_CAP ? label.slice(0, VALUE_CAP) : label
+  const cappedLabel = capText(label, VALUE_CAP)
+  const value = cappedLabel.value
+  // LORAMER_META_ASSET_CODEPOINT_TRUNCATION_V1 — record what the cap changed; sanitisation is never silent.
+  if (cappedLabel.truncated) extra.value_truncated = true
+  if (cappedLabel.sanitised) extra.value_sanitised = 'lone_surrogate_stripped'
   if (value !== label) { extra.value_full = label; extra.value_capped = true }
   return { value, extra }
 }
