@@ -39,6 +39,9 @@
 // month' is not a month, and the chunker downstream is what decides the real load.
 import { NextResponse } from 'next/server'
 import { runMetaAssetBackfill } from '@/lib/backfill/meta-asset-backfill'
+// LORAMER_META_ASSET_BUDGET_HEADROOM_V1 — the headroom rule lives in its own module so it is provable without a
+// server (a Next route file may not export arbitrary symbols).
+import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -126,10 +129,15 @@ export async function GET(request: Request) {
   let totalWritten = 0
   let plannedReports = 0
   let plannedChunks = 0
+  let maxLapMs = 0
+  const lapMs: number[] = []
 
   while (true) {
     if (curEnd < startDate) { complete = true; break }
-    if (!plan && Date.now() - started > BUDGET_MS) { complete = false; resumeBefore = curEnd; break }
+    // LORAMER_META_ASSET_BUDGET_HEADROOM_V1 — reserve headroom for the lap we are ABOUT to run, measured from
+    // the laps already run this invocation. Breaking here is the SUCCESS path: it returns resumeBefore so the
+    // caller can chain, which is exactly what the 504 was destroying.
+    if (!plan && !shouldStartAnotherLap(Date.now() - started, maxLapMs, BUDGET_MS)) { complete = false; resumeBefore = curEnd; break }
     let subStart = monthStart(curEnd)
     if (subStart < startDate) subStart = startDate
 
@@ -139,7 +147,11 @@ export async function GET(request: Request) {
       plannedReports += chunks.length * REPORTS_PER_CHUNK
       subRanges.push({ range: `${subStart}→${curEnd}`, monthChunks: chunks.map((c) => `${c.from}→${c.to}`), reports: chunks.length * REPORTS_PER_CHUNK })
     } else {
+      const lapStart = Date.now()
       const { status, body } = await writer(clientId, subStart, curEnd, { dryRun })
+      const thisLap = Date.now() - lapStart
+      lapMs.push(thisLap)
+      if (thisLap > maxLapMs) maxLapMs = thisLap
       if (status !== 200) {
         return NextResponse.json({ error: 'writer failed', subRange: `${subStart}→${curEnd}`, detail: body }, { status })
       }
@@ -157,6 +169,12 @@ export async function GET(request: Request) {
     floor36: floor,
     ...(clamped ? { clampedToFloor36: true, requestedStartDate: rawStart } : {}),
     ...(plan ? { plannedSubRanges: subRanges.length, plannedChunks, plannedReports, subRanges }
-             : { totalWritten, subRanges }),
+             : { totalWritten, subRanges, lapsRun: lapMs.length, maxLapMs, lapMs,
+                 reportsIssued: lapMs.length * REPORTS_PER_CHUNK,
+                 // NOT AVAILABLE, stated rather than omitted: Meta's X-Business-Use-Case-Usage is consumed inside
+                 // runMetaAssetBackfill and never returned, so this route cannot surface it without changing the
+                 // writer. Throttle status therefore remains observable only via a writer error or the Vercel
+                 // error clusters. Named as a known blind spot.
+                 butHeader: 'unavailable — writer does not expose Meta response headers' }),
   }, { status: 200 })
 }
