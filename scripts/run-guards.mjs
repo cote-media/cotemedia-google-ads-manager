@@ -55,6 +55,7 @@ const GUARDS = [
   'tests/guards/order-grain-writer.guard.mjs',
   'tests/guards/metrics-payload-uniformity.guard.mjs',
   'tests/guards/metrics-upsert-chunked.guard.mjs',
+  'tests/guards/meta-breakdown-dedupe.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',
