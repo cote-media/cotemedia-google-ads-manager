@@ -8,10 +8,12 @@
 // builder, and idempotently upserts. NO RECONCILE (geo is non-partitioning — location_type overlap + multi-grain;
 // write-only like search_term/keyword). NO LIMIT cap. Conversions never gate. Stateless-range (rangeLap-shaped).
 import { supabaseAdmin } from '@/lib/supabase'
-import { normalizeMetricsRows } from '@/lib/metrics-normalize'
+// LORAMER_METRICS_UPSERT_CHUNKED_V1 — the write goes through the shared chunked writer, never a bare
+// .upsert(array). A geo day at campaign level is ~15,600 rows (MEASURED, Foam OH geo_city 2026-03-25) and one
+// statement that size on an already-populated slice blew the 8s PostgREST ceiling on every drain lap for four
+// weeks. normalizeMetricsRows is called INSIDE the helper — do not re-add it here.
+import { upsertMetricsChunked } from '@/lib/metrics-upsert'
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainWindow, buildGeoGrainRows, type GeoGrain, type GeoRow } from '@/lib/intelligence/google-geo'
-
-const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 
 // ~10-DAY fetch chunks bound the per-QUERY result buffer (the google-ads-api lib buffers one grain×entity×chunk
 // before returning). Chunks are date-disjoint → per-chunk processing yields BYTE-IDENTICAL rows to a single
@@ -52,6 +54,10 @@ async function runGeoFamily(
   const refreshToken = tok.refresh_token as string
 
   let grainDayRows = 0, written = 0, daysWritten = 0
+  // LORAMER_METRICS_UPSERT_CHUNKED_V1 — observability the old single-statement write could not give: how many
+  // statements a lap actually issued, and the widest single day. Reported so a future timeout is tuned from a
+  // measurement rather than a guess.
+  let chunksIssued = 0, maxChunksInOneDay = 0
   const perGrain: Record<string, { rows: number; days: number }> = {}
   const byEntityLevel: Record<string, number> = {} // dryRun multiplier diagnostic: rows per entity level
   const distinctValuesSample = new Set<string>() // dryRun diagnostic — confirm encoding per grain
@@ -74,8 +80,15 @@ async function runGeoFamily(
             for (const b of built) { if (distinctValuesSample.size < 80) distinctValuesSample.add(`${entity.entityLevel}:${grain.breakdownType}=${String((b as any).breakdown_value)}`) }
           }
           if (!opts.dryRun) {
-            const { error: upErr } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(built), { onConflict: CONFLICT })
-            if (upErr) return { status: 500, body: { error: 'upsert failed', grain: grain.breakdownType, entity: entity.entityLevel, date, detail: upErr.message } }
+            // Error SHAPE is unchanged on purpose (error/grain/entity/date/detail) so the existing Vercel
+            // error clusters keep grouping; only `detail` gets richer — it now names the chunk that died.
+            try {
+              const up = await upsertMetricsChunked(built)
+              chunksIssued += up.chunks
+              if (up.chunks > maxChunksInOneDay) maxChunksInOneDay = up.chunks
+            } catch (upErr) {
+              return { status: 500, body: { error: 'upsert failed', grain: grain.breakdownType, entity: entity.entityLevel, date, detail: upErr instanceof Error ? upErr.message : String(upErr) } }
+            }
           }
           written += built.length; daysWritten++; gDays++
         }
@@ -91,7 +104,7 @@ async function runGeoFamily(
       clientId, customerId, range: `${startDate}→${endDate}`, dryRun: !!opts.dryRun,
       reconcile: 'NONE (write-only; geo is non-partitioning — location_type overlap + multi-grain)',
       grainCount: grains.length, entityLevels: GEO_ENTITIES.length, queriesPerLap: grains.length * GEO_ENTITIES.length,
-      grainDayRows, written, daysWritten, byEntityLevel, perGrain,
+      grainDayRows, written, daysWritten, byEntityLevel, perGrain, chunksIssued, maxChunksInOneDay,
       ...(opts.dryRun ? { distinctValuesSample: Array.from(distinctValuesSample), sampleRow } : {}),
     },
   }
