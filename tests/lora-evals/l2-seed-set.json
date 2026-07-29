@@ -1,0 +1,187 @@
+{
+  "_meta": {
+    "marker": "LORAMER_LORA_L2_EVAL_SEED_V1",
+    "purpose": "SLICE 1 seed set for the L2-RETRIEVAL eval. EXTENDS tests/lora-evals/ (run-evals.mjs + golden-set.json + rejudge.mjs + the lora_tool_decisions instrument) — it does not replace them. Where golden-set.json banks a HAND-VERIFIED expected number, every question here carries a `truth` SPEC that the runner COMPUTES from metrics_daily at run time, so the harness never trusts a number a human typed.",
+    "binds_by": "clientId ONLY, never clientName — ★EVAL-BIND: two clients are named 'Influential Drones' (5bb9b2ff real, 2617b163 demo fixture) and golden-set.json binds one of them by name.",
+    "window": "2026-06-01..2026-06-30 (LAST_MONTH at time of authoring; the runner passes explicit dates, never a relative label, so the set does not rot)",
+    "coverage": "5 platforms · 10 families · high-cardinality (search_term 4,639 vals · ga_landing_page 27,299 vals) · non-additive (impression_share) · multi-level where the 4x inflation bug lived (google hour, meta age) · one question requiring >5 distinct family lookups to exercise the MAX=5 tool-turn ceiling",
+    "run_order": "grouped by client so each client's cacheable prompt prefix is written once and read by the rest of its block (the LORAMER_LORA_CACHE_WARM_REORDER_V1 pattern already proven in run-evals.mjs)"
+  },
+  "questions": [
+    {
+      "id": "L1",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "google",
+      "family": "(base)",
+      "trait": "baseline-account",
+      "message": "What was the total Google Ads spend for June 2026? Give the number.",
+      "truth": {
+        "kind": "sum",
+        "platform": "google",
+        "breakdownType": "",
+        "metric": "spend",
+        "level": "account"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L2",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "google",
+      "family": "hour",
+      "trait": "multi-level (4x inflation bug lived here)",
+      "message": "For June 2026, which hour of the day had the highest Google Ads spend, and how much was spent in that hour?",
+      "truth": {
+        "kind": "top",
+        "platform": "google",
+        "breakdownType": "hour",
+        "metric": "spend",
+        "level": "COARSEST"
+      },
+      "expectStore": true,
+      "inflationGuard": {
+        "note": "campaign $81,962.98 and ad_group $81,962.98 both exist. A summed-across-levels answer doubles it. The runner computes at the COARSEST level, exactly as metrics-query.ts:495-518 does."
+      }
+    },
+    {
+      "id": "L3",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "google",
+      "family": "search_term",
+      "trait": "high-cardinality (4,639 distinct values)",
+      "message": "In June 2026, which single Google search term drove the most spend, and how much?",
+      "truth": {
+        "kind": "top",
+        "platform": "google",
+        "breakdownType": "search_term",
+        "metric": "spend",
+        "level": "COARSEST"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L4",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "google",
+      "family": "impression_share",
+      "trait": "non-additive (per-entity projection, never summed)",
+      "message": "For June 2026, how many Google campaigns do you have impression share data captured for? Just the count.",
+      "truth": {
+        "kind": "distinct_entities",
+        "platform": "google",
+        "breakdownType": "impression_share",
+        "level": "campaign"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L5",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "ga",
+      "family": "ga_landing_page",
+      "trait": "high-cardinality (27,299 distinct values)",
+      "message": "From GA4 in June 2026, how many distinct landing pages were recorded? Just the count.",
+      "truth": {
+        "kind": "distinct_values",
+        "platform": "ga",
+        "breakdownType": "ga_landing_page",
+        "level": "account"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L6",
+      "clientId": "f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2",
+      "clientName": "Veterinary mastermind",
+      "platform": "meta",
+      "family": "age",
+      "trait": "multi-level (4x inflation bug lived here) + the A6 regression number",
+      "message": "What was the total Meta ad spend broken down by age bracket in June 2026? Give the total across all age brackets.",
+      "truth": {
+        "kind": "sum",
+        "platform": "meta",
+        "breakdownType": "age",
+        "metric": "spend",
+        "level": "COARSEST"
+      },
+      "expectStore": true,
+      "inflationGuard": {
+        "note": "account $2,634.76 and campaign $2,634.77 both exist; summing all four captured levels is the original 4x shape. This is also the banked 2026-07-14 A6 figure."
+      }
+    },
+    {
+      "id": "L7",
+      "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15",
+      "clientName": "Influential Drones",
+      "platform": "shopify",
+      "family": "product_type",
+      "trait": "store breakdown",
+      "message": "For June 2026, which Shopify product type produced the most revenue, and how much?",
+      "truth": {
+        "kind": "top",
+        "platform": "shopify",
+        "breakdownType": "product_type",
+        "metric": "revenue",
+        "level": "COARSEST"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L8",
+      "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15",
+      "clientName": "Influential Drones",
+      "platform": "shopify",
+      "family": "order_time",
+      "trait": "order-grain / captured-only family",
+      "message": "For June 2026, what was the total Shopify revenue captured at the order-time grain?",
+      "truth": {
+        "kind": "sum",
+        "platform": "shopify",
+        "breakdownType": "order_time",
+        "metric": "revenue",
+        "level": "COARSEST"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L9",
+      "clientId": "23c697bb-5255-4289-9329-659544ba8e6e",
+      "clientName": "Shelley Kyle",
+      "platform": "woocommerce",
+      "family": "payment_method",
+      "trait": "woo breakdown",
+      "message": "For June 2026, what was the total WooCommerce revenue by payment method? Give the total.",
+      "truth": {
+        "kind": "sum",
+        "platform": "woocommerce",
+        "breakdownType": "payment_method",
+        "metric": "revenue",
+        "level": "COARSEST"
+      },
+      "expectStore": true
+    },
+    {
+      "id": "L10",
+      "clientId": "60e6dd99-fd42-466f-870f-48eb407835e8",
+      "clientName": "Bath Fitter | O'Gorman Bros",
+      "platform": "multi",
+      "family": "drilldown-chain",
+      "trait": "MAX=5 TOOL-TURN CEILING — six SEQUENTIALLY DEPENDENT steps",
+      "message": "For June 2026, work through these in order, each answer depending on the last, and give me all six numbered: (1) which Google campaign spent the most, and how much; (2) inside THAT campaign, which ad group spent the most, and how much; (3) inside THAT ad group, which keyword spent the most, and how much; (4) inside THAT SAME ad group, which search term spent the most, and how much; (5) inside THAT SAME ad group, which device spent the most, and how much; (6) back at THAT campaign from step 1, which hour of day spent the most, and how much. Answer all six.",
+      "truth": {
+        "kind": "chain"
+      },
+      "expectStore": true,
+      "ceilingProbe": {
+        "maxToolTurns": 5,
+        "why_breadth_failed": "The first L10 asked for six INDEPENDENT families. Anthropic can emit many tool_use blocks in ONE turn and claude-tools.ts:321 counts TURNS, not calls — so six independent lookups finished in 2 turns and the ceiling was never approached. Only a SEQUENTIAL DEPENDENCY forces turn count: step N+1 cannot be issued until step N returns. queryBreakdown exposes parentEntityId/entityId (claude-tools.ts:137) so the drill-down is genuinely serial.",
+        "expect": "6 dependent steps > MAX=5 turns. Record whether the ceiling was hit AND whether she DISCLOSED stopping early rather than silently truncating."
+      }
+    }
+  ]
+}

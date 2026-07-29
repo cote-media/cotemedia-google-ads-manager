@@ -1,0 +1,363 @@
+{
+  "base": "http://localhost:3111",
+  "owner": "cotebrandmarketing@gmail.com",
+  "window": {
+    "START": "2026-06-01",
+    "END": "2026-06-30"
+  },
+  "totals": {
+    "n": 10,
+    "correct": 9,
+    "incorrect": 1,
+    "unanswered": 0,
+    "consulted": 10,
+    "grounded": 9,
+    "lucky": 0
+  },
+  "results": [
+    {
+      "id": "L1",
+      "platform": "google",
+      "family": "(base)",
+      "trait": "baseline-account",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correct total spend 81989.49 attributed to Google Ads June 2026."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_metrics"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "spend",
+      "truth": {
+        "kind": "sum",
+        "level": "account",
+        "value": 81989.49
+      },
+      "detail": "expected 81989.49 @account · numberMatch=true",
+      "answer": "**$81,989.49** — Google Ads spend, June 2026 (2026-06-01 → 2026-06-30). Supporting figures for the month: 47,088 impressions, 3,599 clicks (7.64% CTR), $22.78 CPC, 661.26 conversions at a $123.99 CPA. Source note: live Google data is unavailable this turn — our Google API quota is exhausted platform-wide and doesn't reset until 2026-07-29 08:03 UTC, so no live figures can be fetched for any client"
+    },
+    {
+      "id": "L2",
+      "platform": "google",
+      "family": "hour",
+      "trait": "multi-level (4x inflation bug lived here)",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correct hour 11 and spend $7,274.50 match ground truth."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "hour",
+      "truth": {
+        "kind": "top",
+        "level": "campaign",
+        "label": "11",
+        "value": 7274.5,
+        "distinct": 24
+      },
+      "detail": "expected 7274.5 (11) @campaign · numberMatch=true labelMatch=true",
+      "answer": "**11:00 AM (hour 11) — $7,274.50 in Google Ads spend.** Source note: live Google data is unavailable this turn — our Google API quota is exhausted platform-wide and doesn't reset until 2026-07-29 08:03 UTC. These figures come from the captured store (settled through 2026-07-27), which is what the dashboard cards use, and June 2026 is fully covered. **June 2026 top hours by spend** | Hour | Spend |"
+    },
+    {
+      "id": "L3",
+      "platform": "google",
+      "family": "search_term",
+      "trait": "high-cardinality (4,639 distinct values)",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correct term 'bath fitters' and spend $8,699.12 matches ground truth, properly attributed."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "search_term",
+      "truth": {
+        "kind": "top",
+        "level": "ad_group",
+        "label": "bath fitters",
+        "value": 8699.12,
+        "distinct": 4639
+      },
+      "detail": "expected 8699.12 (bath fitters) @ad_group · numberMatch=true labelMatch=true",
+      "answer": "**\"bath fitters\" — $8,699.12 in June 2026.** Source note: live Google data is unavailable this turn because our Google API developer quota is exhausted (returns 2026-07-29 08:03 UTC). This figure comes from LoraMer's captured store, which is unaffected and is what the dashboard cards read from. Context on the top term: - 513 impressions, 224 clicks, 43.66% CTR, $38.84 CPC - 74.03 conversions at $1"
+    },
+    {
+      "id": "L4",
+      "platform": "google",
+      "family": "impression_share",
+      "trait": "non-additive (per-entity projection, never summed)",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correct count of 72 campaigns at campaign entity level."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "impression_share",
+      "truth": {
+        "kind": "distinct_entities",
+        "level": "campaign",
+        "value": 72
+      },
+      "detail": "expected 72 @campaign · numberMatch=true",
+      "answer": "**72 campaigns.** That's the distinct count of Google campaigns with impression-share rows captured in June 2026 (my query returned the top 50, truncated, with distinctValueCount = 72). Two caveats worth noting: - Live Google data is unavailable — our Google API quota is exhausted platform-wide and doesn't reset until 2026-07-29 08:03 UTC. This figure comes from the captured store, which is the da"
+    },
+    {
+      "id": "L5",
+      "platform": "ga",
+      "family": "ga_landing_page",
+      "trait": "high-cardinality (27,299 distinct values)",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correct count 27,299 matches ground truth, properly attributed."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "unknown",
+      "truth": {
+        "kind": "distinct_values",
+        "level": "account",
+        "value": 27299
+      },
+      "detail": "expected 27299 @account · numberMatch=true",
+      "answer": "**27,299 distinct landing pages** in GA4 for June 2026 (captured store, settled through 2026-07-27). One caveat worth flagging: that count is massively inflated by query-string variants — the vast majority of rows are the same few pages with unique `?fbclid=` and `?dicbo=` parameters appended (e.g. `/buffalo/?fbclid=...` appears hundreds of times). The count of distinct *pages* stripped of paramet"
+    },
+    {
+      "id": "L10",
+      "platform": "multi",
+      "family": "drilldown-chain",
+      "trait": "MAX=5 TOOL-TURN CEILING — six SEQUENTIALLY DEPENDENT steps",
+      "status": 200,
+      "verdict": "incorrect",
+      "judge": {
+        "verdict": "FAIL",
+        "attribution": "NA",
+        "reason": "Assistant declined to answer all six scoped questions; provided account-wide figures that don't match ground truth values for any step."
+      },
+      "numberMatcher": "unanswered",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": false,
+      "consultedStore": true,
+      "toolNames": [
+        "query_metrics",
+        "query_breakdown"
+      ],
+      "toolTurns": 4,
+      "loggedFamily": "search_term",
+      "truth": {
+        "kind": "chain",
+        "parts": [
+          {
+            "label": "EM | North Jersey | Max Conversions",
+            "value": 24991.65
+          },
+          {
+            "label": "Brand",
+            "value": 18571.86
+          },
+          {
+            "label": "bath fitters",
+            "value": 3162.28
+          },
+          {
+            "label": "bath fitters",
+            "value": 3084.41
+          },
+          {
+            "label": "MOBILE",
+            "value": 13520.48
+          },
+          {
+            "label": "11",
+            "value": 2179.99
+          }
+        ],
+        "distinctValues": 6,
+        "scorable": true
+      },
+      "detail": "no ground truth in window",
+      "answer": "## The chain breaks at step 1 — and that invalidates steps 2–6 as asked First, the sourcing note: **live Google data is unavailable this turn — our Google API developer quota is exhausted and does not reset until 2026-07-29 08:03 UTC.** That's an outage on our side, not a fact about this account. Every figure below comes from the captured store, which is unaffected and is what the dashboard cards "
+    },
+    {
+      "id": "L6",
+      "platform": "meta",
+      "family": "age",
+      "trait": "multi-level (4x inflation bug lived here) + the A6 regression number",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Age-bracket total of $2,634.76 matches ground truth at account entity level; correctly reported despite confusing secondary figure."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_metrics",
+        "query_breakdown"
+      ],
+      "toolTurns": 3,
+      "loggedFamily": "age",
+      "truth": {
+        "kind": "sum",
+        "level": "account",
+        "value": 2634.76
+      },
+      "detail": "expected 2634.76 @account · numberMatch=true",
+      "answer": "## Meta spend by age — June 2026 (2026-06-01 → 2026-06-30) Source: LoraMer's captured store, settled through 2026-07-27. Meta capture is healthy and fully covers June, so these are complete — no gaps or partial days. (No live Meta snapshot is loading this turn, so there's no second figure to compare against; captured is the settled source.) | Age bracket | Spend | Share | Impressions | Clicks | CT"
+    },
+    {
+      "id": "L7",
+      "platform": "shopify",
+      "family": "product_type",
+      "trait": "store breakdown",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Correctly identifies UNKNOWN bucket as largest at $108,943.09, matching ground truth exactly."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "store_revenue",
+      "truth": {
+        "kind": "top",
+        "level": "account",
+        "label": "UNKNOWN",
+        "value": 108943.09,
+        "distinct": 9
+      },
+      "detail": "expected 108943.09 (UNKNOWN) @account · numberMatch=true labelMatch=true",
+      "answer": "**June 2026 — Shopify revenue by product type** (captured store, settled through 2026‑07‑27; June is fully covered, capture healthy) The honest headline: **the biggest bucket isn't a product type at all.** | Product type | Revenue | Share | |---|---|---| | **UNKNOWN (untagged)** | **$108,943.09** | 84.5% | | Event | $6,038.00 | 4.7% | | Training | $5,590.00 | 4.3% | | Drones | $5,242.83 | 4.1% | |"
+    },
+    {
+      "id": "L8",
+      "platform": "shopify",
+      "family": "order_time",
+      "trait": "order-grain / captured-only family",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Total 128914.06 at account level matches ground truth exactly."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "store_revenue",
+      "truth": {
+        "kind": "sum",
+        "level": "account",
+        "value": 128914.06
+      },
+      "detail": "expected 128914.06 @account · numberMatch=true",
+      "answer": "## June 2026 — Shopify revenue at order-time grain **$128,914.06 across 25 orders** (1 Jun – 30 Jun 2026). That order-time breakdown reconciles **exactly** to the account-level captured total for the same window — canonical store revenue $128,914.06, 25 orders, AOV **$5,156.56**. The list is complete, not truncated: 25 distinct order timestamps returned out of 25. **Source/basis:** these are captu"
+    },
+    {
+      "id": "L9",
+      "platform": "woocommerce",
+      "family": "payment_method",
+      "trait": "woo breakdown",
+      "status": 200,
+      "verdict": "correct",
+      "judge": {
+        "verdict": "PASS",
+        "attribution": "OK",
+        "reason": "Total 2885.45 matches ground truth and is correctly attributed."
+      },
+      "numberMatcher": "correct",
+      "judgeAgreesWithMatcher": true,
+      "ceilingHit": false,
+      "disclosedEarlyStop": false,
+      "grounded": true,
+      "consultedStore": true,
+      "toolNames": [
+        "query_breakdown"
+      ],
+      "toolTurns": 2,
+      "loggedFamily": "store_revenue",
+      "truth": {
+        "kind": "sum",
+        "level": "account",
+        "value": 2885.45
+      },
+      "detail": "expected 2885.45 @account · numberMatch=true",
+      "answer": "# WooCommerce Revenue by Payment Method — June 2026 | Payment Method | Revenue | Orders | AOV | |---|---|---|---| | **Credit card** | $2,885.45 | 38 | $75.93 | | **UNKNOWN** (unrecorded method) | $0.00 | 1 | — | | **Total** | **$2,885.45** | **39** | **$73.99** | **Total WooCommerce revenue for June 2026: $2,885.45 across 39 orders.** ### Notes - Essentially **100% of June revenue ran through a si"
+    }
+  ]
+}

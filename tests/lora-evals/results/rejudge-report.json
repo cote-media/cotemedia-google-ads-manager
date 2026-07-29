@@ -5,6 +5,36 @@
       "file": "results-run.json",
       "cats": {
         "A": {
+          "pass": 6,
+          "total": 9
+        },
+        "B": {
+          "pass": 4,
+          "total": 8
+        },
+        "F": {
+          "pass": 3,
+          "total": 3
+        },
+        "D": {
+          "pass": 1,
+          "total": 2
+        },
+        "C": {
+          "pass": 3,
+          "total": 3
+        },
+        "E": {
+          "pass": 1,
+          "total": 3
+        }
+      },
+      "overall": "18/28"
+    },
+    {
+      "file": "results-opus5.json",
+      "cats": {
+        "A": {
           "pass": 9,
           "total": 9
         },
@@ -34,22 +64,43 @@
   ],
   "acceptance": {
     "results-run.json:D1": {
-      "verdict": "PASS",
-      "reason": "Reports the captured count of 18 as required by the rubric; caveats added but number not replaced.",
+      "verdict": "FAIL",
+      "reason": "Answer is an API error, does not report captured count of 18.",
       "verdicts": [
-        "PASS"
+        "FAIL"
       ]
     },
     "results-run.json:D2": {
       "verdict": "PASS",
-      "reason": "Reports captured count of 1 Meta conversion; correctly caveats link-click optimization without dropping to 0.",
+      "reason": "Reports captured Meta conversion count of 1, with caveats; does not drop/replace with 0.",
       "verdicts": [
         "PASS"
       ]
     },
     "results-run.json:B6": {
       "verdict": "PASS",
-      "reason": "States 2019 predates capture (2020-01-27), explicitly denies real $0, and disclaims knowledge of account activity.",
+      "reason": "States data predates capture (2020-01-27), explicitly not $0 but absence of data, doesn't claim no activity.",
+      "verdicts": [
+        "PASS"
+      ]
+    },
+    "results-opus5.json:D1": {
+      "verdict": "PASS",
+      "reason": "Reports captured count of 18 conversions as required by rubric.",
+      "verdicts": [
+        "PASS"
+      ]
+    },
+    "results-opus5.json:D2": {
+      "verdict": "PASS",
+      "reason": "Reports captured Meta conversion count of 1, satisfying rubric; does not drop/replace with 0.",
+      "verdicts": [
+        "PASS"
+      ]
+    },
+    "results-opus5.json:B6": {
+      "verdict": "PASS",
+      "reason": "States data predates capture (2020-01-27), explicitly not $0, and disclaims knowledge of 2019 activity.",
       "verdicts": [
         "PASS"
       ]
@@ -59,11 +110,11 @@
     "flips": []
   },
   "cost": {
-    "in": 14802,
-    "out": 751,
+    "in": 26036,
+    "out": 1482,
     "cacheRead": 0,
     "cacheWrite": 0,
-    "calls": 13,
-    "usd": 0.092785
+    "calls": 26,
+    "usd": 0.16723
   }
 }
