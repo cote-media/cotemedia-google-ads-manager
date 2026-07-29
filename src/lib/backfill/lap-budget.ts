@@ -20,6 +20,13 @@
 // chained GET, under-reserving costs a 504 that destroys the resume contract.
 export const FIRST_LAP_MS = 90_000
 
-export function shouldStartAnotherLap(elapsedMs: number, maxLapMs: number, budgetMs: number): boolean {
-  return elapsedMs + Math.max(maxLapMs, FIRST_LAP_MS) <= budgetMs
+// LORAMER_META_PRODUCT_ID_ROUTE_V1 — the reservation is now a PARAMETER, defaulted to FIRST_LAP_MS.
+// WHY: 90s was sized for a 33-report ASSET lap. A caller whose lap is an order of magnitude lighter would
+// reserve for work it will never do and chain needlessly. Parameterising is deliberately preferred over
+// lowering the shared constant: dropping the default would silently change the asset route's behaviour and
+// re-open the exact 504 class this module exists to close. Callers that pass nothing are BYTE-IDENTICAL.
+export function shouldStartAnotherLap(
+  elapsedMs: number, maxLapMs: number, budgetMs: number, firstLapMs: number = FIRST_LAP_MS,
+): boolean {
+  return elapsedMs + Math.max(maxLapMs, firstLapMs) <= budgetMs
 }
