@@ -8,6 +8,32 @@
 // try/catch: a family GA can't serve (age/gender w/o Google Signals; items on a non-ecom property) is SKIPPED loudly,
 // never breaks the others. Quota is PER-PROPERTY (sharded) → paced by the drain's per-client __drain_ga claim; NO
 // global guard needed (unlike Google Ads' developer-token quota).
+//
+// ═══ LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — RESILIENCE AND COMPLETION WERE IN CONFLICT, AND COMPLETION WON WRONGLY
+// MEASURED 2026-07-30: this cursor read backfill_complete=TRUE at HARD_FLOOR 2015-08-14 for Foam OH while its data
+// began 2026-01-01 — 1,428 session-days unwritten behind a flag claiming the walk had finished — and the same shape
+// for Influential Drones 5bb9b2ff (data from 2024-02-01; resolve it through src/lib/clients/canonical.ts, which
+// records which of the two clients of that name this is) and My Vacation Network (from 2023-01-01). 13,103
+// recoverable client-days sat behind three booleans (docs/LORAMER_FLEET_COMPLETENESS_2026_07_30.md).
+//
+// THE MECHANISM, plainly, because it is not obvious and it will be reintroduced by anyone who does not know it:
+// the PER-FAMILY try/catch below exists so that ONE family GA cannot serve (age/gender without Google Signals,
+// items on a non-ecommerce property) does not break the other eleven. That resilience is correct and stays. But
+// the property-data-start detector counts CONSECUTIVE CLEAN-EMPTY MONTHS, and `consecutiveEmpty` only increments
+// when `skipped.length === 0`. So ONE skipped family anywhere DISABLES THE FLOOR DETECTOR — the walk then grinds
+// every remaining month to HARD_FLOOR, the old unconditional cursor advance moved it the whole way, and the old
+// completion test (`earliestWritten <= targetStart`) was satisfied by DISTANCE TRAVELLED rather than by data
+// written. A feature that protects against a missing family silently defeated the test for a missing floor.
+// THE FIX: completion now DEFERS to resilience by refusing to claim done. A walk that met an unserved family ends
+// INCOMPLETE with the skipped families named, and the cursor only advances over months it can honestly claim.
+//
+// ⛔ SECOND OCCURRENCE OF THE CLASS, not the first: the 2026-07-15 sealed Meta breadth cursors read 13/13 over a
+// permanent hole for exactly the same reason — a completion flag is a claim the code makes about ITSELF, and
+// nothing was checking the claim against the data. Prose did not stop the second one, so this ships with a guard
+// (FIX-WITH-GUARD): tests/guards/ga-dim-completion-honesty.guard.mjs drives the real exported decision function.
+// ⚠ THIS DOES NOT CLOSE THE CLASS. run-backfill.ts:~268 carries the identical shape
+// (`backfill_complete: windowStart <= targetDate`) for google/meta/shopify/woocommerce and the GA ACCOUNT cursor,
+// and is UNTOUCHED here — that is QUEUE ★COMPLETE-FLAG-AUDIT, a separate flight.
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { getValidGaToken } from '@/lib/ga-token'
@@ -168,6 +194,29 @@ export async function fetchGaDimensionalRows(args: {
   return { rows: mergeConflictKeyDupes(rows), perFamily, skipped } // LORAMER_GA_DIM_DEDUP_V1 — merge duplicate-conflict-key rows before any upsert (else the atomic batch throws + writes nothing)
 }
 
+// LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — the completion decision, extracted as a PURE function so it can be
+// proven without a DB, a token or a live lap. Same move as shouldStartAnotherLap (lap-budget.ts) and
+// dedupeBreakdownRows (meta-simple-breakdown-core.ts): the thing that was wrong was one boolean expression buried
+// inside a DB-driven walk, and a boolean you cannot drive is a boolean nobody tests.
+//
+// ⛔ THE RULE: COMPLETION IS A CLAIM ABOUT WHAT WAS WRITTEN, NEVER ABOUT HOW FAR THE WALK GOT. `skippedCount` is
+// the clause that was missing. A walk that met an unserved family cannot claim it covered the ground it crossed —
+// it does not know what was there. It ends INCOMPLETE, with the skipped families named, which also keeps the
+// cursor visible to LORAMER_FROZEN_CURSOR_DETECTOR_V1 (that detector filters backfill_complete=false, so a
+// dishonest `true` hides from it BY CONSTRUCTION).
+export function decideGaDimCompletion(args: {
+  reachedStart: boolean          // 6 consecutive CLEAN-empty months — the property's data-start, honestly detected
+  earliestWritten: string        // deepest month the walk can HONESTLY claim (see the line-244 rule below)
+  targetStart: string            // HARD_FLOOR
+  errorCount: number             // a thrown month (write failure or fetch failure) — cursor must not claim done
+  timedOut: boolean              // lap budget exhausted mid-walk — resume, do not claim done
+  skippedCount: number           // families GA could not serve ANYWHERE in this walk
+}): boolean {
+  const { reachedStart, earliestWritten, targetStart, errorCount, timedOut, skippedCount } = args
+  if (reachedStart) return true
+  return earliestWritten <= targetStart && errorCount === 0 && !timedOut && skippedCount === 0
+}
+
 async function upsertCursor(clientId: string, earliest: string, target: string, complete: boolean) {
   await supabaseAdmin.from('sync_state').upsert(
     { client_id: clientId, platform: CURSOR_PLATFORM, backfill_earliest_date: earliest, backfill_target_date: target, backfill_complete: complete, updated_at: new Date().toISOString() },
@@ -219,7 +268,12 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
   const windowEnd = state?.backfill_earliest_date ? addDays(state.backfill_earliest_date, -1) : endDate
   if (windowEnd < targetStart) { await upsertCursor(clientId, targetStart, targetStart, true); return { status: 200, body: { clientId, complete: true, note: 'window already covered' } } }
 
-  // Walk months OLDER, newest-first, time-budgeted. earliestWritten = deepest month COVERED (empty or not).
+  // Walk months OLDER, newest-first, time-budgeted.
+  // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — earliestWritten = the deepest month this walk can HONESTLY CLAIM: one
+  // that WROTE rows, or one that came back CLEAN EMPTY (every family ran, nothing returned). ⛔ IT IS NO LONGER
+  // "deepest month COVERED (empty or not)" — that wording was the defect stated out loud, and it is corrected here
+  // rather than left to re-teach itself to the next reader. A month where a family was SKIPPED is an UNKNOWN, not
+  // coverage: we do not know what was in it, so it must not move the cursor.
   const months = monthChunks(targetStart, windowEnd).reverse()
   let earliestWritten = state?.backfill_earliest_date || addDays(endDate, 1)
   let rowsWritten = 0, monthsWalked = 0, timedOut = false, reachedStart = false, consecutiveEmpty = 0
@@ -241,7 +295,9 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
         consecutiveEmpty += 1 // a CLEAN empty month (all families ran, nothing returned) — counts toward the floor stop
       }
       for (const s of skipped) skippedFamilies.add(s)
-      if (from < earliestWritten) earliestWritten = from
+      // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — the guarded advance. Previously unconditional, which is how the
+      // cursor walked to 2015-08-14 across 100+ months that produced nothing and still reported complete.
+      if ((rows.length > 0 || skipped.length === 0) && from < earliestWritten) earliestWritten = from
       monthsWalked += 1
       if (consecutiveEmpty >= EMPTY_MONTH_STOP) { reachedStart = true; break } // passed the property data-start
     } catch (e: any) {
@@ -251,7 +307,11 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
     }
   }
 
-  const done = reachedStart || (earliestWritten <= targetStart && errors.length === 0 && !timedOut)
+  // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — completion now requires a CLEAN walk. skippedFamilies.size is the
+  // clause that was missing; see decideGaDimCompletion for the rule and why it is a pure function.
+  const done = decideGaDimCompletion({
+    reachedStart, earliestWritten, targetStart, errorCount: errors.length, timedOut, skippedCount: skippedFamilies.size,
+  })
   await upsertCursor(clientId, earliestWritten, targetStart, done)
 
   return {

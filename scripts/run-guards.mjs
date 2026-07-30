@@ -57,6 +57,7 @@ const GUARDS = [
   'tests/guards/metrics-upsert-chunked.guard.mjs',
   'tests/guards/meta-breakdown-dedupe.guard.mjs',
   'tests/guards/canonical-client-identity.guard.mjs',
+  'tests/guards/ga-dim-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',
