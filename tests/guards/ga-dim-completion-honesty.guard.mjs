@@ -235,7 +235,13 @@ if (typeof mod.GaQuotaExhaustedError !== 'function') {
 }
 // SOURCE: a quota wall must be RETHROWN out of the per-family catch. Swallowed, ONE wall becomes TWELVE fake
 // "skipped" families, the loop hits it eleven more times, and the report names entirely the wrong cause.
-if (!/if\s*\(\s*e\s+instanceof\s+GaQuotaExhaustedError\s*\)\s*throw\s+e/.test(src)) {
+// ⚠ WIDENED 2026-07-30 (LORAMER_GA_AUTH_IS_AN_ERROR_V1). The pattern demanded the literal `throw e` and went RED
+// when FIX 3 changed it to `throw attachPartial(e)` — which still rethrows, and now carries the family lists the
+// old form dropped on the floor. The assertion that MATTERS is "the typed error leaves the catch", not the exact
+// expression, so it now accepts `throw <anything>(e)` too. This is a widening to the guard's real intent, NOT a
+// relaxation: a swallowed quota error still fails, and the behavioural half is proven live by the sibling
+// ga-auth-honesty guard, which drives a real 429 through the function and asserts the throw.
+if (!/if\s*\(\s*e\s+instanceof\s+GaQuotaExhaustedError\s*\)\s*throw\s+(e\b|\w+\(\s*e\s*\))/.test(src)) {
   findings.push(`${SRC} does not rethrow GaQuotaExhaustedError from the per-family catch — a quota refusal would be recorded as a family GA cannot serve, and the walk would keep hitting the wall.`)
 }
 // SOURCE: returnPropertyQuota must be OPT-IN. Added unconditionally it would change the request body of the FORWARD,

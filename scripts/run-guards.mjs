@@ -58,6 +58,7 @@ const GUARDS = [
   'tests/guards/meta-breakdown-dedupe.guard.mjs',
   'tests/guards/canonical-client-identity.guard.mjs',
   'tests/guards/ga-dim-completion-honesty.guard.mjs',
+  'tests/guards/ga-auth-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
@@ -178,4 +179,4 @@ if (crashed.length || failed.length) {
   console.error(`[run-guards] EXIT 1 — ${failed.length} failed, ${crashed.length} crashed.`)
   process.exit(1)
 }
-console.log('[run-guards] ALL GREEN — 24/24 guards ran and passed.')
+console.log(`[run-guards] ALL GREEN — ${GUARDS.length}/${GUARDS.length} guards ran and passed.`)

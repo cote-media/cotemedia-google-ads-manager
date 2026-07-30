@@ -181,8 +181,29 @@ export function gaQuotaPctRemaining(remaining: number, maxObservedRemaining: num
 // completion claim that names the wrong cause.
 export class GaQuotaExhaustedError extends Error {
   readonly status: string
+  // LORAMER_GA_AUTH_IS_AN_ERROR_V1 (FIX 3) — the family lists AS THEY STOOD AT THE THROW. Without this the lists
+  // die with the stack: run 1 (2026-07-30) hit the quota wall on slice 59 with FOUR families unasked and reported
+  // `notAttemptedFamilies: []`, because fetchGaDimensionalRows never returns when it throws and the caller had
+  // nothing to merge. An empty list next to a stop reason reads as "everything was covered" — the exact false
+  // clean bill this repo keeps paying for.
+  partial?: GaFamilyPartial
   constructor(message: string, status: string) { super(message); this.name = 'GaQuotaExhaustedError'; this.status = status }
 }
+
+// LORAMER_GA_AUTH_IS_AN_ERROR_V1 (FIX 2) — A CREDENTIAL FAILURE IS ITS OWN CATEGORY. It is NOT `skipped` ("GA
+// refuses to serve this dimension for this property" — a permanent, per-family fact) and NOT `notAttempted` ("we
+// ran out of budget" — pending, recoverable by chaining). It is US failing to authenticate, it applies to EVERY
+// family equally, and it must reach the HTTP contract.
+// MEASURED 2026-07-30: twelve 401s became twelve `skipped` entries and the route answered HTTP 200 with
+// `errors: []`, `skippedFamilies: []` (they were swallowed a layer down) and zero rows — a total outage wearing a
+// success code. The driver could not tell it from an honest empty window and looped for 25 minutes.
+export class GaAuthError extends Error {
+  readonly status: string
+  partial?: GaFamilyPartial
+  constructor(message: string, status: string) { super(message); this.name = 'GaAuthError'; this.status = status }
+}
+
+export type GaFamilyPartial = { skipped: string[]; notAttempted: string[]; errored: string[] }
 
 async function runGaReport(
   propertyId: string, accessToken: string, body: Record<string, unknown>,
@@ -196,7 +217,11 @@ async function runGaReport(
   if (json.propertyQuota && onQuota) onQuota(json.propertyQuota)
   if (!res.ok) {
     const msg = json.error?.message || json.message || `GA runReport HTTP ${res.status}`
-    const status = json.error?.status || (res.status === 429 ? 'RESOURCE_EXHAUSTED' : '')
+    const status = json.error?.status || (res.status === 429 ? 'RESOURCE_EXHAUSTED' : (res.status === 401 ? 'UNAUTHENTICATED' : ''))
+    // LORAMER_GA_AUTH_IS_AN_ERROR_V1 (FIX 2) — a credential rejection is a TYPED throw, checked FIRST, so the
+    // per-family catch below cannot mistake it for "GA can't serve this dimension". Unlike a quota wall, this one
+    // IS worth exactly one retry — but only after forcing a NEW token, which is the caller's job (onAuthRetry).
+    if (res.status === 401 || status === 'UNAUTHENTICATED') throw new GaAuthError(msg, status || 'UNAUTHENTICATED')
     // Exhausting ANY property quota makes EVERY request to that property fail, so retrying is not a strategy —
     // it is the wall, and the only correct move is to stop and say so.
     if (status === 'RESOURCE_EXHAUSTED' || res.status === 429) throw new GaQuotaExhaustedError(msg, status || 'RESOURCE_EXHAUSTED')
@@ -244,20 +269,40 @@ async function fetchFamily(
 // Google Signals, non-ecommerce property) → coverage UNKNOWN, forever. `notAttempted` means WE ran out of budget →
 // coverage simply pending, recoverable by chaining. Folding them together would be the LORAMER_DEGRADED_IS_NOT_
 // FAILED_V1 defect again: a counter that cannot tell partial from total manufactures alarms and hides real ones.
+//   onAuthRetry — LORAMER_GA_TOKEN_LIVENESS_V1 (FIX 1). Called when GA answers 401 UNAUTHENTICATED. It must FORCE a
+//     token refresh (bypassing expires_at, which cannot prove liveness) and return the new access token, or null if
+//     it could not get one. The family is retried ONCE with it, and every LATER family uses it too. A caller that
+//     passes nothing keeps the old behaviour except that a 401 now THROWS instead of being logged as a skip.
 export async function fetchGaDimensionalRows(args: {
   clientId: string; userEmail: string; accessToken: string; propertyId: string; propertyName: string; startDate: string; endDate: string
   onFamilyRows?: (bt: string, famRows: Record<string, unknown>[]) => Promise<void>
   shouldStop?: () => boolean
   returnPropertyQuota?: boolean
   onQuota?: (q: GaPropertyQuota) => void
-}): Promise<{ rows: Record<string, unknown>[]; perFamily: Record<string, number>; skipped: string[]; notAttempted: string[] }> {
-  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate, onFamilyRows, shouldStop, returnPropertyQuota, onQuota } = args
+  onAuthRetry?: () => Promise<string | null>
+}): Promise<{ rows: Record<string, unknown>[]; perFamily: Record<string, number>; skipped: string[]; notAttempted: string[]; errored: string[] }> {
+  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate, onFamilyRows, shouldStop, returnPropertyQuota, onQuota, onAuthRetry } = args
   const rows: Record<string, unknown>[] = []
   const perFamily: Record<string, number> = {}
   const skipped: string[] = []
   const notAttempted: string[] = []
+  const errored: string[] = []
   let stopped = false
-  for (const fam of FAMILIES) {
+  // The token is MUTABLE across the family loop: a mid-walk refresh must not leave the remaining eleven families
+  // hammering the credential GA already rejected.
+  let token = accessToken
+  for (let fi = 0; fi < FAMILIES.length; fi++) {
+    const fam = FAMILIES[fi]
+    // FIX 3 — snapshot the lists onto the error so a THROW carries the same coverage story a RETURN would.
+    // Families after this index were never asked: they are notAttempted, not skipped and not errored.
+    const attachPartial = <E extends { partial?: GaFamilyPartial }>(e: E): E => {
+      e.partial = {
+        skipped: [...skipped],
+        notAttempted: [...notAttempted, ...FAMILIES.slice(fi + 1).map((f) => f.bt)],
+        errored: [...errored],
+      }
+      return e
+    }
     if (stopped || (shouldStop && shouldStop())) { stopped = true; notAttempted.push(fam.bt); continue }
     // Per-family accumulator. mergeConflictKeyDupes keys on (entity_level, entity_id, date, breakdown_type,
     // breakdown_value) and breakdown_type IS IN THAT KEY, so two rows from DIFFERENT families can never collide.
@@ -265,7 +310,20 @@ export async function fetchGaDimensionalRows(args: {
     // stops the "ON CONFLICT cannot affect row a second time" abort is preserved, not weakened.
     const famRows: Record<string, unknown>[] = []
     try {
-      const gaRows = await fetchFamily(propertyId, accessToken, fam, startDate, endDate, { returnPropertyQuota, onQuota })
+      let gaRows: GaRow[]
+      try {
+        gaRows = await fetchFamily(propertyId, token, fam, startDate, endDate, { returnPropertyQuota, onQuota })
+      } catch (authErr: any) {
+        // FIX 1 — THE LIVENESS PATH. expires_at said this token was fine; GA says otherwise, and GA is the only
+        // authority on that. Force a NEW credential and retry exactly once. One retry, not a loop: if a
+        // freshly-minted token is also rejected the problem is not staleness and hammering it proves nothing.
+        if (!(authErr instanceof GaAuthError) || !onAuthRetry) throw authErr
+        console.warn(`[ga-dim] client=${clientId} family=${fam.bt} 401 UNAUTHENTICATED — forcing a token refresh and retrying ONCE.`)
+        const fresh = await onAuthRetry()
+        if (!fresh) throw authErr
+        token = fresh
+        gaRows = await fetchFamily(propertyId, token, fam, startDate, endDate, { returnPropertyQuota, onQuota })
+      }
       let n = 0
       for (const gr of gaRows) {
         const dv = (gr.dimensionValues || []).map((x) => x.value ?? '')
@@ -300,7 +358,16 @@ export async function fetchGaDimensionalRows(args: {
       // recorded as "GA cannot serve this family", the loop would keep going and hit the same wall eleven more times,
       // and the caller would be handed twelve fake skips naming entirely the wrong cause. Exhausting a property quota
       // fails EVERY request to that property, so there is nothing to continue to.
-      if (e instanceof GaQuotaExhaustedError) throw e
+      if (e instanceof GaQuotaExhaustedError) throw attachPartial(e)
+      // FIX 2 — AN AUTH FAILURE IS NOT A SKIP. Reaching here means the retry above ALSO got 401 (or there was no
+      // onAuthRetry to try with). A credential that GA rejects rejects it for all twelve families, so continuing
+      // would manufacture eleven more fake skips naming the wrong cause — the same shape as the quota wall, and
+      // exactly what happened on 2026-07-30. It is recorded in its OWN list and rethrown so it reaches errors[].
+      if (e instanceof GaAuthError) {
+        console.error(`[ga-dim] client=${clientId} family=${fam.bt} AUTH FAILED ${startDate}..${endDate} after a forced refresh: ${e.message}`)
+        errored.push(fam.bt)
+        throw attachPartial(e)
+      }
       // GA can't serve this family (e.g. age/gender w/o Google Signals, or an unavailable dim) → SKIP loud, never fabricate.
       // NOTE the ordering: onFamilyRows runs INSIDE this try, so a WRITE failure lands here too and is recorded as a
       // skip rather than silently swallowed — the caller sees the family did not land and cannot claim it.
@@ -308,8 +375,12 @@ export async function fetchGaDimensionalRows(args: {
       skipped.push(fam.bt)
     }
   }
-  return { rows, perFamily, skipped, notAttempted }
+  return { rows, perFamily, skipped, notAttempted, errored }
 }
+
+// LORAMER_GA_AUTH_IS_AN_ERROR_V1 — the family count, EXPORTED rather than restated, so the all-families-failed rule
+// in recoverGaDimensionalForward cannot drift from the array it is counting.
+export const GA_FAMILY_COUNT = FAMILIES.length
 
 // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — the completion decision, extracted as a PURE function so it can be
 // proven without a DB, a token or a live lap. Same move as shouldStartAnotherLap (lap-budget.ts) and
@@ -483,7 +554,16 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
   for (const { from, to } of months) {
     if (Date.now() - startedAt > timeBudgetMs) { timedOut = true; break }
     try {
-      const { rows, perFamily, skipped } = await fetchGaDimensionalRows({ clientId, userEmail, accessToken: tok.accessToken, propertyId, propertyName, startDate: from, endDate: to })
+      // FIX 1 — the deep month-walk gets the same liveness path. A 30-month backfill is exactly where a token dies
+      // mid-run, and without this it would burn the rest of the walk against a credential GA has already rejected.
+      const { rows, perFamily, skipped } = await fetchGaDimensionalRows({
+        clientId, userEmail, accessToken: tok.accessToken, propertyId, propertyName, startDate: from, endDate: to,
+        onAuthRetry: async () => {
+          const re = await getValidGaToken(clientId, userEmail, { forceRefresh: true })
+          if (!re.ok) { console.error(`[ga-dim-backfill] client=${clientId} forced token refresh FAILED: ${re.reason}`); return null }
+          return re.accessToken
+        },
+      })
       if (rows.length > 0) {
         const { error } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(rows), { onConflict: CONFLICT })
         if (error) throw error
@@ -554,6 +634,10 @@ export async function recoverGaDimensionalForward(
   const perFamilyTotal: Record<string, number> = {}
   const skippedFamilies = new Set<string>()
   const notAttemptedFamilies = new Set<string>()
+  // FIX 2 — THE THIRD CATEGORY, kept deliberately separate from the other two. skipped = GA refused the dimension;
+  // notAttempted = we ran out of budget; errored = WE could not authenticate. Merging any pair loses the only
+  // information that tells a reader whether to re-run, re-scope, or re-auth.
+  const erroredFamilies = new Set<string>()
   const errors: Array<{ slice: string; message: string }> = []
   const lapMs: number[] = []
   let rowsWritten = 0, chunksIssued = 0, slicesWalked = 0, maxLapMs = 0, timedOut = false
@@ -612,11 +696,32 @@ export async function recoverGaDimensionalForward(
         shouldStop: () => quotaStop !== null || Date.now() - startedAt > budgetMs,
         returnPropertyQuota: true,
         onQuota,
+        // FIX 1 — the liveness path, wired. `forceRefresh` bypasses expires_at, which is the whole point: the
+        // stored token satisfied expires_at and was dead anyway.
+        onAuthRetry: async () => {
+          const re = await getValidGaToken(clientId, userEmail, { forceRefresh: true })
+          if (!re.ok) {
+            console.error(`[ga-dim-recover] client=${clientId} forced token refresh FAILED: ${re.reason} ${re.detail ?? ''}`)
+            return null
+          }
+          return re.accessToken
+        },
       })
       for (const [k, v] of Object.entries(perFamily)) perFamilyTotal[k] = (perFamilyTotal[k] || 0) + v
       for (const x of skipped) skippedFamilies.add(x)
       for (const x of notAttempted) notAttemptedFamilies.add(x)
       slicesWalked += 1
+      // FIX 2 — A SLICE WHERE EVERY FAMILY FAILED IS NOT A DEGRADED SUCCESS. Twelve skips is not "GA cannot serve
+      // twelve dimensions on this property"; it is the slice failing outright, and answering 200 with an empty
+      // errors[] over it is the false-success this fix exists to remove. Non-auth causes reach here too (a total
+      // write failure, a property-wide refusal) and they are no more of a success than a 401 is.
+      if (skipped.length === GA_FAMILY_COUNT) {
+        console.error(`[ga-dim-recover] client=${clientId} slice=${s.from}..${s.to} ALL ${GA_FAMILY_COUNT} FAMILIES FAILED — recording an error, not a degraded pass.`)
+        errors.push({ slice: s.from, message: `all ${GA_FAMILY_COUNT} families failed on slice ${s.from}..${s.to} — total slice failure, not a partial degradation` })
+        resumeFrom = s.from
+        slicesWalked -= 1
+        break
+      }
       if (notAttempted.length > 0) {
         // The in-slice budget-or-quota bit: this slice is PARTIAL, so it must be re-walked in full. Re-walking a
         // partially-landed slice is wasteful, not wrong — every write is an idempotent upsert on the 7-col key.
@@ -626,9 +731,29 @@ export async function recoverGaDimensionalForward(
         break
       }
     } catch (e: any) {
+      // FIX 3 — drain whatever coverage the throw was carrying. Without this the lists die with the stack and the
+      // report claims "notAttemptedFamilies: []" over families that were never asked (run 1, slice 59, four of them).
+      const mergePartial = (p?: GaFamilyPartial) => {
+        for (const x of p?.skipped ?? []) skippedFamilies.add(x)
+        for (const x of p?.notAttempted ?? []) notAttemptedFamilies.add(x)
+        for (const x of p?.errored ?? []) erroredFamilies.add(x)
+      }
+      // FIX 2 — AUTH IS AN ERROR, and it is neither a quota wall nor a skip. It goes into errors[], which makes the
+      // status 207 rather than 200, so the HTTP contract finally reflects what happened. A caller that only reads
+      // the status code now learns the truth; on 2026-07-30 it learned "success".
+      if (e instanceof GaAuthError) {
+        mergePartial(e.partial)
+        const msg = `GA ${e.status} on slice ${s.from}..${s.to} — credential rejected after a forced refresh: ${e.message}`
+        console.error(`[ga-dim-recover] client=${clientId} ${msg}`)
+        errors.push({ slice: s.from, message: msg })
+        resumeFrom = s.from
+        slicesWalked -= 1
+        break
+      }
       // A quota wall is its OWN outcome, distinct from a failure: nothing is broken, we are simply out of budget for
       // the day. It is recorded as a stop reason rather than an error so the report cannot read as a defect.
       if (e instanceof GaQuotaExhaustedError) {
+        mergePartial(e.partial)
         quotaStop = `GA returned ${e.status}: ${e.message}`
         console.error(`[ga-dim-recover] client=${clientId} slice=${s.from}..${s.to} ${e.status} — STOPPING the chain, no retry.`)
         resumeFrom = s.from
@@ -674,6 +799,10 @@ export async function recoverGaDimensionalForward(
       perFamily: perFamilyTotal,
       skippedFamilies: Array.from(skippedFamilies),
       notAttemptedFamilies: Array.from(notAttemptedFamilies),
+      // FIX 2 — reported as its OWN field. A reader must be able to tell "GA won't serve age/gender on this
+      // property" (skipped, permanent) from "we ran out of budget" (notAttempted, retry) from "our credential was
+      // rejected" (errored, re-auth). Three different next actions; three different lists.
+      erroredFamilies: Array.from(erroredFamilies),
       errors,
       emptyMeans: complete && !rowsCovered ? 'GA returned no rows for any family across every slice — the window is genuinely empty for this property' : undefined,
     },
