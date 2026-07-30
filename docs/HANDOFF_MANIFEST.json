@@ -12,10 +12,10 @@
     "line_count": 1087
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "b492cf1e9be826f039e0cabff5625b5e84aef46ad9a97ba5cdb862080425f415",
-    "last_reconciled_date": "2026-07-29",
-    "last_reconciled_head": "63c65ca",
-    "line_count": 613
+    "content_hash": "c96d870712b2f56f100a715b6deb970ef8dfdf34b6d35bc050a406cd67fcf03f",
+    "last_reconciled_date": "2026-07-30",
+    "last_reconciled_head": "37fce69",
+    "line_count": 619
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "c0e523eb67c118ac6a142584eb3ee0bbaad33324c008beb40f83526497623652",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "00327021e99a59d51cbf1f36433dad75675297c8bad1537fc045b79fa74e2a45",
-    "last_reconciled_date": "2026-07-29",
-    "last_reconciled_head": "63c65ca",
-    "line_count": 764
+    "content_hash": "0235e087c77798846a42dece9f21445bc288b8f57bce01355e68ac50114c18af",
+    "last_reconciled_date": "2026-07-30",
+    "last_reconciled_head": "37fce69",
+    "line_count": 768
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "1257407aaf9acd0f581a96e5eed08c8960a8442bb45340469349f7d7c671b160",
-    "last_reconciled_date": "2026-07-29",
-    "last_reconciled_head": "63c65ca",
-    "line_count": 1080
+    "content_hash": "17b84966a505851823578027bb8509475c07f589b417e067ccbbd1dcb089be20",
+    "last_reconciled_date": "2026-07-30",
+    "last_reconciled_head": "37fce69",
+    "line_count": 1090
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "ac2f00e2689ffeb08ad69ad5a6842f04f433082a023b1a4dc276542c186ac191",

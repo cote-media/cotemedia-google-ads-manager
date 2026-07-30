@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "mcp": "node mcp-server.js",
-    "check:data": "node scripts/check-capture-landing.mjs --invariant-only --guard",
+    "check:data": "node scripts/check-capture-landing.mjs --invariant-only --guard; A=$?; node scripts/check-frozen-cursors.mjs --guard; B=$?; node tests/guards/canonical-client-identity.guard.mjs --db; C=$?; exit $(( A > B ? (A > C ? A : C) : (B > C ? B : C) ))",
     "prepush": "npm run build && npm run check:data",
     "evals": "node tests/lora-evals/run-evals.mjs",
     "stripe:sync": "node scripts/stripe-sync-products.mjs",
