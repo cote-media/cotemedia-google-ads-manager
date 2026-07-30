@@ -10,10 +10,27 @@
 // It is NOT a build gate (it needs the prod DB); run it manually or on a cron and read the diff.
 //
 //   Run:  node scripts/breakdown-reachability-check.mjs        (needs SUPABASE_DB_URL in .env.local + the `pg` pkg)
-//   Exit: 0 always (it is a REPORT, not a gate). A non-empty "captured-but-unadmitted" list = work to do.
+//   Exit: 0 always in REPORT mode (unchanged, for humans).
+//
+// ═══ LORAMER_BREAKDOWN_REACHABILITY_GATE_V1 — PROMOTED FROM REPORT TO GATE, 2026-07-30 ═══════════════════════════
+//   Run:  node scripts/breakdown-reachability-check.mjs --gate  (wired into `npm run check:data`)
+//   Exit: 1 on any captured-but-unadmitted tuple NOT in scripts/breakdown-reachability.baseline.mjs, and on any
+//         STALE baseline entry. Report mode is untouched and additive.
+// WHY IT HAD TO BE PROMOTED: the 2026-07-30 guard audit found this file was the ONLY check in the repo capable of
+// seeing a capture the registry does not admit — and it was wired into NOTHING (absent from package.json,
+// vercel.json and scripts/run-guards.mjs) and could not fail by design. The three hermetic completeness gates
+// (check-capture-completeness · check-lora-grounding · check-query-completeness) all compare DECLARATIONS to
+// DECLARATIONS, so a family landing rows that nobody wired is invisible to every one of them: it appears in
+// neither the manifest nor the registry, so it is not a finding, it is absent. A correct check that cannot fail is
+// a report, and a report nobody runs is nothing.
+// ⛔ DB-READING, SO check:data AND NEVER THE BUILD — `npm run guard` is hermetic and sits in the Vercel deploy
+// chain. Settled split, cited not re-derived: DECISIONS LORAMER_ACCOUNT_ROW_INVARIANT_V1.
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { KNOWN_UNADMITTED } from './breakdown-reachability.baseline.mjs'
+
+const GATE = process.argv.includes('--gate')
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const env = Object.fromEntries(
@@ -72,3 +89,29 @@ console.log(unadmitted.length === 0
   ? '\n✓ Every captured (platform, breakdown_type, entity_level) tuple is declared in the registry → reachable by Lora.'
   : `\n✗ ${unadmitted.length} captured tuple(s) are NOT reachable by Lora — add them to breakdown-registry.ts.`)
 console.log('  (Reminder: this is the LIVE-DB check the build guard cannot do. Green build guard ≠ Lora sees everything.)')
+
+// ── LORAMER_BREAKDOWN_REACHABILITY_GATE_V1 — blocking verdict (--gate only; report mode exits 0 as before) ───────
+if (GATE) {
+  const baseline = new Set(KNOWN_UNADMITTED || [])
+  const novel = unadmitted.filter((t) => !baseline.has(t))
+  const staleBaseline = [...baseline].filter((t) => !unadmitted.includes(t))
+  console.log('\nGATE — baseline classification:')
+  console.log(`  unadmitted ${unadmitted.length} · baselined ${unadmitted.length - novel.length} · NEW ${novel.length} · stale-baseline ${staleBaseline.length}`)
+  if (baseline.size === 0) console.log('  baseline is EMPTY — the registry currently admits every captured tuple; the gate holds that line.')
+  let code = 0
+  if (novel.length) {
+    console.error(`\n✗ REACHABILITY GATE FAILED — ${novel.length} captured tuple(s) NOT admitted to the registry and NOT baselined:`)
+    for (const t of novel) console.error('     ' + t.replace(/\|/g, ' / '))
+    console.error('  These are rows we PAY TO STORE that Lora cannot read. Add them to src/lib/breakdown-registry.ts,')
+    console.error('  or (deliberately) list them in scripts/breakdown-reachability.baseline.mjs with a reason.')
+    code = 1
+  }
+  if (staleBaseline.length) {
+    console.error(`\n✗ REACHABILITY GATE FAILED — ${staleBaseline.length} STALE baseline entr(ies) no longer match a live unadmitted tuple:`)
+    for (const t of staleBaseline) console.error('     ' + t.replace(/\|/g, ' / '))
+    console.error('  ANTI-ROT: the tuple is admitted now (or gone), so the entry has outlived its justification. Delete it.')
+    code = 1
+  }
+  if (!code) console.log('  ✓ REACHABILITY GATE PASSED — every captured tuple is admitted, and no baseline entry is stale.')
+  process.exit(code)
+}
