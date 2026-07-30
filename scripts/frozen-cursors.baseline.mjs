@@ -90,11 +90,14 @@ export const KNOWN_FROZEN_CURSORS = [
     cursorAt: '2026-04-14', daysWhenBaselined: 26,
     note: 'same as the line above; no cluster survives for this one either',
   },
-  {
-    clientId: 'c39ee088-c635-4bfe-b308-43fe9640f1ca', client: 'The Escential Group', platform: 'meta_product_id',
-    cursorAt: '2026-05-06', daysWhenBaselined: 7,
-    note: 'ROOT CAUSE ALREADY FIXED (63c65ca dedupe + 37fce69 route; the 7 lost days were recovered). Expected to CLEAR on the next drain lap — when it does, this entry FAILS the guard and must be deleted. That is the anti-rot rule working, not a defect.',
-  },
+  // ✅ DELETED 2026-07-30 — The Escential Group (c39ee088) meta_product_id. The entry that stood here PREDICTED its
+  // own removal in writing ("Expected to CLEAR on the next drain lap — when it does, this entry FAILS the guard and
+  // must be deleted"), and that is exactly what happened: the cursor MOVED from the baselined 2026-05-06 to
+  // 2026-04-21, updated_at 2026-07-30 06:17:44Z (~7h old, far inside the 7-day threshold). VERIFIED against the live
+  // sync_state row before removal, not inferred from the guard's complaint — the guard says "no longer frozen", which
+  // is also what a deleted client would look like, so the cursor itself had to be read. The dedupe fix
+  // (LORAMER_META_BREAKDOWN_DEDUPE_V1) + the direct route unstuck the family and rangeLap is walking it backward
+  // again. This is the anti-rot rule doing its job: a baseline may not outlive its justification.
   ...DEMO_FIXTURE_FROZEN_2026_07_23,
 ]
 

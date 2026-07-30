@@ -150,7 +150,91 @@ if (/upsertCursor\(\s*clientId\s*,\s*targetStart\s*,\s*targetStart\s*,\s*true\s*
   findings.push(`${SRC} still contains upsertCursor(clientId, targetStart, targetStart, true) — the zero-work seal. That call marks a cursor complete having walked no months and written no rows.`)
 }
 
-console.log(`[ga-dim-completion-honesty] drove the real decideGaDimCompletion over ${CASES.length} states, plus the window decision and the source check`)
+// ── LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — LEG (a): THE RECOVER ROUTE CANNOT CLAIM COMPLETION WITHOUT LANDED ROWS
+// The recover path had NO completion concept at all — it did one fetch + one upsert for the whole window and returned
+// rowsWritten, so a maxDuration kill produced no claim, no rows and no resume point (ATOMIC-NOTHING, verified live on
+// Foam OH 2023-07). Now it decides, so the decision is asserted. The permissive direction is pinned too: a fully clean
+// walk MUST be able to complete, or a recovery could never be declared finished and a human would re-run it forever.
+if (typeof mod.decideGaRecoverCompletion !== 'function') {
+  findings.push(`does not export decideGaRecoverCompletion — the recover route's completion claim has no testable decision point. Extract it.`)
+} else {
+  const d = mod.decideGaRecoverCompletion
+  const rbase = { slicesWalked: 3, slicesTotal: 3, errorCount: 0, skippedCount: 0, timedOut: false, rowsWritten: 500 }
+  const RECOVER_CASES = [
+    { name: 'timed out mid-window WITH rows landed -> NOT complete', args: { ...rbase, slicesWalked: 1, timedOut: true },
+      complete: false, why: 'THE DEFECT. Durable partial progress must never read as a finished window — that is the claim the completion-claim invariant exists to catch.' },
+    { name: 'unwalked slices remain -> NOT complete', args: { ...rbase, slicesWalked: 2 },
+      complete: false, why: 'Ground never asked for cannot be claimed, even with no error and no timeout flag.' },
+    { name: 'a family GA REFUSED -> NOT complete even on a full walk', args: { ...rbase, skippedCount: 1 },
+      complete: false, why: 'A skipped family is UNKNOWN coverage, not empty coverage. This is what sealed three golden cursors on 2026-07-30.' },
+    { name: 'a slice threw -> NOT complete', args: { ...rbase, errorCount: 1 },
+      complete: false, why: 'What the thrown slice held is unknown.' },
+    { name: 'zero slices (empty window) -> NOT complete', args: { ...rbase, slicesWalked: 0, slicesTotal: 0, rowsWritten: 0 },
+      complete: false, why: 'A walk of nothing is not a completed walk; slicesTotal>0 is required so a degenerate range cannot claim done.' },
+    { name: 'full clean walk WITH rows -> complete + rowsCovered', args: { ...rbase },
+      complete: true, rowsCovered: true, why: 'Completion must stay REACHABLE, or every recovery stalls permanently.' },
+    { name: 'full clean walk, ZERO rows -> complete but rowsCovered FALSE (honest empty, named)', args: { ...rbase, rowsWritten: 0 },
+      complete: true, rowsCovered: false, why: 'The one narrowing from the brief, stated on its face: GA served nothing and every family answered, so the window is genuinely empty. rowsCovered:false is the LOUD signal; it is not folded into complete.' },
+  ]
+  for (const c of RECOVER_CASES) {
+    let got
+    try { got = d(c.args) } catch (e) { findings.push(`recover/${c.name}: threw — ${e.message}`); continue }
+    if (got?.complete !== c.complete) findings.push(`recover/${c.name}: expected complete=${c.complete}, got ${got?.complete}. ${c.why}`)
+    if (c.rowsCovered !== undefined && got?.rowsCovered !== c.rowsCovered) {
+      findings.push(`recover/${c.name}: expected rowsCovered=${c.rowsCovered}, got ${got?.rowsCovered}. ${c.why}`)
+    }
+  }
+}
+
+// SOURCE ASSERTION — the atomic-nothing shape must be gone from the recover path. A behavioural test on the decision
+// cannot see a route that never reaches it, which is the same hole the zero-work seal exploited above.
+if (!/onFamilyRows/.test(src)) {
+  findings.push(`${SRC} has no onFamilyRows flush — the recover path writes once at the END of its window, so a maxDuration kill loses every row for that window (ATOMIC-NOTHING). Flush incrementally.`)
+}
+if (typeof mod.daySlices !== 'function') {
+  findings.push(`does not export daySlices — the recover walk cannot be proven to slice SUB-MONTH, and a calendar month is measurably not survivable on a heavy property (229s measured, one month over the 300s ceiling).`)
+} else {
+  const sl = mod.daySlices('2023-07-01', '2023-07-31', 10)
+  if (sl.length !== 4) findings.push(`daySlices('2023-07-01','2023-07-31',10) produced ${sl.length} slices, expected 4 — sub-month slicing is not in force.`)
+  if (sl[0]?.from !== '2023-07-01' || sl[0]?.to !== '2023-07-10') findings.push(`daySlices first slice was ${sl[0]?.from}..${sl[0]?.to}, expected 2023-07-01..2023-07-10.`)
+  if (sl[sl.length - 1]?.to !== '2023-07-31') findings.push(`daySlices last slice ended ${sl[sl.length - 1]?.to}, expected the window end 2023-07-31 — a slicer that overshoots or truncates the range silently changes what was recovered.`)
+  const one = mod.daySlices('2023-07-05', '2023-07-05', 10)
+  if (one.length !== 1 || one[0].from !== '2023-07-05' || one[0].to !== '2023-07-05') findings.push(`daySlices on a single day did not return exactly that day.`)
+}
+
+// ── LEG (b): NO TIME BUDGET MAY EQUAL OR EXCEED THE LAMBDA CEILING ────────────────────────────────────────────────
+// A budget EQUAL to maxDuration is not a budget: the check passes at t=299s, the next unit of work starts, and the
+// lambda is killed mid-flight. maxDuration is RE-DERIVED from the route files rather than hardcoded here, so moving a
+// route's ceiling cannot leave this guard asserting against a number that is no longer true.
+const ROUTES = [
+  'src/app/api/backfill/ga-dimensional-recover/route.ts',
+  'src/app/api/cron/drain/route.ts',
+]
+let ceilingMs = null
+for (const rp of ROUTES) {
+  const p = resolve(ROOT, rp)
+  if (!existsSync(p)) continue
+  const m = readFileSync(p, 'utf8').match(/export\s+const\s+maxDuration\s*=\s*(\d+)/)
+  if (!m) continue
+  const ms = Number(m[1]) * 1000
+  if (ceilingMs === null || ms < ceilingMs) ceilingMs = ms
+}
+if (ceilingMs === null) {
+  findings.push(`could not re-derive maxDuration from any of ${ROUTES.join(', ')} — the budget assertion would be measuring nothing, which is worse than no assertion.`)
+} else {
+  const budgets = [...src.matchAll(/const\s+(DEFAULT_TIME_BUDGET_MS|RECOVER_BUDGET_MS)\s*=\s*([0-9_]+)/g)]
+    .map((m) => ({ name: m[1], ms: Number(m[2].replace(/_/g, '')) }))
+  if (budgets.length < 2) {
+    findings.push(`expected both DEFAULT_TIME_BUDGET_MS and RECOVER_BUDGET_MS in ${SRC}; found ${budgets.map((b) => b.name).join(', ') || 'none'}.`)
+  }
+  for (const b of budgets) {
+    if (b.ms >= ceilingMs) {
+      findings.push(`${b.name}=${b.ms}ms is >= the route ceiling maxDuration=${ceilingMs}ms. A budget equal to the ceiling passes its own check at the last instant and then overruns — LORAMER_META_ASSET_BUDGET_HEADROOM_V1, two live 504s.`)
+    }
+  }
+}
+
+console.log(`[ga-dim-completion-honesty] drove the real decideGaDimCompletion over ${CASES.length} states, the window decision, the recover completion decision, daySlices, the source checks, and the budget-vs-maxDuration ceiling (${ceilingMs}ms)`)
 if (findings.length) {
   console.error(`[ga-dim-completion-honesty] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)

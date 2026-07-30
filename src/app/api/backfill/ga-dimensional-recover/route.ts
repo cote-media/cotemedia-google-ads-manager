@@ -23,6 +23,15 @@ export async function GET(request: Request) {
   if (!clientId || !from || !to) {
     return NextResponse.json({ error: 'Missing required clientId, from, to (YYYY-MM-DD) — explicit only, no defaults' }, { status: 400 })
   }
-  const { status, body } = await recoverGaDimensionalForward(clientId, from, to)
+  // LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — sliceDays is an OPTIONAL override, not a required knob. The writer's
+  // default is sub-month because a calendar month is measurably not survivable on a heavy property; this exists so a
+  // run that reports a slow maxLapMs can be re-driven finer without a deploy. The route stays thin: no budget
+  // arithmetic here, because the budget must be enforced where the GA calls are issued.
+  const sliceDaysRaw = searchParams.get('sliceDays')
+  const sliceDays = sliceDaysRaw === null ? undefined : Number(sliceDaysRaw)
+  if (sliceDays !== undefined && (!Number.isFinite(sliceDays) || sliceDays < 1 || sliceDays > 31)) {
+    return NextResponse.json({ error: 'sliceDays must be an integer 1..31' }, { status: 400 })
+  }
+  const { status, body } = await recoverGaDimensionalForward(clientId, from, to, { sliceDays })
   return NextResponse.json(body, { status })
 }

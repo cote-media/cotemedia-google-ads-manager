@@ -37,13 +37,44 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { getValidGaToken } from '@/lib/ga-token'
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — ADAPTED, not authored. Both of these already exist and already carry their
+// own guards: upsertMetricsChunked is the ONE chunked metrics_daily writer (it calls normalizeMetricsRows internally,
+// so the union-of-keys guard cannot be skipped), and shouldStartAnotherLap is the banked between-iteration budget rule
+// with a measured reservation. Re-implementing either here would have been a second copy of a fact that already has
+// a single owner.
+import { upsertMetricsChunked } from '@/lib/metrics-upsert'
+import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 
 const GA_DATA_API = 'https://analyticsdata.googleapis.com/v1beta'
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
 const CURSOR_PLATFORM = 'ga_dimensional' // sync_state progress key only; data rows stay platform='ga'
 const HARD_FLOOR = '2015-08-14' // GA known_floors floor; the per-property data-start (below) usually clamps deeper
 const PAGE_LIMIT = 100000
-const DEFAULT_TIME_BUDGET_MS = 300_000 // per drain lap; cursor resumes across laps
+
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — BOTH budgets sit strictly BELOW the lambda ceiling.
+// The routes that reach this file declare `maxDuration = 300` (seconds). A budget EQUAL to the ceiling is not a
+// budget: the check passes at t=299s, the next unit of work begins, and the lambda is killed mid-flight — which is
+// the LORAMER_META_ASSET_BUDGET_HEADROOM_V1 defect, and it is why lowering a constant is never the whole fix (the
+// reservation in shouldStartAnotherLap is the other half). 240s leaves 60s of headroom for the kill-safe return.
+// ⛔ These two constants are asserted BELOW maxDuration by tests/guards/ga-dim-completion-honesty.guard.mjs, which
+// RE-DERIVES the ceiling from the route files rather than restating it — so the number is not copied here either.
+const DEFAULT_TIME_BUDGET_MS = 240_000 // per drain lap; cursor resumes across laps. WAS 300_000 == the ceiling.
+const RECOVER_BUDGET_MS = 240_000 // per recover invocation; resumeFrom chains across invocations (no cursor)
+
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — the recover walk slices SUB-MONTH by default, and that is measured, not
+// preference. Foam OH months ran 6s to 229s against the 300s ceiling and 2023-07 EXCEEDED it, so a calendar month is
+// demonstrably NOT a survivable unit of work on this client — a month-sliced recover would still be killed on exactly
+// the month that blocked the recovery. 10 days puts the worst observed month at roughly a third of that.
+const DEFAULT_SLICE_DAYS = 10
+
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — the reservation for a slice we have not measured yet. DELIBERATELY ABOVE
+// lap-budget's FIRST_LAP_MS default of 90s, and the reason is arithmetic on real numbers rather than taste: Foam OH's
+// 2023-07 EXCEEDED 300s as a full month, so a 10-day third of it can plausibly run past 100s. Over-reserving costs
+// one extra chained GET; under-reserving costs a 504 that destroys the resume contract — the asymmetry is the whole
+// argument. ⚠ THIS IS AN ESTIMATE UNTIL THE FIRST LIVE RUN, which is exactly the mistake banked in
+// LORAMER_META_PRODUCT_ID_ROUTE_V1 (a per-unit cost inferred from another family's constant measured 47% low). The
+// response returns maxLapMs and lapMs[] on every invocation so it can be corrected from evidence.
+const FIRST_SLICE_MS = 120_000
 
 const fin = (n: any): number => { const v = Number(n); return Number.isFinite(v) ? v : 0 }
 const fmt = (d: Date) => d.toISOString().split('T')[0]
@@ -151,14 +182,36 @@ async function fetchFamily(propertyId: string, accessToken: string, fam: Family,
 
 // SHARED builder — used by backfill AND forward/catchup so rows are byte-identical. Fetches ALL families over the
 // window and returns metrics_daily breakdown rows. A family GA can't serve is skipped (logged), never fatal.
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — TWO OPTIONAL HOOKS, both additive. A caller that passes NEITHER is
+// BYTE-IDENTICAL to the pre-change function (same assembled array, same merge, same order), which is what keeps
+// forward + catchup + the drain untouched by this flight.
+//   onFamilyRows — receives each family's merged rows AS SOON AS that family completes, so a caller can make them
+//     DURABLE before the next GA call is issued. When supplied, rows are NOT accumulated into the return value
+//     (a 30-month recovery must not hold every row in memory to hand back a value the caller already consumed).
+//   shouldStop — consulted BEFORE each family. This is the INSIDE-THE-LOOP budget check: the family loop is where
+//     the time goes (12 GA reports, fully paged), so a check only between windows can overrun on the first window.
+// ⛔ notAttempted IS NOT skipped, AND THE DISTINCTION IS LOAD-BEARING. `skipped` means GA REFUSED a family (no
+// Google Signals, non-ecommerce property) → coverage UNKNOWN, forever. `notAttempted` means WE ran out of budget →
+// coverage simply pending, recoverable by chaining. Folding them together would be the LORAMER_DEGRADED_IS_NOT_
+// FAILED_V1 defect again: a counter that cannot tell partial from total manufactures alarms and hides real ones.
 export async function fetchGaDimensionalRows(args: {
   clientId: string; userEmail: string; accessToken: string; propertyId: string; propertyName: string; startDate: string; endDate: string
-}): Promise<{ rows: Record<string, unknown>[]; perFamily: Record<string, number>; skipped: string[] }> {
-  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate } = args
+  onFamilyRows?: (bt: string, famRows: Record<string, unknown>[]) => Promise<void>
+  shouldStop?: () => boolean
+}): Promise<{ rows: Record<string, unknown>[]; perFamily: Record<string, number>; skipped: string[]; notAttempted: string[] }> {
+  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate, onFamilyRows, shouldStop } = args
   const rows: Record<string, unknown>[] = []
   const perFamily: Record<string, number> = {}
   const skipped: string[] = []
+  const notAttempted: string[] = []
+  let stopped = false
   for (const fam of FAMILIES) {
+    if (stopped || (shouldStop && shouldStop())) { stopped = true; notAttempted.push(fam.bt); continue }
+    // Per-family accumulator. mergeConflictKeyDupes keys on (entity_level, entity_id, date, breakdown_type,
+    // breakdown_value) and breakdown_type IS IN THAT KEY, so two rows from DIFFERENT families can never collide.
+    // Merging per family is therefore EXACTLY equivalent to merging the assembled set — the dedup guarantee that
+    // stops the "ON CONFLICT cannot affect row a second time" abort is preserved, not weakened.
+    const famRows: Record<string, unknown>[] = []
     try {
       const gaRows = await fetchFamily(propertyId, accessToken, fam, startDate, endDate)
       let n = 0
@@ -176,7 +229,7 @@ export async function fetchGaDimensionalRows(args: {
           else if (m.to === 'revenue') revenue = num
           else extra[m.name] = num
         })
-        rows.push({
+        famRows.push({
           client_id: clientId, user_email: userEmail, platform: 'ga', account_id: propertyId,
           entity_level: 'account', entity_id: propertyId, entity_name: propertyName, date,
           breakdown_type: fam.bt, breakdown_value: value || '(not set)',
@@ -185,13 +238,20 @@ export async function fetchGaDimensionalRows(args: {
         n += 1
       }
       perFamily[fam.bt] = n
+      // LORAMER_GA_DIM_DEDUP_V1 — merge duplicate-conflict-key rows BEFORE any upsert (else the atomic batch throws
+      // and writes nothing). Per family, which is equivalent — see the note above the loop.
+      const merged = mergeConflictKeyDupes(famRows)
+      if (onFamilyRows) await onFamilyRows(fam.bt, merged)
+      else rows.push(...merged)
     } catch (e: any) {
       // GA can't serve this family (e.g. age/gender w/o Google Signals, or an unavailable dim) → SKIP loud, never fabricate.
+      // NOTE the ordering: onFamilyRows runs INSIDE this try, so a WRITE failure lands here too and is recorded as a
+      // skip rather than silently swallowed — the caller sees the family did not land and cannot claim it.
       console.warn(`[ga-dim] client=${clientId} family=${fam.bt} SKIPPED ${startDate}..${endDate}: ${e?.message ?? e}`)
       skipped.push(fam.bt)
     }
   }
-  return { rows: mergeConflictKeyDupes(rows), perFamily, skipped } // LORAMER_GA_DIM_DEDUP_V1 — merge duplicate-conflict-key rows before any upsert (else the atomic batch throws + writes nothing)
+  return { rows, perFamily, skipped, notAttempted }
 }
 
 // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — the completion decision, extracted as a PURE function so it can be
@@ -242,6 +302,52 @@ export function decideGaDimCompletion(args: {
   const { reachedStart, earliestWritten, targetStart, errorCount, timedOut, skippedCount } = args
   if (reachedStart) return true
   return earliestWritten <= targetStart && errorCount === 0 && !timedOut && skippedCount === 0
+}
+
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — the RECOVER route's completion decision, extracted as a PURE function for
+// the third time in this file and for the same reason both times before it: a boolean buried inside an I/O-driven
+// walk is a boolean nobody can test, and the two that lied here were exactly that shape.
+//
+// ⛔ COMPLETION IS A CLAIM ABOUT WHAT LANDED, NEVER ABOUT HOW FAR THE WALK GOT (LORAMER_LANDING_IS_THE_ONLY_SHIPPED_V1
+// + the completion-claim invariant). Four ways this must refuse to claim done:
+//   timedOut / unwalked slices → the ground was never asked for.
+//   errorCount > 0             → a slice threw; what it held is unknown.
+//   skippedCount > 0           → GA REFUSED a family somewhere; coverage is UNKNOWN, not empty.
+//
+// ⚠ ONE EXCEPTION, NARROWED AND NAMED RATHER THAN PRESENTED AS FULL COMPLIANCE WITH THE BRIEF. The brief said fail
+// any completion claim "without landed rows". Taken literally, a window GA honestly served nothing for could never
+// be marked done, and a human would re-run it forever. So zero rows CAN complete — but ONLY on a fully clean walk
+// (every slice attempted, every family ran, nothing thrown), which is the HONEST-EMPTY case and is reported as such
+// via rowsCovered:false + emptyMeans. If ANY family was skipped or ANY slice was missed, zero rows is NOT complete.
+// This is the same split LORAMER_RANGELAP_COMPLETION_HONESTY_V1 settled — coverage decides `complete`, rows decide a
+// separate LOUD signal — minus its infinite-loop hazard, because this route writes no cursor and never self-re-enters.
+export function decideGaRecoverCompletion(args: {
+  slicesWalked: number
+  slicesTotal: number
+  errorCount: number
+  skippedCount: number
+  timedOut: boolean
+  rowsWritten: number
+}): { complete: boolean; rowsCovered: boolean } {
+  const { slicesWalked, slicesTotal, errorCount, skippedCount, timedOut, rowsWritten } = args
+  const cleanWalk = slicesWalked >= slicesTotal && slicesTotal > 0 && errorCount === 0 && skippedCount === 0 && !timedOut
+  return { complete: cleanWalk, rowsCovered: rowsWritten > 0 }
+}
+
+// LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — fixed-length day slices. Pure, so the guard can drive the boundaries.
+// A calendar month is NOT a survivable unit on a heavy property (measured: 229s, and one month over 300s), which is
+// why the recover walk does not reuse monthChunks.
+export function daySlices(start: string, end: string, sliceDays: number): { from: string; to: string }[] {
+  const n = Math.max(1, Math.floor(sliceDays))
+  const out: { from: string; to: string }[] = []
+  let cur = start
+  while (cur <= end) {
+    const last = addDays(cur, n - 1)
+    const to = last < end ? last : end
+    out.push({ from: cur, to })
+    cur = addDays(to, 1)
+  }
+  return out
 }
 
 async function upsertCursor(clientId: string, earliest: string, target: string, complete: boolean) {
@@ -367,21 +473,105 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
 // scoped to `clientId` only (fetchGaDimensionalRows stamps client_id, so no other client's rows are touched). Invoked
 // ONLY behind the explicit /api/backfill/ga-dimensional-recover route (CRON_SECRET + required from/to) — it is NOT on
 // any cron and NEVER fires on deploy.
-export async function recoverGaDimensionalForward(clientId: string, from: string, to: string): Promise<GaDimBackfillResult> {
+export async function recoverGaDimensionalForward(
+  clientId: string, from: string, to: string, opts: { sliceDays?: number; budgetMs?: number } = {},
+): Promise<GaDimBackfillResult> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) {
     return { status: 400, body: { error: 'from/to must be YYYY-MM-DD with from<=to', clientId, from, to } }
   }
+  const startedAt = Date.now()
+  const budgetMs = opts.budgetMs ?? RECOVER_BUDGET_MS
+  const sliceDays = opts.sliceDays ?? DEFAULT_SLICE_DAYS
+
   const { data: gaRow } = await supabaseAdmin.from('ga_tokens').select('user_email, ga_property_id').eq('client_id', clientId).maybeSingle()
   if (!gaRow?.user_email || !gaRow?.ga_property_id) return { status: 400, body: { error: 'Client has no GA connection', clientId } }
   const userEmail = gaRow.user_email as string
   const tok = await getValidGaToken(clientId, userEmail)
   if (!tok.ok) return { status: 400, body: { error: 'GA token unavailable', detail: tok.reason, clientId } }
-  const { rows, perFamily, skipped } = await fetchGaDimensionalRows({ clientId, userEmail, accessToken: tok.accessToken, propertyId: tok.gaPropertyId, propertyName: tok.gaPropertyName, startDate: from, endDate: to })
-  let rowsWritten = 0
-  if (rows.length > 0) {
-    const { error } = await supabaseAdmin.from('metrics_daily').upsert(normalizeMetricsRows(rows), { onConflict: CONFLICT })
-    if (error) return { status: 500, body: { error: error.message, clientId, from, to } }
-    rowsWritten = rows.length
+
+  // ⛔ THE DEFECT THIS REPLACES, stated so it is not reintroduced: the whole [from..to] window was ONE
+  // fetchGaDimensionalRows call followed by ONE upsert. A maxDuration kill anywhere in that fetch wrote NOTHING —
+  // ATOMIC-NOTHING, verified live (zero 2023-07 rows after the hang) — and returned no resume point, so the caller
+  // could not even tell how far it got. Nothing was corrupted; the work was simply lost, every time, forever.
+  const slices = daySlices(from, to, sliceDays)
+  const perFamilyTotal: Record<string, number> = {}
+  const skippedFamilies = new Set<string>()
+  const notAttemptedFamilies = new Set<string>()
+  const errors: Array<{ slice: string; message: string }> = []
+  const lapMs: number[] = []
+  let rowsWritten = 0, chunksIssued = 0, slicesWalked = 0, maxLapMs = 0, timedOut = false
+  let resumeFrom: string | null = null
+
+  for (const s of slices) {
+    // BETWEEN slices: reserve headroom for the slice we are about to START, measured from the slices already run
+    // (LORAMER_META_ASSET_BUDGET_HEADROOM_V1 — a between-iteration check that reserves nothing is not a budget).
+    if (!shouldStartAnotherLap(Date.now() - startedAt, maxLapMs, budgetMs, FIRST_SLICE_MS)) {
+      timedOut = true
+      resumeFrom = s.from
+      break
+    }
+    const lapStart = Date.now()
+    try {
+      const { perFamily, skipped, notAttempted } = await fetchGaDimensionalRows({
+        clientId, userEmail, accessToken: tok.accessToken, propertyId: tok.gaPropertyId, propertyName: tok.gaPropertyName,
+        startDate: s.from, endDate: s.to,
+        // FLUSH PER FAMILY — the rows are durable before the next GA report is issued, so a kill leaves landed data
+        // plus an accurate resumeFrom instead of nothing. upsertMetricsChunked owns the conflict key + the
+        // union-of-keys normalisation, so this write cannot skip either.
+        onFamilyRows: async (_bt, famRows) => {
+          if (famRows.length === 0) return
+          const res = await upsertMetricsChunked(famRows)
+          rowsWritten += res.written
+          chunksIssued += res.chunks
+        },
+        // INSIDE the slice: the 12 GA reports are where the time actually goes, so the budget is consulted before
+        // each family too — not only between slices. Families left unasked are reported as notAttempted, never skipped.
+        shouldStop: () => Date.now() - startedAt > budgetMs,
+      })
+      for (const [k, v] of Object.entries(perFamily)) perFamilyTotal[k] = (perFamilyTotal[k] || 0) + v
+      for (const x of skipped) skippedFamilies.add(x)
+      for (const x of notAttempted) notAttemptedFamilies.add(x)
+      slicesWalked += 1
+      if (notAttempted.length > 0) {
+        // The in-slice budget bit: this slice is PARTIAL, so it must be re-walked in full. Re-walking a
+        // partially-landed slice is wasteful, not wrong — every write is an idempotent upsert on the 7-col key.
+        timedOut = true
+        resumeFrom = s.from
+        slicesWalked -= 1
+        break
+      }
+    } catch (e: any) {
+      console.error(`[ga-dim-recover] client=${clientId} slice=${s.from}..${s.to} FAILED:`, e?.message ?? e)
+      errors.push({ slice: s.from, message: String(e?.message ?? e) })
+      resumeFrom = s.from
+      break // stop loud; the caller re-invokes from this slice
+    }
+    const lap = Date.now() - lapStart
+    lapMs.push(lap)
+    if (lap > maxLapMs) maxLapMs = lap
   }
-  return { status: 200, body: { clientId, from, to, rowsWritten, perFamily, skippedFamilies: skipped } }
+
+  const { complete, rowsCovered } = decideGaRecoverCompletion({
+    slicesWalked, slicesTotal: slices.length, errorCount: errors.length,
+    skippedCount: skippedFamilies.size, timedOut, rowsWritten,
+  })
+  if (!complete && !resumeFrom) resumeFrom = slices[slicesWalked]?.from ?? null
+  if (complete && !rowsCovered) {
+    console.warn(`[ga-dim-recover] client=${clientId} ${from}..${to} COMPLETE WITH ZERO ROWS — every slice ran and every family answered, so GA served nothing for this window. Honest empty, not a failure.`)
+  }
+
+  return {
+    status: errors.length ? 207 : 200,
+    body: {
+      clientId, from, to, sliceDays,
+      complete, rowsCovered, resumeFrom, timedOut,
+      slicesTotal: slices.length, slicesWalked, rowsWritten, chunksIssued,
+      maxLapMs, lapMs, budgetMs,
+      perFamily: perFamilyTotal,
+      skippedFamilies: Array.from(skippedFamilies),
+      notAttemptedFamilies: Array.from(notAttemptedFamilies),
+      errors,
+      emptyMeans: complete && !rowsCovered ? 'GA returned no rows for any family across every slice — the window is genuinely empty for this property' : undefined,
+    },
+  }
 }

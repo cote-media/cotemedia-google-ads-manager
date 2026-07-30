@@ -42,7 +42,12 @@ const HELPER = 'src/lib/metrics-upsert.ts'
 const ALLOWLIST = {
   'src/app/api/cron/catchup/route.ts': 13,                  // FLIGHT 2 — pending
   'src/app/api/cron/sync/route.ts': 13,                     // FLIGHT 2 — pending
-  'src/lib/backfill/ga-dimensional-backfill.ts': 2,         // FLIGHT 2 — pending
+  // LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — 2 → 1. The RECOVER path's raw upsert is migrated to
+  // upsertMetricsChunked (it now flushes per family, so the one-statement-per-window shape is gone). The remaining
+  // site is the DRAIN path (runGaDimensionalBackfill), deliberately untouched: that is FLIGHT 2's blast radius, not
+  // this flight's. Paying a file's debt FAILS this guard until the ledger is dropped — that is the anti-rot property
+  // working as designed, not an obstacle.
+  'src/lib/backfill/ga-dimensional-backfill.ts': 1,         // FLIGHT 2 — drain path only; recover path migrated
   'src/lib/backfill/google-adgroup-ad-backfill.ts': 1,      // FLIGHT 2 — pending
   'src/lib/backfill/google-campaign-backfill.ts': 1,        // FLIGHT 2 — pending
   'src/lib/backfill/google-demographic-backfill.ts': 1,     // FLIGHT 2 — pending
