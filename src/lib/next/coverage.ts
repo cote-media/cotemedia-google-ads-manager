@@ -137,6 +137,103 @@ export async function getCoverageForWindows(
   }))
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════
+// LORAMER_COVERAGE_BREAKDOWN_GRAIN_V1 — BREAKDOWN-GRAIN COMPLETENESS, ALONGSIDE base grain, never instead of it.
+//
+// ⛔ THE DEFECT, AND IT IS WIDER THAN "BREAKDOWN ROWS ARE NOT INSPECTED".
+// `minMaxFor` above reads the account BASE triple only (entity_level='account', breakdown_type='',
+// breakdown_value=''), and `resolveCoverageState` then compares the window against TWO ENDPOINTS. That is a RANGE
+// test, not a coverage test: any window falling between min and max returns 'covered' regardless of what is or is
+// not inside it. So the blindness is TWO defects stacked —
+//   (1) breakdown rows are never looked at, at all; and
+//   (2) even at base grain, an INTERIOR missing day inside [min,max] reads 'covered'.
+// MEASURED 2026-07-30, Foam OH GA: base grain min 2022-02-02, max 2026-07-29 — so a question about
+// 2023-07-01..2025-12-31 returned state 'covered', while that window held ZERO dimensional rows across all 12
+// families. 915 days, ~30 months, reported as covered. 1,223 days were recovered fleet-wide that day and NOT ONE
+// of them would have moved `coversWindow`, because every one was a breakdown row.
+//
+// THE METHOD IS A LEFT JOIN AGAINST BASE ACTIVITY, NOT ARITHMETIC ON ENDPOINTS. That distinction is not academic:
+// on 2026-07-30 a min/max reading of Influential Drones said its dimensional coverage ran 2024-02-01→2026-07-29,
+// and the LEFT JOIN found two interior days (2026-07-14, 2026-07-16) sitting inside it. Endpoints cannot see a
+// hole; only a per-day set difference can.
+//
+// BASE GRAIN IS THE DENOMINATOR AND STAYS EXACTLY AS IT IS. "Did this platform report at all on this day" is the
+// right question for base rows, and the account triple is LOAD-BEARING for the migration-035 partial index (see
+// the note on capturedThroughByPlatform). Nothing above this line changes; nothing below it is called by any
+// existing caller.
+
+export type BreakdownCoverageVerdict = 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'
+
+export type BreakdownCoverage = {
+  platform: string
+  verdict: BreakdownCoverageVerdict
+  baseActiveDays: number            // days in-window where the platform DID report (sessions/spend > 0)
+  breakdownDays: number             // distinct in-window days carrying at least one breakdown row
+  holeDays: string[]                // base-active days with ZERO breakdown rows — the actual finding
+  families: Record<string, { first: string; last: string; days: number }>
+  detail: string
+}
+
+// THE THREE STATES, and they are the quota vocabulary deliberately (google-quota-store.ts:34
+// `'blocked' | 'not_blocked' | 'unknown'`) rather than a fourth dialect invented here:
+//   COMPLETE — base reported on N days in-window and every one of those N carries breakdown rows.
+//   PARTIAL  — base reported, breakdown did not, on at least one day. holeDays NAMES them.
+//   UNKNOWN  — we could not measure. No base activity to compare against (no denominator), or the read failed.
+// ⛔ UNKNOWN NEVER DEGRADES TO COMPLETE. That is the whole point of the quota pattern being reused: an unreadable
+// instrument must not be able to speak as a clean bill of health. A window with base activity and zero breakdown
+// rows is PARTIAL with every day listed — never COMPLETE, and never silently UNKNOWN either.
+export function resolveBreakdownCoverage(
+  platform: string,
+  baseActiveDays: string[] | null,
+  breakdownDays: string[] | null,
+  families: Record<string, { first: string; last: string; days: number }> = {},
+): BreakdownCoverage {
+  if (baseActiveDays == null || breakdownDays == null) {
+    return { platform, verdict: 'UNKNOWN', baseActiveDays: 0, breakdownDays: 0, holeDays: [], families,
+      detail: 'could not read base or breakdown days for this window — NOT a completeness claim' }
+  }
+  if (baseActiveDays.length === 0) {
+    return { platform, verdict: 'UNKNOWN', baseActiveDays: 0, breakdownDays: breakdownDays.length, holeDays: [], families,
+      detail: 'no base-grain activity in this window, so there is no denominator to judge breakdown coverage against' }
+  }
+  const have = new Set(breakdownDays)
+  const holeDays = baseActiveDays.filter((d) => !have.has(d)).sort()
+  if (holeDays.length === 0) {
+    return { platform, verdict: 'COMPLETE', baseActiveDays: baseActiveDays.length, breakdownDays: breakdownDays.length,
+      holeDays: [], families, detail: `all ${baseActiveDays.length} base-active day(s) carry breakdown rows` }
+  }
+  return { platform, verdict: 'PARTIAL', baseActiveDays: baseActiveDays.length, breakdownDays: breakdownDays.length,
+    holeDays, families,
+    detail: `${holeDays.length} of ${baseActiveDays.length} base-active day(s) carry NO breakdown rows: ${holeDays.slice(0, 12).join(', ')}${holeDays.length > 12 ? ` … +${holeDays.length - 12} more` : ''}` }
+}
+
+// Data access for the above. Distinct-day extraction MUST happen in Postgres: a client like Foam OH holds ~2.3M
+// GA breakdown rows in a single window, and pulling dates client-side to de-dup them would blow the 8s PostgREST
+// statement_timeout on exactly the biggest clients — the LORAMER_8S_CEILING_AUDIT_V1 failure mode, which returns
+// null while looking correct. So this calls an RPC, and when the RPC is absent or errors it returns UNKNOWN.
+// ⚠ THE RPC IS NOT APPLIED YET (migrations/046_breakdown_coverage_rpc.sql, authored not run — same posture as 045).
+// Until it is, every call here answers UNKNOWN, which is the safe direction and is why the fallback is UNKNOWN
+// rather than an optimistic COMPLETE.
+export async function getBreakdownCoverage(
+  clientId: string,
+  platform: string,
+  win: { startDate: string; endDate: string },
+): Promise<BreakdownCoverage> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('breakdown_coverage_days', {
+      p_client_id: clientId, p_platform: platform, p_start: win.startDate, p_end: win.endDate,
+    })
+    if (error || !data) return resolveBreakdownCoverage(platform, null, null)
+    const row: any = Array.isArray(data) ? data[0] : data
+    if (!row) return resolveBreakdownCoverage(platform, null, null)
+    const fams: Record<string, { first: string; last: string; days: number }> = {}
+    for (const f of row.families || []) fams[f.breakdown_type] = { first: f.first_date, last: f.last_date, days: f.days }
+    return resolveBreakdownCoverage(platform, row.base_active_days || [], row.breakdown_days || [], fams)
+  } catch {
+    return resolveBreakdownCoverage(platform, null, null)
+  }
+}
+
 // Human-directive notes for the tool result — one per distinct (platform,state) that is NOT 'covered'.
 export function coverageNotes(cov: CoverageResult[][]): string[] {
   const seen = new Set<string>()
