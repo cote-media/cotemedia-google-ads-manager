@@ -21,6 +21,44 @@
 // cursors found by the ★RANGELAP-RATCHET-SWEEP. The sweep also found TWO ORPHANED cursors (Inside woocommerce_money
 // / woocommerce_variant); they are NOT baselined here because ORPHANED is a separate, non-fatal bucket — baselining
 // them would trip the anti-rot rule immediately, since they are by definition not in the FROZEN set.
+//
+// ── 2026-07-30 · THE EIGHT 2617b163 META CURSORS, baselined as ONE SET behind ONE named root cause ──────────────
+// ⛔ DO NOT DELETE THESE EIGHT BLIND, AND DO NOT DELETE THEM ONE AT A TIME. Every clause below is load-bearing.
+// · 2617b163 is the demo@loramer.com FIXTURE (registry role=fixture, src/lib/clients/canonical.ts); the canonical cohort client of that name is 5bb9b2ff, cotebrandmarketing@gmail.com.
+// · ROOT CAUSE IS NAMED, which is the whole basis for baselining: oauth_190 on its meta platform_connection —
+//   health=reconnect, last_ok_at 2026-07-23 08:11:28Z, the SAME day all eight cursors last advanced (18:18Z).
+//   An invalidated token CANNOT self-heal, so the drain will never move these no matter how many times it fires.
+// · BASELINED RATHER THAN FIXED BY DECISION, NOT BY OVERSIGHT: no external consequence exists. Meta App Review was
+//   APPROVED 2026-07-02, so there is no reviewer path, no reviewer surface and no reviewer-driven hold on this
+//   fixture, and its meta data serves no purpose that anything real depends on.
+// · NOT EXCLUDED BY ID, DELIBERATELY — 2617b163 is load-bearing for the pending Google Tool Change Form and its
+//   google connection is healthy, so excluding the client would mute a future GOOGLE freeze on it. Baselining the
+//   eight specific meta cursors mutes exactly what is explained and nothing else.
+// · TO CLEAR: re-auth demo@'s Meta. The moment those cursors move, the anti-rot rule makes check:data FAIL until
+//   these eight entries are deleted. THAT IS THE INTENDED EXIT PATH, not a bug — it is what stops this set from
+//   quietly outliving its own reason.
+const DEMO_FIXTURE_OAUTH190_NOTE = 'demo@loramer.com FIXTURE (src/lib/clients/canonical.ts, role=fixture); frozen 2026-07-23 18:18Z behind oauth_190 on its meta connection, which cannot self-heal. Baselined by decision, not oversight — the block above the array carries the full reasoning, incl. why it is neither re-authed nor excluded by id. Clears by re-authing demo@ Meta; anti-rot then fails until these eight are deleted.'
+
+// One shared reason, eight cursors — written as a mapped set rather than eight copies so the reason cannot drift
+// between them. Cursor dates read live 2026-07-30; all eight sat at 7 days when baselined.
+const DEMO_FIXTURE_FROZEN_2026_07_23 = [
+  ['meta_action_type', '2023-08-15'],
+  ['meta_asset', '2026-05-02'],
+  ['meta_attribution_window', '2026-03-21'],
+  ['meta_comscore_market', '2026-04-21'],
+  ['meta_geo', '2024-08-20'],
+  ['meta_hour', '2025-03-25'],
+  ['meta_placement_adset_ad', '2025-03-26'],
+  ['meta_product_id', '2026-04-21'],
+].map(([platform, cursorAt]) => ({
+  clientId: '2617b163-f392-427e-9a29-f134acc51406',
+  client: 'Influential Drones (demo fixture)',
+  platform,
+  cursorAt,
+  daysWhenBaselined: 7,
+  note: DEMO_FIXTURE_OAUTH190_NOTE,
+}))
+
 export const KNOWN_FROZEN_CURSORS = [
   {
     clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', client: 'Foam OH', platform: 'google_geo',
@@ -57,6 +95,7 @@ export const KNOWN_FROZEN_CURSORS = [
     cursorAt: '2026-05-06', daysWhenBaselined: 7,
     note: 'ROOT CAUSE ALREADY FIXED (63c65ca dedupe + 37fce69 route; the 7 lost days were recovered). Expected to CLEAR on the next drain lap — when it does, this entry FAILS the guard and must be deleted. That is the anti-rot rule working, not a defect.',
   },
+  ...DEMO_FIXTURE_FROZEN_2026_07_23,
 ]
 
 // ── NON-PRODUCTION FIXTURES — excluded from the sweep entirely, BY ID, each with its reason inline ───────────────
