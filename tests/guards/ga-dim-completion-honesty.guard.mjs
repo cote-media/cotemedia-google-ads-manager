@@ -202,6 +202,48 @@ if (typeof mod.daySlices !== 'function') {
   if (one.length !== 1 || one[0].from !== '2023-07-05' || one[0].to !== '2023-07-05') findings.push(`daySlices on a single day did not return exactly that day.`)
 }
 
+// ── LORAMER_GA_RECOVER_QUOTA_VISIBILITY_V1 — THE QUOTA HARD STOP ─────────────────────────────────────────────────
+// ~1,104 GA reports run against a PER-PROPERTY daily cap that tomorrow morning's forward GA capture shares. Three
+// properties are mechanically checkable, and each one failing has a distinct, expensive consequence.
+// ⚠ WHAT IS NOT CHECKABLE HERE, NAMED: a real RESOURCE_EXHAUSTED cannot be induced — it is external service state,
+// the narrow case the verification laws permit stubbing for. So the CLASSIFICATION and the PLUMBING are asserted; that
+// GA actually returns the status on a real wall is taken from the vendor reference, not from our own observation.
+if (typeof mod.gaQuotaPctRemaining !== 'function') {
+  findings.push(`does not export gaQuotaPctRemaining — the quota floor has no drivable decision, so nothing proves it errs toward stopping early.`)
+} else {
+  const p = mod.gaQuotaPctRemaining
+  const CAP = mod.GA_STANDARD_TOKENS_PER_DAY
+  if (CAP !== 200_000) findings.push(`GA_STANDARD_TOKENS_PER_DAY is ${CAP}, expected 200000 (VERIFIED 2026-07-30, GA4 Data API quotas: standard property Core tokensPerDay).`)
+  const QCASES = [
+    { name: 'fresh standard property -> ~100%', got: () => p(200_000, 200_000), want: (v) => v >= 0.99,
+      why: 'A full cap must not read as depleted, or the chain refuses to start.' },
+    { name: 'below the floor on a standard cap -> under 20%', got: () => p(39_000, 39_000), want: (v) => v < 0.20,
+      why: 'THE STOP. 39k of 200k is 19.5%; if this reads above the floor the chain keeps spending into tomorrow morning.' },
+    { name: 'just above the floor -> not stopped', got: () => p(41_000, 41_000), want: (v) => v >= 0.20,
+      why: 'A floor that fires early on a healthy quota trains the operator to raise it, which is how a stop gets removed.' },
+    { name: 'A360-sized observed remaining widens the denominator (safe direction)', got: () => p(300_000, 2_000_000), want: (v) => v < 0.20,
+      why: 'The LARGER of (documented cap, max observed) must win. 300k left on a 2M property IS low; measuring it against the 200k standard cap would read as 150% and never stop.' },
+  ]
+  for (const c of QCASES) {
+    let v
+    try { v = c.got() } catch (e) { findings.push(`quota/${c.name}: threw — ${e.message}`); continue }
+    if (!c.want(v)) findings.push(`quota/${c.name}: got ${v}. ${c.why}`)
+  }
+}
+if (typeof mod.GaQuotaExhaustedError !== 'function') {
+  findings.push(`does not export GaQuotaExhaustedError — without a TYPED error a quota wall cannot be told apart from a family GA simply cannot serve.`)
+}
+// SOURCE: a quota wall must be RETHROWN out of the per-family catch. Swallowed, ONE wall becomes TWELVE fake
+// "skipped" families, the loop hits it eleven more times, and the report names entirely the wrong cause.
+if (!/if\s*\(\s*e\s+instanceof\s+GaQuotaExhaustedError\s*\)\s*throw\s+e/.test(src)) {
+  findings.push(`${SRC} does not rethrow GaQuotaExhaustedError from the per-family catch — a quota refusal would be recorded as a family GA cannot serve, and the walk would keep hitting the wall.`)
+}
+// SOURCE: returnPropertyQuota must be OPT-IN. Added unconditionally it would change the request body of the FORWARD,
+// CATCHUP and DRAIN lanes — a live capture-path change this flight has no business making.
+if (!/if\s*\(\s*opts\.returnPropertyQuota\s*\)\s*body\.returnPropertyQuota\s*=\s*true/.test(src)) {
+  findings.push(`${SRC} does not gate returnPropertyQuota behind an opt-in flag — the scheduled capture lanes' request bodies must stay byte-identical.`)
+}
+
 // ── LEG (b): NO TIME BUDGET MAY EQUAL OR EXCEED THE LAMBDA CEILING ────────────────────────────────────────────────
 // A budget EQUAL to maxDuration is not a budget: the check passes at t=299s, the next unit of work starts, and the
 // lambda is killed mid-flight. maxDuration is RE-DERIVED from the route files rather than hardcoded here, so moving a

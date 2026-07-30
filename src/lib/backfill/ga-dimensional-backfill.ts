@@ -153,26 +153,76 @@ export function mergeConflictKeyDupes(rows: Record<string, unknown>[]): Record<s
 
 type GaRow = { dimensionValues?: Array<{ value?: string }>; metricValues?: Array<{ value?: string }> }
 
-async function runGaReport(propertyId: string, accessToken: string, body: Record<string, unknown>): Promise<GaRow[]> {
+// LORAMER_GA_RECOVER_QUOTA_VISIBILITY_V1 — the GA4 Data API's own quota accounting, surfaced instead of guessed.
+// [VERIFIED 2026-07-30 against developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/PropertyQuota
+// + /data/v1/quotas] Request `returnPropertyQuota: true` and the response carries a `propertyQuota` object whose
+// members are QuotaStatus { consumed, remaining }: tokensPerDay · tokensPerHour · concurrentRequests ·
+// serverErrorsPerProjectPerHour · potentiallyThresholdedRequestsPerHour · tokensPerProjectPerHour.
+// ⛔ `consumed` IS PER-REQUEST, NOT CUMULATIVE — the doc says "quota used by the request". So a percentage CANNOT be
+// derived as remaining/(consumed+remaining); it needs a real denominator, which is why the cap below exists.
+export type GaQuotaStatus = { consumed?: number; remaining?: number }
+export type GaPropertyQuota = Record<string, GaQuotaStatus>
+
+// [VERIFIED 2026-07-30, same source] Core tokensPerDay: STANDARD property 200,000 · Analytics 360 2,000,000.
+// Used ONLY as a denominator to turn "below 20% remaining" into a token count. It is deliberately combined with the
+// highest remaining actually OBSERVED (see gaQuotaPctRemaining): whichever denominator is LARGER wins, so a 360
+// property is not mis-measured against the standard cap, and every error in the estimate pushes the percentage DOWN
+// — i.e. toward stopping EARLIER. The safe direction is the only acceptable direction here, because the thing being
+// protected is tomorrow morning's forward GA capture on the same property.
+export const GA_STANDARD_TOKENS_PER_DAY = 200_000
+
+export function gaQuotaPctRemaining(remaining: number, maxObservedRemaining: number, cap = GA_STANDARD_TOKENS_PER_DAY): number {
+  const denom = Math.max(cap, maxObservedRemaining, 1)
+  return remaining / denom
+}
+
+// A quota refusal is NOT a family GA cannot serve. It must abort the chain, never be swallowed as a skip — which is
+// exactly what the per-family catch would otherwise do, turning one wall into twelve fake "skipped" families and a
+// completion claim that names the wrong cause.
+export class GaQuotaExhaustedError extends Error {
+  readonly status: string
+  constructor(message: string, status: string) { super(message); this.name = 'GaQuotaExhaustedError'; this.status = status }
+}
+
+async function runGaReport(
+  propertyId: string, accessToken: string, body: Record<string, unknown>,
+  onQuota?: (q: GaPropertyQuota) => void,
+): Promise<GaRow[]> {
   const prop = propertyId.startsWith('properties/') ? propertyId : `properties/${propertyId}`
   const res = await fetch(`${GA_DATA_API}/${prop}:runReport`, {
     method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   })
-  const json = (await res.json()) as { rows?: GaRow[]; error?: { message?: string }; message?: string }
-  if (!res.ok) throw new Error(json.error?.message || json.message || `GA runReport HTTP ${res.status}`)
+  const json = (await res.json()) as { rows?: GaRow[]; propertyQuota?: GaPropertyQuota; error?: { message?: string; status?: string }; message?: string }
+  if (json.propertyQuota && onQuota) onQuota(json.propertyQuota)
+  if (!res.ok) {
+    const msg = json.error?.message || json.message || `GA runReport HTTP ${res.status}`
+    const status = json.error?.status || (res.status === 429 ? 'RESOURCE_EXHAUSTED' : '')
+    // Exhausting ANY property quota makes EVERY request to that property fail, so retrying is not a strategy —
+    // it is the wall, and the only correct move is to stop and say so.
+    if (status === 'RESOURCE_EXHAUSTED' || res.status === 429) throw new GaQuotaExhaustedError(msg, status || 'RESOURCE_EXHAUSTED')
+    throw new Error(msg)
+  }
   return json.rows || []
 }
 
 // Fetch ONE family over [start,end] (with the date dimension for per-day rows), PAGED fully.
-async function fetchFamily(propertyId: string, accessToken: string, fam: Family, startDate: string, endDate: string): Promise<GaRow[]> {
+// returnPropertyQuota is OPT-IN and defaults OFF, so the forward/catchup/drain request bodies stay BYTE-IDENTICAL —
+// only the human-invoked recover path asks for quota metadata. A new field on a scheduled lane's request is a
+// behaviour change on a live capture path, and this flight has no business making one.
+async function fetchFamily(
+  propertyId: string, accessToken: string, fam: Family, startDate: string, endDate: string,
+  opts: { returnPropertyQuota?: boolean; onQuota?: (q: GaPropertyQuota) => void } = {},
+): Promise<GaRow[]> {
   const dims = [{ name: 'date' }, ...fam.dims.map((n) => ({ name: n }))]
   const metrics = fam.metrics.map((m) => ({ name: m.name }))
   const out: GaRow[] = []
   let offset = 0
   for (;;) {
-    const rows = await runGaReport(propertyId, accessToken, {
+    const body: Record<string, unknown> = {
       dateRanges: [{ startDate, endDate }], dimensions: dims, metrics, keepEmptyRows: false, limit: PAGE_LIMIT, offset,
-    })
+    }
+    if (opts.returnPropertyQuota) body.returnPropertyQuota = true
+    const rows = await runGaReport(propertyId, accessToken, body, opts.onQuota)
     out.push(...rows)
     if (rows.length < PAGE_LIMIT) break
     offset += PAGE_LIMIT
@@ -198,8 +248,10 @@ export async function fetchGaDimensionalRows(args: {
   clientId: string; userEmail: string; accessToken: string; propertyId: string; propertyName: string; startDate: string; endDate: string
   onFamilyRows?: (bt: string, famRows: Record<string, unknown>[]) => Promise<void>
   shouldStop?: () => boolean
+  returnPropertyQuota?: boolean
+  onQuota?: (q: GaPropertyQuota) => void
 }): Promise<{ rows: Record<string, unknown>[]; perFamily: Record<string, number>; skipped: string[]; notAttempted: string[] }> {
-  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate, onFamilyRows, shouldStop } = args
+  const { clientId, userEmail, accessToken, propertyId, propertyName, startDate, endDate, onFamilyRows, shouldStop, returnPropertyQuota, onQuota } = args
   const rows: Record<string, unknown>[] = []
   const perFamily: Record<string, number> = {}
   const skipped: string[] = []
@@ -213,7 +265,7 @@ export async function fetchGaDimensionalRows(args: {
     // stops the "ON CONFLICT cannot affect row a second time" abort is preserved, not weakened.
     const famRows: Record<string, unknown>[] = []
     try {
-      const gaRows = await fetchFamily(propertyId, accessToken, fam, startDate, endDate)
+      const gaRows = await fetchFamily(propertyId, accessToken, fam, startDate, endDate, { returnPropertyQuota, onQuota })
       let n = 0
       for (const gr of gaRows) {
         const dv = (gr.dimensionValues || []).map((x) => x.value ?? '')
@@ -244,6 +296,11 @@ export async function fetchGaDimensionalRows(args: {
       if (onFamilyRows) await onFamilyRows(fam.bt, merged)
       else rows.push(...merged)
     } catch (e: any) {
+      // ⛔ A QUOTA WALL IS NOT A SKIP — RETHROW IT. Left to the generic branch below, one RESOURCE_EXHAUSTED would be
+      // recorded as "GA cannot serve this family", the loop would keep going and hit the same wall eleven more times,
+      // and the caller would be handed twelve fake skips naming entirely the wrong cause. Exhausting a property quota
+      // fails EVERY request to that property, so there is nothing to continue to.
+      if (e instanceof GaQuotaExhaustedError) throw e
       // GA can't serve this family (e.g. age/gender w/o Google Signals, or an unavailable dim) → SKIP loud, never fabricate.
       // NOTE the ordering: onFamilyRows runs INSIDE this try, so a WRITE failure lands here too and is recorded as a
       // skip rather than silently swallowed — the caller sees the family did not land and cannot claim it.
@@ -502,7 +559,32 @@ export async function recoverGaDimensionalForward(
   let rowsWritten = 0, chunksIssued = 0, slicesWalked = 0, maxLapMs = 0, timedOut = false
   let resumeFrom: string | null = null
 
+  // LORAMER_GA_RECOVER_QUOTA_VISIBILITY_V1 — the HARD STOP. ~1,104 reports against a per-property daily cap is not
+  // something to spend blind, and the property being spent is the SAME one tomorrow morning's forward GA capture runs
+  // on. So: observe GA's own accounting on every response, and abort the chain — never retry into the wall — when
+  // daily tokens fall below the floor or GA says RESOURCE_EXHAUSTED.
+  const QUOTA_FLOOR_PCT = 0.20
+  let lastQuota: GaPropertyQuota | null = null
+  let maxObservedRemaining = 0
+  let minObservedRemaining = Number.POSITIVE_INFINITY
+  let quotaStop: string | null = null
+  const onQuota = (q: GaPropertyQuota) => {
+    lastQuota = q
+    const rem = q?.tokensPerDay?.remaining
+    if (typeof rem !== 'number') return
+    if (rem > maxObservedRemaining) maxObservedRemaining = rem
+    if (rem < minObservedRemaining) minObservedRemaining = rem
+    const pct = gaQuotaPctRemaining(rem, maxObservedRemaining)
+    if (pct < QUOTA_FLOOR_PCT && !quotaStop) {
+      quotaStop = `tokensPerDay remaining ${rem} is ${(pct * 100).toFixed(1)}% of the denominator ${Math.max(GA_STANDARD_TOKENS_PER_DAY, maxObservedRemaining)} — below the ${QUOTA_FLOOR_PCT * 100}% floor`
+      console.error(`[ga-dim-recover] client=${clientId} QUOTA FLOOR HIT — ${quotaStop}. STOPPING the chain; forward GA capture on this property must not be starved.`)
+    }
+  }
+
   for (const s of slices) {
+    // The quota floor is checked BEFORE starting a slice as well as inside it — a floor breach observed on the last
+    // family of the previous slice must not be followed by twelve more reports.
+    if (quotaStop) { resumeFrom = s.from; break }
     // BETWEEN slices: reserve headroom for the slice we are about to START, measured from the slices already run
     // (LORAMER_META_ASSET_BUDGET_HEADROOM_V1 — a between-iteration check that reserves nothing is not a budget).
     if (!shouldStartAnotherLap(Date.now() - startedAt, maxLapMs, budgetMs, FIRST_SLICE_MS)) {
@@ -526,21 +608,33 @@ export async function recoverGaDimensionalForward(
         },
         // INSIDE the slice: the 12 GA reports are where the time actually goes, so the budget is consulted before
         // each family too — not only between slices. Families left unasked are reported as notAttempted, never skipped.
-        shouldStop: () => Date.now() - startedAt > budgetMs,
+        // The quota floor rides the SAME hook, so a breach stops the very next family rather than the next slice.
+        shouldStop: () => quotaStop !== null || Date.now() - startedAt > budgetMs,
+        returnPropertyQuota: true,
+        onQuota,
       })
       for (const [k, v] of Object.entries(perFamily)) perFamilyTotal[k] = (perFamilyTotal[k] || 0) + v
       for (const x of skipped) skippedFamilies.add(x)
       for (const x of notAttempted) notAttemptedFamilies.add(x)
       slicesWalked += 1
       if (notAttempted.length > 0) {
-        // The in-slice budget bit: this slice is PARTIAL, so it must be re-walked in full. Re-walking a
+        // The in-slice budget-or-quota bit: this slice is PARTIAL, so it must be re-walked in full. Re-walking a
         // partially-landed slice is wasteful, not wrong — every write is an idempotent upsert on the 7-col key.
-        timedOut = true
+        if (!quotaStop) timedOut = true
         resumeFrom = s.from
         slicesWalked -= 1
         break
       }
     } catch (e: any) {
+      // A quota wall is its OWN outcome, distinct from a failure: nothing is broken, we are simply out of budget for
+      // the day. It is recorded as a stop reason rather than an error so the report cannot read as a defect.
+      if (e instanceof GaQuotaExhaustedError) {
+        quotaStop = `GA returned ${e.status}: ${e.message}`
+        console.error(`[ga-dim-recover] client=${clientId} slice=${s.from}..${s.to} ${e.status} — STOPPING the chain, no retry.`)
+        resumeFrom = s.from
+        slicesWalked -= 1
+        break
+      }
       console.error(`[ga-dim-recover] client=${clientId} slice=${s.from}..${s.to} FAILED:`, e?.message ?? e)
       errors.push({ slice: s.from, message: String(e?.message ?? e) })
       resumeFrom = s.from
@@ -553,7 +647,10 @@ export async function recoverGaDimensionalForward(
 
   const { complete, rowsCovered } = decideGaRecoverCompletion({
     slicesWalked, slicesTotal: slices.length, errorCount: errors.length,
-    skippedCount: skippedFamilies.size, timedOut, rowsWritten,
+    // A quota stop is a walk that did not finish, so it must block the completion claim exactly as a timeout does.
+    // Passing it through `timedOut` keeps ONE rule for "the walk was cut short" rather than a second parallel clause
+    // the guard would then have to learn separately.
+    skippedCount: skippedFamilies.size, timedOut: timedOut || quotaStop !== null, rowsWritten,
   })
   if (!complete && !resumeFrom) resumeFrom = slices[slicesWalked]?.from ?? null
   if (complete && !rowsCovered) {
@@ -567,6 +664,13 @@ export async function recoverGaDimensionalForward(
       complete, rowsCovered, resumeFrom, timedOut,
       slicesTotal: slices.length, slicesWalked, rowsWritten, chunksIssued,
       maxLapMs, lapMs, budgetMs,
+      // GA's OWN accounting, verbatim, every invocation — the answer to "what did that cost me" is never inferred.
+      quotaStop,
+      propertyQuota: lastQuota,
+      tokensPerDayRemaining: (lastQuota as GaPropertyQuota | null)?.tokensPerDay?.remaining ?? null,
+      tokensPerDayRemainingMin: Number.isFinite(minObservedRemaining) ? minObservedRemaining : null,
+      tokensPerDayRemainingMax: maxObservedRemaining || null,
+      quotaFloorPct: QUOTA_FLOOR_PCT,
       perFamily: perFamilyTotal,
       skippedFamilies: Array.from(skippedFamilies),
       notAttemptedFamilies: Array.from(notAttemptedFamilies),
