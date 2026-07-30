@@ -10,7 +10,40 @@ const GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 
 export type GaTokenResult =
   | { ok: true; accessToken: string; gaPropertyId: string; gaPropertyName: string; refreshed: boolean }
-  | { ok: false; reason: 'no_token' | 'refresh_failed'; detail?: string }
+  // 'reconnect_required' is DISTINCT from 'refresh_failed' on purpose: refresh_failed is transient (Google
+  // was unreachable, the response was malformed, we could not validate) and the caller should retry later;
+  // reconnect_required means the grant produced a token Google itself rejects, and no amount of retrying
+  // fixes it — a human has to re-authorize. Collapsing them would send an operator round the retry loop
+  // forever, which is the shape of the 2026-07-30 outage.
+  | { ok: false; reason: 'no_token' | 'refresh_failed' | 'reconnect_required'; detail?: string }
+
+const GOOGLE_TOKENINFO_ENDPOINT = 'https://oauth2.googleapis.com/tokeninfo'
+
+// LORAMER_TOKEN_VALIDATE_BEFORE_PERSIST_V1 — prove a token before storing it.
+// tokeninfo is the right validator here and that is measured, not assumed: on 2026-07-30 it returned
+// HTTP 400 `invalid_token / "Invalid Value"` for the exact dead token the Data API was 401-ing on, and
+// HTTP 200 for the working one. It costs ZERO GA4 property quota — which matters, because this runs on
+// every refresh and the thresholded-requests cap is the binding constraint on this fleet.
+// THREE OUTCOMES, and the third is the one that keeps this safe:
+//   200      → live. Persist.
+//   4xx      → Google says the token is invalid. Do NOT persist; the caller must re-authorize.
+//   anything else (network error, 5xx) → UNKNOWN. Do NOT persist either. We cannot prove the new token is
+//     better than the one we hold, and the mandate is that a refresh may never downgrade a working
+//     credential. Refusing to write on an unprovable result is the only direction that honours that.
+async function proveAccessTokenLive(accessToken: string): Promise<{ live: boolean; verdict: 'live' | 'rejected' | 'unknown'; detail: string }> {
+  try {
+    const res = await fetch(`${GOOGLE_TOKENINFO_ENDPOINT}?access_token=${encodeURIComponent(accessToken)}`)
+    if (res.status === 200) return { live: true, verdict: 'live', detail: 'tokeninfo 200' }
+    if (res.status >= 400 && res.status < 500) {
+      let body = ''
+      try { body = JSON.stringify(await res.json()) } catch { body = `HTTP ${res.status}` }
+      return { live: false, verdict: 'rejected', detail: `tokeninfo ${res.status}: ${body}` }
+    }
+    return { live: false, verdict: 'unknown', detail: `tokeninfo HTTP ${res.status} — cannot prove` }
+  } catch (e: any) {
+    return { live: false, verdict: 'unknown', detail: `tokeninfo unreachable: ${String(e?.message ?? e)}` }
+  }
+}
 
 type GaTokenRow = {
   access_token: string
@@ -100,6 +133,28 @@ export async function getValidGaToken(
     return { ok: false, reason: 'refresh_failed', detail: JSON.stringify(refreshed) }
   }
 
+  // ⛔ GUARD 1 — IDENTICAL TOKEN IS A FAILED REFRESH, NOT A SUCCESSFUL ONE.
+  // MEASURED 2026-07-30: this path received the byte-identical stored access token back from the token
+  // endpoint and wrote it over a freshly re-authorized credential, stamping a brand-new one-hour
+  // expires_at on a corpse. That is what made the outage self-perpetuating — every later caller saw a
+  // healthy-looking row. A refresh that hands back what we already had has bought us nothing; treating it
+  // as success is how "nothing changed" became "everything looks fine".
+  if (refreshed.access_token === row.access_token) {
+    console.error(`[ga-token] client=${clientId} refresh returned the BYTE-IDENTICAL stored token — treating as a FAILED refresh and leaving the row untouched.`)
+    return { ok: false, reason: 'refresh_failed', detail: 'token endpoint returned the byte-identical stored access token — nothing was refreshed, row left untouched' }
+  }
+
+  // ⛔ GUARD 2 — PROVE IT BEFORE PERSISTING. A refresh must never be able to downgrade a working credential.
+  const proof = await proveAccessTokenLive(refreshed.access_token)
+  if (!proof.live) {
+    console.error(`[ga-token] client=${clientId} refreshed token FAILED validation (${proof.verdict}): ${proof.detail}. Row left UNTOUCHED.`)
+    return {
+      ok: false,
+      reason: proof.verdict === 'rejected' ? 'reconnect_required' : 'refresh_failed',
+      detail: proof.detail,
+    }
+  }
+
   const refreshTime = Date.now()
   const newExpiresAt = new Date(
     refreshTime + (refreshed.expires_in || 3600) * 1000
@@ -114,6 +169,7 @@ export async function getValidGaToken(
     updatePayload.refresh_token = refreshed.refresh_token
   }
 
+  // Only reached with a token that is DIFFERENT from the stored one AND proven live by Google itself.
   await supabaseAdmin
     .from('ga_tokens')
     .update(updatePayload)

@@ -59,6 +59,7 @@ const GUARDS = [
   'tests/guards/canonical-client-identity.guard.mjs',
   'tests/guards/ga-dim-completion-honesty.guard.mjs',
   'tests/guards/ga-auth-honesty.guard.mjs',
+  'tests/guards/token-freshness-and-validation.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',

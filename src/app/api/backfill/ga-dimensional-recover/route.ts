@@ -7,6 +7,20 @@
 import { NextResponse } from 'next/server'
 import { recoverGaDimensionalForward } from '@/lib/backfill/ga-dimensional-backfill'
 
+// LORAMER_TOKEN_FRESH_READ_V1 — THE SAME THREE DIRECTIVES cron/sync HAS CARRIED SINCE
+// LORAMER_WOO_BACKFILL_ATOMIC_BREAKER_V1, and this route needed them just as badly.
+// MEASURED 2026-07-30: this route wrote a DEAD access token over a freshly re-authorized one, TWICE
+// (18:00:38Z and 18:31:25Z), while /api/backfill/ga-token-diag — identical refresh code, but declaring
+// force-no-store — minted five live tokens in a row against the SAME refresh token. Google was proven
+// not to be the variable: three refreshes seven seconds apart returned three DIFFERENT working tokens.
+// Two dead writes and five live mints, split cleanly on this declaration.
+// ⚠ HONEST LIMIT, so nobody reads more into this than was proven: the correlation is exact and the
+// mechanism is NOT established (Next 14 does not cache POST by default, which argues against the
+// simplest reading). These directives are the cheap, known-correct posture for a route whose
+// correctness depends on reading the primary fresh — not a demonstrated root cause.
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 export const maxDuration = 300
 
 export async function GET(request: Request) {

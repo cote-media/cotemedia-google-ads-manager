@@ -158,7 +158,14 @@ if (threw instanceof GaQuotaExhaustedError) {
 // ── (v)+(vi) the token liveness path. ──────────────────────────────────────────────────────────────────────────
 let tokenEndpointHits = 0
 globalThis.fetch = async (u) => {
-  if (String(u).includes('oauth2.googleapis.com/token')) {
+  // ⚠ /tokeninfo is a SUBSTRING of /token. LORAMER_TOKEN_VALIDATE_BEFORE_PERSIST_V1 added a tokeninfo call
+  // to the refresh path, and a naive `.includes('/token')` counted it as a second refresh — a FALSE RED that
+  // named the wrong defect entirely. Match the refresh endpoint exactly, and answer tokeninfo separately so
+  // the validated-refresh path can complete.
+  if (String(u).includes('/tokeninfo')) {
+    return { ok: true, status: 200, json: async () => ({ scope: 'x', expires_in: '3599' }) }
+  }
+  if (/oauth2\.googleapis\.com\/token(\?|$)/.test(String(u))) {
     tokenEndpointHits += 1
     return { ok: true, status: 200, json: async () => ({ access_token: 'FRESH', expires_in: 3599, scope: 'x' }) }
   }
