@@ -34,6 +34,47 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-07-30 midday — THE GA ARC, CLOSED) — SHIPPED
+
+Four commits pushed, all Vercel READY. NARRATIVE only; per-item status lives in
+LORAMER_QUEUE_OF_RECORD.md and external status in LORAMER_DECISIONS.md — not restated here.
+
+The day began with a crash-recovery request and ended with every GA-connected client on the fleet
+holding dimensional coverage on every day that has base-grain sessions. Eleven clients, zero holes.
+
+**What was actually recovered — 1,223 days, measured per client before each drive by LEFT JOIN
+against base-grain days with sessions>0, never by arithmetic on min/max:** Foam OH 915 ·
+Influential Drones 226 · Ennis Exterminating 62 · My Vacation Network 18 · Shelley Kyle 1 ·
+BusyBee Bookkeeping 1. Six of the eleven were already clean. ⚠ A figure of "621 days" was in
+circulation at midday and is WRONG — it omits Foam OH's first 600-day tranche, which landed the same
+morning. The per-client list above is the auditable one.
+
+**The arc was not one problem, it was four, and each was only visible once the one above it was
+fixed.** A WindowServer watchdog killed the laptop mid-chain, which forced the compute off this
+machine and onto the deployed route. That exposed a quota wall nobody had watched — the binding cap
+on this fleet is `potentiallyThresholdedRequestsPerHour` (~120, two per slice from ga_age +
+ga_gender), NOT the daily token budget the hard-stop was built around, which never dropped below
+99%. Fixing the chain to survive that exposed a credential that GA rejected while `expires_at` said
+it was healthy — and the route reported twelve 401s as twelve "skipped families" behind an HTTP 200,
+a total outage wearing a success code. Fixing THAT exposed the refresh path overwriting a
+freshly-re-authorized token with a dead one it had just been handed back.
+
+**Three laws came out of it, each now enforced by a guard rather than written down and hoped for.**
+`expires_at` can prove a token is DEAD, never that it is ALIVE — the only test is using it. An auth
+failure is not a skip and must reach the HTTP contract. And a refresh may never downgrade a working
+credential: identical-token refreshes and unvalidated tokens are both refused before they can be
+persisted. Two new guards, 28 → 30.
+
+**The measurement that mattered most was the cheapest one.** A LEFT JOIN of dimensional dates
+against base days with sessions found four separate silent losses — including two golden clients
+that each lost exactly ONE day, two weeks earlier, undetected. Every existing signal said fine: the
+cursor advanced, health was green, the base row landed, no error was recorded, `check:data` passed.
+Nothing we run today looks for a day that simply is not there. That detector does not exist and its
+absence is now the most valuable thing this day found.
+
+**Ranked head is unchanged and does NOT move because of this arc:** the 08:04Z Google geo live lap
+tomorrow morning. The GA work was recovery, not a re-ranking.
+
 ## Session log (2026-07-27 — THE CHAT SURFACE, AND THE RESUME PATH ITSELF) — SHIPPED
 
 Three commits, all pushed and Vercel READY. This is the NARRATIVE; per-item status lives in
