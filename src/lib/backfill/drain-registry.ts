@@ -186,22 +186,78 @@ type RangeWriter = (
 // ONE bounded window lap for a STATELESS-RANGE writer, resuming via a sync_state cursor under `cursorKey`.
 // windowDays defaults to WINDOW_DAYS (365 — unchanged for every existing step); geo steps pass GEO_WINDOW_DAYS.
 // cursor.backfill_earliest_date = the deepest day reached so far; next lap's window end = that − 1 day.
+// ═══ LORAMER_RANGELAP_COMPLETION_HONESTY_V1 ══════════════════════════════════════════════════════════════════════
+// rangeLap is the writer of ALL 43 google completion-claim violations found by LORAMER_COMPLETION_CLAIM_GATE_V1 —
+// NOT run-backfill.ts:268, which serves only the google/meta/ga ACCOUNT cursors and accounts for zero of them
+// (DECISIONS carries that correction). rangeLap serves 22 of the 34 drain steps, so it is the widest instance of
+// the class yet, and it carries BOTH defects fixed in ga-dimensional-backfill.ts tonight:
+//   · `reachedFloor = subStart <= floor` — completion from WINDOW POSITION, never from rows (94a627d's defect).
+//   · `if (curEnd < floor) writeRangeCursor(clientId, key, floor, TRUE)` — the ZERO-WORK SEAL (30172c2's defect).
+// Both decisions are extracted below so they are drivable without a DB, a token or a lap — the move that worked
+// twice tonight, and the reason those two booleans went untested for months.
+
+// ⛔ THE WINDOW DECISION. Identical reasoning to resolveGaDimWindowEnd: this branch is only reachable when
+// backfill_complete is FALSE (rangeLap returns at the complete guard above it), so "cursor at/below floor AND not
+// complete" is anomalous BY CONSTRUCTION — a walk that ended without covering its ground, or a human clearing the
+// flag to force a re-walk. Both want the same thing: walk again. Sealing it asserts completion for zero work.
+export function resolveRangeLapWindowEnd(earliest: string | null, yesterday: string, floor: string): string {
+  if (!earliest) return yesterday          // never walked: start at yesterday and walk backward
+  const prior = addDays(earliest, -1)
+  if (prior < floor) return yesterday      // anomalous: RESTART, never seal for zero work
+  return prior                             // normal resume
+}
+
+// ⛔ THE COMPLETION DECISION, AND ITS DELIBERATE LIMIT — READ THIS BEFORE "TIGHTENING" IT.
+// `complete` is STILL position-based, and that is not an oversight. Making the seal REQUIRE rows creates a
+// GUARANTEED INFINITE RE-WALK against the 15k/day GAQL cap, because it conflicts with the restart above:
+//   lap 1 walks to the floor, the final window is legitimately empty (written 0), rows-required blocks the seal,
+//   so complete stays false with earliest at the floor -> lap 2 hits the anomalous branch -> RESTART -> lap 1.
+// A family whose floor window is honestly empty would re-walk its whole range every few laps, forever. And empty
+// IS an honest answer here: the meta-simple writers say so on their own faces, returning `emptyMeans` precisely
+// when written === 0 ("account runs NO catalog/Advantage+ shopping campaigns — not a capture failure").
+// SO THE HONEST SPLIT: position still decides `complete` (no stall, no loop), and ROWS DECIDE `rowsCovered` — a
+// separate, LOUD signal surfaced in the lap detail and logged. A seal with rowsCovered=false is exactly what
+// LORAMER_COMPLETION_CLAIM_GATE_V1 fails on in check:data, where a human triages it, instead of the drain quietly
+// looping. Narrower than "require rows to complete", and it is the only version that does not spend the fleet's
+// quota on an infinite loop. Widening it needs per-walk row history the cursor does not carry.
+export function decideRangeLapCompletion(args: {
+  subStart: string          // deepest date this lap requested
+  floor: string             // floor36()
+  status: number            // writer HTTP status
+  written: number | null    // rows the writer reports it persisted; null = the writer reported no count
+  emptyDeclared: boolean    // the writer DECLARED zero as the honest answer (body.emptyMeans present)
+}): { complete: boolean; rowsCovered: boolean } {
+  const { subStart, floor, status, written, emptyDeclared } = args
+  const complete = status === 200 && subStart <= floor
+  // rowsCovered is UNKNOWN-tolerant: a writer that reports no count at all must not be read as "wrote nothing".
+  const rowsCovered = written === null ? true : written > 0 || emptyDeclared
+  return { complete, rowsCovered }
+}
+
 async function rangeLap(clientId: string, cursorKey: string, writer: RangeWriter, dryRun: boolean, windowDays: number = WINDOW_DAYS): Promise<LapResult> {
   const floor = floor36()
   const st = await readRangeCursor(clientId, cursorKey)
   if (st?.backfill_complete) return { done: true, detail: { note: 'already complete' } }
-  const curEnd = st?.backfill_earliest_date ? addDays(st.backfill_earliest_date, -1) : utcYesterday()
-  if (curEnd < floor) {
-    if (!dryRun) await writeRangeCursor(clientId, cursorKey, floor, true)
-    return { done: true, detail: { note: 'reached floor', floor } }
+  // LORAMER_RANGELAP_COMPLETION_HONESTY_V1 — the zero-work seal is GONE. An anomalous cursor restarts the walk.
+  const curEnd = resolveRangeLapWindowEnd(st?.backfill_earliest_date ?? null, utcYesterday(), floor)
+  if (st?.backfill_earliest_date && addDays(st.backfill_earliest_date, -1) < floor) {
+    console.warn(`[drain] ANOMALOUS CURSOR ${cursorKey} client=${clientId}: complete=false with backfill_earliest_date=${st.backfill_earliest_date} at/below floor ${floor}. RESTARTING the walk from ${curEnd} rather than sealing for zero work (LORAMER_RANGELAP_COMPLETION_HONESTY_V1).`)
   }
   let subStart = addDays(curEnd, -(windowDays - 1))
   if (subStart < floor) subStart = floor
   const { status, body } = await writer(clientId, subStart, curEnd, { dryRun })
   if (status !== 200) return { done: false, detail: { error: 'writer failed', status, body } }
-  const reachedFloor = subStart <= floor
+  // LORAMER_RANGELAP_COMPLETION_HONESTY_V1 — `written` is the universal rows key across all 22 rangeLap writers
+  // (verified 2026-07-30, one by one, incl. runSimpleBreakdown which serves asset/product_id/comscore/attribution
+  // _window). `emptyMeans` is present ONLY when a meta-simple writer declares zero to be the honest answer.
+  const written = typeof (body as any)?.written === 'number' ? (body as any).written as number : null
+  const emptyDeclared = (body as any)?.emptyMeans !== undefined
+  const { complete: reachedFloor, rowsCovered } = decideRangeLapCompletion({ subStart, floor, status, written, emptyDeclared })
+  if (reachedFloor && !rowsCovered) {
+    console.error(`[drain] SEALED WITH NO ROWS ${cursorKey} client=${clientId} range=${subStart}→${curEnd}: reached floor ${floor} but the writer persisted 0 rows and declared no emptyMeans. The cursor now CLAIMS ground it never covered — LORAMER_COMPLETION_CLAIM_GATE_V1 will fail on this in check:data. NOT auto-retried: see decideRangeLapCompletion for why requiring rows here would infinite-loop.`)
+  }
   if (!dryRun) await writeRangeCursor(clientId, cursorKey, subStart, reachedFloor)
-  return { done: reachedFloor, detail: { range: `${subStart}→${curEnd}`, reachedFloor, body } }
+  return { done: reachedFloor, detail: { range: `${subStart}→${curEnd}`, reachedFloor, rowsCovered, written, body } }
 }
 
 export const DRAIN_REGISTRY: DrainStep[] = [
