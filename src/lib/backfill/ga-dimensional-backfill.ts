@@ -204,6 +204,33 @@ export async function fetchGaDimensionalRows(args: {
 // it does not know what was there. It ends INCOMPLETE, with the skipped families named, which also keeps the
 // cursor visible to LORAMER_FROZEN_CURSOR_DETECTOR_V1 (that detector filters backfill_complete=false, so a
 // dishonest `true` hides from it BY CONSTRUCTION).
+// LORAMER_GA_DIM_ZERO_WORK_RESTART_V1 — the walk WINDOW decision, extracted for the same reason the completion
+// decision was: it is the real decision point of the branch that lied, and a branch you cannot drive is a branch
+// nobody tests.
+//
+// ⛔ THE BRANCH THIS REPLACES asserted `complete=true` having walked ZERO months and written ZERO rows:
+//     if (windowEnd < targetStart) { upsertCursor(clientId, targetStart, targetStart, true); return … }
+// Same law as LORAMER_GA_DIM_COMPLETION_HONESTY_V1 (94a627d) — completion is a claim about what was WRITTEN —
+// violated by a DIFFERENT branch, which that commit did not touch. Measured cost: three golden-client cursors
+// (Foam OH · Influential Drones 5bb9b2ff · My Vacation Network — resolve via src/lib/clients/canonical.ts) sat at
+// the floor claiming a finished walk over years of unwritten data, and the 2026-07-30 recovery probe proved the
+// data was there all along (2022-02..2023-06 returns real rows, NO family ever throws), so the walk never asked.
+//
+// ⛔ WHY RESTARTING IS THE CORRECT ANSWER AND NOT MERELY THE SAFE ONE: this branch is only reachable when
+// `backfill_complete` is FALSE — a genuinely finished walk returns earlier, at the `state?.backfill_complete`
+// guard. So "cursor at/below the floor AND not complete" is BY CONSTRUCTION an anomalous state: either a walk
+// that ended without covering its ground, or a flag a human deliberately cleared to force a re-walk. In both
+// cases the honest move is the same — WALK AGAIN from the top. Re-walking ground that already has rows is
+// wasteful, not wrong: every write is an idempotent upsert on the 7-col conflict key.
+// The alternative (return without touching the cursor) stops the lie but leaves the cursor inert forever, doing
+// nothing 4x/day and never recovering the data. That is honest and useless. This restarts.
+export function resolveGaDimWindowEnd(earliest: string | null, endDate: string, targetStart: string): string {
+  if (!earliest) return endDate                       // never walked: start at yesterday and walk backward
+  const prior = addDays(earliest, -1)
+  if (prior < targetStart) return endDate             // anomalous (see above): RESTART, never claim completion
+  return prior                                        // normal resume: continue below the last covered month
+}
+
 export function decideGaDimCompletion(args: {
   reachedStart: boolean          // 6 consecutive CLEAN-empty months — the property's data-start, honestly detected
   earliestWritten: string        // deepest month the walk can HONESTLY claim (see the line-244 rule below)
@@ -265,8 +292,10 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
   const targetStart = HARD_FLOOR
   const EMPTY_MONTH_STOP = 6
 
-  const windowEnd = state?.backfill_earliest_date ? addDays(state.backfill_earliest_date, -1) : endDate
-  if (windowEnd < targetStart) { await upsertCursor(clientId, targetStart, targetStart, true); return { status: 200, body: { clientId, complete: true, note: 'window already covered' } } }
+  const windowEnd = resolveGaDimWindowEnd(state?.backfill_earliest_date ?? null, endDate, targetStart)
+  if (state?.backfill_earliest_date && addDays(state.backfill_earliest_date, -1) < targetStart) {
+    console.warn(`[ga-dim] client=${clientId} ANOMALOUS CURSOR: complete=false with backfill_earliest_date=${state.backfill_earliest_date} at/below floor ${targetStart}. RESTARTING the walk from ${endDate} rather than claiming completion for zero work (LORAMER_GA_DIM_ZERO_WORK_RESTART_V1).`)
+  }
 
   // Walk months OLDER, newest-first, time-budgeted.
   // LORAMER_GA_DIM_COMPLETION_HONESTY_V1 — earliestWritten = the deepest month this walk can HONESTLY CLAIM: one
@@ -275,7 +304,14 @@ export async function runGaDimensionalBackfill(clientId: string, opts: { timeBud
   // rather than left to re-teach itself to the next reader. A month where a family was SKIPPED is an UNKNOWN, not
   // coverage: we do not know what was in it, so it must not move the cursor.
   const months = monthChunks(targetStart, windowEnd).reverse()
-  let earliestWritten = state?.backfill_earliest_date || addDays(endDate, 1)
+  // LORAMER_GA_DIM_ZERO_WORK_RESTART_V1 — derived from windowEnd, NOT read straight off the cursor. The deepest
+  // month we can claim starts one day after the window we are about to walk. For a normal resume this is exactly
+  // the old value (windowEnd = earliest-1, so +1 = earliest) and for a never-walked cursor it is exactly the old
+  // value (endDate+1) — both byte-identical. It MATTERS for the anomalous restart: reading 2015-08-14 off the
+  // cursor there would start earliestWritten already AT the floor, so decideGaDimCompletion would see
+  // earliestWritten <= targetStart after one lap and re-declare completion. Restarting the window without
+  // restarting this counter would have re-sealed the cursor on the very next lap.
+  let earliestWritten = addDays(windowEnd, 1)
   let rowsWritten = 0, monthsWalked = 0, timedOut = false, reachedStart = false, consecutiveEmpty = 0
   const perFamilyTotal: Record<string, number> = {}
   const skippedFamilies = new Set<string>()

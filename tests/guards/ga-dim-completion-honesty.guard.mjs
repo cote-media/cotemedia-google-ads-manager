@@ -23,7 +23,7 @@
 // (complete=true while the family's actual min(date) is later than the cursor) is QUEUE ★COMPLETE-FLAG-AUDIT and
 // belongs in check:data, not here.
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
@@ -112,7 +112,45 @@ for (const c of CASES) {
   if (got !== c.expect) findings.push(`${c.name}: expected complete=${c.expect}, got ${got}. ${c.why}`)
 }
 
-console.log(`[ga-dim-completion-honesty] drove the real decideGaDimCompletion over ${CASES.length} states`)
+// ── LORAMER_GA_DIM_ZERO_WORK_RESTART_V1 — THE ZERO-WORK BRANCH ─────────────────────────────────────────────────
+// ⚠ THIS CASE IS NOT EXPRESSIBLE THROUGH decideGaDimCompletion, AND THE ASSERTION IS NOT WEAKENED TO FIT.
+// The pre-fix branch never CALLED the completion decision — it wrote `complete=true` directly and returned, having
+// walked zero months. So the real decision point is the WALK WINDOW, extracted as resolveGaDimWindowEnd. Asserted
+// there, plus a source-level check that the literal zero-work seal is gone (the un-evadable half: a re-inlined
+// branch would pass every behavioural test by simply not being reached).
+if (typeof mod.resolveGaDimWindowEnd !== 'function') {
+  findings.push(`does not export resolveGaDimWindowEnd — the zero-work branch (upsertCursor(…, true) with zero months walked) has no testable decision point. Extract it.`)
+} else {
+  const w = mod.resolveGaDimWindowEnd
+  const WINDOW_CASES = [
+    { name: 'never-walked (null cursor) -> start at yesterday', got: () => w(null, '2026-07-29', FLOOR), expect: '2026-07-29',
+      why: 'A cursor with no row must walk backward from the end date. Pre-existing behaviour, pinned so the fix cannot change it.' },
+    { name: 'ZERO-WORK: cursor already AT the floor -> RESTART at endDate, do not seal', got: () => w(FLOOR, '2026-07-29', FLOOR), expect: '2026-07-29',
+      why: 'THE 2026-07-30 DEFECT. Pre-fix this branch asserted complete=true with zero months walked and zero rows written, and it is only reachable when complete=false, so the state is anomalous by construction. It must WALK, not seal.' },
+    { name: 'cursor BELOW the floor -> RESTART at endDate', got: () => w('2010-01-01', '2026-07-29', FLOOR), expect: '2026-07-29',
+      why: 'Same branch, reached from a value further below the floor.' },
+    { name: 'normal resume -> the day before the cursor', got: () => w('2024-01-01', '2026-07-29', FLOOR), expect: '2023-12-31',
+      why: 'The ordinary path must be untouched, or the fix has broken every healthy GA backfill.' },
+  ]
+  for (const c of WINDOW_CASES) {
+    let got
+    try { got = c.got() } catch (e) { findings.push(`${c.name}: threw — ${e.message}`); continue }
+    if (got !== c.expect) findings.push(`${c.name}: expected ${c.expect}, got ${got}. ${c.why}`)
+  }
+}
+// SOURCE ASSERTION — the literal zero-work seal must not exist. Behavioural tests cannot see a branch that
+// short-circuits before the decision functions are reached, so this one reads the file.
+// QUOTATION IS NOT ASSERTION — the same lesson the canonical-identity guard already paid for. The header of the
+// module under test QUOTES the defective line verbatim to teach why the rule exists, so comment lines are stripped
+// before the check. Otherwise the fix's own documentation would fail the guard, and a guard that forbids recording
+// the bug gets deleted.
+const src = readFileSync(resolve(ROOT, SRC), 'utf8')
+  .split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
+if (/upsertCursor\(\s*clientId\s*,\s*targetStart\s*,\s*targetStart\s*,\s*true\s*\)/.test(src)) {
+  findings.push(`${SRC} still contains upsertCursor(clientId, targetStart, targetStart, true) — the zero-work seal. That call marks a cursor complete having walked no months and written no rows.`)
+}
+
+console.log(`[ga-dim-completion-honesty] drove the real decideGaDimCompletion over ${CASES.length} states, plus the window decision and the source check`)
 if (findings.length) {
   console.error(`[ga-dim-completion-honesty] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
