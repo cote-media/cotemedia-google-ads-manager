@@ -67,6 +67,9 @@ const GUARDS = [
   // LORAMER_NO_CACHED_DB_READ_V1 — a read that gates a write, or reports live state, may never be served from
   // Next's Data Cache. Enforced at the ONE source (supabaseAdmin) rather than across 105 route files.
   'tests/guards/no-cached-live-state-read.guard.mjs',
+  // LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — the breakdown-grain verdict must REACH Lora, CHANGE what she is told
+  // to say, and stay off query_metrics and the per-turn path.
+  'tests/guards/breakdown-coverage-wired.guard.mjs',
   'tests/guards/connection-outcome-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',

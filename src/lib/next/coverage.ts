@@ -332,6 +332,60 @@ async function readConnectionFacts(clientId: string, platform: string): Promise<
   }
 }
 
+// LORAMER_BREAKDOWN_COVERAGE_NOTE_V1 — THE NOTE INSTRUCTS, IT DOES NOT INFORM.
+//
+// ⛔ ESSENCE LAW 6 IS THE ACCEPTANCE TEST, AND ATTACHING THE VERDICT DOES NOT MEET IT. A PARTIAL window must
+// CHANGE WHAT SHE SAYS, not merely be available to her. So this returns a DIRECTIVE in the same idiom as
+// coverageNotes above — it tells her what to say and what not to say — rather than a description of state.
+//
+// ⛔ COMPLETE RETURNS null, DELIBERATELY. Silence is the correct signal on a clean window. A caveat that fires
+// when nothing is wrong is the noise that teaches a reader to skip captions, which is the failure mode banked
+// from the nightly stale_tail false alarm (LORAMER_QUERY_COMPLETENESS_V1 slice 5 exists because a flag that
+// fires on healthy clients trains the user to ignore it).
+//
+// ⛔ AND THE FOUR UNKNOWN REASONS GET FOUR DIFFERENT SENTENCES. Collapsing them here would undo
+// LORAMER_COVERAGE_UNKNOWN_REASON_V1 at the last inch — the whole point of separating "we could not measure"
+// from "the account was idle" is that the reader must not act on them identically, and the reader here is Lora.
+export function breakdownCoverageNote(cov: BreakdownCoverage, family: string): string | null {
+  const fam = family || 'this breakdown'
+  if (cov.verdict === 'COMPLETE') return null
+  if (cov.verdict === 'PARTIAL') {
+    const shown = cov.holeDays.slice(0, 12).join(', ')
+    const rest = cov.holeDays.length > 12 ? ` … +${cov.holeDays.length - 12} more` : ''
+    return (
+      `COVERAGE (${cov.platform} ${fam}): ${cov.holeDays.length} of ${cov.baseActiveDays} day(s) on which ${cov.platform} REPORTED ACTIVITY carry NO ${fam} rows — ${shown}${rest}. ` +
+      `This ranking is computed over a PARTIAL window. STATE that it is partial and NAME the gap; do NOT present it as the complete picture, and do NOT describe a value's absence from this list as proof it did not occur.`
+    )
+  }
+  switch (cov.unknownReason) {
+    case 'read_failed':
+      return (
+        `COVERAGE (${cov.platform} ${fam}): completeness for this window COULD NOT BE MEASURED — ${cov.detail} ` +
+        `This is a failure on OUR side, not a fact about the account. Do NOT claim the ranking is complete, and do NOT say the account had no activity.`
+      )
+    case 'not_connected':
+      return (
+        `COVERAGE (${cov.platform} ${fam}): ${cov.platform} is NOT connected for this client. ` +
+        `Say it isn't connected; NEVER report zeros and do NOT call it "no data".`
+      )
+    case 'never_captured':
+      return (
+        `COVERAGE (${cov.platform} ${fam}): ${cov.platform} is connected but has NEVER captured a row for this client, in any window. ` +
+        `Capture has not started — say so. An empty ranking here says NOTHING about the account and must not be reported as low or zero activity.`
+      )
+    case 'no_activity_in_window':
+      return (
+        `COVERAGE (${cov.platform} ${fam}): ${cov.platform} is connected and has captured before, but reported NO activity inside this window, so there is no denominator to judge ${fam} coverage against. ` +
+        `This is a fact about the ACCOUNT, not about our capture — an empty ranking here is genuine, and you may say the account was inactive in this period.`
+      )
+    default:
+      return (
+        `COVERAGE (${cov.platform} ${fam}): completeness for this window is UNKNOWN and the reason was not recorded. ` +
+        `Do NOT claim the ranking is complete.`
+      )
+  }
+}
+
 // Human-directive notes for the tool result — one per distinct (platform,state) that is NOT 'covered'.
 export function coverageNotes(cov: CoverageResult[][]): string[] {
   const seen = new Set<string>()

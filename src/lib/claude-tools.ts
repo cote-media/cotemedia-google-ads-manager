@@ -11,9 +11,9 @@
 import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
 // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the query_breakdown enums are GENERATED from the ONE declared
 // source (breakdown-registry.ts), never hand-written, so the tool schema and the query layer cannot drift.
-import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes } from '@/lib/breakdown-registry'
+import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
-import { getCoverageForWindows, coverageNotes } from '@/lib/next/coverage'
+import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote } from '@/lib/next/coverage'
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess } from '@/lib/access/can-access'
 import { logToolDecision } from '@/lib/lora-tool-log' // LORAMER_LORA_TOOL_DECISION_LOG_V1 — L2-retrieval instrument (fire-and-forget)
@@ -93,7 +93,7 @@ export const QUERY_METRICS_TOOL: any = {
 export const QUERY_BREAKDOWN_TOOL: any = {
   name: 'query_breakdown',
   description:
-    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta/Google breakdowns (placement, age, gender, device, hour, action_type/conversion_action). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead.',
+    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta/Google breakdowns (placement, age, gender, device, hour, action_type/conversion_action). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead. COMPLETENESS — READ THIS BEFORE STATING A RANKING: every result carries "breakdownCoverage" with a verdict of COMPLETE, PARTIAL or UNKNOWN, and when it is not COMPLETE a "coverageNote" tells you what to say. PARTIAL means some days on which the platform DID report activity carry NO rows for this family — the ranking is computed over an incomplete window, so state that it is partial and name the gap, and never treat a value missing from the list as proof it did not occur. UNKNOWN carries an "unknownReason" and they are NOT interchangeable: "read_failed" is a failure on OUR side (say the completeness could not be measured; never claim the ranking is complete and never say the account was inactive), "not_connected" means the platform is not connected, "never_captured" means capture has never run for it so an empty ranking says NOTHING about the account, and "no_activity_in_window" means the account itself was genuinely inactive in this period and an empty ranking IS real. COMPLETE carries no note and needs no caveat.',
   input_schema: {
     type: 'object',
     properties: {
@@ -146,8 +146,26 @@ export const QUERY_BREAKDOWN_TOOL: any = {
   },
 }
 
+// LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — BREAKDOWN-GRAIN COMPLETENESS REACHES LORA, AND ONLY HERE.
+//
+// ⛔ THIS TOOL, AND NOTHING ELSE. Not query_metrics — its totals are ACCOUNT grain and a breakdown hole does not
+// change them, so a caveat there would hang on a number it does not bear on, which is the noise that trains a
+// reader to skip captions. Not per-turn — most turns never touch breakdown grain, and on a wide window the read
+// costs seconds for nothing. Keying on the TOOL is decidable in code, which is the determinism law's own
+// preference: push truth into code, leave judgment to the prompt.
+//
+// WHY IT WAS NEEDED (MEASURED 2026-07-30): Foam OH GA, window 2023-07-01..2025-12-31 — base grain min
+// 2022-02-02 / max 2026-07-29, so `coversWindow` said 'covered' and coverageNotes emitted NOTHING (its loop
+// opens `if (c.state === 'covered') continue`), while that window held ZERO dimensional rows across all 12
+// families. 915 base-active days. She would have named a top source/medium from a window with no dimensional
+// data and no hedge — ESSENCE law 6's dangerous state exactly: a confident answer over an uncaptured window.
+//
+// COST, MEASURED on the real RPC and the reason no cache or global bound is needed: it scales with WINDOW SIZE,
+// not client size. Foam OH meta 30 days = 11ms · 7 months = 1,295ms · 3.5 years = 13,316ms. Lora's default is
+// 30 days, so the ordinary cost is ~11ms against a ~9s turn. A wide window exceeds the 8s PostgREST ceiling and
+// surfaces as read_failed carrying the timeout text — legible, not silence (LORAMER_COVERAGE_UNKNOWN_REASON_V1).
 export async function runQueryBreakdownTool(input: any, clientId: string) {
-  return queryBreakdown({
+  const result: any = await queryBreakdown({
     clientId,
     breakdownType: typeof input?.breakdownType === 'string' ? input.breakdownType : '',
     platform: typeof input?.platform === 'string' ? input.platform : undefined,
@@ -163,6 +181,41 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
     geoGrain: typeof input?.geoGrain === 'string' ? input.geoGrain : undefined, // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B)
     geoScope: typeof input?.geoScope === 'string' ? input.geoScope : undefined,
   })
+
+  const family = typeof input?.breakdownType === 'string' ? input.breakdownType : ''
+  // Scope the coverage read. The EXPLICIT platform wins; otherwise the registry resolves it, and a family
+  // captured on several platforms with none chosen is already refused upstream by queryBreakdown with its own
+  // note ("pass platform to choose one"), so there is nothing to measure and nothing to say.
+  const explicit = typeof input?.platform === 'string' ? input.platform : undefined
+  let platform: string | undefined = explicit
+  if (!platform) {
+    try {
+      const cands = platformsForToolType(family)
+      if (cands.length === 1) platform = cands[0]
+    } catch { /* unknown family — queryBreakdown already returned its own note */ }
+  }
+  // ⛔ THE WINDOW COMES FROM queryBreakdown's OWN RESOLUTION, never re-derived here. resolveDateWindow is the
+  // ONE date resolver (Lesson 19) and a second one in this file would be free to drift from the rows it is
+  // supposed to be describing.
+  const win = result?.window
+  if (!platform || !win?.startDate || !win?.endDate) return result
+
+  const cov = await getBreakdownCoverage(clientId, platform, win)
+  result.breakdownCoverage = {
+    verdict: cov.verdict,
+    unknownReason: cov.unknownReason,
+    holeDays: cov.holeDays,
+    baseActiveDays: cov.baseActiveDays,
+    breakdownDays: cov.breakdownDays,
+    detail: cov.detail,
+  }
+  // A DIRECTIVE, not a description — and null on COMPLETE, because silence is the correct signal on a clean
+  // window. Attached as its OWN field: `result.note` is a single string already carrying six other meanings
+  // (truncation, unknown family, wrong platform, geo grain, empty family), and overwriting it would trade one
+  // honest message for another.
+  const coverageNote = breakdownCoverageNote(cov, family)
+  if (coverageNote) result.coverageNote = coverageNote
+  return result
 }
 
 // LORAMER_QUERY_MONEY_V1 — the store money surface (gross→net waterfall components) for ONE store platform.
