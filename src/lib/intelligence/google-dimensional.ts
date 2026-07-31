@@ -17,8 +17,34 @@
 
 import { GoogleAdsApi } from 'google-ads-api'
 
-const SEARCH_TERMS_CAP = 300
-const KEYWORDS_CAP = 200
+// LORAMER_SEARCH_TERM_UNCAPPED_V1 — THE CAPS ARE GONE FROM THE FORWARD CAPTURE.
+//
+// ⛔ WHY THEY WERE WRONG. `SEARCH_TERMS_CAP = 300` / `KEYWORDS_CAP = 200` were applied IN THE GAQL with
+// `ORDER BY metrics.cost_micros DESC`, so the tail was never fetched — not stored-then-trimmed, NEVER
+// RETRIEVED. And Google's search-term retention is ~90 days (DECISIONS: "~90d backfill, then
+// BANKED-AND-GROWING forward forever"), so every night's discarded tail becomes UNRECOVERABLE 90 days
+// later. MEASURED 2026-07-30: Bath Fitter hit exactly 300 on 30 of the last 30 days — every single day
+// truncated, on the largest Google account on the fleet. The long tail of wasted spend is precisely what
+// the product exists to surface, and we were throwing it away nightly, permanently, in silence.
+//
+// ⛔ AND THE CAPS WERE NEVER A DECISION. Nothing in DECISIONS or the QUEUE justifies 300/200. The only
+// recorded rationale is this file's own header — "decoupled from the 15-min-cached dashboard intelligence
+// fetch (which caps these at 100 for brevity) — capture pulls deeper" — i.e. a UI BREVITY cap scaled up by
+// guesswork and then inherited by the permanent capture path. A defensive guess, not a cost analysis.
+//
+// ⛔ REMOVING THE LIMIT COSTS ZERO EXTRA API REQUESTS, which is the whole reason this is safe under Basic
+// Access (15k ops/day, shared across all 18 google clients on one dev token). `customer.query()` routes
+// through the library's `querier` → **searchStream** (node_modules/google-ads-api/build/src/customer.js:
+// "Google's searchStream method is faster than search, but it does not support all features" / "When
+// possible, use the searchStream method to avoid the overhead of pagination"). searchStream returns the
+// COMPLETE result set over ONE request — there is no client-side page loop and no per-page request. So an
+// uncapped pull is the same 1 request the capped pull was, returning more rows.
+// PRECEDENT, already live and proven at higher row counts: `google-geo.ts` runs "NO LIMIT (capture all)"
+// across 19 grains and lands hundreds of rows per grain per day through the identical call path.
+//
+// A cap is therefore not needed for cost, and it was never justified for anything else. What replaces it is
+// MEASUREMENT: the writer now reports the true fetched counts (see GoogleDimensional) so volume is visible
+// instead of being silently clipped at a round number.
 
 const adsClient = new GoogleAdsApi({
   client_id: process.env.GOOGLE_CLIENT_ID!,
@@ -54,6 +80,17 @@ export interface GoogleDimKeyword {
 export interface GoogleDimensional {
   searchTerms: GoogleDimSearchTerm[]
   keywords: GoogleDimKeyword[]
+  // LORAMER_SEARCH_TERM_UNCAPPED_V1 — RECORD WHAT WAS ACTUALLY RETRIEVED. A capture writer that clips its
+  // input must be able to say by how much; a writer that does not clip must still say how much there was,
+  // or "300 every day" and "300 is all there was" stay indistinguishable — which is exactly how a hard cap
+  // hid itself for two months.
+  searchTermsFetched: number
+  keywordsFetched: number
+  // RETAINED, and now ALWAYS FALSE on the day path: the forward queries no longer apply a LIMIT, so nothing
+  // can be truncated. The fields stay because live callers read them (cron/sync + cron/catchup) and this
+  // flight is forward-writer-only — cron/sync additionally carries UNCOMMITTED held work and must not be
+  // edited here. The WINDOW path (fetchGoogleDimensionalWindow, WINDOW_ROW_CAP) is UNCHANGED and still caps:
+  // it serves the backfill/recover arc, which this flight was told not to touch.
   searchTermsTruncated: boolean
   keywordsTruncated: boolean
 }
@@ -100,7 +137,6 @@ export async function fetchGoogleDimensional(
     WHERE ${dateFilter}
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
-    LIMIT ${SEARCH_TERMS_CAP}
   `)
 
   const keywordRows = await customer.query(`
@@ -113,7 +149,6 @@ export async function fetchGoogleDimensional(
     AND ad_group_criterion.status != 'REMOVED'
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
-    LIMIT ${KEYWORDS_CAP}
   `)
 
   const searchTerms: GoogleDimSearchTerm[] = (searchTermRows as any[]).map((row) => ({
@@ -144,9 +179,15 @@ export async function fetchGoogleDimensional(
   return {
     searchTerms,
     keywords,
-    // Hitting the LIMIT means lower-spend rows were dropped — the caller logs this, never hides it.
-    searchTermsTruncated: searchTermRows.length >= SEARCH_TERMS_CAP,
-    keywordsTruncated: keywordRows.length >= KEYWORDS_CAP,
+    // LORAMER_SEARCH_TERM_UNCAPPED_V1 — the TRUE totals Google returned, recorded rather than clipped.
+    // These are the raw GAQL row counts, BEFORE the builder aggregates by (adGroupId, text), so they are
+    // the honest measure of what the account produced that day.
+    searchTermsFetched: searchTermRows.length,
+    keywordsFetched: keywordRows.length,
+    // No LIMIT is applied on this path, so nothing can have been dropped. Hard-false rather than derived,
+    // so a future reader cannot mistake a stale comparison for a live truncation signal.
+    searchTermsTruncated: false,
+    keywordsTruncated: false,
   }
 }
 
@@ -255,6 +296,10 @@ export function buildGoogleDimensionalRows(
 // applies the same per-day top-N — so ~2 requests recover N days instead of 2×N. A LIMIT acts as a
 // safety cap: hitting it means we can't guarantee per-day completeness, so the caller falls back to
 // the per-day path (Option A). Same enum mapping + field shape as the single-day fetch.
+// LORAMER_SEARCH_TERM_UNCAPPED_V1 — the WINDOW (backfill/recover) path keeps a per-day top-N. Named
+// separately from the retired forward caps so removing one can never silently move the other.
+const WINDOW_DAY_ST_CAP = 300
+const WINDOW_DAY_KW_CAP = 200
 const WINDOW_ROW_CAP = 50000
 
 export interface GoogleDimWindow {
@@ -353,11 +398,16 @@ export function bucketWindowByDate(win: GoogleDimWindow): Map<string, GoogleDime
   for (const [date, { st, kw }] of byDate) {
     st.sort((a, b) => b.spend - a.spend)
     kw.sort((a, b) => b.spend - a.spend)
+    // ⛔ THE WINDOW PATH STILL CAPS, DELIBERATELY AND UNCHANGED. It serves the backfill/recover arc, which
+    // this forward-only flight was told not to touch. It is NOT silent: the true pre-clip totals are
+    // recorded below, which is exactly what the day path lacked and what made 300-every-day invisible.
     out.set(date, {
-      searchTerms: st.slice(0, SEARCH_TERMS_CAP),
-      keywords: kw.slice(0, KEYWORDS_CAP),
-      searchTermsTruncated: st.length > SEARCH_TERMS_CAP,
-      keywordsTruncated: kw.length > KEYWORDS_CAP,
+      searchTerms: st.slice(0, WINDOW_DAY_ST_CAP),
+      keywords: kw.slice(0, WINDOW_DAY_KW_CAP),
+      searchTermsFetched: st.length,
+      keywordsFetched: kw.length,
+      searchTermsTruncated: st.length > WINDOW_DAY_ST_CAP,
+      keywordsTruncated: kw.length > WINDOW_DAY_KW_CAP,
     })
   }
   return out

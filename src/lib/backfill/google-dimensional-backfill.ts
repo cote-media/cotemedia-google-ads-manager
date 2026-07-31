@@ -148,7 +148,9 @@ export async function runGoogleDimensionalBackfill(
     try {
       const dim: GoogleDimensional = useOptionA
         ? await withGoogleRetry(() => fetchGoogleDimensional(refreshToken, customerId, cursor, cursor))
-        : buckets.get(cursor) || { searchTerms: [], keywords: [], searchTermsTruncated: false, keywordsTruncated: false }
+        // LORAMER_SEARCH_TERM_UNCAPPED_V1 — the empty-bucket default now carries the fetched counts too (0/0:
+        // the window query returned nothing for this day). Behaviour is unchanged; the shape widened.
+        : buckets.get(cursor) || { searchTerms: [], keywords: [], searchTermsFetched: 0, keywordsFetched: 0, searchTermsTruncated: false, keywordsTruncated: false }
 
       if (dim.searchTermsTruncated || dim.keywordsTruncated) {
         console.warn(
