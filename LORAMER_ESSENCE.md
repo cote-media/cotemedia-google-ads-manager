@@ -8,6 +8,52 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, blast-radius-scoped, revert-ready). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — banked 2026-07-30, from the session that measured it]
+The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These seven are the
+JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
+
+**1. EVERYTHING MEANS EVERY INPUT THAT EXPLAINS PERFORMANCE, WHEREVER IT LIVES — not every field of the
+reporting API.** Configuration (conversion window, attribution setting, whether conversion value includes
+shipping/tax), change and activity history, negative-keyword lists, fee components, and off-platform
+causation ARE DATA. ⛔ A family that has no `metrics_daily` row shape is NOT out of scope — it means THE
+STORAGE SHAPE IS MISSING, not that the family is optional. Every past vendor-surface audit compared the
+vendor's surface against "does this land in metrics_daily", which is a question that can never return a
+config object, and so three whole families were structurally invisible to a process that ran repeatedly.
+
+**2. UNWIRED IS MISSING.** Data captured but unreachable by Lora is data we DO NOT HAVE. The customer cannot
+tell the difference, and neither can she. REFERENCE CASE: Shopify order-level taxes/shipping/discounts/tips
+were captured 2026-07-01 (T1.5, into account `extra.money`) and on 2026-07-30 Lora told a user they were not
+captured. Both facts were true at once. A capture flight is not done when the row lands; it is done when the
+read path can reach it.
+
+**3. PARTIAL DATA INVALIDATES A CONCLUSION — IT DOES NOT DEGRADE IT.** A recommendation built on 11 of 12
+families is not 92% as good as one built on 12. The missing family is exactly where the counterargument
+lives, and the confidence of the answer is unchanged by its absence — which is what makes it dangerous.
+There is no partial credit in advice.
+
+**4. THE PLATFORMS WILL NEVER RECOMMEND SPENDING LESS.** Google and Meta are paid when the customer spends;
+their optimisation has a stake in the answer. Lora's only durable advantage is TOTAL DATA PLUS NO STAKE IN
+THE ANSWER. That advantage is BINARY, not incremental: partial data with no stake is not a smaller edge, it
+is no edge, because the recommendation can no longer be trusted over the platform's own.
+
+**5. INSIDE THE WALL, "I DON'T KNOW" IS A BUG.** Outside a genuine vendor retention wall, Lora names the wall
+and the date — that is a correct answer. INSIDE it, uncertainty is an INCIDENT: it means capture broke, and
+it pages a human. Not a caveat, not a hedge — an alert. The distinction is mechanical, not editorial: which
+side of the retention floor the window falls on.
+
+**6. THE DANGEROUS STATE IS NOT "I DON'T KNOW" — IT IS A CONFIDENT ANSWER OVER AN UNCAPTURED WINDOW.**
+An honest gap is recoverable; a confident answer over a hole is not, because nothing signals it. ⛔ THE
+PREREQUISITE, and it is not optional: LORA MUST BE ABLE TO SEE HER OWN HOLES BEFORE SHE CAN BE TRUSTED TO
+REPORT THEM. A coverage instrument nothing reads cannot make her hesitate.
+
+**7. CLAIM-OF-NOVELTY GATE.** No finding, gap, or correction may be presented as NEW without first searching
+the repo docs and the conversation history for it. ⛔ THIS IS NOT THE SESSION-START READ. Reading the entry
+docs is INTAKE; this is a LOOKUP AT THE MOMENT OF CLAIMING, and only the second was ever missing. PRECEDENT,
+2026-07-30: an entry was banked reading "A SECOND, TIGHTER GOOGLE WALL THAT NOTHING IN THIS REPO RECORDS"
+when DECISIONS had recorded it months earlier, marked do-not-relitigate. The intake read had happened; the
+lookup had not. A re-derived finding costs more than the thing it re-derives, because it also corrupts the
+record.
+
 ## ⛔ PRE-ACTION GATE (forcing function — output this line before ANY Claude Code paste or ANY UI proposal; a skipped line is a visible violation)
 `in-flight: [what's running / clear] · blast-radius: [read-only|backend-writer|-next-only|live-path] · grid: [which card, or N/A non-UI] · high-stakes claim: [none | VERIFIED/DERIVED/UNVERIFIED + what]`
 (The gate field is BLAST-RADIUS. Levels, safest→widest: read-only (always safe) → backend-writer (isolated) → -next-only (preview-gated) → live-path (shared read-path / any live surface = STOP-and-confirm, never automatic). Live-path is ALLOWED with graduated care. There is NO Meta review, no reviewer path, no reviewer-driven hold — blast radius on a shared surface is about EVERY client and EVERY live surface, never a reviewer (the Meta App Review outcome that retired the reviewer path is owned by DECISIONS, not restated here). Standing PRODUCTION obligations (not a freeze, not a review): the Meta data-deletion/deauth callback must stay live (permanent Meta prod requirement), the Shopify install callback is a LIVE merchant path provisioning must not break, and Google Ads live snapshots stay quota-capped while Standard Access is pending — the 15k/day Basic cap binds route decisions; its live status lives in DECISIONS/QUEUE, never here.)
