@@ -23,6 +23,7 @@ import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
 import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — full-grain repair of a filled hole (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
+import { extractGoogleSlice1, persistEntityState } from '@/lib/capture/entity-state-history' // LORAMER_ENTITY_STATE_SCD2_V1 slice 1 — zero new API calls
 import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional'
 import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
@@ -575,6 +576,25 @@ export async function GET(request: Request) {
               summary.errors.push({ clientId: client.id, platform: 'google', message: `google fetch ${fe.label} ${d}: ${fe.message}` })
             }
           }
+          // LORAMER_ENTITY_STATE_SCD2_V1 (slice 1) — persist the NON-METRIC state this payload already
+          // carries and currently drops: campaign advertising_channel_type + status, and each conversion
+          // action's include_in_conversions flag. ZERO new API calls — the fields are already selected on the
+          // GAQL above (google-intelligence.ts:198/788 and :386) and were being read once for the prompt and
+          // discarded. Writes ONLY transitions; an unchanged value writes nothing. Never throws into this
+          // lane, and is a visible no-op until migration 048 is applied.
+          // ⚠ WIRED HERE AND NOT IN cron/sync BECAUSE cron/sync CARRIES UNCOMMITTED HELD WORK. catchup only
+          // visits interior-gap days, so coverage is SPORADIC until one line is added to the daily forward
+          // lane once the held Google widen lands. Stated rather than hidden.
+          try {
+            const observed = extractGoogleSlice1(intel as any)
+            if (observed.length) {
+              const r = await persistEntityState({ clientId: client.id, platform: 'google', accountId: customerId, observed, observationDate: d })
+              if (r.opened || r.closed) console.warn(`[cron/catchup] client=${client.id} entity-state ${d}: opened=${r.opened} closed=${r.closed} unchanged=${r.unchanged}${r.skipped ? ` skipped=${r.skipped}` : ''}`)
+            }
+          } catch (esErr) {
+            console.error(`[cron/catchup] client=${client.id} entity-state ${d} FAILED (non-fatal): ${serializeCaughtError(esErr)}`)
+          }
+
           const rows = buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')

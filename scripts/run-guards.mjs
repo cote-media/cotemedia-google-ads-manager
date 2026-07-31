@@ -62,6 +62,7 @@ const GUARDS = [
   'tests/guards/token-freshness-and-validation.guard.mjs',
   'tests/guards/coverage-breakdown-grain.guard.mjs',
   'tests/guards/capture-limit-is-measured.guard.mjs',
+  'tests/guards/entity-state-scd2.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
