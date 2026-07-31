@@ -1,11 +1,30 @@
 // LORAMER_GOOGLE_OP_BUDGET_V1 — ALLOCATE BEFORE SPENDING (★GOOGLE-QUOTA-PRIORITY-INVERSION).
+// LORAMER_GOOGLE_OP_BUDGET_LANE_ACCOUNTING_V2 — 2026-07-31: BILL EACH LANE ITS OWN SPEND.
 //
 // ⛔ WHAT WE HAD WAS STOP-WHEN-DEAD. `holdGoogleWork` (google-quota-store.ts) is REACTIVE: it reads a sentinel
 // that Google itself set after the 15k Basic-Access cap was already gone. It cannot stop the lane that spent it.
-// MEASURED: the developer-scope quota was exhausted before the ranked geo lap could run on 2026-07-29, 07-30 AND
-// 07-31 — three consecutive days — and catchup is the only lane with NO allocation of any kind
-// (cron/catchup:269 reads holdGoogleWork and nothing else; cron/drain:82 reads it AND
-// googleForwardReserveDecision at :94, inside `if (!onlyClientId)`).
+//
+// ⛔ AND THEN V1 REPRODUCED THE INVERSION INSIDE THE BUDGET ITSELF. MEASURED 2026-07-31: the v1 reader summed
+// `cron_runs` across ALL google modes into ONE total and billed it against whichever single lane happened to
+// ask. `mode` was SELECTED and never read. On 2026-07-31 that charged the DRAIN ~44,120 estimated ops against
+// its 10,500 allocation — of which catchup had spent 42,311 (96%) and forward 1,809 (4%), and the drain itself
+// had spent NOTHING, because the drain wrote no cron_runs rows at all and was structurally invisible to the
+// counter. The ranked geo lap was declined every five minutes from ~09:05Z while two golden clients (Foam OH,
+// Veterinary mastermind) kept bleeding a day of recoverable Google geo per day. The lane that spent nothing was
+// the lane that got stopped — which is the exact defect this file exists to prevent, one layer in.
+//
+// THE FIX IS THE HEADER COMMENT V1 ALREADY CARRIED AND THE CODE NEVER IMPLEMENTED:
+//   forward → units = connections_attempted, from rows where mode='forward'
+//   drain   → units = connections_attempted, from rows where mode='drain'
+//   catchup → units = days_filled,           from rows where mode='catchup'   (it fans out per GAP-DAY)
+// ⛔ NO `Math.max(conns, days)` ANYWHERE. That expression was v1's hedge against under-counting and it is what
+// made catchup's 421 connection-units (the same ~18 connections re-counted across 24 runs) outrank its real
+// 207 gap-days. A hedge that picks the larger of two units is not conservative, it is wrong in a direction
+// nobody can audit.
+//
+// ⛔ A LANE THAT CAN REQUEST BUDGET BUT CANNOT RECORD SPEND MUST NOT EXIST. `mode='drain'` rows are written by
+// cron/drain as of this change (cron_runs.mode is plain text with NO check constraint — verified against the
+// live schema 2026-07-31, so this needed no migration; the banked "avoid an enum migration" reason was false).
 //
 // ADAPTED, NOT INVENTED (WEB-FIRST, already run): Airbyte ships a declarative API Budget — max calls per time
 // interval — so a connector cannot drain a third party's limit. Fivetran prioritises recent incremental data
@@ -24,12 +43,11 @@
 //                                           serves both grains; verified at cron/catchup:696-698)
 //                                     ─────
 //                                       67
-// The 58 in the 2026-07-27 recon predates a widen. ⚠ BUT GOOGLE BILLS **OPERATIONS**, NOT REQUESTS, and the
-// operations-per-request ratio is NOT derivable from our code — it depends on Google's own accounting. So 67 is
-// a LOWER BOUND in the unit that actually binds the cap. Rather than guess a ratio, the budget applies an
-// explicit SAFETY_MULTIPLIER and RECORDS both the raw estimate and the multiplier in its result, so a reader can
-// see the assumption instead of inheriting it. Being wrong in this direction stops early; the other direction is
-// the outage we have had three days running.
+// ⚠ BUT GOOGLE BILLS **OPERATIONS**, NOT REQUESTS, and the operations-per-request ratio is NOT derivable from
+// our code — it depends on Google's own accounting (★GAQL-OP-METER). So 67 is a LOWER BOUND in the unit that
+// actually binds the cap. THAT IS PRECISELY WHY THE FLEET-TOTAL CHECK BELOW SURVIVES the per-lane fix: the
+// per-lane numbers are now correct, but correct-per-lane against an unknown unit ratio still needs a backstop
+// against the real 15,000 ceiling. Two checks, either can block.
 
 import { supabaseAdmin } from '@/lib/supabase'
 import type { GoogleQuotaReadState } from './google-quota-store'
@@ -41,27 +59,49 @@ export const GAQL_REQUESTS_PER_CONNECTION_DAY = 67
 // Operations >= requests and the ratio is unknown. Over-count spending so the budget stops EARLY.
 export const SAFETY_MULTIPLIER = 1.5
 // Catchup is the DEEP-HISTORY lane and the lowest-priority spender: it gets a minority share and may never
-// spend into the remainder. 30% of 15k ≈ 4,500 ops ≈ 67 gap-days/day at the measured rate — ample for genuine
-// interior gaps, nowhere near the 178-gap-day fan-out that emptied the cap.
+// spend into the remainder. 30% of 15k ≈ 4,500 ops.
 export const CATCHUP_SHARE = 0.30
 export const CATCHUP_ALLOCATION = Math.floor(GOOGLE_DAILY_OP_CAP * CATCHUP_SHARE)
 // Everything else — forward, the ranked geo lap, scoped recovery — lives here and catchup may not touch it.
 export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 
 export type BudgetLane = 'catchup' | 'drain' | 'forward'
+export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain'] as const
+
+// Raw GAQL REQUESTS attributed to each lane today, plus anything we could not attribute.
+export type GoogleSpendToday = {
+  byLane: Record<BudgetLane, number>
+  // ⛔ A cron_runs row whose mode we do not recognise still SPENT. It is counted against the FLEET total and
+  // against no lane — under-counting the fleet is the direction that causes the outage.
+  unattributedRaw: number
+}
+
+// WHICH CHECK DECIDED. Surfaced so a decline never has to be inferred from the numbers.
+export type BudgetBlockedBy = 'none' | 'lane_allocation' | 'fleet_cap' | 'unreadable'
 
 export type GoogleOpBudget = {
   // THE BANKED THREE-STATE VOCABULARY, reused verbatim from google-quota-store.ts — not a fourth dialect.
   state: GoogleQuotaReadState // 'blocked' | 'not_blocked' | 'unknown'
   lane: BudgetLane
-  estimatedOpsSpentToday: number // AFTER the safety multiplier
-  rawRequestsToday: number       // BEFORE it — so the assumption is visible, not inherited
-  safetyMultiplier: number
-  allocation: number             // what THIS lane may spend
-  remaining: number              // allocation - spent, floored at 0
+  blockedBy: BudgetBlockedBy
+  // ── THIS LANE. Both names kept from v1; their MEANING is now lane-scoped rather than fleet-wide. ──
+  rawRequestsToday: number        // this lane's raw requests, BEFORE the multiplier
+  estimatedOpsSpentToday: number  // this lane's estimate, AFTER it
+  allocation: number              // what THIS lane may spend
+  remaining: number               // the BINDING headroom = min(lane headroom, fleet headroom), floored at 0
+  laneRemaining: number
+  // ── THE FLEET. The backstop, because the ops-per-request ratio is unknown. ──
+  fleetRawRequestsToday: number
+  fleetEstimatedOpsToday: number
+  fleetRemaining: number
+  byLaneRawRequests: Record<BudgetLane, number>
+  unattributedRaw: number
+  // ── THE FRAME ──
   cap: number
   reserve: number
-  isLowerBound: true             // ops >= requests, always. Stated in the data per the instruction.
+  catchupAllocation: number
+  safetyMultiplier: number
+  isLowerBound: true              // ops >= requests, always. Stated in the data per the instruction.
   reason: string
 }
 
@@ -72,33 +112,98 @@ export function holdForBudget(b: GoogleOpBudget): boolean {
   return b.state === 'blocked' || b.state === 'unknown'
 }
 
+export function allocationFor(lane: BudgetLane, cap: number = GOOGLE_DAILY_OP_CAP): number {
+  const catchupAllocation = Math.floor(cap * CATCHUP_SHARE)
+  return lane === 'catchup' ? catchupAllocation : cap - catchupAllocation
+}
+
+// LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — the decline (and the ALLOW) states what it examined: the lane, the
+// lane's own units, the fleet total, and BOTH allocations. A reader never has to reconstruct the denominator.
+function denominator(b: {
+  lane: BudgetLane; laneOps: number; allocation: number; fleetOps: number; cap: number
+  catchupAllocation: number; reserve: number; byLane: Record<BudgetLane, number>; unattributedRaw: number
+  mult: number
+}): string {
+  const per = BUDGET_LANES.map((l) => `${l} ${b.byLane[l]}`).join(' · ')
+  const un = b.unattributedRaw ? ` · unattributed ${b.unattributedRaw}` : ''
+  return (
+    `lane=${b.lane} lane_ops~${b.laneOps}/${b.allocation} · fleet_ops~${b.fleetOps}/${b.cap} · ` +
+    `allocations: catchup ${b.catchupAllocation} / ranked ${b.reserve} · ` +
+    `raw requests today by lane: ${per}${un} · estimate is a LOWER BOUND ×${b.mult}`
+  )
+}
+
 // PURE — the decision, extracted so it is provable without a DB.
+// ⛔ TWO CHECKS, EITHER CAN BLOCK:
+//   (a) this lane's spend vs this lane's allocation
+//   (b) the FLEET total vs the 15,000 cap — the backstop that survives the per-lane fix, because the
+//       operations-per-request ratio is still unknown (★GAQL-OP-METER).
 export function decideBudget(
-  lane: BudgetLane, rawRequestsToday: number | null, opts: { cap?: number; multiplier?: number } = {},
+  lane: BudgetLane,
+  spend: GoogleSpendToday | null,
+  opts: { cap?: number; multiplier?: number } = {},
 ): GoogleOpBudget {
   const cap = opts.cap ?? GOOGLE_DAILY_OP_CAP
   const mult = opts.multiplier ?? SAFETY_MULTIPLIER
-  const allocation = lane === 'catchup' ? Math.floor(cap * CATCHUP_SHARE) : cap - Math.floor(cap * CATCHUP_SHARE)
-  const base = { lane, allocation, cap, reserve: cap - Math.floor(cap * CATCHUP_SHARE), safetyMultiplier: mult, isLowerBound: true as const }
+  const catchupAllocation = Math.floor(cap * CATCHUP_SHARE)
+  const reserve = cap - catchupAllocation
+  const allocation = lane === 'catchup' ? catchupAllocation : reserve
+  const zero: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0 }
+  const base = {
+    lane, allocation, cap, reserve, catchupAllocation,
+    safetyMultiplier: mult, isLowerBound: true as const,
+  }
+
   // UNREADABLE → unknown → hold. Never 'not_blocked'.
-  if (rawRequestsToday === null || !Number.isFinite(rawRequestsToday)) {
-    return { ...base, state: 'unknown', estimatedOpsSpentToday: 0, rawRequestsToday: 0, remaining: 0,
-      reason: 'could not read today\'s google spend — HOLDING (an unreadable budget is not headroom)' }
+  if (spend === null) {
+    return {
+      ...base, state: 'unknown', blockedBy: 'unreadable',
+      rawRequestsToday: 0, estimatedOpsSpentToday: 0, remaining: 0, laneRemaining: 0,
+      fleetRawRequestsToday: 0, fleetEstimatedOpsToday: 0, fleetRemaining: 0,
+      byLaneRawRequests: zero, unattributedRaw: 0,
+      reason: "could not read today's google spend — HOLDING (an unreadable budget is not headroom)",
+    }
   }
-  const spent = Math.ceil(rawRequestsToday * mult)
-  const remaining = Math.max(0, allocation - spent)
-  if (remaining <= 0) {
-    return { ...base, state: 'blocked', estimatedOpsSpentToday: spent, rawRequestsToday, remaining: 0,
-      reason: `${lane} allocation exhausted: ~${spent} ops estimated spent today against an allocation of ${allocation} (cap ${cap}, ranked reserve ${base.reserve}). Estimate is a LOWER BOUND ×${mult}.` }
+
+  const byLane = spend.byLane
+  const laneRaw = Number(byLane[lane] ?? 0)
+  const fleetRaw = BUDGET_LANES.reduce((s, l) => s + Number(byLane[l] ?? 0), 0) + Number(spend.unattributedRaw || 0)
+  const laneOps = Math.ceil(laneRaw * mult)
+  const fleetOps = Math.ceil(fleetRaw * mult)
+  const laneRemaining = Math.max(0, allocation - laneOps)
+  const fleetRemaining = Math.max(0, cap - fleetOps)
+  const remaining = Math.min(laneRemaining, fleetRemaining)
+  const denom = denominator({
+    lane, laneOps, allocation, fleetOps, cap, catchupAllocation, reserve,
+    byLane, unattributedRaw: spend.unattributedRaw, mult,
+  })
+  const common = {
+    ...base,
+    rawRequestsToday: laneRaw, estimatedOpsSpentToday: laneOps,
+    fleetRawRequestsToday: fleetRaw, fleetEstimatedOpsToday: fleetOps,
+    laneRemaining, fleetRemaining,
+    byLaneRawRequests: { ...byLane }, unattributedRaw: spend.unattributedRaw,
   }
-  return { ...base, state: 'not_blocked', estimatedOpsSpentToday: spent, rawRequestsToday, remaining,
-    reason: `${lane} may spend ~${remaining} more ops today (est. ${spent}/${allocation}; lower bound ×${mult})` }
+
+  // CHECK (a) — this lane has spent its own allocation.
+  if (laneRemaining <= 0) {
+    return { ...common, state: 'blocked', blockedBy: 'lane_allocation', remaining: 0,
+      reason: `LANE ALLOCATION exhausted — ${denom}` }
+  }
+  // CHECK (b) — the fleet has spent the cap, whatever this lane's own share looks like.
+  if (fleetRemaining <= 0) {
+    return { ...common, state: 'blocked', blockedBy: 'fleet_cap', remaining: 0,
+      reason: `FLEET CAP exhausted — ${denom}` }
+  }
+  return { ...common, state: 'not_blocked', blockedBy: 'none', remaining,
+    reason: `may spend ~${remaining} more ops (binding: ${laneRemaining <= fleetRemaining ? 'lane allocation' : 'fleet cap'}) — ${denom}` }
 }
 
-// Reads TODAY's google spend from `cron_runs`, which already records it durably — no new table, and no
-// second source of truth to drift. forward/drain bill per CONNECTION-day, catchup per GAP-day (days_filled),
-// both at GAQL_REQUESTS_PER_CONNECTION_DAY. A read failure returns null → decideBudget yields 'unknown' → hold.
-export async function readGoogleRequestsToday(): Promise<number | null> {
+// Reads TODAY's google spend from `cron_runs`, which already records it durably — no new table, and no second
+// source of truth to drift. ⛔ ATTRIBUTED PER LANE BY `mode`, which v1 selected and threw away:
+//   forward/drain bill per CONNECTION-day (connections_attempted); catchup per GAP-day (days_filled).
+// A read failure returns null → decideBudget yields 'unknown' → every lane holds.
+export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
   try {
     const since = new Date(); since.setUTCHours(0, 0, 0, 0)
     const { data, error } = await supabaseAdmin
@@ -110,15 +215,35 @@ export async function readGoogleRequestsToday(): Promise<number | null> {
       console.error('[google-op-budget] cron_runs READ FAILURE — this is a DB error, NOT headroom. Lanes HOLD. detail:', error.message)
       return null
     }
-    let units = 0
+    const units: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0 }
+    let unattributedUnits = 0
     for (const r of data || []) {
+      const mode = String((r as any).mode ?? '')
       const conns = Number((r as any).connections_attempted || 0)
       const days = Number((r as any).days_filled || 0)
-      // catchup fans out per gap-DAY; forward/drain per connection. Use the larger of the two so a run that
-      // recorded both is never under-counted — under-counting is the direction that causes the outage.
-      units += Math.max(conns, days)
+      if (mode === 'catchup') {
+        // The DEEP-HISTORY lane fans out per GAP-DAY, not per connection. This is the header's stated intent
+        // and the half v1 never implemented: on 2026-07-31 it is 207 gap-days, not 421 connection-units.
+        units.catchup += days
+      } else if (mode === 'forward') {
+        units.forward += conns
+      } else if (mode === 'drain') {
+        units.drain += conns
+      } else {
+        // ⛔ An unrecognised mode still SPENT. Count it against the FLEET and against no lane, and say so —
+        // silently dropping it would under-count the cap, which is the direction that causes the outage.
+        unattributedUnits += Math.max(conns, days)
+        console.warn(`[google-op-budget] cron_runs row with UNRECOGNISED mode='${mode}' — counted against the fleet cap, attributed to no lane`)
+      }
     }
-    return units * GAQL_REQUESTS_PER_CONNECTION_DAY
+    return {
+      byLane: {
+        forward: units.forward * GAQL_REQUESTS_PER_CONNECTION_DAY,
+        catchup: units.catchup * GAQL_REQUESTS_PER_CONNECTION_DAY,
+        drain: units.drain * GAQL_REQUESTS_PER_CONNECTION_DAY,
+      },
+      unattributedRaw: unattributedUnits * GAQL_REQUESTS_PER_CONNECTION_DAY,
+    }
   } catch (e: any) {
     console.error('[google-op-budget] cron_runs read THREW — lanes HOLD. detail:', e?.message ?? e)
     return null
@@ -126,7 +251,7 @@ export async function readGoogleRequestsToday(): Promise<number | null> {
 }
 
 export async function getGoogleOpBudget(lane: BudgetLane): Promise<GoogleOpBudget> {
-  return decideBudget(lane, await readGoogleRequestsToday())
+  return decideBudget(lane, await readGoogleSpendToday())
 }
 
 // ⛔ DENOMINATOR LAW (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1). A lane that DECLINES to run must record that
@@ -141,10 +266,12 @@ export async function recordLaneDeclined(args: {
       mode: args.lane, platform: args.platform, client_id: null, account_id: null,
       observation_date: args.observationDate ?? null,
       entities_examined: 0,
-      facts_examined: args.budget.rawRequestsToday, // the DENOMINATOR: what today's spend looked like
+      // THE DENOMINATOR: this LANE's own raw requests today (v1 recorded the fleet-wide total here, which is
+      // what made a decline unreadable — it described work the lane had not done).
+      facts_examined: args.budget.rawRequestsToday,
       rows_opened: 0, rows_closed: 0, rows_touched: 0,
       outcome: 'skipped',
-      detail: `${args.budget.state}: ${args.budget.reason}`,
+      detail: `${args.budget.state}/${args.budget.blockedBy}: ${args.budget.reason}`,
     })
     if (error) console.warn(`[google-op-budget] DECLINE NOT RECORDED (${error.message}) — a silent no-op is indistinguishable from a lane that never ran`)
   } catch (e: any) {

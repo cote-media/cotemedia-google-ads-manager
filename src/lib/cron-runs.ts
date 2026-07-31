@@ -6,7 +6,16 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 
-export type CronMode = 'forward' | 'catchup'
+// LORAMER_GOOGLE_OP_BUDGET_LANE_ACCOUNTING_V2 — 'drain' added 2026-07-31.
+// ⛔ A LANE THAT CAN REQUEST BUDGET BUT CANNOT RECORD SPEND MUST NOT EXIST. The drain calls
+// getGoogleOpBudget('drain') and, until this change, wrote NO cron_runs rows — so its own spend was invisible
+// to the counter and it was charged entirely for forward's and catchup's work (measured 2026-07-31: ~44,120
+// estimated ops billed to a lane that had spent none of them).
+// NO MIGRATION REQUIRED, verified against the live schema 2026-07-31: cron_runs.mode is plain `text` and the
+// ONLY constraint on the table is cron_runs_pkey. The banked "avoid ... an enum migration" reason for skipping
+// this wiring was FALSE. The one mode-filtered reader (/api/cron/status) iterates its own MODES list, so drain
+// rows are additive and invisible to it until that list opts in.
+export type CronMode = 'forward' | 'catchup' | 'drain'
 export type CronTrigger = 'cron' | 'manual'
 
 // Canonical platform order (matches the section order in both cron routes).

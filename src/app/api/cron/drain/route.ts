@@ -15,7 +15,7 @@
 //    A half-drained connection = forward-complete + however-deep-so-far (idempotent, reconcile-gated) — correct.
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { detectTrigger } from '@/lib/cron-runs'
+import { detectTrigger, startCronRuns, finishCronRun, type CronPlatform } from '@/lib/cron-runs'
 import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '@/lib/backfill/drain-registry'
 import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
 import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
@@ -103,8 +103,16 @@ export async function GET(request: Request) {
         return NextResponse.json({
           platform, dryRun, trigger, cap, ok: true, selected: 0,
           skipOpBudget: true, budgetState: budget.state, budgetRemaining: budget.remaining,
+          // WHICH CHECK FIRED — 'lane_allocation' | 'fleet_cap' | 'unreadable'. Never inferred from the numbers.
+          budgetBlockedBy: budget.blockedBy,
           budgetAllocation: budget.allocation, estimatedOpsSpentToday: budget.estimatedOpsSpentToday,
           rawRequestsToday: budget.rawRequestsToday, safetyMultiplier: budget.safetyMultiplier,
+          // THE DENOMINATOR (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1): this lane's spend AND the fleet's, plus
+          // the per-lane split, so a decline never has to be reconstructed from a single total.
+          fleetRawRequestsToday: budget.fleetRawRequestsToday,
+          fleetEstimatedOpsToday: budget.fleetEstimatedOpsToday,
+          byLaneRawRequests: budget.byLaneRawRequests,
+          catchupAllocation: budget.catchupAllocation, rankedReserve: budget.reserve,
           note: `google op budget: ${budget.reason}`,
           results: [],
         }, { status: 200 })
@@ -129,6 +137,21 @@ export async function GET(request: Request) {
     }
   }
 
+  // LORAMER_GOOGLE_OP_BUDGET_LANE_ACCOUNTING_V2 — THE DRAIN NOW RECORDS ITS OWN SPEND.
+  // ⛔ A LANE THAT CAN REQUEST BUDGET BUT CANNOT RECORD SPEND MUST NOT EXIST. This route calls
+  // getGoogleOpBudget('drain') above; until this change it wrote NO cron_runs rows, so readGoogleSpendToday
+  // could not see it and billed it for forward's and catchup's work instead (measured 2026-07-31).
+  // ⛔ PLACEMENT IS DELIBERATE — AFTER the quota / op-budget / forward-reserve gates, so a DECLINED fire leaves
+  // NO unfinished cron_runs row. An unstamped row is the silent-hole signal (LORAMER_CRON_RUNS_SENTINEL_V1),
+  // and a monitoring fix must not manufacture the alarm it exists to make readable; the decline is already
+  // recorded durably by recordLaneDeclined into capture_pass_log. From here EVERY exit stamps finished_at.
+  const cronRunIds = await startCronRuns({
+    mode: 'drain',
+    platforms: [platform as CronPlatform],
+    trigger,
+  })
+  const cronRunId = cronRunIds[platform] ?? null
+
   // 1) Existing connections for this platform (optionally one). NO-OP if none exist.
   let q = supabaseAdmin
     .from('platform_connections')
@@ -136,7 +159,10 @@ export async function GET(request: Request) {
     .eq('platform', platform)
   if (onlyClientId) q = q.eq('client_id', onlyClientId)
   const { data: rows, error: connErr } = await q
-  if (connErr) return NextResponse.json({ error: 'connection query failed', detail: connErr.message }, { status: 500 })
+  if (connErr) {
+    await finishCronRun(cronRunId, { errorCount: 1 })
+    return NextResponse.json({ error: 'connection query failed', detail: connErr.message }, { status: 500 })
+  }
 
   // LORAMER_DELETE_CLIENT_V1 — stop FORWARD capture for ARCHIVED clients: their platform_connections rows still
   // exist (soft-delete touches nothing), so the drain must skip them. Existing captured history is untouched.
@@ -161,6 +187,8 @@ export async function GET(request: Request) {
   })
 
   if (pending.length === 0) {
+    // Ran, examined the connection set, found nothing to do. Zero attempted is a REAL reading, not an absence.
+    await finishCronRun(cronRunId, { connectionsAttempted: 0, connectionsSucceeded: 0, connectionsErrored: 0, connectionsSkipped: 0 })
     return NextResponse.json({ platform, dryRun, trigger, cap, selected: 0, note: 'nothing pending — no-op', results: [] }, { status: 200 })
   }
 
@@ -197,6 +225,10 @@ export async function GET(request: Request) {
   const quotaBox: { hit: { resetIso: string; detail: string } | null } = { hit: null } // CHANGE 3 — object box: a closure-mutated object prop stays its declared type (a plain `let` would CFA-narrow to null after the pool)
   let drained = 0
   let claimSkipped = 0
+  // LORAMER_RANGELAP_COMPLETION_HONESTY_V1 — `written` is the universal rows key across all 22 rangeLap writers,
+  // verified one by one. ⛔ A writer reporting NO count is UNKNOWN, never zero: reading a missing field as
+  // "wrote nothing" would manufacture a false figure out of a schema gap.
+  let rowsWrittenTally = 0
   const overBudget = () => Date.now() - started > BUDGET_MS
   await runPool(pending, concurrency, async (row) => {
     if (quotaBox.hit) return // CHANGE 3 — quota tripped earlier this fire: do no more google work
@@ -254,6 +286,8 @@ export async function GET(request: Request) {
           .eq('account_id', row.account_id)
         markedDone = !upd.error
       }
+      const lapWritten = (lap as any)?.detail?.written
+      if (typeof lapWritten === 'number' && Number.isFinite(lapWritten)) rowsWrittenTally += lapWritten
       stepResults.push({ step: step.key, lapDone: lap.done, markedDone, detail: lap.detail })
       if (isLapFailure(lap)) {
         // CHANGE 1 — a writer non-200 (rangeLap returns done:false + detail.error 'writer failed'). This is
@@ -281,11 +315,31 @@ export async function GET(request: Request) {
     catch (e: any) { console.error(`[drain] failed to persist google quota pause: ${String(e?.message ?? e)}`) }
   }
 
+  // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — attempted = ok + errored + skipped, BY CONSTRUCTION, never by
+  // subtraction. A connection that lost the atomic claim race is SKIPPED ("we did not look"), which is a
+  // different fact from a connection that ran and wrote nothing. ⛔ PRECEDENCE error > ok: a connection with
+  // ANY failed step is ERRORED even if other steps wrote rows — a partial fill must not read green.
+  const erroredConnIds = new Set(failedSteps.map((f: any) => f.client_id))
+  const connectionsErrored = erroredConnIds.size
+  const connectionsSucceeded = Math.max(0, drained - connectionsErrored)
+  await finishCronRun(cronRunId, {
+    connectionsAttempted: drained + claimSkipped,
+    connectionsSucceeded,
+    connectionsErrored,
+    connectionsSkipped: claimSkipped,
+    rowsWritten: rowsWrittenTally,
+    errorCount: failedSteps.length,
+  })
+
   return NextResponse.json({
     platform, dryRun, trigger, cap, concurrency,
     pendingTotal: pending.length,
     selected: drained,
     claimSkipped,
+    connectionsAttempted: drained + claimSkipped,
+    connectionsSucceeded,
+    connectionsErrored,
+    rowsWritten: rowsWrittenTally,
     required,
     ok: failedSteps.length === 0, // CHANGE 1 — green ONLY when zero failed steps
     failed: failedSteps.length,
