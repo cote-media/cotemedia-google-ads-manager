@@ -41,7 +41,7 @@ const r = spawnSync(tsc, [resolve(ROOT, SRC), '--target', 'es2020', '--module', 
 if (r.error) { rmSync(out, { recursive: true, force: true }); fail(`could not run tsc — ${r.error.message}`) }
 
 const stub = join(out, '__stub.js')
-writeFileSync(stub, 'module.exports = { supabaseAdmin: {} }\n')
+writeFileSync(stub, 'module.exports = { get supabaseAdmin() { return globalThis.__SB__ || {} } }\n')
 const origResolve = Module._resolveFilename
 Module._resolveFilename = function (q, ...rest) { return q.startsWith('@/lib/') ? stub : origResolve.call(this, q, ...rest) }
 const mod = require(join(out, 'src/lib/capture/entity-state-history.js'))
@@ -157,6 +157,84 @@ if (existsSync(mig)) {
   check(/CHECK \(change_source IN \('first_observation', 'poll_transition', 'event'\)\)/.test(m), `migration 048 does not constrain change_source to the three legal values.`)
   check(/WHERE valid_to IS NULL AND is_set = false/.test(m), `migration 048 lacks the partial unique index enforcing one open row per SCALAR key.`)
 } else findings.push(`migrations/048_entity_state_history.sql is missing — the shape has no home.`)
+
+
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════
+// LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — AN EMPTY RESULT MUST CARRY ITS OWN DENOMINATOR.
+//
+// entity_state_history holding zero rows is AMBIGUOUS on its own: the writer may have run and found nothing
+// changed, or nothing may have run at all. The standing answer — "check the logs before concluding" — is a
+// HUMAN instruction, and human instructions are exactly what failed four separate times on 2026-07-30. Vercel
+// free-tier logs expire in an hour, so it is often impossible to follow even when remembered.
+//
+// THE RULE, general: a capture pass may not complete without recording THAT it ran and WHAT it examined.
+// This drives the real persistEntityState over all FIVE exit paths against a stubbed supabase that counts
+// capture_pass_log inserts. Behavioural, not a regex over `return` statements — a source scan would pass a
+// writer whose record call sits after an early return.
+// ══════════════════════════════════════════════════════════════════════════════════════════════════════
+{
+  const { persistEntityState } = mod
+  if (typeof persistEntityState !== 'function') findings.push(`(denominator) persistEntityState is not exported — a pass cannot be observed at all.`)
+  else {
+    const OBS = [{ entityLevel: 'campaign', entityId: 'c1', stateKey: 'advertising_channel_type', stateValue: 'SEARCH' }]
+    // Stub supabase: `mode` picks which exit path the writer takes. Counts pass-log inserts.
+    const makeStub = (mode) => {
+      const state = { passRows: [], stateInserts: 0 }
+      globalThis.__SB__ = {
+        from: (t) => {
+          if (t === 'capture_pass_log') return { insert: async (r) => { state.passRows.push(r); return { error: null } } }
+          const q = {
+            select: () => q, eq: () => q,
+            is: async () => (mode === 'read_fail' ? { data: null, error: { message: 'relation does not exist' } } : { data: [], error: null }),
+            update: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ is: async () => ({ error: null }) }) }) }) }) }) }) }),
+            insert: async () => { state.stateInserts += 1; return mode === 'write_fail' ? { error: { message: 'insert boom' } } : { error: null } },
+            then: (res) => res({ data: [], error: null }),
+          }
+          if (mode === 'throw') { q.select = () => { throw new Error('kaboom') } }
+          return q
+        },
+      }
+      return state
+    }
+    const cases = [
+      ['EXIT 1 — nothing observed',        'ok',        [],  'ok'],
+      ['EXIT 2 — cannot read open set',    'read_fail', OBS, 'skipped'],
+      ['EXIT 3 — state insert failed',     'write_fail',OBS, 'error'],
+      ['EXIT 4 — success',                 'ok',        OBS, 'ok'],
+      ['EXIT 5 — threw',                   'throw',     OBS, 'error'],
+    ]
+    for (const [label, mode, observed, wantOutcome] of cases) {
+      const st = makeStub(mode)
+      let res
+      try {
+        res = await persistEntityState({ clientId: 'c', platform: 'google', accountId: 'a', observed, observationDate: '2026-07-31' })
+      } catch (e) {
+        findings.push(`(denominator) ${label}: persistEntityState THREW out of a capture lane (${e.message}) — it must never cost the metrics rows the pass already wrote.`)
+        continue
+      }
+      check(st.passRows.length === 1,
+        `(denominator) ${label}: wrote ${st.passRows.length} pass-log row(s), expected exactly 1. Zero means this exit path leaves "nothing ran" and "nothing changed" indistinguishable — the 2026-07-30 ambiguity, reproduced.`)
+      const row = st.passRows[0]
+      if (row) {
+        check(row.pass_marker === 'entity_state_slice1', `(denominator) ${label}: pass row has no pass_marker.`)
+        check(typeof row.entities_examined === 'number' && typeof row.facts_examined === 'number',
+          `(denominator) ${label}: pass row records no DENOMINATOR (entities_examined / facts_examined) — a numerator alone cannot distinguish quiet from absent.`)
+        check(row.outcome === wantOutcome,
+          `(denominator) ${label}: outcome '${row.outcome}', expected '${wantOutcome}'. "we could not look" and "we looked and saw nothing" must not collapse.`)
+        if (wantOutcome !== 'ok') check(!!row.detail, `(denominator) ${label}: a non-ok outcome recorded no detail.`)
+      }
+      check(res && res.outcome === wantOutcome, `(denominator) ${label}: returned outcome '${res?.outcome}', expected '${wantOutcome}'.`)
+    }
+    // The denominator must be REAL, not a constant zero.
+    const st = makeStub('ok')
+    await persistEntityState({ clientId: 'c', platform: 'google', accountId: 'a',
+      observed: [OBS[0], { entityLevel: 'campaign', entityId: 'c2', stateKey: 'campaign_status', stateValue: 'ENABLED' }],
+      observationDate: '2026-07-31' })
+    const r = st.passRows[0]
+    check(r && r.facts_examined === 2 && r.entities_examined === 2,
+      `(denominator) the recorded denominator is wrong: facts=${r?.facts_examined} entities=${r?.entities_examined}, expected 2/2. A hardcoded zero would satisfy "a row exists" while telling the reader nothing.`)
+  }
+}
 
 rmSync(out, { recursive: true, force: true })
 if (findings.length) {

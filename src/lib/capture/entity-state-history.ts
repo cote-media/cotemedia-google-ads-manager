@@ -182,25 +182,73 @@ export function extractGoogleSlice1(intel: {
 // fabricated empty: a failed persist simply means no state row, and an absent row reads as UNKNOWN.
 import { supabaseAdmin } from '@/lib/supabase'
 
+export type PassOutcome = 'ok' | 'skipped' | 'error'
+export type PassResult = { opened: number; closed: number; unchanged: number; outcome: PassOutcome
+  entitiesExamined: number; factsExamined: number; skipped?: string }
+
+// LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — ⛔ EVERY EXIT PATH RECORDS, INCLUDING THE ONES THAT DID NOTHING.
+// entity_state_history holding zero rows is AMBIGUOUS on its own: the writer may have run and found nothing
+// changed, or nothing may have run at all. The standing answer to that — "check the logs" — is a HUMAN
+// instruction, and human instructions are precisely what failed four times on 2026-07-30; Vercel free-tier
+// logs also expire in an hour. So the pass writes its own denominator: entities and facts EXAMINED, next to
+// rows opened/closed/touched, on every invocation including empty, skipped and thrown ones.
+// It is best-effort and never throws — a failed pass-log write must not cost the capture it is describing —
+// but it is attempted on all five exits, which the guard proves behaviourally rather than by inspection.
+async function recordPass(args: {
+  clientId: string; platform: string; accountId: string; observationDate: string; mode: string
+  entitiesExamined: number; factsExamined: number
+  opened: number; closed: number; touched: number; outcome: PassOutcome; detail?: string
+}): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin.from('capture_pass_log').insert({
+      pass_marker: 'entity_state_slice1', mode: args.mode, platform: args.platform,
+      client_id: args.clientId, account_id: args.accountId, observation_date: args.observationDate,
+      entities_examined: args.entitiesExamined, facts_examined: args.factsExamined,
+      rows_opened: args.opened, rows_closed: args.closed, rows_touched: args.touched,
+      outcome: args.outcome, detail: args.detail ?? null,
+    })
+    // Table absent (049 not applied) → say so ONCE, loudly. Do NOT fall back to silence: a missing pass log
+    // returns us to exactly the ambiguity this exists to remove, and that must be visible.
+    if (error) console.warn(`[entity-state] PASS LOG UNAVAILABLE (${error.message}) — zero-rows is ambiguous until migration 049 is applied`)
+  } catch (e: any) {
+    console.warn(`[entity-state] PASS LOG THREW (${e?.message ?? e}) — zero-rows is ambiguous for this pass`)
+  }
+}
+
 export async function persistEntityState(args: {
   clientId: string; platform: string; accountId: string; observed: ObservedFact[]; observationDate: string
-}): Promise<{ opened: number; closed: number; unchanged: number; skipped?: string }> {
+  mode?: string
+}): Promise<PassResult> {
   const { clientId, platform, accountId, observed, observationDate } = args
-  if (observed.length === 0) return { opened: 0, closed: 0, unchanged: 0 }
+  const mode = args.mode ?? 'catchup'
+  const entitiesExamined = new Set(observed.map((f) => `${f.entityLevel}|${f.entityId}`)).size
+  const factsExamined = observed.length
+  const base = { clientId, platform, accountId, observationDate, mode, entitiesExamined, factsExamined }
+
+  // EXIT 1 — nothing observed. STILL RECORDS: "we ran, we examined 0 facts" is the denominator that
+  // separates a quiet pass from a pass that never happened.
+  if (observed.length === 0) {
+    await recordPass({ ...base, opened: 0, closed: 0, touched: 0, outcome: 'ok' })
+    return { opened: 0, closed: 0, unchanged: 0, outcome: 'ok', entitiesExamined, factsExamined }
+  }
   try {
     const { data: openData, error: openErr } = await supabaseAdmin
       .from('entity_state_history')
       .select('entity_level, entity_id, state_key, state_value, is_set, valid_from')
       .eq('client_id', clientId).eq('platform', platform).eq('account_id', accountId)
       .is('valid_to', null)
-    // Table absent (048 not applied) → skip silently-but-visibly. No throw, no fabricated success.
-    if (openErr) { console.warn(`[entity-state] client=${clientId} SKIPPED — ${openErr.message}`); return { opened: 0, closed: 0, unchanged: 0, skipped: openErr.message } }
+    // EXIT 2 — could not read the open set (e.g. 048 not applied). RECORDS as 'skipped': "we could not
+    // look" is a different fact from "we looked and saw nothing", and collapsing them is the ambiguity.
+    if (openErr) {
+      console.warn(`[entity-state] client=${clientId} SKIPPED — ${openErr.message}`)
+      await recordPass({ ...base, opened: 0, closed: 0, touched: 0, outcome: 'skipped', detail: openErr.message })
+      return { opened: 0, closed: 0, unchanged: 0, outcome: 'skipped', entitiesExamined, factsExamined, skipped: openErr.message }
+    }
 
     const openRows: OpenRow[] = (openData || []).map((r: any) => ({
       entityLevel: r.entity_level, entityId: r.entity_id, stateKey: r.state_key,
       stateValue: r.state_value, isSet: r.is_set === true, validFrom: r.valid_from,
     }))
-    // everObservedKeys: any (entity,key) this client+platform has EVER held, open or closed.
     const { data: everData } = await supabaseAdmin
       .from('entity_state_history')
       .select('entity_level, entity_id, state_key')
@@ -228,7 +276,12 @@ export async function persistEntityState(args: {
         is_set: o.fact.isSet === true, valid_from: o.validFrom, valid_to: null, change_source: o.changeSource,
       }))
       const { error } = await supabaseAdmin.from('entity_state_history').insert(rows)
-      if (error) { console.error(`[entity-state] client=${clientId} INSERT failed: ${error.message}`); return { opened: 0, closed: closes.length, unchanged: touches, skipped: error.message } }
+      // EXIT 3 — the write failed. RECORDS as 'error' with the reason.
+      if (error) {
+        console.error(`[entity-state] client=${clientId} INSERT failed: ${error.message}`)
+        await recordPass({ ...base, opened: 0, closed: closes.length, touched: touches, outcome: 'error', detail: error.message })
+        return { opened: 0, closed: closes.length, unchanged: touches, outcome: 'error', entitiesExamined, factsExamined, skipped: error.message }
+      }
     }
     // `touch` refreshes last_seen_at only — it proves we were still LOOKING, which is what separates
     // "unchanged" from "we stopped observing". Never a new row.
@@ -236,9 +289,13 @@ export async function persistEntityState(args: {
       await supabaseAdmin.from('entity_state_history').update({ last_seen_at: new Date().toISOString() })
         .eq('client_id', clientId).eq('platform', platform).eq('account_id', accountId).is('valid_to', null)
     }
-    return { opened: opens.length, closed: closes.length, unchanged: touches }
+    // EXIT 4 — success.
+    await recordPass({ ...base, opened: opens.length, closed: closes.length, touched: touches, outcome: 'ok' })
+    return { opened: opens.length, closed: closes.length, unchanged: touches, outcome: 'ok', entitiesExamined, factsExamined }
   } catch (e: any) {
+    // EXIT 5 — threw. RECORDS as 'error'. A pass that died still ran, and that must be readable.
     console.error(`[entity-state] client=${clientId} persist FAILED (non-fatal to capture): ${e?.message ?? e}`)
-    return { opened: 0, closed: 0, unchanged: 0, skipped: String(e?.message ?? e) }
+    await recordPass({ ...base, opened: 0, closed: 0, touched: 0, outcome: 'error', detail: String(e?.message ?? e) })
+    return { opened: 0, closed: 0, unchanged: 0, outcome: 'error', entitiesExamined, factsExamined, skipped: String(e?.message ?? e) }
   }
 }

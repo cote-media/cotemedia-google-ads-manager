@@ -54,6 +54,24 @@ when DECISIONS had recorded it months earlier, marked do-not-relitigate. The int
 lookup had not. A re-derived finding costs more than the thing it re-derives, because it also corrupts the
 record.
 
+**8. A NOTICED RISK IS NOT A CAVEAT. IT IS WORK.** If a risk, ambiguity, or "one thing worth knowing" is
+noticed, it is RESOLVED before it is spoken — researched and fixed, or proven to be nothing. It is never handed
+to Russ as a note to remember.
+PRECEDENT, 2026-07-31: `entity_state_history` shipped with the observation that a zero-row table would be
+indistinguishable from a broken writer. That was written into a summary AS A CAVEAT and the session moved to
+wrap-up. Russ caught it without knowing any of the underlying detail, because it sounded wrong. He should not
+have had to.
+⛔ WHY IT RECURS: NAMING A RISK FEELS LIKE MANAGING IT. It is the same defect as a truncation warning that
+fires nightly while nothing acts on it — Bath Fitter dropped its search-term tail for two months behind
+exactly such a warning, and the warning was working perfectly the whole time.
+THE TEST, BEFORE SPEAKING: is this resolvable from the data or the code RIGHT NOW? If yes — resolve it, do not
+report it. If it genuinely cannot be resolved yet, it is NOT a caveat: it is THE NEXT ACTION, stated as an
+action, with what unblocks it named.
+COROLLARY (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1): an empty result must carry its own denominator. No
+capture pass, query or check reports zero without recording what it examined. "Check the logs before
+concluding" is a human instruction, and human instructions are what fail.
+
+
 ## ⛔ PRE-ACTION GATE (forcing function — output this line before ANY Claude Code paste or ANY UI proposal; a skipped line is a visible violation)
 `in-flight: [what's running / clear] · blast-radius: [read-only|backend-writer|-next-only|live-path] · grid: [which card, or N/A non-UI] · high-stakes claim: [none | VERIFIED/DERIVED/UNVERIFIED + what]`
 (The gate field is BLAST-RADIUS. Levels, safest→widest: read-only (always safe) → backend-writer (isolated) → -next-only (preview-gated) → live-path (shared read-path / any live surface = STOP-and-confirm, never automatic). Live-path is ALLOWED with graduated care. There is NO Meta review, no reviewer path, no reviewer-driven hold — blast radius on a shared surface is about EVERY client and EVERY live surface, never a reviewer (the Meta App Review outcome that retired the reviewer path is owned by DECISIONS, not restated here). Standing PRODUCTION obligations (not a freeze, not a review): the Meta data-deletion/deauth callback must stay live (permanent Meta prod requirement), the Shopify install callback is a LIVE merchant path provisioning must not break, and Google Ads live snapshots stay quota-capped while Standard Access is pending — the 15k/day Basic cap binds route decisions; its live status lives in DECISIONS/QUEUE, never here.)
