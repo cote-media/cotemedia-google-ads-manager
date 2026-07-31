@@ -8,6 +8,30 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, blast-radius-scoped, revert-ready). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
+This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
+
+**LoraMer is BUSINESS intelligence.** Given every grain a business will give her — advertising, store,
+analytics, and whatever documents and context the owner uploads — **Lora reasons ACROSS ALL OF IT to answer any
+question about how the business is actually performing and what to do about it.** Product prioritization. New
+product ideas. Cost savings. Margin. Not "which campaign won" — *how is this business doing, and what should it
+do next.* **And where the data cannot support an answer, she says so and names WHY** — which is the same
+honesty the judgment half already demands, applied to a wider surface.
+
+⛔ **THIS WIDENS THE EVAL TAXONOMY.** The 28-case golden set is marketing-analytics shaped — spend, ROAS,
+conversions, breakdowns. A business-intelligence product is judged on questions that set never asks: which
+products to cut, where margin is actually going, what to stock, what a cost line is doing to the bottom line.
+The taxonomy has to grow to match the claim; a set that only asks marketing questions cannot certify a business
+answer. Cross-ref ★EVAL-SET-EXPANSION — the expansion target is not just LARGER, it is a DIFFERENT SHAPE.
+
+⛔ **AND IT WIDENS THE SEVERITY MODEL, which matters more.** A wrong ad recommendation is discovered in days
+and costs a media test. **A wrong margin or inventory call moves what a business BUYS and STOCKS — higher
+consequence, and far slower to discover.** Money goes out the door into physical goods on a purchasing cycle,
+and the error surfaces a quarter later as dead stock or a cash-flow problem, by which point it is not
+correctable by changing a bid. Severity is therefore NOT uniform across question classes, and any accuracy gate
+that treats them as equal is mis-weighted. The 95% bar was set against marketing questions; it is not
+automatically the right bar for a margin call.
+
 ## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31]
 The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These EIGHT are the
 JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
