@@ -77,7 +77,7 @@ This is **LoraMer** — an active, multi-week, multi-hundred-commit build of a b
 ## Commands
 
 ```bash
-npm run dev        # local dev server at localhost:3000
+npm run dev        # local dev server (port owned by next.config / the dev script, not restated here)
 npm run build      # full Next.js build — the pre-push gate (requires .env.local)
 npm run lint       # next lint
 npm run mcp        # standalone MCP server (mcp-server.js) for Claude Desktop
@@ -105,18 +105,18 @@ Prompt-honesty rules baked in: connected-but-empty platforms emit an explicit em
 
 ### Other key pieces
 
-- `src/app/dashboard/page.tsx` — the main dashboard, 3000+ lines, the heart of the UI. For diagnosis in this file, investigate-only first, then write a tight fix.
+- `src/app/dashboard/page.tsx` — the main dashboard, the largest file in the repo and the heart of the legacy UI. ⛔ NO LINE COUNT: it read "3000+ lines" while the file held 4,208 — a count in prose is a fact with a shelf life. For diagnosis in this file, investigate-only first, then write a tight fix.
 - `src/lib/date-range.ts` — `resolveDateWindow()` is the ONLY date-window resolver. Never roll per-platform date math (Lesson 19). Some legacy Google paths are still being migrated to it.
 - Platform OAuth/connector routes under `src/app/api/{meta,ga,shopify,woocommerce}/`; token helpers `src/lib/{shopify,ga}-token.ts`, `src/lib/meta-ads.ts`, `src/lib/google-ads.ts`.
 - `src/app/api/chat`, `/api/insight`, `/api/conversations` (unified conversation storage), `/api/memory` (per-client memory layer injected into prompts).
 - `mcp-server.js` — standalone MCP server exposing Google Ads tools to Claude Desktop.
-- Supabase tables: `clients`, `platform_connections`, `{shopify,meta,ga}_tokens`, `client_context`, `client_conversations`, `client_memory`, `metrics_daily`, `shopify_compliance_log`. SQL migrations live in `migrations/` (run manually in the Supabase SQL Editor).
+- Supabase tables: ⛔ **NOT LISTED HERE — the SCHEMA owns this.** Read `migrations/` in order, or `list_tables` via the Supabase MCP. This line enumerated NINE tables while the database held THIRTY-NINE: a map of the schema wrong by more than half, in the file the executor reads every session. SQL migrations live in `migrations/` and are run manually in the Supabase SQL Editor.
 
 ## Hard-won platform facts (do not relearn these)
 
 - **Meta Insights API:** dimensional fields (publisher_platform, age, gender, …) go in `breakdowns=`, never `fields=` — wrong placement returns HTTP 400 that `.catch(() => [])` will silently swallow. Meta CTR is already a percentage — do not ×100. Read `effective_status`, not `status`.
-- **GAQL:** there is no `LAST_90_DAYS` enum — use explicit `BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'` via `resolveDateWindow`. Google Ads API v23: per-asset performance labels are UI-only; `asset_group_top_combination_view` is the API path.
-- **Shopify:** revenue = NET via `currentSubtotalPriceSet`, never gross `totalPriceSet`. GraphQL Admin API version `'2025-01'`. REST is migrated away.
+- **GAQL:** there is no `LAST_90_DAYS` enum — use explicit `BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'` via `resolveDateWindow`. Google Ads API (major owned by `package.json`): per-asset performance labels are UI-only; `asset_group_top_combination_view` is the API path.
+- **Shopify:** revenue = NET via `currentSubtotalPriceSet`, never gross `totalPriceSet`. GraphQL Admin API version is owned by `GRAPHQL_API_VERSION` in `src/lib/intelligence/shopify-intelligence.ts` and enforced across its pin sites by `shopify-api-version-pin.guard.mjs` — ⛔ not restated here; this line read `'2025-01'` long after the pin moved, and `'2025-01'` was itself fiction because Shopify was silently serving 2025-10. REST is migrated away.
 - **Shopify QUERY-COST CEILING (LORAMER_SHOPIFY_QUERY_COST_CEILING_V1, measured live 2026-07-19 — this bounds every future capture family):** a single GraphQL query may not exceed **1,000 points**, enforced **before execution** on the *requested* cost; over it, Shopify returns `MAX_COST_EXCEEDED` ("Query cost is N, which exceeds the single query max cost limit (1000)") — a hard refusal, not a throttle or a degradation. **`OrdersInRange` already runs at 651 requested / 134 actual — ~349 points of headroom.** Scalar fields cost **0** (which is why the sales_channel / city / productType / vendor / tags / status / createdAt widens were all free); a **connection costs 2 + 1 per item and MULTIPLIES through nesting** (`first × (1 + nested)`). MEASURED: adding `product { collections(first:5) }` to that query takes it to **1,036 → rejected**, and because that one call also produces base/product/variant/geo/sales_channel/discount/order_time/status/cohort rows, the field would take the ENTIRE Shopify capture down for every client. **RULE: scalars may be widened onto `OrdersInRange`; anything NESTED gets its own id-batched call** (25/batch measured at 6 requested / 1 actual), soft + split-on-failure — see `fetchProductCollections`. Shopify's own guidance for anything bigger is bulk operations, not a fatter query.
 - **Silent `.catch(() => [])` is the house pathology** — instrument with `console.error` before concluding data is unavailable. Vercel free-tier logs expire in 1 hour; the surviving diagnostic is temporarily surfacing raw HTTP status/body into Claude's prompt (always with a planned cleanup patch).
 - localStorage keys use the legacy `advar-` prefix. Platform type union is `'google' | 'meta' | 'combined'` (no Shopify/Woo member). JSX child comments must be `{/* */}` — `/* */` renders as visible text and tsc won't catch it.

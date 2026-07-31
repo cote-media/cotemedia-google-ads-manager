@@ -1,6 +1,12 @@
 -- 048_entity_state_history.sql — LORAMER_ENTITY_STATE_SCD2_V1, SLICE 1.
 --
--- ⚠ NOT APPLIED. Authored 2026-07-31 for Russ's approval. Same posture as 045 (order grain) and the 046/047
+-- ✅ APPLIED TO PRODUCTION (verified live 2026-07-31 by object existence, not by memory).
+-- ⛔ THIS HEADER USED TO SAY "NOT APPLIED" AND IT WAS WRONG. A migration file asserting its own applied-state is a
+-- doc restating a fact the DATABASE owns (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1), and six of these were stale at
+-- once — read by the next session deciding whether to run them. The applied-state is now checked mechanically in
+-- `npm run check:data` (doc-ownership guard), in BOTH directions. Do not restate it here again; if you must note
+-- something, note the DATE it was applied, which is tense-locked history and cannot drift.
+-- (Historical: authored 2026-07-31 for Russ's approval; APPLIED 2026-07-31 — I authored this header saying NOT APPLIED and it was stale within hours.) Same posture as 045 (order grain) and the 046/047
 -- pair. There is no staging DB (banked law), so this runs against PRODUCTION or not at all.
 -- Blast radius: ADDITIVE ONLY — one NEW table + its indexes. No ALTER, no DROP, no backfill, no change to
 -- metrics_daily or any existing table. Nothing reads or writes it until the writer is wired AND this is

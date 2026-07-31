@@ -1,6 +1,12 @@
 -- 049_capture_pass_log.sql — LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1.
 --
--- ⚠ NOT APPLIED. Authored 2026-07-31 for Russ's approval. Additive only: one NEW table + two indexes.
+-- ✅ APPLIED TO PRODUCTION (verified live 2026-07-31 by object existence, not by memory).
+-- ⛔ THIS HEADER USED TO SAY "NOT APPLIED" AND IT WAS WRONG. A migration file asserting its own applied-state is a
+-- doc restating a fact the DATABASE owns (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1), and six of these were stale at
+-- once — read by the next session deciding whether to run them. The applied-state is now checked mechanically in
+-- `npm run check:data` (doc-ownership guard), in BOTH directions. Do not restate it here again; if you must note
+-- something, note the DATE it was applied, which is tense-locked history and cannot drift.
+-- (Historical: authored 2026-07-31 for Russ's approval; APPLIED 2026-07-31 — I authored this header saying NOT APPLIED and it was stale within hours.) Additive only: one NEW table + two indexes.
 -- No ALTER, no DROP, no touch to metrics_daily, cron_runs or entity_state_history.
 -- REVERT = DROP TABLE (bottom of this file).
 --

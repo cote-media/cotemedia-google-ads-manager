@@ -1,6 +1,12 @@
 -- LORAMER_COVERAGE_BREAKDOWN_GRAIN_V1 (migration 046) — distinct-day sets for breakdown-grain completeness.
 --
--- ⚠ NOT APPLIED. Authored 2026-07-30 for Russ's approval. There is no staging DB (banked law), so this runs
+-- ✅ APPLIED TO PRODUCTION (verified live 2026-07-31 by object existence, not by memory).
+-- ⛔ THIS HEADER USED TO SAY "NOT APPLIED" AND IT WAS WRONG. A migration file asserting its own applied-state is a
+-- doc restating a fact the DATABASE owns (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1), and six of these were stale at
+-- once — read by the next session deciding whether to run them. The applied-state is now checked mechanically in
+-- `npm run check:data` (doc-ownership guard), in BOTH directions. Do not restate it here again; if you must note
+-- something, note the DATE it was applied, which is tense-locked history and cannot drift.
+-- (Historical: authored 2026-07-30 for Russ's approval; APPLIED 2026-07-30 alongside 047.) There is no staging DB (banked law), so this runs
 -- against PRODUCTION or not at all. Blast radius: ADDITIVE ONLY — one READ-ONLY function, no table, no ALTER,
 -- no DROP of anything existing, no backfill, no write of any kind. Nothing calls it until getBreakdownCoverage
 -- is wired to a caller, and today nothing is: the resolver answers UNKNOWN while this is unapplied.

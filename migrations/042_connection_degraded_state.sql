@@ -1,4 +1,11 @@
--- migration 042 — LORAMER_CONN_DEGRADED_STATE_V1  (SLICE 2 — NOT APPLIED; live-path, Russ confirms before ship)
+-- migration 042 — LORAMER_CONN_DEGRADED_STATE_V1  (SLICE 2 — live-path)
+-- ✅ APPLIED TO PRODUCTION (verified live 2026-07-31 by object existence, not by memory).
+-- ⛔ THIS HEADER USED TO SAY "NOT APPLIED" AND IT WAS WRONG. A migration file asserting its own applied-state is a
+-- doc restating a fact the DATABASE owns (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1), and six of these were stale at
+-- once — read by the next session deciding whether to run them. The applied-state is now checked mechanically in
+-- `npm run check:data` (doc-ownership guard), in BOTH directions. Do not restate it here again; if you must note
+-- something, note the DATE it was applied, which is tense-locked history and cannot drift.
+
 -- Promote a PERSISTENT failure to a VISIBLE health = 'degraded' once the current failure streak has run
 -- >= 24h with zero successes. first_failure_at (set on the 0->1 bump, CLEARED by a success) is the clock, so
 -- "first_failure_at <= now()-24h" means "failing continuously for >= 24h" — which already implies zero

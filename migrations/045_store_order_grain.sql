@@ -1,6 +1,12 @@
 -- LORAMER_ORDER_LEVEL_STORAGE_V1 (migration 045) — THE ORDER GRAIN, platform-agnostic.
 --
--- ⚠ NOT APPLIED. Authored 2026-07-25 for Russ's approval. There is no staging DB (banked law), so this runs
+-- ✅ APPLIED TO PRODUCTION (verified live 2026-07-31 by object existence, not by memory).
+-- ⛔ THIS HEADER USED TO SAY "NOT APPLIED" AND IT WAS WRONG. A migration file asserting its own applied-state is a
+-- doc restating a fact the DATABASE owns (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1), and six of these were stale at
+-- once — read by the next session deciding whether to run them. The applied-state is now checked mechanically in
+-- `npm run check:data` (doc-ownership guard), in BOTH directions. Do not restate it here again; if you must note
+-- something, note the DATE it was applied, which is tense-locked history and cannot drift.
+-- (Historical: authored 2026-07-25 for Russ's approval; APPLIED 2026-07-25.) There is no staging DB (banked law), so this runs
 -- against PRODUCTION or not at all. Blast radius: ADDITIVE ONLY — three NEW tables, no ALTER, no DROP, no
 -- backfill, no change to metrics_daily or any existing table. Nothing reads these tables until the writer
 -- ships, so applying this migration alone changes ZERO behavior. REVERT = DROP (bottom of this file).

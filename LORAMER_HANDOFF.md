@@ -358,13 +358,14 @@ Two things are NOT product features — they are binding commitments. If a produ
 
 ## Tech stack (for context)
 
-- **Frontend:** Next.js 14.2.3 (App Router), TypeScript, Tailwind
+- **Frontend:** Next.js (App Router), TypeScript, Tailwind — ⛔ the VERSION is owned by `package.json`, not stated here (it read 14.2.3 and happened to be right, which is what every stale copy was on the day it was written).
 - **Backend:** Next.js API routes
 - **Database:** Supabase (Postgres)
 - **Auth:** NextAuth with Google OAuth
-- **AI:** Anthropic API
-  - `claude-haiku-4-5-20251001` for insight banner (50-word max)
-  - `claude-sonnet-4-6` for chat (16,000 max_tokens for long briefings)
+- **AI:** Anthropic API — ⛔ **MODEL IDS ARE OWNED BY THE CODE AND ARE NOT STATED HERE** (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1, extended to code-owned facts). These two lines carried `claude-haiku-4-5-20251001` and `claude-sonnet-4-6` and BOTH were wrong for weeks — the same drift that already cost us once when prod ran Sonnet while the 28/28 eval measured Opus (LORAMER_CLAUDE_MD_MODEL_POINTER_V1 pointed CLAUDE.md for exactly this; HANDOFF was missed).
+  - insight banner → `LORA_INSIGHT_MODEL`, defaulted in `src/app/api/insight/route.ts`
+  - chat → `LORA_CHAT_MODEL`, defaulted in `src/app/api/chat/route.ts` (the code default is the FLOOR)
+  - max_tokens and the cache_control prefix → the same two files. Read the code for the current values.
 - **Hosting:** Vercel (auto-deploys from GitHub `main` branch pushes)
 - **Dev tool:** Claude Code (runs locally on both machines; edits/commits/pushes/deploys + Supabase/Vercel MCP directly)
 - **Repo:** `cote-media/cotemedia-google-ads-manager` on GitHub
@@ -390,7 +391,7 @@ BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.lo
   - CONFIRMED REAL: Google-Ads (`GOOGLE_ADS_*` + `GOOGLE_CLIENT_*`, 9-row GAQL pass), Supabase (`NEXT_PUBLIC_SUPABASE_*` + `SUPABASE_SERVICE_ROLE_KEY`, MCP works), `ANTHROPIC_API_KEY` (set real this session — `sk-ant…`, 108 chars).
   - CRON_SECRET: ✅ UPDATED 2026-07-01 — now the REAL rotated prod value (64 chars); the Air CAN auth the cron locally. (Was an 11-char placeholder at the 2026-06-13 audit.)
   - SHOPIFY: ✅ UPDATED 2026-07-01 — `SHOPIFY_CLIENT_SECRET` (len 38 / sha256-first8 3522f704) + `SHOPIFY_CLIENT_ID` (len 32 / sha256-first8 dda0a822) are now REAL on the Air (set by hand from the Shopify Partner dashboard, the source of truth) → the Air IS now capable of live Shopify (read + app-path mint), matching the iMac for Shopify.
-  - STILL BLANK (len 0) as of 2026-07-01: `GOOGLE_ANALYTICS_CLIENT_ID/SECRET/REDIRECT_URI`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PORTAL_CONFIG_ID`, `REVIEWER_LOGIN_TOKEN`. (`vercel env pull` blanks these — Lesson 45 — names present, values not.)
+  - ⚠ **CORRECTED 2026-07-31 — THIS LINE WAS WRONG FOR A WEEK AND CONTRADICTED A BANKED DECISION.** It read "STILL BLANK (len 0) as of 2026-07-01: `GOOGLE_ANALYTICS_CLIENT_ID/SECRET/REDIRECT_URI` …" while **DECISIONS LORAMER_GA_CREDS_RESOLVED_V1 (2026-07-24) records the GA credentials as RESOLVED on the Air** — Russ pulled them from Google Cloud Console and a live GA4 runReport proved the mint. Measured 2026-07-31 by LENGTH only: CLIENT_ID and CLIENT_SECRET are POPULATED; `GOOGLE_ANALYTICS_REDIRECT_URI` is genuinely len 0 and that is harmless — `src/lib/ga-token.ts` never reads it. STILL BLANK: `STRIPE_WEBHOOK_SECRET`, `STRIPE_PORTAL_CONFIG_ID`, `REVIEWER_LOGIN_TOKEN`. ⛔ **DO NOT RESTATE PER-VAR STATE HERE AGAIN — cite the decision and measure the lengths.** A doc that names a variable as blank is asserting live machine state it cannot see, under a header calling itself the single source, which is how this survived a week with CLAUDE.md pointing at it. (`vercel env pull` blanks values — Lesson 45 — names present, values not.)
   - UNVERIFIED: `META_APP_ID/SECRET`, `NEXTAUTH_*`, `STRIPE_SECRET_KEY` (not value-checked; per-user Meta tokens live in Supabase `meta_tokens`, not env — the Meta probe used those, not `META_APP_*`).
 - CAPABLE locally as of 2026-07-01: Google Ads (GAQL), Supabase, Anthropic, **live Shopify (read + app-path mint)**, cron auth (`CRON_SECRET` real). NOT capable: live GA (creds blank), Stripe webhook/portal (creds blank).
 - ⚠ FULL env+alias PARITY AUDIT REMAINS OPEN: only the Shopify creds + `CRON_SECRET` were closed 2026-07-01; the remaining vars (GA×3, Stripe×2, reviewer token) + the still-UNVERIFIED `META_APP_*`/`NEXTAUTH_*`/`STRIPE_SECRET_KEY` are unaudited. Do NOT restamp "full parity" until a value-level sweep of ALL of them.
@@ -404,7 +405,7 @@ BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.lo
 
 ### Key file locations (paths relative to project root)
 
-- `src/app/dashboard/page.tsx` — main dashboard (3000+ lines, the heart of the app)
+- `src/app/dashboard/page.tsx` — main dashboard, the largest file in the repo (⛔ no line count: a count in prose is a fact with a shelf life; it read 3000+ against 4,208)
 - `src/app/api/insight/route.ts` — Haiku insight banner
 - `src/app/api/chat/route.ts` — Sonnet chat (max_tokens: 16000)
 - `src/app/api/intelligence/route.ts` — master intelligence endpoint that builds Claude's context
@@ -420,7 +421,11 @@ BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.lo
 - `src/lib/anomaly-filter.ts` — filters alerts based on user directives
 - `src/lib/platforms/types.ts` — column definitions and platform types
 
-### Supabase tables (current)
+### Supabase tables
+
+⛔ **THIS LIST IS NOT AUTHORITATIVE AND IS KEPT ONLY AS ORIENTATION FOR THE OLDEST TABLES.** The SCHEMA owns the
+table set — read `migrations/` in order, or `list_tables` via the Supabase MCP. Its CLAUDE.md twin enumerated
+NINE while the database held THIRTY-NINE, and the same rot applies here: every table added since is missing.
 
 - `clients` — owned by user_email
 - `platform_connections` — (client_id, platform) → account
@@ -436,8 +441,8 @@ BOTH: same GitHub repo (`cote-media/cotemedia-google-ads-manager`), prod `app.lo
 - Meta `effective_status` is the right field to read, NOT `status`
 - localStorage keys use `advar-` prefix (legacy from working title; migration not done yet)
 - Platform type: `'google' | 'meta' | 'combined'` — no Shopify/WooCommerce member
-- Shopify GraphQL API version: '2025-01'
-- Google Ads API v23 — `asset_group_asset.performance_label` is NOT *selectable* from the `asset_group_asset` resource (validator-confirmed May 28, 2026). Per-asset BEST/GOOD/LOW labels are UI-only in v23. The Combinations report (`asset_group_top_combination_view`) is the asset-level performance signal via API. **Step 2g shipped May 28, 2026** (LORAMER_PROJECT_3_STEP_2G_V1 + PROMPT_V2): combinations query (date-filtered, instrumented .catch) joined to readable asset text via `asset_group_asset.asset` as the join key; dead `performance_label` read removed; prompt rewritten with diagnostic empty-state. **Both branches verified in production:** populated case (My Vacation Network, 58 conv, AS=1 → empty combos diagnosed as Ad Strength upstream); zero-conversion case (Escential Group, 1 conv → empty combos diagnosed as conversion tracking upstream).
+- Shopify GraphQL API version → ⛔ **OWNED BY THE CODE, NOT STATED HERE.** `GRAPHQL_API_VERSION` in `src/lib/intelligence/shopify-intelligence.ts` (and the three sibling pin sites the version guard enforces agree with it). This line read `'2025-01'` for months after the pin moved — and `'2025-01'` was itself fiction, because Shopify was silently serving 2025-10 the whole time (LORAMER_SHOPIFY_VERSION_PIN_2026_07_V1, OBSERVED on all six shops). A version in prose is a claim; the served version is the fact.
+- Google Ads API — ⛔ the MAJOR is owned by `package.json` (`google-ads-api`), not stated here; DECISIONS LORAMER_PINS_ARE_WRITTEN_STALE_V1 records that the pin was already behind current on the day it was written. `asset_group_asset.performance_label` is NOT *selectable* from the `asset_group_asset` resource (validator-confirmed May 28, 2026). Per-asset BEST/GOOD/LOW labels are UI-only in v23. The Combinations report (`asset_group_top_combination_view`) is the asset-level performance signal via API. **Step 2g shipped May 28, 2026** (LORAMER_PROJECT_3_STEP_2G_V1 + PROMPT_V2): combinations query (date-filtered, instrumented .catch) joined to readable asset text via `asset_group_asset.asset` as the join key; dead `performance_label` read removed; prompt rewritten with diagnostic empty-state. **Both branches verified in production:** populated case (My Vacation Network, 58 conv, AS=1 → empty combos diagnosed as Ad Strength upstream); zero-conversion case (Escential Group, 1 conv → empty combos diagnosed as conversion tracking upstream).
 - **Date windows:** `src/lib/date-range.ts` → `resolveDateWindow()` is canonical (June 2, 2026). LAST_MONTH = previous calendar month; rolling 7/14/30/90 = complete days ending yesterday; THIS_MONTH = 1st through today. Shopify/GA/Woo intelligence + daily routes use it. Google Ads paths partially migrated — remainder in Project 8 tech debt.
 - **Shopify revenue:** net sales via `currentSubtotalPriceSet`, not gross `totalPriceSet` (June 2, 2026 — LORAMER_SHOPIFY_NET_SALES_V1). Surface refunds; match Shopify Analytics.
 - **GAQL date literals:** no `LAST_90_DAYS` enum — use explicit `BETWEEN` dates (June 2, 2026 — LORAMER_GOOGLE_DAILY_90DAY_FIX_V1).
