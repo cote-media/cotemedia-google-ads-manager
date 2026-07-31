@@ -20,6 +20,7 @@ import { DRAIN_REGISTRY, requiredSteps, GEO_WINDOW_DAYS, type DrainConn } from '
 import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/concurrency' // LORAMER_SELFSERVE_SPINE_V1 step 3
 import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 import { readGoogleQuotaPause, writeGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
+import { getGoogleOpBudget, holdForBudget, recordLaneDeclined } from '@/lib/backfill/google-op-budget' // LORAMER_GOOGLE_OP_BUDGET_V1
 import { googleForwardReserveDecision } from '@/lib/backfill/google-forward-reserve' // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
@@ -91,6 +92,24 @@ export async function GET(request: Request) {
     // flips) and never past the reset+N cap. Scoped to the broad scheduled fire — a targeted single-connection run
     // (onlyClientId: manual recovery / new-client onboarding kickoff) bypasses the polite hold. See ★GOOGLE-QUOTA-
     // PRIORITY-INVERSION; this is the ALLOCATE half the reactive LORAMER_GOOGLE_QUOTA_GUARD_V1 pause never had.
+    // LORAMER_GOOGLE_OP_BUDGET_V1 — the drain spends from the RANKED side of the allocation (forward, geo lap,
+    // deep history). It still gets a ceiling: without one, the deep-history drain can empty the cap just as
+    // catchup did. A scoped run (onlyClientId = manual recovery / onboarding kickoff) KEEPS ITS BYPASS —
+    // manual recovery must remain possible even when the automatic lanes are done for the day.
+    if (!onlyClientId) {
+      const budget = await getGoogleOpBudget('drain')
+      if (holdForBudget(budget)) {
+        await recordLaneDeclined({ lane: 'drain', platform: 'google', budget })
+        return NextResponse.json({
+          platform, dryRun, trigger, cap, ok: true, selected: 0,
+          skipOpBudget: true, budgetState: budget.state, budgetRemaining: budget.remaining,
+          budgetAllocation: budget.allocation, estimatedOpsSpentToday: budget.estimatedOpsSpentToday,
+          rawRequestsToday: budget.rawRequestsToday, safetyMultiplier: budget.safetyMultiplier,
+          note: `google op budget: ${budget.reason}`,
+          results: [],
+        }, { status: 200 })
+      }
+    }
     if (!onlyClientId) {
       const reserve = await googleForwardReserveDecision(Date.now())
       if (reserve.skip) {

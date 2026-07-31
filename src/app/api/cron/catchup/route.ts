@@ -37,6 +37,7 @@ import { getValidShopifyToken } from '@/lib/shopify-token'
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
+import { getGoogleOpBudget, holdForBudget, recordLaneDeclined } from '@/lib/backfill/google-op-budget' // LORAMER_GOOGLE_OP_BUDGET_V1 — allocate before spending
 import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — interior-gap dimensional fill
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 
@@ -268,6 +269,20 @@ export async function GET(request: Request) {
   // gate silently stopped biting on 2026-07-28: a failed sentinel read returned paused:false and 178 gap-days
   // of Google fan-out went out against an exhausted quota. UNKNOWN now holds, same as a confirmed pause.
   const googleQuotaPaused = holdGoogleWork(await readGoogleQuotaPause())
+  // LORAMER_GOOGLE_OP_BUDGET_V1 (★GOOGLE-QUOTA-PRIORITY-INVERSION) — ALLOCATE BEFORE SPENDING. holdGoogleWork
+  // above is REACTIVE: it reads a sentinel Google set AFTER the 15k cap was already gone, so it cannot stop the
+  // lane that spent it — and catchup, the deep-history lane, is the one that has emptied the cap three days
+  // running before the ranked geo lap could run. This is the allocate half: catchup gets a MINORITY SHARE and
+  // may not spend into the reserve that forward / the geo lap / scoped recovery live in.
+  // HOLDS ON UNKNOWN, same rule as holdGoogleWork — an unreadable budget is not headroom.
+  // ⛔ AND IT RECORDS THE DECLINE (denominator law): a lane that no-ops silently is indistinguishable from a
+  // lane that never fired, which is exactly the ambiguity removed on 2026-07-31.
+  const googleOpBudget = await getGoogleOpBudget('catchup')
+  const googleBudgetHold = holdForBudget(googleOpBudget)
+  if (googleBudgetHold) {
+    await recordLaneDeclined({ lane: 'catchup', platform: 'google', budget: googleOpBudget, observationDate: yesterday })
+    console.warn(`[cron/catchup] google DECLINED by op budget — ${googleOpBudget.reason}`)
+  }
   const windowStart = restoreMode ? (restoreSince as string) : addDaysIso(yesterday, -(CATCHUP_WINDOW_DAYS - 1))
   const started = Date.now() // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire clock for CATCHUP_BUDGET_MS paging
 
@@ -529,7 +544,9 @@ export async function GET(request: Request) {
         // LORAMER_CATCHUP_QUOTA_PAUSE_V1 — the `restoreMode &&` is REMOVED. This gate is where the pause actually
         // bites; leaving it restore-only is what let normal catchup keep firing into an exhausted quota. Now ANY
         // google catchup yields while the global developer-token pause is active, exactly as the drain does.
-        fillDays = googleQuotaPaused ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
+        // LORAMER_GOOGLE_OP_BUDGET_V1 — the gate is now BOTH: the reactive sentinel (quota already gone) AND
+        // the proactive allocation (catchup's share of today's 15k, reserve untouchable). Either one holds.
+        fillDays = (googleQuotaPaused || googleBudgetHold) ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
       } catch (err) {
         summary.errors.push({ clientId: client.id, platform: 'google', message: serializeCaughtError(err) })
         continue
