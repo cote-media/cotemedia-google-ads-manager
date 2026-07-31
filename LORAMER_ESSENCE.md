@@ -8,8 +8,8 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, blast-radius-scoped, revert-ready). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
-## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — banked 2026-07-30, from the session that measured it]
-The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These seven are the
+## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31]
+The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These EIGHT are the
 JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
 
 **1. EVERYTHING MEANS EVERY INPUT THAT EXPLAINS PERFORMANCE, WHEREVER IT LIVES — not every field of the

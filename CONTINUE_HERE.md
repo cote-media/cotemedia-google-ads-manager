@@ -1,3 +1,137 @@
+╔═══ TIMED ITEMS — 2026-07-31 MORNING. READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+
+⛔ **EVERY LIVE VALUE IN THIS BLOCK IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS
+LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1). A clock TIME that comes from `vercel.json` is a SCHEDULE FACT and is
+stated. A date, a quota window, a cursor, a budget remaining, a row count is LIVE STATE — go and read it.
+**PRECEDENT, and it cost the 2026-07-30 morning:** the QUEUE's own TOP-UNBLOCKED line said the `__google_quota`
+sentinel was armed until `2026-07-30T08:03:57Z` while the live sentinel said `07-31`. The doc was not lying when
+it was written; it was a snapshot, and a snapshot of live state is stale the moment it is typed.
+
+**1 · 08:03:57Z — GOOGLE DEVELOPER-SCOPE QUOTA RESET.** The clock time is fixed and recurring; the armed DATE is not.
+  NEEDS — nothing. Clock-based auto-resume, no manual clear (the elapsed-window branch in google-quota-store.ts).
+  READ IT — `sync_state` where `client_id='00000000-0000-0000-0000-000000000000'` and `platform='__google_quota'`
+  → `backfill_blocked` / `backfill_block_window` / `backfill_block_at`; in code, `readGoogleQuotaPause()`.
+  PROVES IT — `state:'not_blocked'` from that read, and the quota caveat gone from Lora's prompt with no action.
+  ⛔ **STATE PLAINLY, because this is the part that keeps surprising us: `/api/cron/drain?platform=google` runs on
+  `*/5 * * * *` — EVERY FIVE MINUTES, ALL DAY.** It therefore reaches Google at **08:05, three minutes BEFORE the
+  08:08 forward sync** (`8-58/10 8-10`). The drain is FIRST IN LINE BY SCHEDULE. The only thing between it and the
+  fresh quota is `googleForwardReserveDecision` (google-forward-reserve.ts), called from exactly one place —
+  cron/drain, inside `if (!onlyClientId)`. Forward is protected BY CODE, not by the clock. If that call is ever
+  moved, refactored or bypassed, the drain eats the reset three minutes before forward gets there.
+
+**2 · 08:08Z — GOOGLE FORWARD. The first uncapped search-term pull.**
+  NEEDS — item 1 elapsed (headroom), nothing else. It is the run that makes Gate-B checks 2 and 3 verifiable.
+  PROVES IT — for capture date = yesterday, count `metrics_daily` rows with `platform='google'` and
+  `breakdown_type='search_term'` per client and compare against the old ceiling of 300. Bath Fitter
+  (`60e6dd99-fd42-466f-870f-48eb407835e8`) is the widest client on record and is the one whose TAIL survives a
+  forward run for the first time. **Read the count; do not assume it cleared.** A client that legitimately has
+  fewer than 300 terms proves nothing either way — pick the widest.
+
+**3 · 08:09Z then 08:19Z — GOOGLE CATCHUP. The slice-1 config writer self-verifies across two passes.**
+  NEEDS — item 1 elapsed, and at least one interior gap day for a google client (no gap → no visit → no pass).
+  PROVES IT — pass one: every `entity_state_history` row carries `change_source='first_observation'`. Pass two:
+  **ZERO new rows** — an unchanged value writes nothing, which is the SCD2 invariant, not a failure.
+  ⛔ **THE READ THAT PREVENTS TOMORROW'S WRONG CONCLUSION.** If `capture_pass_log` holds rows with
+  `pass_marker='entity_state_slice1'` and `facts_examined > 0` while `entity_state_history` is EMPTY, that is
+  **"ran, examined N, nothing changed" — NOT a broken writer.** NO pass row at all is the different fact: nothing
+  ran. That distinction is the entire reason capture_pass_log exists (DECISIONS
+  LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1). Do not diagnose the writer from an empty output table alone.
+
+**4 · ~11:00Z — THE GEO LAP. The ranked head, and it cannot start before the forward reserve releases.**
+  NEEDS — the reserve window to elapse. It is reset + 180 minutes, so realistically just after 11:00Z; the drain
+  no-ops cleanly before then, which is the worst outcome for a flight whose entire purpose is to measure.
+  READ IT — `getGoogleOpBudget('drain').remaining` (google-op-budget.ts). ⛔ **THE GEO LAP IS THE DRAIN LANE, so it
+  draws on `RANKED_RESERVE`, not on catchup's allocation** — the two constants are in the source and are 10,500 and
+  4,500 of the 15,000 cap. Getting this wrong picks the wrong gate.
+  TENSE-LOCKED, so the read has something to be compared against and nothing here is mistaken for current:
+  **measured 2026-07-31 05:43:34Z, zero google cron runs had executed in the UTC day, so drain remaining read the
+  full 10,500 and catchup 4,500.** A figure of ~4,191 was quoted at wrap time; it does not match either lane at
+  that moment and is arithmetically a CATCHUP reading after ~3 connection-units of spend. **Do not carry it. Read
+  the budget.**
+
+**5 · GATE-B — HALF CLOSED FROM DURABLE DATA, HALF STILL TIME-GATED.**
+  Checks **1 and 4 PASSED** on 2026-07-31 from durable data, without waiting for a morning run.
+  Checks **2 and 3 need the 08:08 google forward run** — and once it has run they are readable from the
+  **7-DAY pre-aggregated ERROR CLUSTERS**, not from raw runtime logs, which expire in ONE HOUR on the free tier.
+  The four checks and their expected readings are owned by ★GATE-B-2026-07-28 in LORAMER_QUEUE_OF_RECORD.md and
+  are NOT restated here.
+
+**6 · THE FIRST SCHEDULED CATCHUP AFTER 08:00 ALSO PROVES THE CONNECTION LEDGER IN THE CRON LANE.**
+  Already proven in the MANUAL lane: `cron_runs` id **5065**, 2026-07-31 05:35:44Z, shopify catchup —
+  attempted 9 = ok 7 + errored 0 + skipped 2, against id 5062 the night before which read ok 9 / skipped 0 on the
+  same nine connections. What remains is only that the SCHEDULED invocation behaves identically.
+  PROVES IT — any `cron_runs` row with `trigger_source='cron'` after 08:00Z where
+  `connections_attempted = connections_succeeded + connections_errored + connections_skipped` and, for shopify,
+  `connections_skipped >= 2`. DECISIONS LORAMER_CONNECTION_OUTCOME_LEDGER_V1 owns the law.
+
+── WHAT IS OWED (pointers to the owner, never copies — LORAMER_DOCS_SINGLE_OWNER_V1) ──
+  · **HELD GOOGLE TIER-1 WIDEN owes SIX preconditions (a)–(f)** — QUEUE, "GOOGLE TIER-1 BREADTH WIDEN". (f) is the
+    cron/sync half of the connection-outcome ledger, added 2026-07-31.
+  · **THREE live clients have NO `platform_connections` row at all** — invisible to every lane AND to every
+    completeness check, because they declare nothing. QUEUE ★TEST-CLIENT-CLEANUP owns the roster and the
+    delete/hold decision.
+  · **TWO orphan `shopify_tokens` rows** with no matching connection — QUEUE ★ORPHAN-SHOPIFY-TOKEN-ROWS.
+  · **`platform_connections.first_failure_at` disagrees with the Vercel error cluster by ~5 weeks** on the two dead
+    Shopify connections — QUEUE ★FIRST-FAILURE-AT-UNDERREPORTS. ⚠ the column is on `platform_connections`, NOT on
+    `ga_tokens` (which has no such column), and the two rows are SHOPIFY, not GA.
+  · **Influential Drones META FIXTURE (2617b163) dark for nine days** on an invalidated session — QUEUE
+    ★DEMO-FIXTURE-META-REAUTH owns the decision (baselined with the oauth_190 reason, deliberately not re-authed).
+  · **★DENOMINATOR-SWEEP — 63 remaining capture call sites** still report zero without a denominator. QUEUE owns it.
+
+── TOMORROW OPENS WITH WORK, NOT A DECISION: paste this Gate-A instruction ──
+The next queue item is ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT. It needs no Google quota, does not touch
+cron/sync, and its blast radius is measurably zero (nothing outside coverage.ts and its own guard reads the
+instrument — grepped 2026-07-31). It is also a PRECONDITION for ★WIRE-COVERAGE-INSTRUMENT: you do not wire an
+instrument whose UNKNOWN means four different things. Verbatim, ready to paste:
+
+<<<START>>>
+MAKE UNKNOWN SAY WHICH UNKNOWN — ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT.
+Gate-A only, no commit until I see it. No API calls. Do NOT touch cron/sync.
+
+BLAST RADIUS FIRST: re-verify that nothing outside coverage.ts and its guard reads
+getBreakdownCoverage, resolveBreakdownCoverage or BreakdownCoverageVerdict. If anything does,
+say so and stop.
+
+1. KEEP THREE VERDICTS. COMPLETE | PARTIAL | UNKNOWN is the quota vocabulary borrowed
+   verbatim from google-quota-store and coverage.ts says so. Do NOT add a fourth — that is the
+   fourth dialect the file refuses to invent. Say plainly if you think a fourth is required
+   and why, rather than adding one.
+
+2. ADD A DISCRIMINATOR, NOT A STATE. UNKNOWN must carry unknownReason:
+     'not_connected' | 'never_captured' | 'no_activity_in_window' | 'read_failed'
+   Today all four collapse into two returns in resolveBreakdownCoverage, and the detail string
+   says "no base-grain activity in this window" even for a connection that has never captured
+   a single row. Report which of the four each current return path produces before you change
+   anything.
+
+3. 'never_captured' NEEDS THE CONNECTION DENOMINATOR, WHICH DOES NOT COME FROM metrics_daily.
+   The declaring table is clients(deleted_at IS NULL) join platform_connections — measured,
+   and it is what cron/sync itself uses to decide who to capture. resolveBreakdownCoverage is
+   PURE and must stay pure: pass the connection fact IN as an argument, do not have it read a
+   table.
+
+4. SEPARATE 'read_failed' FROM THE REST. The RPC error branch and the bare catch in
+   getBreakdownCoverage both currently produce the same UNKNOWN as a genuinely idle window.
+   Distinguish them, and preserve the RPC error text in detail rather than discarding it.
+
+5. UNKNOWN STILL NEVER DEGRADES TO COMPLETE. That rule is load-bearing and does not move.
+
+6. WHILE YOU ARE IN THE FILE: coverage.ts still carries a comment saying the RPC is NOT
+   APPLIED YET (migrations/046, authored not run). 046 and 047 were applied. Correct the
+   comment to match reality — it currently misstates the system it documents.
+
+7. GUARD, same commit, each failing independently:
+   (a) UNKNOWN returned with no unknownReason
+   (b) 'read_failed' and 'no_activity_in_window' collapsing to the same value
+   (c) a connection that has never captured anything reported as 'no_activity_in_window'
+   (d) any UNKNOWN path able to return COMPLETE
+   Show red against HEAD for each, then green.
+
+8. npm run guard && npm run build. Report Gate-A and STOP.
+<<<END>>>
+
+╚═══ end timed items ═══╝
+
 ⛔ Read **LORAMER_ESSENCE.md** first, every session.
 ⛔ GOVERNING LAW (LORAMER_ESSENCE.md, top): capture EVERYTHING from EVERYWHERE, store FOREVER, at FULL grain WITH history — now, not "later." The ONLY exception is a platform that genuinely doesn't serve the data. "Future/phase/scope" deferrals of any capture = a violation. Read it before proposing anything.
 ⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
@@ -901,7 +1035,8 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ═══ NEXT STEP ═══
 - (2026-07-27 NIGHT opener — HISTORY, superseded 2026-07-30; demoted from `▶▶ NEXT STEP` because ★GATE-B-2026-07-28 ran and its time window passed. Kept for the HELD-WORK preconditions, which are still exactly true.) — 2026-07-27 NIGHT SESSION WRAP (latest — resume HERE). **START WITH ★GATE-B-2026-07-28 — verify last night's FOUR live-path ships against the 08:04 (shopify) and 08:08 (google) UTC cron runs, BEFORE any new build. It is ranked FIRST and the ranking is the instruction.** It ranks first for two reasons that are not preference: it is TIME-GATED (the evidence exists only in that window, and Vercel RUNTIME logs expire in 1 hour — use the pre-aggregated ERROR CLUSTERS, 7-day retention, which cracked three of this week's defects), and four production changes are UNVERIFIED until it runs. THE FOUR CHECKS, with what each should read — the full text lives in the ★GATE-B-2026-07-28 queue entry and is not restated in detail here (LORAMER_DOCS_SINGLE_OWNER_V1): **(1) Shopify depth (d86b718)** — twelve families per store non-zero, product/variant/geo unfrozen on Foam OH / Influential Drones / Escential / Cozy Foam, `shopify_order_time` cursors moved, error_count vs the baseline 23, and ZERO new 23502. **(2) Google forward counter (e9cbdb0)** — should read **17 succeeded / 17 degraded / 0 errored** (it read 0/17 for three days while writing 77,647 rows); error_count stays ~34 because those degradations are real. **(3) Readable GAQL errors (e9cbdb0)** — real strings, never `[object Object]` or `undefined [`. **(4) The quota caveat SELF-CLEARS (0b32f9f)** — the `__google_quota` window elapses at 08:03:57Z, so from 08:04 the block must vanish from Lora's prompt with NO action from anyone; if it is still rendering, the elapsed-window branch is wrong. **BASELINE, so a moving number is not a mystery: last night's final commit (57dd0fa) adds +0 to the 08:08 run** — that path has never fired on cron/sync in the 7-day window. If error_count moves beyond ~34, it is not last night's work. **THEN, in order, per LORAMER_QUEUE_OF_RECORD.md ## NEXT-SESSION RANKED ORDER (that section owns the build order; it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** the HELD Google Tier-1 breadth widen — which is BLOCKED ON GATE-B, because it needs quota headroom and the 08:08 run is what measures it, and which still needs THREE things before it can ship (see ⚠ HELD WORK below) · ★GOOGLE-QUOTA-EXHAUSTED-DAILY (answer-quality half closed last night; the exhaustion itself and the user-facing surface remain) · the banked ★ follow-ons incl. ★CONV-WINDOW-EVAL-SLICE and ★CATCHUP-COUNTER-CONFLATION (which gained a second reason last night) · the chat-UI day (research the Shopify Sidekick markdown-jank writeup BEFORE designing) · uploaded-doc hygiene as a T2 finding. **⚠ HELD WORK — STILL UNCOMMITTED AND STILL INTACT, four commits later: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified, 133 insertions / 91 deletions, verified byte-for-byte after every stash cycle last night, `npx tsc --noEmit` exit 0 on the combined tree).** It is authored and Gate-A green and it CANNOT SHIP until three things are true, none of them optional: **(a) the two missing report-honesty fixes — the dry-run must print ACTUAL quota consumption read from the meter, not an arithmetic estimate, and it must REALLY ABORT if it would breach the forward-sync reserve rather than merely warning; (b) the payload-uniformity guard extended to cover the FIVE Google breadth builders (it currently executes the five existing builders and would not see a new one — the same class of blindness as the fetch-errors guard fixed 57dd0fa); and (c) QUOTA HEADROOM to prove it in, which Gate-B measures.** Do the dry-run FIRST and do not commit before it proves; the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. **AND THE TRAP, verified in code: `?dryRun=1` DOES NOT set dryRun — the route tests `=== 'true'`, so that URL runs LIVE.** **BEFORE ANYTHING ELSE, TWO SHORT HUMAN GATES:** (1) Gate-B the mobile Lora page on device (Chrome iOS per LORAMER_GATE_B_TARGET_IS_CHROME_IOS_V1); (2) the Russ action list below — Google Standard Access is the only thing that removes the daily quota ceiling, and it is still owed a website-clarification reply.
-▶▶ NEXT STEP — 2026-07-29/30 ALL-NIGHT SESSION WRAP (latest — resume HERE). **START WITH THE GOOGLE GEO LIVE LAP — ★GOOGLE-GEO-STATEMENT-TIMEOUTS, Flight 1 Gate-A(d). It is ranked FIRST and the ranking is the instruction.** It is TIME-GATED: the `__google_quota` sentinel is armed until **2026-07-30T08:03:57Z** and auto-resumes by clock (the elapsed-window branch in google-quota-store.ts; no manual clear). Until then every Google capture lane no-ops through `holdGoogleWork`, so dispatching earlier proves NOTHING — it returns clean having done nothing, which is the worst outcome for a flight that exists to measure. **WHY IT IS FIRST: two GOLDEN clients are losing a day per day — Foam OH AND Veterinary mastermind — and LORAMER_METRICS_UPSERT_CHUNKED_V1 (31f0dac, shipped 07-29 morning) is STILL UNPROVEN against the live 8s PostgREST ceiling.** It has only ever been measured at 120s through MCP, and tonight demonstrated that distinction is real, not theoretical: the completion-claim gate's first query shape ran fine at 120s and returned "canceling statement due to statement timeout" on its first live run. Foam OH cursors sit at 2026-04-09 since 2026-06-28; the stuck window is 2026-02-28..2026-04-08; the largest single-day geo payload on record is 15,587 rows, which at chunk size 1000 is 16 statements. Run it through /api/cron/drain scoped to the client with the CRON_SECRET bearer against a local dev server on the prod DB — the house pattern, because that path is subject to the real 8s ceiling. **HARD STOP on any statement timeout: name the chunk size that failed and do NOT lower it silently.** **THEN, IN ORDER (this is the ranked order; LORAMER_QUEUE_OF_RECORD.md owns the detail and it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** **(2) GA4 SUB-MONTH RECOVERY** — Foam OH's remaining 30 months, 2023-07-01..2025-12-31. 2023-07 HUNG past the 300s lambda on a bare calendar month, and `/api/backfill/ga-dimensional-recover` writes ONE upsert at the END of its window, so a lambda kill is ATOMIC-NOTHING (verified: zero 2023-07 rows after the hang). It needs a SMALLER WINDOW, not a retry — ★GA-RECOVER-SUBMONTH-WINDOW. **(3) THE rangeLap PROBE THAT GATES FLIGHT B** — ONE GAQL call, one month, one grain, on a client whose walk returned nothing at breakdown grain while serving account grain (Glenn Stearns or BusyBee). It answers whether re-walking recovers ANYTHING before any fleet spend; rangeLap has no empty-window detector, so it demonstrably asked and got nothing, and WHY is unverified. Do not start Flight B without it — ★RANGELAP-CLAIM-DEFECT. **(4) Influential Drones 5bb9b2ff + My Vacation Network GA4 recovery** — flags cleared 2026-07-30 01:41Z, recovery NOT started. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT, ELEVEN COMMITS LATER**: `src/lib/backfill/forward-widen-breadth.ts` (untracked, 2,775 bytes) + the `src/app/api/cron/sync/route.ts` wiring (modified, 133 insertions / 91 deletions, 67,870 bytes). Byte counts and mtimes verified unchanged after every commit tonight. Its three shipping preconditions are unchanged and are stated in the demoted 07-27 opener directly below — read them there rather than re-deriving.
+▶▶ NEXT STEP — 2026-07-31 SESSION WRAP (latest — resume HERE). ⛔ **GO TO THE `╔═══ TIMED ITEMS` BLOCK AT THE VERY TOP OF THIS FILE FIRST. It owns the morning, and every live value in it is written as a READ rather than a number, deliberately.** THE ORDER, and the clock is the reason it is this order and not a preference: **(1) 08:03:57Z the Google developer-scope quota resets** — clock-based, no manual clear; read the sentinel, never the date in a doc. Note that `/api/cron/drain?platform=google` runs `*/5 * * * *` and so reaches Google at 08:05, THREE MINUTES BEFORE the 08:08 forward sync — forward is protected by `googleForwardReserveDecision`, by CODE, not by the schedule. **(2) 08:08Z the google forward run** — the FIRST UNCAPPED SEARCH-TERM PULL; Bath Fitter's tail survives a forward run for the first time, and this is the run that makes Gate-B checks 2 and 3 verifiable (from the 7-DAY error clusters, never the 1-hour runtime logs). **(3) 08:09Z then 08:19Z catchup** — the slice-1 config writer self-verifies across two passes: pass one all `first_observation`, pass two ZERO new rows. ⛔ `capture_pass_log` rows with `facts_examined > 0` beside an EMPTY `entity_state_history` mean "ran, nothing changed" — NOT a broken writer. **(4) ~11:00Z THE GEO LAP, the ranked head** — it cannot start until the forward reserve releases at reset+180m, and it is the DRAIN lane, so it draws on RANKED_RESERVE and not on catchup's allocation; read `getGoogleOpBudget('drain').remaining` rather than any number written down. **(5) Gate-B** — checks 1 and 4 PASSED 2026-07-31 from durable data; 2 and 3 are all that remain. **(6) the first scheduled catchup after 08:00 also proves the connection ledger in the CRON lane** — the manual lane already proved it, `cron_runs` id 5065, attempted 9 = ok 7 + errored 0 + skipped 2, against id 5062 the night before reading ok 9 / skipped 0 on the same nine connections. **THEN THE NEXT BUILD, and it is already written out verbatim in the timed-items block ready to paste: ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT** — no Google quota, does not touch cron/sync, blast radius measured at zero, and a precondition for ★WIRE-COVERAGE-INSTRUMENT. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT** — `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified); md5 verified byte-identical after every commit and build this session. **It now owes SIX preconditions (a)–(f), not five** — (f) is the cron/sync half of the connection-outcome ledger. QUEUE owns all six; they are not restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
+- (2026-07-29/30 opener — HISTORY, superseded by the 2026-07-31 wrap below. Kept because its Google-geo framing and the held-widen byte counts are still exactly true. ⚠ ITS SENTINEL DATE IS THE STALE-LIVE-STATE PRECEDENT: it says "armed until 2026-07-30T08:03:57Z", which was true when typed and wrong by morning.) 2026-07-29/30 ALL-NIGHT SESSION WRAP (latest — resume HERE). **START WITH THE GOOGLE GEO LIVE LAP — ★GOOGLE-GEO-STATEMENT-TIMEOUTS, Flight 1 Gate-A(d). It is ranked FIRST and the ranking is the instruction.** It is TIME-GATED: the `__google_quota` sentinel is armed until **2026-07-30T08:03:57Z** and auto-resumes by clock (the elapsed-window branch in google-quota-store.ts; no manual clear). Until then every Google capture lane no-ops through `holdGoogleWork`, so dispatching earlier proves NOTHING — it returns clean having done nothing, which is the worst outcome for a flight that exists to measure. **WHY IT IS FIRST: two GOLDEN clients are losing a day per day — Foam OH AND Veterinary mastermind — and LORAMER_METRICS_UPSERT_CHUNKED_V1 (31f0dac, shipped 07-29 morning) is STILL UNPROVEN against the live 8s PostgREST ceiling.** It has only ever been measured at 120s through MCP, and tonight demonstrated that distinction is real, not theoretical: the completion-claim gate's first query shape ran fine at 120s and returned "canceling statement due to statement timeout" on its first live run. Foam OH cursors sit at 2026-04-09 since 2026-06-28; the stuck window is 2026-02-28..2026-04-08; the largest single-day geo payload on record is 15,587 rows, which at chunk size 1000 is 16 statements. Run it through /api/cron/drain scoped to the client with the CRON_SECRET bearer against a local dev server on the prod DB — the house pattern, because that path is subject to the real 8s ceiling. **HARD STOP on any statement timeout: name the chunk size that failed and do NOT lower it silently.** **THEN, IN ORDER (this is the ranked order; LORAMER_QUEUE_OF_RECORD.md owns the detail and it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** **(2) GA4 SUB-MONTH RECOVERY** — Foam OH's remaining 30 months, 2023-07-01..2025-12-31. 2023-07 HUNG past the 300s lambda on a bare calendar month, and `/api/backfill/ga-dimensional-recover` writes ONE upsert at the END of its window, so a lambda kill is ATOMIC-NOTHING (verified: zero 2023-07 rows after the hang). It needs a SMALLER WINDOW, not a retry — ★GA-RECOVER-SUBMONTH-WINDOW. **(3) THE rangeLap PROBE THAT GATES FLIGHT B** — ONE GAQL call, one month, one grain, on a client whose walk returned nothing at breakdown grain while serving account grain (Glenn Stearns or BusyBee). It answers whether re-walking recovers ANYTHING before any fleet spend; rangeLap has no empty-window detector, so it demonstrably asked and got nothing, and WHY is unverified. Do not start Flight B without it — ★RANGELAP-CLAIM-DEFECT. **(4) Influential Drones 5bb9b2ff + My Vacation Network GA4 recovery** — flags cleared 2026-07-30 01:41Z, recovery NOT started. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT, ELEVEN COMMITS LATER**: `src/lib/backfill/forward-widen-breadth.ts` (untracked, 2,775 bytes) + the `src/app/api/cron/sync/route.ts` wiring (modified, 133 insertions / 91 deletions, 67,870 bytes). Byte counts and mtimes verified unchanged after every commit tonight. Its three shipping preconditions are unchanged and are stated in the demoted 07-27 opener directly below — read them there rather than re-deriving.
 - (2026-07-26 opener — HISTORY, superseded by the 2026-07-27 wrap below. Its head item, the HELD Google Tier-1 widen, is NOT dropped: it is ranked #2 in the QUEUE's NEXT-SESSION RANKED ORDER, behind the T2 matrix, on Russ's 2026-07-27 instruction.) 2026-07-26 SESSION WRAP (latest — resume HERE). **★RESTATEMENT-SWEEP-FLEET — the HELD Google Tier-1 breadth widen dry-run remains the ranking head; run it FIRST, after the 2026-07-27T08:03:57Z quota reset.** DEPARTURE FROM RANKING: on 2026-07-26 this item was BLOCKED by its own precondition — the developer-scope Google quota was fully exhausted at 11:26:15Z with retry-after 2026-07-27T08:03:57Z, so the dry-run could not have issued a single usable call, and a live chat-honesty regression took the session instead (two slices shipped: the server now owns the assistant turn, and the client no longer claims an answer was lost); the widen was not deprioritised and nothing about it changed. WHAT IS HELD, unchanged: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified) — authored, Gate-A green, deliberately UNCOMMITTED on Russ's hold pending the dry-run proof. Do the dry-run FIRST; do not commit before it proves. BEFORE SPENDING ANY QUOTA re-read the abort report: the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. AFTER THAT, in order: FULL-SCREEN MOBILE LORA (Russ is speccing it separately; it rebuilds ChatLauncher's container, which is why slices 1-2 were kept to logic and copy) · then ★LORA-MEMORY-OLDEST-500. BUILD ORDER + external status are owned by the QUEUE and DECISIONS and are NOT restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
 
 ▶ RUSS ACTION LIST (ranked — human-gated, nothing here is code Claude can do):
