@@ -80,6 +80,9 @@ const GUARDS = [
   'tests/guards/breakdown-registry-drift.guard.mjs',
   'tests/guards/digest-queue-coverage.guard.mjs',
   'tests/guards/docs-queue-coverage.guard.mjs',
+  // LORAMER_DECISION_TOPIC_INDEX_V1 — §L must be GENERATED (recompute + diff), must agree with §H on every
+  // token's status, and must keep reporting its own untokened backlog.
+  'tests/guards/decision-topic-index.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

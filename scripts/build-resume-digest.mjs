@@ -189,6 +189,11 @@ const statusIsDone = (block) => {
   const kws = [...window.matchAll(/\b(open(?:-watch)?|partial|blocked|decision-pending|deferred|banked|parked|mostly-closed|proposed|standing|resolved|done|closed)\b/gi)]
   return kws.length ? /^(resolved|done|closed)$/i.test(kws[kws.length - 1][1]) : false
 }
+// LORAMER_DECISION_TOPIC_INDEX_V1 — the walk is now SHARED. §H and §L are produced from the SAME pass over the
+// same blocks with the SAME statusIsDone, so the index and the open-queue list CANNOT disagree about an item's
+// status. That is the generate-don't-guard principle applied to a second consumer: two readers of one walk can
+// drift only if there are two walks.
+const allQueueItems = []   // { header, block, isOpen }
 const openHeaders = []
 for (let hdr = 0; hdr < qLines.length; hdr++) {
   if (!isItemStart(qLines[hdr])) continue
@@ -202,6 +207,7 @@ for (let hdr = 0; hdr < qLines.length; hdr++) {
   }
   const headerIdx = hdr
   hdr = end - 1
+  const __rec = (isOpen) => allQueueItems.push({ header: qLines[headerIdx], block, isOpen })
   if (headerIdx >= doneMarker && headerIdx < appendixEnd) continue                 // skip the DONE appendix blob
   // LORAMER_DIGEST_H_FILLQUEUE_V1 — done-detection is SPLIT BY ITEM SHAPE, and the split is load-bearing.
   // "- " bullets keep the ORIGINAL narrow (RESOLVED|FIXED|DONE) test, anywhere in the line. Widening THAT
@@ -215,7 +221,7 @@ for (let hdr = 0; hdr < qLines.length; hdr++) {
   const isFill = FILL_ENTRY.test(qLines[headerIdx].trimStart())
   const fillDone = isFill && /^[A-Z]{1,3}-FILL\S*(\s+\S+)?\s+✅\s*(SHIPPED|DONE|COMPLETE|CLOSED|RESOLVED|FIXED|APPLIED)\b/i.test(qLines[headerIdx].trimStart())
   const bulletDone = !isFill && /✅\s*(RESOLVED|FIXED|DONE)\b/i.test(qLines[headerIdx])
-  if (fillDone || bulletDone || /^-\s*\[x\]/i.test(qLines[headerIdx])) continue
+  if (fillDone || bulletDone || /^-\s*\[x\]/i.test(qLines[headerIdx])) { __rec(false); continue }
   // LORAMER_DIGEST_H_FILLQUEUE_V1 — TRACKED = CARRIES A TAG. This replaces `if (!INCLUDE_RE.test(...)) continue`,
   // which required the queue's "src: … open [TAG]" prose convention and SILENTLY DROPPED any tagged item that
   // did not happen to use it (an entry ending "…no exceptions. [LC]" read as untracked and vanished). Absence
@@ -224,13 +230,100 @@ for (let hdr = 0; hdr < qLines.length; hdr++) {
   // done-checks below do the excluding. INCLUDE_RE is retained only as the fallback signal for legacy
   // untagged-but-tracked lines.
   const blockText = block.join('\n')
-  if (!TAG.test(blockText) && !INCLUDE_RE.test(blockText)) continue                // genuinely untracked prose
-  if (statusIsDone(block)) continue                                               // terminal tag says done → exclude
+  if (!TAG.test(blockText) && !INCLUDE_RE.test(blockText)) { __rec(false); continue } // genuinely untracked prose
+  if (statusIsDone(block)) { __rec(false); continue }                              // terminal tag says done → exclude
+  __rec(true)
   openHeaders.push(qLines[headerIdx])
 }
 const openItems = must('H open-queue', openHeaders.join('\n'))
 
 // ── I. lessons index ──
+
+// ── L. DECISION-TOPIC INDEX ────────────────────────────────────────────────────────────────────────────
+// LORAMER_DECISION_TOPIC_INDEX_V1 — GENERATED, NEVER HAND-MAINTAINED.
+//
+// WHY IT EXISTS, from the 2026-07-31 precedent: FOUR topics were discussed as though open when all four were
+// already decided or built — the readiness meter (shipped 07-13), the two-class document rule, variant/SKU
+// grain, and the in-app nudge layer. ESSENCE law 7 (the CLAIM-OF-NOVELTY GATE) exists precisely to stop that
+// and did NOT fire, because it is a rule about BEHAVIOUR and rules about behaviour are the ones that fail.
+// RULE-HOME LAW: a rule broken more than once needs an ENFORCER. This is the mechanical version of law 7.
+//
+// ⛔ KEYED ON THE ★TOKEN AND THE LORAMER_*_V* MARKER, NOT ON FREE-TEXT TOPICS. Free text needs the good search
+// term this index exists to remove the dependence on. Both markers already exist, are unique, and are already
+// how entries cross-reference each other.
+//
+// ⛔ STATUS COMES FROM THE SAME WALK AND THE SAME statusIsDone AS §H (allQueueItems above), so the index and
+// the open-queue list cannot disagree. Two readers of one walk drift only if there are two walks.
+const TOKEN_RE = /(★[A-Z0-9][A-Z0-9._-]*[A-Z0-9]|LORAMER_[A-Z0-9_]*_V\d+)/g
+const DATE_RE = /(\d{4}-\d{2}-\d{2})/g
+const tokensIn = (t) => [...new Set((t.match(TOKEN_RE) || []).map((x) => x.replace(/[.,;:]+$/, '')))]
+const latestDate = (t) => { const d = (t.match(DATE_RE) || []).sort(); return d.length ? d[d.length - 1] : null }
+
+const idx = new Map() // token -> { decisions:n, queue:n, open:bool, done:bool, last:string|null }
+const bump = (tok, where, extra = {}) => {
+  const e = idx.get(tok) || { decisions: 0, queue: 0, open: false, done: false, last: null }
+  e[where] += 1
+  if (extra.open) e.open = true
+  if (extra.done) e.done = true
+  if (extra.last && (!e.last || extra.last > e.last)) e.last = extra.last
+  idx.set(tok, e)
+}
+
+// DECISIONS: one entry per "do not relitigate" line (the same set §G indexes).
+const decisionEntries = decisions.split('\n').filter((l) => /\|\s*do not relitigate/i.test(l))
+let decisionsUntokened = 0
+const decisionsUntokenedSamples = []
+for (const line of decisionEntries) {
+  const toks = tokensIn(line)
+  if (!toks.length) { decisionsUntokened++; if (decisionsUntokenedSamples.length < 6) decisionsUntokenedSamples.push(line.slice(0, 96)); continue }
+  for (const t of toks) bump(t, 'decisions', { last: latestDate(line) })
+}
+
+// QUEUE: every item from the shared walk, with its real status.
+let queueUntokened = 0
+const queueUntokenedSamples = []
+for (const it of allQueueItems) {
+  const text = [it.header, ...it.block].join('\n')
+  const toks = tokensIn(text)
+  if (!toks.length) { queueUntokened++; if (queueUntokenedSamples.length < 6) queueUntokenedSamples.push(it.header.trim().slice(0, 96)); continue }
+  for (const t of toks) bump(t, 'queue', { open: it.isOpen, done: !it.isOpen, last: latestDate(text) })
+}
+
+const tokens = [...idx.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+const both = tokens.filter(([, e]) => e.decisions > 0 && e.queue > 0)
+const onlyDecisions = tokens.filter(([, e]) => e.decisions > 0 && e.queue === 0)
+const onlyQueue = tokens.filter(([, e]) => e.queue > 0 && e.decisions === 0)
+const statusOf = (e) => (e.queue === 0 ? 'DECIDED' : e.open ? 'OPEN' : 'DONE')
+const indexLines = tokens.map(([t, e]) =>
+  `- ${t} — ${statusOf(e)} · decisions ${e.decisions} · queue ${e.queue}${e.last ? ` · last ${e.last}` : ''}`)
+
+const topicIndex = [
+  `HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SECTION for the ★token or`,
+  `LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is`,
+  `ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided`,
+  `topics were discussed as open while it was in force.`,
+  `TOTALS: ${tokens.length} tokens indexed · ${both.length} resolve to BOTH a decision and a queue item ·`,
+  `${onlyDecisions.length} decision-only · ${onlyQueue.length} queue-only.`,
+  `⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: ${decisionsUntokened} DECISIONS entries and`,
+  `${queueUntokened} QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision`,
+  `is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —`,
+  ...decisionsUntokenedSamples.map((x) => `  · [decision] ${x}…`),
+  ...queueUntokenedSamples.map((x) => `  · [queue] ${x}…`),
+  ``,
+  ...indexLines,
+].join('\n')
+
+// --print-index: emit ONLY this section and exit, so a guard can recompute and diff it without writing the
+// digest. Recomputing into a scratch buffer is how a hand-edit and a stale section are caught by one check.
+// ⛔ writeSync TO FD 1, NOT process.stdout.write — and NOT because of style. When stdout is a PIPE (which is
+// exactly how the guard consumes this, via spawnSync), process.stdout.write is ASYNCHRONOUS, and process.exit()
+// terminates before the buffer drains: the 36,448-byte section arrived as 7,617 bytes, silently. It looked
+// correct in every hand-check because a terminal and a `>` redirect are both synchronous — the truncation
+// appears ONLY under the machine consumer. A truncated index that still parses is the silent-truncation class
+// this repo keeps banking: the reader sees a well-formed section and cannot tell it is missing four fifths of
+// its rows. Caught by the guard on its first real run, which is the argument for the guard.
+if (process.argv.includes('--print-index')) { fs.writeSync(1, topicIndex + '\n'); process.exit(0) }
+
 const lessons = must('I lessons', fenceSection(decisions, 'LESSONS 1–'))
 
 const out = `# LORAMER_RESUME_DIGEST.md — full-context session resume (REGENERATED — DO NOT HAND-EDIT)
@@ -281,8 +374,8 @@ ${openItems}
 ${lessons}
 
 ## J. MACHINES / STACK / HOW TO USE THIS DIGEST
-- Machines: iMac ~/Downloads/cotemedia-ads-manager · MacBook Air ~/Downloads/cotemedia-google-ads-manager (folder names differ BY DESIGN). Stack: Next.js 14 App Router + TS + Tailwind, Supabase (Postgres), NextAuth (Google OAuth), Anthropic (claude-haiku-4-5 insight / claude-sonnet-4-6 chat, prompt caching), Vercel auto-deploy on push to main. (full: LORAMER_HANDOFF.md → Tech stack + MACHINES & ENV STATE)
-- HOW TO USE: run the section-A freshness gate. FRESH → read this file IN FULL, restate the section-G decisions + section-H queue items relevant to the task (RESTATE-TO-PROVE), state the section-E NEXT STEP, WAIT for Russ's "go". STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
+- Machines: iMac ~/Downloads/cotemedia-ads-manager · MacBook Air ~/Downloads/cotemedia-google-ads-manager (folder names differ BY DESIGN). Stack: Next.js 14 App Router + TS + Tailwind, Supabase (Postgres), NextAuth (Google OAuth), Anthropic (model ids OWNED BY THE CODE — LORA_CHAT_MODEL / LORA_INSIGHT_MODEL defaults in chat/insight route.ts; NOT restated here, this line carried two stale ids), Vercel auto-deploy on push to main. (full: LORAMER_HANDOFF.md → Tech stack + MACHINES & ENV STATE)
+- HOW TO USE: run the section-A freshness gate. FRESH → read this file IN FULL, restate the section-G decisions + section-H queue items relevant to the task (RESTATE-TO-PROVE), state the section-E NEXT STEP, WAIT for Russ's "go". Before calling anything NEW, grep §L (the token index). STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
 
 ## K. GATED REFERENCE DOCS (hash-guarded in §A; read on-demand — they can't silently rot)
 These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their hashes are stamped in §A). They are NOT embedded here (the digest stays lean = ONE paste); open them when the task needs them — the gate guarantees they are current, and a change to any of them WITHOUT a manifest re-stamp turns §A RED on the next resume:
@@ -291,10 +384,13 @@ These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their has
 - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md — the T3b creative/asset + asset-combination-attribution SCOPE (post-launch FLAGSHIP; per-platform serve+ceilings, new-table shapes, the per-combination MODELING-layer requirement, the 4 opening decision-forks).
 - docs/LORAMER_SECURITY_POSTURE.md — the 2026-06-29 security MAP (route-auth gate classes, secrets/blast-radius, plaintext token storage, tenant isolation, RLS-is-inert reality, the GAP LIST = 4 launch-critical + 7 fast-follow). The 4 launch-critical fixes are the next security build flight (NOT applied yet).
 
+## L. DECISION-TOPIC INDEX — token → where it was decided and whether it is open  (GENERATED from DECISIONS + QUEUE)
+${topicIndex}
+
 --- end of digest · regenerate with: node scripts/build-resume-digest.mjs ---
 `
 
 fs.writeFileSync(path.join(ROOT, 'LORAMER_RESUME_DIGEST.md'), out)
 const lineCount = out.split('\n').length - 1
 console.log(`[build-resume-digest] wrote LORAMER_RESUME_DIGEST.md — ${lineCount} lines, built from HEAD ${head.slice(0, 7)}`)
-console.log(`[build-resume-digest] sections: A freshness · B role-contract · C governing-law · D operating-rules · E next-step · F date-gated · G settled-decisions(${settled.split('\n').length}) · H open-queue(${openItems.split('\n').length}) · I lessons · J machines/how-to`)
+console.log(`[build-resume-digest] sections: A freshness · B role-contract · C governing-law · D operating-rules · E next-step · F date-gated · G settled-decisions(${settled.split('\n').length}) · H open-queue(${openItems.split('\n').length}) · I lessons · J machines/how-to · L topic-index(${tokens.length} tokens, ${decisionsUntokened + queueUntokened} untokened)`)
