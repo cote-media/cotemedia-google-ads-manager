@@ -70,6 +70,9 @@ const GUARDS = [
   // LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — the breakdown-grain verdict must REACH Lora, CHANGE what she is told
   // to say, and stay off query_metrics and the per-turn path.
   'tests/guards/breakdown-coverage-wired.guard.mjs',
+  // LORAMER_DOC_OWNERSHIP_GUARD_V1 — a doc may POINT at a fact, never STATE a value another source owns.
+  // Hermetic half only (model ids, version pins, file facts); the DB half is in check:data.
+  'tests/guards/doc-ownership.guard.mjs',
   'tests/guards/connection-outcome-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "mcp": "node mcp-server.js",
-    "check:data": "node scripts/check-capture-landing.mjs --invariant-only --guard; A=$?; node scripts/check-frozen-cursors.mjs --guard; B=$?; node tests/guards/canonical-client-identity.guard.mjs --db; C=$?; node scripts/breakdown-reachability-check.mjs --gate; D=$?; node scripts/check-completion-claims.mjs --guard; E=$?; W=$A; for v in $B $C $D $E; do [ $v -gt $W ] && W=$v; done; exit $W",
+    "check:data": "node scripts/check-capture-landing.mjs --invariant-only --guard; A=$?; node scripts/check-frozen-cursors.mjs --guard; B=$?; node tests/guards/canonical-client-identity.guard.mjs --db; C=$?; node scripts/breakdown-reachability-check.mjs --gate; D=$?; node scripts/check-completion-claims.mjs --guard; E=$?; node scripts/check-doc-ownership-data.mjs; F=$?; W=$A; for v in $B $C $D $E $F; do [ $v -gt $W ] && W=$v; done; exit $W",
     "prepush": "npm run build && npm run check:data",
     "evals": "node tests/lora-evals/run-evals.mjs",
     "stripe:sync": "node scripts/stripe-sync-products.mjs",
