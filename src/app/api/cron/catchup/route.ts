@@ -34,6 +34,7 @@ import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrai
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
 import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { getValidShopifyToken } from '@/lib/shopify-token'
+import { createConnectionLedger, type OutcomeTally } from '@/lib/cron-connection-outcome' // LORAMER_CONNECTION_OUTCOME_LEDGER_V1
 import { getValidGaToken } from '@/lib/ga-token'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_DELETE_CLIENT_V1 slice 2 — restore gap-fill honors the SAME Google quota guard as the drain
@@ -299,9 +300,17 @@ export async function GET(request: Request) {
     accountsWithGaps: 0,
     daysFilled: 0,
     rowsWritten: 0,
+    // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — per-platform { attempted, ok, errored, skipped }, so the skip
+    // is visible in the HTTP response too and not only in cron_runs.
+    connectionsByOutcome: {} as Record<string, OutcomeTally>,
     errors: [] as SyncError[],
   }
   const processedClientIds = new Set<string>()
+
+  // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — one entry per CONNECTION, registered where it is attempted and
+  // resolved where work completes or fails. This is what replaces `attempted - erroredConns`; see
+  // src/lib/cron-connection-outcome.ts for why subtraction produced phantom successes on all five platforms.
+  const connLedger = createConnectionLedger()
 
   // LORAMER_CRON_RUNS_SENTINEL_V1 (WS1b-1) — parse the platform gate + write started markers BEFORE
   // the clients query / heavy work; a crash or maxDuration kill leaves started rows with finished_at
@@ -331,12 +340,31 @@ export async function GET(request: Request) {
     snap: { rows: number; errs: number; gaps: number; days: number }
   ) {
     const errsForP = summary.errors.slice(snap.errs)
-    const erroredConns = new Set(errsForP.map(e => e.clientId)).size
-    const attempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — the three connection counts come from the per-CONNECTION ledger,
+    // never from arithmetic on the error list. WHAT WAS HERE:
+    //     const erroredConns = new Set(errsForP.map(e => e.clientId)).size
+    //     connectionsSucceeded: Math.max(0, attempted - erroredConns)
+    // which made success the ABSENCE of a recorded error (so every skip was a phantom success) and counted
+    // errors per CLIENT while attempted counted CONNECTIONS (so one client failing three connections added
+    // two more). errsForP CANNOT be fixed in place: SyncError is { clientId, platform, message } and carries
+    // no account identity at all, so a per-connection count is not derivable from it. The ledger is written
+    // inside the connection loops, where conn.account_id is in scope.
+    const tally = connLedger.tally(p)
+    summary.connectionsByOutcome[p] = tally
+    // Cross-check against the loop's own attempt counter. Divergence is REPORTED, never reconciled: either a
+    // connection was iterated without connLedger.begin() (ledger under-reports), or one was recorded before
+    // the loop counter incremented — which the GA path does on purpose, since a ga_tokens read that fails is
+    // still an attempted connection but happens before `summary.gaConnections += 1`. Both are worth seeing;
+    // guessing which one it is here would be the same kind of arithmetic that caused the original defect.
+    const loopAttempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    if (loopAttempted !== tally.attempted) {
+      console.warn(`[cron/catchup] ${p} attempt-count divergence: loop counter ${loopAttempted} vs ledger ${tally.attempted} (ledger: ok=${tally.ok} errored=${tally.errored} skipped=${tally.skipped}). cron_runs records the LEDGER.`)
+    }
     await finishCronRun(cronRunIds[p], {
-      connectionsAttempted: attempted,
-      connectionsErrored: erroredConns,
-      connectionsSucceeded: Math.max(0, attempted - erroredConns),
+      connectionsAttempted: tally.attempted,
+      connectionsErrored: tally.errored,
+      connectionsSucceeded: tally.ok,
+      connectionsSkipped: tally.skipped,
       accountsWithGaps: summary.accountsWithGaps - snap.gaps,
       daysFilled: summary.daysFilled - snap.days,
       rowsWritten: summary.rowsWritten - snap.rows,
@@ -377,14 +405,19 @@ export async function GET(request: Request) {
       summary.shopifyConnections += 1
       const shopDomain = conn.account_id
       const userEmail = conn.user_email || client.user_email
+      connLedger.begin('shopify', client.id, shopDomain) // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — SKIPPED until proven otherwise
 
       let fillDays: string[] = []
       try {
         fillDays = await computeFillDays(client.id, 'shopify', shopDomain, windowStart, yesterday, fillOpts)
       } catch (err) {
+        connLedger.mark('shopify', client.id, shopDomain, 'error')
         summary.errors.push({ clientId: client.id, platform: 'shopify', message: serializeCaughtError(err) })
         continue
       }
+      // Stays SKIPPED — and that is the whole fix. computeFillDays returns [] both for "no holes" and for a
+      // connection that has never captured a single row (route:169-171), and this `continue` lands before the
+      // credential call, so neither case is evidence of success.
       if (fillDays.length === 0) continue
       summary.accountsWithGaps += 1
       processedClientIds.add(client.id)
@@ -399,6 +432,7 @@ export async function GET(request: Request) {
         }
         accessToken = tokenResult.accessToken
       } catch (err) {
+        connLedger.mark('shopify', client.id, shopDomain, 'error')
         summary.errors.push({ clientId: client.id, platform: 'shopify', message: serializeCaughtError(err) })
         continue
       }
@@ -414,6 +448,7 @@ export async function GET(request: Request) {
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
+          connLedger.mark('shopify', client.id, shopDomain, 'ok') // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — work COMPLETED; this is the only thing that makes a connection a success
 
           // Shopify depth (product net + ship-to geo) — own try/catch so a depth
           // failure never drops the main row (mirrors the forward cron).
@@ -427,9 +462,11 @@ export async function GET(request: Request) {
               summary.rowsWritten += depthRows.length
             }
           } catch (depthErr) {
+            connLedger.mark('shopify', client.id, shopDomain, 'error')
             summary.errors.push({ clientId: client.id, platform: 'shopify', message: `depth ${d}: ${serializeCaughtError(depthErr)}` })
           }
         } catch (err) {
+          connLedger.mark('shopify', client.id, shopDomain, 'error')
           summary.errors.push({ clientId: client.id, platform: 'shopify', message: `${d}: ${serializeCaughtError(err)}` })
           continue
         }
@@ -453,15 +490,17 @@ export async function GET(request: Request) {
       summary.metaConnections += 1
       const accountId = conn.account_id
       const userEmail = conn.user_email || client.user_email
+      connLedger.begin('meta', client.id, accountId) // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — SKIPPED until proven otherwise
 
       let fillDays: string[] = []
       try {
         fillDays = await computeFillDays(client.id, 'meta', accountId, windowStart, yesterday, fillOpts)
       } catch (err) {
+        connLedger.mark('meta', client.id, accountId, 'error')
         summary.errors.push({ clientId: client.id, platform: 'meta', message: serializeCaughtError(err) })
         continue
       }
-      if (fillDays.length === 0) continue
+      if (fillDays.length === 0) continue // stays SKIPPED — see the shopify note; this fires before the credential call
       summary.accountsWithGaps += 1
       processedClientIds.add(client.id)
 
@@ -477,6 +516,7 @@ export async function GET(request: Request) {
         }
         accessToken = tokenRow.access_token
       } catch (err) {
+        connLedger.mark('meta', client.id, accountId, 'error')
         summary.errors.push({ clientId: client.id, platform: 'meta', message: serializeCaughtError(err) })
         continue
       }
@@ -492,6 +532,7 @@ export async function GET(request: Request) {
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
+          connLedger.mark('meta', client.id, accountId, 'ok') // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — work COMPLETED
 
           // LORAMER_META_BREADTH_FORWARD_V1 — the 10 Meta breadth dims for this repaired day, so a filled hole is
           // filled at FULL grain and not just at the base row (G1: "forward covers ALL grains"). Own try/catch PER DIM
@@ -506,15 +547,18 @@ export async function GET(request: Request) {
             try {
               const { status, body } = await dim.run(client.id, d, d, {})
               if (status !== 200) {
+                connLedger.mark('meta', client.id, accountId, 'error')
                 summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: writer status ${status} — ${JSON.stringify(body)}` })
                 continue
               }
               summary.rowsWritten += Number(body?.written ?? 0)
             } catch (dimErr) {
+              connLedger.mark('meta', client.id, accountId, 'error')
               summary.errors.push({ clientId: client.id, platform: 'meta', message: `${dim.key} ${d}: ${serializeCaughtError(dimErr)}` })
             }
           }
         } catch (err) {
+          connLedger.mark('meta', client.id, accountId, 'error')
           summary.errors.push({ clientId: client.id, platform: 'meta', message: `${d}: ${serializeCaughtError(err)}` })
           continue
         }
@@ -538,6 +582,7 @@ export async function GET(request: Request) {
       summary.googleConnections += 1
       const customerId = conn.account_id
       const userEmail = conn.user_email || client.user_email
+      connLedger.begin('google', client.id, customerId) // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — SKIPPED until proven otherwise
 
       let fillDays: string[] = []
       try {
@@ -548,9 +593,13 @@ export async function GET(request: Request) {
         // the proactive allocation (catchup's share of today's 15k, reserve untouchable). Either one holds.
         fillDays = (googleQuotaPaused || googleBudgetHold) ? [] : await computeFillDays(client.id, 'google', customerId, windowStart, yesterday, fillOpts) // LORAMER_DELETE_CLIENT_V1 slice 2 — honor the google quota pause
       } catch (err) {
+        connLedger.mark('google', client.id, customerId, 'error')
         summary.errors.push({ clientId: client.id, platform: 'google', message: serializeCaughtError(err) })
         continue
       }
+      // Stays SKIPPED — and for google this ALSO covers the quota/budget hold above, which sets fillDays to
+      // [] deliberately. A lane declining to spend is a skip, never a success; the decline itself is recorded
+      // separately by recordLaneDeclined (LORAMER_GOOGLE_OP_BUDGET_V1).
       if (fillDays.length === 0) continue
       summary.accountsWithGaps += 1
       processedClientIds.add(client.id)
@@ -567,6 +616,7 @@ export async function GET(request: Request) {
         }
         refreshToken = tokenRow.refresh_token
       } catch (err) {
+        connLedger.mark('google', client.id, customerId, 'error')
         summary.errors.push({ clientId: client.id, platform: 'google', message: serializeCaughtError(err) })
         continue
       }
@@ -590,6 +640,7 @@ export async function GET(request: Request) {
           if (intel.fetchErrors && intel.fetchErrors.length > 0) {
             for (const fe of intel.fetchErrors) {
               console.error(`[cron/catchup] client=${client.id} platform=google ${d} DEGRADED sub-fetch ${fe.label}: ${fe.message}`)
+              connLedger.mark('google', client.id, customerId, 'error') // a partial fill is ERRORED, not a success — precedence is error > ok
               summary.errors.push({ clientId: client.id, platform: 'google', message: `google fetch ${fe.label} ${d}: ${fe.message}` })
             }
           }
@@ -619,6 +670,7 @@ export async function GET(request: Request) {
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
+          connLedger.mark('google', client.id, customerId, 'ok') // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — work COMPLETED
 
           // Google dimensional (search terms + keywords) — own try/catch, permanent-loss
           // data, mirrors the forward cron's sub-capture.
@@ -633,6 +685,7 @@ export async function GET(request: Request) {
               summary.rowsWritten += dimRows.length
             }
           } catch (dimErr) {
+            connLedger.mark('google', client.id, customerId, 'error')
             summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional ${d}: ${serializeCaughtError(dimErr)}` })
           }
 
@@ -649,6 +702,7 @@ export async function GET(request: Request) {
               }
             }
           } catch (devErr) {
+            connLedger.mark('google', client.id, customerId, 'error')
             summary.errors.push({ clientId: client.id, platform: 'google', message: `device ${d}: ${serializeCaughtError(devErr)}` })
           }
 
@@ -668,6 +722,7 @@ export async function GET(request: Request) {
               summary.rowsWritten += t0Rows.length
             }
           } catch (t0Err) {
+            connLedger.mark('google', client.id, customerId, 'error')
             summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS ${d}: ${serializeCaughtError(t0Err)}` })
           }
 
@@ -687,6 +742,7 @@ export async function GET(request: Request) {
                 }
               }
             } catch (geoErr) {
+              connLedger.mark('google', client.id, customerId, 'error')
               summary.errors.push({ clientId: client.id, platform: 'google', message: `${famLabel} ${d}: ${serializeCaughtError(geoErr)}` })
             }
           }
@@ -704,6 +760,7 @@ export async function GET(request: Request) {
               }
             }
           } catch (hourErr) {
+            connLedger.mark('google', client.id, customerId, 'error')
             summary.errors.push({ clientId: client.id, platform: 'google', message: `hour ${d}: ${serializeCaughtError(hourErr)}` })
           }
 
@@ -724,9 +781,11 @@ export async function GET(request: Request) {
               }
             }
           } catch (demoErr) {
+            connLedger.mark('google', client.id, customerId, 'error')
             summary.errors.push({ clientId: client.id, platform: 'google', message: `demographic ${d}: ${serializeCaughtError(demoErr)}` })
           }
         } catch (err) {
+          connLedger.mark('google', client.id, customerId, 'error')
           summary.errors.push({ clientId: client.id, platform: 'google', message: `${d}: ${serializeCaughtError(err)}` })
           continue
         }
@@ -749,6 +808,10 @@ export async function GET(request: Request) {
     for (const conn of wooConnections) {
       summary.wooConnections += 1
       const userEmail = conn.user_email || client.user_email
+      // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — keyed on the DECLARED account_id (platform_connections), not on
+      // the token's store_url that woo writes rows under: the ledger counts connections as declared, and the
+      // store_url is not even known yet at this point (the credential read below is what resolves it).
+      connLedger.begin('woocommerce', client.id, conn.account_id) // SKIPPED until proven otherwise
 
       // Woo's written account_id is the token's store_url (not conn.account_id), so read
       // the (cheap) creds first to learn store_url, then run presence against it.
@@ -769,6 +832,7 @@ export async function GET(request: Request) {
         consumerKey = tok.consumer_key
         consumerSecret = tok.consumer_secret
       } catch (err) {
+        connLedger.mark('woocommerce', client.id, conn.account_id, 'error')
         summary.errors.push({ clientId: client.id, platform: 'woocommerce', message: serializeCaughtError(err) })
         continue
       }
@@ -777,10 +841,11 @@ export async function GET(request: Request) {
       try {
         fillDays = await computeFillDays(client.id, 'woocommerce', storeUrl, windowStart, yesterday, fillOpts)
       } catch (err) {
+        connLedger.mark('woocommerce', client.id, conn.account_id, 'error')
         summary.errors.push({ clientId: client.id, platform: 'woocommerce', message: serializeCaughtError(err) })
         continue
       }
-      if (fillDays.length === 0) continue
+      if (fillDays.length === 0) continue // stays SKIPPED — see the shopify note
       summary.accountsWithGaps += 1
       processedClientIds.add(client.id)
 
@@ -800,7 +865,9 @@ export async function GET(request: Request) {
           if (metricsError) throw metricsError
           summary.rowsWritten += rows.length
           summary.daysFilled += 1
+          connLedger.mark('woocommerce', client.id, conn.account_id, 'ok') // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — work COMPLETED
         } catch (err) {
+          connLedger.mark('woocommerce', client.id, conn.account_id, 'error')
           summary.errors.push({ clientId: client.id, platform: 'woocommerce', message: `${d}: ${serializeCaughtError(err)}` })
           continue
         }
@@ -836,24 +903,32 @@ export async function GET(request: Request) {
       gaUserEmail = gaRow.user_email
       propertyId = gaRow.ga_property_id
     } catch (err) {
+      // Identity is UNRESOLVED here — the ga_tokens read is what would have produced the property id, and it
+      // failed. Still ONE attempted connection, recorded under the (unresolved) label rather than dropped.
+      connLedger.mark('ga', client.id, null, 'error')
       summary.errors.push({ clientId: client.id, platform: 'ga', message: serializeCaughtError(err) })
       continue
     }
     summary.gaConnections += 1
+    connLedger.begin('ga', client.id, propertyId) // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — SKIPPED until proven otherwise
 
     let fillDays: string[] = []
     try {
       fillDays = await computeFillDays(client.id, 'ga', propertyId, windowStart, yesterday, fillOpts)
     } catch (err) {
+      connLedger.mark('ga', client.id, propertyId, 'error')
       summary.errors.push({ clientId: client.id, platform: 'ga', message: serializeCaughtError(err) })
       continue
     }
-    if (fillDays.length === 0) continue
+    if (fillDays.length === 0) continue // stays SKIPPED — see the shopify note
     summary.accountsWithGaps += 1
     processedClientIds.add(client.id)
 
     const gaToken = await getValidGaToken(client.id, gaUserEmail)
     if (!gaToken.ok) {
+      // ⛔ THE reason==='no_token' BRANCH IS THE DEFECT IN MINIATURE: it continues WITHOUT pushing an error, so
+      // under the old subtraction it landed as a SUCCESS. It is a skip, and it now stays one.
+      connLedger.mark('ga', client.id, propertyId, gaToken.reason === 'no_token' ? 'skipped' : 'error')
       if (gaToken.reason !== 'no_token') {
         summary.errors.push({
           clientId: client.id,
@@ -882,6 +957,7 @@ export async function GET(request: Request) {
         if (metricsError) throw metricsError
         summary.rowsWritten += rows.length
         summary.daysFilled += 1
+        connLedger.mark('ga', client.id, propertyId, 'ok') // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — work COMPLETED
         // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — fill dimensional breadth for this interior-gap day too, ISOLATED (own
         // try/catch so a dimensional failure never drops the account fill already committed above).
         try {
@@ -895,6 +971,7 @@ export async function GET(request: Request) {
           console.warn(`[cron/catchup] client=${client.id} GA dimensional (non-fatal) ${d}: ${serializeCaughtError(dimErr)}`)
         }
       } catch (err) {
+        connLedger.mark('ga', client.id, propertyId, 'error')
         summary.errors.push({ clientId: client.id, platform: 'ga', message: `${d}: ${serializeCaughtError(err)}` })
         continue
       }

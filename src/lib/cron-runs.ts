@@ -72,6 +72,10 @@ export async function finishCronRun(
     connectionsAttempted?: number
     connectionsSucceeded?: number
     connectionsErrored?: number
+    // LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — the THIRD outcome. A connection that was attempted but neither
+    // completed work nor recorded an error is SKIPPED. It used to be absorbed into succeeded, because
+    // succeeded was `attempted - errored` and that arithmetic has no room for a third state.
+    connectionsSkipped?: number
     accountsWithGaps?: number | null
     daysFilled?: number | null
     rowsWritten?: number
@@ -80,19 +84,32 @@ export async function finishCronRun(
 ): Promise<void> {
   if (id == null) return
   try {
-    const { error } = await supabaseAdmin
+    const base = {
+      finished_at: new Date().toISOString(),
+      connections_attempted: fields.connectionsAttempted ?? 0,
+      connections_succeeded: fields.connectionsSucceeded ?? 0,
+      connections_errored: fields.connectionsErrored ?? 0,
+      accounts_with_gaps: fields.accountsWithGaps ?? null,
+      days_filled: fields.daysFilled ?? null,
+      rows_written: fields.rowsWritten ?? 0,
+      error_count: fields.errorCount ?? 0,
+    }
+    let { error } = await supabaseAdmin
       .from('cron_runs')
-      .update({
-        finished_at: new Date().toISOString(),
-        connections_attempted: fields.connectionsAttempted ?? 0,
-        connections_succeeded: fields.connectionsSucceeded ?? 0,
-        connections_errored: fields.connectionsErrored ?? 0,
-        accounts_with_gaps: fields.accountsWithGaps ?? null,
-        days_filled: fields.daysFilled ?? null,
-        rows_written: fields.rowsWritten ?? 0,
-        error_count: fields.errorCount ?? 0,
-      })
+      .update({ ...base, connections_skipped: fields.connectionsSkipped ?? 0 })
       .eq('id', id)
+    // ⛔ ORDERING SEATBELT (migration 050). Every push to main auto-deploys, and migrations are applied by
+    // hand — so this code can be live for a window before the column exists. PostgREST rejects the WHOLE
+    // update on an unknown column, which would stop finished_at being stamped, and an unstamped row is the
+    // silent-hole signal. A monitoring fix must not be able to cause a monitoring outage. Retry without the
+    // column, and say so at error volume: the skip count is being LOST, not defaulted to zero.
+    if (error && /connections_skipped/i.test(error.message)) {
+      console.error(
+        `[cron-runs] connections_skipped column MISSING (migration 050 not applied) — the skip count for id=${id} ` +
+        `is NOT being recorded. Stamping the rest so finished_at is not lost. skipped=${fields.connectionsSkipped ?? 0}`
+      )
+      ;({ error } = await supabaseAdmin.from('cron_runs').update(base).eq('id', id))
+    }
     if (error) console.error(`[cron-runs] finish update FAILED id=${id}:`, error.message)
   } catch (e) {
     console.error(`[cron-runs] finish update THREW id=${id}:`, e)
