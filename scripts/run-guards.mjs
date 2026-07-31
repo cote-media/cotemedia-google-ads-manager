@@ -64,6 +64,9 @@ const GUARDS = [
   'tests/guards/capture-limit-is-measured.guard.mjs',
   'tests/guards/entity-state-scd2.guard.mjs',
   'tests/guards/google-op-budget.guard.mjs',
+  // LORAMER_NO_CACHED_DB_READ_V1 — a read that gates a write, or reports live state, may never be served from
+  // Next's Data Cache. Enforced at the ONE source (supabaseAdmin) rather than across 105 route files.
+  'tests/guards/no-cached-live-state-read.guard.mjs',
   'tests/guards/connection-outcome-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
