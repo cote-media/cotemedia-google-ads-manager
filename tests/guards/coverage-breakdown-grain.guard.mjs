@@ -121,12 +121,77 @@ const days = (from, n) => {
   check(predates.state === 'predates_capture', `(v) base-grain predates_capture regressed: got '${predates.state}'.`)
 }
 
+// ── LORAMER_COVERAGE_UNKNOWN_REASON_V1 — UNKNOWN MUST SAY WHICH UNKNOWN ─────────────────────────────────────
+// (a) an UNKNOWN with no reason is a silent UNKNOWN, which is the defect: the reader cannot act on it.
+// (b) 'read_failed' and 'no_activity_in_window' must not collapse — MEASURED 2026-07-30, Foam OH meta timed out
+//     at 8,215ms against the 8s ceiling and Thought Streams meta was genuinely dormant, and the two produced the
+//     IDENTICAL detail string. One is a broken instrument, the other is a fact about the account.
+// (c) a connection that has NEVER captured must not be reported as an idle window — that asserts capture
+//     happened and found nothing, which is false.
+// (d) no UNKNOWN path may return COMPLETE. Load-bearing and restated here at the reason level.
+{
+  const days = (from, n) => { const o = []; const d = new Date(from + 'T00:00:00Z'); for (let i = 0; i < n; i++) { o.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) } return o }
+  const REASONS = ['not_connected', 'never_captured', 'no_activity_in_window', 'read_failed']
+
+  // (a) EVERY UNKNOWN carries a reason, whichever path produced it.
+  const unknowns = [
+    ['null sets', resolveBreakdownCoverage('ga', null, null)],
+    ['no denominator, facts absent', resolveBreakdownCoverage('ga', [], ['2026-01-01'])],
+    ['half-failed read', resolveBreakdownCoverage('ga', days('2026-01-01', 5), null)],
+    ['explicit read error', resolveBreakdownCoverage('ga', null, null, {}, { readError: 'canceling statement due to statement timeout' })],
+    ['not connected', resolveBreakdownCoverage('ga', [], [], {}, { connected: false, everCaptured: false })],
+    ['never captured', resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: false })],
+    ['idle window', resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })],
+  ]
+  for (const [label, v] of unknowns) {
+    check(v.verdict === 'UNKNOWN', `(a) '${label}' returned ${v.verdict}, expected UNKNOWN.`)
+    check(!!v.unknownReason, `(a) '${label}' returned UNKNOWN with NO unknownReason — a silent UNKNOWN is exactly the defect: the reader cannot tell a broken instrument from a dormant account.`)
+    check(REASONS.includes(v.unknownReason), `(a) '${label}' returned unknownReason '${v.unknownReason}', outside the declared four.`)
+    check(v.verdict !== 'COMPLETE', `(d) '${label}' returned COMPLETE from an UNKNOWN path.`)
+  }
+
+  // (b) read_failed and no_activity_in_window are DISTINCT values AND distinct text.
+  const timedOut = resolveBreakdownCoverage('ga', null, null, {}, { readError: 'canceling statement due to statement timeout' })
+  const idle = resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })
+  check(timedOut.unknownReason === 'read_failed', `(b) a read failure reported '${timedOut.unknownReason}', expected 'read_failed'.`)
+  check(idle.unknownReason === 'no_activity_in_window', `(b) a genuinely idle window reported '${idle.unknownReason}', expected 'no_activity_in_window'.`)
+  check(timedOut.unknownReason !== idle.unknownReason, `(b) a timed-out read and an idle window COLLAPSED to the same reason — the Foam OH / Thought Streams pair this exists to separate.`)
+  check(timedOut.detail !== idle.detail, `(b) a timed-out read and an idle window produced the IDENTICAL detail string, which is the pre-fix behaviour verbatim.`)
+  check(/statement timeout/.test(timedOut.detail), `(b) the RPC error text was DISCARDED — the old code checked \`error\` and threw the message away, so the one fact that identifies the failure never reached the reader.`)
+
+  // (c) never-captured must not masquerade as an idle window.
+  const never = resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: false })
+  check(never.unknownReason === 'never_captured', `(c) a connection that has NEVER captured reported '${never.unknownReason}' — reporting it as an idle window asserts that capture ran and found nothing, which is false.`)
+  const notConn = resolveBreakdownCoverage('ga', [], [], {}, { connected: false })
+  check(notConn.unknownReason === 'not_connected', `(c) an unconnected platform reported '${notConn.unknownReason}', expected 'not_connected' — there is no window for it to have activity in.`)
+  // and an UNSUPPLIED denominator must NOT be attributed to the account.
+  const unattributed = resolveBreakdownCoverage('ga', [], [])
+  check(unattributed.unknownReason === 'read_failed', `(c) with the connection denominator NOT supplied the result was attributed as '${unattributed.unknownReason}' — asserting a fact about the account that was never measured is the defect being closed.`)
+
+  // COMPLETE / PARTIAL must carry NO reason — the field is present iff UNKNOWN.
+  const complete = resolveBreakdownCoverage('ga', days('2026-01-01', 3), days('2026-01-01', 3))
+  check(complete.verdict === 'COMPLETE' && complete.unknownReason === undefined,
+    `(a) a COMPLETE verdict carried unknownReason '${complete.unknownReason}' — the field must be present if and only if the verdict is UNKNOWN.`)
+}
+
 // ── SOURCE PINS ─────────────────────────────────────────────────────────────────────────────────────────────
 const src = readFileSync(resolve(ROOT, SRC), 'utf8')
 check(/entity_level', 'account'\)\.eq\('breakdown_type', ''\)/.test(src),
   `SOURCE PIN: minMaxFor's account triple was altered. It is load-bearing for the migration-035 partial index and base grain must stay as-is.`)
 check(/BreakdownCoverageVerdict\s*=\s*'COMPLETE'\s*\|\s*'PARTIAL'\s*\|\s*'UNKNOWN'/.test(src),
   `SOURCE PIN: the three-state verdict is not COMPLETE|PARTIAL|UNKNOWN — do not invent a fourth vocabulary.`)
+// SOURCE PIN: the RPC-applied comment must not drift back to claiming it is unapplied. It said "NOT APPLIED YET"
+// for a day after 046/047 went live — a doc misstating the system it documents, in the file the reader trusts.
+check(!/THE RPC IS NOT APPLIED YET/.test(src),
+  `SOURCE PIN: coverage.ts still claims the breakdown-coverage RPC is NOT APPLIED. Migrations 046 and 047 were applied to production 2026-07-30.`)
+// SOURCE PIN: the pure resolver may not read a table. The connection denominator is passed IN.
+{
+  const i = src.indexOf('export function resolveBreakdownCoverage')
+  const j = src.indexOf('export async function getBreakdownCoverage')
+  const body = i >= 0 && j > i ? src.slice(i, j) : ''
+  check(body.length > 0 && !/supabaseAdmin/.test(body),
+    `SOURCE PIN: resolveBreakdownCoverage reads the database. It must stay PURE — the connection denominator is measured by the caller and passed in, or it cannot be driven without a DB and the booleans go untested.`)
+}
 
 rmSync(out, { recursive: true, force: true })
 

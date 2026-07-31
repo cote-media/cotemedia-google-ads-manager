@@ -164,14 +164,49 @@ export async function getCoverageForWindows(
 
 export type BreakdownCoverageVerdict = 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'
 
+// LORAMER_COVERAGE_UNKNOWN_REASON_V1 — ⛔ A DISCRIMINATOR, NOT A FOURTH STATE.
+//
+// THE VERDICT ANSWERS ONE QUESTION — "can I make a completeness claim about this window?" — and UNKNOWN is the
+// honest no. THIS answers the different question the reader needs next: WHY not. Keeping them separate is why
+// no fourth verdict is added: the three states are the quota vocabulary borrowed verbatim
+// (google-quota-store.ts:34), every future reader must handle exactly three, and a fourth would make an
+// unmeasurable window look like a distinct kind of ANSWER rather than a distinct kind of SILENCE.
+//
+// MEASURED 2026-07-30, and it is why this exists: `getBreakdownCoverage` returned UNKNOWN for Thought Streams
+// meta (genuinely dormant — correct and useful) and for Foam OH meta (the RPC TIMED OUT at 8,215ms against the
+// 8s PostgREST ceiling — "we could not measure"), with the SAME detail string. A reader cannot act on those
+// identically: one is a fact about the account, the other is a broken instrument, and paging on the pair would
+// alarm hardest exactly where the data is heaviest.
+//   'not_connected'         — no platform_connections row. There is no window to have activity in.
+//   'never_captured'        — connected, but this (client, platform) has never captured a single row, ever.
+//   'no_activity_in_window' — connected AND has captured before, but reported nothing inside THIS window.
+//                             The only one of the four that is a fact about the ACCOUNT rather than about us.
+//   'read_failed'           — we could not measure: the RPC errored, threw, returned no row, or the connection
+//                             denominator was not supplied so the emptiness cannot be attributed.
+export type BreakdownUnknownReason =
+  | 'not_connected' | 'never_captured' | 'no_activity_in_window' | 'read_failed'
+
 export type BreakdownCoverage = {
   platform: string
   verdict: BreakdownCoverageVerdict
+  // ⛔ PRESENT IF AND ONLY IF verdict === 'UNKNOWN'. A silent UNKNOWN is the defect this closes.
+  unknownReason?: BreakdownUnknownReason
   baseActiveDays: number            // days in-window where the platform DID report (sessions/spend > 0)
   breakdownDays: number             // distinct in-window days carrying at least one breakdown row
   holeDays: string[]                // base-active days with ZERO breakdown rows — the actual finding
   families: Record<string, { first: string; last: string; days: number }>
   detail: string
+}
+
+// The connection denominator. ⛔ IT DOES NOT COME FROM metrics_daily — a client that never captured has no rows
+// to be absent from, so the store cannot tell "never captured" from "captured nothing here". The declaring
+// table is clients(deleted_at IS NULL) JOIN platform_connections, which is what cron/sync itself uses to decide
+// who to capture. resolveBreakdownCoverage stays PURE, so the CALLER measures this and passes it in; the pure
+// function only classifies. `null` means NOT MEASURED and is never silently treated as false.
+export type ConnectionFacts = {
+  connected?: boolean | null
+  everCaptured?: boolean | null
+  readError?: string | null
 }
 
 // THE THREE STATES, and they are the quota vocabulary deliberately (google-quota-store.ts:34
@@ -187,14 +222,37 @@ export function resolveBreakdownCoverage(
   baseActiveDays: string[] | null,
   breakdownDays: string[] | null,
   families: Record<string, { first: string; last: string; days: number }> = {},
+  conn: ConnectionFacts = {},
 ): BreakdownCoverage {
+  const unknown = (unknownReason: BreakdownUnknownReason, detail: string, bd = 0): BreakdownCoverage =>
+    ({ platform, verdict: 'UNKNOWN', unknownReason, baseActiveDays: 0, breakdownDays: bd, holeDays: [], families, detail })
+
+  // ── read_failed FIRST, and it carries the REASON TEXT rather than discarding it. The old code checked
+  // `error` and threw the message away, so a timeout and an idle account produced the identical string.
+  if (conn.readError) {
+    return unknown('read_failed', `could not measure breakdown coverage — the read failed: ${conn.readError}. NOT a completeness claim, and NOT a statement about the account.`)
+  }
   if (baseActiveDays == null || breakdownDays == null) {
-    return { platform, verdict: 'UNKNOWN', baseActiveDays: 0, breakdownDays: 0, holeDays: [], families,
-      detail: 'could not read base or breakdown days for this window — NOT a completeness claim' }
+    return unknown('read_failed', 'could not read base or breakdown days for this window — NOT a completeness claim')
   }
   if (baseActiveDays.length === 0) {
-    return { platform, verdict: 'UNKNOWN', baseActiveDays: 0, breakdownDays: breakdownDays.length, holeDays: [], families,
-      detail: 'no base-grain activity in this window, so there is no denominator to judge breakdown coverage against' }
+    // ⛔ THE THREE-WAY SPLIT. All three of these used to return the SAME sentence — "no base-grain activity in
+    // this window" — which is FALSE for the first two: a connection that never captured anything has no
+    // activity in ANY window, and one that is not connected has no window to have activity in.
+    if (conn.connected === false) {
+      return unknown('not_connected', `${platform} is not connected for this client — there is no window for it to have activity in. This is not a gap in capture.`)
+    }
+    if (conn.connected === true && conn.everCaptured === false) {
+      return unknown('never_captured', `${platform} is connected but has NEVER captured a row for this client, in any window — so this window's emptiness says nothing about the window. Capture has not started.`)
+    }
+    if (conn.connected === true && conn.everCaptured === true) {
+      return unknown('no_activity_in_window', `${platform} is connected and has captured before, but reported no base-grain activity inside this window — there is no denominator to judge breakdown coverage against. This is a fact about the account, not about our capture.`, breakdownDays.length)
+    }
+    // ⛔ THE DENOMINATOR WAS NOT SUPPLIED, so the emptiness CANNOT BE ATTRIBUTED. Reporting
+    // 'no_activity_in_window' here is exactly the defect being closed — it asserts the connection exists and
+    // has captured before, neither of which was measured. Classified as read_failed because "we could not
+    // measure" is what actually happened, and the detail says which input was missing.
+    return unknown('read_failed', `no base-grain activity in this window AND the connection denominator was not supplied (connected=${String(conn.connected)}, everCaptured=${String(conn.everCaptured)}), so this emptiness cannot be attributed to the account or to us.`, breakdownDays.length)
   }
   const have = new Set(breakdownDays)
   const holeDays = baseActiveDays.filter((d) => !have.has(d)).sort()
@@ -211,9 +269,13 @@ export function resolveBreakdownCoverage(
 // GA breakdown rows in a single window, and pulling dates client-side to de-dup them would blow the 8s PostgREST
 // statement_timeout on exactly the biggest clients — the LORAMER_8S_CEILING_AUDIT_V1 failure mode, which returns
 // null while looking correct. So this calls an RPC, and when the RPC is absent or errors it returns UNKNOWN.
-// ⚠ THE RPC IS NOT APPLIED YET (migrations/046_breakdown_coverage_rpc.sql, authored not run — same posture as 045).
-// Until it is, every call here answers UNKNOWN, which is the safe direction and is why the fallback is UNKNOWN
-// rather than an optimistic COMPLETE.
+// ✅ MIGRATIONS 046 AND 047 ARE APPLIED TO PRODUCTION (verified 2026-07-30 — 046 the read-only RPC, 047 the
+// loose-index-scan that took Foam OH GA from 8,698ms to ~2,000ms). This comment previously said the RPC was
+// "NOT APPLIED YET, authored not run", which was true when written and wrong for a day — a doc misstating the
+// system it documents, in the file the next reader trusts. Corrected in place rather than left to rot.
+// ⚠ WHAT REMAINS TRUE: a failure here still answers UNKNOWN rather than an optimistic COMPLETE, and Foam OH
+// meta still exceeds the 8s ceiling on this RPC (★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT is why the
+// reason is now carried — that timeout must not read as an idle account).
 export async function getBreakdownCoverage(
   clientId: string,
   platform: string,
@@ -223,14 +285,50 @@ export async function getBreakdownCoverage(
     const { data, error } = await supabaseAdmin.rpc('breakdown_coverage_days', {
       p_client_id: clientId, p_platform: platform, p_start: win.startDate, p_end: win.endDate,
     })
-    if (error || !data) return resolveBreakdownCoverage(platform, null, null)
+    // ⛔ THE ERROR TEXT IS PRESERVED, NOT DISCARDED. `if (error || !data)` used to collapse a statement timeout,
+    // an absent RPC and an empty result into one silent UNKNOWN — which is how a 8,215ms timeout on the largest
+    // client read identically to a dormant one.
+    if (error) return resolveBreakdownCoverage(platform, null, null, {}, { readError: error.message })
+    if (!data) return resolveBreakdownCoverage(platform, null, null, {}, { readError: 'RPC breakdown_coverage_days returned no data' })
     const row: any = Array.isArray(data) ? data[0] : data
-    if (!row) return resolveBreakdownCoverage(platform, null, null)
+    if (!row) return resolveBreakdownCoverage(platform, null, null, {}, { readError: 'RPC breakdown_coverage_days returned an empty result set' })
     const fams: Record<string, { first: string; last: string; days: number }> = {}
     for (const f of row.families || []) fams[f.breakdown_type] = { first: f.first_date, last: f.last_date, days: f.days }
-    return resolveBreakdownCoverage(platform, row.base_active_days || [], row.breakdown_days || [], fams)
-  } catch {
-    return resolveBreakdownCoverage(platform, null, null)
+    const baseDays: string[] = row.base_active_days || []
+    // The connection denominator is measured ONLY when it can change the answer — i.e. when there is no base
+    // activity to judge against. On the COMPLETE/PARTIAL paths it is irrelevant, so this costs nothing there.
+    const conn = baseDays.length === 0 ? await readConnectionFacts(clientId, platform) : {}
+    return resolveBreakdownCoverage(platform, baseDays, row.breakdown_days || [], fams, conn)
+  } catch (e: any) {
+    return resolveBreakdownCoverage(platform, null, null, {}, { readError: `RPC breakdown_coverage_days threw: ${e?.message ?? e}` })
+  }
+}
+
+// THE DECLARING TABLE, not metrics_daily. `clients(deleted_at IS NULL) JOIN platform_connections` is what
+// cron/sync uses to decide who to capture, so it is the same denominator capture itself works from. A read
+// failure here returns nulls — NOT MEASURED — and resolveBreakdownCoverage then answers read_failed rather
+// than inventing an attribution.
+async function readConnectionFacts(clientId: string, platform: string): Promise<ConnectionFacts> {
+  try {
+    const { data: client, error: cErr } = await supabaseAdmin
+      .from('clients').select('id').eq('id', clientId).is('deleted_at', null).maybeSingle()
+    if (cErr) return { readError: `connection denominator unreadable: ${cErr.message}` }
+    if (!client) return { connected: false, everCaptured: false }
+    const { data: conn, error: pErr } = await supabaseAdmin
+      .from('platform_connections').select('client_id').eq('client_id', clientId).eq('platform', platform).maybeSingle()
+    if (pErr) return { readError: `connection denominator unreadable: ${pErr.message}` }
+    if (!conn) return { connected: false, everCaptured: false }
+    // "Ever captured" is a PRESENCE question, so it is a limit-1 existence probe on the account triple — the
+    // same predicate migration 035's partial index serves, never a count over millions of rows.
+    const { data: anyRow, error: mErr } = await supabaseAdmin
+      .from('metrics_daily').select('date')
+      .eq('client_id', clientId).eq('platform', platform)
+      .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
+      .limit(1).maybeSingle()
+    if (mErr) return { connected: true, readError: `capture-history probe unreadable: ${mErr.message}` }
+    return { connected: true, everCaptured: !!anyRow }
+  } catch (e: any) {
+    return { readError: `connection denominator threw: ${e?.message ?? e}` }
   }
 }
 
