@@ -1,4 +1,262 @@
-╔═══ TIMED ITEMS — 2026-07-31 MORNING. READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-01, mid-afternoon UTC). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+
+⛔ **EVERY LIVE VALUE IN THIS BLOCK IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS
+LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1). A clock TIME that comes from `vercel.json` is a SCHEDULE FACT and is
+stated. A date, a quota window, a cursor, a budget remaining, a row count is LIVE STATE — go and read it. A
+figure written here with a DATE and a TIME on it is TENSE-LOCKED: it is what was true at that moment, kept so
+the read has something to be compared against, and it is never the current value.
+
+⛔ **2026-08-01'S WINDOW HAS PASSED. THIS BLOCK IS WRITTEN FOR THE SESSION AFTER IT.** What follows is split
+into three parts on purpose: what STILL FIRES TODAY (2026-08-01) if a session is still running, what is STILL
+OWED from today, and what fires TOMORROW (2026-08-02). Do not read part 3 as today's plan.
+
+── PART 1 · STILL OPEN TODAY (2026-08-01), and this is the part that is easy to miss ──
+
+**THE GOOGLE QUOTA WINDOW IS OPEN RIGHT NOW AND THE FORWARD RESERVE HAS ALREADY RELEASED.** Read both before
+acting, but the arithmetic is not in doubt: the sentinel's armed window was **2026-08-01T08:03:57.422Z**
+(tense-locked, read 15:36Z), the reserve is reset + 180 minutes ≈ **11:04Z**, and both are in the past. The
+elapsed-window branch in `google-quota-store.ts` auto-resumes by CLOCK — the stored `backfill_blocked` flag
+stays `true` and `readGoogleQuotaPause()` reports `not_blocked` anyway, so DO NOT read the raw column and
+conclude Google is down. **INDEPENDENT CONFIRMATION, not an inference: the search-term probe issued 9 live
+GAQL requests at 08:58:13Z and every one of them was served** (DECISIONS
+LORAMER_GOOGLE_SEARCH_TERM_FLOOR_IS_OURS_V1). Google was answering this morning.
+  ⇒ **CONSEQUENCE: the ★GOOGLE-GEO-STATEMENT-TIMEOUTS live lap is RUNNABLE TODAY, not gone.** Its window was
+  never a 20-minute slot; `/api/cron/drain?platform=google` runs `*/5 * * * *` ALL DAY. What the ~11:00Z line
+  in yesterday's block meant is the EARLIEST it could run, not the only time.
+  READ BEFORE DRIVING IT — `getGoogleOpBudget('drain').remaining` (google-op-budget.ts). ⛔ the geo lap is the
+  DRAIN lane and draws on `RANKED_RESERVE`, not on catchup's allocation; the two constants are in the source.
+  Picking the wrong lane picks the wrong gate.
+
+── PART 2 · STILL OWED FROM TODAY — pointers to the owner, never copies (LORAMER_DOCS_SINGLE_OWNER_V1) ──
+
+  1. **★GOOGLE-GEO-STATEMENT-TIMEOUTS — the LIVE GEO LAP. Owed since 2026-07-29 morning; a fourth quota window
+     has now opened and closed without it running.** It is the QUEUE's TOP-UNBLOCKED and its Gate-A(d) proof
+     text is owned there. This is the single longest-owed item on the list and every day it waits, Foam OH and
+     Veterinary mastermind lose a recoverable day each.
+  2. **★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY — NEW TODAY, scoped only as far as the probe took it.** The research
+     question is ANSWERED and closed; the build is not started and is not yet sized against quota. QUEUE owns
+     the shape and the two-part hazard (raising the floor does nothing while 17 cursors sit sealed COMPLETE).
+  3. **THE PROGRESSION REPORT'S PROPRIETARY-DETAIL PASS — a gate on distribution, not a chore.** It has NOT
+     been done. The report must not go to anyone until it has. QUEUE ★EXTERNAL-DOCS-OUTSIDE-THE-REPO owns it,
+     including that Russ owns every redaction decision and the executor produces the marked-up list.
+  4. **★NAMES-THE-BOUNDARY-THEN-CROSSES-IT has NO CANDIDATE FIX and that is the honest status.** It is not
+     waiting on quota, a window, or a build slot — it is waiting on someone deciding what a constraint-following
+     defect is even fixed WITH. Do not let it sit in the list looking like scheduled work.
+  5. **★QUOTA-OUTAGE-INFLATES-CONNECTION-HEALTH — bounded, not urgent, but it has a 24-hour fuse.** Banked
+     today with the reason it is not ranked. Re-read the bound before deciding it can keep waiting.
+
+── PART 3 · WHAT FIRES TOMORROW (2026-08-02). SCHEDULE FACTS from `vercel.json`; the armed DATES are not. ──
+
+**1 · ~08:03:57Z — GOOGLE DEVELOPER-SCOPE QUOTA RESET.** The clock time is fixed and recurring; the armed DATE
+  is LIVE STATE. NEEDS nothing — clock-based auto-resume, no manual clear.
+  READ IT — `sync_state` where `client_id='00000000-0000-0000-0000-000000000000'` and
+  `platform='__google_quota'`; in code, `readGoogleQuotaPause()`.
+  ⛔ **STATE PLAINLY, because this is the part that keeps surprising us: `/api/cron/drain?platform=google` runs
+  `*/5 * * * *` — EVERY FIVE MINUTES, ALL DAY.** It therefore reaches Google at **08:05, three minutes BEFORE
+  the 08:08 forward sync.** The drain is FIRST IN LINE BY SCHEDULE. The only thing between it and the fresh
+  quota is `googleForwardReserveDecision` (google-forward-reserve.ts), called from exactly one place —
+  cron/drain, inside `if (!onlyClientId)`. **Forward is protected BY CODE, not by the clock.**
+
+**2 · 08:00 / 08:02 / 08:04 / 08:06 / 08:08Z — FORWARD SYNC, one platform every two minutes** (ga · woocommerce
+  · shopify · meta · google; `0-50/10`, `2-52/10`, `4-54/10`, `6-56/10`, `8-58/10`, hours 8-10).
+  **08:01 / 08:03 / 08:05 / 08:07 / 08:09Z — CATCHUP, same order** (`1-51/10` … `9-59/10`, hours 8-11).
+  **08:09-11:59Z — ORDER-GRAIN drain** (`9-59/10 8-11`).
+
+**3 · ~11:04Z — THE FORWARD RESERVE RELEASES.** reset + 180 minutes. Before it, the drain no-ops cleanly for
+  ranked work — which is the WORST outcome for a flight whose entire purpose is to measure, because it looks
+  like a run that found nothing. After it, the ranked/geo lane is drivable for the rest of the UTC day.
+
+**4 · NOTHING TIME-GATED IS SCHEDULED TO BE PROVEN TOMORROW.** Stated explicitly so the next session does not
+  invent a gate: Gate-B's four checks RAN and its window has passed (QUEUE TOP-UNBLOCKED records the
+  supersession). There is no pending morning verification. **Tomorrow's Google window exists to SPEND, not to
+  observe** — and the two things worth spending it on are Part 2 items 1 and 2, in that order.
+
+── TOMORROW OPENS WITH WORK, NOT A DECISION: paste this instruction ──
+The ranked head is ★GOOGLE-GEO-STATEMENT-TIMEOUTS and it is the same head it has been for three days. It is
+ranked first because it is the only item on the list that is BOTH already authored and actively losing
+recoverable data, and because it and ★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY draw on the same daily GAQL cap — so
+running them in one window is the thing to avoid, not a way to save a day. Verbatim, ready to paste:
+
+<<<START>>>
+DRIVE THE LIVE GEO LAP — ★GOOGLE-GEO-STATEMENT-TIMEOUTS, Flight 1 Gate-A(d). This is the
+owed live proof, not a new build. Do not author anything new to run it.
+
+BEFORE ANY REQUEST, and report each as a line:
+  (a) readGoogleQuotaPause() — state 'not_blocked' or stop and say so.
+  (b) getGoogleOpBudget('drain').remaining — the DRAIN lane (RANKED_RESERVE), not catchup.
+  (c) whether the forward reserve has released (reset + 180 min).
+If any of the three says no, STOP and report. Do not drive it anyway on the grounds
+that the number looks close enough.
+
+THEN drive the drain for Foam OH 957d484e over the stuck window 2026-02-28..2026-04-08.
+
+REPORT, and every one of these is required — an omitted field is not a pass:
+  · status, wall time, rows written
+  · chunksIssued and maxChunksInOneDay
+  · GAQL request count actually issued
+  · whether backfill_earliest_date for google_geo AND google_user_geo moves below
+    2026-02-28 (both have been pinned at 2026-04-09 since 2026-06-28)
+  · if it still times out: the CHUNK SIZE THAT FAILED. Do not tune silently and
+    do not retry with a smaller chunk before reporting the one that failed.
+
+MECHANISMS THE INSTRUCTION ASSERTS (★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS — answer
+this line explicitly, VERIFIED / FALSIFIED / NOT CHECKED, before you build on any of it):
+  · that LORAMER_METRICS_UPSERT_CHUNKED_V1's chunking is what makes this window survive
+    — it has ONLY ever been measured at 120s through MCP, NEVER against the live 8s
+    PostgREST ceiling. Treat as HYPOTHESIS.
+  · that the two geo cursors are pinned at 2026-04-09 — READ them, do not assume.
+
+NO COMMIT until I have seen the numbers.
+<<<END>>>
+
+╚═══ end timed items ═══╝
+
+
+⛔ Read **LORAMER_ESSENCE.md** first, every session.
+⛔ GOVERNING LAW (LORAMER_ESSENCE.md, top): capture EVERYTHING from EVERYWHERE, store FOREVER, at FULL grain WITH history — now, not "later." The ONLY exception is a platform that genuinely doesn't serve the data. "Future/phase/scope" deferrals of any capture = a violation. Read it before proposing anything.
+⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
+
+**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
+**AUTHORITY:** The git repo is the ONLY source of truth. The Claude project-knowledge panel, background memory, and any old handoff zip/export are NOT authoritative — they lag. Act only on the live repo read THIS session (this file + REQUIRED READING + the actual code).
+
+## REQUIRED READING — ACTIVE WORKSTREAM
+Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
+
+⛔ MANDATORY REGISTERS — read IN FULL every session (the consolidated source of truth): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped, with status). Before proposing anything, restate the relevant decisions + queued items to prove you read them (per the SESSION START GATE).
+
+★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
+
+ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
+
+# CONTINUE_HERE — LoraMer
+
+## REPORT FORMAT — how Claude Code delivers everything to Russ (2026-06-09, supersedes all earlier OUT.txt wording)
+Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
+
+## REMOTE CONTROL (work from phone)
+- In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
+- On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
+- Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
+
+=== LAUNCH RITUAL (start every session this way) ===
+1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
+2. In claude.ai: say  resume loramer  → Claude outputs the DEFAULT digest fast-path paste (per RESUME_INSTRUCTIONS.md, the single source of the resume-flow wording).
+3. Paste that ONE line back into claude.ai. Claude runs the freshness gate: FRESH → reads the digest, one paste, done; STALE → falls back to the tiered read.
+4. cat every REQUIRED READING file and read it fully before acting.
+5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
+=== end launch ritual ===
+
+FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
+
+## Session log (2026-07-31 night → 2026-08-01 — THE EVAL SET, TWO RUNS, AND A FLOOR THAT WAS OURS ALL ALONG) — SHIPPED
+
+Fourteen commits. NARRATIVE only; per-item status lives in LORAMER_QUEUE_OF_RECORD.md and every settled
+decision or external fact in LORAMER_DECISIONS.md — not restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
+
+**THE SESSION HAD ONE QUESTION AND IT WAS NOT A BUILD QUESTION: is Lora actually any good, and how would we
+know?** Everything below is downstream of trying to answer that honestly rather than flatteringly.
+
+**THE EVAL SET EXISTS. IT RAN TWICE. 100 OF 100 QUESTIONS ARE ANSWERED AND MERGED — AND NO ACCURACY RATE IS
+CLAIMED, DELIBERATELY.** The set was built against a LIVE coverage read rather than from memory, which
+immediately falsified four of its own premises — three of them the same shape, classifying as a vendor WALL a
+window we actually hold. That inversion is the product thesis stated backwards: OUR FLOOR IS OLDER THAN THE
+VENDOR'S ON EVERY PLATFORM WHERE WE HAVE BEEN CAPTURING, and a vendor wall bounds BACKFILL, never what is
+already captured. 56 of the 100 questions were then repointed onto windows the coverage instrument itself
+calls COMPLETE, and 8 were SALTED at windows it calls PARTIAL — misses placed on purpose, because a set that
+can only pass proves nothing. Run 1 answered 82 (the Anthropic credit balance ran out mid-run); run 2 finished
+the remaining 18; the two were merged. The refusal to publish a rate is the point and it is recorded on the
+face of the run records: 76 of 100 have no ground truth, so their correctness axis is UNGRADED by
+construction, and a pass rate computed on the graded minority — oversampled roughly 5× above natural
+frequency — is not accuracy on 100.
+
+**THE RESULT IS TWO DEFECT CLASSES, AND KEEPING THEM APART IS THE FINDING.**
+**★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE is PLUMBING.** Thirteen boundary failures, and they are one defect,
+not thirteen: she does not invent numbers from nothing — she reports MISSING DATA AS ZERO and PARTIAL COVERAGE
+AS COMPLETE. Every enforcer we have targets the PLATFORM-level empty state; none fires on "this GRAIN does not
+exist for THIS WINDOW". It is proven in both directions, which is why it is plumbing and not reasoning: two
+questions PASSED, and they are exactly the two where a coverage signal reached her. Russ's **axis B** is the
+direction that addresses it. ⚠ That term is his and comes from outside this repo — grepped, defined nowhere
+here; QUEUE ★EXTERNAL-DOCS-OUTSIDE-THE-REPO records that rather than letting a future session guess at it.
+**★NAMES-THE-BOUNDARY-THEN-CROSSES-IT is NOT plumbing, and it has NO KNOWN MECHANICAL FIX.** Three cases from
+the ten questions run 1 never reached: the answer STATED its own limitation plainly, out loud, correctly — and
+then produced full tables built on dates it had just said were not captured. **The signal arrived, was spoken,
+and did not constrain the answer.** More plumbing cannot fix a caveat that is already there. It is also the
+more dangerous of the two, and that is not rhetoric: a present caveat makes the answer READ AS DILIGENCE, and
+every honesty enforcer we have checks whether a caveat is PRESENT, never whether it was OBEYED. Run 1's
+failures skewed FALSE_ZERO; these skew FABRICATED.
+
+**THE COVERAGE SWEEP THAT CAME OUT OF ANCHORING THE SET WAS WORTH MORE THAN THE ANCHORS.** Six findings
+banked as capture facts rather than buried in an eval commit — and then **TWO OF THEM WERE WITHDRAWN THE NEXT
+DAY BY THE TESTS THAT HAD BEEN QUEUED WITH THEM, kept with their evidence rather than deleted.** Both had the
+same cause: a 28-day completeness threshold invented for eval anchoring, read back as a coverage verdict. One
+"never complete" family was complete by the instrument's real definition; one "zero complete months" store
+was a lumpy high-value seller that can never reach 28 revenue-days however perfect capture is. What survived
+is sharper than what was withdrawn: a completeness threshold must be per-platform or a share of active days,
+never an absolute count — and the residue became ★COVERAGE-VERDICT-CANNOT-EXPRESS-LEGITIMATE-ABSENCE, the
+real finding, which the repo had already solved one layer down in the registry's SUBSET rule.
+
+**A WRONG ANSWER WITH NO WRONG DATA ANYWHERE IN IT.** ★FOAMOH-META-SECOND-ACCOUNT-NOT-CONNECTED: Russ stopped
+the connected Foam OH Meta account and a SECOND one picks up where it left off — and is not connected. Our
+store is CORRECT about the account it knows and INCOMPLETE about the client, so Lora would report Foam OH's
+Meta as dark from 2025-10: true of one account, false about the business, sourced from individually accurate
+rows. No honesty gate catches that shape. It sized ★MULTIACCOUNT-SLOT-BLOCKER against the live schema and the
+arc came back SMALLER in one place and BIGGER in another — storage does not need to change for Meta, the real
+cost is **15 writer `onConflict` sites**, the migration's own header count of 10 is STALE, **applying 043
+alone BRICKS capture fleet-wide**, and the coverage RPC is IN the arc rather than adjacent to it, because
+`dims` is DISTINCT across accounts so a second account's holes go structurally invisible the moment one is
+connected.
+
+**A RUN THAT CANNOT SAY WHAT IT COST IS AN EMPTY RESULT WITHOUT ITS DENOMINATOR** — run 1 cost $20.84 and
+took an hour of forensic SQL to establish afterwards, so the harness now records spend per question and prints
+the run total or says loudly that it could not. ⚠ **AND ITS FIRST REAL OUTPUT WAS WRONG, ONE HOUR AFTER
+SHIPPING, IN EXACTLY THE CLASS IT EXISTS TO PREVENT:** Postgres `created_at` was compared against
+`toISOString()` AS STRINGS, and they diverge at character 10 where a space sorts below `T` — so every row
+sorted before every window and half the run's spend went unattributed while ten questions printed $0.0000.
+Fixed to epoch-ms. The honest part is what the guard is now recorded as proving: that the ledger is WIRED, not
+that its attribution is CORRECT. A wiring guard cannot catch a comparison bug, and the fixture that would is
+not built.
+
+**ESSENCE LAW 9 — AN INSTRUCTION STATES THE GOAL AND THE CONSTRAINTS, NOT THE MECHANISM.** Banked because
+three instructions in one session named how the code works and all three were wrong, each costing a flight.
+The conversation layer reasons from REPORTS about the code; a report says what was examined and never what was
+not, so its picture is always a SUBSET — and writing in the voice of someone holding the whole thing turns
+that subset into a false premise the executor spends the flight disproving. The tell needs no technical
+knowledge: **if an instruction says HOW THE CODE WORKS, it is a defect.** Law 9 binds the instruction, so it
+went to ESSENCE rather than CLAUDE.md — a false mechanism is not refusable, only checkable — and
+★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS is the executor's half, a required report line naming every asserted
+mechanism as VERIFIED / FALSIFIED / NOT CHECKED, where empty is a valid answer but silence is not.
+
+**AND THE THIRD OF LAW 9'S THREE FALSE PREMISES WAS SETTLED THIS MORNING BY A PROBE THAT RAN WITH NOBODY
+WATCHING.** "The Google search-term floor is a vendor retention wall" — it is `DEFAULT_DAYS = 90` in our own
+backfill. Scheduled for 08:20:00Z, fired at **08:58:13Z**, read-only, controls first. **BOTH CONTROLS PASSED**,
+which is the only reason any empty result was readable at all — and then Google served **every single test day
+back to ~35 months**, including the sharp one, ONE DAY before our floor. The full measurement is owned by
+DECISIONS LORAMER_GOOGLE_SEARCH_TERM_FLOOR_IS_OURS_V1. ⚠ **WHAT IT DOES NOT SETTLE, stated because the script
+itself insisted on it: the ~38-month day came back EMPTY, not ERRORED — a refusal is evidence, an empty result
+is not.** The upper wall remains a lower bound consistent with the documented 37 months, not a proof of it.
+**THE COST OF HAVING BELIEVED IT: 17 client cursors sealed `backfill_complete = true` at 2026-03-14, untouched
+since the writer shipped 2026-06-12, over history Google will still serve today.** ★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY
+owns the build; the research question is closed.
+
+**TWO DOCUMENTS ABOUT THIS PROJECT NOW EXIST OUTSIDE THE REPO** — an evaluation design doc and a progression
+report. Recorded as EXISTENCE ONLY, with their content deliberately not copied in, because a copy would be a
+second source of truth for facts the registers already own. ⛔ **The progression report has NOT had its
+proprietary-detail pass and must not go to anyone until it has.** QUEUE ★EXTERNAL-DOCS-OUTSIDE-THE-REPO owns
+the gate and the fact that Russ owns every redaction call.
+
+**WHAT THE DAY DID NOT DO, said plainly: no capture code shipped, and the longest-owed item on the list did
+not move.** The live geo lap has now watched a fourth quota window open and close. That is the ranked head
+tomorrow, and it was the ranked head three days ago.
+
+## Session log (2026-07-31 morning — TIMED ITEMS, SUPERSEDED) — HISTORY
+
+⛔ **THIS IS THE 2026-07-31 TIMED-ITEMS BLOCK, DEMOTED 2026-08-01 AND KEPT VERBATIM. IT IS HISTORY, NOT A PLAN.**
+Its window has passed and the block at the top of this file supersedes it. It is retained for two reasons and
+both are still live: the HELD-WORK preconditions it lists are unchanged, and its item 1 is the standing
+explanation of why `/api/cron/drain?platform=google` reaches Google three minutes BEFORE forward sync does —
+the single fact about this schedule that has surprised the most sessions. Do NOT act on its dates.
+
+╔═══ TIMED ITEMS — 2026-07-31 MORNING ⛔ SUPERSEDED 2026-08-01 · HISTORY · DO NOT ACT ON ITS DATES ═══╗
 
 ⛔ **EVERY LIVE VALUE IN THIS BLOCK IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS
 LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1). A clock TIME that comes from `vercel.json` is a SCHEDULE FACT and is
@@ -131,42 +389,6 @@ say so and stop.
 <<<END>>>
 
 ╚═══ end timed items ═══╝
-
-⛔ Read **LORAMER_ESSENCE.md** first, every session.
-⛔ GOVERNING LAW (LORAMER_ESSENCE.md, top): capture EVERYTHING from EVERYWHERE, store FOREVER, at FULL grain WITH history — now, not "later." The ONLY exception is a platform that genuinely doesn't serve the data. "Future/phase/scope" deferrals of any capture = a violation. Read it before proposing anything.
-⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
-
-**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
-**AUTHORITY:** The git repo is the ONLY source of truth. The Claude project-knowledge panel, background memory, and any old handoff zip/export are NOT authoritative — they lag. Act only on the live repo read THIS session (this file + REQUIRED READING + the actual code).
-
-## REQUIRED READING — ACTIVE WORKSTREAM
-Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
-
-⛔ MANDATORY REGISTERS — read IN FULL every session (the consolidated source of truth): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped, with status). Before proposing anything, restate the relevant decisions + queued items to prove you read them (per the SESSION START GATE).
-
-★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
-
-ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
-
-# CONTINUE_HERE — LoraMer
-
-## REPORT FORMAT — how Claude Code delivers everything to Russ (2026-06-09, supersedes all earlier OUT.txt wording)
-Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
-
-## REMOTE CONTROL (work from phone)
-- In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
-- On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
-- Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
-
-=== LAUNCH RITUAL (start every session this way) ===
-1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
-2. In claude.ai: say  resume loramer  → Claude outputs the DEFAULT digest fast-path paste (per RESUME_INSTRUCTIONS.md, the single source of the resume-flow wording).
-3. Paste that ONE line back into claude.ai. Claude runs the freshness gate: FRESH → reads the digest, one paste, done; STALE → falls back to the tiered read.
-4. cat every REQUIRED READING file and read it fully before acting.
-5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
-=== end launch ritual ===
-
-FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
 ## Session log (2026-07-30 midday — THE GA ARC, CLOSED) — SHIPPED
 
@@ -1035,7 +1257,8 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ═══ NEXT STEP ═══
 - (2026-07-27 NIGHT opener — HISTORY, superseded 2026-07-30; demoted from `▶▶ NEXT STEP` because ★GATE-B-2026-07-28 ran and its time window passed. Kept for the HELD-WORK preconditions, which are still exactly true.) — 2026-07-27 NIGHT SESSION WRAP (latest — resume HERE). **START WITH ★GATE-B-2026-07-28 — verify last night's FOUR live-path ships against the 08:04 (shopify) and 08:08 (google) UTC cron runs, BEFORE any new build. It is ranked FIRST and the ranking is the instruction.** It ranks first for two reasons that are not preference: it is TIME-GATED (the evidence exists only in that window, and Vercel RUNTIME logs expire in 1 hour — use the pre-aggregated ERROR CLUSTERS, 7-day retention, which cracked three of this week's defects), and four production changes are UNVERIFIED until it runs. THE FOUR CHECKS, with what each should read — the full text lives in the ★GATE-B-2026-07-28 queue entry and is not restated in detail here (LORAMER_DOCS_SINGLE_OWNER_V1): **(1) Shopify depth (d86b718)** — twelve families per store non-zero, product/variant/geo unfrozen on Foam OH / Influential Drones / Escential / Cozy Foam, `shopify_order_time` cursors moved, error_count vs the baseline 23, and ZERO new 23502. **(2) Google forward counter (e9cbdb0)** — should read **17 succeeded / 17 degraded / 0 errored** (it read 0/17 for three days while writing 77,647 rows); error_count stays ~34 because those degradations are real. **(3) Readable GAQL errors (e9cbdb0)** — real strings, never `[object Object]` or `undefined [`. **(4) The quota caveat SELF-CLEARS (0b32f9f)** — the `__google_quota` window elapses at 08:03:57Z, so from 08:04 the block must vanish from Lora's prompt with NO action from anyone; if it is still rendering, the elapsed-window branch is wrong. **BASELINE, so a moving number is not a mystery: last night's final commit (57dd0fa) adds +0 to the 08:08 run** — that path has never fired on cron/sync in the 7-day window. If error_count moves beyond ~34, it is not last night's work. **THEN, in order, per LORAMER_QUEUE_OF_RECORD.md ## NEXT-SESSION RANKED ORDER (that section owns the build order; it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** the HELD Google Tier-1 breadth widen — which is BLOCKED ON GATE-B, because it needs quota headroom and the 08:08 run is what measures it, and which still needs THREE things before it can ship (see ⚠ HELD WORK below) · ★GOOGLE-QUOTA-EXHAUSTED-DAILY (answer-quality half closed last night; the exhaustion itself and the user-facing surface remain) · the banked ★ follow-ons incl. ★CONV-WINDOW-EVAL-SLICE and ★CATCHUP-COUNTER-CONFLATION (which gained a second reason last night) · the chat-UI day (research the Shopify Sidekick markdown-jank writeup BEFORE designing) · uploaded-doc hygiene as a T2 finding. **⚠ HELD WORK — STILL UNCOMMITTED AND STILL INTACT, four commits later: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified, 133 insertions / 91 deletions, verified byte-for-byte after every stash cycle last night, `npx tsc --noEmit` exit 0 on the combined tree).** It is authored and Gate-A green and it CANNOT SHIP until three things are true, none of them optional: **(a) the two missing report-honesty fixes — the dry-run must print ACTUAL quota consumption read from the meter, not an arithmetic estimate, and it must REALLY ABORT if it would breach the forward-sync reserve rather than merely warning; (b) the payload-uniformity guard extended to cover the FIVE Google breadth builders (it currently executes the five existing builders and would not see a new one — the same class of blindness as the fetch-errors guard fixed 57dd0fa); and (c) QUOTA HEADROOM to prove it in, which Gate-B measures.** Do the dry-run FIRST and do not commit before it proves; the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. **AND THE TRAP, verified in code: `?dryRun=1` DOES NOT set dryRun — the route tests `=== 'true'`, so that URL runs LIVE.** **BEFORE ANYTHING ELSE, TWO SHORT HUMAN GATES:** (1) Gate-B the mobile Lora page on device (Chrome iOS per LORAMER_GATE_B_TARGET_IS_CHROME_IOS_V1); (2) the Russ action list below — Google Standard Access is the only thing that removes the daily quota ceiling, and it is still owed a website-clarification reply.
-▶▶ NEXT STEP — 2026-07-31 SESSION WRAP (latest — resume HERE). ⛔ **GO TO THE `╔═══ TIMED ITEMS` BLOCK AT THE VERY TOP OF THIS FILE FIRST. It owns the morning, and every live value in it is written as a READ rather than a number, deliberately.** THE ORDER, and the clock is the reason it is this order and not a preference: **(1) 08:03:57Z the Google developer-scope quota resets** — clock-based, no manual clear; read the sentinel, never the date in a doc. Note that `/api/cron/drain?platform=google` runs `*/5 * * * *` and so reaches Google at 08:05, THREE MINUTES BEFORE the 08:08 forward sync — forward is protected by `googleForwardReserveDecision`, by CODE, not by the schedule. **(2) 08:08Z the google forward run** — the FIRST UNCAPPED SEARCH-TERM PULL; Bath Fitter's tail survives a forward run for the first time, and this is the run that makes Gate-B checks 2 and 3 verifiable (from the 7-DAY error clusters, never the 1-hour runtime logs). **(3) 08:09Z then 08:19Z catchup** — the slice-1 config writer self-verifies across two passes: pass one all `first_observation`, pass two ZERO new rows. ⛔ `capture_pass_log` rows with `facts_examined > 0` beside an EMPTY `entity_state_history` mean "ran, nothing changed" — NOT a broken writer. **(4) ~11:00Z THE GEO LAP, the ranked head** — it cannot start until the forward reserve releases at reset+180m, and it is the DRAIN lane, so it draws on RANKED_RESERVE and not on catchup's allocation; read `getGoogleOpBudget('drain').remaining` rather than any number written down. **(5) Gate-B** — checks 1 and 4 PASSED 2026-07-31 from durable data; 2 and 3 are all that remain. **(6) the first scheduled catchup after 08:00 also proves the connection ledger in the CRON lane** — the manual lane already proved it, `cron_runs` id 5065, attempted 9 = ok 7 + errored 0 + skipped 2, against id 5062 the night before reading ok 9 / skipped 0 on the same nine connections. **THEN THE NEXT BUILD, and it is already written out verbatim in the timed-items block ready to paste: ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT** — no Google quota, does not touch cron/sync, blast radius measured at zero, and a precondition for ★WIRE-COVERAGE-INSTRUMENT. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT** — `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified); md5 verified byte-identical after every commit and build this session. **It now owes SIX preconditions (a)–(f), not five** — (f) is the cron/sync half of the connection-outcome ledger. QUEUE owns all six; they are not restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
+- (2026-07-31 opener — HISTORY, superseded 2026-08-01; demoted from `▶▶ NEXT STEP` because every clock item in it has fired: the 08:03:57Z reset, the 08:08 forward run, both catchup passes and the ~11:00Z reserve release are all in the past, and ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT shipped as LORAMER_COVERAGE_UNKNOWN_REASON_V1. Kept because the HELD-WORK preconditions are unchanged and still exactly true.) 2026-07-31 SESSION WRAP (latest — resume HERE). ⛔ **GO TO THE `╔═══ TIMED ITEMS` BLOCK AT THE VERY TOP OF THIS FILE FIRST. It owns the morning, and every live value in it is written as a READ rather than a number, deliberately.** THE ORDER, and the clock is the reason it is this order and not a preference: **(1) 08:03:57Z the Google developer-scope quota resets** — clock-based, no manual clear; read the sentinel, never the date in a doc. Note that `/api/cron/drain?platform=google` runs `*/5 * * * *` and so reaches Google at 08:05, THREE MINUTES BEFORE the 08:08 forward sync — forward is protected by `googleForwardReserveDecision`, by CODE, not by the schedule. **(2) 08:08Z the google forward run** — the FIRST UNCAPPED SEARCH-TERM PULL; Bath Fitter's tail survives a forward run for the first time, and this is the run that makes Gate-B checks 2 and 3 verifiable (from the 7-DAY error clusters, never the 1-hour runtime logs). **(3) 08:09Z then 08:19Z catchup** — the slice-1 config writer self-verifies across two passes: pass one all `first_observation`, pass two ZERO new rows. ⛔ `capture_pass_log` rows with `facts_examined > 0` beside an EMPTY `entity_state_history` mean "ran, nothing changed" — NOT a broken writer. **(4) ~11:00Z THE GEO LAP, the ranked head** — it cannot start until the forward reserve releases at reset+180m, and it is the DRAIN lane, so it draws on RANKED_RESERVE and not on catchup's allocation; read `getGoogleOpBudget('drain').remaining` rather than any number written down. **(5) Gate-B** — checks 1 and 4 PASSED 2026-07-31 from durable data; 2 and 3 are all that remain. **(6) the first scheduled catchup after 08:00 also proves the connection ledger in the CRON lane** — the manual lane already proved it, `cron_runs` id 5065, attempted 9 = ok 7 + errored 0 + skipped 2, against id 5062 the night before reading ok 9 / skipped 0 on the same nine connections. **THEN THE NEXT BUILD, and it is already written out verbatim in the timed-items block ready to paste: ★BREAKDOWN-COVERAGE-UNKNOWN-CONFLATES-TIMEOUT** — no Google quota, does not touch cron/sync, blast radius measured at zero, and a precondition for ★WIRE-COVERAGE-INSTRUMENT. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT** — `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified); md5 verified byte-identical after every commit and build this session. **It now owes SIX preconditions (a)–(f), not five** — (f) is the cron/sync half of the connection-outcome ledger. QUEUE owns all six; they are not restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
+▶▶ NEXT STEP — 2026-08-01 SESSION WRAP (latest — resume HERE). ⛔ **GO TO THE `╔═══ TIMED ITEMS` BLOCK AT THE VERY TOP OF THIS FILE FIRST — it is written in three parts (still-open-today · still-owed · fires-tomorrow) and reading part 3 as today's plan is the mistake it is shaped to prevent.** **THE RANKED NEXT STEP IS ★GOOGLE-GEO-STATEMENT-TIMEOUTS — THE LIVE GEO LAP — AND IT HAS BEEN THE RANKED HEAD FOR THREE DAYS.** The paste-ready instruction is in the timed-items block; the Gate-A(d) proof text is owned by the QUEUE and is not restated. ⛔ **WHAT BLOCKS IT, STATED HONESTLY: NOTHING STRUCTURAL. IT HAS SIMPLY NOT BEEN RUN.** It is not waiting on a build, a decision, a migration or a human gate. What it is waiting on is a quota window it has now watched open and close FOUR times — the developer-scope cap resets ~08:03:57Z daily and the forward reserve releases at reset+180m (~11:04Z), after which `/api/cron/drain?platform=google` is drivable for the rest of the UTC day, every five minutes. ⚠ **THE ONE REAL RISK, and it is a risk and not a blocker: LORAMER_METRICS_UPSERT_CHUNKED_V1 HAS NEVER BEEN MEASURED AGAINST THE LIVE 8s PostgREST CEILING** — only at 120s through MCP — so the lap may still time out. If it does, REPORT THE CHUNK SIZE THAT FAILED; do not tune silently, and do not retry smaller before reporting. **SECOND, AND IT COMPETES FOR THE SAME CAP: ★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY.** New today, and the first item on the list whose recoverability is PROVEN rather than assumed — the 08:58:13Z probe had both controls pass and Google served every test day back to ~35 months, so `DEFAULT_DAYS = 90` is OURS (DECISIONS LORAMER_GOOGLE_SEARCH_TERM_FLOOR_IS_OURS_V1 owns the measurement). It ranks SECOND, not first, because geo's proof is already authored while this is not yet scoped past a floor constant and 17 sealed cursors — and ⛔ **RUNNING BOTH IN ONE QUOTA WINDOW IS THE THING TO AVOID, not a way to save a day.** ⚠ **★NAMES-THE-BOUNDARY-THEN-CROSSES-IT HAS NO CANDIDATE FIX AND IS NOT SCHEDULED WORK** — do not let it sit in the ranking looking like a build. ⛔ **AND ONE THING IS OWED THAT IS NOT A BUILD AT ALL: the PROGRESSION REPORT has not had its proprietary-detail pass and must not go to anyone until it has** (QUEUE ★EXTERNAL-DOCS-OUTSIDE-THE-REPO). ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT** — `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified), carried through this session's docs-only commits untouched. It owes SIX preconditions (a)–(f); the QUEUE owns all six and they are not restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
 - (2026-07-29/30 opener — HISTORY, superseded by the 2026-07-31 wrap below. Kept because its Google-geo framing and the held-widen byte counts are still exactly true. ⚠ ITS SENTINEL DATE IS THE STALE-LIVE-STATE PRECEDENT: it says "armed until 2026-07-30T08:03:57Z", which was true when typed and wrong by morning.) 2026-07-29/30 ALL-NIGHT SESSION WRAP (latest — resume HERE). **START WITH THE GOOGLE GEO LIVE LAP — ★GOOGLE-GEO-STATEMENT-TIMEOUTS, Flight 1 Gate-A(d). It is ranked FIRST and the ranking is the instruction.** It is TIME-GATED: the `__google_quota` sentinel is armed until **2026-07-30T08:03:57Z** and auto-resumes by clock (the elapsed-window branch in google-quota-store.ts; no manual clear). Until then every Google capture lane no-ops through `holdGoogleWork`, so dispatching earlier proves NOTHING — it returns clean having done nothing, which is the worst outcome for a flight that exists to measure. **WHY IT IS FIRST: two GOLDEN clients are losing a day per day — Foam OH AND Veterinary mastermind — and LORAMER_METRICS_UPSERT_CHUNKED_V1 (31f0dac, shipped 07-29 morning) is STILL UNPROVEN against the live 8s PostgREST ceiling.** It has only ever been measured at 120s through MCP, and tonight demonstrated that distinction is real, not theoretical: the completion-claim gate's first query shape ran fine at 120s and returned "canceling statement due to statement timeout" on its first live run. Foam OH cursors sit at 2026-04-09 since 2026-06-28; the stuck window is 2026-02-28..2026-04-08; the largest single-day geo payload on record is 15,587 rows, which at chunk size 1000 is 16 statements. Run it through /api/cron/drain scoped to the client with the CRON_SECRET bearer against a local dev server on the prod DB — the house pattern, because that path is subject to the real 8s ceiling. **HARD STOP on any statement timeout: name the chunk size that failed and do NOT lower it silently.** **THEN, IN ORDER (this is the ranked order; LORAMER_QUEUE_OF_RECORD.md owns the detail and it is not restated here — LORAMER_DOCS_SINGLE_OWNER_V1):** **(2) GA4 SUB-MONTH RECOVERY** — Foam OH's remaining 30 months, 2023-07-01..2025-12-31. 2023-07 HUNG past the 300s lambda on a bare calendar month, and `/api/backfill/ga-dimensional-recover` writes ONE upsert at the END of its window, so a lambda kill is ATOMIC-NOTHING (verified: zero 2023-07 rows after the hang). It needs a SMALLER WINDOW, not a retry — ★GA-RECOVER-SUBMONTH-WINDOW. **(3) THE rangeLap PROBE THAT GATES FLIGHT B** — ONE GAQL call, one month, one grain, on a client whose walk returned nothing at breakdown grain while serving account grain (Glenn Stearns or BusyBee). It answers whether re-walking recovers ANYTHING before any fleet spend; rangeLap has no empty-window detector, so it demonstrably asked and got nothing, and WHY is unverified. Do not start Flight B without it — ★RANGELAP-CLAIM-DEFECT. **(4) Influential Drones 5bb9b2ff + My Vacation Network GA4 recovery** — flags cleared 2026-07-30 01:41Z, recovery NOT started. ⚠ **THE HELD GOOGLE TIER-1 WIDEN IS STILL UNCOMMITTED AND STILL INTACT, ELEVEN COMMITS LATER**: `src/lib/backfill/forward-widen-breadth.ts` (untracked, 2,775 bytes) + the `src/app/api/cron/sync/route.ts` wiring (modified, 133 insertions / 91 deletions, 67,870 bytes). Byte counts and mtimes verified unchanged after every commit tonight. Its three shipping preconditions are unchanged and are stated in the demoted 07-27 opener directly below — read them there rather than re-deriving.
 - (2026-07-26 opener — HISTORY, superseded by the 2026-07-27 wrap below. Its head item, the HELD Google Tier-1 widen, is NOT dropped: it is ranked #2 in the QUEUE's NEXT-SESSION RANKED ORDER, behind the T2 matrix, on Russ's 2026-07-27 instruction.) 2026-07-26 SESSION WRAP (latest — resume HERE). **★RESTATEMENT-SWEEP-FLEET — the HELD Google Tier-1 breadth widen dry-run remains the ranking head; run it FIRST, after the 2026-07-27T08:03:57Z quota reset.** DEPARTURE FROM RANKING: on 2026-07-26 this item was BLOCKED by its own precondition — the developer-scope Google quota was fully exhausted at 11:26:15Z with retry-after 2026-07-27T08:03:57Z, so the dry-run could not have issued a single usable call, and a live chat-honesty regression took the session instead (two slices shipped: the server now owns the assistant turn, and the client no longer claims an answer was lost); the widen was not deprioritised and nothing about it changed. WHAT IS HELD, unchanged: `src/lib/backfill/forward-widen-breadth.ts` (untracked) + the `src/app/api/cron/sync/route.ts` wiring (modified) — authored, Gate-A green, deliberately UNCOMMITTED on Russ's hold pending the dry-run proof. Do the dry-run FIRST; do not commit before it proves. BEFORE SPENDING ANY QUOTA re-read the abort report: the dry-run is NOT free (~67 GAQL requests per client-connection, base fetch included, because fetchGoogleIntelligence at cron/sync:642 is not behind the dryRun guard) and cron/sync does NOT consult the quota pause. AFTER THAT, in order: FULL-SCREEN MOBILE LORA (Russ is speccing it separately; it rebuilds ChatLauncher's container, which is why slices 1-2 were kept to logic and copy) · then ★LORA-MEMORY-OLDEST-500. BUILD ORDER + external status are owned by the QUEUE and DECISIONS and are NOT restated here (LORAMER_DOCS_SINGLE_OWNER_V1).
 
