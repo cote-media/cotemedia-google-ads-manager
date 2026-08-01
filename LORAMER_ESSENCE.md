@@ -32,7 +32,7 @@ correctable by changing a bid. Severity is therefore NOT uniform across question
 that treats them as equal is mis-weighted. The 95% bar was set against marketing questions; it is not
 automatically the right bar for a margin call.
 
-## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31]
+## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31, LAW 9 banked 2026-08-01]
 The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These EIGHT are the
 JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
 
@@ -94,6 +94,35 @@ action, with what unblocks it named.
 COROLLARY (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1): an empty result must carry its own denominator. No
 capture pass, query or check reports zero without recording what it examined. "Check the logs before
 concluding" is a human instruction, and human instructions are what fail.
+
+**9. AN INSTRUCTION STATES THE GOAL AND THE CONSTRAINTS. IT DOES NOT STATE THE MECHANISM.** The conversation
+layer reasons from REPORTS about the code; Claude Code reads the code. A report says what was EXAMINED, never
+what was NOT, so the conversation layer's picture is ALWAYS A SUBSET — and writing an instruction in the voice
+of someone holding the whole thing turns that subset into a FALSE PREMISE the executor must then spend the
+flight disproving.
+THE RULE: name what must be TRUE when the work is done, and what must not break. Where a mechanism is named,
+mark it as a HYPOTHESIS TO VERIFY, never as a premise to build on. "Arm at every boundary where a Google error
+is observed — establish what they are" is CORRECT. "Arm at withGoogleRetry, which every lane funnels through"
+is a DEFECT, because it was not true.
+PRECEDENT, 2026-07-31/08-01 — THREE false premises in ONE session, each costing a flight:
+  · "withGoogleRetry, which every lane already funnels through" — 3 importers; the LIVE path bypasses it via
+    withGaqlRetry + safeQuery; FORWARD calls the fetchers directly; and it did not classify quota AT ALL.
+    There were FOUR boundaries.
+  · "catchup's fillDays skip fires BEFORE the budget gate" — falsified; the gate at :282 is what CAUSES the
+    skip at :594.
+  · "the Google search-term floor is a vendor retention wall" — it is `DEFAULT_DAYS = 90` in our own backfill,
+    and Google documents 37 months with NO search-term exception.
+⛔ WHY IT RECURS: A MECHANISM STATED CONFIDENTLY READS AS RESEARCH ALREADY DONE, so it is built on rather than
+checked. The executor then spends the flight disproving it instead of establishing the truth.
+THE TELL, and it needs NO technical knowledge to spot: **if an instruction says HOW THE CODE WORKS, it is a
+defect.** Whether the claim happens to be true is a SEPARATE question and not the point.
+COROLLARY: a report opening "the briefed premise was false" is THIS LAW FAILING. Three in one session is a
+signal, not a coincidence.
+⛔ NOTE THE DIRECTION OF THIS ONE. Laws 7 and 8 bind the EXECUTOR; this one binds the INSTRUCTION. It is the
+same failure all three share — treating something UNVERIFIED as SETTLED — and it is banked here rather than in
+CLAUDE.md deliberately: CLAUDE.md gates what Claude Code will ACT ON, and a false mechanism is not refusable,
+only checkable. The executor's obligation under this law is to VERIFY a named mechanism before building on it
+and to SAY SO when it does not hold — never to assume the instruction did the research.
 
 
 ## ⛔ PRE-ACTION GATE (forcing function — output this line before ANY Claude Code paste or ANY UI proposal; a skipped line is a visible violation)
