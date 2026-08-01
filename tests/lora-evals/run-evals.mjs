@@ -225,8 +225,14 @@ async function main() {
         if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
         got = await callChat(cookie, q)
       }
+      // ⛔ A QUESTION THAT NEVER GOT AN ANSWER CANNOT BE GRADED — `graded: false` is not optional here.
+      // MEASURED 2026-08-01: the Anthropic credit balance ran out mid-run and 18 of 100 questions came back
+      // HTTP 500/0. Without this flag they fell through as `{pass:false}` with `graded` UNDEFINED, and
+      // `sc.graded !== false` counted every one of them as a GRADED FAILURE. The scorecard printed 9/40 = 22.5%
+      // when the real result was 9/22 — an account balance and a network timeout scored as if Lora had answered
+      // wrongly. A harness that turns its own outage into the subject's failure is worse than one that crashes.
       let sc = (got.status === 200 || q.assert.type === 'autofail') ? score(q, got.response || '', card)
-                : { pass: false, detail: `HTTP ${got.status} ${got.error || got.response}` }
+                : { pass: false, graded: false, detail: `NOT GRADED — no answer received: HTTP ${got.status} ${got.error || got.response}` }
       // LORAMER_EVAL_BOUNDARY_JUDGE_V1 — the judge runs ONLY for `boundary`, and only on a real 200. A judge
       // asked to grade an HTTP failure would score the harness, not the answer.
       let judged = null
@@ -283,12 +289,15 @@ async function main() {
   console.log(`  OVERALL (GRADED ONLY): ${overallP}/${overallN} = ${opct}%`)
   console.log(`  95% Wilson interval: ${(w.low * 100).toFixed(1)}% – ${(w.high * 100).toFixed(1)}%`)
   if (ungradedResults.length) {
-    const ung = ungradedResults.filter((r) => r.assertType === 'ungraded').length
-    const unscored = ungradedResults.length - ung
+    const ung = ungradedResults.filter((r) => r.assertType === 'ungraded' && r.httpStatus === 200).length
+    const noAnswer = results.filter((r) => r.httpStatus !== 200).length
+    const unscored = ungradedResults.length - ung - noAnswer
     console.log('')
     console.log(`  ⛔ DENOMINATOR: ${overallN} of ${results.length} questions are graded.`)
     console.log(`     ${ung} ran with NO GROUND TRUTH (correctness axis UNGRADED — answers recorded, not scored)`)
-    if (unscored) console.log(`     ${unscored} unscored by design or not graded (see per-question detail)`)
+    // NO ANSWER IS ITS OWN BUCKET, never folded into pass/fail. See the graded:false comment in the run loop.
+    if (noAnswer) console.log(`     ⛔ ${noAnswer} GOT NO ANSWER AT ALL (HTTP error/timeout) — NOT gradeable, NOT failures`)
+    if (unscored > 0) console.log(`     ${unscored} unscored by design (see per-question detail)`)
     console.log(`     ⚠ ${opct}% IS NOT AN ACCURACY FIGURE FOR THIS SET. It is the pass rate on the ${overallN}`)
     console.log('       boundary/calibration questions only. Do not quote it as the set\'s accuracy.')
   }
