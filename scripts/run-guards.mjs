@@ -95,6 +95,11 @@ const GUARDS = [
   // and states on its own face that the runtime version and Secure-Compute/Static-IP status are Vercel project
   // settings it cannot see.
   'tests/guards/drain-extended-duration.guard.mjs',
+  // LORAMER_CAPTURE_FACTS_V1 — every platform in DRAIN_REGISTRY must have a section in
+  // docs/LORAMER_CAPTURE_FACTS.md, so a new platform cannot ship without its retention walls,
+  // forward-only families and capability limits written down. COVERAGE check only — it cannot
+  // verify a wall is true or current, and says so on its own face.
+  'tests/guards/capture-facts-cover-platforms.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',
