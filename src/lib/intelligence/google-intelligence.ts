@@ -4,6 +4,8 @@
 
 import { GoogleAdsApi, enums } from 'google-ads-api'
 import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
+import { noteGoogleQuotaError, readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
+import { GoogleQuotaError } from '@/lib/backfill/google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
 
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
@@ -116,7 +118,10 @@ function computeCampaignStatus(rawStatus: string, primaryStatus: string): string
 // non-throwing behavior is byte-identical to the old swallow, so nothing downstream regresses; the failure is now
 // VISIBLE (the cron pushes fetchErrors into summary.errors → cron_runs.error_count). The BASE campaigns query is
 // deliberately NOT routed through this — it must THROW so the cron never stamps the cursor on a failed base fetch.
-type GaqlFetchError = { label: string; message: string }
+// LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1 — `quota` marks the one failure kind the READER must be able to tell
+// apart from a true zero. Without it every entry here reads the same to build-claude-context, so an exhausted
+// developer token renders as "Google has no data" instead of "Google is refusing to answer until 08:03Z".
+type GaqlFetchError = { label: string; message: string; quota?: boolean }
 async function safeQuery(
   label: string,
   fn: () => Promise<any>,
@@ -133,7 +138,13 @@ async function safeQuery(
     // clusters for 14+ clients. LOGGING ONLY — the catch still returns [] and nothing about the fetch changes.
     const detail = describeGaqlError(e)
     console.error(`[google-intel] ${label} query FAILED (returned [] — DEGRADED, not a true zero): ${detail}`)
-    fetchErrors.push({ label, message: detail })
+    // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — THE SWALLOW POINT IS AN ERROR BOUNDARY TOO, and it is the last
+    // one before an outage becomes an empty array. Twenty of this file's queries land here. Arm the sentinel,
+    // and MARK the entry so the reader can tell an outage from an absence.
+    // ⛔ awaited, not fire-and-forget: this runs inside a request whose lambda may freeze the moment the
+    // response is sent, and a frozen write is a write that did not happen.
+    const q = await noteGoogleQuotaError(e, `safeQuery:${label}`)
+    fetchErrors.push({ label, message: detail, ...(q.quota ? { quota: true } : {}) })
     return []
   }
 }
@@ -181,6 +192,30 @@ export async function fetchGoogleIntelligence(
   customStart?: string,
   customEnd?: string
 ): Promise<PlatformIntelligence> {
+  // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — DO NOT FIRE INTO AN EXHAUSTED TOKEN. Before 2026-07-31 nothing on
+  // this path consulted the sentinel at all: google-intelligence.ts contained no readGoogleQuotaPause and no
+  // holdGoogleWork, so every dashboard load for a google-connected client fired ~20 GAQL queries into a token
+  // Google was refusing, and reported the result as an absence.
+  //
+  // ⛔ THROWS, NEVER RETURNS AN EMPTY RESULT — and that is the load-bearing choice. This file's own contract is
+  // that a call which RESOLVES (even to []) is a TRUE ZERO and a call that REJECTS is a FETCH FAILURE; the BASE
+  // campaigns query is deliberately left un-swallowed for exactly this reason, so the cron never stamps a cursor
+  // on a failed fetch. A quota hold that returned an empty PlatformIntelligence would be a false zero written
+  // straight into that contract, and forward capture would stamp cursors over a day it never fetched.
+  //
+  // ⛔ GATED ON A CONFIRMED PAUSE (`qp.paused`), NOT ON holdGoogleWork — DELIBERATE DEVIATION, SEE THE REPORT.
+  // holdGoogleWork is TRUE when the sentinel READ FAILED ('unknown'), which is correct for capture lanes (cost
+  // of a false hold = one lap, retried in ten minutes) and WRONG here. This function serves the ANSWER path, and
+  // google-quota-store.ts banks the rule as do-not-relitigate: "a Supabase blip must never make Lora announce a
+  // platform outage that is not happening" (FAIL-PARTIAL READ-PATH LAW / VERIFICATION LAW 1). Holding on
+  // 'unknown' here would break the dashboard for every google client on a DB hiccup unrelated to Google.
+  // The capture lanes do NOT lose hold-on-unknown: catchup:272 and drain:83 still gate on holdGoogleWork BEFORE
+  // calling this, so this is a backstop beneath their gate, not a replacement for it.
+  const qp = await readGoogleQuotaPause()
+  if (qp.paused) {
+    throw new GoogleQuotaError(qp.until ?? 'unknown', `sentinel: google developer-scope quota paused until ${qp.until} (${qp.reason ?? 'no reason recorded'})`)
+  }
+
   const client = new GoogleAdsApi({ client_id: clientId, client_secret: clientSecret, developer_token: developerToken })
   const customer = client.Customer({ customer_id: customerId, refresh_token: refreshToken, login_customer_id: managerAccountId })
   const dateFilter = buildDateFilter(dateRange, customStart, customEnd)

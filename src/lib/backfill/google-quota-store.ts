@@ -4,7 +4,12 @@
 // NO schema change, no new table, no migration. One strike = immediate pause (unlike Woo's 2-strike
 // breaker); auto-resume is clock-based (window elapsed → reads as not paused; no manual unblock).
 import { supabaseAdmin } from '@/lib/supabase'
-import { GOOGLE_QUOTA_SENTINEL_CLIENT, GOOGLE_QUOTA_PLATFORM } from './google-quota'
+import {
+  GOOGLE_QUOTA_SENTINEL_CLIENT,
+  GOOGLE_QUOTA_PLATFORM,
+  GoogleQuotaError,
+  classifyGoogleAdsError,
+} from './google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — noteGoogleQuotaError needs both shapes
 
 // LORAMER_QUOTA_READ_SPLIT_STATE_V1 — the read has THREE outcomes, not two.
 //
@@ -90,4 +95,59 @@ export async function writeGoogleQuotaPause(resetIso: string, detail: string): P
     },
     { onConflict: 'client_id,platform' }
   )
+}
+
+// LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — ARM THE SENTINEL WHERE THE ERROR IS OBSERVED.
+//
+// ⛔ THE DEFECT THIS CLOSES, MEASURED 2026-07-31: `writeGoogleQuotaPause` had EXACTLY ONE caller in the whole
+// codebase — cron/drain/route.ts:314 — while FOUR modules read the sentinel. So a quota error arriving in
+// catchup, in forward, or on the live path could never arm it. On 2026-07-31 that is exactly what happened:
+// catchup burned 13,869 of the fleet's 15,075 raw requests between 11:19Z and 11:59Z, the developer-scope token
+// was exhausted, and the sentinel still read NOT BLOCKED at 23:55Z because the ONE lane that can write it (the
+// drain) was the ONE lane that made no Google calls that day — the op budget declined it 180 times before it
+// reached the API. THE SINGLE WRITER WAS THE SINGLE LANE THAT COULD NOT OBSERVE THE EVENT.
+//
+// RULE-HOME LAW applied: the rule "a quota error arms the sentinel" lived in a ROUTE and was broken in three
+// other routes. It belongs at the ERROR BOUNDARY, which every lane necessarily passes through. This function is
+// that home; the retry wrappers and the swallow point call it, and no route has to remember anything.
+//
+// ⚠ NOT A UNIVERSAL FUNNEL, AND THE HONEST VERSION MATTERS: there is no single wrapper every Google call
+// passes through. `withGoogleRetry` (backfill/retry.ts) is NOT it — the live path and the forward path both
+// bypass it entirely, and it did not classify quota errors at all. The actual boundaries are FOUR, and all four
+// call this: withGaqlRetry (lib/google-retry.ts), gaqlWithRetry (backfill/gaql-with-retry.ts), withGoogleRetry
+// (backfill/retry.ts) and safeQuery (intelligence/google-intelligence.ts). The guard asserts all four.
+//
+// IDEMPOTENT BY CONSTRUCTION: the write is an upsert on one sentinel row, so two boundaries observing the same
+// error (withGaqlRetry throws GoogleQuotaError → safeQuery catches it) write the same value twice, harmlessly.
+// Best-effort on purpose — a failed arm must never convert a fetch error into a 500.
+export async function noteGoogleQuotaError(
+  err: unknown,
+  site: string
+): Promise<{ quota: boolean; resetIso?: string; detail?: string }> {
+  // Accept BOTH shapes: the typed GoogleQuotaError a retry wrapper already threw (carries resetIso), and the raw
+  // GoogleAdsFailure. Reading only one of them is how a re-thrown error stops being recognisable.
+  let resetIso: string | undefined
+  let detail: string | undefined
+  if (err instanceof GoogleQuotaError) {
+    resetIso = err.resetIso
+    detail = err.message
+  } else {
+    const k = classifyGoogleAdsError(err)
+    if (!k.quota) return { quota: false }
+    resetIso = k.resetIso
+    detail = k.detail
+  }
+  if (!resetIso) return { quota: false } // a quota classification with no reset is not actionable as a pause
+
+  try {
+    await writeGoogleQuotaPause(resetIso, `${detail ?? 'developer-scope quota'} [armed at ${site}]`)
+    console.error(
+      `[google-quota] SENTINEL ARMED at ${site} — developer-scope quota exhausted, pause until ${resetIso}. ` +
+      'Every google lane now holds until that window elapses (clock-based auto-resume, no manual unblock).'
+    )
+  } catch (e: any) {
+    // LOUD. A silent failure here is the 2026-07-31 defect all over again, one level down.
+    console.error(`[google-quota] SENTINEL ARM FAILED at ${site} (${String(e?.message ?? e)}) — the pause was NOT persisted; lanes will keep firing into an exhausted token.`)
+  }
+  return { quota: true, resetIso, detail }
 }

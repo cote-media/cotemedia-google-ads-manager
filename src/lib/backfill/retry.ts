@@ -3,6 +3,9 @@
 // fetchDaily + the dimensional writer). Mirrors the PROVEN google-campaign-backfill queryWithRetry:
 // 4 tries, exponential backoff on Google's transient signals. Wraps the fetch AT THE BACKFILL BOUNDARY so
 // the shared google-ads.ts / intelligence fetchers (live app path) are NOT modified.
+import { classifyGoogleAdsError, GoogleQuotaError } from './google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
+import { noteGoogleQuotaError } from './google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
+
 const TRANSIENT = /RESOURCE_EXHAUSTED|UNAVAILABLE|DEADLINE|429|rate/i
 
 export async function withGoogleRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
@@ -12,6 +15,20 @@ export async function withGoogleRetry<T>(fn: () => Promise<T>, tries = 4): Promi
       return await fn()
     } catch (e: any) {
       lastErr = e
+      // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — this wrapper had NO quota handling whatsoever: a developer-scope
+      // quota_error fell through to the TRANSIENT test below and was RETRIED, burning three more requests against
+      // an already-exhausted token, and nothing armed the sentinel. Classify FIRST, arm, and do NOT retry — the
+      // reset is hours away, so a retry is pure waste.
+      const k = classifyGoogleAdsError(e)
+      if (k.quota) {
+        await noteGoogleQuotaError(e, 'withGoogleRetry')
+        throw new GoogleQuotaError(k.resetIso!, k.detail)
+      }
+      // ⚠ PRE-EXISTING AND DELIBERATELY NOT CHANGED HERE: this regex tests `e.message`, but a google-ads-api
+      // rejection carries its detail on `errors[]` and leaves `.message` EMPTY — the identical defect
+      // gaql-with-retry.ts documents in its own header. So for GoogleAdsFailure rejections this test matches
+      // NOTHING and the transient backoff never fires. Fixing it changes retry behaviour on the backfill writers
+      // and is out of scope for a quota-arming flight; banked as ★WITHGOOGLERETRY-TRANSIENT-NEVER-MATCHES.
       if (TRANSIENT.test(String(e?.message || '')) && i < tries - 1) {
         await new Promise((r) => setTimeout(r, 1000 * 2 ** i))
         continue

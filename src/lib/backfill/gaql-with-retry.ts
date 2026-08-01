@@ -13,6 +13,7 @@
 // transient detection ever fired). Developer-scope quota_error → throw a typed GoogleQuotaError (do NOT retry;
 // reset is hours away) so the drain can pause+persist the global marker. Transient → retry as before (exp backoff).
 import { classifyGoogleAdsError, GoogleQuotaError } from './google-quota'
+import { noteGoogleQuotaError } from './google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 
 export async function gaqlWithRetry(customer: any, gaql: string, tries = 4): Promise<any[]> {
   let lastErr: any
@@ -20,7 +21,9 @@ export async function gaqlWithRetry(customer: any, gaql: string, tries = 4): Pro
     try { return await customer.query(gaql) } catch (e: any) {
       lastErr = e
       const k = classifyGoogleAdsError(e)
-      if (k.quota) throw new GoogleQuotaError(k.resetIso!, k.detail)
+      // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — arm before throwing. Previously this threw a typed error and
+      // relied on the DRAIN to persist the pause; every other caller of this primitive silently lost the fact.
+      if (k.quota) { await noteGoogleQuotaError(e, 'gaqlWithRetry'); throw new GoogleQuotaError(k.resetIso!, k.detail) }
       if (k.transient && i < tries - 1) {
         await new Promise((r) => setTimeout(r, 1000 * 2 ** i)); continue
       }

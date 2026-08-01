@@ -8,6 +8,7 @@
 // exact GoogleAdsFailure / gRPC status that justified (or didn't) the retry.
 
 import { classifyGoogleAdsError, GoogleQuotaError } from './backfill/google-quota'
+import { noteGoogleQuotaError } from './backfill/google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 
 const TRANSIENT_GRPC = new Set([4, 13, 14]) // DEADLINE_EXCEEDED, INTERNAL, UNAVAILABLE
 const TRANSIENT_RE = /DEADLINE_EXCEEDED|INTERNAL\b|UNAVAILABLE|deadline exceeded|temporar|service is currently unavailable|ETIMEDOUT|ECONNRESET|socket hang up/i
@@ -38,7 +39,15 @@ export async function withGaqlRetry<T>(label: string, fn: () => Promise<T>, atte
       // LORAMER_GOOGLE_QUOTA_GUARD_V1: developer-scope quota_error (read from e.errors[0]) → throw a typed
       // GoogleQuotaError, do NOT retry (reset is hours away, retrying just burns more ops). Transient unchanged.
       const k = classifyGoogleAdsError(e)
-      if (k.quota) { console.error(`[gaql] ${label} GOOGLE QUOTA (developer-scope) reset=${k.resetIso}: ${describe(e)}`); throw new GoogleQuotaError(k.resetIso!, k.detail) }
+      if (k.quota) {
+        console.error(`[gaql] ${label} GOOGLE QUOTA (developer-scope) reset=${k.resetIso}: ${describe(e)}`)
+        // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — ARM THE SENTINEL HERE. This wrapper serves the LIVE path and
+        // the FORWARD path, and neither could ever arm it before: writeGoogleQuotaPause had one caller, in the
+        // drain. Awaited deliberately — a fire-and-forget write can be killed when the lambda freezes after the
+        // response, which would reproduce the silent-no-arm defect with extra steps.
+        await noteGoogleQuotaError(e, `withGaqlRetry:${label}`)
+        throw new GoogleQuotaError(k.resetIso!, k.detail)
+      }
       const transient = isTransient(e)
       console.error(`[gaql] ${label} attempt ${i + 1}/${attempts} failed transient=${transient}: ${describe(e)}`)
       if (!transient || i === attempts - 1) throw e

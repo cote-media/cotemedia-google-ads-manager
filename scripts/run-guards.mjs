@@ -73,6 +73,9 @@ const GUARDS = [
   // LORAMER_DOC_OWNERSHIP_GUARD_V1 — a doc may POINT at a fact, never STATE a value another source owns.
   // Hermetic half only (model ids, version pins, file facts); the DB half is in check:data.
   'tests/guards/doc-ownership.guard.mjs',
+  // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — every sentinel reader either arms it or is allowlisted with a
+  // reason; every Google error boundary arms; the swallow point marks an outage so it cannot read as absence.
+  'tests/guards/quota-sentinel-armed.guard.mjs',
   'tests/guards/connection-outcome-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',

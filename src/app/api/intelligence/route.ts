@@ -24,6 +24,21 @@ import { fetchGaIntelligence } from '@/lib/intelligence/ga-intelligence'
 import { resolveDateWindow } from '@/lib/date-range'
 import { recordConnectionResult } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import { readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1
+import { GoogleQuotaError, classifyGoogleAdsError } from '@/lib/backfill/google-quota' // LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1
+
+// LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1 — build the caveat from an OBSERVED refusal rather than from the
+// sentinel. Same shape buildGoogleQuotaLines already renders, so the prompt wording is unchanged; only the
+// TRIGGER is new. `until` is left null when the failure did not carry a reset — an honest "we do not know when
+// it clears" beats a fabricated timestamp, and the renderer already handles null.
+function quotaOutageNote(detail: string): { paused: boolean; until: string | null; since: string | null; reason: string | null } {
+  const m = /retry after ([0-9T:.\-Z]+)/i.exec(detail) || /until ([0-9T:.\-Z]+)/i.exec(detail)
+  return {
+    paused: true,
+    until: m ? m[1] : null,
+    since: new Date().toISOString(),
+    reason: `observed refusal on this request (sentinel may not have been armed yet): ${detail}`.slice(0, 500),
+  }
+}
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
@@ -440,6 +455,13 @@ export async function GET(request: Request) {
   // ── Process results — never crash on platform failure ──────────────────────
   if (googleResult.status === 'fulfilled' && googleResult.value) {
     intelligence.google = googleResult.value
+    // LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1 — a PARTIAL quota failure: the base fetch succeeded, so this is a
+    // fulfilled result, but individual sub-queries were refused and safeQuery marked them quota:true. Those
+    // families are an OUTAGE, not a zero, and without this the only trace is a generic degraded line.
+    const quotaErr = (googleResult.value as any)?.fetchErrors?.find((fe: any) => fe?.quota)
+    if (quotaErr && !intelligence.googleQuota) {
+      intelligence.googleQuota = quotaOutageNote(quotaErr.message)
+    }
   } else if (googleConn) {
     // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — a connected Google account whose
     // fetch FAILED must read as "connected, fetch failed", NOT "not connected"
@@ -447,6 +469,21 @@ export async function GET(request: Request) {
     // to build-claude-context (which renders the loud distinct message).
     console.error('Google intelligence failed:', googleResult.status === 'rejected' ? googleResult.reason?.message : 'unknown')
     intelligence.google = { ...EMPTY_PLATFORM, connected: true, fetchFailed: true, dateRange }
+
+    // LORAMER_QUOTA_OUTAGE_IS_NOT_ABSENCE_V1 — ⛔ ATTACH THE OUTAGE NOTE FROM THE FAILURE ITSELF, NOT ONLY FROM
+    // THE SENTINEL. The pre-read at :217 attaches the note only when the sentinel ALREADY reads paused. On
+    // 2026-07-31 the sentinel read CLEAR for ~16 hours while the token was exhausted (it had one writer, in a
+    // lane that made no calls), so this branch fired with the prompt SILENT: Lora received empty Google data,
+    // no outage line, and reported an absence as fact. The rejection carries the truth the sentinel had lost —
+    // read it from there. This is ESSENCE law 6 (never a confident answer over an uncaptured window) enforced at
+    // the one place that knows the window was refused rather than empty.
+    if (googleResult.status === 'rejected') {
+      const reason: any = googleResult.reason
+      const isQuota = reason instanceof GoogleQuotaError || classifyGoogleAdsError(reason).quota
+      if (isQuota && !intelligence.googleQuota) {
+        intelligence.googleQuota = quotaOutageNote(String(reason?.message ?? reason))
+      }
+    }
   }
 
   if (metaResult.status === 'fulfilled' && metaResult.value) {
