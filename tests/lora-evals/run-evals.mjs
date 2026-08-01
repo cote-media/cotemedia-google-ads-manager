@@ -27,7 +27,14 @@ const OWNER = process.env.OWNER || 'cotebrandmarketing@gmail.com'
 // run 1 it cost us seven answers we PAID FOR and threw away (all seven were the complex multi-surface
 // questions). Raise it with EVAL_TIMEOUT_MS and report what each question actually took, so the ceiling
 // can be set from measured latency instead of a round number.
-const CALL_TIMEOUT_MS = Number(process.env.EVAL_TIMEOUT_MS || 120000)
+// DEFAULT RAISED 120s → 300s ON 2026-08-01, FROM MEASURED LATENCY RATHER THAN A ROUND NUMBER.
+// All seven run-1 aborts, re-run and timed: E10 171.4s · E11 158.6s · C8 133.7s · E12 125.3s ·
+// B17 98.8s · E15 86.7s · C13 77.7s. Only FOUR genuinely exceeded 120s; three came in under it and
+// aborted in run 1 for another reason — most likely contention as the credit exhaustion cascaded, which
+// means run 1's abort count OVERSTATED the timeout problem. Max observed across all 18 was 171.4s, so
+// 300s is ~1.75x the worst case and would have saved all seven. Raise with EVAL_TIMEOUT_MS if a future
+// question class runs longer, and record the measurement when you do.
+const CALL_TIMEOUT_MS = Number(process.env.EVAL_TIMEOUT_MS || 300000)
 
 function secret() {
   const env = fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8')
