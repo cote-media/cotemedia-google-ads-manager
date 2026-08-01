@@ -104,6 +104,9 @@ const GUARDS = [
   // all five boundary kinds, its vendor numbers and its UNESTABLISHED carriers. Structural ordering check
   // against the prefixLines/suffixLines swap, so a context refactor cannot silently move it.
   'tests/guards/capture-facts-in-prefix.guard.mjs',
+  // LORAMER_COMPLETION_CLAIM_DENOMINATOR_V1 — every DRAIN_REGISTRY step must be visible to the completion
+  // gate. It iterated required-steps (27) while the drain runs 34; 60 sealed claims were never checked.
+  'tests/guards/completion-gate-covers-drain.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',
