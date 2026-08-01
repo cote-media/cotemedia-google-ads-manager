@@ -100,6 +100,10 @@ const GUARDS = [
   // forward-only families and capability limits written down. COVERAGE check only — it cannot
   // verify a wall is true or current, and says so on its own face.
   'tests/guards/capture-facts-cover-platforms.guard.mjs',
+  // LORAMER_CAPTURE_FACTS_V1 — the capture-boundaries block must STAY in the cache_control prefix and keep
+  // all five boundary kinds, its vendor numbers and its UNESTABLISHED carriers. Structural ordering check
+  // against the prefixLines/suffixLines swap, so a context refactor cannot silently move it.
+  'tests/guards/capture-facts-in-prefix.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

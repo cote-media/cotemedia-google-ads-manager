@@ -1271,6 +1271,33 @@ export function buildClaudeContextCacheable(
 - trailing_gap — the window extends PAST our latest captured data. Say the period is beyond our latest capture; a zero there is UNCONFIRMED, not a proven real zero.
 - covered — we have captured data covering the window. Report the figures. A zero here IS REAL: say it plainly ("$0 — no spend that period"). This is the ONLY state in which a zero is a confident real zero.
 WHEN state is 'covered', the canonical rules apply: the headline total is canonical.revenue / canonical.roas (they MATCH THE DASHBOARD CARDS: store > ga > none, never summed; roas = revenue/spend). NEVER report totals.revenue as the total — it is a RAW cross-platform sum that double-counts store + GA. When bySource shows MORE THAN ONE revenue source, surface ALL of them labeled by origin, each with its OWN ROAS (that source's revenue ÷ ad spend), and explain WHY they differ (attribution window, measurement basis, click- vs order-date credit) — showing both and the reason is the product, not a hedge. Report the CAPTURED figure and caveat it; NEVER replace, drop, or fabricate it by inference. If ROAS is UNCOMPUTABLE because there is no revenue source (canonical.roas null), say it CANNOT be computed — never "0". The notes field also spells out any non-covered state in words — obey it.`)
+  // LORAMER_CAPTURE_FACTS_V1 — THE BOUNDARIES SHE WAS NEVER TOLD ABOUT.
+  // 7 of the 19 graded boundary failures in the 2026-08-01 eval were absence reported CORRECTLY and its CAUSE
+  // named WRONGLY: a vendor retention wall called a capture gap (A20, A15), a forward-only family called a
+  // genuine zero (A16), an API capability limit called an ingestion failure (A19), a capture floor never named
+  // at all (A6, C15). The coverage payload answers "do we hold this window?" and nothing answered "whose limit
+  // is this?". This block is that answer. SOURCE OF TRUTH: docs/LORAMER_CAPTURE_FACTS.md, where every fact
+  // carries the vendor URL it was fetched from on 2026-08-01 — this is the prompt-shaped copy, and the doc is
+  // the citation. ⛔ DELIBERATELY EXCLUDES the contested PMax per-asset label claim
+  // (★PMAX-ASSET-LABEL-CONTESTED): our code and Google's own page disagree, and an unresolved fact must not be
+  // asserted to a user. ⛔ PLACEMENT IS LOAD-BEARING: this must stay ABOVE the `lines = suffixLines` swap so it
+  // lands in the cache_control:ephemeral prefix — written once per cache window, not per answer.
+  // tests/guards/capture-facts-in-prefix.guard.mjs fails if it ever leaves the prefix.
+  lines.push(`=== CAPTURE BOUNDARIES — VENDOR-VERIFIED. NEVER ASSERT A WALL THAT IS NOT IN THIS BLOCK. ===
+When data is absent, you must name WHICH KIND of boundary it is. These are not interchangeable and calling one by another's name is a wrong answer even when the absence itself is correct.
+1 OUR CAPTURE FLOOR — the coverage payload on query_metrics (captureFloor) and query_breakdown (breakdownCoverage) tells you this per client and per family. It is the only one of the five you can read from a tool.
+2 A VENDOR RETENTION WALL — the platform no longer serves it to anyone:
+- GOOGLE ADS, effective 2026-06-01: sub-month granular 37 MONTHS; monthly/quarterly/annual 11 YEARS; reach and frequency metrics 3 YEARS ONLY. Granular beyond 37 months returns DateRangeError.
+- META, effective 2026-01-12, per field class: aggregated totals 37 MONTHS; unique-count 13 MONTHS; hourly 13 MONTHS; frequency 6 MONTHS. Never quote 37 for an hourly or unique-count family.
+- META ATTRIBUTION: 7d_view and 28d_view REMOVED 2026-01-12, returning empty not an error. On 2026-03-03 click-through was redefined to genuine link clicks only, social clicks moved to engage-through — a pre-March and a post-March click figure are not the same quantity.
+- GA4: aggregated standard reports persist for the LIFE OF THE PROPERTY. The 2/14-month setting scopes user- and event-level data and affects Explorations only. Never say GA4 reporting history is capped at 14 months.
+- SHOPIFY: no rolling wall observed, and this is UNVERIFIED against a Shopify page. The 1,000-point query-cost ceiling bounds one call's size, never how far back.
+- WOOCOMMERCE: self-hosted — no vendor wall exists, and nothing here is vendor-verified because there is no single vendor. An absence is merchant-side or ours.
+3 A FORWARD-ONLY FAMILY — Google conversion_action and impression_share have no backfill; first row anywhere is 2026-06-27. Absence before that is CORRECT. This is a LoraMer fact, not Google's.
+4 AN API CAPABILITY LIMIT — Auction Insights competitor domains and overlap rates are not served by the Google Ads API; impression share is.
+5 UNESTABLISHED — say exactly that. Currently unestablished: GA4's inbound floor (in practice the property's creation date); whether Google has any search-term-specific wall shorter than the general 37 months (our own 90-day floor was OURS, not Google's); whether Shopify imposes any age limit at all.
+"We have not established this" is a correct and complete answer. Guessing which boundary applies is not.
+=== END CAPTURE BOUNDARIES ===`)
   // LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2) — what the Meta `conversions` number IS, so an objective rule can never make her deny it.
   lines.push(`META CONVERSIONS — what the number IS: Meta's account-grain conversions metric is a NARROW, CURATED set (purchase, lead, complete_registration, offsite_conversion, submit_application). It is NOT engagement or clicks — page_engagement, link_click, and landing_page_view are captured but are NOT conversions, and they dwarf real conversions by volume. So a small captured conversions count (even 1) is a REAL conversion — report it, never say "no conversions" because the campaign optimizes for traffic/clicks. To NAME what a Meta conversion was, call query_breakdown(breakdownType="action_type"): the curated conversion types (a registration, lead, or purchase) are what the conversions metric counts, even though action_type ranked by volume is dominated by engagement rows. The registration aliases complete_registration / offsite_conversion.fb_pixel_complete_registration / offsite_complete_registration_add_meta_leads are ONE event — never triple-count them.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
