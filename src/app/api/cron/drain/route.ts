@@ -24,17 +24,44 @@ import { getGoogleOpBudget, holdForBudget, recordLaneDeclined } from '@/lib/back
 import { googleForwardReserveDecision } from '@/lib/backfill/google-forward-reserve' // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
-// sweeps instead of ~3. SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep
-// (~150s: geo 84s + device/hour/dimensional) ≪ 360s lease, so a connection is processed and released well within
-// its lease → overlapping fires (800s > 300s cron) pick DIFFERENT lease-expired connections, never double-claim
-// the same one. (If a single-connection sweep ever approaches 360s, raise the lease in migration 014.) Memory is
-// unaffected by duration — laps run sequentially, each releases; peak stays the per-lap working set.
-export const maxDuration = 800
+// sweeps instead of ~3. Memory is unaffected by duration — laps run sequentially, each releases; peak stays the
+// per-lap working set.
+// ⛔ THE ORIGINAL SAFETY ARGUMENT HERE WAS FALSIFIED 2026-08-01 AND IS RECORDED RATHER THAN DELETED. It read:
+// "SAFE with the 5-min google cron + the 360s claim lease: one connection's full step-sweep (~150s) ≪ 360s lease,
+// so overlapping fires pick DIFFERENT lease-expired connections, never double-claim the same one." BOTH numbers
+// were stale — the lease is 480s (migration 021, not 360s), and the google geo sweep does not take ~150s, it runs
+// to the ceiling and is killed. With the old */5 cadence a fire starting at t=0 still held its connection at
+// t=800 while its lease expired at t=480, so the fire at t=600 could legitimately re-claim the SAME connection.
+// Two invocations then wrote the same client's same rows concurrently. The google cron is now 4x/day
+// (LORAMER_GOOGLE_DRAIN_THROTTLE_V1), which makes that overlap impossible by schedule — but the invariant to
+// preserve is LEASE > maxDuration, and it is NOT true at 1800s either. Do not restore a frequent cadence for
+// google without fixing the lease.
+//
+// LORAMER_DRAIN_EXTENDED_DURATION_V1 — 800 → 1800 as a MEASUREMENT, not a fix (★GOOGLE-GEO-STATEMENT-TIMEOUTS).
+// The 2026-08-01T18:20:47Z fire ran the full 800s, failed NO statement, and still did not finish — so the cursor
+// was never written. That is a second, independent blocker from the 8s statement timeout: the 40-day geo lap may
+// simply not fit the function budget. 1800s is the cheapest test of whether TIME is the binding constraint.
+// ⚠ IT IS NOT A FIX. The lap still rewrites rows it already holds (measured: three slices at 100% conflict).
+// ELIGIBILITY, VERIFIED LIVE 2026-08-01 against the Vercel API, not assumed — extended duration is BETA:
+//   · runtime nodejs24.x — in the beta-supported set (nodejs20.x/22.x/24.x, python3.12/3.13/3.14) ✓
+//   · fluid compute — resourceConfig.fluid = true AND defaultResourceConfig.fluid = true ✓
+//   · Secure Compute — /v1/connect/networks returned [] for the team; connectConfigurations null ✓
+//   · Static IPs — /v1/projects/<id>/shared-connect-links returned 404 not_found ✓
+//   Secure Compute and Static IPs DO NOT SUPPORT durations above 800s during the beta. If either is ever enabled,
+//   this value must go back to 800 FIRST. tests/guards/drain-extended-duration.guard.mjs enforces what is
+//   mechanically checkable and states plainly what is not.
+// ⛔ PER-FUNCTION ONLY. "Project-level defaults above 800 seconds are not supported yet" (Vercel docs, beta) —
+// so this stays a route-segment export and must never become a vercel.json project default.
+export const maxDuration = 1800
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 
-const BUDGET_MS = 680_000 // ~120s headroom under the 800s maxDuration: a step that starts just under budget (the
-                          // longest is a ~86s 40d geo lap) can finish before the platform ceiling → no 504 overrun
+// ⛔ RAISED WITH maxDuration ON PURPOSE — LEAVING IT AT 680_000 WOULD HAVE MADE THE WHOLE CHANGE A NO-OP.
+// This is the budget that stops the route SCHEDULING new work; the platform ceiling only kills what is already
+// running. At 680s the fire would still have stopped taking on work at ~11 minutes and returned cleanly, and the
+// experiment would have measured nothing while looking like it ran.
+const BUDGET_MS = 1_680_000 // ~120s headroom under the 1800s maxDuration — the same margin the 800s value carried:
+                          // a step that starts just under budget can finish before the platform ceiling → no 504 overrun
 
 // ── DRAIN-LEVEL CONCURRENCY CAP — connections drained per platform PER TICK. THROUGHPUT KNOB: raise to drain
 // the cohort faster (bounded by each platform's quota; each lap is backoff-gated). Woo lowest (live self-hosted).

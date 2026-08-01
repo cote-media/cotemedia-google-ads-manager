@@ -89,6 +89,12 @@ const GUARDS = [
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
   // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
   'tests/guards/eval-spend-ledger.guard.mjs',
+  // LORAMER_DRAIN_EXTENDED_DURATION_V1 — the drain runs above the 800s GA ceiling on Vercel's BETA extended
+  // duration. Asserts the parts that are mechanically checkable (value ≤ 1800, scoped to this one route, no
+  // vercel.json project default above 800, eligibility marker intact, BUDGET_MS able to actually use the ceiling)
+  // and states on its own face that the runtime version and Secure-Compute/Static-IP status are Vercel project
+  // settings it cannot see.
+  'tests/guards/drain-extended-duration.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',
