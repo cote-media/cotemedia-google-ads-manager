@@ -14,6 +14,9 @@ import fs from 'fs'
 import path from 'path'
 const require = createRequire('/Users/russcote2/Downloads/cotemedia-google-ads-manager/package.json')
 const { encode } = require('next-auth/jwt')
+// LORAMER_EVAL_BOUNDARY_JUDGE_V1 — the two V2 schema extensions live in their own module so both harnesses can
+// use them without either importing the other.
+import { judgeBoundary, judgeSpend, wilson, JUDGE_MODEL, TAXONOMY } from './boundary-judge.mjs'
 
 const ROOT = '/Users/russcote2/Downloads/cotemedia-google-ads-manager'
 const BASE = process.env.BASE || 'http://localhost:3111'
@@ -120,6 +123,13 @@ function score(q, response, card) {
   const nums = extractNumbers(response)
   const lo = response.toLowerCase()
   if (a.type === 'autofail') return { pass: false, detail: a.reason }
+  // LORAMER_EVAL_BOUNDARY_JUDGE_V1 — two V2 types the deterministic scorer deliberately does NOT decide.
+  // `ungraded`: the question RUNS and its answer is recorded, but its correctness axis has no ground truth yet.
+  // It is NOT a pass and NOT a fail — scoring it either way would put 77 questions into a denominator that
+  // cannot support them. `boundary`: graded by the LLM judge in the run loop, because the pass/fail turns on
+  // confidence and assertion, which a regex cannot read.
+  if (a.type === 'ungraded') return { graded: false, pass: null, detail: `UNGRADED — needs ground truth from ${a.truthSource || 'the source platform'}` }
+  if (a.type === 'boundary') return { deferred: true, pass: null, detail: 'judge pending' }
   if (a.type === 'number') {
     const r = matchNumber(nums, a.expected, a.tolerancePct || 2)
     let cardNote = ''
@@ -176,7 +186,14 @@ async function fetchCard(cookie, clientId) {
 }
 
 async function main() {
-  const gold = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/lora-evals/golden-set.json'), 'utf8'))
+  // LORAMER_EVAL_BOUNDARY_JUDGE_V1 — `--set <file>` so this harness runs the 28-question golden set OR the
+  // 100-question V2 set. ONE runner, two sets: V2 is a golden-set SUCCESSOR, so forking a third harness to run
+  // it would widen the split that ★TWO-EVAL-HARNESSES-ONE-JUDGE exists to record.
+  const setArg = (process.argv.find((a) => a.startsWith('--set=')) || '').split('=')[1]
+    || (process.argv.includes('--set') ? process.argv[process.argv.indexOf('--set') + 1] : null)
+  const setFile = setArg || 'golden-set.json'
+  const gold = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/lora-evals', setFile), 'utf8'))
+  console.log(`[set] ${setFile} — ${gold.questions.length} questions`)
   assertConfig() // LORAMER_LORA_EVAL_CONFIG_GUARD_V1 — abort on NEXTAUTH_URL/model mismatch BEFORE spending a token
   const cookie = await encode({ token: { email: OWNER, name: 'Eval', sub: 'eval-' + OWNER }, secret: secret() })
   await preflight(cookie) // 1-token behavioral confirmation the intelligence prompt loaded (PREFLIGHT=off to skip)
@@ -208,10 +225,28 @@ async function main() {
         if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
         got = await callChat(cookie, q)
       }
-      const sc = (got.status === 200 || q.assert.type === 'autofail') ? score(q, got.response || '', card)
+      let sc = (got.status === 200 || q.assert.type === 'autofail') ? score(q, got.response || '', card)
                 : { pass: false, detail: `HTTP ${got.status} ${got.error || got.response}` }
-      results.push({ id: q.id, cat: q.cat, client: q.clientName, message: q.message, pass: sc.pass, detail: sc.detail, httpStatus: got.status, response: got.response, card: card && { spend: card.spend, revenue: card.revenue, roas: card.roas }, upload: up ? { file: q.upload, status: up.status, truncated: !!up.body?.truncated } : undefined })
-      console.log(sc.pass ? 'PASS' : 'FAIL')
+      // LORAMER_EVAL_BOUNDARY_JUDGE_V1 — the judge runs ONLY for `boundary`, and only on a real 200. A judge
+      // asked to grade an HTTP failure would score the harness, not the answer.
+      let judged = null
+      if (sc.deferred && got.status === 200) {
+        judged = await judgeBoundary({
+          root: ROOT, apiKey: envVal('ANTHROPIC_API_KEY'), question: q.message,
+          rubric: q.assert.rubric, mustNotAssert: q.assert.mustNotAssert, answer: got.response || '',
+        })
+        sc = { pass: judged.verdict === 'PASS', graded: judged.verdict !== 'PARSE_ERROR', detail: `${judged.verdict} · ${judged.classification || '-'} · ${judged.taxonomy || '-'} · ${judged.reason}` }
+      } else if (sc.deferred) {
+        sc = { pass: false, graded: false, detail: `judge NOT run — HTTP ${got.status}` }
+      }
+      const graded = sc.graded !== false && sc.pass !== null
+      results.push({ id: q.id, cat: q.cat, axis: q.axis || 'correctness', scored: q.scored !== false, graded,
+        assertType: q.assert.type, client: q.clientName, message: q.message,
+        pass: sc.pass, detail: sc.detail, judge: judged,
+        httpStatus: got.status, response: got.response,
+        card: card && { spend: card.spend, revenue: card.revenue, roas: card.roas },
+        upload: up ? { file: q.upload, status: up.status, truncated: !!up.body?.truncated } : undefined })
+      console.log(!graded ? (q.assert.type === 'ungraded' ? 'UNGRADED' : 'NOT-GRADED') : sc.pass ? 'PASS' : 'FAIL')
     }
   } finally {
     for (const cid of uploadClients) {
@@ -222,10 +257,16 @@ async function main() {
       console.log(`[hygiene] restore ${cid}: during-run-had-upload=${(before.notes || '').includes('[Uploaded:')} → restored-to-pre-state=${clean}`)
     }
   }
-  // scorecard
+  // ── SCORECARD ────────────────────────────────────────────────────────────────────────────────────────
+  // ⛔ THE DENOMINATOR IS THE WHOLE POINT. `graded` questions are the ONLY ones that may enter a percentage.
+  // On the V2 set that is ~22 of 100 — the other 77 have no ground truth yet and 2 are unscored by design.
+  // A percentage over 22 presented as an accuracy figure for a 100-question set is a lie by denominator, and
+  // it is the exact shape of every misleading eval number this project has banked a law against.
+  const gradedResults = results.filter((r) => r.graded)
+  const ungradedResults = results.filter((r) => !r.graded)
   const cats = {}
-  for (const r of results) { (cats[r.cat] ||= { p: 0, n: 0 }); cats[r.cat].n++; if (r.pass) cats[r.cat].p++ }
-  const overallP = results.filter(r => r.pass).length, overallN = results.length
+  for (const r of gradedResults) { (cats[r.cat] ||= { p: 0, n: 0 }); cats[r.cat].n++; if (r.pass) cats[r.cat].p++ }
+  const overallP = gradedResults.filter(r => r.pass).length, overallN = gradedResults.length
   const stamp = process.env.STAMP || 'run'
   const outFile = path.join(ROOT, `tests/lora-evals/results/results-${stamp}.json`)
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
@@ -237,8 +278,41 @@ async function main() {
     const gate = pct >= 90 ? 'PASS' : 'FAIL'
     console.log(`  ${CATNAME[c] || c}: ${p}/${n} = ${pct}%  [gate≥90%: ${gate}]`)
   }
-  const opct = Math.round((overallP / overallN) * 1000) / 10
-  console.log(`  OVERALL: ${overallP}/${overallN} = ${opct}%  [gate≥95%: ${opct >= 95 ? 'PASS' : 'FAIL'}]`)
+  const opct = overallN ? Math.round((overallP / overallN) * 1000) / 10 : 0
+  const w = wilson(overallP, overallN)
+  console.log(`  OVERALL (GRADED ONLY): ${overallP}/${overallN} = ${opct}%`)
+  console.log(`  95% Wilson interval: ${(w.low * 100).toFixed(1)}% – ${(w.high * 100).toFixed(1)}%`)
+  if (ungradedResults.length) {
+    const ung = ungradedResults.filter((r) => r.assertType === 'ungraded').length
+    const unscored = ungradedResults.length - ung
+    console.log('')
+    console.log(`  ⛔ DENOMINATOR: ${overallN} of ${results.length} questions are graded.`)
+    console.log(`     ${ung} ran with NO GROUND TRUTH (correctness axis UNGRADED — answers recorded, not scored)`)
+    if (unscored) console.log(`     ${unscored} unscored by design or not graded (see per-question detail)`)
+    console.log(`     ⚠ ${opct}% IS NOT AN ACCURACY FIGURE FOR THIS SET. It is the pass rate on the ${overallN}`)
+    console.log('       boundary/calibration questions only. Do not quote it as the set\'s accuracy.')
+  }
+  // ── ADVERSARIAL, INDIVIDUALLY — three-way, never rolled into a rate ──────────────────────────────────
+  const adv = results.filter((r) => r.axis === 'adversarial' && r.judge)
+  if (adv.length) {
+    console.log('\n---- ADVERSARIAL, PER QUESTION ----')
+    for (const r of adv) {
+      console.log(`  [${r.id}] ${r.judge.verdict.padEnd(5)} ${String(r.judge.classification || '-').padEnd(15)} ${r.judge.reason}`)
+    }
+    const byCls = {}
+    for (const r of adv) { const k = r.judge.classification || 'PARSE_ERROR'; byCls[k] = (byCls[k] || 0) + 1 }
+    console.log(`  roll-up: ${Object.entries(byCls).map(([k, v]) => `${k}=${v}`).join(' · ')}`)
+  }
+  // ── FAILURE TAXONOMY — judge-assigned, not hand-labelled after the fact ──────────────────────────────
+  const failed = results.filter((r) => r.graded && !r.pass)
+  if (failed.length) {
+    const byTax = {}
+    for (const r of failed) { const k = r.judge?.taxonomy || 'UNCLASSIFIED'; (byTax[k] ||= []).push(r.id) }
+    console.log('\n---- FAILURE TAXONOMY ----')
+    for (const k of [...TAXONOMY, 'UNCLASSIFIED']) if (byTax[k]) console.log(`  ${k}: ${byTax[k].length} — ${byTax[k].join(', ')}`)
+  }
+  console.log(`\n---- JUDGE SPEND ----`)
+  console.log(`  ${judgeSpend.calls} calls · in ${judgeSpend.input} · out ${judgeSpend.output} tokens (${JUDGE_MODEL})`)
   console.log('\n---- FAILED QUESTIONS ----')
   for (const r of results.filter(x => !x.pass)) {
     console.log(`  [${r.id}/${r.cat}] ${r.client} — ${r.message}`)
