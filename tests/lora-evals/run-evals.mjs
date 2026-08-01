@@ -17,6 +17,8 @@ const { encode } = require('next-auth/jwt')
 // LORAMER_EVAL_BOUNDARY_JUDGE_V1 — the two V2 schema extensions live in their own module so both harnesses can
 // use them without either importing the other.
 import { judgeBoundary, judgeSpend, wilson, JUDGE_MODEL, TAXONOMY } from './boundary-judge.mjs'
+// LORAMER_EVAL_SPEND_LEDGER_V1 — the run reports its own cost, per question, or says loudly that it cannot.
+import { createLedger } from './spend-ledger.mjs'
 
 const ROOT = '/Users/russcote2/Downloads/cotemedia-google-ads-manager'
 const BASE = process.env.BASE || 'http://localhost:3111'
@@ -194,6 +196,8 @@ async function main() {
   const setFile = setArg || 'golden-set.json'
   const gold = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/lora-evals', setFile), 'utf8'))
   console.log(`[set] ${setFile} — ${gold.questions.length} questions`)
+  const ledger = createLedger()
+  ledger.begin()
   assertConfig() // LORAMER_LORA_EVAL_CONFIG_GUARD_V1 — abort on NEXTAUTH_URL/model mismatch BEFORE spending a token
   const cookie = await encode({ token: { email: OWNER, name: 'Eval', sub: 'eval-' + OWNER }, secret: secret() })
   await preflight(cookie) // 1-token behavioral confirmation the intelligence prompt loaded (PREFLIGHT=off to skip)
@@ -223,7 +227,9 @@ async function main() {
       if (q.assert.type !== 'autofail') {
         if (q.upload) { up = await uploadFixture(cookie, q.clientId, q.upload); process.stdout.write(`[upload ${q.upload}→${up.status}${up.body?.truncated ? ' TRUNCATED' : ''}] `) }
         if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
+        ledger.markChatStart(q.id)
         got = await callChat(cookie, q)
+        ledger.markChatEnd(q.id, got.status)
       }
       // ⛔ A QUESTION THAT NEVER GOT AN ANSWER CANNOT BE GRADED — `graded: false` is not optional here.
       // MEASURED 2026-08-01: the Anthropic credit balance ran out mid-run and 18 of 100 questions came back
@@ -241,6 +247,7 @@ async function main() {
           root: ROOT, apiKey: envVal('ANTHROPIC_API_KEY'), question: q.message,
           rubric: q.assert.rubric, mustNotAssert: q.assert.mustNotAssert, answer: got.response || '',
         })
+        if (judged?.usage) ledger.recordJudge(q.id, JUDGE_MODEL, judged.usage)
         sc = { pass: judged.verdict === 'PASS', graded: judged.verdict !== 'PARSE_ERROR', detail: `${judged.verdict} · ${judged.classification || '-'} · ${judged.taxonomy || '-'} · ${judged.reason}` }
       } else if (sc.deferred) {
         sc = { pass: false, graded: false, detail: `judge NOT run — HTTP ${got.status}` }
@@ -276,7 +283,7 @@ async function main() {
   const stamp = process.env.STAMP || 'run'
   const outFile = path.join(ROOT, `tests/lora-evals/results/results-${stamp}.json`)
   fs.mkdirSync(path.dirname(outFile), { recursive: true })
-  fs.writeFileSync(outFile, JSON.stringify({ base: BASE, owner: OWNER, cats, overall: { pass: overallP, n: overallN }, results }, null, 2))
+  fs.writeFileSync(outFile, JSON.stringify({ base: BASE, owner: OWNER, cats, overall: { pass: overallP, n: overallN }, results }, null, 2))  // spend appended after reconcile
   console.log('\n================ LORA EVAL SCORECARD ================')
   const CATNAME = { A: 'A basic-accuracy/surface-sync', B: 'B honesty/false-zero', C: 'C four-source ROAS', D: 'D Meta dedup', E: 'E doc/COGS', F: 'F comparisons/windows' }
   for (const c of Object.keys(cats).sort()) {
@@ -322,6 +329,20 @@ async function main() {
   }
   console.log(`\n---- JUDGE SPEND ----`)
   console.log(`  ${judgeSpend.calls} calls · in ${judgeSpend.input} · out ${judgeSpend.output} tokens (${JUDGE_MODEL})`)
+  // LORAMER_EVAL_SPEND_LEDGER_V1 — reconcile the run against anthropic_spend_log and report cost PER QUESTION.
+  // The ledger is UNCHANGED and UNREAD by production; this is a read-only attribution pass at the harness layer.
+  const rec = await ledger.reconcile({ sbUrl: SB_URL, sbHeaders: SBH, runEnd: new Date().toISOString() })
+  const spendReport = ledger.report(rec)
+  console.log(spendReport.text)
+  // ⛔ A RUN THAT CANNOT REPORT ITS COST FAILS LOUDLY. Same rule as an empty result carrying its denominator:
+  // the summary may not read clean while the number is silently missing. Results are still written first, so a
+  // costing failure never destroys the run's answers.
+  if (!spendReport.measured) {
+    fs.writeFileSync(outFile, JSON.stringify({ base: BASE, owner: OWNER, cats, overall: { pass: overallP, n: overallN }, spend: { measured: false, reason: rec?.reason }, results }, null, 2))
+    console.error('\n❌ RUN COST NOT MEASURED — see the reason above. The scorecard stands; the cost does not.')
+    console.error('   Exiting non-zero: a run summary without a cost must not read as a clean run.')
+    process.exit(3)
+  }
   console.log('\n---- FAILED QUESTIONS ----')
   for (const r of results.filter(x => !x.pass)) {
     console.log(`  [${r.id}/${r.cat}] ${r.client} — ${r.message}`)

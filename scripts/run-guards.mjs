@@ -86,6 +86,9 @@ const GUARDS = [
   // LORAMER_DECISION_TOPIC_INDEX_V1 — §L must be GENERATED (recompute + diff), must agree with §H on every
   // token's status, and must keep reporting its own untokened backlog.
   'tests/guards/decision-topic-index.guard.mjs',
+  // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
+  // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
+  'tests/guards/eval-spend-ledger.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

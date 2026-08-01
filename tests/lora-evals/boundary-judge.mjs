@@ -87,8 +87,11 @@ export async function judgeBoundary({ root, apiKey, question, rubric, mustNotAss
     judgeSpend.input += r.usage?.input_tokens || 0
     judgeSpend.output += r.usage?.output_tokens || 0
     const t = (r.content || []).map((b) => b.text || '').join('')
+    // LORAMER_EVAL_SPEND_LEDGER_V1 — hand the raw usage back so the caller can attribute cost PER QUESTION.
+    // The judge never touches /api/chat, so logSpend never sees it; this is the only place its cost exists.
+    const usage = r.usage || null
     const m = t.match(/\{[\s\S]*\}/)
-    if (!m) return { verdict: 'PARSE_ERROR', classification: null, taxonomy: null, reason: t.slice(0, 120) }
+    if (!m) return { verdict: 'PARSE_ERROR', classification: null, taxonomy: null, reason: t.slice(0, 120), usage }
     const p = JSON.parse(m[0])
     const v = String(p.verdict || '').toUpperCase()
     const cls = String(p.classification || '').toUpperCase()
@@ -100,6 +103,7 @@ export async function judgeBoundary({ root, apiKey, question, rubric, mustNotAss
       classification: CLASSIFICATIONS.includes(cls) ? cls : null,
       taxonomy: TAXONOMY.includes(tax) ? tax : null,
       reason: String(p.reason || '').slice(0, 300),
+      usage,
     }
   } catch (e) {
     return { verdict: 'PARSE_ERROR', classification: null, taxonomy: null, reason: String(e?.message || e).slice(0, 160) }
