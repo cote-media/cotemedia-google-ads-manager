@@ -107,6 +107,10 @@ const GUARDS = [
   // LORAMER_COMPLETION_CLAIM_DENOMINATOR_V1 — every DRAIN_REGISTRY step must be visible to the completion
   // gate. It iterated required-steps (27) while the drain runs 34; 60 sealed claims were never checked.
   'tests/guards/completion-gate-covers-drain.guard.mjs',
+  // LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — the campaign backfill must keep SELECTING and STORING channel type,
+  // and the entity_state_history precedence rule must stay attached. Dropping the field breaks nothing
+  // and throws nothing — it just silently restores the criteria-vs-account-spend misclassification.
+  'tests/guards/campaign-channel-type-captured.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

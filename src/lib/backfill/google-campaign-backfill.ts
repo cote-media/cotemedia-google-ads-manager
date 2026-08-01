@@ -64,7 +64,17 @@ export async function runGoogleCampaignBackfill(
   const otherDeltas = { clicks: 0, impressions: 0, conversions: 0 } // Σ(campaign − account) over written days
 
   for (const chunk of monthChunks(startDate, endDate)) {
-    const gaql = `SELECT campaign.id, campaign.name, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
+    // LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — CHANNEL TYPE IS A CAMPAIGN ATTRIBUTE, so it comes back with the historical
+    // metrics at ZERO ADDITIONAL REQUESTS: one more field on a SELECT already being issued, not a new call.
+    // ⛔ ZERO REQUESTS, NOT ZERO OPERATIONS. Google bills operations and the operations-per-request ratio is not
+    // published — that unknown belongs to ★GAQL-OP-METER and must not be claimed away here.
+    // WHY IT IS WORTH CAPTURING: without it every completeness check judges a CRITERIA-DEPENDENT family
+    // (age/gender, keyword, ad_group) against ACCOUNT SPEND. Measured 2026-08-01: Foam OH spent $5,956.94 across
+    // 90 days on a Performance Max campaign, PMax cannot produce age/gender rows, and the completion-claim gate
+    // recorded 90 days of "missing demographics" that could never have existed. Google states the ad_group half
+    // outright — "Querying resources such as ad_group or ad_group_ad won't return any data for your Performance Max
+    // campaigns" (developers.google.com/google-ads/api/performance-max/reporting, last updated 2026-07-22).
+    const gaql = `SELECT campaign.id, campaign.name, campaign.advertising_channel_type, campaign.advertising_channel_sub_type, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM campaign WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`
     const rows = await gaqlWithRetry(customer, gaql)
     const byDate: Record<string, { rows: Record<string, unknown>[]; spend: number; clicks: number; impressions: number; conversions: number }> = {}
     for (const r of rows) {
@@ -86,6 +96,22 @@ export async function runGoogleCampaignBackfill(
         extra: {
           ctr: ratio(clicks, impressions, 100), cpc: ratio(spend, clicks), cpm: ratio(spend, impressions, 1000),
           roas: ratio(convValue, spend), cpa: ratio(spend, conversions), convRate: ratio(conversions, clicks, 100),
+          // ⛔ PRECEDENCE, WRITTEN WHERE IT EXECUTES — `entity_state_history` WINS OVER THIS FIELD when both exist
+          // and disagree. This stamps the campaign's CURRENT channel type onto every historical row it writes, so a
+          // campaign converted from Search to Performance Max would be mislabelled for its entire history. The state
+          // table carries the value as TIME-VARYING (SCD2, valid_from/valid_to) and is therefore the authority on
+          // "what was this campaign on THAT day"; this field is the authority on "what is it now", and it exists
+          // because the state table only began observing on 2026-07-30 and only sees campaigns still returned by the
+          // API. READ ORDER FOR ANY CONSUMER: entity_state_history for the row's date → this field → unknown.
+          // ⚠ MEASURED 2026-08-01, so the precedence is INSURANCE rather than load-bearing today: ZERO of the 86
+          // campaigns in entity_state_history carry more than one advertising_channel_type value. Nothing has been
+          // observed changing type yet. That is a reason to write the rule down now, not a reason to skip it.
+          // ⚠ THE VALUE IS THE VENDOR'S RAW ENUM ORDINAL, NOT A NAME — the live payload returns 2 / 3 / 10, not
+          // SEARCH / DISPLAY / PERFORMANCE_MAX. Stored raw on purpose: normalisation belongs at READ time, and
+          // `normalizeChannelType` (google-intelligence.ts:61) currently maps STRING names only and passes numbers
+          // straight through. See ★CHANNEL-TYPE-ENUM-UNMAPPED.
+          channelType: String(r.campaign?.advertising_channel_type || ''),
+          channelSubType: String(r.campaign?.advertising_channel_sub_type || ''),
         },
       })
     }
