@@ -23,7 +23,11 @@ import { createLedger } from './spend-ledger.mjs'
 const ROOT = '/Users/russcote2/Downloads/cotemedia-google-ads-manager'
 const BASE = process.env.BASE || 'http://localhost:3111'
 const OWNER = process.env.OWNER || 'cotebrandmarketing@gmail.com'
-const CALL_TIMEOUT_MS = 120000
+// LORAMER_EVAL_SPEND_LEDGER_V1 follow-on — the abort is env-configurable because 120s is a GUESS, and on
+// run 1 it cost us seven answers we PAID FOR and threw away (all seven were the complex multi-surface
+// questions). Raise it with EVAL_TIMEOUT_MS and report what each question actually took, so the ceiling
+// can be set from measured latency instead of a round number.
+const CALL_TIMEOUT_MS = Number(process.env.EVAL_TIMEOUT_MS || 120000)
 
 function secret() {
   const env = fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8')
@@ -196,6 +200,18 @@ async function main() {
   const setFile = setArg || 'golden-set.json'
   const gold = JSON.parse(fs.readFileSync(path.join(ROOT, 'tests/lora-evals', setFile), 'utf8'))
   console.log(`[set] ${setFile} — ${gold.questions.length} questions`)
+  // --only A5,A7,... runs a SUBSET. Used to finish a run that died partway rather than re-spending on the
+  // answers we already have — run 1's 82 answers cost $20.51 and re-running them would buy nothing.
+  const onlyArg = (process.argv.find((a) => a.startsWith('--only=')) || '').split('=')[1]
+    || (process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null)
+  if (onlyArg) {
+    const want = new Set(onlyArg.split(',').map((x) => x.trim()).filter(Boolean))
+    const before = gold.questions.length
+    gold.questions = gold.questions.filter((q) => want.has(q.id))
+    const missing = [...want].filter((w) => !gold.questions.some((q) => q.id === w))
+    if (missing.length) abort(`--only names ${missing.length} id(s) not in the set: ${missing.join(', ')}`)
+    console.log(`[only] ${gold.questions.length} of ${before} questions: ${[...want].join(', ')}`)
+  }
   const ledger = createLedger()
   ledger.begin()
   assertConfig() // LORAMER_LORA_EVAL_CONFIG_GUARD_V1 — abort on NEXTAUTH_URL/model mismatch BEFORE spending a token
@@ -228,7 +244,9 @@ async function main() {
         if (q.upload) { up = await uploadFixture(cookie, q.clientId, q.upload); process.stdout.write(`[upload ${q.upload}→${up.status}${up.body?.truncated ? ' TRUNCATED' : ''}] `) }
         if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
         ledger.markChatStart(q.id)
+        const _t0 = Date.now()
         got = await callChat(cookie, q)
+        got.elapsedMs = Date.now() - _t0
         ledger.markChatEnd(q.id, got.status)
       }
       // ⛔ A QUESTION THAT NEVER GOT AN ANSWER CANNOT BE GRADED — `graded: false` is not optional here.
@@ -256,7 +274,7 @@ async function main() {
       results.push({ id: q.id, cat: q.cat, axis: q.axis || 'correctness', scored: q.scored !== false, graded,
         assertType: q.assert.type, client: q.clientName, message: q.message,
         pass: sc.pass, detail: sc.detail, judge: judged,
-        httpStatus: got.status, response: got.response,
+        httpStatus: got.status, elapsedMs: got.elapsedMs ?? null, response: got.response,
         card: card && { spend: card.spend, revenue: card.revenue, roas: card.roas },
         upload: up ? { file: q.upload, status: up.status, truncated: !!up.body?.truncated } : undefined })
       console.log(!graded ? (q.assert.type === 'ungraded' ? 'UNGRADED' : 'NOT-GRADED') : sc.pass ? 'PASS' : 'FAIL')

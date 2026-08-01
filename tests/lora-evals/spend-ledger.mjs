@@ -90,7 +90,7 @@ export function createLedger() {
       // OVERLAP CHECK FIRST. Time-window attribution is only valid for sequential runs; see the header.
       const done = chat.filter((c) => c.endedAt)
       for (let i = 1; i < done.length; i++) {
-        if (done[i].startedAt < done[i - 1].endedAt) {
+        if (Date.parse(done[i].startedAt) < Date.parse(done[i - 1].endedAt)) {
           return { ok: false, reason: `OVERLAPPING QUESTION WINDOWS (${done[i - 1].qid} and ${done[i].qid}) — time-window attribution is invalid for a concurrent run. Refusing to guess.` }
         }
       }
@@ -110,15 +110,25 @@ export function createLedger() {
 
       const attributed = new Map()  // qid -> { usd, calls }
       const unattributed = []
+      // ⛔ COMPARE TIMESTAMPS NUMERICALLY, NEVER AS STRINGS. Postgres returns `2026-08-01 06:59:49.71+00`
+      // (SPACE separator, `+00` offset); `toISOString()` produces `2026-08-01T06:59:49.710Z` (T, Z). Comparing
+      // those as strings splits on character 10, where ' ' (0x20) sorts BELOW 'T' (0x54) — so every ledger row
+      // sorted before every window and the bracketing silently failed. MEASURED on this module's FIRST REAL
+      // RUN: $3.16 of $6.23 chat spend (>50%) landed in "matched NO question window", and the per-question
+      // lines read $0.0000 for ten questions that had certainly cost money. The report was well-formed and
+      // wrong — exactly the class this ledger was built to stop, committed inside the ledger itself.
+      const ms = (v) => { const n = Date.parse(String(v).replace(' ', 'T')); return Number.isNaN(n) ? null : n }
       for (const r of rows) {
-        const t = r.created_at
+        const t = ms(r.created_at)
+        if (t === null) { unattributed.push(r); continue }
         // A row belongs to the question whose [start, end] brackets it. An ABORTED question's server-side
         // completion lands AFTER endedAt, so extend that question's claim to the next question's start.
         let owner = null
         for (let i = 0; i < done.length; i++) {
           const c = done[i]
-          const upper = c.aborted ? (done[i + 1]?.startedAt ?? runEnd) : c.endedAt
-          if (t >= c.startedAt && t <= upper) { owner = c; break }
+          const upper = ms(c.aborted ? (done[i + 1]?.startedAt ?? runEnd) : c.endedAt)
+          const lower = ms(c.startedAt)
+          if (lower !== null && upper !== null && t >= lower && t <= upper) { owner = c; break }
         }
         if (!owner) { unattributed.push(r); continue }
         const cur = attributed.get(owner.qid) || { usd: 0, calls: 0, aborted: owner.aborted }
