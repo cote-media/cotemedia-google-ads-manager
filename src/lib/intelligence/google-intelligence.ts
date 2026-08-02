@@ -57,20 +57,61 @@ function normalizeBidStrategy(row: any): string {
   return map[type] || type
 }
 
+// LORAMER_CHANNEL_TYPE_ENUM_V1 — THE API RETURNS ORDINALS, AND LORA WAS BEING SHOWN THEM.
+//
+// ⛔ MEASURED 2026-08-01 on a real assembled context for Foam OH: `channelType` came back as 3, 2 and 10 — raw
+// enum ordinals, not names. The old map keyed on STRING names only and ended `map[type] || type`, so every number
+// fell straight through unchanged and build-claude-context.ts:610 rendered `[10]` and `[2]` into Lora's prompt as
+// the campaign's type, on every Google client. :917 did the same on impression-share lines.
+//
+// ⛔ AND THE OLD STRING MAP WAS FACTUALLY WRONG, WHICH IS WORSE THAN UNMAPPED. It read
+// `MULTI_CHANNEL: 'Performance Max'`. Google's proto is explicit: MULTI_CHANNEL = 7 is *"App Campaigns, and App
+// Campaigns for Engagement, that run across multiple channels"*, while PERFORMANCE_MAX = 10 is its own value the
+// map did not carry at all. So an App campaign was being reported to the user as Performance Max, and a real PMax
+// campaign fell through as a bare number. Renaming one campaign type as another is not a display bug.
+//
+// ORDINALS SOURCED FROM GOOGLE'S OWN PROTO, NOT INFERRED FROM THE SEVEN VALUES WE HAPPEN TO HOLD:
+// https://raw.githubusercontent.com/googleapis/googleapis/master/google/ads/googleads/v21/enums/advertising_channel_type.proto
+// (fetched 2026-08-01; the rendered reference page states "This type has no fields" and links to this proto).
+// ⚠ NOTE THE GAP AT 12 — it is absent from the enum. It was DISCOVERY, superseded by DEMAND_GEN = 14. A 12 on the
+// wire is therefore a legacy value, and it is mapped explicitly rather than left to the UNKNOWN branch.
+const CHANNEL_TYPE_BY_ORDINAL: Record<string, string> = {
+  '0': 'Unspecified',
+  '1': 'Unknown',
+  '2': 'Search',
+  '3': 'Display',
+  '4': 'Shopping',
+  '5': 'Hotel',
+  '6': 'Video',
+  '7': 'App',              // MULTI_CHANNEL — App Campaigns. NOT Performance Max.
+  '8': 'Local',
+  '9': 'Smart',
+  '10': 'Performance Max',
+  '11': 'Local Services',
+  '12': 'Discovery (legacy)', // absent from the current enum; superseded by DEMAND_GEN
+  '13': 'Travel',
+  '14': 'Demand Gen',
+}
+const CHANNEL_TYPE_BY_NAME: Record<string, string> = {
+  UNSPECIFIED: 'Unspecified', UNKNOWN: 'Unknown', SEARCH: 'Search', DISPLAY: 'Display', SHOPPING: 'Shopping',
+  HOTEL: 'Hotel', VIDEO: 'Video', MULTI_CHANNEL: 'App', LOCAL: 'Local', SMART: 'Smart',
+  PERFORMANCE_MAX: 'Performance Max', LOCAL_SERVICES: 'Local Services', DISCOVERY: 'Discovery (legacy)',
+  TRAVEL: 'Travel', DEMAND_GEN: 'Demand Gen',
+}
+
+export function normalizeChannelTypeValue(raw: unknown): string {
+  const v = String(raw ?? '').trim()
+  if (!v) return ''
+  if (/^\d+$/.test(v)) return CHANNEL_TYPE_BY_ORDINAL[v] ?? `UNKNOWN(${v})`
+  const byName = CHANNEL_TYPE_BY_NAME[v.toUpperCase()]
+  if (byName) return byName
+  // ⛔ NEVER a bare unexplained token and NEVER dropped. An unrecognised value must be VISIBLE as unrecognised —
+  // silently passing it through is exactly how `10` reached a user's screen and stayed there.
+  return `UNKNOWN(${v})`
+}
+
 function normalizeChannelType(row: any): string {
-  const type = row.campaign?.advertising_channel_type || ''
-  const map: Record<string, string> = {
-    SEARCH: 'Search',
-    DISPLAY: 'Display',
-    SHOPPING: 'Shopping',
-    VIDEO: 'Video',
-    MULTI_CHANNEL: 'Performance Max',
-    DISCOVERY: 'Discovery/Demand Gen',
-    SMART: 'Smart',
-    LOCAL: 'Local',
-    APP: 'App',
-  }
-  return map[type] || type
+  return normalizeChannelTypeValue(row.campaign?.advertising_channel_type)
 }
 
 function normalizeStatus(s: string): string {
@@ -850,7 +891,9 @@ export async function fetchGoogleIntelligence(
       return {
         campaignId: String(row.campaign?.id || ''),
         campaignName: String(row.campaign?.name || ''),
-        channelType: String(row.campaign?.advertising_channel_type || ''),
+        // LORAMER_CHANNEL_TYPE_ENUM_V1 — the SECOND site that fed a raw ordinal to the prompt. build-claude-context
+        // :917 renders this on every impression-share line, so it had the same `[10]` defect as the campaigns list.
+        channelType: normalizeChannelTypeValue(row.campaign?.advertising_channel_type),
         impressionShare: is >= 0 ? is : null,
         topImpressionShare: topIs >= 0 ? topIs : null,
         absoluteTopImpressionShare: absTopIs >= 0 ? absTopIs : null,

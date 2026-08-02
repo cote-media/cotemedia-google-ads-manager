@@ -111,6 +111,9 @@ const GUARDS = [
   // and the entity_state_history precedence rule must stay attached. Dropping the field breaks nothing
   // and throws nothing — it just silently restores the criteria-vs-account-spend misclassification.
   'tests/guards/campaign-channel-type-captured.guard.mjs',
+  // LORAMER_CHANNEL_TYPE_ENUM_V1 — every AdvertisingChannelType ordinal must render as a NAME. Lora was
+  // being shown [10] and [2], and the old map called MULTI_CHANNEL (App) 'Performance Max'.
+  'tests/guards/channel-type-enum-mapped.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',
