@@ -268,7 +268,12 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         // ⛔ THE ANSWER ARRIVES WHOLE (decided 2026-07-28). `delta` no longer paints text into the status line —
         // it only marks that work is still moving, so the idle timer re-arms and the mark keeps animating. The
         // authoritative `answer` event renders the reply in one piece, exactly as the blocking path does.
-        if (ev === 'tool' && data?.phase === 'start') setStreamStatus(renderSubjectLine(data))
+        // LORAMER_CHAT_STATUS_FIRST_V1 — the `status` channel was DECLARED in the StreamEmit union and NEVER
+        // EMITTED, so the first thing that could set this line was the first tool event. On a data question
+        // that is the far side of a whole model turn, and the device showed dots for over a minute. `status`
+        // now leads every turn, so the line is the FIRST thing on screen rather than the last.
+        if (ev === 'status' && data?.label) setStreamStatus(data.label)
+        else if (ev === 'tool' && data?.phase === 'start') setStreamStatus(renderSubjectLine(data))
         else if (ev === 'tool' && data?.phase === 'finish') setStreamStatus((s) => s) // keep the last subject; the next start replaces it
         else if (ev === 'delta' && !streamStatusRef.current) setStreamStatus('Working…')
       })

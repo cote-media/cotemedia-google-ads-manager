@@ -229,6 +229,15 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               ) : (
                 messages.map((m, i) => (
                   <div key={i} className={m.role === 'user' ? styles.rowUser : styles.rowAssistant}>
+                    {/* LORAMER_CHAT_STATUS_SUBJECT_V2 — THE AVATAR HALF, which V1 declared and never wired.
+                        The banked design (2026-07-28) is ONE mark, TWO states: the working indicator AND
+                        Lora's avatar on every assistant turn. V1 only ever mounted it inside the `loading`
+                        branch, so on a completed turn the mark did not exist in the DOM at all — a WIRING
+                        gap, not a CSS one, which is why it read as "does not render" even after the status
+                        line appeared. Idle state: fully drawn, still — `working` is deliberately not passed. */}
+                    {m.role === 'assistant' && (
+                      <span className={styles.avatarSlot}><LmMark size={18} /></span>
+                    )}
                     <div className={m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}>
                       {m.role === 'user'
                         ? m.content

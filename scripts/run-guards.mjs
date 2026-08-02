@@ -80,6 +80,11 @@ const GUARDS = [
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/drain-fair-share-order.guard.mjs', // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1
   'tests/guards/chat-status-line.guard.mjs', // LORAMER_CHAT_STATUS_SUBJECT_V1
+  // LORAMER_CHAT_STATUS_FIRST_V1 — the three Gate-B device defects of 2026-08-02: status must LEAD the turn
+  // (and release the route's commit gate), the LM mark must mount BOTH as working indicator and as avatar,
+  // and the WebKit facts that killed the sweep and the mark (pathLength, negative dash offset, the
+  // background-clip pairing) may not come back. Visual behaviour is Gate-B, not assertable here.
+  'tests/guards/chat-status-visible.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',

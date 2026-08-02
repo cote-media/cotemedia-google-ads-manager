@@ -30,11 +30,17 @@ export function LmMark({ working = false, size = 22 }: { working?: boolean; size
       aria-hidden="true"
       focusable="false"
     >
-      {/* L and M as one continuous path pair, stroked so the dash animation can build/dissolve them.
-          pathLength=1 normalises the dash maths so the keyframes do not depend on the real geometry —
-          change the artwork and the animation still works. */}
-      <path className={styles.lmStroke} pathLength={1} d="M5 4.5 V16.5 H10.5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path className={styles.lmStroke} pathLength={1} d="M13.5 16.5 V7.5 L16.75 12 L20 7.5 V16.5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      {/* ⛔ NO pathLength. THE FIRST CUT HAD pathLength={1} AND THAT IS WHY THE MARK DID NOT RENDER ON THE
+          DEVICE (Gate-B, Chrome iOS, 2026-08-02). WEBKIT PARSES pathLength AND IGNORES IT — it has no effect
+          on rendering, and Firefox/Chrome-on-desktop scale dash values by it while WebKit/Blink do not. Every
+          browser on iOS is WebKit, so on the ONLY target that matters the normalisation never happened: with
+          `stroke-dasharray: 1` against real path lengths of 17.5 and 29.1 user units, the mark drew as
+          1-unit dashes separated by 1-unit gaps — a faint dotted smear at 14px, which reads as nothing at all.
+          The dash maths now uses REAL user units (see .lmStroke), so it depends on the geometry below. If the
+          artwork changes, the dash length in chat.module.css changes with it — a stated coupling is honest;
+          an attribute that silently does nothing on the target browser is not. */}
+      <path className={styles.lmStroke} d="M5 4.5 V16.5 H10.5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path className={styles.lmStroke} d="M13.5 16.5 V7.5 L16.75 12 L20 7.5 V16.5" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

@@ -457,7 +457,32 @@ export async function runClaudeToolLoopStreaming(opts: {
   /** Awaited on the FIRST turn only, before the route commits to an SSE response — see the route's footgun note. */
   onFirstTurnStarted?: () => void
 }): Promise<ToolLoopResult> {
-  const { anthropic, model, maxTokens, system, messages, emit } = opts
+  const { anthropic, model, maxTokens, system, messages } = opts
+  // ── LORAMER_CHAT_STATUS_FIRST_V1 — THE COMMIT GATE RELEASES ON THE FIRST EMIT OF *ANY* KIND ──────────────
+  // DEVICE DEFECT (Gate-B, Chrome iOS, 2026-08-02): the status line took more than a MINUTE to appear, with
+  // the three dots showing until it did. Two stacked causes, and this is the DOMINANT one.
+  //   · The route does not return its Response until `onFirstTurnStarted` fires (Promise.race against the
+  //     chain settling) — a deliberate footgun guard, because once SSE headers are written the status code is
+  //     fixed and a 401/404/503 can no longer be expressed.
+  //   · `onFirstTurnStarted` was called ONLY from `stream.on('text')`. When the model's FIRST turn goes
+  //     straight to tool_use with NO preamble — which is what a data question does, i.e. exactly the slow
+  //     turns this feature exists for — no text ever arrives on turn 1, so the gate stayed shut through the
+  //     whole first model turn AND the tool execution. Every `tool` event enqueued into a stream whose
+  //     Response had not been returned. The user got dots until the model began writing the FINAL ANSWER,
+  //     and then the whole queue flushed at once. Emitting a status event earlier would have changed nothing
+  //     on its own — it would have queued behind the same shut gate.
+  // THE TRADE, STATED, NOT BURIED: releasing on the first emit means an Anthropic overload that exhausts the
+  // whole model chain now degrades from a JSON 503 to an SSE `error` event. The USER-VISIBLE result is
+  // IDENTICAL — readChatResponse normalises both into `error: 'overloaded'` and the client renders the same
+  // sentence — so what is actually lost is the HTTP status code for observability. A 503 nobody sees because
+  // they are staring at a dead spinner is worth less than a live line plus that same honest sentence.
+  // Auth, RBAC and prompt assembly all complete BEFORE this function is entered, so those failures still
+  // return real JSON statuses exactly as before; only model-chain exhaustion changes shape.
+  let gateReleased = false
+  const emit: StreamEmit = (event, data) => {
+    opts.emit(event, data)                                   // enqueue FIRST, so the frame is already in the
+    if (!gateReleased) { gateReleased = true; opts.onFirstTurnStarted?.() }  // stream when the Response returns
+  }
   const clientId = opts.clientId || ''
   const userEmail = opts.userEmail || ''
   const tools: any[] | undefined =
@@ -498,13 +523,27 @@ export async function runClaudeToolLoopStreaming(opts: {
     const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
     if (tools) createParams.tools = tools
 
+    // ⛔ THE FIRST EMITTABLE MOMENT, AND IT MAY NOT CLAIM WORK IT HAS NOT STARTED.
+    // This runs immediately before the model call and is the earliest point at which anything can go on the
+    // wire: the SSE controller only exists inside the route's streaming branch, which is reached AFTER auth,
+    // RBAC and prompt assembly have already completed. "Thinking…" is chosen precisely because it claims
+    // NOTHING about data — the model call is issued on the very next line and no read of any client's numbers
+    // has begun. "Reading Foam OH · Google · Nov–Dec 2024" before a tool has been chosen would be a FALSE
+    // STATUS: it would name a client, a platform and a window that nothing has looked at yet, which is the
+    // same class of defect as a spinner implying progress it cannot see. On turns AFTER a tool the numbers
+    // ARE in hand, so the line can honestly say so.
+    // ⚠ RESIDUAL, NAMED NOT HIDDEN: everything BEFORE this function — auth, RBAC, context assembly — is still
+    // silent, because no channel is open yet. That window is DB/cache work, not model work.
+    emit('status', turn === 0
+      ? { phase: 'thinking', label: 'Thinking…' }
+      : { phase: 'composing', label: 'Working through the numbers…' })
+
     // messages.stream() (not stream:true) so the SDK accumulates state and finalMessage() still yields
     // stop_reason + usage + tool_use blocks per turn — the loop's control flow is unchanged.
     const stream = opts.requestOptions
       ? anthropic.messages.stream(createParams, opts.requestOptions)
       : anthropic.messages.stream(createParams)
 
-    let sawFirst = false
     let turnText = ''
     // EMIT LIVE. An earlier cut buffered each turn and flushed once — which measured as first-byte 66.8s of a
     // 67.0s turn, i.e. chunked delivery of a fully-buffered answer, not streaming at all. That ships the SHAPE of
@@ -513,10 +552,13 @@ export async function runClaudeToolLoopStreaming(opts: {
     // Preamble on a TOOL turn is still narration, not answer: the client clears its live buffer when the `tool`
     // event lands, and the authoritative `answer` event at the end replaces whatever is on screen — so the
     // persisted answer stays exactly the blocking path's finalResp text.
+    // LORAMER_CHAT_STATUS_FIRST_V1 — the explicit onFirstTurnStarted call that used to live here is GONE:
+    // the wrapped `emit` above releases the commit gate on the first frame of any kind, and the status emit
+    // before this line always beats the first delta. Keeping a second release path would mean two answers to
+    // "when does the response commit", and one of them would rot.
     stream.on('text', (t: string) => {
       turnText += t
       emit('delta', { text: t })
-      if (!sawFirst) { sawFirst = true; opts.onFirstTurnStarted?.() }
     })
 
     const resp: any = await stream.finalMessage()
