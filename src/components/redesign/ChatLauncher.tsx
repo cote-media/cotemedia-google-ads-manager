@@ -16,6 +16,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useLoraChat, type Msg } from '@/lib/next/use-lora-chat' // LORAMER_LORA_CHAT_HOOK_V1 — the shared conversation engine
 import styles from './chat.module.css'
+import { LmMark } from './LmMark' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one mark: message avatar AND working indicator
 import shell from './redesign.module.css' // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — token scope for the portaled overlay
 
 const SUGGESTIONS = [
@@ -241,8 +242,19 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
                   {/* LORAMER_CHAT_STREAMING_V1 — the spinner is what made a slow turn indistinguishable from a dead
                       one. When streaming is on, replace it with what Lora is ACTUALLY doing. Transient: cleared in
                       the finally block, never persisted, never logged as a turn. */}
+                  {/* LORAMER_CHAT_STATUS_SUBJECT_V1 — the status line names the WORK, and the LM mark below it
+                      animates in the place the answer will appear. The answer arrives WHOLE; nothing here is
+                      progressive text. Both are transient and neither is ever persisted. */}
                   {streamStatus
-                    ? <span className={styles.streamStatus}>{streamStatus}</span>
+                    ? (
+                      <>
+                        <span className={styles.streamStatus}>
+                          <span className={styles.streamStatusIcon}><LmMark size={14} /></span>
+                          <span className={styles.streamStatusText}>{streamStatus}</span>
+                        </span>
+                        <span className={styles.lmWorkingSlot}><LmMark working size={22} /></span>
+                      </>
+                    )
                     : <span className={styles.typing}><i /><i /><i /></span>}
                 </div></div>
               )}

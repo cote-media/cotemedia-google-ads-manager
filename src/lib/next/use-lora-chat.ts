@@ -20,6 +20,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery'
+import { renderSubjectLine } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn'
 
 export type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
@@ -38,7 +39,16 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
-  const [streamStatus, setStreamStatus] = useState<string | null>(null)
+  const [streamStatus, setStreamStatusRaw] = useState<string | null>(null)
+  // LORAMER_LAGGING_EVENT_CANNOT_GATE_A_SYNCHRONOUS_CONSUMER_V1 — the SSE handler fires many times in one tick;
+  // reading `streamStatus` there is stale by construction. The ref is the synchronous truth, the state is what
+  // renders, and setStreamStatus writes both so they cannot drift.
+  const streamStatusRef = useRef<string | null>(null)
+  const setStreamStatus = useCallback((v: string | null | ((p: string | null) => string | null)) => {
+    const next = typeof v === 'function' ? (v as (p: string | null) => string | null)(streamStatusRef.current) : v
+    streamStatusRef.current = next
+    setStreamStatusRaw(next)
+  }, [])
   const [probeLine, setProbeLine] = useState<string | null>(null)
   const [debug, setDebug] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -252,8 +262,15 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
         // show what Lora is actually doing. All of this is TRANSIENT — cleared in the finally block, and
         // logNextConversationTurn still fires only on the authoritative answer, so nothing provisional persists.
-        if (ev === 'tool' && data?.name) setStreamStatus(`Checking ${String(data.name).replace(/_/g, ' ')}…`)
-        else if (ev === 'delta') setStreamStatus(live || null)
+        // LORAMER_CHAT_STATUS_SUBJECT_V1 — the line now names the WORK, not the tool: "Reading Foam OH · Google ·
+        // Nov–Dec 2024". renderSubjectLine is the SAME function the guard drives, so what ships and what is
+        // proven cannot drift.
+        // ⛔ THE ANSWER ARRIVES WHOLE (decided 2026-07-28). `delta` no longer paints text into the status line —
+        // it only marks that work is still moving, so the idle timer re-arms and the mark keeps animating. The
+        // authoritative `answer` event renders the reply in one piece, exactly as the blocking path does.
+        if (ev === 'tool' && data?.phase === 'start') setStreamStatus(renderSubjectLine(data))
+        else if (ev === 'tool' && data?.phase === 'finish') setStreamStatus((s) => s) // keep the last subject; the next start replaces it
+        else if (ev === 'delta' && !streamStatusRef.current) setStreamStatus('Working…')
       })
       // LORAMER_CHAT_FAILURE_BRANCHES_V1 — EVERY failure mode gets its OWN sentence. Before this, a 503 from an
       // exhausted model chain and a 500 from a real bug rendered the SAME string, so the user could not tell

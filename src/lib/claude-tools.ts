@@ -15,8 +15,9 @@ import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrain
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote } from '@/lib/next/coverage'
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
-import { resolveAccess } from '@/lib/access/can-access'
+import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'
 import { logToolDecision } from '@/lib/lora-tool-log' // LORAMER_LORA_TOOL_DECISION_LOG_V1 — L2-retrieval instrument (fire-and-forget)
+import { toolSubject } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — subject, never raw tool args
 
 // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1
 // Defense-in-depth ACCESS check (the routes also gate before calling the loop). Now membership/org-AWARE via
@@ -450,6 +451,9 @@ export async function runClaudeToolLoopStreaming(opts: {
   maxToolTurns?: number
   requestOptions?: { maxRetries?: number; timeout?: number }
   emit: StreamEmit
+  /** LORAMER_CHAT_STATUS_SUBJECT_V1 — the BOUND client's human name, already on the request body. Lets the
+   *  status line name the client at single-client scope without a single extra query. */
+  clientName?: string | null
   /** Awaited on the FIRST turn only, before the route commits to an SSE response — see the route's footgun note. */
   onFirstTurnStarted?: () => void
 }): Promise<ToolLoopResult> {
@@ -465,6 +469,29 @@ export async function runClaudeToolLoopStreaming(opts: {
   })()
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
   const MAX = opts.maxToolTurns ?? 5
+
+  // LORAMER_CHAT_STATUS_SUBJECT_V1 — id -> human name, resolved SERVER-side so no id reaches the browser.
+  // TWO SOURCES, cheapest first:
+  //   - the BOUND client's name is already on the request (route.ts destructures `clientName`), so the
+  //     single-client case - which is nearly every turn - costs ZERO extra queries.
+  //   - agency scope has no bound client and the model names one, so the RBAC-scoped roster is fetched
+  //     LAZILY and ONCE, only on the first tool turn that needs it. listAccessibleClientsWithNames is the
+  //     same helper the agency prompt uses (LORAMER_AGENCY_SCOPE_LORA_V1) and can never widen the set.
+  // A miss returns undefined and the subject omits the client segment - never a UUID, never "unknown".
+  let rosterPromise: Promise<Map<string, string>> | null = null
+  const getClientNameResolver = async (): Promise<(id: string) => string | undefined> => {
+    const bound = (opts.clientName || '').trim()
+    const boundId = clientId.trim()
+    if (boundId && bound) return (id) => (id === boundId ? bound : undefined)
+    if (!userEmail) return () => undefined
+    if (!rosterPromise) {
+      rosterPromise = listAccessibleClientsWithNames(userEmail)
+        .then((rows) => new Map(rows.map((r) => [r.id, r.name])))
+        .catch(() => new Map<string, string>()) // a failed lookup omits the name; it never fails the turn
+    }
+    const roster = await rosterPromise
+    return (id) => roster.get(id)
+  }
 
   let last: any = null
   for (let turn = 0; turn < MAX; turn++) {
@@ -508,9 +535,40 @@ export async function runClaudeToolLoopStreaming(opts: {
     if (resp.stop_reason === 'tool_use' && tools) {
       const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use')
       // Tool turn: what was streamed above was preamble. Tell the client to demote it to a status line.
-      for (const tu of toolUses) emit('tool', { name: tu.name, preamble: turnText.trim() || null })
+      //
+      // LORAMER_CHAT_STATUS_SUBJECT_V1 — the event now carries the SUBJECT, not just the tool name. Before this
+      // the client could only render "Checking query metrics…", because a name was the only thing on the wire;
+      // `tu.input` was in scope at this exact line and was never sent. It is still not sent — toolSubject()
+      // extracts only who / which platform / which window, and resolves the client to a HUMAN NAME server-side
+      // so no id ever reaches the browser.
+      const resolveName = await getClientNameResolver()
+      for (const tu of toolUses) {
+        emit('tool', {
+          id: tu.id,                    // correlation id — the Anthropic tool_use id, already unique per call
+          phase: 'start',
+          ...toolSubject(tu.name, tu.input, clientId, resolveName),
+        })
+      }
       convo.push({ role: 'assistant', content: resp.content })
-      const toolResults = await executeToolUses(toolUses, { clientId, userEmail })
+      // ⛔ FINISH ALWAYS FIRES, INCLUDING WHEN THE TOOL FAILS. Before this there was no finish event at all, so
+      // a status line had no event that could end it: on a failure it would sit on "Reading …" until the whole
+      // turn resolved. `finally` is load-bearing rather than tidy — executeToolUses catches per-tool errors and
+      // returns them as is_error, but if IT throws (a DB failure outside the per-tool try, a resolver blowing up)
+      // there is no other path that closes the line.
+      let toolResults: any[] = []
+      try {
+        toolResults = await executeToolUses(toolUses, { clientId, userEmail })
+      } finally {
+        const errored = new Set(
+          (toolResults as any[]).filter((r: any) => r?.is_error).map((r: any) => r?.tool_use_id),
+        )
+        for (const tu of toolUses) {
+          // No results at all ⇒ executeToolUses threw ⇒ nothing succeeded. Reported as ok:false rather than
+          // omitted, because "we could not look" and "we looked and it failed" are both NOT success, and a
+          // missing finish is the one outcome the client cannot recover from.
+          emit('tool', { id: tu.id, phase: 'finish', ok: toolResults.length > 0 && !errored.has(tu.id) })
+        }
+      }
       convo.push({ role: 'user', content: toolResults })
       continue
     }

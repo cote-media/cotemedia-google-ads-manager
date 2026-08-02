@@ -79,6 +79,7 @@ const GUARDS = [
   'tests/guards/connection-outcome-honesty.guard.mjs',
   'tests/guards/rangelap-completion-honesty.guard.mjs',
   'tests/guards/drain-fair-share-order.guard.mjs', // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1
+  'tests/guards/chat-status-line.guard.mjs', // LORAMER_CHAT_STATUS_SUBJECT_V1
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',

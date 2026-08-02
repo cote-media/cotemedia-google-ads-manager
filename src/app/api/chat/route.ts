@@ -233,6 +233,7 @@ export async function POST(request: Request) {
           messages,
           clientId,
           userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+          clientName,  // LORAMER_CHAT_STATUS_SUBJECT_V1 — already on the body; lets the status line name the client with ZERO extra queries
           requestOptions,
           emit: emitRaw,
           onFirstTurnStarted: firstToken,

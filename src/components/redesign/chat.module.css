@@ -152,11 +152,96 @@
 /* LORAMER_CHAT_STREAMING_V1 — transient "what Lora is doing" line, shown in place of the typing dots while a
    streamed turn is in flight. Muted and italic so it reads as status, not as Lora's answer. */
 .streamStatus {
-  display: block;
+  /* LORAMER_CHAT_STATUS_SUBJECT_V1 — ONE LINE, FIXED HEIGHT, NO WRAP, NO LAYOUT SHIFT. The subject changes
+     several times during a turn ("Reading Foam OH · Google · Nov-Dec 2024" -> a different family), and a line
+     that re-wraps or grows on each change would make the panel jump under the user's thumb while they wait.
+     Truncation is deliberate: the leading segments (who, which platform) carry the information; a clipped tail
+     is better than a moving layout. */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
   font-size: 13px;
-  font-style: italic;
-  opacity: 0.72;
-  line-height: 1.45;
+  line-height: 20px;
+  font-style: normal;
+}
+/* Stable leading icon slot — fixed width so the line keeps its identity when the text changes. Without it the
+   text would shift horizontally on every subject change, which reads as flicker rather than as progress. */
+.streamStatusIcon {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.55;
+}
+.streamStatusText {
+  flex: 1 1 auto;
+  min-width: 0;              /* the min-width:0 that makes truncation actually fire inside a flex row */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* THE SWEEP. A gradient moved across the TEXT via background-position with background-clip:text — not a
+     pulse (which reads as an alarm) and not a spinner (which is the thing being replaced). It says "still
+     working" without claiming progress it cannot measure: there is no percentage here, and inventing one
+     would be a confident number we do not have. */
+  background: linear-gradient(90deg,
+    var(--muted, #64748b) 0%,
+    var(--muted, #64748b) 35%,
+    var(--ink, #0f172a) 50%,
+    var(--muted, #64748b) 65%,
+    var(--muted, #64748b) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: loramerSweep 2.4s linear infinite;
+}
+@keyframes loramerSweep {
+  from { background-position: 150% 0; }
+  to   { background-position: -150% 0; }
+}
+
+/* ── LORAMER_CHAT_STATUS_SUBJECT_V1 — THE LM MARK. One mark, two states. ── */
+.lmMark { display: block; flex: 0 0 auto; }
+.lmStroke {
+  stroke: var(--accent, #2563eb);
+  /* IDLE / AVATAR STATE: fully drawn, still. This is what renders next to every assistant turn. */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  opacity: 0.9;
+}
+/* WORKING STATE: the strokes BUILD and DISSOLVE on a loop. Visually distinct from idle at a glance, which is
+   the requirement — it communicates, it does not decorate. The two paths are offset so the mark draws itself
+   rather than both halves appearing at once. */
+.lmMarkWorking .lmStroke { animation: loramerLmDraw 1.8s ease-in-out infinite; }
+.lmMarkWorking .lmStroke:nth-child(2) { animation-delay: 0.22s; }
+@keyframes loramerLmDraw {
+  0%   { stroke-dashoffset: 1;    opacity: 0.25; }
+  45%  { stroke-dashoffset: 0;    opacity: 1; }
+  70%  { stroke-dashoffset: 0;    opacity: 1; }
+  100% { stroke-dashoffset: -1;   opacity: 0.25; }
+}
+
+/* ⛔ REDUCED MOTION — NON-NEGOTIABLE, AND IT FALLS BACK TO A *WORKING* STATE, NOT TO IDLE. Killing the
+   animation must not also kill the information: the user still needs to know Lora is working. So the sweep
+   becomes a flat muted colour and the mark becomes fully drawn and dimmed — static, still legible as "in
+   progress", and distinct from the idle avatar. Falling back to idle would silently remove the one signal
+   this whole feature exists to provide. */
+@media (prefers-reduced-motion: reduce) {
+  .streamStatusText {
+    animation: none;
+    background: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    color: var(--muted, #64748b);
+  }
+  .lmMarkWorking .lmStroke {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 0.55;
+  }
 }
 
 /* LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the UNMISSABLE debug readout. Rendered ONLY under ?debug=chat.
@@ -173,3 +258,7 @@
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   border-bottom: 2px solid #0f172a;
 }
+
+/* The mark sits BELOW the status line, in the place the answer will appear — so the eye is already where the
+   text will land. Left-aligned with the bubble text, not centred, for the same reason. */
+.lmWorkingSlot { display: block; margin-top: 10px; }
