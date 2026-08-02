@@ -213,6 +213,10 @@ Russ never edits files. Claude Code runs locally and makes every change directly
 
 Russ works across two machines — iMac (`~/Downloads/cotemedia-ads-manager/`) and MacBook Air (`~/Downloads/cotemedia-google-ads-manager/`). GitHub is the single source of truth, but staying synced is NOT automatic — it requires discipline on both ends of every session.
 
+⚙ **HELD WORK LIVES ON A `hold/` BRANCH, NOT IN A WORKING TREE (standing rule, 2026-08-02).** Authored-but-not-shippable work — Gate-A green, waiting on preconditions or on Russ — must be pushed to a `hold/<name>` branch as well as left in the working tree. **WHY: a working tree is not a copy.** The Google Tier-1 breadth widen sat uncommitted for a full week with NEITHER half in git's object store; one `git restore .` would have taken 133 insertions and one `git clean -fd` would have deleted a 51-line untracked file that existed nowhere else. It also cannot be seen from the other machine, which defeats the whole point of the ritual below. Live example: **`hold/google-tier1-widen`** — QUEUE owns which item it holds and why it must not be merged.
+⛔ **A STASH IS NOT A SUBSTITUTE, and this is a mechanical fact rather than a preference:** `git stash push -u` puts untracked files in the stash commit's THIRD PARENT, not in its tree, so `git branch X stash@{0}` silently produces a tree with the untracked half MISSING — precisely the half that has no other copy. Stashes are also local-only. Use a branch.
+⚠ **EXPECT THE PREVIEW BUILD TO FAIL, and do not treat that as a problem to fix.** Vercel's GitHub integration builds a PREVIEW deployment for every branch push (`target: null`), separate from production. Held work is held because it is not shippable, so `npm run guard` inside `npm run build` will usually fail it — which is the guard doing its job. Production is untouched: only `main` deploys to production. ⛔ Do NOT weaken a guard, add a waiver, or delete the branch to make that red X go away.
+
 **Before starting work on either machine, ALWAYS run:**
 
 ```
