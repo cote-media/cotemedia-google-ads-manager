@@ -21,6 +21,8 @@ import { BACKFILL_CONCURRENCY, clampConcurrency, runPool } from '@/lib/backfill/
 import { GoogleQuotaError, isLapFailure } from '@/lib/backfill/google-quota' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 import { readGoogleQuotaPause, writeGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store' // LORAMER_GOOGLE_QUOTA_GUARD_V1
 import { getGoogleOpBudget, holdForBudget, recordLaneDeclined } from '@/lib/backfill/google-op-budget' // LORAMER_GOOGLE_OP_BUDGET_V1
+import { orderStepsFairShare } from '@/lib/backfill/drain-step-order' // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1
+import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget' // LORAMER_META_ASSET_BUDGET_HEADROOM_V1 — the rule, reused
 import { googleForwardReserveDecision } from '@/lib/backfill/google-forward-reserve' // LORAMER_GOOGLE_FWD_QUOTA_RESERVE_V1
 
 // LORAMER_DRAIN_FREEMAX_V1 — maxDuration raised to the Pro GA max (800s, free) so each fire runs ~10 connection
@@ -60,6 +62,17 @@ export const fetchCache = 'force-no-store'
 // This is the budget that stops the route SCHEDULING new work; the platform ceiling only kills what is already
 // running. At 680s the fire would still have stopped taking on work at ~11 minutes and returned cleanly, and the
 // experiment would have measured nothing while looking like it ran.
+// LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 — the reservation a lap gets BEFORE this fire has measured one.
+// ⛔ FIRST_LAP_MS (90s, lap-budget.ts) IS SIZED FOR A META-ASSET LAP AND IS AN ORDER OF MAGNITUDE TOO SMALL
+// HERE — at elapsed 1500s it would wave through a lap that then runs to the kill. This is passed as the
+// parameter that module already exposes precisely so a heavier caller does not lower the shared default and
+// silently re-open the 504 class on the asset route.
+// ⚠ 900s is DERIVED FROM ONE OBSERVATION, NOT MEASURED: Foam OH's google_geo lap on 2026-08-02 took ~853s,
+// itself inferred from the 12:20:20Z fire start and the 12:34:33Z cursor write — there is no lap timer, so it
+// is two stamps and a subtraction. Re-derive it the first time a lap is actually instrumented; the banked
+// lesson from LORAMER_META_PRODUCT_ID_ROUTE_V1 is that a per-unit cost inferred from a sibling was wrong by
+// ~47% in the unsafe direction. Erring HIGH costs one fewer step per fire; erring LOW costs a silent kill.
+const DRAIN_FIRST_LAP_MS = 900_000
 const BUDGET_MS = 1_680_000 // ~120s headroom under the 1800s maxDuration — the same margin the 800s value carried:
                           // a step that starts just under budget can finish before the platform ceiling → no 504 overrun
 
@@ -256,6 +269,10 @@ export async function GET(request: Request) {
   // verified one by one. ⛔ A writer reporting NO count is UNKNOWN, never zero: reading a missing field as
   // "wrote nothing" would manufacture a false figure out of a schema gap.
   let rowsWrittenTally = 0
+  // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 — worst lap observed THIS FIRE, shared across the pool. Feeds the
+  // budget RESERVATION below. Fire-scoped rather than per-connection on purpose: BUDGET_MS is fire-scoped, and
+  // under concurrency a heavy lap on one connection is exactly the thing that must make a sibling cautious.
+  const lapBox = { maxMs: 0 }
   const overBudget = () => Date.now() - started > BUDGET_MS
   await runPool(pending, concurrency, async (row) => {
     if (quotaBox.hit) return // CHANGE 3 — quota tripped earlier this fire: do no more google work
@@ -272,17 +289,50 @@ export async function GET(request: Request) {
     const conn: DrainConn = { client_id: row.client_id, platform, account_id: row.account_id }
     let curDone: string[] = Array.isArray(row.onboard_steps_done) ? [...row.onboard_steps_done] : []
     const stepResults: any[] = []
-    // (a) Run EVERY incomplete step for this connection (registry deepest-first order), ONE lap each. A
-    // not-done step does NOT break the loop — a stuck early step (e.g. account erroring) must never starve a
-    // later step (e.g. placement). Mark a step done ONLY on lap.done (= reconciled-to-floor / empty-success).
-    for (const step of DRAIN_REGISTRY) {
-      if (!step.platforms.includes(platform)) continue
-      if (curDone.includes(step.key)) continue
-      if (Date.now() - started > BUDGET_MS) break
+    // (a) Run EVERY incomplete step for this connection, ONE lap each. A not-done step does NOT break the loop —
+    // a stuck early step (e.g. account erroring) must never starve a later step (e.g. placement). Mark a step
+    // done ONLY on lap.done (= reconciled-to-floor / empty-success).
+    //
+    // ═══ LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 ══════════════════════════════════════════════════════════════
+    // ⛔ THE ORDER IS NO LONGER RAW ARRAY POSITION. It was, on every fire, for every connection, forever — so a
+    // SLOW step starved whatever sat behind it, always in the same direction, with no mechanism that could let
+    // the starved step ever lead. And `break` exits the WHOLE loop, so it starves EVERY step behind it, not one.
+    // Within a declared tier the least-recently-SUCCEEDED step now leads (sync_state.updated_at ASC, NULLS
+    // FIRST). Across tiers nothing moves — the tier IS the dependency boundary the prose used to carry alone.
+    const incomplete = DRAIN_REGISTRY.filter(
+      (step) => step.platforms.includes(platform) && !curDone.includes(step.key),
+    )
+    // ONE bounded read per connection: every cursor row this client owns. `updated_at` moves ONLY on a
+    // successful lap (writeRangeCursor is its sole writer on this path and rangeLap returns before it on any
+    // non-200), so it already means "when did this step last actually succeed" — no new column, no migration.
+    // ⚠ Looked up BY STEP KEY, which equals the cursor key for every rangeLap step. A step whose cursor key
+    // differs (e.g. 'account', which rides the adapter's own platform cursor) resolves to null and would sort
+    // first WITHIN ITS TIER — harmless while it is alone there, which the guard's single-shared-tier leg pins.
+    const { data: cursorRows } = await supabaseAdmin
+      .from('sync_state')
+      .select('platform, updated_at')
+      .eq('client_id', row.client_id)
+    const lastSucceeded = new Map<string, string | null>()
+    for (const c of cursorRows ?? []) lastSucceeded.set((c as any).platform, (c as any).updated_at ?? null)
+    const orderedSteps = orderStepsFairShare(
+      incomplete.map((step) => ({ step, key: step.key, tier: step.tier, lastSucceededAt: lastSucceeded.get(step.key) ?? null })),
+    ).map((w) => w.step)
+
+    for (const step of orderedSteps) {
+      // ⛔ RESERVATION, NOT A BARE ELAPSED CHECK. The old `Date.now() - started > BUDGET_MS` reserved NOTHING
+      // for the lap it was about to begin, so a lap dispatched just under the line ran past maxDuration and was
+      // KILLED — no cursor, no log line, no cron_runs stamp, indistinguishable from never having run. That is
+      // LORAMER_META_ASSET_BUDGET_HEADROOM_V1's rule ("a between-iteration budget check is only safe if ONE
+      // ITERATION CANNOT EXCEED THE REMAINING CEILING") applied to the step loop, using its shipped function.
+      if (!shouldStartAnotherLap(Date.now() - started, lapBox.maxMs, BUDGET_MS, DRAIN_FIRST_LAP_MS)) break
+      const lapStartedAt = Date.now()
       let lap
       try {
         lap = await step.runLap(conn, { dryRun })
       } catch (e: any) {
+        // A lap that THREW still consumed the fire's clock — feed it to the reservation before any exit, or the
+        // next dispatch reserves against a stale maximum and re-opens the overrun this change exists to close.
+        lapBox.maxMs = Math.max(lapBox.maxMs, Date.now() - lapStartedAt)
         if (e instanceof GoogleQuotaError) {
           // CHANGE 3 — developer-scope quota: pause ALL google work this fire; the global marker is written
           // after the pool drains. Recorded as a loud, distinct failure (NOT a green step).
@@ -298,6 +348,7 @@ export async function GET(request: Request) {
         console.error(`[drain] LAP THREW | platform=${platform} client=${row.client_id} step=${step.key}: ${detail}`)
         continue
       }
+      lapBox.maxMs = Math.max(lapBox.maxMs, Date.now() - lapStartedAt)
       let markedDone = false
       if (!dryRun && lap.done) {
         curDone = Array.from(new Set([...curDone, step.key]))

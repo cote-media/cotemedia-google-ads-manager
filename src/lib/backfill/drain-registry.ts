@@ -49,6 +49,14 @@ export interface LapResult {
 export interface DrainStep {
   key: string
   platforms: string[]
+  // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 — the DECLARED dependency boundary. Steps sharing a tier are
+  // order-independent among themselves and may be reordered against each other by fair-share; steps in
+  // different tiers may NOT. ⛔ THIS EXISTS BECAUSE THE REGISTRY'S ORDERING DEPENDENCIES LIVED ONLY IN PROSE
+  // AND ARRAY POSITION — "after google_campaign for grouping" (geo), "After google_campaign so the anchor
+  // exists" (hour). Nothing could consult those, so no reordering could be safe. Tier makes them legible.
+  // DAY ONE: every step is alone in its tier EXCEPT google_geo + google_user_geo. Tier must be non-decreasing
+  // across array index, and drain-fair-share-order.guard.mjs FAILS if any other tier gains a second member.
+  tier: number
   runLap: (conn: DrainConn, opts: { dryRun: boolean }) => Promise<LapResult>
 }
 
@@ -264,6 +272,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
   {
     // FOUNDATION first. Cursor-resuming: runBackfill laps its own sync_state(platform) cursor + sets complete.
     key: 'account',
+    tier: 1,
     platforms: ['google', 'meta', 'ga'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: `runBackfill(${conn.platform} account) — writer has no dryRun; live lap pending` } }
@@ -275,6 +284,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
   },
   {
     key: 'google_campaign',
+    tier: 2,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_campaign', runGoogleCampaignBackfill as RangeWriter, dryRun),
   },
@@ -283,6 +293,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // per-day campaign anchor (already at floor cohort-wide) is present at every depth; FLAG-NOT-BLOCK
     // means it never hard-blocks even if the anchor is briefly absent. Stateless-range, same as campaign.
     key: 'google_adgroup_ad',
+    tier: 3,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_adgroup_ad', runGoogleAdGroupAdBackfill as RangeWriter, dryRun),
   },
@@ -293,6 +304,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // as google_campaign. NO 37-mo clock conceptually, but stop-at-floor still applies (rangeLap clamps to the
     // 36-mo granular floor; empty-success at floor = done).
     key: 'google_device',
+    tier: 4,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_device', runGoogleDeviceBackfill as RangeWriter, dryRun),
   },
@@ -302,6 +314,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // reconcile (geo is non-partitioning — location_type overlap + multi-grain; like search_term/keyword).
     // Stateless-range; after google_campaign for grouping. Stop-at-floor = empty-success (L61).
     key: 'google_geo',
+    tier: 5,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_geo', runGoogleGeoBackfill as RangeWriter, dryRun, GEO_WINDOW_DAYS),
   },
@@ -309,6 +322,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // LORAMER_GOOGLE_GEO_BACKFILL_V1 — geo BREADTH, user_location_view FAMILY (9 PHYSICAL-location grains; no
     // location_type, no country — geo_target_country not served on this view). WRITE-ONLY, same posture as google_geo.
     key: 'google_user_geo',
+    tier: 5,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_user_geo', runGoogleUserGeoBackfill as RangeWriter, dryRun, GEO_WINDOW_DAYS),
   },
@@ -318,6 +332,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // google_campaign so the anchor exists. Default 365-day window (hour cardinality is bounded: entities × 24h,
     // far smaller than geo — confirmed small in Gate A). Stop-at-floor = empty-success (L61).
     key: 'google_hour',
+    tier: 6,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_hour', runGoogleHourBackfill as RangeWriter, dryRun),
   },
@@ -329,6 +344,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // Stateless-range, same driver as google_device/hour; default 365-day window (age cardinality is tiny —
     // ad_groups × ≤7 buckets). Stop-at-floor = empty-success (L61).
     key: 'google_age',
+    tier: 7,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_age', runGoogleAgeBackfill as RangeWriter, dryRun),
   },
@@ -337,6 +353,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // gender_view). SEPARATE breakdown_type family from age (each its own partition; NEVER summed together).
     // Same posture/window as google_age.
     key: 'google_gender',
+    tier: 8,
     platforms: ['google'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'google_gender', runGoogleGenderBackfill as RangeWriter, dryRun),
   },
@@ -346,11 +363,13 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // stale-anchor days flagged-but-written so the monotonic range cursor never permanently skips them).
     // Stateless-range, same driver as google_campaign / meta_placement.
     key: 'meta_campaign',
+    tier: 9,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_campaign', runMetaCampaignBackfill as RangeWriter, dryRun),
   },
   {
     key: 'meta_placement',
+    tier: 10,
     platforms: ['meta'],
     // CAMPAIGN grain only (byte-identical to Slice 2). ad_set+ad ride the separate 'meta_placement_adset_ad' step so
     // the new grains back-drain the cohort (this step is already onboard_steps_done for existing clients → skipped).
@@ -360,6 +379,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // LORAMER_META_PLACEMENT_ADSET_AD_V1 — placement grain-completion: ad_set + ad (campaign is 'meta_placement').
     // NEW key → not-done for every connection → back-drains the cohort. FLAG-NOT-BLOCK vs account anchor. After meta_placement.
     key: 'meta_placement_adset_ad',
+    tier: 11,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_placement_adset_ad', runMetaPlacementAdsetAdBackfill as RangeWriter, dryRun, META_PLACEMENT_ADSET_AD_WINDOW_DAYS),
   },
@@ -369,6 +389,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // closes the forward limit=100 truncation; finalized days reconcile to the cent, recent stale-anchor days
     // flagged-but-written). Stateless-range, same driver as meta_campaign / meta_placement.
     key: 'meta_adset_ad',
+    tier: 12,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_adset_ad', runMetaAdSetAdBackfill as RangeWriter, dryRun),
   },
@@ -382,6 +403,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // (device served to the ~37mo aggregate limit — verified 2026-06-28; the assumed ~13mo breakdown floor was REFUTED).
     // Placed AFTER the meta DEPTH grains (breadth after depth). One entry → next meta drain back-fills the cohort.
     key: 'meta_device',
+    tier: 13,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_device', runMetaDeviceBackfill as RangeWriter, dryRun, META_DEVICE_WINDOW_DAYS),
   },
@@ -393,6 +415,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // because the 3×4=12-report fan-out + the row-heavy cross would push a 60d lap ~154s (over the 800s headroom);
     // 30d ≈ 77s (Gate A timing). Floor = standard floor36 (demo served to the 37mo limit, Gate A). After meta_device.
     key: 'meta_age_gender',
+    tier: 14,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_age_gender', runMetaAgeGenderBackfill as RangeWriter, dryRun, META_AGE_GENDER_WINDOW_DAYS),
   },
@@ -405,6 +428,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // conversions don't sum to account by dedup → NEVER reconciled, unlike age/gender). Stateless-range; floor36; 30d
     // window. After meta_age_gender → the next meta drain back-fills the cohort to floor automatically (Meta = no quota).
     key: 'meta_action_type',
+    tier: 15,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_action_type', runMetaActionTypeBackfill as RangeWriter, dryRun, META_ACTION_TYPE_WINDOW_DAYS),
   },
@@ -416,6 +440,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // row → NEVER reconciled). floor36 (37mo aggregate wall). Stateless-range, same driver as the other meta steps.
     // After meta_action_type → the next meta drain back-fills the cohort to floor automatically (Meta = no quota).
     key: 'meta_video',
+    tier: 16,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_video', runMetaVideoBackfill as RangeWriter, dryRun, META_VIDEO_WINDOW_DAYS),
   },
@@ -425,6 +450,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // spend vs the account anchor (geo NEAR-partitions; undetermined-geo residual flagged-not-dropped). breakdown_type
     // 'geo_country'/'geo_region' on the 7-col key, NO migration. 30d window (verify-at-Gate-B). floor36. After meta_video.
     key: 'meta_geo',
+    tier: 17,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_geo', runMetaGeoBackfill as RangeWriter, dryRun, META_GEO_WINDOW_DAYS),
   },
@@ -436,6 +462,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // PARTITIONS the day's spend; recent stale-anchor days flagged-not-dropped). 7-col key, NO migration. 15d window
     // (24× ad-level fan-out → row-heavy; Gate-B tunable). floor36. After meta_geo.
     key: 'meta_hour',
+    tier: 18,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_hour', runMetaHourBackfill as RangeWriter, dryRun, META_HOUR_WINDOW_DAYS),
   },
@@ -446,6 +473,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // WRITE-ONLY, NEVER reconciled (assets do not partition spend — probed 2026-07-18). Stateless-range. After
     // meta_hour (breadth after depth). NEW key → next meta drain back-fills the cohort to floor (Meta = no quota wall).
     key: 'meta_asset',
+    tier: 19,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_asset', runMetaAssetBackfill as RangeWriter, dryRun, META_ASSET_WINDOW_DAYS),
   },
@@ -456,6 +484,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // (windows overlap 1d⊂7d⊂28d + view/click double-count). spend=0 (base owns spend; windows are attribution outputs).
     // Stateless-range. After meta_asset. NEW key → next meta drain back-fills the cohort to floor (Meta = no quota wall).
     key: 'meta_attribution_window',
+    tier: 20,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_attribution_window', runMetaAttributionWindowBackfill as RangeWriter, dryRun, META_ATTR_WINDOW_DAYS),
   },
@@ -463,6 +492,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // LORAMER_META_BATCH_MG_V1 — catalog/Advantage+ product grain. WRITE-ONLY (measured: does NOT partition
     // even within catalog campaigns), so the writer runs no reconcile. Empty on non-catalog accounts BY DESIGN.
     key: 'meta_product_id',
+    tier: 21,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_product_id', runMetaProductIdBackfill as RangeWriter, dryRun, META_SIMPLE_WINDOW_DAYS),
   },
@@ -471,11 +501,13 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // Populates ONLY for comScore-measured accounts and only from ~2026-06. Empty is the expected answer
     // everywhere else and must never be read as a capture gap.
     key: 'meta_comscore_market',
+    tier: 22,
     platforms: ['meta'],
     runLap: (conn, { dryRun }) => rangeLap(conn.client_id, 'meta_comscore_market', runMetaComscoreMarketBackfill as RangeWriter, dryRun, META_SIMPLE_WINDOW_DAYS),
   },
   {
     key: 'google_dimensional',
+    tier: 23,
     platforms: ['google'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: 'runGoogleDimensionalBackfill — writer has no dryRun; live lap pending' } }
@@ -485,6 +517,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
   },
   {
     key: 'shopify_deep',
+    tier: 24,
     platforms: ['shopify'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: 'runShopifyDeepBackfill — writer has no dryRun; live lap pending' } }
@@ -498,6 +531,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // depth rows incl. the new variant grain (idempotent, additive). After shopify_deep (depth before this breadth).
     // The deep writer's Σ product == account AND Σ variant == account HALT guards every day. NEW key → cohort-wide.
     key: 'shopify_variant',
+    tier: 25,
     platforms: ['shopify'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_variant') — writer has no dryRun; live lap pending" } }
@@ -513,6 +547,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // widen is already in fetchShopifyIntelligence). After 'shopify_variant'. NEW key → cohort-wide back-drain.
     // Money coverage == account coverage by construction (same fetch); netSales == currentSubtotal, byte-identical.
     key: 'shopify_money',
+    tier: 26,
     platforms: ['shopify'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_money') — writer has no dryRun; live lap pending" } }
@@ -531,6 +566,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // both ride buildShopifyDepthRows. Deepest floor = the store's first order (no 90-day dimensional cap).
     // The deep writer's Σ product == account AND Σ variant == account HALT guards still gate every day written.
     key: 'shopify_order_time',
+    tier: 27,
     platforms: ['shopify'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runShopifyDeepBackfill(cursor='shopify_order_time') — writer has no dryRun; live lap pending" } }
@@ -541,6 +577,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
   {
     // WOO last + gentlest (live self-hosted). Its own circuit-breaker + claim already guard the store.
     key: 'woo',
+    tier: 28,
     platforms: ['woocommerce'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: 'runWooCommerceBackfill — writer has no dryRun; live lap pending' } }
@@ -555,6 +592,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // 'woo' clients re-emit depth rows incl. the new variant grain (idempotent, additive). After 'woo'; gentle-
     // citizen throttle + breaker carry over. NEW key → not-done for every connection → cohort-wide back-drain.
     key: 'woo_variant',
+    tier: 29,
     platforms: ['woocommerce'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_variant') — writer has no dryRun; live lap pending" } }
@@ -573,6 +611,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // coverage == base coverage by construction (same fetch + false-zero discipline); its cursor honestly reports
     // complete=FALSE at any store-side wall (e.g. shelleykyle pre-2018 deep tail) — no false-completeness.
     key: 'woocommerce_money',
+    tier: 30,
     platforms: ['woocommerce'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_money') — writer has no dryRun; live lap pending" } }
@@ -600,6 +639,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // Rides the SAME writer, so the throttle (300ms), adaptive 21→7→1 ladder, CAS claim and circuit-breaker
     // all carry over unchanged. After 'woocommerce_money'; last and gentlest, as every Woo step is.
     key: 'woocommerce_breadth',
+    tier: 31,
     platforms: ['woocommerce'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: "runWooCommerceBackfill(cursor='woocommerce_breadth') — writer has no dryRun; live lap pending" } }
@@ -618,6 +658,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // NOT mark complete — a partial sweep would under-count lifetimes and mislabel loyal customers as
     // first-timers, which is worse than the family being absent. Last: gentlest position for the heaviest pass.
     key: 'woocommerce_cohort',
+    tier: 32,
     platforms: ['woocommerce'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: 'runWooCohortPass — one-shot full-history sweep; live pass pending' } }
@@ -632,6 +673,7 @@ export const DRAIN_REGISTRY: DrainStep[] = [
     // to the property data-start; runs under the drain's per-client __drain_ga claim (= per-property lease; GA quota
     // is per-property, no global guard). One entry → cohort-wide back-drain, NO per-client special-casing.
     key: 'ga_dimensional',
+    tier: 33,
     platforms: ['ga'],
     runLap: async (conn, { dryRun }) => {
       if (dryRun) return { done: false, detail: { plan: 'runGaDimensionalBackfill — writer has no dryRun; live lap pending' } }
