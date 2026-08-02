@@ -114,6 +114,9 @@ const GUARDS = [
   // LORAMER_CHANNEL_TYPE_ENUM_V1 — every AdvertisingChannelType ordinal must render as a NAME. Lora was
   // being shown [10] and [2], and the old map called MULTI_CHANNEL (App) 'Performance Max'.
   'tests/guards/channel-type-enum-mapped.guard.mjs',
+  // LORAMER_CAPABILITY_DENOMINATOR_V1 — no family may be judged against account spend by default. Every
+  // row-checkable step must DECLARE its capability; silence is the defect that produced 43 false violations.
+  'tests/guards/capability-denominator.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

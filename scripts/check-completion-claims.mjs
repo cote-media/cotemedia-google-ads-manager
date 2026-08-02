@@ -163,6 +163,101 @@ const UNMAPPED_LEDGER = {
   ga_dimensional: 'families A-I, many breakdown_types, and ★GA-DIMENSIONAL-FALSE-COMPLETE is an open item against these very cursors. Establishing the signature is part of that item, not a side effect of this one.',
 }
 
+// ═══ LORAMER_CAPABILITY_DENOMINATOR_V1 — JUDGE A FAMILY AGAINST DELIVERY THAT COULD PRODUCE IT ═══════════════════
+//
+// ⛔ THE DEFECT, MEASURED THREE TIMES ON 2026-08-01 AND WRONG IN THE SAME DIRECTION EVERY TIME. This gate's
+// denominator was ACCOUNT-GRAIN SPEND: any day the account delivered counted as a day the family should have rows.
+// That is right for families every campaign type emits and WRONG for families that need criteria or structures a
+// campaign may not have.
+//   · Foam OH spent $5,956.94 across 90 days on Performance Max. PMax has no age/gender criteria. The gate
+//     recorded 90 days of "missing demographics" that could never have existed. A live probe confirmed it: control
+//     day served, six test days inside the window served EMPTY with no refusal.
+//   · Six of six checkable demographic "violations" turned out the same way — in every one, our first row lands on
+//     the exact calendar day the first demographic-capable campaign appears.
+//   · The one search-term "gap" was an account that stopped advertising on 2026-04-05; capture ended the same day.
+// Corrected by hand it gave a different answer every time, which is the definition of a check that needs its
+// correction moved inside it. A person remembering to ask is not a gate.
+//
+// ⛔ CAPABILITY COMES FROM THE VENDOR-QUOTED MATRIX, NOT FROM OUR BEHAVIOUR: docs/LORAMER_CAMPAIGN_TYPE_DATA_MATRIX.md.
+// Where that doc says SILENT or UNESTABLISHED the verdict here is INDETERMINATE — never OK and never a violation.
+// Inferring capability from our own empty rows is exactly the circularity that produced the false violations.
+//
+// ⚠ THE CAMPAIGN-TYPE SOURCE IS LABELLED ON EVERY VERDICT. `extra.channelType` (captured
+// LORAMER_CAMPAIGN_TYPE_MATRIX_V1, 2026-08-01) is a vendor fact; a campaign NAME is a convention and is weaker.
+// A name-derived verdict says so on its face rather than reading as equal evidence.
+const PMAX = 'PERFORMANCE_MAX', SEARCH = 'SEARCH', LOCAL_SERVICES = 'LOCAL_SERVICES'
+// Ordinals per Google's proto (googleapis .../v21/enums/advertising_channel_type.proto, fetched 2026-08-01).
+const ORD_TO_TYPE = { '2': SEARCH, '3': 'DISPLAY', '4': 'SHOPPING', '5': 'HOTEL', '6': 'VIDEO', '7': 'APP',
+  '8': 'LOCAL', '9': 'SMART', '10': PMAX, '11': LOCAL_SERVICES, '12': 'DISCOVERY', '13': 'TRAVEL', '14': 'DEMAND_GEN' }
+// NAME heuristic, used ONLY where extra.channelType is absent. Deliberately conservative: anything it cannot
+// classify becomes UNKNOWN, which routes to INDETERMINATE rather than to a verdict.
+function typeFromName(n) {
+  const s = String(n || '').toLowerCase()
+  if (s.includes('performance max') || s.includes('pmax')) return PMAX
+  if (s.startsWith('localservicescampaign') || s.includes('local services')) return LOCAL_SERVICES
+  if (s.includes('demand gen')) return 'DEMAND_GEN'
+  if (s.includes('display')) return 'DISPLAY'
+  if (s.includes('shopping')) return 'SHOPPING'
+  if (s.includes('video') || s.includes('youtube')) return 'VIDEO'
+  if (s.includes('search')) return SEARCH
+  return 'UNKNOWN'
+}
+// PER STEP: which campaign types CAN produce it, per the matrix. `all: true` = every type emits it, so the old
+// account-grain denominator is defensible and is kept. `capable` = the types the matrix says CAN. `silent` = types
+// the matrix does not speak for; if only those delivered, the answer is INDETERMINATE.
+const CAPABILITY = {
+  // VENDOR-CONFIRMED: "Querying resources such as ad_group or ad_group_ad won't return any data for your
+  // Performance Max campaigns." Everything except PMax can.
+  google_adgroup_ad: { cannot: [PMAX], basis: 'vendor' },
+  // Search terms and keywords come from search_term_view / keyword_view, which are Search-only in the resource we
+  // query. PMax has them ONLY via campaign_search_term_view, which we do not query (★PMAX-SEARCH-TERMS-NEVER-QUERIED).
+  google_dimensional: { capable: [SEARCH], basis: 'vendor+observed' },
+  // OBSERVED-BY-US, vendor SILENT: PMax and Local Services carry no age/gender criteria. Every other type is
+  // SILENT in the matrix, so a window delivered only by those is INDETERMINATE rather than a violation.
+  google_age: { cannot: [PMAX, LOCAL_SERVICES], silentBeyond: [SEARCH, 'DISPLAY'], basis: 'observed' },
+  google_gender: { cannot: [PMAX, LOCAL_SERVICES], silentBeyond: [SEARCH, 'DISPLAY'], basis: 'observed' },
+  // Served across campaign types — geographic_view, and the device/hour segments. Account-grain delivery stays a
+  // defensible denominator here, so behaviour is UNCHANGED for these.
+  google_geo: { all: true },
+  google_user_geo: { all: true },
+  google_hour: { all: true },
+  google_device: { all: true },
+  google_campaign: { all: true },
+  account: { all: true },
+  // META: the breakdowns page is SILENT on objective and Advantage+ entirely. meta_video is CREATIVE-dependent —
+  // an image-only account emits nothing — and we cannot see creative type from here. INDETERMINATE, not a violation.
+  // ── DECLARED all:true — the guard requires a DECISION for every row-checkable step, and silence is the defect.
+  // GOOGLE geo/device/hour/campaign/account: geographic_view and the device and hour segments are served across
+  // campaign types, so account-grain delivery remains a defensible denominator. (Matrix §1b.)
+  // META: the breakdowns page is SILENT on objective and Advantage+ restrictions, and Meta has no PMax-style
+  // structural gap — every campaign exposes adsets and ads (meta-adset-ad-backfill.ts:26, OBSERVED-BY-US). So
+  // account delivery is the right denominator for these; meta_video is the exception above because it depends on
+  // CREATIVE, not campaign type.
+  // ⛔ ONE DECLARATION PER LINE, DELIBERATELY. Packed onto shared lines these parsed as ONE key each and the
+  // guard reported 16 steps still undeclared against code that had declared them — the guard was right about the
+  // shape and wrong about the count, and the fix is to make the file read the same way to a human and to a parser.
+  meta_campaign: { all: true },
+  meta_placement: { all: true },
+  meta_placement_adset_ad: { all: true },
+  meta_adset_ad: { all: true },
+  meta_device: { all: true },
+  meta_age_gender: { all: true },
+  meta_action_type: { all: true },
+  meta_geo: { all: true },
+  meta_hour: { all: true },
+  meta_attribution_window: { all: true },
+  meta_product_id: { all: true },
+  shopify_deep: { all: true },
+  shopify_variant: { all: true },
+  shopify_money: { all: true },
+  woo: { all: true },
+  woo_variant: { all: true },
+  woocommerce_money: { all: true },
+  woocommerce_breadth: { all: true },
+  woocommerce_cohort: { all: true },
+  meta_video: { indeterminate: 'video rows require video creative; creative type is not captured and the vendor page is SILENT on objective-based availability' },
+}
+
 // Merge: DRAIN_REGISTRY is the population; required-steps supplies signatures where it has them.
 const stepDefsFor = (platform) => {
   const out = []
@@ -195,6 +290,13 @@ export function classifyClaim(c) {
   if (c.rowsExceedClaim) {
     return { verdict: 'ROWS_EXCEED_CLAIM', why: `cursor is INCOMPLETE at ${c.claimedFloor} but rows already reach ${c.minRowDate} — ${daysBetween(c.minRowDate, c.claimedFloor)} day(s) of rows sit below a stalled cursor (partial writes from a failing lap)` }
   }
+  // ── LORAMER_CAPABILITY_DENOMINATOR_V1 — the two verdicts that stop absence being read as failure ─────────────
+  if (c.capabilityIndeterminate) {
+    return { verdict: 'INDETERMINATE_CAPABILITY', why: `cannot be judged either way — ${c.capabilityIndeterminate}. The matrix says SILENT/UNESTABLISHED here, and inferring capability from our own empty rows is the circularity that produced the false violations.` }
+  }
+  if (c.noCapableDelivery) {
+    return { verdict: 'HONEST_EMPTY_NO_CAPABLE_DELIVERY', why: `no campaign type capable of producing this family ever DELIVERED (spend>0 or impressions>0). Types that did deliver: ${(c.deliveredTypes || []).join(', ') || 'none'} — campaign type from ${c.typeSource}, capability basis ${c.capBasis}. An empty family here is correct, not a defect.` }
+  }
   if (c.notRowCheckable) return { verdict: 'NOT_ROW_CHECKABLE', why: 'data rides the account row extra (ridesAccount); no distinct rows exist to compare' }
   if (!c.rowsPresent) {
     if (!c.everDelivered) return { verdict: 'HONEST_EMPTY', why: 'platform has never delivered (no active account day) — an empty breakdown is honest, not a defect' }
@@ -205,11 +307,16 @@ export function classifyClaim(c) {
   // back to the bare claim and flagged 1,078 days that could never have carried data. A platform that never
   // delivered gives no denominator, so the claim is UNCHECKABLE here — reported, never failed.
   if (!c.everDelivered) return { verdict: 'UNCHECKABLE_NO_ACTIVITY', why: `rows exist but the platform has NO active account day, so there is no activity denominator to compare the claim (${c.claimedFloor}) against` }
-  const bound = [c.claimedFloor, c.firstActive].filter(Boolean).sort().pop() // the LATER of the two
+  // ⛔ THE DENOMINATOR. `capableFrom` is the earliest day a campaign type that CAN produce this family actually
+  // delivered; it REPLACES account-grain firstActive wherever the matrix speaks. Rows cannot exist before the
+  // family became producible, so bounding on account activity manufactures the gap.
+  const activityBound = c.capableFrom ?? c.firstActive
+  const bound = [c.claimedFloor, activityBound].filter(Boolean).sort().pop() // the LATER of the two
+  const src = c.capableFrom ? `capable-delivery from ${c.capableFrom} (type via ${c.typeSource}, basis ${c.capBasis})` : `account activity from ${c.firstActive}`
   if (bound && c.minRowDate && c.minRowDate > bound) {
-    return { verdict: 'CLAIM_EXCEEDS_ROWS', why: `claim covers ${c.claimedFloor} but rows begin ${c.minRowDate}; first activity ${c.firstActive} — ${daysBetween(bound, c.minRowDate)} day(s) claimed with no rows` }
+    return { verdict: 'CLAIM_EXCEEDS_ROWS', why: `claim covers ${c.claimedFloor} but rows begin ${c.minRowDate}; bound ${bound} via ${src}${c.capabilityNote ? ` — ⚠ ${c.capabilityNote}` : ''} — ${daysBetween(bound, c.minRowDate)} day(s) claimed with no rows` }
   }
-  return { verdict: 'OK', why: `rows from ${c.minRowDate} cover the claim (bound ${bound})` }
+  return { verdict: 'OK', why: `rows from ${c.minRowDate} cover the claim (bound ${bound} via ${src})` }
 }
 function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000) }
 
@@ -274,6 +381,29 @@ for (const conn of conns) {
         and (coalesce(spend,0) > 0 or coalesce(impressions,0) > 0 or coalesce(revenue,0) > 0
              or coalesce((extra->>'sessions')::numeric, 0) > 0)`,
     [conn.client_id, conn.platform])
+  // ── LORAMER_CAPABILITY_DENOMINATOR_V1 — campaign types that actually DELIVERED, with their first delivering day.
+  // DELIVERY, never existence: spend>0 OR impressions>0. A paused campaign still returns a row and must not count.
+  // Grouped per campaign so `extra.channelType` (a vendor fact) can be preferred over the name (a convention).
+  const delivery = { byType: {}, typeSource: 'none', campaigns: 0 }
+  if (conn.platform === 'google') {
+    const camps = await q(
+      `select entity_name, extra->>'channelType' as ord,
+              min(date) filter (where coalesce(spend,0) > 0 or coalesce(impressions,0) > 0)::text as first_delivered
+         from metrics_daily
+        where client_id = $1 and platform = 'google' and entity_level = 'campaign' and breakdown_type = ''
+        group by 1, 2`,
+      [conn.client_id])
+    let fromExtra = 0, fromName = 0
+    for (const c of camps) {
+      if (!c.first_delivered) continue // never delivered — not in any denominator
+      const t = c.ord && ORD_TO_TYPE[String(c.ord)] ? (fromExtra++, ORD_TO_TYPE[String(c.ord)]) : (fromName++, typeFromName(c.entity_name))
+      const prev = delivery.byType[t]
+      if (!prev || c.first_delivered < prev) delivery.byType[t] = c.first_delivered
+      delivery.campaigns++
+    }
+    delivery.typeSource = fromExtra && fromName ? 'mixed(extra+name)' : fromExtra ? 'extra.channelType' : fromName ? 'campaign-name' : 'none'
+  }
+
   const pairs = grid.map((g) => ({ entity_level: g.entity_level, breakdown_type: g.breakdown_type }))
   for (const sd of defs) {
     const cur = cursorByKey.get(`${conn.client_id}|${sd.cursor}`)
@@ -292,7 +422,39 @@ for (const conn of conns) {
       if (minRowDate && cur.earliest && minRowDate < cur.earliest) claims.push({ ...base, minRowDate, rowsExceedClaim: true })
       continue // an incomplete cursor makes no completion CLAIM, so the other verdicts do not apply to it
     }
-    claims.push({ ...base, notRowCheckable: rp === null, rowsPresent: rp === true, minRowDate })
+    // ── CAPABILITY-APPROPRIATE DENOMINATOR, replacing account-grain firstActive where the matrix speaks ──────────
+    const cap = CAPABILITY[sd.key]
+    let capable = null // null = fall back to account activity (families every type emits, or a non-google platform)
+    let capabilityNote = null
+    if (cap?.indeterminate) {
+      claims.push({ ...base, minRowDate, capabilityIndeterminate: cap.indeterminate, typeSource: delivery.typeSource })
+      continue
+    }
+    if (cap && !cap.all && conn.platform === 'google') {
+      const delivered = Object.keys(delivery.byType)
+      const eligible = cap.capable
+        ? delivered.filter((t) => cap.capable.includes(t))
+        : delivered.filter((t) => !(cap.cannot || []).includes(t))
+      // Types the matrix does not speak for. If ONLY those delivered, we cannot call it either way.
+      const silentOnly = cap.silentBeyond
+        ? eligible.filter((t) => !cap.silentBeyond.includes(t))
+        : []
+      if (delivered.includes('UNKNOWN')) capabilityNote = 'some delivering campaigns could not be typed'
+      if (eligible.length === 0) {
+        claims.push({ ...base, minRowDate, noCapableDelivery: true, deliveredTypes: delivered,
+          typeSource: delivery.typeSource, capBasis: cap.basis })
+        continue
+      }
+      if (eligible.length && silentOnly.length === eligible.length) {
+        claims.push({ ...base, minRowDate, capabilityIndeterminate:
+          `only ${silentOnly.join('/')} delivered, and the matrix is SILENT on whether those produce this family`,
+          typeSource: delivery.typeSource })
+        continue
+      }
+      capable = eligible.map((t) => delivery.byType[t]).sort()[0] // earliest day a CAPABLE type delivered
+    }
+    claims.push({ ...base, notRowCheckable: rp === null, rowsPresent: rp === true, minRowDate,
+      capableFrom: capable, typeSource: delivery.typeSource, capBasis: cap?.basis, capabilityNote })
   }
 }
 await db.end()
