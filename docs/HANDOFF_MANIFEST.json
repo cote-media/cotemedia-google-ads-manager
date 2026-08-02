@@ -12,10 +12,10 @@
     "line_count": 1544
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "69b0fbfa9cfc83f6504896ca623c1b990517417ce507d3f0c14bc9436dccdcf8",
-    "last_reconciled_date": "2026-08-01",
-    "last_reconciled_head": "4cdc530",
-    "line_count": 667
+    "content_hash": "e25efc68bac6b289e4077fe35c4d895a343197976cb96d9447c81fc498d54f0c",
+    "last_reconciled_date": "2026-08-02",
+    "last_reconciled_head": "f74199d",
+    "line_count": 668
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "6fb1c46af0429f7cbb4f7368ddbd13ea56f8fad8d4319357614d1223d1292d9c",
@@ -24,10 +24,10 @@
     "line_count": 290
   },
   "LORAMER_HANDOFF.md": {
-    "content_hash": "b3f3a1eb7f8aef6664702f77897c9f10286caf059d9e81eb441f1eeddab7c730",
-    "last_reconciled_date": "2026-07-31",
-    "last_reconciled_head": "5805d0f",
-    "line_count": 818
+    "content_hash": "d31acb7aa3a388dc418c54cd793961466bca78c272522cfa0453d41cb528a39e",
+    "last_reconciled_date": "2026-08-02",
+    "last_reconciled_head": "f74199d",
+    "line_count": 819
   },
   "LORAMER_LORA_INTELLIGENCE_BAR.md": {
     "content_hash": "a8c8b590c66fe6147f059dceadb5ac311fdd43f5489407a73b063690b77935a4",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "cda3c21ee022f668dae1ce85f5fcb5149894ca38f65cfaa0ec2ce703521747b3",
+    "content_hash": "7c870f647873990b3558bc1a453a16513d8bd66f1d3c6d10e929ac6420fdcecc",
     "last_reconciled_date": "2026-08-02",
-    "last_reconciled_head": "d472806",
-    "line_count": 847
+    "last_reconciled_head": "f74199d",
+    "line_count": 849
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "59268f2e54ca785f99901a99cd9a7958d758a121b3394e3efd98aa139ccff828",
+    "content_hash": "c8c0c1d3b0030904d6f82481cd39b615bab10c05a6f5650e64e473dfacfc7b86",
     "last_reconciled_date": "2026-08-02",
-    "last_reconciled_head": "d472806",
-    "line_count": 1831
+    "last_reconciled_head": "f74199d",
+    "line_count": 1836
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "276c4d36de48ca30d4b5679728c9c8f57bb66e48ed142dc2156acf063406519b",
