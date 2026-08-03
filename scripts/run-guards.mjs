@@ -100,6 +100,10 @@ const GUARDS = [
   // 2026-08-02 must carry a THREE-SOURCE header (PRIOR CHATS · WEB · REPO), all three legs non-empty.
   // Enforces the ARTIFACT only — no guard can see whether a chat or web search actually happened.
   'tests/guards/three-source-header.guard.mjs',
+  // LORAMER_GOOGLE_UNIVERSE_WRITER_V1 — no clock may seal a walk (vendor-exhausted only), no per-surface
+  // branching (the surface list comes ONLY from docs/google-capture-universe.json), and an unsatisfiable
+  // structural requirement is RECORDED rather than silently dropped.
+  'tests/guards/google-universe-writer.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
   // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
   'tests/guards/eval-spend-ledger.guard.mjs',
