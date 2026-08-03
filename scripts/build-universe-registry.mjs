@@ -37,14 +37,24 @@ export const btFor = (e) => (e.segment ? e.segment.replace(/^segments\./, '').re
 
 // ⛔ TYPES ALREADY DECLARED BY HAND ARE NOT RE-EMITTED. The registry's granularity is one entry per
 // (platform, breakdown_type); a second line for the same type would make entryFor()/resolveToolType() read
-// the first and silently ignore the second. These two are declared in the hand-authored block above the
-// generated one, and their universe grains are merged INTO those lines by hand, once, on the record.
-export const HAND_DECLARED = new Set(['device', 'conversion_action'])
+// the first and silently ignore the second.
+// ⛔ DERIVED FROM THE FILE, NEVER HARDCODED — and it was hardcoded first, which broke on the very next
+// re-probe: the 2026-08-03 re-probe surfaced `segments.hour` as a universe slot while `hour` was already a
+// hand-authored line, and a frozen `new Set(['device','conversion_action'])` happily emitted a duplicate.
+// Reading the hand-authored region means a type can never be declared twice no matter what a future probe
+// surfaces; the guard then reports which levels still need merging into the hand line.
+export function handDeclaredTypes(registrySrc) {
+  const hand = registrySrc.slice(0, registrySrc.indexOf(BEGIN) === -1 ? registrySrc.length : registrySrc.indexOf(BEGIN))
+  const out = new Set()
+  for (const m of hand.matchAll(/platform: 'google', breakdownType: '([^']*)'/g)) out.add(m[1])
+  return out
+}
 
 /** HIGH CARDINALITY — the vendor's own measured distinct-value count for this account, when it carries one. */
 const HIGH_CARD_AT = 40
 
-export function buildBlock(doc) {
+export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTRY), 'utf8')) {
+  const handDeclared = handDeclaredTypes(registrySrc)
   const byType = new Map()
   for (const e of selectable(doc)) {
     const t = btFor(e)
@@ -55,7 +65,7 @@ export function buildBlock(doc) {
   }
   const lines = []
   for (const t of [...byType.keys()].sort()) {
-    if (HAND_DECLARED.has(t)) continue
+    if (handDeclared.has(t)) continue
     const g = byType.get(t)
     const levels = [...g.levels].sort().map((l) => `'${l}'`).join(', ')
     const hc = g.dv >= HIGH_CARD_AT
