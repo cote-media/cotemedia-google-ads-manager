@@ -1,0 +1,4836 @@
+{
+ "marker": "LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1",
+ "regeneratedBy": "scripts/google-capture-universe.mjs",
+ "catalogQueries": {
+  "resources": "SELECT name, category, metrics, segments, attribute_resources WHERE category = 'RESOURCE'",
+  "segments": "SELECT name, category, selectable, selectable_with, data_type WHERE category = 'SEGMENT' AND selectable = true",
+  "metrics": "SELECT name, category, selectable WHERE category = 'METRIC' AND selectable = true"
+ },
+ "catalogDenominator": {
+  "resources": 182,
+  "resourcesCarryingMetrics": 70,
+  "segments": 133,
+  "metrics": 234,
+  "truncated": false
+ },
+ "deliveryObservation": {
+  "note": "delivers/monthlyImpressions/vendorFloorObserved are LIVE-PROBE observations on ONE ACCOUNT. Selectability is universal; delivery is per-account.",
+  "account": "Foam OH 957d484e / customer 7688521852",
+  "probeWindow": "2026-03-01..2026-03-31",
+  "measuredUtc": "2026-08-03",
+  "googleRequests": 594,
+  "accountFloor": "2022-03-05",
+  "accountDarkAfter": "2026-04-05"
+ },
+ "provenUnreachable": [
+  {
+   "item": "auction insights (segments.auction_insight_domain + its 6 metrics)",
+   "error": "{\"error_code\":{\"authorization_error\":26},\"message\":\"The developer doesn't have access to metrics: ''auction_insight_search_impression_share''.\"}",
+   "kind": "DEVELOPER-TOKEN ENTITLEMENT — NOT an account limit and NOT fixable by any build. Real-world task: apply to Google for access.",
+   "reprobe": false
+  },
+  {
+   "item": "click_view",
+   "error": "{\"error_code\":{\"click_view_error\":3},\"message\":\"The requested date is too old. It cannot be older than 90 days.\"}",
+   "kind": "90-DAY VENDOR WALL. Capture-now-or-never; every day older than 90 is permanently unrecoverable.",
+   "reprobe": false
+  },
+  {
+   "item": "campaign_search_term_insight",
+   "error": "{\"search_term_insight_error\":3} \"Cannot have a LIMIT clause when segmenting by segments.date\" | {\"search_term_insight_error\":5} \"segments.date can only be selected when filtering by a single campaign_search_term_insight.id\" | {\"search_term_insight_error\":5} \"can only be selected when filtering by a single campaign_search_term_insight.campaign_id\"",
+   "kind": "CIRCULAR FILTER REQUIREMENT: date needs a single insight id; the id list needs a campaign filter; with the campaign filter the id list is EMPTY. Unreachable at daily grain on this account.",
+   "reprobe": false
+  },
+  {
+   "item": "shopping_product",
+   "error": "{\"error_code\":{\"shopping_product_error\":4},\"message\":\"Date segmentation is not supported for shopping_product. Date segments can be used only for filtering.\"}",
+   "kind": "STRUCTURAL — not capturable at daily grain at all.",
+   "reprobe": false
+  }
+ ],
+ "structuralRequirements": [
+  {
+   "resource": "customer_search_term_insight",
+   "requires": "customer_search_term_insight.id = <id> AND segments.date range, NO LIMIT clause",
+   "delivers": true
+  },
+  {
+   "resource": "final_url_expansion_asset_view",
+   "requires": "campaign.id = <id> AND campaign.advertising_channel_type = PERFORMANCE_MAX",
+   "delivers": "per-campaign — 1 of 3 PMax campaigns probed returned rows"
+  },
+  {
+   "segments": [
+    "segments.adjusted_age_range",
+    "segments.adjusted_gender"
+   ],
+   "requires": "BOTH must be requested together (query_error 66); metrics.unique_users",
+   "delivers": false
+  }
+ ],
+ "entries": [
+  {
+   "resource": "accessible_bidding_strategy",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "account_budget",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "account_budget_proposal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "account_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group",
+   "segment": null,
+   "metricCount": 132,
+   "selectableSegments": 38,
+   "capturedToday": true
+  },
+  {
+   "resource": "ad_group_ad",
+   "segment": null,
+   "metricCount": 107,
+   "selectableSegments": 25,
+   "capturedToday": true
+  },
+  {
+   "resource": "ad_group_ad",
+   "segment": "segments.keyword.ad_group_criterion",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 9,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad",
+   "segment": "segments.keyword.info.match_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad",
+   "segment": "segments.keyword.info.text",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 9,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 9,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 1,
+   "vendorFloorObserved": "2025-07-29"
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_combination_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_ad_asset_view",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 13,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_ad_label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 20,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 3,
+   "vendorFloorObserved": "2025-03-12"
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.asset_interaction_target.asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.asset_interaction_target.interaction_on_this_asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_asset_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": null,
+   "metricCount": 52,
+   "selectableSegments": 19,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 46,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.hotel_date_selection_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_audience_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "ad_group_bid_modifier",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_criterion",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_criterion_customizer",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_criterion_label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_criterion_simulation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_customizer",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_group_simulation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_parameter",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "ad_schedule_view",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 10,
+   "capturedToday": false
+  },
+  {
+   "resource": "age_range_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 15,
+   "capturedToday": true
+  },
+  {
+   "resource": "ai_max_search_term_ad_combination_view",
+   "segment": null,
+   "metricCount": 15,
+   "selectableSegments": 1,
+   "capturedToday": false
+  },
+  {
+   "resource": "android_privacy_shared_key_google_ad_group",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 1,
+   "capturedToday": false
+  },
+  {
+   "resource": "android_privacy_shared_key_google_campaign",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 1,
+   "capturedToday": false
+  },
+  {
+   "resource": "android_privacy_shared_key_google_network_type",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 1,
+   "capturedToday": false
+  },
+  {
+   "resource": "app_top_combination_view",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 6,
+   "capturedToday": false
+  },
+  {
+   "resource": "applied_incentive",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 7,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 18,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 8,
+   "vendorFloorObserved": "2022-03-10"
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_field_type_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group",
+   "segment": null,
+   "metricCount": 54,
+   "selectableSegments": 20,
+   "capturedToday": true
+  },
+  {
+   "resource": "asset_group_asset",
+   "segment": null,
+   "metricCount": 33,
+   "selectableSegments": 12,
+   "capturedToday": true
+  },
+  {
+   "resource": "asset_group_listing_group_filter",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": null,
+   "metricCount": 35,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 15060,
+   "vendorFloorObserved": "2022-04-03"
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_product_group_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "asset_group_signal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset_group_top_combination_view",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 6,
+   "capturedToday": true
+  },
+  {
+   "resource": "asset_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset_set_asset",
+   "segment": null,
+   "metricCount": 28,
+   "selectableSegments": 20,
+   "capturedToday": false
+  },
+  {
+   "resource": "asset_set_type_view",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 18,
+   "capturedToday": false
+  },
+  {
+   "resource": "audience",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "batch_job",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "bidding_data_exclusion",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "bidding_seasonality_adjustment",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "bidding_strategy",
+   "segment": null,
+   "metricCount": 23,
+   "selectableSegments": 14,
+   "capturedToday": false
+  },
+  {
+   "resource": "bidding_strategy_simulation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "billing_setup",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "call_view",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign",
+   "segment": null,
+   "metricCount": 190,
+   "selectableSegments": 56,
+   "capturedToday": true
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_destination_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_format_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_using_product_data",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.ad_using_video",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.adjusted_age_range",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.adjusted_age_range'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.adjusted_gender",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.adjusted_gender'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.asset_interaction_target.asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 37,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.asset_interaction_target.interaction_on_this_asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.auction_insight_domain",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.auction_insight_domain'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.conversion_adjustment",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.conversion_attribution_event_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.conversion_lag_bucket",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 11,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.conversion_or_adjustment_lag_bucket",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 12,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.conversion_value_rule_primary_dimension",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_value_rule_primary_dimension'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.new_versus_returning_customers",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_ad_event_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_ad_event_type'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_attribution_credit",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_attribution_credit'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_coarse_conversion_value",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_coarse_conversion_value'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_fine_conversion_value",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_fine_conversion_value'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_postback_sequence_index",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_postback_sequence_index'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_redistributed_fine_conversion_value",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_redistributed_fine_conversion_value'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_source_app.sk_ad_network_source_app_id",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_source_app.sk_ad_network_source_app_id'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_source_domain",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_source_domain'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_source_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_source_type'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_user_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_user_type'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.sk_ad_network_version",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": null,
+   "distinctValues": null,
+   "metricShape": null,
+   "unresolvedError": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.sk_ad_network_version'(unsupported metrics: 'impressions').\"}"
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.travel_destination_city",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 11,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.travel_destination_country",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.travel_destination_region",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 20,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_event_participant_display_names",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_hotel_class",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_listing",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_listing_brand",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_listing_city",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_listing_country",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_listing_region",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_partner_account",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.vertical_ads_vertical",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_aggregate_asset_view",
+   "segment": null,
+   "metricCount": 35,
+   "selectableSegments": 6,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 20,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 95,
+   "vendorFloorObserved": "2022-03-10"
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.asset_interaction_target.asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.asset_interaction_target.interaction_on_this_asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_asset_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_audience_view",
+   "segment": null,
+   "metricCount": 52,
+   "selectableSegments": 19,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_bid_modifier",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": null,
+   "metricCount": 28,
+   "selectableSegments": 9,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 56261,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.budget_campaign_association_status.campaign",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.budget_campaign_association_status.status",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_budget",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_conversion_goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_criterion",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_customizer",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_draft",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_goal_config",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_group",
+   "segment": null,
+   "metricCount": 6,
+   "selectableSegments": 8,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_lifecycle_goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_search_term_insight",
+   "segment": null,
+   "metricCount": 7,
+   "selectableSegments": 5,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": null,
+   "metricCount": 38,
+   "selectableSegments": 22,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 1,
+   "vendorFloorObserved": "2022-03-15"
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.keyword.ad_group_criterion",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.keyword.info.match_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.keyword.info.text",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.search_term_match_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.search_term_match_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.search_term_targeting_status",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_search_term_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "campaign_shared_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "campaign_simulation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "carrier_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "change_event",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "change_status",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "channel_aggregate_asset_view",
+   "segment": null,
+   "metricCount": 35,
+   "selectableSegments": 7,
+   "capturedToday": false
+  },
+  {
+   "resource": "click_view",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 9,
+   "capturedToday": false
+  },
+  {
+   "resource": "combined_audience",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "content_criterion_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 16,
+   "capturedToday": false
+  },
+  {
+   "resource": "conversion_action",
+   "segment": null,
+   "metricCount": 4,
+   "selectableSegments": 4,
+   "capturedToday": false
+  },
+  {
+   "resource": "conversion_custom_variable",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "conversion_goal_campaign_config",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "conversion_value_rule",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "conversion_value_rule_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "currency_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "custom_audience",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "custom_conversion_goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "custom_interest",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer",
+   "segment": null,
+   "metricCount": 134,
+   "selectableSegments": 47,
+   "capturedToday": true
+  },
+  {
+   "resource": "customer_asset",
+   "segment": null,
+   "metricCount": 32,
+   "selectableSegments": 20,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 8,
+   "vendorFloorObserved": "2022-03-21"
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.asset_interaction_target.asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.asset_interaction_target.interaction_on_this_asset",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "customer_asset_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_client",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_client_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_conversion_goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_customizer",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_lifecycle_goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_manager_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_negative_criterion",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_search_term_insight",
+   "segment": null,
+   "metricCount": 7,
+   "selectableSegments": 4,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_user_access",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customer_user_access_invitation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "customizer_attribute",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "data_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "detail_content_suitability_placement_view",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 3,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 639,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": null,
+   "metricCount": 38,
+   "selectableSegments": 14,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 240,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detail_placement_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "detailed_demographic",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "display_keyword_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 16,
+   "capturedToday": false
+  },
+  {
+   "resource": "distance_view",
+   "segment": null,
+   "metricCount": 18,
+   "selectableSegments": 15,
+   "capturedToday": false
+  },
+  {
+   "resource": "domain_category",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "dynamic_search_ads_search_term_view",
+   "segment": null,
+   "metricCount": 17,
+   "selectableSegments": 12,
+   "capturedToday": false
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": null,
+   "metricCount": 41,
+   "selectableSegments": 20,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 10,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.landing_page_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "expanded_landing_page_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "experiment",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "experiment_arm",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "final_url_expansion_asset_view",
+   "segment": null,
+   "metricCount": 3,
+   "selectableSegments": 6,
+   "capturedToday": false
+  },
+  {
+   "resource": "gender_view",
+   "segment": null,
+   "metricCount": 45,
+   "selectableSegments": 16,
+   "capturedToday": true
+  },
+  {
+   "resource": "geo_target_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "geographic_view",
+   "segment": null,
+   "metricCount": 35,
+   "selectableSegments": 27,
+   "capturedToday": true
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_airport",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 24,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_canton",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_county",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 99,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_district",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_metro",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_most_specific_location",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_postal_code",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_province",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_region",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 53,
+   "metricShape": null
+  },
+  {
+   "resource": "geographic_view",
+   "segment": "segments.geo_target_state",
+   "dateCombinable": true,
+   "capturedToday": true,
+   "delivers": true,
+   "distinctValues": 51,
+   "metricShape": null
+  },
+  {
+   "resource": "goal",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "group_content_suitability_placement_view",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 3,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 226,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": null,
+   "metricCount": 36,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 94,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "group_placement_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "hotel_group_view",
+   "segment": null,
+   "metricCount": 33,
+   "selectableSegments": 7,
+   "capturedToday": false
+  },
+  {
+   "resource": "hotel_performance_view",
+   "segment": null,
+   "metricCount": 34,
+   "selectableSegments": 28,
+   "capturedToday": false
+  },
+  {
+   "resource": "hotel_reconciliation",
+   "segment": null,
+   "metricCount": 3,
+   "selectableSegments": 1,
+   "capturedToday": false
+  },
+  {
+   "resource": "income_range_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 19825,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "income_range_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "keyword_plan",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_plan_ad_group",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_plan_ad_group_keyword",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_plan_campaign",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_plan_campaign_keyword",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_theme_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "keyword_view",
+   "segment": null,
+   "metricCount": 99,
+   "selectableSegments": 22,
+   "capturedToday": true
+  },
+  {
+   "resource": "keyword_view",
+   "segment": "segments.match_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "label",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": null,
+   "metricCount": 41,
+   "selectableSegments": 20,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 76,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.landing_page_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.slot",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "landing_page_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "language_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "lead_form_submission_data",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "life_event",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "local_services_employee",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "local_services_lead",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "local_services_lead_conversation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "local_services_verification_artifact",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "location_interest_view",
+   "segment": null,
+   "metricCount": 27,
+   "selectableSegments": 14,
+   "capturedToday": false
+  },
+  {
+   "resource": "location_view",
+   "segment": null,
+   "metricCount": 28,
+   "selectableSegments": 11,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 56261,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.new_versus_returning_customers",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "location_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "managed_placement_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 16,
+   "capturedToday": false
+  },
+  {
+   "resource": "matched_location_interest_view",
+   "segment": null,
+   "metricCount": 20,
+   "selectableSegments": 27,
+   "capturedToday": false
+  },
+  {
+   "resource": "media_file",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "mobile_app_category_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "mobile_device_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "multi_party_auth_review",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "offline_conversion_upload_client_summary",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "offline_conversion_upload_conversion_action_summary",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "offline_user_data_job",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "operating_system_version_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": null,
+   "metricCount": 12,
+   "selectableSegments": 12,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 5,
+   "vendorFloorObserved": "2025-04-30"
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.keyword.ad_group_criterion",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.keyword.info.match_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.keyword.info.text",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.search_engine_results_page_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "paid_organic_search_term_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 10309,
+   "vendorFloorObserved": "2022-03-05"
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "parental_status_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "per_store_view",
+   "segment": null,
+   "metricCount": 15,
+   "selectableSegments": 10,
+   "capturedToday": false
+  },
+  {
+   "resource": "performance_max_placement_view",
+   "segment": null,
+   "metricCount": 1,
+   "selectableSegments": 2,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 7,
+   "vendorFloorObserved": "2022-03-13"
+  },
+  {
+   "resource": "product_category_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "product_group_view",
+   "segment": null,
+   "metricCount": 40,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 320838,
+   "vendorFloorObserved": "2022-03-27"
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "product_group_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "product_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "product_link_invitation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "qualifying_question",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "recommendation",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "recommendation_subscription",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "remarketing_action",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "search_term_view",
+   "segment": null,
+   "metricCount": 38,
+   "selectableSegments": 20,
+   "capturedToday": true
+  },
+  {
+   "resource": "search_term_view",
+   "segment": "segments.search_term_match_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shared_criterion",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "shared_set",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 2,
+   "capturedToday": false
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": null,
+   "metricCount": 46,
+   "selectableSegments": 43,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 335898,
+   "vendorFloorObserved": "2022-03-27"
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 5,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_aggregator_id",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_brand",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_category_level1",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 10,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_category_level2",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 16,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_category_level3",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 15,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_category_level4",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_category_level5",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_channel",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_channel_exclusivity",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_condition",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_country",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_custom_attribute0",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_custom_attribute1",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_custom_attribute2",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_custom_attribute3",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_custom_attribute4",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_feed_label",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_item_id",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 60,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_language",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_merchant_id",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_store_id",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_title",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 60,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_type_l1",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 17,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_type_l2",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_type_l3",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_type_l4",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.product_type_l5",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 6,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_performance_view",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "shopping_product",
+   "segment": null,
+   "metricCount": 37,
+   "selectableSegments": 5,
+   "capturedToday": false
+  },
+  {
+   "resource": "smart_campaign_search_term_view",
+   "segment": null,
+   "metricCount": 3,
+   "selectableSegments": 7,
+   "capturedToday": false
+  },
+  {
+   "resource": "smart_campaign_setting",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "targeting_expansion_view",
+   "segment": null,
+   "metricCount": 77,
+   "selectableSegments": 18,
+   "capturedToday": false
+  },
+  {
+   "resource": "third_party_app_analytics_link",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "topic_constant",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "topic_view",
+   "segment": null,
+   "metricCount": 44,
+   "selectableSegments": 16,
+   "capturedToday": false
+  },
+  {
+   "resource": "travel_activity_group_view",
+   "segment": null,
+   "metricCount": 30,
+   "selectableSegments": 7,
+   "capturedToday": false
+  },
+  {
+   "resource": "travel_activity_performance_view",
+   "segment": null,
+   "metricCount": 30,
+   "selectableSegments": 18,
+   "capturedToday": false
+  },
+  {
+   "resource": "user_interest",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "user_list",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "user_list_customer_type",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  },
+  {
+   "resource": "user_location_view",
+   "segment": null,
+   "metricCount": 33,
+   "selectableSegments": 27,
+   "capturedToday": true
+  },
+  {
+   "resource": "video",
+   "segment": null,
+   "metricCount": 60,
+   "selectableSegments": 19,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 21,
+   "vendorFloorObserved": "2024-10-30"
+  },
+  {
+   "resource": "video",
+   "segment": "segments.ad_format_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.conversion_action",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "video",
+   "segment": "segments.conversion_action_category",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "video",
+   "segment": "segments.conversion_action_name",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "video",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.external_conversion_source",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": false,
+   "distinctValues": 0,
+   "metricShape": "metrics.conversions"
+  },
+  {
+   "resource": "video",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.month_of_year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "video",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": null,
+   "metricCount": 46,
+   "selectableSegments": 15,
+   "capturedToday": false,
+   "delivers": true,
+   "monthlyImpressions2026_03": 21,
+   "vendorFloorObserved": "2024-10-30"
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.ad_format_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.ad_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.ad_sub_network_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 3,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.click_type",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.day_of_week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 7,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.device",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 2,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.month",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.quarter",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.week",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 4,
+   "metricShape": null
+  },
+  {
+   "resource": "video_enhancement",
+   "segment": "segments.year",
+   "dateCombinable": true,
+   "capturedToday": false,
+   "delivers": true,
+   "distinctValues": 1,
+   "metricShape": null
+  },
+  {
+   "resource": "webpage_view",
+   "segment": null,
+   "metricCount": 39,
+   "selectableSegments": 18,
+   "capturedToday": false
+  },
+  {
+   "resource": "you_tube_video_upload",
+   "segment": null,
+   "metricCount": 0,
+   "selectableSegments": 0,
+   "capturedToday": false
+  }
+ ]
+}
