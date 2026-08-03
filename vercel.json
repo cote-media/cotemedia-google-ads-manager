@@ -64,5 +64,17 @@
       "path": "/api/cron/order-grain?mode=drain",
       "schedule": "9-59/10 8-11 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/queues/google-ads-universe/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "google-ads-universe",
+          "retryAfterSeconds": 60,
+          "maxConcurrency": 2
+        }
+      ]
+    }
+  }
 }

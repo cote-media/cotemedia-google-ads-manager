@@ -104,6 +104,10 @@ const GUARDS = [
   // branching (the surface list comes ONLY from docs/google-ads-capture-universe.json), and an unsatisfiable
   // structural requirement is RECORDED rather than silently dropped.
   'tests/guards/google-ads-universe-writer.guard.mjs',
+  // LORAMER_GOOGLE_ADS_UNIVERSE_RUNNER_V1 — a redelivered message must land on identical conflict keys
+  // (Queues is at-least-once), the governor must reserve headroom for forward+drain and stop BEFORE the
+  // cap, completion may come only from the writer's vendor-exhausted proof, and NO cron may fire the path.
+  'tests/guards/universe-runner.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
   // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
   'tests/guards/eval-spend-ledger.guard.mjs',
