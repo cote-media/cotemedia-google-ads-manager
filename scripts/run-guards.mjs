@@ -93,6 +93,9 @@ const GUARDS = [
   // LORAMER_DECISION_TOPIC_INDEX_V1 — §L must be GENERATED (recompute + diff), must agree with §H on every
   // token's status, and must keep reporting its own untokened backlog.
   'tests/guards/decision-topic-index.guard.mjs',
+  // LORAMER_ONE_BLOCK_OUTPUT_V1 — PLACEMENT ONLY. No guard can observe chat output; this asserts the rule is
+  // at the TOP of CLAUDE.md / ESSENCE governing law / RESUME_INSTRUCTIONS and reached the generated digest.
+  'tests/guards/one-block-output.guard.mjs',
   // LORAMER_THREE_SOURCE_PRECONDITION_V1 — every DECIDED/DECISION/SHIPPED/LAW entry banked on or after
   // 2026-08-02 must carry a THREE-SOURCE header (PRIOR CHATS · WEB · REPO), all three legs non-empty.
   // Enforces the ARTIFACT only — no guard can see whether a chat or web search actually happened.

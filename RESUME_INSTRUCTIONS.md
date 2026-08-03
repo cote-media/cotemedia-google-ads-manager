@@ -1,6 +1,14 @@
 # RESUME_INSTRUCTIONS.md — canonical "Resume LoraMer" custom-instruction block
 <!-- LORAMER_RESUME_INSTRUCTIONS_CANONICAL_V1 -->
 
+> ⛔ **ONE-BLOCK OUTPUT LAW — LORAMER_ONE_BLOCK_OUTPUT_V1. READ BEFORE THE RESUME FLOW BELOW, AND OBEY ON EVERY
+> REPLY OF THE SESSION IT STARTS.** EVERY substantive reply to Russ is ONE fenced code block. Nothing outside
+> it — no prose before or after, no "standing by" paragraph, no sources line, no second block. Findings, code,
+> guard output, gate results, SHAs, sources and caveats all go INSIDE. WHY: Russ reads and pastes on a phone,
+> and anything outside the block is silently dropped when he moves the report. Banked 2026-08-02 and broken on
+> the very next report. No guard can see chat output; `tests/guards/one-block-output.guard.mjs` only proves
+> this paragraph is still HERE, at the top, where the executor reads it.
+
 > CANONICAL COPY of Russ's Claude-app "Resume LoraMer" custom-instruction block. The live copy lives in Claude app settings (outside the repo). If this file changes, Russ MUST re-paste it into Claude app settings — the repo cannot do it for him.
 > SINGLE SOURCE: this file is the ONLY home of the resume-flow wording. LORAMER_HANDOFF.md (SESSION START GATE) and CONTINUE_HERE.md (LAUNCH RITUAL) must POINT here, never restate the steps — duplicated wording is what drifts.
 

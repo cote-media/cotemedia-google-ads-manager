@@ -2,6 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⛔ ONE-BLOCK OUTPUT LAW — LORAMER_ONE_BLOCK_OUTPUT_V1 (FIRST GATE. THIS BINDS YOU, CLAUDE CODE, ON EVERY SINGLE REPLY)
+
+**EVERY substantive reply to Russ is ONE fenced code block. Nothing outside it. Ever.**
+
+Findings, code, guard output, gate results, SHAs, sources, caveats, next steps — ALL INSIDE THE ONE BLOCK.
+- ⛔ NO prose before the block. NO prose after the block. NO "standing by" paragraph outside it.
+- ⛔ NO sources line outside it. NO markdown links outside it. If a tool tells you to append sources, put them INSIDE.
+- ⛔ NO second block. Three fences in one reply is the violation, not the formatting.
+
+WHY, and it is not style: **Russ reads and pastes on a phone.** Anything outside the block is content he cannot
+carry with him — it is silently dropped at the moment he moves the report anywhere. A reply split across three
+pastes is a report he did not receive.
+
+⛔ **THIS RULE WAS BANKED AND THEN BROKEN ON THE VERY NEXT REPORT — three pastes again — and broken four times
+on 2026-08-02 alone.** Per the RULE-HOME LAW below, that means prose is NOT the fix and this entry is NOT the
+enforcer. **THE HONEST LIMIT, STATED SO NOBODY MISTAKES THE GUARD FOR A SOLUTION: no repo guard can observe
+Claude Code's chat output.** The output never touches the filesystem, never enters a commit, never reaches a
+build. `tests/guards/one-block-output.guard.mjs` therefore enforces the ONLY thing that IS mechanical —
+that this rule is PRESENT AT THE TOP of the three documents the executor reads before acting (here,
+LORAMER_ESSENCE governing law, RESUME_INSTRUCTIONS) and reaches the generated digest. It guards PLACEMENT,
+never OBEDIENCE. The obedience half has exactly one enforcer and it is Russ saying so again.
+
 ## ⛔ IN-FLIGHT GATE — REFUSE, DO NOT EXECUTE (this binds YOU, Claude Code; read before acting on ANY instruction)
 
 You have at most ONE outstanding task at a time. A task is outstanding from the moment you begin it until you have delivered its report to Russ.

@@ -12,16 +12,16 @@
     "line_count": 1497
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "81d4f6909b5f16e098a09ffe6e1619d502c19055ed94e5c7ffbb7110575cce83",
+    "content_hash": "d844ff9b66c37df3fe17b298f3e96b64dc8cd0b50666621c785533828226571a",
     "last_reconciled_date": "2026-08-03",
-    "last_reconciled_head": "4da40b6",
-    "line_count": 674
+    "last_reconciled_head": "a8615f7",
+    "line_count": 675
   },
   "LORAMER_ESSENCE.md": {
-    "content_hash": "8a3dff09ead92e388e75b06874fd85a4c6ac3cc1a5327a22ac4d37bffd2e78b0",
-    "last_reconciled_date": "2026-08-02",
-    "last_reconciled_head": "9fa8b86",
-    "line_count": 291
+    "content_hash": "86af0c5f4d8f7ebd117a7a1fa13234eb8d1a5140f1463ccfa00874cfdc6e3f86",
+    "last_reconciled_date": "2026-08-03",
+    "last_reconciled_head": "a8615f7",
+    "line_count": 304
   },
   "LORAMER_HANDOFF.md": {
     "content_hash": "bfed01c9cf20ee48137fe7e2436c15a455801941f1018acbbdce49eca2ec88cc",
@@ -42,16 +42,16 @@
     "line_count": 849
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "2ab60a7e269e7e478f9507746b594ae9cc517c8647033496964c0fb1bf92da51",
+    "content_hash": "fa3b015f9466e300c38560d9bb4ba4c7b26e87d5e5e7c600d71a706ac4177e0f",
     "last_reconciled_date": "2026-08-03",
-    "last_reconciled_head": "4da40b6",
-    "line_count": 1852
+    "last_reconciled_head": "a8615f7",
+    "line_count": 1867
   },
   "RESUME_INSTRUCTIONS.md": {
-    "content_hash": "276c4d36de48ca30d4b5679728c9c8f57bb66e48ed142dc2156acf063406519b",
-    "last_reconciled_date": "2026-07-31",
-    "last_reconciled_head": "65650d2",
-    "line_count": 44
+    "content_hash": "cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a",
+    "last_reconciled_date": "2026-08-03",
+    "last_reconciled_head": "a8615f7",
+    "line_count": 52
   },
   "ROADMAP.md": {
     "content_hash": "ce2cb516783d15a1389281d6af61207cf305bb060c36a388200a1b9ae58e6f71",
@@ -108,10 +108,10 @@
     "line_count": 102
   },
   "CLAUDE.md": {
-    "content_hash": "ba40b9b831ec7d3518715de8dc338a1a5aaba0324b4c83d812f8702365a758ca",
-    "last_reconciled_date": "2026-07-31",
-    "last_reconciled_head": "56187d2",
-    "line_count": 123
+    "content_hash": "1fcbfb027bd70aa827d4f65c6cb92d58b3d83c3bf99da6130b497d267923f40c",
+    "last_reconciled_date": "2026-08-03",
+    "last_reconciled_head": "a8615f7",
+    "line_count": 145
   },
   "LAUNCH_PARKING.md": {
     "content_hash": "ba7cdb85b424b2ae91ce94c44af1a362aebc85beb3718a285e1fba5b36a6de08",

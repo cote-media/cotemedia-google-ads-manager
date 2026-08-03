@@ -8,6 +8,19 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, blast-radius-scoped, revert-ready). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ ONE-BLOCK OUTPUT LAW — LORAMER_ONE_BLOCK_OUTPUT_V1 [LAW — RUSS, banked 2026-08-02, BROKEN 4× THE SAME DAY]
+**EVERY substantive reply to Russ is ONE fenced code block. Nothing outside it. Ever.** Findings, code, guard
+output, gate results, SHAs, sources, caveats, next steps — ALL INSIDE THE ONE BLOCK. No prose before it, no
+prose after it, no "standing by" paragraph outside it, no sources line outside it, no second block.
+WHY, and it is not style: **Russ reads and pastes on a phone.** Anything outside the block is content he
+cannot carry — it is silently dropped the moment he moves the report. A reply split across three pastes is a
+report he did not receive. ⛔ **IT WAS BANKED AND BROKEN ON THE VERY NEXT REPORT.** Per the RULE-HOME LAW,
+prose is therefore not the fix and this entry is not the enforcer. **HONEST LIMIT: no repo guard can observe
+Claude Code's chat output** — it never touches the filesystem, a commit or a build.
+`tests/guards/one-block-output.guard.mjs` enforces the only mechanical thing there is: that this rule is
+PRESENT AT THE TOP of the three docs the executor reads before acting (CLAUDE.md, here, RESUME_INSTRUCTIONS)
+and reaches the generated digest. It guards PLACEMENT, never OBEDIENCE.
+
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
 
