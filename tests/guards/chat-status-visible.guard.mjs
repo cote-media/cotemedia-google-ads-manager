@@ -273,11 +273,75 @@ if (!loopErr) {
   if (!rm) findings.push(`(c) no prefers-reduced-motion block — accessibility is a closed question in this repo.`)
   else {
     if (!/-webkit-text-fill-color/.test(rm)) {
-      findings.push(`(c) the reduced-motion block resets 'color' but not `-webkit-text-fill-color`. On WebKit the fill colour wins, so the reduced-motion line would render INVISIBLE — the accessibility path failing worse than the animated one.`)
+      // ⚠ THIS LINE WAS A LATENT CRASH. It carried an unescaped backtick pair inside the template literal, so
+      // JS parsed it as arithmetic on undefined identifiers — `node --check` PASSED and the guard ran green,
+      // because the string is only BUILT when the finding fires and this finding never had. A guard whose
+      // FAILURE path throws is a guard that reports nothing at the exact moment it matters.
+      findings.push(`(c) the reduced-motion block resets 'color' but not '-webkit-text-fill-color'. On WebKit the fill colour wins, so the reduced-motion line would render INVISIBLE — the accessibility path failing worse than the animated one.`)
     }
     const opacity = /\.lmMarkWorking[^}]*opacity:\s*([\d.]+)/.exec(rm)
     if (!opacity) findings.push(`(c) the reduced-motion block does not give .lmMarkWorking a distinct static appearance — it must fall back to a STATIC WORKING state, not to idle. Killing the animation must not also kill the information.`)
-    else if (Number(opacity[1]) >= 0.9) findings.push(`(c) the reduced-motion working mark is opacity ${opacity[1]}, indistinguishable from the 0.9 idle avatar. A user with Reduce Motion on could not tell "working" from "done".`)
+    else if (Number(opacity[1]) >= 0.9) findings.push(`(c) the reduced-motion working mark is opacity ${opacity[1]}, indistinguishable from the idle avatar. A user with Reduce Motion on could not tell "working" from "done".`)
+  }
+
+  // ── (c2) THE SWEEP CANNOT RENDER TRANSPARENT GLYPHS — DERIVED, NOT ASSUMED ──────────────────────────
+  // ⛔ THIS IS THE ONE THING HERE THAT IS GENUINELY PROVABLE FROM CSS ALONE, so it is asserted precisely.
+  // For `background-position: P%` with `background-size: Nx%` on a box of width W, the image is placed at
+  //     offset = (W - N*W) * P
+  // and with `background-repeat: no-repeat` the image covers the box ONLY while
+  //     offset <= 0  AND  offset + N*W >= W    <=>    0% <= P <= 100%.
+  // Outside that range the box has NO background, `background-clip: text` has nothing to clip, and with
+  // `-webkit-text-fill-color: transparent` THE GLYPHS RENDER FULLY TRANSPARENT. The device reported exactly
+  // that on a8615f7 ("text vanishes"), against keyframes that ran 100% -> -100%.
+  {
+    const rule = css.slice(css.indexOf('.statusText'), css.indexOf('@keyframes loramerSweep'))
+    const size = /background-size:\s*(\d+)%/.exec(rule)
+    const repeat = /background-repeat:\s*no-repeat/.test(rule)
+    if (!size) findings.push(`(c) could not read background-size off .statusText — the travel-range proof below depends on it, so this leg is BLIND rather than passing.`)
+    else if (Number(size[1]) < 200) findings.push(`(c) background-size is ${size[1]}%; below 200% there is less than one box-width of travel and the "sweep" cannot move far enough to read as motion.`)
+
+    const kf = css.slice(css.indexOf('@keyframes loramerSweep'))
+    const stops = [...kf.slice(0, kf.indexOf('}\n') + 400).matchAll(/background-position:\s*(-?\d+)%/g)].map((m) => Number(m[1]))
+    if (stops.length === 0) findings.push(`(c) no background-position keyframes found for loramerSweep — leg (c2) is BLIND.`)
+    for (const p of stops) {
+      if (repeat && (p < 0 || p > 100)) {
+        findings.push(`(c) THE SWEEP TRAVELS TO ${p}%, OUTSIDE [0%, 100%]. With background-size ${size ? size[1] : '?'}% and background-repeat:no-repeat, the image no longer covers the box at that position — background-clip:text clips nothing and -webkit-text-fill-color:transparent renders the glyphs FULLY TRANSPARENT. THE STATUS LINE DISAPPEARS. This is the position spec, not a WebKit quirk, and it is exactly what Gate-B reported on a8615f7.`)
+      }
+    }
+    if (!repeat && stops.some((p) => p < 0 || p > 100)) {
+      findings.push(`(c) the sweep travels outside [0%, 100%] and background-repeat:no-repeat is no longer declared on .statusText. The out-of-range safety argument depends on knowing the repeat mode — restore no-repeat and keep the travel in range, or state a new proof.`)
+    }
+    // DURATION FLOOR + NOT-LINEAR. "Slow and calm" is a judgement, but "at least this slow" is a number.
+    const anim = /animation:\s*loramerSweep\s+([\d.]+)s\s+([a-z-]+)/.exec(rule)
+    if (!anim) findings.push(`(c) could not read the loramerSweep animation shorthand off .statusText — duration and easing are unasserted.`)
+    else {
+      if (Number(anim[1]) < 4) findings.push(`(c) the sweep runs at ${anim[1]}s. Below 4s per traversal the highlight crosses the line often enough to read as a BLINK rather than a pass of light — which is what the device reported at 2.4s.`)
+      if (anim[2] === 'linear') findings.push(`(c) the sweep is 'linear'. Linear plus a loop restart is what made it read as abrupt: the highlight arrives at the turn at full speed. Ease it.`)
+    }
+  }
+
+  // ── (c3) NO CONTAINER ON THE WORKING BLOCK, AND THE RESERVE IS BELOW ────────────────────────────────
+  {
+    const turn = css.slice(css.indexOf('.turn {'), css.indexOf('.turn {') + 700)
+    for (const prop of ['background', 'border', 'border-radius', 'box-shadow']) {
+      const re = new RegExp(`^\\s*${prop}\\s*:`, 'm')
+      if (re.test(turn)) findings.push(`(c) .turn declares '${prop}'. The mark and the status line render on the PAGE BACKGROUND — no pill, no bubble, no fill, no border. Message chrome says "this is a message from Lora" about a thing that is not one.`)
+    }
+    // The reserve must be the LAST child and must not be a min-height, which cannot say which side the
+    // slack falls on — that ambiguity is what put the mark at the bottom of the block on the device.
+    const tsx = read(MARK_SRC) || ''
+    const w = tsx.indexOf('export function LoraWorking')
+    const body = w === -1 ? '' : tsx.slice(w)
+    const iMark = body.indexOf('<LmMark')
+    const iText = body.indexOf('styles.statusText')
+    const iRes = body.indexOf('styles.reserve')
+    if (iRes === -1) findings.push(`(c) LoraWorking renders no styles.reserve spacer. Reserved space expressed as a min-height cannot say which SIDE the slack falls on, and on the device it fell above the content — mark and line hard against the composer. DOM order is the only thing that settles it.`)
+    else if (!(iMark !== -1 && iText !== -1 && iMark < iText && iText < iRes)) {
+      findings.push(`(c) LoraWorking's children are not in the order mark -> status -> reserve (indices ${iMark}, ${iText}, ${iRes}). The emptiness must fall away BELOW the content, where the answer will grow.`)
+    }
+    if (/\.turn\s*\}?[^}]*min-height/.test(css.slice(css.indexOf('.turn {'), css.indexOf('.turn {') + 700))) {
+      findings.push(`(c) .turn has regained a min-height. That is the ambiguity this replaced — use the .reserve spacer.`)
+    }
   }
 }
 

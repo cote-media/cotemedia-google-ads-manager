@@ -24,7 +24,15 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  /* ⛔ NO GENERIC gap. It applied 6px between EVERY child, which floated the status line away from the mark
+     instead of binding them into one unit. Spacing is now explicit per child, so "tight under the mark" is a
+     stated value rather than a side effect of a container rule. */
+  gap: 0;
+  /* ⛔ TOP-ALIGNED, STATED RATHER THAN INHERITED. Gate-B on a8615f7 showed the mark and line pushed to the
+     BOTTOM of the block, hard against the composer, with the emptiness above. flex-start on the MAIN axis
+     (this is a column) is what puts them at the top; it was previously left to the initial value and
+     something in the surrounding flex chain won. Declared here so neither surface can move it. */
+  justify-content: flex-start;
   min-width: 0;
   max-width: 100%;
 }
@@ -33,13 +41,20 @@
    lora-page.module.css agree on `padding: 9px 13px`). Indenting the mark by exactly that puts it on the
    answer's own text margin rather than the bubble's outer edge — standing where the first character lands,
    which is the point of the position. */
-.mark { margin-left: 13px; }
+/* margin-top: -4px CANCELS THE SVG'S OWN OPTICAL PADDING so the mark HUGS the message above it. The artwork
+   spans y 2.9→18.1 of a 24 viewBox, so at 34px there is ~4.1px of empty box above the stroke and ~8.4px
+   below. Without the pull the mark floats a full line-gap under the user's message. */
+.mark { margin-left: 13px; margin-top: -4px; }
 
-/* ⛔ RESERVE THE SPACE (correction (d)). The loading state is the mark plus OPEN VERTICAL SPACE where the
-   answer will land — no skeleton, no placeholder rows, no shimmer block. A skeleton draws fake content and
-   is a small lie about a shape nobody knows yet; empty claimed space is honest and does the same job. The
-   answer then FILLS space already claimed instead of shoving the composer down under the user's thumb. */
-.working { min-height: 132px; }
+/* ⛔ RESERVE THE SPACE — BELOW THE CONTENT, NOT AROUND IT. The loading state is the mark plus OPEN VERTICAL
+   SPACE where the answer will land: no skeleton, no placeholder rows, no shimmer. A skeleton draws fake
+   content in a shape nobody knows yet; empty claimed space is honest and does the same job.
+   ⛔ THIS USED TO BE `min-height` ON THE BLOCK AND THAT IS WHY IT FAILED GATE-B. A min-height says HOW TALL
+   the block is and says NOTHING about which side the slack falls on — the surrounding flex chain decided,
+   and it decided BOTTOM: the mark and line ended up hard against the composer with the emptiness above them.
+   An explicit spacer AFTER the status line cannot be moved by any ancestor: the mark is first, the line is
+   second, the emptiness is third, and DOM order settles it. */
+.reserve { flex: 0 0 auto; height: 104px; }
 
 /* THE STATUS LINE — one line, fixed height, no wrap, ellipsis. The subject changes several times during a
    turn ("Thinking…" -> "Reading Foam OH · Google · Nov–Dec 2024"), and a line that re-wraps or grows on each
@@ -47,6 +62,11 @@
    leading segments carry the information, and a clipped tail beats a moving layout. */
 .statusText {
   margin-left: 13px;
+  /* TIGHT UNDER THE MARK — ONE VISUAL UNIT. -6px cancels most of the ~8.4px of empty box the SVG carries
+     BELOW its strokes (the artwork ends at y 18.1 of a 24 viewBox, at a 34px box), leaving ~2px of optical
+     space between the bottom of the M and the cap-height of the line. Measured against the artwork rather
+     than eyeballed; change the viewBox and this number changes with it. */
+  margin-top: -6px;
   max-width: 100%;
   min-width: 0;
   white-space: nowrap;
@@ -79,13 +99,36 @@
   /* Promote to its own layer so the background-position animation actually repaints on WebKit — an animated
      background on a background-clip:text element is the exact combination WebKit under-repaints. */
   will-change: background-position;
-  animation: loramerSweep 2.4s linear infinite;
+  /* ⛔ 6s, ease-in-out, ALTERNATE — not 2.4s linear, and each part is a fix for what the device showed
+     (Gate-B on a8615f7: "flat text -> gradient appears -> text vanishes -> returns" — a flicker, not a pass
+     of light).
+     · 6s (was 2.4s): at 2.4s the highlight crossed the line ~25 times a minute, which reads as a blink.
+       6s per traversal — a 12s round trip — is slow enough to read as drifting light rather than an event.
+     · ease-in-out (was linear): the highlight slows at each end, which is exactly where the reversal
+       happens, so the turn is invisible instead of a change of direction you can see.
+     · alternate: this is what removes the SNAP. A one-way animation must jump from its end value back to
+       its start value on every iteration, and that jump is a discontinuity no easing can hide. Alternating
+       walks the highlight back the way it came, so the motion is genuinely continuous. */
+  animation: loramerSweep 6s ease-in-out infinite alternate;
 }
+/* ⛔ THE TRAVEL RANGE IS [0%, 100%] AND IT IS ARITHMETIC, NOT TASTE. THE OLD RANGE MADE THE TEXT DISAPPEAR.
+   For `background-position: P%` with `background-size: 400%` on a box of width W, the image is placed at
+       offset = (W - 4W) x P = -3W x P
+   and with `background-repeat: no-repeat` the image covers the box ONLY while
+       offset <= 0  AND  offset + 4W >= W      i.e.      0% <= P <= 100%.
+   The previous keyframes ran 100% -> -100%. At P = -100% the offset is +3W, so the image sits ENTIRELY TO
+   THE RIGHT of the box: the box has no background at all, background-clip:text has nothing to clip, and with
+   -webkit-text-fill-color: transparent the glyphs render FULLY TRANSPARENT. THAT IS THE "TEXT VANISHES" THE
+   DEVICE REPORTED — not a WebKit quirk, not a repaint bug, just the position spec. The comment that used to
+   sit here claimed "a full box-width of gradient still in reserve at each end"; it was wrong about the maths
+   and the device was right.
+   Inside [0%, 100%] the box is covered at EVERY frame, so some legible colour is on every glyph at every
+   moment and the line CANNOT disappear. And because the gradient's outer thirds are flat --muted, both
+   endpoints render as uniform muted text — the highlight passes through the middle and parks at neither end
+   looking broken, which is what "calm, not broken" requires when it stops. */
 @keyframes loramerSweep {
-  /* Travel stays within the 400% background: 100% -> -100% is two full box-widths of movement with a full
-     box-width of gradient still in reserve at each end. */
   from { background-position: 100% 0; }
-  to   { background-position: -100% 0; }
+  to   { background-position: 0% 0; }
 }
 
 /* ── THE LM MARK ─────────────────────────────────────────────────────────────────────────────────────────

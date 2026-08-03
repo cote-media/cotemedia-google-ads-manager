@@ -58,11 +58,17 @@ export function LoraTurn({ children }: { children: React.ReactNode }) {
  *  nobody knows yet; empty claimed space is honest and stops the answer shoving the composer down. */
 export function LoraWorking({ status }: { status?: string | null }) {
   return (
-    <div className={`${styles.turn} ${styles.working}`}>
+    <div className={styles.turn}>
       <LmMark working />
       {/* `status` is null only in the sliver before the first frame lands. "Working…" is the honest
           placeholder there: it claims no client, no platform, no window and no read. */}
       <div className={styles.statusText}>{status || 'Working…'}</div>
+      {/* ⛔ THE RESERVE IS AN ELEMENT, AND IT IS LAST. It used to be `min-height` on this block, which says
+          how TALL the block is and says NOTHING about which side the slack falls on — the surrounding flex
+          chain decided, and on the device it decided BOTTOM: the mark and the line ended up hard against the
+          composer with the emptiness above them. As a spacer AFTER the status line, DOM order settles it:
+          mark first, line second, emptiness third, falling away underneath where the answer will grow. */}
+      <div className={styles.reserve} aria-hidden="true" />
     </div>
   )
 }
