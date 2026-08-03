@@ -30,8 +30,20 @@ const REGISTRY = 'src/lib/breakdown-registry.ts'
 export const BEGIN = '  // ═══ BEGIN GENERATED — LORAMER_UNIVERSE_ENTITY_AXIS_V1 (node scripts/build-universe-registry.mjs --write) ═══'
 export const END = '  // ═══ END GENERATED — LORAMER_UNIVERSE_ENTITY_AXIS_V1 ═══'
 
-/** The artifact's own selection rule, duplicated NOWHERE ELSE — it mirrors selectableEntries() in the writer. */
+/** ⛔ WHAT THE REGISTRY DECLARES IS WHAT LANDS IN metrics_daily — which since LORAMER_UNIVERSE_DERIVED_TIME_V1
+ *  is NOT the same set as what we REQUEST from Google. The six derived time families are computed locally from
+ *  `date` and still stored, so they must still be declared or Lora cannot read rows that exist. This mirrors
+ *  `declarableEntries()` in the writer, NOT `selectableEntries()`. */
 export const selectable = (doc) => doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true))
+/** The six segments we no longer request — kept in step with the writer's DERIVED_TIME_FAMILIES. */
+export const DERIVED_TIME = new Map([
+  ['segments.date', 'the row date itself'],
+  ['segments.week', 'ISO week start (Monday) = date - (isodow-1) days'],
+  ['segments.month', 'first day of the calendar month'],
+  ['segments.quarter', 'first day of the CALENDAR quarter (not fiscal)'],
+  ['segments.year', 'calendar year'],
+  ['segments.day_of_week', 'Google DayOfWeek enum ordinal, MONDAY=2 ... SUNDAY=8 (isodow + 1)'],
+])
 /** The writer's own naming rule. Same shape as breakdownTypeFor() — segment short name, else the resource. */
 export const btFor = (e) => (e.segment ? e.segment.replace(/^segments\./, '').replace(/\./g, '_') : e.resource)
 
@@ -58,7 +70,7 @@ export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTR
   const byType = new Map()
   for (const e of selectable(doc)) {
     const t = btFor(e)
-    if (!byType.has(t)) byType.set(t, { levels: new Set(), dv: 0, segment: e.segment })
+    if (!byType.has(t)) byType.set(t, { levels: new Set(), dv: 0, segment: e.segment, derived: DERIVED_TIME.get(e.segment || '') || null })
     const g = byType.get(t)
     g.levels.add(e.resource)
     g.dv = Math.max(g.dv, typeof e.distinctValues === 'number' ? e.distinctValues : 0)
@@ -69,8 +81,10 @@ export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTR
     const g = byType.get(t)
     const levels = [...g.levels].sort().map((l) => `'${l}'`).join(', ')
     const hc = g.dv >= HIGH_CARD_AT
-    const note = `vendor-named grain (LORAMER_UNIVERSE_ENTITY_AXIS_V1): entity_level IS the GAQL FROM resource and entity_id is its resource_name. ` +
-      `Vendor-measured distinct values on the probe account: ${g.dv || 'unmeasured'}.`
+    const note = g.derived
+      ? `COMPUTED, NOT CAPTURED (LORAMER_UNIVERSE_DERIVED_TIME_V1). This family is NOT requested from Google — it is derived locally from the row date and stored as a TRUE aggregate, one row per entity per period. Derivation: ${g.derived}. Every row carries extra.provenance='COMPUTED_FROM_DATE' with the rule on the row; a row without it is a bug the guard fails on. Reconciled against the vendor's own rows on 2026-08-03 with ZERO mismatches. entity_level IS the GAQL FROM resource.`
+      : `vendor-named grain (LORAMER_UNIVERSE_ENTITY_AXIS_V1): entity_level IS the GAQL FROM resource and entity_id is its resource_name. ` +
+        `Vendor-measured distinct values on the probe account: ${g.dv || 'unmeasured'}.`
     lines.push(
       `  { platform: 'google', breakdownType: '${t}', toolType: '${t}', surface: 'breakdown', entityLevels: [${levels}], ` +
       `rankBy: 'spend', additive: true, highCardinality: ${hc}, note: '${note.replace(/'/g, "\\'")}' },`,

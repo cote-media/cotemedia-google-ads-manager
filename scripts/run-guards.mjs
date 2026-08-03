@@ -110,6 +110,7 @@ const GUARDS = [
   'tests/guards/universe-runner.guard.mjs',
   'tests/guards/universe-entity-axis.guard.mjs',
   'tests/guards/universe-artifact-slots.guard.mjs',
+  'tests/guards/universe-derived-time.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
   // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
   'tests/guards/eval-spend-ledger.guard.mjs',

@@ -53,7 +53,11 @@ try {
 } finally { Module._resolveFilename = origResolve }
 
 const doc = JSON.parse(readFileSync(rel('docs/google-ads-capture-universe.json'), 'utf8'))
-const selectable = W.selectableEntries(doc)
+// ⛔ WHAT THE WALK WRITES IS NO LONGER WHAT IT REQUESTS (LORAMER_UNIVERSE_DERIVED_TIME_V1). The six derived
+// time families are computed locally and still stored, so reachability must be checked against
+// declarableEntries — checking only the request list would declare 201 families unreachable while their rows
+// sit in the table, which is the UNWIRED-IS-MISSING failure pointing the other way.
+const selectable = W.declarableEntries(doc)
 
 // ── (A) THE VENDOR SERVED A GRAIN AND WE WROTE IT ──────────────────────────────────────────────────────────
 // A stub response shaped like a real one: TWO distinct entities on the SAME date and segment value. If the

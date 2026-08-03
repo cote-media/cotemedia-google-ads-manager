@@ -1228,7 +1228,27 @@ flights that shipped them, which is the argument for shipping them at all.
 
 **GATE-A POSTURE FOR THE NEXT SESSION, so the first guard run is not misread:** the working tree reads **54 PASSED · 1 FAILED**, and that ONE failure is the held Google Tier-1 widen's own preconditions in `metrics-upsert-chunked` — everything committed is **55/55 green with `next build` exit 0**, proven by isolation at d081752 with the widen absent. The widen is still uncommitted (`cron/sync/route.ts` blob e3d8a09e / 67,870 bytes · `forward-widen-breadth.ts` blob 35776e49 / 2,775 bytes).
 
-▶▶ NEXT STEP — 2026-08-03 MEASURED-WRITE WRAP (latest — resume HERE). ⛔ **THE COMPUTE QUESTION IS ANSWERED WITH A NUMBER. THE HEAD ITEM IS NOW A CHEAP 31% SAVING THAT SHOULD LAND BEFORE THE WALK DOES: [[★UNIVERSE-TIME-SEGMENT-REDUNDANCY]].**
+▶▶ NEXT STEP — 2026-08-03 ROUTE B WRAP (latest — resume HERE). ⛔ **THE WALK IS NOW CORRECT, DECLARED, GUARDED AND 36% CHEAPER PER WINDOW. WHAT IS LEFT BEFORE FIRING IS ONE CORRECTNESS FIX AND ONE COMPUTE DECISION — NEITHER IS A BLOCKER YOU HAVE NOT ALREADY SEEN.**
+
+⛔ **DEPARTURE FROM RANKING, stated not assumed:** the QUEUE's declared TOP-UNBLOCKED remains ★GOOGLE-GEO-STATEMENT-TIMEOUTS, whose premise died on 2026-08-03 when all six geo cursors advanced and the frozen-cursor guard read PASSED.
+
+**WHAT SHIPPED — LORAMER_UNIVERSE_DERIVED_TIME_V1 (Route B, your call).** The six derived time segments are no longer requested from Google: **201 of 559 entries dropped, 559 → 358, a 36% cut in requests per window.** Their families are computed from the same response the base entry already paid for — **zero vendor requests** — as TRUE aggregates, one row per entity per period. Every computed row carries `provenance='COMPUTED_FROM_DATE'` with its derivation rule, and Lora's prose now tells her to say so when asked where a weekly or monthly figure came from.
+
+**RECONCILED BEFORE REPLACING — all six families, against the vendor's own landed rows, key mismatches 0 and metric mismatches 0** (78,300 / 59,204 / 56,851 / 56,851 / 55,628 / 74,299 groups). Definitions proven by measurement rather than documentation: **week starts MONDAY (ISO)**, **quarter is CALENDAR**, **day_of_week is MONDAY=2 … SUNDAY=8**.
+
+⛔ **THE SAVING IS NOT WHAT THE ITEM PROMISED, AND YOU SHOULD HAVE THE HONEST NUMBER: ~5.8% OF ROWS, NOT 31%.** On the largest resource the six vendor families were 469,800 rows; the six computed aggregates are 381,133 — 81.1%. The 31% assumed the families would VANISH (Route A, which you correctly rejected on the 4.9s cold read). Under Route B they only shrink where an entity appears on several days inside a period, and this account's entities are long-tailed. **Route B's real prize is the 36% request cut — the ETA and quota win — not the disk.**
+
+⚠ **AND ONE MEASUREMENT SAYS THERE IS MORE ON THE TABLE THAN ROUTE B FOUND: the `date` family saves EXACTLY ZERO** (78,300 → 78,300 — its period IS the day, so it duplicates the base family). Dropping it would save 16.7% of the six-family volume, roughly as much again as all of Route B's aggregation. It is banked as [[★UNIVERSE-DATE-FAMILY-IS-A-PURE-DUPLICATE]] and NOT done, because deleting a declared family Lora can select is a product decision about her surface, not an engineering one.
+
+⚠ **NOT RUN AGAINST LIVE DATA.** The writer is authored, guarded and dry-run green at 358 entries; the **6,048,263 landed rows are still the VENDOR versions** and are untouched per your instruction. They are what made the reconciliation possible.
+
+⛔ **THE BINDING CONSTRAINT IS STILL COMPUTE, AND IT WAS RE-MEASURED RATHER THAN ASSUMED: the worst family reads 28,257 ms COLD against ~1,570 ms warm** — a second cold reading against the earlier 23,810 ms, minutes apart, which says the cache does not retain that working set at all. Route B does not touch that family and does not change that number.
+
+**WHAT IS LEFT BEFORE THE WALK CAN FIRE:** [[★UNIVERSE-PROBE-METRIC-SET-MISMATCH]] — 9.8% of entries error every window because the probe tests one metric and the writer sends five (~762 requests to fix) — and [[★UNIVERSE-VOLUME-VS-SUPABASE-COMPUTE]]'s remaining half, which is now plainly a compute-tier question rather than a disk one.
+
+**GATE-A POSTURE FOR THE NEXT SESSION:** working tree reads **57 PASSED · 1 FAILED**, that one still only the held Google Tier-1 widen's own preconditions; **everything committed is 58/58 with `next build` exit 0, proven by isolation.** ⚠ **HELD WIDEN UNTOUCHED** — blobs e3d8a09e / 35776e49 · `hold/google-tier1-widen` 5d95348 on origin.
+
+- (2026-08-03 measured-write opener — HISTORY, superseded by the Route B wrap below. Demoted because its head item shipped. ⚠ ITS 31% SAVING FIGURE IS SUPERSEDED — the measured Route B saving is ~5.8% of rows; the real prize turned out to be a 36% REQUEST cut. Kept because its volume, fill-rate, cache and idempotency measurements are unchanged and still the reference numbers.) 2026-08-03 MEASURED-WRITE WRAP. ⛔ **THE COMPUTE QUESTION IS ANSWERED WITH A NUMBER. THE HEAD ITEM IS NOW A CHEAP 31% SAVING THAT SHOULD LAND BEFORE THE WALK DOES: [[★UNIVERSE-TIME-SEGMENT-REDUNDANCY]].**
 
 ⛔ **DEPARTURE FROM RANKING, stated not assumed:** the QUEUE's declared TOP-UNBLOCKED is still ★GOOGLE-GEO-STATEMENT-TIMEOUTS, whose premise died on 2026-08-03 when all six geo cursors advanced and the frozen-cursor guard read PASSED. The universe arc keeps the head because the walk is one decision from starting and two cheap fixes from starting well.
 

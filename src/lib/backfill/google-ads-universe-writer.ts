@@ -51,8 +51,99 @@ export function loadUniverse(root = process.cwd()): UniverseDoc {
   return doc
 }
 
-/** Entries this writer will attempt: proven to deliver, date-combinable, and not already captured. */
+// ── DERIVED TIME SEGMENTS — LORAMER_UNIVERSE_DERIVED_TIME_V1, 2026-08-03 ───────────────────────────────────
+// ⛔ WE STOP ASKING GOOGLE FOR ARITHMETIC WE CAN DO. Each of these six segments is a PURE FUNCTION of the
+// `date` column that is already on every row we write, so requesting them buys nothing and costs a request
+// per entry per window plus a full row set on disk.
+//
+// ⛔ MEASURED, NOT ASSUMED — 2026-08-03, against 1,850,202 landed rows, zero mismatches on all six. The two
+// definitions nobody may guess at were settled empirically rather than from documentation:
+//   WEEK STARTS MONDAY (ISO). `date − (isodow−1) days` reproduced all 308,367 stored values exactly; a
+//     Sunday-start week would have mismatched on 6 of every 7 rows.
+//   QUARTER IS CALENDAR, NOT FISCAL. A 2026-03-07 row carries 2026-01-01 and an April row carries
+//     2026-04-01 — calendar Q1/Q2 boundaries.
+//   day_of_week is Google's NUMERIC DayOfWeek enum, MONDAY=2 … SUNDAY=8, i.e. ISODOW + 1.
+// ⚠ THE HONEST LIMIT ON TWO OF THEM: the proving window held exactly ONE distinct `year` and TWO distinct
+// `quarter` values, so those two are proven across a narrow range. That is precisely why leg (c) of
+// tests/guards/universe-derived-time.guard.mjs re-checks computed-vs-vendor on every row where both exist,
+// rather than trusting this comment.
+//
+// ⛔ SEGMENT-LEVEL RULE, NOT A PER-RESOURCE BRANCH. This is a set of SEGMENT NAMES, exactly the same shape as
+// DEFAULT_METRICS. There is no `if (resource === …)` here and the writer's governing law is untouched.
+export interface DerivedTimeFamily {
+  /** The GAQL segment we no longer request. */
+  segment: string
+  /** The breakdown_type it produced — UNCHANGED, so nothing downstream has to learn a new name. */
+  breakdownType: string
+  /** Derivation from the row's own date. `date` is the ISO day string. */
+  derive: (date: string) => string
+  /** Stated on every computed row so a reader never has to infer the rule. */
+  rule: string
+}
+
+// ⛔ PURE INTEGER DATE ARITHMETIC — NO `Date` OBJECT ANYWHERE, AND THAT IS A HARD REQUIREMENT ON THIS PATH,
+// not a style choice. `google-ads-universe-writer.guard.mjs` fails the build on ANY `new Date` here, because
+// a clock is what sealed 214 cursors at `backfill_complete=true` while Google still served years more. The
+// guard cannot distinguish "arithmetic on the row's own date string" from "asking what time it is", and the
+// correct response to that is to need neither — not to weaken the rule. These are Howard Hinnant's
+// days-from-civil / civil-from-days conversions: exact, proleptic-Gregorian, no locale, no timezone, no now().
+const daysFromCivil = (y: number, m: number, d: number): number => {
+  const yy = y - (m <= 2 ? 1 : 0)
+  const era = Math.floor(yy / 400)
+  const yoe = yy - era * 400
+  const doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy
+  return era * 146097 + doe - 719468
+}
+const civilFromDays = (z0: number): string => {
+  const z = z0 + 719468
+  const era = Math.floor(z / 146097)
+  const doe = z - era * 146097
+  const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365)
+  const y0 = yoe + era * 400
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100))
+  const mp = Math.floor((5 * doy + 2) / 153)
+  const d = doy - Math.floor((153 * mp + 2) / 5) + 1
+  const m = mp + (mp < 10 ? 3 : -9)
+  const y = y0 + (m <= 2 ? 1 : 0)
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+const parts = (d: string): [number, number, number] => [Number(d.slice(0, 4)), Number(d.slice(5, 7)), Number(d.slice(8, 10))]
+/** ISO day of week, Monday=1 … Sunday=7. Day 0 of the civil epoch (1970-01-01) was a THURSDAY, hence the +3. */
+const isoDow = (d: string): number => (((daysFromCivil(...parts(d)) + 3) % 7) + 7) % 7 + 1
+
+export const DERIVED_TIME_FAMILIES: DerivedTimeFamily[] = [
+  { segment: 'segments.date', breakdownType: 'date', rule: 'the row date itself', derive: (d) => d },
+  { segment: 'segments.week', breakdownType: 'week', rule: 'ISO week start (Monday) = date − (isodow−1) days',
+    derive: (d) => civilFromDays(daysFromCivil(...parts(d)) - (isoDow(d) - 1)) },
+  { segment: 'segments.month', breakdownType: 'month', rule: 'first day of the calendar month',
+    derive: (d) => `${d.slice(0, 7)}-01` },
+  { segment: 'segments.quarter', breakdownType: 'quarter', rule: 'first day of the CALENDAR quarter (not fiscal)',
+    derive: (d) => `${d.slice(0, 4)}-${String(Math.floor((Number(d.slice(5, 7)) - 1) / 3) * 3 + 1).padStart(2, '0')}-01` },
+  { segment: 'segments.year', breakdownType: 'year', rule: 'calendar year', derive: (d) => d.slice(0, 4) },
+  { segment: 'segments.day_of_week', breakdownType: 'day_of_week', rule: "Google DayOfWeek enum ordinal, MONDAY=2 … SUNDAY=8 (isodow + 1)",
+    derive: (d) => String(isoDow(d) + 1) },
+]
+export const DERIVED_TIME_SEGMENTS = new Set(DERIVED_TIME_FAMILIES.map((f) => f.segment))
+/** ⛔ Stamped on every locally computed row. A derived aggregate presented as vendor-reported is a HONESTY
+ *  violation, not a storage optimisation — Lora must be able to say which it is looking at. */
+export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
+export const PROVENANCE_VENDOR = 'VENDOR_REPORTED'
+
+/**
+ * Entries this writer will REQUEST: proven to deliver, date-combinable, and not a derived time segment.
+ * ⛔ The derived-time entries are NOT dropped from the artifact and NOT dropped from the registry — they are
+ * dropped from the REQUEST list only, and their families are computed locally instead. `selectableEntries`
+ * answers "what do we ask Google for"; it is deliberately no longer the same question as "what do we store".
+ */
 export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
+  return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true)
+    && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment)))
+}
+
+/** Every entry the artifact declares selectable, INCLUDING the derived-time ones. The registry declares from
+ *  this, because those families still land in metrics_daily — computed rather than captured. */
+export function declarableEntries(doc: UniverseDoc): UniverseEntry[] {
   return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true))
 }
 
@@ -266,6 +357,76 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
   return { rows: out, grainDeclines }
 }
 
+/**
+ * LORAMER_UNIVERSE_DERIVED_TIME_V1 — the six time families, COMPUTED from the rows we already fetched.
+ *
+ * ⛔ ZERO VENDOR REQUESTS. This runs on the SAME `apiRows` the base entry already paid for, which is the
+ * whole of Route B: we stopped asking Google for arithmetic and started doing it.
+ *
+ * ⛔ AND IT IS A TRUE AGGREGATE, WHICH THE VENDOR FAMILY WAS NOT. Google's `segments.month` rows are DAILY
+ * rows wearing a month label — one per entity per DAY — which is why every time family returned a row count
+ * identical to its base family and why the whole set was 30.6% of a window for no information. These are one
+ * row per entity per PERIOD, so the row count falls out of the aggregation rather than out of a decision.
+ *
+ * ⛔ ONLY RESOURCE-ONLY ENTRIES FEED THIS. A segment entry is already split by its own dimension, so rolling
+ * it up by period would silently sum across that dimension and produce a number nobody asked for.
+ */
+export function buildDerivedTimeRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): Record<string, unknown>[] {
+  if (entry.segment) return []
+  const level = entityLevelFor(entry)
+  const out: Record<string, unknown>[] = []
+  for (const fam of DERIVED_TIME_FAMILIES) {
+    const agg = new Map<string, any>()
+    for (const r of apiRows) {
+      const date = r?.segments?.date
+      if (!date) continue
+      const id = entityIdFor(entry, r)
+      const entityId = id ?? VENDOR_DECLINED_GRAIN
+      const period = fam.derive(String(date))
+      const key = `${entityId}|${period}`
+      let a = agg.get(key)
+      if (!a) { a = { entityId, period, declined: id === null, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0, days: new Set<string>() }; agg.set(key, a) }
+      a.spend += num(r?.metrics?.cost_micros) / 1_000_000
+      a.impressions += num(r?.metrics?.impressions)
+      a.clicks += num(r?.metrics?.clicks)
+      a.conversions += num(r?.metrics?.conversions)
+      a.convValue += num(r?.metrics?.conversions_value)
+      a.days.add(String(date))
+    }
+    for (const a of agg.values()) {
+      if (a.spend === 0 && a.impressions === 0 && a.clicks === 0 && a.conversions === 0) continue
+      const spend = Number(a.spend.toFixed(2))
+      const convValue = Number(a.convValue.toFixed(2))
+      // ⛔ THE CONFLICT KEY NEEDS A DATE AND AN AGGREGATE HAS NO SINGLE DAY. We use the PERIOD'S OWN ANCHOR —
+      // the earliest day of this entity's activity in that period — so the key is deterministic, idempotent,
+      // and cannot collide with the base row (which carries a different breakdown_type).
+      const anchor = [...a.days].sort()[0]
+      out.push({
+        client_id: ctx.clientId, user_email: ctx.userEmail, platform: 'google', account_id: ctx.customerId,
+        entity_level: level, entity_id: a.entityId, entity_name: null, parent_entity_id: ctx.customerId,
+        date: anchor, breakdown_type: fam.breakdownType, breakdown_value: a.period,
+        spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
+        conversion_value: convValue, revenue: 0,
+        extra: {
+          ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),
+          roas: ratio(convValue, spend), cpa: ratio(spend, a.conversions), convRate: ratio(a.conversions, a.clicks, 100),
+          grain: a.declined ? 'VENDOR_DECLINED' : 'VENDOR_NAMED',
+          grainSource: 'FROM_RESOURCE_NAME',
+          // ⛔ PROVENANCE IS MANDATORY ON EVERY COMPUTED ROW. Without it a reader — Lora included — cannot
+          // tell an aggregate we did from a figure Google reported, and presenting the first as the second
+          // is a HONESTY failure rather than a storage detail. The guard fails the build if it is missing.
+          provenance: PROVENANCE_COMPUTED,
+          derivedFrom: 'segments.date',
+          derivationRule: fam.rule,
+          periodDays: a.days.size,
+          periodAnchor: anchor,
+        },
+      })
+    }
+  }
+  return out
+}
+
 // ── THE CAPTURE ────────────────────────────────────────────────────────────────────────────────────────────
 export interface CaptureResult {
   entry: string
@@ -281,6 +442,8 @@ export interface CaptureResult {
   entityLevel: string
   /** Rows the vendor returned with NO resource_name. A labelled fact; never folded into absence or zero. */
   grainDeclines: number
+  /** LORAMER_UNIVERSE_DERIVED_TIME_V1 — rows COMPUTED from `date` rather than requested. Zero extra requests. */
+  derivedRows: number
 }
 
 /**
@@ -301,7 +464,7 @@ export async function captureUniverseEntry(args: {
   const level = entityLevelFor(entry)
   const structural = resolveStructural(entry, supplied)
   if (!structural.ok) {
-    return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: structural.skip, exhaustion: null, error: null, entityLevel: level, grainDeclines: 0 }
+    return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: structural.skip, exhaustion: null, error: null, entityLevel: level, grainDeclines: 0, derivedRows: 0 }
   }
   const gaql = buildGaql(entry, startDate, endDate, structural.filters)
   let apiRows: any[]
@@ -311,15 +474,19 @@ export async function captureUniverseEntry(args: {
     // 2026-08-03 measured window, making a real vendor verdict unreadable. The repo already solved this once
     // (LORAMER_GAQL_ERROR_SERIALIZE_V1, google-intelligence.ts) and this writer simply never used it. Reusing
     // it rather than reinventing a second serializer is the whole point of the banked law.
-    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: describeGaqlError(e).slice(0, 300), entityLevel: level, grainDeclines: 0 }
+    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: describeGaqlError(e).slice(0, 300), entityLevel: level, grainDeclines: 0, derivedRows: 0 }
   }
   const exhaustion = decideVendorExhaustion({ windowStart: startDate, rowsReturned: apiRows.length, gaql })
   const built = buildUniverseRowsAtGrain(entry, ctx, apiRows)
+  // ⛔ THE SIX TIME FAMILIES RIDE THE SAME RESPONSE (LORAMER_UNIVERSE_DERIVED_TIME_V1) — no second request,
+  // no second window, no second walk. Marked COMPUTED_FROM_DATE on every row.
+  const derived = buildDerivedTimeRows(entry, ctx, apiRows)
+  const payload = [...built.rows, ...derived]
   let written: ChunkedUpsertResult = { written: 0, chunks: 0 }
-  if (!dryRun && built.rows.length) written = await upsertMetricsChunked(built.rows)
+  if (!dryRun && payload.length) written = await upsertMetricsChunked(payload)
   return {
     entry: label, gaql, apiRows: apiRows.length, rowsWritten: written.written,
     observedZero: apiRows.length === 0, skipped: null, exhaustion, error: null,
-    entityLevel: level, grainDeclines: built.grainDeclines,
+    entityLevel: level, grainDeclines: built.grainDeclines, derivedRows: derived.length,
   }
 }
