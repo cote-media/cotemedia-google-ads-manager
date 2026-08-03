@@ -72,7 +72,7 @@
 /* LORAMER_CHAT_STATUS_SUBJECT_V2 — align-items/gap added for the LM avatar that now leads every assistant
    turn. flex-start (not center) so the mark sits at the FIRST LINE of a long answer, not floating halfway
    down a 30-line reply. */
-.rowAssistant { display: flex; justify-content: flex-start; align-items: flex-start; gap: 8px; }
+.rowAssistant { display: flex; justify-content: flex-start; }
 .bubbleUser {
   max-width: 82%; padding: 9px 13px; border-radius: 14px 14px 4px 14px;
   background: var(--accent); color: #fff; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
@@ -152,137 +152,11 @@
   pointer-events: none; max-width: 100%;
 }
 
-/* LORAMER_CHAT_STREAMING_V1 — transient "what Lora is doing" line, shown in place of the typing dots while a
-   streamed turn is in flight. Muted and italic so it reads as status, not as Lora's answer. */
-.streamStatus {
-  /* LORAMER_CHAT_STATUS_SUBJECT_V1 — ONE LINE, FIXED HEIGHT, NO WRAP, NO LAYOUT SHIFT. The subject changes
-     several times during a turn ("Reading Foam OH · Google · Nov-Dec 2024" -> a different family), and a line
-     that re-wraps or grows on each change would make the panel jump under the user's thumb while they wait.
-     Truncation is deliberate: the leading segments (who, which platform) carry the information; a clipped tail
-     is better than a moving layout. */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 20px;
-  font-size: 13px;
-  line-height: 20px;
-  font-style: normal;
-}
-/* Stable leading icon slot — fixed width so the line keeps its identity when the text changes. Without it the
-   text would shift horizontally on every subject change, which reads as flicker rather than as progress. */
-.streamStatusIcon {
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* 0.55 here MULTIPLIED with .lmStroke's 0.9 for an effective 0.495 on a 14px mark — legible in a design
-     tool, not on a phone. The slot no longer dims; the stroke owns its own opacity. */
-  opacity: 1;
-}
-/* LORAMER_CHAT_STATUS_SUBJECT_V2 — the AVATAR slot on an assistant turn. The banked design (2026-07-28) is
-   ONE mark, TWO states: the working indicator AND Lora's avatar on every assistant message. Only the working
-   half was wired in V1, so the mark was invisible on every completed turn — a wiring gap, not a CSS one. */
-.avatarSlot { flex: 0 0 18px; margin-top: 2px; }
-.streamStatusText {
-  flex: 1 1 auto;
-  min-width: 0;              /* the min-width:0 that makes truncation actually fire inside a flex row */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  /* THE SWEEP. A gradient moved across the TEXT via background-position with background-clip:text — not a
-     pulse (which reads as an alarm) and not a spinner (which is the thing being replaced). It says "still
-     working" without claiming progress it cannot measure: there is no percentage here, and inventing one
-     would be a confident number we do not have. */
-  background-image: linear-gradient(90deg,
-    var(--muted, #64748b) 0%,
-    var(--muted, #64748b) 35%,
-    var(--ink, #0f172a) 50%,
-    var(--muted, #64748b) 65%,
-    var(--muted, #64748b) 100%);
-  /* 400%, not 300% — the documented working ratio for this technique; the gradient must be wide enough that
-     the travel below stays inside it, or the sweep runs off the end and reads as a flat colour. */
-  background-size: 400% 100%;
-  background-repeat: no-repeat;
-  -webkit-background-clip: text;
-  background-clip: text;
-  /* ⛔ BOTH, AND -webkit-text-fill-color IS THE LOAD-BEARING ONE ON WEBKIT. `color: transparent` alone is the
-     non-canonical form of this technique; WebKit's own documented pairing for -webkit-background-clip:text is
-     -webkit-text-fill-color: transparent, and the fill colour wins over `color` where both apply. Shipped
-     without it on 2026-08-02 and the line rendered static on Chrome iOS. */
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  /* Promote to its own layer so the background-position animation actually repaints on WebKit. Without a
-     compositing hint, an animated background on a background-clip:text element is the exact combination
-     WebKit is known to under-repaint, and the result looks like static text — which is what the device showed. */
-  will-change: background-position;
-  animation: loramerSweep 2.4s linear infinite;
-}
-@keyframes loramerSweep {
-  /* Travel stays within the 400% background: 100% -> -100% is two full box-widths of movement with a full
-     box-width of gradient still in reserve at each end. The first cut travelled 150% -> -150% against a 300%
-     background, which walks the gradient completely off the text at both extremes. */
-  from { background-position: 100% 0; }
-  to   { background-position: -100% 0; }
-}
-
-/* ── LORAMER_CHAT_STATUS_SUBJECT_V1 — THE LM MARK. One mark, two states. ── */
-.lmMark { display: block; flex: 0 0 auto; }
-.lmStroke {
-  stroke: var(--accent, #2563eb);
-  /* ⛔ DASH LENGTH IN REAL USER UNITS, NOT NORMALISED. pathLength is gone (see LmMark.tsx): WebKit parses it
-     and ignores it, so on every iOS browser `stroke-dasharray: 1` became 1-unit dashes with 1-unit gaps
-     against paths of 17.5 and 29.1 units — a dotted smear, invisible at 14px. 32 is longer than the longer
-     path, so one dash covers either stroke completely and the pattern period (64) is longer still. */
-  stroke-dasharray: 32;
-  /* IDLE / AVATAR STATE: fully drawn, still. This is what renders next to every assistant turn. */
-  stroke-dashoffset: 0;
-  opacity: 0.9;
-}
-/* WORKING STATE: the strokes DRAW IN and FADE OUT on a loop. Visually distinct from idle at a glance, which is
-   the requirement — it communicates, it does not decorate. The two paths are offset so the mark draws itself
-   rather than both halves appearing at once. */
-.lmMarkWorking .lmStroke { animation: loramerLmDraw 1.8s ease-in-out infinite; }
-.lmMarkWorking .lmStroke:nth-child(2) { animation-delay: 0.22s; }
-/* ⛔ NO NEGATIVE stroke-dashoffset ANYWHERE IN HERE. Safari does not support negative dash offsets — the
-   standard trick for a self-erasing stroke — so the original 100% keyframe (`stroke-dashoffset: -1`) was dead
-   on the target device on top of the pathLength problem. The dissolve is done with OPACITY instead, which is
-   universally supported and costs nothing: the mark draws itself in, holds, then fades. Same reading, no
-   unsupported property. */
-@keyframes loramerLmDraw {
-  0%   { stroke-dashoffset: 32; opacity: 0.2; }
-  45%  { stroke-dashoffset: 0;  opacity: 1; }
-  72%  { stroke-dashoffset: 0;  opacity: 1; }
-  100% { stroke-dashoffset: 0;  opacity: 0.2; }
-}
-
-/* ⛔ REDUCED MOTION — NON-NEGOTIABLE, AND IT FALLS BACK TO A *WORKING* STATE, NOT TO IDLE. Killing the
-   animation must not also kill the information: the user still needs to know Lora is working. So the sweep
-   becomes a flat muted colour and the mark becomes fully drawn and dimmed — static, still legible as "in
-   progress", and distinct from the idle avatar. Falling back to idle would silently remove the one signal
-   this whole feature exists to provide. */
-@media (prefers-reduced-motion: reduce) {
-  .streamStatusText {
-    animation: none;
-    background-image: none;
-    -webkit-background-clip: border-box;
-    background-clip: border-box;
-    /* -webkit-text-fill-color must be reset TOO, not just `color`. It wins over `color` on WebKit, so
-       leaving it transparent here would make the reduced-motion line INVISIBLE — the accessibility path
-       failing worse than the animated one, which is the opposite of the point. */
-    -webkit-text-fill-color: var(--muted, #64748b);
-    color: var(--muted, #64748b);
-  }
-  .lmMarkWorking .lmStroke {
-    animation: none;
-    stroke-dashoffset: 0;
-    /* STILL THE WORKING STATE, NOT IDLE: fully drawn and DIMMER than the 0.9 idle avatar, so "in progress"
-       is still readable without motion. Falling back to idle would remove the one signal this exists for. */
-    opacity: 0.55;
-  }
-}
-
+/* LORAMER_LORA_WORKING_SHARED_V1 — THE STATUS LINE AND THE LM MARK USED TO LIVE HERE.
+   They now live in lora-working.module.css, imported by LoraWorking.tsx, and are consumed by BOTH
+   surfaces. chat.module.css is the DESKTOP SHELF ONLY; the phone page has its own module, and
+   keeping these rules here is exactly what made every fix land on one surface and not the other.
+   ⛔ Do not re-add them. There must be exactly one copy. */
 /* LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — the UNMISSABLE debug readout. Rendered ONLY under ?debug=chat.
    A flex child of .panel (flex-shrink:0) directly under .head, so unlike the old sticky-inside-the-list
    box it cannot be scrolled away or pushed out of view when the keyboard opens. High contrast, large,
@@ -297,7 +171,3 @@
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   border-bottom: 2px solid #0f172a;
 }
-
-/* The mark sits BELOW the status line, in the place the answer will appear — so the eye is already where the
-   text will land. Left-aligned with the bubble text, not centred, for the same reason. */
-.lmWorkingSlot { display: block; margin-top: 10px; }

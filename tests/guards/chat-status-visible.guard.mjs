@@ -26,7 +26,7 @@
 // as a proof of appearance. Per LORAMER_GATE_B_TARGET_IS_CHROME_IOS_V1 the visual half is Gate-B, always.
 
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
@@ -34,16 +34,16 @@ import Module from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
+let surfaceReport = []
 const fail = (m) => { console.error(`[chat-status-visible] FAIL — ${m}`); process.exit(1) }
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return null } }
 
 const TOOLS_SRC = 'src/lib/claude-tools.ts'
 const SUBJ_SRC = 'src/lib/chat/tool-subject.ts'
-const MARK_SRC = 'src/components/redesign/LmMark.tsx'
-const UI_SRC = 'src/components/redesign/ChatLauncher.tsx'
-const CSS_SRC = 'src/components/redesign/chat.module.css'
+const MARK_SRC = 'src/components/redesign/LoraWorking.tsx'
+const CSS_SRC = 'src/components/redesign/lora-working.module.css'
 const HOOK_SRC = 'src/lib/next/use-lora-chat.ts'
-for (const f of [TOOLS_SRC, SUBJ_SRC, MARK_SRC, UI_SRC, CSS_SRC, HOOK_SRC]) {
+for (const f of [TOOLS_SRC, SUBJ_SRC, MARK_SRC, CSS_SRC, HOOK_SRC]) {
   if (!existsSync(resolve(ROOT, f))) fail(`${f} is missing — the guard cannot see its subject, and that is not a pass.`)
 }
 
@@ -146,28 +146,77 @@ if (!loopErr) {
   }
 }
 
-// ── LEG (b) · THE MARK IS MOUNTED IN BOTH STATES ──────────────────────────────────────────────────────
+// ── LEG (b) · EVERY SURFACE THAT RENDERS useLoraChat, ENUMERATED FROM THE IMPORTS ─────────────────────
+// ⛔ THIS LEG LIED ON 2026-08-02 AND THIS IS THE REPAIR. It hardcoded UI_SRC = ChatLauncher.tsx and asserted
+// "the LM mark is mounted BOTH as working indicator and as avatar" — TRUE, of the DESKTOP shelf, which is not
+// a surface any phone can reach. Meanwhile /dashboard-next/lora — where open-lora.ts routes every viewport
+// ≤767px — had no mark, no sweep, and a plain italic line. A green check answering a narrower question than
+// the reader assumes; authored by me, the same day, in the guard written to stop exactly this.
+// LORAMER_REAL_INPUT_GATE_A_V1: a Gate-A for a user-visible flag must ENUMERATE EVERY SURFACE that could
+// display it and state, route by route, wired / not-applicable-and-why. So the surface list is DISCOVERED —
+// every file that imports useLoraChat — and a NEW surface appearing unenumerated is itself a FAILURE, because
+// the alternative is that the next container is written and nobody notices for a day.
 {
-  const ui = read(UI_SRC) || ''
-  if (!/import\s*\{\s*LmMark\s*\}/.test(ui)) findings.push(`(b) ${UI_SRC} does not import LmMark at all.`)
-  // WORKING state — inside the `loading &&` branch, with the `working` prop.
-  if (!/<LmMark\s+working\b/.test(ui)) {
-    findings.push(`(b) no <LmMark working …> anywhere in ${UI_SRC}. The working indicator is not mounted, so a turn in flight shows no mark.`)
+  const walk = (dir, acc = []) => {
+    for (const e of readdirSync(resolve(ROOT, dir), { withFileTypes: true })) {
+      if (e.name === "node_modules" || e.name.startsWith(".")) continue
+      const rel = dir + '/' + e.name
+      if (e.isDirectory()) walk(rel, acc)
+      else if (/\.tsx?$/.test(e.name)) acc.push(rel)
+    }
+    return acc
   }
-  // AVATAR state — inside the messages.map render, WITHOUT `working`.
-  const mapStart = ui.indexOf('messages.map(')
-  const mapEnd = mapStart === -1 ? -1 : ui.indexOf('{loading &&', mapStart)
-  if (mapStart === -1 || mapEnd === -1 || mapEnd < mapStart) {
-    findings.push(`(b) could not locate the messages.map(...) render region in ${UI_SRC} — leg (b) is BLIND on the avatar half. Fix the guard before trusting a green.`)
-  } else {
-    const region = ui.slice(mapStart, mapEnd)
-    const avatar = region.match(/<LmMark\b[^>]*\/>/g) || []
-    if (avatar.length === 0) {
-      findings.push(`(b) THE LM MARK IS NEVER MOUNTED AS AN ASSISTANT-TURN AVATAR. The banked design (2026-07-28) is ONE MARK, TWO STATES — working indicator AND avatar. Mounting only the working half is why the mark was absent on every completed turn on the device: a WIRING gap, which no CSS check can see.`)
-    } else if (avatar.some((t) => /\bworking\b/.test(t))) {
-      findings.push(`(b) the assistant-turn avatar is mounted with the \`working\` prop, so a finished answer animates as if Lora were still working. The two states must be visually distinct — that is the requirement the one-mark design rests on.`)
+  const all = walk("src")
+  // A SURFACE = a component that consumes the hook AND renders JSX. The hook file itself is excluded by name.
+  const surfaces = all.filter((f) => {
+    if (f.endsWith("use-lora-chat.ts")) return false
+    const s = readFileSync(resolve(ROOT, f), "utf8")
+    return /\buseLoraChat\s*\(/.test(s)
+  })
+  if (surfaces.length === 0) {
+    findings.push("(b) NO SURFACE consumes useLoraChat — the discovery walk found nothing, so this leg is BLIND. Fix the guard before trusting a green.")
+  }
+  // ROUTE BY ROUTE, wired / not-applicable-and-why. Nothing is exempt by default.
+  for (const f of surfaces) {
+    const s = readFileSync(resolve(ROOT, f), "utf8")
+    const importsShared = /from\s+['"][^'"]*LoraWorking['"]/.test(s)
+    if (!importsShared) {
+      findings.push(`(b) SURFACE ${f} renders useLoraChat but does NOT import the SHARED LoraWorking component. That is precisely how the phone surface ended up with no mark and no sweep while the desktop shelf had both. Import { LoraTurn, LoraWorking } from the shared module — do NOT copy its CSS into a second stylesheet.`)
+      continue
+    }
+    if (!/<LoraWorking\b/.test(s)) {
+      findings.push(`(b) SURFACE ${f} imports the shared component but never renders <LoraWorking>. A turn in flight shows no mark and no status line there.`)
+    }
+    if (!/<LoraTurn\b/.test(s)) {
+      findings.push(`(b) SURFACE ${f} never renders <LoraTurn>, so a COMPLETED assistant turn carries no mark. The banked 2026-07-28 design is ONE mark, TWO states — working indicator AND avatar. Mounting only the working half is the exact V1 gap.`)
+    }
+    // ⛔ NO CONTAINER (correction (a)): the working state may not be wrapped in message chrome.
+    // ⛔ STRIP COMMENTS FIRST. Third time today: the JSX comment above <LoraWorking> NAMES the container it
+    // removed ("this used to sit inside .bubbleAssistant"), and a raw-text scan reads the explanation as the
+    // code. QUOTATION IS NOT ASSERTION — match only what React will actually render.
+    const sCode = s.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n").filter((l) => !l.trim().startsWith("//")).join("\n")
+    const li = sCode.indexOf("{loading &&")
+    if (li !== -1) {
+      const wi = sCode.indexOf("<LoraWorking", li)
+      const region = sCode.slice(li, wi === -1 ? li + 900 : wi)
+      if (/bubbleAssistant|bubbleUser/.test(region)) {
+        findings.push(`(b) SURFACE ${f} still wraps the working state in .bubbleAssistant. The mark and the status line are NOT a message and must not wear message chrome — no pill, no bubble, no fill, no border.`)
+      }
     }
   }
+  // ⛔ ONE MARK, NOT TWO (correction (c)) — asserted on the shared component, which is now the only place a
+  // mark can be mounted. ChatLauncher used to mount three and show two stacked during a turn.
+  const shared = read("src/components/redesign/LoraWorking.tsx") || ""
+  const working = (shared.match(/<LmMark working\b/g) || []).length
+  if (working !== 1) findings.push(`(c) the shared component mounts ${working} animating marks; there must be exactly ONE — one mark, one position.`)
+  // And no surface may mount a mark directly, which is how a second one gets back in.
+  for (const f of surfaces) {
+    if (/<LmMark\b/.test(readFileSync(resolve(ROOT, f), "utf8"))) {
+      findings.push(`(b) SURFACE ${f} mounts <LmMark> DIRECTLY. Marks are placed by LoraTurn/LoraWorking only — a second mount site is how "two stacked marks" came back once already.`)
+    }
+  }
+  surfaceReport = surfaces
 }
 
 // ── LEG (c) · THE WEBKIT FACTS, AS MECHANICAL RESIDUE ─────────────────────────────────────────────────
@@ -196,26 +245,26 @@ if (!loopErr) {
     findings.push(`(c) ${CSS_SRC} animates a NEGATIVE stroke-dashoffset (${negOffset.join(', ')}). Safari does not support negative dash offsets, so the erase half of the loop is dead on the device. Use opacity for the dissolve.`)
   }
   // D2 — the WebKit pairing for background-clip:text. Both must be present, on the element itself.
-  const sweep = css.slice(css.indexOf('.streamStatusText'), css.indexOf('@keyframes loramerSweep'))
+  const sweep = css.slice(css.indexOf('.statusText'), css.indexOf('@keyframes loramerSweep'))
   if (sweep) {
     if (/background-clip:\s*text/.test(sweep) && !/-webkit-background-clip:\s*text/.test(sweep)) {
-      findings.push(`(c) .streamStatusText sets background-clip:text without the -webkit- prefix. Unprefixed background-clip:text is not honoured across WebKit versions; the text renders in a flat colour and the sweep is invisible.`)
+      findings.push(`(c) .statusText sets background-clip:text without the -webkit- prefix. Unprefixed background-clip:text is not honoured across WebKit versions; the text renders in a flat colour and the sweep is invisible.`)
     }
     if (/background-clip:\s*text/.test(sweep) && !/-webkit-text-fill-color:\s*transparent/.test(sweep)) {
-      findings.push(`(c) .streamStatusText clips the background to text but never sets -webkit-text-fill-color: transparent. That is the load-bearing half of the WebKit pairing — -webkit-text-fill-color WINS over \`color\`, so relying on \`color: transparent\` alone leaves the glyphs painted opaque and the gradient never shows through.`)
+      findings.push(`(c) .statusText clips the background to text but never sets -webkit-text-fill-color: transparent. That is the load-bearing half of the WebKit pairing — -webkit-text-fill-color WINS over 'color', so relying on 'color: transparent' alone leaves the glyphs painted opaque and the gradient never shows through.`)
     }
   } else {
-    findings.push(`(c) could not isolate the .streamStatusText rule in ${CSS_SRC} — leg (c) is BLIND on the sweep. Fix the guard before trusting a green.`)
+    findings.push(`(c) could not isolate the .statusText rule in ${CSS_SRC} — leg (c) is BLIND on the sweep. Fix the guard before trusting a green.`)
   }
   // The portal trap, scoped to the classes THIS feature owns. LORAMER_PORTAL_SEVERS_CSS_VARS_V1 cost five and
   // a half hours of an invisible send button; a var without a fallback in a portaled subtree resolves to
   // nothing and the declaration is dropped at computed-value time — silently, never as an error.
   const owned = css.split('\n').filter((l) => /var\(--/.test(l))
   for (const l of owned) {
-    if (!/streamStatus|lmStroke|lmMark|avatarSlot/.test(l) && !/--muted|--ink|--accent/.test(l)) continue
+    if (!/statusText|lmStroke|lmMark|turn\b/.test(l) && !/--muted|--ink|--accent/.test(l)) continue
     for (const m of l.matchAll(/var\(\s*(--[a-z-]+)\s*([,)])/g)) {
-      if (m[2] === ')' && /stroke:|background-image:|color:|-webkit-text-fill-color:/.test(l) && /lmStroke|streamStatus/.test(css.slice(Math.max(0, css.indexOf(l) - 400), css.indexOf(l)))) {
-        findings.push(`(c) ${CSS_SRC}: \`${m[1]}\` is used with NO FALLBACK in a rule this feature owns ("${l.trim().slice(0, 80)}"). The chat overlay is PORTALED to document.body — LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — so a token that fails to inherit makes the declaration invalid at computed-value time and the mark or the line renders as nothing, with no error anywhere.`)
+      if (m[2] === ')' && /stroke:|background-image:|color:|-webkit-text-fill-color:/.test(l) && /lmStroke|statusText/.test(css.slice(Math.max(0, css.indexOf(l) - 400), css.indexOf(l)))) {
+        findings.push(`(c) ${CSS_SRC}: ${m[1]} is used with NO FALLBACK in a rule this feature owns ("${l.trim().slice(0, 80)}"). The chat overlay is PORTALED to document.body — LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — so a token that fails to inherit makes the declaration invalid at computed-value time and the mark or the line renders as nothing, with no error anywhere.`)
       }
     }
   }
@@ -224,7 +273,7 @@ if (!loopErr) {
   if (!rm) findings.push(`(c) no prefers-reduced-motion block — accessibility is a closed question in this repo.`)
   else {
     if (!/-webkit-text-fill-color/.test(rm)) {
-      findings.push(`(c) the reduced-motion block resets \`color\` but not \`-webkit-text-fill-color\`. On WebKit the fill colour wins, so the reduced-motion line would render INVISIBLE — the accessibility path failing worse than the animated one.`)
+      findings.push(`(c) the reduced-motion block resets 'color' but not `-webkit-text-fill-color`. On WebKit the fill colour wins, so the reduced-motion line would render INVISIBLE — the accessibility path failing worse than the animated one.`)
     }
     const opacity = /\.lmMarkWorking[^}]*opacity:\s*([\d.]+)/.exec(rm)
     if (!opacity) findings.push(`(c) the reduced-motion block does not give .lmMarkWorking a distinct static appearance — it must fall back to a STATIC WORKING state, not to idle. Killing the animation must not also kill the information.`)
@@ -237,4 +286,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[chat-status-visible] PASS — status leads the turn (frame 0 of ${events.length}, gate released on the first frame, no tool preamble); the LM mark is mounted BOTH as the working indicator and as an assistant avatar; no pathLength, no negative dash offset, WebKit's background-clip pairing complete, owned tokens carry fallbacks, reduced motion lands on a distinct static WORKING state. ⛔ NOT ASSERTED: that the sweep animates or that anything is legible — browser facts, Gate-B on Chrome iOS.`)
+console.log(`[chat-status-visible] PASS — status leads the turn (frame 0 of ${events.length}; the commit gate released on that first frame; turn 1 emitted no preamble text). SURFACES DISCOVERED FROM IMPORTS OF useLoraChat, denominator ${surfaceReport.length}, none exempt: ${surfaceReport.map((f) => f + ' = WIRED').join(' · ')}. Each imports the SHARED LoraWorking, renders <LoraWorking> and <LoraTurn>, mounts no <LmMark> of its own, and wraps the working state in no message chrome. Shared component: exactly ONE animating mark, no pathLength, no negative dash offset, WebKit background-clip pairing complete, tokens carry fallbacks, reduced motion lands on a distinct static WORKING state. ⛔ NOT ASSERTED: that the sweep animates, that the mark is legible, or whether Reduce Motion is on — browser facts, Gate-B on Chrome iOS.`)

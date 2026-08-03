@@ -1,0 +1,139 @@
+/* LORAMER_LORA_WORKING_SHARED_V1 — THE ONE STYLESHEET FOR THE MARK AND THE STATUS LINE.
+ *
+ * ⛔ WHY THIS FILE EXISTS AND WHY NOTHING HERE MAY BE COPIED. The whole defect class of 2026-08-02 was that
+ * there are TWO Lora chat surfaces — ChatLauncher (desktop shelf) and /dashboard-next/lora (the PHONE page) —
+ * and every status-line and LM-mark change landed in ONE of them. The phone showed nothing while a green
+ * guard said the mark was mounted. Duplicating these rules into lora-page.module.css would rebuild that
+ * defect on purpose. ONE stylesheet, imported by ONE component, consumed by BOTH surfaces.
+ *
+ * A shared CSS module outside app/ is the documented Next.js pattern for exactly this, and it is already
+ * proven in this repo: LoraPageClient.tsx:22 imports redesign.module.css across the same boundary.
+ *
+ * ⛔ NO CONTAINER (design correction (a), Russ, from a live reference). The mark and the status line render
+ * on the PAGE BACKGROUND. No pill, no bubble, no fill, no border, no radius. They are not messages and must
+ * not wear message chrome — both surfaces used to wrap them in .bubbleAssistant, a rounded grey box, which
+ * said "this is a message from Lora" about a thing that is not a message. */
+
+/* THE TURN LEAD — one column: the mark, then whatever follows it (the status line, or the answer).
+   ⛔ ONE MARK, ONE POSITION (correction (c)). ChatLauncher used to mount three marks and show TWO stacked
+   during a turn. There is now exactly one, in exactly one place, on both surfaces: block-level, above the
+   content, left-aligned to where the answer's first character lands. It animates while working and goes
+   static when the answer arrives — the avatar and the working indicator are THE SAME ELEMENT, which is the
+   banked 2026-07-28 design and the reason it is one component rather than two. */
+.turn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 13px = the horizontal padding both surfaces give .bubbleAssistant (chat.module.css and
+   lora-page.module.css agree on `padding: 9px 13px`). Indenting the mark by exactly that puts it on the
+   answer's own text margin rather than the bubble's outer edge — standing where the first character lands,
+   which is the point of the position. */
+.mark { margin-left: 13px; }
+
+/* ⛔ RESERVE THE SPACE (correction (d)). The loading state is the mark plus OPEN VERTICAL SPACE where the
+   answer will land — no skeleton, no placeholder rows, no shimmer block. A skeleton draws fake content and
+   is a small lie about a shape nobody knows yet; empty claimed space is honest and does the same job. The
+   answer then FILLS space already claimed instead of shoving the composer down under the user's thumb. */
+.working { min-height: 132px; }
+
+/* THE STATUS LINE — one line, fixed height, no wrap, ellipsis. The subject changes several times during a
+   turn ("Thinking…" -> "Reading Foam OH · Google · Nov–Dec 2024"), and a line that re-wraps or grows on each
+   change would make the page jump under the user's thumb while they wait. Truncation is deliberate: the
+   leading segments carry the information, and a clipped tail beats a moving layout. */
+.statusText {
+  margin-left: 13px;
+  max-width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 20px;
+  height: 20px;
+  /* THE SWEEP. A gradient moved across the TEXT via background-position with background-clip:text — not a
+     pulse (which reads as an alarm) and not a spinner (which is the thing being replaced). It says "still
+     working" without claiming progress it cannot measure: there is no percentage here, and inventing one
+     would be a confident number we do not have. */
+  background-image: linear-gradient(90deg,
+    var(--muted, #64748b) 0%,
+    var(--muted, #64748b) 35%,
+    var(--ink, #0f172a) 50%,
+    var(--muted, #64748b) 65%,
+    var(--muted, #64748b) 100%);
+  /* 400%, not 300% — the documented working ratio for this technique; the gradient must be wide enough that
+     the travel below stays inside it, or the sweep runs off the end and reads as a flat colour. */
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  /* ⛔ BOTH, AND -webkit-text-fill-color IS THE LOAD-BEARING ONE ON WEBKIT. `color: transparent` alone is the
+     non-canonical form; WebKit's documented pairing for -webkit-background-clip:text is
+     -webkit-text-fill-color: transparent, and the fill colour WINS over `color` where both apply. */
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  /* Promote to its own layer so the background-position animation actually repaints on WebKit — an animated
+     background on a background-clip:text element is the exact combination WebKit under-repaints. */
+  will-change: background-position;
+  animation: loramerSweep 2.4s linear infinite;
+}
+@keyframes loramerSweep {
+  /* Travel stays within the 400% background: 100% -> -100% is two full box-widths of movement with a full
+     box-width of gradient still in reserve at each end. */
+  from { background-position: 100% 0; }
+  to   { background-position: -100% 0; }
+}
+
+/* ── THE LM MARK ─────────────────────────────────────────────────────────────────────────────────────────
+   ⛔ IT NEEDS MASS (correction (b)). At 14–22px with a 2.4 stroke it read as caption-height letterforms
+   sharing the muted styling of the text beside it. It is a GRAPHIC OBJECT: 34px, 3.2 stroke, full opacity,
+   brand colour — roughly 3.5x the visual weight, and it no longer inherits anything from the status text. */
+.lmMark { display: block; flex: 0 0 auto; }
+.lmStroke {
+  stroke: var(--accent, #2563eb);
+  /* ⛔ DASH LENGTH IN REAL USER UNITS, NOT NORMALISED. pathLength is gone (see LmMark in LoraWorking.tsx):
+     WebKit parses it and ignores it, so on every iOS browser `stroke-dasharray: 1` was read against paths of
+     17.5 and 29.1 units — 1-unit dashes with 1-unit gaps, invisible. 32 is longer than the longer path, so
+     one dash covers either stroke completely. */
+  stroke-dasharray: 32;
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+/* WORKING STATE: the strokes DRAW IN and FADE OUT on a loop — visually distinct from the static avatar at a
+   glance, which is the requirement. The two paths are offset so the mark draws itself. */
+.lmMarkWorking .lmStroke { animation: loramerLmDraw 1.8s ease-in-out infinite; }
+.lmMarkWorking .lmStroke:nth-child(2) { animation-delay: 0.22s; }
+/* ⛔ NO NEGATIVE stroke-dashoffset ANYWHERE. Safari does not support negative dash offsets — the standard
+   self-erasing-stroke trick — so the dissolve is done with OPACITY, which is universally supported. */
+@keyframes loramerLmDraw {
+  0%   { stroke-dashoffset: 32; opacity: 0.2; }
+  45%  { stroke-dashoffset: 0;  opacity: 1; }
+  72%  { stroke-dashoffset: 0;  opacity: 1; }
+  100% { stroke-dashoffset: 0;  opacity: 0.2; }
+}
+
+/* ⛔ REDUCED MOTION — NON-NEGOTIABLE, AND IT FALLS BACK TO A *WORKING* STATE, NOT TO IDLE. Killing the
+   animation must not also kill the information. The sweep becomes a flat muted colour and the mark becomes
+   fully drawn and dimmed — static, still legible as "in progress", still distinct from the idle avatar. */
+@media (prefers-reduced-motion: reduce) {
+  .statusText {
+    animation: none;
+    background-image: none;
+    -webkit-background-clip: border-box;
+    background-clip: border-box;
+    /* -webkit-text-fill-color must be reset TOO, not just `color`: it wins over `color` on WebKit, so
+       leaving it transparent would make the reduced-motion line INVISIBLE — the accessibility path failing
+       worse than the animated one. */
+    -webkit-text-fill-color: var(--muted, #64748b);
+    color: var(--muted, #64748b);
+  }
+  .lmMarkWorking .lmStroke {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 0.55;   /* dimmer than the opacity:1 idle avatar, so "working" is still readable without motion */
+  }
+}

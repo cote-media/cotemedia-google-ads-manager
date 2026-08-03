@@ -16,7 +16,9 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useLoraChat, type Msg } from '@/lib/next/use-lora-chat' // LORAMER_LORA_CHAT_HOOK_V1 — the shared conversation engine
 import styles from './chat.module.css'
-import { LmMark } from './LmMark' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one mark: message avatar AND working indicator
+// LORAMER_LORA_WORKING_SHARED_V1 — the mark + status line come from the SHARED component, not from
+// chat.module.css. This file is the DESKTOP shelf; /dashboard-next/lora is the phone. One copy, both surfaces.
+import { LoraTurn, LoraWorking } from './LoraWorking'
 import shell from './redesign.module.css' // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — token scope for the portaled overlay
 
 const SUGGESTIONS = [
@@ -229,43 +231,30 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               ) : (
                 messages.map((m, i) => (
                   <div key={i} className={m.role === 'user' ? styles.rowUser : styles.rowAssistant}>
-                    {/* LORAMER_CHAT_STATUS_SUBJECT_V2 — THE AVATAR HALF, which V1 declared and never wired.
-                        The banked design (2026-07-28) is ONE mark, TWO states: the working indicator AND
-                        Lora's avatar on every assistant turn. V1 only ever mounted it inside the `loading`
-                        branch, so on a completed turn the mark did not exist in the DOM at all — a WIRING
-                        gap, not a CSS one, which is why it read as "does not render" even after the status
-                        line appeared. Idle state: fully drawn, still — `working` is deliberately not passed. */}
-                    {m.role === 'assistant' && (
-                      <span className={styles.avatarSlot}><LmMark size={18} /></span>
+                    {/* LORAMER_LORA_WORKING_SHARED_V1 — an assistant turn is LoraTurn: the static mark on the
+                        page background, then the bubble. Same element and same position the working state
+                        used, so nothing jumps when the answer arrives. A user turn keeps its bare bubble. */}
+                    {m.role === 'assistant' ? (
+                      <LoraTurn>
+                        <div className={styles.bubbleAssistant}>
+                          <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                        </div>
+                      </LoraTurn>
+                    ) : (
+                      <div className={styles.bubbleUser}>{m.content}</div>
                     )}
-                    <div className={m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}>
-                      {m.role === 'user'
-                        ? m.content
-                        : <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>}
-                    </div>
                   </div>
                 ))
               )}
               {loading && (
-                <div className={styles.rowAssistant}><div className={styles.bubbleAssistant}>
-                  {/* LORAMER_CHAT_STREAMING_V1 — the spinner is what made a slow turn indistinguishable from a dead
-                      one. When streaming is on, replace it with what Lora is ACTUALLY doing. Transient: cleared in
-                      the finally block, never persisted, never logged as a turn. */}
-                  {/* LORAMER_CHAT_STATUS_SUBJECT_V1 — the status line names the WORK, and the LM mark below it
-                      animates in the place the answer will appear. The answer arrives WHOLE; nothing here is
-                      progressive text. Both are transient and neither is ever persisted. */}
-                  {streamStatus
-                    ? (
-                      <>
-                        <span className={styles.streamStatus}>
-                          <span className={styles.streamStatusIcon}><LmMark size={14} /></span>
-                          <span className={styles.streamStatusText}>{streamStatus}</span>
-                        </span>
-                        <span className={styles.lmWorkingSlot}><LmMark working size={22} /></span>
-                      </>
-                    )
-                    : <span className={styles.typing}><i /><i /><i /></span>}
-                </div></div>
+                /* LORAMER_LORA_WORKING_SHARED_V1 — ⛔ NO CONTAINER. This used to sit inside .bubbleAssistant,
+                   a rounded grey box, which said "this is a message from Lora" about a thing that is not a
+                   message. The mark and the line now render on the page background, and LoraWorking reserves
+                   the vertical space the answer will fill — no skeleton, no shimmer, nothing pushed down.
+                   ONE mark, not the two that used to stack here. */
+                <div className={styles.rowAssistant}>
+                  <LoraWorking status={streamStatus} />
+                </div>
               )}
             </div>
 

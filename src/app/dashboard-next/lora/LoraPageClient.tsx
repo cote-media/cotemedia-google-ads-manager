@@ -20,6 +20,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useLoraChat } from '@/lib/next/use-lora-chat'
 import shell from '@/components/redesign/redesign.module.css'
+// LORAMER_LORA_WORKING_SHARED_V1 — THE SAME component the desktop shelf uses. This page is the PHONE
+// surface (open-lora.ts routes ≤767px here) and it had NONE of the status UI: a plain italic line, no mark.
+// Importing the shared component rather than copying its CSS is the fix for the defect CLASS, not the defect.
+import { LoraTurn, LoraWorking } from '@/components/redesign/LoraWorking'
 import styles from './lora-page.module.css'
 
 // LORAMER_LORA_PAGE_ICONS_V1 — INLINE SVG, NOT THE ICON WEBFONT.
@@ -305,21 +309,27 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         ) : (
           messages.map((m, i) => (
             <div key={i} className={m.role === 'user' ? styles.rowUser : styles.rowAssistant}>
-              <div className={m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant}>
-                {m.role === 'assistant'
-                  ? <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
-                  : m.content}
-              </div>
+              {/* LORAMER_LORA_WORKING_SHARED_V1 — an assistant turn is LoraTurn: the static mark on the page
+                  background at the answer’s own text margin, then the bubble. Same element, same position the
+                  working state used, so nothing jumps when the answer lands. */}
+              {m.role === 'assistant' ? (
+                <LoraTurn>
+                  <div className={styles.bubbleAssistant}>
+                    <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                  </div>
+                </LoraTurn>
+              ) : (
+                <div className={styles.bubbleUser}>{m.content}</div>
+              )}
             </div>
           ))
         )}
         {loading && (
+          /* LORAMER_LORA_WORKING_SHARED_V1 — ⛔ NO CONTAINER. This used to be a plain italic span inside
+             .bubbleAssistant, a rounded grey box. The mark and the line now render on the page background and
+             LoraWorking reserves the vertical space the answer will fill — no skeleton, nothing pushed down. */
           <div className={styles.rowAssistant}>
-            <div className={styles.bubbleAssistant}>
-              {streamStatus
-                ? <span className={styles.streamStatus}>{streamStatus}</span>
-                : <span className={styles.typing}><i /><i /><i /></span>}
-            </div>
+            <LoraWorking status={streamStatus} />
           </div>
         )}
         <div ref={endRef} />

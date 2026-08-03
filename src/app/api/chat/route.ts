@@ -89,6 +89,38 @@ export async function POST(request: Request) {
     }
   }
 
+  // ── LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 ────────────────────────────────────────────────────────────────
+  // THE STREAM IS CONSTRUCTED HERE, IMMEDIATELY AFTER RBAC, AND NOT ONE LINE LATER.
+  // MEASURED ON DEVICE (Gate-B, 2026-08-02): ~20 SECONDS OF THREE DOTS before anything appeared. The stream
+  // used to be built inside the `if (CHAT_STREAMING)` branch far below — AFTER prompt assembly, which is TWO
+  // SEQUENTIAL INTERNAL HTTP FETCHES to /api/intelligence (one for the flat prompt, one for the cacheable
+  // {prefix, suffix} rebuild). That endpoint is cached ~15 min; on a MISS it pulls all five platforms live.
+  // No channel existed while any of that ran, so no frame could be sent however early we wanted to send one.
+  //
+  // ⛔ WHY THIS LINE AND NOT AN EARLIER ONE — the footgun is unchanged and still respected: once SSE headers
+  // are written the status code is fixed. The failures that genuinely NEED a real status code are auth
+  // (401/403) and RBAC (404), and BOTH are above this line and still return ordinary JSON. Everything BELOW
+  // is already wrapped in try/catch with a prompt fallback and never produced a status code of its own, so
+  // nothing is given up by opening the channel here.
+  //
+  // ⛔ WHAT THE FIRST FRAME MAY SAY. At this instant the viewer is authenticated AND authorised for this
+  // client, and the next work is assembling that client's numbers. That is what it says. It does NOT name a
+  // tool, a platform, a window or a metric — nothing has been read, and "Reading <client> · Google · Nov–Dec
+  // 2024" here would be a FALSE STATUS. "Thinking…" moves to where the model call actually is, in the loop.
+  const encoder = new TextEncoder()
+  let ctrl: ReadableStreamDefaultController<Uint8Array> | undefined
+  // start() runs synchronously on construction, so `ctrl` is live before anything below writes to it.
+  const stream = new ReadableStream<Uint8Array>({ start(c) { ctrl = c } })
+  const emitRaw = (event: string, data: any) => {
+    try { ctrl?.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) } catch { /* client gone */ }
+  }
+  if (CHAT_STREAMING) {
+    emitRaw('status', {
+      phase: 'assembling',
+      label: clientName ? `Pulling ${clientName}'s latest numbers together…` : 'Pulling the latest numbers together…',
+    })
+  }
+
   // LORAMER_FOCUS_LOCATION_V1
   // Build focus description. Honor `location` (the tab) first - that's
   // the most reliable signal of what the user is looking at. Only fall
@@ -200,17 +232,12 @@ export async function POST(request: Request) {
   // first token (a later tool-turn dying mid-loop) degrades to an SSE `error` event, which is stated rather than
   // hidden: at that point the user has already seen text, and a status code would be a lie.
   if (CHAT_STREAMING) {
-    const encoder = new TextEncoder()
-    let ctrl: ReadableStreamDefaultController<Uint8Array> | undefined
-    // start() runs synchronously on construction, so `ctrl` is live before the loop below writes to it. This
-    // ordering is the whole fix: an earlier cut awaited the chain FIRST and only then built the stream, so every
-    // frame queued and replayed at the end — measured as 152 deltas delivered inside a 332ms window at the tail
-    // of a 125s turn. That is the shape of streaming with none of its value. The loop must write into a LIVE
-    // controller while it runs.
-    const stream = new ReadableStream<Uint8Array>({ start(c) { ctrl = c } })
-    const emitRaw = (event: string, data: any) => {
-      try { ctrl?.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) } catch { /* client gone */ }
-    }
+    // LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 — `stream`, `ctrl` and `emitRaw` are NO LONGER BUILT HERE. They are
+    // constructed immediately after the RBAC gate, far above, so a frame can go out BEFORE the two sequential
+    // /api/intelligence fetches instead of after them. That ~20s window used to be three dots on the device.
+    // The ordering rule that comment used to carry still holds and is now enforced further up: the controller
+    // must be LIVE while the loop runs, never awaited-then-built, or every frame queues and replays at the end
+    // (measured once as 152 deltas inside a 332ms window at the tail of a 125s turn).
 
     // THE FOOTGUN, still handled: once SSE headers are written the status code is fixed. So we do NOT return the
     // Response until either (a) the first token has arrived — at which point streaming is unambiguously the right
