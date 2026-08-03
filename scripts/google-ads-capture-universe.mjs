@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 — THE REGENERATOR FOR docs/google-capture-universe.json.
+// LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 — THE REGENERATOR FOR docs/google-ads-capture-universe.json.
 //
 // ⛔ THIS SCRIPT EXISTS BECAUSE A HAND-MAINTAINED LIST IS HOW THE LAST ONE WENT STALE. `capture-surface.manifest.mjs`
 // says of itself "Seeded from docs/LORAMER_DATA_COMPLETENESS.md", a doc a human wrote, and
@@ -16,8 +16,8 @@
 // Everything carried forward from the probe pass is labelled `observedOn` so it can never be mistaken for universal.
 //
 // USAGE
-//   node scripts/google-capture-universe.mjs --catalog-only     # refresh selectable set from the vendor (no probes)
-//   node scripts/google-capture-universe.mjs --probe <clientId>  # ⛔ SPENDS GOOGLE QUOTA. Adds/refreshes delivery.
+//   node scripts/google-ads-capture-universe.mjs --catalog-only     # refresh selectable set from the vendor (no probes)
+//   node scripts/google-ads-capture-universe.mjs --probe <clientId>  # ⛔ SPENDS GOOGLE QUOTA. Adds/refreshes delivery.
 // ⛔ --probe IS NOT WIRED INTO ANY GATE. It costs hundreds of requests against a 15,000/day cap and must stay a
 // deliberate, human-initiated act — same posture as `check:data` and `npm run evals`.
 //
@@ -35,7 +35,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const OUT = 'docs/google-capture-universe.json'
+const OUT = 'docs/google-ads-capture-universe.json'
 
 export const CATALOG_QUERIES = {
   resources: `SELECT name, category, metrics, segments, attribute_resources WHERE category = 'RESOURCE'`,
@@ -94,8 +94,8 @@ export function build({ catalog, probes, capture }) {
   return entries
 }
 
-if (process.argv[1] && process.argv[1].endsWith('google-capture-universe.mjs')) {
-  console.log(`[google-capture-universe] this script REGENERATES ${OUT}.`)
+if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs')) {
+  console.log(`[google-ads-capture-universe] this script REGENERATES ${OUT}.`)
   console.log('  --catalog-only  refresh the selectable set from GoogleAdsFieldService (no quota beyond 3 metadata calls)')
   console.log('  --probe <id>    ⛔ SPENDS QUOTA — re-measure delivery against one live account')
   console.log('  The committed JSON carries the 2026-08-03 Foam OH observation set; delivery is PER-ACCOUNT.')

@@ -1,6 +1,6 @@
-// LORAMER_GOOGLE_UNIVERSE_WRITER_V1 — ONE WRITER, NOT 24. FLIGHT 1 OF 2: INVOCABLE ONLY, ON NO SCHEDULE.
+// LORAMER_GOOGLE_ADS_UNIVERSE_WRITER_V1 — ONE WRITER, NOT 24. FLIGHT 1 OF 2: INVOCABLE ONLY, ON NO SCHEDULE.
 //
-// ⛔ THE WHOLE POINT: the surface list lives in docs/google-capture-universe.json and NOWHERE ELSE. Adding a
+// ⛔ THE WHOLE POINT: the surface list lives in docs/google-ads-capture-universe.json and NOWHERE ELSE. Adding a
 // surface later is a DATA change. There is NO switch statement, NO per-resource branch, NO `if (resource === …)`
 // anywhere below, and the guard fails the build if one appears. Twenty-four hand-written google writers is how
 // we ended up capturing 14 of 38 surfaces Google was serving — the code could only ever reach what someone had
@@ -43,9 +43,9 @@ export interface UniverseDoc {
 
 /** THE ONLY SOURCE OF SURFACES. Read from the artifact; never from a constant in this file. */
 export function loadUniverse(root = process.cwd()): UniverseDoc {
-  const doc = JSON.parse(readFileSync(resolve(root, 'docs/google-capture-universe.json'), 'utf8')) as UniverseDoc
+  const doc = JSON.parse(readFileSync(resolve(root, 'docs/google-ads-capture-universe.json'), 'utf8')) as UniverseDoc
   if (doc.marker !== 'LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1') {
-    throw new Error(`google-capture-universe.json carries marker "${doc.marker}" — refusing to walk an artifact this writer does not recognise.`)
+    throw new Error(`google-ads-capture-universe.json carries marker "${doc.marker}" — refusing to walk an artifact this writer does not recognise.`)
   }
   return doc
 }

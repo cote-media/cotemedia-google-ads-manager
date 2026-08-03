@@ -1,6 +1,6 @@
 {
  "marker": "LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1",
- "regeneratedBy": "scripts/google-capture-universe.mjs",
+ "regeneratedBy": "scripts/google-ads-capture-universe.mjs",
  "catalogQueries": {
   "resources": "SELECT name, category, metrics, segments, attribute_resources WHERE category = 'RESOURCE'",
   "segments": "SELECT name, category, selectable, selectable_with, data_type WHERE category = 'SEGMENT' AND selectable = true",
