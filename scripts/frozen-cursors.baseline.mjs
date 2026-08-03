@@ -60,36 +60,26 @@ const DEMO_FIXTURE_FROZEN_2026_07_23 = [
 }))
 
 export const KNOWN_FROZEN_CURSORS = [
-  {
-    clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', client: 'Foam OH', platform: 'google_geo',
-    cursorAt: '2026-04-09', daysWhenBaselined: 31,
-    note: 'statement_timeout on 15,587-row single upsert; fix shipped 31f0dac (chunked writer), live lap still owed — QUEUE ★GOOGLE-GEO-STATEMENT-TIMEOUTS',
-  },
-  {
-    clientId: '957d484e-d0c4-4dd0-b382-d8499d556252', client: 'Foam OH', platform: 'google_user_geo',
-    cursorAt: '2026-04-09', daysWhenBaselined: 31,
-    note: 'same root cause as google_geo above; same fix, same owed live lap',
-  },
-  {
-    clientId: '4a7faf0a-25d7-4f91-b977-6a796ec13b8b', client: 'Inside', platform: 'google_geo',
-    cursorAt: '2025-08-12', daysWhenBaselined: 31,
-    note: 'same statement_timeout class (13,117-row slice measured); Inside is NOT on the golden list (deprioritised 2026-07-29)',
-  },
-  {
-    clientId: '4a7faf0a-25d7-4f91-b977-6a796ec13b8b', client: 'Inside', platform: 'google_user_geo',
-    cursorAt: '2025-08-12', daysWhenBaselined: 26,
-    note: 'same class as the line above',
-  },
-  {
-    clientId: 'f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2', client: 'Veterinary mastermind', platform: 'google_geo',
-    cursorAt: '2026-04-09', daysWhenBaselined: 29,
-    note: 'THE PROOF THIS DETECTOR IS NEEDED — frozen 29 days with ZERO surviving Vercel error clusters (7-day retention). Loss confirmed by probe: geo_city/campaign 2026-03-15 = 0 rows.',
-  },
-  {
-    clientId: 'f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2', client: 'Veterinary mastermind', platform: 'google_user_geo',
-    cursorAt: '2026-04-14', daysWhenBaselined: 26,
-    note: 'same as the line above; no cluster survives for this one either',
-  },
+  // ✅ DELETED 2026-08-03 — ALL SIX GOOGLE GEO ENTRIES (Foam OH, Inside, Veterinary mastermind × google_geo +
+  // google_user_geo). THE ANTI-ROT RULE DOING ITS JOB, at six times the previous scale: a baseline may not outlive
+  // its justification, and every one of these said "live lap still owed" in its own note. The lap has now happened
+  // repeatedly on every one of them.
+  // ⛔ VERIFIED AGAINST THE LIVE sync_state ROWS BEFORE REMOVAL, not inferred from the guard's complaint — the guard
+  // says "no longer frozen", which is ALSO what a deleted client or a removed connection looks like, so the cursors
+  // themselves had to be read. Same discipline as the 2026-07-30 removal below. READ 2026-08-03 ~01:20Z, every one
+  // written by the 00:20Z drain fire, all backfill_blocked=false / block_fails=0 / backfill_complete=false:
+  //   Foam OH        google_geo      2026-04-09 -> 2025-12-10   written 00:32:36Z
+  //   Foam OH        google_user_geo 2026-04-09 -> 2026-01-19   written 00:46:23Z
+  //   Inside         google_geo      2025-08-12 -> 2025-01-24   written 00:21:03Z
+  //   Inside         google_user_geo 2025-08-12 -> 2025-01-24   written 00:21:43Z
+  //   Vet mastermind google_geo      2026-04-09 -> 2025-09-21   written 00:21:08Z
+  //   Vet mastermind google_user_geo 2026-04-14 -> 2025-09-26   written 00:21:53Z
+  // WHAT UNSTUCK THEM, named so the removal is not mistaken for the defect having been benign:
+  // LORAMER_DRAIN_EXTENDED_DURATION_V1 (maxDuration 800 -> 1800) freed Inside and Veterinary, and
+  // LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 (7f5a2ed) freed Foam OH, whose block was step-order STARVATION under a
+  // shared per-fire budget rather than the statement timeout these notes originally blamed.
+  // ⛔ THE VALUES ABOVE ARE A TENSE-LOCKED RECORD OF ONE MOMENT, NOT CURRENT STATE. Re-read sync_state; never trust
+  // a cursor position written into a file (LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).
   // ✅ DELETED 2026-07-30 — The Escential Group (c39ee088) meta_product_id. The entry that stood here PREDICTED its
   // own removal in writing ("Expected to CLEAR on the next drain lap — when it does, this entry FAILS the guard and
   // must be deleted"), and that is exactly what happened: the cursor MOVED from the baselined 2026-05-06 to
