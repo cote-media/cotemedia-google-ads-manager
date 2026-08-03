@@ -22,6 +22,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { upsertMetricsChunked, type ChunkedUpsertResult } from '@/lib/metrics-upsert'
+import { describeGaqlError } from '@/lib/intelligence/google-intelligence'
 
 export interface UniverseEntry {
   resource: string
@@ -305,7 +306,12 @@ export async function captureUniverseEntry(args: {
   const gaql = buildGaql(entry, startDate, endDate, structural.filters)
   let apiRows: any[]
   try { apiRows = await query(gaql) } catch (e: any) {
-    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: String(e?.message || e).slice(0, 300), entityLevel: level, grainDeclines: 0 }
+    // ⛔ NEVER `String(e)` A GoogleAdsFailure. Its `.message` is undefined and String(<object>) yields the
+    // literal "[object Object]" — which is exactly what this line produced for all 55 failing entries on the
+    // 2026-08-03 measured window, making a real vendor verdict unreadable. The repo already solved this once
+    // (LORAMER_GAQL_ERROR_SERIALIZE_V1, google-intelligence.ts) and this writer simply never used it. Reusing
+    // it rather than reinventing a second serializer is the whole point of the banked law.
+    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: describeGaqlError(e).slice(0, 300), entityLevel: level, grainDeclines: 0 }
   }
   const exhaustion = decideVendorExhaustion({ windowStart: startDate, rowsReturned: apiRows.length, gaql })
   const built = buildUniverseRowsAtGrain(entry, ctx, apiRows)
