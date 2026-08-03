@@ -10,12 +10,22 @@
 //      module never writes backfill_complete, never constructs a Date for completion) and behaviourally
 //      (isClientComplete refuses to declare done on unsettled entries).
 //
+//  (d) THE ARTIFACT IS FORCED INTO THE SERVERLESS BUNDLE FOR EVERY ROUTE THAT LOADS IT.
+//
+// ⛔ WHAT LEG (d) CANNOT REACH, AND IT MUST NOT READ AS MORE THAN IT IS: a Node guard runs with the WHOLE REPO
+// ON DISK, so it CANNOT KNOW WHAT VERCEL ACTUALLY BUNDLES. Leg (d) asserts THE CONFIG — that every route which
+// calls loadUniverse() is listed in experimental.outputFileTracingIncludes with the artifact — and NOTHING
+// about whether the file lands in /var/task. Only a deploy settles that, and on 2026-08-03 it settled it the
+// hard way: the first production dry run returned HTTP 500 with
+//   ⨯ ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
+// while every local check was green. A config assertion is the most this can honestly be.
+//
 // ⛔ WHAT THIS DOES NOT ASSERT: that Vercel Queues is enabled on the project, that a message is ever
 // delivered, or that the topic exists. Those are platform facts a Node guard cannot see — the DEPLOY is the
 // enablement test and its result is reported, not assumed.
 
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
@@ -125,6 +135,40 @@ try {
 
 Module._resolveFilename = origResolve
 rmSync(out, { recursive: true, force: true })
+
+// ── (d) THE ARTIFACT MUST BE FORCED INTO THE BUNDLE FOR EVERY ROUTE THAT LOADS IT ─────────────────────────
+// PROVENANCE: the first production dry run returned HTTP 500 with
+//   ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
+// because loadUniverse() reads a COMPUTED path and Next's tracer cannot see one. BOTH routes call it — the
+// consumer would have hit the identical error on every message, presenting as an endless retry rather than a
+// missing file. The loader list is DISCOVERED, not hardcoded, so a THIRD route added later fails this leg.
+{
+  const ARTIFACT = 'google-ads-capture-universe.json'
+  const cfg = read('next.config.js') || ''
+  const loaders = []
+  const walkSrc = (dir) => {
+    for (const e of readdirSync(resolve(ROOT, dir), { withFileTypes: true })) {
+      if (e.name.startsWith('.')) continue
+      const rel = `${dir}/${e.name}`
+      if (e.isDirectory()) walkSrc(rel)
+      else if (/^route\.tsx?$/.test(e.name) && /loadUniverse/.test(readFileSync(resolve(ROOT, rel), 'utf8'))) loaders.push(rel)
+    }
+  }
+  walkSrc('src/app')
+  if (loaders.length === 0) {
+    findings.push('(d) NO route calls loadUniverse() — leg (d) is BLIND rather than passing. Fix the guard before trusting a green.')
+  } else if (!/outputFileTracingIncludes/.test(cfg)) {
+    findings.push(`(d) next.config.js has NO experimental.outputFileTracingIncludes while ${loaders.length} route(s) read the artifact at runtime via a COMPUTED path. Next's tracer cannot see a computed path, so the file is absent from /var/task and every call returns ENOENT — measured in production 2026-08-03.`)
+  } else {
+    for (const f of loaders) {
+      const routeGlob = f.replace(/^src\/app/, '').replace(/\/route\.tsx?$/, '')
+      const line = cfg.split('\n').find((l) => l.includes(routeGlob) && l.includes(ARTIFACT))
+      if (!line) {
+        findings.push(`(d) route ${routeGlob} calls loadUniverse() but is not listed with ${ARTIFACT} in outputFileTracingIncludes. It will ENOENT on Vercel while passing every local check — which is exactly how this shipped once already.`)
+      }
+    }
+  }
+}
 
 if (findings.length) {
   console.error(`[universe-runner] FAIL — ${findings.length} finding(s):`)
