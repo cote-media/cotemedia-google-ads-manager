@@ -97,7 +97,10 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   const done = isClientComplete({ totalEntries: total, states })
   if (done.done) await writeCompletionNotice(clientId, states, total)
 
-  console.log(`[universe] ${clientId} ${label} ${startDate}..${endDate} apiRows=${result.apiRows} rows=${result.rowsWritten} zero=${result.observedZero} skipped=${!!result.skipped} msg=${metadata?.messageId} | ${done.reason}`)
+  // ⛔ THE GRAIN AND THE DECLINES ARE ON THE LOG LINE ON PURPOSE (LORAMER_UNIVERSE_ENTITY_AXIS_V1). A run
+  // that silently wrote everything at one level is indistinguishable from a run that wrote at vendor grain
+  // unless the level is stated per message; `declines` is the third state — vendor answered, named no entity.
+  console.log(`[universe] ${clientId} ${label} ${startDate}..${endDate} level=${result.entityLevel} apiRows=${result.apiRows} rows=${result.rowsWritten} declines=${result.grainDeclines} zero=${result.observedZero} skipped=${!!result.skipped} msg=${metadata?.messageId} | ${done.reason}`)
 })
 
 export async function GET() {

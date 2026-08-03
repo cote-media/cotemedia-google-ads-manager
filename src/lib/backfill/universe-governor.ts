@@ -7,19 +7,31 @@
 // afterwards. This governor is that principle applied to the queue: it decides whether to PUBLISH, which is
 // the only moment the spend is still preventable.
 //
-// ⛔ OPS >= REQUESTS AND THE RATIO IS UNMEASURED (★GAQL-OP-METER). Every number here is therefore counted in
-// REQUESTS and converted with an ASSUMED ratio that is stated in the data, never hidden in a constant. The
-// assumption is deliberately PESSIMISTIC so the budget stops early: over-counting spend wastes headroom,
-// under-counting causes the outage.
+// ⛔ THE RATIO IS SETTLED AT 1 AS OF 2026-08-03, FROM GOOGLE'S OWN RATE SHEET — ★GAQL-OP-METER IS CLOSED.
+// "A single query or report counts as ONE operation", streamed via SearchStream or paged via Search; Google's
+// worked example is a Search returning 53 ad groups = 1 operation. Paginated requests carrying a VALID
+// next_page_token are not counted against the daily operation quota AT ALL, so ops <= requests once paging is
+// involved. Requests rejected with a GoogleAdsFailure DO count; network-level failures do not.
+//   https://developers.google.com/google-ads/api/docs/api-policy/rate-sheet
+//   https://developers.google.com/google-ads/api/docs/best-practices/quotas
 //
-// ⚠ AND I COULD NOT MEASURE THE RATIO IN THIS FLIGHT. The Google Ads API does not return an operation count on
-// a search response — there is no field on the response surface and no header the google-ads-api client
-// exposes. The only source is the API Center in the Google Ads UI, which is a human read, not a programmatic
-// one. ★GAQL-OP-METER stays open and this file states the assumption rather than pretending to a measurement.
+// ⚠ THE COMMENT THAT WAS HERE ASSERTED A MECHANISM THAT DOES NOT EXIST, and it is kept in mind rather than
+// kept in place: it said the only source was "the API Center in the Google Ads UI, which is a human read".
+// THAT SCREEN DOES NOT EXIST — the API Center shows the developer token, the access level and the API contact
+// email, and Google's own support states remaining daily operations cannot be read and must be tracked
+// client-side. The measurement was never programmatic OR human; it was a document, and the document existed
+// the whole time. Banked as the fourth LORAMER_ESSENCE_LAW_9_V1 precedent on
+// ★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS.
 export const GOOGLE_DAILY_OP_CAP = 15_000
 
-/** PESSIMISTIC and STATED. If a request is later measured to cost fewer ops, this number goes DOWN, never up. */
-export const ASSUMED_OPS_PER_REQUEST = 10
+/**
+ * MEASURED-FROM-THE-VENDOR, not assumed: one GAQL request is one operation.
+ * ⛔ The NAME is kept so nothing downstream silently changes shape, and because the value is still a stated
+ * conversion rather than a per-response reading — the API returns no operation count, so this is the vendor's
+ * documented rule applied to our request count, and it is a CEILING (pagination makes the true figure lower).
+ * If Google ever publishes a different rule, this number moves and the two URLs above are where to check.
+ */
+export const ASSUMED_OPS_PER_REQUEST = 1
 
 // ⛔ RESERVED HEADROOM — the share the backfill may NEVER touch. Forward sync runs 5 platforms × ~18
 // connections on a 10-minute cadence in the 08-10 UTC hour; the google drain runs 4×/day at up to 34 steps.
@@ -84,7 +96,7 @@ export function decidePublish(args: {
   return {
     mayPublish: allowance > 0, allowance, denominator,
     reason: allowance > 0
-      ? `may publish ${allowance} of ${args.want} requested — ${remainingOps} ops remain in the backfill allowance (assumed ${ASSUMED_OPS_PER_REQUEST} ops/request, UNMEASURED; ★GAQL-OP-METER)`
+      ? `may publish ${allowance} of ${args.want} requested — ${remainingOps} ops remain in the backfill allowance (${ASSUMED_OPS_PER_REQUEST} op/request per Google's rate sheet, read 2026-08-03; a CEILING, since valid-next_page_token continuations are not counted)`
       : `one message costs ~${opsPerMessage} assumed ops and only ${remainingOps} remain — holding rather than overrunning`,
   }
 }

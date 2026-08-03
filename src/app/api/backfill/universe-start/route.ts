@@ -12,7 +12,7 @@
 // rather than O(months) — the retention pattern, not a pre-published walk.
 import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
-import { loadUniverse, selectableEntries } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
 import { decidePublish } from '@/lib/backfill/universe-governor'
 import { readBackfillRequestsToday } from '@/lib/backfill/universe-run-state'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
@@ -68,9 +68,23 @@ export async function POST(request: Request) {
       published++
     }
   }
+  // ⛔ THE FAN-OUT IS REPORTED, NOT LEFT TO BE INFERRED (LORAMER_UNIVERSE_ENTITY_AXIS_V1). Before the entity
+  // axis every entry landed at one flat level, so there was nothing to report and nothing to check; now the
+  // grain is the VENDOR'S FROM RESOURCE and a dry run that did not state it would hide the entire change.
+  // This is computed from the ARTIFACT ALONE — no vendor call, no DB read — so it costs nothing to ask for.
+  const perGrain: Record<string, number> = {}
+  for (const e of entries) perGrain[entityLevelFor(e)] = (perGrain[entityLevelFor(e)] || 0) + 1
+  const grains = Object.keys(perGrain).sort()
+
   return NextResponse.json({
     started: !dryRun, dryRun, published, wouldPublish: toPublish.length,
     entriesSelectable: entries.length, window: { startDate, endDate, windowDays: WINDOW_DAYS },
+    entityAxis: {
+      marker: 'LORAMER_UNIVERSE_ENTITY_AXIS_V1',
+      distinctGrains: grains.length,
+      note: 'entity_level is the GAQL FROM resource; entity_id is its resource_name. Vendor-named, not mapped. ZERO extra requests — the identity is already in every response (verified live 2026-08-03: same query with and without campaign.id returned 418 rows both times).',
+      perGrain,
+    },
     governor: { reason: gov.reason, denominator: gov.denominator },
   })
 }

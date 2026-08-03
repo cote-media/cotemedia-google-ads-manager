@@ -163,30 +163,75 @@ const ratio = (a: number, b: number, mult = 1) => (b > 0 ? Number(((a / b) * mul
 
 export interface BuildCtx { clientId: string; userEmail: string; customerId: string }
 
+// ── THE ENTITY AXIS — LORAMER_UNIVERSE_ENTITY_AXIS_V1 ──────────────────────────────────────────────────────
+// ⛔ THE VENDOR NAMES THE GRAIN. entity_level IS the GAQL `FROM` resource; entity_id IS that resource's
+// `resource_name`. There is no mapping table, no switch and no per-resource branch — which is the point: the
+// eight-value legacy enum could name only 2 of the 29 resources this walk queries, and inventing names for
+// the other 27 is the 24-hand-written-writers pathology in a new costume.
+//
+// ⛔ THIS ADDS ZERO REQUESTS AND ZERO API ROWS, AND THAT IS MEASURED, NOT ASSUMED. The identity was ALREADY
+// in every response and was being thrown away by the aggregation below. Google's reporting doc:
+// "Every report is initially segmented by the resource specified in the FROM clause. The resource_name field
+// of the resource in the FROM clause is returned and metrics are segmented by it, EVEN WHEN the resource_name
+// field is not explicitly included in the query." Verified live on Foam OH 2026-08-03 over
+// 2026-03-07..2026-04-05: the writer's own query returned 418 rows, the same query plus campaign.id returned
+// 418 rows, and campaign.resource_name was present in the unselected case. Collapsing those 418 rows onto
+// (date|value) produced 133 keys — so the old builder was discarding a measured 3.14× of vendor-served grain
+// that we had already paid for.
+export function entityLevelFor(entry: UniverseEntry): string {
+  return entry.resource
+}
+
+/** The vendor's identity for this row, or null when it declined to name one. Reads the ENTRY, not the surface. */
+export function entityIdFor(entry: UniverseEntry, row: any): string | null {
+  const rn = row?.[entry.resource]?.resource_name
+  return rn === undefined || rn === null || rn === '' ? null : String(rn)
+}
+
+/** ⛔ A DECLINED GRAIN IS ITS OWN FACT. Not absence, not zero — the vendor answered and named no entity. */
+export const VENDOR_DECLINED_GRAIN = '__vendor_declined_grain__'
+
+export interface BuiltRows {
+  rows: Record<string, unknown>[]
+  /** Rows the vendor returned WITHOUT a resource_name. Recorded, never silently folded into the account. */
+  grainDeclines: number
+}
+
 /**
- * Generic row build. `entityLevel` is 'account' for a resource-only entry and stays 'account' for segment
- * entries in this flight — the entity axis is Flight 2. The segment VALUE becomes breakdown_value; a
- * resource-only entry writes the base row triple ('' / '').
+ * Generic row build at VENDOR GRAIN.
+ * `entity_level` = the FROM resource; `entity_id` = its resource_name. The segment VALUE becomes
+ * breakdown_value; a resource-only entry writes the base value ('') and carries its identity in entity_id
+ * rather than smuggling it into breakdown_value the way the account-grain builder had to.
+ *
+ * ⛔ IDEMPOTENT AT THE NEW GRAIN. The conflict key is
+ * (client_id, platform, entity_level, entity_id, date, breakdown_type, breakdown_value) and every one of
+ * those is now a pure function of the entry and the vendor's own response — so a redelivered message
+ * re-fetches the same window and re-upserts the same keys. Adding entity_id to the aggregation key makes
+ * the keys STRICTLY MORE specific than before; it cannot create a collision that did not already exist.
  */
-export function buildUniverseRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): Record<string, unknown>[] {
+export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): BuiltRows {
   const bt = breakdownTypeFor(entry)
+  const level = entityLevelFor(entry)
   const segPath = entry.segment ? entry.segment.replace(/^segments\./, '') : null
   const out: Record<string, unknown>[] = []
   const agg = new Map<string, any>()
+  let grainDeclines = 0
   for (const r of apiRows) {
     const date = r?.segments?.date
     if (!date) continue
-    // Segment entry → the value is the segment. Resource-only entry → the value is the resource's own
-    // identity, taken from the `resource_name` the GAQL always selects (see buildGaql). Both branches read
-    // the ENTRY, never the resource name, so neither is per-surface.
+    // Segment entry → the value is the segment. Resource-only entry → there is no segment axis, so the value
+    // is the base '' and the row is identified entirely by its entity. Both branches read the ENTRY.
     const raw = segPath
       ? segPath.split('.').reduce((a: any, k) => (a == null ? a : a[k]), r.segments)
-      : r?.[entry.resource]?.resource_name
+      : ''
     const value = raw === undefined || raw === null ? '' : String(raw)
-    if (value === '') continue // a row with no grain value is not a grain, it is noise
-    const key = `${date}|${value}`
+    if (segPath && value === '') continue // a SEGMENT row with no segment value is not a grain, it is noise
+    const id = entityIdFor(entry, r)
+    if (id === null) grainDeclines++
+    const entityId = id ?? VENDOR_DECLINED_GRAIN
+    const key = `${date}|${value}|${entityId}`
     let a = agg.get(key)
-    if (!a) { a = { date, value, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0 }; agg.set(key, a) }
+    if (!a) { a = { date, value, entityId, declined: id === null, spend: 0, impressions: 0, clicks: 0, conversions: 0, convValue: 0 }; agg.set(key, a) }
     a.spend += num(r?.metrics?.cost_micros) / 1_000_000
     a.impressions += num(r?.metrics?.impressions)
     a.clicks += num(r?.metrics?.clicks)
@@ -201,17 +246,23 @@ export function buildUniverseRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: 
     const convValue = Number(a.convValue.toFixed(2))
     out.push({
       client_id: ctx.clientId, user_email: ctx.userEmail, platform: 'google', account_id: ctx.customerId,
-      entity_level: 'account', entity_id: ctx.customerId, entity_name: null, parent_entity_id: null,
+      entity_level: level, entity_id: a.entityId, entity_name: null, parent_entity_id: ctx.customerId,
       date: a.date, breakdown_type: bt, breakdown_value: a.value,
       spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
       conversion_value: convValue, revenue: 0,
       extra: {
         ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),
         roas: ratio(convValue, spend), cpa: ratio(spend, a.conversions), convRate: ratio(a.conversions, a.clicks, 100),
+        // ⛔ THE THREE STATES KEPT APART, ON THE ROW, so a reader never has to infer which one it is:
+        //   grain: 'VENDOR_NAMED'   — the vendor named this entity (the normal case)
+        //   grain: 'VENDOR_DECLINED'— the vendor answered and named NO entity for this row
+        //   (no row at all)         — absence; and an observed zero is reported by the caller, not as a row
+        grain: a.declined ? 'VENDOR_DECLINED' : 'VENDOR_NAMED',
+        grainSource: 'FROM_RESOURCE_NAME',
       },
     })
   }
-  return out
+  return { rows: out, grainDeclines }
 }
 
 // ── THE CAPTURE ────────────────────────────────────────────────────────────────────────────────────────────
@@ -225,6 +276,10 @@ export interface CaptureResult {
   skipped: SkipReason | null
   exhaustion: VendorExhaustion | null
   error: string | null
+  /** LORAMER_UNIVERSE_ENTITY_AXIS_V1 — the vendor grain this entry was written at (the GAQL FROM resource). */
+  entityLevel: string
+  /** Rows the vendor returned with NO resource_name. A labelled fact; never folded into absence or zero. */
+  grainDeclines: number
 }
 
 /**
@@ -242,21 +297,23 @@ export async function captureUniverseEntry(args: {
 }): Promise<CaptureResult> {
   const { entry, ctx, startDate, endDate, query, supplied = {}, dryRun } = args
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
+  const level = entityLevelFor(entry)
   const structural = resolveStructural(entry, supplied)
   if (!structural.ok) {
-    return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: structural.skip, exhaustion: null, error: null }
+    return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: structural.skip, exhaustion: null, error: null, entityLevel: level, grainDeclines: 0 }
   }
   const gaql = buildGaql(entry, startDate, endDate, structural.filters)
   let apiRows: any[]
   try { apiRows = await query(gaql) } catch (e: any) {
-    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: String(e?.message || e).slice(0, 300) }
+    return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: String(e?.message || e).slice(0, 300), entityLevel: level, grainDeclines: 0 }
   }
   const exhaustion = decideVendorExhaustion({ windowStart: startDate, rowsReturned: apiRows.length, gaql })
-  const rows = buildUniverseRows(entry, ctx, apiRows)
+  const built = buildUniverseRowsAtGrain(entry, ctx, apiRows)
   let written: ChunkedUpsertResult = { written: 0, chunks: 0 }
-  if (!dryRun && rows.length) written = await upsertMetricsChunked(rows)
+  if (!dryRun && built.rows.length) written = await upsertMetricsChunked(built.rows)
   return {
     entry: label, gaql, apiRows: apiRows.length, rowsWritten: written.written,
     observedZero: apiRows.length === 0, skipped: null, exhaustion, error: null,
+    entityLevel: level, grainDeclines: built.grainDeclines,
   }
 }

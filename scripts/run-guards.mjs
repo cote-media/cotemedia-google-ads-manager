@@ -108,6 +108,7 @@ const GUARDS = [
   // (Queues is at-least-once), the governor must reserve headroom for forward+drain and stop BEFORE the
   // cap, completion may come only from the writer's vendor-exhausted proof, and NO cron may fire the path.
   'tests/guards/universe-runner.guard.mjs',
+  'tests/guards/universe-entity-axis.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
   // unknown model may not be priced at zero, and a run that cannot cost itself must exit non-zero.
   'tests/guards/eval-spend-ledger.guard.mjs',
