@@ -7,9 +7,10 @@
 > Written for Russ, who does not touch code. Plain English. Every command is in its own block — copy
 > it, paste it into the terminal, press enter. After each one, what the answer MEANS.
 >
-> ✅ **UPDATE — IT FINISHED. The copy completed at 11.0 hours, and all 129 months passed both checks.**
-> Nothing has been switched over. This runbook is now about confirming that for yourself and deciding
-> what to do next — not about waiting.
+> ✅ **UPDATE 2 — THE SWITCH-OVER IS DONE.** The copy finished (11.0 hours, all 129 months verified)
+> **and the new table is now live.** Reads that took 28 seconds now take 3.6. The old table is still
+> sitting there untouched as the undo button. **Steps 1–5 below are now history — read them if you
+> want to know what happened; STEP 6 is what is actually next.**
 
 ---
 
@@ -145,7 +146,23 @@ monthly bill.
 
 ---
 
-## STEP 5 — THE SWITCH-OVER IS A SEPARATE DECISION
+## STEP 5 — THE SWITCH-OVER  ✅ DONE 2026-08-04
+
+✅ **IT HAPPENED. `metrics_daily` is now the fast, split table.** The changeover took a fraction of a
+second. Nothing was lost, and the app needed no change — the new table simply took over the name.
+**Measured straight after: the read that took 28.3 seconds now takes 3.6 seconds** on the same
+machine, so that is the split doing the work, not a bigger server.
+
+⚠ **THE UNDO BUTTON IS STILL THERE.** The old table is kept, under the name `metrics_daily_old`. It
+has not been deleted and **deleting it is a separate decision on a separate day.**
+
+⛔ **ONE THING THAT MUST HAPPEN BEFORE THE OLD TABLE IS EVER DELETED**, found during the checks: the
+counter that hands out row IDs is still technically attached to the OLD table. **Delete the old table
+today and that counter goes with it, and every new write would fail.** It is a one-line fix on the
+day, it is written down in the queue entry, and it is the reason "just delete the old one" is not a
+casual action. **Do not let anyone drop that table without Claude checking this first.**
+
+*(The original text of this step is kept below for the record.)*
 
 ⛔ **NOTHING HAS BEEN SWITCHED OVER. THIS DOES NOT EXPIRE. There is no rush and no deadline.**
 
@@ -170,9 +187,9 @@ takes a fraction of a second. From the app's point of view nothing changes excep
 
 Open the day knowing the order, so nothing jumps the queue:
 
-**a. Verify the backfill** — STEP 1. Everything below waits on `verified 129`.
+**a. Verify the backfill** — ✅ DONE. `verified 129`.
 
-**b. The switch-over** — STEP 5. Quick, but with Claude watching.
+**b. The switch-over** — ✅ DONE 2026-08-04. Old table kept as the undo.
 
 **c. ⛔ DROP COMPUTE TO SMALL AND RE-MEASURE — AND THIS IS THE STEP THAT DECIDES THE MONTHLY BILL.**
 After the switch, put the database back on the small machine and re-run two measurements: the CPU
