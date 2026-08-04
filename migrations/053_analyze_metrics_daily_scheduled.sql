@@ -1,0 +1,23 @@
+-- LORAMER_PARENT_ANALYZE_SCHEDULED_V1 — APPLIED 2026-08-04 via MCP apply_migration (053 + 053b).
+-- Recorded here so migrations/ stays the readable history; the live objects are already in place.
+--
+-- ⛔ WHY: PostgreSQL never autoanalyzes a PARTITIONED PARENT. Verified in our own catalog —
+-- metrics_daily read autoanalyze_count 0 while its partitions read 15 and 17. Every latency number
+-- measured on 2026-08-04 rests on statistics nothing maintained until this shipped.
+--
+-- ⛔ WHY pg_cron AND NOT /api/cron: ANALYZE is database maintenance with no application logic.
+-- Routing it through an HTTP function buys a cold start, a timeout ceiling against a measured 158s
+-- pass, and an auth surface, for nothing. Full reasoning in the ★PARTITIONED-PARENT-NEVER-AUTOANALYZED
+-- queue entry.
+--
+-- CREATE EXTENSION IF NOT EXISTS pg_cron;
+-- CREATE TABLE public.maintenance_analyze_log (...)  -- explicit `outcome`, never inferred from a
+--   timestamp; a row that never reaches an outcome stays 'running', which reads as the failure it is.
+-- CREATE FUNCTION public.analyze_metrics_daily()     -- pg_try_advisory_lock so it cannot stack;
+--   clock_timestamp() everywhere a wall-clock moment is meant (now() is transaction-start and made
+--   the first run log finished_at == started_at for a 158s job).
+-- SELECT cron.schedule('loramer-analyze-metrics-daily', '30 3 * * *',
+--                      'SELECT public.analyze_metrics_daily()');
+--   03:30 UTC collides with nothing: sync/catchup own 08:00-11:59, google drain 00:20/06:20/12:20/18:20.
+--
+-- GUARD: scripts/check-parent-analyze.mjs --gate, wired into npm run check:data.
