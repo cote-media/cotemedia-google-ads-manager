@@ -22,12 +22,22 @@ const N = 5000
   // Compile the real writer the same way the guards do — no copy of the logic, the actual module.
   const out = fs.mkdtempSync(path.join(os.tmpdir(), 'loramer-steady-'))
   const cfg = path.join(out, 'tsconfig.json')
+  // ⛔ typeRoots IS NOT OPTIONAL HERE, and its absence is what broke the first run: the config lives in
+  // a temp dir, so tsc resolves @types RELATIVE TO THE CONFIG, finds nothing, and fails on `process`
+  // with "Cannot find name 'process'". Point it back at the repo's own @types explicitly.
   fs.writeFileSync(cfg, JSON.stringify({
     compilerOptions: { module: 'commonjs', target: 'es2020', moduleResolution: 'node', skipLibCheck: true,
-      esModuleInterop: true, rootDir: ROOT, baseUrl: ROOT, paths: { '@/*': ['src/*'] }, outDir: out },
+      esModuleInterop: true, rootDir: ROOT, baseUrl: ROOT, paths: { '@/*': ['src/*'] }, outDir: out,
+      typeRoots: [path.join(ROOT, 'node_modules/@types')], types: ['node'] },
     files: [path.join(ROOT, 'src/lib/metrics-upsert.ts'), path.join(ROOT, 'src/lib/supabase.ts')],
   }))
-  execFileSync(path.join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg], { stdio: 'pipe' })
+  try {
+    execFileSync(path.join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg], { stdio: 'pipe' })
+  } catch (e) {
+    // ⛔ SHOW THE COMPILER'S OWN WORDS. The first version swallowed them into "Command failed" and
+    // cost a debugging round-trip for what was a one-line config error.
+    throw new Error(`tsc failed:\n${String(e.stdout || '').trim() || String(e.message)}`)
+  }
   try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(out, 'node_modules')) } catch {}
 
   const Module = require('module'); const orig = Module._resolveFilename
