@@ -18,10 +18,10 @@
     "line_count": 698
   },
   "LORAMER_ESSENCE.md": {
-    "content_hash": "d0b51736a84ec1af75b193c1495b39036cc53ec1aa66b135c7cbdf37680d506e",
-    "last_reconciled_date": "2026-08-03",
-    "last_reconciled_head": "0384b41",
-    "line_count": 306
+    "content_hash": "ee9d4aba1585f8f53f436e4f1fe22c89c1a7a8db6aca110a392bad4ff4167a3f",
+    "last_reconciled_date": "2026-08-04",
+    "last_reconciled_head": "53a7fc6",
+    "line_count": 316
   },
   "LORAMER_HANDOFF.md": {
     "content_hash": "bfed01c9cf20ee48137fe7e2436c15a455801941f1018acbbdce49eca2ec88cc",
@@ -36,16 +36,16 @@
     "line_count": 58
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "9e3a63a3f311d675c8d2737d07a369c0125d39b82c68fbf6350812a26a6e7c66",
+    "content_hash": "0afced77b560e1386de67f40dc2959503bef678a6cad8e658bdc39879312ddfa",
     "last_reconciled_date": "2026-08-04",
-    "last_reconciled_head": "e3c73cd",
-    "line_count": 875
+    "last_reconciled_head": "53a7fc6",
+    "line_count": 877
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "5ca27cff8c1f086ff08f26dc61005d986c2c3dbaf3dca308c29e6589b654bb5d",
+    "content_hash": "78c203557c63743b82f6608f4822724d499ad6f4328b0e95b0c5821d52005045",
     "last_reconciled_date": "2026-08-04",
-    "last_reconciled_head": "e3c73cd",
-    "line_count": 2125
+    "last_reconciled_head": "53a7fc6",
+    "line_count": 2139
   },
   "RESUME_INSTRUCTIONS.md": {
     "content_hash": "cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a",
@@ -108,10 +108,10 @@
     "line_count": 102
   },
   "CLAUDE.md": {
-    "content_hash": "1fcbfb027bd70aa827d4f65c6cb92d58b3d83c3bf99da6130b497d267923f40c",
-    "last_reconciled_date": "2026-08-03",
-    "last_reconciled_head": "a8615f7",
-    "line_count": 145
+    "content_hash": "db348492db0eced4dd36bce7310e4ab82b2c431e50a77cdb37b0119df2f569b3",
+    "last_reconciled_date": "2026-08-04",
+    "last_reconciled_head": "53a7fc6",
+    "line_count": 161
   },
   "LAUNCH_PARKING.md": {
     "content_hash": "ba7cdb85b424b2ae91ce94c44af1a362aebc85beb3718a285e1fba5b36a6de08",

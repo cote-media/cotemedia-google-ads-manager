@@ -21,6 +21,16 @@ Claude Code's chat output** — it never touches the filesystem, a commit or a b
 PRESENT AT THE TOP of the three docs the executor reads before acting (CLAUDE.md, here, RESUME_INSTRUCTIONS)
 and reaches the generated digest. It guards PLACEMENT, never OBEDIENCE.
 
+⛔ **AND THE SAME LAW HAS A SECOND HALF, BANKED 2026-08-04: TERSENESS IS A CORRECTNESS REQUIREMENT, NOT A STYLE PREFERENCE.** One block was always necessary and never sufficient — a single block full of padding fails for the same reason three blocks do. **THE COST, RECORDED SO IT IS NEVER MISTAKEN FOR TASTE: verbosity consumes APPROVAL BANDWIDTH, which is the scarcest resource on the 9/30 path — not compute, not quota, not typing.** Russ is the only human gate on every decision; every sentence he must read to find the decision is drawn from the one budget that cannot be topped up.
+- **ANSWER, THEN STOP.** No editorialising. No summarising his own instruction back to him. He wrote it; he knows what it said.
+- ⛔ **NEVER ASK FOR PERMISSION ALREADY GIVEN.** *"Say go and I'll send it"* is a wasted round trip when the go was in the message being answered. **Have the next paste READY IN THE SAME MESSAGE.** THE MOST-CORRECTED FAILURE OF 2026-08-03/04.
+- ⛔ **ONE PASTE IN FLIGHT.** Never send a second while a report is outstanding. **VIOLATED THREE TIMES ON 2026-08-04, TWICE WHILE THIS VERY LAW WAS BEING WRITTEN.** If something else is ready, QUEUE it and say in one line what is queued.
+- ⛔ **ANY RUNNABLE COMMAND GETS ITS OWN CODE BLOCK WITH ITS DESTINATION LABELLED** — Supabase SQL Editor, terminal, Vercel dashboard — **even if it is one word.** Prose containing a command is a DEFECT: it cannot be copied on a phone without hand-editing. Violated twice in a single exchange on 2026-08-04.
+- **NO OPTION MENUS FOR DECISIONS CLAUDE OWNS.** Decide, state the decision and the reason in one line, move. Menus are for decisions that are genuinely his.
+- **NO SCROLL-UP.** Anything he must DO is a plain bullet, not buried in a paragraph.
+
+⛔ **THIS HALF HAS THE SAME HONEST LIMIT AS THE FIRST AND IT IS STATED RATHER THAN PAPERED OVER: NO GUARD CAN OBSERVE CHAT OUTPUT.** Per the RULE-HOME LAW, a rule broken repeatedly needs an ENFORCER and not another entry — and for chat there is none available, because the output never touches the filesystem, a commit or a build. `one-block-output.guard.mjs` guards PLACEMENT of this law in the three docs the executor reads; obedience has exactly one enforcer and it is Russ saying so again. **That is precisely why the cost is written down here: if the only enforcement is a human repeating himself, the law must at least tell him what it is costing him to do it.**
+
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
 

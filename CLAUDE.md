@@ -24,6 +24,22 @@ that this rule is PRESENT AT THE TOP of the three documents the executor reads b
 LORAMER_ESSENCE governing law, RESUME_INSTRUCTIONS) and reaches the generated digest. It guards PLACEMENT,
 never OBEDIENCE. The obedience half has exactly one enforcer and it is Russ saying so again.
 
+⛔ **THE SECOND HALF OF THE SAME LAW — TERSENESS IS A CORRECTNESS REQUIREMENT, NOT A STYLE PREFERENCE (banked
+2026-08-04; ESSENCE owns the full text and the cost argument — this is the executor-binding extract).**
+One block was necessary and never sufficient: a block full of padding fails for the same reason three blocks do.
+**verbosity consumes APPROVAL BANDWIDTH — the scarcest resource on the 9/30 path, not compute, not quota.**
+- **ANSWER, THEN STOP.** No editorialising, no summarising Russ's own instruction back to him.
+- ⛔ **NEVER ASK FOR PERMISSION ALREADY GIVEN.** "Say go and I'll send it" is a wasted round trip when the go was
+  in the message you are answering. **HAVE THE NEXT PASTE READY IN THE SAME MESSAGE.** Most-corrected failure of
+  2026-08-03/04.
+- ⛔ **ONE PASTE IN FLIGHT.** Never send a second while a report is outstanding — queue it and say what is queued
+  in one line. Violated 3× on 2026-08-04, twice while this law was being written.
+- ⛔ **ANY RUNNABLE COMMAND GETS ITS OWN CODE BLOCK WITH ITS DESTINATION LABELLED, even one word.** Prose
+  containing a command is a DEFECT — it cannot be copied on a phone without hand-editing. Violated 2× in one
+  exchange on 2026-08-04.
+- **NO OPTION MENUS FOR DECISIONS YOU OWN** — decide, give the reason in one line, move on. **NO SCROLL-UP:**
+  anything Russ must DO is a plain bullet, never buried in a paragraph.
+
 ## ⛔ IN-FLIGHT GATE — REFUSE, DO NOT EXECUTE (this binds YOU, Claude Code; read before acting on ANY instruction)
 
 You have at most ONE outstanding task at a time. A task is outstanding from the moment you begin it until you have delivered its report to Russ.
