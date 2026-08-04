@@ -1230,6 +1230,12 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ▶▶ NEXT STEP — 2026-08-03 PARTITION PHASE 2 WRAP (latest — resume HERE). ⛔ **DEPARTURE FROM RANKING, stated not assumed:** the QUEUE's declared TOP-UNBLOCKED is still ★GOOGLE-GEO-STATEMENT-TIMEOUTS, departed from because its premise died on 2026-08-03 — all six google geo cursors advanced on the 00:20Z fire, the frozen-cursor guard read frozen 8 · baselined 8 · NEW 0 · PASSED, and all six baseline entries were deleted. The lap is running unattended. Partitioning holds the head because the measured 16× read amplification and 28s cold reads bound everything the universe walk does next.
 
+⛔ **FIRST ACTION, BEFORE ANYTHING ELSE: OPEN `docs/LORAMER_MORNING_RUNBOOK_2026_08_04.md` AND FOLLOW IT.** It is written for Russ in plain English, numbered, every command in its own block with what the output means. This opener is the engineering record; the runbook is the morning.
+
+⛔ **THE STATE IT OPENS ON, in one line: the partition backfill is RUNNING, nothing is SWAPPED, compute is on XL, and ⛔ COMPUTE MUST NOT DROP TO SMALL UNTIL THE LEDGER READS `verified 129` — a resize RESTARTS the instance and KILLS the run.** 129 is the total month count; that number is what finished looks like.
+
+⛔ **THE WALK IS READY AND HAS NOT BEEN FIRED — 356 requests per window, ~17,800 for the whole walk, ETA ~3.0 days** at an allowance that is a READ, not a constant. It is waiting on nothing but the partition work and your word.
+
 ⛔ **THE BACKFILL IS RUNNING RIGHT NOW. FIRST THING: READ THE LEDGER, DO NOT ASSUME IT FINISHED.** Run `node scripts/partition-backfill.mjs --status` (which also prints live disk), or the plain SELECT: `select state, count(*) as months, sum(src_rows) as src_rows, sum(moved_rows) as moved_rows from public.partition_backfill_ledger group by state order by state;` ⛔ **COMPLETE MEANS EVERY MONTH READS `verified`. It does NOT mean the process exited** — the runner exits 2 on partial work and 3 on a disk-floor stop, deliberately.
 
 ⛔ **DO NOT SWAP WITHOUT RUSS AWAKE, AND `metrics_daily_old` DOES NOT EXIST — nothing has been renamed.** Both tables are in place and dual-write is live.

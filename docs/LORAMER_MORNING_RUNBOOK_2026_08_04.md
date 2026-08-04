@@ -182,9 +182,19 @@ platforms cost in rows or in disk. That gap should not be discovered after the w
 
 1. **Google Standard Access** — the website-clarification reply is still owed. This is the only thing
    that lifts the daily Google limit. ⚠ Claude owes you the website spec first — ask for it.
-2. **Supabase billing alert threshold** — set it. Related: there is currently **no usage cap anywhere
-   in the product**, newly banked as ★USAGE-CAP-ABSENT. A balance alarm is the cheap version and it
-   prevents Lora silently going blank.
+2. ⛔ **CORRECTION — I TOLD YOU TO SET A SUPABASE BILLING ALERT. THAT FEATURE DOES NOT EXIST.** You
+   went looking twice; there was nothing to find, and that is my error, not your search. Supabase's
+   own cost-control doc says the Spend Cap offers **no per-item budgets and no notifications at a
+   cost threshold**. What actually exists: the Spend Cap is **binary** (block everything over quota,
+   or allow usage-based billing) and is **currently OFF, deliberately**; ⛔ **even switched ON it
+   would NOT have capped last night's XL upgrade, because add-ons including compute are always
+   billed**; and the only monitoring is the **org usage page, read by hand, refreshing about hourly**.
+   ⛔ **THE REAL RISK IS NOT A BILL — IT IS THAT PRO CAN GO READ-ONLY** if the disk-expansion limit
+   (4 changes per rolling 24h) is hit. That is an outage, not an invoice, and it is exactly why the
+   40 GB disk floor in the backfill is a hard stop rather than a warning.
+   **What IS worth doing:** an alarm on the ANTHROPIC account balance — separate system, and it is
+   the thing that prevents Lora silently going blank. Related: there is still **no usage cap anywhere
+   in the product**, newly banked as ★USAGE-CAP-ABSENT.
 3. **Shopify reviewer login** — one question only you can answer from the Partner dashboard: does the
    obligation bind the LOGIN, the STORE, or both?
 4. **`shopify app deploy`** — registers the `bulk_operations/finish` webhook. Declared, not landed.
