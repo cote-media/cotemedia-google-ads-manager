@@ -302,6 +302,86 @@ rate is probably higher — which is a reason the figure is a ceiling, not a rea
 
 ---
 
+## 3B. THE SWAP — PLAN ONLY, WRITTEN 2026-08-04, NOTHING EXECUTED
+
+> ⛔ **THIS SECTION HAS NOT BEEN RUN. It is the sequence, written down while nobody is under time
+> pressure, so that the night it runs it is a reading exercise rather than a design exercise.**
+> Backfill state at authoring: `verified 129 / unverified 0`, runner exited after 39,721s.
+
+### 3B.0 ⛔ THE PRECONDITION — IT REFUSES TO RUN OTHERWISE
+
+The swap MUST abort unless the ledger reads `verified 129 / unverified 0` **at that moment**, not
+when someone last looked. Wrap it so the check and the rename are in the SAME transaction — a check
+that passes in a separate statement is a check that can go stale between the two.
+
+```sql
+BEGIN;
+  -- ⛔ REFUSE unless every month is verified, evaluated INSIDE this transaction.
+  DO $$
+  DECLARE bad int;
+  BEGIN
+    SELECT count(*) INTO bad FROM public.partition_backfill_ledger WHERE state <> 'verified';
+    IF bad <> 0 THEN
+      RAISE EXCEPTION 'REFUSING TO SWAP: % month(s) not verified', bad;
+    END IF;
+  END $$;
+
+  LOCK TABLE public.metrics_daily IN ACCESS EXCLUSIVE MODE;
+
+  -- ⛔ THE TRIGGER COMES OFF FIRST, AND THE ORDER IS NOT COSMETIC. If the rename happened first, the
+  -- mirror would fire on the table that is now the DESTINATION and try to insert into itself.
+  DROP TRIGGER IF EXISTS metrics_daily_mirror_trg ON public.metrics_daily;
+
+  ALTER TABLE public.metrics_daily   RENAME TO metrics_daily_old;
+  ALTER TABLE public.metrics_daily_p RENAME TO metrics_daily;
+COMMIT;
+```
+
+Two renames, one transaction. Readers block for milliseconds; nobody sees a missing table.
+⚠ Rename the CONSTRAINTS afterwards if their names matter to anyone (`metrics_daily_p_pkey` etc. keep
+their old names — harmless, but confusing later). Cosmetic; not part of the swap.
+
+### 3B.1 WHAT HAPPENS TO DUAL-WRITE
+
+- **Before**: the trigger sits on `metrics_daily` (old) and mirrors into `metrics_daily_p` (new).
+- **At swap**: the trigger is DROPPED first, inside the same transaction, before either rename.
+- **After**: there is no trigger. Writes go to the new table because it now carries the name every
+  writer uses. `metrics_daily_old` stops receiving anything and freezes at the swap instant.
+- ⛔ **THAT FREEZE IS WHY ROLLBACK GETS HARDER WITH EVERY MINUTE** — see 3B.2.
+
+### 3B.2 ⛔ ROLLBACK, BY STAGE — AND WHERE IT STOPS BEING POSSIBLE
+
+| stage | how to get back | cost |
+|---|---|---|
+| **Before the swap** | Do nothing. Drop `metrics_daily_p` if you want the disk back. The source was never modified by the copy. | **Zero.** |
+| **Immediately after the swap (seconds/minutes)** | Reverse it: drop any new trigger, `metrics_daily` → `metrics_daily_p`, `metrics_daily_old` → `metrics_daily`, re-create the mirror trigger. | **Seconds**, and clean — almost nothing has been written to the new table yet. |
+| **Hours after the swap** | Same renames, **but every row written since the swap lives ONLY in the new table** and must be carried back across before it is demoted. Mechanical, but no longer free. | **Minutes to hours**, and it needs care. |
+| ⛔ **After `metrics_daily_old` is DROPPED** | **THERE IS NO ROLLBACK. Point-in-time recovery only.** | ⛔ **THIS IS THE POINT OF NO RETURN, and it is named here so nobody crosses it casually.** |
+
+⛔ **`metrics_daily_old` IS KEPT. Dropping it is a SEPARATE DECISION ON A SEPARATE DAY**, after the new
+table has carried production for a stated soak. It is ~57 GB of insurance; the disk is there for it.
+
+### 3B.3 THE FIRST FIVE MINUTES AFTER THE SWAP — what to check, in order
+
+1. **The table is the partitioned one.** `select count(*) from pg_inherits where inhparent =
+   'public.metrics_daily'::regclass;` → expect **145**. If it returns 0 the rename did not land.
+2. **RLS survived the rename.** `select relrowsecurity from pg_class where oid =
+   'public.metrics_daily'::regclass;` → **true**, with zero policies. ⛔ Check this even though the
+   rename cannot change it — it is the one setting whose failure is silent and security-relevant.
+3. **A real read works and is FAST.** Run the dashboard's own account query for one client and a
+   recent window. It should return, and it should feel instant rather than take 20+ seconds.
+4. **A real WRITE works.** The next cron pass is the true test, but do not wait for it — insert and
+   delete a probe row exactly as the dual-write proof did, and confirm it lands.
+5. **Partition pruning is actually happening.** `EXPLAIN` any client+date query and confirm the plan
+   names ONE partition, not 145. ⛔ **If it scans all of them, pruning is not working and the entire
+   point of the migration is unrealised** — that is a stop-and-look, not a tune-later.
+6. **Watch `cron_runs` and the Vercel logs for one full nightly cycle** before calling it done.
+
+### 3B.4 WHAT THE SWAP DOES NOT FIX
+It does not change a single row of data, and it does not make an uncached read free. **The 28s cold
+read must be RE-MEASURED after the swap, on Small**, and that measurement — not tonight's — decides
+the steady-state compute tier.
+
 ## 4. WHAT THIS FLIGHT DID NOT DO
 No table created · no data copied · no migration run · no extension enabled · no schema changed · no
 index built · no vendor quota spent · the walk not started · the 6,048,263 landed rows untouched.

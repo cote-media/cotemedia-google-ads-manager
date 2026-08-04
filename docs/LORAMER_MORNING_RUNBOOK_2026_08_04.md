@@ -7,8 +7,9 @@
 > Written for Russ, who does not touch code. Plain English. Every command is in its own block — copy
 > it, paste it into the terminal, press enter. After each one, what the answer MEANS.
 >
-> **Last night (2026-08-03) a big database migration was started. It was still running when the
-> session ended. This morning is about checking whether it finished, and nothing more.**
+> ✅ **UPDATE — IT FINISHED. The copy completed at 11.0 hours, and all 129 months passed both checks.**
+> Nothing has been switched over. This runbook is now about confirming that for yourself and deciding
+> what to do next — not about waiting.
 
 ---
 
@@ -22,9 +23,10 @@ written to **both** tables automatically, so nothing is behind or lost either wa
 
 ---
 
-## STEP 1 — IS IT DONE?
+## STEP 1 — IS IT DONE?  ✅ YES — but confirm it yourself
 
-Run this:
+**It finished.** `verified 129`, nothing else, runner exited after 11.0 hours. Confirm it rather than
+take my word for it:
 
 ```
 cd ~/Downloads/cotemedia-google-ads-manager && node scripts/partition-backfill.mjs --status
@@ -33,7 +35,13 @@ cd ~/Downloads/cotemedia-google-ads-manager && node scripts/partition-backfill.m
 You will get a small table with a `state` column. Here is what to look for:
 
 ⛔ **IT IS FINISHED ONLY IF `verified` SHOWS 129 MONTHS AND THERE ARE NO OTHER ROWS.**
-**129 is the number. Write it down.**
+**129 is the number.** As of the last check it read exactly that: **verified 129, unverified 0.**
+
+⚠ **ONE NUMBER WILL LOOK WRONG. IT IS NOT.** `moved_rows` (78,685,231) is HIGHER than `src_rows`
+(76,417,807). That is because `src_rows` was counted once at the start of each month, while live data
+kept arriving during the copy — the excess sits almost entirely in the four most recent months. **The
+count you can trust is the checksum**, which compared both tables live for every month and matched on
+all 129. `moved_rows` is a progress bar, not a verdict.
 
 - **`verified`** — done and double-checked. This is the only state that counts.
 - **`pending`** — not started yet.
@@ -116,18 +124,24 @@ Supabase dashboard: **Project Settings → Compute and Disk**.
 
 ---
 
-## STEP 4 — ⛔ DO NOT DROP COMPUTE BACK TO SMALL YET
+## STEP 4 — COMPUTE: THE OLD RULE IS GONE, HERE IS THE NEW ONE
 
-The database was moved up to a bigger, faster machine (XL) last night to make the copy quick. It is
-tempting to move it back down to save money.
+The database was moved up to a bigger, faster machine (XL) to make the copy quick, and it is tempting
+to move it straight back down to save money.
 
-⛔ **DO NOT CHANGE THE COMPUTE SIZE UNTIL EVERY MONTH READS `verified`.**
+⚠ **THE OLD WARNING NO LONGER APPLIES.** It used to say *do not resize until every month reads
+`verified`*, because a restart would have killed the copy mid-flight. **The copy is finished. A resize
+kills nothing now.** That rule is retired, and it is written here rather than deleted so you do not
+follow a stale version of it.
 
-**A resize RESTARTS the database. A restart KILLS the running copy.** Work in progress is rolled back.
-Nothing is corrupted — the design survives it — but you lose the time, and it has to start again from
-the last finished month.
+⛔ **THE RULE THAT REPLACES IT — THE ORDER MATTERS: SWAP FIRST, THEN DROP TO SMALL, THEN MEASURE.**
 
-**Wait until STEP 1 shows `verified 129`. Then it is safe.**
+Why that order and not the other one: the 28-second slow read we are trying to fix was measured **on
+the big machine, against the OLD unsplit table** — the worst possible combination. If you drop to
+Small before switching over, you will measure the old table on a small machine and it will look
+terrible, and you will conclude you need XL forever. **Switch first so you are measuring the new
+split table, then drop to Small, then take the number.** That number is the one that decides the
+monthly bill.
 
 ---
 

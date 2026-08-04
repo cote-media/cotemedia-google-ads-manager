@@ -1232,11 +1232,16 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ⛔ **FIRST ACTION, BEFORE ANYTHING ELSE: OPEN `docs/LORAMER_MORNING_RUNBOOK_2026_08_04.md` AND FOLLOW IT.** It is written for Russ in plain English, numbered, every command in its own block with what the output means. This opener is the engineering record; the runbook is the morning.
 
-⛔ **THE STATE IT OPENS ON, in one line: the partition backfill is RUNNING, nothing is SWAPPED, compute is on XL, and ⛔ COMPUTE MUST NOT DROP TO SMALL UNTIL THE LEDGER READS `verified 129` — a resize RESTARTS the instance and KILLS the run.** 129 is the total month count; that number is what finished looks like.
+✅ **THE BACKFILL IS COMPLETE. `verified 129 / unverified 0`, runner exited after 39,721s (11.0 hours).** **ALL 129 MONTHS PASSED BOTH CHECKS — row count AND a checksum over spend, impressions, clicks, conversions, conversion value and revenue, each computed LIVE against both tables.** Nothing was skipped; the runner stops rather than continue past a mismatch, and it never had to.
+`metrics_daily` 57 GB · `metrics_daily_p` 50 GB across 145 partitions, all 145 non-empty (28 GB heap + 22 GB indexes) · disk **88.28 GB free of 200 GB**, floor never breached.
+
+⛔ **NOT SWAPPED. NOTHING RENAMED, NOTHING DROPPED — `metrics_daily_old` DOES NOT EXIST.** Both tables stand and the dual-write trigger is still live, mirroring every write. The swap is a separate decision with Russ awake; the exact sequence is written out in `docs/LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1.md` §3.
+
+⛔ **THE OLD COMPUTE RULE IS OBSOLETE — REPLACED, NOT DELETED, so nobody follows the stale one.** It used to say *do not drop compute until verified 129*, because a resize would have killed the run. **The run is finished, so a resize no longer kills anything.** ⛔ **THE CORRECT ORDER NOW IS: SWAP FIRST, THEN drop to Small and RE-MEASURE.** The 28s cold read was taken on XL against the **OLD UNSPLIT** table — the worst possible combination — so choosing the steady-state tier from that number would mean paying for XL forever to fix a problem that no longer exists. **Measure it on Small against the partitioned table, then decide.**
 
 ⛔ **THE WALK IS READY AND HAS NOT BEEN FIRED — 356 requests per window, ~17,800 for the whole walk, ETA ~3.0 days** at an allowance that is a READ, not a constant. It is waiting on nothing but the partition work and your word.
 
-⛔ **THE BACKFILL IS RUNNING RIGHT NOW. FIRST THING: READ THE LEDGER, DO NOT ASSUME IT FINISHED.** Run `node scripts/partition-backfill.mjs --status` (which also prints live disk), or the plain SELECT: `select state, count(*) as months, sum(src_rows) as src_rows, sum(moved_rows) as moved_rows from public.partition_backfill_ledger group by state order by state;` ⛔ **COMPLETE MEANS EVERY MONTH READS `verified`. It does NOT mean the process exited** — the runner exits 2 on partial work and 3 on a disk-floor stop, deliberately.
+**CONFIRM IT FOR YOURSELF BEFORE ACTING ON IT** — `node scripts/partition-backfill.mjs --status` (which also prints live disk), or the plain SELECT: `select state, count(*) as months, sum(src_rows) as src_rows, sum(moved_rows) as moved_rows from public.partition_backfill_ledger group by state order by state;` It should read **`verified 129` and nothing else**. ⚠ `moved_rows` reads HIGHER than `src_rows` (78,685,231 vs 76,417,807) — that is expected and explained in the ★PARTITION-METRICS-DAILY queue entry; it is a progress counter, not a correctness claim, and the correctness claim is the checksum.
 
 ⛔ **DO NOT SWAP WITHOUT RUSS AWAKE, AND `metrics_daily_old` DOES NOT EXIST — nothing has been renamed.** Both tables are in place and dual-write is live.
 
