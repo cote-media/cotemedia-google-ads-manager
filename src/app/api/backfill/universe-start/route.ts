@@ -12,7 +12,7 @@
 // rather than O(months) — the retention pattern, not a pre-published walk.
 import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
-import { loadUniverse, selectableEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, selectableEntries, deferredEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
 import { decidePublish } from '@/lib/backfill/universe-governor'
 import { checkDiskFloor, readLaneSpendToday, gb, FLOOR_BYTES, PROVISIONED_BYTES } from '@/lib/backfill/universe-window-log'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
@@ -48,7 +48,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `no google connection for ${clientId}: ${error?.message ?? 'not found'}` }, { status: 404 })
   }
 
-  const entries = selectableEntries(loadUniverse())
+  const doc = loadUniverse()
+  const entries = selectableEntries(doc)
+  const deferred = deferredEntries(doc)
 
   // ⛔ THE DISK FLOOR IS A START GATE TOO, NOT ONLY A PER-WINDOW ONE. Starting a walk that must stop
   // three windows in is worse than not starting: it spends vendor quota, writes partial history, and
@@ -112,5 +114,21 @@ export async function POST(request: Request) {
     },
     governor: { reason: gov.reason, denominator: gov.denominator },
     disk,
+    // ⛔ THE DEFERRED SET RIDES ON EVERY START RESPONSE, WITH REASONS. A narrowed walk that did not say what
+    // it narrowed would be indistinguishable from a walk that silently lost 12 slots — and six months from
+    // now nobody could tell which. ALL-MEANS-ALL is not repealed; this is sequencing under a disk constraint.
+    deferred: {
+      marker: 'LORAMER_UNIVERSE_NARROWED_SET_V1',
+      count: deferred.length,
+      savedGBPerWalk: Number(deferred.reduce((a, d) => a + d.note.measuredGBPerWalk, 0).toFixed(2)),
+      note: 'DEFERRED, NOT DROPPED. Every entry keeps its declaration and its already-landed rows; only the REQUEST is postponed. No declared family became unreachable — each deferred segment still lands at another entity_level.',
+      entries: deferred.map((d) => ({
+        entry: `${d.entry.resource}${d.entry.segment ? '/' + d.entry.segment : ''}`,
+        reason: d.note.reason,
+        measuredRowsPerRequest: d.note.measuredRowsPerRequest,
+        measuredGBPerWalk: d.note.measuredGBPerWalk,
+        loraLoses: d.note.loraLoses,
+      })),
+    },
   })
 }

@@ -127,19 +127,129 @@ for (const f of [CONSUMER, STARTER]) {
     const mod = require_(join(out, 'src/lib/backfill/universe-window-log.js'))
     Module._resolveFilename = orig
 
+    // ⛔ THE PROVISIONED FIGURE IS READ FROM partition-backfill.mjs RATHER THAN HARDCODED TWICE HERE.
+    // A guard that carried its own copy of the number would go green on a resize that updated the
+    // guard and one of the two call sites — which is the very drift it exists to catch. The volume
+    // was raised 200 → 280 GB on 2026-08-04, and this leg is what makes the two move together.
     const GB = 1024 ** 3
-    const expectedFloor = Math.max(15 * GB, Math.floor(200 * GB * 0.2))
-    if (mod.FLOOR_BYTES !== expectedFloor) {
-      findings.push(`(f) FLOOR_BYTES compiles to ${(mod.FLOOR_BYTES / GB).toFixed(2)} GB but scripts/partition-backfill.mjs enforces ${(expectedFloor / GB).toFixed(2)} GB on the SAME volume. Two different floors for one disk is how one of them gets forgotten.`)
-    }
-    if (mod.PROVISIONED_BYTES !== 200 * GB) {
-      findings.push(`(f) PROVISIONED_BYTES compiles to ${(mod.PROVISIONED_BYTES / GB).toFixed(2)} GB, not the 200 GB the volume is provisioned at. Postgres CANNOT see the volume size — a stale value here silently authorises a walk against headroom that does not exist.`)
+    const pbSrc = read('scripts/partition-backfill.mjs')
+    const pbMatch = /const PROVISIONED_BYTES = (\d+) \* 1024 \*\* 3/.exec(pbSrc)
+    if (!pbMatch) {
+      findings.push('(f) could not read PROVISIONED_BYTES from scripts/partition-backfill.mjs — the two writers on this volume can no longer be compared, which is exactly the state this leg exists to prevent.')
+    } else {
+      const pbProvisioned = Number(pbMatch[1]) * GB
+      if (mod.PROVISIONED_BYTES !== pbProvisioned) {
+        findings.push(`(f) PROVISIONED_BYTES DISAGREE ON ONE DISK: universe-window-log.ts says ${(mod.PROVISIONED_BYTES / GB).toFixed(0)} GB, partition-backfill.mjs says ${(pbProvisioned / GB).toFixed(0)} GB. Postgres cannot see the volume size, so whichever is stale silently authorises work against headroom that does not exist.`)
+      }
+      const expectedFloor = Math.max(15 * GB, Math.floor(pbProvisioned * 0.2))
+      if (mod.FLOOR_BYTES !== expectedFloor) {
+        findings.push(`(f) FLOOR_BYTES compiles to ${(mod.FLOOR_BYTES / GB).toFixed(2)} GB but the max(15 GB, 20%) rule on a ${(pbProvisioned / GB).toFixed(0)} GB volume gives ${(expectedFloor / GB).toFixed(2)} GB. Two different floors for one disk is how one of them gets forgotten.`)
+      }
     }
     if (mod.VENDOR !== 'google_ads') {
       findings.push(`(f) VENDOR compiles to '${mod.VENDOR}' — must be 'google_ads', never 'google' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1: GA4 must not inherit Google Ads' list).`)
     }
   } catch (e) {
     findings.push(`(f) could not compile ${MODULE}: ${String(e.stdout || '').trim() || e.message}`)
+  }
+}
+
+// ── (g) THE NARROWED SET — A DEFERRAL MAY NEVER BECOME A SILENT ABSENCE ───────────────────────────
+// ⛔ LORAMER_UNIVERSE_NARROWED_SET_V1. 12 entries are deferred under a disk constraint, not dropped.
+// The failure this prevents is not "someone deletes the list" — it is the quieter one: a deferred
+// entry losing its REASON, or dropping out of the DECLARED set, at which point six months from now
+// nobody can tell a deliberate deferral from a slot that was never thought of. ALL-MEANS-ALL is not
+// repealed, and this leg is the mechanical half of saying so.
+// ⛔ THIS LEG IS DRIVEN FROM THE COMPILED WRITER, NOT GREPPED, AND THE FIRST VERSION PROVED WHY.
+// Written as text checks, it went GREEN against two deliberate breaks: counting `loraLoses:` caught
+// the interface declaration as a 13th match so deleting a real one still totalled 12, and testing
+// /declarableEntries/ matched `declarableEntriesOLD` after the function was renamed away. That is
+// ★CODE-HYGIENE-SWEEP-KNOWN-HAZARDS item (3) — a guard proves a STRING EXISTS, never that CODE
+// BEHAVES — reproduced inside a guard written hours after banking it. The module is the only thing
+// that can answer these questions.
+{
+  const W = 'src/lib/backfill/google-ads-universe-writer.ts'
+  try {
+    const out2 = mkdtempSync(join(tmpdir(), 'loramer-uns-'))
+    const cfg2 = join(out2, 'tsconfig.json')
+    // ⛔ EXTENDS THE REPO'S OWN tsconfig RATHER THAN INVENTING ONE. An ad-hoc compilerOptions block
+    // here type-checked the file under DIFFERENT strictness than the app does, and failed on a
+    // narrowing the repo config accepts — so the guard reported "could not drive the module" on
+    // perfectly good source. A guard must compile the code the way the code is actually compiled.
+    writeFileSync(cfg2, JSON.stringify({
+      extends: join(ROOT, 'tsconfig.json'),
+      compilerOptions: {
+        module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
+        // ⛔ `incremental` OFF. The repo config enables it, and the inherited tsBuildInfoFile path
+        // resolved outside the temp dir and failed with EACCES — a guard must not depend on where
+        // its scratch config happens to sit.
+        incremental: false, composite: false,
+        rootDir: ROOT, baseUrl: ROOT, paths: { '@/*': ['src/*'] }, outDir: out2,
+        typeRoots: [join(ROOT, 'node_modules/@types')], types: ['node'],
+      },
+      // ⛔ `include`/`exclude` MUST be blanked explicitly. `extends` MERGES the base config's
+      // `include`, and `files` does not override it — so inheriting the repo tsconfig silently
+      // pulled the entire src tree into this compile and failed on unrelated Stripe typings.
+      files: [join(ROOT, W)], include: [], exclude: [],
+    }))
+    execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg2], { stdio: 'pipe' })
+    try { symlinkSync(join(ROOT, 'node_modules'), join(out2, 'node_modules')) } catch {}
+    const stub2 = join(out2, 'supabase-stub.js')
+    writeFileSync(stub2, 'exports.supabaseAdmin = { from: () => { throw new Error("guard stub") } };\n')
+    const require2 = createRequire(import.meta.url)
+    const Module2 = require2('module')
+    const orig2 = Module2._resolveFilename
+    Module2._resolveFilename = function (req, ...a) {
+      if (req === '@/lib/supabase') return stub2
+      if (req.startsWith('@/')) return join(out2, 'src', req.slice(2) + '.js')
+      return orig2.call(this, req, ...a)
+    }
+    const w = require2(join(out2, 'src/lib/backfill/google-ads-universe-writer.js'))
+    Module2._resolveFilename = orig2
+
+    const notes = w.DEFERRED_ENTRIES || {}
+    const keys = Object.keys(notes)
+    if (keys.length !== 12) {
+      findings.push(`(g) DEFERRED_ENTRIES holds ${keys.length} entries, expected 12 (LORAMER_UNIVERSE_NARROWED_SET_V1). A deferral list that drifts from its own record in ★UNIVERSE-NARROW-ON-MEASURED-YIELD is how "deferred" quietly becomes "dropped".`)
+    }
+    for (const k of keys) {
+      const n = notes[k] || {}
+      for (const f of ['reason', 'loraLoses']) {
+        if (typeof n[f] !== 'string' || n[f].trim().length < 10) {
+          findings.push(`(g) deferred entry "${k}" has no usable \`${f}\`. A deferral without its reason and its NAMED cost to Lora is indistinguishable from a slot nobody thought of — the exact confusion this arc exists to end.`)
+        }
+      }
+      for (const f of ['measuredRowsPerRequest', 'measuredGBPerWalk']) {
+        if (!Number.isFinite(n[f]) || n[f] <= 0) {
+          findings.push(`(g) deferred entry "${k}" has no measured \`${f}\`. Deferral is a decision made ON EVIDENCE; without the number it is just a cut.`)
+        }
+      }
+    }
+    // THE BEHAVIOURAL ASSERTIONS — run the real selection over the real artifact.
+    const doc = w.loadUniverse(ROOT)
+    const sel = w.selectableEntries(doc)
+    const dec = w.declarableEntries(doc)
+    const def = w.deferredEntries(doc)
+    const leaked = sel.filter((e) => w.deferralFor(e))
+    if (leaked.length) {
+      findings.push(`(g) ${leaked.length} DEFERRED entries are still in the REQUEST set returned by selectableEntries(). The narrowing is not in effect and the walk would spend the disk it was narrowed to save.`)
+    }
+    if (def.length !== 12) {
+      findings.push(`(g) deferredEntries() returns ${def.length}, expected 12 — the deferred set is not reportable, so a narrowed walk cannot state what it narrowed.`)
+    }
+    // ⛔ STILL DECLARED. Deferral touches the REQUEST list only. Dropping a deferred entry from the
+    // DECLARED set would make its already-landed rows unreachable to Lora — turning a storage
+    // decision into data loss, which is a different and much worse thing.
+    const missingFromDeclared = def.filter(({ entry }) =>
+      !dec.some((d) => d.resource === entry.resource && d.segment === entry.segment))
+    if (missingFromDeclared.length) {
+      findings.push(`(g) ${missingFromDeclared.length} deferred entries are ABSENT from declarableEntries(). Deferral must never touch what is DECLARED: the registry is what makes already-landed rows reachable, so dropping them there converts a storage decision into DATA LOSS.`)
+    }
+  } catch (e) {
+    findings.push(`(g) could not drive ${W}: ${String(e.stdout || '').trim() || e.message}`)
+  }
+  if (!/deferredEntries/.test(read('src/app/api/backfill/universe-start/route.ts'))) {
+    findings.push('(g) the starter route no longer reports deferredEntries(). A narrowed walk that does not state what it narrowed reads, from the outside, exactly like a walk that silently lost 12 slots.')
   }
 }
 

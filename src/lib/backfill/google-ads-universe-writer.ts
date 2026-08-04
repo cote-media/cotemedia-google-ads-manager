@@ -148,15 +148,72 @@ export const DERIVED_TIME_SEGMENTS = new Set<string>(['segments.date', ...DERIVE
 export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
 export const PROVENANCE_VENDOR = 'VENDOR_REPORTED'
 
+// ── DEFERRED UNDER A DISK CONSTRAINT — LORAMER_UNIVERSE_NARROWED_SET_V1, 2026-08-04 ────────────────────────
+// ⛔ THESE ARE DEFERRED, NOT DROPPED, AND ALL-MEANS-ALL IS NOT REPEALED. This is SEQUENCING UNDER A DISK
+// CONSTRAINT and nothing else: 12 of 358 entries carry 41.9% of the walk's disk (68.2 GB of 162.9 GB),
+// measured from the landed Foam OH window 2026-03-07..04-05 (LORAMER_UNIVERSE_YIELD_RANK_V1). The moment the
+// volume grows these are the FIRST thing walked, and this table is what makes that a one-line change rather
+// than a re-argument.
+//
+// ⛔ EVERY ONE CARRIES ITS REASON AND ITS MEASURED YIELD, so a deferral can never read as an absence. A slot
+// that is simply missing is indistinguishable from a slot nobody thought of — the exact confusion this whole
+// arc exists to end.
+//
+// ⛔ THE SELECTION RULE THAT BOUND THIS LIST WAS *REACHABILITY*, NOT COST. Every deferred segment still lands
+// at another entity_level, so NO DECLARED FAMILY BECOMES UNREACHABLE. That constraint is why
+// `expanded_landing_page_view/landing_page_source` and the resource-only base entries were KEPT even though
+// they are not cheap: they are the only remaining home for their families. UNWIRED IS MISSING cuts both ways.
+export interface DeferralNote {
+  reason: string
+  /** Measured rows for ONE 30-day window on the probe account. One entry × one window = one request. */
+  measuredRowsPerRequest: number
+  /** What the entry would cost across the 50-window walk, at the measured 832 B/row. */
+  measuredGBPerWalk: number
+  /** ⛔ Named, not glossed: what Lora can no longer answer while this is deferred. */
+  loraLoses: string
+}
+const GEO_LOSS = 'presence-vs-target geography — "where the user actually WAS" as distinct from "where we TARGETED" — at this grain. The targeting answer survives in full via geographic_view; the presence answer survives only at region/state/metro.'
+const LP_LOSS = 'landing-page performance SPLIT BY this segment. Landing-page totals and landing_page_source survive.'
+const PLACEMENT_LOSS = 'placement performance split by this segment. Placement totals survive.'
+export const DEFERRED_ENTRIES: Record<string, DeferralNote> = {
+  'user_location_view|segments.geo_target_most_specific_location': { reason: 'geographic_view serves the SAME declared family at 19.9% fill vs 0.3% here — 66× denser for the same row count', measuredRowsPerRequest: 427_020, measuredGBPerWalk: 16.54, loraLoses: GEO_LOSS },
+  'user_location_view|segments.geo_target_postal_code':            { reason: 'geographic_view serves the same family at 24.7% fill vs 1.3% here', measuredRowsPerRequest: 327_676, measuredGBPerWalk: 12.70, loraLoses: GEO_LOSS },
+  'user_location_view|segments.geo_target_city':                   { reason: 'geographic_view serves the same family at 24.1% fill vs 0.5% here', measuredRowsPerRequest: 234_007, measuredGBPerWalk: 9.07,  loraLoses: GEO_LOSS },
+  'user_location_view|segments.geo_target_county':                 { reason: 'geographic_view serves the same family at 39.5% fill vs 4.2% here', measuredRowsPerRequest: 69_968,  measuredGBPerWalk: 2.71,  loraLoses: GEO_LOSS },
+  'expanded_landing_page_view|segments.click_type':          { reason: 'landing-page × click_type cross-product at 0.7% fill; click_type stays reachable at many other grains', measuredRowsPerRequest: 118_948, measuredGBPerWalk: 4.61, loraLoses: LP_LOSS },
+  'expanded_landing_page_view|segments.device':              { reason: 'landing-page × device cross-product at 1.0% fill; device stays reachable at many other grains',        measuredRowsPerRequest: 85_871,  measuredGBPerWalk: 3.33, loraLoses: LP_LOSS },
+  'expanded_landing_page_view|segments.slot':                { reason: 'landing-page × slot cross-product at 1.0% fill; slot stays reachable at other grains',                 measuredRowsPerRequest: 80_140,  measuredGBPerWalk: 3.10, loraLoses: LP_LOSS },
+  'expanded_landing_page_view|segments.ad_sub_network_type': { reason: 'landing-page × ad_sub_network_type at 1.2% fill; the segment stays reachable at other grains',          measuredRowsPerRequest: 79_120,  measuredGBPerWalk: 3.07, loraLoses: LP_LOSS },
+  'expanded_landing_page_view|segments.ad_network_type':     { reason: 'landing-page × ad_network_type at 0.8% fill; the segment stays reachable at other grains',              measuredRowsPerRequest: 78_300,  measuredGBPerWalk: 3.03, loraLoses: LP_LOSS },
+  'detail_placement_view|segments.device':    { reason: 'placement × device cross-product at 2.6% fill; device stays reachable at many other grains',     measuredRowsPerRequest: 92_509, measuredGBPerWalk: 3.58, loraLoses: PLACEMENT_LOSS },
+  'group_placement_view|segments.device':     { reason: 'placement × device cross-product at 3.1% fill; device stays reachable at many other grains',     measuredRowsPerRequest: 92_222, measuredGBPerWalk: 3.57, loraLoses: PLACEMENT_LOSS },
+  'group_placement_view|segments.click_type': { reason: 'placement × click_type cross-product at 1.8% fill; click_type stays reachable at other grains',  measuredRowsPerRequest: 75_440, measuredGBPerWalk: 2.92, loraLoses: PLACEMENT_LOSS },
+}
+export const deferralKey = (e: UniverseEntry): string => `${e.resource}|${e.segment ?? ''}`
+export function deferralFor(e: UniverseEntry): DeferralNote | null {
+  return DEFERRED_ENTRIES[deferralKey(e)] ?? null
+}
+
 /**
- * Entries this writer will REQUEST: proven to deliver, date-combinable, and not a derived time segment.
- * ⛔ The derived-time entries are NOT dropped from the artifact and NOT dropped from the registry — they are
- * dropped from the REQUEST list only, and their families are computed locally instead. `selectableEntries`
- * answers "what do we ask Google for"; it is deliberately no longer the same question as "what do we store".
+ * Entries this writer will REQUEST: proven to deliver, date-combinable, not a derived time segment, and not
+ * DEFERRED under the disk constraint.
+ * ⛔ Neither the derived-time entries nor the deferred ones are dropped from the artifact or from the
+ * registry — they are dropped from the REQUEST list only. `selectableEntries` answers "what do we ask Google
+ * for"; it is deliberately not the same question as "what do we store", and now also not the same question as
+ * "what exists". Use `deferredEntries()` to report the difference; never let it read as an absence.
  */
 export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
   return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true)
-    && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment)))
+    && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment))
+    && !deferralFor(e))
+}
+
+/** ⛔ THE DEFERRED SET, WITH REASONS — so "what are we not asking for, and why" is always answerable. */
+export function deferredEntries(doc: UniverseDoc): Array<{ entry: UniverseEntry; note: DeferralNote }> {
+  return doc.entries
+    .filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true)
+      && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment)))
+    .flatMap((e) => { const note = deferralFor(e); return note ? [{ entry: e, note }] : [] })
 }
 
 /** Every entry the artifact declares selectable, INCLUDING the derived-time ones. The registry declares from

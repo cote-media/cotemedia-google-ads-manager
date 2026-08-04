@@ -36,8 +36,11 @@ for (const l of readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n')) {
 // modification window is exhausted, so the number cannot change under us. USED is read live every
 // batch from pg_database_size across all databases plus pg_ls_waldir(). Free = provisioned − used.
 // ⛔ If either read fails, the run STOPS — it does not assume headroom it cannot see.
-const PROVISIONED_BYTES = 200 * 1024 ** 3            // 200 GB, confirmed by Russ 2026-08-03
-const FLOOR_BYTES = Math.max(15 * 1024 ** 3, Math.floor(PROVISIONED_BYTES * 0.20))  // max(15 GB, 20%) = 40 GB
+// ⛔ 280 GB, RAISED BY RUSS 2026-08-04 (was 200 GB). src/lib/backfill/universe-window-log.ts carries the
+// SAME number and tests/guards/universe-window-log.guard.mjs asserts the two agree — one disk, one
+// provisioned figure, one floor. Resize again and BOTH move in the same commit.
+const PROVISIONED_BYTES = 280 * 1024 ** 3
+const FLOOR_BYTES = Math.max(15 * 1024 ** 3, Math.floor(PROVISIONED_BYTES * 0.20))  // max(15 GB, 20%) = 56 GB
 const BATCH_ROWS = 50_000
 const MAINTENANCE_WORK_MEM = '2GB'                    // session-scoped; see setSession()
 

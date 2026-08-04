@@ -15,10 +15,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 export const VENDOR = 'google_ads' // ⛔ NOT 'google' — LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1.
 const TABLE = 'universe_window_log'
 
-// ⛔ PROVISIONED IS A STATED CONSTANT AND POSTGRES CANNOT SEE IT. 200 GB, confirmed by Russ
-// 2026-08-03, the same number scripts/partition-backfill.mjs runs on. If the volume is ever resized
-// this MUST move with it — a stale value here would authorise a walk against headroom that is gone.
-export const PROVISIONED_BYTES = 200 * 1024 ** 3
+// ⛔ PROVISIONED IS A STATED CONSTANT AND POSTGRES CANNOT SEE IT. **280 GB, raised by Russ 2026-08-04**
+// (was 200 GB from 2026-08-03). scripts/partition-backfill.mjs carries the SAME number and the guard
+// asserts they agree — one disk may have exactly one provisioned figure and exactly one floor, or one
+// of them gets forgotten. If the volume is resized again this MUST move in BOTH places in the same
+// commit: a stale value here authorises a walk against headroom that does not exist.
+export const PROVISIONED_BYTES = 280 * 1024 ** 3
 // max(15 GB, 20% of provisioned) = 40 GB. Identical rule to the partition backfill, deliberately:
 // two different floors for the same disk is how one of them gets forgotten.
 export const FLOOR_BYTES = Math.max(15 * 1024 ** 3, Math.floor(PROVISIONED_BYTES * 0.2))
