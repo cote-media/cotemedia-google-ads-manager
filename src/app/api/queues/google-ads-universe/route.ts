@@ -15,9 +15,15 @@
 // holds O(1) messages per client instead of O(months), and no message ever waits long enough to expire.
 import { NextResponse } from 'next/server'
 import { handleCallback, send } from '@vercel/queue'
-import { loadUniverse, captureUniverseEntry, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
-import { recordEntryOutcome, readAllEntryStates, isClientComplete, writeCompletionNotice, readBackfillRequestsToday } from '@/lib/backfill/universe-run-state'
+import { loadUniverse, captureUniverseEntry, refusalStamp, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { recordEntryOutcome, readAllEntryStates, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
 import { decidePublish } from '@/lib/backfill/universe-governor'
+// LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
+// governor's CORRECTED spend read. See the module header for what each replaces and why.
+import {
+  checkDiskFloor, openWindow, closeWindow, readLaneSpendToday, windowAlreadyFinished, gb,
+  type WindowKey, type WindowOutcome,
+} from '@/lib/backfill/universe-window-log'
 
 export const dynamic = 'force-dynamic'
 // ⛔ LORAMER_NO_CACHED_DB_READ_V1 — this route reads google_tokens / platform_connections, and a read that
@@ -48,13 +54,66 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? '/' + entry.segment : ''}`
 
+  const wk: WindowKey = { clientId, resource: entry.resource, segment: entry.segment, windowStart: startDate, windowEnd: endDate }
+
+  // ── RESUME: NEVER RE-WALK A FINISHED WINDOW ──────────────────────────────────────────────────────────────
+  // ⛔ TERMINAL OUTCOMES ONLY. A row reading `running` is a window that DIED, not one that finished, so it
+  // falls through and is walked again. Delivery is at-least-once, so this is also the cheap path for a
+  // redelivered message: it costs one indexed read instead of one vendor request.
+  if (await windowAlreadyFinished(wk)) {
+    console.log(`[universe] SKIP already-finished ${clientId} ${label} ${startDate}..${endDate}`)
+    return
+  }
+
+  // ── ⛔ THE HARD DISK FLOOR, CHECKED BEFORE EVERY WINDOW AND BEFORE SPENDING THE REQUEST ───────────────────
+  // The measured cost is +4.53 GB per window. This is not a precaution against an unlikely event — at
+  // 49 GB of headroom the walk REACHES the floor around window 11 of 50 by arithmetic. Below the floor the
+  // walk stops CLEANLY, records WHY, and does NOT re-publish: no next message, so the lane goes quiet
+  // instead of hammering a full volume.
+  const floor = await checkDiskFloor()
+  if (!floor.ok) {
+    await openWindow(wk, floor.freeBytes)
+    await closeWindow(wk, { outcome: 'floor_stop', rowsWritten: 0, requestsSpent: 0, refusedRows: 0, error: floor.reason })
+    console.error(`[universe] FLOOR STOP ${clientId} ${label} ${startDate}..${endDate}: ${floor.reason}`)
+    return
+  }
+
+  // ⛔ OPENED AS `running` BEFORE THE VENDOR IS CALLED. A process killed mid-request leaves this row
+  // reading `running`, which is the failure it actually is — never an absence, never a silent success.
+  await openWindow(wk, floor.freeBytes)
+
   // ⛔ THE QUERY IS INJECTED, NOT IMPORTED HERE. Flight 1's writer takes `query` as a parameter precisely so
   // it stays drivable with no network; the vendor client is constructed by the caller below.
   const { googleAdsQueryFor } = await import('@/lib/backfill/universe-vendor-client')
-  const query = await googleAdsQueryFor(userEmail, customerId)
 
-  const result = await captureUniverseEntry({
-    entry, ctx: { clientId, userEmail, customerId }, startDate, endDate, query,
+  let result: Awaited<ReturnType<typeof captureUniverseEntry>>
+  try {
+    const query = await googleAdsQueryFor(userEmail, customerId)
+    result = await captureUniverseEntry({
+      entry, ctx: { clientId, userEmail, customerId }, startDate, endDate, query,
+    })
+  } catch (e) {
+    // ⛔ A THROW MUST REACH AN OUTCOME. Without this the row would stay `running` forever and the walk
+    // would look mid-flight when it had already failed. `running` is reserved for processes that DIED,
+    // not for ones that returned an error we could see.
+    const message = e instanceof Error ? e.message : String(e)
+    await closeWindow(wk, { outcome: 'error', rowsWritten: 0, requestsSpent: 1, refusedRows: 0, error: message.slice(0, 500) })
+    throw e
+  }
+
+  // ⛔ THE OUTCOME IS CHOSEN EXPLICITLY, NEVER INFERRED FROM rows>0. Zero rows can mean the vendor answered
+  // and named nothing ('zero' — a FACT) or that we never asked ('skipped'); no later inspection of the row
+  // count can tell those apart, which is precisely why they are decided here and written down.
+  const outcome: WindowOutcome =
+    result.error ? 'error' : result.skipped ? 'skipped' : result.observedZero ? 'zero' : 'ok'
+  // Every row of a partial entry carries the refusal stamp, so the count is exact rather than sampled.
+  const refusedRows = refusalStamp(entry) ? result.rowsWritten : 0
+  await closeWindow(wk, {
+    outcome,
+    rowsWritten: result.rowsWritten,
+    requestsSpent: result.gaql ? 1 : 0,
+    refusedRows,
+    error: result.error,
   })
 
   // ⛔ IDEMPOTENCY LIVES IN THE UPSERT, NOT IN A FLAG. captureUniverseEntry writes through
@@ -77,7 +136,11 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // ── SELF-RE-PUBLISH, GOVERNED ────────────────────────────────────────────────────────────────────────────
   const stillGoing = result.exhaustion && !result.exhaustion.complete && !result.skipped && !result.error
   if (stillGoing) {
-    const gov = decidePublish({ spentRequestsToday: await readBackfillRequestsToday(), want: 1 })
+    // ⛔ SPEND COMES FROM THE WINDOW LOG, NOT FROM universe_run_state. The old read summed a CUMULATIVE
+    // per-entry counter for every entry touched today, so from day 2 it billed the walk for day 1 and the
+    // governor refused to publish — a 3-day walk halting on day 2 reporting "allowance EXHAUSTED" having
+    // spent nothing that day. One log row is one window, so this sum is today's spend by construction.
+    const gov = decidePublish({ spentRequestsToday: await readLaneSpendToday(), want: 1 })
     if (gov.mayPublish) {
       const nextEnd = addDays(startDate, -1)
       const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
@@ -100,7 +163,7 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // ⛔ THE GRAIN AND THE DECLINES ARE ON THE LOG LINE ON PURPOSE (LORAMER_UNIVERSE_ENTITY_AXIS_V1). A run
   // that silently wrote everything at one level is indistinguishable from a run that wrote at vendor grain
   // unless the level is stated per message; `declines` is the third state — vendor answered, named no entity.
-  console.log(`[universe] ${clientId} ${label} ${startDate}..${endDate} level=${result.entityLevel} apiRows=${result.apiRows} rows=${result.rowsWritten} declines=${result.grainDeclines} zero=${result.observedZero} skipped=${!!result.skipped} msg=${metadata?.messageId} | ${done.reason}`)
+  console.log(`[universe] ${clientId} ${label} ${startDate}..${endDate} outcome=${outcome} level=${result.entityLevel} apiRows=${result.apiRows} rows=${result.rowsWritten} refused=${refusedRows} declines=${result.grainDeclines} zero=${result.observedZero} skipped=${!!result.skipped} disk=${gb(floor.freeBytes)} msg=${metadata?.messageId} | ${done.reason}`)
 })
 
 export async function GET() {

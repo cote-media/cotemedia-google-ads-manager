@@ -14,7 +14,7 @@ import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
 import { loadUniverse, selectableEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
 import { decidePublish } from '@/lib/backfill/universe-governor'
-import { readBackfillRequestsToday } from '@/lib/backfill/universe-run-state'
+import { checkDiskFloor, readLaneSpendToday, gb, FLOOR_BYTES, PROVISIONED_BYTES } from '@/lib/backfill/universe-window-log'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -49,12 +49,37 @@ export async function POST(request: Request) {
   }
 
   const entries = selectableEntries(loadUniverse())
-  const spent = await readBackfillRequestsToday()
+
+  // ⛔ THE DISK FLOOR IS A START GATE TOO, NOT ONLY A PER-WINDOW ONE. Starting a walk that must stop
+  // three windows in is worse than not starting: it spends vendor quota, writes partial history, and
+  // leaves the operator reading a "started" response for a run that cannot finish.
+  // ⛔ PROJECTION, NOT JUST THE INSTANTANEOUS READ. The measured cost is 4.53 GB/window
+  // (LORAMER_UNIVERSE_ONE_WINDOW_MEASURED_V1: 5,448,391 rows at 832 B/row). Reporting how many of the
+  // 50 windows actually FIT is the difference between "there is disk right now" and "this walk can
+  // complete", and only the second one is a reason to start.
+  const floor = await checkDiskFloor()
+  const MEASURED_BYTES_PER_WINDOW = Math.round(4.53 * 1024 ** 3)
+  const usable = Math.max(0, floor.freeBytes - FLOOR_BYTES)
+  const windowsAffordable = Math.floor(usable / MEASURED_BYTES_PER_WINDOW)
+  const disk = {
+    freeBytes: floor.freeBytes, free: gb(floor.freeBytes), used: gb(floor.usedBytes),
+    provisioned: gb(PROVISIONED_BYTES), floor: gb(FLOOR_BYTES), usableAboveFloor: gb(usable),
+    measuredBytesPerWindow: gb(MEASURED_BYTES_PER_WINDOW),
+    windowsAffordable, windowsInWalk: 50,
+    verdict: windowsAffordable >= 50
+      ? `the full 50-window walk fits above the floor`
+      : `⛔ ONLY ${windowsAffordable} OF 50 WINDOWS FIT above the floor — this walk CANNOT complete on the current volume. It will stop cleanly at the floor partway through.`,
+  }
+  if (!floor.ok) {
+    return NextResponse.json({ started: false, published: 0, reason: floor.reason, disk }, { status: 200 })
+  }
+
+  const spent = await readLaneSpendToday()
   const gov = decidePublish({ spentRequestsToday: spent, want: entries.length })
 
   // ⛔ THE GOVERNOR DECIDES BEFORE ANYTHING IS PUBLISHED. Zero is a valid answer and is reported, not retried.
   if (!gov.mayPublish) {
-    return NextResponse.json({ started: false, published: 0, reason: gov.reason, denominator: gov.denominator }, { status: 200 })
+    return NextResponse.json({ started: false, published: 0, reason: gov.reason, denominator: gov.denominator, disk }, { status: 200 })
   }
 
   const startDate = addDays(endDate, -(WINDOW_DAYS - 1))
@@ -86,5 +111,6 @@ export async function POST(request: Request) {
       perGrain,
     },
     governor: { reason: gov.reason, denominator: gov.denominator },
+    disk,
   })
 }
