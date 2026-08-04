@@ -1228,7 +1228,27 @@ flights that shipped them, which is the argument for shipping them at all.
 
 **GATE-A POSTURE FOR THE NEXT SESSION, so the first guard run is not misread:** the working tree reads **54 PASSED · 1 FAILED**, and that ONE failure is the held Google Tier-1 widen's own preconditions in `metrics-upsert-chunked` — everything committed is **55/55 green with `next build` exit 0**, proven by isolation at d081752 with the widen absent. The widen is still uncommitted (`cron/sync/route.ts` blob e3d8a09e / 67,870 bytes · `forward-widen-breadth.ts` blob 35776e49 / 2,775 bytes).
 
-▶▶ NEXT STEP — 2026-08-03 REFUSED-METRIC WRAP (latest — resume HERE). ⛔ **THE WALK IS CORRECT, DECLARED, GUARDED, 36% CHEAPER AND NOW HONEST ABOUT WHAT GOOGLE WILL NOT TELL IT. WHAT REMAINS BEFORE FIRING IS ONE COMPUTE DECISION AND ONE READ-PATH GAP.**
+▶▶ NEXT STEP — 2026-08-03 PARTITION DESIGN WRAP (latest — resume HERE). ⛔ **PHASE 1 IS DONE AND NOTHING WAS EXECUTED. THREE BLOCKERS ARE NAMED AND ONE OF THEM IS A NUMBER ONLY YOU CAN READ — THE PROVISIONED DISK. PHASE 2 MUST NOT START UNTIL IT IS KNOWN.**
+
+⛔ **DEPARTURE FROM RANKING, stated not assumed:** the QUEUE's declared TOP-UNBLOCKED is still ★GOOGLE-GEO-STATEMENT-TIMEOUTS, and it is departed from because its premise died on 2026-08-03 — all six google geo cursors advanced on the 00:20Z fire, the frozen-cursor guard read frozen 8 · baselined 8 · NEW 0 · PASSED, and all six baseline entries were deleted. **The lap is running unattended; there is nothing to unblock.** What replaces it is the partition work, because the measured 16× read amplification and 28s cold reads now bound everything the universe walk does next.
+
+**DESIGN:** `docs/LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1.md`. Monthly RANGE on `date`, client_id leading within each partition, pg_partman 5.3.1 for ongoing creation, a ledger-backed resumable backfill, atomic two-rename swap, staged rollback, Iceberg-ready by construction.
+
+⛔ **BLOCKER 1 — DISK. THE COPY HOLDS BOTH TABLES: ~110 GB for the table alone, ~115 GB with WAL, ~120–130 GB realistic.** Provisioned disk is NOT readable from SQL — **it is a dashboard read and it is yours.** **At 90 GB the copy path is FORBIDDEN**: 55 GB is already 61% of it, and the copy would wedge the database with a full disk, unattended, overnight. Grow to ≥130 GB, or take the batch-move-and-delete variant knowingly — it stays near 1× but destroys source rows as it goes and voids the free rollback after its first DELETE.
+
+⛔ **BLOCKER 2 — THE PRIMARY KEY IS ILLEGAL UNDER PARTITIONING.** `PRIMARY KEY (id)` does not contain `date`, and PG17 has no global indexes, so the DDL fails outright. ⚠ **THE PART THAT MAKES THIS TRACTABLE: the 7-column UNIQUE conflict key DOES contain `date` at position 5 — every writer survives untouched.** Only the surrogate pkey breaks. `(id, date)` or drop `id` (−2,123 MB of index) — **your call, and Phase 2 greps the codebase for reads of `metrics_daily.id` first.**
+
+⛔ **BLOCKER 3 — RLS IS ENABLED WITH ZERO POLICIES.** That is deny-all except service_role, not "RLS off". A new table created without it would **silently become readable by roles that cannot read it today** — a security regression dressed as a performance migration. Everything else on the swap surface is clean: zero incoming FKs, zero outgoing FKs, zero views, zero matviews, zero triggers, zero publications.
+
+**THE CAUSE IS NOW ARITHMETIC, NOT MYSTERY: `shared_buffers` is 512 MB against a 55 GB table, and the unique index alone is 17 GB — 34× shared_buffers.** ⛔ And **not one index leads with `date`** (all six lead with client_id), so nothing can prune or scan by date at all today. **2026-03 alone is ~13.6M rows / ~11 GB — ~20% of the table in one month**, which is what makes monthly granularity correct rather than conventional.
+
+⚠ **UNVERIFIED AND LABELLED: what a Supabase compute resize does to an in-flight transaction.** The docs give "<2 minutes downtime" and warn a resize can fail or stick for hours, but never say. The Postgres mechanism is not in doubt — a terminated backend rolls back uncommitted work — so a multi-hour single-transaction copy would be lost entirely. That is why the backfill is batched with per-batch commits and a durable ledger, and why **compute must not be resized while a batch is in flight.**
+
+**RUNTIME ~8.9 h to move at the measured 2,160 rows/s, but the index build is UNMEASURED and may dominate** (`maintenance_work_mem` 128 MB, one parallel maintenance worker). Plan 12–24 h; promise nothing.
+
+**GATE-A POSTURE:** working tree **57 PASSED · 1 FAILED**, that one still only the held Google Tier-1 widen's own preconditions; committed is **58/58** with `next build` exit 0. ⚠ **HELD WIDEN UNTOUCHED** — blobs e3d8a09e / 35776e49 · `hold/google-tier1-widen` 5d95348 on origin.
+
+- (2026-08-03 refused-metric opener — HISTORY, superseded by the partition-design wrap below. Kept because its figures are current: 356 requests/window, ~226.7 GB/client, ETA 3.0 days, and the refused-metric read-path gap it banked is still open.) 2026-08-03 REFUSED-METRIC WRAP. ⛔ **THE WALK IS CORRECT, DECLARED, GUARDED, 36% CHEAPER AND NOW HONEST ABOUT WHAT GOOGLE WILL NOT TELL IT. WHAT REMAINS BEFORE FIRING IS ONE COMPUTE DECISION AND ONE READ-PATH GAP.**
 
 ⛔ **DEPARTURE FROM RANKING:** the QUEUE's declared TOP-UNBLOCKED is still ★GOOGLE-GEO-STATEMENT-TIMEOUTS, whose premise died on 2026-08-03 when all six geo cursors advanced and the frozen-cursor guard read PASSED.
 
