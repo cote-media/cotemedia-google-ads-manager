@@ -209,6 +209,65 @@ platforms cost in rows or in disk. That gap should not be discovered after the w
 
 ---
 
+## ⛔ THE TIER DECISION RULE — WRITTEN 2026-08-04, BEFORE THE SMALL NUMBERS EXIST
+
+**Why this is written first:** if you measure and then decide what "good enough" means, you will
+decide that whatever you measured is good enough. **The thresholds below were set before anyone knew
+what Small produces.** When the measurement comes in, read it against this — do not edit this to fit
+the measurement. If a threshold turns out to be wrong, change it deliberately and say why.
+
+### What has to be true
+
+**1. READ LATENCY — what Lora needs.**
+A person asks Lora a question and waits for the answer. Anything under **2 seconds** feels instant.
+Past **5 seconds** they wonder if it broke. Past **10 seconds** they stop asking.
+- ⛔ **The number that matters is the COLD read, not the warm one.** Warm means someone already asked
+  that exact question recently. The first person of the morning always gets cold.
+- **Target: worst-case cold read under 5 seconds. Typical cold read under 2 seconds.**
+- Measured today on XL, partitioned: **984 ms warm.** The good-plan cold number has never been taken.
+
+**2. WRITE THROUGHPUT — what the walk needs.**
+The Google walk writes roughly 5.4 million rows per 30-day window, over 50 windows.
+- At **2,000 rows/second** a window takes ~45 minutes — fine, it runs overnight.
+- At **500 rows/second** a window takes ~3 hours, and the walk stops fitting in a night.
+- ⛔ **Judge it on the UPDATE path, not the INSERT path.** Re-walking ground we already hold is an
+  update, and updates are far dearer than inserts. The measurement script reports both; **use the
+  slower one.**
+- **Target: 2,000 rows/second or better on the UPDATE path.**
+
+### The decision
+
+| what you measure | what it means |
+|---|---|
+| cold read **under 2 s** AND update path **over 2,000 rows/s** | ⛔ **STAY ON SMALL.** Partitioning did the job. Do not pay for compute to fix a solved problem. |
+| cold read **2–5 s** AND update path **1,000–2,000 rows/s** | **Stay on Small for now, and re-measure once the walk has run.** It is acceptable but has no headroom, and the table will keep growing. |
+| cold read **5–10 s** OR update path **500–1,000 rows/s** | **Go to Large.** Usable but visibly slow, and it will get worse as data lands. |
+| cold read **over 10 s** OR update path **under 500 rows/s** | **Go to XL and stay there.** At this point compute genuinely is the constraint. |
+| ⛔ **the plan scans more than a handful of partitions** | ⛔ **STOP — none of the above applies.** Pruning has broken and no tier fixes that. Fix pruning first. |
+
+### Two things that would invalidate the measurement
+
+- ⛔ **If `shared_buffers` still reads 4 GB, the resize has not taken effect.** The script prints this
+  first and says so. Do not read further down the output.
+- ⛔ **If the plan shows "Rows Removed by Filter" in the millions**, statistics are stale — run
+  `ANALYZE` and measure again. That is a statistics problem wearing the costume of a hardware problem,
+  and it is exactly what happened on 2026-08-04 before ANALYZE was run.
+
+### How to run it
+
+After you have changed compute to Small in the Supabase dashboard and it has finished restarting:
+
+```
+cd ~/Downloads/cotemedia-google-ads-manager && node scripts/steady-state-measure.mjs
+```
+
+⛔ **Run it FIRST, before anything else touches the database.** The very first query after a restart
+is the only genuinely cold reading you get — on managed Postgres there is no way to clear the cache
+on demand, so if you browse the dashboard or open the app first, the cold number is gone until the
+next restart.
+
+---
+
 ## RUSS'S OWN LIST — none of this is code, none of it can be done by Claude
 
 1. **Google Standard Access** — the website-clarification reply is still owed. This is the only thing
