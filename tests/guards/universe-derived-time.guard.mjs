@@ -87,6 +87,18 @@ const doc = JSON.parse(readFileSync(join(ROOT, 'docs/google-ads-capture-universe
     if (noRule.length) findings.push(`(b) ${noRule.length} computed row(s) carry no derivationRule/derivedFrom — the provenance marker without the rule still leaves a reader guessing HOW it was derived.`)
     const types = new Set(rows.map((r) => r.breakdown_type))
     for (const f of W.DERIVED_TIME_FAMILIES) if (!types.has(f.breakdownType)) findings.push(`(b) computed rows are missing the '${f.breakdownType}' family entirely.`)
+    // ── (d) THE `date` FAMILY IS NEITHER REQUESTED NOR COMPUTED ────────────────────────────────────────────
+    // ⛔ IT IS NOT A TIME ROLL-UP, IT IS A COPY. Its period IS the day, so its aggregate is one row per entity
+    // per day — byte for byte the base family. Measured at EXACTLY ZERO saving (78,300 vs 78,300) and proven
+    // lossless on three resources covering 219,155 of 308,488 landed rows: 0 unreachable, 0 value mismatches.
+    // Recomputing it would silently restore 16.7% of the six-family volume for no information at all.
+    if (types.has('date')) findings.push("(d) the `date` family is being COMPUTED again. Its period is the day, so it duplicates the base family exactly — measured at zero saving and proven lossless before removal. The base rows already answer everything it answered.")
+    if (W.DERIVED_TIME_FAMILIES.some((f) => f.breakdownType === 'date' || f.segment === 'segments.date')) {
+      findings.push('(d) segments.date is back in DERIVED_TIME_FAMILIES — that list is what gets COMPUTED, and date must be neither requested nor computed.')
+    }
+    if (!W.DERIVED_TIME_SEGMENTS.has('segments.date')) {
+      findings.push('(d) segments.date is no longer in DERIVED_TIME_SEGMENTS — that set is what is EXCLUDED FROM THE REQUEST LIST, so dropping it there puts the family back on the wire.')
+    }
     // A SEGMENT entry must NOT produce derived rows — rolling one up by period would silently sum across its
     // own dimension and invent a number nobody asked for.
     const segEntry = W.declarableEntries(doc).find((e) => e.segment && !W.DERIVED_TIME_SEGMENTS.has(e.segment))
@@ -101,21 +113,90 @@ const doc = JSON.parse(readFileSync(join(ROOT, 'docs/google-ads-capture-universe
   const by = Object.fromEntries(W.DERIVED_TIME_FAMILIES.map((f) => [f.breakdownType, f]))
   // ⚠ MULTI-YEAR AND MULTI-QUARTER ON PURPOSE. The landed proof had ONE year and TWO quarters; if the
   // derivation were year-naive or quarter-naive that proof could not have caught it. These can.
+  // ⛔ `date` IS DELIBERATELY ABSENT from these expectations — it is no longer a derived family at all
+  // (leg (d) enforces that). Leaving it here would assert a derivation that must not exist.
   const cases = [
-    ['2026-03-07', { date: '2026-03-07', week: '2026-03-02', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '7' }], // Saturday
-    ['2026-03-02', { date: '2026-03-02', week: '2026-03-02', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '2' }], // Monday — week anchor is itself
-    ['2026-03-01', { date: '2026-03-01', week: '2026-02-23', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '8' }], // Sunday — week belongs to the PREVIOUS Monday
-    ['2024-12-31', { date: '2024-12-31', week: '2024-12-30', month: '2024-12-01', quarter: '2024-10-01', year: '2024', day_of_week: '3' }], // year boundary, Q4
-    ['2025-01-01', { date: '2025-01-01', week: '2024-12-30', month: '2025-01-01', quarter: '2025-01-01', year: '2025', day_of_week: '4' }], // week SPANS the year boundary
-    ['2024-02-29', { date: '2024-02-29', week: '2024-02-26', month: '2024-02-01', quarter: '2024-01-01', year: '2024', day_of_week: '5' }], // leap day
-    ['2023-07-01', { date: '2023-07-01', week: '2023-06-26', month: '2023-07-01', quarter: '2023-07-01', year: '2023', day_of_week: '7' }], // Q3 start
-    ['2022-10-01', { date: '2022-10-01', week: '2022-09-26', month: '2022-10-01', quarter: '2022-10-01', year: '2022', day_of_week: '7' }], // Q4 start, near the vendor floor
+    ['2026-03-07', { week: '2026-03-02', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '7' }], // Saturday
+    ['2026-03-02', { week: '2026-03-02', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '2' }], // Monday — week anchor is itself
+    ['2026-03-01', { week: '2026-02-23', month: '2026-03-01', quarter: '2026-01-01', year: '2026', day_of_week: '8' }], // Sunday — week belongs to the PREVIOUS Monday
+    ['2024-12-31', { week: '2024-12-30', month: '2024-12-01', quarter: '2024-10-01', year: '2024', day_of_week: '3' }], // year boundary, Q4
+    ['2025-01-01', { week: '2024-12-30', month: '2025-01-01', quarter: '2025-01-01', year: '2025', day_of_week: '4' }], // week SPANS the year boundary
+    ['2024-02-29', { week: '2024-02-26', month: '2024-02-01', quarter: '2024-01-01', year: '2024', day_of_week: '5' }], // leap day
+    ['2023-07-01', { week: '2023-06-26', month: '2023-07-01', quarter: '2023-07-01', year: '2023', day_of_week: '7' }], // Q3 start
+    ['2022-10-01', { week: '2022-09-26', month: '2022-10-01', quarter: '2022-10-01', year: '2022', day_of_week: '7' }], // Q4 start, near the vendor floor
   ]
   for (const [date, want] of cases) {
     for (const [bt, expected] of Object.entries(want)) {
       const got = by[bt]?.derive(date)
       if (got !== expected) findings.push(`(c) ${bt}('${date}') = '${got}', expected '${expected}'. ${bt === 'week' ? 'Week must be ISO/Monday-anchored.' : bt === 'quarter' ? 'Quarter must be CALENDAR, not fiscal.' : 'Derivation drifted from the empirically proven rule.'}`)
     }
+  }
+}
+
+// ── (e) delivers:true MUST BE MEASURED AGAINST THE METRIC SET THE WRITER ACTUALLY USES ────────────────────
+// ⛔ LORAMER_UNIVERSE_PROBE_METRIC_SET_V1. The probe used to ask with ONE metric while the writer asked with
+// FIVE, so `delivers:true` was a verdict on a query the walk never runs: 55 of 559 entries (9.8%) came back
+// delivering and then errored on EVERY window, burning a request each time and reporting an error instead of
+// a known limit. An entry may only claim delivery if its capability was measured with the writer's own list.
+{
+  const requested = W.selectableEntries(doc)
+  const unmeasured = requested.filter((e) => e.delivers === true && !Array.isArray(e.servesMetrics))
+  if (unmeasured.length) {
+    findings.push(`(e) ${unmeasured.length} entr(ies) are marked delivers:true with NO servesMetrics — delivery was measured against a metric set the writer does not use, which is how 9.8% of the walk errored every window. Re-probe with --metric-set. First 3: ${unmeasured.slice(0, 3).map((e) => e.resource + (e.segment ? '/' + e.segment : '')).join(', ')}`)
+  }
+  const partial = requested.filter((e) => Array.isArray(e.servesMetrics) && Array.isArray(e.refusesMetrics)
+    && e.servesMetrics.length > 0 && e.refusesMetrics.length > 0)
+  const noReason = partial.filter((e) => !e.metricSetReason)
+  if (noReason.length) findings.push(`(e) ${noReason.length} PARTIAL entr(ies) carry refusesMetrics with no metricSetReason — the vendor's own words must be kept verbatim, or partial degrades into an unexplained boolean.`)
+  for (const e of partial) {
+    const overlap = e.servesMetrics.filter((m) => e.refusesMetrics.includes(m))
+    if (overlap.length) { findings.push(`(e) ${e.resource}/${e.segment}: a metric is in BOTH servesMetrics and refusesMetrics (${overlap.join(', ')}) — the two sets must partition.`); break }
+  }
+  const genSrc = readFileSync(join(ROOT, 'scripts/google-ads-capture-universe.mjs'), 'utf8')
+  const m = /export const WRITER_METRICS = \[([^\]]*)\]/.exec(genSrc)
+  const probeList = m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : []
+  if (JSON.stringify(probeList) !== JSON.stringify(W.DEFAULT_METRICS)) {
+    findings.push(`(e) the probe's WRITER_METRICS ${JSON.stringify(probeList)} differ from the writer's DEFAULT_METRICS ${JSON.stringify(W.DEFAULT_METRICS)} — the probe would again be answering a different question than the walk asks.`)
+  }
+}
+
+// ── (f) A REFUSED METRIC IS NOT A ZERO, AND A ROW MUST SAY SO ──────────────────────────────────────────────
+// ⛔ LORAMER_UNIVERSE_REFUSED_METRIC_V1. 59 of the 358 requested entries serve ONLY conversions +
+// conversions_value; the vendor refuses cost_micros, clicks and impressions at that grain. Those columns are
+// NOT NULL DEFAULT 0 in metrics_daily, so they will read 0 — and a 0 that is not a zero is how a confident
+// wrong ROAS gets computed. The row must carry which columns are fake and why, verbatim.
+{
+  const requested = W.selectableEntries(doc)
+  const partialEntry = requested.find((e) => Array.isArray(e.refusesMetrics) && e.refusesMetrics.length > 0)
+  const fullEntry = requested.find((e) => Array.isArray(e.refusesMetrics) && e.refusesMetrics.length === 0)
+  const ctx = { clientId: 'c1', userEmail: 'e@x.com', customerId: '777' }
+  if (!partialEntry) findings.push('(f) no PARTIAL entry in the request list — the refused-metric leg could not run. If the re-probe recorded none, that is itself suspicious: 100 were measured on 2026-08-03.')
+  else {
+    const res = partialEntry.resource
+    const segPath = partialEntry.segment ? partialEntry.segment.replace(/^segments\./, '') : null
+    const seg = () => { const o = { date: '2026-03-07' }; if (segPath) { const ks = segPath.split('.'); let c = o; ks.forEach((k, i) => { if (i === ks.length - 1) c[k] = 'X'; else c = (c[k] = {}) }) } return o }
+    const rows = W.buildUniverseRowsAtGrain(partialEntry, ctx, [{ [res]: { resource_name: `customers/777/${res}s/1` }, segments: seg(),
+      metrics: { cost_micros: 0, impressions: 0, clicks: 0, conversions: 3, conversions_value: 9 } }]).rows
+    if (!rows.length) findings.push('(f) a PARTIAL entry with real conversions emitted no row at all.')
+    for (const r of rows) {
+      const x = r.extra || {}
+      if (!Array.isArray(x.refusedMetrics) || !x.refusedMetrics.length) { findings.push(`(f) a row from a PARTIAL entry (${res}) carries NO extra.refusedMetrics — its spend/impressions read 0 and nothing marks those as unavailable rather than zero.`); break }
+      if (!x.refusedReason) { findings.push('(f) a refused row carries no refusedReason — the vendor\'s words must travel with the row.'); break }
+      if (!Array.isArray(x.metricsReported)) { findings.push('(f) a refused row does not say which metrics ARE real (metricsReported).'); break }
+      const overlap = x.refusedMetrics.filter((m) => x.metricsReported.includes(m))
+      if (overlap.length) { findings.push(`(f) a row lists ${overlap.join(', ')} as BOTH refused and reported.`); break }
+      if (!x.refusedMeaning) { findings.push('(f) a refused row carries no refusedMeaning — the instruction not to build a ratio on it must be on the row, not only in prose.'); break }
+    }
+    // A DECLARED entry may not claim a metric it does not serve.
+    const claimed = (partialEntry.servesMetrics || []).filter((m) => (partialEntry.refusesMetrics || []).includes(m))
+    if (claimed.length) findings.push(`(f) ${res} claims to serve ${claimed.join(', ')} while also recording them refused.`)
+  }
+  // A FULL entry must NOT be stamped — otherwise the marker means nothing.
+  if (fullEntry) {
+    const res = fullEntry.resource
+    const rows = W.buildUniverseRowsAtGrain(fullEntry, ctx, [{ [res]: { resource_name: `customers/777/${res}s/1` },
+      segments: { date: '2026-03-07' }, metrics: { cost_micros: 1_000_000, impressions: 5, clicks: 1, conversions: 0, conversions_value: 0 } }]).rows
+    if (rows.some((r) => r.extra?.refusedMetrics)) findings.push('(f) a FULL entry (nothing refused) is being stamped with refusedMetrics — the marker must mean something.')
   }
 }
 

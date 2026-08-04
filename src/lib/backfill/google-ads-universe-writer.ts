@@ -29,6 +29,14 @@ export interface UniverseEntry {
   segment: string | null
   /** Present only when metrics.impressions is illegal beside this segment (query_error 53). */
   metricShape?: string | null
+  /** LORAMER_UNIVERSE_PROBE_METRIC_SET_V1 — the metrics THIS entry actually serves, measured with the
+   *  writer's own five-metric set. `[]` means it serves none of them: a CAPABILITY LIMIT, recorded and
+   *  skipped before a request is spent, never silently dropped and never re-attempted every window. */
+  servesMetrics?: string[]
+  /** The metrics the vendor explicitly refused, from its own message. Partial is neither pole. */
+  refusesMetrics?: string[]
+  /** The vendor's words, verbatim, for whichever metrics it refused. */
+  metricSetReason?: string
   /** Present when the vendor refuses the query without an extra predicate we may not be able to supply. */
   structuralRequirement?: string | null
   delivers?: boolean | null
@@ -112,8 +120,16 @@ const parts = (d: string): [number, number, number] => [Number(d.slice(0, 4)), N
 /** ISO day of week, Monday=1 … Sunday=7. Day 0 of the civil epoch (1970-01-01) was a THURSDAY, hence the +3. */
 const isoDow = (d: string): number => (((daysFromCivil(...parts(d)) + 3) % 7) + 7) % 7 + 1
 
+// ⛔ `segments.date` IS NOT IN THIS LIST, AND ITS ABSENCE IS THE POINT (Russ approved 2026-08-03).
+// It was here for one commit and measured at EXACTLY ZERO saving: its period IS the day, so its
+// aggregate is one row per entity per day — which is the base family, byte for byte. 78,300 computed
+// groups against 78,300 base rows on the largest resource, and PROVEN lossless on three resources
+// covering 219,155 of the 308,488 landed `date` rows: zero rows unreachable via the base family and
+// zero metric-value mismatches. So it is neither requested from Google NOR computed locally: the base
+// family already answers every question it answered, at the same grain, with the same numbers.
+// ⛔ THE FAMILY IS STILL DECLARED AND STILL NAMED IN LORA'S PROSE — pointed at the base rows. Deleting
+// a shelf she can select is UNWIRED IS MISSING pointing the other way.
 export const DERIVED_TIME_FAMILIES: DerivedTimeFamily[] = [
-  { segment: 'segments.date', breakdownType: 'date', rule: 'the row date itself', derive: (d) => d },
   { segment: 'segments.week', breakdownType: 'week', rule: 'ISO week start (Monday) = date − (isodow−1) days',
     derive: (d) => civilFromDays(daysFromCivil(...parts(d)) - (isoDow(d) - 1)) },
   { segment: 'segments.month', breakdownType: 'month', rule: 'first day of the calendar month',
@@ -124,7 +140,9 @@ export const DERIVED_TIME_FAMILIES: DerivedTimeFamily[] = [
   { segment: 'segments.day_of_week', breakdownType: 'day_of_week', rule: "Google DayOfWeek enum ordinal, MONDAY=2 … SUNDAY=8 (isodow + 1)",
     derive: (d) => String(isoDow(d) + 1) },
 ]
-export const DERIVED_TIME_SEGMENTS = new Set(DERIVED_TIME_FAMILIES.map((f) => f.segment))
+/** Requested from Google: NONE of these. `segments.date` is listed here but NOT in DERIVED_TIME_FAMILIES,
+ *  because it is neither requested nor computed — the base family already carries it. */
+export const DERIVED_TIME_SEGMENTS = new Set<string>(['segments.date', ...DERIVED_TIME_FAMILIES.map((f) => f.segment)])
 /** ⛔ Stamped on every locally computed row. A derived aggregate presented as vendor-reported is a HONESTY
  *  violation, not a storage optimisation — Lora must be able to say which it is looking at. */
 export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
@@ -192,7 +210,15 @@ export function buildGaql(entry: UniverseEntry, startDate: string, endDate: stri
   // selecting `<resource>.resource_name` is a generic rule — it needs no knowledge of which resource this is,
   // which is the property that keeps this writer surface-agnostic.
   select.push(entry.segment ? entry.segment : `${entry.resource}.resource_name`)
-  select.push(...(entry.metricShape ? [entry.metricShape] : DEFAULT_METRICS))
+  // ⛔ ASK FOR WHAT THE ENTRY ACTUALLY SERVES — READ FROM THE ARTIFACT, NOT FROM A BRANCH.
+  // `servesMetrics` is measured by the probe using THIS EXACT list, so the probe and the walk finally ask the
+  // same question. Before this, the probe tested ONE metric and the writer requested FIVE, and 55 of 559
+  // entries (9.8%) came back delivers:true and then errored on every single window. It is data on the entry,
+  // exactly like metricShape — there is still no `if (resource === …)` anywhere in this file.
+  const metrics = entry.servesMetrics && entry.servesMetrics.length
+    ? entry.servesMetrics
+    : entry.metricShape ? [entry.metricShape] : DEFAULT_METRICS
+  select.push(...metrics)
   const where = [`segments.date BETWEEN '${startDate}' AND '${endDate}'`, ...filters]
   return `SELECT ${select.join(', ')} FROM ${entry.resource} WHERE ${where.join(' AND ')}`
 }
@@ -253,6 +279,37 @@ export function decideVendorExhaustion(args: { windowStart: string; rowsReturned
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v || 0))
 const ratio = (a: number, b: number, mult = 1) => (b > 0 ? Number(((a / b) * mult).toFixed(4)) : 0)
 
+// ── REFUSED METRICS ARE NOT ZEROS — LORAMER_UNIVERSE_REFUSED_METRIC_V1, 2026-08-03 ────────────────────────
+// ⛔ MEASURED: of the 358 entries the walk requests, 100 are PARTIAL and 59 of those serve ONLY
+// conversions + conversions_value — the vendor REFUSES clicks, cost_micros and impressions at that grain.
+// Their rows would otherwise carry spend=0 / impressions=0 / clicks=0 that are NOT zeros. Absence, refusal
+// and a true zero are three different facts, and a ratio built on a refused denominator (ROAS, CPA, CPC) is
+// a confident wrong number — the exact failure this product exists to prevent.
+//
+// ⛔ THE HONEST LIMIT, STATED RATHER THAN ENGINEERED AROUND: `spend`, `impressions`, `clicks`, `conversions`,
+// `conversion_value` and `revenue` are all **NOT NULL DEFAULT 0** in metrics_daily. A refused metric therefore
+// CANNOT be written as NULL without a migration, and this flight does not change the schema. So the column
+// holds 0 and the ROW says that 0 is not real: `refusedMetrics`, `refusedReason` (the vendor verbatim),
+// `refusedCode`, and `metricsReported` (the ones that ARE real). Making the read path refuse to serve those
+// columns is ★UNIVERSE-REFUSED-METRIC-READ-PATH and is NOT done here.
+const REFUSAL_KEYS: Record<string, string> = {
+  'metrics.cost_micros': 'spend', 'metrics.impressions': 'impressions', 'metrics.clicks': 'clicks',
+  'metrics.conversions': 'conversions', 'metrics.conversions_value': 'conversion_value',
+}
+export function refusalStamp(entry: UniverseEntry): Record<string, unknown> | null {
+  const refused = entry.refusesMetrics
+  if (!refused || refused.length === 0) return null
+  const code = /"query_error":(\d+)/.exec(entry.metricSetReason || '')?.[1] ?? null
+  return {
+    refusedMetrics: refused.map((m) => REFUSAL_KEYS[m] || m),
+    refusedReason: entry.metricSetReason || 'refused, no reason recorded',
+    refusedCode: code ? `query_error ${code}` : null,
+    metricsReported: (entry.servesMetrics || []).map((m) => REFUSAL_KEYS[m] || m),
+    // ⛔ THE INSTRUCTION TO THE READER, ON THE ROW, so it survives every layer that forgets to look it up.
+    refusedMeaning: 'THESE COLUMNS ARE NOT ZERO — the vendor refuses to report them at this grain. Never sum them, never present them as 0, and never use one as a ratio denominator (ROAS/CPA/CPC).',
+  }
+}
+
 export interface BuildCtx { clientId: string; userEmail: string; customerId: string }
 
 // ── THE ENTITY AXIS — LORAMER_UNIVERSE_ENTITY_AXIS_V1 ──────────────────────────────────────────────────────
@@ -307,6 +364,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
   const segPath = entry.segment ? entry.segment.replace(/^segments\./, '') : null
   const out: Record<string, unknown>[] = []
   const agg = new Map<string, any>()
+  const refusal = refusalStamp(entry)
   let grainDeclines = 0
   for (const r of apiRows) {
     const date = r?.segments?.date
@@ -351,6 +409,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
         //   (no row at all)         — absence; and an observed zero is reported by the caller, not as a row
         grain: a.declined ? 'VENDOR_DECLINED' : 'VENDOR_NAMED',
         grainSource: 'FROM_RESOURCE_NAME',
+        ...(refusal || {}),
       },
     })
   }
@@ -374,6 +433,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
 export function buildDerivedTimeRows(entry: UniverseEntry, ctx: BuildCtx, apiRows: any[]): Record<string, unknown>[] {
   if (entry.segment) return []
   const level = entityLevelFor(entry)
+  const refusal = refusalStamp(entry)
   const out: Record<string, unknown>[] = []
   for (const fam of DERIVED_TIME_FAMILIES) {
     const agg = new Map<string, any>()
@@ -420,6 +480,7 @@ export function buildDerivedTimeRows(entry: UniverseEntry, ctx: BuildCtx, apiRow
           derivationRule: fam.rule,
           periodDays: a.days.size,
           periodAnchor: anchor,
+          ...(refusal || {}),
         },
       })
     }
@@ -462,6 +523,14 @@ export async function captureUniverseEntry(args: {
   const { entry, ctx, startDate, endDate, query, supplied = {}, dryRun } = args
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
   const level = entityLevelFor(entry)
+  // ⛔ A MEASURED CAPABILITY LIMIT IS RECORDED AND SKIPPED BEFORE A REQUEST IS SPENT — it is not an error to
+  // rediscover every window. `servesMetrics: []` means the probe asked with the writer's own metric set, the
+  // vendor refused all five, and narrowing found nothing left to ask for.
+  if (entry.servesMetrics && entry.servesMetrics.length === 0) {
+    return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false,
+      skipped: { entry: label, requirement: `capability limit: the vendor serves NONE of the writer's metrics for this entry — ${entry.metricSetReason || 'no reason recorded'}`, recorded: true },
+      exhaustion: null, error: null, entityLevel: level, grainDeclines: 0, derivedRows: 0 }
+  }
   const structural = resolveStructural(entry, supplied)
   if (!structural.ok) {
     return { entry: label, gaql: null, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: structural.skip, exhaustion: null, error: null, entityLevel: level, grainDeclines: 0, derivedRows: 0 }

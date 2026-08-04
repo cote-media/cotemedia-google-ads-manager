@@ -21,7 +21,7 @@
     "googleRequests": 594,
     "accountFloor": "2022-03-05",
     "accountDarkAfter": "2026-04-05",
-    "googleRequestsThisPass": 3
+    "googleRequestsThisPass": 463
   },
   "provenUnreachable": [
     {
@@ -125,7 +125,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 11,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -135,7 +143,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": "metrics.cost_micros"
+      "metricShape": "metrics.cost_micros",
+      "refusesMetrics": [
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.ad_destination_type'(unsupported metrics: 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group",
@@ -145,7 +163,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -155,7 +181,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -165,7 +199,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -175,7 +217,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 430,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -185,7 +235,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -205,7 +263,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -295,7 +361,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -315,7 +389,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 24,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -335,7 +417,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "ad_group",
@@ -365,7 +457,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -375,7 +475,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -385,7 +493,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -395,7 +511,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 20,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group",
@@ -535,7 +659,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 12,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -545,7 +677,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": "metrics.cost_micros"
+      "metricShape": "metrics.cost_micros",
+      "refusesMetrics": [
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.ad_destination_type'(unsupported metrics: 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group_ad",
@@ -555,7 +697,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -565,7 +715,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -575,7 +733,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -585,7 +751,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -675,7 +849,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -695,7 +877,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 9,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -705,7 +895,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -715,7 +913,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 9,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -735,7 +941,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "ad_group_ad",
@@ -765,7 +981,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad",
@@ -796,7 +1020,17 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 1,
-      "vendorFloorObserved": "2025-07-29"
+      "vendorFloorObserved": "2025-07-29",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions_value'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'cost_micros'(could not suppo",
+      "servesMetrics": [
+        "metrics.impressions"
+      ]
     },
     {
       "resource": "ad_group_ad_asset_combination_view",
@@ -806,7 +1040,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions_value'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'cost_micros'(could not suppo",
+      "servesMetrics": [
+        "metrics.impressions"
+      ]
     },
     {
       "resource": "ad_group_ad_asset_combination_view",
@@ -816,7 +1060,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions_value'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'cost_micros'(could not suppo",
+      "servesMetrics": [
+        "metrics.impressions"
+      ]
     },
     {
       "resource": "ad_group_ad_asset_combination_view",
@@ -866,7 +1120,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions_value'(could not support requested resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'cost_micros'(could not suppo",
+      "servesMetrics": [
+        "metrics.impressions"
+      ]
     },
     {
       "resource": "ad_group_ad_asset_combination_view",
@@ -898,7 +1162,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 293,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -908,7 +1180,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -918,7 +1198,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -928,7 +1216,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -978,7 +1274,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -1008,7 +1312,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_ad_asset_view",
@@ -1048,7 +1360,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 3,
-      "vendorFloorObserved": "2025-03-12"
+      "vendorFloorObserved": "2025-03-12",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1078,7 +1398,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1088,7 +1416,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1098,7 +1434,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1108,7 +1452,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1118,7 +1470,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1128,7 +1488,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group_asset",
@@ -1138,7 +1508,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group_asset",
@@ -1148,7 +1528,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group_asset",
@@ -1178,7 +1568,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1188,7 +1586,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "ad_group_asset",
@@ -1208,7 +1616,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "ad_group_asset",
@@ -1228,7 +1646,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_asset",
@@ -1268,7 +1694,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 46,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1288,7 +1722,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1298,7 +1740,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1308,7 +1758,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1374,7 +1832,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1418,7 +1884,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "ad_group_audience_view",
@@ -1438,7 +1914,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "ad_group_audience_view",
@@ -1687,7 +2171,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 76,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "age_range_view",
@@ -1697,7 +2189,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "age_range_view",
@@ -1707,7 +2207,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "age_range_view",
@@ -1717,7 +2225,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "age_range_view",
@@ -1777,7 +2293,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "age_range_view",
@@ -1807,7 +2331,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "age_range_view",
@@ -2040,7 +2574,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 8,
-      "vendorFloorObserved": "2022-03-10"
+      "vendorFloorObserved": "2022-03-10",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2070,7 +2612,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2080,7 +2630,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2090,7 +2648,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2100,7 +2666,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_field_type_view",
@@ -2110,7 +2686,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_field_type_view",
@@ -2120,7 +2706,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_field_type_view",
@@ -2150,7 +2746,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2160,7 +2764,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_field_type_view",
@@ -2180,7 +2794,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "asset_field_type_view",
@@ -2200,7 +2824,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_field_type_view",
@@ -2232,7 +2864,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2242,7 +2882,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2252,7 +2900,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2262,7 +2918,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2362,7 +3026,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2412,7 +3084,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group",
@@ -2444,7 +3124,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 156,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_asset",
@@ -2454,7 +3142,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_asset",
@@ -2464,7 +3160,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_asset",
@@ -2524,7 +3228,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_asset",
@@ -2584,7 +3296,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 15060,
-      "vendorFloorObserved": "2022-04-03"
+      "vendorFloorObserved": "2022-04-03",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2594,7 +3314,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2604,7 +3332,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2614,7 +3350,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2624,7 +3368,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2634,7 +3388,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2644,7 +3408,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2674,7 +3448,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2684,7 +3466,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "asset_group_product_group_view",
@@ -2704,7 +3496,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "asset_group_product_group_view",
@@ -3512,7 +4314,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3522,7 +4332,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.ad_destination_type'(unsupported metrics: 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3532,7 +4352,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3542,7 +4370,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3552,7 +4388,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3562,7 +4406,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3572,7 +4424,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3604,7 +4464,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 37,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3614,7 +4482,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3635,7 +4511,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3675,7 +4559,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_adjustment'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3685,7 +4579,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_attribution_event_type'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3695,7 +4599,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 11,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_lag_bucket'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3705,7 +4619,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 12,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_or_adjustment_lag_bucket'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3746,7 +4670,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3756,7 +4688,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3766,7 +4708,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 24,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3786,7 +4736,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "campaign",
@@ -3796,7 +4756,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.new_versus_returning_customers'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign",
@@ -3947,7 +4917,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3957,7 +4935,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 11,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3967,7 +4953,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -3977,7 +4971,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 20,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign",
@@ -4202,7 +5204,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 95,
-      "vendorFloorObserved": "2022-03-10"
+      "vendorFloorObserved": "2022-03-10",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4232,7 +5242,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4242,7 +5260,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4252,7 +5278,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4262,7 +5296,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4272,7 +5314,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4282,7 +5332,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_asset",
@@ -4292,7 +5352,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_asset",
@@ -4302,7 +5372,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_asset",
@@ -4332,7 +5412,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4342,7 +5430,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_asset",
@@ -4362,7 +5460,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "campaign_asset",
@@ -4382,7 +5490,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_asset",
@@ -4664,7 +5780,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 56261,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_budget",
@@ -4684,7 +5808,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_budget",
@@ -4694,7 +5826,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_budget",
@@ -4704,7 +5844,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_budget",
@@ -4714,7 +5862,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_budget",
@@ -4724,7 +5882,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_budget",
@@ -4734,7 +5902,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_budget",
@@ -4754,7 +5932,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_conversion_goal",
@@ -4982,7 +6170,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 1,
-      "vendorFloorObserved": "2022-03-15"
+      "vendorFloorObserved": "2022-03-15",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5012,7 +6208,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5022,7 +6226,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5032,7 +6244,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_search_term_view",
@@ -5042,7 +6264,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_search_term_view",
@@ -5052,7 +6284,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_search_term_view",
@@ -5082,7 +6324,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5092,7 +6342,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "campaign_search_term_view",
@@ -5102,7 +6362,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5112,7 +6380,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5122,7 +6398,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5142,7 +6426,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "campaign_search_term_view",
@@ -5162,7 +6456,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5172,7 +6474,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5182,7 +6492,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "campaign_search_term_view",
@@ -5786,7 +7104,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5796,7 +7122,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5806,7 +7140,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5816,7 +7158,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5826,7 +7176,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5836,7 +7194,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5856,7 +7222,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5956,7 +7330,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5976,7 +7358,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 24,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -5996,7 +7386,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "customer",
@@ -6146,7 +7546,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer",
@@ -6285,7 +7693,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 8,
-      "vendorFloorObserved": "2022-03-21"
+      "vendorFloorObserved": "2022-03-21",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6315,7 +7731,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6325,7 +7749,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6335,7 +7767,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6345,7 +7785,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6355,7 +7803,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6365,7 +7821,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "customer_asset",
@@ -6375,7 +7841,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "customer_asset",
@@ -6385,7 +7861,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "customer_asset",
@@ -6415,7 +7901,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6425,7 +7919,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "customer_asset",
@@ -6445,7 +7949,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "customer_asset",
@@ -6465,7 +7979,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "customer_asset",
@@ -6665,7 +8187,14 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 639,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions_value'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'cost_mi || narrowed retry also refused: {\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'cost_micros'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.\"}",
+      "servesMetrics": []
     },
     {
       "resource": "detail_content_suitability_placement_view",
@@ -6706,7 +8235,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 240,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "detail_placement_view",
@@ -6716,7 +8253,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "detail_placement_view",
@@ -6726,7 +8271,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "detail_placement_view",
@@ -6792,7 +8345,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "detail_placement_view",
@@ -6824,7 +8385,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "detail_placement_view",
@@ -7413,7 +8984,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 10,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7453,7 +9032,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7463,7 +9050,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7473,7 +9068,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7483,7 +9086,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7493,7 +9106,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7503,7 +9126,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7533,7 +9166,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7543,7 +9184,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7553,7 +9204,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7573,7 +9232,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7593,7 +9262,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "expanded_landing_page_view",
@@ -7715,7 +9392,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 33,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "gender_view",
@@ -7735,7 +9420,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "gender_view",
@@ -7745,7 +9438,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "gender_view",
@@ -7755,7 +9456,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "gender_view",
@@ -7815,7 +9524,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "gender_view",
@@ -7845,7 +9562,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "gender_view",
@@ -7896,7 +9623,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -7926,7 +9661,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -7936,7 +9679,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -7996,7 +9747,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8016,7 +9775,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 24,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8038,7 +9805,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 16067,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8048,7 +9823,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 99,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8058,7 +9841,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8068,7 +9859,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8078,7 +9877,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8088,7 +9895,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 7,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8110,7 +9925,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 53,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8120,7 +9943,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 51,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "geographic_view",
@@ -8140,7 +9971,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "geographic_view",
@@ -8190,7 +10031,14 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 226,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions_value'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'cost_micro || narrowed retry also refused: {\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'cost_micros'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.\"}",
+      "servesMetrics": []
     },
     {
       "resource": "group_content_suitability_placement_view",
@@ -8231,7 +10079,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 94,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "group_placement_view",
@@ -8241,7 +10097,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "group_placement_view",
@@ -8251,7 +10115,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "group_placement_view",
@@ -8261,7 +10133,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "group_placement_view",
@@ -8327,7 +10207,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "group_placement_view",
@@ -8359,7 +10247,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "group_placement_view",
@@ -8866,7 +10764,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 19825,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "income_range_view",
@@ -8876,7 +10782,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "income_range_view",
@@ -8886,7 +10800,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "income_range_view",
@@ -8896,7 +10818,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "income_range_view",
@@ -8906,7 +10836,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "income_range_view",
@@ -8916,7 +10856,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "income_range_view",
@@ -8926,7 +10876,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "income_range_view",
@@ -8956,7 +10916,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "income_range_view",
@@ -8966,7 +10934,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "income_range_view",
@@ -8986,7 +10964,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "income_range_view",
@@ -9082,7 +11070,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 86,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9092,7 +11088,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9102,7 +11106,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9122,7 +11134,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9212,7 +11232,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9232,7 +11260,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9252,7 +11288,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "keyword_view",
@@ -9282,7 +11328,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "keyword_view",
@@ -9322,7 +11376,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 76,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9362,7 +11424,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9372,7 +11442,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9382,7 +11460,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9392,7 +11478,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "landing_page_view",
@@ -9402,7 +11498,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "landing_page_view",
@@ -9412,7 +11518,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "landing_page_view",
@@ -9442,7 +11558,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9452,7 +11576,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "landing_page_view",
@@ -9462,7 +11596,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9482,7 +11624,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "landing_page_view",
@@ -9502,7 +11654,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "landing_page_view",
@@ -9766,7 +11926,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 56261,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "location_view",
@@ -9776,7 +11944,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "location_view",
@@ -9786,7 +11964,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "location_view",
@@ -9796,7 +11984,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "location_view",
@@ -9816,7 +12014,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "location_view",
@@ -9836,7 +12044,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "location_view",
@@ -9846,7 +12064,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.new_versus_returning_customers'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "location_view",
@@ -10481,7 +12709,17 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 5,
-      "vendorFloorObserved": "2025-04-30"
+      "vendorFloorObserved": "2025-04-30",
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10511,7 +12749,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10521,7 +12769,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10531,7 +12789,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10541,7 +12809,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10561,7 +12839,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10581,7 +12869,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'conversions_value'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), 'cost_micros'(could not support requested resources: 'PAID_ORGANIC_SEARCH_TERM_VIEW'), since metric is incompatible with the r",
+      "servesMetrics": [
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "paid_organic_search_term_view",
@@ -10612,7 +12910,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 10309,
-      "vendorFloorObserved": "2022-03-05"
+      "vendorFloorObserved": "2022-03-05",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "parental_status_view",
@@ -10622,7 +12928,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "parental_status_view",
@@ -10632,7 +12946,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "parental_status_view",
@@ -10642,7 +12964,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "parental_status_view",
@@ -10652,7 +12982,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "parental_status_view",
@@ -10662,7 +13002,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "parental_status_view",
@@ -10672,7 +13022,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "parental_status_view",
@@ -10702,7 +13062,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "parental_status_view",
@@ -10712,7 +13080,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "parental_status_view",
@@ -10732,7 +13110,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "parental_status_view",
@@ -10885,7 +13273,17 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 7,
-      "vendorFloorObserved": "2022-03-13"
+      "vendorFloorObserved": "2022-03-13",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value",
+        "metrics.cost_micros"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'PERFORMANCE_MAX_PLACEMENT_VIEW'), 'conversions'(could not support requested resources: 'PERFORMANCE_MAX_PLACEMENT_VIEW'), 'conversions_value'(could not support requested resources: 'PERFORMANCE_MAX_PLACEMENT_VIEW'), 'cost_micros'(could not support requested",
+      "servesMetrics": [
+        "metrics.impressions"
+      ]
     },
     {
       "resource": "performance_max_placement_view",
@@ -10925,7 +13323,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 320838,
-      "vendorFloorObserved": "2022-03-27"
+      "vendorFloorObserved": "2022-03-27",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "product_group_view",
@@ -10935,7 +13341,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "product_group_view",
@@ -10945,7 +13359,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "product_group_view",
@@ -10955,7 +13377,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "product_group_view",
@@ -11021,7 +13451,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "product_group_view",
@@ -11053,7 +13491,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "product_group_view",
@@ -11149,7 +13597,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1880,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11169,7 +13625,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11179,7 +13643,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11239,7 +13711,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11259,7 +13739,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 85,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11269,7 +13757,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11279,7 +13775,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 47,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11299,7 +13803,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "search_term_view",
@@ -11319,7 +13833,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11329,7 +13851,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "search_term_view",
@@ -11392,7 +13922,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 335898,
-      "vendorFloorObserved": "2022-03-27"
+      "vendorFloorObserved": "2022-03-27",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11422,7 +13960,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11432,7 +13978,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11442,7 +13996,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11452,7 +14014,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "shopping_performance_view",
@@ -11462,7 +14034,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_category'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "shopping_performance_view",
@@ -11472,7 +14054,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.conversion_action_name'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "shopping_performance_view",
@@ -11502,7 +14094,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11512,7 +14112,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": "metrics.conversions"
+      "metricShape": "metrics.conversions",
+      "refusesMetrics": [
+        "metrics.clicks",
+        "metrics.cost_micros",
+        "metrics.impressions"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.external_conversion_source'(unsupported metrics: 'clicks', 'cost_micros', 'impressions').\"}",
+      "servesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ]
     },
     {
       "resource": "shopping_performance_view",
@@ -11532,7 +14142,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11542,7 +14160,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11552,7 +14178,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 10,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11562,7 +14196,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 16,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11572,7 +14214,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 15,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11582,7 +14232,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 7,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11592,7 +14250,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11602,7 +14268,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11612,7 +14286,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11622,7 +14304,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11632,7 +14322,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11642,7 +14340,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11652,7 +14358,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11662,7 +14376,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11672,7 +14394,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11682,7 +14412,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11692,7 +14430,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11702,7 +14448,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 60,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11712,7 +14466,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11722,7 +14484,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11732,7 +14502,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11742,7 +14520,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 60,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11752,7 +14538,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 17,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11762,7 +14556,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11772,7 +14574,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11782,7 +14592,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -11792,7 +14610,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "shopping_performance_view",
@@ -12780,7 +15606,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 105,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12810,7 +15644,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 6,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12820,7 +15662,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12880,7 +15730,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 5,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12900,7 +15758,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12910,7 +15776,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 4,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12920,7 +15794,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 16772,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12930,7 +15812,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3099,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12940,7 +15830,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 295,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12950,7 +15848,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 214,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12960,7 +15866,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 36491,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12970,7 +15884,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 22583,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12980,7 +15902,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 105,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -12990,7 +15920,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 416,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -13000,7 +15938,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 113,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "user_location_view",
@@ -13020,7 +15966,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "user_location_view",
@@ -13061,7 +16017,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 21,
-      "vendorFloorObserved": "2024-10-30"
+      "vendorFloorObserved": "2024-10-30",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13101,7 +16065,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13111,7 +16083,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13121,7 +16101,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13131,7 +16119,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13197,7 +16193,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video",
@@ -13229,7 +16233,17 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "refusesMetrics": [
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "metricSetReason": "{\"error_code\":{\"query_error\":53},\"message\":\"Cannot select the following segments because at least one unsupported metric is found in SELECT or WHERE clause: 'segments.month_of_year'(unsupported metrics: 'conversions', 'conversions_value').\"}",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks"
+      ]
     },
     {
       "resource": "video",
@@ -13270,7 +16284,15 @@
       "probed": true,
       "delivers": true,
       "monthlyImpressions2026_03": 21,
-      "vendorFloorObserved": "2024-10-30"
+      "vendorFloorObserved": "2024-10-30",
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",
@@ -13310,7 +16332,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",
@@ -13320,7 +16350,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",
@@ -13330,7 +16368,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 3,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",
@@ -13340,7 +16386,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 1,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",
@@ -13370,7 +16424,15 @@
       "dateCombinable": true,
       "delivers": true,
       "distinctValues": 2,
-      "metricShape": null
+      "metricShape": null,
+      "servesMetrics": [
+        "metrics.cost_micros",
+        "metrics.impressions",
+        "metrics.clicks",
+        "metrics.conversions",
+        "metrics.conversions_value"
+      ],
+      "refusesMetrics": []
     },
     {
       "resource": "video_enhancement",

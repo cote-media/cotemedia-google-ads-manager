@@ -1228,7 +1228,23 @@ flights that shipped them, which is the argument for shipping them at all.
 
 **GATE-A POSTURE FOR THE NEXT SESSION, so the first guard run is not misread:** the working tree reads **54 PASSED · 1 FAILED**, and that ONE failure is the held Google Tier-1 widen's own preconditions in `metrics-upsert-chunked` — everything committed is **55/55 green with `next build` exit 0**, proven by isolation at d081752 with the widen absent. The widen is still uncommitted (`cron/sync/route.ts` blob e3d8a09e / 67,870 bytes · `forward-widen-breadth.ts` blob 35776e49 / 2,775 bytes).
 
-▶▶ NEXT STEP — 2026-08-03 ROUTE B WRAP (latest — resume HERE). ⛔ **THE WALK IS NOW CORRECT, DECLARED, GUARDED AND 36% CHEAPER PER WINDOW. WHAT IS LEFT BEFORE FIRING IS ONE CORRECTNESS FIX AND ONE COMPUTE DECISION — NEITHER IS A BLOCKER YOU HAVE NOT ALREADY SEEN.**
+▶▶ NEXT STEP — 2026-08-03 REFUSED-METRIC WRAP (latest — resume HERE). ⛔ **THE WALK IS CORRECT, DECLARED, GUARDED, 36% CHEAPER AND NOW HONEST ABOUT WHAT GOOGLE WILL NOT TELL IT. WHAT REMAINS BEFORE FIRING IS ONE COMPUTE DECISION AND ONE READ-PATH GAP.**
+
+⛔ **DEPARTURE FROM RANKING:** the QUEUE's declared TOP-UNBLOCKED is still ★GOOGLE-GEO-STATEMENT-TIMEOUTS, whose premise died on 2026-08-03 when all six geo cursors advanced and the frozen-cursor guard read PASSED.
+
+**WHAT SHIPPED.** The `date` family is gone from BOTH request and compute — proven lossless first (0 rows unreachable, 0 value mismatches, on 219,155 of 308,488 landed rows), still declared, prose pointed at the base rows. The probe now asks with the writer's FIVE-metric set instead of one: **FULL 256 · PARTIAL 100 · NONE 2**, 463 requests. The writer reads `servesMetrics` as data and skips the 2 capability-limited entries before spending a request.
+
+⛔ **THE HONESTY FIX, AND IT IS THE LAUNCH-QUALITY HALF: 59 ENTRIES SERVE ONLY CONVERSIONS.** Their spend/clicks/impressions read 0 and those zeros are not zeros. ⚠ **THE LITERAL INSTRUCTION — never write 0 for a refused metric — COULD NOT BE FOLLOWED, and I am telling you rather than papering it: all six metric columns are NOT NULL DEFAULT 0**, so NULL needs a migration this flight did not make. What ships instead: the column holds 0 and the ROW carries `refusedMetrics`, `metricsReported`, `refusedReason` (Google verbatim), `refusedCode` and `refusedMeaning`. The 12 families refused at EVERY grain now rank by conversions through the EXISTING SPEND_ZERO mechanism — searched for first, not reinvented. Lora's prose forbids presenting a refused metric as 0 or building ANY ratio on one.
+
+⚠ **AND THE GAP THAT IS LEFT IS REAL: [[★UNIVERSE-REFUSED-METRIC-READ-PATH]].** `metrics-query.ts` does not yet read the stamp, so a caller that ignores the prose still gets a divisible 0 — and **refusal varies by entity_level on 10 of 111 types**, so the family name cannot be trusted either. The data is truthful; the reader is not yet forced to respect it. Prose is not a guard.
+
+**RE-DERIVED, inputs shown, still a CEILING:** requests/window **559 → 356 (−36.3%)** · walk requests **27,950 → 17,800** · rows/window **6,048,263 → 5,448,391 (−9.9%)** · **~226.7 GB per client**, ~2.27 TB across ten · **ETA 4.7 → 3.0 days** at an allowance that is a READ, not a constant.
+
+⚠ **[[★GUARD-BREAK-AND-RESTORE-IS-UNSAFE]] — BANKED FROM A NEAR-MISS YOU CAUGHT.** A red-proof that breaks a real file and restores it leaves it broken if interrupted. The call you rejected would have mutated the 463-request artifact in place and carried a `git checkout` that would have discarded uncommitted work. Every proof in this commit ran against a throwaway copy via `LORAMER_GUARD_ROOT`, with the real files' md5s verified identical before and after. The existing legs are NOT swept yet — deliberately, at the end of a long flight.
+
+**GATE-A POSTURE:** working tree **57 PASSED · 1 FAILED**, that one still only the held Google Tier-1 widen's own preconditions; committed is **58/58** with `next build` exit 0, proven by isolation. ⚠ **HELD WIDEN UNTOUCHED** — blobs e3d8a09e / 35776e49 · `hold/google-tier1-widen` 5d95348 on origin.
+
+- (2026-08-03 Route B opener — HISTORY, superseded by the wrap below. Demoted because both items it named as remaining are now CLOSED: the date family is dropped and the probe metric-set mismatch is fixed. ⚠ ITS FIGURES ARE SUPERSEDED — 358 requests/window is now 356, and ~237 GB/client is now ~227 GB. Kept because its Route-A rejection and the 5.8%-not-31% correction are unchanged.) 2026-08-03 ROUTE B WRAP. ⛔ **THE WALK IS NOW CORRECT, DECLARED, GUARDED AND 36% CHEAPER PER WINDOW. WHAT IS LEFT BEFORE FIRING IS ONE CORRECTNESS FIX AND ONE COMPUTE DECISION — NEITHER IS A BLOCKER YOU HAVE NOT ALREADY SEEN.**
 
 ⛔ **DEPARTURE FROM RANKING, stated not assumed:** the QUEUE's declared TOP-UNBLOCKED remains ★GOOGLE-GEO-STATEMENT-TIMEOUTS, whose premise died on 2026-08-03 when all six geo cursors advanced and the frozen-cursor guard read PASSED.
 

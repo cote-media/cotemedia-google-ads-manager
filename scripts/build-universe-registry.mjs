@@ -37,7 +37,7 @@ export const END = '  // ═══ END GENERATED — LORAMER_UNIVERSE_ENTITY_AXI
 export const selectable = (doc) => doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true))
 /** The six segments we no longer request — kept in step with the writer's DERIVED_TIME_FAMILIES. */
 export const DERIVED_TIME = new Map([
-  ['segments.date', 'the row date itself'],
+  ['segments.date', 'NOT REQUESTED AND NOT COMPUTED — the BASE family already carries it at the same grain (proven lossless 2026-08-03: 0 rows unreachable, 0 value mismatches). Rows already stored keep their meaning; nothing new is written here'],
   ['segments.week', 'ISO week start (Monday) = date - (isodow-1) days'],
   ['segments.month', 'first day of the calendar month'],
   ['segments.quarter', 'first day of the CALENDAR quarter (not fiscal)'],
@@ -70,8 +70,9 @@ export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTR
   const byType = new Map()
   for (const e of selectable(doc)) {
     const t = btFor(e)
-    if (!byType.has(t)) byType.set(t, { levels: new Set(), dv: 0, segment: e.segment, derived: DERIVED_TIME.get(e.segment || '') || null })
+    if (!byType.has(t)) byType.set(t, { levels: new Set(), dv: 0, segment: e.segment, derived: DERIVED_TIME.get(e.segment || '') || null, refusals: [] })
     const g = byType.get(t)
+    g.refusals.push(Array.isArray(e.refusesMetrics) ? e.refusesMetrics : [])
     g.levels.add(e.resource)
     g.dv = Math.max(g.dv, typeof e.distinctValues === 'number' ? e.distinctValues : 0)
   }
@@ -81,13 +82,29 @@ export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTR
     const g = byType.get(t)
     const levels = [...g.levels].sort().map((l) => `'${l}'`).join(', ')
     const hc = g.dv >= HIGH_CARD_AT
+    // ⛔ REUSE SPEND_ZERO RATHER THAN INVENT A PARALLEL MECHANISM (LORAMER_UNIVERSE_REFUSED_METRIC_V1).
+    // metrics-query already has SPEND_ZERO_BREAKDOWNS, driven off `rankBy: 'conversions'`, for families whose
+    // spend column is structurally 0 — it ranks by conversions and attaches a note instead of ranking by a
+    // meaningless zero. A family whose cost_micros the vendor REFUSES at EVERY grain it serves is exactly that
+    // shape, so it joins that set rather than getting a second one.
+    // ⚠ ONLY WHEN IT IS REFUSED AT EVERY GRAIN. Refusal varies by entity_level on 8 of 111 types (e.g. `device`
+    // is full at campaign and refuses cost_micros at shopping_performance_view); marking those SPEND_ZERO
+    // would lie about the grains where spend is real. Those keep rankBy 'spend' and rely on the ROW stamp.
+    const everyGrainRefusesSpend = g.refusals.length > 0 && g.refusals.every((r) => r.includes('metrics.cost_micros'))
+    const anyGrainRefuses = g.refusals.some((r) => r.length > 0)
+    const rank = everyGrainRefusesSpend ? 'conversions' : 'spend'
+    const refusalNote = everyGrainRefusesSpend
+      ? ` ⛔ SPEND-REFUSED AT EVERY GRAIN: the vendor will not report cost_micros here, so spend/CPC/CPA/ROAS are UNAVAILABLE, not zero. Ranked by conversions. Every row carries refusedMetrics + the vendor reason verbatim.`
+      : anyGrainRefuses
+        ? ` ⚠ PARTIAL AT SOME GRAINS: the vendor refuses one or more metrics at a SUBSET of this family's entity_levels, so a blanket rule would be wrong. Read extra.refusedMetrics ON THE ROW — a refused metric reads 0 because the column is NOT NULL, and it is NOT a zero.`
+        : ''
     const note = g.derived
       ? `COMPUTED, NOT CAPTURED (LORAMER_UNIVERSE_DERIVED_TIME_V1). This family is NOT requested from Google — it is derived locally from the row date and stored as a TRUE aggregate, one row per entity per period. Derivation: ${g.derived}. Every row carries extra.provenance='COMPUTED_FROM_DATE' with the rule on the row; a row without it is a bug the guard fails on. Reconciled against the vendor's own rows on 2026-08-03 with ZERO mismatches. entity_level IS the GAQL FROM resource.`
       : `vendor-named grain (LORAMER_UNIVERSE_ENTITY_AXIS_V1): entity_level IS the GAQL FROM resource and entity_id is its resource_name. ` +
         `Vendor-measured distinct values on the probe account: ${g.dv || 'unmeasured'}.`
     lines.push(
       `  { platform: 'google', breakdownType: '${t}', toolType: '${t}', surface: 'breakdown', entityLevels: [${levels}], ` +
-      `rankBy: 'spend', additive: true, highCardinality: ${hc}, note: '${note.replace(/'/g, "\\'")}' },`,
+      `rankBy: '${rank}', additive: true, highCardinality: ${hc}, note: '${(note + refusalNote).replace(/'/g, "\\'")}' },`,
     )
   }
   return [BEGIN, ...lines, END].join('\n')

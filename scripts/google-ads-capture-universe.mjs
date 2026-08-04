@@ -173,6 +173,31 @@ export function retainedProbes(doc) {
   return { surfaces, slots }
 }
 
+// ⛔ THE PROBE MUST ASK THE QUESTION THE WALK ASKS. LORAMER_UNIVERSE_PROBE_METRIC_SET_V1, 2026-08-03.
+// The original probe tested each slot with ONE metric while the writer requests FIVE, so `delivers:true` was
+// measured against a query the walk never runs — 55 of 559 entries (9.8%) came back delivering and then
+// errored on EVERY window. Mirrors DEFAULT_METRICS in google-ads-universe-writer.ts; the guard asserts the
+// two lists are identical so they cannot drift.
+export const WRITER_METRICS = [
+  'metrics.cost_micros', 'metrics.impressions', 'metrics.clicks', 'metrics.conversions', 'metrics.conversions_value',
+]
+
+// ⛔ THE VENDOR NAMES THE METRICS IT REFUSES, IN BOTH ERROR SHAPES, SO NARROWING IS DATA-DRIVEN — NOT A
+// PER-RESOURCE BRANCH. Verbatim examples measured 2026-08-03:
+//   query_error 53: "...unsupported metrics: 'conversions', 'conversions_value'"
+//   query_error 49: "Cannot select or filter on the following metrics: 'clicks'(could not support requested
+//                    resources: 'AD_GROUP_AD_ASSET_COMBINATION_VIEW'), 'conversions'(...)"
+// Both put bare metric names in single quotes after a "metrics" preamble; we read them out and re-ask with
+// the remainder rather than guessing which resource dislikes what.
+export function refusedMetrics(vendorReason, asked) {
+  const names = new Set()
+  for (const m of String(vendorReason).matchAll(/'([a-z_]+)'/g)) {
+    const cand = `metrics.${m[1]}`
+    if (asked.includes(cand)) names.add(cand)
+  }
+  return [...names]
+}
+
 /** ⛔ THE ONLY PLACE THE PROBE QUERY IS BUILT. Mirrors the writer's buildGaql so the probe tests what the walk will run. */
 export const probeGaql = (resource, segment, metric, start, end) =>
   `SELECT segments.date, ${segment ? segment : `${resource}.resource_name`}, ${metric} FROM ${resource} ` +
@@ -199,6 +224,7 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
   // REPORTED served 0 / declined 762 AND LOOKED LIKE A FINDING — a systematic self-inflicted error wearing
   // the exact costume of "the vendor serves none of this". Read the flag, then check it was actually there.
   const flag = (name, dflt) => { const i = argv.indexOf(name); return i === -1 || i + 1 >= argv.length ? dflt : argv[i + 1] }
+  const reprobeMetrics = argv.includes('--metric-set')
   const clientId = argv[probeAt + 1]
   const budget = Number(flag('--budget', 0))
   const [START, END] = String(flag('--window', '2026-03-01..2026-03-31')).split('..')
@@ -233,6 +259,7 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
   // Reading it as the row list yields THREE elements whose `.name` is undefined, which on 2026-08-03 looked
   // exactly like "the vendor returned 3 resources". Same failure shape the header already warns about for
   // the `selectable = true` predicate: a wrong read of the catalog is indistinguishable from an empty vendor.
+  const DERIVED_TIME_SEGMENTS_CLI = new Set(['segments.date','segments.week','segments.month','segments.quarter','segments.year','segments.day_of_week'])
   const rowsOf = (r) => (Array.isArray(r) && Array.isArray(r[0]) ? r[0] : r)
   const cat = {}
   for (const [k, q] of Object.entries(CATALOG_QUERIES)) {
@@ -248,6 +275,53 @@ if (process.argv[1] && process.argv[1].endsWith('google-ads-capture-universe.mjs
   const probes = retainedProbes(doc)
   const retainedSlots = Object.keys(probes.slots).length
   const retainedSurfaces = Object.keys(probes.surfaces).length
+
+  // ── METRIC-SET RE-PROBE (LORAMER_UNIVERSE_PROBE_METRIC_SET_V1) ────────────────────────────────────────────
+  // ⛔ PARTIAL DELIVERY IS ITS OWN FACT AND MUST NOT COLLAPSE INTO EITHER POLE. An entry that serves 3 of 5
+  // metrics is not delivers:true (the walk's query fails) and not delivers:false (the vendor has data). It
+  // carries `servesMetrics` + `refusesMetrics` + the vendor's words VERBATIM, and the writer reads
+  // servesMetrics as DATA — the same shape as metricShape, so no per-resource branch appears anywhere.
+  if (reprobeMetrics) {
+    const targets = []
+    for (const r of catalog.resources) {
+      if ((r.metrics || []).length === 0) continue
+      const sPrev = probes.surfaces[r.name]
+      if (sPrev?.delivers === true) targets.push({ resource: r.name, segment: null, key: null })
+      for (const seg of r.segments || []) {
+        if (DERIVED_TIME_SEGMENTS_CLI.has(seg)) continue
+        const k = `${r.name}|${seg}`
+        if (probes.slots[k]?.delivers === true) targets.push({ resource: r.name, segment: seg, key: k })
+      }
+    }
+    console.log(`\n[metric-set] BUDGET ARITHMETIC — printed BEFORE spending`)
+    console.log(`[metric-set]   entries recorded delivering and still requested : ${targets.length}`)
+    console.log(`[metric-set]   catalog cost already spent : ${spent}`)
+    console.log(`[metric-set]   HARD BUDGET : ${budget}`)
+    console.log(`[metric-set]   asking with the WRITER'S FIVE-METRIC SET: ${WRITER_METRICS.join(', ')}\n`)
+    let full = 0, partial = 0, none = 0, unreached = 0
+    for (const t of targets) {
+      if (spent >= budget) { unreached++; continue }
+      const obs = t.key ? probes.slots[t.key] : probes.surfaces[t.resource]
+      spent++
+      try {
+        await customer.query(probeGaql(t.resource, t.segment, WRITER_METRICS.join(', '), START, END))
+        obs.servesMetrics = [...WRITER_METRICS]; obs.refusesMetrics = []; delete obs.metricSetReason
+        full++
+      } catch (e) {
+        const vr = reason(e)
+        const bad = refusedMetrics(vr, WRITER_METRICS)
+        const rest = WRITER_METRICS.filter((m) => !bad.includes(m))
+        obs.refusesMetrics = bad; obs.metricSetReason = vr
+        if (!bad.length || !rest.length) { obs.servesMetrics = []; none++; continue }
+        if (spent >= budget) { unreached++; continue }
+        spent++
+        try { await customer.query(probeGaql(t.resource, t.segment, rest.join(', '), START, END)); obs.servesMetrics = rest; partial++ }
+        catch (e2) { obs.servesMetrics = []; obs.metricSetReason = `${vr} || narrowed retry also refused: ${reason(e2)}`; none++ }
+      }
+    }
+    console.log(`[metric-set] full ${full} · PARTIAL ${partial} · none ${none} · unreached ${unreached}`)
+    if (unreached) console.log(`[metric-set] ⛔ ${unreached} entr(ies) NOT reached — budget exhausted at ${budget}. They keep their previous verdict and are NOT recorded as refusing.`)
+  }
 
   // 2) THE WORK LIST — unprobed slots on resources that carry at least one metric. A zero-metric resource is
   //    NOT probed and NOT silently dropped: build() gives it probed:false with the reason on the row.
