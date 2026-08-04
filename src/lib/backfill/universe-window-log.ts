@@ -77,6 +77,30 @@ export async function checkDiskFloor(): Promise<FloorVerdict> {
   }
 }
 
+// ── LORAMER_UNIVERSE_BOUNDED_RUN_V1 — THE RE-PUBLISH DECISION, AS A PURE FUNCTION ─────────────────
+// ⛔ IT IS PURE AND EXPORTED SO A GUARD CAN EXECUTE IT. Written inline in the route, the bound could
+// only be guarded by searching the source for a variable name — and that check went GREEN against a
+// break that replaced the whole expression with `false`, because the NAME survived. That is the third
+// time in one day that a text-search guard passed over broken behaviour
+// (★CODE-HYGIENE-SWEEP-KNOWN-HAZARDS item 3). A decision that must be guarded has to be callable.
+export function shouldRepublish(args: { stillGoing: boolean; windowsRemaining?: number }): {
+  republish: boolean
+  nextWindowsRemaining?: number
+  reason: string
+} {
+  if (!args.stillGoing) {
+    return { republish: false, reason: 'the vendor is exhausted, or this window was skipped or errored — nothing to continue' }
+  }
+  // UNDEFINED = unbounded. That is the original behaviour and stays the default.
+  if (typeof args.windowsRemaining !== 'number') {
+    return { republish: true, reason: 'unbounded run — continue until the vendor, the governor or the disk floor stops it' }
+  }
+  if (args.windowsRemaining <= 1) {
+    return { republish: false, reason: `bound reached (windowsRemaining=${args.windowsRemaining}) — this chain was asked for a fixed number of windows and has walked them. The vendor still had rows; that is not a reason to continue.` }
+  }
+  return { republish: true, nextWindowsRemaining: args.windowsRemaining - 1, reason: `bounded run, ${args.windowsRemaining - 1} window(s) left after this one` }
+}
+
 export interface WindowKey {
   clientId: string
   resource: string

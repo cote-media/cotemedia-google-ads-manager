@@ -38,6 +38,14 @@ export async function POST(request: Request) {
   const clientId = url.searchParams.get('clientId')
   const endDate = url.searchParams.get('endDate') || ''
   const dryRun = url.searchParams.get('dryRun') === '1'
+  // ⛔ LORAMER_UNIVERSE_BOUNDED_RUN_V1 — `?windows=N` bounds the whole chain to N windows per entry.
+  // Omitted = unbounded, the original behaviour. `windows=1` is the PROOF run: one window, measured, and the
+  // consumer will not re-publish afterwards even though quota and disk would allow it.
+  const windowsParam = url.searchParams.get('windows')
+  const windowsRemaining = windowsParam === null ? undefined : Number(windowsParam)
+  if (windowsRemaining !== undefined && (!Number.isInteger(windowsRemaining) || windowsRemaining < 1)) {
+    return NextResponse.json({ error: `windows must be a positive integer if supplied; got "${windowsParam}"` }, { status: 400 })
+  }
   if (!clientId || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
     return NextResponse.json({ error: 'clientId and endDate=YYYY-MM-DD are required — the first window is explicit, never inferred from a clock' }, { status: 400 })
   }
@@ -90,7 +98,8 @@ export async function POST(request: Request) {
   if (!dryRun) {
     for (const entry of toPublish) {
       const label = `${entry.resource}${entry.segment ? '/' + entry.segment : ''}`
-      const msg: UniverseMessage = { clientId, userEmail: conn.user_email, customerId: String(conn.account_id), entry, startDate, endDate }
+      const msg: UniverseMessage = { clientId, userEmail: conn.user_email, customerId: String(conn.account_id), entry, startDate, endDate,
+        ...(windowsRemaining !== undefined ? { windowsRemaining } : {}) }
       await send(TOPIC, msg, { idempotencyKey: `${clientId}|${label}|${startDate}` } as any)
       published++
     }
@@ -106,6 +115,9 @@ export async function POST(request: Request) {
   return NextResponse.json({
     started: !dryRun, dryRun, published, wouldPublish: toPublish.length,
     entriesSelectable: entries.length, window: { startDate, endDate, windowDays: WINDOW_DAYS },
+    bound: windowsRemaining === undefined
+      ? { marker: 'LORAMER_UNIVERSE_BOUNDED_RUN_V1', windows: null, note: 'UNBOUNDED — each consumer re-publishes its next window until the vendor is exhausted, the governor holds, or the disk floor stops it.' }
+      : { marker: 'LORAMER_UNIVERSE_BOUNDED_RUN_V1', windows: windowsRemaining, note: `BOUNDED to ${windowsRemaining} window(s) per entry. The consumer will NOT re-publish past the bound even if quota and disk allow it.` },
     entityAxis: {
       marker: 'LORAMER_UNIVERSE_ENTITY_AXIS_V1',
       distinctGrains: grains.length,

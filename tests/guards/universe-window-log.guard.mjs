@@ -92,6 +92,7 @@ for (const f of [CONSUMER, STARTER]) {
   }
 }
 
+let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublish() from it
 // ── (f) ONE DISK, ONE FLOOR — DRIVEN FROM THE COMPILED MODULE ─────────────────────────────────────
 // ⛔ COMPILED, NOT GREPPED. The whole point of the 2026-08-03 lesson: assert the VALUE the code will
 // actually use, not the presence of a constant's name.
@@ -125,6 +126,7 @@ for (const f of [CONSUMER, STARTER]) {
       return orig.call(this, req, ...a)
     }
     const mod = require_(join(out, 'src/lib/backfill/universe-window-log.js'))
+    boundMod = mod
     Module._resolveFilename = orig
 
     // ⛔ THE PROVISIONED FIGURE IS READ FROM partition-backfill.mjs RATHER THAN HARDCODED TWICE HERE.
@@ -250,6 +252,55 @@ for (const f of [CONSUMER, STARTER]) {
   }
   if (!/deferredEntries/.test(read('src/app/api/backfill/universe-start/route.ts'))) {
     findings.push('(g) the starter route no longer reports deferredEntries(). A narrowed walk that does not state what it narrowed reads, from the outside, exactly like a walk that silently lost 12 slots.')
+  }
+}
+
+// ── (h) THE BOUND — "ONE WINDOW IS A PROOF; FIFTY IS A COMMITMENT" MUST BE EXPRESSIBLE ────────────
+// ⛔ LORAMER_UNIVERSE_BOUNDED_RUN_V1. The consumer SELF-RE-PUBLISHES, so without a bound that travels
+// on the message, firing the starter releases the ENTIRE walk — 346 messages, each publishing its own
+// next window, until the governor or the disk floor stops it. A proof run that quietly became a
+// 50-window commitment would be discovered only by watching the disk fall.
+// ⛔ DRIVEN, NOT GREPPED — and the first version of THIS leg is why the rule is absolute now. Written
+// as `src.indexOf('boundExhausted')` it went GREEN against a break that replaced the entire expression
+// with `false`, because the variable NAME survived. Third occurrence in one day.
+{
+  const S = boundMod?.shouldRepublish
+  if (typeof S !== 'function') {
+    findings.push('(h) shouldRepublish() is gone from universe-window-log. Without it the re-publish bound is inline in a route again, where it can only be text-checked — and a text check on this exact decision already passed over a break today.')
+  } else {
+    const cases = [
+      { in: { stillGoing: true, windowsRemaining: 1 }, want: false, why: 'windowsRemaining=1 is the LAST window — it must not re-publish. This is the "one window is a proof" case; getting it wrong turns a proof into a 50-window commitment.' },
+      { in: { stillGoing: true, windowsRemaining: 2 }, want: true,  why: 'windowsRemaining=2 has one more window owed' },
+      { in: { stillGoing: true, windowsRemaining: 0 }, want: false, why: 'a bound of 0 must never re-publish' },
+      { in: { stillGoing: true },                      want: true,  why: 'undefined = unbounded, the original behaviour and the default' },
+      { in: { stillGoing: false, windowsRemaining: 9 }, want: false, why: 'vendor exhausted / skipped / errored — the bound is irrelevant, there is nothing to continue' },
+    ]
+    for (const c of cases) {
+      const got = S(c.in)
+      if (got.republish !== c.want) {
+        findings.push(`(h) shouldRepublish(${JSON.stringify(c.in)}) returned republish=${got.republish}, expected ${c.want}. ${c.why}`)
+      }
+    }
+    // ⛔ THE DECREMENT. A bounded run that re-publishes at a CONSTANT count is worse than no bound at
+    // all, because it looks bounded while running forever.
+    const two = S({ stillGoing: true, windowsRemaining: 2 })
+    if (two.nextWindowsRemaining !== 1) {
+      findings.push(`(h) shouldRepublish does not DECREMENT: from windowsRemaining=2 it passed on ${two.nextWindowsRemaining}, expected 1. A bound that never decreases looks bounded and runs forever.`)
+    }
+    const unbounded = S({ stillGoing: true })
+    if (unbounded.nextWindowsRemaining !== undefined) {
+      findings.push('(h) an UNBOUNDED run was given a numeric windowsRemaining — that silently converts every existing unbounded walk into a bounded one.')
+    }
+  }
+  // ORDERING is still a text property: the bound must be decided before the governor is consulted.
+  const src = read(CONSUMER)
+  const boundAt = src.indexOf('shouldRepublish(')
+  const govAt = src.indexOf('decidePublish(')
+  if (boundAt !== -1 && govAt !== -1 && boundAt > govAt) {
+    findings.push('(h) the bound is decided AFTER the governor. The governor answers "may we AFFORD another window"; the bound answers "were we ASKED for one at all". A run asked for exactly one window must stop even when quota and disk would allow more.')
+  }
+  if (boundAt === -1) {
+    findings.push('(h) the consumer does not call shouldRepublish(). Firing the starter would release the ENTIRE walk — 346 messages each publishing their own next window.')
   }
 }
 

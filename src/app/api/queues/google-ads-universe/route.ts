@@ -21,7 +21,7 @@ import { decidePublish } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
 // governor's CORRECTED spend read. See the module header for what each replaces and why.
 import {
-  checkDiskFloor, openWindow, closeWindow, readLaneSpendToday, windowAlreadyFinished, gb,
+  checkDiskFloor, openWindow, closeWindow, readLaneSpendToday, windowAlreadyFinished, shouldRepublish, gb,
   type WindowKey, type WindowOutcome,
 } from '@/lib/backfill/universe-window-log'
 
@@ -44,6 +44,20 @@ export interface UniverseMessage {
   /** Inclusive window this message must capture. The message carries it — nothing is inferred from order. */
   startDate: string
   endDate: string
+  /**
+   * ⛔ LORAMER_UNIVERSE_BOUNDED_RUN_V1 — HOW MANY WINDOWS THIS CHAIN MAY STILL WALK, INCLUDING THIS ONE.
+   * UNDEFINED means unbounded, which is the original behaviour and stays the default.
+   *
+   * WHY IT EXISTS: this consumer SELF-RE-PUBLISHES its next window, which is what keeps the queue at O(1)
+   * messages — and it means "fire one window" is not expressible without a bound. Firing the starter would
+   * publish 346 messages, each of which would publish its own next window, and the walk would run until the
+   * governor or the disk floor stopped it. "One window is a proof; fifty is a commitment" (Russ, 2026-08-04)
+   * cannot be honoured by intention alone; it needs a number that travels WITH the message.
+   * ⛔ IT RIDES ON THE MESSAGE, NOT IN A CONFIG. Vercel Queues gives no ordering and at-least-once delivery,
+   * so a bound held anywhere else could not be trusted by a handler that must assume nothing about what ran
+   * before it — the same reason every message already carries its own full window.
+   */
+  windowsRemaining?: number
 }
 
 const addDays = (iso: string, n: number) => {
@@ -134,8 +148,15 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   })
 
   // ── SELF-RE-PUBLISH, GOVERNED ────────────────────────────────────────────────────────────────────────────
-  const stillGoing = result.exhaustion && !result.exhaustion.complete && !result.skipped && !result.error
-  if (stillGoing) {
+  // ⛔ THE BOUND IS DECIDED BEFORE THE GOVERNOR, DELIBERATELY. The governor answers "may we AFFORD another
+  // window"; the bound answers "were we ASKED for another window at all", and a run asked for exactly one
+  // must stop even when quota and disk would happily allow more.
+  const stillGoing = !!(result.exhaustion && !result.exhaustion.complete && !result.skipped && !result.error)
+  const bound = shouldRepublish({ stillGoing, windowsRemaining: msg.windowsRemaining })
+  if (stillGoing && !bound.republish) {
+    console.log(`[universe] NOT RE-PUBLISHING ${clientId} ${label}: ${bound.reason}`)
+  }
+  if (bound.republish) {
     // ⛔ SPEND COMES FROM THE WINDOW LOG, NOT FROM universe_run_state. The old read summed a CUMULATIVE
     // per-entry counter for every entry touched today, so from day 2 it billed the walk for day 1 and the
     // governor refused to publish — a 3-day walk halting on day 2 reporting "allowance EXHAUSTED" having
@@ -146,7 +167,11 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
       const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
       // ⛔ IDEMPOTENCY KEY on the republish: a redelivered message must not fan out a second walk. Any
       // republish with the same key inside the retention window is deduplicated by Vercel.
-      await send(TOPIC, { ...msg, startDate: nextStart, endDate: nextEnd } satisfies UniverseMessage,
+      await send(TOPIC, {
+        ...msg, startDate: nextStart, endDate: nextEnd,
+        // The decrement comes from the pure decision; undefined stays undefined (unbounded).
+        ...(bound.nextWindowsRemaining !== undefined ? { windowsRemaining: bound.nextWindowsRemaining } : {}),
+      } satisfies UniverseMessage,
         { idempotencyKey: `${clientId}|${label}|${nextStart}` } as any)
     } else {
       console.log(`[universe] HOLDING publish for ${clientId} ${label}: ${gov.reason}`)
