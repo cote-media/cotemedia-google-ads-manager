@@ -41,6 +41,36 @@ export const RESERVED_FOR_FORWARD_OPS = 4_000
 export const RESERVED_FOR_DRAIN_OPS = 5_000
 export const BACKFILL_OP_ALLOWANCE = GOOGLE_DAILY_OP_CAP - RESERVED_FOR_FORWARD_OPS - RESERVED_FOR_DRAIN_OPS // 6,000
 
+// ── LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1, 2026-08-04 ─────────────────────────────────────────────────────
+// ⛔ WHAT WAS WRONG, AND IT WAS THE OPPOSITE OF THE INTENT. `decidePublish` below reads ONLY the backfill's
+// own spend — the header says so proudly ("never a fleet number"). That guarantees the backfill never exceeds
+// its 6,000 allowance. It guarantees NOTHING about the other 9,000. On a heavy drain day the fleet reaches
+// 4,000 forward + 8,000 drain + 6,000 backfill = 18,000 against a 15,000 cap, and the backfill spends its
+// full allowance regardless BECAUSE IT CANNOT SEE THE OVERRUN. The lane that hits the wall is the DRAIN and
+// FORWARD — live product data — while a backfill of 2022 runs undisturbed.
+//
+// ⛔ THE GOVERNING LAW DECIDES WHO YIELDS, AND IT IS NOT A PREFERENCE: stale data presented as current is
+// worse than a false zero. Today's numbers being wrong is a customer-visible failure; 2022's history arriving
+// three days later is not. THE WALK YIELDS. THE PRODUCT NEVER DOES.
+//
+// ⛔ NO DEADLOCK IS POSSIBLE, AND THE REASON IS STRUCTURAL RATHER THAN LUCKY: THE YIELD IS ONE-WAY. Only the
+// backfill consults the fleet and only the backfill stands down. Forward, catchup and drain never look at the
+// backfill and never wait for it, so there is no cycle to deadlock on. If every lane yielded to every other
+// lane nothing would run — which is exactly why only ONE lane is allowed to.
+//
+// ⛔ FAIL CLOSED. An unreadable fleet reading is NOT headroom. It returns hold, matching google-op-budget's
+// own posture ("A read failure returns null → every lane holds"). A governor that treats "I don't know" as
+// "go ahead" is worse than no governor, because it looks like one.
+
+/** The product lanes' reserve. The backfill may never eat into what is LEFT of this. */
+export const PRODUCT_RESERVE_OPS = RESERVED_FOR_FORWARD_OPS + RESERVED_FOR_DRAIN_OPS // 9,000
+
+/** Shape of google-op-budget's reading, restated structurally so this module stays drivable with no DB. */
+export interface FleetReading {
+  byLane: { forward: number; catchup: number; drain: number }
+  unattributedRaw: number
+}
+
 export interface GovernorDecision {
   mayPublish: boolean
   /** How many MESSAGES may be published right now. Zero is a valid, expected answer. */
@@ -98,5 +128,74 @@ export function decidePublish(args: {
     reason: allowance > 0
       ? `may publish ${allowance} of ${args.want} requested — ${remainingOps} ops remain in the backfill allowance (${ASSUMED_OPS_PER_REQUEST} op/request per Google's rate sheet, read 2026-08-03; a CEILING, since valid-next_page_token continuations are not counted)`
       : `one message costs ~${opsPerMessage} assumed ops and only ${remainingOps} remain — holding rather than overrunning`,
+  }
+}
+
+/**
+ * ⛔ THE ONLY FUNCTION THAT MAY AUTHORISE A PUBLISH ONCE THE FLEET IS VISIBLE.
+ * PURE — the fleet reading is passed IN, so a guard can execute every branch with no database and no
+ * network. (`decidePublish` above is kept: it still answers the narrower "has the backfill overspent its own
+ * allowance" question, and this function calls it first. A lane that has blown its OWN budget must hold even
+ * if the fleet looks quiet.)
+ *
+ * THE ARITHMETIC, stated so a decision can be audited rather than believed:
+ *   productSpent    = forward + catchup + drain + unattributed        (from cron_runs, an ESTIMATE)
+ *   reserveLeft     = max(0, PRODUCT_RESERVE_OPS - productSpent)      what the product lanes may still need
+ *   fleetRemaining  = CAP - (productSpent + backfillSpent)            real headroom under the cap
+ *   publishable     = fleetRemaining - reserveLeft                    what is left AFTER the product is safe
+ * The backfill may publish only out of `publishable`. When the product lanes have spent little, their reserve
+ * is nearly intact and the backfill gets almost nothing — which is correct: the reserve exists to be there
+ * when they need it, not to be lent out because they have not needed it yet today.
+ */
+export function decidePublishFleetAware(args: {
+  spentRequestsToday: number
+  fleet: FleetReading | null
+  requestsPerMessage?: number
+  want: number
+}): GovernorDecision {
+  const own = decidePublish({
+    spentRequestsToday: args.spentRequestsToday,
+    requestsPerMessage: args.requestsPerMessage,
+    want: args.want,
+  })
+  // The backfill's own allowance still binds first. If it is exhausted, nothing else matters.
+  if (!own.mayPublish) return own
+
+  if (args.fleet === null) {
+    return {
+      mayPublish: false, allowance: 0, denominator: own.denominator,
+      reason: 'FLEET SPEND UNREADABLE — holding. An unreadable counter is not headroom, and treating "I do not know" as "go ahead" is the failure mode a governor exists to prevent. (google-op-budget takes the same posture: a null reading holds every lane.)',
+    }
+  }
+
+  const f = args.fleet
+  const productSpent = f.byLane.forward + f.byLane.catchup + f.byLane.drain + f.unattributedRaw
+  const backfillSpent = Math.max(0, args.spentRequestsToday) * ASSUMED_OPS_PER_REQUEST
+  // ⛔ THE RESERVE IS HELD IN FULL, ALWAYS — IT IS NOT DRAWN DOWN AS THE PRODUCT SPENDS.
+  // The first version of this line computed `reserveLeft = RESERVE − productSpent` and let the backfill
+  // publish out of the difference. That is backwards in BOTH directions and the guard caught both:
+  //   · on a QUIET day it lent the backfill the untouched reserve — but the reserve exists to be there
+  //     WHEN forward and drain need it, not to be handed out because they have not needed it yet today;
+  //   · on a HEAVY day (product past its reserve) `reserveLeft` clamped to 0 and the backfill was
+  //     offered the ENTIRE remaining headroom — the most over-subscribed day producing the most
+  //     generous answer, which is the exact overrun this fix exists to prevent.
+  // Holding the full reserve makes the walk's ceiling shrink monotonically as the product gets busier,
+  // which is the only shape consistent with "the walk yields; the product does not".
+  const publishable = GOOGLE_DAILY_OP_CAP - PRODUCT_RESERVE_OPS - productSpent - backfillSpent
+  const opsPerMessage = Math.max(1, args.requestsPerMessage ?? 1) * ASSUMED_OPS_PER_REQUEST
+  const audit = `fleet ${productSpent} product + ${backfillSpent} backfill of ${GOOGLE_DAILY_OP_CAP} cap · ${PRODUCT_RESERVE_OPS} held for forward+drain · publishable ${publishable}`
+
+  if (publishable < opsPerMessage) {
+    return {
+      mayPublish: false, allowance: 0, denominator: own.denominator,
+      reason: `WALK STANDS DOWN — ${audit}. One message costs ~${opsPerMessage} ops and only ${Math.max(0, publishable)} may be spent without eating the reserve that forward and drain may still need today. ⛔ THE WALK YIELDS; THE PRODUCT DOES NOT — stale data presented as current is worse than history arriving late.`,
+    }
+  }
+  const allowance = Math.max(0, Math.min(own.allowance, Math.floor(publishable / opsPerMessage)))
+  return {
+    mayPublish: allowance > 0, allowance, denominator: own.denominator,
+    reason: allowance > 0
+      ? `may publish ${allowance} of ${args.want} — ${audit} (binding: ${allowance < own.allowance ? 'FLEET headroom' : 'the backfill’s own allowance'})`
+      : `WALK STANDS DOWN — ${audit}. Nothing publishable after the product reserve.`,
   }
 }

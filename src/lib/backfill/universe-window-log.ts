@@ -129,7 +129,7 @@ export async function openWindow(k: WindowKey, diskFreeBytes: number): Promise<v
   if (error) throw new Error(`universe_window_log open failed: ${error.message}`)
 }
 
-export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop'
+export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop' | 'quota_stop'
 
 /**
  * CLOSE THE WINDOW WITH AN EXPLICIT OUTCOME.

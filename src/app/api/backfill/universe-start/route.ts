@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
 import { loadUniverse, selectableEntries, deferredEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
-import { decidePublish } from '@/lib/backfill/universe-governor'
+import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 import { checkDiskFloor, readLaneSpendToday, gb, FLOOR_BYTES, PROVISIONED_BYTES } from '@/lib/backfill/universe-window-log'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -85,7 +85,10 @@ export async function POST(request: Request) {
   }
 
   const spent = await readLaneSpendToday()
-  const gov = decidePublish({ spentRequestsToday: spent, want: entries.length })
+  // ⛔ LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — the starter yields on the same rule as the consumer. A walk
+  // that could not be STARTED without eating the product reserve must not be started.
+  const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
+  const gov = decidePublishFleetAware({ spentRequestsToday: spent, fleet: await readGoogleSpendToday(), want: entries.length })
 
   // ⛔ THE GOVERNOR DECIDES BEFORE ANYTHING IS PUBLISHED. Zero is a valid answer and is reported, not retried.
   if (!gov.mayPublish) {

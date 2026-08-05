@@ -17,7 +17,7 @@ import { NextResponse } from 'next/server'
 import { handleCallback, send } from '@vercel/queue'
 import { loadUniverse, captureUniverseEntry, refusalStamp, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { recordEntryOutcome, readAllEntryStates, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
-import { decidePublish } from '@/lib/backfill/universe-governor'
+import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
 // governor's CORRECTED spend read. See the module header for what each replaces and why.
 import {
@@ -161,7 +161,14 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
     // per-entry counter for every entry touched today, so from day 2 it billed the walk for day 1 and the
     // governor refused to publish — a 3-day walk halting on day 2 reporting "allowance EXHAUSTED" having
     // spent nothing that day. One log row is one window, so this sum is today's spend by construction.
-    const gov = decidePublish({ spentRequestsToday: await readLaneSpendToday(), want: 1 })
+    // ⛔ LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — the fleet decides, not just this lane. readGoogleSpendToday()
+    // is READ from google-op-budget (that module is not modified); a null reading HOLDS rather than proceeds.
+    const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
+    const gov = decidePublishFleetAware({
+      spentRequestsToday: await readLaneSpendToday(),
+      fleet: await readGoogleSpendToday(),
+      want: 1,
+    })
     if (gov.mayPublish) {
       const nextEnd = addDays(startDate, -1)
       const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
@@ -174,7 +181,16 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
       } satisfies UniverseMessage,
         { idempotencyKey: `${clientId}|${label}|${nextStart}` } as any)
     } else {
-      console.log(`[universe] HOLDING publish for ${clientId} ${label}: ${gov.reason}`)
+      // ⛔ NO SILENT SUCCESS AND NO SILENT SKIP. The window we are declining to publish gets a ROW, with the
+      // governor's arithmetic on it, so "the walk stood down" is queryable rather than inferred from absence.
+      // `quota_stop` does NOT settle the entry (isClientComplete needs vendor_exhausted_below or
+      // skipped_reason), so a walk that yielded all day still reads as OWED, never as finished.
+      const nextEnd = addDays(startDate, -1)
+      const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
+      const held: WindowKey = { clientId, resource: entry.resource, segment: entry.segment, windowStart: nextStart, windowEnd: nextEnd }
+      await openWindow(held, floor.freeBytes)
+      await closeWindow(held, { outcome: 'quota_stop', rowsWritten: 0, requestsSpent: 0, refusedRows: 0, error: gov.reason })
+      console.log(`[universe] STAND-DOWN ${clientId} ${label} ${nextStart}..${nextEnd}: ${gov.reason}`)
     }
   }
 
