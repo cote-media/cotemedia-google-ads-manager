@@ -1,0 +1,126 @@
+/* LORAMER_CHAT_SHARED_THREAD_V1 — ONE STYLESHEET FOR BOTH CHAT SURFACES.
+   Merged from chat.module.css (desktop shelf) and lora-page.module.css (phone page), which carried the
+   SAME rules with drifting values. Two variants, `.panel` and `.page`, differ ONLY where the surfaces
+   genuinely differ: who scrolls, and whether the composer is sticky.
+
+   ⛔ NO dvh ANYWHERE (the 874 finding: on iOS dvh resolves to the LARGE viewport while
+      documentElement.clientHeight is the small one, so a dvh-sized surface overhangs before the
+      keyboard is involved). The panel variant's height is the container's problem, not this file's.
+   ⛔ NOTHING position:fixed here. Six overlay attempts died on hand-positioned geometry.
+   ⛔ TOKENS, NOT HEX. This file depends on `.tokens` being applied by the container (both already do —
+      the page renders outside Shell and the shelf is portaled out of `.root`, and BOTH sever custom
+      property inheritance, which is why each carries its own tokens). Every colour below is a var with
+      a literal fallback, so a severed scope degrades to the value it has today instead of to nothing —
+      which is exactly how the send button once rendered as a white glyph on a white bar. */
+
+/* ── THE SCROLL REGION ─────────────────────────────────────────────────────────────────────────── */
+/* PANEL: this element is the scroller. ⚠ min-height:0 is NOT set here deliberately — the shelf's
+   track/thumb mismatch (★UI-OVERFLOW / ★CHAT-UI-DEDICATED-DAY) is a BEHAVIOUR change and this flight
+   is extraction-only. The structural finding is banked; the fix is not this commit. */
+.scroll {
+  flex: 1; min-width: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 16px;
+  display: flex; flex-direction: column; gap: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+/* PAGE: NOT a scroll container. The DOCUMENT scrolls; this is just long content. Making this the
+   scroller would pin the composer to its height, which is the overlay pattern wearing a hat.
+   The bottom padding COMPENSATES for the composer's keyboard lift so the newest turn stays above it. */
+.list {
+  flex: 1; min-width: 0; overscroll-behavior: contain;
+  padding: 16px 16px calc(16px + var(--lora-kb-inset, 0px));
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* ── EMPTY STATE ───────────────────────────────────────────────────────────────────────────────── */
+.empty { margin: auto 0; text-align: center; padding: 12px; }
+.emptyLead { color: var(--muted, #64748b); font-size: 14px; line-height: 1.5; margin-bottom: 16px; }
+.suggestions { display: flex; flex-direction: column; gap: 8px; }
+.suggestion {
+  text-align: left; padding: 9px 12px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--border, #dbe2ea); background: var(--paper, #f5f8ff);
+  color: var(--ink, #0f172a); font: inherit; font-size: 13.5px; line-height: 1.4;
+}
+.suggestion:hover { border-color: var(--accent, #2563eb); background: var(--surface, #eef2f8); }
+
+/* ── TURNS ─────────────────────────────────────────────────────────────────────────────────────── */
+.rowUser { display: flex; justify-content: flex-end; }
+.rowAssistant { display: flex; justify-content: flex-start; }
+.bubbleUser {
+  max-width: 82%; padding: 9px 13px; border-radius: 14px 14px 4px 14px;
+  background: var(--accent, #2563eb); color: var(--white, #fff); font-size: 14px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
+/* min-width:0 IS THE CRUX and it stays: the message column's min-width:auto is what let a wide table's
+   intrinsic width force the bubble → panel wider on iOS; 0 makes it scroll internally instead. */
+.bubbleAssistant {
+  max-width: 88%; min-width: 0; padding: 9px 13px; border-radius: 14px 14px 14px 4px;
+  background: var(--surface, #eef2f8); color: var(--ink, #0f172a);
+  font-size: 14px; line-height: 1.55; word-break: break-word;
+}
+
+/* ── MARKDOWN — wide tables and code scroll INSIDE the bubble, never widening the surface ───────── */
+.md { white-space: normal; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 8px; }
+.md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md h1, .md h2, .md h3 { font-size: 14.5px; font-weight: 600; margin: 8px 0 4px; }
+.md code { background: var(--code-bg, rgba(15, 23, 42, .06)); padding: 1px 4px; border-radius: 4px; font-size: 12.5px; }
+.md a { color: var(--accent, #2563eb); }
+.md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; max-width: 100%; margin: 6px 0; font-size: 13px; }
+.md th, .md td { border: 1px solid var(--border, #dbe2ea); padding: 5px 9px; text-align: left; white-space: nowrap; }
+.md th { background: var(--surface, #eef2f8); font-weight: 600; }
+.md pre { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; background: var(--code-bg, rgba(15, 23, 42, .06)); border-radius: 8px; font-size: 12.5px; }
+.md pre code { background: none; padding: 0; border-radius: 0; white-space: pre; }
+
+/* ── COMPOSER ──────────────────────────────────────────────────────────────────────────────────── */
+/* Shared composer chrome. The PAGE variant is `.composer` and the PANEL variant is `.composerPanel`
+   — the names are the contract chat-scroll-chain.guard.mjs already encodes, and renaming them would
+   have meant editing a shipped guard to match new code rather than keeping the property it protects. */
+.composerShared {
+  /* flex-shrink:0 is load-bearing on the PANEL variant: the composer is held at the bottom BY FLEX
+     and without it collapses instead of pinning. Inert on the page variant, kept in one place. */
+  flex-shrink: 0;
+  display: flex; align-items: flex-end; gap: 8px;
+  border-top: 1px solid var(--surface, #eef2f8); background: var(--white, #fff);
+}
+/* PANEL: an ordinary flex child at the end of the column. */
+.composerPanel { padding: 12px 14px; position: relative; }
+/* PAGE: STICKY, NEVER FIXED. It stays an in-flow element; sticky only changes where it PAINTS once it
+   would scroll out of the visible band. `bottom: var(--lora-kb-inset, 0px)` is the ENTIRE keyboard
+   mechanism and is chosen for how it FAILS: with no JS, no visualViewport or a stale value the inset is
+   0 and the composer pins to the bottom of the layout viewport — where it already sits today. */
+.composer {
+  position: sticky; bottom: var(--lora-kb-inset, 0px); z-index: 2;
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.input {
+  /* 16px is load-bearing: iOS auto-zooms any focused input under 16px, MEASURED at 1.1431818x
+     (LORAMER_NEXT_CHAT_INPUT_16PX_V1). Do not lower it. */
+  flex: 1; min-width: 0; resize: none; max-height: 120px; padding: 10px 12px;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border, #dbe2ea); border-radius: 12px; font: inherit; font-size: 16px;
+  color: var(--ink, #0f172a); outline: none; line-height: 1.4;
+}
+.input:focus { border-color: var(--accent, #2563eb); }
+.send {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: var(--accent, #2563eb); color: var(--white, #fff); cursor: pointer;
+  display: grid; place-items: center; transition: opacity .15s; padding: 0;
+}
+.send:disabled { opacity: .4; cursor: default; }
+
+/* JUMP-TO-BOTTOM — what makes unpinning SAFE. Once auto-scroll stops following, the user needs a way
+   back that is not "scroll a 20,000px thread by hand".
+   ⚠ IT LIVES INSIDE THE COMPOSER ON PURPOSE. The obvious build is a position:fixed floater, banned here
+   for the reason six overlays are in the ground. As an absolute child of the composer it RIDES the
+   composer — including the keyboard lift on the page variant — so it needs no geometry of its own. */
+.jump {
+  position: absolute; right: 14px; top: -48px;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  background: var(--ink, #0f172a); color: var(--white, #fff); border: none; cursor: pointer;
+  box-shadow: 0 2px 10px var(--shadow, rgba(15, 23, 42, .28));
+}
