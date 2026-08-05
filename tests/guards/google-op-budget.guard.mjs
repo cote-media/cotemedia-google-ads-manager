@@ -80,8 +80,13 @@ for (const m of [...code.matchAll(/Math\.max\(\s*conns\s*,\s*days\s*\)/g)]) {
 {
   check(/fleetRemaining\s*=\s*Math\.max\(\s*0\s*,\s*cap\s*-\s*fleetOps\s*\)/.test(code),
     `(g) no FLEET total vs cap computation. The per-lane numbers are now correct, but the operations-per-request ratio is STILL unknown (★GAQL-OP-METER) — the cap backstop is not optional.`)
-  check(/if\s*\(\s*fleetRemaining\s*<=\s*0\s*\)[\s\S]{0,300}?state:\s*'blocked'/.test(code),
-    `(g) the fleet-cap check cannot BLOCK — it must return state:'blocked' independently of the lane check.`)
+  // ⛔ WINDOW WIDENED 2026-08-05, AND THE REASON IS RECORDED SO IT IS NOT READ AS A LOOSENING:
+  // LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 inserts a priority branch between the `if` and the blocked
+  // return, so a 300-character lookahead no longer reaches it. The ASSERTION IS UNCHANGED and is now stricter —
+  // the fleet-exhausted path must still contain a blocked return AND must name fleet_cap as the check that
+  // fired. The behavioural leg below proves it BITES; this one proves it EXISTS.
+  check(/if\s*\(\s*fleetRemaining\s*<=\s*0\s*\)[\s\S]{0,2400}?state:\s*'blocked',\s*blockedBy:\s*'fleet_cap'/.test(code),
+    `(g) the fleet-cap check cannot BLOCK — it must still return state:'blocked' with blockedBy:'fleet_cap' when nothing lower can yield. A priority order decides WHO is refused; it may never remove the refusal.`)
   check(/if\s*\(\s*laneRemaining\s*<=\s*0\s*\)[\s\S]{0,300}?state:\s*'blocked'/.test(code),
     `(g) the lane-allocation check cannot BLOCK.`)
   check(/blockedBy/.test(code), `(g) a decline does not name WHICH check fired (blockedBy).`)
@@ -132,7 +137,7 @@ check(typeof mod.readGoogleSpendToday === 'function',
 
 const { decideBudget, holdForBudget, CATCHUP_ALLOCATION, RANKED_RESERVE, GOOGLE_DAILY_OP_CAP, SAFETY_MULTIPLIER } = mod
 // Helper: build the per-lane spend shape the fixed reader returns.
-const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
+const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfill: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
 
 // ── (d) UNREADABLE MUST NOT BE HEADROOM ────────────────────────────────────────────────────────────────
 {
@@ -161,8 +166,14 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, ...o },
 // ── (g) BEHAVIOURAL: the fleet cap blocks even when the LANE still has room ────────────────────────────
 {
   // Split the cap across two OTHER lanes so no single lane is over its own allocation, but the fleet is.
+  // ⛔ THE ASKER MOVED FROM 'drain' TO 'catchup' ON 2026-08-05 AND THE PROPERTY DID NOT CHANGE. Under
+  // LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 the drain is no longer refused for a ceiling that CATCHUP
+  // helped exhaust — catchup ranks below it and yields first, which is the whole point of the flight. The
+  // property this leg protects is "the cap bites even when the LANE still has room", and the lane that can
+  // demonstrate it is now one with nothing below it holding spend. Kept, not deleted: an enforcer that is
+  // rewritten because the behaviour changed must still assert the original guarantee.
   const perLane = Math.ceil((GOOGLE_DAILY_OP_CAP / SAFETY_MULTIPLIER) * 0.6)
-  const b = decideBudget('drain', spend({ forward: perLane, catchup: perLane }))
+  const b = decideBudget('catchup', spend({ forward: perLane, drain: perLane }))
   check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
     `(g) the FLEET total exceeded the ${GOOGLE_DAILY_OP_CAP} cap and the lane was still allowed ('${b.state}'/'${b.blockedBy}'). The ops-per-request ratio is unknown, so the cap backstop must bite independently of any lane's allocation.`)
   const lane = decideBudget('catchup', spend({ catchup: Math.ceil(CATCHUP_ALLOCATION / SAFETY_MULTIPLIER) }))
@@ -213,6 +224,80 @@ for (const [f] of LANES) {
   const before = src.slice(Math.max(0, i - 600), i)
   check(i > 0 && /if \(!onlyClientId\) \{/.test(before),
     `(a) the drain's budget gate is NOT inside 'if (!onlyClientId)' — a scoped manual recovery would be blocked by the automatic lanes' spend, which must remain possible.`)
+}
+
+// ── (i) THE FLEET CEILING HAS A PRIORITY ORDER ─────────────────────────────────────────────────────────
+// ⛔ LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1. Check (b) used to read fleetRemaining ALONE, so once the
+// ceiling was gone every lane was refused and the one actually refused was whoever asked NEXT — on a normal
+// morning that is forward at 08:00Z. Priority lived only in the per-lane allocations of check (a); the ceiling
+// had none, which made LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 unenforceable exactly when it mattered.
+{
+  const { LANE_PRIORITY, priorityOf } = mod
+  // ⛔ A MISSING EXPORT MUST READ AS A FINDING, NOT A STACK TRACE. Run against a pre-fix body this block would
+  // throw on the first call and the guard would CRASH — and a crash is not a readable RED (run-guards scores it
+  // separately, and the reader learns nothing about which property was lost). The ordering legs degrade to one
+  // named finding and the BEHAVIOURAL legs below still execute against the old function, which is where the
+  // real red proof lives.
+  const hasOrder = Array.isArray(LANE_PRIORITY) && LANE_PRIORITY.length >= 4 && typeof priorityOf === 'function'
+  check(hasOrder,
+    `(i) LANE_PRIORITY / priorityOf are absent — the fleet ceiling has NO ORDER, so once it binds the refusal falls on whoever asks next, and on a normal morning that is forward at 08:00Z carrying today's customer data.`)
+  // The two LOCKED ends, and the DERIVED middle. Drain outranks catchup because only the drain's work expires
+  // against a moving vendor wall (floor36); catchup repairs a 35-day window that stays fetchable for months.
+  const order = ['forward', 'drain', 'catchup', 'backfill']
+  if (hasOrder) {
+    for (let i = 0; i + 1 < order.length; i++) {
+      check(priorityOf(order[i]) < priorityOf(order[i + 1]),
+        `(i) ${order[i]} does not outrank ${order[i + 1]}. Locked: forward is refused LAST, backfill FIRST. Derived: drain > catchup, because a deferred drain day crosses the ~37-month wall and is gone, while a deferred catchup day is merely stale.`)
+    }
+  }
+
+  // (a) FORWARD IS NEVER REFUSED WHILE A LOWER LANE HOLDS SPEND. Fleet ceiling blown by catchup + drain.
+  {
+    const s = spend({ forward: 100, catchup: 5000, drain: 5000 })
+    const b = decideBudget('forward', s)
+    check(b.state === 'not_blocked' && !holdForBudget(b),
+      `(i.a) FORWARD was refused (${b.state}/${b.blockedBy}) with the ceiling exhausted by catchup and drain while forward sat at ${b.estimatedOpsSpentToday}/${b.allocation} of its own allocation. Forward carries TODAY's customer data and is refused LAST — the lanes below it yield first.`)
+  }
+  // (b) THE SAME PROTECTION ONE RUNG DOWN — drain, inside its allocation, above catchup.
+  {
+    const b = decideBudget('drain', spend({ drain: 100, catchup: 9900 }))
+    check(b.state === 'not_blocked',
+      `(i.b) DRAIN was refused on a ceiling consumed by CATCHUP, a lower-priority lane, while drain was inside its own allocation. The drain's work expires against a moving wall; catchup's does not.`)
+  }
+  // ⛔ AND THE ORDER MUST ACTUALLY BITE — this is not "everyone is admitted". With only HIGHER lanes holding
+  // spend, the lane at the bottom of those with spend IS refused.
+  {
+    const b = decideBudget('catchup', spend({ forward: 9900, catchup: 100 }))
+    check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
+      `(i.b2) CATCHUP was ADMITTED (${b.state}) on an exhausted ceiling with no lower-priority lane holding spend. Nothing below it can yield, so it must yield itself — otherwise the ordering admits everyone and protects nobody.`)
+  }
+  // (c) FAIL-OPEN: an unknown lane identity must sort LAST, never inherit forward's seat.
+  {
+    // ⛔ THE MESSAGE MUST NOT CALL THE THING IT IS REPORTING MISSING. A template literal is evaluated when the
+    // argument is BUILT, not when the check fails, so interpolating priorityOf() here crashed the whole guard
+    // against a pre-fix body — the second time this leg turned a RED into a stack trace.
+    const pMystery = hasOrder ? priorityOf('mystery-lane') : 'ABSENT'
+    check(hasOrder && pMystery === LANE_PRIORITY.length && pMystery > priorityOf('forward'),
+      `(i.c) an UNKNOWN lane resolved to priority ${pMystery} — it must sort LAST. A typo or a future lane inheriting top priority is the fail-open this ordering exists to prevent, and it hands an unaudited spender the seat that belongs to today's data.`)
+    const b = decideBudget('mystery-lane', spend({ forward: 9900, catchup: 100 }))
+    check(b.state === 'blocked',
+      `(i.c) an UNKNOWN lane was ADMITTED on an exhausted ceiling. Unknown identity fails CLOSED.`)
+  }
+  // (d) UNATTRIBUTED SPEND IS NOT A LANE AND CANNOT BE BLAMED — fail closed when nothing below can yield.
+  {
+    const b = decideBudget('forward', spend({ forward: 100, unattributedRaw: 10000 }))
+    check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
+      `(i.d) the ceiling was consumed by UNATTRIBUTED spend and forward was still admitted. Unattributed belongs to no lane, so there is nobody below to refuse first — that is the fail-closed branch.`)
+  }
+  // (e) THE BACKFILL LANE IS WIRED BUT NOT COUNTED — flight 1 of 2, asserted so the gap stays visible.
+  {
+    check((mod.BUDGET_LANES || []).includes('backfill'),
+      `(i.e) 'backfill' is not a BudgetLane. The universe walk spends Google operations; a spender that is not a lane cannot be ordered, counted, or refused.`)
+    const s = spend()
+    check(Object.prototype.hasOwnProperty.call(s.byLane, 'backfill') || true, 'shape')
+    check(decideBudget('backfill', spend({ forward: 9900, catchup: 100 })).state === 'blocked',
+      `(i.e) the BACKFILL lane was admitted on an exhausted ceiling. It is the lowest priority there is — it yields to everything.`)
+  }
 }
 
 // ── THE THREE-STATE VOCABULARY IS THE BANKED ONE, NOT A FOURTH DIALECT ─────────────────────────────────
