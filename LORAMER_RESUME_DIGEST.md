@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-05T02:47:07.246Z
-- built_from HEAD: e89253c8149ef541aa15ba33f01d1108f93feb77  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-05T05:03:30.992Z
+- built_from HEAD: f2bb307a2f3525525947cb2fbd0d300fcec5c861  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: e92c3720ed57ead7ee7d15de510286703afdc055180757bcba83414020c802e6
     - LORAMER_DECISIONS.md: 3305ae19dda8e6a9f71f3f4366c269c44f32a17a7267c3f0c9d9f650baae9171
-    - LORAMER_QUEUE_OF_RECORD.md: c09aa8e67dd8d85455e114cbe0239926ac6d610b375918916039cb17d9812f1c
+    - LORAMER_QUEUE_OF_RECORD.md: 4bcdf605db6f0749c167126846114158072b5da84a3e5ea235527b1ed835cf20
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1578,8 +1578,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 570 tokens indexed · 212 resolve to BOTH a decision and a queue item ·
-91 decision-only · 267 queue-only.
+TOTALS: 573 tokens indexed · 212 resolve to BOTH a decision and a queue item ·
+91 decision-only · 270 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1830,6 +1830,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★UNIVERSE-ARTIFACT-UNDER-COUNTS-THE-SURFACE — DONE · decisions 2 · queue 1 · last 2026-08-03
 - ★UNIVERSE-DATE-FAMILY-IS-A-PURE-DUPLICATE — OPEN · decisions 2 · queue 1 · last 2026-08-03
 - ★UNIVERSE-DERIVED-TIME-WRITTEN-WHERE-UNDECLARED — DONE · decisions 0 · queue 1 · last 2026-08-04
+- ★UNIVERSE-FALSE-VENDOR-EXHAUSTION — DONE · decisions 0 · queue 1 · last 2026-08-05
 - ★UNIVERSE-NARROW-ON-MEASURED-YIELD — OPEN · decisions 1 · queue 1 · last 2026-08-04
 - ★UNIVERSE-PREFIX-EXPOSURE-MEASURED — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-PREFIX-ROWS-CARRY-REFUSED-ZEROS-UNSTAMPED — OPEN · decisions 0 · queue 1 · last 2026-08-04
@@ -1848,6 +1849,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 2 · last 2026-09-30
 - ★WALK-RELEASED-FOAM-OH — OPEN · decisions 0 · queue 1 · last 2026-08-05
+- ★WALK-STARTS-AT-LAST-ACTIVE — DONE · decisions 0 · queue 2 · last 2026-08-05
 - ★WASTED-SPEND-COUNTER — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★WHITE-LABEL-AGENCY — OPEN · decisions 0 · queue 2 · last 2026-07-29
 - ★WIRE-COVERAGE-INSTRUMENT — OPEN · decisions 1 · queue 5 · last 2026-08-01
@@ -2166,5 +2168,6 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_WOO_SILENT_ZERO_FIX_V1 — OPEN · decisions 4 · queue 1 · last 2026-07-28
 - LORAMER_WRAP_DOCS_ORDER_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27
+- LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 — DONE · decisions 0 · queue 1 · last 2026-08-05
 
 --- end of digest · regenerate with: node scripts/build-resume-digest.mjs ---
