@@ -16,7 +16,7 @@
 import { NextResponse } from 'next/server'
 import { handleCallback, send } from '@vercel/queue'
 import { loadUniverse, captureUniverseEntry, refusalStamp, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
-import { recordEntryOutcome, readAllEntryStates, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
+import { recordEntryOutcome, readAllEntryStates, readEntryState, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
 import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
 // governor's CORRECTED spend read. See the module header for what each replaces and why.
@@ -35,6 +35,8 @@ export const maxDuration = 300
 export const TOPIC = 'google-ads-universe'
 /** Window size per message. Small enough that one message is one cheap request; the walk is the loop. */
 export const WINDOW_DAYS = 30
+/** ⛔ The vendor floor measured for this account. Google serves nothing below it. */
+export const VENDOR_FLOOR_DATE = '2022-03-05'
 
 export interface UniverseMessage {
   clientId: string
@@ -64,6 +66,59 @@ const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
 
+
+/**
+ * ⛔ THE ONLY PLACE THE WALK ADVANCES. Both callers use it: the fresh-window path after a capture, and the
+ * already-finished path when resuming over ground we have covered. Keeping ONE implementation is not tidiness
+ * — the resume path originally had no advance at all and killed the walk on message one.
+ *
+ * Order is load-bearing: BOUND first (were we asked for another window), then GOVERNOR (may we afford one).
+ * A hold is RECORDED as `quota_stop`, never silently dropped.
+ */
+async function advanceToNextWindow(a: {
+  msg: UniverseMessage; clientId: string; label: string; startDate: string; entry: UniverseEntry
+}): Promise<void> {
+  const { msg, clientId, label, startDate, entry } = a
+  const bound = shouldRepublish({ stillGoing: true, windowsRemaining: msg.windowsRemaining })
+  if (!bound.republish) {
+    console.log(`[universe] NOT RE-PUBLISHING ${clientId} ${label}: ${bound.reason}`)
+    return
+  }
+  const nextEnd = addDays(startDate, -1)
+  const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
+  // ⛔ THE VENDOR FLOOR. Below it Google serves nothing, so walking past it spends quota to learn what the
+  // artifact already recorded. The writer still owns the EXHAUSTION verdict; this only stops the publish.
+  if (nextEnd < VENDOR_FLOOR_DATE) {
+    console.log(`[universe] FLOOR REACHED ${clientId} ${label}: next window would end ${nextEnd}, below the ${VENDOR_FLOOR_DATE} vendor floor — not publishing`)
+    return
+  }
+  // ⛔ SPEND COMES FROM THE WINDOW LOG, NOT universe_run_state (whose per-entry counter is CUMULATIVE and
+  // billed day 2 for day 1). ⛔ LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — the FLEET decides, not just this lane;
+  // readGoogleSpendToday() is READ from google-op-budget (unmodified), and a null reading HOLDS.
+  const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
+  const gov = decidePublishFleetAware({
+    spentRequestsToday: await readLaneSpendToday(),
+    fleet: await readGoogleSpendToday(),
+    want: 1,
+  })
+  if (gov.mayPublish) {
+    // ⛔ IDEMPOTENCY KEY: a redelivered message must not fan out a second walk.
+    await send(TOPIC, {
+      ...msg, startDate: nextStart, endDate: nextEnd,
+      ...(bound.nextWindowsRemaining !== undefined ? { windowsRemaining: bound.nextWindowsRemaining } : {}),
+    } satisfies UniverseMessage, { idempotencyKey: `${clientId}|${label}|${nextStart}` } as any)
+    return
+  }
+  // ⛔ NO SILENT SUCCESS AND NO SILENT SKIP. The window we decline to publish gets a ROW carrying the
+  // governor's arithmetic, so "the walk stood down" is queryable rather than inferred from absence.
+  // `quota_stop` does NOT settle the entry, so a walk that yielded all day still reads as OWED.
+  const held: WindowKey = { clientId, resource: entry.resource, segment: entry.segment, windowStart: nextStart, windowEnd: nextEnd }
+  const disk = await checkDiskFloor()
+  await openWindow(held, disk.freeBytes)
+  await closeWindow(held, { outcome: 'quota_stop', rowsWritten: 0, requestsSpent: 0, refusedRows: 0, error: gov.reason })
+  console.log(`[universe] STAND-DOWN ${clientId} ${label} ${nextStart}..${nextEnd}: ${gov.reason}`)
+}
+
 export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) => {
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? '/' + entry.segment : ''}`
@@ -74,8 +129,23 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // ⛔ TERMINAL OUTCOMES ONLY. A row reading `running` is a window that DIED, not one that finished, so it
   // falls through and is walked again. Delivery is at-least-once, so this is also the cheap path for a
   // redelivered message: it costs one indexed read instead of one vendor request.
+  // ⛔ ALREADY-FINISHED MEANS SKIP THE WORK AND ADVANCE — NEVER STOP. The first version of this branch was a
+  // bare `return`, and it KILLED THE WALK ON MESSAGE ONE: releasing the full walk publishes 346 messages at
+  // the most recent window, that window had already been walked as the proof run, so all 346 returned early
+  // and NONE re-published. The starter reported "started: true, published: 346" and the chain was already
+  // dead. ⛔ A RESUME THAT DOES NOT ADVANCE IS INDISTINGUISHABLE FROM A RESUME THAT WORKED, right up until
+  // nothing happens — which is the silent-success failure this runner exists to avoid.
   if (await windowAlreadyFinished(wk)) {
-    console.log(`[universe] SKIP already-finished ${clientId} ${label} ${startDate}..${endDate}`)
+    console.log(`[universe] ALREADY-FINISHED ${clientId} ${label} ${startDate}..${endDate} — advancing without re-walking`)
+    // The entry's vendor-exhaustion seal is the ONLY thing that may end a walk (the writer owns that verdict).
+    // If this entry is sealed we stop; otherwise we continue from here exactly as a fresh window would.
+    const prior = await readEntryState({ clientId, resource: entry.resource, segment: entry.segment })
+    const sealed = !!prior?.vendor_exhausted_below
+    if (sealed) {
+      console.log(`[universe] ${clientId} ${label} is vendor-exhausted below ${prior?.vendor_exhausted_below} — walk complete for this entry`)
+      return
+    }
+    await advanceToNextWindow({ msg, clientId, label, startDate, entry })
     return
   }
 
@@ -151,47 +221,11 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // ⛔ THE BOUND IS DECIDED BEFORE THE GOVERNOR, DELIBERATELY. The governor answers "may we AFFORD another
   // window"; the bound answers "were we ASKED for another window at all", and a run asked for exactly one
   // must stop even when quota and disk would happily allow more.
+  // ⛔ ONE HELPER SERVES BOTH THE FRESH-WINDOW PATH AND THE ALREADY-FINISHED PATH. A second copy of this
+  // logic is how the resume path came to skip the governor, the bound and the stand-down record entirely.
   const stillGoing = !!(result.exhaustion && !result.exhaustion.complete && !result.skipped && !result.error)
-  const bound = shouldRepublish({ stillGoing, windowsRemaining: msg.windowsRemaining })
-  if (stillGoing && !bound.republish) {
-    console.log(`[universe] NOT RE-PUBLISHING ${clientId} ${label}: ${bound.reason}`)
-  }
-  if (bound.republish) {
-    // ⛔ SPEND COMES FROM THE WINDOW LOG, NOT FROM universe_run_state. The old read summed a CUMULATIVE
-    // per-entry counter for every entry touched today, so from day 2 it billed the walk for day 1 and the
-    // governor refused to publish — a 3-day walk halting on day 2 reporting "allowance EXHAUSTED" having
-    // spent nothing that day. One log row is one window, so this sum is today's spend by construction.
-    // ⛔ LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — the fleet decides, not just this lane. readGoogleSpendToday()
-    // is READ from google-op-budget (that module is not modified); a null reading HOLDS rather than proceeds.
-    const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
-    const gov = decidePublishFleetAware({
-      spentRequestsToday: await readLaneSpendToday(),
-      fleet: await readGoogleSpendToday(),
-      want: 1,
-    })
-    if (gov.mayPublish) {
-      const nextEnd = addDays(startDate, -1)
-      const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
-      // ⛔ IDEMPOTENCY KEY on the republish: a redelivered message must not fan out a second walk. Any
-      // republish with the same key inside the retention window is deduplicated by Vercel.
-      await send(TOPIC, {
-        ...msg, startDate: nextStart, endDate: nextEnd,
-        // The decrement comes from the pure decision; undefined stays undefined (unbounded).
-        ...(bound.nextWindowsRemaining !== undefined ? { windowsRemaining: bound.nextWindowsRemaining } : {}),
-      } satisfies UniverseMessage,
-        { idempotencyKey: `${clientId}|${label}|${nextStart}` } as any)
-    } else {
-      // ⛔ NO SILENT SUCCESS AND NO SILENT SKIP. The window we are declining to publish gets a ROW, with the
-      // governor's arithmetic on it, so "the walk stood down" is queryable rather than inferred from absence.
-      // `quota_stop` does NOT settle the entry (isClientComplete needs vendor_exhausted_below or
-      // skipped_reason), so a walk that yielded all day still reads as OWED, never as finished.
-      const nextEnd = addDays(startDate, -1)
-      const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
-      const held: WindowKey = { clientId, resource: entry.resource, segment: entry.segment, windowStart: nextStart, windowEnd: nextEnd }
-      await openWindow(held, floor.freeBytes)
-      await closeWindow(held, { outcome: 'quota_stop', rowsWritten: 0, requestsSpent: 0, refusedRows: 0, error: gov.reason })
-      console.log(`[universe] STAND-DOWN ${clientId} ${label} ${nextStart}..${nextEnd}: ${gov.reason}`)
-    }
+  if (stillGoing) {
+    await advanceToNextWindow({ msg, clientId, label, startDate, entry })
   }
 
   // ── DONE SIGNAL ──────────────────────────────────────────────────────────────────────────────────────────

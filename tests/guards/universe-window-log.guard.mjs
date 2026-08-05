@@ -304,6 +304,32 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
   }
 }
 
+// ── (i) A RESUME MUST ADVANCE, NEVER STOP ────────────────────────────────────────────────────────
+// ⛔ THIS KILLED A REAL RELEASE. The already-finished branch was a bare `return`, so releasing the
+// full walk published 346 messages at the most recent window — already walked as the proof run —
+// and ALL 346 returned early without re-publishing. The starter reported "started: true,
+// published: 346" and the chain was already dead. A resume that does not advance is
+// indistinguishable from one that worked, right up until nothing happens.
+{
+  const src = read(CONSUMER)
+  const at = src.indexOf('windowAlreadyFinished(wk)')
+  if (at === -1) {
+    findings.push('(i) the consumer no longer checks windowAlreadyFinished — every redelivery re-walks ground already covered and re-spends the quota.')
+  } else {
+    // The branch body, up to the closing of the if-block.
+    const body = src.slice(at, at + 1400)
+    if (!/advanceToNextWindow/.test(body)) {
+      findings.push('(i) the already-finished branch does NOT call advanceToNextWindow. A resume that skips the work must still ADVANCE THE WALK — a bare `return` here stops the chain on the first already-walked window while the starter reports success.')
+    }
+  }
+  // ONE advance implementation, not two. The resume path originally had none precisely because the
+  // logic lived inline in the other branch.
+  const sends = (src.match(/await send\(TOPIC,/g) || []).length
+  if (sends > 1) {
+    findings.push(`(i) ${sends} separate send(TOPIC, ...) call sites — the advance logic has been duplicated. Two copies is how one of them loses the governor, the bound or the stand-down record.`)
+  }
+}
+
 const label = 'LORAMER_UNIVERSE_WINDOW_LOG_V1'
 if (findings.length) {
   console.error(`✗ ${label} GUARD FAILED — ${findings.length} finding(s):`)
