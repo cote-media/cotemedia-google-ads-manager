@@ -405,6 +405,134 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
   }
 }
 
+// ── (k) THE SPEND READ MAY NOT BE TRUNCATABLE, AND AN UNREADABLE SPEND MAY NOT READ AS ZERO ───────
+// ⛔ LORAMER_LANE_SPEND_IS_SERVER_SIDE_V1. Leg (c) above proved the spend read is not the CUMULATIVE
+// counter. It could not see the defect that replaced it: the row-per-window table that fixed (c)
+// crosses PostgREST's 1,000-row page cap, and an un-ranged select is truncated there SILENTLY — the
+// only evidence is a response header. MEASURED on the real path 2026-08-05: content-range
+// 0-999/10788, sum read as 997 against 10,788 actually spent. The governor authorised ~10,800
+// consecutive publishes and wrote ZERO quota_stop rows while the walk ate the product's reserve.
+// ⛔ AN UNDER-READ IS THE DANGEROUS DIRECTION. The (c) defect over-read and HALTED the walk, so it
+// announced itself within a day. This one only ever says yes.
+{
+  try {
+    const out4 = mkdtempSync(join(tmpdir(), 'loramer-spend-'))
+    const cfg4 = join(out4, 'tsconfig.json')
+    writeFileSync(cfg4, JSON.stringify({
+      extends: join(ROOT, 'tsconfig.json'),
+      compilerOptions: {
+        module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
+        incremental: false, composite: false, rootDir: ROOT, baseUrl: ROOT,
+        paths: { '@/*': ['src/*'] }, outDir: out4,
+        typeRoots: [join(ROOT, 'node_modules/@types')], types: ['node'],
+      },
+      files: [join(ROOT, MODULE), join(ROOT, 'src/lib/backfill/universe-governor.ts')],
+      include: [], exclude: [],
+    }))
+    execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg4], { stdio: 'pipe' })
+    try { symlinkSync(join(ROOT, 'node_modules'), join(out4, 'node_modules')) } catch {}
+    // ⛔ THE STUB IS THE RED PROOF. `from()` THROWS, so a spend read that goes back to scanning rows
+    // fails this leg outright — there is no shape of row-scan that can pass it. `rpc()` is routed to
+    // a per-case handler so the FAIL-CLOSED branches can be executed rather than read.
+    const stub4 = join(out4, 'supabase-stub.js')
+    writeFileSync(stub4,
+      'exports.supabaseAdmin = {\n' +
+      '  from: () => { throw new Error("LEG-K: the spend read performed a ROW SCAN. PostgREST truncates an un-ranged select at 1,000 rows with NO error, so a scan cannot be trusted to sum a row-per-window table."); },\n' +
+      '  rpc: async (name, args) => globalThis.__LORAMER_GUARD_RPC__(name, args),\n' +
+      '};\n')
+    const req4 = createRequire(import.meta.url)
+    const M4 = req4('module'); const o4 = M4._resolveFilename
+    M4._resolveFilename = function (r, ...a) {
+      if (r === '@/lib/supabase') return stub4
+      if (r.startsWith('@/')) return join(out4, 'src', r.slice(2) + '.js')
+      return o4.call(this, r, ...a)
+    }
+    const wl = req4(join(out4, 'src/lib/backfill/universe-window-log.js'))
+    const gov = req4(join(out4, 'src/lib/backfill/universe-governor.js'))
+    M4._resolveFilename = o4
+
+    const TRUE_SPEND = 10788   // the measured real-path figure, kept as the fixture on purpose
+    let seen = null
+    const setRpc = (fn) => { globalThis.__LORAMER_GUARD_RPC__ = fn }
+
+    // (k1) THE HAPPY PATH — the whole sum arrives, and it arrives from the FUNCTION.
+    setRpc(async (name, args) => { seen = { name, args }; return { data: TRUE_SPEND, error: null } })
+    const got = await wl.readLaneSpendToday()
+    if (got !== TRUE_SPEND) {
+      findings.push(`(k1) readLaneSpendToday() returned ${got} where the lane had spent ${TRUE_SPEND}. The governor's only input must be the whole number or it is not a budget.`)
+    }
+    if (!seen || seen.name !== 'universe_lane_spend_today') {
+      findings.push(`(k1) the spend read called '${seen?.name}' — it must call the server-side aggregate universe_lane_spend_today (migrations/057). A scalar cannot be page-capped; a row set can.`)
+    }
+    if (seen && seen.args?.p_vendor !== 'google_ads') {
+      findings.push(`(k1) the spend read asked for vendor '${seen.args?.p_vendor}' — must be 'google_ads' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1).`)
+    }
+    if (seen && !/T00:00:00\.000Z$/.test(String(seen.args?.p_since))) {
+      findings.push(`(k1) the spend window starts at '${seen.args?.p_since}', not midnight UTC. A day boundary that drifts bills one day's requests against another day's allowance.`)
+    }
+    // PostgREST returns a bare scalar, but a single-row array is the shape a future rewrite lands on.
+    setRpc(async () => ({ data: [TRUE_SPEND], error: null }))
+    if (await wl.readLaneSpendToday() !== TRUE_SPEND) {
+      findings.push('(k1) a single-row array reply was not unwrapped to the spend. The two PostgREST reply shapes must both read as the same number.')
+    }
+
+    // (k2) ⛔ FAIL CLOSED. THE ONE VALUE THAT MUST NEVER BE INVENTED IS ZERO — it authorises the
+    // largest publish the governor can grant, at the exact moment it has gone blind. Number(null) is
+    // 0 and Number(undefined) is NaN, so both are executed here rather than reasoned about.
+    for (const [what, reply] of [
+      ['a DB error', { data: null, error: { message: 'connection reset' } }],
+      ['a null reply', { data: null, error: null }],
+      ['an undefined reply', { data: undefined, error: null }],
+      ['a non-numeric reply', { data: 'lots', error: null }],
+      ['a negative reply', { data: -5, error: null }],
+    ]) {
+      setRpc(async () => reply)
+      let threw = false
+      try { await wl.readLaneSpendToday() } catch { threw = true }
+      if (!threw) {
+        findings.push(`(k2) ${what} did NOT throw — it was converted into a spend. An unreadable counter treated as "nothing spent" is worse than no governor, because it looks like one.`)
+      }
+    }
+    delete globalThis.__LORAMER_GUARD_RPC__
+
+    // (k3) THE CONSEQUENCE, EXECUTED. The truncated read is only a defect because of what the
+    // governor then does with it — so both numbers are put through the real decision.
+    const truncated = 997   // what the real path actually returned on 2026-08-05
+    const blind = gov.decidePublish({ spentRequestsToday: truncated, want: 1 })
+    const honest = gov.decidePublish({ spentRequestsToday: TRUE_SPEND, want: 1 })
+    if (!blind.mayPublish) {
+      findings.push('(k3) the governor now HOLDS on the truncated figure too, so this leg can no longer demonstrate the defect — re-derive the fixture before trusting it.')
+    }
+    if (honest.mayPublish) {
+      findings.push(`(k3) handed the TRUE spend of ${TRUE_SPEND} against a ${gov.BACKFILL_OP_ALLOWANCE} allowance, the governor still authorised a publish. The walk must yield; the product never does (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).`)
+    }
+  } catch (e) {
+    findings.push(`(k) could not drive the spend read: ${String(e.stdout || '').trim() || e.message}`)
+  }
+
+  // (k4) THE FUNCTION'S POSTURE IS PART OF THE FIX. A spend counter readable from a browser is a
+  // different bug, and a SECURITY DEFINER function with a loose search_path is a third.
+  const M = 'migrations/057_universe_lane_spend_fn.sql'
+  let sql = ''
+  try { sql = read(M) } catch { findings.push(`(k4) ${M} is missing — the spend read calls an RPC that nothing in this repo creates.`) }
+  if (sql) {
+    if (!/create or replace function public\.universe_lane_spend_today/i.test(sql)) {
+      findings.push(`(k4) ${M} no longer creates universe_lane_spend_today — the spend read would throw on every call.`)
+    }
+    if (!/set search_path\s*=\s*public/i.test(sql) && /security definer/i.test(sql)) {
+      findings.push(`(k4) ${M} declares SECURITY DEFINER without pinning search_path.`)
+    }
+    if (!/grant execute on function public\.universe_lane_spend_today[^;]*to service_role/i.test(sql)) {
+      findings.push(`(k4) ${M} does not grant execute to service_role — the only role that may read it.`)
+    }
+    for (const role of ['anon', 'authenticated']) {
+      if (!new RegExp(`revoke all on function public\\.universe_lane_spend_today[^;]*from ${role}`, 'i').test(sql)) {
+        findings.push(`(k4) ${M} does not revoke execute from ${role}. universe_window_log is RLS deny-all; a function over it must not be the way around that.`)
+      }
+    }
+  }
+}
+
 const label = 'LORAMER_UNIVERSE_WINDOW_LOG_V1'
 if (findings.length) {
   console.error(`✗ ${label} GUARD FAILED — ${findings.length} finding(s):`)
