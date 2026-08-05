@@ -15,7 +15,7 @@
 // holds O(1) messages per client instead of O(months), and no message ever waits long enough to expire.
 import { NextResponse } from 'next/server'
 import { handleCallback, send } from '@vercel/queue'
-import { loadUniverse, captureUniverseEntry, refusalStamp, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { loadUniverse, captureUniverseEntry, refusalStamp, VENDOR_FLOOR_DATE, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { recordEntryOutcome, readAllEntryStates, readEntryState, isClientComplete, writeCompletionNotice } from '@/lib/backfill/universe-run-state'
 import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
@@ -35,8 +35,6 @@ export const maxDuration = 300
 export const TOPIC = 'google-ads-universe'
 /** Window size per message. Small enough that one message is one cheap request; the walk is the loop. */
 export const WINDOW_DAYS = 30
-/** ⛔ The vendor floor measured for this account. Google serves nothing below it. */
-export const VENDOR_FLOOR_DATE = '2022-03-05'
 
 export interface UniverseMessage {
   clientId: string

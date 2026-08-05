@@ -148,6 +148,13 @@ export const DERIVED_TIME_SEGMENTS = new Set<string>(['segments.date', ...DERIVE
 export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
 export const PROVENANCE_VENDOR = 'VENDOR_REPORTED'
 
+/**
+ * ⛔ THE MEASURED VENDOR FLOOR. Established by probing this account, not assumed, and it is the ONLY date at
+ * which a zero-row window may be read as exhaustion (LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1). One constant
+ * serves both the SEAL and the PUBLISH stop, so the two can never disagree about where history ends.
+ */
+export const VENDOR_FLOOR_DATE = '2022-03-05'
+
 // ── DEFERRED UNDER A DISK CONSTRAINT — LORAMER_UNIVERSE_NARROWED_SET_V1, 2026-08-04 ────────────────────────
 // ⛔ THESE ARE DEFERRED, NOT DROPPED, AND ALL-MEANS-ALL IS NOT REPEALED. This is SEQUENCING UNDER A DISK
 // CONSTRAINT and nothing else: 12 of 358 entries carry 41.9% of the walk's disk (68.2 GB of 162.9 GB),
@@ -320,15 +327,65 @@ export interface VendorExhaustion {
  * There is deliberately no `Date`, no floor, no month arithmetic in this function — the guard asserts that,
  * and reverting to a clock-based rule is what leg (a) proves RED.
  */
-export function decideVendorExhaustion(args: { windowStart: string; rowsReturned: number; gaql: string }): VendorExhaustion {
-  const { windowStart, rowsReturned, gaql } = args
+// ── LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1, 2026-08-05 ─────────────────────────────────────────────────────
+// ⛔ WHAT THIS REPLACES, AND IT COST TWO RELEASES. The old rule was `rowsReturned === 0 → complete`, i.e. ONE
+// EMPTY WINDOW MEANT "THE VENDOR HAS NO HISTORY BELOW THIS DATE". Those are not the same fact, and on
+// 2026-08-05 the difference sealed 344 of 346 entries with FOUR YEARS of real data beneath them: Foam OH's
+// account went dormant in early April 2026, the walk's first window (2026-07-05..08-03) sat inside that dead
+// period, Google correctly returned zero rows, and the walk concluded it had reached the bottom of history.
+// Worse, `isClientComplete` settles on `vendor_exhausted_below`, so the walk then read as FINISHED rather
+// than stalled — a false seal walks straight through every "no silent success" check we have.
+//
+// ⛔ ABSENCE, DORMANCY AND EXHAUSTION ARE THREE DIFFERENT FACTS:
+//   ABSENCE    — we never asked.
+//   DORMANCY   — we asked, the account simply had no activity in that window. THE VENDOR RETURNS ZERO ROWS.
+//   EXHAUSTION — we asked and the vendor has nothing left to give at any earlier date.
+// A zero-row response is the vendor stating DORMANCY. It is not, and cannot be, a statement about earlier
+// dates: the query asked about ONE window and the answer describes ONE window.
+//
+// ⛔ WEB-FIRST, AND THE HONEST RESULT (2026-08-05). Google's data-retention policy
+// (support.google.com/google-ads/answer/15188209) confirms the BOUNDARY exists — "hourly, daily and weekly
+// reporting data … will be available for 37 months", "After that period, the data will not be accessible via
+// the Google Ads interface or APIs", monthly/quarterly/annual for 11 years — but it does NOT document any
+// signal that separates "no data in this window" from "past retention". A search summary asserted that
+// granular segments past retention return a DateRangeError; ⚠ I COULD NOT CONFIRM THAT FROM A PRIMARY PAGE
+// AND THEREFORE DO NOT BUILD ON IT (LORAMER_ESSENCE_LAW_9 — an asserted mechanism is not an established one).
+// If it is ever confirmed, a DateRangeError becomes a second, vendor-sourced exhaustion signal and belongs
+// here. Until then the ONLY trustworthy stop is the floor we measured ourselves.
+//
+// ⇒ THE RULE, AND WHY IT IS RIGHT RATHER THAN MERELY SUFFICIENT FOR THIS CASE:
+//   · rows > 0                        → not complete. Trivially.
+//   · rows == 0 AND at/below the FLOOR → COMPLETE. The floor is a MEASURED property of this account
+//     (2022-03-05), established by probing rather than assumed, so an empty window there is corroborated by
+//     independent evidence and is a real conclusion.
+//   · rows == 0 ABOVE the floor        → NOT COMPLETE. One empty window, nothing more.
+// ⛔ NO CONSECUTIVE-EMPTY-WINDOW THRESHOLD. It was considered and REJECTED: any N would be a number chosen to
+// make this account work. Foam OH has a 20-month dormant stretch (2023-04 missing, and 2026-05 onward), so a
+// threshold small enough to be useful would seal it falsely again, and one large enough to be safe would
+// never fire before the floor did — making it decoration. The floor already terminates the walk; a heuristic
+// on top of it buys nothing and can only be wrong.
+export function decideVendorExhaustion(args: {
+  windowStart: string
+  rowsReturned: number
+  gaql: string
+  /** The MEASURED vendor floor for this account. Exhaustion may only be concluded at or below it. */
+  floorDate: string
+}): VendorExhaustion {
+  const { windowStart, rowsReturned, gaql, floorDate } = args
   if (rowsReturned > 0) {
     return { complete: false, exhaustedBelow: null, proof: `vendor returned ${rowsReturned} row(s) at/below ${windowStart} — the walk continues` }
+  }
+  if (windowStart > floorDate) {
+    return {
+      complete: false,
+      exhaustedBelow: null,
+      proof: `vendor returned 0 rows for [${windowStart}], which is ABOVE the measured floor ${floorDate} — that is ONE EMPTY WINDOW (dormancy), NOT exhaustion. The walk continues.`,
+    }
   }
   return {
     complete: true,
     exhaustedBelow: windowStart,
-    proof: `vendor returned 0 rows for [${windowStart}] via: ${gaql}`,
+    proof: `vendor returned 0 rows for [${windowStart}] at/below the MEASURED floor ${floorDate} — corroborated by the probe that established the floor. via: ${gaql}`,
   }
 }
 
@@ -648,7 +705,7 @@ export async function captureUniverseEntry(args: {
     // it rather than reinventing a second serializer is the whole point of the banked law.
     return { entry: label, gaql, apiRows: 0, rowsWritten: 0, observedZero: false, skipped: null, exhaustion: null, error: describeGaqlError(e).slice(0, 300), entityLevel: level, grainDeclines: 0, derivedRows: 0 }
   }
-  const exhaustion = decideVendorExhaustion({ windowStart: startDate, rowsReturned: apiRows.length, gaql })
+  const exhaustion = decideVendorExhaustion({ windowStart: startDate, rowsReturned: apiRows.length, gaql, floorDate: VENDOR_FLOOR_DATE })
   const built = buildUniverseRowsAtGrain(entry, ctx, apiRows)
   // ⛔ THE SIX TIME FAMILIES RIDE THE SAME RESPONSE (LORAMER_UNIVERSE_DERIVED_TIME_V1) — no second request,
   // no second window, no second walk. Marked COMPUTED_FROM_DATE on every row.

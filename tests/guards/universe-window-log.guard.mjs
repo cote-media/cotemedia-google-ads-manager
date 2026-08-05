@@ -330,6 +330,81 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
   }
 }
 
+// ── (j) ZERO ROWS IS NOT EXHAUSTION ──────────────────────────────────────────────────────────────
+// ⛔ THIS SEALED 344 OF 346 ENTRIES WITH FOUR YEARS OF DATA BENEATH THEM. The old rule was
+// `rowsReturned === 0 -> complete`, so ONE empty window meant "the vendor has no history below this
+// date". Foam OH went dormant in April 2026, the walk's first window sat in that dead period, Google
+// correctly returned zero, and the walk concluded it was finished. Because isClientComplete settles
+// on vendor_exhausted_below, it then read as COMPLETE rather than stalled — a false seal walks
+// through every no-silent-success check we have, which is why leg (c) below exists.
+{
+  const W = boundMod && null // placeholder to keep shape; the writer is compiled separately below
+  try {
+    const out3 = mkdtempSync(join(tmpdir(), 'loramer-zre-'))
+    const cfg3 = join(out3, 'tsconfig.json')
+    writeFileSync(cfg3, JSON.stringify({
+      extends: join(ROOT, 'tsconfig.json'),
+      compilerOptions: {
+        module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
+        incremental: false, composite: false, rootDir: ROOT, baseUrl: ROOT,
+        paths: { '@/*': ['src/*'] }, outDir: out3,
+        typeRoots: [join(ROOT, 'node_modules/@types')], types: ['node'],
+      },
+      files: [join(ROOT, 'src/lib/backfill/google-ads-universe-writer.ts')], include: [], exclude: [],
+    }))
+    execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg3], { stdio: 'pipe' })
+    try { symlinkSync(join(ROOT, 'node_modules'), join(out3, 'node_modules')) } catch {}
+    const stub3 = join(out3, 'supabase-stub.js')
+    writeFileSync(stub3, 'exports.supabaseAdmin = { from: () => { throw new Error("guard stub") } };\n')
+    const req3 = createRequire(import.meta.url)
+    const M3 = req3('module'); const o3 = M3._resolveFilename
+    M3._resolveFilename = function (r, ...a) {
+      if (r === '@/lib/supabase') return stub3
+      if (r.startsWith('@/')) return join(out3, 'src', r.slice(2) + '.js')
+      return o3.call(this, r, ...a)
+    }
+    const wr = req3(join(out3, 'src/lib/backfill/google-ads-universe-writer.js'))
+    M3._resolveFilename = o3
+
+    const FLOOR = wr.VENDOR_FLOOR_DATE
+    if (!FLOOR) findings.push('(j) VENDOR_FLOOR_DATE is not exported from the writer — the seal has no floor to check against and any empty window can end a walk.')
+    const call = (windowStart, rowsReturned) =>
+      wr.decideVendorExhaustion({ windowStart, rowsReturned, gaql: 'SELECT x FROM y', floorDate: FLOOR })
+
+    // (a) A SINGLE ZERO-ROW WINDOW ABOVE THE FLOOR MUST NOT SEAL.
+    const dormant = call('2026-07-05', 0)
+    if (dormant.complete || dormant.exhaustedBelow !== null) {
+      findings.push('(j)(a) a single zero-row window ABOVE the floor sealed the entry as vendor-exhausted. That is the 2026-08-05 defect exactly: dormancy read as exhaustion, 344 of 346 entries sealed with four years of data beneath them.')
+    }
+    // (b) SEALING ABOVE THE FLOOR IS NEVER JUSTIFIED, at any date above it.
+    for (const d of ['2025-03-02', '2023-01-01', '2022-03-06']) {
+      if (call(d, 0).complete) {
+        findings.push(`(j)(b) an empty window at ${d} sealed the entry, but that is ABOVE the measured floor ${FLOOR}. Exhaustion above the floor requires evidence a single empty window cannot provide.`)
+      }
+    }
+    // AT/BELOW the floor an empty window IS exhaustion — the floor was measured, so it corroborates.
+    const atFloor = call(FLOOR, 0)
+    if (!atFloor.complete || atFloor.exhaustedBelow !== FLOOR) {
+      findings.push(`(j) an empty window AT the measured floor ${FLOOR} did NOT seal. The walk would never terminate — the floor is the one place a zero is corroborated.`)
+    }
+    // Rows always continue the walk.
+    if (call('2024-01-01', 5).complete) findings.push('(j) a window that RETURNED ROWS was sealed as exhausted.')
+  } catch (e) {
+    findings.push(`(j) could not drive the writer: ${String(e.stdout || '').trim() || e.message}`)
+  }
+
+  // (c) ⛔ THE SILENT-SUCCESS HALF — a seal must be the ONLY thing that settles an entry, and
+  // isClientComplete must not settle on anything weaker. This is what made the defect invisible.
+  const rs = read('src/lib/backfill/universe-run-state.ts')
+  const settle = (rs.match(/const settled = states\.filter\([^\n]*/) || [''])[0]
+  if (!/vendor_exhausted_below/.test(settle)) {
+    findings.push('(j)(c) isClientComplete() no longer settles on vendor_exhausted_below — completion has lost its only proof-carrying signal.')
+  }
+  if (/observed_zero_at|rows_written|outcome\s*===\s*.zero./.test(settle)) {
+    findings.push('(j)(c) isClientComplete() settles on an OBSERVED ZERO or a row count. A zero is dormancy, not exhaustion — settling on it is the false-completion defect moved into the completion check itself.')
+  }
+}
+
 const label = 'LORAMER_UNIVERSE_WINDOW_LOG_V1'
 if (findings.length) {
   console.error(`✗ ${label} GUARD FAILED — ${findings.length} finding(s):`)
