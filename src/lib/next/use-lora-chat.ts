@@ -319,6 +319,30 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
           clientId: clientId ?? null,
         }))
       } catch { /* telemetry must never break a turn */ }
+      // ⛔ LORAMER_ONE_WORKING_INDICATOR_PER_TURN_V1 — CLEAR `loading` BEFORE THE RECOVERY BUBBLE EXISTS,
+      // AND THE ORDER OF THESE TWO STATEMENTS IS THE WHOLE FIX.
+      //
+      // THE DEFECT, OBSERVED ON DEVICE 2026-08-05 (Chrome iOS, Foam OH, one turn): a large static LM mark,
+      // then a bubble reading "Still working on this one…", then a SECOND animating LM mark reading
+      // "Working…". Two indicators, stacked, for a single turn.
+      //
+      // ⛔ IT IS NOT A STYLING BUG AND IT IS NOT IN LoraWorking. `setLoading(false)` lives in the `finally`
+      // below, and `finally` cannot run until this catch block RETURNS — and this catch block AWAITS the
+      // recovery poll for up to RECOVERY_WINDOW_MS (90s). So for that entire window `loading` is still
+      // true, every surface keeps rendering `{loading && <LoraWorking/>}`, and the recovery bubble we
+      // append on the next line renders through LoraTurn WITH ITS OWN AVATAR MARK. Two marks, two working
+      // copies, one turn — deterministically, on every recovered turn, on both surfaces.
+      //
+      // THE RECOVERY BUBBLE *IS* THE WORKING INDICATOR from here on: it says so in its own words. So the
+      // generic one must stand down at the moment the specific one appears, not 90 seconds later.
+      //
+      // ⚠ BEHAVIOUR THIS DELIBERATELY CHANGES, stated rather than discovered later: `send()` early-returns
+      // on `loading`, so the composer was locked for the whole recovery window. It no longer is. That is
+      // correct — the turn is over as far as the UI is concerned and the poll is a background READ, never a
+      // re-POST — and it is safe, because `replace()` targets the bubble by `recoveryKey` and still lands
+      // in place however many turns are appended after it.
+      setLoading(false)
+      setStreamStatus(null)
       // ONE bubble, keyed, replaced in place — never a second bubble appended.
       const key = `rec:${Date.now()}`
       setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])

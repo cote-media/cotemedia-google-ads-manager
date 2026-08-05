@@ -85,6 +85,7 @@ const GUARDS = [
   // and the WebKit facts that killed the sweep and the mark (pathLength, negative dash offset, the
   // background-clip pairing) may not come back. Visual behaviour is Gate-B, not assertable here.
   'tests/guards/chat-status-visible.guard.mjs',
+  'tests/guards/one-working-indicator.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',
