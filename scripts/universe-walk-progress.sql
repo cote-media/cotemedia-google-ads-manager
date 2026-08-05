@@ -37,8 +37,14 @@ where vendor = 'google_ads' and outcome in ('running', 'error', 'floor_stop')
 order by started_at desc
 limit 50;
 
--- DISK RIGHT NOW, against the same floor the walk enforces (200 GB provisioned, 40 GB floor).
+-- DISK RIGHT NOW, against the same floor the walk enforces (280 GB provisioned, 56 GB floor).
+-- ⛔ THESE TWO NUMBERS ARE NOT FREE TEXT. They must equal PROVISIONED_BYTES and FLOOR_BYTES in
+-- src/lib/backfill/universe-window-log.ts, and universe-window-log.guard.mjs leg (f) now FAILS if any
+-- .sql or .md under scripts/ or docs/ disagrees. They were stale by 80 GB from the 2026-08-04 volume
+-- raise (200 → 280) until 2026-08-05, so this block under-reported free space every time the morning
+-- runbook was run — a disk figure that reads LOW is the direction that stops a walk which could
+-- have continued.
 select pg_size_pretty(used_bytes) as used, pg_size_pretty(free_bytes) as free,
-       pg_size_pretty(free_bytes - (40::bigint * 1024^3)::bigint) as above_floor,
-       floor((free_bytes - (40::bigint * 1024^3)::bigint) / (4.53 * 1024^3)) as windows_still_affordable
-from public.universe_disk_headroom(214748364800);
+       pg_size_pretty(free_bytes - (56::bigint * 1024^3)::bigint) as above_floor,
+       floor((free_bytes - (56::bigint * 1024^3)::bigint) / (4.53 * 1024^3)) as windows_still_affordable
+from public.universe_disk_headroom(300647710720);

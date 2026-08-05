@@ -21,7 +21,7 @@
 // stands: a guard leg that regex-matched a constant name went GREEN while the behaviour was broken,
 // because the name survived in a function body. Source-shape assertions are used ONLY for ORDERING,
 // which is genuinely a property of the text, and each one says why.
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -150,6 +150,41 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
     }
     if (mod.VENDOR !== 'google_ads') {
       findings.push(`(f) VENDOR compiles to '${mod.VENDOR}' — must be 'google_ads', never 'google' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1: GA4 must not inherit Google Ads' list).`)
+    }
+
+    // ── (f2) THE DISK NUMBERS A HUMAN READS MUST AGREE WITH THE ONES THE CODE ENFORCES ─────────────
+    // ⛔ THE GUARD ABOVE COMPARES TWO .ts/.mjs CALL SITES AND STOPS THERE, AND THAT GAP WAS REAL:
+    // the 2026-08-04 volume raise (200 → 280 GB) moved both of those and left
+    // scripts/universe-walk-progress.sql passing 214748364800 with the comment "200 GB provisioned,
+    // 40 GB floor". The morning runbook reads that file, so the number a human acts on under-reported
+    // free space by 80 GB while every guarded call site was green. A constant is not "in agreement"
+    // because the code agrees with itself; it is in agreement when the OPERATOR'S copy agrees too.
+    // Scans .sql and .md under scripts/ and docs/ — the surfaces that are pasted, not compiled.
+    {
+      const GBb = 1024 ** 3
+      const roots = ['scripts', 'docs']
+      const files = []
+      for (const r of roots) {
+        let entries = []
+        try { entries = readdirSync(resolve(ROOT, r)) } catch { continue }
+        for (const f of entries) if (/\.(sql|md)$/.test(f)) files.push(`${r}/${f}`)
+      }
+      for (const rel of files) {
+        let src = ''
+        try { src = read(rel) } catch { continue }
+        for (const m of src.matchAll(/universe_disk_headroom\(\s*(\d{6,})\s*\)/g)) {
+          const n = Number(m[1])
+          if (n !== mod.PROVISIONED_BYTES) {
+            findings.push(`(f2) ${rel} calls universe_disk_headroom(${n}) = ${(n / GBb).toFixed(0)} GB, but the code enforces ${(mod.PROVISIONED_BYTES / GBb).toFixed(0)} GB. A human runs this file and acts on its answer; a stale provisioned figure mis-states free space in whichever direction nobody checks.`)
+          }
+        }
+        for (const m of src.matchAll(/\(\s*(\d{1,4})::bigint\s*\*\s*1024\^3\s*\)/g)) {
+          const n = Number(m[1]) * GBb
+          if (n !== mod.FLOOR_BYTES) {
+            findings.push(`(f2) ${rel} subtracts a ${Number(m[1])} GB floor, but FLOOR_BYTES is ${(mod.FLOOR_BYTES / GBb).toFixed(0)} GB (max(15 GB, 20% of provisioned)). Two floors for one disk is how one of them gets forgotten — and this is the copy the operator reads.`)
+          }
+        }
+      }
     }
   } catch (e) {
     findings.push(`(f) could not compile ${MODULE}: ${String(e.stdout || '').trim() || e.message}`)
