@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-04T22:03:20.952Z
-- built_from HEAD: 4f8f5115c74b0536a5ac2bff4c610b0f741269c9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-05T00:17:17.610Z
+- built_from HEAD: e5542e9867e83710c005b36af1487275cccff8ea  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: bfed01c9cf20ee48137fe7e2436c15a455801941f1018acbbdce49eca2ec88cc
     - CONTINUE_HERE.md: e92c3720ed57ead7ee7d15de510286703afdc055180757bcba83414020c802e6
     - LORAMER_DECISIONS.md: eae980e7ce7b8aad970800d153e176dc8a0e808b1250b5cbda92d88e915ad2f5
-    - LORAMER_QUEUE_OF_RECORD.md: 295e8307fc15f3c73687d62d5291810d831a4c29cdeed0c707a48ded2535a2cb
+    - LORAMER_QUEUE_OF_RECORD.md: 0586fdc51dfdf829adf42192b31838a775f950a284bf88b33f260bfe9d10937e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1570,8 +1570,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 557 tokens indexed · 211 resolve to BOTH a decision and a queue item ·
-91 decision-only · 255 queue-only.
+TOTALS: 559 tokens indexed · 211 resolve to BOTH a decision and a queue item ·
+91 decision-only · 257 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1814,6 +1814,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★UNIVERSE-ARTIFACT-REPROBE-CADENCE — OPEN · decisions 1 · queue 1 · last 2026-08-03
 - ★UNIVERSE-ARTIFACT-UNDER-COUNTS-THE-SURFACE — DONE · decisions 2 · queue 1 · last 2026-08-03
 - ★UNIVERSE-DATE-FAMILY-IS-A-PURE-DUPLICATE — OPEN · decisions 2 · queue 1 · last 2026-08-03
+- ★UNIVERSE-DERIVED-TIME-WRITTEN-WHERE-UNDECLARED — DONE · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-NARROW-ON-MEASURED-YIELD — OPEN · decisions 1 · queue 1 · last 2026-08-04
 - ★UNIVERSE-PREFIX-EXPOSURE-MEASURED — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-PREFIX-ROWS-CARRY-REFUSED-ZEROS-UNSTAMPED — OPEN · decisions 0 · queue 1 · last 2026-08-04
@@ -1821,6 +1822,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★UNIVERSE-RATIOS-COMPUTED-ON-REFUSED-DENOMINATORS — OPEN · decisions 0 · queue 2 · last 2026-08-04
 - ★UNIVERSE-REFUSED-METRIC-READ-PATH — OPEN · decisions 1 · queue 4 · last 2026-08-04
 - ★UNIVERSE-REFUSED-STAMP-STILL-UNVERIFIED — OPEN · decisions 0 · queue 2 · last 2026-08-04
+- ★UNIVERSE-STAMP-BACKFILL-DONE — DONE · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-TIME-SEGMENT-REDUNDANCY — DONE · decisions 2 · queue 2 · last 2026-08-03
 - ★UNIVERSE-VOLUME-VS-SUPABASE-COMPUTE — DONE · decisions 4 · queue 2 · last 2026-08-04
 - ★UNIVERSE-WALK-DISK-CEILING — OPEN · decisions 1 · queue 2 · last 2026-08-04

@@ -76,6 +76,22 @@ export function buildBlock(doc, registrySrc = readFileSync(resolve(ROOT, REGISTR
     g.levels.add(e.resource)
     g.dv = Math.max(g.dv, typeof e.distinctValues === 'number' ? e.distinctValues : 0)
   }
+
+  // ⛔ A DERIVED-TIME FAMILY IS COMPUTED AT EVERY RESOURCE WE CAPTURE, NOT ONLY WHERE GOOGLE OFFERED THE
+  // SEGMENT — AND UNTIL 2026-08-04 THE REGISTRY DECLARED ONLY THE LATTER.
+  // `buildDerivedTimeRows` runs for EVERY captured entry: give it rows from campaign_budget and it emits
+  // week/month/quarter/year/day_of_week rows at campaign_budget, whether or not Google would have served
+  // segments.week there. The declared entityLevels, however, came from the artifact's date-combinable list —
+  // the VENDOR's list. MEASURED CONSEQUENCE, found by the first real median-month window on 2026-08-04:
+  // 11 captured (breakdown_type, entity_level) tuples were UNREADABLE by Lora — day_of_week/month/quarter/
+  // week/year at campaign_budget, location_view and performance_max_placement_view. Rows we paid to store
+  // and could not read: UNWIRED IS MISSING, in its most literal form.
+  // ⇒ The derived families are declared at the UNION OF RESOURCES THE WALK CAPTURES, which is where they are
+  // actually written. Anything narrower re-creates the same hole the moment a new resource starts delivering.
+  const capturedResources = new Set([...selectable(doc)].map((e) => e.resource))
+  for (const g of byType.values()) {
+    if (g.derived) for (const r of capturedResources) g.levels.add(r)
+  }
   const lines = []
   for (const t of [...byType.keys()].sort()) {
     if (handDeclared.has(t)) continue

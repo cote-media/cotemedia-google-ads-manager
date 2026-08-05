@@ -17,6 +17,8 @@ import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surf
 import { settleRevenue, emptyRevenueAcc, type RevenueAcc } from '@/lib/next/revenue-settle'
 // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the ONE declared source for the breakdown allowlist + geo collapse.
 import { breakdownPlatformsMap, spendZeroTypes, breakdownToolTypes, resolveGeo, geoGrains, entryFor, EXISTING_TOOL_TYPES } from '@/lib/breakdown-registry'
+// LORAMER_REFUSED_RATIO_IS_NULL_V1 — the read path must refuse a refused metric, not serve it as 0.
+import { refusedMetricsFor, applyRefusal } from '@/lib/google-refused-metrics'
 
 export type MetricTotals = {
   spend: number
@@ -319,13 +321,21 @@ const VALUE_MAXLEN = 120
 export type BreakdownRow = {
   value: string
   parentEntityId?: string
-  spend: number
-  impressions: number
-  clicks: number
-  conversions: number
-  conversionValue: number
+  // ⛔ LORAMER_REFUSED_RATIO_IS_NULL_V1 — NULLABLE ON PURPOSE, AND THE TYPE CHANGE IS HALF THE FIX.
+  // null = THE VENDOR REFUSES TO REPORT THIS METRIC AT THIS GRAIN. It is not zero, not missing data, and not
+  // "no activity". Widening these from `number` forces every consumer to confront the case at COMPILE TIME
+  // rather than silently rendering a 0 — which is exactly how 119,375 rows came to carry a ROAS built on a
+  // refused denominator. `refusedMetrics` below names which ones and why.
+  spend: number | null
+  impressions: number | null
+  clicks: number | null
+  conversions: number | null
+  conversionValue: number | null
   revenue: number
-  derived: Record<string, number>
+  // A derived ratio is null when EITHER of its input metrics is refused (see RATIO_INPUTS).
+  derived: Record<string, number | null>
+  /** Present only when the vendor refuses metrics at this grain; names them. Absent = nothing refused. */
+  refusedMetrics?: string[]
   // LORAMER_QUERY_NONADDITIVE_V1 — for impression_share/video rows: the projected metrics (IS ratios / video counts
   // + rates). null = not aggregatable (multi-day rate) or non-eligible (IS -1). Absent on additive-breakdown rows.
   nonAdditiveMetrics?: Record<string, number | null>
@@ -808,13 +818,27 @@ export async function queryBreakdown(opts: {
     return a.value < b.value ? -1 : a.value > b.value ? 1 : 0 // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — stable tiebreaker (value asc): deterministic order when the rank metric ties (e.g. commerce breakdowns ranked by spend=0)
   })
   result.truncated = sorted.length > topN
+  // ⛔ LORAMER_REFUSED_RATIO_IS_NULL_V1 — THE READ HALF. The row's stamp says a metric is refused; until now
+  // NOTHING here read it, so a caller that ignored the prose still got a divisible 0 (banked as
+  // ★UNIVERSE-REFUSED-METRIC-READ-PATH — "the data is truthful and the reader is not yet forced to respect
+  // it. Prose is not a guard."). This is the guard. Refused metrics come back as NULL and every ratio built
+  // on one comes back as NULL, so Lora is STRUCTURALLY unable to quote or divide by a refusal.
+  const refused = refusedMetricsFor(platform, bt, level)
+  const refusedSet = new Set(refused)
   result.rows = sorted.slice(0, topN).map((a) => {
     const totals: MetricTotals = { spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: a.revenue, rowCount: 0 }
+    // ⛔ ONE PURE FUNCTION DOES THE SUPPRESSION so the guard can execute the same code this path runs.
+    const sup = applyRefusal(
+      { spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversion_value: a.conversionValue },
+      derive(totals), refused)
     return {
       value: a.value.length > VALUE_MAXLEN ? a.value.slice(0, VALUE_MAXLEN) + '…' : a.value,
       parentEntityId: a.parents.size === 1 ? Array.from(a.parents)[0] : undefined,
-      spend: a.spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: a.conversionValue, revenue: a.revenue,
-      derived: derive(totals),
+      spend: sup.metrics.spend, impressions: sup.metrics.impressions,
+      clicks: sup.metrics.clicks, conversions: sup.metrics.conversions,
+      conversionValue: sup.metrics.conversion_value, revenue: a.revenue,
+      derived: sup.derived,
+      ...(refusedSet.size ? { refusedMetrics: refused } : {}),
       ...(carryRoas ? { metaRoas: a.metaRoas ?? null } : {}), // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — absent for every other breakdown
     }
   })

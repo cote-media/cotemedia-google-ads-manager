@@ -336,6 +336,51 @@ export function decideVendorExhaustion(args: { windowStart: string; rowsReturned
 const num = (v: unknown) => (typeof v === 'number' ? v : Number(v || 0))
 const ratio = (a: number, b: number, mult = 1) => (b > 0 ? Number(((a / b) * mult).toFixed(4)) : 0)
 
+// ── LORAMER_REFUSED_RATIO_IS_NULL_V1, 2026-08-04 ───────────────────────────────────────────────────────────
+// ⛔ A RATIO BUILT ON A REFUSED METRIC MUST BE NULL, NEVER 0. NULL AND 0 ARE DIFFERENT FACTS: a 0 ROAS is a
+// CLAIM about performance; a null is an ABSENCE of information. Writing 0 here was the defect measured on
+// 2026-08-04 — 119,375 of 119,375 stamped rows carried roas/cpa/cpc/ctr/cpm computed on a denominator the
+// vendor had REFUSED, sitting directly beneath a `refusedMeaning` that says never to do exactly that. The row
+// carried its own contradiction.
+//
+// ⛔ WHY IT HAPPENED, so the shape is not repeated: the ratios were computed at the top of the `extra` literal
+// and the refusal stamp was spread in at the bottom. The ratio was produced BEFORE the refusal was consulted.
+// Order of evaluation was the whole bug — nothing was wrong with either half on its own.
+//
+// ⛔ NULL IS EXPRESSIBLE HERE AND THAT IS NOT TRUE OF THE METRIC COLUMNS. `extra` is jsonb and NULLABLE, so
+// `"roas": null` needs no migration. `spend`/`clicks`/`impressions`/`conversions`/`conversion_value`/`revenue`
+// are NOT NULL DEFAULT 0 and STILL cannot hold a refusal — that limit is unchanged and is why the stamp on the
+// row remains the only thing standing between a refused metric and a reader who trusts the column.
+//
+// EITHER SIDE POISONS THE RATIO. CPC = spend/clicks is meaningless if EITHER is refused, not just the divisor.
+const refusedMetricNames = (entry: UniverseEntry): Set<string> =>
+  new Set((entry.refusesMetrics || []).map((m) => REFUSAL_KEYS[m] || m))
+
+/** null when either input metric is refused; otherwise the ordinary ratio (0 when the divisor is a true 0). */
+function safeRatio(
+  refused: Set<string>, numeratorMetric: string, denominatorMetric: string,
+  a: number, b: number, mult = 1
+): number | null {
+  if (refused.has(numeratorMetric) || refused.has(denominatorMetric)) return null
+  return ratio(a, b, mult)
+}
+
+/** The six derived ratios, each declaring which METRICS it is built from. One place, so a new ratio cannot
+ *  be added without declaring its inputs and inheriting the refusal rule. */
+export function derivedRatios(entry: UniverseEntry, m: {
+  spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number
+}): Record<string, number | null> {
+  const r = refusedMetricNames(entry)
+  return {
+    ctr: safeRatio(r, 'clicks', 'impressions', m.clicks, m.impressions, 100),
+    cpc: safeRatio(r, 'spend', 'clicks', m.spend, m.clicks),
+    cpm: safeRatio(r, 'spend', 'impressions', m.spend, m.impressions, 1000),
+    roas: safeRatio(r, 'conversion_value', 'spend', m.conversionValue, m.spend),
+    cpa: safeRatio(r, 'spend', 'conversions', m.spend, m.conversions),
+    convRate: safeRatio(r, 'conversions', 'clicks', m.conversions, m.clicks, 100),
+  }
+}
+
 // ── REFUSED METRICS ARE NOT ZEROS — LORAMER_UNIVERSE_REFUSED_METRIC_V1, 2026-08-03 ────────────────────────
 // ⛔ MEASURED: of the 358 entries the walk requests, 100 are PARTIAL and 59 of those serve ONLY
 // conversions + conversions_value — the vendor REFUSES clicks, cost_micros and impressions at that grain.
@@ -458,8 +503,8 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
       spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
       conversion_value: convValue, revenue: 0,
       extra: {
-        ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),
-        roas: ratio(convValue, spend), cpa: ratio(spend, a.conversions), convRate: ratio(a.conversions, a.clicks, 100),
+        // ⛔ LORAMER_REFUSED_RATIO_IS_NULL_V1 — null, not 0, when either input metric is refused.
+        ...derivedRatios(entry, { spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: convValue }),
         // ⛔ THE THREE STATES KEPT APART, ON THE ROW, so a reader never has to infer which one it is:
         //   grain: 'VENDOR_NAMED'   — the vendor named this entity (the normal case)
         //   grain: 'VENDOR_DECLINED'— the vendor answered and named NO entity for this row
@@ -525,8 +570,9 @@ export function buildDerivedTimeRows(entry: UniverseEntry, ctx: BuildCtx, apiRow
         spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions,
         conversion_value: convValue, revenue: 0,
         extra: {
-          ctr: ratio(a.clicks, a.impressions, 100), cpc: ratio(spend, a.clicks), cpm: ratio(spend, a.impressions, 1000),
-          roas: ratio(convValue, spend), cpa: ratio(spend, a.conversions), convRate: ratio(a.conversions, a.clicks, 100),
+          // ⛔ LORAMER_REFUSED_RATIO_IS_NULL_V1 — the derived-time rows inherit the same rule. A computed
+          // aggregate over a refused metric is no more divisible than the vendor's own row was.
+          ...derivedRatios(entry, { spend, impressions: a.impressions, clicks: a.clicks, conversions: a.conversions, conversionValue: convValue }),
           grain: a.declined ? 'VENDOR_DECLINED' : 'VENDOR_NAMED',
           grainSource: 'FROM_RESOURCE_NAME',
           // ⛔ PROVENANCE IS MANDATORY ON EVERY COMPUTED ROW. Without it a reader — Lora included — cannot
