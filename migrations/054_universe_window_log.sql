@@ -41,7 +41,7 @@ create table if not exists public.universe_window_log (
   --   error     — asked and failed. The vendor's own words go in `error`.
   --   floor_stop— refused BEFORE spending, because disk headroom was below the floor.
   outcome        text        not null default 'running'
-                 check (outcome in ('running','ok','zero','skipped','error','floor_stop')),
+                 check (outcome in ('running','ok','zero','skipped','error','floor_stop','quota_stop')),
 
   rows_written   bigint      not null default 0,
   requests_spent integer     not null default 0,

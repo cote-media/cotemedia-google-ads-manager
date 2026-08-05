@@ -21,7 +21,7 @@
 // stands: a guard leg that regex-matched a constant name went GREEN while the behaviour was broken,
 // because the name survived in a function body. Source-shape assertions are used ONLY for ORDERING,
 // which is genuinely a property of the text, and each one says why.
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
@@ -150,6 +150,41 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
     }
     if (mod.VENDOR !== 'google_ads') {
       findings.push(`(f) VENDOR compiles to '${mod.VENDOR}' — must be 'google_ads', never 'google' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1: GA4 must not inherit Google Ads' list).`)
+    }
+
+    // ── (f2) THE DISK NUMBERS A HUMAN READS MUST AGREE WITH THE ONES THE CODE ENFORCES ─────────────
+    // ⛔ THE GUARD ABOVE COMPARES TWO .ts/.mjs CALL SITES AND STOPS THERE, AND THAT GAP WAS REAL:
+    // the 2026-08-04 volume raise (200 → 280 GB) moved both of those and left
+    // scripts/universe-walk-progress.sql passing 214748364800 with the comment "200 GB provisioned,
+    // 40 GB floor". The morning runbook reads that file, so the number a human acts on under-reported
+    // free space by 80 GB while every guarded call site was green. A constant is not "in agreement"
+    // because the code agrees with itself; it is in agreement when the OPERATOR'S copy agrees too.
+    // Scans .sql and .md under scripts/ and docs/ — the surfaces that are pasted, not compiled.
+    {
+      const GBb = 1024 ** 3
+      const roots = ['scripts', 'docs']
+      const files = []
+      for (const r of roots) {
+        let entries = []
+        try { entries = readdirSync(resolve(ROOT, r)) } catch { continue }
+        for (const f of entries) if (/\.(sql|md)$/.test(f)) files.push(`${r}/${f}`)
+      }
+      for (const rel of files) {
+        let src = ''
+        try { src = read(rel) } catch { continue }
+        for (const m of src.matchAll(/universe_disk_headroom\(\s*(\d{6,})\s*\)/g)) {
+          const n = Number(m[1])
+          if (n !== mod.PROVISIONED_BYTES) {
+            findings.push(`(f2) ${rel} calls universe_disk_headroom(${n}) = ${(n / GBb).toFixed(0)} GB, but the code enforces ${(mod.PROVISIONED_BYTES / GBb).toFixed(0)} GB. A human runs this file and acts on its answer; a stale provisioned figure mis-states free space in whichever direction nobody checks.`)
+          }
+        }
+        for (const m of src.matchAll(/\(\s*(\d{1,4})::bigint\s*\*\s*1024\^3\s*\)/g)) {
+          const n = Number(m[1]) * GBb
+          if (n !== mod.FLOOR_BYTES) {
+            findings.push(`(f2) ${rel} subtracts a ${Number(m[1])} GB floor, but FLOOR_BYTES is ${(mod.FLOOR_BYTES / GBb).toFixed(0)} GB (max(15 GB, 20% of provisioned)). Two floors for one disk is how one of them gets forgotten — and this is the copy the operator reads.`)
+          }
+        }
+      }
     }
   } catch (e) {
     findings.push(`(f) could not compile ${MODULE}: ${String(e.stdout || '').trim() || e.message}`)
@@ -301,6 +336,235 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
   }
   if (boundAt === -1) {
     findings.push('(h) the consumer does not call shouldRepublish(). Firing the starter would release the ENTIRE walk — 346 messages each publishing their own next window.')
+  }
+}
+
+// ── (i) A RESUME MUST ADVANCE, NEVER STOP ────────────────────────────────────────────────────────
+// ⛔ THIS KILLED A REAL RELEASE. The already-finished branch was a bare `return`, so releasing the
+// full walk published 346 messages at the most recent window — already walked as the proof run —
+// and ALL 346 returned early without re-publishing. The starter reported "started: true,
+// published: 346" and the chain was already dead. A resume that does not advance is
+// indistinguishable from one that worked, right up until nothing happens.
+{
+  const src = read(CONSUMER)
+  const at = src.indexOf('windowAlreadyFinished(wk)')
+  if (at === -1) {
+    findings.push('(i) the consumer no longer checks windowAlreadyFinished — every redelivery re-walks ground already covered and re-spends the quota.')
+  } else {
+    // The branch body, up to the closing of the if-block.
+    const body = src.slice(at, at + 1400)
+    if (!/advanceToNextWindow/.test(body)) {
+      findings.push('(i) the already-finished branch does NOT call advanceToNextWindow. A resume that skips the work must still ADVANCE THE WALK — a bare `return` here stops the chain on the first already-walked window while the starter reports success.')
+    }
+  }
+  // ONE advance implementation, not two. The resume path originally had none precisely because the
+  // logic lived inline in the other branch.
+  const sends = (src.match(/await send\(TOPIC,/g) || []).length
+  if (sends > 1) {
+    findings.push(`(i) ${sends} separate send(TOPIC, ...) call sites — the advance logic has been duplicated. Two copies is how one of them loses the governor, the bound or the stand-down record.`)
+  }
+}
+
+// ── (j) ZERO ROWS IS NOT EXHAUSTION ──────────────────────────────────────────────────────────────
+// ⛔ THIS SEALED 344 OF 346 ENTRIES WITH FOUR YEARS OF DATA BENEATH THEM. The old rule was
+// `rowsReturned === 0 -> complete`, so ONE empty window meant "the vendor has no history below this
+// date". Foam OH went dormant in April 2026, the walk's first window sat in that dead period, Google
+// correctly returned zero, and the walk concluded it was finished. Because isClientComplete settles
+// on vendor_exhausted_below, it then read as COMPLETE rather than stalled — a false seal walks
+// through every no-silent-success check we have, which is why leg (c) below exists.
+{
+  const W = boundMod && null // placeholder to keep shape; the writer is compiled separately below
+  try {
+    const out3 = mkdtempSync(join(tmpdir(), 'loramer-zre-'))
+    const cfg3 = join(out3, 'tsconfig.json')
+    writeFileSync(cfg3, JSON.stringify({
+      extends: join(ROOT, 'tsconfig.json'),
+      compilerOptions: {
+        module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
+        incremental: false, composite: false, rootDir: ROOT, baseUrl: ROOT,
+        paths: { '@/*': ['src/*'] }, outDir: out3,
+        typeRoots: [join(ROOT, 'node_modules/@types')], types: ['node'],
+      },
+      files: [join(ROOT, 'src/lib/backfill/google-ads-universe-writer.ts')], include: [], exclude: [],
+    }))
+    execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg3], { stdio: 'pipe' })
+    try { symlinkSync(join(ROOT, 'node_modules'), join(out3, 'node_modules')) } catch {}
+    const stub3 = join(out3, 'supabase-stub.js')
+    writeFileSync(stub3, 'exports.supabaseAdmin = { from: () => { throw new Error("guard stub") } };\n')
+    const req3 = createRequire(import.meta.url)
+    const M3 = req3('module'); const o3 = M3._resolveFilename
+    M3._resolveFilename = function (r, ...a) {
+      if (r === '@/lib/supabase') return stub3
+      if (r.startsWith('@/')) return join(out3, 'src', r.slice(2) + '.js')
+      return o3.call(this, r, ...a)
+    }
+    const wr = req3(join(out3, 'src/lib/backfill/google-ads-universe-writer.js'))
+    M3._resolveFilename = o3
+
+    const FLOOR = wr.VENDOR_FLOOR_DATE
+    if (!FLOOR) findings.push('(j) VENDOR_FLOOR_DATE is not exported from the writer — the seal has no floor to check against and any empty window can end a walk.')
+    const call = (windowStart, rowsReturned) =>
+      wr.decideVendorExhaustion({ windowStart, rowsReturned, gaql: 'SELECT x FROM y', floorDate: FLOOR })
+
+    // (a) A SINGLE ZERO-ROW WINDOW ABOVE THE FLOOR MUST NOT SEAL.
+    const dormant = call('2026-07-05', 0)
+    if (dormant.complete || dormant.exhaustedBelow !== null) {
+      findings.push('(j)(a) a single zero-row window ABOVE the floor sealed the entry as vendor-exhausted. That is the 2026-08-05 defect exactly: dormancy read as exhaustion, 344 of 346 entries sealed with four years of data beneath them.')
+    }
+    // (b) SEALING ABOVE THE FLOOR IS NEVER JUSTIFIED, at any date above it.
+    for (const d of ['2025-03-02', '2023-01-01', '2022-03-06']) {
+      if (call(d, 0).complete) {
+        findings.push(`(j)(b) an empty window at ${d} sealed the entry, but that is ABOVE the measured floor ${FLOOR}. Exhaustion above the floor requires evidence a single empty window cannot provide.`)
+      }
+    }
+    // AT/BELOW the floor an empty window IS exhaustion — the floor was measured, so it corroborates.
+    const atFloor = call(FLOOR, 0)
+    if (!atFloor.complete || atFloor.exhaustedBelow !== FLOOR) {
+      findings.push(`(j) an empty window AT the measured floor ${FLOOR} did NOT seal. The walk would never terminate — the floor is the one place a zero is corroborated.`)
+    }
+    // Rows always continue the walk.
+    if (call('2024-01-01', 5).complete) findings.push('(j) a window that RETURNED ROWS was sealed as exhausted.')
+  } catch (e) {
+    findings.push(`(j) could not drive the writer: ${String(e.stdout || '').trim() || e.message}`)
+  }
+
+  // (c) ⛔ THE SILENT-SUCCESS HALF — a seal must be the ONLY thing that settles an entry, and
+  // isClientComplete must not settle on anything weaker. This is what made the defect invisible.
+  const rs = read('src/lib/backfill/universe-run-state.ts')
+  const settle = (rs.match(/const settled = states\.filter\([^\n]*/) || [''])[0]
+  if (!/vendor_exhausted_below/.test(settle)) {
+    findings.push('(j)(c) isClientComplete() no longer settles on vendor_exhausted_below — completion has lost its only proof-carrying signal.')
+  }
+  if (/observed_zero_at|rows_written|outcome\s*===\s*.zero./.test(settle)) {
+    findings.push('(j)(c) isClientComplete() settles on an OBSERVED ZERO or a row count. A zero is dormancy, not exhaustion — settling on it is the false-completion defect moved into the completion check itself.')
+  }
+}
+
+// ── (k) THE SPEND READ MAY NOT BE TRUNCATABLE, AND AN UNREADABLE SPEND MAY NOT READ AS ZERO ───────
+// ⛔ LORAMER_LANE_SPEND_IS_SERVER_SIDE_V1. Leg (c) above proved the spend read is not the CUMULATIVE
+// counter. It could not see the defect that replaced it: the row-per-window table that fixed (c)
+// crosses PostgREST's 1,000-row page cap, and an un-ranged select is truncated there SILENTLY — the
+// only evidence is a response header. MEASURED on the real path 2026-08-05: content-range
+// 0-999/10788, sum read as 997 against 10,788 actually spent. The governor authorised ~10,800
+// consecutive publishes and wrote ZERO quota_stop rows while the walk ate the product's reserve.
+// ⛔ AN UNDER-READ IS THE DANGEROUS DIRECTION. The (c) defect over-read and HALTED the walk, so it
+// announced itself within a day. This one only ever says yes.
+{
+  try {
+    const out4 = mkdtempSync(join(tmpdir(), 'loramer-spend-'))
+    const cfg4 = join(out4, 'tsconfig.json')
+    writeFileSync(cfg4, JSON.stringify({
+      extends: join(ROOT, 'tsconfig.json'),
+      compilerOptions: {
+        module: 'commonjs', moduleResolution: 'node', noEmit: false, declaration: false,
+        incremental: false, composite: false, rootDir: ROOT, baseUrl: ROOT,
+        paths: { '@/*': ['src/*'] }, outDir: out4,
+        typeRoots: [join(ROOT, 'node_modules/@types')], types: ['node'],
+      },
+      files: [join(ROOT, MODULE), join(ROOT, 'src/lib/backfill/universe-governor.ts')],
+      include: [], exclude: [],
+    }))
+    execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg4], { stdio: 'pipe' })
+    try { symlinkSync(join(ROOT, 'node_modules'), join(out4, 'node_modules')) } catch {}
+    // ⛔ THE STUB IS THE RED PROOF. `from()` THROWS, so a spend read that goes back to scanning rows
+    // fails this leg outright — there is no shape of row-scan that can pass it. `rpc()` is routed to
+    // a per-case handler so the FAIL-CLOSED branches can be executed rather than read.
+    const stub4 = join(out4, 'supabase-stub.js')
+    writeFileSync(stub4,
+      'exports.supabaseAdmin = {\n' +
+      '  from: () => { throw new Error("LEG-K: the spend read performed a ROW SCAN. PostgREST truncates an un-ranged select at 1,000 rows with NO error, so a scan cannot be trusted to sum a row-per-window table."); },\n' +
+      '  rpc: async (name, args) => globalThis.__LORAMER_GUARD_RPC__(name, args),\n' +
+      '};\n')
+    const req4 = createRequire(import.meta.url)
+    const M4 = req4('module'); const o4 = M4._resolveFilename
+    M4._resolveFilename = function (r, ...a) {
+      if (r === '@/lib/supabase') return stub4
+      if (r.startsWith('@/')) return join(out4, 'src', r.slice(2) + '.js')
+      return o4.call(this, r, ...a)
+    }
+    const wl = req4(join(out4, 'src/lib/backfill/universe-window-log.js'))
+    const gov = req4(join(out4, 'src/lib/backfill/universe-governor.js'))
+    M4._resolveFilename = o4
+
+    const TRUE_SPEND = 10788   // the measured real-path figure, kept as the fixture on purpose
+    let seen = null
+    const setRpc = (fn) => { globalThis.__LORAMER_GUARD_RPC__ = fn }
+
+    // (k1) THE HAPPY PATH — the whole sum arrives, and it arrives from the FUNCTION.
+    setRpc(async (name, args) => { seen = { name, args }; return { data: TRUE_SPEND, error: null } })
+    const got = await wl.readLaneSpendToday()
+    if (got !== TRUE_SPEND) {
+      findings.push(`(k1) readLaneSpendToday() returned ${got} where the lane had spent ${TRUE_SPEND}. The governor's only input must be the whole number or it is not a budget.`)
+    }
+    if (!seen || seen.name !== 'universe_lane_spend_today') {
+      findings.push(`(k1) the spend read called '${seen?.name}' — it must call the server-side aggregate universe_lane_spend_today (migrations/057). A scalar cannot be page-capped; a row set can.`)
+    }
+    if (seen && seen.args?.p_vendor !== 'google_ads') {
+      findings.push(`(k1) the spend read asked for vendor '${seen.args?.p_vendor}' — must be 'google_ads' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1).`)
+    }
+    if (seen && !/T00:00:00\.000Z$/.test(String(seen.args?.p_since))) {
+      findings.push(`(k1) the spend window starts at '${seen.args?.p_since}', not midnight UTC. A day boundary that drifts bills one day's requests against another day's allowance.`)
+    }
+    // PostgREST returns a bare scalar, but a single-row array is the shape a future rewrite lands on.
+    setRpc(async () => ({ data: [TRUE_SPEND], error: null }))
+    if (await wl.readLaneSpendToday() !== TRUE_SPEND) {
+      findings.push('(k1) a single-row array reply was not unwrapped to the spend. The two PostgREST reply shapes must both read as the same number.')
+    }
+
+    // (k2) ⛔ FAIL CLOSED. THE ONE VALUE THAT MUST NEVER BE INVENTED IS ZERO — it authorises the
+    // largest publish the governor can grant, at the exact moment it has gone blind. Number(null) is
+    // 0 and Number(undefined) is NaN, so both are executed here rather than reasoned about.
+    for (const [what, reply] of [
+      ['a DB error', { data: null, error: { message: 'connection reset' } }],
+      ['a null reply', { data: null, error: null }],
+      ['an undefined reply', { data: undefined, error: null }],
+      ['a non-numeric reply', { data: 'lots', error: null }],
+      ['a negative reply', { data: -5, error: null }],
+    ]) {
+      setRpc(async () => reply)
+      let threw = false
+      try { await wl.readLaneSpendToday() } catch { threw = true }
+      if (!threw) {
+        findings.push(`(k2) ${what} did NOT throw — it was converted into a spend. An unreadable counter treated as "nothing spent" is worse than no governor, because it looks like one.`)
+      }
+    }
+    delete globalThis.__LORAMER_GUARD_RPC__
+
+    // (k3) THE CONSEQUENCE, EXECUTED. The truncated read is only a defect because of what the
+    // governor then does with it — so both numbers are put through the real decision.
+    const truncated = 997   // what the real path actually returned on 2026-08-05
+    const blind = gov.decidePublish({ spentRequestsToday: truncated, want: 1 })
+    const honest = gov.decidePublish({ spentRequestsToday: TRUE_SPEND, want: 1 })
+    if (!blind.mayPublish) {
+      findings.push('(k3) the governor now HOLDS on the truncated figure too, so this leg can no longer demonstrate the defect — re-derive the fixture before trusting it.')
+    }
+    if (honest.mayPublish) {
+      findings.push(`(k3) handed the TRUE spend of ${TRUE_SPEND} against a ${gov.BACKFILL_OP_ALLOWANCE} allowance, the governor still authorised a publish. The walk must yield; the product never does (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).`)
+    }
+  } catch (e) {
+    findings.push(`(k) could not drive the spend read: ${String(e.stdout || '').trim() || e.message}`)
+  }
+
+  // (k4) THE FUNCTION'S POSTURE IS PART OF THE FIX. A spend counter readable from a browser is a
+  // different bug, and a SECURITY DEFINER function with a loose search_path is a third.
+  const M = 'migrations/057_universe_lane_spend_fn.sql'
+  let sql = ''
+  try { sql = read(M) } catch { findings.push(`(k4) ${M} is missing — the spend read calls an RPC that nothing in this repo creates.`) }
+  if (sql) {
+    if (!/create or replace function public\.universe_lane_spend_today/i.test(sql)) {
+      findings.push(`(k4) ${M} no longer creates universe_lane_spend_today — the spend read would throw on every call.`)
+    }
+    if (!/set search_path\s*=\s*public/i.test(sql) && /security definer/i.test(sql)) {
+      findings.push(`(k4) ${M} declares SECURITY DEFINER without pinning search_path.`)
+    }
+    if (!/grant execute on function public\.universe_lane_spend_today[^;]*to service_role/i.test(sql)) {
+      findings.push(`(k4) ${M} does not grant execute to service_role — the only role that may read it.`)
+    }
+    for (const role of ['anon', 'authenticated']) {
+      if (!new RegExp(`revoke all on function public\\.universe_lane_spend_today[^;]*from ${role}`, 'i').test(sql)) {
+        findings.push(`(k4) ${M} does not revoke execute from ${role}. universe_window_log is RLS deny-all; a function over it must not be the way around that.`)
+      }
+    }
   }
 }
 

@@ -65,8 +65,43 @@ export const CATCHUP_ALLOCATION = Math.floor(GOOGLE_DAILY_OP_CAP * CATCHUP_SHARE
 // Everything else — forward, the ranked geo lap, scoped recovery — lives here and catchup may not touch it.
 export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 
-export type BudgetLane = 'catchup' | 'drain' | 'forward'
-export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain'] as const
+// ⛔ 'backfill' IS DECLARED BUT NOT YET COUNTED — FLIGHT 1 OF 2, DELIBERATE AND STATED.
+// The universe walk spends Google operations and writes NO cron_runs row, so `readGoogleSpendToday` reports 0
+// for it and every arithmetic below treats it as zero. Wiring the ORDERING now and the COUNTING later is not
+// tidiness: counting it today would take the fleet estimate past the cap immediately and block forward,
+// catchup and drain in the same commit that was supposed to protect them. The ordering is inert until the
+// number arrives; the number arrives in flight 2 (★GOOGLE-QUOTA-PRIORITY-INVERSION).
+export type BudgetLane = 'catchup' | 'drain' | 'forward' | 'backfill'
+export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain', 'backfill'] as const
+
+// ⛔ LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 — WHO GETS REFUSED WHEN THE CEILING BINDS.
+// HIGHEST priority first. The refusal falls on the LOWEST-priority lane holding spend in the window, never on
+// whoever happens to ask next — which on a normal morning is forward at 08:00Z, the lane that must never lose.
+//
+// THE MIDDLE TWO ARE DERIVED, NOT ASSUMED, and the derivation is the whole ranking:
+//   · CATCHUP repairs interior holes inside a 35-DAY window (CATCHUP_WINDOW_DAYS = 35, cron/catchup:48), 14
+//     days per run. 35 days sits deep inside Google's ~37-month granular retention, so a day catchup defers
+//     is still fetchable months later. Deferring catchup costs FRESHNESS. Nothing expires.
+//   · DRAIN walks deep history toward floor36() — "the 36-month granular floor (safety margin under the ~37mo
+//     Google/Meta granular cap)", drain-registry.ts:74. THAT WALL MOVES ONE DAY EVERY DAY. A day the drain
+//     defers can cross it and become unrecoverable at any price. ★GOOGLE-CLICK-VIEW-90-DAY-WALL is the same
+//     shape and sharper: it is the one surface "losing history while we wait".
+//   ⇒ DRAIN OUTRANKS CATCHUP, because only the drain's work EXPIRES.
+// LORAMER_RESTATEMENT_WINDOW_LAW_V1 was checked and does NOT reverse this: a day captured once and never
+// re-walked is permanently WRONG, not permanently GONE — it stays repairable anywhere inside retention. A lost
+// day is not repairable at any price. Wrong-and-fixable ranks below gone-forever.
+export const LANE_PRIORITY: readonly BudgetLane[] = ['forward', 'drain', 'catchup', 'backfill'] as const
+
+/**
+ * Rank of a lane, 0 = highest. ⛔ FAIL-CLOSED ON AN UNKNOWN LANE: anything not in the table sorts LAST, so a
+ * typo, a renamed lane or a future lane is refused FIRST rather than inheriting forward's protection. An
+ * unrecognised identity must never resolve to top priority — that is the fail-open this ordering exists to
+ * prevent, and it is the direction that silently gives an unaudited spender the highest-priority lane's seat.
+ */
+export function priorityOf(lane: string): number {
+  const i = (LANE_PRIORITY as readonly string[]).indexOf(lane)
+  return i === -1 ? LANE_PRIORITY.length : i
+}
 
 // Raw GAQL REQUESTS attributed to each lane today, plus anything we could not attribute.
 export type GoogleSpendToday = {
@@ -148,7 +183,7 @@ export function decideBudget(
   const catchupAllocation = Math.floor(cap * CATCHUP_SHARE)
   const reserve = cap - catchupAllocation
   const allocation = lane === 'catchup' ? catchupAllocation : reserve
-  const zero: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0 }
+  const zero: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0, backfill: 0 }
   const base = {
     lane, allocation, cap, reserve, catchupAllocation,
     safetyMultiplier: mult, isLowerBound: true as const,
@@ -190,10 +225,45 @@ export function decideBudget(
     return { ...common, state: 'blocked', blockedBy: 'lane_allocation', remaining: 0,
       reason: `LANE ALLOCATION exhausted — ${denom}` }
   }
-  // CHECK (b) — the fleet has spent the cap, whatever this lane's own share looks like.
+  // CHECK (b) — the fleet has spent the cap.
+  // ⛔ LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1. THE DEFECT THIS REPLACES: this check read ONLY
+  // `fleetRemaining` and ignored `laneRemaining` entirely, so once the ceiling was gone EVERY lane was refused
+  // — and the one refused in practice was whichever asked NEXT. On a normal morning that is forward at 08:00Z,
+  // the highest-priority lane in the system, refused because a lower-priority lane had already spent the
+  // ceiling. The reserve was expressed only in the per-lane allocations of check (a); the ceiling itself had no
+  // priority order at all, which made "the walk yields; the product does not" unenforceable at exactly the
+  // moment it mattered (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).
+  //
+  // THE RULE: a lane INSIDE its own allocation is not refused on the ceiling while any LOWER-priority lane is
+  // holding spend in the window. That lower lane is the one that must yield, and it will be refused here on
+  // its own next ask.
+  //
+  // ⛔ WHAT THIS DOES NOT DO, said plainly so nobody reads it as headroom: IT CREATES NO QUOTA. If the vendor's
+  // 15,000 is genuinely gone, Google returns RESOURCE_EXHAUSTED whatever this function says. All this decides
+  // is WHO ABSORBS a refusal that is coming anyway — and the answer must never be the lane carrying today's
+  // customer data.
   if (fleetRemaining <= 0) {
+    const lowerWithSpend = BUDGET_LANES.filter(
+      (l) => priorityOf(l) > priorityOf(lane) && Number(byLane[l] ?? 0) > 0
+    )
+    // ⛔ UNATTRIBUTED SPEND IS NOT A LANE AND CANNOT BE BLAMED. If the ceiling was consumed by spend we could
+    // not attribute, there is no lower-priority lane to yield, so this lane IS refused — fail-closed.
+    if (laneRemaining > 0 && lowerWithSpend.length > 0) {
+      return { ...common, state: 'not_blocked', blockedBy: 'none', remaining: laneRemaining,
+        reason:
+          `FLEET CEILING REACHED, AND THIS LANE IS NOT THE ONE THAT YIELDS — ${lane} is inside its own ` +
+          `allocation (${laneOps}/${allocation}) and lower-priority lane(s) [${lowerWithSpend.join(', ')}] hold ` +
+          `spend in this window. Priority: ${LANE_PRIORITY.join(' > ')}. ⛔ This is not headroom — if Google's ` +
+          `cap is truly gone the vendor refuses regardless; it decides only WHO absorbs the refusal. — ${denom}`,
+      }
+    }
     return { ...common, state: 'blocked', blockedBy: 'fleet_cap', remaining: 0,
-      reason: `FLEET CAP exhausted — ${denom}` }
+      reason:
+        `FLEET CAP exhausted — ${lane} yields` +
+        (laneRemaining > 0
+          ? ` even though it is inside its own allocation: no LOWER-priority lane holds spend in this window, so there is nobody below it to refuse first`
+          : ` and is also past its own allocation`) +
+        `. Priority: ${LANE_PRIORITY.join(' > ')} — ${denom}` }
   }
   return { ...common, state: 'not_blocked', blockedBy: 'none', remaining,
     reason: `may spend ~${remaining} more ops (binding: ${laneRemaining <= fleetRemaining ? 'lane allocation' : 'fleet cap'}) — ${denom}` }
@@ -215,7 +285,10 @@ export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
       console.error('[google-op-budget] cron_runs READ FAILURE — this is a DB error, NOT headroom. Lanes HOLD. detail:', error.message)
       return null
     }
-    const units: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0 }
+    // ⛔ `backfill` IS PRESENT AND ALWAYS ZERO HERE, AND THAT IS THE POINT OF FLIGHT 1. The universe walk
+    // writes no cron_runs row, so this reader cannot see it — the key exists so the ORDERING is wired and the
+    // absence is VISIBLE in every denominator string, rather than the lane simply not existing.
+    const units: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0, backfill: 0 }
     let unattributedUnits = 0
     for (const r of data || []) {
       const mode = String((r as any).mode ?? '')
@@ -241,6 +314,10 @@ export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
         forward: units.forward * GAQL_REQUESTS_PER_CONNECTION_DAY,
         catchup: units.catchup * GAQL_REQUESTS_PER_CONNECTION_DAY,
         drain: units.drain * GAQL_REQUESTS_PER_CONNECTION_DAY,
+        // ⛔ NOT MEASURED YET — flight 2 sources this from universe_window_log. It reads 0 today, which
+        // UNDER-counts the fleet by the largest single spender; that is a known, dated, deliberate gap and
+        // not a claim that the walk spends nothing.
+        backfill: units.backfill * GAQL_REQUESTS_PER_CONNECTION_DAY,
       },
       unattributedRaw: unattributedUnits * GAQL_REQUESTS_PER_CONNECTION_DAY,
     }

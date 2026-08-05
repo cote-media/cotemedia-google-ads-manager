@@ -129,7 +129,7 @@ export async function openWindow(k: WindowKey, diskFreeBytes: number): Promise<v
   if (error) throw new Error(`universe_window_log open failed: ${error.message}`)
 }
 
-export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop'
+export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop' | 'quota_stop'
 
 /**
  * CLOSE THE WINDOW WITH AN EXPLICIT OUTCOME.
@@ -160,25 +160,65 @@ export async function closeWindow(
 }
 
 /**
- * ⛔ THE GOVERNOR'S INPUT, AND THE DEFECT IT REPLACES.
- * universe_run_state.requests_spent is CUMULATIVE PER ENTRY (upserted as prior + new), and the old
- * readBackfillRequestsToday() summed it across every row whose updated_at fell today. On day 1 that
- * is right by accident. On day 2 every entry touched today reports its LIFETIME spend, so the
- * governor bills the walk for yesterday's requests and refuses to publish — a 3-day walk halts on
- * day 2 reporting "allowance EXHAUSTED" while having spent nothing that day.
- * Here each row IS one window, so summing today's rows is today's spend BY CONSTRUCTION. There is no
- * accumulation to get wrong.
+ * ⛔ THE GOVERNOR'S INPUT, AND THE TWO DEFECTS IT REPLACES. BOTH WERE SILENT AND BOTH BILLED THE
+ * WRONG NUMBER — in opposite directions, which is why only the second one was dangerous.
+ *
+ * (1) universe_run_state.requests_spent is CUMULATIVE PER ENTRY, and readBackfillRequestsToday()
+ *     summed it across every row touched today. From day 2 the governor bills the walk for day 1 and
+ *     refuses to publish — a 3-day walk halts reporting "allowance EXHAUSTED" having spent nothing.
+ *     That over-read stopped the walk, so it announced itself. Fixed by one row per (entry, window).
+ *
+ * (2) ⛔ LORAMER_LANE_SPEND_IS_SERVER_SIDE_V1 — AND THE FIX FOR (1) IS WHAT CAUSED IT. A
+ *     row-per-window table crosses PostgREST's 1,000-row page cap on day one, and an un-ranged
+ *     select is TRUNCATED THERE WITH NO ERROR — the only signal is a response header:
+ *         content-range: 0-999/10788   →  1,000 rows returned, sum 997
+ *     MEASURED ON THE REAL PATH 2026-08-05 13:00Z, through the same PostgREST endpoint supabaseAdmin
+ *     uses. The walk had spent 10,788 requests against a 6,000/day allowance; the governor read 997,
+ *     said yes ~10,800 times in a row, and wrote ZERO quota_stop rows while eating the reserve that
+ *     LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 holds for forward and drain. An UNDER-read does not stop
+ *     anything, which is exactly why it ran for eleven hours unnoticed.
+ *
+ * ⛔ THE SUM IS NOW POSTGRES'S JOB. universe_lane_spend_today() (migrations/057) is one indexed
+ * aggregate over universe_window_log_spend_idx — no page cap can apply to a scalar, and the read
+ * costs one round trip at ~2,000 governor calls an hour rather than eleven and climbing.
+ *
+ * ⛔ FAIL CLOSED, TWICE. A failed read THROWS (the message fails, nothing publishes), and a reply that
+ * is not a finite number THROWS TOO — `Number(null)` is 0, and a spend of 0 is the one value that
+ * authorises the maximum possible publish. "I could not read it" must never arrive as "nothing spent".
+ *
+ * ⚠ THE DAY BOUNDARY IS OURS AND IT IS NOT GOOGLE'S. This counts from 00:00Z; the developer-scope
+ * quota resets ~08:03:57Z, which is why the same walk reads 11,130 on our clock and 6,190 on
+ * Google's. Deliberately left alone HERE: the fleet read in google-op-budget uses the same 00:00Z
+ * boundary, and moving one without the other makes the two lanes disagree about what day it is.
  */
 export async function readLaneSpendToday(): Promise<number> {
   const since = new Date()
   since.setUTCHours(0, 0, 0, 0)
-  const { data, error } = await supabaseAdmin
-    .from(TABLE)
-    .select('requests_spent')
-    .eq('vendor', VENDOR)
-    .gte('started_at', since.toISOString())
-  if (error) throw new Error(`universe_window_log spend read failed: ${error.message}`)
-  return (data || []).reduce((a: number, r: any) => a + Number(r.requests_spent || 0), 0)
+  const { data, error } = await supabaseAdmin.rpc('universe_lane_spend_today', {
+    p_vendor: VENDOR,
+    p_since: since.toISOString(),
+  })
+  if (error) {
+    throw new Error(
+      `REFUSING TO PUBLISH BLIND — lane spend read failed: ${error.message}. ` +
+        `migrations/057_universe_lane_spend_fn.sql creates universe_lane_spend_today(); apply it before running.`
+    )
+  }
+  // ⛔ ABSENCE IS CHECKED BEFORE CONVERSION, AND THIS GUARD LEG CAUGHT ME WRITING IT THE OTHER WAY
+  // ROUND. `Number(null)` is 0 — a finite, non-negative, entirely plausible spend — so converting
+  // first turns "the function returned nothing" into "the walk has spent nothing today", which is the
+  // single most permissive answer the governor can be given. The check must reject the ABSENCE, not
+  // the number it silently becomes.
+  const raw = Array.isArray(data) ? data[0] : data
+  const spent = raw === null || raw === undefined ? NaN : Number(raw)
+  if (!Number.isFinite(spent) || spent < 0) {
+    throw new Error(
+      `REFUSING TO PUBLISH BLIND — lane spend read returned ${JSON.stringify(data)}, which is not a spend. ` +
+        `Treating an unreadable counter as zero would authorise the largest possible publish at the exact ` +
+        `moment the governor has gone blind.`
+    )
+  }
+  return spent
 }
 
 /**

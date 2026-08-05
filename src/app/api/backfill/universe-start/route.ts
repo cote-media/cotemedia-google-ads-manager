@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
 import { loadUniverse, selectableEntries, deferredEntries, entityLevelFor } from '@/lib/backfill/google-ads-universe-writer'
-import { decidePublish } from '@/lib/backfill/universe-governor'
+import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 import { checkDiskFloor, readLaneSpendToday, gb, FLOOR_BYTES, PROVISIONED_BYTES } from '@/lib/backfill/universe-window-log'
 import { TOPIC, WINDOW_DAYS, type UniverseMessage } from '@/app/api/queues/google-ads-universe/route'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -56,6 +56,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `no google connection for ${clientId}: ${error?.message ?? 'not found'}` }, { status: 404 })
   }
 
+  // ⛔ LORAMER_WALK_STARTS_AT_LAST_ACTIVE_V1 — THE START WINDOW MUST NOT BE DEAD GROUND.
+  // This has now cost TWO releases. The walk began at the most recent calendar window, Foam OH's account had
+  // been dormant since 2026-04-05, and the first window returned zero rows for every entry — which the old
+  // seal rule read as "no history below this date" and used to end the walk (LORAMER_ZERO_ROWS_IS_NOT_
+  // EXHAUSTION_V1). The seal is fixed, but starting on dead ground is STILL wrong on its own terms: it spends
+  // a full window of vendor quota (346 requests) to learn something metrics_daily already knows for free.
+  // ⛔ THE RULE: start at the account's LAST ACTIVE DATE — the newest day it actually had clicks or
+  // impressions — never at today. Everything above that date is known-empty and does not need asking.
+  const { data: activeRow } = await supabaseAdmin
+    .from('metrics_daily')
+    .select('date')
+    .eq('client_id', clientId).eq('platform', 'google')
+    .eq('entity_level', 'account').eq('breakdown_type', '')
+    .gt('impressions', 0)
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const lastActive = (activeRow as { date?: string } | null)?.date ?? null
+  if (lastActive && endDate > lastActive && url.searchParams.get('allowDeadStart') !== '1') {
+    return NextResponse.json({
+      started: false, published: 0,
+      error: `REFUSING TO START ON DEAD GROUND. endDate=${endDate} is above this account's last ACTIVE day (${lastActive}) — every window between them is known-empty and would spend ${346} requests each to rediscover that. Start at endDate=${lastActive}, or pass &allowDeadStart=1 if you genuinely mean to walk the dormant period.`,
+      lastActiveDate: lastActive,
+      suggestedEndDate: lastActive,
+    }, { status: 400 })
+  }
+
   const doc = loadUniverse()
   const entries = selectableEntries(doc)
   const deferred = deferredEntries(doc)
@@ -85,7 +112,10 @@ export async function POST(request: Request) {
   }
 
   const spent = await readLaneSpendToday()
-  const gov = decidePublish({ spentRequestsToday: spent, want: entries.length })
+  // ⛔ LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — the starter yields on the same rule as the consumer. A walk
+  // that could not be STARTED without eating the product reserve must not be started.
+  const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
+  const gov = decidePublishFleetAware({ spentRequestsToday: spent, fleet: await readGoogleSpendToday(), want: entries.length })
 
   // ⛔ THE GOVERNOR DECIDES BEFORE ANYTHING IS PUBLISHED. Zero is a valid answer and is reported, not retried.
   if (!gov.mayPublish) {
