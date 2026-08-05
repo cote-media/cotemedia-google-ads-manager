@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-05T23:22:37.988Z
-- built_from HEAD: 1d61a25123793f7a78ad002af50d7a2ec0c66b98  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-05T23:49:58.544Z
+- built_from HEAD: 0410fb5ea986ca48596f0c8bc688cc2d8b34681b  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9c530b117151c31259e8c95fcb890be4f247954a941ab2663e6a8e39d658c356
     - LORAMER_DECISIONS.md: b7547e27919ac33f25b08f833544595cb2e784e252be58187d6b8ad318edad77
-    - LORAMER_QUEUE_OF_RECORD.md: 4599ed65e44a5aaee7d10a57525d4bbb5b8e8ee8139d8cf7b6a8e204fbd9840a
+    - LORAMER_QUEUE_OF_RECORD.md: d054e7058e0b8eb671ab199912b62a7bd01363e64244d108206170d38361a666
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1628,8 +1628,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 597 tokens indexed · 230 resolve to BOTH a decision and a queue item ·
-93 decision-only · 274 queue-only.
+TOTALS: 598 tokens indexed · 230 resolve to BOTH a decision and a queue item ·
+93 decision-only · 275 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1670,6 +1670,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-COMPOSER-CHROME-IOS — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★CHAT-COPY-BLOCKS — OPEN · decisions 0 · queue 2 · last 2026-08-05
 - ★CHAT-DESKTOP-SIDE-PANEL — OPEN · decisions 0 · queue 1 · last 2026-07-27
+- ★CHAT-FIVE-DEFECTS-2026-08-05 — DONE · decisions 0 · queue 1 · last 2026-08-05
 - ★CHAT-GATE-ZINDEX — DECIDED · decisions 1 · queue 0 · last 2026-07-26
 - ★CHAT-GUARD-CONTAINER-MOUNT-UNASSERTED — OPEN · decisions 1 · queue 2 · last 2026-08-05
 - ★CHAT-GUARD-FAILURE-PATH-UNTESTED — DONE · decisions 1 · queue 1 · last 2026-08-05
@@ -1682,7 +1683,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-STOP-BUTTON — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING — OPEN · decisions 2 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING-FLAG-FLIP — OPEN · decisions 2 · queue 2 · last 2026-08-03
-- ★CHAT-SURFACE-UNIFICATION-PLAN — OPEN · decisions 0 · queue 1 · last 2026-08-05
+- ★CHAT-SURFACE-UNIFICATION-PLAN — OPEN · decisions 0 · queue 2 · last 2026-08-05
 - ★CHAT-THREAD-IDENTITY — OPEN · decisions 0 · queue 1 · last 2026-07-23
 - ★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - ★CHAT-UI-DEDICATED-DAY — OPEN · decisions 0 · queue 3 · last 2026-09-30
@@ -1883,7 +1884,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TRAINED-LORA-ROADMAP — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★TWO-EVAL-HARNESSES-ONE-JUDGE — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★UI-BRANCH-IS-PERMANENT — OPEN · decisions 1 · queue 1 · last 2026-08-05
-- ★UI-OVERFLOW — OPEN · decisions 5 · queue 3 · last 2026-08-05
+- ★UI-OVERFLOW — OPEN · decisions 5 · queue 4 · last 2026-08-05
 - ★UNCERTAINTY-PAGES-A-HUMAN — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★UNIVERSE-50-WINDOW-PROJECTION-ASSUMES-THE-DENSEST-MONTH — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-ARTIFACT-REPROBE-CADENCE — OPEN · decisions 1 · queue 1 · last 2026-08-03
