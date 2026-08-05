@@ -17,7 +17,16 @@ import { parsePersistTarget, makeAssistantTurnWriter } from '@/lib/chat/persist-
 // observed worst case, so the SERVER is never the limiter within any realistic turn; the deliberate cap the user
 // feels is the SHORTER client-side AbortController in ChatLauncher. This is a STOPGAP — the durable fix is streaming
 // (QUEUE ★CHAT-STREAMING); a 59s answer that renders progressively is alive, a 59s spinner is dead.
-export const maxDuration = 300
+// ⛔ RAISED 300 → 500 ON 2026-08-05 (LORAMER_CHAT_DEADLINE_GAP_CLOSED_V1). The client ceiling moves to
+// 440s in the same commit and MUST stay strictly below this — chat-deadline-margin.guard.mjs enforces
+// the pair, because the two numbers only mean anything relative to each other.
+// ⛔ 500 IS ALLOWED HERE AND IT IS NOT AN ASSUMPTION ABOUT THE PLAN TIER: this project already runs
+// maxDuration 800 on cron/sync and cron/order-grain and 1800 on cron/drain, and the drain has been
+// OBSERVED running its full window in production (LORAMER_DRAIN_EXTENDED_DURATION_V1). 500 sits well
+// under values already deployed and proven, so the ceiling is our judgement, not the platform's.
+// ⚠ The comment above still describes the ORIGINAL 300 and its reasoning; it is kept because the
+// "server is never the limiter" intent is unchanged — only the number moved.
+export const maxDuration = 500
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

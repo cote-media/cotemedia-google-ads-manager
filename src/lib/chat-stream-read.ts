@@ -7,14 +7,33 @@
 // Veterinary mastermind ran 78.2s, 105.3s and 125.6s server-side (user row -> awaited spend row), and
 // the 125.6s turn exceeded even the total cap. The 45s figure assumed a tool round-trip plus model
 // thinking fits in 45s of silence; a 71,857-token multi-tool Opus 5 turn does not.
-// TOTAL 240s: 1.91x the worst measured turn (125.6s), and deliberately UNDER the route's
-// maxDuration of 300s so the SERVER stays the limiter and the client never sits waiting on a lambda
-// that has already been killed.
-// IDLE 150s: we have NO per-event gap instrumentation, so the only defensible bound is that a silent
-// stretch cannot exceed the whole turn — hence idle >= the longest turn measured (125.6s), rounded up.
-// Stated plainly rather than implied: 150 is DERIVED from the total-turn bound, not measured directly.
+// ⛔ TOTAL RAISED 240s → 440s ON 2026-08-05 (LORAMER_CHAT_DEADLINE_GAP_CLOSED_V1), AND THE REASON IS A
+// DESTINATION CHANGE, NOT A TUNING PASS. The old value's argument — 1.91× the worst measured turn, and
+// deliberately UNDER the route so a slow turn fails at a KNOWN bound rather than an unknown gateway
+// limit — was internally sound and is SUPERSEDED by LORAMER_NARRATED_LENGTH_BEATS_SILENT_SPEED_V1
+// (Russ): a long turn is fine, and good, PROVIDED the screen narrates the work; silence is the defect,
+// not length. **A turn that fails at a known bound is still a turn the user did not get.**
+//
+// ⛔ WHAT THE OLD NUMBER ACTUALLY COST, MEASURED, not argued: the 2026-08-05 20:01Z turn ran 281s
+// server-side, COMPLETED, was persisted, and was paid for in full — 66,617 input + 32,523 cache-create
+// + 65,046 cache-read + 9,547 output tokens — and the client threw it away at 240s. The gap was not a
+// safety margin. It was waste. A longer leash adds ZERO tokens; it only stops us discarding answers we
+// have already bought.
+//
+// ⛔ THE ONE INVARIANT THAT IS NOT NEGOTIABLE AND IS NOW GUARDED (one-working-indicator.guard.mjs's
+// sibling, chat-deadline-margin.guard.mjs): **CHAT_TOTAL_MS MUST STAY STRICTLY BELOW THE ROUTE'S
+// maxDuration.** If the client outlives the server it sits waiting on a lambda that is already dead,
+// and — worse — the recovery poll has nothing to recover INTO, because the server never gets to write
+// the answer the poll goes looking for. 440s client vs 500s route keeps the same 60s margin the old
+// pair had, deliberately.
+//
+// IDLE 150s — UNCHANGED, and it is the timer that still does the real safety work now that the total is
+// generous: with streaming ON (proven in production 2026-08-05, `streaming: true` in the route's own
+// `[chat] cache:` log) every frame re-arms it, so a live turn never trips it while a genuinely dead
+// connection is caught in 150s rather than 440s. Raising the total does NOT slow down failure detection
+// on a dead socket; it only stops a HEALTHY long turn being killed.
 export const CHAT_IDLE_GAP_MS = 150_000
-export const CHAT_TOTAL_MS = 240_000
+export const CHAT_TOTAL_MS = 440_000
 
 export type ChatRead = { ok: boolean; status: number; response?: string; error?: string; model?: string; onStatus?: never }
 

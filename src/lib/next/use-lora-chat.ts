@@ -215,7 +215,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
     // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
     logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
-    // LORAMER_CHAT_CLIENT_ABORT_V1 — a DELIBERATE client-side ceiling SHORTER than the server maxDuration (300s), so a
+    // LORAMER_CHAT_CLIENT_ABORT_V1 — a DELIBERATE client-side ceiling SHORTER than the server maxDuration (500s as of
+    // 2026-08-05; was 300s), so a
     // slow turn fails at a KNOWN bound with an HONEST message instead of at an unknown browser/gateway limit that
     // surfaced a misleading "Network error." 120s clears the observed ~59s worst case (and heavier multi-tool turns),
     // so normal turns are untouched. Stopgap; the durable fix is streaming (★CHAT-STREAMING).
@@ -367,7 +368,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         }
       }
       if (!done) {
-        // The answer may still land after our window closes (server maxDuration 300s > our 240s), so force
+        // The answer may still land after our window closes (server maxDuration 500s > our 440s), so force
         // the next open to re-read the thread rather than trusting the per-client hydration guard.
         hydratedForRef.current = null
         replace(kind === 'aborted' ? COPY.ABORTED_UNCONFIRMED : COPY.NETWORK_UNCONFIRMED)

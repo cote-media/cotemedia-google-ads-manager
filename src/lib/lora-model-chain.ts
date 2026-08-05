@@ -52,14 +52,24 @@ export class AllModelsOverloadedError extends Error {
 // model call, the tool-loop's DB reads, and the response write. Raising this without raising the client abort
 // converts a fallback into a timeout, which is strictly worse — the two numbers move together or not at all.
 // ⛔ THE ORDERING IS THE RULE. THE NUMBER IS ONLY A SYMPTOM.
-//     server budget (200s)  <  client total (240s)  <  route maxDuration (300s)
+//     server budget (380s)  <  client total (440s)  <  route maxDuration (500s)   [2026-08-05]
+//     was:            200s  <               240s    <                    300s
 // Raising ONE of these without the others is the defect, not the value. On 2026-07-27 the client timer
 // was raised 120s -> 240s and THIS was left at 95s, so the server gave up on a real multi-tool question
 // ("Do you think our prices are good?") after 95 seconds while the client waited four minutes. The turn
 // 500'd with the SDK's "Request timed out", no answer was ever produced, and the user was shown a
 // connection story. The header of this file already warned that "the two numbers move together or not
 // at all" — the comment did not stop it, so tests/guards/chat-timer-ordering.guard.mjs now does.
-export const CHAIN_BUDGET_MS = 200_000
+// ⛔ RAISED 200s → 380s ON 2026-08-05 WITH THE OTHER TWO, AND I DID NOT PLAN TO — `chat-timer-ordering`
+// CAUGHT IT. The flight was scoped as "two lines: client 240→440, route 300→500". Raising those two
+// alone would have re-created the 2026-07-27 defect ONE LAYER IN: the chain would give up at 200s while
+// the client waited 440s, so every turn between them dies with no answer and the user is shown a
+// connection story for a turn the server abandoned on purpose. **THERE ARE THREE NUMBERS, NOT TWO**,
+// and the guard written after that incident is the only reason this commit is not the incident again.
+// 380s holds the same ~86% budget:client ratio the pair had before (200/240), and keeps 60s of headroom
+// for the intelligence fetch that runs BEFORE the model call, the tool-loop's DB reads and the response
+// write — the same headroom argument the 95s→200s move made, at the new scale.
+export const CHAIN_BUDGET_MS = 380_000
 // A hop needs enough runway to be worth starting. Below this we drop it rather than begin an attempt we expect the
 // clock to kill mid-flight — a half-run hop costs tokens and returns nothing.
 export const MIN_HOP_MS = 18_000
