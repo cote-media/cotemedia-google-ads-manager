@@ -1,4 +1,12 @@
 #!/usr/bin/env node
+// ⛔ DELEGATION IS SATISFACTION — BUT ONLY BECAUSE THE DELEGATE IS ITSELF ASSERTED (LORAMER_CHAT_
+// SHARED_THREAD_V1). The containers no longer draw a turn: they mount <LoraThread>, which draws it for
+// both. Asserting the mark against the containers would now be asserting the WRONG FILE, and a guard
+// pointed at the wrong file is the failure this whole leg exists to catch, not a stricter version of it.
+// So a container satisfies these checks by mounting <LoraThread>, and LoraThread must satisfy them
+// DIRECTLY — it is checked here too, in the same pass, so the property is still proven end to end.
+// ⛔ AND THE CONTAINMENT HALF IS RED-PROVED ELSEWHERE: lora-thread-shared.guard.mjs fails when either
+// container's mount is deleted, so "delegates" can never become a way to opt out of the property.
 // LORAMER_CHAT_STATUS_FIRST_V1 — THE STATUS LINE MUST BE THE FIRST THING ON SCREEN, AND THE MARK MUST DRAW.
 //
 // PROVENANCE: three defects reported from a LIVE DEVICE (Gate-B, Chrome iOS, 2026-08-02) against 9fa8b86, the
@@ -168,10 +176,18 @@ if (!loopErr) {
   }
   const all = walk("src")
   // A SURFACE = a component that consumes the hook AND renders JSX. The hook file itself is excluded by name.
+  // ⛔ WIDENED 2026-08-05 BY LORAMER_CHAT_SHARED_THREAD_V1, AND WIDENED IS THE RIGHT WORD — NOTHING IS
+  // EXEMPTED. Before the extraction a "surface" was a component that consumed the hook AND drew the
+  // turn; they were the same file. They no longer are: the containers consume the hook and DELEGATE
+  // drawing to the shared LoraThread. Asserting the mark against the containers would now be asserting
+  // the wrong file — and the failure this leg exists to catch ("the thing that draws the turn has no
+  // mark") lives wherever the turn is drawn. So the set is hook-consumers PLUS the shared surface, and
+  // a hook-consumer that mounts <LoraThread> satisfies it BY DELEGATION (checked explicitly below,
+  // never assumed) while LoraThread itself must satisfy it directly.
   const surfaces = all.filter((f) => {
     if (f.endsWith("use-lora-chat.ts")) return false
     const s = readFileSync(resolve(ROOT, f), "utf8")
-    return /\buseLoraChat\s*\(/.test(s)
+    return /\buseLoraChat\s*\(/.test(s) || /\bexport default function LoraThread\b/.test(s)
   })
   if (surfaces.length === 0) {
     findings.push("(b) NO SURFACE consumes useLoraChat — the discovery walk found nothing, so this leg is BLIND. Fix the guard before trusting a green.")
@@ -179,15 +195,19 @@ if (!loopErr) {
   // ROUTE BY ROUTE, wired / not-applicable-and-why. Nothing is exempt by default.
   for (const f of surfaces) {
     const s = readFileSync(resolve(ROOT, f), "utf8")
-    const importsShared = /from\s+['"][^'"]*LoraWorking['"]/.test(s)
+    // DELEGATION IS SATISFACTION, BUT ONLY IF THE DELEGATE ACTUALLY DOES IT. A container that mounts
+    // <LoraThread> passes these legs because LoraThread is IN this same surface set and must satisfy
+    // them itself — so the property is still asserted end to end, in one place instead of two.
+    const delegates = /<LoraThread\b/.test(s.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n'))
+    const importsShared = delegates || /from\s+['"][^'"]*LoraWorking['"]/.test(s)
     if (!importsShared) {
       findings.push(`(b) SURFACE ${f} renders useLoraChat but does NOT import the SHARED LoraWorking component. That is precisely how the phone surface ended up with no mark and no sweep while the desktop shelf had both. Import { LoraTurn, LoraWorking } from the shared module — do NOT copy its CSS into a second stylesheet.`)
       continue
     }
-    if (!/<LoraWorking\b/.test(s)) {
+    if (!delegates && !/<LoraWorking\b/.test(s)) {
       findings.push(`(b) SURFACE ${f} imports the shared component but never renders <LoraWorking>. A turn in flight shows no mark and no status line there.`)
     }
-    if (!/<LoraTurn\b/.test(s)) {
+    if (!delegates && !/<LoraTurn\b/.test(s)) {
       findings.push(`(b) SURFACE ${f} never renders <LoraTurn>, so a COMPLETED assistant turn carries no mark. The banked 2026-07-28 design is ONE mark, TWO states — working indicator AND avatar. Mounting only the working half is the exact V1 gap.`)
     }
     // ⛔ NO CONTAINER (correction (a)): the working state may not be wrapped in message chrome.

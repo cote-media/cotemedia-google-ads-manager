@@ -44,8 +44,14 @@ const strip = (s) => s.split('\n').filter((l) => !l.trim().startsWith('//')).joi
 // worse proof than a stated one.
 {
   const src = strip(read(HOOK))
+  // ⛔ FIND THE `finally` THAT BELONGS TO THIS `catch`, NOT THE FIRST ONE IN THE FILE. On 2026-08-05 the
+  // D1 thread-refresh effect added a `} finally { running = false }` EARLIER in the file, so
+  // indexOf('} finally {') returned that one, `finallyAt < catchAt`, and this leg went RED with "could
+  // not locate the catch/finally pair". ⚠ IT FAILED SAFE AND SAID SO — "must be re-verified by hand, not
+  // assumed green" — which is the only reason a locator drifting out from under a guard was visible at
+  // all rather than becoming a silent pass. Searching FROM the catch is the fix.
   const catchAt = src.indexOf('} catch (e) {')
-  const finallyAt = src.indexOf('} finally {')
+  const finallyAt = catchAt === -1 ? -1 : src.indexOf('} finally {', catchAt)
   if (catchAt === -1 || finallyAt === -1 || finallyAt < catchAt) {
     findings.push(`(a) ${HOOK}: could not locate the catch/finally pair in send() — this guard is pointed at the wrong file or the failure path was restructured. It must be re-verified by hand, not assumed green.`)
   } else {
@@ -90,11 +96,21 @@ const strip = (s) => s.split('\n').filter((l) => !l.trim().startsWith('//')).joi
 // ⛔ ★CHAT-GUARD-CONTAINER-MOUNT-UNASSERTED. A shared component proves nothing if a surface stopped
 // rendering it — which is exactly how the phone showed a plain italic line for weeks while a green guard
 // asserted the mark was mounted.
-for (const f of CONTAINERS) {
+// ⛔ DELEGATION IS SATISFACTION — BUT ONLY BECAUSE THE DELEGATE IS ITSELF ASSERTED (LORAMER_CHAT_
+// SHARED_THREAD_V1). The containers no longer draw a turn: they mount <LoraThread>, which draws it for
+// both. Asserting the mark against the containers would now be asserting the WRONG FILE, and a guard
+// pointed at the wrong file is the failure this whole leg exists to catch, not a stricter version of it.
+// So a container satisfies these checks by mounting <LoraThread>, and LoraThread must satisfy them
+// DIRECTLY — it is checked here too, in the same pass, so the property is still proven end to end.
+// ⛔ AND THE CONTAINMENT HALF IS RED-PROVED ELSEWHERE: lora-thread-shared.guard.mjs fails when either
+// container's mount is deleted, so "delegates" can never become a way to opt out of the property.
+const SHARED_SURFACE = 'src/components/redesign/LoraThread.tsx'
+for (const f of [...CONTAINERS, SHARED_SURFACE]) {
   const src = strip(read(f))
-  if (!src) { findings.push(`(c) ${f} is missing or unreadable — a container this guard is required to cover cannot be checked.`); continue }
-  const working = [...src.matchAll(/<LoraWorking\b/g)].length
-  const turn = [...src.matchAll(/<LoraTurn\b/g)].length
+  if (!src) { findings.push(`(c) ${f} is missing or unreadable — a file this guard is required to cover cannot be checked.`); continue }
+  const delegates = f !== SHARED_SURFACE && /<LoraThread\b/.test(src)
+  const working = delegates ? 1 : [...src.matchAll(/<LoraWorking\b/g)].length
+  const turn = delegates ? 1 : [...src.matchAll(/<LoraTurn\b/g)].length
   if (working === 0) {
     findings.push(`(c) ${f} does not mount <LoraWorking>. The shared status component exists and this surface does not render it — the defect class that left the phone with a plain italic line and no mark while every guard stayed green.`)
   } else if (working > 1) {
@@ -104,7 +120,7 @@ for (const f of CONTAINERS) {
     findings.push(`(c) ${f} does not mount <LoraTurn>, so assistant turns render with no avatar mark and the working state and the answer no longer occupy the same position — which is what makes the answer land without a jump.`)
   }
   // The indicator must be CONDITIONAL on loading, or it is not an indicator.
-  if (working > 0 && !/\{loading && \(/.test(src) && !/loading &&[\s\S]{0,200}<LoraWorking/.test(src)) {
+  if (!delegates && working > 0 && !/\{loading && \(/.test(src) && !/loading &&[\s\S]{0,200}<LoraWorking/.test(src)) {
     findings.push(`(c) ${f} renders <LoraWorking> without a \`loading &&\` guard — an indicator that is always on says nothing.`)
   }
 }

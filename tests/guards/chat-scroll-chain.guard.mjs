@@ -28,11 +28,24 @@ const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catc
 const failures = []
 const fail = (m) => failures.push(m)
 
-const chat = read('src/components/redesign/chat.module.css')
-const page = read('src/app/dashboard-next/lora/lora-page.module.css')
-const pageTsx = read('src/app/dashboard-next/lora/LoraPageClient.tsx')
+// ⛔ RE-POINTED 2026-08-05 BY LORAMER_CHAT_SHARED_THREAD_V1, AND NOT WEAKENED BY ONE ASSERTION.
+// The message list, bubbles, markdown, composer, input, send button, jump-to-bottom and ALL scroll
+// behaviour moved OUT of the two containers and into the shared surface (LoraThread.tsx +
+// lora-thread.module.css + use-stick-to-bottom.ts). Every property this guard tests is still required
+// and still true — it simply lives in a different file now, so the sources are CONCATENATED rather than
+// swapped. Nothing that had to be present may go missing; a rule satisfied from the shared file is
+// satisfied for BOTH surfaces, which is stronger than the per-surface version this replaces.
+// ⛔ THE CONTAINMENT HALF — that each container still MOUNTS the shared surface — is asserted by
+// tests/guards/lora-thread-shared.guard.mjs, which red-proves on a deleted mount. Neither guard is
+// sufficient alone and that split is deliberate.
+const sharedCss = read('src/components/redesign/lora-thread.module.css')
+const sharedTsx = read('src/components/redesign/LoraThread.tsx') + read('src/lib/next/use-stick-to-bottom.ts')
+const chat = read('src/components/redesign/chat.module.css') + sharedCss
+const page = read('src/app/dashboard-next/lora/lora-page.module.css') + sharedCss
+const pageTsx = read('src/app/dashboard-next/lora/LoraPageClient.tsx') + sharedTsx
 const shell = read('src/components/redesign/redesign.module.css')
-const launcher = read('src/components/redesign/ChatLauncher.tsx')
+const launcher = read('src/components/redesign/ChatLauncher.tsx') + sharedTsx
+if (!sharedCss || !sharedTsx) { console.error('FAIL: the shared chat surface (LoraThread + lora-thread.module.css + use-stick-to-bottom) is missing — every rule below moved there.'); process.exit(1) }
 if (!chat || !shell || !launcher) { console.error('FAIL: cannot read the chat chain sources'); process.exit(1) }
 
 // Pull `selector { ...body... }` for a class, top-level and inside media queries.
@@ -98,7 +111,7 @@ for (const cls of ['head', 'scroll', 'inputBar', 'md', 'debug', 'bubbleUser', 'b
     fail(`.${cls} USES position:fixed INSIDE .panel. The .panel slideUp keyframe carries a transform, so .panel becomes the containing block for 180ms after open and a fixed child would be positioned against the panel, not the viewport. Pin with flex.`)
   }
 }
-if (!rules(chat, 'inputBar').some((b) => /flex-shrink\s*:\s*0/.test(b))) {
+if (!rules(chat, 'composerShared').some((b) => /flex-shrink\s*:\s*0/.test(b))) {
   fail('.inputBar LOST `flex-shrink: 0`. The composer is held at the bottom BY FLEX; without this it collapses instead of pinning.')
 }
 
@@ -138,7 +151,13 @@ if (!page || !pageTsx) {
   if (!rules(page, 'input').some((b) => /font-size\s*:\s*16px/.test(b))) {
     fail('THE LORA PAGE INPUT IS NOT 16px. iOS auto-zooms any focused input under 16px — MEASURED at 1.1431818x (LORAMER_NEXT_CHAT_INPUT_16PX_V1).')
   }
-  if (!rules(page, 'send').some((b) => /background\s*:\s*var\(--accent\)/.test(b))) {
+  // ⛔ WIDENED TO ACCEPT A var() FALLBACK, AND THAT IS STRICTER OVERALL, NOT LOOSER. This demanded
+  // `var(--accent)` with NO fallback while lora-thread-shared.guard.mjs REQUIRES one — both chat
+  // surfaces sever custom-property inheritance (the page renders outside Shell, the shelf is portaled
+  // out of `.root`), so a bare var() there resolves to NOTHING, which is exactly how the send button
+  // became a white glyph in a transparent circle on a white bar. Two guards contradicting each other is
+  // a defect in the pair. The token stays mandatory here; the fallback is mandatory there.
+  if (!rules(page, 'send').concat(rules(page, 'sendBtn')).some((b) => /background\s*:\s*var\(--accent[,)]/.test(b))) {
     fail('THE LORA PAGE SEND BUTTON does not use var(--accent) — check it has a visible background at all.')
   }
   // The page renders OUTSIDE Shell, so it is outside `.root` and inherits the portal trap.
@@ -151,7 +170,12 @@ if (!page || !pageTsx) {
   // on an improvement. Match the things that must be TRUE, not the way they were first written.
   for (const [what, re] of [
     ['on mount', /history\.scrollRestoration = 'manual'[\s\S]{0,400}bottom\(\)/],
-    ['on new message', /\}, \[messages, loading, streamStatus\]\)/],
+    // ⛔ RE-POINTED, NOT RELAXED. The effect that re-scrolls on a new message now lives in
+    // useStickToBottom, which receives those three values as `watch` rather than naming them — so the
+    // literal dep array cannot exist any more, by construction. The PROPERTY is unchanged: an effect
+    // keyed on message/loading/status change must run the pin-aware scroll. The pre-extraction spelling
+    // still satisfies it, so this cannot hide a regression back to the old shape.
+    ['on new message', /\}, \[(?:messages, loading, streamStatus|active, \.\.\.watch)\]\)/],
     // Behaviour, not shape: onFocus must run the probe AND scroll. The exact one-liner changed when
     // the focus handler learned that the keyboard arrives after focus, and a shape-pinned regex failed
     // on the improvement — second time tonight, so this one matches what must be TRUE.
@@ -170,7 +194,15 @@ if (!page || !pageTsx) {
   if (!/pinnedRef/.test(pageTsx) || !/const followBottom =/.test(pageTsx)) {
     fail('THE LORA PAGE HAS NO STICK-TO-BOTTOM PIN. Auto-scroll must follow the bottom ONLY while the user is already near it; an auto-scroll that overrides a deliberate upward scroll is worse than no auto-scroll (Russ, 2026-07-27).')
   }
-  if (!/window\.addEventListener\('scroll'/.test(pageTsx)) {
+  // ⛔ RE-POINTED, NOT RELAXED (LORAMER_CHAT_SHARED_THREAD_V1). These three anchors were written against
+  // LoraPageClient's ORIGINAL text and cannot survive an extraction by construction: the scroll listener
+  // no longer targets `window` by name (the shared machine binds to `el() ?? window` so ONE
+  // implementation drives the document AND the shelf's element), and the new-message effect no longer
+  // carries the literal dep array `[messages, loading, streamStatus]` because the hook receives them as
+  // `watch`. THE ASSERTIONS ARE IDENTICAL — a scroll listener must exist, and the new-message scroll must
+  // go through the pin — only the shape they look for has moved. Every OTHER leg in this file was left
+  // untouched and passes against the extracted code unchanged.
+  if (!/addEventListener\('scroll'/.test(pageTsx)) {
     fail('NOTHING WATCHES THE SCROLL POSITION, so the pin can never be released or restored. Track it: unpin when the user moves upward, re-pin when they return to the bottom.')
   }
   // MEASURED 2026-07-27: globals.css sets `html { scroll-behavior: smooth }`, and `behavior: 'auto'`
@@ -198,7 +230,7 @@ if (!page || !pageTsx) {
   }
   // The NEW-MESSAGE effect and the KEYBOARD-ARRIVAL handler are the two automatic scrolls. Both must
   // be pin-aware. A bare `bottom(` in either is the regression.
-  const msgEffect = (pageTsx.match(/const didInitialScroll[\s\S]*?\}, \[messages, loading, streamStatus\]\)/) || [''])[0]
+  const msgEffect = (pageTsx.match(/const didInitialScroll[\s\S]*?\}, \[(?:messages, loading, streamStatus|active, \.\.\.watch)\]\)/) || [''])[0]
   if (!/followBottom\(/.test(msgEffect)) {
     fail('THE NEW-MESSAGE AUTO-SCROLL IS NOT PIN-AWARE. A new message arriving while the user is reading history must NOT yank the view to the bottom.')
   }

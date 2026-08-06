@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-06T01:43:07.557Z
-- built_from HEAD: 9e71baa4129762de6e2aebdcaaaeba7993010be6  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-06T02:14:58.934Z
+- built_from HEAD: ee3920f299c52f94140c0db4f66e1247be32783a  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9c530b117151c31259e8c95fcb890be4f247954a941ab2663e6a8e39d658c356
     - LORAMER_DECISIONS.md: a5f278309f1387598087fe2f770ef11f25b06b5bbe2ad5f9d83438ee6da21134
-    - LORAMER_QUEUE_OF_RECORD.md: 8a092dd40b1cebd2e9f41392585970e5f6fdb6b9c59dd812dbe4c8cf5d4a00d8
+    - LORAMER_QUEUE_OF_RECORD.md: acc0c282d59f9ec993c2b73dde15df5016680fe4698f40ae30a067b3c8e10c4f
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1633,8 +1633,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 605 tokens indexed · 233 resolve to BOTH a decision and a queue item ·
-94 decision-only · 278 queue-only.
+TOTALS: 606 tokens indexed · 234 resolve to BOTH a decision and a queue item ·
+93 decision-only · 279 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1801,6 +1801,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LIVE-VS-CAPTURED-DUAL-RENDER-HISTORY — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★LORA-BACK-BUTTON-DEAD — OPEN · decisions 0 · queue 1 · last 2026-08-04
+- ★LORA-BACK-FALLBACK-TARGETS-ALL-CLIENTS — DONE · decisions 0 · queue 1 · last 2026-08-06
 - ★LORA-CLIENT-RESOLUTION-DETERMINISM — OPEN · decisions 0 · queue 2 · last 2026-07-24
 - ★LORA-CROSS-SURFACE-HISTORY — OPEN · decisions 0 · queue 1 · last 2026-07-23
 - ★LORA-DETERMINISM-HARNESS — OPEN · decisions 1 · queue 2 · last 2026-07-24
@@ -2244,7 +2245,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 — OPEN · decisions 3 · queue 2 · last 2026-08-03
 - LORAMER_VERIFIED_PLATFORM_SCOPE_V1 — OPEN · decisions 3 · queue 2 · last 2026-07-25
 - LORAMER_VERSION_BUMP_IS_A_CAPTURE_EVENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-27
-- LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-06
+- LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — DONE · decisions 1 · queue 1 · last 2026-08-06
 - LORAMER_WEB_FIRST_DIAGNOSIS_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-06
 - LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - LORAMER_WOO_BATCH_WA_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-19
