@@ -186,7 +186,95 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     }).catch(() => { /* a failed probe must never surface to the user */ })
   }
 
+  // ── LORAMER_CHAT_FRAME_PROBE_V1 — WHAT THE SCREEN ACTUALLY RECEIVES, AND WHEN ─────────────────────
+  // ⛔ THE QUESTION, AND IT IS NOT ANSWERABLE FROM A CODE READ. Streaming is CONFIRMED ON in production
+  // (`streaming: true` in the route's own `[chat] cache:` log, twice), and the route emits per-tool
+  // subjects — "Reading Foam OH · Google · Nov–Dec 2024". Russ still sees "Working…" for most of a
+  // multi-minute turn. THREE possibilities and a code read cannot separate them: the frames are NOT
+  // ARRIVING, they ARE arriving and NOT RENDERING, or they are being OVERWRITTEN faster than a human
+  // can read them. FIVE UI theories have died from code reads on this repo; this is the instrument.
+  //
+  // ⛔ TIMESTAMPS ARE THE POINT, NOT THE FRAME NAMES. The three silent windows have never been
+  // measured: (a) before the first frame — auth, RBAC and context assembly, with no channel open;
+  // (b) between a tool `start` and its `finish`, where one subject holds however long the query runs;
+  // (c) the final composing turn, where only `delta` moves and by decision paints nothing. `sinceSendMs`
+  // and `sincePrevMs` are what turn "8 frames arrived" into "and there were 94 seconds of silence here".
+  //
+  // ⛔ HARD-GATED ON `debug`, exactly like the viewport probe: no flag, no capture, no request, ever.
+  // It reuses the SAME auth-gated endpoint rather than adding a second one — a debug surface with two
+  // doors is two things to secure.
+  const turnStartRef = useRef<number>(0)
+  const lastFrameAtRef = useRef<number>(0)
+  const frameSeqRef = useRef<number>(0)
+  const probeFrameRef = useRef<(ev: string, data: any) => void>(() => {})
+  probeFrameRef.current = (ev: string, data: any) => {
+    if (!debug) return
+    const now = Date.now()
+    const seq = ++frameSeqRef.current
+    const sincePrev = lastFrameAtRef.current ? now - lastFrameAtRef.current : 0
+    lastFrameAtRef.current = now
+    // The LABEL is what the user would see. Captured verbatim so "the frame arrived" and "the frame
+    // carried something worth showing" are separable — a `tool` frame with an empty subject renders as
+    // nothing and would otherwise look identical to a frame that never came.
+    const label = typeof data?.label === 'string' ? data.label
+      : ev === 'tool' ? `${data?.phase ?? '?'}:${data?.name ?? data?.tool ?? '?'}`
+      : ev === 'delta' ? `+${String(data?.text ?? '').length}ch`
+      : null
+    void fetch('/api/debug/viewport-probe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({
+        probe: 'chat-viewport',          // the endpoint's literal gate — one door, not two
+        phase: `frame:${ev}`,
+        at: new Date(now).toISOString(),
+        route: window.location.pathname + window.location.search,
+        frame: {
+          seq, event: ev, label,
+          sinceSendMs: turnStartRef.current ? now - turnStartRef.current : null,
+          sincePrevMs: sincePrev,
+          // What the USER is looking at right now. If this reads "Working…" while `label` carries a
+          // real subject, the frames arrive and the render is the defect — which is the whole question.
+          renderedStatus: streamStatusRef.current,
+        },
+      }),
+    }).catch(() => { /* a failed probe must never surface to the user */ })
+  }
+
+  // ⛔ EVERY send() INVOCATION, WITH ENOUGH TO TELL A RE-FIRE FROM A KEYSTROKE. ★CHAT-FIVE-DEFECTS left
+  // "was the second send programmatic or Russ retyping" UNRESOLVED, and it must not stay a guess: a
+  // programmatic re-fire arrives with no interaction behind it, so `msSinceLastInput` is large and
+  // `hadRecentInteraction` is false, while a keystroke has both. `textHash` (a length + cheap digest,
+  // never the text) tells a duplicate question from a new one without logging what anyone asked.
+  const lastInputAtRef = useRef<number>(0)
+  const probeSendRef = useRef<(text: string) => void>(() => {})
+  probeSendRef.current = (text: string) => {
+    if (!debug) return
+    const now = Date.now()
+    let h = 0
+    for (let i = 0; i < text.length; i++) { h = (h * 31 + text.charCodeAt(i)) | 0 }
+    void fetch('/api/debug/viewport-probe', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({
+        probe: 'chat-viewport',
+        phase: 'send',
+        at: new Date(now).toISOString(),
+        route: window.location.pathname + window.location.search,
+        send: {
+          textLen: text.length,
+          textHash: h,                                   // identity WITHOUT content
+          msSinceLastInput: lastInputAtRef.current ? now - lastInputAtRef.current : null,
+          hadRecentInteraction: !!lastInputAtRef.current && now - lastInputAtRef.current < 30_000,
+          visibility: document.visibilityState,
+        },
+      }),
+    }).catch(() => {})
+  }
+
   // Fired from the textarea's onFocus. t=0 baseline, then t=600ms after the keyboard animation settles.
+  // LORAMER_CHAT_FRAME_PROBE_V1 — TYPING counts as interaction, not just Enter. A send preceded by
+  // neither is the signature of a programmatic re-fire, which is the question this half exists to
+  // settle; without this a user who typed and clicked Send would look exactly like a re-fire.
+  const noteInput = useCallback(() => { lastInputAtRef.current = Date.now() }, [])
+
   const onComposerFocus = useCallback(() => {
     if (!debug) return
     probeRef.current('focus+0')
@@ -277,6 +365,11 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     setMessages(next)
     setInput('')
     setLoading(true)
+    // LORAMER_CHAT_FRAME_PROBE_V1 — the clock every frame gap is measured against.
+    turnStartRef.current = Date.now()
+    lastFrameAtRef.current = 0
+    frameSeqRef.current = 0
+    probeSendRef.current(q)
     // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
     // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
     logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
@@ -323,6 +416,9 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         }),
       })
       const d = await readChatResponse(res, (ev, data, live) => {
+        // FIRST, so a frame is recorded even if something below throws. A probe that only runs on the
+        // happy path cannot see the failure it was built for.
+        probeFrameRef.current(ev, data)
         rearmIdle()
         // LIVE RENDER. `live` is the answer text accumulated so far, so the user watches it appear instead of a
         // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
@@ -464,12 +560,13 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
 
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    lastInputAtRef.current = Date.now()   // LORAMER_CHAT_FRAME_PROBE_V1 — evidence of a real keystroke
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
   }
 
   return {
     messages, setMessages, input, setInput, loading, streamStatus, period,
-    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef,
+    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef, noteInput,
     send, onKeyDown, onComposerFocus, probeRef,
   }
 }

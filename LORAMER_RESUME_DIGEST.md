@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-06T02:48:08.454Z
-- built_from HEAD: e0651fb2f6db2c50a4b63ab2b1092a99186bba8e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-06T03:23:41.805Z
+- built_from HEAD: 07104e7844cd0851b9b3310ba505b270453b1b67  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: ee9d4aba1585f8f53f436e4f1fe22c89c1a7a8db6aca110a392bad4ff4167a3f
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9c530b117151c31259e8c95fcb890be4f247954a941ab2663e6a8e39d658c356
-    - LORAMER_DECISIONS.md: f393c1bc79e9b84b400850e874d26be3d20d70b3e96a05540dfc4550ae12a3ee
-    - LORAMER_QUEUE_OF_RECORD.md: 31d98e264620eda2054130c1025ab8909a5d37f2142c4ab901da8fa1c9fe009e
+    - LORAMER_DECISIONS.md: 842e480e9ea63f9cd4b2fa60e21ec142f048ff71a223c21ac22f56bcdb5df893
+    - LORAMER_QUEUE_OF_RECORD.md: 48ae1c0ba56d9d025631b9ffc4a6a2dc9ab6de339b567f04931dedecce63e8aa
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1027,6 +1027,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - [LAW 2026-08-06 — RUSS, STANDING, BINDS CLAUDE CODE ON EVERY UI FLIGHT] **LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — CLAUDE CODE WEB-SEARCHES BEFORE PROPOSING OR BUILDING ANY UI FIX. WEB_FIRST_DIAGNOSIS COVERS LAYOUT AND CSS, NOT ONLY VENDOR APIs.** **THREE-SOURCE — PRIOR CHATS: no chat-search tool; the repo was searched and it is the record that convicts — [[★UI-OVERFLOW]] banks FOUR theories built from CSS reads, all wrong, and R1 makes five · WEB: searched this flight for the iOS/mobile form of the sticky-footer problem and it returned the answer immediately — `svh` is the unit for a bar that must never be clipped, `dvh`/`lvh` are the large-viewport units, bare `vh` is computed as though the browser chrome were already hidden · REPO: `lora-page.module.css`, `globals.css`, and the 874 finding that closed `dvh` — /THREE-SOURCE.** ⛔ **THE PROVOCATION, AND IT IS NOT A NEAR MISS: R1 WAS THE TEXTBOOK STICKY-FOOTER PROBLEM WITH A PUBLISHED ONE-LINE ANSWER, AND IT COST A REVERT OF TWO GOOD COMMITS.** Russ found it by searching a plain-English description of what he saw; Claude Code had read the CSS twice, killed one candidate, and declared *"no established cause, and I am not offering a fifth theory"* — correct discipline against re-deriving from code, and it never occurred to me to ask the web what a composer floating mid-screen is called. ⛔ **THE RULE: IF A SYMPTOM CAN BE DESCRIBED IN A SENTENCE, SEARCH THAT SENTENCE FIRST, AND REPORT THE RESULT EVEN WHEN IT FINDS NOTHING.** A null result is a finding and takes one minute; five dead theories took weeks. ⚠ **THIS AMENDS [[LORAMER_WEB_FIRST_DIAGNOSIS_V1]] BY SCOPE, NOT BY MECHANISM** — that law already said ANY build/fix/detector/schema change/diagnosis, and it was still read as being about vendor APIs and error strings. Layout is named explicitly here so the reading cannot recur. **THE ENFORCER IS THE SAME HISTORY·WEB·REPO HEADER**, which was already mandatory; what changes is that a UI flight may no longer put "none, this is our own CSS" in the WEB leg. **CSS IS NOT OUR OWN — IT IS A PLATFORM WITH TWENTY YEARS OF PUBLISHED FAILURE MODES AND NAMES FOR ALL OF THEM.** | LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1, 2026-08-06 | do not relitigate.
 - [SHIPPED 2026-08-06 — -NEXT MOBILE LORA PAGE ONLY; THE DEFECT PREDATES EVERY COMMIT BLAMED FOR IT] **LORAMER_LORA_PAGE_VIEWPORT_FLOOR_V1 — `min-height: 100%` WITH NO ANCESTOR HEIGHT IS NO FLOOR AT ALL, AND IT WAS THERE FROM THE DAY THE PAGE SHIPPED.** **THREE-SOURCE — PRIOR CHATS: Russ supplied the identification and the sources; not re-derived · WEB: searched independently as instructed rather than taking his search as sufficient — the iOS-specific answer is that `svh` is the guaranteed-visible unit for a sticky bar and bare `vh` is computed as though the chrome were already hidden · REPO: `lora-page.module.css`, `globals.css:15` (`html, body` set NO height), and the conversation-row counts — /THREE-SOURCE.** ⛔ **THE MECHANISM, ESTABLISHED FROM THE CHAIN RATHER THAN MEASURED, AND LABELLED AS SUCH:** a percentage `min-height` resolves against the parent, `html, body` set no height, so `.page`'s `min-height: 100%` computed to nothing. The wrapper was content-height, `.list { flex: 1 }` had nothing to distribute, and the composer sat at the end of the CONTENT rather than the bottom of the SCREEN. ⚠ **I COULD NOT PRODUCE COMPUTED HEIGHTS — THERE IS NO RENDER MEASUREMENT IN THIS REPO ([[★CHAT-RENDER-MEASUREMENT-MISSING]]), so this is a static-analysis conclusion and not a measurement, and it is the second time tonight that gap has bitten.** ⛔ **WHY IT LOOKED NEW AND WAS NOT — MEASURED, and this is the part that explains everything: Foam OH's thread, the client every previous test used, is 19 rows / 88,622 characters and is ALWAYS taller than the viewport. Influential Drones, where Russ hit it, is 3 rows / 271 characters.** The bug never had a chance to show until the thread was short enough to leave slack. **THE FIX:** `min-height: 100vh` then `min-height: 100svh` — `svh` is the SMALL viewport (guaranteed visible with browser UI expanded) and is STATIC, so unlike `dvh` it never moves as bars hide and show; `dvh` and `lvh` are the LARGE viewport and are closed here by the 874 finding; bare `vh` is the fallback for pre-iOS-15.4 engines and overshoots while the address bar shows. A FLOOR, never a cap. | LORAMER_LORA_PAGE_VIEWPORT_FLOOR_V1, 2026-08-06 | do not relitigate.
 - [SHIPPED 2026-08-06 — -NEXT MOBILE LORA PAGE; SETTLED ON DEVICE, NOT ARGUED] **LORAMER_LORA_BACK_SOFT_NAV_V1 — TWO DESTINATIONS FOR ONE INTENT, BECAUSE THE GATE READ A SIGNAL THAT ANSWERS A DIFFERENT QUESTION.** **THREE-SOURCE — PRIOR CHATS: no chat-search tool; the repo carried the original reasoning and it is what made the fix precise — the comment already explained why `history.length > 1` was rejected, so only the referrer half needed replacing · WEB: MDN's Navigation Timing — `PerformanceNavigationTiming.name` is the URL the DOCUMENT was fetched at and a history API route change does not create a new entry, which is exactly the property the fix turns on; searched per [[LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1]], banked hours earlier, rather than reasoned from memory · REPO: `LoraPageClient.tsx`, `open-lora.ts`, and `dashboard-next/clients/page.tsx` — /THREE-SOURCE.** ⛔ **THE EVIDENCE IS THREE TAPS AND IT IS BETTER THAN ANY CODE READ: the CHEVRON landed on All Clients; the PHONE'S OWN BACK GESTURE landed on the client page.** Two destinations for one intent — worse than a control that plainly does nothing, because the user learns not to trust it. **That divergence also KILLED the extra-history-entry hypothesis outright**: a stack with a spurious entry would send both controls to the same wrong place. ⛔ **THE CAUSE: `document.referrer` DESCRIBES THE DOCUMENT LOAD, NOT THE ROUTE.** A Next client-side navigation never touches it, so arriving via `openLora`'s `router.push` leaves it at whatever loaded the document — EMPTY for a typed URL or a fresh tab — and the gate concluded "not from our app" while a perfectly good history entry sat there. **The browser's own back button reads the real history stack and was right; ours was wrong.** **THE FIX — TWO SIGNALS, ORed, BECAUSE EITHER ALONE IS INCOMPLETE:** (1) SOFT navigation — `performance.getEntriesByType('navigation')[0].name !== location.href` means the document loaded elsewhere and we moved within it, so in-app history exists; (2) HARD navigation from inside the app — a same-origin referrer, **kept rather than replaced, because it was never wrong for its own case and was only ever wrong alone.** ⛔ **ANDing them would be strictly worse than the code it replaces** — it would take the fallback unless both happened to hold. ⛔ **AND THE TEMPTING WRONG FIX WAS REFUSED AND IS GUARDED AGAINST: repointing the fallback at a per-client route.** That masks the gate — the chevron would land somewhere plausible while still ignoring real history, and would STILL diverge from the browser's back, just less visibly. **ENFORCER `lora-back-parity.guard.mjs`, four failure paths fired: referrer alone · the signals ANDed · `router.back()` dropped for a repointed fallback · the cold-entry fallback deleted.** ⚠ **ITS LIMIT IS NAMED ON ITS OWN PASS LINE RATHER THAN IMPLIED: it CANNOT assert the two destinations agree at runtime — that needs a real history stack, which is a device observation, and a device observation is what settled this in the first place.** ⚠ **CARRIED, NOT FIXED: the fallback still points at an index that ignores `?clientId=` — [[★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID]].** | LORAMER_LORA_BACK_SOFT_NAV_V1, 2026-08-06 | do not relitigate.
+- [CONFIRMED ON DEVICE 2026-08-06 — RUSS, THE ONLY INSTRUMENT THAT HAS EVER PRODUCED TRUE SIGNAL ON THIS SURFACE] **LORAMER_CHAT_UI_NIGHT_CONFIRMED_V1 — WHAT ACTUALLY WORKS NOW, VERIFIED BY THUMB RATHER THAN BY GUARD.** **THREE-SOURCE — PRIOR CHATS: no chat-search tool; this entry IS the record being written · WEB: none, and honestly so — every item is a device observation of our own surface · REPO: the seven commits it summarises, `1c87c3d` through `07104e7` — /THREE-SOURCE.** **CONFIRMED WORKING:** the composer sits at the BOTTOM on an empty thread (the sticky-footer floor, `min-height:100svh`) · sending while scrolled up JUMPS to the user's own message (D2's `forceBottom`) · the back chevron now lands where the phone's own back gesture lands (the soft-navigation gate) · a completed answer appears on return without a re-send (D1's visibility/focus re-read) · the internal ambiguity sentence can no longer reach a user (D5) · the client/chain/route deadlines are 440s / 380s / 500s, so a 281s turn is no longer discarded after being paid for · the unified surface is re-applied and the shelf inherits the page's scroll machine. THE HONEST SHAPE OF THE NIGHT, recorded because the wins are not the lesson: SEVEN COMMITS, ONE FULL REVERT AND ONE RE-APPLY, AND THE DEFECT THAT FORCED THE REVERT WAS NEVER IN EITHER REVERTED COMMIT. It was `min-height: 100%` against an ancestor with no height — present since the page shipped, invisible for weeks because every prior test used Foam OH's 88,622-character thread and only appeared on Influential Drones' 271-character one. Russ found it by searching a plain-English description of what he saw; three code reads had not. That is what banked [[LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1]]. | LORAMER_CHAT_UI_NIGHT_CONFIRMED_V1, 2026-08-06 | do not relitigate.
+- [SHIPPED 2026-08-06 — INSTRUMENT ONLY, DEBUG-GATED, NO BEHAVIOUR CHANGE] **LORAMER_CHAT_FRAME_PROBE_V1 — STOP THEORISING THE STATUS LINE AND MEASURE IT.** **THREE-SOURCE — PRIOR CHATS: no chat-search tool · WEB: none, and it would be dishonest to claim otherwise — this measures OUR SSE frames reaching OUR component; nothing about it is a platform question · REPO: `use-lora-chat.ts`'s frame callback, `api/chat/route.ts` and `claude-tools.ts` emit sites, and `api/debug/viewport-probe` — the endpoint reused rather than duplicated — /THREE-SOURCE.** THE QUESTION IT EXISTS TO ANSWER, WHICH A CODE READ CANNOT: streaming is CONFIRMED ON in production and the route emits per-tool subjects, and Russ still sees "Working..." for most of a multi-minute turn. Are the frames NOT ARRIVING, arriving and NOT RENDERING, or being OVERWRITTEN faster than a human can read them? Those three have different fixes and identical symptoms. FIVE UI THEORIES HAVE DIED FROM CODE READS ON THIS REPO ([[★UI-OVERFLOW]]'s four, plus R1), which is the entire justification for instrumenting before touching the status line. **WHAT IT CAPTURES:** every received frame's event, its LABEL VERBATIM (so "a frame arrived" and "the frame carried something worth showing" are separable — a `tool` frame with an empty subject renders as nothing and would otherwise look identical to a frame that never came), `sinceSendMs`, `sincePrevMs`, and `renderedStatus` — what the user is looking at AT THAT MOMENT. THAT LAST FIELD IS THE DISCRIMINATOR: a frame carrying "Reading Foam OH · Google · ..." logged beside a `renderedStatus` of "Working..." proves arrival and convicts the render, in one line. TIMESTAMPS ARE THE POINT, NOT THE FRAME NAMES — the three silent windows ([[★CHAT-STATUS-SILENT-WINDOWS]]) have never been measured, and inter-frame gaps are what turn "8 frames arrived" into "and there were 94 seconds of silence here". AND THE SEND HALF SETTLES AN OPEN QUESTION: every `send()` is stamped with `msSinceLastInput`, `hadRecentInteraction` and a length + cheap digest — NEVER THE TEXT — so a programmatic re-fire (no interaction behind it) is distinguishable from a keystroke, closing the "was the second send automatic or Russ retyping" gap that [[★CHAT-FIVE-DEFECTS-2026-08-05]] left explicitly unresolved. HARD-GATED on `debug` and reusing the SAME auth-gated endpoint rather than adding a second — a debug surface with two doors is two things to secure. THE STATUS LINE WAS NOT TOUCHED, DELIBERATELY: instrument, read, THEN fix. | LORAMER_CHAT_FRAME_PROBE_V1, 2026-08-06 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★GATE-B-2026-07-28 — **FOUR live-path changes shipped 2026-07-27 night are UNVERIFIED until the morning crons run. This is the first thing tomorrow, before any new build.** Time-gated: the evidence exists only in the 08:04/08:08 UTC window, and Vercel RUNTIME logs expire in 1 hour (the pre-aggregated ERROR CLUSTERS keep 7 days — that is the instrument that has cracked three of this week's defects, use it, not the raw logs). THE FOUR CHECKS, each with what it should read: **(1) SHOPIFY DEPTH (d86b718, LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1)** — the twelve depth families per store, row counts non-zero; whether product/variant/geo unfroze on Foam OH, Influential Drones, Escential Group and Cozy Foam; whether the `shopify_order_time` cursors moved; `cron_runs.error_count` against the baseline of 23; and ZERO new 23502. A 23502 here means the union-of-keys fix missed a builder. **(2) GOOGLE FORWARD COUNTER (e9cbdb0, LORAMER_DEGRADED_IS_NOT_FAILED_V1)** — the 08:08 google run should read **17 succeeded / 17 degraded / 0 errored**. It read 0 succeeded / 17 errored for three days while writing 77,647 rows. error_count should stay ~34 (the two degradations per client are REAL and still counted) — degraded is not failed, but it is not hidden either. **(3) READABLE GAQL ERRORS (e9cbdb0, LORAMER_GAQL_ERROR_SERIALIZE_V1)** — the Google clusters should carry real strings (`{"quota_error":2} Too many requests. Retry in N seconds.`) and NEVER `[object Object]`, `undefined [`, or an empty message. **(4) THE QUOTA BLOCK SELF-CLEARS (0b32f9f, LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1)** — the `__google_quota` sentinel's window elapses at 08:03:57Z, so from 08:04 the caveat must DISAPPEAR from Lora's prompt with no action from anyone. That is clock-based auto-resume proving itself in production; if it is still rendering after 08:04, `readGoogleQuotaPause`'s elapsed-window branch is wrong. **AND THE MEASURED BASELINE, so a moving number is not a mystery: 57dd0fa (campaign_status) adds +0 to the 08:08 run** — that path has never fired on cron/sync in the 7-day window; its hard ceiling is +1 per google client-connection per run, worst case +18. If error_count moves beyond the known ~34, it is NOT last night's commits. src: 2026-07-27 night ship. open [LC]
@@ -1634,8 +1636,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 608 tokens indexed · 236 resolve to BOTH a decision and a queue item ·
-93 decision-only · 279 queue-only.
+TOTALS: 611 tokens indexed · 238 resolve to BOTH a decision and a queue item ·
+95 decision-only · 278 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1676,17 +1678,17 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-COMPOSER-CHROME-IOS — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★CHAT-COPY-BLOCKS — OPEN · decisions 0 · queue 2 · last 2026-08-05
 - ★CHAT-DESKTOP-SIDE-PANEL — OPEN · decisions 0 · queue 1 · last 2026-07-27
-- ★CHAT-FIVE-DEFECTS-2026-08-05 — DONE · decisions 0 · queue 1 · last 2026-08-05
+- ★CHAT-FIVE-DEFECTS-2026-08-05 — DONE · decisions 1 · queue 1 · last 2026-08-06
 - ★CHAT-GATE-ZINDEX — DECIDED · decisions 1 · queue 0 · last 2026-07-26
 - ★CHAT-GUARD-CONTAINER-MOUNT-UNASSERTED — OPEN · decisions 1 · queue 2 · last 2026-08-05
 - ★CHAT-GUARD-FAILURE-PATH-UNTESTED — DONE · decisions 1 · queue 1 · last 2026-08-05
 - ★CHAT-LEGACY-503-STRING — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★CHAT-PROBE-DISPLAY-CANNOT-SHOW-DISMISSAL — OPEN · decisions 0 · queue 3 · last 2026-08-05
 - ★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH — OPEN · decisions 1 · queue 4 · last 2026-08-05
-- ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 1 · queue 2 · last 2026-08-06
+- ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 1 · queue 3 · last 2026-08-06
 - ★CHAT-RETENTION-MARKETING — OPEN · decisions 0 · queue 3 · last 2026-07-26
 - ★CHAT-STATUS-INDICATOR — OPEN · decisions 3 · queue 3 · last 2026-09-30
-- ★CHAT-STATUS-SILENT-WINDOWS — OPEN · decisions 0 · queue 1 · last 2026-08-05
+- ★CHAT-STATUS-SILENT-WINDOWS — OPEN · decisions 1 · queue 1 · last 2026-08-06
 - ★CHAT-STOP-BUTTON — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING — OPEN · decisions 2 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING-FLAG-FLIP — OPEN · decisions 2 · queue 2 · last 2026-08-03
@@ -1812,6 +1814,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LORA-OVER-WARNS-READ-FAILURES-AS-CAPTURE-FAILURE — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - ★LORA-PREVIEW-BEHAVIOUR-EVIDENCE — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★LORA-PROVE-A-RECOMMENDATION-TOOK — OPEN · decisions 0 · queue 2 · last 2026-07-30
+- ★LORA-RESPONSE-LENGTH-NOT-CALIBRATED — DONE · decisions 0 · queue 1 · last 2026-08-06
 - ★LORA-RESULT-CACHE — OPEN · decisions 0 · queue 1 · last 2026-07-24
 - ★LORA-VOICE — OPEN · decisions 0 · queue 6 · last 2026-09-30
 - ★M2 — OPEN · decisions 1 · queue 2 · last 2026-07-31
@@ -1896,7 +1899,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TRAINED-LORA-ROADMAP — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★TWO-EVAL-HARNESSES-ONE-JUDGE — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★UI-BRANCH-IS-PERMANENT — OPEN · decisions 1 · queue 1 · last 2026-08-05
-- ★UI-OVERFLOW — OPEN · decisions 6 · queue 5 · last 2026-08-06
+- ★UI-OVERFLOW — OPEN · decisions 7 · queue 5 · last 2026-08-06
 - ★UNCERTAINTY-PAGES-A-HUMAN — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★UNIVERSE-50-WINDOW-PROJECTION-ASSUMES-THE-DENSEST-MONTH — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-ARTIFACT-REPROBE-CADENCE — OPEN · decisions 1 · queue 1 · last 2026-08-03
@@ -1920,7 +1923,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VALUE-MODEL-COVERAGE-GAP — OPEN · decisions 1 · queue 3 · last 2026-07-24
 - ★VERCEL-SILENT-NO-DEPLOY — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
-- ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 2 · last 2026-09-30
+- ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★WALK-HAS-NO-LIVENESS-DETECTOR — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - ★WALK-RELEASED-FOAM-OH — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - ★WALK-STARTS-AT-LAST-ACTIVE — DONE · decisions 0 · queue 2 · last 2026-08-05
@@ -1958,6 +1961,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CHAT_DEADLINE_GAP_CLOSED_V1 — DONE · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_FAILURE_BRANCHES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-26
 - LORAMER_CHAT_FAILURE_TELEMETRY_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-05
+- LORAMER_CHAT_FRAME_PROBE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-06
 - LORAMER_CHAT_IS_THREE_SURFACES_V1 — DONE · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_MAXDURATION_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-30
 - LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-06
@@ -1968,6 +1972,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-05
 - LORAMER_CHAT_STREAMING_IS_ON_IN_PRODUCTION_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_STREAMING_V1 — OPEN · decisions 3 · queue 1 · last 2026-08-02
+- LORAMER_CHAT_UI_NIGHT_CONFIRMED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-06
 - LORAMER_CLAUDE_MD_DOC_GATES_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-17
 - LORAMER_CLAUDE_MD_INFLIGHT_GATE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_CLAUDE_MD_MODEL_POINTER_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-17
@@ -2121,7 +2126,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_MOBILE_BOTTOM_SHEET_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-26
 - LORAMER_MULTIACCOUNT_PHASE2A_V1 — DONE · decisions 0 · queue 1 · last 2026-06-05
 - LORAMER_MULTIACCOUNT_ROLLUP_DECISION_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-01
-- LORAMER_NARRATED_LENGTH_BEATS_SILENT_SPEED_V1 — DONE · decisions 2 · queue 1 · last 2026-08-05
+- LORAMER_NARRATED_LENGTH_BEATS_SILENT_SPEED_V1 — DONE · decisions 2 · queue 2 · last 2026-08-06
 - LORAMER_NARROW_GREEN_ENFORCERS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_NATIVE_AUTH_ALLOWLIST_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-14
 - LORAMER_NATIVE_AUTH_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-14
@@ -2248,7 +2253,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 — OPEN · decisions 3 · queue 2 · last 2026-08-03
 - LORAMER_VERIFIED_PLATFORM_SCOPE_V1 — OPEN · decisions 3 · queue 2 · last 2026-07-25
 - LORAMER_VERSION_BUMP_IS_A_CAPTURE_EVENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-27
-- LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — DONE · decisions 2 · queue 1 · last 2026-08-06
+- LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — DONE · decisions 3 · queue 1 · last 2026-08-06
 - LORAMER_WEB_FIRST_DIAGNOSIS_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-06
 - LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - LORAMER_WOO_BATCH_WA_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-19

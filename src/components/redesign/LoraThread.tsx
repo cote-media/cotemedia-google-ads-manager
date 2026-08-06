@@ -51,6 +51,8 @@ export interface LoraThreadProps {
   inputRef: RefObject<HTMLTextAreaElement>
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
   onComposerFocus: () => void
+  /** LORAMER_CHAT_FRAME_PROBE_V1 — debug-gated in the hook; a no-op without ?debug=chat. */
+  noteInput?: () => void
   send: (text: string) => void
   clientId?: string
   clientName?: string
@@ -73,7 +75,7 @@ const KEYBOARD_MIN_DELTA_PX = 100
 
 export default function LoraThread({
   variant, messages, loading, streamStatus, input, setInput, inputRef,
-  onKeyDown, onComposerFocus, send, clientId, clientName, suggestions, active,
+  onKeyDown, onComposerFocus, noteInput, send, clientId, clientName, suggestions, active,
   debugSlot, onFocusExtra, insetTargetRef,
 }: LoraThreadProps) {
   const isPanel = variant === 'panel'
@@ -194,7 +196,7 @@ export default function LoraThread({
           ref={inputRef}
           className={s.input}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { noteInput?.(); setInput(e.target.value) }}
           onKeyDown={(e) => {
             // Enter-to-send is a send: it gets the same forced scroll as the button. Without this the
             // keyboard path and the button path disagree, which is how one of them stays broken.

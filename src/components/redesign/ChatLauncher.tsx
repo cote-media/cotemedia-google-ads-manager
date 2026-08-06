@@ -37,7 +37,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
   // is now a thin container over it, and /dashboard-next/lora is a second container over the SAME hook.
   const {
     messages, setMessages, input, setInput, loading, streamStatus,
-    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef,
+    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef, noteInput,
     send, onKeyDown, onComposerFocus,
   } = useLoraChat({ clientId, clientName, active: open, panelRef })
 
@@ -226,6 +226,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               inputRef={inputRef}
               onKeyDown={onKeyDown}
               onComposerFocus={onComposerFocus}
+              noteInput={noteInput}
               send={send}
               clientId={clientId}
               clientName={clientName}

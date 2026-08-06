@@ -36,7 +36,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   const rootRef = useRef<HTMLDivElement>(null)
   const {
     messages, input, setInput, loading, streamStatus, debug, probeLine,
-    inputRef, send, onKeyDown, onComposerFocus,
+    inputRef, send, onKeyDown, onComposerFocus, noteInput,
   } = useLoraChat({ clientId, clientName, active: true, panelRef: rootRef })
 
   // ⛔ THE KEYBOARD INSET EFFECT MOVED INTO <LoraThread> (LORAMER_CHAT_SHARED_THREAD_V1), because its
@@ -116,6 +116,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         inputRef={inputRef}
         onKeyDown={onKeyDown}
         onComposerFocus={onComposerFocus}
+        noteInput={noteInput}
         send={send}
         clientId={clientId}
         clientName={clientName}
