@@ -90,6 +90,7 @@ const GUARDS = [
   'tests/guards/lora-thread-shared.guard.mjs',
   'tests/guards/chat-screen-tracks-server.guard.mjs',
   'tests/guards/lora-back-parity.guard.mjs',
+  'tests/guards/chat-status-truthful.guard.mjs',
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',

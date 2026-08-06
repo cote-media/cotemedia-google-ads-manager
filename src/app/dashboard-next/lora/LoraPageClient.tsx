@@ -35,7 +35,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   const router = useRouter()
   const rootRef = useRef<HTMLDivElement>(null)
   const {
-    messages, input, setInput, loading, streamStatus, debug, probeLine,
+    messages, input, setInput, loading, streamStatus, streamingText, debug, probeLine,
     inputRef, send, onKeyDown, onComposerFocus, noteInput,
   } = useLoraChat({ clientId, clientName, active: true, panelRef: rootRef })
 
@@ -111,6 +111,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         messages={messages}
         loading={loading}
         streamStatus={streamStatus}
+        streamingText={streamingText}
         input={input}
         setInput={setInput}
         inputRef={inputRef}

@@ -44,6 +44,8 @@ export interface LoraThreadProps {
   messages: Msg[]
   loading: boolean
   streamStatus?: string | null
+  /** ⛔ S1 — the answer as it arrives. A PREVIEW, discarded when the authoritative `answer` lands. */
+  streamingText?: string
   input: string
   setInput: (v: string) => void
   // ⚠ The hook's own ref type, mirrored EXACTLY. Widening it here to `| null` looked harmless and
@@ -74,7 +76,7 @@ export interface LoraThreadProps {
 const KEYBOARD_MIN_DELTA_PX = 100
 
 export default function LoraThread({
-  variant, messages, loading, streamStatus, input, setInput, inputRef,
+  variant, messages, loading, streamStatus, streamingText, input, setInput, inputRef,
   onKeyDown, onComposerFocus, noteInput, send, clientId, clientName, suggestions, active,
   debugSlot, onFocusExtra, insetTargetRef,
 }: LoraThreadProps) {
@@ -88,7 +90,7 @@ export default function LoraThread({
   // pin/unpin machine on Russ's instruction; averaging the two was explicitly refused.
   const { pinned, bottom, followBottom, forceBottom, setPin } = useStickToBottom(
     isPanel ? scrollRef : null,
-    { watch: [messages, loading, streamStatus], contentRef, active },
+    { watch: [messages, loading, streamStatus, streamingText], contentRef, active },
   )
 
   // ── THE STICKY COMPOSER AND HOW IT SURVIVES THE KEYBOARD (page variant only) ────────────────────
@@ -165,11 +167,29 @@ export default function LoraThread({
         ))
       )}
       {loading && (
-        /* ⛔ NO CONTAINER — no pill, no bubble, no border. The mark and the line render on the page
-           background and LoraWorking reserves the vertical space the answer will fill. ONE indicator. */
-        <div className={s.rowAssistant}>
-          <LoraWorking status={streamStatus} />
-        </div>
+        /* ⛔ LORAMER_CHAT_STREAM_THE_ANSWER_V1 (S1) — ONCE THE ANSWER IS ARRIVING, SHOW THE ANSWER.
+           MEASURED 2026-08-06: the final 88 seconds of a 365-second turn carried ~12,000 characters of
+           real answer text, every ~717ms, and the screen painted none of it. A status line on top of an
+           answer that is already on the wire is a worse signal than the answer itself.
+           ⚠ STILL ONE INDICATOR PER TURN: the working mark shows while there is nothing to read, and the
+           streaming bubble REPLACES it the moment there is. They are never both on screen.
+           ⚠ AND THIS IS A PREVIEW, NOT A MESSAGE — it is not in `messages`, it is discarded when the
+           authoritative `answer` event lands, and nothing is persisted from it. */
+        streamingText ? (
+          <div className={s.rowAssistant}>
+            <LoraTurn>
+              <div className={s.bubbleAssistant}>
+                <div className={s.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown></div>
+              </div>
+            </LoraTurn>
+          </div>
+        ) : (
+          /* ⛔ NO CONTAINER — no pill, no bubble, no border. The mark and the line render on the page
+             background and LoraWorking reserves the vertical space the answer will fill. */
+          <div className={s.rowAssistant}>
+            <LoraWorking status={streamStatus} />
+          </div>
+        )
       )}
     </div>
   )

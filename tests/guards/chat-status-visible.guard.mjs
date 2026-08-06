@@ -218,8 +218,16 @@ if (!loopErr) {
       .split("\n").filter((l) => !l.trim().startsWith("//")).join("\n")
     const li = sCode.indexOf("{loading &&")
     if (li !== -1) {
+      // ⛔ RE-POINTED 2026-08-06, AND NARROWED RATHER THAN RELAXED (LORAMER_CHAT_STREAM_THE_ANSWER_V1).
+      // The `{loading &&` branch now contains TWO mutually exclusive arms: the streaming ANSWER PREVIEW,
+      // which is a message-in-progress and LEGITIMATELY wears message chrome, and the WORKING STATE,
+      // which must not. Scanning from `{loading &&` to the first `<LoraWorking` swept up the preview's
+      // bubble and reported the working state as chromed when it is not.
+      // The property is unchanged and now asserted EXACTLY: it is the WORKING STATE that may not sit
+      // inside a bubble. The window is the JSX element that renders it, not everything before it.
       const wi = sCode.indexOf("<LoraWorking", li)
-      const region = sCode.slice(li, wi === -1 ? li + 900 : wi)
+      const openTag = wi === -1 ? -1 : sCode.lastIndexOf("<div", wi)
+      const region = wi === -1 ? sCode.slice(li, li + 900) : sCode.slice(openTag === -1 ? wi : openTag, wi)
       if (/bubbleAssistant|bubbleUser/.test(region)) {
         findings.push(`(b) SURFACE ${f} still wraps the working state in .bubbleAssistant. The mark and the status line are NOT a message and must not wear message chrome — no pill, no bubble, no fill, no border.`)
       }

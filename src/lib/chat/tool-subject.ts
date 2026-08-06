@@ -120,3 +120,36 @@ export function renderSubjectLine(s: ToolSubject): string {
   const parts = [s.client, s.platform ? cap(s.platform) : undefined, s.breakdown, s.window].filter(Boolean)
   return parts.length ? `Reading ${parts.join(' · ')}` : `Reading ${s.tool}`
 }
+
+
+// ⛔ LORAMER_CHAT_STATUS_AGGREGATE_V1 (S2) — CONCURRENT SUBJECTS BECOME ONE TRUTHFUL LINE.
+//
+// THE DEFECT, MEASURED BY THE FRAME PROBE 2026-08-06: Lora issues tool calls in PARALLEL and the frames
+// land 0-2ms apart (seq 11→12 was ONE millisecond). The status line was a single slot, so every subject
+// except the last of each burst was on screen for about a millisecond. Russ saw 3 subjects on a turn
+// that emitted at least 5 — not a rendering failure and not a missing frame, but a queue collapsing.
+//
+// ⛔ THE COUNT MUST BE THE REAL COUNT. If five sources are being read it says five. No rounding, no
+// "several", no cap that quietly hides work — the whole point of this line is that it reports what is
+// actually happening, and a number that is nearly right is the same class of lie as a fake progress bar.
+//
+// ⚠ COPY IS RUSS'S AND THESE STRINGS ARE PROVISIONAL. The MECHANISM is what ships here; the wording is
+// listed for him to approve or rewrite. Anything he changes changes only this function.
+export function aggregateSubjects(active: Map<string, string>): string | null {
+  const subjects = [...active.values()].filter((s) => typeof s === 'string' && s.trim())
+  if (subjects.length === 0) return null
+  if (subjects.length === 1) return subjects[0]
+
+  // Two or more at once. Lead with the first REAL subject so the line still names something concrete,
+  // and count the rest exactly. `Reading X · Y · Z  + 2 more sources` beats a bare "Reading 3 sources"
+  // because the specific one is the part that reads as diligence.
+  const [first, ...rest] = subjects
+  return `${first}  + ${rest.length} more source${rest.length === 1 ? '' : 's'}`
+}
+
+// ⛔ A SUBJECT MAY NOT BE REPLACED FASTER THAN A PERSON CAN READ IT. 2026-08-06 measured replacements at
+// 1ms. This is the floor a caller must respect; it is exported so the guard can assert the value rather
+// than infer it from behaviour.
+// 1200ms is chosen as ~the time to read a short line, and deliberately NOT longer: a line that lingers
+// after its work has finished is its own small lie.
+export const MIN_SUBJECT_MS = 1200

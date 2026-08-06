@@ -20,7 +20,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery'
-import { renderSubjectLine } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
+import { renderSubjectLine, aggregateSubjects, MIN_SUBJECT_MS } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn'
 
 export type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
@@ -44,11 +44,48 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   // reading `streamStatus` there is stale by construction. The ref is the synchronous truth, the state is what
   // renders, and setStreamStatus writes both so they cannot drift.
   const streamStatusRef = useRef<string | null>(null)
+  // ⛔ (S2) THE READABLE FLOOR. A subject replaced 1ms after it appears was never shown at all. A
+  // replacement inside MIN_SUBJECT_MS is DEFERRED, not dropped — the newest pending value wins when the
+  // floor expires, so nothing is lost and nothing flickers.
+  const statusSetAtRef = useRef<number>(0)
+  const pendingStatusRef = useRef<{ v: string | null; t: number } | null>(null)
   const setStreamStatus = useCallback((v: string | null | ((p: string | null) => string | null)) => {
     const next = typeof v === 'function' ? (v as (p: string | null) => string | null)(streamStatusRef.current) : v
+    // Clearing (null) is immediate — a turn ending must never wait on a cosmetic floor.
+    const now = Date.now()
+    const elapsed = now - statusSetAtRef.current
+    if (next !== null && statusSetAtRef.current && elapsed < MIN_SUBJECT_MS) {
+      pendingStatusRef.current = { v: next, t: now }
+      window.setTimeout(() => {
+        const p = pendingStatusRef.current
+        if (!p) return
+        pendingStatusRef.current = null
+        statusSetAtRef.current = Date.now()
+        streamStatusRef.current = p.v
+        setStreamStatusRaw(p.v)
+      }, MIN_SUBJECT_MS - elapsed)
+      return
+    }
+    pendingStatusRef.current = null
+    statusSetAtRef.current = next === null ? 0 : now
     streamStatusRef.current = next
     setStreamStatusRaw(next)
   }, [])
+  // ⛔ LORAMER_CHAT_STREAM_THE_ANSWER_V1 (S1) — THE ANSWER TEXT, AS IT ARRIVES.
+  // MEASURED 2026-08-06 by the frame probe: deltas land every ~717ms carrying 79-212 characters, about
+  // 12,000 characters over 88 seconds, and the screen painted NONE of it. That is the answer already on
+  // the wire while the user looks at a static line.
+  // ⚠ THIS SUPERSEDES A BANKED DECISION, and it is Russ's to make: LORAMER_CHAT_STATUS_SUBJECT_V1
+  // decided "THE ANSWER ARRIVES WHOLE" and made `delta` a liveness marker only. He overrode it on the
+  // measurement. The `answer` event REMAINS AUTHORITATIVE — this is a preview that is thrown away the
+  // moment the real one lands, never a second source of truth.
+  const [streamingText, setStreamingText] = useState<string>('')
+
+  // ⛔ (S2) CONCURRENT TOOL SUBJECTS — AGGREGATED, NOT OVERWRITTEN. MEASURED: tool frames arrive in
+  // bursts 0-2ms apart (seq 11→12 was 1ms), and a single-slot status showed only the LAST. Russ saw 3
+  // subjects on a turn that emitted at least 5. `renderedStatus` in the probe proved it: at seq 11 the
+  // screen still held the previous line; 1ms later it held seq 11's, already being replaced by seq 12's.
+  const activeToolsRef = useRef<Map<string, string>>(new Map())
   const [probeLine, setProbeLine] = useState<string | null>(null)
   const [debug, setDebug] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -366,6 +403,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     setInput('')
     setLoading(true)
     // LORAMER_CHAT_FRAME_PROBE_V1 — the clock every frame gap is measured against.
+    setStreamingText('')
+    activeToolsRef.current.clear()
     turnStartRef.current = Date.now()
     lastFrameAtRef.current = 0
     frameSeqRef.current = 0
@@ -434,10 +473,29 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         // EMITTED, so the first thing that could set this line was the first tool event. On a data question
         // that is the far side of a whole model turn, and the device showed dots for over a minute. `status`
         // now leads every turn, so the line is the FIRST thing on screen rather than the last.
+        // ⛔ S1 — PAINT THE ANSWER. `live` is the reader's accumulated delta text and it is ALREADY the
+        // final-turn answer (claude-tools: `stream.on('text')` → emit('delta') is the FINAL turn only;
+        // the reader clears `live` on any tool frame, so preamble narration never leaks in).
+        if (ev === 'delta') setStreamingText(live)
+
         if (ev === 'status' && data?.label) setStreamStatus(data.label)
-        else if (ev === 'tool' && data?.phase === 'start') setStreamStatus(renderSubjectLine(data))
-        else if (ev === 'tool' && data?.phase === 'finish') setStreamStatus((s) => s) // keep the last subject; the next start replaces it
-        else if (ev === 'delta' && !streamStatusRef.current) setStreamStatus('Working…')
+        else if (ev === 'tool' && data?.phase === 'start') {
+          // ⛔ AGGREGATE, DO NOT REPLACE. Key on the tool_use id so a finish can remove exactly its own
+          // entry; two starts 1ms apart now produce ONE line naming BOTH, instead of one winning.
+          const id = String(data?.id ?? `t${activeToolsRef.current.size}`)
+          activeToolsRef.current.set(id, renderSubjectLine(data))
+          setStreamStatus(aggregateSubjects(activeToolsRef.current))
+        }
+        else if (ev === 'tool' && data?.phase === 'finish') {
+          // The line holds until the NEXT start — removing it here would blank the status between tools,
+          // which is the silence this flight exists to remove, one layer smaller.
+          const id = String(data?.id ?? '')
+          if (id) activeToolsRef.current.delete(id)
+        }
+        // ⚠ NO `delta → "Working…"` FALLBACK ANY MORE. It existed because delta painted nothing and the
+        // line needed *something*; now the delta paints the answer itself, so a generic word on top of
+        // real text would be noise. If no status has arrived the line simply stays empty and the
+        // streaming bubble carries the signal.
       })
       // LORAMER_CHAT_FAILURE_BRANCHES_V1 — EVERY failure mode gets its OWN sentence. Before this, a 503 from an
       // exhausted model chain and a 500 from a real bug rendered the SAME string, so the user could not tell
@@ -455,6 +513,9 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
             // 2026-07-27 a 500 ("Request timed out" from the model chain) rendered as a connection
             // story: the connection was fine, the server answered, and no answer was ever produced.
             : COPY.SERVER_ERROR
+      // ⛔ THE PREVIEW IS DISCARDED THE MOMENT THE AUTHORITATIVE ANSWER EXISTS. `reply` comes from the
+      // `answer` event (or an error branch); the streamed text was never a second source of truth.
+      setStreamingText('')
       setMessages((m) => [...m, { role: 'assistant', content: reply }])
       // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — the assistant turn is written SERVER-SIDE by /api/chat,
       // from inside the stream close path. It is NOT written here and must never be: this line ran
@@ -505,6 +566,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // in place however many turns are appended after it.
       setLoading(false)
       setStreamStatus(null)
+      setStreamingText('')
+      activeToolsRef.current.clear()
       // ONE bubble, keyed, replaced in place — never a second bubble appended.
       const key = `rec:${Date.now()}`
       setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])
@@ -554,6 +617,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     } finally {
       clearTimeout(abortTimer)
       setStreamStatus(null)
+      setStreamingText('')
+      activeToolsRef.current.clear()
       setLoading(false)
     }
   }, [messages, loading, clientId, clientName, period])
@@ -565,7 +630,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   }
 
   return {
-    messages, setMessages, input, setInput, loading, streamStatus, period,
+    messages, setMessages, input, setInput, loading, streamStatus, streamingText, period,
     debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef, noteInput,
     send, onKeyDown, onComposerFocus, probeRef,
   }
