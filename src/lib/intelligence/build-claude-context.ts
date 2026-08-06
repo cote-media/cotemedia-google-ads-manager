@@ -1300,6 +1300,27 @@ When data is absent, you must name WHICH KIND of boundary it is. These are not i
 === END CAPTURE BOUNDARIES ===`)
   // LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2) — what the Meta `conversions` number IS, so an objective rule can never make her deny it.
   lines.push(`META CONVERSIONS — what the number IS: Meta's account-grain conversions metric is a NARROW, CURATED set (purchase, lead, complete_registration, offsite_conversion, submit_application). It is NOT engagement or clicks — page_engagement, link_click, and landing_page_view are captured but are NOT conversions, and they dwarf real conversions by volume. So a small captured conversions count (even 1) is a REAL conversion — report it, never say "no conversions" because the campaign optimizes for traffic/clicks. To NAME what a Meta conversion was, call query_breakdown(breakdownType="action_type"): the curated conversion types (a registration, lead, or purchase) are what the conversions metric counts, even though action_type ranked by volume is dominated by engagement rows. The registration aliases complete_registration / offsite_conversion.fb_pixel_complete_registration / offsite_complete_registration_add_meta_leads are ONE event — never triple-count them.`)
+  // LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — THE OTHER HALF OF ★CHAT-COPY-BLOCKS. Flight A shipped a copy button
+  // on fenced blocks; a button over an answer that never fences anything is decorative, which is what the
+  // queue entry warned about by name ("Build the button alone and it will look shipped and be useless on the
+  // exact answers it exists for").
+  // ⛔ THE REQUIREMENT IS THE FENCE'S CONTENTS, NOT THE FENCE. A fenced block of `1. running shoes` is WORSE
+  // than no fence: it looks copyable, copies cleanly, and then Google Ads rejects or mangles every line. The
+  // destination is a plain textarea that splits on newlines and treats the whole line as the value.
+  // ⛔ PLACEMENT IS LOAD-BEARING, same reason as the CAPTURE BOUNDARIES block above: this sits ABOVE the
+  // `lines = suffixLines` swap so it lands in the cache_control:ephemeral PREFIX — written once per cache
+  // window rather than re-sent on every answer.
+  lines.push(`PASTE-ABLE OUTPUT — WHEN THE ANSWER IS A LIST SOMEONE WILL PASTE INTO ANOTHER TOOL, PUT IT IN A FENCED CODE BLOCK.
+This applies when the user asks for a list whose destination is an input box, not prose: negative keyword lists, search terms or keyword lists, ad copy variants (headlines, descriptions), SKU or product lists, URL lists, audience or placement exclusion lists.
+⛔ INSIDE THE FENCE, RAW LINES ONLY — ONE VALUE PER LINE, AND NOTHING ELSE ON THE LINE.
+- NO numbering ("1." / "1)"), NO bullets ("-" / "•" / "*"), NO quotes around values, NO trailing commas.
+- NO header row, NO column labels, NO blank-line grouping, NO section titles inside the fence.
+- NO commentary, counts, metrics, match types, or explanations inside the fence — not even in parentheses after a value.
+- NO markdown emphasis inside the fence.
+The test, and it is literal: every line between the fences must be pasteable as-is into the destination field. A user asking for 50 negative keywords must be able to copy the block and paste 50 keywords into the Google Ads negative-keyword box. "running shoes" works. "1. running shoes" breaks it. "running shoes (142 clicks)" breaks it. "- running shoes" breaks it.
+⛔ ALL PROSE GOES OUTSIDE THE FENCE — before it or after it, never inside. Explain what the list is, how you chose it, what it costs, and what to watch, in normal text around the block. That explanation is still expected; it simply may not live between the fences.
+If the user asks for a specific COUNT, the fence contains exactly that many lines.
+⚠ THIS IS A FORMATTING RULE AND IT CHANGES NO NUMBER. It never alters which items you choose, the figures you report, the coverage states you must obey, or the honesty rules above. When a list is genuinely NOT paste-able — a ranked table with metrics the user asked to see, or a comparison — use normal markdown, not a fence.`)
   lines.push(`You are analyzing ${intelligence.clientName}.`)
   // LORAMER_DATE_RANGE_CANONICAL_V1
   if (intelligence.resolvedStartDate && intelligence.resolvedEndDate) {
