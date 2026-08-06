@@ -39,8 +39,18 @@ const strip = (s) => s.split('\n').filter((l) => {
   if (!/setStreamingText\(live\)/.test(hook)) {
     findings.push(`(S1) ${HOOK} does not push the reader's accumulated delta text into state. MEASURED 2026-08-06: ~12,000 characters of the real answer arrived over the final 88 seconds of a 365-second turn and the screen painted none of it. The answer was already on the wire.`)
   }
-  if (!/streamingText/.test(thread) || !/ReactMarkdown[\s\S]{0,80}streamingText/.test(thread)) {
-    findings.push(`(S1) ${THREAD} never RENDERS the streaming text. Carrying it in state and not drawing it is the same dead screen with more machinery behind it.`)
+  // ⛔ THE ASSERTION IS THE PROPERTY, NOT LAST WEEK'S SPELLING — WIDENED 2026-08-06, AND IT IS NOT A
+  // LOOSENING. It read `ReactMarkdown[\s\S]{0,80}streamingText`, which pinned the check to the literal
+  // shape `<ReactMarkdown …>{streamingText}` at that call site. LORAMER_CHAT_COPY_BLOCKS_V1 collapsed
+  // BOTH markdown call sites onto one shared `<Md>` renderer precisely so the completed turn and the
+  // streaming preview can never drift apart again — and the old regex read that consolidation as the
+  // streaming text no longer reaching the screen. The property is unchanged: the accumulated delta must
+  // be RENDERED AS MARKDOWN. Either spelling proves it, and `chat-copy-blocks.guard.mjs` separately
+  // pins `<Md>` to being the ONLY ReactMarkdown in the file, so accepting it is strictly as strong.
+  // ⚠ A bare `<div>{streamingText}</div>` still FAILS here, which is the case this leg exists to catch.
+  const rendersStream = /ReactMarkdown[\s\S]{0,80}streamingText/.test(thread) || /<Md>\{streamingText\}/.test(thread)
+  if (!/streamingText/.test(thread) || !rendersStream) {
+    findings.push(`(S1) ${THREAD} never RENDERS the streaming text as markdown. Carrying it in state and not drawing it is the same dead screen with more machinery behind it.`)
   }
   // ⛔ IT MUST BE A PREVIEW, NOT A SECOND SOURCE OF TRUTH. The `answer` event stays authoritative and
   // the preview must be discarded when it lands — otherwise a partial render could outlive the real one.

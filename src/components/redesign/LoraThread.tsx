@@ -19,7 +19,9 @@
 // state across a client switch — the scroll pin resets on `active` going false — because that is the
 // d55f739 cross-client bleed one layer down.
 'use client'
-import { useEffect, useRef, type RefObject } from 'react'
+import {
+  createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type RefObject,
+} from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { LoraTurn, LoraWorking } from './LoraWorking'
@@ -37,6 +39,94 @@ const Icon = ({ d, size = 20 }: { d: string; size?: number }) => (
 )
 const ARROW_UP = 'M12 19V5M5 12l7-7 7 7'
 const CHEVRON_DOWN = 'M6 9l6 6 6-6'
+// LORAMER_CHAT_COPY_BLOCKS_V1 — the copy affordance's two states, same Icon pattern, path `d` only.
+const COPY = 'M8 8V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z'
+const CHECK = 'M20 6L9 17l-5-5'
+
+// ── LORAMER_CHAT_COPY_BLOCKS_V1 — COPY-TO-CLIPBOARD ON FENCED BLOCKS ──────────────────────────────
+//
+// ⛔ THE RESET KEY EXISTS BECAUSE OF d55f739, AND IT IS NOT DEFENSIVE PROGRAMMING. The shelf stays
+// MOUNTED inside Shell across a client switch while the page REMOUNTS, and `messages.map` above keys
+// by INDEX — so on the shelf React REUSES this component's instance and its state when the whole
+// conversation is replaced by another client's. A `copied` flag left true would then read as "you
+// copied this" over a block belonging to a different client. The key is the clientId; when it changes
+// the flag is cleared. This is the same bleed class one layer down, and it is why the state is not
+// simply a local boolean with a timer.
+const CopyResetContext = createContext<string>('')
+
+/**
+ * ⛔ WORKS MID-STREAM BY CONSTRUCTION, NOT BY A COMPLETION CHECK. react-markdown renders an
+ * unterminated fence as a `<pre>` while the answer is still arriving, so the streaming call site gets
+ * a working button on a partial block. Nothing here gates on `loading` — a button that appears only
+ * when the turn ends is the one the user does not have while they are reading.
+ *
+ * ⛔ THE BUTTON LIVES INSIDE THE `<pre>` AND IS EXCLUDED FROM THE COPY BY NODE IDENTITY, never by
+ * trimming the string afterwards. `code`'s textContent is the fence's own text; when there is no
+ * `<code>` child the childNodes are joined with the button's own node skipped. Reading the `<pre>`'s
+ * textContent wholesale would paste the word "Copy" into the user's negative-keyword box.
+ */
+function CopyablePre({ children }: { children?: ReactNode }) {
+  const preRef = useRef<HTMLPreElement>(null)
+  const [copied, setCopied] = useState(false)
+  const resetKey = useContext(CopyResetContext)
+  const timer = useRef<number | null>(null)
+
+  // The client switch clears it. So does unmount — a pending timer must not fire into a dead component.
+  useEffect(() => { setCopied(false) }, [resetKey])
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
+
+  const copy = useCallback(async () => {
+    const pre = preRef.current
+    if (!pre) return
+    const code = pre.querySelector('code')
+    const text = code
+      ? (code.textContent ?? '')
+      : Array.from(pre.childNodes)
+          .filter((n) => !(n instanceof HTMLElement && n.dataset.loraCopy === '1'))
+          .map((n) => n.textContent ?? '')
+          .join('')
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      if (timer.current) window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // ⛔ NO SILENT SUCCESS. clipboard.writeText rejects without a user gesture, on an insecure
+      // origin, or when permission is denied. Saying "Copied!" over a clipboard that did not change
+      // is worse than the button not working, because the user pastes stale content and trusts it.
+      setCopied(false)
+    }
+  }, [])
+
+  return (
+    <pre ref={preRef}>
+      <button
+        type="button"
+        data-lora-copy="1"
+        className={s.copyBtn}
+        onClick={copy}
+        aria-label={copied ? 'Copied' : 'Copy to clipboard'}
+        title={copied ? 'Copied' : 'Copy'}
+      >
+        <Icon d={copied ? CHECK : COPY} size={15} />
+      </button>
+      {children}
+    </pre>
+  )
+}
+
+// ⛔ ONE RENDERER, TWO CALL SITES, BY CONSTRUCTION. The completed-turn site and the streaming-preview
+// site previously each spelled out `<div className={s.md}><ReactMarkdown …>` in full, which is exactly
+// how the streaming site would silently miss a change made to the other. `<Md>` is the only markdown
+// path in this component now, so the override cannot be present on one site and absent on the other.
+const MD_COMPONENTS = { pre: CopyablePre }
+function Md({ children }: { children: string }) {
+  return (
+    <div className={s.md}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{children}</ReactMarkdown>
+    </div>
+  )
+}
 
 export interface LoraThreadProps {
   /** 'panel' = the shelf: THIS component's scroll region is the scroller. 'page' = the DOCUMENT scrolls. */
@@ -157,7 +247,7 @@ export default function LoraThread({
             {m.role === 'assistant' ? (
               <LoraTurn>
                 <div className={s.bubbleAssistant}>
-                  <div className={s.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                  <Md>{m.content}</Md>
                 </div>
               </LoraTurn>
             ) : (
@@ -179,7 +269,7 @@ export default function LoraThread({
           <div className={s.rowAssistant}>
             <LoraTurn>
               <div className={s.bubbleAssistant}>
-                <div className={s.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingText}</ReactMarkdown></div>
+                <Md>{streamingText}</Md>
               </div>
             </LoraTurn>
           </div>
@@ -196,6 +286,10 @@ export default function LoraThread({
 
   return (
     <>
+      {/* LORAMER_CHAT_COPY_BLOCKS_V1 — the copy affordance's reset key. clientId, so a client switch on
+          the always-mounted shelf clears every "Copied" flag; '' on the portfolio Shell where there is
+          no real client. See the CopyResetContext note above for why a local timer is not enough. */}
+      <CopyResetContext.Provider value={clientId ?? ''}>
       <div className={isPanel ? s.scroll : s.list} ref={isPanel ? scrollRef : undefined}>
         {debugSlot}
         {list}
@@ -243,6 +337,7 @@ export default function LoraThread({
           <Icon d={ARROW_UP} size={19} />
         </button>
       </div>
+      </CopyResetContext.Provider>
     </>
   )
 }

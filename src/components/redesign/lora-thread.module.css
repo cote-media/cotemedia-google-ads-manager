@@ -72,8 +72,36 @@
 .md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; max-width: 100%; margin: 6px 0; font-size: 13px; }
 .md th, .md td { border: 1px solid var(--border, #dbe2ea); padding: 5px 9px; text-align: left; white-space: nowrap; }
 .md th { background: var(--surface, #eef2f8); font-weight: 600; }
-.md pre { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; background: var(--code-bg, rgba(15, 23, 42, .06)); border-radius: 8px; font-size: 12.5px; }
+/* ⛔ LORAMER_CHAT_COPY_BLOCKS_V1 — `position: relative` AND the right padding-inset are ADDED TO A
+   SHIPPED RULE, not to a new one, because the copy button is positioned INSIDE the <pre>. Stated
+   rather than buried: this changes an existing declaration. `position` was previously unset (static),
+   so any absolutely-positioned descendant would have escaped to the nearest positioned ancestor —
+   which on the shelf is the portaled panel, i.e. the button would have floated off the block entirely.
+   The extra padding-right reserves the button's own width so a long first line cannot run underneath
+   it; everything else about the rule is unchanged. */
+.md pre { position: relative; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; padding-right: 38px; background: var(--code-bg, rgba(15, 23, 42, .06)); border-radius: 8px; font-size: 12.5px; }
 .md pre code { background: none; padding: 0; border-radius: 0; white-space: pre; }
+
+/* The affordance itself. ⛔ EVERY COLOUR IS A var WITH A LITERAL FALLBACK (LoraThread.tsx:11-16): both
+   surfaces render outside `.root` — the page outside <Shell>, the shelf portaled out — so an unresolved
+   custom property is not hypothetical here, it has already shipped a white glyph on a white bar once.
+   ⚠ ONE HONEST LIMIT, STATED RATHER THAN DESIGNED AROUND: the <pre> scrolls horizontally, and an
+   absolutely-positioned child scrolls WITH that content — so on a block wide enough to scroll sideways
+   the button travels off the right edge. It is reachable again by scrolling back. The alternatives
+   (float+sticky, or a wrapper element) each trade a real layout risk inside a shipped rule for a
+   cosmetic gain on a case the target output does not produce: the paste-able answers this exists for
+   are one short value per line. Revisit if a wide block turns up in practice. */
+.copyBtn {
+  position: absolute; top: 6px; right: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border, #dbe2ea);
+  background: var(--paper, #f5f8ff);
+  color: var(--muted, #64748b);
+  opacity: .75; transition: opacity .12s ease, color .12s ease, border-color .12s ease;
+}
+.copyBtn:hover { opacity: 1; color: var(--ink, #0f172a); border-color: var(--accent, #2563eb); }
+.copyBtn:focus-visible { opacity: 1; outline: 2px solid var(--accent, #2563eb); outline-offset: 1px; }
 
 /* ── COMPOSER ──────────────────────────────────────────────────────────────────────────────────── */
 /* Shared composer chrome. The PAGE variant is `.composer` and the PANEL variant is `.composerPanel`
