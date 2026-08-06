@@ -94,6 +94,7 @@ const GUARDS = [
   'tests/guards/chat-status-fits.guard.mjs',
   'tests/guards/chat-copy-blocks.guard.mjs', // LORAMER_CHAT_COPY_BLOCKS_V1
   'tests/guards/paste-able-output.guard.mjs', // LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1
+  'tests/guards/chat-cache-and-recovery.guard.mjs', // LORAMER_CHAT_COST_AND_RECOVERY_V1
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',

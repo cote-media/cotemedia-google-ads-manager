@@ -56,6 +56,22 @@ const MODEL_CHAIN = [LORA_CHAT_MODEL, 'claude-opus-4-8', 'claude-sonnet-4-6']
 const CHAT_STREAMING = process.env.LORA_CHAT_STREAMING === '1'
 
 export async function POST(request: Request) {
+  // ── LORAMER_CHAT_PHASE_TIMING_V1 — THE ROUTE HAD ZERO Date.now() CALLS ACROSS 377 LINES ────────────
+  // ⛔ WHY THIS EXISTS AND WHY IT IS NOT A FIX. ★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH has been open since
+  // 2026-08-03 with the same sentence in it: "any split anyone quotes is invented." Two sequential internal
+  // fetches to /api/intelligence run before the model is ever called, and nobody could say how much of the
+  // wait was session lookup, RBAC, fetch #1, fetch #2, or a cache miss — because nothing measured it.
+  // ⛔ THE INSTRUMENT COMES BEFORE THE REMEDY (LORAMER_CAPTURE_LIMIT_IS_MEASURED_V1). This flight measures
+  // and does NOT collapse the double fetch; that change alters what Lora is TOLD, which is the accuracy
+  // surface `npm run evals` protects, so it is an evals-gated flight of its own.
+  // ⚠ NO CLIENT DATA ON THE LINE — durations, token counts and a client-id PREFIX only. No question text,
+  // no client name, no email. The log line is greppable on the marker `[chat] phases`.
+  const t0 = Date.now()
+  const phases: Record<string, number> = {}
+  let phaseMark = t0
+  const phase = (name: string) => { const now = Date.now(); phases[name] = now - phaseMark; phaseMark = now }
+  let firstTokenMs: number | null = null
+
   const session = await getServerSession(authOptions) as any
   if (!session?.user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -92,6 +108,7 @@ export async function POST(request: Request) {
   // owner-keyed reads run on ownerEmail (via /api/intelligence's own resolveAccess gate + the tool loop), NEVER the
   // viewer — the share-runs-on-the-owner keystone is preserved.
   if (clientId) {
+    phase('session')
     const access = await resolveAccess(clientId, session.user.email)
     if (!access?.ok) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 }) // 404, don't confirm the id
@@ -121,6 +138,10 @@ export async function POST(request: Request) {
   // start() runs synchronously on construction, so `ctrl` is live before anything below writes to it.
   const stream = new ReadableStream<Uint8Array>({ start(c) { ctrl = c } })
   const emitRaw = (event: string, data: any) => {
+    // LORAMER_CHAT_PHASE_TIMING_V1 — time-to-first-frame, stamped on the FIRST frame of ANY kind. This is the
+    // same moment the route already releases its response gate on, so the number means "when the user could
+    // first have seen something", not "when the model produced text".
+    if (firstTokenMs === null) firstTokenMs = Date.now() - t0
     try { ctrl?.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)) } catch { /* client gone */ }
   }
   if (CHAT_STREAMING) {
@@ -175,7 +196,9 @@ export async function POST(request: Request) {
       const intelligenceData = await intelligenceRes.json()
       const intelligence: ClientIntelligence = intelligenceData.intelligence
       if (intelligence) {
+        phase('fetch1')
         systemPrompt = buildClaudeContext(intelligence, focus, rowContext)
+        phase('build1')
       }
     } catch (e) {
       console.error('Intelligence fetch error:', e)
@@ -212,11 +235,23 @@ export async function POST(request: Request) {
       const intelligenceData2 = await intelligenceRes2.json()
       const intelligence2: ClientIntelligence = intelligenceData2.intelligence
       if (intelligence2) {
+        phase('fetch2')
         const { prefix, suffix } = buildClaudeContextCacheable(intelligence2, focus, rowContext)
+        // ⛔ LORAMER_PROMPT_CACHE_1H_TTL_V1 — EXTENDED 1-HOUR TTL. `ttl` is the documented field on
+        // cache_control and takes '5m' (the default when omitted) or '1h'. ⛔ NO BETA HEADER: extended TTL is
+        // GA on the first-party API — verified against the current Anthropic reference this session, NOT from
+        // memory, per the standing rule that a model/API fact is never written from recall.
+        // ⛔ THE TRADE, STATED WITH THE MEASUREMENT THAT DECIDES IT: a 1h cache WRITE costs 2× base input
+        // (vs 1.25× at 5m); a READ costs ~0.1× either way. So 1h needs one more read than 5m to break even.
+        // MEASURED THIS SESSION over 22 paired turns: p50 87s, p90 281s, max 365s. **A SINGLE p90 TURN IS
+        // 4.7 MINUTES**, so under the 5-minute default the cache written for turn N has essentially expired by
+        // the time the user reads that answer and sends turn N+1 — the second turn of a conversation, which is
+        // exactly the turn caching exists to serve, was missing. At 1h it hits. That is the whole argument.
         systemArr = [
-          { type: 'text', text: prefix, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: prefix, cache_control: { type: 'ephemeral', ttl: '1h' } },
           ...(suffix ? [{ type: 'text', text: suffix }] : []),
         ]
+        phase('build2')
       }
     } catch (e) {
       console.error('Cacheable intelligence rebuild error:', e)
@@ -313,6 +348,16 @@ export async function POST(request: Request) {
         // least as durable as its cost row. Detached close path, so a dead browser cannot skip it.
         const persisted = await persistAssistantTurn(finalText)
         if (persisted === 'failed') console.error(`[chat] answer NOT persisted client=${clientId}`)
+        // LORAMER_CHAT_PHASE_TIMING_V1 — ONE greppable line, no client data. `client` is an 8-char id PREFIX
+        // (enough to join to a row, not enough to identify a business); no question text, no client name, no
+        // email. `model_ms` is the whole model phase — assembly is already broken out in `phases`.
+        phase('model')
+        console.log('[chat] phases', JSON.stringify({
+          client: typeof clientId === 'string' ? clientId.slice(0, 8) : null,
+          total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,
+          input: usage.input, cache_read: usage.cache_read, cache_create: usage.cache_create, output: usage.output,
+          streaming: true, model: answered,
+        }))
         await logSpend({
           userEmail: session.user.email,
           clientId,
@@ -322,6 +367,7 @@ export async function POST(request: Request) {
           outputTokens: usage.output,
           cacheReadTokens: usage.cache_read,
           cacheCreationTokens: usage.cache_create,
+          durationMs: Date.now() - t0,   // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — migration 058
         })
         emitRaw('done', { model: answered })
       } catch (e: any) {
@@ -381,7 +427,16 @@ export async function POST(request: Request) {
       cache_read: usage.cache_read,
       output: usage.output,
     })
+    // LORAMER_CHAT_PHASE_TIMING_V1 — same line, blocking path. streaming:false is the discriminator.
+    phase('model')
+    console.log('[chat] phases', JSON.stringify({
+      client: typeof clientId === 'string' ? clientId.slice(0, 8) : null,
+      total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,
+      input: usage.input, cache_read: usage.cache_read, cache_create: usage.cache_create, output: usage.output,
+      streaming: false, model: answered,
+    }))
     logSpend({
+      durationMs: Date.now() - t0,   // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — migration 058
       userEmail: session.user.email,
       clientId,
       endpoint: 'chat',

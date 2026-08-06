@@ -60,6 +60,10 @@ export type SpendLogInput = {
   outputTokens: number
   cacheReadTokens?: number          // LORAMER_LORA_MODEL_PRICING_V1 — prompt-cache read tokens (priced when the model has cache rates)
   cacheCreationTokens?: number      // prompt-cache 5-min write tokens
+  // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — wall-clock ms for the model call. Optional so every existing
+  // caller (insight, evals) keeps compiling; omitted ⇒ the column stays NULL, which reads as "not recorded"
+  // rather than "took no time". Never pass 0 to mean unknown.
+  durationMs?: number
 }
 
 export async function logSpend(input: SpendLogInput): Promise<void> {
@@ -73,6 +77,13 @@ export async function logSpend(input: SpendLogInput): Promise<void> {
       input_tokens: input.inputTokens,
       output_tokens: input.outputTokens,
       cost_usd: cost,
+      // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — migration 058. The cache figures were already ACCEPTED and
+      // priced by computeCostUsd above and then thrown away; they are now persisted so the split survives the
+      // 1-hour Vercel log expiry. ⛔ `?? null` NOT `|| 0` — a real 0 (genuine cache miss) and an absent value
+      // must stay distinguishable, or every percentile over this table silently averages in fake zeros.
+      duration_ms: input.durationMs ?? null,
+      cache_read_tokens: input.cacheReadTokens ?? null,
+      cache_creation_tokens: input.cacheCreationTokens ?? null,
     })
     if (error) console.error('[spend-logger] insert failed:', error)
   } catch (e) {

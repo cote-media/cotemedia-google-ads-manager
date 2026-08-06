@@ -73,5 +73,21 @@ export const COPY = {
   // connection story for a turn where the connection was fine and the server answered with a 500.
   SERVER_ERROR: 'Something went wrong on my end — Lora never got to answer. Try again when you\u2019re ready.',
 }
-export const RECOVERY_WINDOW_MS = 90_000
+// ⛔ LORAMER_RECOVERY_WINDOW_COVERS_THE_SERVER_V1 — 90_000 → 500_000, AND THE NUMBER IS NOT THE ONE I WAS GIVEN.
+// THE BRIEF SAID 450_000 AND SPOTTED ITS OWN PROBLEM: 450s exceeds CHAT_TOTAL_MS (440_000). But the fix is not
+// to shave it under the client deadline — that reads the wrong bound. **THE RECOVERY POLL RUNS AFTER THE CLIENT
+// HAS ALREADY GIVEN UP.** Its job is to find an answer the SERVER may still be writing, so the bound it must
+// clear is the SERVER's ceiling — `maxDuration = 500` on /api/chat — not the client's own 440s abort.
+// ⛔ AND THE WINDOW STARTS WHEN THE FETCH FAILED, WHICH IS NOT ALWAYS AT 440s. A network drop at t=10s enters
+// recovery with ~490s of server work still ahead of it; a deadline abort enters at 440s with ~60s ahead. Sizing
+// to the client deadline covers only the second case. 500_000 covers both by construction: it equals the longest
+// the server can still be running, measured from the earliest moment recovery can begin.
+// MEASURED THIS SESSION, 22 paired turns: p50 87s · p90 281s · max 365s. The old 90s window cleared p50 and
+// missed p90 by 3.1× — the 2026-08-06 22:03 loss was a 234s turn, 144s past that window.
+// ⚠ THE POLL COUNT IS THE COST AND IT IS STATED RATHER THAN DISCOVERED: 500_000 / 5_000 = **up to 100 reads of
+// /api/conversations per recovered turn**, worst case. RECOVERY_POLL_MS IS DELIBERATELY UNCHANGED — the reads are
+// cheap indexed queries on the recovery path only (not the happy path), the loop exits the moment the answer
+// lands (a p90 turn stops at ~56 polls), and widening the interval would delay the answer the user is waiting
+// for. Reported, not silently tuned.
+export const RECOVERY_WINDOW_MS = 500_000
 export const RECOVERY_POLL_MS = 5_000

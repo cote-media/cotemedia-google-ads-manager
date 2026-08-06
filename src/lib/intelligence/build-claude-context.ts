@@ -1458,6 +1458,17 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   // only when at least one connected platform actually has a dual-source family, so a single-platform client never
   // reads rules about sources it does not have.
   const ct = intelligence.capturedThrough || {}
+  // ⛔ LORAMER_PROMPT_CACHE_ASOF_IN_SUFFIX_V1 — THE PARITY BLOCK IS COLLECTED HERE AND EMITTED IN THE SUFFIX.
+  // WHY, and it is a caching fact rather than a prompt-content one: `buildSourceParityLines` renders
+  // `liveAsOf.slice(0,16)` — MINUTE RESOLUTION — into its text, and it renders `capturedThrough`, which advances
+  // as capture does. Both sat in the cache_control:ephemeral PREFIX, so every /api/intelligence cache miss minted
+  // a new minute string and invalidated the ENTIRE cached prefix behind it. Prompt caching is a PREFIX MATCH: one
+  // byte anywhere before the breakpoint invalidates everything after it.
+  // ⛔ THE RULE AND ITS TIMESTAMP MOVE TOGETHER, DELIBERATELY. The parity line is one sentence carrying the rule
+  // ("LIVE = provisional as-of X, CAPTURED = settled through Y") — splitting the timestamp out would leave a rule
+  // whose basis is stated somewhere else, which is worse prompt-writing than paying to re-send the sentence.
+  // Prefix vs suffix changes ONLY what is cached; the model receives byte-identical text either way.
+  const parityBlock: string[] = []
   const parityKeys: PlatformKey[] = []
   if (intelligence.google?.connected) parityKeys.push('google')
   if (intelligence.meta?.connected) parityKeys.push('meta')
@@ -1472,13 +1483,19 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
 
   // LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — google ONLY: the quota is a Google-developer-token fact and means
   // nothing for meta/shopify/woo/ga, which is why it is passed here and nowhere else.
-  if (intelligence.google) lines.push(buildPlatformSection(intelligence.google, 'Google', limits, { key: 'google', capturedThrough: ct.google, liveAsOf: intelligence.fetchedAt }, intelligence.googleQuota))
-  if (intelligence.meta) lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits, { key: 'meta', capturedThrough: ct.meta, liveAsOf: intelligence.fetchedAt }))
+  if (intelligence.google) {
+    lines.push(buildPlatformSection(intelligence.google, 'Google', limits, undefined, intelligence.googleQuota))
+    parityBlock.push(...buildSourceParityLines('google', 'Google', ct.google, intelligence.fetchedAt))
+  }
+  if (intelligence.meta) {
+    lines.push(buildPlatformSection(intelligence.meta, 'Meta', limits, undefined))
+    parityBlock.push(...buildSourceParityLines('meta', 'Meta', ct.meta, intelligence.fetchedAt))
+  }
 
   if (intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch (platformStatus already flagged it)
     const s = intelligence.shopify
     lines.push('\n=== SHOPIFY ===')
-    lines.push(...buildSourceParityLines('shopify', 'Shopify', ct.shopify, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
+    parityBlock.push(...buildSourceParityLines('shopify', 'Shopify', ct.shopify, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
     // LORAMER_SHOPIFY_NET_SALES_V1
     if (s.totalRevenue != null) {
       lines.push(`Net sales (after refunds, excludes shipping & tax): $${s.totalRevenue.toFixed(2)}`)
@@ -1515,7 +1532,7 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   if (intelligence.woocommerce?.connected && !intelligence.woocommerce?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — skip the $0 block on a failed fetch
     const w = intelligence.woocommerce
     lines.push('\n=== WOOCOMMERCE ===')
-    lines.push(...buildSourceParityLines('woocommerce', 'WooCommerce', ct.woocommerce, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
+    parityBlock.push(...buildSourceParityLines('woocommerce', 'WooCommerce', ct.woocommerce, intelligence.fetchedAt)) // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1
     if (w.totalRevenue) lines.push(`Total Revenue: $${w.totalRevenue.toFixed(2)}`)
     // LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 — Lora was narrating the SUM OF UNITS as the order count (e.g. "37 orders").
     // Pure labeling fix (no data/basis change): make distinct orders unambiguous and label per-product units as "units sold".
@@ -1534,7 +1551,8 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   }
 
   // LORAMER_GA_CLAUDE_CONTEXT_V1
-  const gaSection = buildGaSection(intelligence.ga, limits, { capturedThrough: ct.ga, liveAsOf: intelligence.fetchedAt })
+  const gaSection = buildGaSection(intelligence.ga, limits, undefined)
+  parityBlock.push(...buildSourceParityLines('ga', 'GA4', ct.ga, intelligence.fetchedAt))
   if (gaSection) lines.push(gaSection)
   if (intelligence.ga?.connected && intelligence.shopify?.connected && !intelligence.shopify?.fetchFailed) { // LORAMER_CONN_DEGRADED_STATE_V1 — no reconcile against a failed shopify fetch
     lines.push(buildGaShopifyReconciliation(intelligence.ga, intelligence.shopify))
@@ -1551,6 +1569,9 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   // suffix (dynamic) block. The eventual cache breakpoint in Phase 2 will
   // sit right here — before this line.
   lines = suffixLines
+  // ⛔ LORAMER_PROMPT_CACHE_ASOF_IN_SUFFIX_V1 — the parity block lands HERE, first in the suffix, so its
+  // minute-resolution as-of and its daily capturedThrough cannot invalidate the cached prefix above.
+  if (parityBlock.length) lines.push(...parityBlock)
   // ── Previous Conversations (full flat history) ─────────────────────────────
   if (p.conversations) lines.push(buildConversationContext(p.conversations))
 
