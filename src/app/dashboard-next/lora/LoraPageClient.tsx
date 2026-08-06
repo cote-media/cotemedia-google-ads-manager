@@ -56,15 +56,43 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
             alone is not one: on a fresh load there is nothing to go back TO and the button silently
             does nothing, which is what a trap feels like.
             ⚠ `history.length > 1` IS NOT A SAFE TEST — it counts the whole TAB's history, so back can
-            leave the app entirely (the first cut exited to about:blank). document.referrer answers the
-            honest question: did the user arrive here from inside our app. */}
+            leave the app entirely (the first cut exited to about:blank).
+
+            ⛔ AND `document.referrer` ALONE WAS ALSO WRONG — LORAMER_LORA_BACK_SOFT_NAV_V1, SETTLED ON
+            DEVICE 2026-08-06 RATHER THAN ARGUED. Russ's three taps: the CHEVRON landed on All Clients
+            while the PHONE'S OWN BACK GESTURE landed on the client page — two different destinations
+            for one intent, which is how a user learns not to trust a control.
+            THE CAUSE: `document.referrer` DESCRIBES THE DOCUMENT LOAD, NOT THE ROUTE. A Next
+            client-side navigation never touches it, so arriving here via `openLora`'s `router.push`
+            leaves it at whatever loaded the document — empty for a typed URL or a fresh tab — and the
+            gate concluded "not from our app" while a perfectly good history entry sat right there.
+            ⚠ THE FALLBACK IT THEN TOOK IS ITSELF POINTED AT THE ALL-CLIENTS INDEX, which ignores
+            `?clientId=` entirely (its component takes no props at all) — so the wrong branch had a
+            maximally wrong destination. That second half is [[★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID]]
+            and is DELIBERATELY NOT CHANGED HERE: repointing the fallback would mask this gate rather
+            than fix it.
+
+            THE TEST THAT IS ACTUALLY TRUE: did THIS DOCUMENT load somewhere else? The Navigation
+            Timing entry records the URL the document was fetched at, and a soft navigation does not
+            change it — so `entry.name !== location.href` means we moved WITHIN this document and a
+            real in-app history entry exists to go back to. The same-origin referrer is kept as the
+            SECOND signal, because it is the one that is true for a HARD navigation from inside the
+            app. Either alone is incomplete; together they cover both ways in. */}
         <button
           type="button"
           className={styles.back}
           onClick={() => {
             const fallback = clientId ? `/dashboard-next/clients?clientId=${clientId}` : '/dashboard-next/clients'
             let cameFromApp = false
-            try { cameFromApp = !!document.referrer && new URL(document.referrer).origin === window.location.origin } catch { cameFromApp = false }
+            try {
+              // (1) SOFT NAVIGATION — the document loaded at a DIFFERENT url than the one we are on.
+              const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+              const softNavigated = !!nav?.name && nav.name !== window.location.href
+              // (2) HARD NAVIGATION FROM INSIDE THE APP — same-origin referrer. The original test, kept
+              // rather than replaced: it is correct for its case and only ever wrong on its own.
+              const sameOriginReferrer = !!document.referrer && new URL(document.referrer).origin === window.location.origin
+              cameFromApp = softNavigated || sameOriginReferrer
+            } catch { cameFromApp = false }
             if (cameFromApp) router.back()
             else router.push(fallback)
           }}
