@@ -138,13 +138,13 @@ export function renderSubjectLine(s: ToolSubject): string {
 export function aggregateSubjects(active: Map<string, string>): string | null {
   const subjects = [...active.values()].filter((s) => typeof s === 'string' && s.trim())
   if (subjects.length === 0) return null
-  if (subjects.length === 1) return subjects[0]
+  if (subjects.length === 1) return fitStatusLine(subjects[0], 0)
 
   // Two or more at once. Lead with the first REAL subject so the line still names something concrete,
   // and count the rest exactly. `Reading X · Y · Z  + 2 more sources` beats a bare "Reading 3 sources"
   // because the specific one is the part that reads as diligence.
   const [first, ...rest] = subjects
-  return `${first}  + ${rest.length} more source${rest.length === 1 ? '' : 's'}`
+  return fitStatusLine(first, rest.length)
 }
 
 // ⛔ A SUBJECT MAY NOT BE REPLACED FASTER THAN A PERSON CAN READ IT. 2026-08-06 measured replacements at
@@ -153,3 +153,56 @@ export function aggregateSubjects(active: Map<string, string>): string | null {
 // 1200ms is chosen as ~the time to read a short line, and deliberately NOT longer: a line that lingers
 // after its work has finished is its own small lie.
 export const MIN_SUBJECT_MS = 1200
+
+
+// ⛔ LORAMER_CHAT_STATUS_FITS_THE_PHONE_V1 — THE LINE MUST FIT, AND WHAT SURVIVES IS NOT NEGOTIABLE.
+//
+// OBSERVED ON DEVICE 2026-08-06: "Reading Foam OH · All · 2026 YTD (Jan 1 - Aug 5) +1 more + 1 ..." ran
+// off the right edge and was cut mid-word.
+//
+// ⛔ AND CSS `text-overflow: ellipsis` IS THE WRONG TOOL HERE, WHICH IS WHY THIS FUNCTION EXISTS RATHER
+// THAN A STYLE TWEAK: it always cuts the TAIL, and the tail is where the COUNT lives. The browser was
+// faithfully deleting the single most important token on the line. Truncation has to be PRIORITY-AWARE,
+// and priority is a product decision, not a rendering side effect.
+//
+// THE PRIORITY, highest first:
+//   1. "Reading <client>"        — the client is never dropped. A status naming no one is not a status.
+//   2. "+ N more sources"        — the count is never dropped and never rounded. Hiding concurrent work
+//                                  is the same class of untruth as a fake progress bar.
+//   3. platform, breakdown, range — the middle. Shortened from the RIGHT, because the range is the most
+//                                  reconstructible part: a reader who sees the platform can live without
+//                                  the exact window, but not the reverse.
+//
+// ⚠ THE BUDGET IS CHARACTERS, NOT PIXELS, AND THAT IS A STATED APPROXIMATION. Measuring text properly
+// needs a layout, and this repo has no render measurement ([[★CHAT-RENDER-MEASUREMENT-MISSING]]) — so a
+// conservative character budget is the honest instrument available. 46 is derived, not guessed: a 390px
+// screen less 32px of list padding and 13px of mark indent leaves ~345px; at 13px in the app's sans the
+// average glyph is ~6.5px wide, giving ~53 characters, and 46 keeps a margin for wide-glyph strings.
+// The CSS ellipsis STAYS as a belt-and-braces backstop for anything this misjudges.
+export const MAX_STATUS_CHARS = 46
+
+export function fitStatusLine(subject: string, extraCount: number): string {
+  const suffix = extraCount > 0 ? `  + ${extraCount} more source${extraCount === 1 ? '' : 's'}` : ''
+  const m = /^Reading (.*)$/.exec(subject)
+  if (!m) {
+    // Not a subject we composed (a bare tool name). Keep the count; trim the rest if it must give.
+    const room = MAX_STATUS_CHARS - suffix.length
+    return (subject.length > room ? subject.slice(0, Math.max(1, room - 1)) + '\u2026' : subject) + suffix
+  }
+  const parts = m[1].split(' \u00b7 ')
+  const client = parts[0]
+  const middle = parts.slice(1)
+  const compose = () => `Reading ${[client, ...middle].join(' \u00b7 ')}`
+
+  // Drop the middle from the RIGHT until it fits. The count is already reserved in `suffix`.
+  while (middle.length && compose().length + suffix.length > MAX_STATUS_CHARS) middle.pop()
+
+  let line = compose()
+  if (line.length + suffix.length > MAX_STATUS_CHARS) {
+    // Even the client alone overruns. ELIDE ITS CHARACTERS — never remove it. A truncated client name
+    // still tells the reader who is being read about; an absent one tells them nothing.
+    const room = Math.max(4, MAX_STATUS_CHARS - suffix.length - 'Reading '.length)
+    line = `Reading ${client.length > room ? client.slice(0, room - 1) + '\u2026' : client}`
+  }
+  return line + suffix
+}
