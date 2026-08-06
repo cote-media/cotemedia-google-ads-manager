@@ -44,8 +44,14 @@ const strip = (s) => s.split('\n').filter((l) => !l.trim().startsWith('//')).joi
 // worse proof than a stated one.
 {
   const src = strip(read(HOOK))
+  // ⛔ FIND THE `finally` THAT BELONGS TO THIS `catch`, NOT THE FIRST ONE IN THE FILE. On 2026-08-05 the
+  // D1 thread-refresh effect added a `} finally { running = false }` EARLIER in the file, so
+  // indexOf('} finally {') returned that one, `finallyAt < catchAt`, and this leg went RED with "could
+  // not locate the catch/finally pair". ⚠ IT FAILED SAFE AND SAID SO — "must be re-verified by hand, not
+  // assumed green" — which is the only reason a locator drifting out from under a guard was visible at
+  // all rather than becoming a silent pass. Searching FROM the catch is the fix.
   const catchAt = src.indexOf('} catch (e) {')
-  const finallyAt = src.indexOf('} finally {')
+  const finallyAt = catchAt === -1 ? -1 : src.indexOf('} finally {', catchAt)
   if (catchAt === -1 || finallyAt === -1 || finallyAt < catchAt) {
     findings.push(`(a) ${HOOK}: could not locate the catch/finally pair in send() — this guard is pointed at the wrong file or the failure path was restructured. It must be re-verified by hand, not assumed green.`)
   } else {

@@ -170,5 +170,21 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
-  return { pinned, bottom, followBottom, setPin }
+  /** ⛔ LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — D2: SENDING MUST ALWAYS LAND ON YOUR OWN MESSAGE.
+   *  `setPin(true)` ALONE DOES NOT DO IT, and that is the whole defect: the next `followBottom()` calls
+   *  `stillFollowing()`, which re-checks `getY() < lastAutoYRef.current - 4` — and after the user has
+   *  scrolled up that is STILL TRUE, so it immediately un-pins again and refuses the scroll. The pin was
+   *  set and cancelled in the same breath.
+   *  ⚠ IT PRE-DATES THE EXTRACTION. `onClick={() => { setPin(true); send(input) }}` is byte-identical to
+   *  the pre-0410fb5 page, so the page always had it; the shelf only inherited it when both surfaces
+   *  moved onto this machine, because the shelf used to scroll unconditionally.
+   *  THE FIX IS TO RESET THE POSITION MEMORY, NOT JUST THE FLAG: clearing `lastAutoYRef` means
+   *  `userMovedUp()` has nothing to compare against, so the deliberate scroll survives its own gate. */
+  const forceBottom = (behavior: ScrollBehavior = 'smooth') => {
+    lastAutoYRef.current = -1
+    setPin(true)
+    bottom(behavior)
+  }
+
+  return { pinned, bottom, followBottom, forceBottom, setPin }
 }

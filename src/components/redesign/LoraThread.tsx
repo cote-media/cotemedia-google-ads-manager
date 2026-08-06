@@ -84,7 +84,7 @@ export default function LoraThread({
   // single unconditional `scrollTop = scrollHeight` on every messages/loading change, so scrolling up to
   // read history got yanked back down — the exact defect the page was fixed for. Unified onto the page's
   // pin/unpin machine on Russ's instruction; averaging the two was explicitly refused.
-  const { pinned, bottom, followBottom, setPin } = useStickToBottom(
+  const { pinned, bottom, followBottom, forceBottom, setPin } = useStickToBottom(
     isPanel ? scrollRef : null,
     { watch: [messages, loading, streamStatus], contentRef, active },
   )
@@ -139,7 +139,7 @@ export default function LoraThread({
           {suggestions?.length ? (
             <div className={s.suggestions}>
               {suggestions.map((q) => (
-                <button key={q} type="button" className={s.suggestion} onClick={() => send(q)}>{q}</button>
+                <button key={q} type="button" className={s.suggestion} onClick={() => { send(q); forceBottom() }}>{q}</button>
               ))}
             </div>
           ) : null}
@@ -195,7 +195,13 @@ export default function LoraThread({
           className={s.input}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
+          onKeyDown={(e) => {
+            // Enter-to-send is a send: it gets the same forced scroll as the button. Without this the
+            // keyboard path and the button path disagree, which is how one of them stays broken.
+            const willSend = e.key === 'Enter' && !e.shiftKey && input.trim() && !loading
+            onKeyDown(e)
+            if (willSend) forceBottom()
+          }}
           // ⚠ FOCUS OBEYS THE PIN. Focusing the composer while reading history used to yank the page to
           // the bottom; it no longer can. Nothing is lost — the composer is sticky on the page and
           // in-flow on the shelf, so it is already on screen wherever they are.
@@ -206,7 +212,9 @@ export default function LoraThread({
         <button
           type="button"
           className={s.send}
-          onClick={() => { setPin(true); send(input) }}
+          // D2: forceBottom, NOT setPin(true) — see the note on forceBottom. Sending is a deliberate
+          // act and must always land on your own message, whatever the pin state was a moment ago.
+          onClick={() => { send(input); forceBottom() }}
           disabled={!input.trim() || loading}
           aria-label="Send"
         >
