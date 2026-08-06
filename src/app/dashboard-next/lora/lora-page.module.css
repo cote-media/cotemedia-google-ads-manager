@@ -6,7 +6,32 @@
    The DOCUMENT is the scroller. `.list` is long content, not a scroll container. */
 
 .page {
-  min-height: 100%;
+  /* ⛔ THE STICKY-FOOTER FLOOR — LORAMER_LORA_PAGE_VIEWPORT_FLOOR_V1, 2026-08-06.
+     THE DEFECT THIS FIXES, and it was here from the day the page shipped: `min-height: 100%` resolves
+     against the PARENT, and NOTHING above this element has a height — `html, body` in globals.css set
+     none. A percentage min-height against an auto-height containing block computes to nothing, so this
+     wrapper had NO effective floor: it was content-height, `.list { flex: 1 }` had nothing to
+     distribute, and the composer sat at the end of the CONTENT rather than the bottom of the SCREEN.
+     ⇒ SHORT THREAD → composer floats mid-screen with white below it. LONG THREAD → the content itself
+     fills the viewport and the composer lands correctly.
+     ⛔ WHICH IS WHY IT LOOKED NEW AND WAS NOT. Measured: Foam OH's thread — the client every previous
+     test used — is 19 rows / 88,622 chars, always taller than the viewport. Influential Drones, where
+     Russ hit it, is 3 rows / 271 chars. The bug never had a chance to show until the thread was short.
+     Neither 0410fb5 nor 90c70bf caused it; it survived their revert.
+
+     ⛔ WHY `svh` AND NOT `dvh`, `lvh` OR BARE `vh` — the unit is the whole decision:
+       · `dvh` is PERMANENTLY CLOSED here (the 874 finding: on iOS it resolves to the LARGE viewport,
+         874 against a documentElement.clientHeight of 766, so a dvh-sized surface overhangs before the
+         keyboard is even involved). `lvh` IS that large viewport by definition — same defect, named.
+       · bare `vh` is the classic mobile trap: it is computed as though the browser chrome were already
+         hidden, so a `100vh` floor overshoots the visible area while the address bar is showing.
+       · `svh` is the SMALL viewport — the height guaranteed visible with the browser UI EXPANDED — and
+         it is STATIC, so unlike dvh it never moves as bars hide and show. For a floor that must always
+         be reached and must never overshoot, that is exactly right.
+     The bare-`vh` line below is a FALLBACK for engines without `svh` (pre-iOS 15.4); the `svh` line
+     wins wherever it is understood. A floor, not a cap — a long thread still grows past it. */
+  min-height: 100vh;
+  min-height: 100svh;
   background: var(--white, #fff);
   color: var(--ink);
   font-family: var(--sans);
