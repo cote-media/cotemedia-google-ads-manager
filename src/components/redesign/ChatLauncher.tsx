@@ -12,12 +12,13 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom' // LORAMER_NEXT_CHAT_FULLSCREEN_V1
 import { useRouter } from 'next/navigation'
 import { openLora } from '@/lib/next/open-lora' // LORAMER_LORA_PAGE_V1 — the pill is the fifth trigger
-import { useLoraChat } from '@/lib/next/use-lora-chat' // LORAMER_LORA_CHAT_HOOK_V1 — the shared conversation engine
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { useLoraChat, type Msg } from '@/lib/next/use-lora-chat' // LORAMER_LORA_CHAT_HOOK_V1 — the shared conversation engine
 import styles from './chat.module.css'
-// LORAMER_CHAT_SHARED_THREAD_V1 — the MESSAGE LIST, the markdown, the working indicator and the COMPOSER
-// all come from the shared component now. This file is the desktop shelf's CHROME and nothing else:
-// trigger pill, portal, scrim, header, body-scroll lock, history-back, and the ?debug=chat readout.
-import LoraThread from './LoraThread'
+// LORAMER_LORA_WORKING_SHARED_V1 — the mark + status line come from the SHARED component, not from
+// chat.module.css. This file is the DESKTOP shelf; /dashboard-next/lora is the phone. One copy, both surfaces.
+import { LoraTurn, LoraWorking } from './LoraWorking'
 import shell from './redesign.module.css' // LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — token scope for the portaled overlay
 
 const SUGGESTIONS = [
@@ -29,6 +30,7 @@ const SUGGESTIONS = [
 export default function ChatLauncher({ clientId, clientName }: { clientId?: string; clientName?: string }) {
   const [open, setOpen] = useState(false)
   const router = useRouter() // LORAMER_LORA_PAGE_V1
+  const scrollRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)   // LORAMER_NEXT_CHAT_DEBUG_V1 — measured by the ?debug=chat overlay only
   const dbgRef = useRef<HTMLDivElement>(null)      // LORAMER_NEXT_CHAT_DEBUG_V1
   const [mounted, setMounted] = useState(false)   // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — portal target exists only client-side
@@ -66,12 +68,9 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     return () => { window.removeEventListener('keydown', onKey); clearTimeout(t) }
   }, [open])
 
-  // ⛔ THE SHELF'S OWN SCROLL HANDLING IS GONE (LORAMER_CHAT_SHARED_THREAD_V1). It was one line —
-  // `scrollRef.current.scrollTop = scrollRef.current.scrollHeight` on every messages/loading change,
-  // UNCONDITIONALLY — so scrolling up to read history got yanked back down on the next frame. The page
-  // had a 90-line pin/unpin machine for exactly that defect and the shelf never got it. Both surfaces
-  // now share `useStickToBottom` via LoraThread; a container reintroducing its own scroll code is a
-  // guarded regression (lora-thread-shared.guard.mjs).
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [messages, loading])
 
   // LORAMER_NEXT_CHAT_FULLSCREEN_V1 — BODY SCROLL LOCK. The message list is the only scroller we want
   // moving; without this the document underneath was still scrollable and the drag chained to it once
@@ -137,10 +136,8 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
     }
     const update = () => {
       const panel = panelRef.current?.getBoundingClientRect()
-      // The scroll region now lives inside LoraThread, so the readout finds it from the panel rather
-      // than from a ref this file no longer owns. Same element, same numbers.
-      const scroll = panelRef.current?.querySelector('[class*="scrollPanel"]') as HTMLElement | null
-      const table = panelRef.current?.querySelector('table') as HTMLElement | null // .md table is display:block; overflow-x:auto → itself the scroller
+      const scroll = scrollRef.current
+      const table = scrollRef.current?.querySelector('table') as HTMLElement | null // .md table is display:block; overflow-x:auto → itself the scroller
       const de = document.scrollingElement as HTMLElement | null
       const docRect = document.documentElement.getBoundingClientRect()
       const lines = [
@@ -216,23 +213,66 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
               </div>
             )}
 
-            <LoraThread
-              variant="panel"
-              messages={messages}
-              loading={loading}
-              streamStatus={streamStatus}
-              input={input}
-              setInput={setInput}
-              inputRef={inputRef}
-              onKeyDown={onKeyDown}
-              onComposerFocus={onComposerFocus}
-              send={send}
-              clientId={clientId}
-              clientName={clientName}
-              suggestions={SUGGESTIONS}
-              active={open}
-              debugSlot={debug ? <div ref={dbgRef} className={styles.debug} aria-hidden="true" /> : null}
-            />
+            <div className={styles.scroll} ref={scrollRef}>
+              {/* LORAMER_NEXT_CHAT_DEBUG_V1 — in-flow horizontal-axis readout; only mounts with ?debug=chat. Sticky to the
+                  top of the message list; pans with the sheet but is readable after the pan settles (peak-tracked). */}
+              {debug && <div ref={dbgRef} className={styles.debug} aria-hidden="true" />}
+              {messages.length === 0 ? (
+                <div className={styles.empty}>
+                  {/* LORAMER_NEXT_CHAT_EMPTYSTATE_NAME_V1 — name the client when there IS one. clientId is the real-client
+                      signal (clientName defaults to "All clients" on the portfolio Shell, which must NOT become a possessive). */}
+                  <p className={styles.emptyLead}>{clientId && clientName ? `Ask about ${clientName}’s performance — spend, revenue, breakdowns, or how the money splits.` : 'Ask about this client’s performance — spend, revenue, breakdowns, or how the money splits.'}</p>
+                  <div className={styles.suggestions}>
+                    {SUGGESTIONS.map((s) => (
+                      <button key={s} type="button" className={styles.suggestion} onClick={() => send(s)}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                messages.map((m, i) => (
+                  <div key={i} className={m.role === 'user' ? styles.rowUser : styles.rowAssistant}>
+                    {/* LORAMER_LORA_WORKING_SHARED_V1 — an assistant turn is LoraTurn: the static mark on the
+                        page background, then the bubble. Same element and same position the working state
+                        used, so nothing jumps when the answer arrives. A user turn keeps its bare bubble. */}
+                    {m.role === 'assistant' ? (
+                      <LoraTurn>
+                        <div className={styles.bubbleAssistant}>
+                          <div className={styles.md}><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                        </div>
+                      </LoraTurn>
+                    ) : (
+                      <div className={styles.bubbleUser}>{m.content}</div>
+                    )}
+                  </div>
+                ))
+              )}
+              {loading && (
+                /* LORAMER_LORA_WORKING_SHARED_V1 — ⛔ NO CONTAINER. This used to sit inside .bubbleAssistant,
+                   a rounded grey box, which said "this is a message from Lora" about a thing that is not a
+                   message. The mark and the line now render on the page background, and LoraWorking reserves
+                   the vertical space the answer will fill — no skeleton, no shimmer, nothing pushed down.
+                   ONE mark, not the two that used to stack here. */
+                <div className={styles.rowAssistant}>
+                  <LoraWorking status={streamStatus} />
+                </div>
+              )}
+            </div>
+
+            <div className={styles.inputBar}>
+              <textarea
+                ref={inputRef}
+                className={styles.input}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                onFocus={onComposerFocus}   // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — no-op unless the debug flag is on
+                placeholder="Ask Lora…"
+                rows={1}
+              />
+              <button type="button" className={styles.sendBtn} onClick={() => send(input)} disabled={!input.trim() || loading} aria-label="Send">
+                <i className="ti ti-arrow-up" />
+              </button>
+            </div>
           </div>
         </div>,
         document.body,

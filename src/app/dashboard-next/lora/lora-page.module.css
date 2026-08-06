@@ -1,16 +1,10 @@
-/* LORAMER_CHAT_SHARED_THREAD_V1 — THIS FILE IS NOW THE PHONE PAGE'S CHROME ONLY.
-   The list, bubbles, markdown, composer, input, send and jump-to-bottom moved to
-   src/components/redesign/lora-thread.module.css and are shared with the desktop shelf. Deleted here
-   rather than orphaned — see the note in chat.module.css.
-   ⛔ NO dvh ANYWHERE (the 874 finding). ⛔ NOTHING position:fixed (six overlay attempts died on it).
-   The DOCUMENT is the scroller. */
-
 /* LORAMER_LORA_PAGE_V1 — full-screen mobile Lora.
    ⛔ NO dvh ANYWHERE. The 874 finding: on iOS dvh resolves to the LARGE viewport (874) while
       documentElement.clientHeight is the small one (766), so a dvh-sized surface overhangs before the
       keyboard is even involved. Height here comes from normal document flow, full stop.
    ⛔ NOTHING position:fixed. Six overlay attempts died on hand-positioned geometry.
    The DOCUMENT is the scroller. `.list` is long content, not a scroll container. */
+
 .page {
   min-height: 100%;
   background: var(--white, #fff);
@@ -19,6 +13,7 @@
   display: flex;
   flex-direction: column;
 }
+
 /* Sticky, not fixed — it scrolls with the document but pins to the top of the visible band, and
    sticky does not create the containing-block problems fixed does. */
 .head {
@@ -49,6 +44,7 @@
 .title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--ink); min-width: 0; }
 .spark { display: inline-flex; color: var(--accent); }
 .client { font-weight: 400; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .probe {
   position: sticky; top: 0; z-index: 3;
   background: #facc15; color: #0f172a;
@@ -56,4 +52,94 @@
   padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere;
   border-bottom: 2px solid #0f172a;
 }
+
+/* overscroll-behavior is set for parity with the shelf. With document-flow scrolling it is inert
+   here — stated rather than left to look load-bearing. */
+/* LORAMER_LORA_PAGE_KEYBOARD_INSET_V1 — the bottom padding COMPENSATES for the composer's lift.
+   A sticky composer pulled up by `--lora-kb-inset` paints over the last `inset` px of this list, so
+   the list grows by the same amount and the newest turn stays above the composer instead of behind
+   it. With the keyboard down the inset is 0 and this is byte-identical to the flat 16px it replaces. */
+.list {
+  flex: 1; min-width: 0; overscroll-behavior: contain;
+  padding: 16px 16px calc(16px + var(--lora-kb-inset, 0px));
+  display: flex; flex-direction: column; gap: 12px;
+}
+.empty { margin: auto 0; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; padding: 24px 12px; }
+
+.rowUser { display: flex; justify-content: flex-end; }
+.rowAssistant { display: flex; justify-content: flex-start; }
+.bubbleUser {
+  max-width: 82%; padding: 9px 13px; border-radius: 14px 14px 4px 14px;
+  background: var(--accent); color: #fff; font-size: 14px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
+.bubbleAssistant {
+  max-width: 88%; min-width: 0; padding: 9px 13px; border-radius: 14px 14px 14px 4px;
+  background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.55; word-break: break-word;
+}
+
+/* Same markdown treatment as the shelf: wide tables and code scroll INSIDE the bubble rather than
+   widening the page (the iOS flex min-width:auto trap, LORAMER_NEXT_CHAT_TABLE_SCROLL_V1). */
+.md { white-space: normal; }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 8px; }
+.md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md h1, .md h2, .md h3 { font-size: 14.5px; font-weight: 600; margin: 8px 0 4px; }
+.md code { background: rgba(15, 23, 42, .06); padding: 1px 4px; border-radius: 4px; font-size: 12.5px; }
+.md a { color: var(--accent); }
+.md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; max-width: 100%; margin: 6px 0; font-size: 13px; }
+.md th, .md td { border: 1px solid #dbe2ea; padding: 5px 9px; text-align: left; white-space: nowrap; }
+.md th { background: #eef2f8; font-weight: 600; }
+.md pre { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; background: rgba(15, 23, 42, .06); border-radius: 8px; font-size: 12.5px; }
+.md pre code { background: none; padding: 0; border-radius: 0; white-space: pre; }
+
+.typing { display: inline-flex; gap: 4px; align-items: center; height: 18px; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); display: inline-block; animation: lblink 1.2s infinite both; }
+.typing i:nth-child(2) { animation-delay: .2s }
+.typing i:nth-child(3) { animation-delay: .4s }
 @keyframes lblink { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
+.streamStatus { display: block; font-size: 13px; font-style: italic; opacity: .72; line-height: 1.45; }
+
+/* THE COMPOSER — LORAMER_LORA_PAGE_KEYBOARD_INSET_V1.
+   STICKY, NEVER FIXED. It is still an ordinary in-flow element at the end of the document; sticky
+   only changes where it PAINTS once it would scroll out of the visible band, so reading history no
+   longer means scrolling back down to type.
+   ⛔ position:fixed is banned here and six overlay attempts are the reason. Sticky keeps the element
+      in flow, keeps the DOCUMENT as the scroller, and needs no computed rect.
+   `bottom: var(--lora-kb-inset, 0px)` is the ENTIRE keyboard mechanism, and it is chosen for how it
+   fails: with no JS, no visualViewport, or a stale value the inset is 0, the composer pins to the
+   bottom of the layout viewport — which is precisely where it already sits, on device, today, at the
+   end of a scrolled-to-bottom document. The fallback of the new mechanism is the old mechanism. */
+.composer {
+  position: sticky; bottom: var(--lora-kb-inset, 0px); z-index: 2;
+  display: flex; align-items: flex-end; gap: 8px;
+  border-top: 1px solid var(--surface); background: var(--white, #fff);
+  padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+/* LORAMER_LORA_PAGE_JUMP_TO_BOTTOM_V1 — absolute inside the sticky composer, NOT fixed to the
+   viewport. It inherits the composer's position, including the keyboard lift, for free. */
+.jump {
+  position: absolute; right: 14px; top: -48px;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  background: var(--ink); color: #fff; border: none; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .28);
+}
+.input {
+  /* 16px is load-bearing: iOS auto-zooms any focused input under 16px, MEASURED at 1.1431818x
+     (LORAMER_NEXT_CHAT_INPUT_16PX_V1). Do not lower it. */
+  flex: 1; min-width: 0; resize: none; max-height: 120px; padding: 10px 12px;
+  overscroll-behavior: contain;
+  border: 1px solid #dbe2ea; border-radius: 12px; font: inherit; font-size: 16px;
+  color: var(--ink); outline: none; line-height: 1.4;
+}
+.input:focus { border-color: var(--accent); }
+.send {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: var(--accent); color: #fff; font-size: 18px; cursor: pointer;
+  display: grid; place-items: center; transition: opacity .15s;
+}
+.send:disabled { opacity: .4; cursor: default; }

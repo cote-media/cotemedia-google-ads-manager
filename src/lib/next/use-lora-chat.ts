@@ -65,19 +65,6 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
 
   // Esc closes; focus the input + scroll to the newest message when open/updated.
 
-  // ⛔ LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — ONE THREAD READ, TWO CALLERS. The mount hydration below
-  // and the visibility-regain refresh further down MUST NOT be two implementations of "load the thread";
-  // that is how the two chat surfaces drifted in the first place, one layer up.
-  const readThread = useCallback(async (cid: string): Promise<Msg[] | null> => {
-    try {
-      const params = new URLSearchParams({ clientId: cid, surface: NEXT_CHAT_SURFACE })
-      const r = await fetch('/api/conversations?' + params.toString(), { cache: 'no-store' })
-      const d = await r.json().catch(() => ({}))
-      const rows = Array.isArray(d.messages) ? d.messages : []
-      return rows as Msg[]
-    } catch { return null }   // a failed read must never blank a live thread
-  }, [])
-
   useEffect(() => {
     if (!active) return
     const cid = clientId || null
@@ -214,58 +201,6 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     vv.addEventListener('resize', onResize)
     return () => { vv.removeEventListener('resize', onResize); window.clearTimeout(t) }
   }, [debug, active])
-
-  // ── LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — D1: THE SCREEN MUST TRACK THE SERVER ────────────────
-  // ⛔ THE DEFECT, PROVEN FROM ROWS AND NOT FROM A CODE READ. `hydratedForRef` reads the thread ONCE PER
-  // CLIENT, on mount, and never again. MEASURED 2026-08-05: user turn 23:38:37Z, Russ navigated away and
-  // back at ~23:40 (the one read ran THERE), and the answer was persisted at 23:42:59Z. The server
-  // finished; the screen had already stopped looking. **NOTHING WAS KILLED** — there is no unmount abort
-  // in this file, and /api/chat writes the assistant turn from its own completion path regardless of the
-  // browser. The surface was correct at the instant it looked and permanently wrong afterwards.
-  //
-  // ⛔ AND IT IS THE ROOT OF A CHAIN: a screen showing nothing invites a re-send, a re-send bills a second
-  // turn ($1.5158 + $0.9721 for one question that night), and two fresh assistant rows then push
-  // `pickRecoveredAnswer` into its `ambiguous` branch — whose internal sentence reached the user (D5).
-  //
-  // THE MECHANISM IS THE CHEAPEST ONE THAT WORKS AND NOTHING MORE: re-read the EXISTING thread when the
-  // surface becomes visible again. ⛔ No polling loop, no notification channel, no new table, no push —
-  // all four were considered and are not needed, because the answer is already durable server-side and
-  // /api/conversations already returns it.
-  //
-  // ⚠ THE WATERMARK IS WHAT MAKES A LATE READ SAFE. `threadMaxIdRef` is the max row id we have already
-  // rendered; a refresh only ADOPTS the server's thread when it carries ids ABOVE it. Without that a slow
-  // response landing after a client switch could paint another client's history, which is the d55f739
-  // class. Same discriminator `pickRecoveredAnswer` uses, deliberately — one rule, not two.
-  useEffect(() => {
-    if (!active) return
-    const cid = clientId || null
-    if (!cid) return
-    let running = false
-    const refresh = async () => {
-      if (running || document.visibilityState !== 'visible') return
-      running = true
-      try {
-        const rows = await readThread(cid)
-        if (!rows) return
-        const maxId = rows.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0)
-        // NOTHING NEW ON THE SERVER → LEAVE THE SCREEN ALONE. A refresh that always re-sets state would
-        // stomp an in-flight optimistic user turn on every tab focus.
-        if (!maxId || (threadMaxIdRef.current != null && maxId <= threadMaxIdRef.current)) return
-        threadMaxIdRef.current = maxId
-        setMessages(rows.map((m: any) => ({ role: m.role, content: m.content })))
-      } finally { running = false }
-    }
-    const onVis = () => { void refresh() }
-    document.addEventListener('visibilitychange', onVis)
-    window.addEventListener('focus', onVis)
-    // Fire once on mount-with-active too: returning via a client-side route change re-mounts without ever
-    // firing visibilitychange, which is EXACTLY the path Russ took.
-    void refresh()
-    return () => {
-      document.removeEventListener('visibilitychange', onVis)
-      window.removeEventListener('focus', onVis)
-    }
-  }, [active, clientId, readThread])
 
   const send = useCallback(async (text: string) => {
     const q = text.trim()
@@ -427,24 +362,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
             const dd = await rr.json().catch(() => ({}))
             const got = pickRecoveredAnswer(Array.isArray(dd.messages) ? dd.messages : [], since)
             if (got.status === 'found') { threadMaxIdRef.current = got.maxId; replace(got.text); done = true; break }
-            // ⛔ LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — D5: DO NOT NARRATE OUR OWN UNCERTAINTY AT A USER.
-            // This used to render COPY.AMBIGUOUS (now AMBIGUOUS_INTERNAL_DO_NOT_RENDER) — "There's more than one new answer on this client and I
-            // won't guess which is yours. Scroll up to see the full thread." — which reached Russ on
-            // 2026-08-05. It explains OUR machinery to someone who did not ask about it, and it asks them
-            // to do the work. The answers are all present and in order: SHOW THEM. Dropping the recovery
-            // bubble entirely and adopting the server's thread is both more honest and more useful.
-            if (got.status === 'ambiguous') {
-              const all = await readThread(clientId)
-              if (all && all.length) {
-                threadMaxIdRef.current = all.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0) || got.maxId
-                setMessages(all.map((m: any) => ({ role: m.role, content: m.content })))
-              } else {
-                // The read failed. Still never show the internal sentence — drop the placeholder and let
-                // the visibility refresh pick the thread up.
-                setMessages((m) => m.filter((x) => x.recoveryKey !== key))
-              }
-              done = true; break
-            }
+            if (got.status === 'ambiguous') { replace(COPY.AMBIGUOUS); done = true; break }
           } catch { /* a failed recovery read must never throw into the turn */ }
           await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
         }

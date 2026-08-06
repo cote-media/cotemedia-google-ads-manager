@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-06T00:43:41.218Z
-- built_from HEAD: 770bf31d4e51c1428e15e4b144e99701b8676a59  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-06T01:16:30.634Z
+- built_from HEAD: 90c70bfea308f207e5dda961c634e655e18fd23e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9c530b117151c31259e8c95fcb890be4f247954a941ab2663e6a8e39d658c356
     - LORAMER_DECISIONS.md: 27922708beb9a47cb7f9a54813b2fa43a434f08d6be99dcfb7e1c1b55b408d39
-    - LORAMER_QUEUE_OF_RECORD.md: 266d2b1823351fb84f0bf2aa8e0310894b3b51a7e1d6de610b61a2b65b0fdc04
+    - LORAMER_QUEUE_OF_RECORD.md: 8a092dd40b1cebd2e9f41392585970e5f6fdb6b9c59dd812dbe4c8cf5d4a00d8
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1542,6 +1542,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★CHAT-STATUS-SILENT-WINDOWS — **NEW 2026-08-05. THE FRAME AUDIT RUSS ASKED FOR BEFORE HE LOOKS AT IT: WHAT THE SCREEN SAYS DURING A LONG TOOL-USING TURN, IN ORDER, WITH THE LITERAL STRINGS.** Streaming is PROVEN ON (DECISIONS [[LORAMER_CHAT_STREAMING_IS_ON_IN_PRODUCTION_V1]]), so these frames are live today. **THE SEQUENCE for a multi-account multi-year question:** (1) `route.ts:118` `status` phase `assembling` — **"Pulling <client>'s latest numbers together…"**, emitted immediately after the RBAC gate; (2) `claude-tools.ts:537` `status` per model turn — turn 0 **"Thinking…"**, every later turn **"Working through the numbers…"**; (3) `claude-tools.ts:588` one `tool` frame per tool_use with `phase:'start'` and a subject built by `toolSubject(...)` — the line reads like **"Reading Foam OH · Google · Nov–Dec 2024"**; (4) a `finish` frame per tool, which deliberately KEEPS the last subject on screen (`setStreamStatus((s) => s)`) rather than blanking it; (5) `delta` frames during the final turn, which no longer paint text — they only re-arm the idle timer; (6) `answer`, then `done`. ✅ **FRAMES COME FROM ACTUAL INVOCATION, NEVER A TIMER — CONFIRMED IN CODE:** the `tool` frame is emitted inside `for (const tu of toolUses)`, i.e. from the model's real tool_use blocks, and the per-turn `status` is emitted inside the turn loop. There is no interval, no setTimeout, and no canned reassurance anywhere in the emit path. ⛔ **THE SILENT WINDOWS, NAMED, AND THIS IS THE PART THAT MATTERS:** **(a) BEFORE THE FIRST FRAME** — auth, RBAC and context assembly run with no channel open. The code names this itself: *"everything BEFORE this function — auth, RBAC, context assembly — is still silent, because no channel is open yet."* [[★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH]] measured **~20s** of device-observed wait in that window from TWO sequential internal fetches to `/api/intelligence`. LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 moved the channel ABOVE those fetches so frame (1) now covers most of it — **but the span before RBAC completes is still dark.** **(b) BETWEEN A `tool` START AND ITS FINISH** the line holds one subject, however long that query runs — honest, but static, so a slow query looks identical to a hung one. **(c) DURING THE FINAL COMPOSING TURN** the only thing moving is `delta`, which by decision paints nothing (LORAMER_CHAT_STATUS_SUBJECT_V1: the answer arrives whole). On a 9,547-output-token answer that is a long stretch under one unchanging line. ⚠ **DURATIONS ARE NOT MEASURED — the frames carry no timestamps and nothing records inter-frame gaps.** The 20:01Z turn ran 281s end to end with at most ~8 frames; how that time distributes across (a)/(b)/(c) is UNKNOWN and is the first thing to instrument. ⛔ **REPORT ONLY — NO FRAME WAS ADDED OR REWORDED THIS FLIGHT.** src: 2026-08-05 frame audit. open
 - ★CHAT-SURFACE-UNIFICATION-PLAN — ⚙ **FLIGHT 1 (EXTRACTION) SHIPPED 2026-08-05 as LORAMER_CHAT_SHARED_THREAD_V1 — DECISIONS owns the settled record. FLIGHTS 2 AND 3 REMAIN OPEN AND UNSTARTED.** Flight 2 = (B) composer auto-grow + the stuck-send audit. Flight 3 = (A) status frames not reaching the render — premise CONFIRMED (both observed turns logged `streaming: true` and the device still showed "Working…"), mechanism STILL NOT ESTABLISHED, and the cheap next step is to POST each received frame's event + label to the existing auth-gated probe endpoint under `?debug=chat` — plus (C) completed-turn visibility via a thread re-read on visibility/focus regain. ⛔ **NOTHING IN FLIGHT 1 FIXED ANY OF A, B OR C, DELIBERATELY.** ORIGINAL ENTRY BELOW. **NEW 2026-08-05. THE DEDICATED DAY, SPLIT INTO THREE FLIGHTS BEFORE BUILDING, PER RUSS'S OWN "SPLIT IT AND SAY SO BEFORE BUILDING" CLAUSE. NOTHING WAS BUILT IN THE FLIGHT THAT AUTHORED THIS.** ⛔ **WHY IT SPLITS, and it is not caution: the two live containers total 669 lines, the shared scroll machine has to be parameterised over an ELEMENT scroller (shelf) and the DOCUMENT scroller (page), and one of the three target defects has NO ESTABLISHED MECHANISM (see (A) below). Rewriting both live containers in one commit while a target defect is undiagnosed is how a structure gets built around a guess.** ⛔ Russ's own constraint forbids the alternative: *"Do not half-extract and patch on top; that is how three surfaces happened."* **THE ACCEPTANCE BAR (Russ): it must work as well as Claude's own chat or Shopify Sidekick.**
 - ★GA-DIMENSIONAL-CURSORS-FROZEN-2026-08-05 — ⛔ **NEW 2026-08-05, TRIPPED TONIGHT, AND DELIBERATELY NOT TOUCHED IN A CHAT-UI FLIGHT.** `npm run check:data` FROZEN-CURSOR GUARD went RED with two cursors that crossed the 7-day threshold: **Influential Drones (5bb9b2ff) `ga_dimensional` cursor=2015-08-14, stalled 7d, last moved 2026-07-30** and **My Vacation Network (965c77ff) `ga_dimensional` cursor=2015-08-14, stalled 7d, last moved 2026-07-30.** The guard's own words, and they are the reason this is banked rather than noted: *"A cursor that stops does not lose one day — rangeLap seals EVERY older day behind it, so the loss grows one day per day and converts to permanent at the vendor retention wall."* ⚠ **BOTH SIT AT THE SAME CURSOR DATE AND BOTH STOPPED ON THE SAME DAY, which points at a shared cause rather than two client-specific ones** — but that is a HYPOTHESIS from two data points and nothing has been read yet. ⛔ **DO NOT BASELINE IT TO GO GREEN** — the gate's own instruction is fix the cause, or add an entry WITH ITS REASON, deliberately. ⛔ **AND DO NOT FOLD IT INTO A CHAT FLIGHT:** it is capture-path work with a different blast radius, and [[★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE]] already carries the standing note that this is how a UI flight grows a backend. src: 2026-08-05 check:data, chat flight 3b. open
+- ★CHAT-SURFACE-REVERTED-2026-08-05 — ⛔ **THE CHAT EXTRACTION AND ITS FOLLOW-UP WERE REVERTED, CODE ONLY, THE SAME NIGHT THEY SHIPPED. RUSS'S CALL, ON HIS OWN RULE: a working surface beats a unified one.** **REVERTED:** `0410fb5` (LORAMER_CHAT_SHARED_THREAD_V1, the extraction) and `90c70bf` (LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1, D1/D2/D5). **`src/`, `tests/` and `scripts/` are BYTE-IDENTICAL to `1d61a25`, proven by `git diff --cached --quiet` per path, not asserted.** ⚠ **I NAMED THE WRONG TARGET COMMIT IN THE REPORT THAT PROPOSED THIS AND THE CORRECTION IS RECORDED RATHER THAN QUIETLY FIXED: I said "back to 770bf31", but 770bf31 lands AFTER 0410fb5 and therefore already CONTAINS the extraction.** The true pre-extraction state is 1d61a25; the intent was always "the last surface before the extraction" and that is what shipped. ⛔ **EVERY BANKED FINDING WAS KEPT** — DECISIONS, QUEUE, digest and manifest all stay at current, and the conflicts on the digest/manifest were resolved by taking current. **THE THREE DEFECTS THAT FORCED IT (Russ's device, Chrome iOS, Influential Drones, 2026-08-06 ~00:53Z):** **R1** the composer rendered at the TOP of the page with a screen of white below it · **R2** the back chevron landed on All Clients rather than the client page · **R3** a completed turn still did not appear on return. ⛔ **R1 HAS NO ESTABLISHED CAUSE AND NONE IS PROPOSED.** The obvious candidate was CHECKED AND KILLED: `.page` still carries `display:flex; flex-direction:column` byte-identical to pre-extraction, `.list` still has `flex:1`, and the Fragment `LoraThread` returns creates no DOM node, so the list and composer remain direct flex children. Structurally the chain matched the version that worked. Per [[★UI-OVERFLOW]] — four theories from CSS reads, all wrong — **no fifth theory is offered.** ✅ **R3 WAS ANSWERED FROM THE ROWS AND IT IS NOT WHAT THE BRIEF FEARED: the turn RAN AND FINISHED** — `client_conversations` 702 user 00:54:43Z → 703 assistant 00:57:20Z (157s) with a matching spend row (63,283 in / 3,613 out). The send fired; the answer persisted; the screen did not show it. ⛔ **THE EXTRACTION PLAN IS NOT WITHDRAWN AND [[★CHAT-SURFACE-UNIFICATION-PLAN]] STANDS.** The analysis behind it — three surfaces, the cost shape, the shelf's wrong scroll behaviour — is unchanged and was never what failed. **WHAT FAILED IS THAT NOTHING IN THIS REPO CAN SEE A LAYOUT.** ⛔ **PRECONDITION FOR RE-ATTEMPTING IT, and it is a precondition and not a preference: RENDER MEASUREMENT MUST EXIST FIRST** — see [[★CHAT-RENDER-MEASUREMENT-MISSING]]. Re-attempting the extraction without it is choosing to ship the same class of defect a third time. src: 2026-08-06 device report + revert. open
 
 ## I. LESSONS INDEX 1–60 (+ dated)  (source: LORAMER_DECISIONS.md)
 1 Silent-skip via shared marker — use content-based idempotency, not marker-presence.
@@ -1630,8 +1631,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 600 tokens indexed · 230 resolve to BOTH a decision and a queue item ·
-94 decision-only · 276 queue-only.
+TOTALS: 603 tokens indexed · 232 resolve to BOTH a decision and a queue item ·
+92 decision-only · 279 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 261 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -1679,13 +1680,15 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-LEGACY-503-STRING — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★CHAT-PROBE-DISPLAY-CANNOT-SHOW-DISMISSAL — OPEN · decisions 0 · queue 3 · last 2026-08-05
 - ★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH — OPEN · decisions 1 · queue 4 · last 2026-08-05
+- ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 0 · queue 2 · last 2026-08-06
 - ★CHAT-RETENTION-MARKETING — OPEN · decisions 0 · queue 3 · last 2026-07-26
 - ★CHAT-STATUS-INDICATOR — OPEN · decisions 3 · queue 3 · last 2026-09-30
 - ★CHAT-STATUS-SILENT-WINDOWS — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - ★CHAT-STOP-BUTTON — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING — OPEN · decisions 2 · queue 3 · last 2026-09-30
 - ★CHAT-STREAMING-FLAG-FLIP — OPEN · decisions 2 · queue 2 · last 2026-08-03
-- ★CHAT-SURFACE-UNIFICATION-PLAN — OPEN · decisions 0 · queue 2 · last 2026-08-05
+- ★CHAT-SURFACE-REVERTED-2026-08-05 — OPEN · decisions 0 · queue 1 · last 2026-08-06
+- ★CHAT-SURFACE-UNIFICATION-PLAN — OPEN · decisions 0 · queue 3 · last 2026-08-06
 - ★CHAT-THREAD-IDENTITY — OPEN · decisions 0 · queue 1 · last 2026-07-23
 - ★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE — OPEN · decisions 0 · queue 2 · last 2026-08-05
 - ★CHAT-UI-DEDICATED-DAY — OPEN · decisions 0 · queue 3 · last 2026-09-30
@@ -1829,6 +1832,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★META-V18-CONNECT-PATH — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★META-VIDEO-CONDITIONAL-SPARSITY — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★METRICS-UPSERT-FLIGHT-2 — OPEN · decisions 1 · queue 1 · last 2026-07-29
+- ★MOBILE-WIDTH-GUARD — DONE · decisions 0 · queue 1 · last 2026-08-06
 - ★MODEL-CHAIN-LIVE-529-GATE — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★MULTIACCOUNT-SLOT-BLOCKER — OPEN · decisions 1 · queue 2 · last 2026-08-01
 - ★N5 — OPEN · decisions 1 · queue 2 · last 2026-07-23
@@ -1887,7 +1891,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TRAINED-LORA-ROADMAP — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★TWO-EVAL-HARNESSES-ONE-JUDGE — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★UI-BRANCH-IS-PERMANENT — OPEN · decisions 1 · queue 1 · last 2026-08-05
-- ★UI-OVERFLOW — OPEN · decisions 5 · queue 4 · last 2026-08-05
+- ★UI-OVERFLOW — OPEN · decisions 5 · queue 5 · last 2026-08-06
 - ★UNCERTAINTY-PAGES-A-HUMAN — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★UNIVERSE-50-WINDOW-PROJECTION-ASSUMES-THE-DENSEST-MONTH — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★UNIVERSE-ARTIFACT-REPROBE-CADENCE — OPEN · decisions 1 · queue 1 · last 2026-08-03
@@ -1951,9 +1955,9 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CHAT_FAILURE_TELEMETRY_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_IS_THREE_SURFACES_V1 — DONE · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_MAXDURATION_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-30
-- LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-05
+- LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-06
 - LORAMER_CHAT_SERVER_TURN_WRITE_V1 — OPEN · decisions 3 · queue 2 · last 2026-09-30
-- LORAMER_CHAT_SHARED_THREAD_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-05
+- LORAMER_CHAT_SHARED_THREAD_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-06
 - LORAMER_CHAT_STATUS_FIRST_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_STATUS_SUBJECT_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-05
 - LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-05
@@ -2038,7 +2042,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_GOOGLE_QUOTA_GUARD_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-30
 - LORAMER_GOOGLE_QUOTA_LORA_CAVEAT_V1 — OPEN · decisions 0 · queue 3 · last 2026-07-28
 - LORAMER_GOOGLE_SEARCH_TERM_FLOOR_IS_OURS_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-01
-- LORAMER_GUARD_RUNALL_V1 — DECIDED · decisions 3 · queue 0 · last 2026-07-31
+- LORAMER_GUARD_RUNALL_V1 — DONE · decisions 3 · queue 1 · last 2026-08-06
 - LORAMER_HEALTH_UI_FLAG_MUTED_LORA_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - LORAMER_HISTORY_FIRST_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-18
 - LORAMER_INSIGHT_OPUS_FLOOR_V1 — DONE · decisions 2 · queue 1 · last 2026-07-17

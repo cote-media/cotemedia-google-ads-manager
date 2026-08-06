@@ -40,18 +40,6 @@ export function pickRecoveredAnswer(rows: ConvRow[], sinceId: number): Recovery 
 // know that, and since slice 1 it is false on every path where the server got far enough. None of
 // these invite a re-ask: a re-ask costs a full turn (~$0.50 measured 2026-07-26) and the answer is
 // very likely already saved.
-// ⛔ D5 SWEEP, 2026-08-05 — WHAT MAY AND MAY NOT REACH A USER, decided one string at a time rather than
-// as a rule nobody re-reads. THE TEST: does this sentence tell the user something about THEIR question,
-// or about OUR machinery? The first is an answer; the second is a leak.
-//   CHECKING             — RENDERABLE. About their turn, in Lora's voice, no jargon, no instruction.
-//   ABORTED_UNCONFIRMED  — RENDERABLE. States what happened and what was NOT done (not re-sent), which is
-//                          the thing a user actually needs to know.
-//   NETWORK_UNCONFIRMED  — RENDERABLE. Same shape; names the billing consequence in their terms.
-//   SERVER_ERROR         — RENDERABLE. Plain, owns the failure, invites nothing impossible.
-//   AMBIGUOUS_*          — ⛔ NOT RENDERABLE. See the note on it below.
-// ⚠ NOTHING ELSE IN THE CHAT PATH PUTS A CONSTANT ON SCREEN: the only other user-facing strings in
-// use-lora-chat.ts are the four inline branches on `d.error` ('I can't access this client's data from
-// here', the Anthropic-overloaded sentence, and the two above), all of which pass the same test.
 export const COPY = {
   // VOICE: this is Lora talking, not the client narrating its own transport. No "panel" (there isn't
   // one on a page), no "connection dropped before I got an answer back", no invitation to re-ask.
@@ -59,16 +47,7 @@ export const COPY = {
   CHECKING: 'Still working on this one. Let me check whether the answer came through…',
   ABORTED_UNCONFIRMED: 'This one is taking longer than usual. If Lora finished, her answer will be here when you come back — I haven\u2019t re-sent your question.',
   NETWORK_UNCONFIRMED: 'I couldn\u2019t reach Lora just then. Your question wasn\u2019t re-sent, so nothing was charged twice.',
-  // ⛔ RETIRED FROM THE RENDER PATH 2026-08-05 (LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1, D5). It REACHED A
-  // USER on 2026-08-05 and it should never have been renderable: it explains OUR machinery to someone who
-  // did not ask about it, and then asks THEM to do the work of finding their own answer. On ambiguity the
-  // surface now re-reads and RENDERS the thread — the answers are all present and in order, so showing
-  // them is both more honest and more useful than narrating our uncertainty.
-  // ⚠ KEPT AS A CONSTANT, NOT DELETED: `pickRecoveredAnswer` still RETURNS status 'ambiguous' and that is
-  // correct — refusing to guess is the right decision, and this string is the record of why the branch
-  // exists. A guard asserts it is never rendered. Deleting it would hide the reasoning; rendering it is
-  // the defect.
-  AMBIGUOUS_INTERNAL_DO_NOT_RENDER: 'More than one new answer exists on this client; the surface re-reads and renders the thread rather than guessing.',
+  AMBIGUOUS: 'There\u2019s more than one new answer on this client and I won\u2019t guess which is yours. Scroll up to see the full thread.',
   // THE 500 PATH. Added 2026-07-27: a definite server error was rendering as NETWORK_UNCONFIRMED — a
   // connection story for a turn where the connection was fine and the server answered with a 500.
   SERVER_ERROR: 'Something went wrong on my end — Lora never got to answer. Try again when you\u2019re ready.',
