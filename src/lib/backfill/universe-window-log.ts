@@ -190,13 +190,21 @@ export async function closeWindow(
  * quota resets ~08:03:57Z, which is why the same walk reads 11,130 on our clock and 6,190 on
  * Google's. Deliberately left alone HERE: the fleet read in google-op-budget uses the same 00:00Z
  * boundary, and moving one without the other makes the two lanes disagree about what day it is.
+ *
+ * ⛔ `since` IS OPTIONAL AND ADDITIVE — LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3 (flight 2).
+ * The walk's own governor still calls this with NO argument and its behaviour is byte-for-byte
+ * unchanged. The parameter exists because the FLEET read in google-op-budget must bill this same
+ * number against the same day, and it computes its own 00:00Z boundary for the cron_runs lanes —
+ * passing that boundary in is what makes the two reads provably the same day rather than two
+ * independently-computed midnights that agree by luck. It is also what lets the guard evaluate this
+ * function over a REAL PAST WINDOW (2026-08-05) instead of a synthetic one.
  */
-export async function readLaneSpendToday(): Promise<number> {
-  const since = new Date()
-  since.setUTCHours(0, 0, 0, 0)
+export async function readLaneSpendToday(since?: Date): Promise<number> {
+  const from = since ? new Date(since) : new Date()
+  if (!since) from.setUTCHours(0, 0, 0, 0)
   const { data, error } = await supabaseAdmin.rpc('universe_lane_spend_today', {
     p_vendor: VENDOR,
-    p_since: since.toISOString(),
+    p_since: from.toISOString(),
   })
   if (error) {
     throw new Error(

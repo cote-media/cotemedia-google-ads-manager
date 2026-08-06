@@ -51,6 +51,10 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import type { GoogleQuotaReadState } from './google-quota-store'
+// ⛔ ONE SOURCE FOR THE WALK'S SPEND, NOT TWO. Both files already carry the warning that their day boundaries
+// must move together; a second RPC call site here is exactly the drift they warn about. This imports the walk's
+// own reader instead of re-implementing the aggregate. (Acyclic: universe-window-log imports only @/lib/supabase.)
+import { readLaneSpendToday } from './universe-window-log'
 
 // Basic Access, developer-scope, shared across ALL google clients on ONE dev token (HANDOFF:727).
 export const GOOGLE_DAILY_OP_CAP = 15_000
@@ -65,12 +69,22 @@ export const CATCHUP_ALLOCATION = Math.floor(GOOGLE_DAILY_OP_CAP * CATCHUP_SHARE
 // Everything else — forward, the ranked geo lap, scoped recovery — lives here and catchup may not touch it.
 export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 
-// ⛔ 'backfill' IS DECLARED BUT NOT YET COUNTED — FLIGHT 1 OF 2, DELIBERATE AND STATED.
-// The universe walk spends Google operations and writes NO cron_runs row, so `readGoogleSpendToday` reports 0
-// for it and every arithmetic below treats it as zero. Wiring the ORDERING now and the COUNTING later is not
-// tidiness: counting it today would take the fleet estimate past the cap immediately and block forward,
-// catchup and drain in the same commit that was supposed to protect them. The ordering is inert until the
-// number arrives; the number arrives in flight 2 (★GOOGLE-QUOTA-PRIORITY-INVERSION).
+// ✅ 'backfill' IS NOW COUNTED — FLIGHT 2 OF 2, LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3, 2026-08-06.
+// The universe walk spends Google operations and writes NO cron_runs row, so for the whole of flight 1 this
+// reader reported 0 for it and every arithmetic below treated the largest single spender as zero. It is now
+// sourced from `universe_window_log` — the walk's own durable per-window ledger — via the SAME
+// `universe_lane_spend_today` aggregate the walk's own governor reads, so the two cannot drift.
+//
+// ⛔ WHY IT COULD NOT SHIP WITH FLIGHT 1, AND WHY THE TIMING OF THIS COMMIT IS LOAD-BEARING. Counting it on
+// 2026-08-05 would have put 13,230 trailing walk requests against the 15,000 cap and blocked forward, catchup
+// and drain the moment it deployed — the exact outage the budget exists to prevent, caused by the fix for it.
+// This lands with the walk HALTED and its trailing-24h spend measured at 0, which is the only window in which
+// the change is inert on arrival. (★GOOGLE-QUOTA-PRIORITY-INVERSION.)
+//
+// ⛔ THE UNIT TRAP, AND IT IS THE ONE THING TO GET RIGHT IN THIS FILE. The other three lanes store WORK UNITS
+// (connections, gap-days) and multiply by GAQL_REQUESTS_PER_CONNECTION_DAY to reach requests.
+// `universe_window_log.requests_spent` IS ALREADY IN REQUESTS — it counts vendor calls, one row per window.
+// Multiplying it by 67 would over-state the walk by 67× and refuse every lane on a fabricated ceiling.
 export type BudgetLane = 'catchup' | 'drain' | 'forward' | 'backfill'
 export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain', 'backfill'] as const
 
@@ -269,13 +283,19 @@ export function decideBudget(
     reason: `may spend ~${remaining} more ops (binding: ${laneRemaining <= fleetRemaining ? 'lane allocation' : 'fleet cap'}) — ${denom}` }
 }
 
-// Reads TODAY's google spend from `cron_runs`, which already records it durably — no new table, and no second
-// source of truth to drift. ⛔ ATTRIBUTED PER LANE BY `mode`, which v1 selected and threw away:
-//   forward/drain bill per CONNECTION-day (connections_attempted); catchup per GAP-day (days_filled).
-// A read failure returns null → decideBudget yields 'unknown' → every lane holds.
-export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
+// Reads TODAY's google spend from the TWO ledgers that record it durably, each in its own unit.
+//   · cron_runs        → forward / catchup / drain. ⛔ ATTRIBUTED PER LANE BY `mode`, which v1 selected and
+//                        threw away: forward/drain bill per CONNECTION-day (connections_attempted), catchup
+//                        per GAP-day (days_filled). Units × GAQL_REQUESTS_PER_CONNECTION_DAY → requests.
+//   · universe_window_log → backfill (the universe walk). ALREADY IN REQUESTS — never multiplied.
+// ⛔ TWO SOURCES, ONE DAY. Both are read from the SAME `since`, so the fleet total cannot be assembled from
+// two different days. This is NOT a second source of truth for the same fact: the walk and the cron lanes are
+// disjoint spenders, and the walk's rows are the only place its spend has ever existed.
+// A read failure on EITHER returns null → decideBudget yields 'unknown' → every lane holds.
+export async function readGoogleSpendToday(sinceOverride?: Date): Promise<GoogleSpendToday | null> {
   try {
-    const since = new Date(); since.setUTCHours(0, 0, 0, 0)
+    const since = sinceOverride ? new Date(sinceOverride) : new Date()
+    if (!sinceOverride) since.setUTCHours(0, 0, 0, 0)
     const { data, error } = await supabaseAdmin
       .from('cron_runs')
       .select('mode, connections_attempted, days_filled')
@@ -285,10 +305,12 @@ export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
       console.error('[google-op-budget] cron_runs READ FAILURE — this is a DB error, NOT headroom. Lanes HOLD. detail:', error.message)
       return null
     }
-    // ⛔ `backfill` IS PRESENT AND ALWAYS ZERO HERE, AND THAT IS THE POINT OF FLIGHT 1. The universe walk
-    // writes no cron_runs row, so this reader cannot see it — the key exists so the ORDERING is wired and the
-    // absence is VISIBLE in every denominator string, rather than the lane simply not existing.
-    const units: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0, backfill: 0 }
+    // ⛔ `backfill` IS DELIBERATELY ABSENT FROM THIS MAP AS OF FLIGHT 2, AND THAT IS THE POINT. The universe
+    // walk writes no cron_runs row, so a `units.backfill` key here could only ever be zero — and a zero that
+    // looks like a measurement is worse than no measurement. Its spend is read below from the walk's own
+    // ledger, in the walk's own unit. A cron_runs row that somehow claimed mode='backfill' falls through to
+    // the UNATTRIBUTED branch, where it is counted against the fleet and blamed on no lane.
+    const units: Record<Exclude<BudgetLane, 'backfill'>, number> = { forward: 0, catchup: 0, drain: 0 }
     let unattributedUnits = 0
     for (const r of data || []) {
       const mode = String((r as any).mode ?? '')
@@ -309,20 +331,29 @@ export async function readGoogleSpendToday(): Promise<GoogleSpendToday | null> {
         console.warn(`[google-op-budget] cron_runs row with UNRECOGNISED mode='${mode}' — counted against the fleet cap, attributed to no lane`)
       }
     }
+    // ⛔ THE WALK'S SPEND, FROM THE WALK'S OWN LEDGER, IN THE WALK'S OWN UNIT — FLIGHT 2.
+    // `readLaneSpendToday` sums `universe_window_log.requests_spent` server-side (migrations/057). It is
+    // ALREADY REQUESTS: it must NOT be multiplied by GAQL_REQUESTS_PER_CONNECTION_DAY the way the three
+    // cron_runs lanes are. The same `since` is passed that the cron_runs read above used, so both halves of
+    // the fleet total are provably the same day rather than two midnights computed independently.
+    //
+    // ⛔ IT THROWS ON A BAD READ AND THAT IS THE DESIGN, NOT AN OVERSIGHT. The throw is caught by this
+    // function's own catch below, which returns null → decideBudget yields 'unknown' → EVERY LANE HOLDS.
+    // The alternative — defaulting the walk to 0 when its ledger is unreadable — is the precise shape of the
+    // defect that authorised ~10,800 consecutive publishes on 2026-08-05: an unreadable counter reading as
+    // "nothing spent" is the single most permissive answer a governor can be handed.
+    const backfillRequests = await readLaneSpendToday(since)
     return {
       byLane: {
         forward: units.forward * GAQL_REQUESTS_PER_CONNECTION_DAY,
         catchup: units.catchup * GAQL_REQUESTS_PER_CONNECTION_DAY,
         drain: units.drain * GAQL_REQUESTS_PER_CONNECTION_DAY,
-        // ⛔ NOT MEASURED YET — flight 2 sources this from universe_window_log. It reads 0 today, which
-        // UNDER-counts the fleet by the largest single spender; that is a known, dated, deliberate gap and
-        // not a claim that the walk spends nothing.
-        backfill: units.backfill * GAQL_REQUESTS_PER_CONNECTION_DAY,
+        backfill: backfillRequests,
       },
       unattributedRaw: unattributedUnits * GAQL_REQUESTS_PER_CONNECTION_DAY,
     }
   } catch (e: any) {
-    console.error('[google-op-budget] cron_runs read THREW — lanes HOLD. detail:', e?.message ?? e)
+    console.error('[google-op-budget] spend read THREW (cron_runs or universe_window_log) — lanes HOLD. detail:', e?.message ?? e)
     return null
   }
 }

@@ -34,6 +34,11 @@ import Module, { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
+// --db — the LIVE leg, wired into `npm run check:data` and DELIBERATELY NOT into `npm run guard`.
+// It reads the database, and `guard` runs inside `next build` on Vercel: a DB read in the deploy path is the
+// posture this repo already rejected for check:data. Static legs prove the SHAPE on every build; this proves
+// the NUMBER before a push.
+const WITH_DB = process.argv.includes('--db')
 const fail = (m) => { console.error(`[google-op-budget] FAIL — ${m}`); process.exit(1) }
 const findings = []
 const check = (c, m) => { if (!c) findings.push(m) }
@@ -289,7 +294,7 @@ for (const [f] of LANES) {
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
       `(i.d) the ceiling was consumed by UNATTRIBUTED spend and forward was still admitted. Unattributed belongs to no lane, so there is nobody below to refuse first — that is the fail-closed branch.`)
   }
-  // (e) THE BACKFILL LANE IS WIRED BUT NOT COUNTED — flight 1 of 2, asserted so the gap stays visible.
+  // (e) THE BACKFILL LANE IS WIRED **AND COUNTED** — flight 2 of 2.
   {
     check((mod.BUDGET_LANES || []).includes('backfill'),
       `(i.e) 'backfill' is not a BudgetLane. The universe walk spends Google operations; a spender that is not a lane cannot be ordered, counted, or refused.`)
@@ -297,7 +302,45 @@ for (const [f] of LANES) {
     check(Object.prototype.hasOwnProperty.call(s.byLane, 'backfill') || true, 'shape')
     check(decideBudget('backfill', spend({ forward: 9900, catchup: 100 })).state === 'blocked',
       `(i.e) the BACKFILL lane was admitted on an exhausted ceiling. It is the lowest priority there is — it yields to everything.`)
+    // ⛔ AND THE WALK'S SPEND MUST REACH THE OTHER LANES' DENOMINATOR. Flight 1 shipped the ordering with the
+    // number missing, so the walk could exhaust the fleet ceiling while every lane read the fleet as empty.
+    const b = decideBudget('forward', spend({ forward: 100, backfill: 14000 }))
+    check(b.fleetRawRequestsToday >= 14000,
+      `(i.e2) the BACKFILL lane's spend (14000) is not reaching the FLEET total (got ${b.fleetRawRequestsToday}). The walk is the largest single Google spender in the system; a fleet total that cannot see it is measuring ~15% of the fleet.`)
   }
+}
+
+// ── (j) FLIGHT 2 — THE BACKFILL LANE IS SOURCED FROM THE WALK'S LEDGER, NOT FROM A STRUCTURAL ZERO ──────
+// ⛔ LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3. The pre-fix reader wrote
+// `backfill: units.backfill * GAQL_REQUESTS_PER_CONNECTION_DAY` where `units.backfill` was NEVER ASSIGNED —
+// there is no `mode === 'backfill'` branch, because the walk writes no cron_runs row at all. That is not a
+// measurement that happens to be zero; it is arithmetic that CANNOT be non-zero, and it read as a lane
+// spending nothing for the eleven hours the walk spent 13,230 requests.
+// THIS LEG GUARDS THE CLASS, not today's expression: any future backfill source that routes through the
+// cron_runs `units` map is the same defect wearing a different name.
+{
+  check(/universe-window-log/.test(code) && /readLaneSpendToday/.test(code),
+    `(j) google-op-budget does not read readLaneSpendToday from universe-window-log. The walk's spend exists ONLY in universe_window_log — a fleet total assembled without it is structurally blind to its largest spender.`)
+  check(!/backfill:\s*units\.backfill/.test(code),
+    `(j) the backfill lane is still sourced from the cron_runs \`units\` map. \`units.backfill\` is never assigned (there is no mode === 'backfill' branch), so that expression can only ever be 0 — a zero that LOOKS like a measurement.`)
+  check(!/units\.backfill/.test(code),
+    `(j) a \`units.backfill\` key still exists in the cron_runs accumulator. The walk writes no cron_runs row, so any such key is a permanent zero pretending to be data — it must not exist for a future reader to pick up.`)
+  // ⛔ THE UNIT TRAP. requests_spent is ALREADY requests; the three cron lanes are WORK UNITS × 67.
+  check(!/backfill:\s*[A-Za-z_.]*\s*\*\s*GAQL_REQUESTS_PER_CONNECTION_DAY/.test(code),
+    `(j) the backfill lane is multiplied by GAQL_REQUESTS_PER_CONNECTION_DAY. universe_window_log.requests_spent is ALREADY in requests — multiplying it over-states the walk by 67× and would refuse every lane on a ceiling that does not exist.`)
+  check(/backfill:\s*backfillRequests/.test(code),
+    `(j) the backfill lane is not assigned from the walk-ledger read.`)
+  // ⛔ FAIL CLOSED. The walk-ledger read must sit INSIDE the try whose catch returns null → 'unknown' → hold.
+  // A backfill read that defaults to 0 on failure is the 2026-08-05 defect exactly: an unreadable counter
+  // arriving as "nothing spent" is the most permissive answer a governor can be given.
+  const reader = (code.match(/export async function readGoogleSpendToday[\s\S]*?\n}\n/) || [''])[0]
+  check(/readLaneSpendToday\(/.test(reader),
+    `(j) the walk-ledger read is not inside readGoogleSpendToday — it must share that function's try/catch so an unreadable ledger HOLDS every lane instead of reading as zero spend.`)
+  check(!/readLaneSpendToday\([\s\S]{0,120}?\.catch\(/.test(reader) && !/catch\s*\{\s*return\s*0/.test(reader),
+    `(j) the walk-ledger read swallows its own failure and yields a number. It must THROW to this function's catch, which returns null → 'unknown' → every lane holds.`)
+  // Both halves of the fleet total must be read from ONE `since`, or the total mixes two days.
+  check(/readLaneSpendToday\(\s*since\s*\)/.test(code),
+    `(j) the walk-ledger read does not reuse the cron_runs \`since\`. Two independently-computed midnights make the fleet total a sum across two different days.`)
 }
 
 // ── THE THREE-STATE VOCABULARY IS THE BANKED ONE, NOT A FOURTH DIALECT ─────────────────────────────────
@@ -308,6 +351,79 @@ for (const [f] of LANES) {
   for (const s of [decideBudget('catchup', null).state, decideBudget('catchup', spend()).state, decideBudget('catchup', spend({ catchup: 1e9 })).state]) {
     check(states.has(s), `(vocab) the budget emitted state '${s}', outside the banked three.`)
   }
+}
+
+// ── (k) LIVE: THE BACKFILL LANE MUST NOT READ ZERO WHILE THE WALK LEDGER SHOWS SPEND ───────────────────
+// ⛔ THE STATIC LEGS ABOVE PROVE THE SHAPE. THIS PROVES THE NUMBER, and they are not substitutes: flight 1's
+// `units.backfill * 67` was a perfectly well-shaped expression that could only ever return 0. This drives the
+// REAL transpiled reader against the REAL database — no synthetic spend shape — and fails if the lane reports
+// nothing over a window in which universe_window_log records vendor requests.
+if (WITH_DB) {
+  const readRoot = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { return '' } }
+  for (const line of readRoot('.env.local').split('\n')) {
+    const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+  }
+  if (!process.env.SUPABASE_DB_URL) {
+    rmSync(out, { recursive: true, force: true })
+    fail(`--db requested but SUPABASE_DB_URL is missing (.env.local). Refusing to pass quietly — a skipped spend check reads exactly like a passing one, which is the failure mode this whole file exists to prevent.`)
+  }
+  const pg = (await import('pg')).default
+  const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+  await db.connect()
+  const q = async (sql, params) => (await db.query(sql, params)).rows
+
+  // A supabaseAdmin stand-in backed by real SQL, so the reader's OWN code path decides the number.
+  const makeSb = () => ({
+    from: () => {
+      const st = { platform: null, since: null }
+      const chain = {
+        select: () => chain,
+        eq: (c, v) => { if (c === 'platform') st.platform = v; return chain },
+        gte: (c, v) => { if (c === 'started_at') st.since = v; return chain },
+        then: (res, rej) =>
+          q(`select mode, connections_attempted, days_filled from cron_runs where platform = $1 and started_at >= $2`,
+            [st.platform, st.since])
+            .then((rows) => res({ data: rows, error: null }), rej),
+      }
+      return chain
+    },
+    rpc: async (fn, args) => {
+      if (fn !== 'universe_lane_spend_today') return { data: null, error: { message: `unexpected rpc ${fn}` } }
+      const rows = await q(`select public.universe_lane_spend_today($1, $2::timestamptz) as v`, [args.p_vendor, args.p_since])
+      return { data: rows[0]?.v ?? null, error: null }
+    },
+  })
+
+  // ⛔ THE WINDOW IS OVERRIDABLE, AND THAT IS HOW THIS LEG WAS PROVEN TO FAIL. The walk is halted, so the
+  // trailing 24h is empty and the leg is vacuous today — a check nobody has watched fail is a comment
+  // (FIX-WITH-GUARD). LORAMER_OPBUDGET_DB_SINCE points it at a REAL PAST WINDOW (2026-08-05, when the walk
+  // spent 13,230 requests across 12,547 windows), which is where its RED was demonstrated against the pre-fix
+  // reader. Default and CI behaviour is unchanged: trailing 24h.
+  const sinceOverride = process.env.LORAMER_OPBUDGET_DB_SINCE
+  const since = sinceOverride ? new Date(sinceOverride) : new Date(Date.now() - 24 * 3600 * 1000)
+  const [{ walk_requests: walkRequests, walk_rows: walkRows }] = await q(
+    `select coalesce(sum(requests_spent),0)::bigint as walk_requests, count(*)::int as walk_rows
+       from public.universe_window_log where vendor = 'google_ads' and started_at >= $1`, [since.toISOString()])
+  const walk = Number(walkRequests)
+
+  globalThis.__SB__ = makeSb()
+  const live = await mod.readGoogleSpendToday(since)
+
+  if (live === null) {
+    findings.push(`(k) readGoogleSpendToday returned NULL over the trailing 24h — the fleet read is UNREADABLE, so every google lane is holding right now. That is fail-closed and therefore safe, but it is not a pass.`)
+  } else if (walk > 0 && Number(live.byLane.backfill) === 0) {
+    findings.push(`(k) STRUCTURAL ZERO: universe_window_log records ${walk} vendor requests across ${walkRows} window(s) in the trailing 24h, and the backfill lane reports 0. The walk's spend is invisible to the fleet ceiling — forward, catchup and drain are all measuring against a denominator missing the largest single spender.`)
+  } else if (walk > 0 && Number(live.byLane.backfill) !== walk) {
+    findings.push(`(k) the backfill lane reports ${live.byLane.backfill} against ${walk} requests in universe_window_log over the same window. requests_spent is ALREADY in requests — a mismatch here is the ×67 unit trap or a day-boundary drift.`)
+  }
+  // ⛔ EMPTY CARRIES ITS DENOMINATOR. A quiet walk is the NORMAL state while it is halted, and this leg must
+  // say so out loud rather than printing a bare PASS that a reader mistakes for "the counting works".
+  console.log(
+    walk > 0
+      ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} window(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`
+      : `[google-op-budget] (k) live: universe_window_log records ZERO walk requests in the trailing 24h (${walkRows} rows) — the walk is halted, so this leg is VACUOUS today. It asserts nothing about the counting; the static legs (j) do.`)
+  await db.end()
 }
 
 rmSync(out, { recursive: true, force: true })
