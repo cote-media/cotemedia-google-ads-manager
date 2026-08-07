@@ -234,7 +234,23 @@ if (!page || !pageTsx) {
   if (!/followBottom\(/.test(msgEffect)) {
     fail('THE NEW-MESSAGE AUTO-SCROLL IS NOT PIN-AWARE. A new message arriving while the user is reading history must NOT yank the view to the bottom.')
   }
-  const vvEffect = (pageTsx.match(/const vv = typeof window[\s\S]*?removeEventListener\('resize', apply\)/) || [''])[0]
+  // ⛔ LOCATOR REPAIRED 2026-08-07 — ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE, FOURTH TIME. This anchored on
+  // `removeEventListener('resize', apply)` — the ARGUMENT LIST — so renaming the handler to `onResize`
+  // (to stamp WHICH event fired, for LORAMER_COMPOSER_VV_PROBE_V1) broke it while the property it
+  // protects was untouched. THE PROPERTY IS UNCHANGED AND IS NOT RELAXED: the visualViewport effect
+  // must still contain a pin-aware `followBottom(`. Only the anchor moved, from the handler's NAME to
+  // the CALLEE (`removeEventListener('resize'`), which is the banked rule: anchor on the callee, never
+  // on the argument list.
+  // ⛔ AND THE REPAIR WENT FURTHER THAN THE RENAME, BECAUSE THE OLD ANCHOR HAD BEEN GREEN FOR THE WRONG
+  // REASON SINCE bb84bc1. `pageTsx` is LoraPageClient CONCATENATED WITH the shared thread, and bb84bc1
+  // added a SECOND `const vv = typeof window` to LoraPageClient (the header's own visualViewport
+  // effect, which correctly has no followBottom). The old non-greedy match therefore STARTED in the
+  // header's effect and only reached a `followBottom(` by running past the file boundary into the
+  // thread's effect — it was asserting across two unrelated effects and passing by accident.
+  // ANCHORED ON THE PROPERTY INSTEAD: the effect that OWNS the keyboard arrival is the one that writes
+  // `--lora-kb-inset`, and that is what must also contain the pin-aware scroll. Identifier-independent,
+  // and it can no longer match the wrong effect. ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE, fourth instance.
+  const vvEffect = (pageTsx.match(/setProperty\('--lora-kb-inset'[\s\S]*?removeEventListener\('resize'/) || [''])[0]
   if (!/followBottom\(/.test(vvEffect)) {
     fail('THE KEYBOARD-ARRIVAL SCROLL IS NOT PIN-AWARE. Russ called this one out by name: the visualViewport-resize scroll must obey the same rule as every other auto-scroll.')
   }
@@ -247,8 +263,19 @@ if (!page || !pageTsx) {
   if (!composerRules.some((b) => /position\s*:\s*sticky/.test(b))) {
     fail('THE COMPOSER IS NOT STICKY. At the end of the document it is only visible when the thread is scrolled to the bottom, so reading history means scrolling all the way back down to type.')
   }
-  if (!composerRules.some((b) => /bottom\s*:\s*var\(--lora-kb-inset,\s*0px\)/.test(b))) {
-    fail('THE COMPOSER DOES NOT PIN TO `bottom: var(--lora-kb-inset, 0px)`. The default of 0 is load-bearing: with no JS, no visualViewport, or a stale value the composer must degrade to the bottom of the layout viewport, which is the geometry already proven on device. A hardcoded bottom cannot lift clear of the keyboard; a var with no fallback resolves to nothing.')
+  // ⛔ LOCATOR REPAIRED 2026-08-07, AND THE PROPERTY IS DELIBERATELY UNCHANGED — read this before
+  // assuming a guard was weakened to fit new code. This pinned the VARIABLE NAME `--lora-kb-inset`.
+  // LORAMER_COMPOSER_SIGNED_OFFSET_V1 moved the composer onto `--lora-composer-bottom` because
+  // `--lora-kb-inset` is THRESHOLDED (`raw > 100 ? raw : 0`) and therefore discards the NEGATIVE offsets
+  // a collapsing toolbar produces — measured −90 against this repo's own device values.
+  // WHAT THIS ASSERTION ACTUALLY PROTECTS, quoted from its own failure text: a VAR (not a hardcoded
+  // bottom, which cannot lift clear of the keyboard) WITH A 0px FALLBACK (so no-JS / no-visualViewport /
+  // a stale value degrades to the layout-viewport bottom, the geometry already proven on device).
+  // BOTH CLAUSES STILL HOLD and are still enforced; the name is no longer part of the claim. That the
+  // var is DERIVED FROM THE VISUAL VIEWPORT is asserted by chat-visual-viewport.guard leg (k), which was
+  // strengthened in the same commit — so nothing that was checked here has become unchecked anywhere.
+  if (!composerRules.some((b) => /bottom\s*:\s*var\(--[\w-]+,\s*0px\)/.test(b))) {
+    fail('THE COMPOSER DOES NOT PIN TO `bottom: var(--…, 0px)`. The default of 0 is load-bearing: with no JS, no visualViewport, or a stale value the composer must degrade to the bottom of the layout viewport, which is the geometry already proven on device. A hardcoded bottom cannot lift clear of the keyboard; a var with no fallback resolves to nothing.')
   }
   if (!/--lora-kb-inset/.test(pageTsx) || !/visualViewport/.test(pageTsx)) {
     fail('NOTHING SETS `--lora-kb-inset`. The inset must be measured from visualViewport (docH - offsetTop - vvH), or the sticky composer pins to the layout-viewport bottom, which the iOS keyboard occludes.')

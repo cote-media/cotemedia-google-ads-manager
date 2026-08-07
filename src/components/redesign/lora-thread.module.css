@@ -146,7 +146,20 @@
    mechanism and is chosen for how it FAILS: with no JS, no visualViewport or a stale value the inset is
    0 and the composer pins to the bottom of the layout viewport — where it already sits today. */
 .composer {
-  position: sticky; bottom: var(--lora-kb-inset, 0px); z-index: 2;
+  /* ⛔ LORAMER_COMPOSER_SIGNED_OFFSET_V1, 2026-08-07 — THE SIGNED VAR, NOT THE THRESHOLDED ONE.
+     `--lora-kb-inset` is gated `raw > 100 ? raw : 0`, which DISCARDS the NEGATIVE offsets a collapsing
+     toolbar produces — and a negative is exactly right here: it means the visual bottom now sits BELOW
+     the layout bottom, so the composer must be pushed down into the band the toolbar vacated. MEASURED
+     against this repo's own banked device values (layout 766 / visual 428): keyboard-down + collapsed
+     gives raw −90, the threshold turns it into 0, and the composer ends up 90px too HIGH with content
+     below it. `--lora-composer-bottom` carries the signed value with no threshold and no clamp.
+     ⛔ STATED SO IT IS NOT MISREAD: THIS IS NOT THE FIX FOR THE REPORTED KEYBOARD-UP DEFECT. With the
+     keyboard up raw ≈ 248, far above the threshold, so the cliff never fires in the failing case. This
+     closes a real adjacent defect and removes the composer's exposure to a 105 → 95 teleport; the
+     reported one is what LORAMER_COMPOSER_VV_PROBE_V1 is for.
+     ⚠ THE FALLBACK IS 0px — a severed scope or an engine with no visualViewport degrades to exactly
+     today's shipped geometry rather than to `auto`. */
+  position: sticky; bottom: var(--lora-composer-bottom, 0px); z-index: 2;
   padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
   --composer-pad-b: calc(12px + env(safe-area-inset-bottom, 0px));
 }
@@ -235,6 +248,22 @@
    of the a11y tree and off hit-testing; `pointer-events: none` is belt-and-braces for the 120ms the
    fade is still running. */
 .jumpHidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+/* LORAMER_COMPOSER_VV_PROBE_V1 — the measurement readout, ?debug=chat only, PAGE only.
+   ⛔ COLOURS ARE LITERAL, NOT VARS, for the same reason the landing probe's are: this renders on the
+   page variant, which mounts OUTSIDE Shell, and a var() with no fallback resolves to nothing there —
+   the severance that once shipped a white glyph on a white bar. Monospace + tabular-nums so successive
+   screenshots line up column-wise and a mis-read is unlikely; `white-space: pre` because the readout is
+   three fixed lines. */
+.vvProbe {
+  position: absolute; left: 0; right: 0; top: -58px;
+  background: #fef08a; color: #1c1917;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 6px; white-space: pre; overflow-x: auto;
+  border: 1px solid #ca8a04; border-radius: 4px;
+  pointer-events: none;
+}
 
 /* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — the landing-scroll readout, ON SCREEN, ?debug=chat only.
    Same yellow-bar treatment as the frame probe because that is the one Russ already recognises and

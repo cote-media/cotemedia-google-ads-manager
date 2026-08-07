@@ -211,6 +211,22 @@ export default function LoraThread({
       const raw = Math.round(docH - (vv.offsetTop || 0) - vv.height)
       const inset = raw > KEYBOARD_MIN_DELTA_PX ? raw : 0
       insetTargetRef?.current?.style.setProperty('--lora-kb-inset', `${inset}px`)
+      // ── LORAMER_COMPOSER_SIGNED_OFFSET_V1 — THE COMPOSER GETS THE SIGNED VALUE, UNTHRESHOLDED.
+      // `raw` IS the offset the composer needs, INCLUDING NEGATIVES: it is `docH − visualBottom`, i.e.
+      // how far the visual bottom sits BELOW the layout bottom once a collapsing toolbar has extended
+      // the visible band downward. MEASURED against this file's own banked device values (layout 766,
+      // visual 428): keyboard-down + collapsed gives raw −90, the shipped threshold turns that into 0,
+      // and the composer ends up 90px ABOVE where it belongs with content below it.
+      // ⛔ AND IT IS STATED PLAINLY BECAUSE IT WOULD OTHERWISE BE MISREAD: THIS IS NOT THE FIX FOR THE
+      // REPORTED KEYBOARD-UP DEFECT. With the keyboard up raw ≈ 248 — far above the 100 threshold — so
+      // the clamp NEVER FIRES in the failing case. This closes a real, provable, adjacent defect and
+      // removes the composer's exposure to the cliff; the reported one is what the probe is for.
+      // ⚠ WHY --lora-kb-inset KEEPS ITS THRESHOLD RATHER THAN BECOMING A BARE CLAMP: LoraPageClient
+      // reads it as the KEYBOARD-UP DETECTOR (`inset > 0`). Unthresholded, ~20px of address-bar chrome
+      // would read as "keyboard up" and flip the header into JS-owned placement spuriously — a
+      // regression of fb95147. The cliff is removed from the path that matters (the composer now reads
+      // the signed var and cannot be teleported by a 105 → 95 crossing) and left where fb95147 needs it.
+      insetTargetRef?.current?.style.setProperty('--lora-composer-bottom', `${raw}px`)
       // ── LORAMER_CHAT_COMPOSER_CLIP_V1, 2026-08-07 — THE CAP FOLLOWS THE VISIBLE AREA.
       // The composer already sits ABOVE the keyboard (sticky at `bottom: var(--lora-kb-inset)`), so the
       // clip this fixes is the other direction: a grown field eating the thread that is left. `40vh` and
@@ -232,9 +248,12 @@ export default function LoraThread({
       }
     }
     apply()
-    vv.addEventListener('resize', apply)
-    vv.addEventListener('scroll', apply)
-    return () => { vv.removeEventListener('resize', apply); vv.removeEventListener('scroll', apply) }
+    // LORAMER_COMPOSER_VV_PROBE_V1 — stamp WHICH event fired and WHEN, so the probe can report staleness.
+    const onResize = () => { lastVvRef.current = { name: 'resize', at: Date.now() }; apply() }
+    const onScroll = () => { lastVvRef.current = { name: 'scroll', at: Date.now() }; apply() }
+    vv.addEventListener('resize', onResize)
+    vv.addEventListener('scroll', onScroll)
+    return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onScroll) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, active, insetTargetRef, inputRef])
 
@@ -250,6 +269,18 @@ export default function LoraThread({
   // grown never shrinks back — it only ratchets up. Resetting to auto lets the browser recompute the
   // intrinsic height first, which is what makes CLEARING the field return it to one line.
   // The CSS max-height still clamps the painted box, so a long paste stops growing and scrolls itself.
+  // ── LORAMER_COMPOSER_SIGNED_OFFSET_V1 + LORAMER_COMPOSER_VV_PROBE_V1, 2026-08-07 ──────────────────
+  // composerRef: the element under test — the probe reads its REAL rect rather than what we believe.
+  // vvProbeRef: the readout sink, written IMPERATIVELY (never through React) so it updates during a
+  // momentum flick without a render per frame.
+  // lastVvRef: which visualViewport event last fired and when. ⛔ THIS IS THE READING THAT MATTERS MOST
+  // and it is why the probe cannot be event-driven: if NEITHER event fires during a momentum toolbar
+  // collapse, the parameter is stale however correct its arithmetic — a THIRD mechanism neither of us
+  // had named — and an event-driven readout would simply not update and look like nothing happened.
+  const composerRef = useRef<HTMLDivElement>(null)
+  const vvProbeRef = useRef<HTMLDivElement>(null)
+  const lastVvRef = useRef<{ name: string; at: number }>({ name: 'none', at: 0 })
+
   const autoGrow = useCallback(() => {
     const el = inputRef.current
     if (!el) return
@@ -259,6 +290,71 @@ export default function LoraThread({
     el.style.height = `${el.scrollHeight}px`
   }, [inputRef])
   useEffect(() => { autoGrow() }, [input, autoGrow])
+
+  // ══ LORAMER_COMPOSER_VV_PROBE_V1, 2026-08-07 — THE MEASUREMENT FLIGHT'S ACTUAL DELIVERABLE ═══════
+  //
+  // ⛔ WRITTEN AGAINST ★LANDING-PROBE-SPEC-IS-WRONG, WHOSE TWO DEFECTS BOTH APPLY HERE:
+  //   (a) MISMATCHED BASES — that probe compared `documentElement.scrollHeight` with
+  //       `window.innerHeight`, two different objects, so its numbers could not be subtracted.
+  //       ⇒ EVERYTHING BELOW IS IN ONE BASIS AND THE BASIS IS PRINTED: the LAYOUT viewport, origin at
+  //       its top. `getBoundingClientRect()` is already in that basis, `visualViewport.offsetTop` is the
+  //       visual viewport's own offset within it, so `offsetTop + height` IS the visual bottom in the
+  //       SAME coordinates as `rect.bottom`. They are directly comparable, which is the whole point.
+  //   (b) AN ARMING WINDOW THAT CLOSED BEFORE THE EVENT — it armed for 800ms and the thing it measured
+  //       happened later. ⇒ THIS HAS NO ARMING WINDOW AT ALL. It runs continuously for as long as the
+  //       debug flag is on.
+  //
+  // ⛔ IT IS A rAF LOOP AND NOT AN EVENT HANDLER, FOR THE ONE READING THAT MATTERS MOST. Phase 1(c)
+  // could not establish from a read whether iOS fires `resize` or `scroll` during a momentum toolbar
+  // collapse. If NEITHER fires, the parameter is stale however correct its arithmetic — a third
+  // mechanism neither of us had named — and an EVENT-DRIVEN readout would simply not update, which
+  // looks identical to nothing happening. A frame loop reports the AGE of the last event, so silence
+  // becomes a visible, rising number instead of an absence.
+  //
+  // ⛔ WHAT EACH READING PROVES — WRITTEN DOWN BEFORE IT RUNS, because a probe whose interpretation is
+  // decided after seeing the data can be read to confirm anything:
+  //   · `d` (= rect.bottom − visualBottom) ≈ 0            → THE COMPOSER IS TRACKING. Not mechanism (i).
+  //   · `d` ≈ −(toolbar height) WHILE `inset` IS CORRECT  → sticky is NOT following a correct parameter
+  //                                                          ⇒ (i), the Apple sticky-bottom bug.
+  //   · `inset` ≠ the live `docH − offsetTop − vvH`       → the PARAMETER is wrong/stale ⇒ (ii).
+  //   · `age` large (hundreds of ms) during the flick     → the events did not fire ⇒ (iii) starvation,
+  //                                                          and (ii) is a CONSEQUENCE, not the cause.
+  //
+  // ⚠ IT RENDERS INSIDE THE COMPOSER, DELIBERATELY: the numbers then travel WITH the element under
+  // test, so one screenshot carries both the misplacement and the data that explains it. THE COST IS
+  // STATED — if the composer ever leaves the screen entirely the readout goes with it. The reported
+  // failure strands it mid-content, where it is plainly visible, so that trade is worth it here; it
+  // would not be for a defect that hides the element.
+  useEffect(() => {
+    if (!debug || variant !== 'page') return
+    let raf = 0
+    const tick = () => {
+      const sink = vvProbeRef.current
+      const vv = typeof window !== 'undefined' ? window.visualViewport : null
+      if (sink && vv) {
+        const docH = document.documentElement.clientHeight
+        const off = Math.round(vv.offsetTop || 0)
+        const vvH = Math.round(vv.height)
+        const visualBottom = off + vvH
+        const rect = composerRef.current?.getBoundingClientRect()
+        const cTop = rect ? Math.round(rect.top) : NaN
+        const cBot = rect ? Math.round(rect.bottom) : NaN
+        const inset = insetTargetRef?.current
+          ? insetTargetRef.current.style.getPropertyValue('--lora-kb-inset').trim() || '(unset)'
+          : '(no target)'
+        const live = docH - off - vvH
+        const ev = lastVvRef.current
+        const age = ev.at ? Date.now() - ev.at : -1
+        sink.textContent =
+          `BASIS=layout-vp  docH ${docH}  off ${off}  vvH ${vvH}  visBottom ${visualBottom}\n` +
+          `composer top ${cTop}  bottom ${cBot}   d=bottom-visBottom ${cBot - visualBottom}\n` +
+          `inset ${inset}  live(docH-off-vvH) ${live}   ev ${ev.name} age ${age}ms`
+      }
+      raf = window.requestAnimationFrame(tick)
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(raf)
+  }, [debug, variant, insetTargetRef])
 
   const list = (
     <div ref={contentRef} style={{ display: 'contents' }}>
@@ -349,7 +445,13 @@ export default function LoraThread({
         {list}
       </div>
 
-      <div className={`${s.composerShared} ${isPanel ? s.composerPanel : s.composer}`}>
+      <div ref={composerRef} className={`${s.composerShared} ${isPanel ? s.composerPanel : s.composer}`}>
+        {/* LORAMER_COMPOSER_VV_PROBE_V1 — debug-gated, page only. Written imperatively by the rAF loop
+            above, never through React, so it stays legible during a momentum flick without costing a
+            render per frame. `debug` is the EXISTING ?debug=chat flag (sessionStorage
+            `loramer:debug-chat`) — no new gate was invented, which is half of why the landing probe
+            became unreachable. */}
+        {debug && !isPanel && <div ref={vvProbeRef} className={s.vvProbe} />}
         {/* ⛔ LORAMER_PINNED_ELEMENT_SWEEP_V1, 2026-08-07 — ALWAYS MOUNTED. THE CHEVRON'S DEFECT WAS
             NEVER ITS POSITION, AND THAT IS WHY THE HEADER'S FIX DID NOT TRANSFER TO IT.
             Gate-B: it flickered in sync with flick speed AND SLIGHTLY AFTER IT. This was

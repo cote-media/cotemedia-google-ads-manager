@@ -151,11 +151,15 @@ for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
 //   param            sticky offset is a var() JS writes; the BROWSER computes the painted position.
 //   declared-unfixed known to carry the defect, deliberately not fixed, with the reason recorded here.
 const PINNED = {
-  head: { owner: 'js-top', file: PAGE_CSS },
-  probe: { owner: 'js-top', file: PAGE_CSS },
-  composer: { owner: 'param', file: THREAD_CSS },
+  head: { owner: 'js-top', file: PAGE_CSS, provenBy: 'gate-b:fb95147' },
+  probe: { owner: 'js-top', file: PAGE_CSS, provenBy: 'unproven' },
+  // ⛔ provenBy IS THE ANSWER TO ★GUARD-LEDGER-GREEN-ON-UNPROVEN-ELEMENT. On 2026-08-07 leg (k) printed
+  // this element GREEN while it was broken on a device, because the ledger recorded a DECLARATION and
+  // the declaration was an assertion I had reasoned to. `unproven` is a LEGAL value and it is PRINTED
+  // ON EVERY RUN, so "declared" can never again be read as "correct".
+  composer: { owner: 'param', file: THREAD_CSS, provenBy: 'unproven' },
   landingProbe: {
-    owner: 'declared-unfixed', file: THREAD_CSS,
+    owner: 'declared-unfixed', file: THREAD_CSS, provenBy: 'unproven',
     why: 'sticky top:0 inside the SHARED thread component AND NEUTERED — its gate moved to '
        + '`loramer:debug-landing`, which nothing sets (LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1). Fixing it '
        + 'means adding a visualViewport subscription INSIDE the shared component for an element nothing '
@@ -174,17 +178,51 @@ for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
     }
   }
 }
-// ── (k) ONE WRITER PER ELEMENT — the `param` owners must NOT also be JS-positioned ──────────────────
+// ── (k) ONE WRITER, AND THE PARAMETER MUST BE SIGNED — LORAMER_COMPOSER_SIGNED_OFFSET_V1 ───────────
+// ⛔ THIS IS THE LEG THAT PASSED A BROKEN ELEMENT. It asserted only that SOME var() was used, which is
+// a claim about plumbing and not about correctness. It now asserts the two things that were actually
+// wrong: that the composer's offset is the SIGNED, UNTHRESHOLDED value, and that the value is derived
+// from the visual viewport rather than from a constant.
 if (threadCss && threadTsx) {
   const css = strip(threadCss)
+  const tsx = strip(threadTsx)
   const composer = /\.composer\s*\{([^}]*)\}/.exec(css)
-  if (!composer || !/bottom:\s*var\(--lora-kb-inset/.test(composer[1])) {
-    findings.push(`(k) .composer's sticky offset is no longer \`bottom: var(--lora-kb-inset, …)\`. It is a \`param\` owner: JS supplies the value and the BROWSER computes the painted position. Replacing the var with a JS-written top/transform adds the second writer this whole arc removed.`)
-  }
-  if (/composerRef[^\n]*style\.(top|transform)\s*=/.test(strip(threadTsx))) {
-    findings.push(`(k) ${THREAD_TSX} writes style.top/transform onto the composer. It is browser-positioned from a parameter; a direct position write is a second writer.`)
+  if (!composer) {
+    findings.push(`(k) no .composer rule found in ${THREAD_CSS}.`)
+  } else {
+    const v = /(top|bottom)\s*:\s*var\(\s*(--[\w-]+)/.exec(composer[1])
+    if (!v) {
+      findings.push(`(k) .composer's sticky offset is not driven by a custom property. It is a \`param\` owner: JS supplies the VALUE and the BROWSER computes the painted position; a literal offset cannot track the viewport and a JS-written top/transform would add the second writer this arc removed.`)
+    } else {
+      const varName = v[2]
+      // ⛔ THE THRESHOLDED VAR IS REFUSED BY NAME. `--lora-kb-inset` is gated `raw > 100 ? raw : 0`,
+      // which DISCARDS the negative offsets a collapsing toolbar produces — measured −90 on this
+      // repo's own banked device values, i.e. the composer 90px too high with content below it.
+      if (varName === '--lora-kb-inset') {
+        findings.push(`(k) .composer is driven by --lora-kb-inset, which is THRESHOLDED (\`raw > KEYBOARD_MIN_DELTA_PX ? raw : 0\`) and therefore discards the NEGATIVE offsets a toolbar collapse produces. The composer needs the SIGNED value.`)
+      }
+      // The var must be WRITTEN, and written from the visual viewport rather than a constant.
+      const writeRe = new RegExp(`setProperty\\(\\s*'${varName}'\\s*,\\s*\`\\$\\{([^}]*)\\}px\``)
+      const w = writeRe.exec(tsx)
+      if (!w) {
+        findings.push(`(k) ${THREAD_TSX} never writes ${varName}. The stylesheet reads a property nothing sets, so the composer silently falls back to its default offset.`)
+      } else if (/Math\.max\(|Math\.min\(|\?\s*[\w.]+\s*:/.test(w[1])) {
+        findings.push(`(k) ${varName} is written through a clamp or a conditional (\`${w[1].trim()}\`). It must be the SIGNED, unthresholded offset — a clamp to 0 is exactly the defect measured on 2026-08-07.`)
+      }
+      if (!/const raw\s*=\s*Math\.round\(\s*docH\s*-\s*\(vv\.offsetTop/.test(tsx)) {
+        findings.push(`(k) the offset is no longer derived from the VISUAL VIEWPORT (docH − vv.offsetTop − vv.height). A \`param\` owner must track the visual viewport, not merely consume a var() — that distinction is what let a broken element read green.`)
+      }
+    }
   }
 }
+// ── (m) THE PROBE IS FLAG-GATED AND CANNOT REACH A NORMAL USER ─────────────────────────────────────
+if (threadTsx) {
+  const tsx = strip(threadTsx)
+  if (/vvProbeRef/.test(tsx) && !/\{debug && !isPanel && <div ref=\{vvProbeRef\}/.test(tsx)) {
+    findings.push(`(m) the visual-viewport probe is not gated on \`debug && !isPanel\`. A measurement readout that can render for a normal user is a defect, not an instrument.`)
+  }
+}
+
 // ── (l) NO CONDITIONAL RENDER FOR A PINNED RIDER — THE CHEVRON DEFECT ITSELF ────────────────────────
 // `.jump` rides the composer, so its GEOMETRY was never wrong. It was `{!pinned && (<button …>)}` — a
 // conditional render driven by scroll-derived React state, so every crossing of the 80px threshold
@@ -224,4 +262,7 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
+console.log('[chat-visual-viewport] PINNED LEDGER — ' + Object.entries(PINNED)
+  .map(([k, v]) => `.${k}=${v.owner}/${v.provenBy}`).join(' · ')
+  + '  ⛔ `unproven` means DECLARED, NOT VERIFIED — only a device can promote it.')
 console.log('[chat-visual-viewport] PASS — every viewport-pinned element DECLARED with an owner (js-top · param · declared-unfixed) · ONE writer each · no pinned rider behind a conditional render · the keyboard test REUSES --lora-kb-inset · header driven from visualViewport on BOTH resize and scroll · focusout dismissal path present (Apple thread/800154) · every listener removed on unmount · composer cap derived from viewport height inside a min() · no dvh · no zoom suppression · no interactive-widget. ⛔ CSS/JS FACTS ONLY — this proves NO pixel; the thumb-flick and the clip are Gate-B on device (★CHAT-RENDER-MEASUREMENT-MISSING).')
