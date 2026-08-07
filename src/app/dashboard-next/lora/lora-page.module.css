@@ -61,6 +61,33 @@
   backface-visibility: hidden;
   will-change: transform;
 }
+/* ⛔ LORAMER_LORA_HEADER_ONE_OWNER_V1, 2026-08-07 — THE FLICKER WAS TWO WRITERS, AND THE FIX IS TO
+   TAKE ONE OF THEM AWAY RATHER THAN TO TUNE EITHER.
+   THE DEFECT (Gate-B: flicker in sync with SCROLL SPEED while the keyboard is up; correct and glued
+   the instant it closes): `position: sticky` is resolved BY THE BROWSER EVERY FRAME, because a sticky
+   offset is a FUNCTION OF SCROLL. bb84bc1 then corrected it with a JS transform applied one frame
+   later. With the keyboard up iOS pans the visual viewport CONTINUOUSLY, so the correction was
+   permanently a frame behind the thing it corrected — two writers, different answers, same frame.
+   bb84bc1 reasoned that transform-not-`top` avoids fighting sticky; that was right about LAYOUT THRASH
+   and wrong about the RACE, and a composited transform still lands late.
+   ⛔ THE OWNER IS NOW THE BROWSER, AND JS ONLY SUPPLIES A PARAMETER. While the keyboard is up
+   LoraPageClient writes `top: <visualViewport.offsetTop>px` onto this element and applies NO transform
+   offset at all. Sticky then resolves the final position itself, every frame, using a value that only
+   changes when the visual viewport pans — so there is exactly one writer of the painted position and
+   nothing left to race. Keyboard-down clears the inline `top` and the element is plain sticky again,
+   which is the state already confirmed correct.
+   ⛔ position:fixed WAS THE FIRST ATTEMPT AND A SHIPPED GUARD REFUSED IT — chat-scroll-chain.guard.mjs:
+   "THE LORA PAGE USES position:fixed. Six overlay attempts died on hand-positioned geometry; the page
+   must stay in normal flow." The guard was RIGHT and was NOT weakened to fit the code. Its refusal is
+   what produced this design, which is better anyway: the element never leaves flow, so there is no
+   height to compensate for and no transition to get wrong.
+   ⚠ THE COST, STATED: writing `top` is a LAYOUT write, so each visual-viewport pan frame lays this one
+   element out. That is a handful of frames on a single sticky bar, and it buys the removal of the race.
+   ⛔ NO CSS-ONLY FIX EXISTS FOR THIS ON WebKit. `interactive-widget=resizes-content` would close the
+   whole class (w3c/csswg-drafts#10464, confirmed by the spec author) and WebKit has NOT implemented it
+   (bugs.webkit.org/show_bug.cgi?id=259770); every iOS browser is WebKit, so it is unavailable.
+   ★IOS-NO-STANDARDS-FIX-FOR-KEYBOARD-VIEWPORT tracks it so a future session RE-CHECKS rather than
+   re-derives. Do not add it to the viewport meta hoping it helps. */
 /* LORAMER_LORA_PAGE_ICONS_V1 — THE CLOSE AFFORDANCE PAINTS ITSELF.
    ⛔ WHY IT WAS INVISIBLE: this rule used to be `background:none; border:none; padding:4px` around an
    `<i class="ti ti-chevron-left">`. The Tabler webfont is linked ONLY from Shell.tsx:34 and this page

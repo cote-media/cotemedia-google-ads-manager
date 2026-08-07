@@ -76,6 +76,37 @@ if (pageTsx) {
     findings.push(`(b) ${PAGE_TSX} has no focusout/blur path. developer.apple.com/forums/thread/800154 (iOS 26): visualViewport.offsetTop does NOT reset to 0 after keyboard dismissal, so 'resize' alone leaves the header displaced. This is an OPEN vendor bug, not defensive coding.`)
   }
 
+  // ── (g) ONE OWNER PER KEYBOARD STATE — LORAMER_LORA_HEADER_ONE_OWNER_V1 ───────────────────────────
+  // sticky is resolved by the BROWSER every frame (a sticky offset is a function of scroll). A JS
+  // transform applied a frame later is a SECOND writer, and during momentum scroll with the keyboard up
+  // the two disagree every frame — that is the flicker, and it is not a throttling problem. The fix
+  // keeps the browser as the owner and has JS supply only a PARAMETER (`top`), so exactly one thing
+  // computes the painted position. ⛔ AND position:fixed IS NOT AN OPTION HERE: chat-scroll-chain.guard
+  // refuses it on this page after six overlay attempts died on hand-positioned geometry. That guard was
+  // not weakened to fit this code; its refusal produced this design.
+  if (!/style\.top\s*=/.test(code)) {
+    findings.push(`(g) ${PAGE_TSX} never sets the header's inline \`top\`. With the keyboard up sticky must resolve the position ITSELF from a JS-supplied offset — otherwise the only way to move the header is a transform, which lands a frame after the browser's own resolution and IS the flicker.`)
+  }
+  // The ONLY translate3d the page may write is the resting identity. A non-zero one means the frame-late
+  // correction is back alongside sticky's own — two writers again.
+  for (const m of code.matchAll(/translate3d\(([^)]*)\)/g)) {
+    const args = m[1].split(',').map((x) => x.trim())
+    if (!(args[0] === '0' && args[1] === '0' && args[2] === '0')) {
+      findings.push(`(g) ${PAGE_TSX} writes a NON-ZERO translate3d(${m[1].trim()}) to the header. Only the resting identity is allowed: a transform offset alongside position:sticky reintroduces the second writer this flight removed.`)
+    }
+  }
+  if (/position:\s*fixed/.test(code)) {
+    findings.push(`(g) ${PAGE_TSX} introduces position:fixed. The Lora page must stay in normal flow — chat-scroll-chain.guard enforces it after six overlay attempts died on hand-positioned geometry.`)
+  }
+
+  // ── (h) THE KEYBOARD DETECTOR IS THE EXISTING ONE, NOT A SECOND ANSWER ────────────────────────────
+  if (!/--lora-kb-inset/.test(code)) {
+    findings.push(`(h) ${PAGE_TSX} does not read --lora-kb-inset. The keyboard-up test must REUSE the measured inset LoraThread already computes; a second detector is a second answer to the same question, and the two disagree on exactly the frames that matter.`)
+  }
+  if (/documentElement\.clientHeight/.test(code)) {
+    findings.push(`(h) ${PAGE_TSX} re-derives the keyboard geometry from documentElement.clientHeight. That is LoraThread's calculation and it must not be duplicated here — one measurement, one owner.`)
+  }
+
   // ── (c) CLEANUP ───────────────────────────────────────────────────────────────────────────────────
   const added = (code.match(/addEventListener\(/g) || []).length
   const removed = (code.match(/removeEventListener\(/g) || []).length
@@ -110,9 +141,21 @@ for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
   }
 }
 
+// ── (i) NO interactive-widget — IT IS UNAVAILABLE, NOT MERELY UNUSED ────────────────────────────────
+// `interactive-widget=resizes-content` WOULD close this whole class (w3c/csswg-drafts#10464, confirmed
+// by the spec author) and WebKit has NOT implemented it (bugs.webkit.org 259770). Every iOS browser is
+// WebKit, so adding it to the viewport meta buys nothing and reads to the next person as though the
+// keyboard case were handled declaratively. ★IOS-NO-STANDARDS-FIX-FOR-KEYBOARD-VIEWPORT re-checks it.
+for (const [rel, text] of [[PAGE_TSX, pageTsx], [PAGE_CSS, pageCss]]) {
+  if (!text) continue
+  if (/interactive-widget/.test(strip(text))) {
+    findings.push(`(i) ${rel} sets interactive-widget. WebKit has not implemented it (bugs.webkit.org 259770) and every iOS browser is WebKit, so it cannot help here — and it reads as though the keyboard case were handled declaratively when it is not.`)
+  }
+}
+
 if (findings.length) {
   console.error(`[chat-visual-viewport] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log('[chat-visual-viewport] PASS — header driven from visualViewport on BOTH resize and scroll · focusout dismissal path present (Apple thread/800154) · every listener removed on unmount · composer cap derived from viewport height inside a min() · no dvh · no zoom suppression. ⛔ CSS/JS FACTS ONLY — this proves NO pixel; the thumb-flick and the clip are Gate-B on device (★CHAT-RENDER-MEASUREMENT-MISSING).')
+console.log('[chat-visual-viewport] PASS — ONE positioning owner per keyboard state (the BROWSER resolves sticky; JS supplies only `top`, never a non-zero transform, never position:fixed) · the keyboard test REUSES --lora-kb-inset · header driven from visualViewport on BOTH resize and scroll · focusout dismissal path present (Apple thread/800154) · every listener removed on unmount · composer cap derived from viewport height inside a min() · no dvh · no zoom suppression · no interactive-widget. ⛔ CSS/JS FACTS ONLY — this proves NO pixel; the thumb-flick and the clip are Gate-B on device (★CHAT-RENDER-MEASUREMENT-MISSING).')

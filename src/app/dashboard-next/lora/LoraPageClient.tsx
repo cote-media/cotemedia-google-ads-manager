@@ -66,13 +66,53 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   // element driven from it stays displaced until something forces a recalc. `resize` alone does not
   // clear it. The focusout path below zeroes the transform directly and then re-reads on the next two
   // frames, so a late-arriving correct value still wins.
+  // ── LORAMER_LORA_HEADER_ONE_OWNER_V1, 2026-08-07 — EXACTLY ONE MECHANISM WRITES THE HEADER'S
+  // POSITION AT ANY MOMENT. bb84bc1 left TWO: sticky (resolved by the browser every frame, because a
+  // sticky offset is a function of SCROLL) and our transform (applied from JS one frame later). With
+  // the keyboard up iOS pans the visual viewport continuously, so the correction was permanently a
+  // frame behind the thing it corrected — which is the flicker Russ saw, why it tracked scroll speed,
+  // and why it vanished the moment the keyboard closed and the panning stopped.
+  //
+  // ⛔ THE KEYBOARD-UP TEST IS THE EXISTING `--lora-kb-inset`, DELIBERATELY READ RATHER THAN
+  // RE-DERIVED. LoraThread already computes it as a MEASURED GAP (docH − offsetTop − vv.height, with a
+  // 100px floor so a URL-bar collapse cannot read as a keyboard) and writes it onto this very element.
+  // A second detector here would be a second answer to the same question, and the two would disagree
+  // on exactly the frames that matter.
+  // ⚠ ORDERING IS BENIGN AND IS STATED RATHER THAN RELIED ON SILENTLY: React runs child effects before
+  // parent ones, so LoraThread subscribes to visualViewport first and its handler writes the property
+  // before ours reads it. If that ever changed, the class would toggle ONE FRAME LATE at the
+  // transition only — it cannot affect steady-state motion, because during motion the value is stable.
   const headRef = useRef<HTMLElement>(null)
+  const kbUpRef = useRef(false)
   const syncHead = useCallback(() => {
     const el = headRef.current
+    const page = rootRef.current
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
-    if (!el || !vv) return
+    if (!el || !page || !vv) return
+    const inset = parseFloat(page.style.getPropertyValue('--lora-kb-inset')) || 0
+    const kbUp = inset > 0
+
+    // ⛔ KEYBOARD DOWN: HANDS OFF. Clear the inline `top` and the element is plain sticky again, exactly
+    // as it shipped — that state is confirmed correct and JS must not touch it. The transform is written
+    // back to the stylesheet's own resting value rather than blanked, so the two agree on one string
+    // instead of one relying on the other's default.
+    if (!kbUp) {
+      if (kbUpRef.current) {
+        el.style.top = ''
+        el.style.transform = 'translate3d(0, 0, 0)'
+        kbUpRef.current = false
+      }
+      return
+    }
+
+    // ⛔ KEYBOARD UP: THE BROWSER STILL OWNS PLACEMENT — JS ONLY SUPPLIES THE PARAMETER. Setting `top`
+    // lets sticky resolve the final position ITSELF, every frame, from a value that changes only when
+    // the visual viewport pans. That is ONE writer of the painted position. Applying a transform here
+    // as well would put the frame-late correction back and recreate the flicker, so there is none:
+    // the transform stays at its resting identity for the whole keyboard-up state.
+    kbUpRef.current = true
     const y = Math.max(0, Math.round(vv.offsetTop || 0))
-    el.style.transform = `translate3d(0, ${y}px, 0)`
+    el.style.top = `${y}px`
   }, [])
   useEffect(() => {
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
@@ -85,9 +125,18 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     }
     // THE DISMISSAL PATH. Zero it immediately so the header cannot be left displaced, then re-read on
     // the next two frames in case offsetTop is still stale at the moment focus leaves (the Apple bug).
+    // ⛔ THE APPLE BUG PATH FROM bb84bc1, PRESERVED AND NOW ALSO RESPONSIBLE FOR THE HANDOVER BACK.
+    // developer.apple.com/forums/thread/800154 (iOS 26): visualViewport.offsetTop does NOT reset to 0
+    // after dismissal, so `resize` alone leaves the element displaced. This zeroes the transform
+    // IMMEDIATELY, returns the header to sticky and removes the flow compensation in the same task,
+    // then re-reads on the next TWO frames so a late-but-correct offsetTop still wins.
     const onFocusOut = () => {
       const el = headRef.current
-      if (el) el.style.transform = 'translate3d(0, 0, 0)'
+      if (el) {
+        el.style.top = ''
+        el.style.transform = 'translate3d(0, 0, 0)'
+      }
+      kbUpRef.current = false
       window.requestAnimationFrame(() => {
         syncHead()
         window.requestAnimationFrame(syncHead)
