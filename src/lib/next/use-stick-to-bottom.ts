@@ -56,7 +56,26 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
   // viewport — a 1,200px answer landing — also puts the view far from the bottom, and a distance test
   // would read that as the user leaving and stop following mid-answer.
   const lastAutoYRef = useRef(-1)
-  const userMovedUp = () => lastAutoYRef.current >= 0 && getY() < lastAutoYRef.current - 4
+
+  // ⛔ LORAMER_NEXT_LANDING_SCROLL_V1 — THE ARRIVAL GRACE, AND IT IS THE ROOT CAUSE OF THREE SYMPTOMS.
+  // `history.scrollRestoration = 'manual'` below disarms the BROWSER's restore-on-load. It does NOT touch
+  // **Next App Router's own post-commit scroll**, which is a different mechanism and the only one that
+  // runs on a client-side navigation (there is no load event there at all). On arrival the router scrolls
+  // the document — to top on a PUSH, to the recorded offset on a POP — and it does so AFTER our landing
+  // scroll. ⚠ **TO `userMovedUp()` THAT IS INDISTINGUISHABLE FROM THE USER SCROLLING UP**: `getY()` is now
+  // below `lastAutoYRef`, so `stillFollowing()` unpins, the rAF and +250ms shots are cancelled, and the
+  // surface is left where the router put it. ⇒ lands mid-thread · stays there · **and raises the
+  // jump-to-bottom chevron on a thread the user never touched**, which is the dead-space symptom.
+  // THE ONLY HONEST DISCRIMINATOR IS TIME. A human cannot touch, drag and release inside the first few
+  // hundred milliseconds of a surface opening; the router's scroll always lands there. So for a bounded
+  // window after arrival, a movement we did not initiate is attributed to the router and ignored.
+  // ⚠ DELIBERATELY NARROW: outside this window the pre-existing behaviour is untouched, including the
+  // banked rule that even the first landing obeys a user who has already scrolled.
+  const ARRIVAL_GRACE_MS = 400
+  const arrivalUntilRef = useRef(0)
+  const arriving = () => Date.now() < arrivalUntilRef.current
+
+  const userMovedUp = () => !arriving() && lastAutoYRef.current >= 0 && getY() < lastAutoYRef.current - 4
 
   /** THE ONE GATE every automatic scroll passes through — the React pin AND the synchronous position
    *  check, because either alone is wrong: the pin lags the event, and the position alone cannot tell
@@ -105,7 +124,10 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
       lastYRef.current = y
       const dist = getMaxY() - (y + getViewport())
       if (dist <= NEAR_BOTTOM_PX) { if (!pinnedRef.current) setPin(true) }
-      else if (movedUp && pinnedRef.current) setPin(false)
+      // ⛔ THE ARRIVAL GRACE APPLIES HERE TOO, OR THE FIX IS HALF A FIX. The router's restoration also
+      // emits a `scroll` EVENT, and this handler would unpin on it exactly as `userMovedUp()` would.
+      // Guarding only the synchronous test would leave the event path still handing the router the pin.
+      else if (movedUp && pinnedRef.current && !arriving()) setPin(false)
     }
     const target: HTMLElement | Window = el() ?? window
     target.addEventListener('scroll', onScroll as EventListener, { passive: true })
@@ -127,8 +149,22 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
       try { history.scrollRestoration = 'manual' } catch { /* unsupported — our own scroll still runs */ }
     }
     // The first landing is not an auto-follow; it is where the surface opens.
+    // ⛔ LORAMER_NEXT_LANDING_SCROLL_V1 — OPEN THE ARRIVAL WINDOW *BEFORE* THE LANDING SCROLL, and reset
+    // the position memory with it. Order matters: `bottom()` records `lastAutoYRef` on its first shot, so
+    // arming the grace afterwards would leave that first recording exposed to the router's scroll.
+    arrivalUntilRef.current = Date.now() + ARRIVAL_GRACE_MS
+    lastAutoYRef.current = -1
+    setPin(true)
     bottom()
-    return () => { if (isDoc() && prev) { try { history.scrollRestoration = prev } catch {} } }
+    // One more shot at the end of the grace window. The existing now/rAF/+250ms triple was sized for late
+    // markdown layout, not for a router scroll that can land after all three; this is the shot that
+    // reclaims the position the router took, and it still passes through `stillFollowing()` so a user who
+    // genuinely scrolled after the window closed keeps control.
+    const settle = window.setTimeout(() => { if (stillFollowing()) bottom() }, ARRIVAL_GRACE_MS + 60)
+    return () => {
+      window.clearTimeout(settle)
+      if (isDoc() && prev) { try { history.scrollRestoration = prev } catch {} }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 
@@ -166,6 +202,11 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
     if (active) return
     didInitialScroll.current = false
     lastAutoYRef.current = -1
+    // ⛔ THE ARRIVAL WINDOW IS PART OF THE PER-SURFACE STATE THAT MUST NOT SURVIVE A CLIENT SWITCH. The
+    // shelf stays MOUNTED inside Shell while the page REMOUNTS, so leaving a grace window open here would
+    // let one client's arrival suppress the next client's unpin — scroll state carried across a switch,
+    // which is the d55f739 class this block already exists to prevent.
+    arrivalUntilRef.current = 0
     setPin(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])

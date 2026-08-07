@@ -18,6 +18,7 @@ import { useLoraChat } from '@/lib/next/use-lora-chat'
 import shell from '@/components/redesign/redesign.module.css'
 import LoraThread from '@/components/redesign/LoraThread'
 import styles from './lora-page.module.css'
+import { requestLanding, LANDING } from '@/lib/next/landing-scroll' // LORAMER_NEXT_LANDING_SCROLL_V1
 
 // LORAMER_LORA_PAGE_ICONS_V1 — INLINE SVG, NOT THE ICON WEBFONT. The Tabler font is linked only from
 // Shell.tsx and this page renders WITHOUT Shell, so `<i class="ti ti-chevron-left">` was an EMPTY
@@ -117,6 +118,12 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
               const sameOriginReferrer = !!document.referrer && new URL(document.referrer).origin === window.location.origin
               cameFromApp = softNavigated || sameOriginReferrer
             } catch { cameFromApp = false }
+            // LORAMER_NEXT_LANDING_SCROLL_V1 — RECORD THE ARRIVAL INTENT BEFORE NAVIGATING, and record it
+            // on BOTH branches. This is the whole reason the fix works on a client-side route change:
+            // `router.back()` is a POP (App Router RESTORES the Overview's old offset) and
+            // `router.push()` is a PUSH (it scrolls to top). The intent does not care which — the
+            // destination consumes it either way, so the two branches stop having two behaviours.
+            requestLanding(LANDING.OVERVIEW, 'top', clientId ?? null)
             if (cameFromApp) router.back()
             else router.push(fallback)
           }}

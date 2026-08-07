@@ -11,6 +11,7 @@ import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CL
 // LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
 // built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
 import CardEngine from '@/components/redesign/cards/CardEngine'
+import LandingScroll from '@/components/redesign/LandingScroll' // LORAMER_NEXT_LANDING_SCROLL_V1
 // LORAMER_NEXT_MONEY_CARD_V1 — the money surface is now an in-grid card (kind='money'), owned by the card engine
 // (shared date picker + chrome). The former floating <MoneySummary/> mount was removed.
 
@@ -36,6 +37,10 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
 
   return (
     <Shell active="overview" clientName={resolved.name} clientId={resolved.id}>
+      {/* LORAMER_NEXT_LANDING_SCROLL_V1 — renders nothing; it exists so an arrival FROM LORA can land at
+          the top instead of wherever App Router's default POP restoration puts it. Scoped to this client,
+          consumed once, and a no-op on every other arrival so ordinary back-restoration still works. */}
+      <LandingScroll clientId={resolved.id} />
       <CardEngine pageKey="overview" clientId={resolved.id} />
     </Shell>
   )

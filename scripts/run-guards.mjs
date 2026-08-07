@@ -97,6 +97,7 @@ const GUARDS = [
   'tests/guards/chat-cache-and-recovery.guard.mjs', // LORAMER_CHAT_COST_AND_RECOVERY_V1
   'tests/guards/chat-merge-not-replace.guard.mjs', // LORAMER_CHAT_MERGE_NOT_REPLACE_V1
   'tests/guards/chat-in-flight-and-back.guard.mjs', // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 + LORAMER_LORA_BACK_LANDS_ON_THE_CLIENT_V1
+  'tests/guards/landing-scroll.guard.mjs', // LORAMER_NEXT_LANDING_SCROLL_V1
   'tests/guards/google-quota-read-fails-open.guard.mjs',
   'tests/guards/next-step-obeys-ranking.guard.mjs',
   'tests/guards/breakdown-registry-drift.guard.mjs',
