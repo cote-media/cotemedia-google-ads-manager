@@ -56,7 +56,14 @@
 // ⛔ DB-READING → `npm run check:data`, NEVER the build. Settled split, cited not re-derived: DECISIONS
 // LORAMER_ACCOUNT_ROW_INVARIANT_V1; same posture as check-frozen-cursors.mjs and check-capture-landing.mjs.
 //
+// ⛔ LORAMER_GUARD_ROOT DOES NOT APPLY TO THIS FILE, STATED BECAUSE ★GUARD-IGNORES-LORAMER-GUARD-ROOT IS OPEN.
+// That defect is a FILESYSTEM false-pass: a guard reading RELATIVE paths reads the real tree under a throwaway proof
+// and passes. This gate's verdict comes from the LIVE DATABASE, not from a tree — there is no tree read that can
+// produce a PASS here. ROOT (below) is module-relative, never process.cwd(), and every filesystem read it does make
+// (.env.local, drain-registry.ts, required-steps.ts) FAILS CLOSED with exit 2 rather than passing quietly.
+//
 // USAGE: node scripts/check-completion-claims.mjs [--guard] [--inject-claim-exceeds] [--inject-stale-baseline]
+//                                                 [--inject-floor-not-complete]
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
@@ -73,6 +80,7 @@ const read = (rel) => { try { return readFileSync(resolve(ROOT, rel), 'utf8') } 
 const GUARD = process.argv.includes('--guard')
 const INJECT_CLAIM = process.argv.includes('--inject-claim-exceeds')
 const INJECT_STALE = process.argv.includes('--inject-stale-baseline')
+const INJECT_FLOOR = process.argv.includes('--inject-floor-not-complete')
 
 for (const line of (read('.env.local') || '').split('\n')) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/)
@@ -320,6 +328,13 @@ export function classifyClaim(c) {
 }
 function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000) }
 
+// ── PURE CORE for the floor leg. Exported and driven by --inject-floor-not-complete so the catch is proven with no
+// DB write, same posture as classifyClaim above. A BOOLEAN YOU CANNOT DRIVE IS A BOOLEAN NOBODY TESTS.
+export function isFloorReachedNotComplete(cur) {
+  if (!cur || !cur.earliest || !cur.target) return false   // undatable cursor — the frozen-cursor detector owns those
+  return cur.earliest <= cur.target && cur.backfill_complete !== true
+}
+
 // ── LIVE READ. Bounded per (client, platform): one grouped min(date) grid, the shape measured at 363ms on the
 // heaviest client 2026-07-30. Never a fleet-wide aggregate — those time out unconditionally on ~39M rows. ─────────
 const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
@@ -344,6 +359,27 @@ const conns = await q(`select p.client_id::text as client_id, c.name, p.platform
 const cursors = await q(`select client_id::text as client_id, platform, backfill_earliest_date::text as earliest, backfill_complete
    from sync_state`)
 const cursorByKey = new Map(cursors.map((r) => [`${r.client_id}|${r.platform}`, r]))
+
+// ═══ LORAMER_FLOOR_REACHED_NOT_COMPLETE_V1 — THE ANOMALY THE CODE NAMES AND NOTHING WATCHED ══════════════════════
+// ga-dimensional-backfill.ts:408 states it outright: "`backfill_complete` is FALSE — a genuinely finished walk
+// returns earlier" — so a cursor sitting AT OR BELOW its own backfill_target_date while complete=false is
+// ANOMALOUS BY CONSTRUCTION. LORAMER_GA_DIM_ZERO_WORK_RESTART_V1 made that state RECOVERABLE (the next lap
+// restarts the window instead of sealing) and nothing anywhere DETECTED it, so recovery depended entirely on a lap
+// being scheduled. MEASURED 2026-08-07: Influential Drones + My Vacation Network sat in exactly this state for
+// 8 days because their lap is never scheduled — platform_connections.onboard_steps_done still contains
+// 'ga_dimensional', and cron/drain selects by THAT array (drain/route.ts:198,223 → nextStep, drain-registry.ts:691),
+// not by the cursor. TWO independent done-records; the 2026-07-30 clear moved only one of them.
+// ⛔ THIS LEG DOES NOT FIX THE SPLIT — it makes it VISIBLE within one run instead of eight days
+// (★DRAIN-STEP-DONE-AND-CURSOR-INCOMPLETE-DIVERGE owns the split; its blast radius is every platform and every step).
+// ⚠ A DELIBERATE clear-to-force-a-rewalk lands in this state ON PURPOSE and will read RED until the next lap moves
+// the cursor off the floor. That is CORRECT and is the point: under the restart logic the first lap moves it, so a
+// state that PERSISTS means no lap is coming — which is the defect, not the procedure.
+const floorCursors = await q(
+  `select s.client_id::text as client_id, c.name as client, s.platform,
+          s.backfill_earliest_date::text as earliest, s.backfill_target_date::text as target, s.backfill_complete
+     from sync_state s join clients c on c.id = s.client_id and c.deleted_at is null
+    where s.backfill_earliest_date is not null and s.backfill_target_date is not null`)
+if (!floorCursors.length) { await db.end(); console.error('✗ ZERO datable cursors read from sync_state — BROKEN INSTRUMENT, not a pass.'); process.exit(2) }
 
 const claims = []
 for (const conn of conns) {
@@ -532,6 +568,20 @@ console.log(`\nREPORTED, NEVER FAILED: ${notCheckable.length} NOT_ROW_CHECKABLE 
 for (const c of honest.slice(0, 12)) console.log(`  HONEST_EMPTY  ${c.client} (${c.clientId.slice(0, 8)}) ${c.platform}.${c.step} — no active account day`)
 if (honest.length > 12) console.log(`  … and ${honest.length - 12} more`)
 
+// ── LORAMER_FLOOR_REACHED_NOT_COMPLETE_V1 — the floor leg, reported every run and FAILED in --guard ──────────────
+if (INJECT_FLOOR) {
+  floorCursors.push({ client_id: '00000000-dead-beef-0000-000000000003', client: 'SYNTHETIC Gate-A client',
+    platform: 'ga_dimensional', earliest: '2015-08-14', target: '2015-08-14', backfill_complete: false })
+  console.log('  [--inject-floor-not-complete] injected ONE synthetic cursor: earliest 2015-08-14 = target 2015-08-14, complete=false. No DB write.')
+}
+const floorStuck = floorCursors.filter(isFloorReachedNotComplete)
+console.log(`\nFLOOR_REACHED_NOT_COMPLETE — ${floorStuck.length} of ${floorCursors.length} datable cursor(s):`)
+console.log('  rule       : a cursor at/below its own backfill_target_date with backfill_complete=false is anomalous BY CONSTRUCTION')
+if (!floorStuck.length) console.log('  (none — every cursor that reached its floor is stamped complete)')
+for (const f of floorStuck.sort((a, b) => String(a.client).localeCompare(String(b.client)))) {
+  console.log(`    ${f.client} (${f.client_id.slice(0, 8)}) ${f.platform} — earliest ${f.earliest} <= target ${f.target}, complete=false`)
+}
+
 let exitCode = 0
 if (GUARD) {
   console.log('\nGUARD — baseline classification:')
@@ -549,6 +599,15 @@ if (GUARD) {
     console.error('  ANTI-ROT: the claim is covered now, so the entry has outlived its justification. Delete it.')
     exitCode = 1
   }
-  if (!exitCode) console.log('  ✓ COMPLETION-CLAIM GATE PASSED — every violation is baselined, and every baseline entry still matches a real one.')
+  if (floorStuck.length) {
+    console.error(`\n✗ FLOOR-REACHED-NOT-COMPLETE FAILED — ${floorStuck.length} cursor(s) sitting at/below their own target with complete=false:`)
+    for (const f of floorStuck) console.error(`     ${f.client} (${f.client_id.slice(0, 8)}) ${f.platform} — earliest ${f.earliest} <= target ${f.target}`)
+    console.error('  This state is only reachable two ways: a walk that ended without covering its ground, or a flag cleared to')
+    console.error('  force a re-walk. Both want a LAP. If it persists, the lap is not being SCHEDULED — check that')
+    console.error("  platform_connections.onboard_steps_done no longer contains the step (cron/drain selects by that array,")
+    console.error('  NOT by the cursor). Do not stamp complete=true without a VENDOR probe proving nothing deeper is served.')
+    exitCode = 1
+  }
+  if (!exitCode) console.log('  ✓ COMPLETION-CLAIM GATE PASSED — every violation is baselined, every baseline entry still matches a real one, and no cursor sits stuck at its floor.')
 }
 process.exit(exitCode)

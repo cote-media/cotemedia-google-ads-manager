@@ -3,12 +3,26 @@
 ⛔ **EVERY LIVE VALUE BELOW IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).
 Where a number IS written it is a MEASUREMENT with its date on it, which is a record of a moment and cannot drift.
 
-── 0 · THE ONE THING THAT IS ACTIVELY LOSING DATA WHILE EVERYTHING ELSE IS COSMETIC ──
-★GA-DIMENSIONAL-CURSORS-FROZEN-2026-08-05 — two `ga_dimensional` cursors have not moved since 2026-07-30 and were
-**8 DAYS STALE at session close 2026-08-07**. `check:data` reported them as NEW (unbaselined) on every run tonight.
-⛔ A cursor that stops does not lose ONE day — `rangeLap` seals every older day behind it, so the loss grows one day
-per day and converts to PERMANENT at the vendor retention wall. **The whole of 2026-08-06/07 went to chat UI and this
-was not touched.** It is the only open item that is destroying something irreversible.
+── 0 · ✅ CLOSED 2026-08-07 — AND THE HEADLINE IS THAT NOTHING WAS EVER BEING LOST ──
+★GA-DIMENSIONAL-CURSORS-FROZEN-2026-08-05 is **DOWNGRADED from irreversible data loss to a completion-stamp defect.**
+⛔ **THE PREMISE WAS FALSIFIED BY THE VENDOR, NOT BY OUR OWN ROWS — that distinction is the whole point.** The
+established read-only route `/api/backfill/probe-ga` asked GA4 itself over 2015-08-14..2026-08-06: **Influential
+Drones (property 388079271) earliest `2023-06-22`, 1,142 days served · My Vacation Network (property 346191496)
+earliest `2022-12-14`, 1,327 days served.** Our min(date) is IDENTICAL on both, and nine core families cover that
+span day-for-day. **GA4 serves nothing earlier than what we already hold.**
+⛔ **THE REAL CAUSE WAS THE SCHEDULER, NOT THE WALK: there are TWO done-records and the 2026-07-30 clear moved one.**
+`cron/drain` selects on `platform_connections.onboard_steps_done`, not on the cursor — both clients still carried
+`["account","ga_dimensional"]`, so no lap could ever be scheduled, while **Foam OH carries `["account"]` only and
+advanced at 12:04:40Z on 2026-08-07.** Both cursors are now stamped complete (UPDATE row count asserted exactly 2).
+⚠ **WHAT IS NOT PROVEN, so the close is not over-read:** the probe asks at ACCOUNT grain, so it proves the property's
+span and NOT per-family availability. Five family floors (age/gender/item) begin later with no vendor evidence
+either way — [[★GA-DIM-FAMILY-FLOORS-UNPROBED]].
+⛔ **AND TWO BIGGER THINGS CAME OUT OF IT, BOTH BANKED, BOTH UNFIXED, BOTH FLEET-WIDE:**
+[[★DRAIN-STEP-DONE-AND-CURSOR-INCOMPLETE-DIVERGE]] (the scheduler's done-array silently outranks every cursor,
+every platform, every step — the fix is in shared `nextStep()` and was outside this flight's blast radius) and
+[[★FROZEN-DETECTOR-READS-UPDATED-AT-AS-FREEZE]] (staleness is measured from `updated_at`, a row-modification
+timestamp, so any non-moving write RESETS the clock — it UNDER-reports, and **no staleness figure that detector has
+ever printed is load-bearing**).
 
 ── 1 · WHAT SHIPPED AND IS HOLDING (do not re-open; each has a guard in the suite) ──
 · LORAMER_CHAT_COPY_BLOCKS_V1 + LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — both halves closed.
@@ -23,7 +37,10 @@ was not touched.** It is the only open item that is destroying something irrever
 · GOOGLE FLIGHT 2 — the backfill lane is sourced from `universe_window_log`, landed in the only window where it is inert.
 
 ── 2 · WHAT IS OPEN, RANKED ──
-(a) ★GA-DIMENSIONAL-CURSORS-FROZEN — §0. Irreversible. Rank #1.
+(a) ~~★GA-DIMENSIONAL-CURSORS-FROZEN-2026-08-05~~ — **CLOSED 2026-08-07, see §0. It was never losing data.** What REPLACES it at
+    the head is what it uncovered: ★DRAIN-STEP-DONE-AND-CURSOR-INCOMPLETE-DIVERGE, because a scheduler that silently
+    outranks every cursor can hide the next one of these on any platform, and the only detector for it today catches
+    exactly one shape (cursor at its floor). ⚠ Its fix is in the SHARED `nextStep()` — scope it before touching it.
 (b) **THE VERIFICATION LAYER, and it outranks any single UI defect because it is what every fix is checked with:**
     ★GUARD-IGNORES-LORAMER-GUARD-ROOT (a guard reading relative paths reads the REAL tree under a throwaway proof
     and reports a FALSE PASS) and ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE (third locator repair in three flights).
