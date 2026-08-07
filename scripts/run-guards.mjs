@@ -159,6 +159,10 @@ const GUARDS = [
   // LORAMER_CAPABILITY_DENOMINATOR_V1 — no family may be judged against account spend by default. Every
   // row-checkable step must DECLARE its capability; silence is the defect that produced 43 false violations.
   'tests/guards/capability-denominator.guard.mjs',
+  // LORAMER_UNIVERSE_DISK_CEILING_V1 — the walk's disk governor must live in migrations/, carry an ABSOLUTE
+  // 500 GiB ceiling (never a percentage — provisioned disk is invisible to Postgres), and bound free_bytes
+  // by it. Its body existed only in the live database until 2026-08-07.
+  'tests/guards/universe-disk-ceiling.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

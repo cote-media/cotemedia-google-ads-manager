@@ -147,7 +147,15 @@ Recorded so a surprise can be checked against what was expected, not against mem
 
 - **~52 windows remaining**, 30 days each, back to 2022-03-05
 - **~17,992 Google requests** total, at 1 operation each
-- **~1.67 GB of disk per window measured** → **~87 GB** for the whole walk, against ~110 GB spare
+- ⛔ **~3.9 MB of disk per window — MEASURED 2026-08-07, AND IT CORRECTS A FIGURE THAT WAS WRONG BY ~430×.**
+  This line read "~1.67 GB per window → ~87 GB for the whole walk" until 2026-08-07. That was a
+  PROJECTION made before the walk ran, and the walk itself falsified it: `universe_window_log.disk_free_bytes`
+  went 182,205,025,754 → 127,844,527,578 across the 08-04→08-05 run, i.e. **54.36 GB over 13,239 windows
+  = ~3.9 MB/window, ~1,067 bytes/row over 50,924,048 rows.** ⚠ CAVEAT ON THE AVERAGE: it mixes 8,769
+  productive windows with 4,458 zero-row ones, and the entries still remaining skew productive — so the
+  true per-window cost is HIGHER than 3.9 MB, though it would have to be ~14 MB (3.6×) before the disk
+  floor is touched at all. **REMAINING AT 2026-08-07: 136 entries · ~4,509 windows · ~17.6 GB projected,
+  against ~63 GiB of headroom before the 56 GiB floor.**
 - **~29 minutes per window measured**
 - ⛔ **What makes it take 3 days is the daily Google allowance (~17 windows/day), not speed.**
   On raw speed alone it would finish in about a day.

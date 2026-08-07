@@ -21,8 +21,15 @@ const TABLE = 'universe_window_log'
 // of them gets forgotten. If the volume is resized again this MUST move in BOTH places in the same
 // commit: a stale value here authorises a walk against headroom that does not exist.
 export const PROVISIONED_BYTES = 280 * 1024 ** 3
-// max(15 GB, 20% of provisioned) = 40 GB. Identical rule to the partition backfill, deliberately:
-// two different floors for the same disk is how one of them gets forgotten.
+// max(15 GB, 20% of provisioned) = 56 GiB at the CURRENT 280 GB. Identical rule to the partition backfill,
+// deliberately: two different floors for the same disk is how one of them gets forgotten.
+// ⛔ THE NUMBER IN THIS COMMENT READ "40 GB" UNTIL 2026-08-07 — correct for the 200 GB provisioned it was
+// written against, and stale from the moment Russ raised the volume to 280 GB on 2026-08-04. A wrong number
+// stating the SAFETY FLOOR is the class this repo keeps paying for; the expression below was always right.
+// If PROVISIONED_BYTES moves again, this sentence moves with it or it becomes a lie again.
+// ⛔ AND THIS IS THE LIMIT THAT ACTUALLY BINDS THE WALK. migrations/059 adds an absolute 500 GiB ceiling
+// inside universe_disk_headroom() as the OUTER authorization (LORAMER_UNIVERSE_DISK_CEILING_V1); it cannot
+// trip while provisioned is 280 GB, because this floor stops the walk 276 GiB earlier.
 export const FLOOR_BYTES = Math.max(15 * 1024 ** 3, Math.floor(PROVISIONED_BYTES * 0.2))
 
 export const gb = (b: number) => (b / 1024 ** 3).toFixed(2) + ' GB'
