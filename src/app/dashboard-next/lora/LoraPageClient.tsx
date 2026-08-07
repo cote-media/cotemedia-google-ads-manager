@@ -124,8 +124,17 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
             // `router.push()` is a PUSH (it scrolls to top). The intent does not care which — the
             // destination consumes it either way, so the two branches stop having two behaviours.
             requestLanding(LANDING.OVERVIEW, 'top', clientId ?? null)
+            // ⛔ LORAMER_NEXT_ROUTER_SCROLL_OFF_V1 — THE TWO BRANCHES ARE NOT SYMMETRICAL AND THAT IS
+            // THE WHOLE SHAPE OF THIS FIX. `push` CAN be told not to scroll, so it is. `back()` CANNOT —
+            // next@14.2.3 declares `back(): void`, no parameters, and App Router RESTORES the recorded
+            // offset on a POP with no documented way to opt out. So the POP path is the one place where
+            // racing the router is genuinely required, and the arrival grace stays for it alone.
+            // ⚠ Russ's call, not re-opened here: keep `back()`. Swapping it for push() creates a
+            // back-loop on the phone's system gesture (Overview → Lora → Overview′ → back returns to
+            // Lora); replace() avoids the loop but destroys the forward entry and makes the whole
+            // `cameFromApp` gate dead code. Neither trade is worth a scroll offset.
             if (cameFromApp) router.back()
-            else router.push(fallback)
+            else router.push(fallback, { scroll: false })
           }}
           aria-label="Close Lora"
         >

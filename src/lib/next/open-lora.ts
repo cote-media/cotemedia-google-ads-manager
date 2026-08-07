@@ -31,11 +31,22 @@ export function loraPageHref(clientId?: string, detail?: OpenLoraDetail): string
   return q ? `${LORA_PAGE_PATH}?${q}` : LORA_PAGE_PATH
 }
 
+// ⛔ LORAMER_NEXT_ROUTER_SCROLL_OFF_V1 — THE INJECTED NAVIGATOR MUST BE ABLE TO CARRY OPTIONS.
+// It was typed `(href: string) => void` — a ONE-ARGUMENT function — which did not merely fail to pass
+// `{ scroll: false }`, it made passing it IMPOSSIBLE. The option was foreclosed by our own signature, so
+// every entry into the Lora page took Next's default scroll-to-top and our landing scroll had to race it.
+// Widened to the shape `router.push` actually has, so the suppression can be expressed at all.
+export type PushWithOptions = (href: string, options?: { scroll?: boolean }) => void
+
 // THE ONE ENTRY POINT every trigger calls.
 // `push` is injected (the caller's router.push) so this stays a pure module — no next/navigation
 // import, no hook rules, and it is directly unit-testable.
-export function openLora(push: (href: string) => void, clientId?: string, detail?: OpenLoraDetail): void {
-  if (isLoraMobile()) { push(loraPageHref(clientId, detail)); return }
+export function openLora(push: PushWithOptions, clientId?: string, detail?: OpenLoraDetail): void {
+  // ⛔ SUPPRESS AT THE SOURCE. `scroll: false` stops Next's post-commit scroll-to-top before it happens;
+  // out-running it with timed shots was compensating for an option we never set. Verified against the
+  // INSTALLED contract, not the doc site: next@14.2.3 declares
+  // `NavigateOptions { scroll?: boolean }` and `push(href: string, options?: NavigateOptions): void`.
+  if (isLoraMobile()) { push(loraPageHref(clientId, detail), { scroll: false }); return }
   // Desktop: unchanged. The mounted ChatLauncher listens for this exact event.
   try {
     window.dispatchEvent(detail ? new CustomEvent('loramer:open-chat', { detail }) : new Event('loramer:open-chat'))

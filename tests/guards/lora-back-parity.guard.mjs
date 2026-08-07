@@ -37,7 +37,13 @@ if (!src) {
   findings.push(`${PAGE} is unreadable — the exit control cannot be checked.`)
 } else {
   // Isolate the back button's handler: from the fallback declaration to the router call.
-  const handler = (src.match(/const fallback = [\s\S]{0,1600}?router\.push\(fallback\)/) || [''])[0]
+  // ⛔ THE END MARKER MUST NOT PIN THE ARGUMENT LIST. It read `router\.push\(fallback\)` — the exact call
+  // with exactly no options — so the moment LORAMER_NEXT_ROUTER_SCROLL_OFF_V1 added `{ scroll: false }`
+  // the regex stopped matching and this guard reported "could not locate the handler" against code that
+  // was more correct than before. Same class as chat-failure-branches' `indexOf('setLoading(false)')`
+  // locator, fixed one flight earlier: a locator that assumes today's exact call site is not a locator.
+  // Anchored on `router.push(fallback` so any options object is tolerated.
+  const handler = (src.match(/const fallback = [\s\S]{0,2000}?router\.push\(fallback[^\n]*/) || [''])[0]
   if (!handler) {
     findings.push(`(a) ${PAGE}: could not locate the back-button handler (fallback → router.push). Either the exit control was restructured or this guard is pointed at the wrong file — re-verify by hand, do not assume green.`)
   } else {
@@ -65,7 +71,10 @@ if (!src) {
       findings.push(`(d) the back handler no longer calls router.back(). Repointing the fallback instead of fixing the gate makes the chevron land somewhere plausible while still ignoring the real history stack — it would still diverge from the browser's own back, just less visibly.`)
     }
     // ── (e) THE FALLBACK MUST SURVIVE ──────────────────────────────────────────────────────────────
-    if (!/router\.push\(fallback\)/.test(handler)) {
+    // ⚠ `\b` NOT `\)` — this asserted `router.push(fallback)` with EXACTLY no arguments, so adding
+    // `{ scroll: false }` read as "the fallback is gone". The leg's subject is whether the cold-entry
+    // fallback is still INVOKED, not how many arguments it takes.
+    if (!/router\.push\(fallback\b/.test(handler)) {
       findings.push(`(e) the cold-entry fallback is gone. On a genuinely fresh load there is nothing to go back TO and a bare router.back() silently does nothing — which is what a trap feels like, and is why the fallback exists.`)
     }
   }

@@ -92,9 +92,31 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
   // that called itself instant was in fact ANIMATED. Instrumented on a 26,677px thread: a single
   // scrollTo({behavior:'auto'}) crawled 25911 → 25870 → 25772 → 25602 and was still moving 3.7 SECONDS
   // later, under the user's finger. 'instant' ignores the CSS and lands in one frame.
+  // ⛔ LORAMER_NEXT_ROUTER_SCROLL_OFF_V1 — THE ONE-LINE PROBE, AND IT DECIDES A REAL FORK.
+  // Landing on the FIRST message has two possible causes needing OPPOSITE fixes, and they cannot be told
+  // apart from source:
+  //   HEIGHT RACE  — scrollHeight small at shot 1, large at the last shot, scrollY stuck at 0. Then
+  //                  `scroll:false` fixes NOTHING: the landing must wait for content, and the
+  //                  ResizeObserver's followBottom-on-growth failing to catch it is a SECOND defect.
+  //   ROUTER       — scrollHeight large throughout, scrollY driven back to 0 between shots. Then the
+  //                  suppression shipped in this flight is the fix.
+  // ⚠ FLAG-GATED behind the existing `?debug=chat` (sessionStorage `loramer:debug-chat`, set by
+  // use-lora-chat's probe effect). It must never reach a normal user, so the read is the gate and there
+  // is no other output. No client data: two integers, a label and a shot index.
+  const probe = (label: string, shot: number) => {
+    try {
+      if (sessionStorage.getItem('loramer:debug-chat') !== '1') return
+      console.log(`[scroll] ${label} shot=${shot} y=${Math.round(getY())} max=${Math.round(getMaxY())} vp=${Math.round(getViewport())} pinned=${pinnedRef.current} arriving=${arriving()}`)
+    } catch { /* the probe must never throw into a scroll */ }
+  }
+
   const bottom = (behavior: ScrollBehavior = 'instant') => {
+    let shot = 0
     const go = () => {
+      shot += 1
+      probe('before', shot)
       doScroll(getMaxY(), behavior)
+      probe('after', shot)
       // Record where we put it. With 'instant' this is the final position; with 'smooth' it is the
       // animation's START, a LOWER bound, which can never manufacture a false "the user moved up".
       lastAutoYRef.current = getY()
