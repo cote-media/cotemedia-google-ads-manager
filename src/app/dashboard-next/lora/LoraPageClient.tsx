@@ -66,11 +66,14 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
             client-side navigation never touches it, so arriving here via `openLora`'s `router.push`
             leaves it at whatever loaded the document — empty for a typed URL or a fresh tab — and the
             gate concluded "not from our app" while a perfectly good history entry sat right there.
-            ⚠ THE FALLBACK IT THEN TOOK IS ITSELF POINTED AT THE ALL-CLIENTS INDEX, which ignores
+            ⚠ THE FALLBACK IT THEN TOOK WAS ITSELF POINTED AT THE ALL-CLIENTS INDEX, which ignores
             `?clientId=` entirely (its component takes no props at all) — so the wrong branch had a
-            maximally wrong destination. That second half is [[★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID]]
-            and is DELIBERATELY NOT CHANGED HERE: repointing the fallback would mask this gate rather
-            than fix it.
+            maximally wrong destination. That second half was ★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID, and
+            it was deliberately left alone HERE because repointing the fallback while the gate was still
+            broken would have MASKED the gate rather than fixed it.
+            ✅ THE GATE IS FIXED (below), SO THAT REASON EXPIRED. The fallback was repointed at the
+            client's own Overview by LORAMER_LORA_BACK_LANDS_ON_THE_CLIENT_V1 — see the comment on the
+            `fallback` line itself for why the destination moved rather than the All-Clients page.
 
             THE TEST THAT IS ACTUALLY TRUE: did THIS DOCUMENT load somewhere else? The Navigation
             Timing entry records the URL the document was fetched at, and a soft navigation does not
@@ -82,7 +85,28 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
           type="button"
           className={styles.back}
           onClick={() => {
-            const fallback = clientId ? `/dashboard-next/clients?clientId=${clientId}` : '/dashboard-next/clients'
+            // LORAMER_LORA_BACK_LANDS_ON_THE_CLIENT_V1 — THE FALLBACK NOW POINTS AT THE CLIENT, and the
+            // choice between the two available fixes is not the smaller one, it is the correct one.
+            //
+            // ⛔ THE OTHER FIX — teaching /dashboard-next/clients to honour ?clientId — WOULD BREAK A
+            // DELIBERATE DESIGN, not complete one. That page is the PORTFOLIO surface: its component takes
+            // no props at all, and its own in-file justification reads "ALLOWLISTED: genuinely CLIENT-LESS
+            // by design. This is the PORTFOLIO (all clients) surface — it has no single active client, so
+            // it does NOT call resolveShellClient and mounts <Shell> with no clientId. That is correct,
+            // not an oversight." `shell-client-context.guard.mjs` enforces exactly that allowlist. Making
+            // All Clients render ONE client would fight the guard and wreck the portfolio surface, to
+            // reach a destination that already exists elsewhere.
+            //
+            // ⇒ `/dashboard-next` (Overview) IS the client home: `DashboardNextPage` already takes
+            // `searchParams.clientId` and resolves it through `resolveShellClient`. Sending the fallback
+            // there needs no new route, no new prop, and no guard exception.
+            //
+            // ⚠ AND THE OLD COMMENT SAYING THIS WOULD "MASK THE GATE" WAS TRUE WHEN WRITTEN AND IS NOT
+            // TRUE NOW. It was written while `cameFromApp` was still `document.referrer` alone and wrongly
+            // false, so repointing the fallback then would have hidden a broken gate.
+            // LORAMER_LORA_BACK_SOFT_NAV_V1 fixed the gate. What is left is a fallback that was always
+            // pointed at the wrong place, and it is now safe to say so.
+            const fallback = clientId ? `/dashboard-next?clientId=${clientId}` : '/dashboard-next/clients'
             let cameFromApp = false
             try {
               // (1) SOFT NAVIGATION — the document loaded at a DIFFERENT url than the one we are on.

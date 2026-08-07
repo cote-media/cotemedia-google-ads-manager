@@ -57,6 +57,10 @@ export const COPY = {
   // one on a page), no "connection dropped before I got an answer back", no invitation to re-ask.
   // Still bound by the same law: never claim an answer was lost — the client cannot know that.
   CHECKING: 'Still working on this one. Let me check whether the answer came through…',
+  // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — the STATUS LINE under the working mark when a turn is
+  // picked back up after the page went away and came back. Same voice, same law: it does not claim the
+  // answer is safe (we have not seen it yet) and it does not narrate the remount at the user.
+  RESUMED: 'Still working on this one…',
   ABORTED_UNCONFIRMED: 'This one is taking longer than usual. If Lora finished, her answer will be here when you come back — I haven\u2019t re-sent your question.',
   NETWORK_UNCONFIRMED: 'I couldn\u2019t reach Lora just then. Your question wasn\u2019t re-sent, so nothing was charged twice.',
   // ⛔ RETIRED FROM THE RENDER PATH 2026-08-05 (LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1, D5). It REACHED A

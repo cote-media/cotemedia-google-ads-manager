@@ -57,7 +57,16 @@ if (!/status:\s*503/.test(routeCode)) {
 // Extract the user-facing strings assigned in the send() failure paths. Single-quoted JSX/TS strings with the
 // typographic apostrophes this file uses; we only need the SET, not their order.
 const clientCode = client.replace(/\/\/[^\n]*/g, '')
-const sendBlock = clientCode.slice(clientCode.indexOf("await fetch('/api/chat'"), clientCode.indexOf('setLoading(false)'))
+// ⛔ THE END MARKER IS SEARCHED *FROM THE FETCH*, NOT FROM THE TOP OF THE FILE, AND THAT IS A REAL BUG
+// THIS GUARD SHIPPED WITH. `indexOf('setLoading(false)')` found the FIRST occurrence anywhere in the file.
+// It happened to be send()'s `finally` only because send() was the only thing that set loading — the
+// moment LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 added a resume effect ABOVE send() that also clears
+// loading, the end index landed BEFORE the start index, `slice` returned '', and the guard reported
+// "CANNOT LOCATE" against perfectly correct code. A locator that depends on being the only caller is not
+// a locator. Searching forward from the fetch pins the `finally` that actually terminates THIS block.
+const sendStart = clientCode.indexOf("await fetch('/api/chat'")
+const sendEnd = sendStart === -1 ? -1 : clientCode.indexOf('setLoading(false)', sendStart)
+const sendBlock = sendStart === -1 || sendEnd === -1 ? '' : clientCode.slice(sendStart, sendEnd)
 if (!sendBlock) {
   fail('CANNOT LOCATE the /api/chat send block in use-lora-chat.ts — the guard cannot verify branches; treat as failure, never a pass.')
 } else {

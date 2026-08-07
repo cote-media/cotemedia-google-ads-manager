@@ -19,13 +19,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-stream-read'
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
-import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery'
+import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS, type ConvRow } from '@/lib/next/chat-recovery'
 import { renderSubjectLine, aggregateSubjects, MIN_SUBJECT_MS } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn'
 // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the thread is merged, never replaced. `Msg` moved to that module
 // because the merge OWNS the shape (id + lkey are the merge's own keys); it is re-exported here so every
 // existing `import type { Msg } from '@/lib/next/use-lora-chat'` keeps working.
 import { mergeThreadForClient, newLocalKey, type Msg } from '@/lib/next/merge-thread'
+// LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — the one fact that has to outlive the mount.
+import { markTurnInFlight, clearTurnInFlight, readTurnInFlight, remainingWindowMs } from '@/lib/next/in-flight-turn'
 
 export type { Msg }
 
@@ -114,6 +116,9 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   // PREVIOUS client's thread until a read lands. This ref is the only thing that can tell those apart,
   // and it is what makes the merge client-scoped rather than a cross-client leak.
   const messagesClientRef = useRef<string | null>(null)
+  // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — is `send` running in THIS mount? Distinguishes "a turn
+  // is in flight and already being watched here" from "a turn was in flight when a previous mount died".
+  const turnRunningRef = useRef(false)
 
   // ⛔ THE SINGLE FUNNEL. Every path that adopts a server thread goes through here — mount hydration,
   // the visibility/focus refresh, and the recovery ambiguous branch. There were three hand-rolled
@@ -422,6 +427,71 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     }
   }, [active, clientId, readThread, applyServerThread])
 
+  // ⛔ LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — RESUME A TURN THE PREVIOUS MOUNT WAS WATCHING.
+  //
+  // ONE MECHANISM, BOTH TAILS, and that is why it is a resumed RECOVERY rather than a new poll:
+  //   · the tab was backgrounded mid-turn and came back to a fresh mount → the record is found here, the
+  //     working indicator comes back, and the poll runs out the turn's remaining window;
+  //   · the page never went anywhere and no trigger ever fired (the 22:03 loss) → the record is STILL
+  //     found here, because it is written the moment `send` starts and only cleared when the turn ends.
+  //     The poll is the trigger that was missing.
+  //
+  // ⚠ WHY REUSE `chat-recovery` RATHER THAN BUILD A SECOND MECHANISM — the brief asked and the code
+  // answers: `pickRecoveredAnswer` + `RECOVERY_WINDOW_MS`/`RECOVERY_POLL_MS` ALREADY do exactly this, and
+  // a second poll would be a second discriminator that drifts from the first. Same reasoning that put ONE
+  // `readThread` behind two callers. A realtime SUBSCRIPTION was considered and rejected: it is a new
+  // channel, new permissions and a new failure mode for an answer that is already durable and already
+  // reachable through an endpoint we call anyway.
+  //
+  // ⚠ AND THIS IS ONLY SAFE BECAUSE OF e3c1f05. The poll lands the thread through `applyServerThread`,
+  // which MERGES — so an answer arriving here cannot duplicate a bubble the mount already rendered, and
+  // cannot erase an optimistic turn. Under the old wholesale replace this fix would have shipped a
+  // second way to blank the screen.
+  useEffect(() => {
+    if (!active) return
+    const cid = clientId || null
+    if (!cid) return
+    // A turn running in THIS mount is already being watched by `send`'s own loop. Without this the
+    // desktop shelf — which can be closed and reopened mid-turn, re-running this effect — would start a
+    // second poll alongside the live one.
+    if (turnRunningRef.current) return
+    const rec = readTurnInFlight(cid, Date.now())
+    if (!rec) return   // absent, another client's, or past the 500s bound — all three refuse in the module
+
+    let cancelled = false
+    setLoading(true)
+    setStreamStatus(COPY.RESUMED)
+    ;(async () => {
+      try {
+        while (!cancelled && remainingWindowMs(rec, Date.now()) > 0) {
+          try {
+            const rows = await readThread(cid)
+            if (rows) {
+              const got = pickRecoveredAnswer(rows as ConvRow[], rec.sinceId ?? 0)
+              // 'ambiguous' counts as landed for the same reason the recovery branch adopts the thread:
+              // more than one new answer means the answers are all present and in order. Show them.
+              if (got.status === 'found' || got.status === 'ambiguous') {
+                threadMaxIdRef.current = rows.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0) || threadMaxIdRef.current
+                applyServerThread(cid, rows)
+                break
+              }
+            }
+          } catch { /* a failed resume read must never throw into a mount */ }
+          await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
+        }
+      } finally {
+        // ⚠ CLEARED ON EVERY EXIT, INCLUDING THE TIMEOUT. A record that outlives its window would make
+        // the NEXT mount light the indicator for a turn that is already over — the defect, inverted.
+        if (!cancelled) {
+          clearTurnInFlight()
+          setLoading(false)
+          setStreamStatus(null)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [active, clientId, readThread, applyServerThread, setStreamStatus])
+
   const send = useCallback(async (text: string) => {
     const q = text.trim()
     if (!q || loading) return
@@ -436,6 +506,11 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     setMessages(next)
     setInput('')
     setLoading(true)
+    // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — RECORD THE TURN BEFORE ANY AWAIT. If the page dies
+    // between here and the first byte, the next mount still knows to keep looking. `threadMaxIdRef` is
+    // captured NOW because it is the watermark `pickRecoveredAnswer` needs, and it advances during the turn.
+    turnRunningRef.current = true
+    if (clientId) markTurnInFlight({ clientId, sinceId: threadMaxIdRef.current, startedAt: Date.now() })
     // LORAMER_CHAT_FRAME_PROBE_V1 — the clock every frame gap is measured against.
     setStreamingText('')
     activeToolsRef.current.clear()
@@ -658,6 +733,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       }
     } finally {
       clearTimeout(abortTimer)
+      // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — the turn is over on THIS mount, whichever branch got
+      // here. Leaving the record behind would make the next mount resume a finished turn.
+      turnRunningRef.current = false
+      clearTurnInFlight()
       setStreamStatus(null)
       setStreamingText('')
       activeToolsRef.current.clear()
