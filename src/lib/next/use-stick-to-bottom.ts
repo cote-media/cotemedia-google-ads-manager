@@ -117,7 +117,25 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
   const probe = (label: string, shot: number) => {
     try {
       if (!probeArmedRef.current) return
-      if (sessionStorage.getItem('loramer:debug-chat') !== '1') return
+      // ⛔ NEUTERED 2026-08-07 — ★LANDING-PROBE-SPEC-IS-WRONG. The gate is DELIBERATELY NOT
+      // `loramer:debug-chat`: Russ opens that flag for the FRAME probe and must not meet this bar again
+      // until its spec is fixed. Nothing sets `loramer:debug-landing`, so this is INERT in production and
+      // recoverable by hand from a console for whoever repairs it.
+      //
+      // ⛔ THE TWO SPEC DEFECTS, WRITTEN HERE SO THEY CANNOT BE REDISCOVERED THE HARD WAY:
+      //  (a) MISMATCHED BASES. `sH` is `documentElement.scrollHeight` while `vp` is `window.innerHeight` —
+      //      two different objects. "No overflow" is `scrollHeight === documentElement.clientHeight`, and
+      //      this line never prints clientHeight. On Chrome iOS those diverge
+      //      (LORAMER_LAYOUT_VIEWPORT_TRACKS_VISUAL_ON_CHROME_IOS_V1: clientHeight tracks
+      //      visualViewport.height, 763→424 across 15 samples). The readout compares quantities that
+      //      cannot answer the question it was built to answer.
+      //  (b) THE ARMING WINDOW CLOSES AT ARRIVAL_GRACE_MS + 400 = 800ms — BEFORE the thread hydrates and
+      //      before every ResizeObserver-driven bottom() that would show scrollHeight jumping to
+      //      thousands. It stops watching before the interesting thing happens.
+      //  ⇒ CONSEQUENCE, and it is why this is neutered rather than merely noted: while sH == vp the
+      //    maximum scroll offset is ZERO, so top and bottom are THE SAME POSITION and `y 0` cannot
+      //    distinguish success from failure. In exactly the regime it was built for, it is blind.
+      if (sessionStorage.getItem('loramer:debug-landing') !== '1') return
       const line = `${shot} ${label} · y ${Math.round(getY())} · sH ${Math.round(getMaxY())} · vp ${Math.round(getViewport())} · pin ${pinnedRef.current ? 'Y' : 'N'} · arr ${arriving() ? 'Y' : 'N'}`
       // console too — harmless where devtools DO exist (desktop), and it costs nothing.
       console.log(`[scroll] ${line}`)

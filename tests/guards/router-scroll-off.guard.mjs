@@ -175,9 +175,17 @@ const thread = codeOf(read(THREAD))
     stick.some(({ l }) => /scrollHeight|getMaxY\(\)/.test(l)) && stick.some(({ l }) => /\[scroll\]/.test(l)),
     '(f) The landing probe is gone — the height-race vs router fork stays undecidable.',
   )
+  // ⛔ NEUTERED, AND THE GUARD PINS THE NEUTERING. ★LANDING-PROBE-SPEC-IS-WRONG: the readout must NOT
+  // be reachable from `?debug=chat`, because that is the flag Russ opens for the FRAME probe and he must
+  // not meet this misleading bar again until its spec is repaired.
   check(
-    stick.some(({ l }) => /loramer:debug-chat/.test(l)),
-    '(f) The probe is not gated behind the ?debug=chat flag — it would reach a normal user.',
+    !stick.some(({ l }) => /loramer:debug-chat/.test(l)),
+    '(f) The landing probe is back on the `loramer:debug-chat` flag. It is MIS-SPECIFIED (mismatched ' +
+      'bases; arming window closes before hydration) and must stay off the flag Russ actually opens.',
+  )
+  check(
+    stick.some(({ l }) => /loramer:debug-landing/.test(l)),
+    '(f) The landing probe has no gate at all — it would reach a normal user.',
   )
   // ⛔ AND IT MUST BE READABLE BY THE OBSERVER. LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1: shipped in
   // 1a76a4e as a console line, correctly gated, and UNREADABLE on Chrome iOS — the only device with the

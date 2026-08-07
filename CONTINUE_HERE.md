@@ -1,53 +1,63 @@
-╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-02, ~03:00Z). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-07, ~07:00Z). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
 
-⛔ **FIRST THING TOMORROW: read the six google geo cursors, then run the ★FOAMOH-GEO-NOT-TIME-BOUND diagnosis — read-only, no chunk-size change.** WHY: it is the ONLY lane still losing recoverable data per day, it is now isolated to ONE client with a MEASURED hypothesis, and everything else that was bleeding yesterday is now either advancing on its own or not losing a day per day.
+⛔ **EVERY LIVE VALUE BELOW IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).
+Where a number IS written it is a MEASUREMENT with its date on it, which is a record of a moment and cannot drift.
 
-⛔ **AND READ THIS BEFORE THE FIRST GUARD RUN, so it is not misread: `npm run guard` in the working tree reads 47 PASSED · 1 FAILED, and THAT IS NOT A REGRESSION.** The one failure is `tests/guards/metrics-upsert-chunked.guard.mjs` with exactly two findings, and BOTH ARE THE HELD GOOGLE TIER-1 WIDEN'S OWN PRECONDITIONS (d) and (e), recorded against that item in the QUEUE since 2026-07-30: (1) `src/lib/backfill/forward-widen-breadth.ts:44` is an UNCHUNKED `metrics_daily` upsert, and (2) the allowlist entry for `src/app/api/cron/sync/route.ts` says 13 while the widened file holds 9. **Everything committed is clean** — guard 48/48 ALL GREEN and `next build` exit 0, proven by isolation in a pristine HEAD worktree at f34c526. The failure appears the moment the held widen is in the tree and disappears the moment it is out. Do not chase it, do not "fix" it separately; it is paid off by the widen's own flight.
-  ⚙ **AND THE WORKING TREE IS NO LONGER THE ONLY COPY OF THAT WIDEN — 2026-08-02.** Both halves are on the remote branch **`hold/google-tier1-widen`** (`5d95348`), byte-identical and blob-verified; the working tree was restored to `M` + `??` afterwards, so the hold itself is unchanged. **QUEUE owns the detail** (why a branch and not a stash, the blob hashes, and the DO-NOT-MERGE). ⛔ Anything that still reads "held, UNCOMMITTED, one command from gone" is describing yesterday: a `git clean -fd` would still clear the working tree, but the work survives it now.
+── 0 · THE ONE THING THAT IS ACTIVELY LOSING DATA WHILE EVERYTHING ELSE IS COSMETIC ──
+★GA-DIMENSIONAL-CURSORS-FROZEN-2026-08-05 — two `ga_dimensional` cursors have not moved since 2026-07-30 and were
+**8 DAYS STALE at session close 2026-08-07**. `check:data` reported them as NEW (unbaselined) on every run tonight.
+⛔ A cursor that stops does not lose ONE day — `rangeLap` seals every older day behind it, so the loss grows one day
+per day and converts to PERMANENT at the vendor retention wall. **The whole of 2026-08-06/07 went to chat UI and this
+was not touched.** It is the only open item that is destroying something irreversible.
 
-⛔ **EVERY LIVE VALUE IN THIS BLOCK IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1). A clock time from `vercel.json` is a SCHEDULE FACT and is stated. A cursor, a quota window, a budget remaining, a row count is LIVE STATE — go and read it. Any figure below carrying a DATE and a TIME is TENSE-LOCKED: it is what was true at that moment, kept so today's read has something to be compared against. It is never the current value.
+── 1 · WHAT SHIPPED AND IS HOLDING (do not re-open; each has a guard in the suite) ──
+· LORAMER_CHAT_COPY_BLOCKS_V1 + LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — both halves closed.
+· LORAMER_CHAT_COST_AND_RECOVERY_V1 — cached prefix no longer carries a clock; 1h TTL; 500s recovery window;
+  per-phase `[chat] phases` timing + migration 058 (duration_ms, cache_read_tokens, cache_creation_tokens).
+· LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the thread MERGES, never replaces. **Gate-B CONFIRMED on device by Russ:**
+  he backgrounded mid-turn and his typed message survived the return.
+· LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — the working indicator survives a background/return cycle.
+· LORAMER_LORA_BACK_LANDS_ON_THE_CLIENT_V1 — the chevron lands on the client's own Overview.
+· LORAMER_NEXT_ROUTER_SCROLL_OFF_V1 — Next's scroll-to-top is SUPPRESSED where the destination owns its landing,
+  and deliberately NOT elsewhere (see ★SCROLL-FALSE-IS-NOT-A-GLOBAL-GOOD).
+· GOOGLE FLIGHT 2 — the backfill lane is sourced from `universe_window_log`, landed in the only window where it is inert.
 
-── 1 · THE GEO LANE IS ADVANCING ON ITS OWN. THE THING THAT WAS OWED FOR FOUR DAYS IS NOW HAPPENING WITHOUT A DRIVER. ──
+── 2 · WHAT IS OPEN, RANKED ──
+(a) ★GA-DIMENSIONAL-CURSORS-FROZEN — §0. Irreversible. Rank #1.
+(b) **THE VERIFICATION LAYER, and it outranks any single UI defect because it is what every fix is checked with:**
+    ★GUARD-IGNORES-LORAMER-GUARD-ROOT (a guard reading relative paths reads the REAL tree under a throwaway proof
+    and reports a FALSE PASS) and ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE (third locator repair in three flights).
+    **BLAST RADIUS UNKNOWN FOR BOTH.** Auditing all 74 guards for both at once is REAL WORK and is UNSCOPED.
+(c) ★CHAT-LANDING-FIRES-BEFORE-HYDRATION — the actual scroll defect, DIAGNOSED not fixed. The landing scrolls to the
+    bottom of an EMPTY document because the arrival effect fires at mount, before the async thread fetch lands.
+    ⚠ Its second half is UNANSWERED: the ResizeObserver's followBottom-on-growth exists, `pin` read Y, and it did not
+    save the landing. **Answer that too or the fix will appear to work and regress silently.**
+(d) ★LANDING-PROBE-SPEC-IS-WRONG (NEUTERED — gate moved to `loramer:debug-landing`, which nothing sets) and
+    ★LANDING-PROBE-Y-FLIP-UNEXPLAINED (open, no theory offered, the screenshot is the evidence).
+(e) ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING — a query-layer failure string is rendering as a card BODY.
 
-`maxDuration` 800 → **1800** (LORAMER_DRAIN_EXTENDED_DURATION_V1) was a MEASUREMENT of whether time was the constraint, and it answered YES for four of six cursors. **Inside `google_geo` + `google_user_geo` and Veterinary mastermind `google_geo` + `google_user_geo` advanced on TWO CONSECUTIVE FIRES** — tense-locked, 2026-08-02 00:33Z–00:48Z, after 34 days frozen. The google drain now runs `20 0,6,12,18 * * *` (4 fires/day, the bleed-stop throttle — QUEUE ★GOOGLE-DRAIN-THROTTLE-RESTORE owns the removal condition and `scripts/check-drain-throttle.mjs` ENFORCES it).
-  ⇒ **CONSEQUENCE FOR THE PLAN: "drive the live geo lap" is no longer the top item.** It was ranked #1 for four days on the premise that nothing would move unless someone drove it. The cron is now doing it. **READ THE CURSORS FIRST** — `sync_state` where `platform in ('google_geo','google_user_geo')` and `backfill_complete = false` — and let the reading, not this paragraph, decide whether anything needs driving.
+── 3 · THE WALK, AND WHAT IS HOLDING IT ──
+⛔ **THE WALK IS HALTED AND `universe_disk_headroom()` IS THE ONLY THING HOLDING IT.** Its body is a bare
+`raise exception` (LORAMER_WALK_HALTED_BY_OPERATOR_V1) — it computes nothing and enforces no threshold.
+⚠ **THE ORIGINAL BODY IS NOT COMMITTED ANYWHERE IN THIS REPO** — restoring is a REWRITE from the caller's contract
+(returns `used_bytes`, `free_bytes` as bigint), not a re-apply. Discover that cheaply now, not at re-release.
 
-── 2 · FOAM OH IS THE WHOLE REMAINING GEO PROBLEM, AND IT IS NOT TIME-BOUND ──
+── 4 · THE DATABASE DECISION THAT IS UNTAKEN ──
+· ✅ **BACKUPS ARE PROVEN RESTORABLE — clone verified 2026-08-07, 1h15m, all 145 partitions and the walk's 08-05 day
+  intact.** The first restore ever exercised on this project. The rollback is a measurement now, not a hypothesis.
+· ⛔ **`metrics_daily_old` IS 57.40 GB — 35.9% of the database — AND DROPPING IT IS UNTAKEN.** Backups are no longer
+  the blocker. **THE BLOCKER IS THE ID-SEQUENCE SEVERANCE AND IT IS UNSOLVED:** `metrics_daily_id_seq` is an IDENTITY
+  sequence (deptype `i`), so the standard `ALTER SEQUENCE … OWNED BY NONE` is REJECTED, and the likely correct path is
+  a NEW sequence with all **146** column defaults repointed. **NOT verified against this database. Do not improvise it.**
+· ⚠ A bare `DROP TABLE` REFUSES (146 dependent defaults). `DROP TABLE … CASCADE` SUCCEEDS and strips every default.
+  **The risk is one word wide.**
 
-**Foam OH's two cursors did NOT move on either fire.** Tense-locked 2026-08-02 02:29Z: both `backfill_earliest_date = 2026-04-09`, last stamped **2026-06-28**, 35 days. Same lane, same schedule, same raised ceiling, opposite outcome — so the constraint on Foam OH is **not the ceiling**, and ★DRAIN-EXTENDED-DURATION-TEST has now answered its question in BOTH directions rather than one.
-  **THE MEASURED DISTINGUISHING FACT, and it is where the diagnosis starts: Foam OH's slices in the stuck window are 100% ALREADY-WRITTEN.** Every chunk is a pure no-op rewrite rather than a mix of inserts — the UPDATE-only upsert path, which `src/lib/metrics-upsert.ts`'s own header explains is orders of magnitude more expensive than an insert. Inside and Veterinary mastermind walk into genuinely empty history and pay insert cost. That predicts the asymmetry without invoking time at all, AND predicts that MORE time will never fix it.
-  ⚠ **IT IS A HYPOTHESIS WITH A MEASURED PREMISE, NOT A CONCLUSION.** Not established: whether the lap times out, errors, is declined before it starts, or COMPLETES and fails the position test in `decideRangeLapCompletion`; and whether the already-written rows are byte-identical (a true no-op) or genuinely differ. **QUEUE ★FOAMOH-GEO-NOT-TIME-BOUND owns it.** Read-only diagnosis, and ⛔ **do not propose a smaller chunk size first** — the 2026-08-01 varying-chunk-index diagnosis found its cause precisely because it refused to.
+── 5 · COHORT ──
+**BATH FITTER | O'GORMAN BROS (60e6dd99) IS DROPPED FROM THE GOLDEN COHORT — it is now NINE.** Its
+`google_age`/`google_gender` CLAIM_EXCEEDS_ROWS findings were the standing `check:data` noise all session.
 
-── 3 · ★DRAIN-CRON-RUNS-ORPHANED — THE INSTRUMENT IS INVERTED. READ THIS BEFORE TRUSTING ANY `cron_runs` READING ON GOOGLE. ──
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
-**On the google drain: `finished_at` SET means the run FAILED or did NOTHING; `finished_at` NULL means it was WORKING when the ceiling killed it.** Tense-locked 2026-08-02, `mode='drain'` since 2026-07-26: **google 122 runs / 13 closed / 109 orphaned**, against **6/6/0** for each of ga, meta, shopify and woocommerce. All 13 closed google rows either errored or exited in one second with nothing to do. `rows_written` is 0 on all 122, including the run that demonstrably advanced four cursors. The mechanism is a design assumption, not a bad line: `finishCronRun` is the only writer of `finished_at`, and the drain's normal ending is a **Vercel `maxDuration` kill** — no `finally`, no stamp. QUEUE ★DRAIN-CRON-RUNS-ORPHANED owns the mechanism, the affected surfaces and the fix shape.
-  ⛔ **STANDING DO-NOT: DO NOT ADD `'drain'` TO `MODES` IN `src/app/api/cron/status/route.ts:14` UNTIL THIS IS FIXED.** Today the status route is BLIND to the drain, which is merely useless. Add the one word and it becomes actively WRONG: every successful run classifies `crashed-or-timed-out`, every errored or no-op run classifies `healthy`/`degraded`. A permanent false alarm on the healthy path is worse than no signal.
-  ⛔ **AND IT ALREADY COSTS SOMETHING TODAY:** `google-op-budget.ts:206` bills the drain lane on `connections_attempted`, which is 0 on every orphaned row — so **the 2026-07-31 lane-accounting fix is INERT for the google drain**. It corrected who is BLAMED; the drain's own bill is still structurally ~0.
-  ⛔ **A FIGURE WAS CORRECTED BECAUSE OF THIS:** "97 of 107 never stamped `finished_at`" (2026-08-01) was read THROUGH this defect and is NOT evidence of failure. What still stands — and what actually justified the throttle — is 31 consecutive sampled fires at 100% HTTP 504 and six cursors frozen 29–34 days. Neither came from `cron_runs`.
-
-── 4 · THE COMPLETION-CLAIM GATE NOW TESTS DELIVERY, AND MOST OF WHAT IT WAS REPORTING WAS NEVER A DEFECT ──
-
-LORAMER_CAPABILITY_DENOMINATOR_V1 replaced the gate's ACCOUNT-GRAIN SPEND denominator with a CAPABILITY-appropriate one sourced from the vendor's own matrix. **75 violations → 32.** 43 were capture working correctly against campaign mix — chiefly PMax, which has no ad groups and no age/gender criteria. Of the 51 baselined entries, **21 were stale; 13 were REMOVED (51 → 38) and 8 were DELIBERATELY RETAINED.**
-  **TWO OPEN DECISIONS, both yours, neither auto-resolved, and `npm run check:data` will show both tomorrow:**
-  · **2 NEW — Bath Fitter | O'Gorman Bros `google_age` + `google_gender`, 18 days each.** ⚠ **WEAK EVIDENCE ON PURPOSE:** the capability bound was derived from CAMPAIGN NAMES, not from `advertising_channel_type`, and the gate's own output says *"⚠ some delivering campaigns could not be typed"*. QUEUE ★BATH-FITTER-AGE-GENDER-WEAK-EVIDENCE says DO NOT BASELINE and DO NOT CHASE — it re-judges itself once the campaign backfill re-walks that 2023 window with the real vendor field.
-  · **8 STALE — the `meta_video` entries, RETAINED, and the reason is the decision:** they classify `INDETERMINATE_CAPABILITY` (the matrix is SILENT on Meta video), and **indeterminate is not the same as a proven honest empty.** Removing them would convert "we do not know" into "we checked and it was fine". They stay until the Meta side of the matrix is sourced.
-
-── 5 · ★PMAX-SEARCH-TERMS-NEVER-QUERIED — RECOVERABLE, PROVEN BY LIVE PROBE, NOT BUILT ──
-
-We query `search_term_view` only (`src/lib/google-ads.ts:98-102`), which returns nothing for PMax by construction. Google's own PMax reporting page lists **`campaign_search_term_view`**, which **we have never queried in the life of this product**. **PROVEN, not inferred — the probe RAN 2026-08-01 and returned 415 rows from a single 2023 PMax-only day** where our capture holds none. Sized from campaign-grain rows (name heuristic): **14 clients · 45 PMax campaigns · 5,364 PMax campaign-days · ~$453,000 of PMax spend with no search-term row anywhere.**
-  ⚠ **THE BUILD IS NOT SIZED AGAINST QUOTA. "~500 requests" is a WORKING ESTIMATE AND HAS NOT BEEN DERIVED** — the honest number is `count(distinct (client_id, date))` over PMax campaign-days, which is FEWER than 5,364 because requests are per client-day, not per campaign-day. Derive it before committing quota. QUEUE owns the item; it is capture-path work with its own retention, cost and grain questions.
-
-── 6 · WHAT FIRES ON A CLOCK (SCHEDULE FACTS from `vercel.json`; the armed DATES are LIVE STATE) ──
-
-**~08:03:57Z — GOOGLE DEVELOPER-SCOPE QUOTA RESET.** Clock-based auto-resume, no manual clear. READ IT — `sync_state` where `client_id='00000000-0000-0000-0000-000000000000'` and `platform='__google_quota'`; in code, `readGoogleQuotaPause()`. ⛔ Do NOT read the raw `backfill_blocked` column and conclude Google is down — the elapsed-window branch reports `not_blocked` while the stored flag stays `true`.
-**08:00 / 08:02 / 08:04 / 08:06 / 08:08Z — FORWARD SYNC**, one platform every two minutes.
-**00:20 / 06:20 / 12:20 / 18:20Z — GOOGLE DRAIN**, 4 fires/day at `maxDuration` 1800. ⛔ **THE `*/5` CADENCE IS GONE** — any doc, note or memory that says the google drain runs every five minutes is describing a schedule that was removed 2026-08-01 to stop a 64-function-hour/day bleed.
-
-── 7 · THE 06:55Z WATCHER ──
-
-<<<WATCHER-SLOT — NOT YET LANDED AT THE TIME THIS BLOCK WAS WRITTEN (03:00Z). A background watcher is armed for 06:55Z to read the six geo cursors after the 06:20Z fire's 1800s window closes. The question it answers: did Foam OH's two move, and did the other four advance a THIRD time. Three consecutive advances turns the asymmetry from two samples into a fact. If this slot is still unfilled when you read it, the session ended before the watcher fired — just read the cursors yourself; it is one query and it is the first thing to do anyway.>>>
-
-╚═══ end timed items ═══╝
 
 
 ⛔ Read **LORAMER_ESSENCE.md** first, every session.
