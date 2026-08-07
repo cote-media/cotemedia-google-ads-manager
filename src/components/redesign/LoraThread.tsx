@@ -223,6 +223,28 @@ export default function LoraThread({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant, active, insetTargetRef, inputRef])
 
+  // ── LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — THE FALLBACK HALF, AND IT IS GATED ON THE SAME QUERY THE CSS
+  // USES SO EXACTLY ONE MECHANISM IS EVER LIVE. `field-sizing: content` is NOT Baseline (Chromium 123+,
+  // Safari 26.2+), and ⛔ EVERY iOS BROWSER IS WebKit — Chrome-iOS runs Safari's engine, so its Chromium
+  // version number says nothing about whether this property exists on Russ's phone. The @supports rule
+  // in lora-thread.module.css hands native sizing to engines that have it; this hands the same behaviour
+  // to the ones that do not, and CSS.supports is what keeps them from both running and fighting.
+  //
+  // ⛔ `height = 'auto'` BEFORE READING scrollHeight IS THE WHOLE TRICK, AND OMITTING IT IS THE CLASSIC
+  // BUG: scrollHeight of an element already sized to its content returns that size, so a field that has
+  // grown never shrinks back — it only ratchets up. Resetting to auto lets the browser recompute the
+  // intrinsic height first, which is what makes CLEARING the field return it to one line.
+  // The CSS max-height still clamps the painted box, so a long paste stops growing and scrolls itself.
+  const autoGrow = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    if (typeof CSS !== 'undefined' && typeof CSS.supports === 'function'
+        && CSS.supports('field-sizing', 'content')) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [inputRef])
+  useEffect(() => { autoGrow() }, [input, autoGrow])
+
   const list = (
     <div ref={contentRef} style={{ display: 'contents' }}>
       {messages.length === 0 ? (
@@ -323,6 +345,8 @@ export default function LoraThread({
             <Icon d={CHEVRON_DOWN} size={20} />
           </button>
         )}
+        {/* LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — rows={1} is the FLOOR, the CSS max-height is the CEILING,
+            and everything between is either `field-sizing: content` or the effect above. */}
         <textarea
           ref={inputRef}
           className={s.input}

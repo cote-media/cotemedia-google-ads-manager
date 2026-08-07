@@ -53,10 +53,23 @@
 }
 /* min-width:0 IS THE CRUX and it stays: the message column's min-width:auto is what let a wide table's
    intrinsic width force the bubble → panel wider on iOS; 0 makes it scroll internally instead. */
+/* LORAMER_CHAT_ASSISTANT_FULL_BLEED_V1, 2026-08-07 — THE ASSISTANT BUBBLE IS GONE, AND THE REASON IS
+   HORIZONTAL BUDGET RATHER THAN TASTE. MEASURED on a 390px phone: the text lived inside .list's 16px
+   padding AND an 88% max-width AND 13px of bubble padding — 390 → 358 → 315 → 289px, so 26% of the
+   screen was inset before a word was drawn, and long answers are the ones that matter. Full-bleed
+   restores 358px (92% of screen), +69px per line, on the page's own margin and nothing else.
+   ⛔ WHY THE USER BUBBLE STAYS: the bubble is what says WHOSE TURN THIS IS. The user's is short, right-
+   aligned and blue, so it carries that signal on its own; the assistant's is long, left-aligned and the
+   only other speaker, so the container was doing no work its position was not already doing.
+   ⚠ THIS APPLIES TO BOTH VARIANTS — one class, one rule, so the desktop shelf loses the fill too. That
+   is deliberate: scoping it per-variant would need a second class threaded through LoraThread, and two
+   drifting values in two rules is the exact defect LORAMER_CHAT_SHARED_THREAD_V1 was built to end.
+   ⛔ min-width:0 IS STILL THE CRUX and it stays: the message column's min-width:auto is what let a wide
+   table's intrinsic width force the container → panel wider on iOS; 0 makes it scroll internally. */
 .bubbleAssistant {
-  max-width: 88%; min-width: 0; padding: 9px 13px; border-radius: 14px 14px 14px 4px;
-  background: var(--surface, #eef2f8); color: var(--ink, #0f172a);
-  font-size: 14px; line-height: 1.55; word-break: break-word;
+  max-width: 100%; min-width: 0; padding: 0;
+  color: var(--ink, #0f172a);
+  font-size: 15.5px; line-height: 1.65; word-break: break-word;
 }
 
 /* ── MARKDOWN — wide tables and code scroll INSIDE the bubble, never widening the surface ───────── */
@@ -66,10 +79,11 @@
 .md p { margin: 0 0 8px; }
 .md ul, .md ol { margin: 4px 0 8px; padding-left: 20px; }
 .md li { margin: 2px 0; }
-.md h1, .md h2, .md h3 { font-size: 14.5px; font-weight: 600; margin: 8px 0 4px; }
-.md code { background: var(--code-bg, rgba(15, 23, 42, .06)); padding: 1px 4px; border-radius: 4px; font-size: 12.5px; }
+/* Headings were 14.5px against 14px body — a 0.5px 'heading'. Rescaled with the body (15.5px). */
+.md h1, .md h2, .md h3 { font-size: 16.5px; font-weight: 600; margin: 10px 0 4px; }
+.md code { background: var(--code-bg, rgba(15, 23, 42, .06)); padding: 1px 4px; border-radius: 4px; font-size: 13.5px; }
 .md a { color: var(--accent, #2563eb); }
-.md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; max-width: 100%; margin: 6px 0; font-size: 13px; }
+.md table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; border-collapse: collapse; max-width: 100%; margin: 6px 0; font-size: 13.5px; }
 .md th, .md td { border: 1px solid var(--border, #dbe2ea); padding: 5px 9px; text-align: left; white-space: nowrap; }
 .md th { background: var(--surface, #eef2f8); font-weight: 600; }
 /* ⛔ LORAMER_CHAT_COPY_BLOCKS_V1 — `position: relative` AND the right padding-inset are ADDED TO A
@@ -79,7 +93,7 @@
    which on the shelf is the portaled panel, i.e. the button would have floated off the block entirely.
    The extra padding-right reserves the button's own width so a long first line cannot run underneath
    it; everything else about the rule is unchanged. */
-.md pre { position: relative; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; padding-right: 38px; background: var(--code-bg, rgba(15, 23, 42, .06)); border-radius: 8px; font-size: 12.5px; }
+.md pre { position: relative; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; margin: 6px 0; padding: 9px 11px; padding-right: 38px; background: var(--code-bg, rgba(15, 23, 42, .06)); border-radius: 8px; font-size: 13.5px; }
 .md pre code { background: none; padding: 0; border-radius: 0; white-space: pre; }
 
 /* The affordance itself. ⛔ EVERY COLOUR IS A var WITH A LITERAL FALLBACK (LoraThread.tsx:11-16): both
@@ -113,6 +127,17 @@
   flex-shrink: 0;
   display: flex; align-items: flex-end; gap: 8px;
   border-top: 1px solid var(--surface, #eef2f8); background: var(--white, #fff);
+  /* LORAMER_CHAT_COMPOSER_FULL_WIDTH_V1 — the send button moved INSIDE the field, so the composer is
+     now the positioning context for it. `.composerPanel` already had position:relative and `.composer`
+     is position:sticky (also a positioned element), so both variants could already host an absolute
+     child — this states it in ONE place rather than depending on two rules agreeing by accident.
+     ⛔ THE PADDING IS PUBLISHED AS VARIABLES because the send button must sit inside the field's right
+     edge, and that edge is at the composer's OWN padding — which differs per variant (the page adds the
+     safe-area inset). Hard-coding 14px here would put the button 14px from the wrong edge on one of the
+     two surfaces, and it would look correct on whichever one was tested. */
+  position: relative;
+  --composer-pad-x: 14px;
+  --composer-pad-b: 12px;
 }
 /* PANEL: an ordinary flex child at the end of the column. */
 .composerPanel { padding: 12px 14px; position: relative; }
@@ -123,18 +148,61 @@
 .composer {
   position: sticky; bottom: var(--lora-kb-inset, 0px); z-index: 2;
   padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  --composer-pad-b: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 .input {
   /* 16px is load-bearing: iOS auto-zooms any focused input under 16px, MEASURED at 1.1431818x
-     (LORAMER_NEXT_CHAT_INPUT_16PX_V1). Do not lower it. */
-  flex: 1; min-width: 0; resize: none; max-height: 120px; padding: 10px 12px;
+     (LORAMER_NEXT_CHAT_INPUT_16PX_V1). Do not lower it. ⛔ AND THE FIX IS FONT-SIZE, NEVER
+     maximum-scale/user-scalable=no: that suppresses the symptom by disabling pinch-zoom for everyone,
+     which is an accessibility regression, and iOS does not zoom BACK OUT on blur either way. */
+  flex: 1; min-width: 0; resize: none; padding: 10px 12px;
+  /* LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — ROOM FOR THE SEND BUTTON, WHICH NOW SITS INSIDE THE FIELD.
+     32px button + 6px inset + 8px clearance, so a long line cannot run underneath the glyph. */
+  padding-right: 46px;
+  /* ⛔ THE CAP, AND THE NUMBER IS A DELIBERATE DEPARTURE FROM THE BRIEF'S "~40% of viewport". The brief's
+     REASON is that a long paste must not eat the thread — and the shipped 120px is STRICTER than 40% of
+     any phone viewport (40vh of an 844px iPhone is ~338px, nearly three times looser), so raising it to
+     40vh would have made the stated problem WORSE while appearing to follow the instruction. `min()`
+     keeps both: 120px binds on a phone, and the 40vh term takes over on a viewport short enough that
+     120px would itself be 40% of the screen. ⛔ vh, NOT dvh — this file bans dvh outright (see the header:
+     on iOS dvh resolves to the LARGE viewport). The cost is stated: on a phone with browser chrome
+     showing, 40vh is computed against the larger viewport, so that term is slightly looser than 40% of
+     what is actually visible. It does not bind there anyway. */
+  max-height: min(40vh, 120px);
   overscroll-behavior: contain;
   border: 1px solid var(--border, #dbe2ea); border-radius: 12px; font: inherit; font-size: 16px;
   color: var(--ink, #0f172a); outline: none; line-height: 1.4;
 }
+/* ⛔ AUTO-GROW, NATIVE WHERE IT EXISTS. `field-sizing: content` is NOT Baseline — Chromium 123+ and
+   Safari 26.2+ — and EVERY iOS BROWSER IS WebKit, so Chrome-iOS follows Safari's engine and not
+   Chromium's version number. The @supports gate is therefore not politeness, it is the whole contract:
+   engines that have it get it natively, and LoraThread's JS fallback is gated on the SAME query
+   (`!CSS.supports('field-sizing','content')`) so exactly one mechanism is ever active.
+   MDN: developer.mozilla.org/en-US/docs/Web/CSS/field-sizing ·
+   Chrome for Developers: developer.chrome.com/docs/css-ui/field-sizing */
+@supports (field-sizing: content) {
+  .input { field-sizing: content; resize: none; }
+}
 .input:focus { border-color: var(--accent, #2563eb); }
+/* LORAMER_CHAT_COMPOSER_FULL_WIDTH_V1 — THE SEND BUTTON NO LONGER CONSUMES WIDTH BESIDE THE FIELD.
+   It cost 38px + an 8px gap = 46px of every composer line, on the narrowest surface we ship. Absolutely
+   positioned INSIDE the field it costs the same 46px of padding-right — but only on the LAST line,
+   because the button anchors to the field's bottom-right and the text wraps above it.
+   ⛔ THE OFFSETS COME FROM THE COMPOSER'S OWN PADDING VARIABLES, not from a literal: the page variant
+   adds env(safe-area-inset-bottom) and the panel does not, so one hard-coded bottom would be wrong on
+   one of the two surfaces. ⚠ `align-items: flex-end` on the composer keeps the field bottom-aligned as
+   it auto-grows, so the button stays pinned to the field's bottom edge rather than drifting. */
 .send {
-  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: none;
+  position: absolute;
+  /* ⛔ LITERAL FALLBACKS ARE MANDATORY HERE, and lora-thread-shared.guard caught their absence before
+     this shipped. Both surfaces SEVER custom-property inheritance — the page renders outside <Shell>,
+     the shelf is portaled out of `.root` — and a bare var() in that state resolves to nothing, which
+     makes the whole calc() invalid and DROPS the declaration: the button would jump to the composer's
+     corner. The fallbacks are the same 14px/12px the panel variant declares, so a severed scope
+     degrades to today's geometry instead of to none. */
+  right: calc(var(--composer-pad-x, 14px) + 6px);
+  bottom: calc(var(--composer-pad-b, 12px) + 6px);
+  width: 32px; height: 32px; border-radius: 50%; border: none;
   background: var(--accent, #2563eb); color: var(--white, #fff); cursor: pointer;
   display: grid; place-items: center; transition: opacity .15s; padding: 0;
 }

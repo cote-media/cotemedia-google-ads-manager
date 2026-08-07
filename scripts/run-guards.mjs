@@ -163,6 +163,9 @@ const GUARDS = [
   // 500 GiB ceiling (never a percentage — provisioned disk is invisible to Postgres), and bound free_bytes
   // by it. Its body existed only in the live database until 2026-08-07.
   'tests/guards/universe-disk-ceiling.guard.mjs',
+  // LORAMER_CHAT_ASSISTANT_FULL_BLEED_V1 + LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — CSS FACTS ONLY. It cannot
+  // see a pixel (★CHAT-RENDER-MEASUREMENT-MISSING); layout is Gate-B on device.
+  'tests/guards/chat-composer-and-bleed.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',
