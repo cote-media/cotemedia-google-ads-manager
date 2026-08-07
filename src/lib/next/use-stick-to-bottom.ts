@@ -103,10 +103,25 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
   // ⚠ FLAG-GATED behind the existing `?debug=chat` (sessionStorage `loramer:debug-chat`, set by
   // use-lora-chat's probe effect). It must never reach a normal user, so the read is the gate and there
   // is no other output. No client data: two integers, a label and a shot index.
+  // ⛔ IT MUST BE READABLE ON THE DEVICE THAT HAS THE DEFECT, AND console.log IS NOT.
+  // Shipped in 1a76a4e as a console line. Russ is on Chrome iOS with NO DEVTOOLS — the probe existed,
+  // was correctly gated, and was UNREADABLE BY THE ONLY PERSON WHO COULD RUN IT. An instrument whose
+  // output cannot reach the observer is not an instrument. The lines are now STATE, rendered as an
+  // on-screen bar he can read and screenshot, which is the only channel that works here.
+  // ⚠ ARMED ONLY DURING THE ARRIVAL SEQUENCE, and that bound is load-bearing rather than tidy:
+  // `bottom()` is also called by the ResizeObserver, so recording on every shot would let a setState
+  // inside the scroll path feed the observer that triggers the scroll. Armed at the landing, disarmed
+  // when the arrival window closes; capped besides.
+  const [probeLines, setProbeLines] = useState<string[]>([])
+  const probeArmedRef = useRef(false)
   const probe = (label: string, shot: number) => {
     try {
+      if (!probeArmedRef.current) return
       if (sessionStorage.getItem('loramer:debug-chat') !== '1') return
-      console.log(`[scroll] ${label} shot=${shot} y=${Math.round(getY())} max=${Math.round(getMaxY())} vp=${Math.round(getViewport())} pinned=${pinnedRef.current} arriving=${arriving()}`)
+      const line = `${shot} ${label} · y ${Math.round(getY())} · sH ${Math.round(getMaxY())} · vp ${Math.round(getViewport())} · pin ${pinnedRef.current ? 'Y' : 'N'} · arr ${arriving() ? 'Y' : 'N'}`
+      // console too — harmless where devtools DO exist (desktop), and it costs nothing.
+      console.log(`[scroll] ${line}`)
+      setProbeLines((p) => (p.length >= 12 ? p : [...p, line]))
     } catch { /* the probe must never throw into a scroll */ }
   }
 
@@ -177,14 +192,26 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
     arrivalUntilRef.current = Date.now() + ARRIVAL_GRACE_MS
     lastAutoYRef.current = -1
     setPin(true)
+    // Arm the readout for THIS landing only, and start from an empty list so what the screen shows is
+    // one arrival rather than an accumulating history.
+    probeArmedRef.current = true
+    setProbeLines([])
     bottom()
     // One more shot at the end of the grace window. The existing now/rAF/+250ms triple was sized for late
     // markdown layout, not for a router scroll that can land after all three; this is the shot that
     // reclaims the position the router took, and it still passes through `stillFollowing()` so a user who
     // genuinely scrolled after the window closed keeps control.
     const settle = window.setTimeout(() => { if (stillFollowing()) bottom() }, ARRIVAL_GRACE_MS + 60)
+    // One final sample AFTER every shot has run, so the bar shows where the page actually came to rest —
+    // the resting position is the whole point and none of the per-shot lines contains it.
+    const rest = window.setTimeout(() => {
+      probe('REST', 9)
+      probeArmedRef.current = false
+    }, ARRIVAL_GRACE_MS + 400)
     return () => {
       window.clearTimeout(settle)
+      window.clearTimeout(rest)
+      probeArmedRef.current = false
       if (isDoc() && prev) { try { history.scrollRestoration = prev } catch {} }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,5 +276,5 @@ export function useStickToBottom(scrollerRef: RefObject<HTMLElement | null> | nu
     bottom(behavior)
   }
 
-  return { pinned, bottom, followBottom, forceBottom, setPin }
+  return { pinned, bottom, followBottom, forceBottom, setPin, probeLines }
 }

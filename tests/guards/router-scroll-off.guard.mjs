@@ -44,8 +44,9 @@ const MOBILE = 'src/components/redesign/MobileNav.tsx'
 const RAIL = 'src/components/redesign/RailContent.tsx'
 const TOP = 'src/components/redesign/TopBar.tsx'
 const STICK = 'src/lib/next/use-stick-to-bottom.ts'
+const THREAD = 'src/components/redesign/LoraThread.tsx'
 
-for (const f of [OPEN, LORA, MOBILE, RAIL, TOP, STICK]) {
+for (const f of [OPEN, LORA, MOBILE, RAIL, TOP, STICK, THREAD]) {
   if (!existsSync(resolve(ROOT, f))) {
     console.error(`[router-scroll-off] FAIL — ${f} is missing.`)
     process.exit(1)
@@ -58,6 +59,7 @@ const mobile = codeOf(read(MOBILE))
 const rail = codeOf(read(RAIL))
 const top = codeOf(read(TOP))
 const stick = codeOf(read(STICK))
+const thread = codeOf(read(THREAD))
 
 // ── (a) THE LORA ENTRY SUPPRESSES ───────────────────────────────────────────────────────────────────
 {
@@ -176,6 +178,23 @@ const stick = codeOf(read(STICK))
   check(
     stick.some(({ l }) => /loramer:debug-chat/.test(l)),
     '(f) The probe is not gated behind the ?debug=chat flag — it would reach a normal user.',
+  )
+  // ⛔ AND IT MUST BE READABLE BY THE OBSERVER. LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1: shipped in
+  // 1a76a4e as a console line, correctly gated, and UNREADABLE on Chrome iOS — the only device with the
+  // defect and the only one Russ can run it on. An instrument whose output cannot reach the observer is
+  // not an instrument, so the on-screen path is guarded, not just the capture.
+  check(
+    stick.some(({ l }) => /setProbeLines\(/.test(l)) && /probeLines/.test(read(STICK).split('return {').pop() || ''),
+    '(f) The landing probe no longer exposes its lines as state — it is console-only again, which is ' +
+      'invisible on the device that has the defect.',
+  )
+  check(
+    thread.some(({ l }) => /probeLines\.map\(/.test(l)),
+    '(f) LoraThread does not RENDER the landing probe. A gated console line is not a readout on iOS.',
+  )
+  check(
+    thread.some(({ l }) => /\{debug && probeLines\.length/.test(l)),
+    '(f) The on-screen landing readout is not gated on `debug` — it would reach a normal user.',
   )
 }
 

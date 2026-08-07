@@ -148,6 +148,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
 
       <LoraThread
         variant="page"
+        debug={debug}   /* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — on-screen landing readout */
         messages={messages}
         loading={loading}
         streamStatus={streamStatus}

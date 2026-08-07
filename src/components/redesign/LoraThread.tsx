@@ -154,6 +154,10 @@ export interface LoraThreadProps {
   active: boolean
   /** Rendered at the top of the scroll region — the shelf's ?debug=chat readout. Nothing by default. */
   debugSlot?: React.ReactNode
+  /** LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — ?debug=chat. Renders the landing-scroll readout ON SCREEN.
+   *  The console line shipped in 1a76a4e was correctly gated and UNREADABLE on Chrome iOS, which is the
+   *  only device with the defect. Both containers already hold this flag; it is passed, not re-derived. */
+  debug?: boolean
   /** Extra work on composer focus, on top of onComposerFocus. */
   onFocusExtra?: () => void
   /** PAGE VARIANT ONLY — the element that carries `--lora-kb-inset`. See the keyboard effect below. */
@@ -168,7 +172,7 @@ const KEYBOARD_MIN_DELTA_PX = 100
 export default function LoraThread({
   variant, messages, loading, streamStatus, streamingText, input, setInput, inputRef,
   onKeyDown, onComposerFocus, noteInput, send, clientId, clientName, suggestions, active,
-  debugSlot, onFocusExtra, insetTargetRef,
+  debugSlot, debug = false, onFocusExtra, insetTargetRef,
 }: LoraThreadProps) {
   const isPanel = variant === 'panel'
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -178,7 +182,7 @@ export default function LoraThread({
   // single unconditional `scrollTop = scrollHeight` on every messages/loading change, so scrolling up to
   // read history got yanked back down — the exact defect the page was fixed for. Unified onto the page's
   // pin/unpin machine on Russ's instruction; averaging the two was explicitly refused.
-  const { pinned, bottom, followBottom, forceBottom, setPin } = useStickToBottom(
+  const { pinned, bottom, followBottom, forceBottom, setPin, probeLines } = useStickToBottom(
     isPanel ? scrollRef : null,
     { watch: [messages, loading, streamStatus, streamingText], contentRef, active },
   )
@@ -297,6 +301,14 @@ export default function LoraThread({
       <CopyResetContext.Provider value={clientId ?? ''}>
       <div className={isPanel ? s.scroll : s.list} ref={isPanel ? scrollRef : undefined}>
         {debugSlot}
+        {/* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — the landing readout, on screen, ?debug=chat only.
+            One line per shot: shot · scrollY · scrollHeight · viewport · pinned · arriving, then REST.
+            Russ reads and screenshots this; there is no other channel on Chrome iOS. */}
+        {debug && probeLines.length > 0 && (
+          <div className={s.landingProbe}>
+            {probeLines.map((l, i) => <div key={i}>{l}</div>)}
+          </div>
+        )}
         {list}
       </div>
 

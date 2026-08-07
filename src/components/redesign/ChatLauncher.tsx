@@ -218,6 +218,7 @@ export default function ChatLauncher({ clientId, clientName }: { clientId?: stri
 
             <LoraThread
               variant="panel"
+              debug={debug}   /* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 */
               messages={messages}
               loading={loading}
               streamStatus={streamStatus}
