@@ -22,8 +22,12 @@ import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS } from '@/lib/next/chat-recovery'
 import { renderSubjectLine, aggregateSubjects, MIN_SUBJECT_MS } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
 import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn'
+// LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the thread is merged, never replaced. `Msg` moved to that module
+// because the merge OWNS the shape (id + lkey are the merge's own keys); it is re-exported here so every
+// existing `import type { Msg } from '@/lib/next/use-lora-chat'` keeps working.
+import { mergeThreadForClient, newLocalKey, type Msg } from '@/lib/next/merge-thread'
 
-export type Msg = { role: 'user' | 'assistant'; content: string; recoveryKey?: string }
+export type { Msg }
 
 // LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 / PROBE — "the keyboard is up" is a MEASURED geometric fact:
 // the layout viewport is materially taller than the visual one. Device values 2026-07-26: 766 vs 428.
@@ -105,6 +109,21 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   // ⛔ LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — ONE THREAD READ, TWO CALLERS. The mount hydration below
   // and the visibility-regain refresh further down MUST NOT be two implementations of "load the thread";
   // that is how the two chat surfaces drifted in the first place, one layer up.
+  // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — WHICH CLIENT THE CURRENT `messages` BELONG TO. Not derivable
+  // from `clientId`: the prop changes the instant the user switches, while `messages` still holds the
+  // PREVIOUS client's thread until a read lands. This ref is the only thing that can tell those apart,
+  // and it is what makes the merge client-scoped rather than a cross-client leak.
+  const messagesClientRef = useRef<string | null>(null)
+
+  // ⛔ THE SINGLE FUNNEL. Every path that adopts a server thread goes through here — mount hydration,
+  // the visibility/focus refresh, and the recovery ambiguous branch. There were three hand-rolled
+  // wholesale replaces; there is now one merge, and a guard that fails the build if a fourth appears.
+  const applyServerThread = useCallback((cid: string, rows: readonly unknown[]) => {
+    const localClientId = messagesClientRef.current
+    messagesClientRef.current = cid
+    setMessages((prev) => mergeThreadForClient(prev, rows, { localClientId, serverClientId: cid }))
+  }, [])
+
   const readThread = useCallback(async (cid: string): Promise<Msg[] | null> => {
     try {
       const params = new URLSearchParams({ clientId: cid, surface: NEXT_CHAT_SURFACE })
@@ -120,7 +139,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     const cid = clientId || null
     if (hydratedForRef.current === cid) return
     hydratedForRef.current = cid
-    if (!cid) { setMessages([]); return }   // portfolio Shell (no real client) — nothing to load
+    // Portfolio Shell (no real client) — nothing to load. ⚠ THIS BARE REPLACE IS CORRECT AND STAYS:
+    // there is no client, so there is no thread to merge INTO and nothing to preserve. The merge guard
+    // allowlists this one site by name; it must not be "fixed" into a merge.
+    if (!cid) { setMessages([]); messagesClientRef.current = null; return }
     let cancelled = false
     ;(async () => {
       try {
@@ -129,8 +151,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         const d = await r.json().catch(() => ({}))
         const rows = Array.isArray(d.messages) ? d.messages : []
         threadMaxIdRef.current = rows.reduce((mx: number, m: { id?: number }) => Math.max(mx, Number(m?.id) || 0), 0) || null // LORAMER_CHAT_ANSWER_RECOVERY_V1
-        const prior = rows.map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: m.content }))
-        if (!cancelled) setMessages(prior)   // this client's OWN history (empty array if none) — never the prior client's
+        // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — was `setMessages(rows.map(m => ({role, content})))`, which
+        // discarded the ids AND anything typed while the fetch was in flight. The merge is client-scoped,
+        // so "this client's OWN history — never the prior client's" still holds by construction.
+        if (!cancelled) applyServerThread(cid, rows)
       } catch { /* a failed load must not blank a live thread or cross-contaminate — leave the fresh-mount empty state */ }
     })()
     return () => {
@@ -146,7 +170,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // This also protects any genuine remount, not just StrictMode.
       if (hydratedForRef.current === cid) hydratedForRef.current = null
     }
-  }, [active, clientId])
+  }, [active, clientId, applyServerThread])
 
   useEffect(() => {
     // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — STICKY for the session. This effect runs once on mount and
@@ -373,11 +397,17 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         const rows = await readThread(cid)
         if (!rows) return
         const maxId = rows.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0)
-        // NOTHING NEW ON THE SERVER → LEAVE THE SCREEN ALONE. A refresh that always re-sets state would
-        // stomp an in-flight optimistic user turn on every tab focus.
+        // NOTHING NEW ON THE SERVER → SKIP THE WORK. ⚠ THIS IS NOW AN OPTIMISATION, NOT A SAFETY GATE,
+        // and the distinction is the whole of fix (3). It used to be the only thing standing between a
+        // refresh and a wholesale replace — and it did not stand, because a NULL watermark falls straight
+        // through it: `threadMaxIdRef.current != null` short-circuits false and the replace ran
+        // unconditionally. MEASURED, and wider than "hydration failed": :131 reads `reduce(...) || null`,
+        // so reduce's 0 becomes null and EVERY BRAND-NEW CONVERSATION carries a null watermark on the
+        // HAPPY PATH. The first refresh after the first turn was therefore an unconditional replace by
+        // design, not by failure. Falling through is now harmless because the fall-through MERGES.
         if (!maxId || (threadMaxIdRef.current != null && maxId <= threadMaxIdRef.current)) return
         threadMaxIdRef.current = maxId
-        setMessages(rows.map((m: any) => ({ role: m.role, content: m.content })))
+        applyServerThread(cid, rows)
       } finally { running = false }
     }
     const onVis = () => { void refresh() }
@@ -390,7 +420,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       document.removeEventListener('visibilitychange', onVis)
       window.removeEventListener('focus', onVis)
     }
-  }, [active, clientId, readThread])
+  }, [active, clientId, readThread, applyServerThread])
 
   const send = useCallback(async (text: string) => {
     const q = text.trim()
@@ -398,7 +428,11 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     // LORAMER_NEXT_CONV_WRITE_V1 — snapshot the drill focus at turn start so BOTH turns of one exchange share a
     // scope even if the panel closes mid-flight (rowCtxRef is cleared on close). 'drill' = opened from a drill row.
     const turnScope = rowCtxRef.current ? 'drill' : null
-    const next = [...messages, { role: 'user' as const, content: q }]
+    // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the optimistic turn carries a stable local key from birth. It
+    // is what React renders against until the server row's id arrives, and what lets the merge reconcile
+    // this exact bubble to that row IN PLACE instead of showing the message twice.
+    const next: Msg[] = [...messages, { role: 'user' as const, content: q, lkey: newLocalKey('u') }]
+    if (clientId) messagesClientRef.current = clientId
     setMessages(next)
     setInput('')
     setLoading(true)
@@ -516,7 +550,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // ⛔ THE PREVIEW IS DISCARDED THE MOMENT THE AUTHORITATIVE ANSWER EXISTS. `reply` comes from the
       // `answer` event (or an error branch); the streamed text was never a second source of truth.
       setStreamingText('')
-      setMessages((m) => [...m, { role: 'assistant', content: reply }])
+      setMessages((m) => [...m, { role: 'assistant', content: reply, lkey: newLocalKey('a') }])
       // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — the assistant turn is written SERVER-SIDE by /api/chat,
       // from inside the stream close path. It is NOT written here and must never be: this line ran
       // only if the browser survived the read, which is how two answers were lost on 2026-07-26.
@@ -570,9 +604,13 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       activeToolsRef.current.clear()
       // ONE bubble, keyed, replaced in place — never a second bubble appended.
       const key = `rec:${Date.now()}`
-      setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key }])
+      setMessages((m) => [...m, { role: 'assistant', content: COPY.CHECKING, recoveryKey: key, lkey: newLocalKey('rec') }])
+      // ⛔ SPREAD, NOT REBUILD. This used to return a fresh `{ role, content }` and drop both
+      // `recoveryKey` and — once keys became stable — `lkey`. Under an index key that was invisible;
+      // under a stable key it DESTROYS THE BUBBLE'S IDENTITY mid-thread, so React unmounts the message
+      // the user is reading and mounts a different one in its place. The spread preserves both.
       const replace = (content: string) =>
-        setMessages((m) => m.map((x) => (x.recoveryKey === key ? { role: 'assistant' as const, content } : x)))
+        setMessages((m) => m.map((x) => (x.recoveryKey === key ? { ...x, role: 'assistant' as const, content } : x)))
       // RECOVERY IS A READ. It re-fetches the thread; it NEVER re-POSTs /api/chat. A silent retry would
       // double the spend on a turn that most likely already succeeded.
       let done = false
@@ -596,7 +634,11 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
               const all = await readThread(clientId)
               if (all && all.length) {
                 threadMaxIdRef.current = all.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0) || got.maxId
-                setMessages(all.map((m: any) => ({ role: m.role, content: m.content })))
+                // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — adopting the server's thread no longer means
+                // discarding the recovery bubble by side effect. The merge keeps it (it has no server row
+                // yet) and the explicit filter below is what removes it, deliberately, on the other branch.
+                applyServerThread(clientId, all)
+                setMessages((m) => m.filter((x) => x.recoveryKey !== key))
               } else {
                 // The read failed. Still never show the internal sentence — drop the placeholder and let
                 // the visibility refresh pick the thread up.

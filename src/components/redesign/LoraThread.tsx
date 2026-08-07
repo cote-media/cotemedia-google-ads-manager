@@ -239,8 +239,13 @@ export default function LoraThread({
           ) : null}
         </div>
       ) : (
-        messages.map((m, i) => (
-          <div key={i} className={m.role === 'user' ? s.rowUser : s.rowAssistant}>
+        // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — KEYED BY IDENTITY, NOT POSITION. `key={i}` was safe only
+        // while the array was replaced wholesale and grew from the end. The merge can now reconcile an
+        // optimistic bubble to its server row in place, which is a mid-thread identity change, and an
+        // index key would silently rebind every bubble after it. `id` when the server has written the
+        // row, the message's own stable local key before that.
+        messages.map((m) => (
+          <div key={m.id ?? m.lkey} className={m.role === 'user' ? s.rowUser : s.rowAssistant}>
             {/* An assistant turn is LoraTurn: the static mark on the page background at the answer's own
                 text margin, then the bubble. Same element and position the working state uses, so
                 nothing jumps when the answer lands. */}
