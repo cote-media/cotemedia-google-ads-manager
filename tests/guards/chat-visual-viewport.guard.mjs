@@ -141,6 +141,72 @@ for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
   }
 }
 
+// ═══ (j) PINNED-ELEMENT INVENTORY — LORAMER_PINNED_ELEMENT_SWEEP_V1 ═════════════════════════════════
+// ⛔ THIS IS THE ★PINNED-ELEMENTS-FIXED-ONE-AT-A-TIME ENFORCER, AND IT IS THE POINT OF THE LEG.
+// THREE FLIGHTS ON THIS SURFACE EACH FIXED THE ONE ELEMENT THAT WAS REPORTED while its siblings carried
+// the same defect: 97f2bfb (composer), fb95147 (header), and this one (chevron). Every element pinned
+// against the viewport must therefore be DECLARED with an owner, and an UNDECLARED one FAILS — so the
+// next sticky rule added to this surface cannot ship without someone deciding who positions it.
+//   js-top           JS writes an inline `top` from visualViewport.offsetTop while the keyboard is up.
+//   param            sticky offset is a var() JS writes; the BROWSER computes the painted position.
+//   declared-unfixed known to carry the defect, deliberately not fixed, with the reason recorded here.
+const PINNED = {
+  head: { owner: 'js-top', file: PAGE_CSS },
+  probe: { owner: 'js-top', file: PAGE_CSS },
+  composer: { owner: 'param', file: THREAD_CSS },
+  landingProbe: {
+    owner: 'declared-unfixed', file: THREAD_CSS,
+    why: 'sticky top:0 inside the SHARED thread component AND NEUTERED — its gate moved to '
+       + '`loramer:debug-landing`, which nothing sets (LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1). Fixing it '
+       + 'means adding a visualViewport subscription INSIDE the shared component for an element nothing '
+       + 'renders: new pinning machinery on a live shared path for zero user-visible benefit. DECLARED, '
+       + 'not forgotten — ★LANDING-PROBE-STICKY-UNFIXED carries the re-check.',
+  },
+}
+for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
+  if (!text) continue
+  for (const m of strip(text).matchAll(/\.([A-Za-z][\w-]*)\s*\{[^}]*position:\s*sticky/g)) {
+    const cls = m[1]
+    if (!PINNED[cls]) {
+      findings.push(`(j) UNDECLARED PINNED ELEMENT \`.${cls}\` (position: sticky) in ${rel}. Every element pinned against the viewport must be declared in this guard's PINNED ledger with an owner — js-top, param, or declared-unfixed WITH ITS REASON. Three flights on this surface each fixed the one element that was reported while its siblings carried the same defect; this leg is what stops a fourth.`)
+    } else if (PINNED[cls].file !== rel) {
+      findings.push(`(j) \`.${cls}\` is declared against ${PINNED[cls].file} but its sticky rule is in ${rel}. The ledger has drifted from the stylesheets it describes.`)
+    }
+  }
+}
+// ── (k) ONE WRITER PER ELEMENT — the `param` owners must NOT also be JS-positioned ──────────────────
+if (threadCss && threadTsx) {
+  const css = strip(threadCss)
+  const composer = /\.composer\s*\{([^}]*)\}/.exec(css)
+  if (!composer || !/bottom:\s*var\(--lora-kb-inset/.test(composer[1])) {
+    findings.push(`(k) .composer's sticky offset is no longer \`bottom: var(--lora-kb-inset, …)\`. It is a \`param\` owner: JS supplies the value and the BROWSER computes the painted position. Replacing the var with a JS-written top/transform adds the second writer this whole arc removed.`)
+  }
+  if (/composerRef[^\n]*style\.(top|transform)\s*=/.test(strip(threadTsx))) {
+    findings.push(`(k) ${THREAD_TSX} writes style.top/transform onto the composer. It is browser-positioned from a parameter; a direct position write is a second writer.`)
+  }
+}
+// ── (l) NO CONDITIONAL RENDER FOR A PINNED RIDER — THE CHEVRON DEFECT ITSELF ────────────────────────
+// `.jump` rides the composer, so its GEOMETRY was never wrong. It was `{!pinned && (<button …>)}` — a
+// conditional render driven by scroll-derived React state, so every crossing of the 80px threshold
+// mounted or unmounted it a render late. That is the "bounces, slightly after" Russ reported.
+if (threadTsx) {
+  const code = strip(threadTsx)
+  if (/\{\s*!pinned\s*&&/.test(code)) {
+    findings.push(`(l) ${THREAD_TSX} still gates a pinned rider behind \`{!pinned && …}\`. A conditional render driven by scroll state mounts and unmounts the element on every threshold crossing, one React render late — that IS the flicker. Hidden state must be a CLASS so the box never leaves the layout.`)
+  }
+  if (!/jumpHidden/.test(code)) {
+    findings.push(`(l) ${THREAD_TSX} does not apply a hidden CLASS to the jump-to-bottom control. Without it the only way to hide it is to stop rendering it, which is the defect this leg exists to prevent.`)
+  }
+}
+if (threadCss) {
+  const hidden = /\.jumpHidden\s*\{([^}]*)\}/.exec(strip(threadCss))
+  if (!hidden) {
+    findings.push(`(l) ${THREAD_CSS} has no .jumpHidden rule.`)
+  } else if (/(^|;)\s*(display|position|width|height|margin|padding|top|right|bottom|left)\s*:/.test(hidden[1])) {
+    findings.push(`(l) .jumpHidden changes a LAYOUT property (${hidden[1].trim().slice(0, 60)}…). It may only change paint — opacity/visibility/pointer-events — or hiding the control still disturbs the layout on every threshold crossing.`)
+  }
+}
+
 // ── (i) NO interactive-widget — IT IS UNAVAILABLE, NOT MERELY UNUSED ────────────────────────────────
 // `interactive-widget=resizes-content` WOULD close this whole class (w3c/csswg-drafts#10464, confirmed
 // by the spec author) and WebKit has NOT implemented it (bugs.webkit.org 259770). Every iOS browser is
@@ -158,4 +224,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log('[chat-visual-viewport] PASS — ONE positioning owner per keyboard state (the BROWSER resolves sticky; JS supplies only `top`, never a non-zero transform, never position:fixed) · the keyboard test REUSES --lora-kb-inset · header driven from visualViewport on BOTH resize and scroll · focusout dismissal path present (Apple thread/800154) · every listener removed on unmount · composer cap derived from viewport height inside a min() · no dvh · no zoom suppression · no interactive-widget. ⛔ CSS/JS FACTS ONLY — this proves NO pixel; the thumb-flick and the clip are Gate-B on device (★CHAT-RENDER-MEASUREMENT-MISSING).')
+console.log('[chat-visual-viewport] PASS — every viewport-pinned element DECLARED with an owner (js-top · param · declared-unfixed) · ONE writer each · no pinned rider behind a conditional render · the keyboard test REUSES --lora-kb-inset · header driven from visualViewport on BOTH resize and scroll · focusout dismissal path present (Apple thread/800154) · every listener removed on unmount · composer cap derived from viewport height inside a min() · no dvh · no zoom suppression · no interactive-widget. ⛔ CSS/JS FACTS ONLY — this proves NO pixel; the thumb-flick and the clip are Gate-B on device (★CHAT-RENDER-MEASUREMENT-MISSING).')

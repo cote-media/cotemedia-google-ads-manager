@@ -225,7 +225,16 @@
   display: grid; place-items: center; padding: 0;
   background: var(--ink, #0f172a); color: var(--white, #fff); border: none; cursor: pointer;
   box-shadow: 0 2px 10px var(--shadow, rgba(15, 23, 42, .28));
+  /* LORAMER_PINNED_ELEMENT_SWEEP_V1 — the fade that replaces mount/unmount. Opacity is composited, so
+     the frame-late React render lands as a fade instead of a box appearing. */
+  transition: opacity .12s linear;
 }
+/* ⛔ HIDDEN, NOT ABSENT — AND NOT ONE LAYOUT PROPERTY CHANGES HERE, WHICH IS THE WHOLE POINT. The
+   button keeps its box at every pin state, so crossing the 80px threshold can no longer insert or
+   remove anything from the layout. `visibility: hidden` (rather than opacity alone) also takes it out
+   of the a11y tree and off hit-testing; `pointer-events: none` is belt-and-braces for the 120ms the
+   fade is still running. */
+.jumpHidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
 /* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — the landing-scroll readout, ON SCREEN, ?debug=chat only.
    Same yellow-bar treatment as the frame probe because that is the one Russ already recognises and

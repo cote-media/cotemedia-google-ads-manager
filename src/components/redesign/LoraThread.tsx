@@ -350,16 +350,31 @@ export default function LoraThread({
       </div>
 
       <div className={`${s.composerShared} ${isPanel ? s.composerPanel : s.composer}`}>
-        {!pinned && (
-          <button
-            type="button"
-            className={s.jump}
-            onClick={() => { setPin(true); bottom('smooth') }}
-            aria-label="Jump to latest"
-          >
-            <Icon d={CHEVRON_DOWN} size={20} />
-          </button>
-        )}
+        {/* ⛔ LORAMER_PINNED_ELEMENT_SWEEP_V1, 2026-08-07 — ALWAYS MOUNTED. THE CHEVRON'S DEFECT WAS
+            NEVER ITS POSITION, AND THAT IS WHY THE HEADER'S FIX DID NOT TRANSFER TO IT.
+            Gate-B: it flickered in sync with flick speed AND SLIGHTLY AFTER IT. This was
+            `{!pinned && (<button …>)}` — a CONDITIONAL RENDER. `pinned` is React state that the scroll
+            handler drives (use-stick-to-bottom.ts: `dist <= NEAR_BOTTOM_PX ? setPin(true) :
+            movedUp && setPin(false)`), so a hard momentum flick crosses the 80px threshold repeatedly,
+            and EVERY CROSSING MOUNTED OR UNMOUNTED THIS BUTTON one React render after the event.
+            "Bounces, slightly after" is appear/disappear latency — not position judder. The header,
+            which is never conditionally rendered, went solid while this did not.
+            ⛔ THE FIX IS TO STOP CHANGING EXISTENCE, NOT TO CHASE THE LATENCY. Pinned-ness is now a
+            CLASS: the box is always in the layout, and the transition is an opacity change the
+            compositor owns. ⚠ THE FRAME-LATE RENDER IS STILL THERE AND IS NOT CLAIMED AWAY — it is
+            simply no longer visible as a box appearing and disappearing.
+            aria-hidden + tabIndex -1 keep it out of the a11y tree and the tab order while hidden,
+            which `{!pinned && …}` used to get for free by not existing. */}
+        <button
+          type="button"
+          className={`${s.jump} ${pinned ? s.jumpHidden : ''}`}
+          aria-hidden={pinned}
+          tabIndex={pinned ? -1 : 0}
+          onClick={() => { setPin(true); bottom('smooth') }}
+          aria-label="Jump to latest"
+        >
+          <Icon d={CHEVRON_DOWN} size={20} />
+        </button>
         {/* LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — rows={1} is the FLOOR, the CSS max-height is the CEILING,
             and everything between is either `field-sizing: content` or the effect above. */}
         <textarea

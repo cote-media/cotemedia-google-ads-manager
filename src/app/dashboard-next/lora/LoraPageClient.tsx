@@ -82,13 +82,24 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   // parent ones, so LoraThread subscribes to visualViewport first and its handler writes the property
   // before ours reads it. If that ever changed, the class would toggle ONE FRAME LATE at the
   // transition only — it cannot affect steady-state motion, because during motion the value is stable.
+  // ⛔ LORAMER_PINNED_ELEMENT_SWEEP_V1, 2026-08-07 — EVERY TOP-PINNED ELEMENT ON THIS PAGE, NOT JUST THE
+  // ONE THAT WAS REPORTED. fb95147 fixed `.head` because `.head` was what Russ saw; `.probe` is the
+  // SAME shape — `position: sticky; top: 0` against the LAYOUT viewport (lora-page.module.css:112) —
+  // and would detach under the keyboard in exactly the same way. Three flights on this surface each
+  // fixed the instance that was noticed while its siblings carried the defect (★PINNED-ELEMENTS-FIXED-
+  // ONE-AT-A-TIME). A LIST, not a ref, is what makes the next one a one-line addition instead of a
+  // fourth flight.
   const headRef = useRef<HTMLElement>(null)
+  const probeRef = useRef<HTMLDivElement>(null)
   const kbUpRef = useRef(false)
   const syncHead = useCallback(() => {
-    const el = headRef.current
     const page = rootRef.current
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
-    if (!el || !page || !vv) return
+    if (!page || !vv) return
+    // ⚠ `.probe` is debug-only and usually absent — a null ref is NORMAL here, not an error, so the
+    // list is filtered rather than guarded element-by-element.
+    const pinned: HTMLElement[] = [headRef.current, probeRef.current].filter(Boolean) as HTMLElement[]
+    if (!pinned.length) return
     const inset = parseFloat(page.style.getPropertyValue('--lora-kb-inset')) || 0
     const kbUp = inset > 0
 
@@ -98,8 +109,10 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // instead of one relying on the other's default.
     if (!kbUp) {
       if (kbUpRef.current) {
-        el.style.top = ''
-        el.style.transform = 'translate3d(0, 0, 0)'
+        for (const el of pinned) {
+          el.style.top = ''
+          el.style.transform = 'translate3d(0, 0, 0)'
+        }
         kbUpRef.current = false
       }
       return
@@ -112,7 +125,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // the transform stays at its resting identity for the whole keyboard-up state.
     kbUpRef.current = true
     const y = Math.max(0, Math.round(vv.offsetTop || 0))
-    el.style.top = `${y}px`
+    for (const el of pinned) el.style.top = `${y}px`
   }, [])
   useEffect(() => {
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
@@ -131,8 +144,8 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // IMMEDIATELY, returns the header to sticky and removes the flow compensation in the same task,
     // then re-reads on the next TWO frames so a late-but-correct offsetTop still wins.
     const onFocusOut = () => {
-      const el = headRef.current
-      if (el) {
+      for (const el of [headRef.current, probeRef.current]) {
+        if (!el) continue
         el.style.top = ''
         el.style.transform = 'translate3d(0, 0, 0)'
       }
@@ -158,7 +171,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // `shell.tokens` is NOT optional. Outside Shell there is no `.root`, so without it every var(--)
     // in this subtree resolves to nothing — the exact failure that made the send button invisible.
     <div ref={rootRef} className={`${shell.tokens} ${styles.page}`}>
-      {debug && <div className={styles.probe}>{probeLine || 'PROBE ARMED — tap the box'}</div>}
+      {debug && <div ref={probeRef} className={styles.probe}>{probeLine || 'PROBE ARMED — tap the box'}</div>}
 
       <header ref={headRef} className={styles.head}>
         {/* LORAMER_LORA_PAGE_EXIT_V1 — A FULL-SCREEN PAGE MUST HAVE A VISIBLE WAY OUT. router.back()
