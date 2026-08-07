@@ -166,6 +166,9 @@ const GUARDS = [
   // LORAMER_CHAT_ASSISTANT_FULL_BLEED_V1 + LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — CSS FACTS ONLY. It cannot
   // see a pixel (★CHAT-RENDER-MEASUREMENT-MISSING); layout is Gate-B on device.
   'tests/guards/chat-composer-and-bleed.guard.mjs',
+  // LORAMER_LORA_HEADER_VISUAL_VIEWPORT_V1 + LORAMER_CHAT_COMPOSER_CLIP_V1 — visualViewport wiring and
+  // the derived composer cap. CSS/JS FACTS ONLY; the keyboard cases are Gate-B on device.
+  'tests/guards/chat-visual-viewport.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

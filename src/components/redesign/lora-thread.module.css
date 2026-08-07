@@ -168,7 +168,13 @@
      on iOS dvh resolves to the LARGE viewport). The cost is stated: on a phone with browser chrome
      showing, 40vh is computed against the larger viewport, so that term is slightly looser than 40% of
      what is actually visible. It does not bind there anyway. */
-  max-height: min(40vh, 120px);
+  /* ⛔ AND THE THIRD TERM IS THE LIVE ONE — LORAMER_CHAT_COMPOSER_CLIP_V1, 2026-08-07. `40vh` and
+     `120px` are both STATIC and neither knows the keyboard is up. `--lora-composer-max` is written by
+     LoraThread from `visualViewport.height` on the same resize+scroll pair that drives the keyboard
+     inset, so the cap FALLS when the visible area shrinks and can never rise above the other two.
+     Its fallback is 120px — the value that binds today — so a severed scope or a browser with no
+     visualViewport degrades to exactly the shipped behaviour rather than to no cap at all. */
+  max-height: min(40vh, 120px, var(--lora-composer-max, 120px));
   overscroll-behavior: contain;
   border: 1px solid var(--border, #dbe2ea); border-radius: 12px; font: inherit; font-size: 16px;
   color: var(--ink, #0f172a); outline: none; line-height: 1.4;

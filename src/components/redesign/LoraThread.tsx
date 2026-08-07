@@ -211,6 +211,21 @@ export default function LoraThread({
       const raw = Math.round(docH - (vv.offsetTop || 0) - vv.height)
       const inset = raw > KEYBOARD_MIN_DELTA_PX ? raw : 0
       insetTargetRef?.current?.style.setProperty('--lora-kb-inset', `${inset}px`)
+      // ── LORAMER_CHAT_COMPOSER_CLIP_V1, 2026-08-07 — THE CAP FOLLOWS THE VISIBLE AREA.
+      // The composer already sits ABOVE the keyboard (sticky at `bottom: var(--lora-kb-inset)`), so the
+      // clip this fixes is the other direction: a grown field eating the thread that is left. `40vh` and
+      // the 120px ceiling are both computed against a viewport that does not shrink when the keyboard
+      // opens, so on a SHORT visible area — landscape with the keyboard up is the real case — a 120px
+      // composer is most of what remains. This is the only term that can see that, and `min()` in the
+      // stylesheet means it can only ever cap LOWER, never raise the ceiling.
+      // ⛔ THE 44px FLOOR IS NOT DECORATION: it is the single-line field height (10+10 padding + 22.4
+      // line-box + 2 border), so the cap can never fall below one line and trap the caret in a field
+      // too short to show it.
+      // ⚠ vv.height IS THE MEASURED VISIBLE HEIGHT, so it already has the iOS form-accessory bar (the
+      // key/card/location pill) subtracted — the same reason `raw` above is a measurement of the gap
+      // rather than an assumption about the keyboard.
+      insetTargetRef?.current?.style.setProperty(
+        '--lora-composer-max', `${Math.max(44, Math.round(vv.height * 0.4))}px`)
       if (document.activeElement === inputRef.current) {
         followBottom()
         window.setTimeout(() => followBottom(), 200)

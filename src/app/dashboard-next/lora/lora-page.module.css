@@ -52,6 +52,14 @@
   background: var(--white, #fff);
   border-bottom: 1px solid var(--surface);
   padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
+  /* LORAMER_LORA_HEADER_VISUAL_VIEWPORT_V1 — ITS OWN COMPOSITING LAYER. LoraPageClient drives this
+     element's transform from window.visualViewport on every visual-viewport scroll, and a repainted
+     (rather than composited) sticky bar flickers under iOS momentum scrolling. The identity
+     translate3d is the layer hint AND the resting value the JS writes back on dismissal, so the two
+     agree instead of one undoing the other. backface-visibility is the second half of the same hint. */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  will-change: transform;
 }
 /* LORAMER_LORA_PAGE_ICONS_V1 — THE CLOSE AFFORDANCE PAINTS ITSELF.
    ⛔ WHY IT WAS INVISIBLE: this rule used to be `background:none; border:none; padding:4px` around an

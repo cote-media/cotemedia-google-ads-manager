@@ -12,7 +12,7 @@
 // ⚠ RENDERS OUTSIDE <Shell>, therefore outside `.root`, therefore it MUST carry `.tokens` —
 // LORAMER_PORTAL_SEVERS_CSS_VARS_V1. Without it every colour dies exactly as the send button did.
 'use client'
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLoraChat } from '@/lib/next/use-lora-chat'
 import shell from '@/components/redesign/redesign.module.css'
@@ -46,13 +46,72 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   // exactly what the first cut of this extraction did, until chat-scroll-chain.guard.mjs said so.
   // This container still OWNS the element the inset is set on, which is why the ref is passed down.
 
+  // ── LORAMER_LORA_HEADER_VISUAL_VIEWPORT_V1, 2026-08-07 — THE HEADER IS PINNED TO THE VISUAL
+  // VIEWPORT, NOT THE LAYOUT ONE. Gate-B on device: with the keyboard up, a thumb-flick detaches the
+  // header and it scrolls away.
+  // ⛔ THE ELEMENT IS `position: sticky`, NOT `fixed`, AND THE DISTINCTION DOES NOT SAVE IT. Sticky
+  // pins to the top of its SCROLLPORT, which here is the LAYOUT viewport (this header is a child of
+  // `.page`, outside the thread). The keyboard does not change the layout viewport — it changes the
+  // VISUAL one, and iOS then lets the visual viewport scroll WITHIN the layout viewport. So the header
+  // stays glued to a line that is no longer on screen. Same mechanism as the long-documented WebKit
+  // behaviour where `position: fixed` stops being honoured while the keyboard is open; same published
+  // fix — drive the element from `window.visualViewport`.
+  // ⛔ BOTH EVENTS, NOT JUST resize. `resize` fires when the keyboard opens/closes; `scroll` is what
+  // fires when the user flicks the visual viewport around with the keyboard already up, which is
+  // exactly the failing gesture. Listening to one of the two fixes half the defect and looks fixed.
+  // ⛔ transform, NEVER top. `top` is layout and would re-run sticky's own resolution every frame;
+  // a transform is composited and cannot fight the sticky it is correcting.
+  // ⛔ THE APPLE BUG IS HANDLED EXPLICITLY AND NOT ASSUMED AWAY — developer.apple.com/forums/thread/800154
+  // (iOS 26): `visualViewport.offsetTop` does NOT reset to 0 after the keyboard is dismissed, so an
+  // element driven from it stays displaced until something forces a recalc. `resize` alone does not
+  // clear it. The focusout path below zeroes the transform directly and then re-reads on the next two
+  // frames, so a late-arriving correct value still wins.
+  const headRef = useRef<HTMLElement>(null)
+  const syncHead = useCallback(() => {
+    const el = headRef.current
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!el || !vv) return
+    const y = Math.max(0, Math.round(vv.offsetTop || 0))
+    el.style.transform = `translate3d(0, ${y}px, 0)`
+  }, [])
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null
+    if (!vv) return // ⛔ NO visualViewport = NO CORRECTION, and that is the right failure: the header
+                    // keeps today's sticky behaviour rather than being driven by a value we cannot read.
+    let raf = 0
+    const schedule = () => {
+      if (raf) return
+      raf = window.requestAnimationFrame(() => { raf = 0; syncHead() })
+    }
+    // THE DISMISSAL PATH. Zero it immediately so the header cannot be left displaced, then re-read on
+    // the next two frames in case offsetTop is still stale at the moment focus leaves (the Apple bug).
+    const onFocusOut = () => {
+      const el = headRef.current
+      if (el) el.style.transform = 'translate3d(0, 0, 0)'
+      window.requestAnimationFrame(() => {
+        syncHead()
+        window.requestAnimationFrame(syncHead)
+      })
+    }
+    syncHead()
+    vv.addEventListener('resize', schedule)
+    vv.addEventListener('scroll', schedule)
+    window.addEventListener('focusout', onFocusOut)
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      vv.removeEventListener('resize', schedule)
+      vv.removeEventListener('scroll', schedule)
+      window.removeEventListener('focusout', onFocusOut)
+    }
+  }, [syncHead])
+
   return (
     // `shell.tokens` is NOT optional. Outside Shell there is no `.root`, so without it every var(--)
     // in this subtree resolves to nothing — the exact failure that made the send button invisible.
     <div ref={rootRef} className={`${shell.tokens} ${styles.page}`}>
       {debug && <div className={styles.probe}>{probeLine || 'PROBE ARMED — tap the box'}</div>}
 
-      <header className={styles.head}>
+      <header ref={headRef} className={styles.head}>
         {/* LORAMER_LORA_PAGE_EXIT_V1 — A FULL-SCREEN PAGE MUST HAVE A VISIBLE WAY OUT. router.back()
             alone is not one: on a fresh load there is nothing to go back TO and the button silently
             does nothing, which is what a trap feels like.
