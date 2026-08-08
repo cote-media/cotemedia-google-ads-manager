@@ -154,6 +154,40 @@ if (startSrc) {
   }
 }
 
+// ── (m) A SCOPING PARAMETER MAY NEVER PUBLISH MORE THAN THE OPERATOR PICTURED ──────────────────────────
+// ⛔ THE RECORDED INSTANCE, 2026-08-08 19:57:43Z: an approval for ONE message published FIFTEEN. The command
+// carried `?resource=campaign_search_term_view` with no `segment=`, and that resource has a base entry plus
+// 14 segment variants — so "one resource" silently meant "every entry on that resource". Rows 18017-18031 in
+// universe_window_log are the fifteen, each with requests_spent 1. The route COMPUTED the matched count and
+// REPORTED it in the response; it did not REFUSE on it, and by the time the number was readable the messages
+// were sent.
+// ⛔ THIS LEG GUARDS THE CLASS, NOT THE SEGMENT CASE: any scoping parameter that matches more than one entry,
+// and any call that would publish more than the ceiling, must refuse rather than report.
+if (startSrc) {
+  if (!/allEntries/.test(startSrc)) {
+    findings.push(`(m) ${START} has no 'allEntries' escape. A fan-out larger than the operator asked for must require an EXPLICIT flag — the same shape as the existing allowDeadStart=1 — or the only thing between an approval for one message and fifteen is the operator reading a number in a response that has already fired.`)
+  }
+  if (!/MAX_PUBLISH_WITHOUT_FLAG/.test(startSrc)) {
+    findings.push(`(m) ${START} has no publish ceiling constant. The resource filter is ONE instance of "a scoping parameter matched more than I pictured"; the ceiling is the class guard that catches the instances nobody has thought of yet.`)
+  }
+  // The refusal must be keyed on the MATCHED COUNT and must sit BEFORE the send loop.
+  const iSend = startSrc.indexOf('await send(TOPIC')
+  const beforeSend = iSend === -1 ? '' : startSrc.slice(0, iSend)
+  if (iSend !== -1 && !/refus/i.test(beforeSend)) {
+    findings.push(`(m) ${START} contains no refusal path before its send loop. Reporting a scope AFTER publishing is not a control.`)
+  }
+  if (!/matched > 1|matched !== 1|entries\.length > 1/.test(startSrc)) {
+    findings.push(`(m) ${START} never tests the matched count against 1 for a resource-only filter. That exact shape published 15 messages against an approval for 1 (rows 18017-18031, 2026-08-08).`)
+  }
+  // dryRun must reach the SAME reporting path, so checking is cheaper than firing.
+  if (!/wouldPublish/.test(startSrc) || !/dryRun/.test(startSrc)) {
+    findings.push(`(m) ${START} does not report wouldPublish under dryRun. The dry run is the thing that must be hard to skip; it existed tonight and was not read.`)
+  }
+  if (!/matchedEntries|wouldRefuse/.test(startSrc)) {
+    findings.push(`(m) ${START} does not return the MATCHED ENTRY LIST (and whether the call would be refused). A count alone is what made 15 look like 1 — the operator needs the names, before anything is sent.`)
+  }
+}
+
 // ── LIVE LEGS ──────────────────────────────────────────────────────────────────────────────────────────
 if (WITH_DB) {
   for (const line of read('.env.local').split('\n')) {

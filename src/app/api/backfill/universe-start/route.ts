@@ -29,6 +29,26 @@ const addDays = (iso: string, n: number) => {
   const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
 
+/**
+ * ⛔ THE PUBLISH CEILING — LORAMER_UNIVERSE_SCOPE_REFUSES_V1, 2026-08-08.
+ * ⛔ THIS NUMBER IS OURS, NOT A VENDOR CONSTANT. Google publishes no per-command limit; the only vendor
+ * ceiling is the 15,000 ops/day developer cap, which is a DAY budget and cannot see a single command.
+ *
+ * WHY 4, and it is arithmetic rather than taste: an accidental UNBOUNDED fire costs (messages × windows to
+ * the floor), and the floor is ~37 thirty-day windows from the current chain position. Four messages is
+ * therefore ~148 requests worst case — about 2.5% of the 6,000/day backfill allowance, absorbed without ever
+ * touching the 9,000 held for forward and drain. It is also above 1, so the real targeted shapes (a base
+ * entry, or a base entry plus one segment) still work with no flag at all.
+ *
+ * ⛔ WHAT IT EXISTS TO STOP, recorded so the number is never softened without knowing the cost: on
+ * 2026-08-08 an approval for ONE message published FIFTEEN. `?resource=campaign_search_term_view` carried no
+ * `segment=`, that resource has a base entry plus 14 segment variants, and the route COMPUTED the matched
+ * count and REPORTED it rather than REFUSING on it. Rows 18017-18031 are the fifteen.
+ * The segment case is one INSTANCE; the ceiling is the CLASS — any scoping parameter that matches more than
+ * the operator pictured.
+ */
+const MAX_PUBLISH_WITHOUT_FLAG = 4
+
 export async function POST(request: Request) {
   const auth = request.headers.get('authorization')
   if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -68,6 +88,9 @@ export async function POST(request: Request) {
   if (rewalkParam !== null && !/^\d+$/.test(rewalkParam)) {
     return NextResponse.json({ error: `rewalk must be a non-negative integer if supplied; got "${rewalkParam}"` }, { status: 400 })
   }
+  // ⛔ THE EXPLICIT FAN-OUT FLAG. Same shape as the existing allowDeadStart=1: the route REFUSES by default
+  // and the operator says the dangerous thing out loud. See MAX_PUBLISH_WITHOUT_FLAG for what it costs.
+  const allEntries = url.searchParams.get('allEntries') === '1'
   const windowsParam = url.searchParams.get('windows')
   const windowsRemaining = windowsParam === null ? undefined : Number(windowsParam)
   if (windowsRemaining !== undefined && (!Number.isInteger(windowsRemaining) || windowsRemaining < 1)) {
@@ -163,6 +186,53 @@ export async function POST(request: Request) {
 
   const startDate = addDays(endDate, -(windowDays - 1))
   const toPublish = entries.slice(0, gov.allowance)
+
+  // ── ⛔ REFUSE ON THE MATCHED COUNT — LORAMER_UNIVERSE_SCOPE_REFUSES_V1 ─────────────────────────────────
+  // ⛔ THIS ROUTE USED TO COMPUTE THE SCOPE AND REPORT IT. Reporting is not a control: on 2026-08-08 an
+  // approval for ONE message published FIFTEEN, and the count was readable only in the response that had
+  // already fired (rows 18017-18031). The decision now happens BEFORE the send loop, and the ANSWER carries
+  // the entry NAMES — a bare count is exactly what made 15 look like 1.
+  const matchedEntries = entries.map((e) => `${e.resource}${e.segment ? '/' + e.segment : ''}`)
+  const wouldRefuse: string | null =
+    allEntries
+      ? null
+      : onlyResource && onlySegment === null && entries.length > 1
+        ? `SCOPE MATCHED ${entries.length} ENTRIES, NOT 1. '?resource=${onlyResource}' with no '&segment=' matches the base entry AND every segment variant of that resource. If you meant the base entry alone, pass '&segment=' (empty). If you meant one variant, name it. If you genuinely mean all ${entries.length}, pass '&allEntries=1'.`
+        : entries.length > MAX_PUBLISH_WITHOUT_FLAG
+          ? `THIS CALL WOULD PUBLISH ${entries.length} MESSAGES, ABOVE THE CEILING OF ${MAX_PUBLISH_WITHOUT_FLAG}. Each message costs at least one Google Ads request, and an UNBOUNDED one walks to the vendor floor at ~1 request per window. Narrow it with '?resource=&segment=', bound it with '&windows=N', or say the fan-out out loud with '&allEntries=1'.`
+          : null
+
+  // ⛔ dryRun REACHES THE SAME REPORTING PATH AND ALWAYS ANSWERS, refusal or not. Checking must be strictly
+  // cheaper and easier than firing, or it does not get done — which is precisely what happened on 08-08.
+  if (dryRun) {
+    return NextResponse.json({
+      started: false, dryRun: true, published: 0,
+      wouldPublish: wouldRefuse ? 0 : toPublish.length,
+      wouldRefuse,
+      matched: entries.length, matchedEntries,
+      scope: { resource: onlyResource, segment: onlySegment, matched: entries.length, ofSelectable: allSelectable.length },
+      window: { startDate, endDate, windowDays },
+      bound: windowsRemaining === undefined ? { windows: null, note: 'UNBOUNDED — each consumer re-publishes its next window until the vendor, the governor or the disk floor stops it.' } : { windows: windowsRemaining },
+      rewalk: rewalkParam === null ? null : { generation: rewalkParam },
+      allEntries,
+      governor: { reason: gov.reason, allowance: gov.allowance, denominator: gov.denominator },
+      disk,
+    }, { status: 200 })
+  }
+
+  if (wouldRefuse) {
+    return NextResponse.json({
+      started: false, published: 0, refused: true, error: wouldRefuse,
+      matched: entries.length, matchedEntries,
+      scope: { resource: onlyResource, segment: onlySegment, matched: entries.length, ofSelectable: allSelectable.length },
+      escapes: {
+        segment: "&segment=<name> targets one variant; &segment= (empty) targets the BASE entry only",
+        allEntries: '&allEntries=1 publishes the whole matched set deliberately',
+        dryRun: '&dryRun=1 prints wouldPublish and the full matched entry list without sending anything',
+      },
+    }, { status: 400 })
+  }
+
   let published = 0
   if (!dryRun) {
     for (const entry of toPublish) {
