@@ -151,7 +151,15 @@ for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
 //   param            sticky offset is a var() JS writes; the BROWSER computes the painted position.
 //   declared-unfixed known to carry the defect, deliberately not fixed, with the reason recorded here.
 const PINNED = {
-  head: { owner: 'js-top', file: PAGE_CSS, provenBy: 'gate-b:fb95147' },
+  // ⛔ DEMOTED 2026-08-07 FROM `gate-b:fb95147` — A FALSE PROOF MARKER, AND THE RULE IT BROKE IS NOW
+  // WRITTEN DOWN: a provenBy MAY ONLY NAME A CAPTURE THAT EXERCISED THE MECHANISM, NEVER ONE THAT
+  // MERELY OBSERVED THE OUTCOME. Gate-B showed the header LOOKED right. It did not show the JS ran —
+  // and it almost certainly did not: LoraPageClient gates JS-owned placement on
+  // `parseFloat(--lora-kb-inset) > 0`, and that value measured 0 in 15 device samples on 2026-08-05
+  // (★LORA-KB-INSET-IS-DEAD-MACHINERY, DECISIONS LORAMER_LAYOUT_VIEWPORT_TRACKS_VISUAL_ON_CHROME_IOS_V1)
+  // and in 3 of the 4 captures on 2026-08-07. The header is solid because the LAYOUT viewport itself
+  // tracks the visual one, so plain sticky was already correct — a reason nobody had written down.
+  head: { owner: 'js-top', file: PAGE_CSS, provenBy: 'unproven' },
   probe: { owner: 'js-top', file: PAGE_CSS, provenBy: 'unproven' },
   // ⛔ provenBy IS THE ANSWER TO ★GUARD-LEDGER-GREEN-ON-UNPROVEN-ELEMENT. On 2026-08-07 leg (k) printed
   // this element GREEN while it was broken on a device, because the ledger recorded a DECLARATION and
@@ -242,6 +250,33 @@ if (threadCss) {
     findings.push(`(l) ${THREAD_CSS} has no .jumpHidden rule.`)
   } else if (/(^|;)\s*(display|position|width|height|margin|padding|top|right|bottom|left)\s*:/.test(hidden[1])) {
     findings.push(`(l) .jumpHidden changes a LAYOUT property (${hidden[1].trim().slice(0, 60)}…). It may only change paint — opacity/visibility/pointer-events — or hiding the control still disturbs the layout on every threshold crossing.`)
+  }
+}
+
+// ═══ (n) THE PROBE MUST PRINT EVERY VARIABLE THAT POSITIONS A PINNED ELEMENT ════════════════════════
+// ⛔ THIS IS THE 3dd4692 DEFECT TURNED INTO AN ENFORCER. That commit moved the composer from
+// `--lora-kb-inset` to `--lora-composer-bottom` AND SHIPPED A PROBE THAT STILL PRINTED THE OLD ONE.
+// The device capture then showed `inset 168` beside 336px of displacement — a contradiction that was
+// unresolvable ONLY because the variable that actually positioned the element was never on screen.
+// An instrument aimed at the wrong variable costs a whole Gate-B round trip and looks like a mystery.
+if (threadCss && threadTsx) {
+  const css = strip(threadCss)
+  const tsx = strip(threadTsx)
+  const positioning = new Set()
+  // Every var() used in a top/bottom inside a rule that is position: sticky.
+  for (const m of css.matchAll(/\{[^}]*position:\s*sticky[^}]*\}/g)) {
+    for (const v of m[0].matchAll(/(?:top|bottom)\s*:\s*var\(\s*(--[\w-]+)/g)) positioning.add(v[1])
+  }
+  // ⛔ ANCHOR ON THE WHOLE PROBE EFFECT, NOT ON THE textContent ASSIGNMENT. First cut anchored on the
+  // template literal alone and reported a FALSE POSITIVE: the probe reads the var through a `readVar`
+  // helper ABOVE the assignment, so the name is in the effect but not in the template. That is
+  // ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE in miniature, caught in the same commit that added the leg —
+  // the property is "the probe surfaces this variable", not "this string appears in that one literal".
+  const probeBlock = (tsx.match(/const tick = \(\)[\s\S]*?requestAnimationFrame\(tick\)/) || [''])[0]
+  for (const v of positioning) {
+    if (!probeBlock.includes(v)) {
+      findings.push(`(n) the probe never prints \`${v}\`, which POSITIONS a sticky element. An instrument aimed at a variable that no longer positions anything is what made the 2026-08-07 capture unresolvable: 168px of the printed var beside 336px of measured displacement, with the value that could explain it absent from the readout.`)
+    }
   }
 }
 

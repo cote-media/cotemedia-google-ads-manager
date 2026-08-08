@@ -210,6 +210,7 @@ export default function LoraThread({
       const docH = document.documentElement.clientHeight
       const raw = Math.round(docH - (vv.offsetTop || 0) - vv.height)
       const inset = raw > KEYBOARD_MIN_DELTA_PX ? raw : 0
+      applyRef.current = { n: applyRef.current.n + 1, docH, off: Math.round(vv.offsetTop || 0), vvH: Math.round(vv.height), raw }
       insetTargetRef?.current?.style.setProperty('--lora-kb-inset', `${inset}px`)
       // ── LORAMER_COMPOSER_SIGNED_OFFSET_V1 — THE COMPOSER GETS THE SIGNED VALUE, UNTHRESHOLDED.
       // `raw` IS the offset the composer needs, INCLUDING NEGATIVES: it is `docH − visualBottom`, i.e.
@@ -280,6 +281,14 @@ export default function LoraThread({
   const composerRef = useRef<HTMLDivElement>(null)
   const vvProbeRef = useRef<HTMLDivElement>(null)
   const lastVvRef = useRef<{ name: string; at: number }>({ name: 'none', at: 0 })
+  // ⛔ WHAT apply() ACTUALLY SAW, AND HOW MANY TIMES IT RAN. The 3dd4692 captures showed `inset 168px`
+  // beside `live 0` with an event 4ms old — a contradiction the CODE CANNOT EXPLAIN, because the write
+  // is unconditional and there is no path that writes on one condition and skips the inverse. Live
+  // values cannot settle it: they say what is true NOW, never what was true when the write happened.
+  // A snapshot plus a counter can: same numbers + rising counter ⇒ the write is landing somewhere else;
+  // different numbers ⇒ the follow-up never ran; frozen counter ⇒ apply() is being suppressed.
+  const applyRef = useRef<{ n: number; docH: number; off: number; vvH: number; raw: number }>(
+    { n: 0, docH: -1, off: -1, vvH: -1, raw: -1 })
 
   const autoGrow = useCallback(() => {
     const el = inputRef.current
@@ -339,16 +348,34 @@ export default function LoraThread({
         const rect = composerRef.current?.getBoundingClientRect()
         const cTop = rect ? Math.round(rect.top) : NaN
         const cBot = rect ? Math.round(rect.bottom) : NaN
-        const inset = insetTargetRef?.current
-          ? insetTargetRef.current.style.getPropertyValue('--lora-kb-inset').trim() || '(unset)'
+        // ⛔ READ THE VARIABLE THAT ACTUALLY POSITIONS THE ELEMENT. The 3dd4692 probe printed
+        // `--lora-kb-inset` — which STOPPED positioning the composer in that same commit, when it moved
+        // to `--lora-composer-bottom`. An instrument aimed at the wrong variable is why SHOT A could not
+        // be reconciled: 168 of inset cannot produce 336 of displacement, and the value that CAN was
+        // never on screen.
+        const readVar = (n: string) => insetTargetRef?.current
+          ? (insetTargetRef.current.style.getPropertyValue(n).trim() || '(unset)')
           : '(no target)'
+        const inset = readVar('--lora-kb-inset')
+        const cbot = readVar('--lora-composer-bottom')
         const live = docH - off - vvH
         const ev = lastVvRef.current
         const age = ev.at ? Date.now() - ev.at : -1
+        const ap = applyRef.current
+        // `.page` is the composer's CONTAINING BLOCK. A sticky element cannot escape it, so if the page
+        // box ends above the visual bottom the composer is clamped to the page and travels up with it —
+        // the second candidate for SHOT A's 336px, and the only one this field can settle.
+        const pageBot = insetTargetRef?.current
+          ? Math.round(insetTargetRef.current.getBoundingClientRect().bottom) : NaN
+        // ⚠ window.innerHeight is the ONLY untried candidate for measuring keyboard height on this
+        // browser. Published guidance says Chrome's innerHeight tracks the toolbar too, i.e. it is
+        // probably as useless as docH — UNMEASURED HERE, so it is printed rather than assumed.
+        const innerH = Math.round(window.innerHeight)
         sink.textContent =
-          `BASIS=layout-vp  docH ${docH}  off ${off}  vvH ${vvH}  visBottom ${visualBottom}\n` +
-          `composer top ${cTop}  bottom ${cBot}   d=bottom-visBottom ${cBot - visualBottom}\n` +
-          `inset ${inset}  live(docH-off-vvH) ${live}   ev ${ev.name} age ${age}ms`
+          `BASIS=layout-vp  docH ${docH}  off ${off}  vvH ${vvH}  visBottom ${visualBottom}  innerH ${innerH}\n` +
+          `composer top ${cTop}  bottom ${cBot}   d=bottom-visBottom ${cBot - visualBottom}   pageBot ${pageBot}\n` +
+          `kb-inset ${inset}   composer-bottom ${cbot}   live(docH-off-vvH) ${live}\n` +
+          `apply#${ap.n} saw docH ${ap.docH} off ${ap.off} vvH ${ap.vvH} raw ${ap.raw}   ev ${ev.name} age ${age}ms`
       }
       raf = window.requestAnimationFrame(tick)
     }
