@@ -247,6 +247,13 @@
    remove anything from the layout. `visibility: hidden` (rather than opacity alone) also takes it out
    of the a11y tree and off hit-testing; `pointer-events: none` is belt-and-braces for the 120ms the
    fade is still running. */
+/* LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — the stopped marker. Literal colours (this surface mounts outside
+   Shell, where an unresolved var renders nothing), and deliberately quiet: it LABELS the partial, it does
+   not apologise for it. */
+.stoppedMark {
+  margin-top: 6px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: #78716c;
+}
+
 .jumpHidden { opacity: 0; visibility: hidden; pointer-events: none; }
 
 /* LORAMER_COMPOSER_VV_PROBE_V1 — the measurement readout, ?debug=chat only, PAGE only.

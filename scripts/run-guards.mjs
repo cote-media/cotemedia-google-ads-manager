@@ -169,6 +169,9 @@ const GUARDS = [
   // LORAMER_LORA_HEADER_VISUAL_VIEWPORT_V1 + LORAMER_CHAT_COMPOSER_CLIP_V1 — visualViewport wiring and
   // the derived composer cap. CSS/JS FACTS ONLY; the keyboard cases are Gate-B on device.
   'tests/guards/chat-visual-viewport.guard.mjs',
+  // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — every link between the user's thumb and Anthropic's meter.
+  // TEXT ONLY: it cannot prove billing stopped; anthropic_spend_log is the acceptance criterion.
+  'tests/guards/chat-stop-cancels-server.guard.mjs',
   'scripts/check-capture-completeness.mjs',
   'scripts/check-lora-grounding.mjs',
   'scripts/check-connection-failure-recording.mjs',

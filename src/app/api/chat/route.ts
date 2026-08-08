@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth'
 import Anthropic from '@anthropic-ai/sdk'
 import { logSpend } from '@/lib/spend-logger' // LORAMER_SPEND_LOG_V1
 import { buildClaudeContext, buildClaudeContextCacheable, buildAgencyScopeContext } from '@/lib/intelligence/build-claude-context'  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 + LORAMER_AGENCY_SCOPE_LORA_V1
-import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/lib/lora-model-chain' // LORAMER_LORA_MODEL_CHAIN_V1
+import { runWithModelChain, AllModelsOverloadedError, provenanceNote, isUserAbort } from '@/lib/lora-model-chain' // LORAMER_LORA_MODEL_CHAIN_V1 + LORAMER_CHAT_STOP_CANCELS_SERVER_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop, runClaudeToolLoopStreaming } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
@@ -305,7 +305,12 @@ export async function POST(request: Request) {
           clientId,
           userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
           clientName,  // LORAMER_CHAT_STATUS_SUBJECT_V1 — already on the body; lets the status line name the client with ZERO extra queries
-          requestOptions,
+          // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — THE SIGNAL IS THE WHOLE FIX. Aborting client→server
+          // does NOT abort server→Anthropic; without this the generation runs to completion and bills
+          // in full while the browser shows nothing. `request.signal` only fires because vercel.json
+          // now carries `supportsCancellation: true` for this route — without that flag the platform
+          // never propagates the disconnect and this line is inert.
+          requestOptions: { ...requestOptions, signal: request.signal },
           emit: emitRaw,
           onFirstTurnStarted: firstToken,
         }),
@@ -371,9 +376,51 @@ export async function POST(request: Request) {
         })
         emitRaw('done', { model: answered })
       } catch (e: any) {
+        // ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — A USER ABORT IS NOT AN ERROR, AND IT STILL COSTS MONEY.
+        // Two things have to happen here that the error path does not do, and skipping either one ships a
+        // button that lies:
+        //   1. THE SPEND ROW. `logSpend` lived ONLY on the success path, so a stopped turn recorded
+        //      NOTHING — zero, for tokens that were genuinely generated and genuinely billed. Hiding real
+        //      money is the dishonest direction; a stop must be cheaper than a completion, never free.
+        //   2. THE ENDPOINT MARKER. `endpoint: 'chat-stopped'` rather than 'chat', so a stopped turn is
+        //      distinguishable in `anthropic_spend_log` WITHOUT a migration — and so every existing query
+        //      that filters `endpoint = 'chat'` does not silently average partial turns into completed ones.
+        // ⚠ THE HONEST LIMIT, STATED RATHER THAN ROUNDED AWAY: `usage` accumulates per COMPLETED tool turn.
+        // The turn that was in flight when the abort landed has no final usage event, so its output tokens
+        // are NOT knowable and are NOT in this row. THIS UNDER-REPORTS BY THE ABORTED TURN. It is the safe
+        // direction for honesty (we never claim to have spent less than we did on completed turns) but it
+        // is not exact, and nothing here should be read as exact.
+        if (isUserAbort(e)) {
+          // ⛔ THE ACCUMULATOR COMES OFF THE ERROR, NOT OFF `work`. `work` is the promise that just
+          // REJECTED — awaiting it again yields nothing, which is the shape of a spend row that silently
+          // never writes. runClaudeToolLoopStreaming attaches `partialUsage` to the thrown error precisely
+          // because that is the only object guaranteed to reach this catch.
+          const partial = (e && typeof e === 'object' ? (e as any).partialUsage : null) ?? null
+          console.log('[chat] STOPPED by user', JSON.stringify({
+            client: typeof clientId === 'string' ? clientId.slice(0, 8) : null,
+            elapsed_ms: Date.now() - t0, partial_usage: partial,
+          }))
+          if (partial) {
+            await logSpend({
+              userEmail: session.user.email,
+              clientId,
+              endpoint: 'chat-stopped',
+              model: MODEL_CHAIN[0],
+              inputTokens: partial.input,
+              outputTokens: partial.output,
+              cacheReadTokens: partial.cache_read,
+              cacheCreationTokens: partial.cache_create,
+              durationMs: Date.now() - t0,
+            })
+          }
+          // ⛔ `stopped`, NOT `error`. The client keeps the partial answer on screen and marks it stopped —
+          // the user paid for those tokens and discarding them would be the second way to lose their money.
+          emitRaw('stopped', { reason: 'user' })
+        } else {
         // POST-token failure. Status is already fixed at 200, so the only honest channel is an SSE error event.
         console.error('Chat error (streaming, post-token):', e)
         emitRaw('error', { error: e instanceof AllModelsOverloadedError ? 'overloaded' : (e?.message || 'stream failed') })
+        }
       } finally {
         try { (ctrl as any)?.close() } catch { /* already closed */ }
       }
@@ -409,7 +456,9 @@ export async function POST(request: Request) {
           messages,
           clientId,
           userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
-          requestOptions,
+          // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — same signal on the blocking path. Stop must work
+          // whichever path served the turn, or the button is honest on one and cosmetic on the other.
+          requestOptions: { ...requestOptions, signal: request.signal },
         }),
     })
     const { responseText, usage } = chain.value

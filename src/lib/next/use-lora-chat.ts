@@ -44,6 +44,15 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  // ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — THE LIVE CONTROLLER AND THE REASON IT WAS ABORTED.
+  // The turn already owns an AbortController, but it exists for DEADLINES and nothing outside the send
+  // closure can reach it. Stop needs both halves: a handle to abort, and a way for the catch to tell a
+  // USER stop from a TIMEOUT — because they must not behave the same. A timeout is "we do not know what
+  // happened" and starts a recovery poll; a stop is "the user decided" and must NEVER be recovered, or a
+  // turn they cancelled reappears minutes later. `controller.signal.aborted` is true for BOTH, so the
+  // signal alone cannot answer it — hence a separate flag set only on the user path.
+  const turnControllerRef = useRef<AbortController | null>(null)
+  const userStoppedRef = useRef(false)
   const [period, setPeriod] = useState<SharedPeriod>(() => getSharedPeriod())
   const [streamStatus, setStreamStatusRaw] = useState<string | null>(null)
   // LORAMER_LAGGING_EVENT_CANNOT_GATE_A_SYNCHRONOUS_CONSUMER_V1 — the SSE handler fires many times in one tick;
@@ -86,6 +95,15 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   // measurement. The `answer` event REMAINS AUTHORITATIVE — this is a preview that is thrown away the
   // moment the real one lands, never a second source of truth.
   const [streamingText, setStreamingText] = useState<string>('')
+  // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — the streamed text mirrored into a ref. The catch runs OUTSIDE
+  // the SSE reader's closure, so `live` is unreachable there and React state is a frame behind; a stop
+  // must keep text the user already paid for, and a frame-behind read would drop the last delta.
+  const streamingTextRef = useRef<string>('')
+  // The partial answer of a STOPPED turn, surfaced as its own thing. ⛔ It is NOT pushed into `messages`:
+  // the thread's identity/merge machinery (recoveryKey, lkey, mergeThreadForClient) is load-bearing and a
+  // stopped partial has no server row to merge against, so inventing one would put a message in the
+  // thread that the server does not have. Kept as a distinct, clearly-marked surface instead.
+  const [stoppedText, setStoppedText] = useState<string | null>(null)
 
   // ⛔ (S2) CONCURRENT TOOL SUBJECTS — AGGREGATED, NOT OVERWRITTEN. MEASURED: tool frames arrive in
   // bursts 0-2ms apart (seq 11→12 was 1ms), and a single-slot status showed only the LAST. Russ saw 3
@@ -572,6 +590,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     // the total cap alone governs and a healthy 200s blocking turn is never killed by an idle gap it was not
     // in. Every re-arm is CLAMPED to the remaining time, so the deadline always wins.
     const controller = new AbortController()
+    turnControllerRef.current = controller
+    userStoppedRef.current = false
+    streamingTextRef.current = ''
+    setStoppedText(null)   // a new question clears the previous stop; it does not stack
     const deadlineAt = Date.now() + CHAT_TOTAL_MS
     let abortTimer = setTimeout(() => controller.abort(), CHAT_TOTAL_MS)
     const rearmIdle = () => {
@@ -620,7 +642,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         // ⛔ S1 — PAINT THE ANSWER. `live` is the reader's accumulated delta text and it is ALREADY the
         // final-turn answer (claude-tools: `stream.on('text')` → emit('delta') is the FINAL turn only;
         // the reader clears `live` on any tool frame, so preamble narration never leaks in).
-        if (ev === 'delta') setStreamingText(live)
+        if (ev === 'delta') { streamingTextRef.current = live; setStreamingText(live) }
 
         if (ev === 'status' && data?.label) setStreamStatus(data.label)
         else if (ev === 'tool' && data?.phase === 'start') {
@@ -671,6 +693,21 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // `TypeError: Load failed`, identical to a real network drop, which is how a COMPLETED turn rendered as
       // "the connection dropped" on 2026-07-26. No string here may assert the answer was lost — since the
       // server persists the assistant turn from its own completion path, that claim is false and unknowable.
+      // ⛔ A USER STOP IS NOT A TURN FAILURE, AND IT MUST NOT ENTER ANY RECOVERY PATH.
+      // `classifyTurnFailure` would call this `aborted` — the same verdict a DEADLINE gets — and the
+      // aborted branch starts a recovery poll and shows ABORTED_UNCONFIRMED ("we do not know if it
+      // landed"). For a deliberate stop both are wrong: the user knows exactly what happened, and a
+      // recovered answer arriving minutes later is WORSE THAN NO BUTTON — it is the turn they paid to
+      // cancel, rendering itself anyway.
+      // ⚠ THE PARTIAL TEXT IS KEPT ON PURPOSE. Those tokens were generated and billed; discarding them
+      // would be the second way to lose the user's money. It is committed as a normal assistant turn and
+      // the UI marks it stopped, rather than being thrown away or left floating as a live stream.
+      if (userStoppedRef.current) {
+        const partial = streamingTextRef.current
+        setStoppedText(partial && partial.trim() ? partial : '')
+        clearTurnInFlight()
+        return
+      }
       const kind = classifyTurnFailure(controller.signal.aborted, e)
       // LORAMER_CHAT_FAILURE_TELEMETRY_V1 — CAPTURE THE DECISION, do not infer it later. On 2026-07-27
       // the server returned a definite 500 and the client took the CATCH path and showed a network
@@ -780,14 +817,26 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   }, [messages, loading, clientId, clientName, period])
 
 
+  // ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — ABORTING THE FETCH IS THE WHOLE POINT, NOT A UI GESTURE.
+  // The abort closes the HTTP connection; `vercel.json`'s `supportsCancellation` makes the platform
+  // surface that as `request.signal` on the function; the route forwards it to the Anthropic SDK; and
+  // Anthropic stops generating AND stops billing. Every link is required — dropping any one leaves a
+  // button that hides output while the meter runs.
+  // The flag is set BEFORE abort() so the catch, which runs synchronously off the rejection, can never
+  // observe the abort without the reason for it.
+  const stop = useCallback(() => {
+    userStoppedRef.current = true
+    try { turnControllerRef.current?.abort() } catch { /* already gone */ }
+  }, [])
+
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     lastInputAtRef.current = Date.now()   // LORAMER_CHAT_FRAME_PROBE_V1 — evidence of a real keystroke
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
   }
 
   return {
-    messages, setMessages, input, setInput, loading, streamStatus, streamingText, period,
+    messages, setMessages, input, setInput, loading, streamStatus, streamingText, stoppedText, period,
     debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef, noteInput,
-    send, onKeyDown, onComposerFocus, probeRef,
+    send, stop, onKeyDown, onComposerFocus, probeRef,
   }
 }

@@ -66,6 +66,9 @@
     }
   ],
   "functions": {
+    "src/app/api/chat/route.ts": {
+      "supportsCancellation": true
+    },
     "src/app/api/queues/google-ads-universe/route.ts": {
       "experimentalTriggers": [
         {
