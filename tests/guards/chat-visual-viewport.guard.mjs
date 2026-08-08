@@ -167,7 +167,17 @@ const PINNED = {
   // this element GREEN while it was broken on a device, because the ledger recorded a DECLARATION and
   // the declaration was an assertion I had reasoned to. `unproven` is a LEGAL value and it is PRINTED
   // ON EVERY RUN, so "declared" can never again be read as "correct".
-  composer: { owner: 'param', file: THREAD_CSS, provenBy: 'unproven' },
+  // ✅ PROMOTED 2026-08-07 — THE FIRST ENTRY ON THIS SURFACE WHOSE MARKER MEANS WHAT IT SAYS.
+  // ⛔ THE STANDING RULE APPLIED, AND THE MECHANISM NAMED SO A LATER READER CAN CHECK IT: a provenBy may
+  // only cite a capture that exercised the MECHANISM, never one that merely observed the OUTCOME.
+  // THE MECHANISM UNDER TEST was the double-count — `raw` reducing to `−offsetTop` and being written
+  // into `bottom`, applying a correction sticky was ALREADY making, which showed as ~2× displacement.
+  // THE CAPTURE EXERCISED IT: shot 1 caught `offsetTop −15` MID-FLICK with `composer-bottom 0px` and
+  // `d 15` — the element moved by the offset ONCE, not twice. ⛔ THE ZEROES ARE NOT THE PROOF; A
+  // NON-ZERO offsetTop THAT NO LONGER DOUBLES IS. And `apply#1298 … age 0ms` shows the loop running
+  // flat out through the flick, so this is the fix holding UNDER LOAD rather than a gesture that failed
+  // to reproduce.
+  composer: { owner: 'param', file: THREAD_CSS, provenBy: 'gate-b:ff233aa' },
   landingProbe: {
     owner: 'declared-unfixed', file: THREAD_CSS, provenBy: 'unproven',
     why: 'sticky top:0 inside the SHARED thread component AND NEUTERED — its gate moved to '
