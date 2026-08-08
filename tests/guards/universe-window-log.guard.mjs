@@ -347,9 +347,13 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
 // indistinguishable from one that worked, right up until nothing happens.
 {
   const src = read(CONSUMER)
-  const at = src.indexOf('windowAlreadyFinished(wk)')
+  // ⛔ RENAMED 2026-08-08, LORAMER_UNIVERSE_RESUME_IS_COVERAGE_V1 — the resume test is now
+  // windowResumeVerdict, which asks whether a CAPTURED row COVERS this range rather than whether any row
+  // shares its start. This leg's intent is unchanged: the consumer must consult it, and the skip branch must
+  // ADVANCE. Pinning the old name would have failed a correct rename while passing a broken semantic.
+  const at = src.indexOf('windowResumeVerdict(wk)')
   if (at === -1) {
-    findings.push('(i) the consumer no longer checks windowAlreadyFinished — every redelivery re-walks ground already covered and re-spends the quota.')
+    findings.push('(i) the consumer no longer consults windowResumeVerdict — every redelivery re-walks ground already covered and re-spends the quota.')
   } else {
     // The branch body, up to the closing of the if-block.
     const body = src.slice(at, at + 1400)

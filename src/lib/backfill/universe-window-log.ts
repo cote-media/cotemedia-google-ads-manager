@@ -281,14 +281,82 @@ export async function readLaneSpendToday(since?: Date): Promise<number> {
  * ⛔ TERMINAL ONLY. A row reading `running` is NOT finished — it is a window that died, and it must
  * be re-walked. Treating `running` as done is how a partial walk reports success.
  */
-export async function windowAlreadyFinished(k: WindowKey): Promise<boolean> {
+export interface ResumeVerdict {
+  /** Skip the capture and advance. */
+  skip: boolean
+  /** Why — stated so a skip is auditable rather than inferred from a quiet log line. */
+  reason: string
+}
+
+/**
+ * ⛔ LORAMER_UNIVERSE_RESUME_IS_COVERAGE_V1, 2026-08-08 — A ROW MAY ONLY SKIP A WINDOW IT ACTUALLY COVERED.
+ *
+ * THE DEFECT THIS REPLACES: the old test selected on the UNIQUE KEY
+ * `(client_id, vendor, resource, segment, window_start)` and returned `outcome !== 'running'`. **`window_end`
+ * is in NEITHER the key nor the test**, so a window was matched by its START ALONE regardless of its LENGTH,
+ * and ANY terminal outcome counted as "finished" — including outcomes that captured nothing.
+ * OBSERVED LIVE 2026-08-08 20:53Z: the 15-day window `2022-02-26..2022-03-12` was skipped against row 18016,
+ * whose window is `2022-02-26..2022-03-27` — thirty days. That skip happened to be CORRECT (the 30-day row
+ * is a strict superset and had outcome `ok`), which is exactly why it was invisible: the test was right by
+ * accident, on evidence it never actually checked.
+ *
+ * ⛔ THE CASE THAT IS NOT AN ACCIDENT, and it blocks a repair we owe: owed row 2871 covers
+ * `2025-12-07..2026-01-05` with outcome `abandoned_owed` — captured NOTHING. Re-walking its older half means
+ * publishing `2025-12-07..2025-12-21`, whose start is IDENTICAL. Under the old test that re-walk was matched
+ * by 2871 and SILENTLY SKIPPED, so the half could never be recovered.
+ *
+ * ⛔ TWO TESTS, NOT ONE, AND THE SPLIT IS THE WHOLE DESIGN:
+ *  (1) COVERAGE — CONTAINMENT, not exact match, and ONLY from an outcome that actually captured:
+ *      `outcome IN ('ok','zero') AND window_start <= wanted.start AND window_end >= wanted.end`.
+ *      Containment is the correct semantic: a 30-day `ok` row genuinely did capture every 15-day sub-range
+ *      inside it, and re-asking would spend a vendor request to re-learn it. `zero` counts because the vendor
+ *      ANSWERED and named nothing — a fact, not an absence (migrations/054's own words).
+ *      ⛔ `abandoned_owed`, `error`, `skipped`, `floor_stop` and `quota_stop` CAN NEVER COVER ANYTHING. None
+ *      of them means the range was captured; treating them as coverage is what made an owed window
+ *      unrecoverable.
+ *  (2) THE REDELIVERY SHORT-CIRCUIT — EXACT range only. At-least-once delivery means the same message can
+ *      arrive twice, and a non-capturing terminal row for the IDENTICAL window must still stop the loop —
+ *      that is what broke the three poison loops of 2026-08-08 and it must not regress. But it stops the
+ *      loop for THAT window and nothing else: a different length, or a different start, is a different
+ *      window and gets walked.
+ *
+ * ⛔ NO MIGRATION IS REQUIRED AND THE UNIQUE CONSTRAINT IS UNTOUCHED. The constraint governs the UPSERT
+ * conflict target — one row per (entry, window_start) — and that is still exactly the shape we want:
+ * re-opening a window overwrites its own row rather than accumulating duplicates. This is a READ-SIDE fix.
+ * `universe_window_log_resume_idx (client_id, vendor, outcome, window_start DESC)` already serves the
+ * filtered scan, and the table is 9.5 MB.
+ */
+export async function windowResumeVerdict(k: WindowKey): Promise<ResumeVerdict> {
   const { data, error } = await supabaseAdmin
     .from(TABLE)
-    .select('outcome')
+    .select('outcome, window_start, window_end')
     .eq('client_id', k.clientId).eq('vendor', VENDOR).eq('resource', k.resource)
-    .eq('segment', seg(k.segment)).eq('window_start', k.windowStart)
-    .maybeSingle()
+    .eq('segment', seg(k.segment))
+    .lte('window_start', k.windowStart)
   if (error) throw new Error(`universe_window_log resume read failed: ${error.message}`)
-  const outcome = (data as any)?.outcome
-  return !!outcome && outcome !== 'running'
+  const rows = (data ?? []) as Array<{ outcome: string; window_start: string; window_end: string }>
+
+  const covering = rows.find(
+    (r) => (r.outcome === 'ok' || r.outcome === 'zero') && r.window_start <= k.windowStart && r.window_end >= k.windowEnd
+  )
+  if (covering) {
+    return {
+      skip: true,
+      reason: `COVERED by a captured window ${covering.window_start}..${covering.window_end} (outcome ${covering.outcome}) — re-asking would spend a vendor request to re-learn ground already held`,
+    }
+  }
+  const exactTerminal = rows.find(
+    (r) => r.window_start === k.windowStart && r.window_end === k.windowEnd && r.outcome !== 'running'
+  )
+  if (exactTerminal) {
+    return {
+      skip: true,
+      reason: `TERMINAL for this exact window (outcome ${exactTerminal.outcome}) — the redelivery short-circuit. ⛔ NOT a coverage claim: this range was not captured and, if the outcome is abandoned_owed, it is still OWED`,
+    }
+  }
+  return {
+    skip: false,
+    reason: `not covered — ${rows.length} earlier-or-equal row(s) for this entry, none of them a captured window containing ${k.windowStart}..${k.windowEnd}`,
+  }
 }
+

@@ -21,7 +21,7 @@ import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
 // LORAMER_UNIVERSE_WINDOW_LOG_V1 — durable per-window progress, the hard disk floor, and the
 // governor's CORRECTED spend read. See the module header for what each replaces and why.
 import {
-  checkDiskFloor, openWindow, closeWindow, readLaneSpendToday, windowAlreadyFinished, shouldRepublish, gb,
+  checkDiskFloor, openWindow, closeWindow, readLaneSpendToday, windowResumeVerdict, shouldRepublish, gb,
   type WindowKey, type WindowOutcome,
 } from '@/lib/backfill/universe-window-log'
 
@@ -206,8 +206,13 @@ export const POST = handleCallback(async (msg: UniverseMessage, metadata: any) =
   // and NONE re-published. The starter reported "started: true, published: 346" and the chain was already
   // dead. ⛔ A RESUME THAT DOES NOT ADVANCE IS INDISTINGUISHABLE FROM A RESUME THAT WORKED, right up until
   // nothing happens — which is the silent-success failure this runner exists to avoid.
-  if (await windowAlreadyFinished(wk)) {
-    console.log(`[universe] ALREADY-FINISHED ${clientId} ${label} ${startDate}..${endDate} — advancing without re-walking`)
+  // ⛔ COVERAGE, NOT A START MATCH (LORAMER_UNIVERSE_RESUME_IS_COVERAGE_V1). The verdict carries its REASON so
+  // a skip is auditable on the log line rather than inferred from the absence of work — and so the two very
+  // different skips (a captured window genuinely covering this range vs a non-capturing terminal row breaking
+  // a redelivery loop) can never be read as the same fact again.
+  const resume = await windowResumeVerdict(wk)
+  if (resume.skip) {
+    console.log(`[universe] SKIP ${clientId} ${label} ${startDate}..${endDate} — ${resume.reason}`)
     // The entry's vendor-exhaustion seal is the ONLY thing that may end a walk (the writer owns that verdict).
     // If this entry is sealed we stop; otherwise we continue from here exactly as a fresh window would.
     const prior = await readEntryState({ clientId, resource: entry.resource, segment: entry.segment })

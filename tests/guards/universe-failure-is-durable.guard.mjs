@@ -188,6 +188,42 @@ if (startSrc) {
   }
 }
 
+// ── (n) A ROW MAY ONLY SKIP A WINDOW IT ACTUALLY COVERED ───────────────────────────────────────────────
+// ⛔ THE RECORDED EVENT, 2026-08-08 20:53Z: the 15-day window 2022-02-26..2022-03-12 was skipped against row
+// 18016, whose window is 2022-02-26..2022-03-27 — THIRTY days. The old test selected on the unique key
+// (client_id, vendor, resource, segment, window_start) and returned `outcome !== 'running'`: window_end was
+// in NEITHER the key nor the test, so a window was matched by its START alone at ANY length, and ANY terminal
+// outcome counted as finished — including outcomes that captured nothing.
+// ⛔ THE CASE THAT IS NOT AN ACCIDENT: owed row 2871 (2025-12-07..2026-01-05, abandoned_owed, captured
+// NOTHING) would match a re-walk of its own older half 2025-12-07..2025-12-21 and skip it silently, so the
+// half could never be recovered.
+if (logSrc) {
+  if (/export async function windowAlreadyFinished/.test(logSrc)) {
+    findings.push(`(n) windowAlreadyFinished still exists in ${LOG}. Two resume semantics in one tree is how the weaker one gets imported back — the coverage test must be the only one.`)
+  }
+  if (!/export async function windowResumeVerdict/.test(logSrc)) {
+    findings.push(`(n) ${LOG} has no windowResumeVerdict. The resume test must return a REASON, or a skip-because-covered and a skip-because-terminal read as the same fact on the log line — which is how this defect stayed invisible.`)
+  }
+  const v = logSrc.slice(logSrc.indexOf('export async function windowResumeVerdict'))
+  // COVERAGE must be containment AND restricted to outcomes that actually captured.
+  if (!/window_end\s*>=\s*k\.windowEnd/.test(v) || !/window_start\s*<=\s*k\.windowStart/.test(v)) {
+    findings.push(`(n) the coverage test does not require the covering row to CONTAIN the requested range on BOTH bounds. Matching on window_start alone is the defect: a 15-day window was skipped by a 30-day row (2026-08-08, row 18016).`)
+  }
+  if (!/outcome === 'ok' \|\| .*outcome === 'zero'/.test(v)) {
+    findings.push(`(n) the coverage test does not restrict covering rows to outcomes that ACTUALLY CAPTURED ('ok' or 'zero'). abandoned_owed / error / skipped / floor_stop / quota_stop captured nothing and must never satisfy coverage — an owed window that cannot be re-walked is owed forever.`)
+  }
+  if (/abandoned_owed/.test(v.slice(0, v.indexOf('exactTerminal') === -1 ? v.length : v.indexOf('exactTerminal')))) {
+    findings.push(`(n) 'abandoned_owed' appears inside the COVERAGE branch. It is the one outcome that means "still owed" — it may break a redelivery loop for its own exact window and may never cover anything.`)
+  }
+  // The redelivery short-circuit must be EXACT on both bounds, or it silently becomes the old defect.
+  if (!/window_start === k\.windowStart && r\.window_end === k\.windowEnd/.test(v)) {
+    findings.push(`(n) the redelivery short-circuit is not pinned to the EXACT range on both bounds. Anything looser re-creates the cross-length false skip this leg exists to stop.`)
+  }
+}
+if (routeSrc && /windowAlreadyFinished/.test(routeSrc)) {
+  findings.push(`(n) ${ROUTE} still calls windowAlreadyFinished. The consumer must use windowResumeVerdict so the skip REASON reaches the log line.`)
+}
+
 // ── LIVE LEGS ──────────────────────────────────────────────────────────────────────────────────────────
 if (WITH_DB) {
   for (const line of read('.env.local').split('\n')) {
