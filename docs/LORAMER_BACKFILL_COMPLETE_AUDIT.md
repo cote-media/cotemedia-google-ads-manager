@@ -845,6 +845,26 @@ FIX: **OPEN.** This is the half of the fix that is unconditional.
 DURABLE STATE: **SUCCESS PATH ONLY, and this is the single-cause finding of the whole audit.**
 GUARD: none. **Never seen red.**
 
+⛔ **MEASURED COST OF #18, ONE WINDOW, ONE TIMESTAMP RANGE — recorded so the governor's error is a number and
+not an observation.** Window `17966` (`campaign_search_term_view`, 2025-05-11..2025-06-09) lived from
+`2026-08-08T16:07:03.063937Z` to the operator halt at `2026-08-08T17:49:11.566619Z` — **1h42m**. Over exactly
+that range, Vercel runtime errors on `/api/queues/google-ads-universe` report
+**`Task timed out after 300 seconds` — count = 10**, last `2026-08-08T17:38:06Z`
+(read with `since=2026-08-08T16:07:03Z`).
+
+- **VERIFIED:** 10 invocations ran the full 300 seconds and were killed.
+- **DERIVED (not verified, and the reason it cannot be verified IS the defect):** each of those 10 reached the
+  vendor call — the row was opened, and nothing else in that handler takes 300 seconds — so **at least 10
+  Google Ads requests were dispatched and NEVER COUNTED.** `requests_spent` read **0** for the entire life of
+  the row and still reads 0 at the halt.
+- ⇒ `readLaneSpendToday()` (`migrations/057:39`), the fleet backfill lane (`google-op-budget.ts:86,335`) and
+  the operator's own `6000 - sum(requests_spent)` (`scripts/universe-walk-progress.sql:27`) were each short by
+  **≥10 requests** across that window, on a lane whose whole purpose is to yield before the product does.
+- ⚠ **THE FIGURE IS A FLOOR, NOT A TOTAL.** It covers ONE of three loops. `2871` ran the same way for three
+  days (86 timeouts in the 3-day cluster read on 2026-08-08) and `17959` for 15 minutes; neither can be
+  attributed exactly, for the same reason. The true fleet-wide undercount is larger and is not recoverable —
+  the counter that would have recorded it is the one being fixed.
+
 ---
 
 **#19 · 2026-08-08 — `openWindow()` UPSERT OMITS `started_at`, SO ATTEMPT COUNT IS UNKNOWABLE**
@@ -1388,3 +1408,90 @@ about it is. RANK: **MINOR.**
 **JUDGMENT (does not win a point, labelled per the rules):** I think §6's strict ordering A → B → C → D is
 correct and better than presenting the parts as independent, because B is unimplementable without A's counter
 and C is undiagnosable without A's instrumentation. That is a preference about sequencing, not evidence.
+
+---
+
+## §10 · FALSIFICATIONS — CLAIMS IN THIS DOCUMENT THAT LATER READS PROVED WRONG
+
+> ⛔ RECORDED AS FALSIFICATIONS, NOT SILENTLY SUPERSEDED (Russ, 2026-08-08). A corrected claim that is quietly
+> edited leaves the reasoning that produced it intact and re-derivable. Each entry names the WRONG claim, the
+> file:line that disproves it, and what changes downstream.
+
+### F-1 · §9.D — "there is no re-queue path today" is WRONG ABOUT THE DATE
+
+**THE CLAIM (§9.D):** *"There is no re-queue path today. The only first-message publisher is
+`/api/backfill/universe-start`, which computes `startDate` from `WINDOW_DAYS` and the most recent window
+(`universe-start/route.ts:125`) and cannot target an arbitrary historical window."*
+
+**FALSIFIED BY `src/app/api/backfill/universe-start/route.ts:37,49-51`, verbatim:**
+
+```ts
+  const endDate = url.searchParams.get('endDate') || ''
+  ...
+  if (!clientId || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+    return NextResponse.json({ error: 'clientId and endDate=YYYY-MM-DD are required — the first window is explicit, never inferred from a clock' }, { status: 400 })
+  }
+```
+
+`endDate` is an **explicit, required, validated parameter**, and its own error message says the first window is
+never inferred from a clock. The starter has always been able to target an arbitrary historical date.
+
+**WHAT IS ACTUALLY MISSING, and the correction narrows the work rather than widening it:**
+- **ENTRY SCOPE** — `selectableEntries(doc)` at `:87` and `entries.slice(0, gov.allowance)` at `:126` publish
+  for *every* entry. A re-walk of one window would fan out to all 346.
+- **`windowDays`** as a starter param, because `startDate = addDays(endDate, -(WINDOW_DAYS - 1))` at `:125`
+  uses the module constant.
+- **An idempotency discriminator** — see F-3.
+- **NOT missing:** the chain bound. `?windows=1` already stops a re-walk starting a second backward chain
+  (`universe-window-log.ts:105-107`, parsed at `universe-start/route.ts:43-47`).
+
+### F-2 · §3 #21 — "`universe_run_notice` is purely downstream of #20" is WRONG
+
+**THE CLAIM (§3 #21):** *"DERIVED: #21 is a SYMPTOM OF #20, not an independent defect. Fixing the floor-stop
+seal makes the notice fire."*
+
+**FALSIFIED BY A DENOMINATOR MISMATCH, computed 2026-08-08 from `docs/google-ads-capture-universe.json`
+against the two filters:**
+
+- `queues/google-ads-universe/route.ts:231` — `doc.entries.filter(e => e.delivers === true && (e.segment ===
+  null || e.dateCombinable === true)).length` = **559**
+- `selectableEntries(doc)` (`google-ads-universe-writer.ts:212-216`), which the starter actually publishes
+  from, adds two more exclusions (derived-time segments, `DEFERRED_ENTRIES`) = **346** — matching the 346 rows
+  in `universe_run_state` exactly.
+
+`isClientComplete` requires `states.length >= totalEntries` (`universe-run-state.ts:85-87`). **346 < 559, so
+the done signal is unsatisfiable BY CONSTRUCTION, with or without the seal.** The notice is downstream of
+**TWO** defects, and fixing only the floor path would have left it silently never firing with no new
+explanation.
+
+⛔ **AND THE FIX HAS ITS OWN TRAP, which is why Amendment 4 exists:** simply changing `:231` to
+`selectableEntries(doc).length` makes `complete` mean **346 of 559**, with 213 catalog entries excluded and
+nothing saying so — a green flag over a hole, which the governing law forbids outright. The notice therefore
+carries BOTH denominators (`entries_catalog_total`, `entries_excluded`, added in `migrations/060`) with the
+per-entry exclusions and their reasons enumerable from `detail`.
+**VENDOR_CATALOG_IS_THE_DENOMINATOR STANDS — the catalog is not narrowed; the debt is made visible.**
+
+### F-3 · §9.B's remedy was right, and the FIRST TWO ORPHANS WERE STORED IN THE WRONG STATE
+
+§9.B proposed a distinct terminal value meaning "we stopped asking, and this window is still owed", rather
+than a bare `'error'`. That was adopted as `'abandoned_owed'` (`migrations/060`). **The consequence the audit
+did not state:** ids `2871` and `17959` had already been halted into `'error'` on 2026-08-08, so **the first
+two orphans the system ever created would have been the only two its own owed-list could not see.**
+`migrations/060` moves them, asserting exactly 2 rows.
+
+### F-4 · §9's "every window of this resource is a candidate for the same failure" was OVER-GENERALISED
+
+Stated during the session and corrected in `§3 #17` the same day: four windows immediately behind the failing
+ones completed cleanly. **Updated measurement, 2026-08-08:** `campaign_search_term_view` has now completed
+**2025-10-08 (619,713 rows / 260s), 2025-09-08 (350,112 / 144s), 2025-08-09 (307,800 / 129s), 2025-07-10
+(334,634 / 161s), 2025-06-10 (571,175 / 275s)** and failed **2025-12-07, 2025-11-07, 2025-05-11**.
+⛔ **`2025-06-10` USED 275s OF A 300s BUDGET — 92%, THE CLOSEST MEASURED PASS**, and the window immediately
+behind it is the one that died. The resource is **marginal at 30 days**, not broken: the failures cluster at
+the top of the density curve and are one window away from the passes.
+
+### F-5 · `CONTINUE_HERE.md:57-60` — both claims stale (recorded here because the opener is not this doc's to edit)
+
+It says `universe_disk_headroom()`'s body "is a bare `raise exception`" and that "THE ORIGINAL BODY IS NOT
+COMMITTED ANYWHERE IN THIS REPO". Live `pg_get_functiondef` returns the `migrations/059` body — it computes
+`least(provisioned − used, 500 GiB − used)` and does **not** raise — and `059` was committed at `512a2ab` on
+2026-08-07 and is applied. The restore that opener calls for is not owed.
