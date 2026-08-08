@@ -1000,11 +1000,82 @@ search-term period of the year — but that is a hypothesis. **Do not bank it an
 
 ---
 
-## §4 · COMPARE AND CONTRAST — TO BE WRITTEN IN CHAT
+## §4 · COMPARE AND CONTRAST — THE JUNE ENGINE'S STATE MODEL WAS EQUALLY NAIVE; ITS DRIVER WAS BOUNDED
 
-## §5 · WEB RESEARCH — TO BE WRITTEN IN CHAT
+> Authored by the conversation layer (Claude). Recorded here as written. Claude Code's rebuttal is §9, not here.
 
-## §6 · CLAUDE'S PLAN — TO BE WRITTEN IN CHAT
+- `run-backfill.ts` catches on error and deliberately does NOT mark complete: throw → no state change → safe
+  retry. Completeness is positional (`windowStart <= targetDate`), rows never consulted. **SAME DEFECT CLASS
+  AS THE WALK.**
+- It survived because the DRIVER was bounded: a client-side lap loop, `MAX_CHUNKS`, a human watching a button.
+  When a lap died, NOTHING retried it. **The human was the retry limiter.**
+- The walk kept that state model and swapped the driver for an unbounded at-least-once queue with no DLQ.
+  **"No state change on failure" now means INFINITE REDELIVERY instead of safe retry.**
+- **CONSEQUENCE 1:** the one-click button, if it fires the walk, inherits this — a customer press can start a
+  loop nobody sees.
+- **CONSEQUENCE 2:** the June engine is NOT a template to return to. It is a template that was never
+  load-tested.
+- **SECOND STRUCTURAL DIFFERENCE:** June had ONE state row per client/platform that a lap could not finish
+  without writing. The walk splits state across `universe_run_state` and `universe_window_log`, neither
+  reconciling with `sync_state`, and the FLOOR-REACHED path writes to none of them — the mechanical reason 249
+  entries read unsealed forever.
+
+## §5 · WEB RESEARCH, MAPPED TO NAMED DEFECTS
+
+> Authored by the conversation layer (Claude). Recorded here as written.
+
+**POISON MESSAGES / DEAD-LETTER QUEUES → #17, #22.** Every DLQ rests on a delivery-attempt counter + a
+threshold + a destination. Vercel Queues has NO DLQ; retries run until expiry; forced exponential backoff only
+after 32 attempts. Standard guidance is 2–5 attempts, LOWER for expensive/paid-API jobs. At
+`maxConcurrency: 2` one poison message consumed half the walk's capacity (head-of-line / contended work).
+⇒ **WE MUST IMPLEMENT THE COUNTER; THE BROKER WILL NOT.**
+- https://www.task-queues.com/queue-fundamentals-architecture/dead-letter-queues-poison-messages/
+- https://www.glukhov.org/app-architecture/integration-patterns/dead-letter-queues
+
+**CHECKPOINTING (Airbyte) → #18, #19, #20.** State is emitted DURING the read, often on every page; "state
+represents the latest checkpoint successfully achieved," enabling resume regardless of success or failure;
+the target is no more than 30 minutes without a checkpoint. **OUR checkpoint interval is one 30-day window,
+written only at the end.**
+- https://docs.airbyte.com/platform/connector-development/cdk-python/incremental-stream
+- https://airbyte.com/blog/checkpointing
+
+**RESUMABLE FULL REFRESH → #17.** A synthetic cursor based on the API's pagination strategy lets a stream
+failing midway resume from the last checkpointed page.
+- https://airbyte.com/blog/resumable-full-refresh-building-resilient-systems-for-syncing-data
+
+**dbt MICROBATCH — NAMES OUR EXACT SHAPE → #17.** Traditional incremental reruns all 30 days on failure and
+wastes the first 16; microbatch commits 1–16 and retries from 17. Built for "timeout-prone queries where
+individual batches might fail due to resource limits but most batches complete fine."
+- https://adriennevermorel.com/notes/microbatch-backfill-and-full-refresh-protection/
+
+**ADAPTIVE RETRY REQUIRES INSTRUMENTATION → #18.** Failure rates and success counts, state per resource.
+**We cannot adapt while `requests_spent` reads 0.**
+- https://medium.com/@navidbarsalari/adaptive-retry-strategy-a-resilient-approach-for-modern-systems-ce2484d1cf00
+
+## §6 · CLAUDE'S PLAN
+
+> Authored by the conversation layer (Claude), written WITHOUT having read §7. Recorded here as written, in
+> substance verbatim. Claude Code's attack on it is §9.
+
+Four parts, strictly ordered.
+
+**A. MAKE FAILURE DURABLE** (unconditional; addresses 15 of 22 per §3b). Increment an attempt counter at
+`openWindow` BEFORE the vendor call. Refresh `started_at` per attempt. Increment `requests_spent` when the
+request is ISSUED, not at close. Nothing about a killed invocation stays invisible.
+
+**B. BOUND THE RETRIES.** At open time, `attempts >= 3` → write terminal `'error'` and return BEFORE spending
+a request. The DLQ we do not have, in one indexed read, zero happy-path cost.
+
+**C. SPLIT ON DEATH, NOT GLOBALLY.** A window that dies splits in half and publishes two messages, recursive
+to a 1-day floor. No `WINDOW_DAYS` change, no per-resource table. Guards the CLASS: any resource exceeding the
+ceiling is handled, not only `campaign_search_term_view`.
+
+**D. RE-QUEUE** the two uncaptured windows: `2871` (2025-12-07..2026-01-05) and `17959`
+(2025-11-07..2025-12-06).
+
+**CROSS-CUTTING:** the cursor must carry ROWS SEEN, not only position. One field closes the 51 false
+complete-claims, the GA4 empty-seal, and positional completeness together — and it is what lets a
+customer-facing button say "complete" honestly.
 
 ---
 
@@ -1074,4 +1145,246 @@ before it ships — and that decision is Russ's, not mine.
 
 ---
 
-## §8 · FORK POINTS — TO BE RECONCILED
+## §8 · FORK POINTS — DECISIONS FOR RUSS
+
+> Neither side resolves a fork in its own favour. One line of tradeoff per side.
+
+**SETTLED — §6 and §7 agree, no decision needed:**
+- **S1 · Make failure durable FIRST, before anything else.** §6.A and §7 Step 1 are the same keystone, reached
+  independently, from the same §3b count. Nothing else ships first.
+- **S2 · `requests_spent` must be recorded at dispatch, not at close.** Both name it; both call the current
+  behaviour the reason the governor is blind.
+- **S3 · `started_at` must refresh per attempt and an attempt count must exist.** Both name it.
+- **S4 · The two orphaned windows (2871, 17959) must be re-queued.** §6.D and §7 Step 3.
+- **S5 · No global `WINDOW_DAYS` change.** §6.C rejects it explicitly; §7 Step 5 says "not yet" and gives the
+  same reason (§3c: the length has never been varied, so nobody knows what is safe).
+- **S6 · Position must be split from coverage on the cursor.** §6's cross-cutting rows-seen field and §7
+  Step 4 are the same change; §6 states the customer-facing case for it and §7 names the existing
+  implementation to reuse (`decideRangeLapCompletion`, `drain-registry.ts:231-243`).
+
+**FORK 1 · HOW A DEAD WINDOW IS RECOVERED — split-on-death vs halve-and-retry.**
+- §6.C: the dying window splits in half and publishes TWO messages, recursive to a 1-day floor.
+  *Tradeoff:* covers any resource that exceeds the ceiling, including ones nobody has measured — but §9.C
+  shows the publish path derives its successor from `startDate` alone and both halves would advance, creating
+  two overlapping backward chains per split.
+- §7 Step 5: the dying window is RE-PUBLISHED AS ITSELF at half length, one message, chain unchanged.
+  *Tradeoff:* one successor, no fan-out, no overlap — but the halved length is not carried on the message
+  today, so it needs a `windowDays` field that §6.C does not require.
+
+**FORK 2 · WHAT AN EXHAUSTED ATTEMPT BUDGET MEANS — abandon vs quarantine.**
+- §6.B: `attempts >= 3` → write terminal `'error'` and stop.
+  *Tradeoff:* the loop can never re-form and it costs one indexed read — but a window that failed for a
+  transient reason is abandoned permanently and silently, because `'error'` is terminal to
+  `windowAlreadyFinished` (`universe-window-log.ts:253`).
+- §9's counter-proposal: a distinct non-terminal-but-not-retryable outcome, or an `owed` list the fix comes
+  back for.
+  *Tradeoff:* nothing is lost and orphans are enumerable — but it is a second state to design and read, and
+  §6.B's virtue is that it needs neither.
+
+**FORK 3 · WHETHER THE FLOOR-REACHED SEAL IS IN SCOPE NOW.**
+- §6: not addressed. Four parts, none touching `advanceToNextWindow`'s floor return.
+- §7 Step 2: fix it in this arc, because it is what makes "how much is left" answerable and it closes #21
+  (`universe_run_notice`) for free.
+  *Tradeoff:* §6's silence keeps the flight small and shippable; §7 argues 253 unsealed entries make every
+  progress reading wrong by ~62× until it is fixed, and the notice cannot fire at all.
+
+**FORK 4 · WHETHER THE SEEDED-DONE LIE (#13) BELONGS IN THIS ARC.**
+- §6: not addressed.
+- §7 Step 6: re-derive the `migration 019` seed or clear the three step keys.
+  *Tradeoff:* it is a different engine (the drain, not the walk) and folding it in widens the blast radius;
+  leaving it means 15 clients keep a `google_campaign` step that can never run and nothing says so.
+
+**FORK 5 · WHAT §4 CONCEDES ABOUT THE JUNE ENGINE, AND WHETHER §1c OVER-CLAIMED.**
+- §4: the June engine's state model was equally naive; only its bounded driver saved it — so it is not a
+  template to return to.
+- §1c/§9: per-chunk checkpointing IS a measurable difference from the walk's per-window-at-end checkpoint, and
+  §5's own Airbyte citation makes checkpoint interval the central property.
+  *Tradeoff:* both are true of different properties (completeness semantics vs checkpoint granularity); the
+  decision is whether the June engine's per-chunk write is worth preserving as a pattern or discarded with the
+  rest of it.
+
+---
+
+## §9 · CLAUDE CODE'S ATTACK ON §6
+
+> Rules of engagement: an objection must cite CODE (file:line, verbatim), a QUERY RESULT, or a VENDOR DOC. An
+> objection resting on judgment is LABELLED JUDGMENT and does not win the point. Where §6 is correct and I
+> cannot break it, I say so.
+
+### 9.A — "MAKE FAILURE DURABLE" · I CANNOT BREAK IT. CONCEDED IN FULL.
+
+§6.A and §7 Step 1 are the same change, reached independently from the same §3b count, and §6 states it more
+sharply than I did ("nothing about a killed invocation stays invisible"). I have no objection to the substance.
+
+Three implementation facts it must absorb, none of which is a rebuttal (see §Task-4 in the delivery report):
+- **There is no column to increment.** `migrations/054_universe_window_log.sql:27-49` declares
+  `id, client_id, vendor, resource, segment, window_start, window_end, outcome, rows_written, requests_spent,
+  refused_rows, disk_free_bytes, error, started_at, finished_at`. **A migration is required.**
+- **`openWindow`'s upsert cannot increment anything, and today it RESETS.** Verbatim
+  (`universe-window-log.ts:127-135`): the payload is a literal object and PostgREST's upsert can only set a
+  column to the value supplied, never to an expression over the existing row. It already writes
+  `rows_written: 0, requests_spent: 0, refused_rows: 0, error: null, finished_at: null` on every open — so an
+  `attempts` field written the same way would be reset to 1 on every redelivery, which is the exact opposite
+  of the counter B depends on. **A.1 requires an RPC or a SQL function, not a payload change.**
+- **`started_at` is absent from that payload**, which is precisely why #19 exists; adding it is a one-line
+  change in the same upsert.
+
+**RANK: no objection. §6.A stands, and B depends on it landing first — which §6's ordering already gets right.**
+
+### 9.B — "BOUND THE RETRIES" · SERIOUS, and the challenge is (i)
+
+**(i) DOES `attempts >= 3 → terminal 'error'` PERMANENTLY ABANDON A TRANSIENT FAILURE? YES, AS WRITTEN, AND
+THE EVIDENCE IS ALREADY IN THE DATABASE.** `'error'` is terminal to the resume test —
+`universe-window-log.ts:253`, verbatim:
+
+```ts
+  return !!outcome && outcome !== 'running'
+```
+
+So the window is skipped forever and the chain advances past it. **This is not a prediction: it is what
+happened to ids 2871 and 17959 on 2026-08-08.** Both were set to `'error'`, both are recorded in §3 #17 as
+**STILL UNCAPTURED AND UNQUEUED**, and the only reason we know they are owed is that this document writes them
+down. §6.D re-queues those two by hand — which concedes the point: **the mechanism creates orphans, and D's
+answer does not generalise to the third one.**
+
+**CAN A TRANSIENT FAILURE BE DISTINGUISHED? PARTIALLY, AND NOT IN THE ONE CASE B EXISTS FOR.** The code
+already separates several causes before they reach an attempt counter:
+- a governor stand-down writes `outcome: 'quota_stop'` (`route.ts:116`)
+- a disk breach writes `outcome: 'floor_stop'` (`route.ts:158`)
+- a vendor error writes `outcome: 'error'` WITH the vendor's message and `requestsSpent: 1` (`route.ts:182`)
+- a developer-scope quota pause is held upstream by `holdGoogleWork` before any work
+
+⛔ **BUT A 300-SECOND KILL WRITES NOTHING** — the invocation dies before any catch, which is why the row sat at
+`'running'`. So the single failure mode B is designed to bound is the one that leaves no evidence to classify
+by. **B cannot tell a too-big window from a deploy, a 5xx or a cold start**, and at `retryAfterSeconds: 60`
+three attempts can elapse inside one bad four-minute period.
+
+**DOES §6 LOSE DATA IT SHOULD NOT? YES, unless the orphan is enumerable.** RANK: **SERIOUS**, not FATAL —
+because the defect is one field wide, not structural. **CHEAPER, MORE DURABLE ALTERNATIVE:** keep B's counter
+and B's stop, but make the terminal state *say what it is* — a distinct outcome (or an `owed` boolean) meaning
+"we stopped asking, and this window is still owed". `windowAlreadyFinished` then skips it (loop broken, B's
+whole purpose intact) while a one-line query enumerates every orphan the system has ever created. That costs
+one CHECK-constraint value and removes the need for D to be a hand-written list.
+
+### 9.C — "SPLIT ON DEATH" · **FATAL AS WRITTEN.** The publish path assumes exactly one successor.
+
+**(ii) DOES THE PUBLISH PATH SUPPORT FAN-OUT?** Mechanically yes, semantically no.
+
+`send` is a plain call (`route.ts:17`, `import { handleCallback, send } from '@vercel/queue'`) and nothing
+stops a second invocation of it. **But `advanceToNextWindow` derives its successor from `startDate` alone**,
+verbatim (`route.ts:85-86`):
+
+```ts
+  const nextEnd = addDays(startDate, -1)
+  const nextStart = addDays(nextEnd, -(WINDOW_DAYS - 1))
+```
+
+**THE THREE BREAKS, in order of severity:**
+
+**1 · TWO OVERLAPPING BACKWARD CHAINS PER SPLIT — FATAL.** Split `W = [2025-11-07 .. 2025-12-06]` into
+`A = [2025-11-07 .. 2025-11-21]` and `B = [2025-11-22 .. 2025-12-06]`. Each half, on completion, calls
+`advanceToNextWindow` with its OWN `startDate`:
+- B advances from `2025-11-22` → publishes `[2025-10-23 .. 2025-11-21]`
+- A advances from `2025-11-07` → publishes `[2025-10-08 .. 2025-11-06]`
+
+B's successor **overlaps A's own range and then walks past it**. Both chains continue to the floor. Every
+split permanently doubles the walk for that entry, and a recursive split to a 1-day floor is a **binary tree
+of chains, not two messages.** Nothing merges them: the idempotency key is
+`` `${clientId}|${label}|${nextStart}` `` (`route.ts:107`), which is per-`nextStart` and therefore distinct for
+every overlapping chain, so it dedupes nothing here.
+
+**2 · THE SPLIT IS NOT STICKY.** `UniverseMessage` (`route.ts:39-61`) carries `clientId, userEmail,
+customerId, entry, startDate, endDate, windowsRemaining?` — **there is no `windowDays` field.** A 15-day half
+that completes publishes a **30-day** successor, because `nextStart` is computed from the module constant. The
+split survives exactly one hop and then reverts to the size that killed it. **C as written does not persist
+its own remedy.**
+
+**3 · IT MULTIPLIES #20 AND DELAYS #21.** The FLOOR-REACHED check is `if (nextEnd < VENDOR_FLOOR_DATE)`
+(`route.ts:89`) and that path writes NO seal (§3 #20). With N chains per entry, N of them hit the floor and N
+exit unsealed. `isClientComplete` requires EVERY entry settled
+(`universe-run-state.ts:82-92`), so more chains means the notice is further from firing, not closer.
+
+**WHAT IT DOES NOT BREAK:** the `(client_id, vendor, resource, segment, window_start)` upsert key is safe —
+two halves have different `window_start`, so they get distinct rows and neither clobbers the parent. **The
+seal logic is also untouched**, because `decideVendorExhaustion` only reads `windowStart`, `rowsReturned` and
+`floorDate`. So (ii)'s three sub-questions answer: **key SAFE · seal SAFE · FLOOR-REACHED check BROKEN by
+multiplication, and the advance path broken outright.**
+
+**RANK: FATAL as written. CHEAPER, MORE DURABLE ALTERNATIVE THAT KEEPS C'S GOAL:** re-publish the dying window
+**as itself at half length** — ONE message, same `startDate`, `endDate` unchanged is wrong so carry an explicit
+`windowDays` on the message and have `advanceToNextWindow` read it instead of the constant. One successor, no
+fan-out, no overlap, and the halved size travels with the chain. This also keeps C's real virtue, which I
+concede is the best idea in §6: **it guards the CLASS rather than one resource, and it needs no per-resource
+table.**
+
+### 9.D — "RE-QUEUE THE TWO WINDOWS" · MINOR, and correct as far as it goes
+
+Right, necessary, and it is the only part of §6 that repairs existing damage. Two objections, both small:
+- **It is a hand-written list, and 9.B shows the mechanism keeps producing orphans.** Generalise it or accept
+  that every future orphan needs a human to notice it. RANK: **MINOR** (it becomes moot if 9.B's alternative
+  is adopted).
+- **There is no re-queue path today.** The only publisher of a first message per entry is
+  `/api/backfill/universe-start` (`route.ts:125`), which computes `startDate` from `WINDOW_DAYS` and the most
+  recent window — it cannot target an arbitrary historical window. **D needs a route or a script that does not
+  exist**, and §6 does not say which. RANK: **MINOR**, but it is unbuilt work hiding inside a one-line item.
+
+### 9.CROSS-CUTTING — "THE CURSOR MUST CARRY ROWS SEEN" · I CANNOT BREAK IT, AND IT IS BETTER THAN MY §7 STEP 4
+
+Correct, and more valuable than I stated it. One field does close three things at once, and §6 names a fourth
+I did not: **it is what lets a customer-facing button say "complete" honestly.** §7 Step 4 said the same change
+in weaker terms.
+
+The only thing I add, and it strengthens rather than rebuts: **the field already exists and is already
+guarded, one file over.** `decideRangeLapCompletion` (`drain-registry.ts:231-243`) returns
+`{ complete, rowsCovered }` and its header documents why requiring rows to *complete* would infinite-loop
+against the daily cap. **Reuse it; do not re-derive it** — re-deriving is how this repo got two floors for one
+disk. **RANK: no objection.**
+
+### 9.(iv) — DOES §6 ADDRESS THE 249 UNSEALED FLOOR-REACHED ENTRIES? **NO. IT DOES NOT.**
+
+Nothing in A, B, C, D or the cross-cutting field touches `advanceToNextWindow`'s floor return
+(`route.ts:89-92`), which is the sole mechanical cause of #20. Consequences, all verified: 253 of 346 entries
+read unsealed while **249 have already walked to at or below the floor**; any progress reading is wrong by
+~62×; and `universe_run_notice` **has never been written** (#21) because `isClientComplete` cannot be
+satisfied. RANK: **SERIOUS OMISSION**, and it is FORK 3.
+
+### 9.(v) — WHICH OF §3b'S SUCCESS-ONLY / NEITHER DEFECTS DOES §6 LEAVE OPEN?
+
+§6 closes or addresses: **#17** (B + C), **#18** (A), **#19** (A), **#3** and **#14** (cross-cutting rows-seen),
+**#9** partially (rows-seen makes a zero-row seal visible).
+
+**§6 LEAVES OPEN, by number:**
+- **#13** — `migration 019` seeded `google_campaign` for 15 clients with no cursor; the step can never run.
+- **#16** — the done-array outranks the cursor at `drain/route.ts:302-304`; 2 live divergences.
+- **#20** — the FLOOR-REACHED path writes no seal; 249 entries.
+- **#21** — `universe_run_notice` never written (downstream of #20).
+- **#11** — deployment pinning. **Unfixable in code, and §6 is right not to try.**
+
+(#1, #7, #8, #10 are already fixed and are historical entries; #4, #5, #6, #12, #15 are not writers.)
+
+### 9 — SUMMARY OF RANKINGS
+
+| §6 part | verdict | rank |
+|---|---|---|
+| A · make failure durable | **cannot break it — conceded in full** | — |
+| B · bound the retries | abandons transient failures permanently; orphan not enumerable | **SERIOUS** |
+| C · split on death | publish path assumes one successor; two overlapping chains per split; split not sticky | **FATAL as written** |
+| D · re-queue the two windows | correct; hand-written list, and no re-queue path exists | **MINOR** |
+| cross-cutting · rows seen | **cannot break it — better than my §7 Step 4** | — |
+| (iv) 249 unsealed entries | not addressed at all | **SERIOUS OMISSION** |
+
+**WHAT I CANNOT BREAK, STATED PLAINLY SO THE CONCESSION IS NOT BURIED:** §6.A is right and is the keystone.
+The cross-cutting rows-seen field is right and is better argued than my own version of it. §6.C's *goal* —
+guard the class, not the resource, with no per-resource table — is the best single idea in either plan, and my
+objection is to its mechanism, not its intent. **§4's central claim is also correct and corrects me:** I wrote
+in §1c that the June engine "writes durable progress on the FAILURE path by construction", and §4 is right
+that this says nothing about its completeness semantics, which are the same positional defect as the walk's.
+**ONE THING §4 UNDERSTATES, and I label it as an objection with a citation rather than a preference:**
+per-chunk checkpointing versus one checkpoint at the end of a 30-day window is a real, measurable difference,
+and §5's own Airbyte citation ("no more than 30 minutes without a checkpoint") makes checkpoint interval the
+central property — so the June engine's per-chunk write is worth keeping as a pattern even if nothing else
+about it is. RANK: **MINOR.**
+
+**JUDGMENT (does not win a point, labelled per the rules):** I think §6's strict ordering A → B → C → D is
+correct and better than presenting the parts as independent, because B is unimplementable without A's counter
+and C is undiagnosable without A's instrumentation. That is a preference about sequencing, not evidence.
