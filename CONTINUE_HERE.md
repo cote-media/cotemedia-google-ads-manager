@@ -54,10 +54,17 @@ ever printed is load-bearing**).
 (e) ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING — a query-layer failure string is rendering as a card BODY.
 
 ── 3 · THE WALK, AND WHAT IS HOLDING IT ──
-⛔ **THE WALK IS HALTED AND `universe_disk_headroom()` IS THE ONLY THING HOLDING IT.** Its body is a bare
-`raise exception` (LORAMER_WALK_HALTED_BY_OPERATOR_V1) — it computes nothing and enforces no threshold.
-⚠ **THE ORIGINAL BODY IS NOT COMMITTED ANYWHERE IN THIS REPO** — restoring is a REWRITE from the caller's contract
-(returns `used_bytes`, `free_bytes` as bigint), not a re-apply. Discover that cheaply now, not at re-release.
+⛔ **BOTH CLAIMS BELOW WERE FALSIFIED 2026-08-08 AND ARE STRUCK THROUGH RATHER THAN DELETED, so the reasoning
+that produced them stays visible (audit §10 F-5). DO NOT ACT ON EITHER.**
+~~THE WALK IS HALTED AND `universe_disk_headroom()` IS THE ONLY THING HOLDING IT. Its body is a bare
+`raise exception` (LORAMER_WALK_HALTED_BY_OPERATOR_V1) — it computes nothing and enforces no threshold.~~
+**FALSE.** Live `pg_get_functiondef` returns the `migrations/059` body: it computes
+`least(provisioned_bytes − used, 536870912000 − used)` and **does not raise**.
+~~THE ORIGINAL BODY IS NOT COMMITTED ANYWHERE IN THIS REPO — restoring is a REWRITE from the caller's contract
+(returns `used_bytes`, `free_bytes` as bigint), not a re-apply.~~ **FALSE.** It is
+`migrations/059_universe_disk_headroom_ceiling.sql`, committed `512a2ab` on 2026-08-07 and APPLIED.
+⇒ **THE RESTORE THIS BLOCK CALLS FOR IS NOT OWED AND MUST NOT BE PERFORMED.** The walk is not held by that
+function; it went idle at the 2022-03-05 vendor floor, which is a completed range and not a fault.
 
 ── 4 · THE DATABASE DECISION THAT IS UNTAKEN ──
 · ✅ **BACKUPS ARE PROVEN RESTORABLE — clone verified 2026-08-07, 1h15m, all 145 partitions and the walk's 08-05 day
