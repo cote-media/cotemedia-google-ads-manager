@@ -41,6 +41,7 @@ const PAGE_TSX = 'src/app/dashboard-next/lora/LoraPageClient.tsx'
 const PAGE_CSS = 'src/app/dashboard-next/lora/lora-page.module.css'
 const THREAD_TSX = 'src/components/redesign/LoraThread.tsx'
 const THREAD_CSS = 'src/components/redesign/lora-thread.module.css'
+const HOOK_TS = 'src/lib/next/use-lora-chat.ts'
 const findings = []
 
 const read = (rel) => {
@@ -51,6 +52,7 @@ const read = (rel) => {
 // its own documentation. "QUOTATION IS NOT ASSERTION" — banked twice on 2026-07-29.
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
+const hookTs = read(HOOK_TS)
 const pageTsx = read(PAGE_TSX)
 const threadTsx = read(THREAD_TSX)
 const pageCss = read(PAGE_CSS)
@@ -277,6 +279,37 @@ if (threadCss && threadTsx) {
     if (!probeBlock.includes(v)) {
       findings.push(`(n) the probe never prints \`${v}\`, which POSITIONS a sticky element. An instrument aimed at a variable that no longer positions anything is what made the 2026-08-07 capture unresolvable: 168px of the printed var beside 336px of measured displacement, with the value that could explain it absent from the readout.`)
     }
+  }
+}
+
+// ═══ (o) THE DEBUG FLAG MUST SURVIVE, AND AN EXPLICIT REQUEST MUST NEVER BE SWALLOWED ══════════════
+// ⛔ FOUR GATE-B CAPTURES WERE SPENT ON SESSIONS WHERE THE PROBE WAS SILENTLY OFF. An instrument that
+// cannot be relied on to be ARMED is not an instrument, and the round trip it costs is measured in days
+// here, not minutes. ★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE.
+if (hookTs) {
+  const code = strip(hookTs)
+  if (!/localStorage\.(get|set)Item\(\s*'loramer:debug-chat'/.test(code)) {
+    findings.push(`(o) ${HOOK_TS} does not persist the debug flag in localStorage. sessionStorage is scoped to the tab session and dies with a tab close, a discard-and-restore, and — vendor-acknowledged, developer.apple.com/forums/thread/724189 — a URL-bar navigation on WebKit, which is exactly how this flag gets turned on.`)
+  }
+  // ⛔ THE KILL SWITCH MUST CLEAR BOTH STORES. Writing one and clearing the other leaves a stale key in
+  // the store no longer written, and it re-arms on the next mount.
+  const offBranch = (code.match(/q === 'off'[\s\S]{0,400}/) || [''])[0]
+  for (const store of ['localStorage', 'sessionStorage']) {
+    if (!new RegExp(`${store}\\.removeItem`).test(offBranch)) {
+      findings.push(`(o) \`?debug=off\` does not clear ${store}. The kill switch must clear BOTH stores or a stale key re-arms the probe on the next mount.`)
+    }
+  }
+  // ⛔ THE URL READ MUST NOT SIT INSIDE A try THAT SWALLOWS IT. An explicit ?debug=chat is a REQUEST,
+  // not a convenience: storage may fail in every way it likes and the probe must still arm.
+  if (/try\s*\{[^}]*URLSearchParams\(window\.location\.search\)[^}]*getItem/s.test(code)) {
+    findings.push(`(o) the URL param is read inside the same try as the storage access, so a storage failure discards an EXPLICIT \`?debug=chat\`. The user asked, the URL says so, and the instrument would stay dark with no signal — the house .catch(() => []) pathology in the one place whose job is to be observable.`)
+  }
+}
+// ⛔ THE ARMED STATE MUST BE VISIBLE, AND UNREACHABLE WHEN OFF.
+if (pageTsx) {
+  const code = strip(pageTsx)
+  if (!/\{debug \?[^}]*styles\.dbg/.test(code)) {
+    findings.push(`(o) ${PAGE_TSX} has no debug-gated armed indicator in the header. The probe strip sits above the COMPOSER at the bottom of a scrolled page, so its absence is indistinguishable from a page not scrolled down — which is how four captures were spent.`)
   }
 }
 

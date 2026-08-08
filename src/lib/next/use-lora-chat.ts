@@ -183,13 +183,48 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     // which REWRITES the query and drops `debug=chat`. That is the most likely reason the readout was
     // invisible on 2026-07-26 — the flag was silently lost on the way to the client page. Once seen, it
     // is remembered for the tab, and `?debug=off` clears it.
-    try {
-      const q = new URLSearchParams(window.location.search).get('debug')
-      if (q === 'off') { sessionStorage.removeItem('loramer:debug-chat'); setDebug(false); return }
-      const on = q === 'chat' || sessionStorage.getItem('loramer:debug-chat') === '1'
-      if (on) sessionStorage.setItem('loramer:debug-chat', '1')
-      setDebug(on)
-    } catch { /* URL/storage unavailable — stay off */ }
+    // ── LORAMER_DEBUG_FLAG_SURVIVES_V1, 2026-08-07 — THE INSTRUMENT COST A GATE-B ROUND TRIP.
+    // FOUR device captures came back with NO readout: the flag had not survived the trip to the page,
+    // so the one screenshot that separates the last two composer candidates still does not exist.
+    // ⛔ WHICH EVENT CLEARED IT WAS NEVER ISOLATED, AND THAT IS RECORDED RATHER THAN GUESSED
+    // (★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE). Three candidates, and the fix below covers all three:
+    //   1. TAB CLOSE / DISCARD — sessionStorage is scoped to the tab session and dies with it (MDN).
+    //      A tab the OS discarded under memory pressure and restored is the same shape. UNVERIFIED.
+    //   2. URL-BAR NAVIGATION ON WebKit, VENDOR-ACKNOWLEDGED — developer.apple.com/forums/thread/724189:
+    //      sessionStorage does not persist when you navigate to another route on the same site by
+    //      editing the URL in the address bar. EVERY iOS BROWSER IS WebKit, and pasting the URL is
+    //      exactly how this flag gets turned on. The likeliest, and still a bet.
+    //   3. ⛔ THE ONE PROVABLE FROM THE CODE, AND A DEFECT WHATEVER ELSE IS TRUE: the old `catch`
+    //      swallowed a storage failure AND TOOK AN EXPLICIT `?debug=chat` DOWN WITH IT, because the URL
+    //      read sat INSIDE the try. The user asks for the probe, the URL says so, and the instrument
+    //      stays dark with no signal — the house `.catch(() => [])` pathology in the one place whose
+    //      entire job is to be observable.
+    //
+    // ⛔ THE URL IS READ OUTSIDE THE try AND WINS UNCONDITIONALLY. Persistence is a convenience; an
+    // explicit request is not. Storage may fail in every way it likes and `?debug=chat` still arms.
+    const q = (() => {
+      try { return new URLSearchParams(window.location.search).get('debug') } catch { return null }
+    })()
+    if (q === 'off') {
+      // The kill switch clears BOTH stores. Writing one and clearing the other would leave a stale key
+      // in the store we no longer write, and it would re-arm on the next mount.
+      try { localStorage.removeItem('loramer:debug-chat') } catch { /* ignore */ }
+      try { sessionStorage.removeItem('loramer:debug-chat') } catch { /* ignore */ }
+      setDebug(false)
+      return
+    }
+    // localStorage is the store that survives tab close, discard and restore; sessionStorage is still
+    // READ so a session armed before this change keeps working rather than silently going dark.
+    let remembered = false
+    try { remembered = localStorage.getItem('loramer:debug-chat') === '1' } catch { /* ignore */ }
+    if (!remembered) {
+      try { remembered = sessionStorage.getItem('loramer:debug-chat') === '1' } catch { /* ignore */ }
+    }
+    const on = q === 'chat' || remembered
+    if (on) {
+      try { localStorage.setItem('loramer:debug-chat', '1') } catch { /* persistence is best-effort */ }
+    }
+    setDebug(on)
   }, [])
 
   // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — THE MEASUREMENT, automatic. On composer focus (i.e. the

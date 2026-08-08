@@ -264,6 +264,12 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         <div className={styles.title}>
           <span className={styles.spark}><Icon d={SPARKLE} size={17} /></span> Ask Lora
           {clientName ? <span className={styles.client}>· {clientName}</span> : null}
+          {/* ⛔ LORAMER_DEBUG_FLAG_SURVIVES_V1 — THE INSTRUMENT SAYS WHETHER IT IS ARMED, IN THE HEADER,
+              BEFORE THE GESTURE STARTS. Four Gate-B captures were spent on sessions where the probe was
+              silently off, and the probe strip itself is no help: it sits above the COMPOSER, at the
+              bottom of a scrolled page, and its absence looks exactly like a page that has not been
+              scrolled to. This badge is the first thing on screen and it is unambiguous. */}
+          {debug ? <span className={styles.dbg} aria-hidden="true">DBG</span> : null}
         </div>
       </header>
 

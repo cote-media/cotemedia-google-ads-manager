@@ -109,6 +109,17 @@
 .title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--ink); min-width: 0; }
 .spark { display: inline-flex; color: var(--accent); }
 .client { font-weight: 400; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* LORAMER_DEBUG_FLAG_SURVIVES_V1 — the armed indicator. ⛔ LITERAL COLOURS, NOT VARS: this page mounts
+   OUTSIDE Shell, where a var() with no fallback resolves to nothing — the severance that once shipped a
+   white glyph on a white bar. An indicator that can render invisible is worse than none, because its
+   absence is exactly the state it exists to rule out. */
+.dbg {
+  flex-shrink: 0; margin-left: auto;
+  background: #facc15; color: #0f172a;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+  padding: 3px 5px; border-radius: 4px; border: 1px solid #0f172a;
+}
 .probe {
   position: sticky; top: 0; z-index: 3;
   background: #facc15; color: #0f172a;
