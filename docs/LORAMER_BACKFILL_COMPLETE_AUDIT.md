@@ -1495,3 +1495,150 @@ It says `universe_disk_headroom()`'s body "is a bare `raise exception`" and that
 COMMITTED ANYWHERE IN THIS REPO". Live `pg_get_functiondef` returns the `migrations/059` body — it computes
 `least(provisioned − used, 500 GiB − used)` and does **not** raise — and `059` was committed at `512a2ab` on
 2026-08-07 and is applied. The restore that opener calls for is not owed.
+
+### F-6 · "throughput is degrading with depth, 2,400 → 2,078 rows/sec" was TWO POINTS AND A LINE THROUGH THEM
+
+**THE CLAIM**, made in-session on 2026-08-08 from the 2025-10-08 and 2025-06-10 windows.
+
+**FALSIFIED BY THE FULL 14-WINDOW SERIES** on `campaign_search_term_view` (query: `select window_start,
+rows_written, (finished_at - started_at) …`). Rows/sec, walking backward: **1,922 · 3,332 · 2,379 · 2,436 ·
+2,390 · 2,081 · 2,078 · 2,123 · 2,656**. No trend — and **the FASTEST reading (3,332) is one of the most
+recent**, which a degradation story cannot accommodate.
+
+**WHAT ACTUALLY VARIES IS ROWS PER WINDOW**: 115,858 → 619,713 → 148,916 → 571,175 between *adjacent* months.
+That is seasonal advertising volume. ⇒ **elapsed ≈ rows / ~2,300, and the ceiling is a ROW ceiling of
+~690,000 rows per 300-second invocation**, not a time-with-depth effect.
+
+### F-7 · "every window of this resource is a candidate for the same failure" — THE DISTRIBUTION IS ONE OUTLIER
+
+**MEASURED across all 17,819 finished `ok`/`zero` rows:**
+
+| bucket (% of the 300s ceiling) | count | share |
+|---|---|---|
+| <25% (<75s) | 17,745 | **99.58%** |
+| 25–50% | 58 | 0.33% |
+| 50–75% | 13 | 0.07% |
+| 75–90% | 2 | 0.011% |
+| >90% | 1 | 0.006% |
+
+p50 **0.7s** · p95 4.6s · p99 45.3s · max 274.9s. **Half of every window ever walked finished in under a
+second.** `campaign_search_term_view` is the worst resource and even it is 703 of 738 under 25%.
+
+### F-8 · NO WINDOW HAS EVER BEEN SILENTLY ORPHANED BEFORE 2026-08-08 — AND HERE IS THE PROOF, NOT THE CLAIM
+
+`openWindow` (pre-fix) omitted `started_at` from its payload, so a row redelivered after a 300-second death
+**keeps its FIRST `started_at`**. Any window that died and later succeeded would therefore show
+`finished_at − started_at > 300s`.
+
+**ZERO of 17,819 `ok`/`zero` rows exceed 300 seconds elapsed.** Combined with zero rows left `running` from
+any earlier date, and only four `error` rows — all resolved in 39–60s, all fast vendor-side failures, none a
+timeout — **the three loops of 2026-08-08 are the entire history of this defect, not the visible part of it.**
+⚠ THE ONE THING THE TABLE STILL CANNOT SHOW: how many times each of the three was redelivered. The row was
+overwritten on every open, so attempt history is unrecoverable for all three. That is a gap in DEPTH, not in
+COUNT.
+
+---
+
+## §11 · FLIGHT 1 — WHAT IT PROVED, WHAT IT DID NOT, AND WHAT IT COST
+
+### 11.1 · STATED LIMIT — `universe_run_notice` IS UNPROVABLE WITHIN FLIGHT 1
+
+⛔ **THIS IS A LIMIT, NOT AN OPEN QUESTION.** `isClientComplete` (`universe-run-state.ts:85-87`), verbatim:
+
+```ts
+  if (states.length < totalEntries) { return { done: false, ... } }
+  if (settled.length < totalEntries) { return { done: false, ... } }
+```
+
+`settled` means `vendor_exhausted_below !== null || skipped_reason`. **ALL 346 selectable entries must be
+settled before a single notice can be written.** As of 2026-08-08, **252 are unsealed**. One sealed entry
+proves nothing about the notice; only a whole-cohort walk to the vendor floor can fire it, and the starter's
+own disk read says **9 of 50 windows fit above the floor**. The notice code is deployed, guarded and inert.
+
+### 11.2 · RECORDED INCIDENT — THE 15-MESSAGE OVERSPEND, 2026-08-08 19:57:43Z
+
+**AN APPROVAL FOR ONE MESSAGE PUBLISHED FIFTEEN.** The command carried
+`?resource=campaign_search_term_view` with **no `&segment=`**, and that resource has a base entry plus 14
+segment variants. The filter shipped hours earlier read:
+
+```ts
+  e.resource === onlyResource && (onlySegment === null || (e.segment ?? '') === onlySegment)
+```
+
+With `onlySegment === null` the segment clause is **skipped**, so "one resource" meant "every entry on it".
+
+- **COST: 15 GAQL requests, 261,977 rows.** Rows `18017`–`18031`, each `requests_spent = 1`. Nothing chained
+  (`windows=1` held on all 15). No cap breached and the 9,000 product reserve was never touched.
+- ⛔ **`&dryRun=1` EXISTED AND WAS NOT READ.** The route already computed and reported `scope.matched` — in
+  the response that had **already fired**. **REPORTING IS NOT A CONTROL.**
+- **FIXED, SAME DAY, `LORAMER_UNIVERSE_SCOPE_REFUSES_V1` (`d34e0bb`):** a resource-only filter matching >1
+  entry **refuses** (HTTP 400) unless `&segment=` names one or `&allEntries=1` is passed; `dryRun` reaches the
+  same reporting path and always answers; every refusal returns the matched **entry list** and both escapes.
+  **PROVEN AGAINST PRODUCTION** — the identical command now returns 400 `"SCOPE MATCHED 15 ENTRIES, NOT 1"`.
+
+### 11.3 · `MAX_PUBLISH_WITHOUT_FLAG = 4` IS **OURS**, NEVER VENDOR TRUTH
+
+⛔ **Google publishes no per-command limit.** The only vendor ceiling is 15,000 ops/day, which is a DAY budget
+and structurally cannot see a single command. **THE ARITHMETIC:** an accidental *unbounded* fire costs
+`messages × ~37 windows to the floor`, so 4 messages ≈ **148 requests ≈ 2.5% of the 6,000/day backfill
+allowance** — absorbed without touching the 9,000 held for forward and drain. It is above 1 so a base entry,
+or base-plus-one-segment, still works with no flag. **Never cite this number as a vendor constraint.**
+
+### 11.4 · WHAT FLIGHT 1 DID **NOT** PROVE — each with what it needs
+
+- **The reconcile-to-0 path** (`closeWindow` lowering `requests_spent` when `result.gaql` is absent) — **NOT
+  PROVEN.** All 16 windows run this session reached the vendor, so the branch never executed.
+- **The per-redelivery `started_at` refresh and the `attempts` increment past 1** — **NOT PROVEN.** Both
+  require a real death. Every window opened since the deploy carries `attempts = 1`.
+- **The halving-on-death re-publish** — **NOT PROVEN.** Same reason: nothing has died since the fix landed.
+- **`universe_run_notice`** — see 11.1. Structurally unprovable here.
+
+### 11.5 · ⛔ NEW DEFECT FOUND BY THE FLOOR-SEAL PROOF — `windowAlreadyFinished` MATCHES ON `window_start` ALONE
+
+**THE OBSERVATION.** The 2026-08-08 20:53Z proof run published ONE message (2022-03-13..2022-03-27, 15 days).
+It walked, wrote 2,200 rows for 1 request (row `18032`), then advanced to **2022-02-26..2022-03-12** — and
+that window **spent ZERO requests and created NO row**, because `windowAlreadyFinished` found the pre-existing
+row `18016`, whose window is **2022-02-26..2022-03-27 — THIRTY days, not fifteen**.
+
+**THE CAUSE, from the schema:** the unique key is
+`(client_id, vendor, resource, segment, window_start)` — **`window_end` IS NOT IN IT**, and the resume test
+selects on exactly those five columns (`universe-window-log.ts:244-254`).
+
+**HARMLESS HERE, AND NOT IN GENERAL.** The 30-day row was a strict superset, so nothing was lost this time.
+But **a window recorded `abandoned_owed` at 30 days is TERMINAL**, and a later re-walk published at any
+smaller size **with the same start** would be read as already-finished and **silently skipped without ever
+being captured.**
+
+⛔ **THIS BLOCKS PART OF STEP 6 AND MUST BE FIXED BEFORE IT RUNS.** Owed row `2871` covers
+2025-12-07..2026-01-05. Its newer half is landed. Re-walking the older half means publishing
+2025-12-07..2025-12-21 — **`window_start` 2025-12-07, identical to the owed row's own start** — which
+`windowAlreadyFinished` would match against `2871` itself and skip. **The second half of 2871 cannot be
+re-walked today.** Tracked as ★UNIVERSE-RESUME-MATCHES-START-ONLY.
+
+### 11.6 · REACTIVE-ONLY: THE EVIDENCE THAT CLOSED IT, AND THE WATCH CONDITION THAT WOULD REOPEN IT
+
+**CLOSED ON THE NUMBERS, NOT ON PREFERENCE.** A proactive "halve the successor when the parent ran long" rule
+was tested against the only three deaths on record:
+
+| death | its parent | parent's elapsed | predicted? |
+|---|---|---|---|
+| 2025-12-07 | 2026-01-06 | **0.5s — a ZERO window** | MISSED |
+| 2025-11-07 | 2025-12-07 | itself a death | MISSED |
+| 2025-05-11 | 2025-06-10 | 274.9s (91.6%) | caught |
+
+Plus one **false positive**: 2025-10-08 ran 260.5s (86.8%) and its successor passed comfortably at 47.9%.
+⇒ **1-of-3 recall, 1-of-2 precision on n=3.** The mechanism says why: elapsed measures the *parent's* row
+count, and adjacent months swing 115k → 619k → 148k. A quantity that is not autocorrelated cannot forecast
+itself.
+
+⛔ **THE WATCH CONDITION THAT REOPENS THIS:** **≥10 deaths in which ≥7 had a parent above 75% of budget.**
+Dispatch-time spend now makes deaths countable, which is what makes the condition checkable at all. Until
+then, reactive-only stands and **no percent-of-budget constant exists in the code.**
+
+### 11.7 · THE REAL PROACTIVE FIX IS SUB-WINDOW CHECKPOINTING — A LATER FLIGHT
+
+The problem was never that we failed to predict the child. **It is that the PARENT was allowed to run to 91.6%
+of the ceiling as a single uninterruptible unit** — 571,175 rows in 274.9 seconds with no state written until
+the end. §5's Airbyte citation is the answer: state emitted *during* the read, target ≤30 minutes between
+checkpoints. **Ours is one checkpoint per 30-day window, written only at close.** Tracked as
+★UNIVERSE-SUBWINDOW-CHECKPOINTS in `LORAMER_QUEUE_OF_RECORD.md`. Not in Flight 1.
