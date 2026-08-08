@@ -219,8 +219,15 @@ if (threadCss && threadTsx) {
       } else if (/Math\.max\(|Math\.min\(|\?\s*[\w.]+\s*:/.test(w[1])) {
         findings.push(`(k) ${varName} is written through a clamp or a conditional (\`${w[1].trim()}\`). It must be the SIGNED, unthresholded offset — a clamp to 0 is exactly the defect measured on 2026-08-07.`)
       }
-      if (!/const raw\s*=\s*Math\.round\(\s*docH\s*-\s*\(vv\.offsetTop/.test(tsx)) {
-        findings.push(`(k) the offset is no longer derived from the VISUAL VIEWPORT (docH − vv.offsetTop − vv.height). A \`param\` owner must track the visual viewport, not merely consume a var() — that distinction is what let a broken element read green.`)
+      // ⛔ CORRECTED 2026-08-07, AND THIS IS NOT A WEAKENING — IT IS AN ASSERTION THAT ENCODED A BELIEF
+      // THE DEVICE DATA HAS SINCE FALSIFIED. This leg used to REQUIRE `docH − vv.offsetTop − vv.height`,
+      // written when I believed the pan term belonged in the offset. Three captures showed that on this
+      // engine it reduces to `−offsetTop` and double-counts a pan sticky already follows. Requiring it
+      // would now mandate the defect. The PROPERTY the leg protects is unchanged — the offset must be
+      // DERIVED FROM THE VISUAL VIEWPORT rather than from a constant — and leg (p) takes the stricter
+      // half by refusing offsetTop outright. Nothing that was checked has become unchecked.
+      if (!/const raw\s*=\s*Math\.round\(\s*docH\s*-\s*vv\.height\s*\)/.test(tsx)) {
+        findings.push(`(k) the offset is no longer derived from the VISUAL VIEWPORT (docH − vv.height). A \`param\` owner must track the visual viewport, not merely consume a var() — that distinction is what let a broken element read green. ⚠ It must ALSO exclude offsetTop; leg (p) enforces that half.`)
       }
     }
   }
@@ -310,6 +317,26 @@ if (pageTsx) {
   const code = strip(pageTsx)
   if (!/\{debug \?[^}]*styles\.dbg/.test(code)) {
     findings.push(`(o) ${PAGE_TSX} has no debug-gated armed indicator in the header. The probe strip sits above the COMPOSER at the bottom of a scrolled page, so its absence is indistinguishable from a page not scrolled down — which is how four captures were spent.`)
+  }
+}
+
+// ═══ (p) A TERM THAT IS ONLY VALID AT REST MAY NOT REACH A POSITIONING VARIABLE ════════════════════
+// ⛔ MEASURED 2026-08-07, three device captures: with `docH === vvH` on Chrome iOS the expression
+// `docH − offsetTop − vvH` REDUCES TO `−offsetTop` — visual-viewport PAN, nothing else. It is 0 at rest
+// and transiently SIGNED in momentum (+39, −85 observed), and it was driving the composer's `bottom`.
+// ⛔ THE DISPLACEMENT READ 2× THE OFFSET BECAUSE STICKY ALREADY FOLLOWS THE PAN — the term was REDUNDANT
+// in motion, not merely mis-scaled. It is meaningful ONLY when offsetTop is 0, which is exactly when it
+// contributes nothing. ⇒ IT MUST NOT APPEAR IN AN EXPRESSION THAT FEEDS A POSITIONING VARIABLE.
+// ⚠ THIS LEG PINS AN ABSENCE, WHICH IS WEAKER THAN PINNING A BEHAVIOUR AND IS SAID SO: it cannot tell a
+// correct expression from an incorrect one, only that the disqualified term is not in it. A deliberate
+// exception is possible — put it behind a named marker and this leg's failure text will say so.
+if (threadTsx) {
+  const code = strip(threadTsx)
+  const rawExpr = (code.match(/const raw = [^\n]*/) || [''])[0]
+  if (!rawExpr) {
+    findings.push(`(p) ${THREAD_TSX} no longer computes \`raw\` — the expression that feeds --lora-composer-bottom and --lora-kb-inset could not be located, so this leg cannot assert anything. A guard that cannot find its evidence FAILS.`)
+  } else if (/offsetTop/.test(rawExpr)) {
+    findings.push(`(p) \`${rawExpr.trim()}\` includes offsetTop. On Chrome iOS docH === vvH, so this reduces to −offsetTop — visual-viewport PAN, which is 0 at rest and transiently signed in momentum. Sticky ALREADY follows the pan, so feeding it into a positioning variable double-counts it (measured: displacement 2× the offset). The term is only meaningful when it is zero.`)
   }
 }
 

@@ -208,7 +208,25 @@ export default function LoraThread({
     if (!vv) return
     const apply = () => {
       const docH = document.documentElement.clientHeight
-      const raw = Math.round(docH - (vv.offsetTop || 0) - vv.height)
+      // ⛔ LORAMER_COMPOSER_DROPS_PAN_TERM_V1, 2026-08-07 — THE `offsetTop` TERM IS GONE, AND ITS
+      // REMOVAL IS THE FIX. MEASURED, three device captures on 2a4d38b: `docH === vvH` in every sample,
+      // so `docH − offsetTop − vvH` REDUCED TO EXACTLY `−offsetTop` — a number that measures nothing but
+      // VISUAL-VIEWPORT PAN. It is 0 at rest and transiently SIGNED during momentum (+39, −85 observed),
+      // and it was being written straight into the composer's `bottom`.
+      // ⛔ WHY THE DISPLACEMENT READ 2× THE OFFSET, WHICH IS THE PART THAT NAMES THE DEFECT: STICKY
+      // ALREADY FOLLOWS THE VISUAL VIEWPORT WHEN IT PANS. Adding `−offsetTop` to `bottom` applied the
+      // same correction A SECOND TIME. The term was not wrong by a scale factor — it was REDUNDANT
+      // during a pan, and only ever meaningful when offsetTop is 0, i.e. at rest, where it degenerates
+      // to exactly the expression below.
+      // ⚠ AND IT WAS NEVER DORMANT — the a04992e capture showed `inset 168px` with 336px of displacement,
+      // the same 2× signature, while the composer still read the THRESHOLDED var. 3dd4692 did not create
+      // this; removing the `>100` clamp removed a threshold that had been accidentally acting as a
+      // JITTER FILTER for the small case, widening the defect from hard flicks to every flick.
+      // ⚠ WHAT SURVIVES: on an engine where the layout viewport does NOT shrink with the keyboard,
+      // `docH − vvH` is the GENUINE keyboard gap and the composer lifts exactly as it was written to.
+      // That engine is still UNMEASURED (★LORA-KB-INSET-IS-DEAD-MACHINERY asks for a second browser),
+      // which is why the machinery stays rather than being deleted.
+      const raw = Math.round(docH - vv.height)
       const inset = raw > KEYBOARD_MIN_DELTA_PX ? raw : 0
       applyRef.current = { n: applyRef.current.n + 1, docH, off: Math.round(vv.offsetTop || 0), vvH: Math.round(vv.height), raw }
       insetTargetRef?.current?.style.setProperty('--lora-kb-inset', `${inset}px`)
