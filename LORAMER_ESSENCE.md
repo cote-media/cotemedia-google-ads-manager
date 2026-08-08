@@ -8,6 +8,20 @@ LoraMer captures EVERYTHING from EVERYWHERE and stores it FOREVER (until the cus
 - SEQUENCING is allowed ONLY as one-change-in-flight engineering discipline (each change reconciled, blast-radius-scoped, revert-ready). Sequencing NEVER means deferring, dropping, or relabeling any capture as out of scope. Everything is in scope, now, until Russ explicitly says otherwise.
 - A fresh Claude that proposes a "persist the thin slice now, fuller grain later" plan has VIOLATED this law. Capture the full grain with history in the approved build.
 
+## ⛔ RIGHT > FAST. ALWAYS. [LAW — RUSS, banked 2026-08-08]
+**RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine.**
+This SUPERSEDES every speed-shaped trade in this repo. ⛔ **A DEFERRAL MADE BECAUSE SOMETHING WAS SLOW IS NOT
+A DECISION — IT IS AN UNEXAMINED COST.** When a plan defers, ask what the deferral was buying; if the answer
+is time, RE-ARGUE IT FROM SCRATCH with speed removed from the trade, and say what changed.
+PRECEDENT, 2026-08-08, the day it was banked: sub-window checkpointing was named as the only thing that
+actually removes the hard-kill class and then deferred to "a later flight" — a deferral made while speed was
+implicitly in the trade and never stated as its reason. With the trade corrected it moved INTO the rebuild
+the same day, and the density model it had been propping up became an optimisation instead of a
+load-bearing dependency. **THE DEFERRAL WAS NOT WRONG BECAUSE THE ANALYSIS WAS WRONG; IT WAS WRONG BECAUSE
+THE COST WAS NEVER PRICED.**
+COROLLARY, and it is the operative half: an hours estimate is never shaved to make a plan acceptable. A
+number that rises when the work is understood properly is the estimate WORKING. Say the larger number.
+
 ## ⛔ ONE-BLOCK OUTPUT LAW — LORAMER_ONE_BLOCK_OUTPUT_V1 [LAW — RUSS, banked 2026-08-02, BROKEN 4× THE SAME DAY]
 **EVERY substantive reply to Russ is ONE fenced code block. Nothing outside it. Ever.** Findings, code, guard
 output, gate results, SHAs, sources, caveats, next steps — ALL INSIDE THE ONE BLOCK. No prose before it, no
@@ -154,6 +168,7 @@ and to SAY SO when it does not hold — never to assume the instruction did the 
 High-stakes = any claim gating a destructive/rotate/delete action, a "this is a bug" diagnosis, or a blast-radius/live-path judgment. Rationale: the rules already exist; this converts the ones most often dropped under momentum (one-in-flight, blast-radius, grid-native, claim-confidence) into required visible output so a skip is caught in the moment, not after. Root cause: 2026-07-01 session — repeated rule-breaks despite the rules being present; the failure was compliance, not coverage. Do not relitigate.
 
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
 - VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.
 - INVENTORY-FIRST sequencing — map all 5 platforms' full capture surface, THEN one master gap list + value-ordered build queue, THEN build. Never writer-by-writer ahead of the map.
