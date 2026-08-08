@@ -127,6 +127,10 @@ const GUARDS = [
   'tests/guards/universe-derived-time.guard.mjs',
   'tests/guards/universe-window-log.guard.mjs',
   'tests/guards/universe-failure-is-durable.guard.mjs',
+  // LORAMER_UNIVERSE_SURFACE_LABELS_V1 — the walk writes the VENDOR's names; a completeness statement has to
+  // be in the CLIENT's. An unlabelled delivering resource or segment cannot appear in that sentence, so it
+  // vanishes from the report while still being incomplete — silence, arriving through the vocabulary gap.
+  'tests/guards/universe-surface-labels.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
