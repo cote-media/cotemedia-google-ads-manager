@@ -92,21 +92,45 @@ export function isClientComplete(args: { totalEntries: number; states: Array<Rec
 }
 
 /** THE NOTICE — a queryable record, not an email. Written once when a client's walk settles. */
-export async function writeCompletionNotice(clientId: string, states: Array<Record<string, any>>, totalEntries: number) {
+export async function writeCompletionNotice(
+  clientId: string,
+  states: Array<Record<string, any>>,
+  totalEntries: number,
+  // ⛔ REQUIRED, NOT OPTIONAL. A notice that states only what the walk covered reports 346 of 559 as
+  // "complete" — a green flag over a hole, which the governing law forbids. The vendor's denominator travels
+  // WITH the claim or the claim is not written.
+  catalog: { catalogTotal: number; exclusions: Array<{ resource: string; segment: string | null; reason: string }> }
+) {
   const detail: Record<string, unknown> = {}
   for (const s of states) {
     const k = `${s.resource}${s.segment ? '/' + s.segment : ''}`
     detail[k] = { rows: s.rows_written, requests: s.requests_spent, exhaustedBelow: s.vendor_exhausted_below, zero: !!s.observed_zero_at, skipped: s.skipped_reason || null }
   }
+  // ⛔ THE EXCLUSIONS ARE ITEMISED, NEVER SUMMARISED. "213 excluded" is a number nobody can act on; the list
+  // with its per-entry reason is a work queue. LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 stands — the
+  // catalog is not narrowed, the debt is made visible.
+  const excluded = catalog.exclusions.length
   const { error } = await supabaseAdmin.from(NOTICE).insert({
     client_id: clientId, vendor: VENDOR,
     entries_total: totalEntries,
+    entries_catalog_total: catalog.catalogTotal,
+    entries_excluded: excluded,
     entries_exhausted: states.filter((s) => s.vendor_exhausted_below).length,
     entries_zero: states.filter((s) => s.observed_zero_at).length,
     entries_skipped: states.filter((s) => s.skipped_reason).length,
     rows_written: states.reduce((a, s) => a + Number(s.rows_written || 0), 0),
     requests_spent: states.reduce((a, s) => a + Number(s.requests_spent || 0), 0),
-    detail,
+    detail: {
+      ...detail,
+      __denominator: {
+        marker: 'LORAMER_UNIVERSE_FAILURE_IS_DURABLE_V1',
+        walked: totalEntries,
+        vendorCatalog: catalog.catalogTotal,
+        excluded,
+        note: 'entries_total is the set the walk PUBLISHES (selectableEntries). entries_catalog_total is what the VENDOR serves. "Complete" means complete over the first number — the gap is real and itemised below, not absent.',
+        exclusions: catalog.exclusions,
+      },
+    },
   })
   if (error) assertTable(error)
 }

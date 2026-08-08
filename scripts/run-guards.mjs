@@ -126,6 +126,7 @@ const GUARDS = [
   'tests/guards/universe-artifact-slots.guard.mjs',
   'tests/guards/universe-derived-time.guard.mjs',
   'tests/guards/universe-window-log.guard.mjs',
+  'tests/guards/universe-failure-is-durable.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an

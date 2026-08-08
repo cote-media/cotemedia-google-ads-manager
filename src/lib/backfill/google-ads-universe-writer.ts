@@ -215,6 +215,36 @@ export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
     && !deferralFor(e))
 }
 
+/**
+ * ⛔ THE VENDOR'S OWN DENOMINATOR — every entry the catalog says DELIVERS and can be asked per-date.
+ * LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1: completeness is measured against the vendor's list, never
+ * ours. `selectableEntries` above is the NUMERATOR — what we actually publish — and the difference between
+ * the two is DEBT, which must stay visible rather than being quietly redefined away.
+ * MEASURED 2026-08-08 on docs/google-ads-capture-universe.json: this returns 559, selectableEntries 346.
+ */
+export function catalogEligibleEntries(doc: UniverseDoc): UniverseEntry[] {
+  return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true))
+}
+
+/**
+ * ⛔ WHAT THE WALK DOES NOT ASK FOR, AND WHY — one row per excluded entry, never a bare count.
+ * "213 excluded" is a number nobody can act on; "these 213, for these two reasons" is a work list. This is
+ * what makes a completion notice honest: it states the vendor's total, ours, and the gap ITEMISED.
+ */
+export function excludedFromWalk(doc: UniverseDoc): Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' }> {
+  const out: Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' }> = []
+  for (const e of catalogEligibleEntries(doc)) {
+    if (e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment)) {
+      // Computed locally from segments.date rather than requested — PROVENANCE_COMPUTED, not a capture gap.
+      out.push({ resource: e.resource, segment: e.segment ?? null, reason: 'derived_time_segment' })
+    } else if (deferralFor(e)) {
+      // LORAMER_UNIVERSE_NARROWED_SET_V1 — sequencing under a disk constraint. DEFERRED, NOT DROPPED.
+      out.push({ resource: e.resource, segment: e.segment ?? null, reason: 'deferred_under_disk_constraint' })
+    }
+  }
+  return out
+}
+
 /** ⛔ THE DEFERRED SET, WITH REASONS — so "what are we not asking for, and why" is always answerable. */
 export function deferredEntries(doc: UniverseDoc): Array<{ entry: UniverseEntry; note: DeferralNote }> {
   return doc.entries

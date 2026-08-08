@@ -123,20 +123,60 @@ const seg = (s: string | null) => s ?? ''
  * `running` — the failure it actually is. A log written only on success cannot distinguish "never
  * started" from "died halfway", which is the exact ambiguity that made the drain unreadable.
  */
-export async function openWindow(k: WindowKey, diskFreeBytes: number): Promise<void> {
-  const { error } = await supabaseAdmin.from(TABLE).upsert(
-    {
-      client_id: k.clientId, vendor: VENDOR, resource: k.resource, segment: seg(k.segment),
-      window_start: k.windowStart, window_end: k.windowEnd,
-      outcome: 'running', disk_free_bytes: diskFreeBytes,
-      rows_written: 0, requests_spent: 0, refused_rows: 0, error: null, finished_at: null,
-    },
-    { onConflict: 'client_id,vendor,resource,segment,window_start' }
-  )
-  if (error) throw new Error(`universe_window_log open failed: ${error.message}`)
+/**
+ * ⛔ LORAMER_UNIVERSE_FAILURE_IS_DURABLE_V1 — THIS IS AN RPC AND NOT AN UPSERT, AND THE REASON IS MECHANICAL.
+ * PostgREST's `.upsert()` can only set a column to the value SUPPLIED, never to an expression over the
+ * existing row, so `attempts = attempts + 1` is not expressible there. Worse, the payload this replaced wrote
+ * `rows_written: 0, requests_spent: 0, refused_rows: 0, error: null, finished_at: null` on EVERY open — so an
+ * attempts field written the same way would have RESET to 1 on every redelivery and counted BACKWARDS.
+ *
+ * ⛔ IT RETURNS THE ATTEMPT COUNT. The retry bound has nothing to bound on otherwise, and three separate
+ * 300-second poison loops (ids 2871, 17959, 17966) are what a bound would have stopped.
+ *
+ * ⛔ `requestsSpentAtDispatch` DEFAULTS TO 1 — THE SPEND IS RECORDED BEFORE THE VENDOR IS CALLED, NOT AFTER.
+ * `closeWindow` reconciles it DOWN to 0 when the vendor was demonstrably never called. Pessimistic on
+ * purpose: an optimistic counter fails toward spending the fleet's quota against a pause nobody can see, and
+ * this repo has already paid for that once (the governor reading 997 of 10,788). Pass 0 explicitly on the
+ * paths that open a row only to record a refusal.
+ * ⚠ THE MEANING OF universe_window_log.requests_spent IS THEREFORE "DISPATCHED", NOT "ANSWERED". Every reader
+ * over-counts rather than under-counts, which is the safe direction: readLaneSpendToday (migrations/057),
+ * google-op-budget's backfill lane, and scripts/universe-walk-progress.sql.
+ */
+export async function openWindow(k: WindowKey, diskFreeBytes: number, requestsSpentAtDispatch = 1): Promise<number> {
+  const { data, error } = await supabaseAdmin.rpc('universe_window_open', {
+    p_client_id: k.clientId,
+    p_vendor: VENDOR,
+    p_resource: k.resource,
+    p_segment: seg(k.segment),
+    p_window_start: k.windowStart,
+    p_window_end: k.windowEnd,
+    p_disk_free_bytes: diskFreeBytes,
+    p_requests_spent: requestsSpentAtDispatch,
+  })
+  if (error) {
+    throw new Error(
+      `universe_window_log open failed: ${error.message}. ` +
+        `migrations/060_universe_window_attempts.sql creates public.universe_window_open(); apply it before running.`
+    )
+  }
+  const attempts = Number(Array.isArray(data) ? (data[0] as any)?.universe_window_open ?? data[0] : data)
+  // ⛔ AN UNUSABLE COUNT IS A REFUSAL, NEVER A 1. Defaulting it would silently disarm the retry bound, which
+  // is the one thing standing between a too-large window and an unbounded redelivery loop.
+  if (!Number.isFinite(attempts) || attempts < 1) {
+    throw new Error(`universe_window_open returned no usable attempt count: ${JSON.stringify(data)}`)
+  }
+  return attempts
 }
 
-export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop' | 'quota_stop'
+/**
+ * ⛔ `abandoned_owed` IS NOT `error`, AND THE DISTINCTION IS THE WHOLE POINT (migration 060).
+ * `error` means WE ASKED AND IT FAILED — the vendor's own words go in `error`.
+ * `abandoned_owed` means WE STOPPED ASKING AND THIS WINDOW IS STILL OWED. Both are terminal to
+ * `windowAlreadyFinished` (its test is `outcome !== 'running'`), so both break a redelivery loop — but only
+ * one of them is findable by `where outcome = 'abandoned_owed'`, which is how the system lists the work it
+ * knows it owes. The first two orphans were stored as `error` and were invisible to their own owed-list.
+ */
+export type WindowOutcome = 'ok' | 'zero' | 'skipped' | 'error' | 'floor_stop' | 'quota_stop' | 'abandoned_owed'
 
 /**
  * CLOSE THE WINDOW WITH AN EXPLICIT OUTCOME.

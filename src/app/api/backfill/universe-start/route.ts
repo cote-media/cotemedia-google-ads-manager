@@ -41,6 +41,33 @@ export async function POST(request: Request) {
   // ⛔ LORAMER_UNIVERSE_BOUNDED_RUN_V1 — `?windows=N` bounds the whole chain to N windows per entry.
   // Omitted = unbounded, the original behaviour. `windows=1` is the PROOF run: one window, measured, and the
   // consumer will not re-publish afterwards even though quota and disk would allow it.
+  // ── LORAMER_UNIVERSE_FAILURE_IS_DURABLE_V1 — THE ARBITRARY-WINDOW PUBLISHER. ────────────────────────────
+  // ⛔ ALL THREE ARE ADDITIVE AND THE ROUTE IS BYTE-IDENTICAL WHEN THEY ARE OMITTED. They exist because three
+  // windows are recorded as `abandoned_owed` and NOTHING will re-walk them: the chain only ever moves
+  // backward from where it is, and there was no way to say "that window, that size, once".
+  //
+  // ⛔ ?resource= AND ?segment= ARE THE REAL GAP. `endDate` has ALWAYS been explicit here (see the validation
+  // below — "the first window is explicit, never inferred from a clock"), so targeting a historical DATE was
+  // never the missing piece. What was missing is targeting ONE ENTRY: without it, re-walking one window fans
+  // out to all 346 selectable entries and starts 346 backward chains.
+  const onlyResource = url.searchParams.get('resource')
+  const onlySegment = url.searchParams.get('segment')
+  // ⛔ ?windowDays= sizes the FIRST window and rides the message so every successor inherits it. The three
+  // owed windows died at 30; re-walking them at 30 would simply reproduce the death.
+  const windowDaysParam = url.searchParams.get('windowDays')
+  const windowDays = windowDaysParam === null ? WINDOW_DAYS : Number(windowDaysParam)
+  if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > WINDOW_DAYS) {
+    return NextResponse.json({ error: `windowDays must be an integer in 1..${WINDOW_DAYS} if supplied; got "${windowDaysParam}"` }, { status: 400 })
+  }
+  // ⛔ ?rewalk=N IS THE IDEMPOTENCY DISCRIMINATOR, AND WITHOUT IT A DELIBERATE RE-WALK IS SILENTLY DROPPED.
+  // Vercel's dedup window "lasts for the entire lifetime of the original message (up to its TTL)", and we set
+  // no per-message TTL, so the 24h default applies. Re-publishing a window whose original message is still
+  // live reuses the same key and vanishes with no error. CALLER-SUPPLIED on purpose rather than a timestamp,
+  // so the same operator command issued twice by mistake is still idempotent.
+  const rewalkParam = url.searchParams.get('rewalk')
+  if (rewalkParam !== null && !/^\d+$/.test(rewalkParam)) {
+    return NextResponse.json({ error: `rewalk must be a non-negative integer if supplied; got "${rewalkParam}"` }, { status: 400 })
+  }
   const windowsParam = url.searchParams.get('windows')
   const windowsRemaining = windowsParam === null ? undefined : Number(windowsParam)
   if (windowsRemaining !== undefined && (!Number.isInteger(windowsRemaining) || windowsRemaining < 1)) {
@@ -84,7 +111,19 @@ export async function POST(request: Request) {
   }
 
   const doc = loadUniverse()
-  const entries = selectableEntries(doc)
+  // ⛔ THE FILTER IS APPLIED TO THE SELECTABLE SET, NEVER TO THE CATALOG — a targeted re-walk may only ever
+  // ask for something the walk would legitimately have asked for on its own.
+  const allSelectable = selectableEntries(doc)
+  const entries = onlyResource
+    ? allSelectable.filter((e) => e.resource === onlyResource && (onlySegment === null || (e.segment ?? '') === onlySegment))
+    : allSelectable
+  if (onlyResource && entries.length === 0) {
+    return NextResponse.json({
+      started: false, published: 0,
+      error: `no SELECTABLE entry matches resource='${onlyResource}'${onlySegment === null ? '' : ` segment='${onlySegment}'`}. It may be deferred, derived-time, or non-delivering — all three are recorded in the artifact, and none is a thing this route may publish.`,
+      selectableTotal: allSelectable.length,
+    }, { status: 400 })
+  }
   const deferred = deferredEntries(doc)
 
   // ⛔ THE DISK FLOOR IS A START GATE TOO, NOT ONLY A PER-WINDOW ONE. Starting a walk that must stop
@@ -122,15 +161,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ started: false, published: 0, reason: gov.reason, denominator: gov.denominator, disk }, { status: 200 })
   }
 
-  const startDate = addDays(endDate, -(WINDOW_DAYS - 1))
+  const startDate = addDays(endDate, -(windowDays - 1))
   const toPublish = entries.slice(0, gov.allowance)
   let published = 0
   if (!dryRun) {
     for (const entry of toPublish) {
       const label = `${entry.resource}${entry.segment ? '/' + entry.segment : ''}`
       const msg: UniverseMessage = { clientId, userEmail: conn.user_email, customerId: String(conn.account_id), entry, startDate, endDate,
+        // ⛔ OMITTED WHEN IT IS THE DEFAULT, so a normal start publishes a byte-identical message to before.
+        ...(windowDays !== WINDOW_DAYS ? { windowDays } : {}),
         ...(windowsRemaining !== undefined ? { windowsRemaining } : {}) }
-      await send(TOPIC, msg, { idempotencyKey: `${clientId}|${label}|${startDate}` } as any)
+      await send(TOPIC, msg, {
+        idempotencyKey: `${clientId}|${label}|${startDate}${rewalkParam === null ? '' : `|rw${rewalkParam}`}`,
+      } as any)
       published++
     }
   }
@@ -144,7 +187,13 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     started: !dryRun, dryRun, published, wouldPublish: toPublish.length,
-    entriesSelectable: entries.length, window: { startDate, endDate, windowDays: WINDOW_DAYS },
+    entriesSelectable: entries.length, window: { startDate, endDate, windowDays },
+    // ⛔ THE TARGETING IS REPORTED, NOT INFERRED. A scoped re-walk and a full start return the same shape, so
+    // the response has to say which one just happened or a dry run cannot be checked.
+    scope: onlyResource
+      ? { resource: onlyResource, segment: onlySegment, matched: entries.length, ofSelectable: allSelectable.length }
+      : { resource: null, segment: null, matched: entries.length, ofSelectable: allSelectable.length },
+    rewalk: rewalkParam === null ? null : { generation: rewalkParam, note: 'idempotency key carries |rw<generation> so a deliberate re-publish is not deduped against the original message for the life of its TTL' },
     bound: windowsRemaining === undefined
       ? { marker: 'LORAMER_UNIVERSE_BOUNDED_RUN_V1', windows: null, note: 'UNBOUNDED — each consumer re-publishes its next window until the vendor is exhausted, the governor holds, or the disk floor stops it.' }
       : { marker: 'LORAMER_UNIVERSE_BOUNDED_RUN_V1', windows: windowsRemaining, note: `BOUNDED to ${windowsRemaining} window(s) per entry. The consumer will NOT re-publish past the bound even if quota and disk allow it.` },
