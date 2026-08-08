@@ -352,10 +352,7 @@ export async function runClaudeToolLoop(opts: {
   maxToolTurns?: number
   // LORAMER_LORA_MODEL_CHAIN_V1 — per-request SDK options (maxRetries + timeout) supplied by the model chain, so
   // retry budget is owned by the caller that also owns the wall-clock deadline. Absent ⇒ SDK defaults, unchanged.
-  // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — `signal` rides the SAME channel the chain already uses for
-  // maxRetries/timeout. Aborting client→server does NOT abort server→Anthropic; the signal has to
-  // reach the SDK call or the generation keeps running and keeps billing.
-  requestOptions?: { maxRetries?: number; timeout?: number; signal?: AbortSignal }
+  requestOptions?: { maxRetries?: number; timeout?: number }
 }): Promise<ToolLoopResult> {
   const { anthropic, model, maxTokens, system, messages } = opts
   const clientId = opts.clientId || ''
@@ -452,10 +449,7 @@ export async function runClaudeToolLoopStreaming(opts: {
   clientId?: string | null
   userEmail?: string | null
   maxToolTurns?: number
-  // LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — `signal` rides the SAME channel the chain already uses for
-  // maxRetries/timeout. Aborting client→server does NOT abort server→Anthropic; the signal has to
-  // reach the SDK call or the generation keeps running and keeps billing.
-  requestOptions?: { maxRetries?: number; timeout?: number; signal?: AbortSignal }
+  requestOptions?: { maxRetries?: number; timeout?: number }
   emit: StreamEmit
   /** LORAMER_CHAT_STATUS_SUBJECT_V1 — the BOUND client's human name, already on the request body. Lets the
    *  status line name the client at single-client scope without a single extra query. */
@@ -499,19 +493,6 @@ export async function runClaudeToolLoopStreaming(opts: {
     return (lu?.content as string) || ''
   })()
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
-  // ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — THE PARTIAL USAGE MUST SURVIVE THE THROW.
-  // `usage` accumulates per COMPLETED tool turn and lives only in this closure, so when a user abort
-  // rejects out of the loop the route sees an Error and NOTHING ELSE — it cannot bill what it cannot
-  // see, and a stopped turn would silently record ZERO spend for tokens genuinely generated and
-  // genuinely billed. Attaching the accumulator to the error carries it across the boundary with the
-  // failure itself, which is the one channel guaranteed to reach the catch.
-  // ⚠ WHAT IT DOES NOT CARRY, AND THIS IS NOT ROUNDED AWAY: the turn IN FLIGHT at the abort has no final
-  // usage event, so its output tokens are absent. The figure UNDER-REPORTS by that turn. Safe direction
-  // for honesty — we never claim to have spent less than we did on completed turns — but not exact.
-  const attachPartialUsage = (err: any) => {
-    try { if (err && typeof err === 'object') err.partialUsage = { ...usage } } catch { /* never mask the real error */ }
-    return err
-  }
   const MAX = opts.maxToolTurns ?? 5
 
   // LORAMER_CHAT_STATUS_SUBJECT_V1 — id -> human name, resolved SERVER-side so no id reaches the browser.
@@ -538,7 +519,6 @@ export async function runClaudeToolLoopStreaming(opts: {
   }
 
   let last: any = null
-  try {
   for (let turn = 0; turn < MAX; turn++) {
     const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
     if (tools) createParams.tools = tools
@@ -638,9 +618,6 @@ export async function runClaudeToolLoopStreaming(opts: {
     // FINAL turn — its deltas already streamed above. The route's `answer` event carries the authoritative text.
     break
   }
-  // ⛔ THE try WRAPS THE LOOP ONLY. Closing it after `responseText` would put the return out of scope, and
-  // wrapping the tail buys nothing: everything that can be aborted happens inside the loop.
-  } catch (err) { throw attachPartialUsage(err) }
 
   const finalResp: any = last
   const responseText = finalResp

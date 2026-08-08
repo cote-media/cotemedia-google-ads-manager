@@ -39,9 +39,6 @@ const Icon = ({ d, size = 20 }: { d: string; size?: number }) => (
 )
 const ARROW_UP = 'M12 19V5M5 12l7-7 7 7'
 const CHEVRON_DOWN = 'M6 9l6 6 6-6'
-// LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — a filled square, the universal stop. Same 19px box as ARROW_UP so
-// the button does not resize when the affordance swaps mid-turn.
-const STOP_SQUARE = 'M7 7h10v10H7z'
 // LORAMER_CHAT_COPY_BLOCKS_V1 — the copy affordance's two states, same Icon pattern, path `d` only.
 const COPY = 'M8 8V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-3M5 8h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z'
 const CHECK = 'M20 6L9 17l-5-5'
@@ -139,12 +136,6 @@ export interface LoraThreadProps {
   streamStatus?: string | null
   /** ⛔ S1 — the answer as it arrives. A PREVIEW, discarded when the authoritative `answer` lands. */
   streamingText?: string
-  /** LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — the partial answer of a turn the user STOPPED. `''` means
-   *  stopped before any text arrived, which still renders the marker; `null` means no stop. */
-  stoppedText?: string | null
-  /** Aborts the in-flight turn. ABSENT ⇒ no stop affordance is rendered, so the page and the shelf can
-   *  adopt it independently rather than one of them shipping a dead button. */
-  onStop?: () => void
   input: string
   setInput: (v: string) => void
   // ⚠ The hook's own ref type, mirrored EXACTLY. Widening it here to `| null` looked harmless and
@@ -179,7 +170,7 @@ export interface LoraThreadProps {
 const KEYBOARD_MIN_DELTA_PX = 100
 
 export default function LoraThread({
-  variant, messages, loading, streamStatus, streamingText, stoppedText = null, onStop, input, setInput, inputRef,
+  variant, messages, loading, streamStatus, streamingText, input, setInput, inputRef,
   onKeyDown, onComposerFocus, noteInput, send, clientId, clientName, suggestions, active,
   debugSlot, debug = false, onFocusExtra, insetTargetRef,
 }: LoraThreadProps) {
@@ -452,18 +443,6 @@ export default function LoraThread({
           </div>
         ))
       )}
-      {/* ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — THE PARTIAL STAYS ON SCREEN AND SAYS WHAT IT IS.
-          Those tokens were generated and billed; discarding them is the second way to lose the user's
-          money. It is deliberately NOT pushed into `messages` — there is no server row to merge it
-          against, and inventing one would put a message in the thread the server does not have. */}
-      {stoppedText != null && (
-        <div className={s.rowAssistant}>
-          <div className={s.bubbleAssistant}>
-            {stoppedText ? <Md>{stoppedText}</Md> : null}
-            <div className={s.stoppedMark}>Stopped</div>
-          </div>
-        </div>
-      )}
       {loading && (
         /* ⛔ LORAMER_CHAT_STREAM_THE_ANSWER_V1 (S1) — ONCE THE ANSWER IS ARRIVING, SHOW THE ANSWER.
            MEASURED 2026-08-06: the final 88 seconds of a 365-second turn carried ~12,000 characters of
@@ -569,19 +548,11 @@ export default function LoraThread({
           className={s.send}
           // D2: forceBottom, NOT setPin(true) — see the note on forceBottom. Sending is a deliberate
           // act and must always land on your own message, whatever the pin state was a moment ago.
-          // ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — THE SAME SLOT, NOT A SECOND CONTROL. No new chrome
-          // beside the input: the button keeps its position, size and shape and only its glyph, handler
-          // and disabled rule change, so nothing reflows when a turn starts.
-          // ⚠ WHILE IN FLIGHT IT IS NEVER DISABLED BY EMPTY INPUT — a stop you cannot press is the whole
-          // defect. It is disabled only if no `onStop` was supplied, i.e. the container has not adopted it.
-          onClick={() => {
-            if (loading && onStop) { onStop(); return }
-            send(input); forceBottom()
-          }}
-          disabled={loading ? !onStop : !input.trim()}
-          aria-label={loading && onStop ? 'Stop' : 'Send'}
+          onClick={() => { send(input); forceBottom() }}
+          disabled={!input.trim() || loading}
+          aria-label="Send"
         >
-          <Icon d={loading && onStop ? STOP_SQUARE : ARROW_UP} size={19} />
+          <Icon d={ARROW_UP} size={19} />
         </button>
       </div>
       </CopyResetContext.Provider>

@@ -100,24 +100,6 @@ export function isOverloadedError(err: any): boolean {
   return t === 'overloaded_error'
 }
 
-// ⛔ LORAMER_CHAT_STOP_CANCELS_SERVER_V1 — A USER ABORT IS NOT A FAILURE, AND THIS IS THE MOST
-// EXPENSIVE DISTINCTION IN THE FILE. An aborted stream misclassified as an error can trigger a fallback
-// that sends a SECOND FULL BILLED REQUEST (github.com/anthropics/claude-code/issues/43295) — so pressing
-// stop would cost TWO generations instead of zero.
-// ⚠ OUR CHAIN WAS ALREADY SAFE BY CONSTRUCTION, AND THIS IS AN ASSERTION RATHER THAN A REPAIR:
-// `isOverloadedError` matches ONLY status 529 or type `overloaded_error`, and an abort is neither, so
-// the `if (!overloaded) throw err` below already rethrows without advancing. This function makes that
-// safety EXPLICIT and TESTABLE instead of incidental — the next person to widen `isOverloadedError`
-// (a timeout, a 5xx, a connection reset all look retryable) would otherwise reintroduce the trap with
-// no guard in the way.
-export function isUserAbort(err: any): boolean {
-  if (!err) return false
-  // The SDK's own class name, the DOM exception name, and the plain-string case a transport layer can
-  // surface. All three, because one channel is not a contract.
-  if (err.name === 'APIUserAbortError' || err.name === 'AbortError') return true
-  return String(err?.message ?? '').toLowerCase().includes('aborted')
-}
-
 export function requestIdOf(err: any): string | null {
   return (err?.requestID as string) || (err?.request_id as string) || (err?.error?.request_id as string) || null
 }
@@ -128,7 +110,7 @@ export function requestIdOf(err: any): string | null {
 // `nowMs` is injected so a Gate-A can drive the deadline deterministically instead of sleeping.
 export async function runWithModelChain<T>(opts: {
   models: string[]
-  run: (model: string, requestOptions: { maxRetries: number; timeout: number; signal?: AbortSignal }) => Promise<T>
+  run: (model: string, requestOptions: { maxRetries: number; timeout: number }) => Promise<T>
   onOverload?: (a: ModelAttempt) => void
   budgetMs?: number
   nowMs?: () => number
@@ -155,10 +137,6 @@ export async function runWithModelChain<T>(opts: {
       })
       return { value, modelUsed: model, fellBack: i > 0, attempts, droppedModels: [] }
     } catch (err: any) {
-      // ⛔ THE ABORT CHECK COMES FIRST, BEFORE ANY CLASSIFICATION. A user abort must leave the chain
-      // immediately and unchanged: no attempt row, no onOverload callback, no next model. Placing it
-      // ahead of `isOverloadedError` means a future widening of that predicate cannot swallow it.
-      if (isUserAbort(err)) throw err
       const overloaded = isOverloadedError(err)
       const attempt: ModelAttempt = {
         model,
