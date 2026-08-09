@@ -131,6 +131,10 @@ const GUARDS = [
   // be in the CLIENT's. An unlabelled delivering resource or segment cannot appear in that sentence, so it
   // vanishes from the report while still being incomplete — silence, arriving through the vocabulary gap.
   'tests/guards/universe-surface-labels.guard.mjs',
+  // LORAMER_UNIVERSE_ATTEMPT_LOG_V1 — the append-only property, statically. The DB half of this guard
+  // (--db: catalog unique-index and grant checks) runs in `check:data`, same posture as
+  // universe-failure-is-durable — DB work stays off the Vercel build path.
+  'tests/guards/universe-attempt-append-only.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
