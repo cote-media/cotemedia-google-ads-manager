@@ -55,18 +55,67 @@ import type { GoogleQuotaReadState } from './google-quota-store'
 // must move together; a second RPC call site here is exactly the drift they warn about. This imports the walk's
 // own reader instead of re-implementing the aggregate. (Acyclic: universe-window-log imports only @/lib/supabase.)
 import { readLaneSpendToday } from './universe-window-log'
+// ⛔ THE WINDOW IS SHARED, NOT COPIED — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. The fleet total is assembled
+// from BOTH readers, so two independently-computed windows would measure one fleet over two different
+// periods. It lives one level below both because this file imports universe-window-log (acyclicity is
+// load-bearing here and is recorded above).
+import { rollingWindowStart } from './google-quota-window'
 
-// Basic Access, developer-scope, shared across ALL google clients on ONE dev token (HANDOFF:727).
+// Basic Access, developer-scope, shared across ALL google clients on ONE dev token.
+// ⛔ VERIFIED AT GOOGLE 2026-08-09: 15,000 operations/day is enforced PER DEVELOPER TOKEN, across every
+// customer that token manages — so ONE fleet-wide pool is the right shape, and both prior models were right
+// about that much. developers.google.com/google-ads/api/docs/api-policy/access-levels
 export const GOOGLE_DAILY_OP_CAP = 15_000
 // Requests per client-connection per DAY of google fan-out. Counted from code above, not recalled.
+// ⚠ AND NEVER LIVE-MEASURED — ★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT. Three of the four lanes
+// convert their work units through this number, so their spend figures inherit its error in an unknown
+// direction. Only the walk is counted in real vendor requests.
 export const GAQL_REQUESTS_PER_CONNECTION_DAY = 67
-// Operations >= requests and the ratio is unknown. Over-count spending so the budget stops EARLY.
-export const SAFETY_MULTIPLIER = 1.5
-// Catchup is the DEEP-HISTORY lane and the lowest-priority spender: it gets a minority share and may never
-// spend into the remainder. 30% of 15k ≈ 4,500 ops.
-export const CATCHUP_SHARE = 0.30
-export const CATCHUP_ALLOCATION = Math.floor(GOOGLE_DAILY_OP_CAP * CATCHUP_SHARE)
-// Everything else — forward, the ranked geo lap, scoped recovery — lives here and catchup may not touch it.
+
+// ⛔ ONE REQUEST IS ONE OPERATION. VENDOR-SETTLED, NOT ASSUMED — this replaces `SAFETY_MULTIPLIER = 1.5`.
+// "A Search or SearchStream request counts as one operation irrespective of the number of batches", and
+// paginated requests carrying a VALID next_page_token are not counted at all.
+//   developers.google.com/google-ads/api/docs/best-practices/quotas
+//   developers.google.com/google-ads/api/docs/reporting/paging
+// ⛔ THE 1.5 WAS OURS AND IT WAS NOT CONSERVATISM — it was a 50% fiction added to every lane's spend, and it
+// measurably refused work the vendor would have served: on a mean day real requests were 11,251 (under the
+// cap) but billed 16,877, firing the fleet check against catchup. See ★OPS-PER-REQUEST-1.5-VS-1-FIXED-IN-ONE-
+// FILE-ONLY for the 2026-07-31 forensics.
+// ⚠ ONE NUANCE THE VENDOR STATES AND THIS NUMBER DOES NOT CARRY: a pagination request with an EXPIRED OR
+// INVALID page token DOES count. Tracked as ★INVALID-PAGE-TOKEN-REQUESTS-COUNT-AGAINST-QUOTA rather than
+// smuggled in as a fudge factor — a multiplier is not a model of a failure mode.
+export const OPS_PER_REQUEST = 1
+
+// ── THE ALLOCATION — LORAMER_GOOGLE_LANE_ALLOCATION_V1, RUSS, 2026-08-09 ──────────────────────────────────
+// ⛔ ONE TABLE, ALL FOUR LANES NAMED, SUMMING TO THE CAP. It replaces TWO incompatible models that were live
+// at once and disagreed by 5,500 ops: this file's catchup-4,500 / everyone-else-10,500 split, and
+// `universe-governor.ts`'s forward-4,000 / drain-5,000 / backfill-6,000. Neither named all four lanes, and
+// MEASURED over 30 days neither matched reality — both over-reserved the two SMALL lanes and starved the two
+// LARGE ones.
+//
+// ⛔ THE NUMBERS ARE A DECISION, NOT A DERIVATION, AND THE DECISION IS RUSS'S. Measured demand EXCEEDS the
+// cap — fleet p95 on a rolling 24h basis is 15,209 against 15,000 — so no split satisfies everyone and a lane
+// must spend less. CATCHUP is that lane, because NOTHING INSIDE ITS 35-DAY WINDOW EXPIRES: a deferred catchup
+// day sits deep inside Google's ~37-month retention and stays fetchable for months, while the drain walks
+// toward a floor36 wall that moves ONE DAY EVERY DAY. Deferring catchup costs FRESHNESS; deferring the drain
+// costs DATA.
+// ⛔ THE COST IS RECORDED HERE AND IS NOT A REGRESSION: catchup drops from a measured p95 of 13,568
+// requests/day to 4,000 — roughly 30% of current volume — so interior gap repair slows about 3×. That was
+// bought deliberately and MUST BE STATED AS SUCH WHEREVER IT SURFACES.
+//
+// Measured 30-day requests/day, for whoever re-opens this: catchup mean 9,242 / p95 13,568 / max 14,271,
+// active 30 of 30 days · walk mean 4,470 / p95 11,106 / max 12,542, active 4 of 30 · drain mean 767 / p95
+// 1,849 / max 2,546, active 9 of 30 · forward mean 1,184 / p95 1,280 / max 1,407, active 30 of 30.
+export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
+  forward: 2_000,   // p95 1,280 — small, and it must never lose
+  drain: 3_000,     // p95 1,849 — its work EXPIRES at a wall that moves daily
+  catchup: 4_000,   // p95 13,568 — THE CUT. Deferrable; nothing in its window expires
+  backfill: 6_000,  // p95 11,106 when active — 2022 history arrives later, not never
+}
+
+// ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the
+// source of the split. CATCHUP_SHARE is GONE — a percentage cannot express a four-lane table.
+export const CATCHUP_ALLOCATION = LANE_ALLOCATIONS.catchup
 export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 
 // ✅ 'backfill' IS NOW COUNTED — FLIGHT 2 OF 2, LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3, 2026-08-06.
@@ -161,9 +210,15 @@ export function holdForBudget(b: GoogleOpBudget): boolean {
   return b.state === 'blocked' || b.state === 'unknown'
 }
 
-export function allocationFor(lane: BudgetLane, cap: number = GOOGLE_DAILY_OP_CAP): number {
-  const catchupAllocation = Math.floor(cap * CATCHUP_SHARE)
-  return lane === 'catchup' ? catchupAllocation : cap - catchupAllocation
+/**
+ * ⛔ THE TABLE IS THE ANSWER — no lane is computed as "everyone else" any more. That construction is what
+ * gave `'backfill'` a 10,500 allocation it was never sized for (★BACKFILL-LANE-ALLOCATION-IS-10500-AND-
+ * UNCALLED) and what let the walk and catchup both be unnamed in one model each.
+ * ⛔ AN UNKNOWN LANE GETS ZERO, NOT A REMAINDER. Fail-closed, matching `priorityOf`'s treatment of an
+ * unrecognised identity: a lane nobody sized may not inherit the largest share by default.
+ */
+export function allocationFor(lane: BudgetLane): number {
+  return LANE_ALLOCATIONS[lane] ?? 0
 }
 
 // LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1 — the decline (and the ALLOW) states what it examined: the lane, the
@@ -193,10 +248,11 @@ export function decideBudget(
   opts: { cap?: number; multiplier?: number } = {},
 ): GoogleOpBudget {
   const cap = opts.cap ?? GOOGLE_DAILY_OP_CAP
-  const mult = opts.multiplier ?? SAFETY_MULTIPLIER
-  const catchupAllocation = Math.floor(cap * CATCHUP_SHARE)
+  // ⛔ 1, FROM THE VENDOR. Kept as a parameter only so a guard can drive the branch, never to be tuned.
+  const mult = opts.multiplier ?? OPS_PER_REQUEST
+  const catchupAllocation = LANE_ALLOCATIONS.catchup
   const reserve = cap - catchupAllocation
-  const allocation = lane === 'catchup' ? catchupAllocation : reserve
+  const allocation = allocationFor(lane)
   const zero: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0, backfill: 0 }
   const base = {
     lane, allocation, cap, reserve, catchupAllocation,
@@ -294,8 +350,11 @@ export function decideBudget(
 // A read failure on EITHER returns null → decideBudget yields 'unknown' → every lane holds.
 export async function readGoogleSpendToday(sinceOverride?: Date): Promise<GoogleSpendToday | null> {
   try {
-    const since = sinceOverride ? new Date(sinceOverride) : new Date()
-    if (!sinceOverride) since.setUTCHours(0, 0, 0, 0)
+    // ⛔ ROLLING 24 HOURS, NOT A CALENDAR DAY — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. The vendor's "per day"
+    // is a rolling period; flooring to UTC midnight made this counter read ~0 at 00:05 while Google could
+    // still be holding ~14,000 from the previous 23 hours. Measured: 57 of 721 hours over the cap on a
+    // rolling basis against 2 of 30 calendar days.
+    const since = sinceOverride ? new Date(sinceOverride) : rollingWindowStart()
     const { data, error } = await supabaseAdmin
       .from('cron_runs')
       .select('mode, connections_attempted, days_filled')

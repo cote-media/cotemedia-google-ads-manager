@@ -18,7 +18,7 @@ import { resolve, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
-import { createRequire } from 'node:module'
+import Module, { createRequire } from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const findings = []
@@ -42,7 +42,17 @@ try {
   }))
   execFileSync(join(ROOT, 'node_modules/.bin/tsc'), ['-p', cfg], { stdio: 'pipe' })
   try { symlinkSync(join(ROOT, 'node_modules'), join(out, 'node_modules')) } catch {}
-  G = createRequire(import.meta.url)(join(out, 'src/lib/backfill/universe-governor.js'))
+  // ⛔ ALIAS STUB, ADDED 2026-08-09. universe-governor now IMPORTS its cap and allocations from
+  // google-op-budget (LORAMER_GOOGLE_LANE_ALLOCATION_V1 — one owner, not two live models), and that file
+  // pulls in '@/lib/supabase' for its spend reader. tsc does not rewrite path aliases, so the emitted
+  // CommonJS requires the literal '@/lib/...' and the isolation harness cannot resolve it. Same stub the
+  // op-budget guard has always used; this guard needed it the moment the two files stopped being independent.
+  const sbStub = join(out, '__sb_stub.js')
+  writeFileSync(sbStub, 'module.exports = { get supabaseAdmin() { return globalThis.__SB__ || {} } }\n')
+  const origResolve = Module._resolveFilename
+  Module._resolveFilename = function (q, ...rest) { return q.startsWith('@/lib/') ? sbStub : origResolve.call(this, q, ...rest) }
+  try { G = createRequire(import.meta.url)(join(out, 'src/lib/backfill/universe-governor.js')) }
+  finally { Module._resolveFilename = origResolve }
 } catch (e) {
   findings.push(`could not drive universe-governor: ${String(e.stdout || '').trim() || e.message}`)
 }

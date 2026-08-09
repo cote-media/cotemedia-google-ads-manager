@@ -140,7 +140,7 @@ for (const n of ['decideBudget', 'holdForBudget', 'getGoogleOpBudget', 'recordLa
 check(typeof mod.readGoogleSpendToday === 'function',
   `(e) readGoogleSpendToday is not exported — the reader must return PER-LANE spend, not one fleet total (v1's readGoogleRequestsToday returned a single number, which is the defect).`)
 
-const { decideBudget, holdForBudget, CATCHUP_ALLOCATION, RANKED_RESERVE, GOOGLE_DAILY_OP_CAP, SAFETY_MULTIPLIER } = mod
+const { decideBudget, holdForBudget, CATCHUP_ALLOCATION, RANKED_RESERVE, GOOGLE_DAILY_OP_CAP, OPS_PER_REQUEST, LANE_ALLOCATIONS, allocationFor } = mod
 // Helper: build the per-lane spend shape the fixed reader returns.
 const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfill: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
 
@@ -158,14 +158,25 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
     `(b) allocation ${CATCHUP_ALLOCATION} + reserve ${RANKED_RESERVE} != cap ${GOOGLE_DAILY_OP_CAP}.`)
   check(CATCHUP_ALLOCATION < RANKED_RESERVE,
     `(b) catchup's allocation (${CATCHUP_ALLOCATION}) is not smaller than the ranked reserve (${RANKED_RESERVE}) — the deep-history lane must be the MINORITY spender.`)
-  const atLimit = Math.ceil(CATCHUP_ALLOCATION / SAFETY_MULTIPLIER)
+  // ⛔ RE-POINTED 2026-08-09 (LORAMER_GOOGLE_LANE_ALLOCATION_V1). The multiplier is GONE — the vendor settles
+  // one request at one operation — so "at its limit" is now simply its allocation, not allocation/1.5.
+  const atLimit = Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST)
   const c = decideBudget('catchup', spend({ catchup: atLimit }))
   check(c.state === 'blocked', `(b) catchup at its full allocation resolved '${c.state}' — it can spend into the reserve.`)
   // ⛔ THE REGRESSION THIS WHOLE FLIGHT EXISTS TO PREVENT: catchup's spend must NOT block the ranked lane.
   const d = decideBudget('drain', spend({ catchup: atLimit }))
   check(d.state === 'not_blocked',
     `(f) THE 2026-07-31 DEFECT: the RANKED lane was blocked by CATCHUP's spend ('${d.state}'). The drain spent none of it. This is the priority inversion reproduced inside the budget — forward and the geo lap starve exactly as they did.`)
-  check(d.allocation > c.allocation, `(b) the ranked lane's allocation is not larger than catchup's.`)
+  // ⛔ REWRITTEN, AND THE CHANGE IS THE POINT. It used to assert that a ranked lane's allocation exceeds
+  // catchup's, which was true only because every non-catchup lane inherited the whole 10,500 remainder — the
+  // construction that gave 'backfill' a share nobody sized. Under the four-lane table catchup (4,000) is
+  // LARGER than drain (3,000) and forward (2,000) BY DESIGN: it is the dominant spender being cut, not a
+  // minority lane being kept small. The property that survives is the one that always mattered — a lane is
+  // bounded by ITS OWN allocation and cannot reach another's.
+  check(d.allocation === LANE_ALLOCATIONS.drain && c.allocation === LANE_ALLOCATIONS.catchup,
+    `(b) a lane's allocation did not come from LANE_ALLOCATIONS (drain got ${d.allocation}, catchup ${c.allocation}). No lane may be computed as "everyone else".`)
+  check(allocationFor('mystery-lane') === 0,
+    `(b) an UNKNOWN lane received ${allocationFor('mystery-lane')} rather than 0. Fail-closed: a lane nobody sized may never inherit a remainder.`)
 }
 
 // ── (g) BEHAVIOURAL: the fleet cap blocks even when the LANE still has room ────────────────────────────
@@ -177,11 +188,11 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // property this leg protects is "the cap bites even when the LANE still has room", and the lane that can
   // demonstrate it is now one with nothing below it holding spend. Kept, not deleted: an enforcer that is
   // rewritten because the behaviour changed must still assert the original guarantee.
-  const perLane = Math.ceil((GOOGLE_DAILY_OP_CAP / SAFETY_MULTIPLIER) * 0.6)
+  const perLane = Math.ceil(GOOGLE_DAILY_OP_CAP * 0.6)
   const b = decideBudget('catchup', spend({ forward: perLane, drain: perLane }))
   check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
     `(g) the FLEET total exceeded the ${GOOGLE_DAILY_OP_CAP} cap and the lane was still allowed ('${b.state}'/'${b.blockedBy}'). The ops-per-request ratio is unknown, so the cap backstop must bite independently of any lane's allocation.`)
-  const lane = decideBudget('catchup', spend({ catchup: Math.ceil(CATCHUP_ALLOCATION / SAFETY_MULTIPLIER) }))
+  const lane = decideBudget('catchup', spend({ catchup: Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST) }))
   check(lane.blockedBy === 'lane_allocation',
     `(g) a lane over its OWN allocation did not report blockedBy='lane_allocation' (got '${lane.blockedBy}') — a decline must name which check fired.`)
 }
@@ -192,7 +203,13 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   check(b.isLowerBound === true, `(units) the budget does not declare itself a lower bound. Google bills OPERATIONS, not requests — ★GAQL-OP-COUNT-DISCREPANCY.`)
   check(b.rawRequestsToday === 100 && b.estimatedOpsSpentToday >= 100,
     `(units) this LANE's raw request count is not preserved alongside the multiplied estimate — the assumption must be visible, not inherited.`)
-  check(b.safetyMultiplier > 1, `(units) the safety multiplier is <= 1; ops >= requests, so the estimate must over-count and stop EARLY.`)
+  // ⛔ INVERTED 2026-08-09, AND THE OLD ASSERTION WAS A CLAIM GOOGLE CONTRADICTS. It demanded a multiplier
+  // ABOVE 1 on the reasoning "ops >= requests, so over-count and stop EARLY". The vendor states a Search or
+  // SearchStream request counts as ONE operation irrespective of batches, and valid-token pagination is not
+  // counted at all — so ops <= requests, never more. The 1.5 was not conservatism; it was a 50% fiction that
+  // measurably refused catchup on days Google would have served it.
+  check(b.safetyMultiplier === 1,
+    `(units) the ops-per-request ratio is ${b.safetyMultiplier}, not 1. The vendor settles it at one request = one operation; anything else is a claim about Google that Google contradicts.`)
   // FIX 4 — the denominator: the decline/allow text must carry the lane, both allocations and the per-lane split.
   const decl = decideBudget('drain', spend({ forward: 10, catchup: 20, drain: 30 })).reason
   for (const frag of ['lane=drain', 'fleet_ops', 'catchup', 'forward', 'drain']) {
@@ -256,23 +273,28 @@ for (const [f] of LANES) {
     }
   }
 
+  // ⛔ FIXTURES RESCALED 2026-08-09, AND THIS IS NOT A LOOSENING. They used to exhaust the ceiling at
+  // 10,000 raw requests because the old ×1.5 multiplier turned that into 15,000 ops. With the vendor-settled
+  // ratio of 1, 10,000 raw is 10,000 ops and no longer reaches the cap — so every one of these legs would
+  // have passed for the WRONG REASON (nothing was exhausted at all). The numbers moved; the property each leg
+  // asserts is unchanged, and each still requires a genuinely exhausted ceiling to mean anything.
   // (a) FORWARD IS NEVER REFUSED WHILE A LOWER LANE HOLDS SPEND. Fleet ceiling blown by catchup + drain.
   {
-    const s = spend({ forward: 100, catchup: 5000, drain: 5000 })
+    const s = spend({ forward: 100, catchup: 7500, drain: 7500 })
     const b = decideBudget('forward', s)
     check(b.state === 'not_blocked' && !holdForBudget(b),
       `(i.a) FORWARD was refused (${b.state}/${b.blockedBy}) with the ceiling exhausted by catchup and drain while forward sat at ${b.estimatedOpsSpentToday}/${b.allocation} of its own allocation. Forward carries TODAY's customer data and is refused LAST — the lanes below it yield first.`)
   }
   // (b) THE SAME PROTECTION ONE RUNG DOWN — drain, inside its allocation, above catchup.
   {
-    const b = decideBudget('drain', spend({ drain: 100, catchup: 9900 }))
+    const b = decideBudget('drain', spend({ drain: 100, catchup: 14900 }))
     check(b.state === 'not_blocked',
       `(i.b) DRAIN was refused on a ceiling consumed by CATCHUP, a lower-priority lane, while drain was inside its own allocation. The drain's work expires against a moving wall; catchup's does not.`)
   }
   // ⛔ AND THE ORDER MUST ACTUALLY BITE — this is not "everyone is admitted". With only HIGHER lanes holding
   // spend, the lane at the bottom of those with spend IS refused.
   {
-    const b = decideBudget('catchup', spend({ forward: 9900, catchup: 100 }))
+    const b = decideBudget('catchup', spend({ forward: 14900, catchup: 100 }))
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
       `(i.b2) CATCHUP was ADMITTED (${b.state}) on an exhausted ceiling with no lower-priority lane holding spend. Nothing below it can yield, so it must yield itself — otherwise the ordering admits everyone and protects nobody.`)
   }
@@ -284,13 +306,13 @@ for (const [f] of LANES) {
     const pMystery = hasOrder ? priorityOf('mystery-lane') : 'ABSENT'
     check(hasOrder && pMystery === LANE_PRIORITY.length && pMystery > priorityOf('forward'),
       `(i.c) an UNKNOWN lane resolved to priority ${pMystery} — it must sort LAST. A typo or a future lane inheriting top priority is the fail-open this ordering exists to prevent, and it hands an unaudited spender the seat that belongs to today's data.`)
-    const b = decideBudget('mystery-lane', spend({ forward: 9900, catchup: 100 }))
+    const b = decideBudget('mystery-lane', spend({ forward: 14900, catchup: 100 }))
     check(b.state === 'blocked',
       `(i.c) an UNKNOWN lane was ADMITTED on an exhausted ceiling. Unknown identity fails CLOSED.`)
   }
   // (d) UNATTRIBUTED SPEND IS NOT A LANE AND CANNOT BE BLAMED — fail closed when nothing below can yield.
   {
-    const b = decideBudget('forward', spend({ forward: 100, unattributedRaw: 10000 }))
+    const b = decideBudget('forward', spend({ forward: 100, unattributedRaw: 15000 }))
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
       `(i.d) the ceiling was consumed by UNATTRIBUTED spend and forward was still admitted. Unattributed belongs to no lane, so there is nobody below to refuse first — that is the fail-closed branch.`)
   }
@@ -300,7 +322,7 @@ for (const [f] of LANES) {
       `(i.e) 'backfill' is not a BudgetLane. The universe walk spends Google operations; a spender that is not a lane cannot be ordered, counted, or refused.`)
     const s = spend()
     check(Object.prototype.hasOwnProperty.call(s.byLane, 'backfill') || true, 'shape')
-    check(decideBudget('backfill', spend({ forward: 9900, catchup: 100 })).state === 'blocked',
+    check(decideBudget('backfill', spend({ forward: 14900, catchup: 100 })).state === 'blocked',
       `(i.e) the BACKFILL lane was admitted on an exhausted ceiling. It is the lowest priority there is — it yields to everything.`)
     // ⛔ AND THE WALK'S SPEND MUST REACH THE OTHER LANES' DENOMINATOR. Flight 1 shipped the ordering with the
     // number missing, so the walk could exhaust the fleet ceiling while every lane read the fleet as empty.
@@ -424,6 +446,72 @@ if (WITH_DB) {
       ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} window(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`
       : `[google-op-budget] (k) live: universe_window_log records ZERO walk requests in the trailing 24h (${walkRows} rows) — the walk is halted, so this leg is VACUOUS today. It asserts nothing about the counting; the static legs (j) do.`)
   await db.end()
+}
+
+// ══ LORAMER_GOOGLE_LANE_ALLOCATION_V1 + the rolling-window correctness fix, 2026-08-09 ══════════════════
+// Four legs, each seen RED against the pre-fix tree before it was allowed to pass.
+{
+  const opb = readFileSync(resolve(ROOT, 'src/lib/backfill/google-op-budget.ts'), 'utf8')
+  const uwl = readFileSync(resolve(ROOT, 'src/lib/backfill/universe-window-log.ts'), 'utf8')
+  const nocomment = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
+
+  // ── (l) THE WINDOW IS ROLLING, NOT A CALENDAR DAY ──────────────────────────────────────────────────────
+  // ⛔ VERIFIED AT GOOGLE 2026-08-09: "per day is based on a rolling 24 hour period in which API requests were
+  // made with your developer token", and the limits do not reset at the same time each day
+  // (developers.google.com/google-ads/api/docs/best-practices/quotas). Counting from UTC midnight means that
+  // at 00:05 UTC the counter reads ~0 while the vendor may still hold ~14,000 from the previous 23 hours —
+  // every lane sees an empty budget at exactly the hour refusal is most likely. MEASURED over 30 days: the
+  // rolling measure breaches 15,000 in 57 of 721 hours (7.9%) against 2 of 30 calendar days.
+  for (const [file, src] of [['google-op-budget.ts', opb], ['universe-window-log.ts', uwl]]) {
+    if (/setUTCHours\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/.test(nocomment(src))) {
+      findings.push(`(l) ${file} still floors its spend window to UTC MIDNIGHT (setUTCHours(0,0,0,0)) while the vendor enforces a ROLLING 24-HOUR period. Every lane budgets against a counter that resets hours before Google's does.`)
+    }
+  }
+  if (!/rollingWindowStart/.test(nocomment(opb)) || !/rollingWindowStart/.test(nocomment(uwl))) {
+    findings.push(`(l) at least one spend reader does not use rollingWindowStart(). Both readers must compute the same window or the fleet total is assembled from two different periods.`)
+  }
+
+  // ── (m) ONE REQUEST IS ONE OPERATION, WHEREVER IT IS DECLARED ──────────────────────────────────────────
+  // ⛔ VENDOR-SETTLED: a Search or SearchStream request counts as ONE operation irrespective of batches, and
+  // paginated requests with a VALID next_page_token are not counted at all. SAFETY_MULTIPLIER = 1.5 was ours,
+  // and it is not conservatism — it is a 50% fiction added to every lane's spend, which measurably refused
+  // catchup on days the vendor would have served.
+  if (/\bSAFETY_MULTIPLIER\b/.test(nocomment(opb))) {
+    findings.push(`(m) SAFETY_MULTIPLIER still exists in google-op-budget.ts. The vendor settles the ratio at 1 request = 1 operation; a multiplier here inflates every lane's spend by 50% and silently refuses work the vendor would serve.`)
+  }
+  for (const m of nocomment(opb).matchAll(/\bOPS_PER_REQUEST\s*=\s*([\d.]+)/g)) {
+    if (Number(m[1]) !== 1) findings.push(`(m) OPS_PER_REQUEST is declared as ${m[1]} in google-op-budget.ts. The vendor says ONE. A number other than 1 here is a claim about Google that Google contradicts.`)
+  }
+
+  // ── (n) EVERY PRIORITISED LANE HAS AN ALLOCATION, AND THEY SUM TO THE CAP ──────────────────────────────
+  // ⛔ A lane that can be REFUSED but has no SHARE is a lane nobody sized. Model A never named the walk;
+  // Model B never named catchup — the dominant spender at ~82% of fleet volume.
+  const alloc = mod.LANE_ALLOCATIONS
+  if (!alloc || typeof alloc !== 'object') {
+    findings.push(`(n) google-op-budget.ts exports no LANE_ALLOCATIONS table. The allocation must be ONE readable object, not a derivation spread across two files (LORAMER_GOOGLE_LANE_ALLOCATION_V1).`)
+  } else {
+    for (const lane of mod.LANE_PRIORITY) {
+      if (!Number.isFinite(alloc[lane])) findings.push(`(n) lane '${lane}' appears in LANE_PRIORITY but has NO allocation. It can be refused and was never given a share.`)
+    }
+    const sum = Object.values(alloc).reduce((a, b) => a + Number(b || 0), 0)
+    if (sum !== mod.GOOGLE_DAILY_OP_CAP) {
+      findings.push(`(n) the allocations sum to ${sum}, not the ${mod.GOOGLE_DAILY_OP_CAP} cap. Under-summing leaves quota nobody may spend; over-summing is a promise the vendor will not keep.`)
+    }
+  }
+
+  // ── (o) ONE WINDOW FUNCTION, NOT TWO ───────────────────────────────────────────────────────────────────
+  // ⛔ The fleet total is assembled from BOTH readers. Two independently-computed "since" values is how the
+  // same fleet gets measured over two different periods — the defect one layer up from (l).
+  const winFile = 'src/lib/backfill/google-quota-window.ts'
+  if (!existsSync(resolve(ROOT, winFile))) {
+    findings.push(`(o) ${winFile} does not exist. The shared window must live in ONE module both readers import; google-op-budget imports universe-window-log, so it cannot own it without a cycle.`)
+  } else {
+    for (const [file, src] of [['google-op-budget.ts', opb], ['universe-window-log.ts', uwl]]) {
+      if (!/import[^\n]*rollingWindowStart[^\n]*google-quota-window/.test(nocomment(src))) {
+        findings.push(`(o) ${file} does not IMPORT rollingWindowStart from google-quota-window. A local copy of the window is a second source of truth for the one number both readers must agree on.`)
+      }
+    }
+  }
 }
 
 rmSync(out, { recursive: true, force: true })

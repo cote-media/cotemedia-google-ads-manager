@@ -506,8 +506,17 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
     if (seen && seen.args?.p_vendor !== 'google_ads') {
       findings.push(`(k1) the spend read asked for vendor '${seen.args?.p_vendor}' — must be 'google_ads' (LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1).`)
     }
-    if (seen && !/T00:00:00\.000Z$/.test(String(seen.args?.p_since))) {
-      findings.push(`(k1) the spend window starts at '${seen.args?.p_since}', not midnight UTC. A day boundary that drifts bills one day's requests against another day's allowance.`)
+    // ⛔ INVERTED 2026-08-09, AND THE OLD ASSERTION ENFORCED THE DEFECT. It demanded the window start at
+    // MIDNIGHT UTC — but the vendor's "per day" is a ROLLING 24-HOUR PERIOD ("per day is based on a rolling 24
+    // hour period in which API requests were made with your developer token", re-verified at Google this day),
+    // and the limits do not reset at a fixed time. Flooring to midnight made this counter read ~0 at 00:05
+    // while Google could still be holding ~14,000 from the previous 23 hours. MEASURED over 30 days: the
+    // rolling measure breaches the cap in 57 of 721 hours against 2 of 30 calendar days. The guard was
+    // faithfully protecting the wrong boundary, which is why it had to be seen failing before it was changed.
+    const sinceMs = Date.parse(String(seen?.args?.p_since))
+    const ageH = Number.isFinite(sinceMs) ? (Date.now() - sinceMs) / 3600000 : NaN
+    if (seen && !(ageH > 23.5 && ageH < 24.5)) {
+      findings.push(`(k1) the spend window starts at '${seen.args?.p_since}' — ${Number.isFinite(ageH) ? ageH.toFixed(2) + 'h' : 'unparseable'} ago, not the vendor's ROLLING 24 HOURS. A calendar boundary bills one period's requests against another period's allowance, and reads near-zero at the hour refusal is most likely.`)
     }
     // PostgREST returns a bare scalar, but a single-row array is the shape a future rewrite lands on.
     setRpc(async () => ({ data: [TRUE_SPEND], error: null }))

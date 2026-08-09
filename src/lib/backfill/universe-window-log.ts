@@ -11,6 +11,9 @@
 // the disk with the forward lane, the drain, WAL and autovacuum. Headroom measured on Monday is not
 // a fact about Wednesday.
 import { supabaseAdmin } from '@/lib/supabase'
+// ⛔ THE SHARED WINDOW — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. Imported, never re-derived: this reader and
+// google-op-budget's are summed into ONE fleet total, so they must measure the same period.
+import { rollingWindowStart } from './google-quota-window'
 
 export const VENDOR = 'google_ads' // ⛔ NOT 'google' — LORAMER_CAPTURE_UNIVERSE_NAMED_FOR_THE_API_V1.
 const TABLE = 'universe_window_log'
@@ -247,8 +250,10 @@ export async function closeWindow(
  * function over a REAL PAST WINDOW (2026-08-05) instead of a synthetic one.
  */
 export async function readLaneSpendToday(since?: Date): Promise<number> {
-  const from = since ? new Date(since) : new Date()
-  if (!since) from.setUTCHours(0, 0, 0, 0)
+  // ⛔ ROLLING 24 HOURS, NOT A CALENDAR DAY — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1, and it MUST be the same
+  // window google-op-budget uses, because the fleet total is assembled from both readers. Shared function,
+  // never a second copy.
+  const from = since ? new Date(since) : rollingWindowStart()
   const { data, error } = await supabaseAdmin.rpc('universe_lane_spend_today', {
     p_vendor: VENDOR,
     p_since: from.toISOString(),

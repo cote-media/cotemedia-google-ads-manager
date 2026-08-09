@@ -22,7 +22,13 @@
 // client-side. The measurement was never programmatic OR human; it was a document, and the document existed
 // the whole time. Banked as the fourth LORAMER_ESSENCE_LAW_9_V1 precedent on
 // ★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS.
-export const GOOGLE_DAILY_OP_CAP = 15_000
+// ⛔ THIS FILE NO LONGER DECLARES THE CAP OR THE ALLOCATIONS — IT RE-EXPORTS THEM. Until 2026-08-09 it held a
+// SECOND, INCOMPATIBLE model of the same 15,000: this one reserved the drain 5,000 while google-op-budget
+// authorised it 10,500, and both were live. `single-owner-vendor-facts.guard.mjs` froze that as a baseline
+// violation on the day it was found; this is the burn-down. One fact, one home
+// (LORAMER_GOOGLE_LANE_ALLOCATION_V1, and G1's whole reason for existing).
+export { GOOGLE_DAILY_OP_CAP } from './google-op-budget'
+import { GOOGLE_DAILY_OP_CAP as CAP, LANE_ALLOCATIONS, OPS_PER_REQUEST } from './google-op-budget'
 
 /**
  * MEASURED-FROM-THE-VENDOR, not assumed: one GAQL request is one operation.
@@ -31,15 +37,18 @@ export const GOOGLE_DAILY_OP_CAP = 15_000
  * documented rule applied to our request count, and it is a CEILING (pagination makes the true figure lower).
  * If Google ever publishes a different rule, this number moves and the two URLs above are where to check.
  */
-export const ASSUMED_OPS_PER_REQUEST = 1
+export const ASSUMED_OPS_PER_REQUEST = OPS_PER_REQUEST
 
 // ⛔ RESERVED HEADROOM — the share the backfill may NEVER touch. Forward sync runs 5 platforms × ~18
 // connections on a 10-minute cadence in the 08-10 UTC hour; the google drain runs 4×/day at up to 34 steps.
 // These are the lanes that keep TODAY's data arriving, and a backfill of 2022 must never be the reason a
 // customer's yesterday is missing.
-export const RESERVED_FOR_FORWARD_OPS = 4_000
-export const RESERVED_FOR_DRAIN_OPS = 5_000
-export const BACKFILL_OP_ALLOWANCE = GOOGLE_DAILY_OP_CAP - RESERVED_FOR_FORWARD_OPS - RESERVED_FOR_DRAIN_OPS // 6,000
+// ⛔ DERIVED FROM THE ONE TABLE, 2026-08-09. These were 4,000 / 5,000 declared HERE, in a second model.
+// The names survive because guards and the v1 path read them; the VALUES now come from
+// LORAMER_GOOGLE_LANE_ALLOCATION_V1 and moved with it (forward 4,000→2,000, drain 5,000→3,000).
+export const RESERVED_FOR_FORWARD_OPS = LANE_ALLOCATIONS.forward
+export const RESERVED_FOR_DRAIN_OPS = LANE_ALLOCATIONS.drain
+export const BACKFILL_OP_ALLOWANCE = LANE_ALLOCATIONS.backfill // 6,000 — unchanged by the re-allocation
 
 // ── LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1, 2026-08-04 ─────────────────────────────────────────────────────
 // ⛔ WHAT WAS WRONG, AND IT WAS THE OPPOSITE OF THE INTENT. `decidePublish` below reads ONLY the backfill's
@@ -63,7 +72,12 @@ export const BACKFILL_OP_ALLOWANCE = GOOGLE_DAILY_OP_CAP - RESERVED_FOR_FORWARD_
 // "go ahead" is worse than no governor, because it looks like one.
 
 /** The product lanes' reserve. The backfill may never eat into what is LEFT of this. */
-export const PRODUCT_RESERVE_OPS = RESERVED_FOR_FORWARD_OPS + RESERVED_FOR_DRAIN_OPS // 9,000
+// ⛔ NOW forward + drain + CATCHUP, and the third term is the correction. It read forward+drain because
+// catchup did not exist in this model at all — yet catchup is the DOMINANT spender (~82% of mean fleet
+// volume), so a "product reserve" that omitted it was reserving for the two smallest lanes and calling it
+// the product. Expressed as cap − backfill so it cannot drift from the table: 15,000 − 6,000 = 9,000, the
+// same number it used to be, for a reason that is now true.
+export const PRODUCT_RESERVE_OPS = CAP - LANE_ALLOCATIONS.backfill // 9,000 = forward 2,000 + drain 3,000 + catchup 4,000
 
 /** Shape of google-op-budget's reading, restated structurally so this module stays drivable with no DB. */
 export interface FleetReading {
@@ -106,7 +120,7 @@ export function decidePublish(args: {
   const requestsPerMessage = Math.max(1, args.requestsPerMessage ?? 1)
   const spentOps = Math.max(0, args.spentRequestsToday) * ASSUMED_OPS_PER_REQUEST
   const denominator = {
-    cap: GOOGLE_DAILY_OP_CAP,
+    cap: CAP,
     reservedForward: RESERVED_FOR_FORWARD_OPS,
     reservedDrain: RESERVED_FOR_DRAIN_OPS,
     backfillAllowanceOps: BACKFILL_OP_ALLOWANCE,
@@ -118,7 +132,7 @@ export function decidePublish(args: {
   if (remainingOps <= 0) {
     return {
       mayPublish: false, allowance: 0, denominator,
-      reason: `backfill allowance EXHAUSTED for today: ${spentOps} ops spent of ${BACKFILL_OP_ALLOWANCE} (cap ${GOOGLE_DAILY_OP_CAP} − ${RESERVED_FOR_FORWARD_OPS} forward − ${RESERVED_FOR_DRAIN_OPS} drain). Publishing stops BEFORE the cap, not at it.`,
+      reason: `backfill allowance EXHAUSTED for today: ${spentOps} ops spent of ${BACKFILL_OP_ALLOWANCE} (cap ${CAP} − ${RESERVED_FOR_FORWARD_OPS} forward − ${RESERVED_FOR_DRAIN_OPS} drain). Publishing stops BEFORE the cap, not at it.`,
     }
   }
   const opsPerMessage = requestsPerMessage * ASSUMED_OPS_PER_REQUEST
@@ -181,9 +195,9 @@ export function decidePublishFleetAware(args: {
   //     generous answer, which is the exact overrun this fix exists to prevent.
   // Holding the full reserve makes the walk's ceiling shrink monotonically as the product gets busier,
   // which is the only shape consistent with "the walk yields; the product does not".
-  const publishable = GOOGLE_DAILY_OP_CAP - PRODUCT_RESERVE_OPS - productSpent - backfillSpent
+  const publishable = CAP - PRODUCT_RESERVE_OPS - productSpent - backfillSpent
   const opsPerMessage = Math.max(1, args.requestsPerMessage ?? 1) * ASSUMED_OPS_PER_REQUEST
-  const audit = `fleet ${productSpent} product + ${backfillSpent} backfill of ${GOOGLE_DAILY_OP_CAP} cap · ${PRODUCT_RESERVE_OPS} held for forward+drain · publishable ${publishable}`
+  const audit = `fleet ${productSpent} product + ${backfillSpent} backfill of ${CAP} cap · ${PRODUCT_RESERVE_OPS} held for forward+drain+catchup · publishable ${publishable}`
 
   if (publishable < opsPerMessage) {
     return {

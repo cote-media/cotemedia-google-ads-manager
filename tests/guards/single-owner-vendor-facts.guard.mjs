@@ -41,20 +41,21 @@ const FACTS = [
   },
   {
     id: 'OPS_PER_REQUEST_RATIO',
-    what: 'how many vendor OPERATIONS one request costs — settled at 1 from Google\'s own rate sheet 2026-08-03',
-    owner: 'src/lib/backfill/universe-governor.ts',
-    detect: [/\bexport const ASSUMED_OPS_PER_REQUEST\s*=/, /\bexport const SAFETY_MULTIPLIER\s*=/],
+    what: 'how many vendor OPERATIONS one request costs — VENDOR-SETTLED at 1 (re-verified at Google 2026-08-09)',
+    // OWNER MOVED 2026-08-09 with LORAMER_GOOGLE_LANE_ALLOCATION_V1: the ratio now lives beside the cap and the
+    // allocations, in the file the live capture lanes call. universe-governor re-exports it.
+    owner: 'src/lib/backfill/google-op-budget.ts',
+    detect: [/\bexport const ASSUMED_OPS_PER_REQUEST\s*=/, /\bexport const SAFETY_MULTIPLIER\s*=/, /\bexport const OPS_PER_REQUEST\s*=/],
   },
   {
     id: 'GOOGLE_LANE_ALLOCATIONS',
     what: 'how the daily cap is divided between the forward / drain / catchup / backfill lanes',
-    // ⚠ PROVISIONAL OWNER, AND IT DOES NOT PRE-EMPT RUSS'S DECISION. Which model survives is
-    // ★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500, still open. google-op-budget is named owner here
-    // only because it is the file the live capture lanes actually call; the governor's model is EXCEPTED, not
-    // deleted, and this line moves when the queue item closes.
+    // ⛔ NO LONGER PROVISIONAL. Russ decided the lane fork on 2026-08-09 (LORAMER_GOOGLE_LANE_ALLOCATION_V1):
+    // ONE table in google-op-budget.ts — forward 2,000 · drain 3,000 · catchup 4,000 · walk 6,000 — and
+    // universe-governor.ts became a thin re-export. The six exceptions this fact carried are RETIRED.
     owner: 'src/lib/backfill/google-op-budget.ts',
     detect: [
-      /\bexport const CATCHUP_SHARE\s*=/, /\bexport const CATCHUP_ALLOCATION\s*=/, /\bexport const RANKED_RESERVE\s*=/,
+      /\bexport const CATCHUP_SHARE\s*=/, /\bexport const LANE_ALLOCATIONS\s*[:=]/,
       /\bexport const RESERVED_FOR_FORWARD_OPS\s*=/, /\bexport const RESERVED_FOR_DRAIN_OPS\s*=/,
       /\bexport const BACKFILL_OP_ALLOWANCE\s*=/, /\bexport const PRODUCT_RESERVE_OPS\s*=/,
       /\bcap:\s*6[_,]?000\b/,
@@ -89,36 +90,11 @@ const FACTS = [
 // ── THE BASELINE FREEZE ───────────────────────────────────────────────────────────────────────────────────
 // ⛔ REMOVE-ONLY. Adding a line here is banned by LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1.
 const EXCEPTIONS = [
-  // ── the cap and its derived allowance, in files that do not import them (sweep W1) ──
-  { fact: 'GOOGLE_DAILY_OP_CAP', file: 'src/lib/backfill/universe-governor.ts', line: 25,
-    match: 'export const GOOGLE_DAILY_OP_CAP = 15_000', date: '2026-08-09',
-    queue: '★GOOGLE-DAILY-OP-CAP-DECLARED-IN-THREE-FILES' },
-  { fact: 'GOOGLE_LANE_ALLOCATIONS', file: 'src/lib/backfill/capture-adapters/google-ads.adapter.ts', line: 59,
-    match: 'cap: 6_000,', date: '2026-08-09',
-    queue: '★GOOGLE-DAILY-OP-CAP-DECLARED-IN-THREE-FILES' },
-
-  // ── the second, incompatible allocation model (sweep W2) — 5,500 ops apart from the first ──
-  { fact: 'GOOGLE_LANE_ALLOCATIONS', file: 'src/lib/backfill/universe-governor.ts', line: 40,
-    match: 'export const RESERVED_FOR_FORWARD_OPS = 4_000', date: '2026-08-09',
-    queue: '★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500' },
-  { fact: 'GOOGLE_LANE_ALLOCATIONS', file: 'src/lib/backfill/universe-governor.ts', line: 41,
-    match: 'export const RESERVED_FOR_DRAIN_OPS = 5_000', date: '2026-08-09',
-    queue: '★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500' },
-  { fact: 'GOOGLE_LANE_ALLOCATIONS', file: 'src/lib/backfill/universe-governor.ts', line: 42,
-    match: 'export const BACKFILL_OP_ALLOWANCE = GOOGLE_DAILY_OP_CAP - RESERVED_FOR_FORWARD_OPS - RESERVED_FOR_DRAIN_OPS',
-    date: '2026-08-09', queue: '★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500' },
-  { fact: 'GOOGLE_LANE_ALLOCATIONS', file: 'src/lib/backfill/universe-governor.ts', line: 66,
-    match: 'export const PRODUCT_RESERVE_OPS = RESERVED_FOR_FORWARD_OPS + RESERVED_FOR_DRAIN_OPS',
-    date: '2026-08-09', queue: '★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500' },
-
-  // ── the ratio settled at 1 in one file while 1.5 stays live in another (sweep W3) ──
-  { fact: 'OPS_PER_REQUEST_RATIO', file: 'src/lib/backfill/google-op-budget.ts', line: 64,
-    match: 'export const SAFETY_MULTIPLIER = 1.5', date: '2026-08-09',
-    queue: '★OPS-PER-REQUEST-1.5-VS-1-FIXED-IN-ONE-FILE-ONLY' },
-
-  // ── retention floors re-derived rather than imported. ⚠ FOUND BY THIS GUARD ON ITS FIRST RED RUN, not by
-  //    the 2026-08-09 sweep — which is the argument for the guard, since seven hand-rolled copies of a vendor
-  //    wall had been read past for months. ──
+  // ⛔ SEVEN ENTRIES RETIRED 2026-08-09 BY LORAMER_GOOGLE_LANE_ALLOCATION_V1 — 14 → 7. This list is
+  // REMOVE-ONLY and this is what removal looks like: the cap and the four allocations stopped being declared
+  // in universe-governor.ts and became derivations of the one table; the adapter's hand-typed `cap: 6_000`
+  // became an import; SAFETY_MULTIPLIER was deleted outright because the vendor settles the ratio at 1.
+  // The seven that remain are the retention floors, untouched by that flight.
   { fact: 'GA4_RETENTION_FLOOR', file: 'src/lib/backfill/ga-dimensional-backfill.ts', line: 51,
     match: "const HARD_FLOOR = '2015-08-14'", date: '2026-08-09',
     queue: '★RETENTION-FLOORS-RE-DERIVED-IN-SEVEN-PLACES' },
@@ -172,10 +148,19 @@ for (const rel of files) {
     if (rel === fact.owner) continue
     for (let i = 0; i < code.length; i++) {
       for (const re of fact.detect) {
-        if (re.test(code[i])) {
-          violations.push({ fact: fact.id, file: rel, line: i + 1, text: code[i].trim(), owner: fact.owner, what: fact.what })
-          break
-        }
+        if (!re.test(code[i])) continue
+        // ⛔ A DERIVATION IS NOT A DECLARATION, AND THE DIFFERENCE IS MECHANICAL — added 2026-08-09 when the
+        // first burn-down landed. `export const RESERVED_FOR_DRAIN_OPS = 5_000` is a SECOND SOURCE OF TRUTH;
+        // `export const RESERVED_FOR_DRAIN_OPS = LANE_ALLOCATIONS.drain` is an ALIAS that cannot drift, because
+        // it has no value of its own. The test is whether the right-hand side carries a LITERAL: a number or a
+        // quoted string means someone typed the fact again; an identifier means they pointed at its owner.
+        // ⚠ THE LIMIT: it cannot tell WHICH owner is pointed at. A derivation from the wrong module still
+        // passes. It catches retyping, which is the shape every violation this guard found actually took.
+        const rhs = code[i].slice(code[i].indexOf('=') + 1)
+        const isLiteral = /\d/.test(rhs) || /['"`]/.test(rhs)
+        if (!isLiteral) continue
+        violations.push({ fact: fact.id, file: rel, line: i + 1, text: code[i].trim(), owner: fact.owner, what: fact.what })
+        break
       }
     }
   }

@@ -68,7 +68,14 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
 // ── COMPILE THE PURE MODULES AND DRIVE THEM ───────────────────────────────────────────────────────────────
 const out = mkdtempSync(join(tmpdir(), 'loramer-runner-guard-'))
 const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
-const r = spawnSync(tsc, [resolve(ROOT, WRITER), resolve(ROOT, GOV), '--target', 'es2020', '--module', 'commonjs',
+// ⛔ THE BUDGET MODULE IS COMPILED ALONGSIDE THE GOVERNOR AS OF 2026-08-09. The governor no longer DECLARES
+// the cap or the allocations — it imports them from google-op-budget (LORAMER_GOOGLE_LANE_ALLOCATION_V1, one
+// owner instead of two live models). Left out of this list, `./google-op-budget` fell through to the catch-all
+// stub below and every constant read back `undefined`, which surfaced as `allowance=NaN` rather than as a
+// missing module. A guard that reports NaN instead of "I could not load the thing I am testing" is the
+// broken-instrument case, so the dependency is compiled rather than stubbed.
+const BUDGET = 'src/lib/backfill/google-op-budget.ts'
+const r = spawnSync(tsc, [resolve(ROOT, WRITER), resolve(ROOT, GOV), resolve(ROOT, BUDGET), '--target', 'es2020', '--module', 'commonjs',
   '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
 if (r.error) { rmSync(out, { recursive: true, force: true }); fail(`could not run tsc — ${r.error.message}`) }
 
@@ -80,6 +87,11 @@ writeFileSync(stub, `module.exports = new Proxy({ upsertMetricsChunked: async (r
 global.__CAP = captured
 const origResolve = Module._resolveFilename
 Module._resolveFilename = function (request, ...rest) {
+  // ⛔ THE GOVERNOR'S REAL DEPENDENCIES RESOLVE FOR REAL; only the leaves are stubbed. Redirecting EVERY
+  // relative import to the catch-all Proxy silently replaced google-op-budget's constants with `undefined`.
+  if (/google-op-budget$/.test(request) || /google-quota-window$/.test(request)) {
+    try { return origResolve.call(this, request, ...rest) } catch { return stub }
+  }
   if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
   return origResolve.call(this, request, ...rest)
 }
@@ -120,7 +132,14 @@ try {
   const cap = G.GOOGLE_DAILY_OP_CAP, fwd = G.RESERVED_FOR_FORWARD_OPS, drn = G.RESERVED_FOR_DRAIN_OPS, allow = G.BACKFILL_OP_ALLOWANCE
   if (allow >= cap) findings.push(`(b) the backfill allowance (${allow}) is not less than the daily cap (${cap}) — nothing is reserved and the forward sync can be starved.`)
   if (fwd <= 0 || drn <= 0) findings.push(`(b) the forward (${fwd}) or drain (${drn}) reserve is not positive — the lanes that keep TODAY's data arriving have no protection.`)
-  if (allow !== cap - fwd - drn) findings.push(`(b) the allowance is not cap − reserves (${allow} vs ${cap - fwd - drn}) — the arithmetic the reserve depends on does not hold.`)
+  // ⛔ THE IDENTITY MOVED FROM THREE LANES TO FOUR ON 2026-08-09, AND THAT IS THE CORRECTION, NOT A LOOSENING.
+  // It asserted `allowance === cap − forward − drain`, which was only true while CATCHUP DID NOT EXIST in this
+  // model — and catchup is the DOMINANT spender (~82% of mean fleet volume), so the old identity quietly
+  // handed catchup's share to the backfill. Under LORAMER_GOOGLE_LANE_ALLOCATION_V1 all four lanes are named
+  // and sum to the cap, which is a STRICTER statement: nothing is left implicit for one lane to inherit.
+  const ctu = cap - fwd - drn - allow
+  if (fwd + drn + ctu + allow !== cap) findings.push(`(b) the four lane allocations do not sum to the cap (${fwd} + ${drn} + ${ctu} + ${allow} != ${cap}).`)
+  if (ctu <= 0) findings.push(`(b) catchup's implied allocation is ${ctu} — it is a real lane and the dominant spender; a model that leaves it at or below zero has not named it at all.`)
 
   const perReq = G.ASSUMED_OPS_PER_REQUEST
   const atLimit = Math.floor(allow / perReq)

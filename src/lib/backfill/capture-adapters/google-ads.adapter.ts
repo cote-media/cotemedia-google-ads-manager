@@ -15,6 +15,8 @@ import {
   type UniverseEntry,
 } from '@/lib/backfill/google-ads-universe-writer'
 import { serializeVendorError } from '@/lib/backfill/universe-stream-capture'
+// ⛔ THE ALLOCATION IS IMPORTED FROM ITS OWNER, NOT RETYPED. LORAMER_GOOGLE_LANE_ALLOCATION_V1.
+import { LANE_ALLOCATIONS } from '@/lib/backfill/google-op-budget'
 
 /**
  * ⛔ ORDERED DELIVERY IS ASSERTED TWICE AND THAT IS WHY GOOGLE EARNS RULE (a). The query asks for it; the
@@ -56,7 +58,11 @@ const retention: RetentionFloor = {
  */
 const meter: Meter = {
   unit: 'operations/day',
-  cap: 6_000, // the backfill allowance: 15,000 daily cap − 4,000 forward − 5,000 drain (universe-governor.ts)
+  // ⛔ IMPORTED, NOT COPIED, 2026-08-09. This read `cap: 6_000` — a hand-typed literal of a number owned two
+  // files away, which is exactly what single-owner-vendor-facts.guard.mjs exists to stop and what it froze as
+  // a baseline violation on the day it was written. The value is unchanged by the re-allocation; the
+  // DEPENDENCY is the fix (LORAMER_GOOGLE_LANE_ALLOCATION_V1).
+  cap: LANE_ALLOCATIONS.backfill,
   costDirection: 'flat-per-request',
   costOf: () => 1,
   spentSoFar: async () => {
