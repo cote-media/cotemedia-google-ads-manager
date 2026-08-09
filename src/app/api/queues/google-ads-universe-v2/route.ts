@@ -67,6 +67,7 @@ import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, type Un
 // and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
+import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 // ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the SHIPPED rule, not a second copy. lap-budget.ts:14-17:
 // "A BETWEEN-ITERATION BUDGET CHECK IS ONLY SAFE IF ONE ITERATION CANNOT EXCEED THE REMAINING CEILING."
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
@@ -126,6 +127,9 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   // Coverage is DERIVED, so the resumer re-finds this exact window once the clock-based window elapses.
   const qp = await readGoogleQuotaPause()
   if (holdGoogleWork(qp)) {
+    // ⛔ DURABLE, NOT SILENT (sweep C6, LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1) — and this consumer is the one
+    // that most needs it: a queue callback that returns quietly leaves NOTHING behind at all.
+    await recordQuotaHold({ lane: 'consumer', clientId, qp, wouldHaveDone: `walk ${label} ${startDate}..${endDate} and advance` })
     console.warn(
       `[universe-v2] QUOTA HOLD ${clientId} ${label} ${startDate}..${endDate} — ` +
       (qp.state === 'unknown'

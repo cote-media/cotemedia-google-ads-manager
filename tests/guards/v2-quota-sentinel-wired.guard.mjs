@@ -55,6 +55,22 @@ for (const [file, what] of [[CONSUMER, 'the v2 consumer, which walks owed ranges
   }
 }
 
+// ── (b2) THE HOLD IS DURABLE, NOT SILENT ──────────────────────────────────────────────────────────────────
+// ⛔ ADDED 2026-08-09 BECAUSE THE FIRST VERSION OF THIS FIX HAD THE DEFECT IT WAS LEARNING FROM. Both gates
+// held by returning and writing NOTHING — sweep C6 (★TWO-OF-THREE-RESUMER-REFUSALS-ARE-NOT-DURABLE) reproduced
+// inside the change that cited it. "A lane that no-ops silently is indistinguishable from a lane that never
+// fired" (google-op-budget.ts:365-368), and Vercel runtime logs expire in an hour.
+for (const [file, lane] of [[CONSUMER, 'consumer'], [RESUMER, 'resumer']]) {
+  const raw = read(file)
+  if (raw === null) continue
+  const src = strip(raw)
+  if (!/\brecordQuotaHold\s*\(/.test(src)) {
+    findings.push(`${file} HOLDS WITHOUT RECORDING IT — no recordQuotaHold(...) call. A console.warn is not a record: it expires in an hour and nothing can read it afterwards. The hold must be tellable apart from a run that never happened AND from a run that failed (three states, not two — sweep C4).`)
+  } else if (!new RegExp(`recordQuotaHold\\([^)]*lane:\\s*['"]${lane}['"]`, 's').test(src)) {
+    findings.push(`${file} calls recordQuotaHold but does not identify itself as lane '${lane}'. The record must say WHICH gate stopped, not merely that something did.`)
+  }
+}
+
 // ── (c) THE READ PRECEDES THE WALK LOOP IN THE CONSUMER ───────────────────────────────────────────────────
 {
   const raw = read(CONSUMER)

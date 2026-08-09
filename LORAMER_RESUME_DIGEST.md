@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-09T17:25:17.931Z
-- built_from HEAD: 29538b3d85dc8621c8566cf4e3dcc15fcbbfadba  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-09T18:19:53.074Z
+- built_from HEAD: f1477da54e81aa61a7fb8e7966b97be4b5950917  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: b979fb396757b68bb12c531173a58f6c17ba6a75059cb18561fc479646a805fa
     - LORAMER_DECISIONS.md: 8e05a0e5a7baf91225c0a76d2e6c471cf70ac285a138cc5e966cff13e4edb1e0
-    - LORAMER_QUEUE_OF_RECORD.md: bacbe68beb5d2a776cd160968573de09197d30e16ff4f661e61d2e3bf609cd1e
+    - LORAMER_QUEUE_OF_RECORD.md: ce978b197d4151130298983527a8e83dd2b40e6702fc6bf2105e5aa81d6790f3
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1824,8 +1824,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 724 tokens indexed · 278 resolve to BOTH a decision and a queue item ·
-110 decision-only · 336 queue-only.
+TOTALS: 725 tokens indexed · 278 resolve to BOTH a decision and a queue item ·
+110 decision-only · 337 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2146,7 +2146,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TWO-AXIS-VOCABULARY-COLLISION — OPEN · decisions 1 · queue 2 · last 2026-08-09
 - ★TWO-EVAL-HARNESSES-ONE-JUDGE — OPEN · decisions 0 · queue 2 · last 2026-08-06
 - ★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500 — OPEN · decisions 0 · queue 4 · last 2026-08-09
-- ★TWO-OF-THREE-RESUMER-REFUSALS-ARE-NOT-DURABLE — OPEN · decisions 0 · queue 1 · last 2026-08-09
+- ★TWO-OF-THREE-RESUMER-REFUSALS-ARE-NOT-DURABLE — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★UI-BRANCH-IS-PERMANENT — OPEN · decisions 1 · queue 1 · last 2026-08-05
 - ★UI-OVERFLOW — OPEN · decisions 7 · queue 6 · last 2026-08-07
 - ★UNCERTAINTY-PAGES-A-HUMAN — OPEN · decisions 0 · queue 3 · last 2026-07-31
@@ -2547,6 +2547,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_UNIVERSE_WINDOW_LOG_V1 — DONE · decisions 1 · queue 1 · last 2026-08-07
 - LORAMER_UNIVERSE_YIELD_RANK_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-04
 - LORAMER_UPLOAD_XLSX_V1 — DONE · decisions 5 · queue 1 · last 2026-07-15
+- LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1 — DONE · decisions 0 · queue 1 · last 2026-08-09
 - LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-09
 - LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — DONE · decisions 0 · queue 1 · last 2026-08-09
 - LORAMER_VARIANT_SKU_CAPTURE_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27

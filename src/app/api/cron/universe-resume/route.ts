@@ -37,6 +37,7 @@ import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { TOPIC, MAX_ATTEMPTS_AT_MIN_SPAN, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
+import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 import {
   assessCoverage, decideRepublish, boundedSelection,
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
@@ -70,6 +71,10 @@ export async function GET(request: Request) {
   // ⛔ THE METER DOES NOT COVER THIS: `mayFetch` reads OUR ledgers; the sentinel is GOOGLE'S refusal.
   const qp = await readGoogleQuotaPause()
   if (holdGoogleWork(qp)) {
+    // ⛔ DURABLE, NOT SILENT (sweep C6, LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1). A cron whose only trace is a JSON
+    // response nobody reads and a log line that expires in an hour is a lane nobody can tell apart from one
+    // that never fired. Recorded BEFORE the return, and it charges nothing: nothing was asked.
+    await recordQuotaHold({ lane: 'resumer', clientId, qp, wouldHaveDone: 'scan the catalog and publish owed windows' })
     return NextResponse.json({
       ok: true, published: 0, scanned: 0,
       held: qp.state === 'unknown'
