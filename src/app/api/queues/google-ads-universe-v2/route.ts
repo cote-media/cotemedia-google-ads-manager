@@ -4,16 +4,23 @@
 // ⛔ BLAST RADIUS — STATED PLAINLY, FIRST, BECAUSE IT IS THE FIRST THING A READER NEEDS
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
 // **THIS IS A NEW ROUTE ON A NEW TOPIC. The existing consumer at `/api/queues/google-ads-universe` is NOT
-// edited, NOT deleted and NOT redirected.** Both exist side by side, and that is safe for one reason that
-// does not depend on anybody remembering it: **Vercel Queues delivers by TOPIC, and no publisher anywhere in
-// this repo sends to `google-ads-universe-v2`.** `universe-start/route.ts` publishes to the v1 `TOPIC`; the
-// v1 consumer self-republishes to its own `TOPIC`. So this handler is reachable only by a message that
-// nothing currently creates.
+// edited, NOT deleted and NOT redirected.** Both exist side by side, and that is safe because Vercel Queues
+// delivers by TOPIC: `universe-start/route.ts` publishes to the v1 `TOPIC` and the v1 consumer
+// self-republishes to its own, so nothing on the v1 path can reach this handler.
 //
-// ⛔ **NOTHING IS WIRED THIS TURN. This route is BUILT and GUARDED and does not walk.** Wiring it is a
-// separate, explicit act: publish one message to this topic. Until then the two consumers cannot interleave,
-// cannot double-walk an entry, and cannot both write the same window — because only one of them ever
-// receives anything.
+// ⛔ **THE CLAIM CHANGED WHEN THE RESUMER LANDED, AND IT IS RESTATED HERE RATHER THAN LEFT STALE.** It used
+// to read "no publisher anywhere in this repo sends to this topic". That is no longer true:
+// `/api/cron/universe-resume` publishes to it, and it is the ONLY thing that does. The guard
+// (`universe-stream-consumer.guard.mjs` leg (e)) forced this edit by failing the build the moment the
+// resumer imported the topic — which is the guard working, not a nuisance.
+//
+// **THE INVARIANT NOW, and it is narrower rather than weaker:**
+//   · the ONLY publisher to this topic is `/api/cron/universe-resume`;
+//   · that route is **NOT IN `vercel.json`** — nothing invokes it on a schedule;
+//   · it **DEFAULTS TO DRY-RUN** (`?dryRun=0` is required to publish at all);
+//   · it is `Bearer $CRON_SECRET`-gated.
+// So this handler is still reachable only by a message a human deliberately causes to exist. Scheduling the
+// resumer is the act that wires the walk, and it is a separate, explicit decision.
 //
 // ROLLBACK is therefore "stop publishing to this topic", which is the whole of it. No data motion, no
 // migration to undo. `universe_window_log` and `universe_run_state` are not written by this file at all —

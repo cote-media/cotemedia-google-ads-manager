@@ -15,6 +15,11 @@ const nextConfig = {
     outputFileTracingIncludes: {
       '/api/backfill/universe-start': ['./docs/google-ads-capture-universe.json'],
       '/api/queues/google-ads-universe': ['./docs/google-ads-capture-universe.json'],
+      // LORAMER_UNIVERSE_RESUMER_V1 — the resumer enumerates the CATALOG as its denominator (owed-ness is
+      // derived per entry, never read from a list), so it reads the artifact at runtime. Without this entry
+      // it ENOENTs on Vercel while passing every local check — which is how it shipped broken once already.
+      // `universe-runner.guard.mjs` leg (d) caught this within minutes of the route existing.
+      '/api/cron/universe-resume': ['./docs/google-ads-capture-universe.json'],
     },
   },
 }

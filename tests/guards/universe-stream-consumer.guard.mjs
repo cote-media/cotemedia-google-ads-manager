@@ -121,7 +121,13 @@ if (route) {
   // is a candidate publisher, and the blast-radius claim rests entirely on there being none.
   // (Refined after leg (e) fired on the contract module itself — a guard that reads a declaration as a
   // wiring is a broken instrument, and a broken instrument looks like evidence.)
-  const ALLOWED = new Set([ROUTE, CONTRACT])
+  // ⛔ THE INVARIANT TIGHTENED WHEN THE RESUMER LANDED, RATHER THAN LOOSENING. It used to be "nothing
+  // publishes to this topic". It is now "the ONLY publisher is the resumer, AND the resumer is not
+  // scheduled" — a narrower claim with two clauses instead of one, both checked here. The old leg failed the
+  // build the moment the resumer imported the topic, which is what forced the v2 header to be restated in
+  // the same commit; that is the guard working.
+  const RESUMER = 'src/app/api/cron/universe-resume/route.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER])
   const suspects = []
   for (const f of walk('src')) {
     if (ALLOWED.has(f)) continue
@@ -129,7 +135,13 @@ if (route) {
     if (src.includes(TOPIC_LIT) || /universe-v2-contract/.test(src)) suspects.push(f)
   }
   if (suspects.length) {
-    findings.push(`(e) ${suspects.length} file(s) outside the v2 route and its contract module reach the topic '${TOPIC_LIT}': ${suspects.join(', ')}. THE BLAST-RADIUS CLAIM IS THAT NOTHING PUBLISHES TO IT — two consumers can only coexist safely while exactly one of them receives anything. If this is a deliberate wiring, the claim in the route header must change in the SAME commit.`)
+    findings.push(`(e) ${suspects.length} file(s) beyond the v2 route, its contract module and the RESUMER reach the topic '${TOPIC_LIT}': ${suspects.join(', ')}. THE ONLY PUBLISHER IS THE RESUMER. Two consumers can coexist safely only while exactly one of them receives anything, and every additional publisher is another way for that to stop being true.`)
+  }
+  // ⛔ AND THE SECOND CLAUSE, WHICH IS WHAT MAKES THE FIRST ONE SAFE: the sole publisher must not be on a
+  // schedule. An unscheduled publisher is reachable only by a human; a scheduled one wires the walk.
+  const vercelJson = read('vercel.json')
+  if (vercelJson && /universe-resume/.test(vercelJson)) {
+    findings.push(`(e) vercel.json SCHEDULES the only publisher to '${TOPIC_LIT}'. That WIRES THE v2 WALK. It is a separate, explicit decision, and the v2 route header's invariant must change in the SAME commit.`)
   }
   // and the contract module must declare, not send
   const contract = read(CONTRACT)
@@ -297,4 +309,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · and nothing in this repo publishes to the v2 topic.`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer is not scheduled.`)

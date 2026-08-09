@@ -143,6 +143,10 @@ const GUARDS = [
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.
   'tests/guards/capture-adapter-seam.guard.mjs',
+  // LORAMER_UNIVERSE_RESUMER_V1 — the scheduler REFUSES: implausible coverage, a BROKEN entry, an entry
+  // whose owed set did not shrink after a SUCCESSFUL attempt (June BackfillControl.tsx:81-83), an
+  // unreadable meter, and its own bound. It also may not be scheduled without changing its own header.
+  'tests/guards/universe-resumer.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an
