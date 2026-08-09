@@ -120,6 +120,70 @@ Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced co
 
 FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
 
+## Session log (2026-08-08 → 2026-08-09 — THE WALK ENGINE WAS TORN DOWN AND REBUILT TO STEP 7 OF 16) — BUILT, GUARDED, PUSHED, **NOTHING WIRED**
+
+⛔ **START HERE. TWO DECISIONS ARE WAITING, AND THEY ARE DECISIONS, NOT WORK.**
+
+**(A) SCHEDULE THE RESUMER.** `/api/cron/universe-resume` is built, guarded and **NOT in `vercel.json`**;
+it defaults to dry-run and is `Bearer $CRON_SECRET`-gated. **Adding the cron entry is the act that finally
+wires the v2 walk.** ⛔ PRECONDITION: **★DRAIN-SEQUENCING-VS-DERIVED-COVERAGE** — the drain laps
+`runBackfill` off `sync_state`, which will still read `complete:false` over ground v2 has covered.
+Idempotent, not corrupting, but it spends. Costs nothing today ONLY because the resumer is unscheduled.
+
+**(B) STEP 8 — the reporting surface + `universe_incident`.** ⛔ **BLOCKED by
+★TWO-AXIS-VOCABULARY-COLLISION**: the same fact is a `breakdown_type` to forward capture and a `resource`
+to the walk, both land in `metrics_daily`, and coverage is derived from `metrics_daily` — so the
+completeness banner and Lora can contradict each other on at least SIX of the eighteen surfaces. It also
+**INHERITS the June status contract** (`status/route.ts:56-68` — warehouse truth next to cursor claim)
+rather than inventing one; plan file §26.
+
+**PLUS ★SWEEP-THE-WALK-AND-DRAIN-PATHS — READ-ONLY, AND IT RUNS FIRST.**
+
+⛔ **RECOMMENDED ORDER, WITH THE REASON: SWEEP → (B) → (A).**
+1. **THE SWEEP FIRST, BECAUSE IT IS FREE AND IT CHANGES THE OTHER TWO.** It is read-only, spends no quota
+   and touches nothing. The June sweep produced three carry-forwards, one of which (the no-progress bound)
+   was NOT PLANNED and would have shipped missing. The drain and forward paths have run in production for
+   MONTHS and have never been read this way. Doing it after step 8 means discovering in step 8's review
+   that step 8 re-derived something.
+2. **THEN (B), because it is blocked by a DECISION rather than by code** — the two-axis collision needs the
+   coverage numbers in hand and one of three resolutions chosen. Step 8 is also where the walk stops being
+   an engine and starts being a product surface, which is the thing that is actually due 9/30.
+3. **(A) LAST, because it is the only irreversible one.** Everything built so far walks nothing; scheduling
+   the resumer starts unattended vendor spend on a coverage model proven for ONE entry, ONE month, ONE
+   platform. Gate-B it against a hand count first (plan Verification #2), and land the drain fix in the same
+   commit as the cron entry.
+
+**RUSS'S CHOICES, RECORDED:** the failure surface is **PER-SURFACE**, not per-client — *"specificity is the
+impressive thing, and it is what makes the permanence claim demonstrable rather than asserted."* Hours,
+accepted and not to be shaved: **20-30 for Google · 38-56 for all four platforms** built as shared.
+
+### WHAT HAPPENED
+Four defects on ONE fault line in one session, the fourth destroying the record it was meant to protect (the
+2871 clobber). Russ authorised the teardown under the condition **"no captured data is lost"** — discharged
+MECHANICALLY: `metrics_daily` is named in no migration and the writer was never edited.
+**STEPS 0-7 OF 16 BUILT, GUARDED, PUSHED.** Settled record: DECISIONS **LORAMER_WALK_TEARDOWN_AND_REBUILD_V1**.
+Architecture, hours, falsifications and the June comparison: the plan file §22-§28.
+
+### STATE AT CLOSE (2026-08-09)
+- **HEAD = `1531fec`**, pushed to `origin/main`, auto-deployed. Tonight's commits, oldest first:
+  `d34e0bb` scope refuses · `9eec5ad` Flight 1 banked · `8cbf914` opener falsified · `74b2e11` resume is
+  coverage · `bafdca5` RIGHT > FAST · `0d505c5` surface labels · `25407ad` two-axis collision ·
+  `4548d34` attempt log · `0cb5376` streaming consumer · `4817a17` step-6 owed work · `4d2f9c9` adapter
+  contract · `1531fec` resumer.
+- ⛔ **NOTHING IS WIRED.** The ONLY publisher to the v2 topic is the resumer; the resumer is not scheduled.
+  **Zero running rows, queue idle, migration 061 applied, the old engine still mounted and load-bearing.**
+- ⚠ **UNPUSHED / HELD, and it is NOT MINE — it was dirty at session start and is untouched:**
+  `src/lib/backfill/forward-widen-breadth.ts` (untracked, 51 lines, md5 `5c800f54a0094faaf4e3600fe9d30380`)
+  and a modification to `src/app/api/cron/sync/route.ts`. **This is the held Tier-1 forward widen.** It is
+  also the cause of the standing guard failure below. Neither file is in any commit from this session.
+- **STANDING `npm run guard` FAILURE — PRE-EXISTING, 1 of 84:** `metrics-upsert-chunked`, two findings, both
+  on those two dirty files (an unchunked `metrics_daily` upsert at `forward-widen-breadth.ts:44`, and a
+  stale allowlist entry saying 13 where `cron/sync/route.ts` now holds 9).
+- **STANDING `npm run check:data` BASELINE — NOW THREE FINDINGS, NOT TWO** (see
+  ★VETMASTERMIND-META-PRODUCT-CLAIM-EXCEEDS-ROWS): Bath Fitter `google_age` · Bath Fitter `google_gender` ·
+  Veterinary mastermind `meta_product_id` — **plus 8 STALE `meta_video` baseline entries** matching no live
+  violation. Everything else NEW 0.
+
 ## Session log (2026-08-01 → 2026-08-02 — THE GEO LANE UNFROZE ITSELF, AND THE INSTRUMENT WATCHING IT WAS INVERTED) — SHIPPED
 
 - **STOPPED A BLEED THAT WAS NEVER QUOTA-GATED.** ★GOOGLE-GEO-STATEMENT-TIMEOUTS had been ranked #1 for four days on the premise it was waiting for quota. It was a WRITE-PATH defect (DECISIONS LORAMER_GOOGLE_GEO_IS_WRITE_PATH_NOT_QUOTA_V1) and four quota windows were watched open and close for a blocker that was never there. `/api/cron/drain?platform=google` was firing `*/5` = 288 times a day, every fire a 504 at the 800s ceiling — 230,400 function-seconds/day buying zero rows. Throttled to `20 0,6,12,18` (5e27956) with `scripts/check-drain-throttle.mjs` enforcing the removal condition, because vercel.json is strict JSON and cannot carry the comment.

@@ -66,6 +66,24 @@ does not change.
 COROLLARY: when a design rests on a vendor fact that happens to hold everywhere, ask whether an OWNED fact
 says the same thing. If one does, that is the real load-bearing member and the vendor fact is a coincidence.
 
+## ⛔ CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN [LAW — RUSS, banked 2026-08-08]
+**BEFORE REBUILDING A CAPABILITY, READ THE VERSION THAT ALREADY SHIPPED. Copying beats reinventing, and a
+finding already made in this repo must not be re-derived.**
+⛔ **THE PRECEDENT, AND IT IS EMBARRASSING ENOUGH TO BE USEFUL.** Russ asked THREE TIMES whether the June
+backfill engine had been read against the walk rebuild. It had not — eight steps in. When it finally was:
+- **WRITE-THEN-ADVANCE-PER-UNIT** was already there (`run-backfill.ts:242-260`) — rows written, THEN the
+  cursor advanced, per chunk, inside the loop. Five rounds of adversarial planning re-derived it.
+- **THE WAREHOUSE OVER THE CURSOR** was already there, IN A COMMENT THAT STATES THE LAW BETTER THAN THE PLAN
+  DID (`status/route.ts:56-58`): *"Honest depth: the actual earliest account-level row we hold for this
+  platform, REGARDLESS OF HOW FAR THE CURSOR SWEPT."* Same indexed ordered-LIMIT-1 shape the new coverage
+  probe uses — not the `count(distinct)` that took 51 seconds.
+- **THE NO-PROGRESS BOUND** (`BackfillControl.tsx:81-83`, *"if the lap did not move the cursor, break"*) was
+  **NOT PLANNED AT ALL** and the resumer would have shipped without it. The new engine's bound fires on
+  FAILURES; a lap that SUCCEEDS and covers nothing is not a failure and would have looped forever — which is
+  exactly what the three 300-second poison loops were.
+THE RULE: **a working predecessor is EVIDENCE, not sentiment.** Read it before the plan freezes, and say
+explicitly what is carried, what is superseded, and what happens to the code. "It is old" is not a finding.
+
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
 
@@ -189,6 +207,7 @@ and to SAY SO when it does not hold — never to assume the instruction did the 
 High-stakes = any claim gating a destructive/rotate/delete action, a "this is a bug" diagnosis, or a blast-radius/live-path judgment. Rationale: the rules already exist; this converts the ones most often dropped under momentum (one-in-flight, blast-radius, grid-native, claim-confidence) into required visible output so a skip is caught in the moment, not after. Root cause: 2026-07-01 session — repeated rule-breaks despite the rules being present; the failure was compliance, not coverage. Do not relitigate.
 
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)
 - [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)
 - [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."

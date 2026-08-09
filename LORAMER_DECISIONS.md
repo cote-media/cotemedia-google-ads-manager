@@ -339,6 +339,56 @@ EARLY "NO SAME MISTAKE TWICE" PATTERNS (HANDOFF Operator-Level-Truth, pre-number
 - Right > fast cost: doing it twice always costs more time than doing it right once + the emotional cost on Russ.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_WALK_TEARDOWN_AND_REBUILD_V1 (2026-08-08/09) — SETTLED. Do not relitigate.
+
+**THE TEARDOWN WAS AUTHORISED**, after four defects on ONE FAULT LINE in one session — the fourth destroying
+the record it was meant to protect (the 2871 clobber: re-walking the older half matched on `window_start`
+alone and UPSERTED INTO THE ROW ITSELF, destroying an `abandoned_owed` record and dropping the owed
+enumeration 3→2). **THE FAULT LINE: the engine mutated one row per window, so every write destroyed the
+state the previous write recorded.**
+
+**RUSS'S GOVERNING CONDITION — "NO CAPTURED DATA IS LOST" — IS DISCHARGED MECHANICALLY, NOT PROMISED:**
+`metrics_daily` is not named in ANY migration of this rebuild, and `google-ads-universe-writer.ts` was never
+edited. Guard leg `universe-attempt-append-only (f)` fails the build if a migration touches either old table
+or `metrics_daily`.
+
+**ARCHITECTURE, FROZEN (full text: the plan file §25):** ONE CORE, FOUR ADAPTERS · append-only
+`universe_attempt_log` with three phases (`attempt_started` / `day_committed` / `attempt_finished`),
+**append-only enforced by REVOKE, not convention** · identity is the RANGE, `attempt_no` is a COLUMN, and
+there is NO unique index over identity so no `ON CONFLICT` can arbitrate an overwrite · coverage DERIVED
+from `metrics_daily` by day-existence probes, **never from any log** · `coveredDaysStrict` with a
+PER-ADAPTER ordering entitlement · day-granular resume · owed = declared − covered · sizing
+fixed-then-max-of-prior · spend charged at `attempt_started` · two-phase `submit`/`collect` with streaming as
+the DEGENERATE one-phase case · per-adapter meter, floor (NULLABLE), ordering entitlement and cost direction.
+
+⛔ **THE DENSITY MODEL IS FALSIFIED AND DELETED. DO NOT REBUILD IT.** Validated against all 16,810 usable
+windows: MdAPE 87.2% against a >50% falsifier, **PASS 0 · FAIL 29 · NO MODEL 6 of 35 resources** — and the
+ablation is what makes it a finding rather than a bad fit: **EVERY COVARIATE MADE THE MODEL WORSE THAN THE
+CONSTANT IT WAS MEANT TO IMPROVE ON.** `activity_ratio` is ACTIVELY HARMFUL (−10 points on a time split,
+−21 on a random one) because **impressions measure what the account SPENT and rows measure how many ENTITIES
+EXISTED** — a dormant month still has campaigns, ad groups, assets and landing pages. `days` was
+unidentifiable (17,874 of 17,892 windows were exactly 30 days). Replacement: PREV reported as the estimate,
+MAX sized on; intermittent entries fixed.
+
+**THE JUNE ENGINE IS NOT DELETED.** It stays mounted and is retired PER PLATFORM as each adapter is
+Gate-B'd, never as one act — it is load-bearing today (the drain laps it, four routes call it,
+`next/coverage.ts` ranks on its flags, and it is the only working button). Its three carry-forwards and six
+superseded properties: plan file §28.
+
+**RUSS CHOSE PER-SURFACE OVER PER-CLIENT** for the failure surface — "Google search terms are incomplete
+from 2025-11-07 to 2025-12-06", not "something is wrong with your data". His reason, banked: *"specificity
+is the impressive thing, and it is what makes the permanence claim demonstrable rather than asserted."*
+**HOURS, ACCEPTED AND NOT TO BE SHAVED (RIGHT > FAST): 20-30 for Google · 38-56 for all four platforms
+built as shared, versus 50-75 for Google-standalone-then-three-refactors.**
+
+**WHAT IS BUILT: steps 0-7 of 16.** ⛔ **NOTHING IS WIRED.** The only publisher to the v2 topic is the
+resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero running rows, queue idle.
+
+**BATH FITTER, RESOLVED — and it is the evidence the whole design rests on:** the data survived to
+2020-01-27 (June's proof date, unbroken to 2026-08-07) while the cursor row's backfill columns are NULL;
+17 of 18 google `sync_state` rows carry theirs. **The mechanism is UNRESOLVABLE FROM THE REPO** — `sync_state`
+has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
+
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907
