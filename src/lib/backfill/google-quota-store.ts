@@ -113,9 +113,16 @@ export async function writeGoogleQuotaPause(resetIso: string, detail: string): P
 //
 // ⚠ NOT A UNIVERSAL FUNNEL, AND THE HONEST VERSION MATTERS: there is no single wrapper every Google call
 // passes through. `withGoogleRetry` (backfill/retry.ts) is NOT it — the live path and the forward path both
-// bypass it entirely, and it did not classify quota errors at all. The actual boundaries are FOUR, and all four
-// call this: withGaqlRetry (lib/google-retry.ts), gaqlWithRetry (backfill/gaql-with-retry.ts), withGoogleRetry
-// (backfill/retry.ts) and safeQuery (intelligence/google-intelligence.ts). The guard asserts all four.
+// bypass it entirely, and it did not classify quota errors at all. The actual boundaries are **FIVE**, and all
+// five call this: withGaqlRetry (lib/google-retry.ts), gaqlWithRetry (backfill/gaql-with-retry.ts),
+// withGoogleRetry (backfill/retry.ts), safeQuery (intelligence/google-intelligence.ts) and — added 2026-08-09 —
+// armingStream (backfill/universe-vendor-stream.ts). The guard asserts all five, by name and by count.
+// ⛔ IT READ "FOUR" UNTIL 2026-08-09 AND THE FIFTH IS THE ONE THIS COMMENT SAID WOULD NOT BE CAUGHT. The v2
+// universe walk called `customer.queryStream(gaql)` bare — no wrapper, no arm — for the whole of its life, so
+// an armed sentinel stopped forward/drain/catchup and did NOT stop the walk, and a refusal the walk observed
+// taught the fleet nothing. Found by the 2026-08-09 sweep (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL), by
+// reading, not by the guard. THE COUNT IS DELIBERATELY EXACT rather than "at least N": the value of the list is
+// that the number of places a refusal can be observed is KNOWN, and a sixth must cost someone an edit here.
 //
 // IDEMPOTENT BY CONSTRUCTION: the write is an upsert on one sentinel row, so two boundaries observing the same
 // error (withGaqlRetry throws GoogleQuotaError → safeQuery catches it) write the same value twice, harmlessly.

@@ -201,6 +201,13 @@ const GUARDS = [
   // ONE FILE OWNS EACH VENDOR FACT. The cap was declared in two non-importing files with its derived
   // allowance restated as a bare literal in a third; the ops-per-request ratio was settled at 1 in one file
   // while 1.5 stayed live in another.
+  // LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the walk may not reach a vendor call without passing the sentinel,
+  // and its single vendor boundary (the FIFTH) must arm it. The meter is our accounting; the sentinel is the
+  // vendor's refusal, and neither substitutes for the other.
+  'tests/guards/v2-quota-sentinel-wired.guard.mjs',
+  // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the walk may not start a range it cannot finish inside
+  // maxDuration, using the SHIPPED shouldStartAnotherLap rather than a fork.
+  'tests/guards/v2-walk-budget-reservation.guard.mjs',
   'tests/guards/single-owner-vendor-facts.guard.mjs',
   // A BANNED EXPRESSION AND A FALSIFIED MECHANISM STAY DEAD, INCLUDING IN COMMENTS — which is where the
   // API-Center-UI mechanism came back, in a file written AFTER it was falsified.

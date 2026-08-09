@@ -63,10 +63,23 @@ import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
 // topic and the message type without dragging a handler and its maxDuration into scope.
 import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+// ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate, imported, never re-derived. `holdGoogleWork`
+// and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
+// paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
+import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
+// ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the SHIPPED rule, not a second copy. lap-budget.ts:14-17:
+// "A BETWEEN-ITERATION BUDGET CHECK IS ONLY SAFE IF ONE ITERATION CANNOT EXCEED THE REMAINING CEILING."
+import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 export const maxDuration = 300
+
+// ⛔ 120s OF HEADROOM UNDER THE 300s CEILING — the SAME margin the drain holds under its own
+// (cron/drain/route.ts: 1,680,000 under 1800s). This is the budget that stops the route TAKING ON a range;
+// the platform ceiling only kills what is already running, which is why a budget at or above the ceiling
+// would stop nothing. A range dispatched just under this can still finish before Vercel kills the function.
+const WALK_BUDGET_MS = 180_000
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
@@ -97,9 +110,31 @@ async function publishGoverned(
 // is UNCHECKED, and would surface the same error the day it is edited. That is a latent trap for whoever
 // touches it next, not a difference in correctness.
 const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) => {
+  const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
   const floorDate = msg.floorDate ?? VENDOR_FLOOR_DATE
+
+  // ══ 0 · THE VENDOR'S OWN REFUSAL, BEFORE ANYTHING ELSE ════════════════════════════════════════════════
+  // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL). Placed FIRST, the
+  // same position and for the same stated reason as cron/drain/route.ts:117-128 — "so a paused fire does zero
+  // outbound Google work". It gates the ADVANCE too, not just the walk: publishing into an armed quota is
+  // spending the fleet's tomorrow, one message later.
+  // ⛔ THE METER DOES NOT COVER THIS. `mayFetch` reads the adapter's meter, which sums OUR OWN ledgers — our
+  // accounting. The sentinel records THE VENDOR'S REFUSAL. Our count can be perfect while Google is refusing.
+  // ⛔ NO RE-PUBLISH ON A HOLD, and no attempt record: nothing was asked, so nothing is owed differently.
+  // Coverage is DERIVED, so the resumer re-finds this exact window once the clock-based window elapses.
+  const qp = await readGoogleQuotaPause()
+  if (holdGoogleWork(qp)) {
+    console.warn(
+      `[universe-v2] QUOTA HOLD ${clientId} ${label} ${startDate}..${endDate} — ` +
+      (qp.state === 'unknown'
+        ? `sentinel UNREADABLE, holding (NOT a confirmed pause): ${qp.reason}`
+        : `google quota paused until ${qp.until}`) +
+      ' · no vendor call, no publish. Owed-ness is derived, so this window is re-found when the window elapses.'
+    )
+    return
+  }
   // ⛔ THE ADAPTER IS CONSTRUCTED PER INVOCATION with the vendor stream it needs. Nothing about Google is
   // reachable from the core; the core only ever sees `adapter.*`.
   const streamFor = await googleAdsStreamFor(userEmail, customerId)
@@ -184,7 +219,26 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   let lastError: string | null = null
   let orderViolation = false
 
+  // ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — worst range observed THIS invocation, feeding the reservation.
+  let maxRangeMs = 0
+  let deferredForBudget = 0
+
   for (const range of owed.ranges) {
+    // ⛔ RESERVATION, NOT A BARE ELAPSED CHECK — lap-budget.ts:14-17, the rule that outlives its own route.
+    // HOW THE WALK'S ITERATION SATISFIES THE INVARIANT ("one iteration cannot exceed the remaining ceiling"):
+    // one iteration is ONE vendor request over ONE contiguous owed range, and the reservation is
+    // max(worst range already observed this invocation, the shared conservative FIRST_LAP_MS). The first range
+    // of an invocation has no measurement, so it reserves the shipped 90s default — deliberately NOT lowered
+    // (lap-budget.ts:23-27 records why the reservation is a parameter rather than a smaller shared constant).
+    // ⚠ THE HONEST RESIDUAL: a range SLOWER than its reservation still overruns. What bounds that is the
+    // consumer's own narrowing — a range that repeatedly fails at span is halved (MIS-SIZED), and at the
+    // minimum span it becomes BROKEN and reportable rather than retried. The reservation removes the
+    // dispatched-just-under-the-line class; it does not promise no range is ever too slow.
+    if (!shouldStartAnotherLap(Date.now() - started, maxRangeMs, WALK_BUDGET_MS)) {
+      deferredForBudget = owed.ranges.length - owed.ranges.indexOf(range)
+      break
+    }
+    const rangeStartedAt = Date.now()
     const rangeKey: AttemptKey = { ...key, windowStart: range.start, windowEnd: range.end }
     // ⛔ THE ATTEMPT IS OPENED **BEFORE** THE VENDOR IS CALLED, AND THE REQUEST IS CHARGED HERE. v1 wrote
     // `requests_spent` only on close, so a killed invocation left 0 and burned quota INVISIBLY to the rate
@@ -212,7 +266,12 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
         error: res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
       })
+      maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
     } catch (e: any) {
+      // ⛔ A RANGE THAT THREW STILL CONSUMED THE CLOCK — feed it to the reservation before any exit, or the
+      // next dispatch reserves against a stale maximum and re-opens the overrun this change exists to close.
+      // (Same ordering the drain arrived at at cron/drain/route.ts:332-335.)
+      maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
       lastError = serializeVendorError(e)
       await appendAttemptFinished(rangeKey, opened.attemptNo, 'error',
         { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, error: lastError })
@@ -221,6 +280,25 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
 
   console.log(`[universe-v2] ${clientId} ${label}: ${totalApi} api rows → ${totalRows} written across ` +
     `${daysCommitted.length} committed day(s), ${requests} request(s)${orderViolation ? ' ⚠ ORDER VIOLATION' : ''}${lastError ? ` — ${lastError}` : ''}`)
+
+  // ⛔ THE DEFERRAL IS RECORDED DURABLY AND CHARGED NOTHING. A budget stop that lives only in a log line is a
+  // stop nobody can act on (Vercel runtime logs expire in an hour), and LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1
+  // applies to a partial pass exactly as it does to an empty one. `nextAttemptNoWithoutCharging` exists for
+  // precisely this shape — a path that will NOT call the vendor must not bill a request for work it never did.
+  if (deferredForBudget > 0) {
+    const firstDeferred = owed.ranges[owed.ranges.length - deferredForBudget]
+    const defKey: AttemptKey = { ...key, windowStart: firstDeferred.start, windowEnd: firstDeferred.end }
+    await appendAttemptFinished(defKey, await nextAttemptNoWithoutCharging(defKey), 'skipped', {
+      rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
+      error: `BUDGET STOP, NOT A FAILURE: ${deferredForBudget} of ${owed.ranges.length} owed range(s) were not started — ` +
+        `${Date.now() - started}ms elapsed of a ${WALK_BUDGET_MS}ms budget under maxDuration ${maxDuration}s, worst range ${maxRangeMs}ms. ` +
+        `The days stay UNCOVERED and owed-ness is DERIVED, so the resumer re-finds them without anyone naming a row id.`,
+    })
+    console.warn(`[universe-v2] BUDGET STOP ${clientId} ${label}: deferred ${deferredForBudget}/${owed.ranges.length} range(s) — NOT advancing; the resumer re-derives what is still owed.`)
+    // ⛔ NO ADVANCE ON A BUDGET STOP. Advancing to an older window while this one still owes ground would leave
+    // a hole behind the walk that only a re-scan could find. THE DRIVER OWNS THE LOOP (June, BackfillControl.tsx:64-86).
+    return
+  }
 
   const adv = await advance(msg, adapter, floorDate,
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)

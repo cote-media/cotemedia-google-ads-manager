@@ -35,6 +35,8 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptFinished, readAttemptsAtSpan, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { TOPIC, MAX_ATTEMPTS_AT_MIN_SPAN, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+// ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
+import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import {
   assessCoverage, decideRepublish, boundedSelection,
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
@@ -59,6 +61,25 @@ export async function GET(request: Request) {
   const clientId = url.searchParams.get('clientId')
   const dryRun = url.searchParams.get('dryRun') !== '0'   // ⛔ DRY-RUN IS THE DEFAULT. `?dryRun=0` publishes.
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
+
+  // ⛔ THE VENDOR'S REFUSAL GATES THE SCHEDULER TOO — LORAMER_V2_QUOTA_SENTINEL_WIRED_V1.
+  // This route never fetches, so it cannot OBSERVE a quota error; but everything it publishes BECOMES a vendor
+  // call, and a scheduler that keeps publishing into an armed quota is spending the fleet's tomorrow one
+  // message at a time. Checked BEFORE the catalog load and the coverage scan, so a held run also costs no DB
+  // work — the same reason cron/drain/route.ts checks before its connection query.
+  // ⛔ THE METER DOES NOT COVER THIS: `mayFetch` reads OUR ledgers; the sentinel is GOOGLE'S refusal.
+  const qp = await readGoogleQuotaPause()
+  if (holdGoogleWork(qp)) {
+    return NextResponse.json({
+      ok: true, published: 0, scanned: 0,
+      held: qp.state === 'unknown'
+        ? `google quota sentinel UNREADABLE — holding this lane (NOT a confirmed pause): ${qp.reason}`
+        : `google quota paused until ${qp.until}`,
+      quotaState: qp.state, quotaUntil: qp.until,
+      note: 'Nothing published and nothing scanned. Owed-ness is DERIVED, so no state is lost by holding — the next run after the clock-based window elapses re-computes exactly the same answer.',
+      refusals: [],
+    })
+  }
 
   const { data: client } = await supabaseAdmin
     .from('clients').select('id, user_email, platform_connections(*)').eq('id', clientId).single()

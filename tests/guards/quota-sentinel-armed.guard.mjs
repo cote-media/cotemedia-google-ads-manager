@@ -46,6 +46,17 @@ const READ_ONLY = {
     'GATES on the sentinel before spending, and its Google work goes through fetchGoogleIntelligence / ' +
     'fetchGoogleDimensional, both of which arm at their own error boundary. A write here would be a second home ' +
     'for a rule that now lives at the boundary — precisely the duplication RULE-HOME LAW warns about.',
+  // ── ADDED 2026-08-09, LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the two v2 walk entry points. ──
+  'src/app/api/queues/google-ads-universe-v2/route.ts':
+    'GATES on the sentinel before any vendor work (and before the ADVANCE publish, since publishing into an ' +
+    'armed quota spends the fleet\'s tomorrow). Its only Google contact is universe-vendor-stream.ts, which IS ' +
+    'boundary 5 below and arms there. A write here would be a second home for a rule that now lives at the ' +
+    'boundary — the duplication RULE-HOME LAW warns about, and the reason the arm moved to boundaries at all.',
+  'src/app/api/cron/universe-resume/route.ts':
+    'THE SCHEDULER, AND IT STRUCTURALLY CANNOT OBSERVE A QUOTA ERROR: it publishes, it never fetches. It ' +
+    'constructs the adapter with a stream factory that THROWS if anyone calls it ("the resumer never fetches — ' +
+    'it publishes"), and googleAdsStreamFor is not imported at all. It reads the sentinel because everything it ' +
+    'publishes becomes a vendor call later; there is no Google rejection here for it to arm from.',
 }
 
 const readers = []
@@ -83,14 +94,29 @@ if (readers.length === 0) {
 }
 
 // ── (b) EVERY ERROR BOUNDARY ARMS ──────────────────────────────────────────────────────────────────────
-// The four boundaries, by name and by the lane each one covers. If a fifth appears this list must grow — see
+// The FIVE boundaries, by name and by the lane each one covers. If a sixth appears this list must grow — see
 // the honest limit in the header.
+// ⛔ IT WAS FOUR UNTIL 2026-08-09, AND THE FIFTH IS THE ONE THIS GUARD SAID IT COULD NOT CATCH. The header's
+// own limit reads: "A new Google call site that invents a fifth wrapper is NOT caught; leg (b) lists the
+// boundaries by name, and that list is maintained by hand." The universe walk was exactly that — a bare
+// `customer.queryStream(gaql)` in `universe-vendor-stream.ts` with no wrapper and no arm — and it was found by
+// the 2026-08-09 sweep (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL), by a human read, not by this guard.
+// ⛔ THE COUNT STAYS EXACT. It is NOT loosened to "at least N": the whole value of this leg is that the number
+// of places a quota refusal can be observed is KNOWN. A guard that stops counting stops being the thing that
+// makes a sixth wrapper visible.
 const BOUNDARIES = [
   ['src/lib/google-retry.ts', 'withGaqlRetry', 'the LIVE dashboard path and the FORWARD capture path'],
   ['src/lib/backfill/gaql-with-retry.ts', 'gaqlWithRetry', 'the campaign + adgroup backfill writers'],
   ['src/lib/backfill/retry.ts', 'withGoogleRetry', 'the account adapter and the dimensional backfill'],
   ['src/lib/intelligence/google-intelligence.ts', 'safeQuery', 'the 20 live sub-queries — the swallow point'],
+  // ⛔ THE FIFTH. It wraps CONSUMPTION rather than the call, because `queryStream` returns an AsyncGenerator and
+  // the vendor library rejects from the ITERATOR (its handleStreamError converts the streamed error object to a
+  // GoogleAdsFailure) — an arm around the call would never fire.
+  ['src/lib/backfill/universe-vendor-stream.ts', 'armingStream', 'the v2 universe walk — the only place it touches Google'],
 ]
+if (BOUNDARIES.length !== 5) {
+  findings.push(`(b) THE BOUNDARY COUNT MOVED: this leg is written against FIVE known Google error boundaries and now holds ${BOUNDARIES.length}. Growing the list is correct when a real sixth boundary appears — update this assertion IN THE SAME COMMIT and say which one, so the count never drifts silently.`)
+}
 for (const [file, fn, lane] of BOUNDARIES) {
   if (!existsSync(resolve(ROOT, file))) { findings.push(`(b) ${file} is missing — cannot verify the ${fn} boundary.`); continue }
   const src = code(file)
