@@ -7,14 +7,14 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-09T02:30:27.994Z
-- built_from HEAD: 0cb5376d98c4f16ec2a60170d69e85faf568b3ec  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-09T03:09:01.287Z
+- built_from HEAD: 4817a17fe5ef39bc1ba032760876c2254ff1ee80  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_ESSENCE.md: eef7f333756eabed5f3ec85dc20843f54368768f5c415d8dcbe59eb49f8aafca
+    - LORAMER_ESSENCE.md: e9c72941b8e3a6a59537487c2fbec8f0a5ecc8bd83c437e947875215e7da039d
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 19f8c18236ec3f80de646bed36c5ec4cf836d4172f68a8cf9694fcdfce167782
     - LORAMER_DECISIONS.md: f145e08129a47dbe1a2f4706d9d78151fa8b516d099bcf0fd187538551ac2b69
@@ -84,6 +84,27 @@ and reaches the generated digest. It guards PLACEMENT, never OBEDIENCE.
 - **NO SCROLL-UP.** Anything he must DO is a plain bullet, not buried in a paragraph.
 
 ⛔ **THIS HALF HAS THE SAME HONEST LIMIT AS THE FIRST AND IT IS STATED RATHER THAN PAPERED OVER: NO GUARD CAN OBSERVE CHAT OUTPUT.** Per the RULE-HOME LAW, a rule broken repeatedly needs an ENFORCER and not another entry — and for chat there is none available, because the output never touches the filesystem, a commit or a build. `one-block-output.guard.mjs` guards PLACEMENT of this law in the three docs the executor reads; obedience has exactly one enforcer and it is Russ saying so again. **That is precisely why the cost is written down here: if the only enforcement is a human repeating himself, the law must at least tell him what it is costing him to do it.**
+
+## ⛔ THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY [LAW — RUSS, banked 2026-08-08]
+**THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY. THE VENDOR'S FETCH UNIT IS AN ADAPTER
+CONCERN.**
+⛔ **THIS REPLACES A WEAKER STATEMENT OF THE SAME RULE, AND THE REPLACEMENT IS THE POINT.** The streaming
+walk originally justified day-granular resume with *"GAQL filters `segments.date BETWEEN`"* — a fact about
+ONE VENDOR'S API. It is true of all five vendors, so the design would have worked; but the load-bearing
+member was in the wrong place, and a design resting on a vendor's convenience is one API change away from
+having no reason to exist.
+THE DURABLE REASON: `metrics_daily` is keyed by `(client, platform, entity_level, breakdown_type, DATE)`, so
+*"which days do I still owe"* is answerable for ANY platform whose rows land there — which is all of them,
+measured 2026-08-08: google 5 entity_levels / 26 breakdowns, meta 4/26, ga 1/13, shopify 3/16, woocommerce
+3/12. **Coverage is derived from the WAREHOUSE, not from the vendor.**
+⛔ **THE PROOF IS SHOPIFY, AND IT IS THE PROOF PRECISELY BECAUSE IT DOES NOT OFFER A DAY UNIT.** Shopify's
+natural object is an ORDER, paged by an OPAQUE GraphQL cursor (`pageInfo { hasNextPage endCursor }`) with no
+day concept and no verifiable ordering guarantee. **It still resolves to days — because our warehouse is
+date-keyed, not because Shopify hands us a date unit.** What the vendor withholds is only the ENTITLEMENT to
+infer closure from ordering; the adapter falls back to an explicit commit record and the shared predicate
+does not change.
+COROLLARY: when a design rests on a vendor fact that happens to hold everywhere, ask whether an OWNED fact
+says the same thing. If one does, that is the real load-bearing member and the vendor fact is a coincidence.
 
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
@@ -208,6 +229,7 @@ and to SAY SO when it does not hold — never to assume the instruction did the 
 High-stakes = any claim gating a destructive/rotate/delete action, a "this is a bug" diagnosis, or a blast-radius/live-path judgment. Rationale: the rules already exist; this converts the ones most often dropped under momentum (one-in-flight, blast-radius, grid-native, claim-confidence) into required visible output so a skip is caught in the moment, not after. Root cause: 2026-07-01 session — repeated rule-breaks despite the rules being present; the failure was compliance, not coverage. Do not relitigate.
 
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)
 - [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
 - VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.

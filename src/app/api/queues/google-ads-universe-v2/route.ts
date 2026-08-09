@@ -40,11 +40,15 @@ import { handleCallback, send } from '@vercel/queue'
 // which is how it shipped broken once already. `universe-runner.guard.mjs` leg (d) caught a dead import of it
 // on this file within minutes of the file existing; that guard is the reason this comment is here.
 import { VENDOR_FLOOR_DATE, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
-import { captureEntryStreaming, coverageGrainFor, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
+import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
+// ⛔ THE ADAPTER SUPPLIES EVERY GOOGLE FACT THE CORE USED TO HOLD: the GAQL, the ORDER BY, the retention
+// floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
+// This route now contains no vendor constant at all — `capture-adapter-seam.guard.mjs` enforces that.
+import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
+import { mayFetch } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
-import { sizeNextWindow, MIN_WINDOW_DAYS, COLD_START_DAYS, dayDiff } from '@/lib/backfill/universe-sizing'
-import { decidePublishFleetAware } from '@/lib/backfill/universe-governor'
+import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { checkDiskFloor } from '@/lib/backfill/universe-window-log'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // ⛔ THE TOPIC, THE MESSAGE SHAPE AND THE TWO BOUNDS LIVE IN A CONTRACT MODULE, NOT HERE. Next.js rejects
@@ -61,31 +65,17 @@ const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
 
-// ── SPEND, READ FROM THE NEW LOG ────────────────────────────────────────────────────────────────────────
-// ⛔ BOTH AGGREGATES ARE SUMMED WHILE BOTH CONSUMERS EXIST. v1 bills into `universe_window_log` and v2 into
-// `universe_attempt_log`; a governor reading only one would under-count the lane by exactly the other's
-// spend, which is a governor granting itself the difference. Once v1 is retired the v1 term goes to zero on
-// its own and this needs no edit.
-async function laneSpentToday(): Promise<number> {
-  const since = new Date(); since.setUTCHours(0, 0, 0, 0)
-  const [v2, v1] = await Promise.all([
-    readAttemptLaneSpendToday(VENDOR, since),
-    import('@/lib/backfill/universe-window-log').then((m) => m.readLaneSpendToday()),
-  ])
-  return v2 + v1
-}
-
-async function publishGoverned(next: UniverseMessageV2, idempotencyKey: string): Promise<{ published: boolean; reason: string }> {
-  // ⛔ THE FLEET DECIDES, NOT JUST THIS LANE, AND A NULL READING HOLDS.
-  const { readGoogleSpendToday } = await import('@/lib/backfill/google-op-budget')
-  const gov = decidePublishFleetAware({
-    spentRequestsToday: await laneSpentToday(),
-    fleet: await readGoogleSpendToday(),
-    want: 1,
-  })
-  if (!gov.mayPublish) return { published: false, reason: gov.reason }
+async function publishGoverned(
+  adapter: ReturnType<typeof googleAdsCaptureAdapter>, next: UniverseMessageV2, days: number, idempotencyKey: string,
+): Promise<{ published: boolean; reason: string }> {
+  // ⛔ THE METER IS THE ADAPTER'S, IN THE ADAPTER'S OWN UNIT, AND AN UNREADABLE ONE HOLDS. There is no
+  // shared constant on this path: `cap` and `costOf(days)` both come from the adapter, so nothing here can
+  // be tuned into meaning "operations" — which is exactly what would break on GA4 tokens or Meta's BUC
+  // percentage across three simultaneous meters.
+  const gate = await mayFetch(adapter, days)
+  if (!gate.ok) return { published: false, reason: gate.reason }
   await send(TOPIC, next satisfies UniverseMessageV2, { idempotencyKey } as any)
-  return { published: true, reason: 'published' }
+  return { published: true, reason: gate.reason }
 }
 
 // ⛔ THE CAST IS TYPE-ONLY AND IT IS NOT COSMETIC — READ THE REASON BEFORE REMOVING IT.
@@ -103,9 +93,15 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
   const floorDate = msg.floorDate ?? VENDOR_FLOOR_DATE
-  const grain = coverageGrainFor(entry)
+  // ⛔ THE ADAPTER IS CONSTRUCTED PER INVOCATION with the vendor stream it needs. Nothing about Google is
+  // reachable from the core; the core only ever sees `adapter.*`.
+  const streamFor = await googleAdsStreamFor(userEmail, customerId)
+  const surface = surfaceOfEntry(entry)
+  const adapter = googleAdsCaptureAdapter(streamFor, () => entry)
+  const grain = { entityLevel: surface.entityLevel, breakdownType: surface.breakdownType }
+  const MIN_WINDOW_DAYS = adapter.sizing.minDays
   const key: AttemptKey = {
-    clientId, vendor: VENDOR, resource: entry.resource, segment: entry.segment ?? '',
+    clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
     windowStart: startDate, windowEnd: endDate,
   }
 
@@ -114,7 +110,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   // log's outcomes. v1's resume asked the bookkeeping table whether a window was "finished"; on 2026-08-08
   // that table was measured wrong in BOTH directions on the very range it was consulted about.
   const owed = await rangesStillOwed(
-    { clientId, platform: VENDOR, entityLevel: grain.entityLevel, breakdownType: grain.breakdownType },
+    { clientId, platform: adapter.platform, entityLevel: grain.entityLevel, breakdownType: grain.breakdownType },
     startDate, endDate,
   )
   console.log(`[universe-v2] ${clientId} ${label} ${startDate}..${endDate}: ` +
@@ -127,7 +123,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // early, and none re-published. The starter reported "started: true, published: 346" and the chain was
     // already dead. **A resume that does not advance is indistinguishable from one that worked, right up
     // until nothing happens.**
-    const adv = await advance(msg, floorDate, 'already covered — nothing owed in this window')
+    const adv = await advance(msg, adapter, floorDate, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
     return
   }
@@ -163,8 +159,8 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // broken, because nothing is.
     const half = Math.max(MIN_WINDOW_DAYS, Math.floor(spanDays / 2))
     const narrowedEnd = addDays(startDate, half - 1)
-    const pub = await publishGoverned(
-      { ...msg, startDate, endDate: narrowedEnd },
+    const pub = await publishGoverned(adapter,
+      { ...msg, startDate, endDate: narrowedEnd }, half,
       `${clientId}|${entry.resource}|${entry.segment ?? ''}|${startDate}|${narrowedEnd}|narrow`,
     )
     await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
@@ -176,7 +172,6 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   }
 
   // ══ 4 · WALK THE OWED RANGES, STREAMING, COMMITTING A DAY AT A TIME ═══════════════════════════════════
-  const streamFor = await googleAdsStreamFor(userEmail, customerId)
   let totalRows = 0, totalApi = 0, requests = 0
   const daysCommitted: string[] = []
   let lastError: string | null = null
@@ -190,12 +185,11 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     const opened = await appendAttemptStarted(rangeKey, 1)
     requests++
     try {
-      const res = await captureEntryStreaming({
-        entry, ctx: { clientId, userEmail, customerId },
+      const res = await captureSurfaceStreaming({
+        adapter, surface,
+        ctx: { clientId, userEmail, accountId: customerId },
         startDate: range.start, endDate: range.end,
-        stream: streamFor,
-        floorDate,
-        onDayCommitted: (day, rows) => appendDayCommitted(rangeKey, opened.attemptNo, day, rows),
+        onDayCommitted: (day: string, rows: number) => appendDayCommitted(rangeKey, opened.attemptNo, day, rows),
       })
       totalRows += res.rowsWritten
       totalApi += res.apiRows
@@ -221,7 +215,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   console.log(`[universe-v2] ${clientId} ${label}: ${totalApi} api rows → ${totalRows} written across ` +
     `${daysCommitted.length} committed day(s), ${requests} request(s)${orderViolation ? ' ⚠ ORDER VIOLATION' : ''}${lastError ? ` — ${lastError}` : ''}`)
 
-  const adv = await advance(msg, floorDate,
+  const adv = await advance(msg, adapter, floorDate,
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
   return
@@ -236,7 +230,7 @@ export const POST = handler as unknown as (req: Request) => Promise<Response>
  * Order is load-bearing: BOUND (were we asked for another window) → FLOOR (is there ground left below the
  * vendor wall) → SIZE (how much to ask for) → GOVERNOR (may we afford it).
  */
-async function advance(msg: UniverseMessageV2, floorDate: string, why: string) {
+async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof googleAdsCaptureAdapter>, floorDate: string, why: string) {
   const { clientId, entry, startDate } = msg
   const remaining = msg.windowsRemaining
   if (remaining !== undefined && remaining <= 1) {
@@ -251,14 +245,15 @@ async function advance(msg: UniverseMessageV2, floorDate: string, why: string) {
   }
   // ⛔ SIZE ON MAX, REPORT PREV. Under-prediction is the direction that costs a request; over-prediction
   // costs a window that finishes early. See universe-sizing.ts for the measurement that ranked them.
-  const sizing = await sizeNextWindow({ clientId, vendor: VENDOR, resource: entry.resource, segment: entry.segment ?? '' })
+  const sizing = await sizeNextWindow(adapter, { clientId, resource: entry.resource, segment: entry.segment ?? '' })
   const nextStart = (() => {
     const s = addDays(nextEnd, -(sizing.days - 1))
     return s < floorDate ? floorDate : s
   })()
-  const pub = await publishGoverned(
+  const pub = await publishGoverned(adapter,
     { ...msg, startDate: nextStart, endDate: nextEnd,
       ...(remaining !== undefined ? { windowsRemaining: remaining - 1 } : {}) },
+    sizing.days,
     `${clientId}|${entry.resource}|${entry.segment ?? ''}|${nextStart}|${nextEnd}`,
   )
   return {

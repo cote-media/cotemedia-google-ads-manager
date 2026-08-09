@@ -139,6 +139,10 @@ const GUARDS = [
   // before every vendor call · a day is covered only when a later day closes it (synthetic mid-day kill) ·
   // the coverage module never reaches the attempt-log module · the bound is judged at the MINIMUM span.
   'tests/guards/universe-stream-consumer.guard.mjs',
+  // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
+  // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
+  // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.
+  'tests/guards/capture-adapter-seam.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an

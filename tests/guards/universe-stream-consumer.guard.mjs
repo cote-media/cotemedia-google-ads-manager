@@ -54,7 +54,7 @@ if (route && capture) {
     findings.push(`(a) ${CAPTURE} constructs a Google client. The stream is INJECTED so the capture path stays drivable with no network; building it here would make the commit boundary unprovable.`)
   }
   const iStart = route.indexOf('appendAttemptStarted(')
-  const iCall = route.indexOf('captureEntryStreaming(')
+  const iCall = route.indexOf('captureSurfaceStreaming(')
   if (iStart < 0) findings.push(`(a) ${ROUTE} never calls appendAttemptStarted. THE REQUEST WOULD BE UNCOUNTED — v1's exact defect, and how three poison loops stayed invisible to the rate governor.`)
   else if (iCall < 0) findings.push(`(a) ${ROUTE} never calls captureEntryStreaming — this is not the streaming consumer.`)
   else if (iStart > iCall) findings.push(`(a) ${ROUTE} calls captureEntryStreaming at ${iCall} BEFORE appendAttemptStarted at ${iStart}. Spend must be charged BEFORE the vendor call, or a hard kill leaves the request unbilled.`)
@@ -148,6 +148,7 @@ try {
   const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
   const r = spawnSync(tsc, [
     resolve(ROOT, CAPTURE), resolve(ROOT, COVERAGE), resolve(ROOT, 'src/lib/backfill/google-ads-universe-writer.ts'),
+    resolve(ROOT, 'src/lib/backfill/capture-adapter.ts'),
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
   ], { encoding: 'utf8' })
@@ -159,18 +160,21 @@ try {
     supabaseAdmin: new Proxy({}, { get: () => () => { throw new Error('GUARD: no DB in the pure legs') } }),
   }, { get: (t, k) => (k in t ? t[k] : (() => {})) })`)
   const writerJs = join(out, 'src/lib/backfill/google-ads-universe-writer.js')
+  const contractJs = join(out, 'src/lib/backfill/capture-adapter.js')
   Module._resolveFilename = function (request, ...rest) {
-    if (request === '@/lib/backfill/google-ads-universe-writer') return writerJs
-    if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) {
-      // the compiled capture module requires its sibling writer by the alias above; everything else is stubbed
-      if (/google-ads-universe-writer/.test(request)) return writerJs
-      return stub
-    }
+    // ⛔ THE CONTRACT MUST RESOLVE TO THE REAL COMPILED MODULE, NOT THE STUB. Stubbing it made
+    // `mayInferClosureFromOrder` return undefined, which the capture path correctly read as "not entitled"
+    // and flagged a perfectly ordered stream as a violation. The guard was measuring its own stub — a broken
+    // instrument that looks like evidence (plan §24), caught by a leg that had no business failing.
+    if (/capture-adapter$/.test(request)) return contractJs
+    if (/google-ads-universe-writer/.test(request)) return writerJs
+    if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
     return origResolve.call(this, request, ...rest)
   }
   const req = createRequire(import.meta.url)
   const cov = req(join(out, 'src/lib/backfill/universe-coverage.js'))
   const cap = req(join(out, 'src/lib/backfill/universe-stream-capture.js'))
+  const writer = req(writerJs)
 
   // ── (b1) THE PURE PREDICATE, WITH A SYNTHETIC MID-DAY KILL ───────────────────────────────────────────
   {
@@ -198,8 +202,22 @@ try {
 
   // ── (b2) THE COMMIT BOUNDARY, DRIVEN AGAINST A STUB STREAM THAT DIES MID-DAY ─────────────────────────
   {
+    // ⛔ RETROFITTED TO THE ADAPTER CONTRACT. The commit boundary is now driven through a STUB ADAPTER,
+    // which is itself evidence the seam is real: this leg proves the day-commit property with a vendor that
+    // does not exist, using the same core the Google adapter uses.
     const entry = { resource: 'campaign', segment: null, delivers: true, servesMetrics: ['metrics.impressions'] }
-    const ctx = { clientId: 'c', userEmail: 'e', customerId: '1' }
+    const ctx = { clientId: 'c', userEmail: 'e', accountId: '1' }
+    const surface = { entityLevel: 'campaign', breakdownType: '', resource: 'campaign', segment: '' }
+    const mkAdapter = (stream, closure) => ({
+      platform: 'stub', fetchShape: 'stream',
+      retention: { floorDate: '2022-03-05', source: 'vendor-measured', citation: 'stub' },
+      dayClosure: closure ?? { rule: 'later-day-closes', mechanism: 'stub orders by date', runtimeChecked: true },
+      meter: { unit: 'ops', cap: 1e9, costDirection: 'flat-per-request', costOf: () => 1, spentSoFar: async () => 0 },
+      sizing: { rowBudget: 300000, coldStartDays: 7, minDays: 1, maxDays: 30 },
+      stream, dateOf: (r) => (r?.segments?.date ? String(r.segments.date) : null),
+      buildRows: (_s, c, rows) => writer.buildUniverseRowsAtGrain(entry, { clientId: c.clientId, userEmail: c.userEmail, customerId: c.accountId }, rows),
+      serializeError: (e) => String(e?.message ?? e),
+    })
     const mk = (date, imp) => ({ segments: { date }, campaign: { resource_name: `customers/1/campaigns/${imp}` }, metrics: { impressions: imp, cost_micros: 0, clicks: 0, conversions: 0, conversions_value: 0 } })
 
     // dies partway through 12-03, AFTER 12-01 and 12-02 completed
@@ -208,10 +226,10 @@ try {
       yield mk('2025-12-01', 5); yield mk('2025-12-02', 6); yield mk('2025-12-03', 7)
       throw new Error('SIMULATED HARD KILL mid-day')
     }
-    const res = await cap.captureEntryStreaming({
-      entry, ctx, startDate: '2025-12-01', endDate: '2025-12-05', floorDate: '2022-03-05',
-      stream: () => dying(), upsert: async (rows) => ({ written: rows.length }),
-      onDayCommitted: async (d, n) => { committed.push(d) },
+    const res = await cap.captureSurfaceStreaming({
+      adapter: mkAdapter(() => dying()), surface, ctx, startDate: '2025-12-01', endDate: '2025-12-05',
+      upsert: async (rows) => ({ written: rows.length }),
+      onDayCommitted: async (d) => { committed.push(d) },
     })
     if (!res.error) findings.push(`(b2) a stream that threw did not surface an error — the failure would be invisible.`)
     if (!committed.includes('2025-12-01') || !committed.includes('2025-12-02')) {
@@ -225,26 +243,43 @@ try {
     // ── ORDER: the vendor ignoring ORDER BY must be DETECTED, not silently trusted ──────────────────────
     const committed2 = []
     async function* unordered() { yield mk('2025-12-03', 1); yield mk('2025-12-01', 2); yield mk('2025-12-04', 3) }
-    const res2 = await cap.captureEntryStreaming({
-      entry, ctx, startDate: '2025-12-01', endDate: '2025-12-05', floorDate: '2022-03-05',
-      stream: () => unordered(), upsert: async (rows) => ({ written: rows.length }),
+    const res2 = await cap.captureSurfaceStreaming({
+      adapter: mkAdapter(() => unordered()), surface, ctx, startDate: '2025-12-01', endDate: '2025-12-05',
+      upsert: async (rows) => ({ written: rows.length }),
       onDayCommitted: async (d) => { committed2.push(d) },
     })
     if (!res2.orderViolation) {
       findings.push(`(b2) an OUT-OF-ORDER stream was accepted silently. The commit boundary is "a later day arrived, so the previous one is finished" — an ORDER BY the vendor ignores turns every commit into a false claim, and a claim that is wrong only sometimes is worse than one that is always wrong.`)
     }
-    if (!/ORDER BY segments\.date/.test(res2.gaql || '')) {
-      findings.push(`(b2) the GAQL does not ask for date order (got ${JSON.stringify(res2.gaql)}). The runtime check is the backstop, not the plan.`)
-    }
+    // ⛔ THE ORDER CLAUSE MOVED TO THE ADAPTER (LORAMER_CAPTURE_ADAPTER_CONTRACT_V1) and is asserted there by
+    // `capture-adapter-seam.guard.mjs` leg (e). What is checked HERE is the property that survived the
+    // retrofit: an adapter that may not infer closure from ordering never reports ordering as verified.
 
     // clean run: every day but the last is committed as its successor arrives, and the last on stream end
     const committed3 = []
     async function* clean() { yield mk('2025-12-01', 1); yield mk('2025-12-02', 2); yield mk('2025-12-03', 3) }
-    const res3 = await cap.captureEntryStreaming({
-      entry, ctx, startDate: '2025-12-01', endDate: '2025-12-03', floorDate: '2022-03-05',
-      stream: () => clean(), upsert: async (rows) => ({ written: rows.length }),
+    const res3 = await cap.captureSurfaceStreaming({
+      adapter: mkAdapter(() => clean()), surface, ctx, startDate: '2025-12-01', endDate: '2025-12-03',
+      upsert: async (rows) => ({ written: rows.length }),
       onDayCommitted: async (d) => { committed3.push(d) },
     })
+    // ⛔ NEW LEG, AND IT IS THE SEAM PAYING FOR ITSELF ALREADY: an adapter NOT entitled to rule (a) must
+    // never report ordering as verified, even on a perfectly ordered stream. Shopify is that adapter — an
+    // opaque order cursor with no ordering guarantee — and this is checked before Shopify exists.
+    const committed4 = []
+    async function* clean2() { yield mk('2025-12-01', 1); yield mk('2025-12-02', 2) }
+    const res4 = await cap.captureSurfaceStreaming({
+      adapter: mkAdapter(() => clean2(), { rule: 'explicit-commit-only', why: 'opaque cursor, no ordering guarantee' }),
+      surface, ctx, startDate: '2025-12-01', endDate: '2025-12-02',
+      upsert: async (rows) => ({ written: rows.length }),
+      onDayCommitted: async (d) => { committed4.push(d) },
+    })
+    if (!res4.orderViolation) {
+      findings.push(`(b2) an adapter with NO ordering entitlement reported orderViolation=false on an ordered stream. That reads as "ordering verified" to the next caller, which is a claim it was never entitled to make.`)
+    }
+    if (committed4.length !== 2) {
+      findings.push(`(b2) an unentitled adapter did not still write its explicit day_committed records (got ${JSON.stringify(committed4)}) — rule (b) is the ONLY closure it has.`)
+    }
     if (committed3.join(',') !== '2025-12-01,2025-12-02,2025-12-03') {
       findings.push(`(b2) a clean stream committed ${JSON.stringify(committed3)} — expected every day, in order.`)
     }
