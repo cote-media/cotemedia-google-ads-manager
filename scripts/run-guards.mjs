@@ -195,6 +195,19 @@ const GUARDS = [
   'scripts/check-connection-failure-recording.mjs',
   'scripts/check-connection-degraded-readers.mjs',
   'scripts/check-query-completeness.mjs',
+  // ── LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1, 2026-08-09 — the three enforcers banked with
+  //    the law that says a law without one has never held in this repo. Each was SEEN RED before it was
+  //    allowed to pass, and each ships a REMOVE-ONLY baseline freeze of today's known violations.
+  // ONE FILE OWNS EACH VENDOR FACT. The cap was declared in two non-importing files with its derived
+  // allowance restated as a bare literal in a third; the ops-per-request ratio was settled at 1 in one file
+  // while 1.5 stayed live in another.
+  'tests/guards/single-owner-vendor-facts.guard.mjs',
+  // A BANNED EXPRESSION AND A FALSIFIED MECHANISM STAY DEAD, INCLUDING IN COMMENTS — which is where the
+  // API-Center-UI mechanism came back, in a file written AFTER it was falsified.
+  'tests/guards/banned-expressions.guard.mjs',
+  // A STEP MAY NOT BE MARKED BUILT WITHOUT NAMING THE PRODUCTION CODE THAT ALREADY DOES IT, AT file:line.
+  // Steps 0-7 shipped ahead of the sweep that then found three already-live capabilities they had re-derived.
+  'tests/guards/pre-step-read.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

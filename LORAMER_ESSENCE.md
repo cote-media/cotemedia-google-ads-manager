@@ -84,6 +84,42 @@ backfill engine had been read against the walk rebuild. It had not — eight ste
 THE RULE: **a working predecessor is EVIDENCE, not sentiment.** Read it before the plan freezes, and say
 explicitly what is carried, what is superseded, and what happens to the code. "It is old" is not a finding.
 
+## ⛔ A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD [LAW — RUSS, banked 2026-08-09]
+**A LESSON, RULE OR FALSIFICATION WRITTEN ONLY AS PROSE HAS NEVER HELD IN THIS REPO. ONE WRITTEN AS AN
+EXECUTABLE CHECK HAS NEVER BROKEN.** From now on **no law, lesson or falsification is recorded without a
+paired mechanical check in the same commit** — the same rule as FIX-WITH-GUARD, applied to laws instead of
+code. If a law genuinely cannot be checked mechanically, that is stated on the entry as **UNENFORCEABLE**
+with the reason, so nobody mistakes prose for protection.
+
+⛔ **THE EVIDENCE IS MEASURED, NOT ASSERTED, AND IT IS SIX FOR SIX.**
+**HELD — became code:**
+- **THE NO-PROGRESS BOUND** — became `decideRepublish()` and caught a success-but-zero-days republish the day
+  it landed.
+- **WRITE-THEN-ADVANCE-PER-UNIT** — became `flush()` in `universe-stream-capture`, guarded rather than
+  asserted.
+- **serializeVendorError** — became a function, so "[object Object]" cannot come back by being forgotten.
+
+**FAILED — stayed prose:**
+- **"CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN"**, banked one section above on 2026-08-08 and
+  **VIOLATED INSIDE 24 HOURS**: v2 walked past the between-iteration budget check, the quota sentinel AND the
+  fleet-aware yield — all three already live in production (sweep C1 / C2 / C3).
+- `google-op-budget.ts:20-23` bans `Math.max(conns, days)` **ANYWHERE**, in its own header, and
+  `google-op-budget.ts:330` uses it.
+- The **falsified API-Center-UI mechanism returned verbatim in a newer file** (sweep W4, the fifth
+  LORAMER_ESSENCE_LAW_9_V1 precedent) — and the guard written to enforce this law then found a **THIRD** live
+  copy the sweep had missed.
+- `GOOGLE_DAILY_OP_CAP` was documented in a comment and is now **declared in three non-importing files**
+  (sweep W1).
+- The ops-per-request ratio was **settled at 1 in one file while 1.5 stays live in another** (sweep W3).
+
+**PROSE HAS NO ENFORCEMENT MECHANISM IN THIS CODEBASE.** That is not a complaint about anyone's discipline; it
+is a measurement of what this repo does under load. The three enforcers banked with this law —
+`single-owner-vendor-facts`, `banned-expressions`, `pre-step-read` — each ship a REMOVE-ONLY baseline freeze of
+today's known violations, so they land green and go red on anything new. **A baseline freeze is not
+absolution; it is a burn-down under Russ's approval, one live-path fix at a time.**
+⛔ AND THE LIMIT THIS LAW INHERITS RATHER THAN REPAIRS: **no guard can observe Claude Code's chat output** —
+the one-block law and the terseness law remain UNENFORCEABLE by construction, and are stamped as such.
+
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
 
@@ -207,6 +243,7 @@ and to SAY SO when it does not hold — never to assume the instruction did the 
 High-stakes = any claim gating a destructive/rotate/delete action, a "this is a bug" diagnosis, or a blast-radius/live-path judgment. Rationale: the rules already exist; this converts the ones most often dropped under momentum (one-in-flight, blast-radius, grid-native, claim-confidence) into required visible output so a skip is caught in the moment, not after. Root cause: 2026-07-01 session — repeated rule-breaks despite the rules being present; the failure was compliance, not coverage. Do not relitigate.
 
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- [LAW] A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD. No law, lesson or falsification is recorded without a paired MECHANICAL CHECK in the same commit — FIX-WITH-GUARD applied to laws instead of code. A law that genuinely cannot be checked is stamped UNENFORCEABLE with the reason, so prose is never mistaken for protection. SIX FOR SIX, measured 2026-08-09: everything that became CODE held (the no-progress bound caught a real republish the day it landed; write-then-advance-per-unit; serializeVendorError) and everything that stayed PROSE failed — "check what already works" was violated inside 24 hours of being banked (v2 walked past the between-iteration budget check, the quota sentinel and the fleet-aware yield, all three already live in production); google-op-budget.ts:20-23 bans `Math.max(conns, days)` ANYWHERE while :330 uses it; the falsified API-Center-UI mechanism came back verbatim in a newer file and the new guard found a THIRD copy; the op cap is declared in three non-importing files; the ops-per-request ratio is settled at 1 in one file while 1.5 stays live in another. A baseline freeze of existing violations is a BURN-DOWN under Russ's approval, never absolution. INHERITED LIMIT: no guard can observe chat output, so the one-block and terseness laws stay UNENFORCEABLE by construction and are stamped as such.
 - [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)
 - [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)
 - [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)

@@ -88,6 +88,37 @@ if (token && openerIdx.length === 1) {
   }
 }
 
+// ── 4. THE OPENER CANNOT BE OLDER THAN THE NEWEST SESSION LOG IN THE SAME FILE ────────────────────────────
+// ⛔ ADDED 2026-08-09 UNDER LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1, and it is banked because
+// it ACTUALLY HAPPENED: the fence read `▶▶ NEXT STEP — 2026-08-06` while this same file carried a
+// `## Session log (2026-08-08 → 2026-08-09 …)` block whose first words were "START HERE". Two sessions closed
+// on top of that opener without moving it, so the resume path pointed at a five-link chain whose central
+// premise had been FALSIFIED on 08-08 — and every existing leg stayed GREEN, because one opener, inside the
+// fence, naming the ranking is all they ask. Legs 1-3 check WHERE the opener is and WHAT it names; nothing
+// checked WHEN it was written. A stale opener is exactly as dangerous as a missing one and reads as current.
+// ⚠ LIMIT, stated: this compares DATE STAMPS, not content. An opener re-dated without being rewritten passes.
+// It catches the drift that actually occurred — a wrap that logged its session and forgot the fence.
+{
+  const dateOf = (s) => { const m = String(s).match(/\b(20\d{2}-\d{2}-\d{2})\b/g); return m ? m.sort().pop() : null }
+  const logDates = lines.filter((l) => /^##\s*Session log/i.test(l)).map(dateOf).filter(Boolean).sort()
+  const newestLog = logDates.length ? logDates[logDates.length - 1] : null
+  if (!newestLog) {
+    fail('NO DATED `## Session log` HEADING in CONTINUE_HERE.md — the wrap log is what dates the file, and without one the opener cannot be checked for staleness.')
+  } else if (openerIdx.length === 1) {
+    // ⛔ THE OPENER'S OWN STAMP, NOT ANY DATE ON THE LINE — and this was caught by the leg's own RED proof.
+    // An opener body routinely cites other dates (a falsification, a measurement), so `max(dates on the line)`
+    // would let a 08-06 stamp pass merely because its prose mentions 08-08. That is a guard that reads green
+    // for the wrong reason, which is worse than no guard.
+    const stampM = lines[openerIdx[0]].match(/^▶▶\s*NEXT STEP\s*[—–-]\s*(20\d{2}-\d{2}-\d{2})/)
+    const openerDate = stampM ? stampM[1] : null
+    if (!openerDate) {
+      fail(`OPENER CARRIES NO DATE STAMP: "${lines[openerIdx[0]].slice(0, 100)}". It must begin \`▶▶ NEXT STEP — YYYY-MM-DD\` — a date somewhere in the body is not a stamp, and cannot be told apart from a date the opener is talking ABOUT.`)
+    } else if (openerDate < newestLog) {
+      fail(`STALE OPENER: \`▶▶ NEXT STEP\` is dated ${openerDate} while the newest \`## Session log\` in the same file is ${newestLog}. A session closed on top of the fence without moving it — which is precisely how a resume points at a chain whose premise was falsified two sessions ago while every other leg reads green.`)
+    }
+  }
+}
+
 if (failures.length) {
   console.error('\n❌ LORAMER_NEXT_STEP_OBEYS_RANKING_GUARD_V1 FAILED\n')
   failures.forEach((f) => console.error('  • ' + f))
