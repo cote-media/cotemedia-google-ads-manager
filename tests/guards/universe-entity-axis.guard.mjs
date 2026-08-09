@@ -29,7 +29,13 @@ const die = (m) => { console.error(`[universe-entity-axis] FAIL — ${m}`); proc
 // no path aliases and no dependency graph — the two files under test are the only real code loaded.
 const out = mkdtempSync(join(tmpdir(), 'loramer-entity-axis-'))
 const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
+// ⛔ universe-surfaces IS COMPILED ALONGSIDE THE WRITER AS OF 2026-08-09. The writer now imports its canonical
+// key forms from there (LORAMER_CANONICAL_KEY_SPELLING_V1 — one spelling per fact). Left out, it fell through
+// to the catch-all stub below and `canonicalEntityId` returned a Proxy function instead of an id, so every row
+// collapsed onto one undefined key and the DECLINE state disappeared — six findings that looked like writer
+// bugs and were a harness hole. A guard that stubs the thing under test is testing the stub.
 const r = spawnSync(tsc, [rel('src/lib/backfill/google-ads-universe-writer.ts'), rel('src/lib/breakdown-registry.ts'),
+  rel('src/lib/backfill/universe-surfaces.ts'),
   '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node', '--skipLibCheck', '--noResolve',
   '--rootDir', ROOT, '--outDir', out], { encoding: 'utf8' })
 if (r.error) { rmSync(out, { recursive: true, force: true }); die(`could not run tsc — ${r.error.message}`) }
@@ -39,6 +45,8 @@ writeFileSync(stub, `module.exports = new Proxy({ upsertMetricsChunked: async (r
   { get: (t, k) => (k in t ? t[k] : (() => {})) })`)
 const origResolve = Module._resolveFilename
 Module._resolveFilename = function (request, ...rest) {
+  // The writer's REAL canonical-spelling dependency resolves for real; only the leaves are stubbed.
+  if (/universe-surfaces$/.test(request)) return join(out, 'src/lib/backfill/universe-surfaces.js')
   if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
   return origResolve.call(this, request, ...rest)
 }

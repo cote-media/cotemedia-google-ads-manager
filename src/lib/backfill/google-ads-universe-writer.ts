@@ -23,6 +23,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { upsertMetricsChunked, type ChunkedUpsertResult } from '@/lib/metrics-upsert'
 import { describeGaqlError } from '@/lib/intelligence/google-intelligence'
+// ⛔ THE CANONICAL KEY FORMS LIVE AS DATA IN THE SURFACE MODULE — LORAMER_CANONICAL_KEY_SPELLING_V1.
+import { canonicalEntityId, canonicalBreakdownValue } from '@/lib/backfill/universe-surfaces'
 
 export interface UniverseEntry {
   resource: string
@@ -520,10 +522,21 @@ export function entityLevelFor(entry: UniverseEntry): string {
   return entry.resource
 }
 
-/** The vendor's identity for this row, or null when it declined to name one. Reads the ENTRY, not the surface. */
+/**
+ * The vendor's identity for this row, or null when it declined to name one. Reads the ENTRY, not the surface.
+ *
+ * ⛔ NORMALISED 2026-08-09 — LORAMER_CANONICAL_KEY_SPELLING_V1. For the three resources whose NAME IS a legacy
+ * `entity_level` (campaign, ad_group, ad) this now emits the BARE ID the drain has always written
+ * (`google-device.ts:56,61,66`), not the vendor's resource path. Before this, the walk wrote
+ * `customers/7688521852/campaigns/23424584377` where the drain wrote `23424584377`, so the same fact landed as
+ * TWO rows that `metrics_daily_p_natural_key` could not collapse — 67,455 of them on Foam OH.
+ * ⛔ THE DRAIN IS THE INCUMBENT AND DOES NOT MOVE. The mapping is DATA in `universe-surfaces.ts`, never a
+ * conditional here: scattering that judgment across the builder is how the next adapter misses one.
+ */
 export function entityIdFor(entry: UniverseEntry, row: any): string | null {
   const rn = row?.[entry.resource]?.resource_name
-  return rn === undefined || rn === null || rn === '' ? null : String(rn)
+  const raw = rn === undefined || rn === null || rn === '' ? null : String(rn)
+  return canonicalEntityId(entry.resource, raw)
 }
 
 /** ⛔ A DECLINED GRAIN IS ITS OWN FACT. Not absence, not zero — the vendor answered and named no entity. */
@@ -563,7 +576,12 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
     const raw = segPath
       ? segPath.split('.').reduce((a: any, k) => (a == null ? a : a[k]), r.segments)
       : ''
-    const value = raw === undefined || raw === null ? '' : String(raw)
+    // ⛔ CANONICALISED 2026-08-09 — LORAMER_CANONICAL_KEY_SPELLING_V1. The raw segment value is the VENDOR's
+    // spelling; the drain's is the incumbent and wins. device: the ordinal "4" becomes DESKTOP
+    // (`google-device.ts:31-33`). hour: "0" becomes "00" (`google-hour.ts:33`). Anything else passes through —
+    // a fact only the walk writes has no incumbent to conform to, and inventing one would repeat the mistake.
+    const rawValue = raw === undefined || raw === null ? '' : String(raw)
+    const value = rawValue === '' ? '' : canonicalBreakdownValue(bt, rawValue)
     if (segPath && value === '') continue // a SEGMENT row with no segment value is not a grain, it is noise
     const id = entityIdFor(entry, r)
     if (id === null) grainDeclines++

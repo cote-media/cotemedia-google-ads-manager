@@ -19,6 +19,64 @@
 // neither replaces the other: "Search terms, split by device" is one label from each. Where the registry has
 // a word for a dimension, the qualifier below uses the registry's word rather than inventing a second one.
 
+// ── LORAMER_CANONICAL_KEY_SPELLING_V1, 2026-08-09 — ONE SPELLING PER FACT, IN THE KEY ────────────────────
+// ⛔ WHY THIS LIVES HERE AND NOT AS CONDITIONALS IN THE WRITER. The walk and the drain wrote the SAME FACT as
+// TWO ROWS — same campaign, same day, same device, identical numbers — because they disagreed on two of the
+// seven columns of `metrics_daily_p_natural_key`. The unique index cannot collapse them, so both persist:
+// 67,455 rows on Foam OH across 2022-03-05 → 2026-04-05, and `queryBreakdown` groups by breakdown_value, so
+// Lora is handed buckets literally named "2", "3", "4" beside MOBILE/TABLET/DESKTOP.
+// ⛔ THE DRAIN IS THE INCUMBENT AND DOES NOT MOVE. Every form below is READ FROM ITS PRODUCER, never
+// re-derived from a vendor doc — and `canonical-key-spelling.guard.mjs` leg (r) EXECUTES that agreement, so
+// these tables cannot drift from the producer silently.
+
+/**
+ * ⛔ WALK RESOURCES WHOSE NAME **IS** A LEGACY `entity_level`, so they share a key space with the drain.
+ * Measured against the catalog on 2026-08-09: of 182 resources, exactly THREE collide.
+ * ⚠ `ad` IS THE THIRD AND IT WAS NOT IN THE ORIGINAL BRIEF — `customer`, `ad_group_ad` and `keyword_view` are
+ * near-misses that do NOT collide (the legacy names are `account`, `ad`, `keyword`).
+ */
+export const LEGACY_ENTITY_LEVEL_RESOURCES = new Set(['campaign', 'ad_group', 'ad'])
+
+/**
+ * The drain's entity_id at those levels is the BARE vendor id — `String(r.campaign?.id || '')` at
+ * `google-device.ts:56`, `r.ad_group?.id` at `:61`, `r.ad_group_ad?.ad?.id` at `:66`. The walk receives a
+ * resource_name (`customers/7688521852/campaigns/23424584377`); the id is its last path segment.
+ * ⛔ A NON-COLLIDING RESOURCE IS RETURNED UNCHANGED. Its resource_name is the only identity it has, and
+ * rewriting it would invent a second spelling in the other direction.
+ */
+export function canonicalEntityId(resource: string, entityId: string | null): string | null {
+  if (entityId === null || !LEGACY_ENTITY_LEVEL_RESOURCES.has(resource)) return entityId
+  const i = entityId.lastIndexOf('/')
+  return i === -1 ? entityId : entityId.slice(i + 1)
+}
+
+/**
+ * ⛔ DECLARED AS DATA, PINNED TO THE PRODUCER BY A GUARD RATHER THAN BY AN IMPORT. Importing
+ * `deviceName` from `intelligence/google-device.ts` would drag the Google Ads client into every module that
+ * reads a surface label — including the resumer, which must never be able to reach the vendor. Leg (r) of
+ * `canonical-key-spelling.guard.mjs` executes both this table and the producer's, so a drift is a red build.
+ * SOURCE: `google-device.ts:31` — seven entries, and note 5=OTHER / 6=CONNECTED_TV, which is NOT the order a
+ * reading of Google's docs suggests. The producer wins.
+ */
+const DEVICE_ENUM_NAME: Record<string, string> = {
+  '0': 'UNSPECIFIED', '1': 'UNKNOWN', '2': 'MOBILE', '3': 'TABLET', '4': 'DESKTOP', '5': 'OTHER', '6': 'CONNECTED_TV',
+}
+
+/**
+ * Canonicalise a raw segment value into the spelling the drain already writes.
+ * SOURCES: device → `google-device.ts:31-33`; hour → `google-hour.ts:33` (`padStart(2, '0')`).
+ * ⛔ AN UNKNOWN breakdown_type IS RETURNED UNCHANGED — this normalises the facts the two engines SHARE, and
+ * inventing a form for a fact only the walk writes would be the same mistake in a new place.
+ */
+export function canonicalBreakdownValue(breakdownType: string, raw: string): string {
+  if (breakdownType === 'device') return DEVICE_ENUM_NAME[raw] ?? raw
+  if (breakdownType === 'hour') {
+    const n = Number(raw)
+    return Number.isFinite(n) ? String(Math.trunc(n)).padStart(2, '0') : raw
+  }
+  return raw
+}
+
 export interface SurfaceLabel {
   /** What a client calls it. No vendor vocabulary — the guard enforces this. */
   surface: string

@@ -204,6 +204,10 @@ const GUARDS = [
   // LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the walk may not reach a vendor call without passing the sentinel,
   // and its single vendor boundary (the FIFTH) must arm it. The meter is our accounting; the sentinel is the
   // vendor's refusal, and neither substitutes for the other.
+  // LORAMER_CANONICAL_KEY_SPELLING_V1 — one spelling per fact, in the KEY. The walk and the drain wrote the
+  // same fact as two rows because they disagreed on entity_id and breakdown_value; the unique index cannot
+  // collapse that. Legs (p)(q)(r) are static; the data leg (s) runs under --db in check:data.
+  'tests/guards/canonical-key-spelling.guard.mjs',
   'tests/guards/v2-quota-sentinel-wired.guard.mjs',
   // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the walk may not start a range it cannot finish inside
   // maxDuration, using the SHIPPED shouldStartAnotherLap rather than a fork.
