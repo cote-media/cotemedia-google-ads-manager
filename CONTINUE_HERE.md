@@ -124,6 +124,12 @@ FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place 
 
 ⛔ **START HERE. TWO DECISIONS ARE WAITING, AND THEY ARE DECISIONS, NOT WORK.**
 
+⛔ **READ FIRST: `docs/LORAMER_WALK_REBUILD_ARCHITECTURE.md`** — the frozen architecture, the four
+falsifications and the six banked principles (§22-§28). It was authored into a plan file OUTSIDE the repo
+and moved in on 2026-08-09; it is now in `docs/HANDOFF_MANIFEST.json`, so the freshness gate covers it.
+**THE RULE THAT MOVE ESTABLISHES: anything load-bearing that lives outside the repo is invisible to the
+gate that exists to catch exactly this.**
+
 **(A) SCHEDULE THE RESUMER.** `/api/cron/universe-resume` is built, guarded and **NOT in `vercel.json`**;
 it defaults to dry-run and is `Bearer $CRON_SECRET`-gated. **Adding the cron entry is the act that finally
 wires the v2 walk.** ⛔ PRECONDITION: **★DRAIN-SEQUENCING-VS-DERIVED-COVERAGE** — the drain laps
