@@ -135,6 +135,10 @@ const GUARDS = [
   // (--db: catalog unique-index and grant checks) runs in `check:data`, same posture as
   // universe-failure-is-durable — DB work stays off the Vercel build path.
   'tests/guards/universe-attempt-append-only.guard.mjs',
+  // LORAMER_UNIVERSE_CONSUMER_V2_V1 — the streaming consumer's four properties: a charged attempt_started
+  // before every vendor call · a day is covered only when a later day closes it (synthetic mid-day kill) ·
+  // the coverage module never reaches the attempt-log module · the bound is judged at the MINIMUM span.
+  'tests/guards/universe-stream-consumer.guard.mjs',
   'tests/guards/refused-ratio-is-null.guard.mjs',
   'tests/guards/backfill-yields-to-product.guard.mjs',
   // LORAMER_EVAL_SPEND_LEDGER_V1 — the harness price table may not drift from production MODEL_PRICING, an

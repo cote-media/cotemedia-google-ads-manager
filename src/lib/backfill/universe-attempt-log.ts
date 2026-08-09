@@ -148,6 +148,35 @@ export async function appendAttemptFinished(
   if (error) fail('attempt_finished', error)
 }
 
+
+/**
+ * HOW MANY TIMES THIS RANGE HAS BEEN OPENED **AT A GIVEN SPAN**, read WITHOUT opening one.
+ *
+ * ⛔ WHY THIS EXISTS RATHER THAN READING THE VALUE `appendAttemptStarted` ALREADY RETURNS: the bound has to
+ * be evaluated BEFORE the attempt is charged. `appendAttemptStarted` charges spend at open — deliberately,
+ * because that is what makes a hard kill visible to the rate governor — so using its return value to then
+ * REFUSE would bill a request the vendor was never asked for. Over-counting spend is the safe direction for
+ * a governor (plan §23), but it is still a lie about what was spent, and this costs one indexed read.
+ *
+ * ⛔ IT IS NOT COVERAGE AND CANNOT BE MISTAKEN FOR IT. "How many times have we tried" is a fact about US.
+ * Whether the data is captured is answered from `metrics_daily` by `universe-coverage.ts`, which may not
+ * import this module at all.
+ */
+export async function readAttemptsAtSpan(k: AttemptKey): Promise<number> {
+  const { count, error } = await supabaseAdmin
+    .from('universe_attempt_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('resource', k.resource)
+    .eq('segment', k.segment).eq('phase', 'attempt_started')
+    .eq('window_start', k.windowStart).eq('window_end', k.windowEnd)
+  if (error) fail('readAttemptsAtSpan', error)
+  // ⛔ THE COUNT ARRIVES ON THE RESPONSE, NOT IN `data` — a head request returns no rows at all, so reading
+  // `data.length` here would silently return 0 and the bound would NEVER fire. A bound that cannot fire is a
+  // broken instrument that looks like a working one (plan §24).
+  if (typeof count !== 'number') fail('readAttemptsAtSpan', `count was ${JSON.stringify(count)} — a bound that cannot read its own counter must not pass as zero`)
+  return count as number
+}
+
 /**
  * Today's request spend for one vendor lane, summed IN POSTGRES.
  *
