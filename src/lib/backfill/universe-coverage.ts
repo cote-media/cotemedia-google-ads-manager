@@ -21,6 +21,8 @@
 // catastrophic — it means never walking a real gap, silently, forever. Claiming OWED when it is covered
 // costs ONE vendor request. **So every uncertainty in this file resolves to OWED.**
 import { supabaseAdmin } from '@/lib/supabase'
+// ⛔ THE ALIAS IS DATA, IN THE MODULE THAT OWNS SURFACE VOCABULARY — LORAMER_DRAIN_ALIAS_COVERAGE_V1.
+import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
 
 export interface CoverageKey {
   clientId: string
@@ -107,20 +109,39 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   const days = dayList(windowStart, windowEnd)
   const t0 = Date.now()
 
+  // ⛔ THE SAME FETCH CAN ALREADY BE STORED UNDER ANOTHER KEY — LORAMER_DRAIN_ALIAS_COVERAGE_V1. The drain
+  // writes geo at `campaign`/`geo_*` where the walk writes `geographic_view`/`geo_target_*`; measured
+  // 2026-08-09, 898 of one walk's 17,878 requests were re-fetches of exactly that. The alias is DATA in
+  // `universe-surfaces.ts`, PROVEN against live rows before it was written, and re-proven from data by
+  // `drain-alias-coverage.guard.mjs` leg (v) on every check:data run — because claiming COVERED when it is not
+  // is the catastrophic direction named at the top of this file.
+  const alias = drainAliasFor(k.entityLevel, k.breakdownType)
+
   const hits = await Promise.all(days.map(async (day) => {
-    const { data, error } = await supabaseAdmin
+    const probe = (entityLevel: string, breakdownType: string) => supabaseAdmin
       .from('metrics_daily')
       .select('date')
       .eq('client_id', k.clientId).eq('platform', k.platform)
-      .eq('entity_level', k.entityLevel).eq('breakdown_type', k.breakdownType)
+      .eq('entity_level', entityLevel).eq('breakdown_type', breakdownType)
       .eq('date', day).limit(1)
+    const { data, error } = await probe(k.entityLevel, k.breakdownType)
     // ⛔ AN ERROR IS NOT AN ABSENCE. Returning `false` here would say "not covered" — the SAFE direction for
     // walking, but a LIE about the data, and the difference matters the moment this feeds a customer-facing
     // completeness claim. Throw rather than synthesise an answer from a failed read.
     if (error) throw new Error(
       `[universe-coverage] probe failed for ${k.entityLevel}/${k.breakdownType || '(base)'} on ${day}: ${error.message}. ` +
       `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
-    return { day, has: (data?.length ?? 0) > 0 }
+    if ((data?.length ?? 0) > 0) return { day, has: true }
+    // ⛔ ONE EXTRA INDEXED PROBE, AND ONLY WHEN THE FIRST FOUND NOTHING. A day already covered under the walk's
+    // own key never pays for it, so the cost lands exactly where the saving is. An alias read that FAILS is
+    // treated the same as the primary — thrown, never synthesised into an answer.
+    if (!alias) return { day, has: false }
+    const { data: aData, error: aErr } = await probe(alias.entityLevel, alias.breakdownType)
+    if (aErr) throw new Error(
+      `[universe-coverage] ALIAS probe failed for ${k.entityLevel}/${k.breakdownType || '(base)'} → ` +
+      `${alias.entityLevel}/${alias.breakdownType} on ${day}: ${aErr.message}. ` +
+      `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+    return { day, has: (aData?.length ?? 0) > 0 }
   }))
 
   const covered = coveredDaysStrict(hits.filter((h) => h.has).map((h) => h.day))

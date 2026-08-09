@@ -208,6 +208,10 @@ const GUARDS = [
   // same fact as two rows because they disagreed on entity_id and breakdown_value; the unique index cannot
   // collapse that. Legs (p)(q)(r) are static; the data leg (s) runs under --db in check:data.
   'tests/guards/canonical-key-spelling.guard.mjs',
+  // LORAMER_DRAIN_ALIAS_COVERAGE_V1 — a surface the drain already stores is not owed, even under another key.
+  // Static legs (t)(u); the LIVE alias demonstration (v) runs under --db in check:data, because an alias is a
+  // claim that another key counts as coverage and a wrong one skips real history permanently.
+  'tests/guards/drain-alias-coverage.guard.mjs',
   'tests/guards/v2-quota-sentinel-wired.guard.mjs',
   // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the walk may not start a range it cannot finish inside
   // maxDuration, using the SHIPPED shouldStartAnotherLap rather than a fork.

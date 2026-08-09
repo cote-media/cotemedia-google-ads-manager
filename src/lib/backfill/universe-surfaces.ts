@@ -77,6 +77,84 @@ export function canonicalBreakdownValue(breakdownType: string, raw: string): str
   return raw
 }
 
+// ── LORAMER_DRAIN_ALIAS_COVERAGE_V1, 2026-08-09 — THE SAME FETCH, STORED UNDER ANOTHER KEY ───────────────
+// ⛔ MEASURED, NOT ASSUMED: 1,220 of the 08-04..08-08 walk's 17,878 vendor requests (6.8%) were spent on
+// ground the drain had already covered, and 898 of those — 73% — were geo. The colliding surfaces (device,
+// hour, …) are already prevented, because after LORAMER_CANONICAL_KEY_SPELLING_V1 the walk and the drain share
+// a key there and `windowCoverage` sees the drain's own rows. GEO IS DIFFERENT: the walk stores it at
+// entity_level `geographic_view` / `user_location_view`; the drain stores the same vendor data at
+// `campaign`/`ad_group` with `geo_*` / `user_geo_*` (`google-geo.ts:70-80`, entity axis at `:94-97`).
+//
+// ⛔ AN ALIAS IS A CLAIM THAT ANOTHER KEY COUNTS AS COVERAGE, AND `universe-coverage.ts:20-22` names the
+// asymmetry: claiming COVERED when it is not is CATASTROPHIC — it means never walking a real gap, silently,
+// forever — while claiming OWED when it is covered costs ONE request. **SO EVERY ENTRY BELOW WAS PROVEN
+// AGAINST LIVE ROWS BEFORE IT WAS WRITTEN, and `drain-alias-coverage.guard.mjs` leg (v) re-proves each one
+// from data on every check:data run.** Foam OH 2026-03-09, the vendor's own additive counters:
+//     geographic_view/geo_target_state  62,345 impr · 1,568 clicks
+//     campaign/geo_state                62,345 impr · 1,568 clicks   ← EXACT
+//     user_location_view/geo_target_state 62,341 impr · 1,567 clicks
+//     campaign/user_geo_state           62,341 impr · 1,567 clicks   ← EXACT
+//     …and the same at metro (62,229/1,565 vs 62,229/1,565; 62,224/1,564 vs 62,224/1,564).
+// ⛔ THE TWO VIEWS DIFFER FROM EACH OTHER BY A HANDFUL OF IMPRESSIONS AND EACH MATCHES ITS OWN COUNTERPART
+// EXACTLY. That is what makes this an alias rather than a coincidence: a sloppy map would have crossed them.
+//
+// ⛔ GRAIN DIRECTION, CHECKED: the drain is FINER (campaign + ad_group) and the walk's view-level row is the
+// roll-up. A finer store proves the vendor was asked. THE REVERSE WOULD NOT BE AN ALIAS — if the drain held a
+// COARSER grain, claiming coverage from it would skip finer history permanently, and such a surface belongs in
+// WALK_ONLY_SURFACES instead.
+
+export interface DrainAlias { entityLevel: string; breakdownType: string }
+
+/**
+ * key: `<walk entity_level>|<walk breakdown_type>` → the drain's key for the SAME vendor data.
+ * ⛔ ONLY GRAINS THE DRAIN ACTUALLY DECLARES. `google-geo.ts:55-68` lists city · metro · region · state ·
+ * province · county · district · postal · most_specific. Anything else the walk fetches on these views has no
+ * counterpart and is WALK-ONLY below — it is not aliased just because its name looks geographic.
+ */
+export const DRAIN_ALIAS: Record<string, DrainAlias> = {
+  'geographic_view|geo_target_city': { entityLevel: 'campaign', breakdownType: 'geo_city' },
+  'geographic_view|geo_target_metro': { entityLevel: 'campaign', breakdownType: 'geo_metro' },
+  'geographic_view|geo_target_region': { entityLevel: 'campaign', breakdownType: 'geo_region' },
+  'geographic_view|geo_target_state': { entityLevel: 'campaign', breakdownType: 'geo_state' },
+  'geographic_view|geo_target_county': { entityLevel: 'campaign', breakdownType: 'geo_county' },
+  'geographic_view|geo_target_postal_code': { entityLevel: 'campaign', breakdownType: 'geo_postal' },
+  'geographic_view|geo_target_most_specific_location': { entityLevel: 'campaign', breakdownType: 'geo_most_specific' },
+  'user_location_view|geo_target_metro': { entityLevel: 'campaign', breakdownType: 'user_geo_metro' },
+  'user_location_view|geo_target_region': { entityLevel: 'campaign', breakdownType: 'user_geo_region' },
+  'user_location_view|geo_target_state': { entityLevel: 'campaign', breakdownType: 'user_geo_state' },
+  'user_location_view|geo_target_district': { entityLevel: 'campaign', breakdownType: 'user_geo_district' },
+  'user_location_view|geo_target_province': { entityLevel: 'campaign', breakdownType: 'user_geo_province' },
+}
+
+/**
+ * ⛔ CHECKED, AND THE DRAIN DOES NOT HOLD IT — said out loud so silence never reads as "nobody looked".
+ * `geo_target_airport` and `geo_target_canton` have NO drain grain at all. The BASE entries and any
+ * non-geographic segment on these views (device, ad_network_type, month_of_year, ad_sub_network_type) are
+ * geo × something-else, which the drain never fetches. All of it is genuinely owed and must keep being walked.
+ */
+/**
+ * ⛔ CANDIDATES THAT COULD NOT BE DEMONSTRATED, AND THEREFORE ARE NOT ALIASES. The name matches a drain grain,
+ * the mapping is probably right — and PROBABLY IS NOT A STANDARD HERE. `drain-alias-coverage.guard.mjs` leg
+ * (v) found no sampled day on which EITHER key holds a row for these, so there is no evidence to stand on.
+ * They stay unaliased, which means the walk keeps fetching them: ONE request per window, the cheap direction.
+ * Promote an entry only when leg (v) can demonstrate it from rows.
+ *   geographic_view|geo_target_district → campaign/geo_district  (no district rows on any sampled day)
+ */
+export const UNPROVEN_ALIAS_CANDIDATES = new Set(['geographic_view|geo_target_district'])
+
+export const WALK_ONLY_SURFACES = new Set([
+  'geographic_view|geo_target_airport',
+  'user_location_view|geo_target_airport',
+  'user_location_view|geo_target_canton',
+  'geographic_view|geographic_view',
+  'user_location_view|user_location_view',
+])
+
+/** The drain's key for this walk surface, or null when there is none. */
+export function drainAliasFor(entityLevel: string, breakdownType: string): DrainAlias | null {
+  return DRAIN_ALIAS[`${entityLevel}|${breakdownType}`] ?? null
+}
+
 export interface SurfaceLabel {
   /** What a client calls it. No vendor vocabulary — the guard enforces this. */
   surface: string
