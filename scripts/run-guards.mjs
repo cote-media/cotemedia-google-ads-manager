@@ -243,6 +243,8 @@ const GUARDS = [
   // LORAMER_INCEPTION_STOP_V1 — the account inception stop: unfiltered one-op discovery, per-account scope
   // with provenance, ONE composition site, and UNKNOWN refuses an unbounded walk rather than defaulting.
   'tests/guards/inception-stop.guard.mjs',
+  // LORAMER_FIVE_STEP_ROUNDS_V1 — placement of the framework law in ESSENCE; obedience lives in chat.
+  'tests/guards/five-step-rounds.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

@@ -406,3 +406,29 @@ limit; any accepted cap (retention floor, scope wall, API limit) is a logged,
 deliberate decision. The scorecard is docs/LORAMER_DATA_COMPLETENESS.md + docs/LORAMER_DEFINITIVE_CAPTURE_INVENTORY.md §6 (the cross-platform gap list).
 
 If a change makes Lora more confident but not more provable, it is wrong.
+
+## ⛔ THE FIVE-STEP FRAMEWORK — LORAMER_FIVE_STEP_ROUNDS_V1 (LAW — RUSS, banked 2026-08-10)
+
+**RESEARCH → ADVERSARY → TEST → RUN → VERIFY.** Every substantive flight is one of these five, named.
+- **No RUN-class step ever skips a round.** A vendor spend, a deploy, a migration, a schedule — each arrives
+  only after its research was permitted to kill it and its adversary round tried to.
+- **Read-only steps may compress RESEARCH/ADVERSARY into one — compression is DECLARED, never silent.**
+- **VERIFY is never skipped for anything that wrote, spent, or deployed.** The 2026-08-10 precedent both
+  ways: the vendor probe's VERIFY found six unledgered ops no governor could see, and a push made before
+  `check:data` had to be confessed rather than verified.
+- **Every Claude Code instruction carries a `ROUND:` header naming its step.**
+WHY IT EARNED LAW STATUS THE DAY IT WAS NAMED: the discovered-floor arc ran the full ladder — research
+(retention docs), adversary (six attacks, two designs killed), test (guards red-first), run (6 probe ops
+under a declared cap), verify (the meter hole) — and every round changed the next one's content.
+ENFORCEMENT, honest about its limit: `tests/guards/five-step-rounds.guard.mjs` asserts this section and the
+five names stay present and intact in ESSENCE — placement, like the ONE-BLOCK law. **Instruction-level
+obedience lives in chat, where no repo guard can observe it; the enforcer of the header convention is Russ.**
+
+## ⛔ RESEARCH-BEFORE-DESIGN — LORAMER_RESEARCH_BEFORE_DESIGN_V1 (LAW — RUSS, banked 2026-08-10)
+
+**A build brief may not contain its own research. Research is a separate flight, and it is PERMITTED TO
+KILL THE BUILD.** A brief that embeds its evidence has already decided; findings bent toward a build that
+is already written are not findings. PRECEDENT, same day: the zero-metrics read was commissioned ahead of
+its build round with kill authority stated — "if the answer is 'the vendor publishes nothing,' that is a
+complete and correct result" — and the retention research DID kill design v1's clock-derived floor before
+a line of it was built.
