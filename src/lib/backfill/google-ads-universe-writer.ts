@@ -258,6 +258,97 @@ export async function recordAccountWall(k: {
   if (error) throw new Error(`[universe-floor] wall write failed for ${k.resource}/${k.segment || '(base)'}: ${error.message}`)
 }
 
+// ── THE INCEPTION STOP — PER ACCOUNT, FROM THE VENDOR'S OWN EARLIEST CAMPAIGN ──────────────────────────────
+/**
+ * ⛔ ONE OP PER ACCOUNT, AND THE QUERY IS A CONSTANT SO A GUARD CAN PIN ITS SHAPE. NO STATUS FILTER — the
+ * API includes REMOVED campaigns by default (cookbook, verbatim: "The Google Ads UI implicitly filters out
+ * removed entities, whereas the API does not"), and a well-meaning `!= REMOVED` added later would silently
+ * OVERSTATE the floor on exactly the old accounts that matter. `inception-stop.guard.mjs` leg (a) fails the
+ * build if a status predicate appears here.
+ * ⚠ `campaign.start_date` does NOT exist in API v23 — probe op 5 was refused with query_error 32. This is
+ * the successor field, proven by probe op 6. The registry owns both measurements.
+ */
+export const INCEPTION_DISCOVERY_GAQL =
+  'SELECT campaign.start_date_time FROM campaign ORDER BY campaign.start_date_time ASC LIMIT 1'
+
+/** Absence of a row is **UNKNOWN**, returned as null — never a default. An unreadable store THROWS. */
+export async function readAccountInception(k: { clientId: string; vendor: string }):
+  Promise<{ inceptionDate: string; rawStartDateTime: string; source: string } | null> {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  const { data, error } = await supabaseAdmin
+    .from('universe_account_inception')
+    .select('inception_date, raw_start_date_time, source')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .limit(1)
+  if (error) throw new Error(
+    `[universe-inception] read failed for ${k.clientId}: ${error.message}. ` +
+    `⛔ AN INCEPTION MUST NOT BE SYNTHESISED FROM A FAILED READ — unreadable is UNKNOWN, and UNKNOWN refuses an unbounded walk.`)
+  const row = data?.[0]
+  if (!row) return null
+  return { inceptionDate: String(row.inception_date), rawStartDateTime: String(row.raw_start_date_time), source: String(row.source) }
+}
+
+/** The derived date is .slice(0,10) of the vendor's ACCOUNT-TIMEZONE datetime — same frame as segments.date
+ *  days, so the comparison is internally consistent (registry row, probe op 6, owns the caveat). */
+export async function recordAccountInception(k: { clientId: string; vendor: string; rawStartDateTime: string }): Promise<void> {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  const { error } = await supabaseAdmin.rpc('universe_record_account_inception', {
+    p_client_id: k.clientId, p_vendor: k.vendor,
+    p_inception_date: k.rawStartDateTime.slice(0, 10), p_raw: k.rawStartDateTime,
+  })
+  if (error) throw new Error(`[universe-inception] write failed for ${k.clientId}: ${error.message}`)
+}
+
+/** min(date) this account already holds in metrics_daily — an index-head read on
+ *  idx_mdp_client_platform_date, one row. null = the account holds nothing yet. */
+export async function readEarliestHeldDate(clientId: string, platform: string): Promise<string | null> {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  const { data, error } = await supabaseAdmin
+    .from('metrics_daily')
+    .select('date')
+    .eq('client_id', clientId).eq('platform', platform)
+    .order('date', { ascending: true })
+    .limit(1)
+  if (error) throw new Error(`[universe-inception] earliest-held read failed for ${clientId}: ${error.message}`)
+  return data?.[0]?.date ? String(data[0].date) : null
+}
+
+/**
+ * ⛔⛔ THE ONE COMPOSITION SITE'S ONE FUNCTION — LORAMER_INCEPTION_STOP_V1. Pure, so a guard can drive it.
+ * `inception-stop.guard.mjs` leg (c) fails the build if more than one call site exists: two reads composed
+ * in two places is the two-owners shape that put a floor on a queue message.
+ *
+ * THE ALGEBRA, each line an adversarially-settled decision:
+ *   inceptionStop = min(inceptionDate, earliestHeldDate)   — the held-data min is the SAFEGUARD, a
+ *     measurement not a margin: data we already hold is proof the vendor served below the claimed
+ *     inception, so the stop can never orphan ground we can see.
+ *   stopDate = max(wallDate, inceptionStop)                — the vendor's own refusal outranks our
+ *     inference; both survive with their own stores and provenance.
+ *   inceptionKnown = false                                 — UNKNOWN. It does not fall through to ANY
+ *     date (leg (d) drives this): the caller must refuse an unbounded walk and report. Walk-to-epoch is
+ *     an EXPLICIT operator choice on the message, never a fallback.
+ */
+export function composeWalkStop(args: {
+  wallDate: string | null
+  inceptionDate: string | null
+  earliestHeldDate: string | null
+}): { stopDate: string | null; inceptionKnown: boolean; basis: string } {
+  const { wallDate, inceptionDate, earliestHeldDate } = args
+  const inceptionStop = inceptionDate === null
+    ? null
+    : (earliestHeldDate !== null && earliestHeldDate < inceptionDate ? earliestHeldDate : inceptionDate)
+  const stopDate = wallDate === null ? inceptionStop
+    : inceptionStop === null ? wallDate
+    : (wallDate > inceptionStop ? wallDate : inceptionStop)
+  const basis = stopDate === null ? 'UNKNOWN — no wall observed, no inception discovered'
+    : stopDate === wallDate && (inceptionStop === null || wallDate! > inceptionStop)
+      ? `vendor refusal wall ${wallDate}`
+      : earliestHeldDate !== null && stopDate === earliestHeldDate && inceptionDate !== null && earliestHeldDate < inceptionDate
+        ? `held-data floor ${earliestHeldDate} (below the claimed inception ${inceptionDate} — held rows outrank the claim)`
+        : `account inception ${inceptionDate}`
+  return { stopDate, inceptionKnown: inceptionDate !== null, basis }
+}
+
 // ── DEFERRED UNDER A DISK CONSTRAINT — LORAMER_UNIVERSE_NARROWED_SET_V1, 2026-08-04 ────────────────────────
 // ⛔ THESE ARE DEFERRED, NOT DROPPED, AND ALL-MEANS-ALL IS NOT REPEALED. This is SEQUENCING UNDER A DISK
 // CONSTRAINT and nothing else: 12 of 358 entries carry 41.9% of the walk's disk (68.2 GB of 162.9 GB),

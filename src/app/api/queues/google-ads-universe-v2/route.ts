@@ -48,7 +48,7 @@ import { handleCallback, send } from '@vercel/queue'
 // on this file within minutes of the file existing; that guard is the reason this comment is here.
 // ⛔ VENDOR_FLOOR_DATE IS DELIBERATELY NOT IMPORTED — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. The floor is
 // DISCOVERED per (account, surface) from the vendor's own refusal and resolved at EXECUTE time.
-import { readAccountWall, recordAccountWall, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { readAccountWall, recordAccountWall, readAccountInception, readEarliestHeldDate, composeWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
 // ⛔ THE ADAPTER SUPPLIES EVERY GOOGLE FACT THE CORE USED TO HOLD: the GAQL, the ORDER BY, the retention
 // floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
@@ -177,10 +177,24 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   const surfaceWall = await readAccountWall({
     clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
   })
-  const floorDate: string | null = surfaceWall?.wallDate ?? null
   console.log(`[universe-v2] SURFACE WALL ${clientId} ${label}: ` + (surfaceWall
     ? `DISCOVERED ${surfaceWall.wallDate} (${surfaceWall.source}) for THIS resource+segment only — ${surfaceWall.citation.slice(0, 120)}`
     : 'UNKNOWN — no vendor refusal has ever been observed for this resource+segment on this account. This says nothing about other surfaces. The walk continues until the vendor refuses; it does NOT stop on a clock.'))
+  // ⛔ THE ONE COMPOSITION SITE — LORAMER_INCEPTION_STOP_V1. Surface wall (vendor refusal, per-surface store)
+  // composed with the account inception stop (earliest campaign, per-account store) by composeWalkStop and
+  // NOWHERE ELSE (inception-stop.guard.mjs leg (c)). The held-data min is the safeguard: rows we already
+  // hold outrank the inception claim, so the stop can never orphan ground we can see. Date-only comparison
+  // in the ACCOUNT-TIMEZONE frame — the registry's probe-op-6 row owns that caveat.
+  const inception = await readAccountInception({ clientId, vendor: adapter.platform })
+  const heldMin = await readEarliestHeldDate(clientId, adapter.platform)
+  const walkStop = composeWalkStop({
+    wallDate: surfaceWall?.wallDate ?? null,
+    inceptionDate: inception?.inceptionDate ?? null,
+    earliestHeldDate: heldMin,
+  })
+  const floorDate: string | null = walkStop.stopDate
+  console.log(`[universe-v2] WALK STOP ${clientId} ${label}: ${walkStop.basis}` +
+    (walkStop.inceptionKnown ? '' : ' · ⚠ INCEPTION UNKNOWN — an unbounded walk will REFUSE to advance (walkToEpoch is an explicit operator choice, never a fallback)'))
 
   // ══ 1 · WHAT IS STILL OWED — THE ONLY QUESTION, AND IT IS ASKED OF THE WAREHOUSE ══════════════════════
   // ⛔ THE WALK DECISION PATH READS **ONLY** THE COVERAGE MODULE. Not `universe_window_log`, not the attempt
@@ -200,7 +214,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // early, and none re-published. The starter reported "started: true, published: 346" and the chain was
     // already dead. **A resume that does not advance is indistinguishable from one that worked, right up
     // until nothing happens.**
-    const adv = await advance(msg, adapter, floorDate, 'already covered — nothing owed in this window')
+    const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
     return
   }
@@ -351,8 +365,11 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       `This is a REFUSAL, not a zero: a successful empty window is NO_DATA_OBSERVED and never reaches here.`)
   }
   // ⛔ THE FLOOR THE ADVANCE USES. A wall discovered THIS invocation binds immediately — advancing past a
-  // refusal we just received would spend the next request re-learning it.
-  const effectiveFloor: string | null = observedWall?.date ?? floorDate
+  // refusal we just received would spend the next request re-learning it. max() against the composed stop:
+  // a fresh refusal can only RAISE the stop, never lower it below the inception line.
+  const effectiveFloor: string | null = observedWall === null ? floorDate
+    : floorDate === null ? observedWall.date
+    : (observedWall.date > floorDate ? observedWall.date : floorDate)
 
   // ⛔ THE DEFERRAL IS RECORDED DURABLY AND CHARGED NOTHING. A budget stop that lives only in a log line is a
   // stop nobody can act on (Vercel runtime logs expire in an hour), and LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1
@@ -392,7 +409,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     console.warn(`[universe-v2] EMPTY-STRETCH ${clientId} ${label}: ${emptyStretch} consecutive all-empty windows — reported, NOT stopped. The walk continues.`)
   }
 
-  const adv = await advance({ ...msg, emptyStretch }, adapter, effectiveFloor,
+  const adv = await advance({ ...msg, emptyStretch }, adapter, { stopDate: effectiveFloor, inceptionKnown: walkStop.inceptionKnown },
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
   return
@@ -407,11 +424,25 @@ export const POST = handler as unknown as (req: Request) => Promise<Response>
  * Order is load-bearing: BOUND (were we asked for another window) → FLOOR (is there ground left below the
  * vendor wall) → SIZE (how much to ask for) → GOVERNOR (may we afford it).
  */
-async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof googleAdsCaptureAdapter>, floorDate: string | null, why: string) {
+async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof googleAdsCaptureAdapter>, stop: { stopDate: string | null; inceptionKnown: boolean }, why: string) {
   const { clientId, entry, startDate } = msg
+  const floorDate = stop.stopDate
   const remaining = msg.windowsRemaining
   if (remaining !== undefined && remaining <= 1) {
     return { ok: true, advanced: false, reason: `bounded run exhausted (windowsRemaining=${remaining})`, why }
+  }
+  // ⛔ UNKNOWN REFUSES AN UNBOUNDED WALK — LORAMER_INCEPTION_STOP_V1. With no inception discovered and no
+  // bound on the chain, "keep walking" means walking empty 30-day windows toward the year 2000, ~316 windows
+  // per surface of pure quota. That walk happens only when an OPERATOR says so, on the message, explicitly.
+  // It never happens because a discovery query failed and something defaulted.
+  if (!stop.inceptionKnown && remaining === undefined && msg.walkToEpoch !== true) {
+    return {
+      ok: true, advanced: false,
+      reason: `REFUSED-UNBOUNDED: account inception is UNKNOWN for ${clientId} and this chain has no windowsRemaining bound. ` +
+        `Discovery (${'INCEPTION_DISCOVERY_GAQL'}) either failed or has not run — store a row in universe_account_inception, ` +
+        `or re-publish with walkToEpoch:true as an explicit operator choice. Nothing is defaulted.`,
+      why,
+    }
   }
   // ⛔ THE DISCOVERED WALL — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. `floorDate` is the date the VENDOR
   // REFUSED for THIS (account, surface), resolved at execute time by the caller. It is never a clock, never

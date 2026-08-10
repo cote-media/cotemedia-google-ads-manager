@@ -68,4 +68,10 @@ export interface UniverseMessageV2 {
    * and a 24h TTL against a moving boundary. The distinction is the whole design.)
    */
   emptyStretch?: number
+  /**
+   * ⛔ EXPLICIT OPERATOR CHOICE ONLY — LORAMER_INCEPTION_STOP_V1. When the account's inception is UNKNOWN
+   * (discovery failed, no row stored) an UNBOUNDED walk REFUSES to run. Setting this true is the operator
+   * saying "walk to epoch anyway, eyes open". It is never set by code; no default ever supplies it.
+   */
+  walkToEpoch?: boolean
 }

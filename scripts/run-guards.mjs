@@ -240,6 +240,9 @@ const GUARDS = [
   // LORAMER_EMPTY_STRETCH_VISIBILITY_V1 — a long empty stretch is REPORTED at 400 windows (above the
   // measured 2,267-day dormancy) and NEVER stopped on; the counter is chain-local, increments, resets.
   'tests/guards/empty-stretch-visibility.guard.mjs',
+  // LORAMER_INCEPTION_STOP_V1 — the account inception stop: unfiltered one-op discovery, per-account scope
+  // with provenance, ONE composition site, and UNKNOWN refuses an unbounded walk rather than defaulting.
+  'tests/guards/inception-stop.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
