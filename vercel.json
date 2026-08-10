@@ -75,6 +75,16 @@
           "maxConcurrency": 2
         }
       ]
+    },
+    "src/app/api/queues/google-ads-universe-v2/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "google-ads-universe-v2",
+          "retryAfterSeconds": 60,
+          "maxConcurrency": 2
+        }
+      ]
     }
   }
 }
