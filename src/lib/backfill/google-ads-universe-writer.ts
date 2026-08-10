@@ -151,11 +151,112 @@ export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
 export const PROVENANCE_VENDOR = 'VENDOR_REPORTED'
 
 /**
- * ⛔ THE MEASURED VENDOR FLOOR. Established by probing this account, not assumed, and it is the ONLY date at
- * which a zero-row window may be read as exhaustion (LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1). One constant
- * serves both the SEAL and the PUBLISH stop, so the two can never disagree about where history ends.
+ * ⛔⛔ DO NOT USE THIS AS AN ACCOUNT FLOOR. IT IS ONE ACCOUNT'S MEASUREMENT, KEPT ONLY FOR THE v1 CONSUMER.
+ * LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1, 2026-08-10.
+ *
+ * This was Foam OH's measured floor written as a global constant, and it is the fifth constant of that
+ * shape this project has found. It is WRONG BY CONSTRUCTION for an account nobody here has ever seen —
+ * which is every account a paying customer connects tomorrow, and they are the ones this engine is for.
+ *
+ * ⛔ THE v2 PATH NO LONGER READS IT. `google-ads.adapter.ts` declares `floorDate: null` (there is no
+ * PRE-KNOWN wall for an arbitrary account), and the v2 consumer resolves a DISCOVERED floor per
+ * (account, surface) at EXECUTE time via `readAccountWall()` below. `google-account-floor.guard.mjs`
+ * fails the build if a global date literal is reintroduced as an account floor on that path.
+ *
+ * ⚠ IT SURVIVES FOR EXACTLY TWO CALLERS, BOTH OUTSIDE THIS FLIGHT'S CEILING AND BOTH NAMED SO THE RESIDUAL
+ * IS NOT INVISIBLE: `src/app/api/queues/google-ads-universe/route.ts` (the v1 consumer) and
+ * `src/app/api/cron/universe-resume/route.ts`. Deleting the export requires editing those two files.
+ * QUEUE: ★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR.
  */
 export const VENDOR_FLOOR_DATE = '2022-03-05'
+
+// ── THE RETENTION WARNING LINE — REPORTING ONLY, AND IT NEVER STOPS A WALK ─────────────────────────────────
+/**
+ * ⛔ THIS IS A LABEL, NOT A LIMIT. Google publishes a 37-month wall for granular segments effective
+ * 2026-06-01 (docs/LORAMER_BACKFILL_FACT_REGISTRY.md holds the URL and the verbatim quote). We measured the
+ * vendor serving DAILY, VENDOR_REPORTED rows **53 months back** on 2026-08-04..08 — after that date. Both
+ * facts are true and they disagree; the registry records the disagreement rather than resolving it.
+ *
+ * ⛔ SO THE LINE MAY CHANGE WHAT A REPORT SAYS AND MAY NEVER CHANGE WHAT A WALK DOES. A clock-derived stop
+ * is precisely what produced 214 cursors reading `backfill_complete=true` while Google still served years
+ * more (see this file's header). The walk stops on a VENDOR REFUSAL and on nothing else.
+ *
+ * ⚠ AMBIGUITY CARRIED DELIBERATELY, NOT RESOLVED IN CODE: Google never expresses this as a number of DAYS.
+ * "37 months" as calendar months and 37 × 30.44 ≈ 1,126 days give different boundary dates. Calendar
+ * months is used here because that is the vendor's own unit; the registry records that the vendor has not
+ * said which it means. Nothing depends on the answer, because nothing stops here.
+ */
+export const RETENTION_WARNING_LINE_MONTHS = 37
+
+/**
+ * Calendar-month arithmetic on the vendor's own unit. REPORTING ONLY — never a stop, never a clamp.
+ *
+ * ⛔ PURE, AND IT CONSTRUCTS NO `Date`. `google-ads-universe-writer.guard.mjs` leg (a) forbids this file
+ * consulting a clock at all, and it FAILED THIS FUNCTION on its first version, which used
+ * `new Date(Date.UTC(...))` only to find a month length. The guard was right: it cannot tell a Date used for
+ * arithmetic from a Date used to end a walk, and it should not have to. `today` arrives as an argument.
+ */
+export function retentionWarningLine(todayIso: string): string {
+  const [y, m, d] = todayIso.slice(0, 10).split('-').map(Number)
+  const total = y * 12 + (m - 1) - RETENTION_WARNING_LINE_MONTHS
+  const ny = Math.floor(total / 12)
+  const nm = (total % 12 + 12) % 12
+  // Clamp the day into the target month rather than rolling over (2026-03-31 − 37mo must not land in March).
+  const leap = (ny % 4 === 0 && ny % 100 !== 0) || ny % 400 === 0
+  const lastDay = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][nm]
+  const nd = Math.min(d, lastDay)
+  return `${String(ny).padStart(4, '0')}-${String(nm + 1).padStart(2, '0')}-${String(nd).padStart(2, '0')}`
+}
+
+// ── THE DISCOVERED FLOOR — PER (ACCOUNT, SURFACE), FROM THE VENDOR'S REFUSAL, NEVER FROM A CLOCK ───────────
+/**
+ * ⛔ ABSENCE OF A ROW MEANS **UNKNOWN**, AND `null` IS RETURNED FOR IT. Not '1970-01-01', not
+ * VENDOR_FLOOR_DATE, not "no history". A caller that cannot tell UNKNOWN from a measured wall will
+ * eventually treat one as the other, which is the entire failure this replaces.
+ *
+ * ⛔ AN UNREADABLE STORE IS ALSO UNKNOWN, AND IT THROWS RATHER THAN ANSWERING. Returning null on a failed
+ * read would say "no wall known" — which is the SAFE direction for walking but a LIE about what we know,
+ * and it is the same synthesise-an-answer-from-a-failed-read defect universe-coverage.ts:130-134 forbids.
+ */
+export async function readAccountWall(k: {
+  clientId: string; vendor: string; resource: string; segment: string
+}): Promise<{ wallDate: string; source: string; citation: string } | null> {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  const { data, error } = await supabaseAdmin
+    .from('universe_account_floor')
+    .select('wall_date, source, citation')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .eq('resource', k.resource).eq('segment', k.segment)
+    .limit(1)
+  if (error) throw new Error(
+    `[universe-floor] wall read failed for ${k.resource}/${k.segment || '(base)'}: ${error.message}. ` +
+    `⛔ A FLOOR MUST NOT BE SYNTHESISED FROM A FAILED READ — an unreadable store is UNKNOWN, and UNKNOWN stops the walk.`)
+  const row = data?.[0]
+  if (!row) return null
+  return { wallDate: String(row.wall_date), source: String(row.source), citation: String(row.citation) }
+}
+
+/**
+ * ⛔ THE ONLY WRITER OF A FLOOR IN THIS SYSTEM, AND ITS ONLY INPUT IS A VENDOR REFUSAL. It is never called
+ * with a computed date, and `source` is CHECK-constrained to 'vendor-refusal' in the migration so a future
+ * caller cannot quietly widen it.
+ *
+ * ⛔ THE HIGHEST WALL WINS. If a wall is already recorded, a NEWER refusal at an OLDER date does not lower
+ * it — the vendor refusing at 2020 does not un-refuse 2022. `greatest()` keeps the shallowest observed
+ * refusal, which is the conservative direction: it claims LESS history is unreachable, so the walk keeps
+ * asking for ground we might still get rather than sealing it.
+ */
+export async function recordAccountWall(k: {
+  clientId: string; vendor: string; resource: string; segment: string
+  wallDate: string; citation: string
+}): Promise<void> {
+  const { supabaseAdmin } = await import('@/lib/supabase')
+  const { error } = await supabaseAdmin.rpc('universe_record_account_wall', {
+    p_client_id: k.clientId, p_vendor: k.vendor, p_resource: k.resource,
+    p_segment: k.segment, p_wall_date: k.wallDate, p_citation: k.citation,
+  })
+  if (error) throw new Error(`[universe-floor] wall write failed for ${k.resource}/${k.segment || '(base)'}: ${error.message}`)
+}
 
 // ── DEFERRED UNDER A DISK CONSTRAINT — LORAMER_UNIVERSE_NARROWED_SET_V1, 2026-08-04 ────────────────────────
 // ⛔ THESE ARE DEFERRED, NOT DROPPED, AND ALL-MEANS-ALL IS NOT REPEALED. This is SEQUENCING UNDER A DISK

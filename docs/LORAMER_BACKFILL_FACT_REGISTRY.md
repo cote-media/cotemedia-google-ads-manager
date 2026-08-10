@@ -1,3 +1,5 @@
+<!-- QUEUE-EXEMPT: a REGISTRY OF ESTABLISHED FACTS, not a build plan. Every row records something already researched, verified, tested or run; nothing here is work to schedule. The open WORK this file makes visible (GA4's two floor constants, floor36, the 67-request constant, ★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR) is owned by LORAMER_QUEUE_OF_RECORD.md, which is where scheduling lives. -->
+
 # LORAMER_BACKFILL_FACT_REGISTRY.md — ONE ROW PER FACT THE CAPTURE PATH RELIES ON
 
 <!-- LORAMER_BACKFILL_FACT_REGISTRY_V1 -->
@@ -96,11 +98,30 @@ say what it is a measurement OF.
 
 | FACT AS WRITTEN | CLASS | TRUE SCOPE | SOURCE | ESTABLISHED | NOTES |
 |---|---|---|---|---|---|
-| `VENDOR_FLOOR_DATE = '2022-03-05'` | VERIFIED | PER-ACCOUNT | `src/lib/backfill/google-ads-universe-writer.ts:158` | 2026-08-03 | Foam OH's measured floor. The adapter says so itself at `capture-adapters/google-ads.adapter.ts:40`: "`VENDOR_FLOOR_DATE` is Foam OH's MEASURED floor and is therefore per-account." Applied to every account. **The fifth instance of the pattern.** |
 | `floorDate: '2015-08-14'` (GA4) | VERIFIED | PER-ACCOUNT | `src/lib/backfill/adapters.ts:75` | 2026-08-10 | **THE SIXTH INSTANCE.** GA4 property floors are demonstrably per-property: the read-only `/api/backfill/probe-ga` returned earliest 2023-06-22 for Influential Drones (property 388079271) and 2022-12-14 for My Vacation Network (property 346191496). The constant is wrong for both by 7+ years. |
 | `HARD_FLOOR = '2015-08-14'` (GA4) | VERIFIED | PER-ACCOUNT | `src/lib/backfill/ga-dimensional-backfill.ts:51` | 2026-08-10 | **THE SAME FACT AS THE ROW ABOVE, WITH A SECOND OWNER.** Two constants, two files, one fact — a G1 divergence waiting to happen on top of a scope defect. |
 | `floor36()` — a clock 36 months before the day the lap runs | VERIFIED | GLOBAL (but wrongly authoritative) | `src/lib/backfill/drain-registry.ts:76` | 2026-08-03 | Seals a cursor when `subStart <= floor36()`. `src/lib/backfill/google-ads-universe-writer.ts:9-15` records the consequence: "that produced 214 cursors across 18 clients reading backfill_complete=true while Google still served years more." The clock is global; **whether the vendor actually stops there is per-account** — and the row above about 53 months says it does not. |
 | `GAQL_REQUESTS_PER_CONNECTION_DAY = 67` | VERIFIED | PER-CLIENT | `src/lib/backfill/google-op-budget.ts:73` | not measured | Self-flagged in place: "⚠ AND NEVER LIVE-MEASURED". Three of the four lanes convert work units through it, "so their spend figures inherit its error in an unknown direction". Tracked as ★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT. |
+
+## RESOLVED — A SCOPE DEFECT THAT HAS BEEN FIXED
+
+⛔ **A ROW LEAVES THE DEFECT SECTION ONLY WHEN A GUARD CAN FAIL THE BUILD ON ITS RETURN.** Moving it because
+the code looks right today is how a fix becomes a comment.
+
+| FACT AS WRITTEN | RESOLVED BY | GUARD | ESTABLISHED | NOTES |
+|---|---|---|---|---|
+| `VENDOR_FLOOR_DATE = '2022-03-05'` used as an account floor | LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1, 2026-08-10 | `tests/guards/google-account-floor.guard.mjs` (proven RED by restoring `floorDate: '2022-03-05'` on the adapter) | 2026-08-10 | Foam OH's floor applied to every account — the fifth instance of the pattern. **The v2 path no longer reads it:** `google-ads.adapter.ts` declares `floorDate: null` (no PRE-KNOWN wall exists for an arbitrary account), and the wall is DISCOVERED per (account, surface) from the vendor's own `DateRangeError` and stored in `universe_account_floor`. ⚠ **NOT FULLY DELETED.** `src/app/api/queues/google-ads-universe/route.ts` (v1) and `src/app/api/cron/universe-resume/route.ts` still import it; both were outside the flight's ceiling. The guard states that limit in its own PASS line rather than letting green read as total. QUEUE: ★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR. |
+
+## FACTS ESTABLISHED BY THE DISCOVERED-FLOOR BUILD — 2026-08-10
+
+| FACT | CLASS | SCOPE | SOURCE | ESTABLISHED | NOTES |
+|---|---|---|---|---|---|
+| `decideExhaustion` CANNOT represent a vendor refusal | VERIFIED | GLOBAL | `src/lib/backfill/capture-adapter.ts:234-240` + `src/lib/backfill/universe-stream-capture.ts:155-160` | 2026-08-10 | It takes `rowsReturned: number` and a floor. **The capture path returns early on an error, so `decideExhaustion` has structurally never seen a refusal.** The rule it does implement — zero rows is dormancy, never exhaustion — is correct and was reused unchanged. The WALL half had no path into the engine at all; `isRetentionWallRefusal` is that path. |
+| A null retention floor makes exhaustion structurally unclaimable | TESTED | GLOBAL | `tests/guards/universe-zero-is-not-a-wall.guard.mjs` leg (b); the behaviour lives at `capture-adapter.ts:245-253` | 2026-08-10 | Proven RED by restoring a non-null floor on the Google adapter. This is the pre-existing contract switched ON, not new logic. |
+| Only `DateRangeError` is a wall; quota, auth, timeout and our own query bugs are not | TESTED | GLOBAL | `tests/guards/universe-zero-is-not-a-wall.guard.mjs` leg (a) — 9 non-walls and 2 walls, driven | 2026-08-10 | Proven RED by widening the discriminator to `return true`, which flagged the successful-zero case, quota, auth, timeout, our own query bug, and the enum name in bare free text. Enum names come from https://developers.google.com/google-ads/api/docs/reporting/segmentation. |
+| The floor is resolved at EXECUTE time, never carried on a queue message | TESTED | PER-ACCOUNT | `tests/guards/universe-floor-execute-time.guard.mjs` | 2026-08-10 | Proven RED by restoring `msg.floorDate ?? …` in the v2 consumer. The gap it closes is up to the queue's 24h TTL against a boundary that moves one day per day. |
+| The discovered wall is stored per (client, vendor, resource, segment) | VERIFIED | PER-SURFACE | `migrations/062_universe_account_floor.sql`; read path `google-ads-universe-writer.ts` `readAccountWall()` | 2026-08-10 | ⛔ **WRITTEN, NOT RUN.** `select to_regclass('public.universe_account_floor')` returns NULL as of 2026-08-10 — the table and its RPC do not exist yet. **Until the migration runs, `readAccountWall` throws and the v2 walk FAILS CLOSED rather than defaulting to a date.** That is the intended posture, and it is also a hard precondition on running v2 at all. |
+| today−37mo is a REPORTING warning line and never stops a walk | VERIFIED | GLOBAL | `google-ads-universe-writer.ts` `RETENTION_WARNING_LINE_MONTHS` / `retentionWarningLine()` | 2026-08-10 | Gate-A read it as **2023-07-10**. Foam OH holds 255,452 vendor-reported rows from March 2022 — 16 months BELOW that line. Nothing in the engine compares against it. ⚠ It is NOT covered by a guard: no mechanical check today prevents a future caller using it as a stop. UNENFORCED, stated rather than implied. |
 
 ## THE SUCCESSFUL COLUMN IS EMPTY, AND THAT IS THE POINT
 

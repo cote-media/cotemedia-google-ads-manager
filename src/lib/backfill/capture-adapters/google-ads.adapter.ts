@@ -10,8 +10,10 @@
 import type {
   CaptureAdapter, CaptureContext, CaptureSurface, RetentionFloor, DayClosure, Meter, SizingPolicy,
 } from '@/lib/backfill/capture-adapter'
+// ⛔ VENDOR_FLOOR_DATE IS DELIBERATELY NOT IMPORTED — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. It is one
+// account's measurement and this adapter serves every account. See `retention` below.
 import {
-  buildGaql, buildUniverseRowsAtGrain, entityLevelFor, breakdownTypeFor, VENDOR_FLOOR_DATE,
+  buildGaql, buildUniverseRowsAtGrain, entityLevelFor, breakdownTypeFor,
   type UniverseEntry,
 } from '@/lib/backfill/google-ads-universe-writer'
 import { serializeVendorError } from '@/lib/backfill/universe-stream-capture'
@@ -33,18 +35,67 @@ const dayClosure: DayClosure = {
 }
 
 /**
- * ⛔ 37 MONTHS, DOCUMENTED, AND THE ACCOUNT MAY STILL SERVE OLDER ROWS. Foam OH served rows 53 months back,
- * contradicting the doc. That is recorded as an unresolved vendor question and costs nothing, because
- * ROWS-RETURNED ALWAYS BEATS THE FLOOR: `decideExhaustion` returns `complete: false` whenever the vendor
- * answers with anything at all, so an over-tight floor can never truncate a walk that is still yielding.
- * ⚠ `VENDOR_FLOOR_DATE` is Foam OH's MEASURED floor and is therefore per-account. The universal replacement
- * is `today − 37 months`; it is left as-is here because changing it is a behavioural change and this step
- * is a retrofit.
+ * ⛔⛔ THERE IS NO PRE-KNOWN WALL FOR AN ARBITRARY ACCOUNT — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1, 2026-08-10.
+ *
+ * This declared `floorDate: VENDOR_FLOOR_DATE` — **one account's measured floor, applied to every account**,
+ * and the comment that used to sit here admitted it in the same breath as shipping it. For an account a
+ * customer connects tomorrow, which nobody here has ever seen, that date is not conservative and it is not
+ * approximate. It is a fabricated claim about someone else's history.
+ *
+ * ⛔ `null` HERE IS A FACT, NOT A GAP, AND IT IS LOAD-BEARING. `capture-adapter.ts:245-253` makes exhaustion
+ * STRUCTURALLY UNCLAIMABLE on a null floor: zero rows becomes DORMANCY, never a wall, and the type cannot
+ * express `complete: true` without a non-null `exhaustedBelow`. The correct behaviour for this design was
+ * already written into the contract; it was switched off by a constant. This turns it on.
+ *
+ * ⛔ SO WHAT ENDS A GOOGLE WALK? A VENDOR REFUSAL, discovered per (account, surface) and stored — see
+ * `isRetentionWallRefusal()` below and `readAccountWall()`/`recordAccountWall()` in the writer. Not a clock.
+ * A clock is what produced 214 cursors reading `backfill_complete=true` while Google still served years more.
+ *
+ * ⚠ THE MEASUREMENT THAT SETTLED THIS, with its limit on its face: on 2026-08-04..08 — AFTER Google's own
+ * 37-month wall took effect on 2026-06-01 — the vendor served DAILY, VENDOR_REPORTED rows 53 months back
+ * (255,452 of them at geographic_view/geo_target_most_specific_location). ONE account, ONE token, FIVE days.
+ * It does not prove the policy is generally unenforced; it does prove a global 37-month stop would have
+ * discarded ground the vendor was still serving. docs/LORAMER_BACKFILL_FACT_REGISTRY.md owns both facts.
  */
 const retention: RetentionFloor = {
-  floorDate: VENDOR_FLOOR_DATE,
-  source: 'vendor-measured',
-  citation: 'measured on Foam OH 2026-08-03; Google documents 37 months for hourly/daily/weekly reporting (support.google.com/google-ads/answer/15188209). ⚠ the account served rows 53 months back — an unresolved vendor question that costs nothing, because rows-returned always beats the floor.',
+  floorDate: null,
+  source: 'none',
+  citation: 'No PRE-KNOWN wall exists for an arbitrary Google Ads account. Google publishes a 37-month granular-retention policy effective 2026-06-01 (support.google.com/google-ads/answer/15188209) AND was measured serving daily vendor-reported rows 53 months back on 2026-08-04..08. The wall is therefore DISCOVERED per (account, surface) from the vendor\'s own DateRangeError refusal and stored in universe_account_floor — never derived from a clock.',
+}
+
+/**
+ * ⛔ THE WALL DISCRIMINATOR. THE ONE SIGNAL PERMITTED TO END A GOOGLE WALK.
+ *
+ * ⛔ AND THE DISTINCTION IT EXISTS TO MAKE, because collapsing it is how history gets sealed by accident:
+ *   · **REFUSAL** — the vendor was asked and said NO. `DateRangeError`. That is a WALL. Floor found.
+ *   · **SUCCESSFUL ZERO** — the vendor was asked and named nothing. That is DORMANCY, not a wall, and it is
+ *     handled by `decideExhaustion` on the success path where it belongs. It must NEVER reach this function.
+ * `LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1` is the rule; this is the other half of it, which never existed:
+ * the capture path returns early on an error (`universe-stream-capture.ts:155-160`), so `decideExhaustion`
+ * has structurally never seen a refusal. It reads `rowsReturned: number` and cannot represent one.
+ *
+ * ⛔ MATCHED ON THE VENDOR'S OWN ERROR NAMES, NOT ON PROSE. Google returns `DateRangeError.INVALID_DATE`
+ * today and `DateRangeError.REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED` in v24+
+ * (developers.google.com/google-ads/api/docs/reporting/segmentation). Both are date-range refusals and both
+ * are walls. A message-text match would break on the first wording change; these are enum names.
+ *
+ * ⛔ NARROW ON PURPOSE. Any OTHER vendor error — auth, quota, timeout, a malformed query — is NOT a wall and
+ * must not become one. Treating a transient failure as the end of history is the catastrophic direction:
+ * it seals real ground permanently and silently, and nothing downstream would ever ask again.
+ */
+export const RETENTION_WALL_ERROR_NAMES = [
+  'REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED',
+  'INVALID_DATE',
+] as const
+
+export function isRetentionWallRefusal(serializedError: string | null | undefined): boolean {
+  if (!serializedError) return false
+  const s = String(serializedError)
+  // The serialized shape is `{"date_range_error":"INVALID_DATE"} <message>` (serializeVendorError stringifies
+  // the error_code object), so BOTH the enum name and the date_range_error key must be present. Requiring the
+  // key is what stops an unrelated error whose free text happens to contain "INVALID_DATE" from sealing a surface.
+  if (!/date_?range_?error/i.test(s)) return false
+  return RETENTION_WALL_ERROR_NAMES.some((n) => s.includes(n))
 }
 
 /**

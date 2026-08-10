@@ -223,6 +223,17 @@ const GUARDS = [
   // A STEP MAY NOT BE MARKED BUILT WITHOUT NAMING THE PRODUCTION CODE THAT ALREADY DOES IT, AT file:line.
   // Steps 0-7 shipped ahead of the sweep that then found three already-live capabilities they had re-derived.
   'tests/guards/pre-step-read.guard.mjs',
+  // LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1 — the floor is the VENDOR'S ANSWER, never a clock and never a
+  // constant. ⛔ THE LIST IS THE REGISTRATION: this runner discovers nothing, so a guard file that is not
+  // named here NEVER RUNS. All three of these were written, driven green by hand, and were invisible to
+  // `npm run guard` until this line existed — an unregistered guard is the purest form of a green check
+  // answering a narrower question than the reader assumes.
+  //   · a global DATE LITERAL may not be an account floor on the Google v2 path
+  'tests/guards/google-account-floor.guard.mjs',
+  //   · the floor is evaluated at EXECUTE time, never frozen onto a queue message by the publisher
+  'tests/guards/universe-floor-execute-time.guard.mjs',
+  //   · a SUCCESSFUL ZERO is dormancy; only a vendor DateRangeError refusal is a wall
+  'tests/guards/universe-zero-is-not-a-wall.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

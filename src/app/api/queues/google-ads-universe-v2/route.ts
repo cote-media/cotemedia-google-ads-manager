@@ -46,12 +46,14 @@ import { handleCallback, send } from '@vercel/queue'
 // outputFileTracingIncludes alongside the artifact, or it ENOENTs on Vercel while passing every local check —
 // which is how it shipped broken once already. `universe-runner.guard.mjs` leg (d) caught a dead import of it
 // on this file within minutes of the file existing; that guard is the reason this comment is here.
-import { VENDOR_FLOOR_DATE, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+// ⛔ VENDOR_FLOOR_DATE IS DELIBERATELY NOT IMPORTED — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. The floor is
+// DISCOVERED per (account, surface) from the vendor's own refusal and resolved at EXECUTE time.
+import { readAccountWall, recordAccountWall, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
 // ⛔ THE ADAPTER SUPPLIES EVERY GOOGLE FACT THE CORE USED TO HOLD: the GAQL, the ORDER BY, the retention
 // floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
 // This route now contains no vendor constant at all — `capture-adapter-seam.guard.mjs` enforces that.
-import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
+import { googleAdsCaptureAdapter, surfaceOfEntry, isRetentionWallRefusal } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { mayFetch } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
@@ -114,7 +116,6 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
-  const floorDate = msg.floorDate ?? VENDOR_FLOOR_DATE
 
   // ══ 0 · THE VENDOR'S OWN REFUSAL, BEFORE ANYTHING ELSE ════════════════════════════════════════════════
   // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL). Placed FIRST, the
@@ -150,6 +151,25 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
     windowStart: startDate, windowEnd: endDate,
   }
+
+  // ══ 0b · THE FLOOR, RESOLVED **HERE** AND NOWHERE ELSE ════════════════════════════════════════════════
+  // ⛔ LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1 — EXECUTE TIME, NOT PLAN TIME, AND NOT OFF THE MESSAGE.
+  // This read `msg.floorDate ?? VENDOR_FLOOR_DATE`: a floor decided by the PUBLISHER, frozen onto a message,
+  // and consumed by this CONSUMER an unknown time later. Two owners, one fact (G1). Our own record puts
+  // queue messages at the default 24h TTL, and any rolling boundary moves ONE DAY PER DAY — so the drift is
+  // exactly one boundary-day, the worst possible ratio. Resolving it here closes the gap by construction:
+  // the value cannot be stale because it is read in the same invocation that uses it.
+  // ⛔ `null` MEANS **UNKNOWN — NO WALL HAS BEEN OBSERVED FOR THIS SURFACE**. It does NOT mean "no history"
+  // and it is NOT a default. `advance()` below refuses to stop on it; only a recorded vendor refusal stops
+  // a walk. An unreadable store THROWS out of `readAccountWall` rather than answering null, because
+  // answering null would convert a failed read into "no wall known" — a lie in the safe-looking direction.
+  const wall = await readAccountWall({
+    clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
+  })
+  const floorDate: string | null = wall?.wallDate ?? null
+  console.log(`[universe-v2] FLOOR ${clientId} ${label}: ` + (wall
+    ? `DISCOVERED ${wall.wallDate} (${wall.source}) — ${wall.citation.slice(0, 120)}`
+    : 'UNKNOWN — no vendor refusal has ever been observed for this surface on this account. The walk continues until the vendor refuses; it does NOT stop on a clock.'))
 
   // ══ 1 · WHAT IS STILL OWED — THE ONLY QUESTION, AND IT IS ASKED OF THE WAREHOUSE ══════════════════════
   // ⛔ THE WALK DECISION PATH READS **ONLY** THE COVERAGE MODULE. Not `universe_window_log`, not the attempt
@@ -222,6 +242,17 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   const daysCommitted: string[] = []
   let lastError: string | null = null
   let orderViolation = false
+  // ⛔ LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1 — the WALL observed this invocation, if any. It carries the
+  // REFUSED RANGE'S OWN START, never `startDate` of the whole message: the wall is where the vendor actually
+  // said no, and an owed window can hold several ranges. Recorded AFTER the loop so a wall never short-
+  // circuits ranges that might still be served — a refusal on one range is not a refusal on the others.
+  let wallAt: { date: string; citation: string } | null = null
+  const noteWall = (rangeStart: string, err: string | null) => {
+    if (!isRetentionWallRefusal(err)) return
+    // Keep the SHALLOWEST (highest) refusal seen this invocation; the DB write applies the same rule across
+    // invocations. Refusing at 2020 does not un-refuse 2022.
+    if (!wallAt || rangeStart > wallAt.date) wallAt = { date: rangeStart, citation: String(err) }
+  }
 
   // ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — worst range observed THIS invocation, feeding the reservation.
   let maxRangeMs = 0
@@ -261,6 +292,10 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       daysCommitted.push(...res.daysCommitted)
       orderViolation = orderViolation || res.orderViolation
       lastError = res.error ?? lastError
+      // ⛔ THE WALL SIGNAL, AND IT IS TAKEN FROM `res.error` — NOT FROM `res.apiRows === 0`. A successful
+      // zero is DORMANCY and is already handled by `decideExhaustion` on the success path; only a REFUSAL
+      // is a wall. `isRetentionWallRefusal` matches the vendor's own DateRangeError enum names and nothing else.
+      noteWall(range.start, res.error)
       // ⛔ `zero` MEANS THE VENDOR ANSWERED AND NAMED NOTHING — a FACT about the data, and the only thing
       // that makes a dormant day distinguishable from a day never asked. `ok` at zero rows is NOT the same
       // claim (queue ★WALK-OK-MEANS-ZERO: 556 rows in the old log confused exactly these two), so the
@@ -277,6 +312,8 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       // (Same ordering the drain arrived at at cron/drain/route.ts:332-335.)
       maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
       lastError = serializeVendorError(e)
+      // A refusal can arrive as a throw rather than in `res.error` — the same signal, the same rule.
+      noteWall(range.start, lastError)
       await appendAttemptFinished(rangeKey, opened.attemptNo, 'error',
         { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, error: lastError })
     }
@@ -284,6 +321,25 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
 
   console.log(`[universe-v2] ${clientId} ${label}: ${totalApi} api rows → ${totalRows} written across ` +
     `${daysCommitted.length} committed day(s), ${requests} request(s)${orderViolation ? ' ⚠ ORDER VIOLATION' : ''}${lastError ? ` — ${lastError}` : ''}`)
+
+  // ══ 4b · THE DISCOVERED WALL, RECORDED BEFORE ANY EXIT ════════════════════════════════════════════════
+  // ⛔ LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. A refusal is the one thing that ends a walk, so losing it costs
+  // a full re-walk to the same refusal. It is written BEFORE the budget-stop return for exactly that reason:
+  // every exit below this line is an exit that already knows what the vendor said.
+  // The cast is required, not lazy: `wallAt` is only ever assigned inside `noteWall`, which TypeScript's
+  // control-flow analysis cannot see through, so it narrows the variable to `null` here.
+  const observedWall = wallAt as { date: string; citation: string } | null
+  if (observedWall) {
+    await recordAccountWall({
+      clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
+      wallDate: observedWall.date, citation: observedWall.citation,
+    })
+    console.warn(`[universe-v2] WALL DISCOVERED ${clientId} ${label} at ${observedWall.date} — the vendor REFUSED this range. ` +
+      `Stored per (account, surface). This is a REFUSAL, not a zero: a successful empty window is dormancy and never reaches here.`)
+  }
+  // ⛔ THE FLOOR THE ADVANCE USES. A wall discovered THIS invocation binds immediately — advancing past a
+  // refusal we just received would spend the next request re-learning it.
+  const effectiveFloor: string | null = observedWall?.date ?? floorDate
 
   // ⛔ THE DEFERRAL IS RECORDED DURABLY AND CHARGED NOTHING. A budget stop that lives only in a log line is a
   // stop nobody can act on (Vercel runtime logs expire in an hour), and LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1
@@ -304,7 +360,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     return
   }
 
-  const adv = await advance(msg, adapter, floorDate,
+  const adv = await advance(msg, adapter, effectiveFloor,
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
   return
@@ -319,24 +375,32 @@ export const POST = handler as unknown as (req: Request) => Promise<Response>
  * Order is load-bearing: BOUND (were we asked for another window) → FLOOR (is there ground left below the
  * vendor wall) → SIZE (how much to ask for) → GOVERNOR (may we afford it).
  */
-async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof googleAdsCaptureAdapter>, floorDate: string, why: string) {
+async function advance(msg: UniverseMessageV2, adapter: ReturnType<typeof googleAdsCaptureAdapter>, floorDate: string | null, why: string) {
   const { clientId, entry, startDate } = msg
   const remaining = msg.windowsRemaining
   if (remaining !== undefined && remaining <= 1) {
     return { ok: true, advanced: false, reason: `bounded run exhausted (windowsRemaining=${remaining})`, why }
   }
-  // ⛔ THE VENDOR FLOOR. Below it Google serves nothing, so walking past it spends quota to learn what the
-  // artifact already recorded. ⚠ `VENDOR_FLOOR_DATE` is Foam OH's MEASURED floor and is per-account; the
-  // universal replacement is the documented 37-month wall, carried on the message as `floorDate`.
+  // ⛔ THE DISCOVERED WALL — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. `floorDate` is the date the VENDOR
+  // REFUSED for THIS (account, surface), resolved at execute time by the caller. It is never a clock, never
+  // a global constant, and never carried on the message.
+  // ⛔ `null` IS **UNKNOWN**, AND UNKNOWN DOES NOT STOP A WALK. No wall has been observed for this surface,
+  // so there is nothing to be below. The walk is bounded instead by `windowsRemaining` above and by the
+  // MIS-SIZED → BROKEN no-progress bound at the minimum span — the same bounds that already exist. Treating
+  // UNKNOWN as a stop would be inferring a wall from silence, which is the defect
+  // LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 forbids and which sealed 214 cursors once already.
   const nextEnd = addDays(startDate, -1)
-  if (nextEnd < floorDate) {
-    return { ok: true, advanced: false, reason: `floor reached — next window would end ${nextEnd}, below ${floorDate}`, why }
+  if (floorDate !== null && nextEnd < floorDate) {
+    return { ok: true, advanced: false, reason: `wall reached — next window would end ${nextEnd}, below the DISCOVERED vendor refusal at ${floorDate}`, why }
   }
   // ⛔ SIZE ON MAX, REPORT PREV. Under-prediction is the direction that costs a request; over-prediction
   // costs a window that finishes early. See universe-sizing.ts for the measurement that ranked them.
   const sizing = await sizeNextWindow(adapter, { clientId, resource: entry.resource, segment: entry.segment ?? '' })
   const nextStart = (() => {
     const s = addDays(nextEnd, -(sizing.days - 1))
+    // ⛔ CLAMP ONLY AGAINST A KNOWN WALL. With `floorDate === null` there is nothing to clamp to, and
+    // inventing a bound here would reintroduce the constant this change removed.
+    if (floorDate === null) return s
     return s < floorDate ? floorDate : s
   })()
   const pub = await publishGoverned(adapter,
