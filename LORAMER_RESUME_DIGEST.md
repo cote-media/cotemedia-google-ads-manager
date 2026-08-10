@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-10T21:58:12.970Z
-- built_from HEAD: 618d12dc8d42fc9424b27feb11ffd95b10c07720  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-10T22:31:22.399Z
+- built_from HEAD: 7510974d7b395024a905de63baeb35646dec191e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 8c1f8602d8a9f2e8de7e507d8e31fde6ac33449cb0bb79fe024cc60bf20d796a
     - LORAMER_DECISIONS.md: 06c06c1932c48417b9c89ef04b214ecd192456d887f6acd6d5d315a12026eeeb
-    - LORAMER_QUEUE_OF_RECORD.md: 2eb4ecfd10c7d545fff264275606f12b21995dc739843bb970a108eeb7167ce6
+    - LORAMER_QUEUE_OF_RECORD.md: f5a97e02933071501ed7dfe31088048aab3d465b11fb4c33a3c8b4cb5db42f39
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1176,6 +1176,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION — ⛔ **PRE-SCHEDULING GATE MEMBER, FOUND 2026-08-10 BY VENDOR-DOC VERIFY. The v2 consumer is UNREACHABLE: no `experimentalTriggers` entry exists for it in vercel.json, and Vercel Queues delivers ONLY to registered consumers** ("Add an experimentalTriggers entry in vercel.json to link a route handler to a queue topic, making it a private consumer" — vercel.com/docs/queues/quickstart; the only alternative is poll mode, which nothing in this repo uses). A scheduled resumer publishing with dryRun=0 today would publish into a void — messages sit unconsumed until topic retention expires, an engine that LOOKS scheduled and does nothing. Topics are clean (v1 `google-ads-universe`, v2 `google-ads-universe-v2` — no collision, v1 cannot execute v2's plan). THE CHANGE, exact, not made: a sibling of the v1 entry in vercel.json `functions`: `"src/app/api/queues/google-ads-universe-v2/route.ts": { "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "google-ads-universe-v2", "retryAfterSeconds": 60, "maxConcurrency": 2 }] }`. Registration is INERT until something publishes (topic has never held a message) but it is the safety coming off — SEQUENCING: registration deploy FIRST, own deploy, live-path STOP-and-confirm; THEN migrations 062+063; THEN the cron entry as the single irreversible act (fresh session, Russ's). src: 2026-08-10 verify round, docs/LORAMER_BACKFILL_FACT_REGISTRY.md cross-ref. open [LC]
+- ★GOOGLE-REQUEST-LEDGER — **THE CHARGING HALF OF THE CHOKE POINT, NOT BUILT.** Construction is choked (LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1, guard-ratcheted); a unified request-grain charge INSIDE the factory needs its own table + LANE ATTRIBUTION, because today the v2 walk charges at its own boundary (attempt log, spend-at-start), v1 bills universe_window_log, and forward/catchup/drain are estimated from cron_runs × the unmeasured 67 — a factory-level charge would DOUBLE-charge all of them. Design question the migration must answer: who deduplicates when both the lane boundary and the factory charge. Also the home for migrating the 14 frozen legacy sites lane-by-lane. src: 2026-08-10 choke-point flight. open [LC]
 - ★UNLEDGERED-VENDOR-SPEND-IS-INVISIBLE — ⛔ **RANKED BEFORE SCHEDULING. MEASURED 2026-08-10: the 6 Russ-approved probe ops appear in NO ledger** (universe_attempt_log 0 · universe_window_log 0 · cron_runs 0 in the window). Every governor sums OUR OWN ledgers, so any Google call outside the ledgered paths spends real quota every governor then re-grants to someone else — Google enforces 15,000/day per token regardless. The hole is the size of whatever bypasses the ledgers; the registry's probe section owns the measurement. NEXT ACTION: decide the shape (a probe-lane ledger row, or a standing rule that ad-hoc spend is logged by hand) BEFORE unattended scheduling makes the governors load-bearing. src: 2026-08-10 probe VERIFY. open [LC]
 - ★PLATFORM-VERSION-MAINTENANCE-PRACTICE — **ASPIRATIONAL 9/30. Vendor API/SDK currency + sunset tracking across all four platforms, as PRACTICE not memory.** Target shape: a guard that FAILS on a pinned version near/past sunset (the Shopify pin guard is the existing pattern — generalise it). SEED DATA, measured 2026-08-10: google-ads-api 23.0.0 = API v23, sunset ~2027-02 (quarterly majors + one year of support from v23 on) · Meta Graph pin v21.0, sunset 2027-01-21 · GA4 Data API v1beta, no published sunset · Shopify '2026-07', current, guard-enforced. The 2026-08-10 lesson both ways: v23 being CURRENT is why campaign.start_date was rejected (the field left the API) — currency surprises in both directions. src: 2026-08-10 stack-currency verify. open [NP]
 - ★PREVIEW-CARRIES-PRODUCTION-SERVICE-ROLE-KEY — ⛔ **STANDING TOP RISK, measured 2026-08-10 during the park flight: SUPABASE_SERVICE_ROLE_KEY (and the full prod Supabase URL + anon key, OAuth secrets, ANTHROPIC_API_KEY) are scoped Production AND Preview — full write access to the live database on every preview URL of every branch anyone pushes.** The day it was found it was harmless only because the parked branch's own guard failure killed the build before code ran — luck standing where a control should be. Mitigations that exist without design: CRON_SECRET is production-only (cron handlers 401 on preview) and Vercel crons fire on production only. NEXT ACTION IS A READ: restricted preview key design (separate Supabase role/branch DB, or strip the service key from Preview scope and see what preview actually needs). src: 2026-08-10 park verify. open [LC]
@@ -1854,8 +1855,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 753 tokens indexed · 290 resolve to BOTH a decision and a queue item ·
-117 decision-only · 346 queue-only.
+TOTALS: 755 tokens indexed · 290 resolve to BOTH a decision and a queue item ·
+117 decision-only · 348 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 266 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2039,6 +2040,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GOOGLE-QUOTA-EXHAUSTED-DAILY — OPEN · decisions 0 · queue 3 · last 2026-07-27
 - ★GOOGLE-QUOTA-PRIORITY-INVERSION — OPEN · decisions 5 · queue 7 · last 2026-09-30
 - ★GOOGLE-REACH-FREQUENCY-3YR — OPEN · decisions 1 · queue 1 · last 2026-08-01
+- ★GOOGLE-REQUEST-LEDGER — OPEN · decisions 0 · queue 1 · last 2026-08-10
 - ★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY — OPEN · decisions 0 · queue 3 · last 2026-08-01
 - ★GOOGLE-SEARCH-TERM-RETENTION-WALL — OPEN · decisions 1 · queue 3 · last 2026-08-01
 - ★GOOGLE-V25-UPGRADE — OPEN · decisions 0 · queue 1 · last 2026-07-27
@@ -2373,6 +2375,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_GOOGLE_CAMPAIGN_BACKFILL_V1 — OPEN · decisions 1 · queue 1 · last 2026-06-26
 - LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - LORAMER_GOOGLE_CAPTURE_DENOMINATOR_2026_08_03_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-03
+- LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-10
 - LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-05
 - LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-30
 - LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-18

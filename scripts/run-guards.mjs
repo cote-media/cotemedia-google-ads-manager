@@ -245,6 +245,8 @@ const GUARDS = [
   'tests/guards/inception-stop.guard.mjs',
   // LORAMER_FIVE_STEP_ROUNDS_V1 — placement of the framework law in ESSENCE; obedience lives in chat.
   'tests/guards/five-step-rounds.guard.mjs',
+  // LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 — client construction is a ratchet: factory + 14 frozen sites.
+  'tests/guards/google-client-choke-point.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

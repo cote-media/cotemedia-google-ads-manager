@@ -37,7 +37,8 @@
 // retry with backoff) — so a transient rate limit currently arms a fleet-wide pause. That fails SAFE, it is
 // shared with all four existing boundaries, and changing it is a live-path behaviour change for the drain and
 // catchup. Banked as ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING; deliberately NOT done here.
-import { GoogleAdsApi } from 'google-ads-api'
+// ⛔ CONSTRUCTED THROUGH THE CHOKE POINT — LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 (inert path, migrated first).
+import { googleAdsCustomerFor } from '@/lib/google-ads-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { noteGoogleQuotaError } from './google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1 — boundary 5 of 5
 
@@ -49,16 +50,7 @@ export async function googleAdsStreamFor(
   if (error || !data?.refresh_token) {
     throw new Error(`No Google refresh token for ${userEmail}: ${error?.message ?? 'not found'}`)
   }
-  const api = new GoogleAdsApi({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-    developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-  })
-  const customer = api.Customer({
-    customer_id: customerId,
-    refresh_token: data.refresh_token,
-    login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
-  })
+  const customer = googleAdsCustomerFor({ refreshToken: data.refresh_token, customerId })
   // ⛔ THE GENERATOR IS WRAPPED SO THE ERROR BOUNDARY SITS AROUND THE PULL, WHERE THE REJECTION ACTUALLY
   // ARRIVES. `yield*` delegates every row through unchanged — no buffering is introduced, so the streaming
   // property the whole rebuild rests on is untouched — and the catch arms the sentinel before re-throwing.

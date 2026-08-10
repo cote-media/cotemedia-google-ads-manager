@@ -11,21 +11,14 @@
 // read. So the governor counts REQUESTS and converts with a stated, pessimistic assumption
 // (ASSUMED_OPS_PER_REQUEST) rather than a measurement. If a future SDK version surfaces the count, it is
 // recorded here and the assumption is replaced.
-import { GoogleAdsApi } from 'google-ads-api'
+// ⛔ CONSTRUCTED THROUGH THE CHOKE POINT — LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1. This file is INERT
+// (the v1 walk is idle) and was migrated first for exactly that reason: zero live traffic, zero risk.
+import { googleAdsCustomerFor } from '@/lib/google-ads-client'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function googleAdsQueryFor(userEmail: string, customerId: string): Promise<(gaql: string) => Promise<any[]>> {
   const { data, error } = await supabaseAdmin.from('google_tokens').select('refresh_token').eq('user_email', userEmail).single()
   if (error || !data?.refresh_token) throw new Error(`No Google refresh token for ${userEmail}: ${error?.message ?? 'not found'}`)
-  const api = new GoogleAdsApi({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-    developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN!,
-  })
-  const customer = api.Customer({
-    customer_id: customerId,
-    refresh_token: data.refresh_token,
-    login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
-  })
+  const customer = googleAdsCustomerFor({ refreshToken: data.refresh_token, customerId })
   return (gaql: string) => customer.query(gaql) as Promise<any[]>
 }
