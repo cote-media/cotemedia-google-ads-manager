@@ -28,6 +28,23 @@ export const MAX_ATTEMPTS_AT_MIN_SPAN = 3
 /** Above the minimum span, a repeated failure means NARROW AND RETRY, never stop. */
 export const NARROW_AFTER_ATTEMPTS = 2
 
+/**
+ * ⛔ EMPTY-STRETCH VISIBILITY, NOT A STOP — LORAMER_EMPTY_STRETCH_VISIBILITY_V1, 2026-08-10.
+ * After this many CONSECUTIVE all-empty windows on one chain, the consumer writes ONE
+ * `abandoned_owed`-class attempt record for the operator and KEEPS WALKING. Nothing is parked, nothing is
+ * sealed, no new status word exists — a row's absence proves nothing (LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1),
+ * so the only lawful output of a long empty stretch is VISIBILITY.
+ *
+ * ⛔ WHY 400, ARGUED FROM DATA AND NOT FROM TASTE: the longest dormancy gap measured anywhere in the
+ * roster's held history is BusyBee Bookkeeping's **2,267 days (~6.2 years, data on BOTH sides of it)** —
+ * ≈324 consecutive 7-day windows, ≈76 at 30 days. 400 windows sits ABOVE the worst dormancy ever observed
+ * at ANY window size the sizer can produce, so the record fires only on something we have genuinely never
+ * seen — never on a real client's real quiet years. A small N here is the park-the-surface design that was
+ * adversarially killed on 2026-08-10: at N=10-20 it would have stopped BusyBee's walk mid-gap and refused
+ * the 2019 history on the far side.
+ */
+export const EMPTY_STRETCH_REPORT_AFTER = 400
+
 export interface UniverseMessageV2 {
   clientId: string
   userEmail: string
@@ -38,6 +55,17 @@ export interface UniverseMessageV2 {
   endDate: string
   /** How many windows this chain may still walk, including this one. UNDEFINED = unbounded. */
   windowsRemaining?: number
-  /** The floor for THIS account. Undefined falls back to the documented wall via VENDOR_FLOOR_DATE. */
+  /**
+   * ⛔ DEAD FIELD — the consumer NEVER reads it (universe-floor-execute-time.guard.mjs fails the build if it
+   * does). The floor is resolved at EXECUTE time from universe_account_floor. The field survives only
+   * because the resumer still writes it; removing it rides with ★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR.
+   */
   floorDate?: string
+  /**
+   * CONSECUTIVE all-empty windows on this chain, INCLUSIVE of none-yet (undefined = 0). Chain-local pacing
+   * state in `windowsRemaining`'s exact shape — it may ride the message because no second owner exists: the
+   * chain is the only writer and the only reader. (A FLOOR may not ride the message — that has two owners
+   * and a 24h TTL against a moving boundary. The distinction is the whole design.)
+   */
+  emptyStretch?: number
 }

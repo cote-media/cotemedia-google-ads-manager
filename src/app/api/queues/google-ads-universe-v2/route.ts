@@ -64,7 +64,7 @@ import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // any non-Route export from a route file ("TOPIC is not a valid Route export field") — and `tsc --noEmit`
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
 // topic and the message type without dragging a handler and its maxDuration into scope.
-import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate, imported, never re-derived. `holdGoogleWork`
 // and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
@@ -373,7 +373,26 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     return
   }
 
-  const adv = await advance(msg, adapter, effectiveFloor,
+  // ══ 4c · EMPTY-STRETCH VISIBILITY — LORAMER_EMPTY_STRETCH_VISIBILITY_V1 ═══════════════════════════════
+  // ⛔ VISIBILITY, NEVER A STOP. The counter is chain-local (windowsRemaining's shape): rows anywhere this
+  // invocation RESET it; an all-empty, error-free invocation INCREMENTS it. At EMPTY_STRETCH_REPORT_AFTER
+  // (400 — above BusyBee's measured 2,267-day dormancy at any window size the sizer produces) it writes ONE
+  // `abandoned_owed`-class record for the operator and the walk CONTINUES un-parked: a row's absence proves
+  // nothing, so the only lawful output of a long empty stretch is a report. The record is charged NOTHING —
+  // nextAttemptNoWithoutCharging, the same shape as the budget-stop record above.
+  const allEmpty = totalApi === 0 && lastError === null && requests > 0
+  const emptyStretch = allEmpty ? (msg.emptyStretch ?? 0) + 1 : 0
+  if (allEmpty && emptyStretch === EMPTY_STRETCH_REPORT_AFTER) {
+    await appendAttemptFinished(key, await nextAttemptNoWithoutCharging(key), 'abandoned_owed', {
+      rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
+      error: `EMPTY-STRETCH REPORT, NOT A STOP: ${emptyStretch} consecutive all-empty windows on this chain — ` +
+        `longer than the longest dormancy ever measured (2,267 days ≈ 324 windows, BusyBee). The walk CONTINUES; ` +
+        `nothing is parked and nothing is sealed. An operator should look at why this surface is empty at unprecedented depth.`,
+    })
+    console.warn(`[universe-v2] EMPTY-STRETCH ${clientId} ${label}: ${emptyStretch} consecutive all-empty windows — reported, NOT stopped. The walk continues.`)
+  }
+
+  const adv = await advance({ ...msg, emptyStretch }, adapter, effectiveFloor,
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
   return

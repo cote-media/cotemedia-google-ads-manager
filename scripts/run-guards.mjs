@@ -237,6 +237,9 @@ const GUARDS = [
   // LORAMER_SURFACE_SCOPED_WALL_V1 — a wall is scoped account × resource × segment and NEVER account-wide.
   // One resource's refusal becoming an account seal is floor36's exact shape, one level in.
   'tests/guards/wall-is-surface-scoped.guard.mjs',
+  // LORAMER_EMPTY_STRETCH_VISIBILITY_V1 — a long empty stretch is REPORTED at 400 windows (above the
+  // measured 2,267-day dormancy) and NEVER stopped on; the counter is chain-local, increments, resets.
+  'tests/guards/empty-stretch-visibility.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

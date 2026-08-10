@@ -149,6 +149,44 @@ not being possible.
 | The floor is not an ACCOUNT property; it is account × resource × segment × granularity | INFERRED | PER-SURFACE | external adversarial review; the granularity half IS vendor-grounded — the 37-month rule is stated for granular segments specifically (https://developers.google.com/google-ads/api/docs/reporting/segmentation) | 2026-08-10 | Migration 062's key was already right. The LANGUAGE was not: "the account's floor" is the sentence in which one resource's refusal becomes an account-wide seal — floor36's exact shape. Log lines, comments and this registry swept. **TESTED by `tests/guards/wall-is-surface-scoped.guard.mjs`** (proven RED by dropping `resource` from the read key). ⚠ RESIDUAL: `readAccountWall`/`recordAccountWall` still carry "Account" in their names; renaming needs `google-ads-universe-writer.ts`, outside this flight's ceiling — ★WALL-HELPERS-STILL-NAMED-ACCOUNT. |
 | CANNOT-RUN must not render like FAILED | INFERRED | GLOBAL | this session, 2026-08-10 — a push report that could not say which it was looking at | 2026-08-10 | `canonical-key-spelling` (s) and `drain-alias-coverage` (v) now separate ENVIRONMENT blockers from data findings: **exit 3 = CANNOT-RUN, exit 1 = FAILED**, distinct banners, and a data failure still lists any blockers beside it. Neither check was weakened, no skip was added, nothing was baselined — both still refuse to pass. |
 
+## THE METRIC UNIVERSE — WHY 062 NEEDS NO METRIC-FAMILY COLUMN (2026-08-10)
+
+⛔ **THE ATTACK THIS ANSWERS:** reach/frequency metrics retire at 3 YEARS while granular stats run 37
+months, and Google's `DateRangeError` does not say which boundary was hit — so a reach-metric refusal
+recorded into `universe_account_floor` would seal a surface 13 months early, forever (GREATEST() never
+lowers a wall).
+
+| FACT | CLASS | SCOPE | SOURCE | ESTABLISHED | NOTES |
+|---|---|---|---|---|---|
+| The ENTIRE metric universe is five performance counters | VERIFIED | GLOBAL | `docs/google-ads-capture-universe.json` (all entries' `servesMetrics` + `metricShape`) + `DEFAULT_METRICS` at `google-ads-universe-writer.ts:388-390` | 2026-08-10 | The complete distinct set across all three inputs to `buildGaql`: `metrics.clicks` · `metrics.conversions` · `metrics.conversions_value` · `metrics.cost_micros` · `metrics.impressions`. `metricShape` takes exactly two values (`metrics.conversions`, `metrics.cost_micros`). **ZERO reach-family metrics. The poisoning is unreachable by construction.** |
+| The unreachability is guarded, not remembered | TESTED | GLOBAL | `tests/guards/google-account-floor.guard.mjs` leg (d) — proven RED by injecting `metrics.average_impression_frequency_per_user` into one catalog entry | 2026-08-10 | The catalog is REGENERABLE data; a future regeneration admitting a reach metric re-arms the poisoning silently. The leg reads the ARTIFACT on every run. If it ever fires, the choice it forces is stated in its own message: drop the metric, or give 062 a metric-family key first. |
+| A refusal's boundary tier is NOT identifiable from the error | RESEARCHED | GLOBAL | https://developers.google.com/google-ads/api/docs/reporting/segmentation (the enum names carry granularity, not tier) | 2026-08-10 | `REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED` names the granularity axis, never the 3y/37mo/11y tier. If a reach metric is ever selected, the family must be derived from the REFUSED QUERY's metric list at capture time — never from the error text. |
+
+## MEASURED DORMANCY — THE GAP TABLE THAT KILLED THE PARK DESIGN (2026-08-10)
+
+Longest interior gap between consecutive held account-grain days, per roster client (google platform,
+via `idx_mdp_account_canonical` — the partial index IS the day list; not an A6 scan):
+
+| CLIENT | HELD DAYS | SPAN | LONGEST GAP (days) |
+|---|---|---|---|
+| BusyBee Bookkeeping | 157 | 2019-12-18 → 2026-08-09 | **2,267 (~6.2 YEARS, data on BOTH sides)** |
+| Influential Drones (5bb9b2ff) | 556 | 2018-08-11 → 2026-08-09 | 1,729 |
+| Glass Plus, Inc. | 1,038 | 2020-04-28 → 2026-08-09 | 1,227 |
+| Inside | 216 | 2025-06-09 → 2026-08-09 | 203 |
+| Foam OH | 1,432 | 2022-03-05 → 2026-08-09 | 57 |
+| Champion Cleaning Systems | 2,399 | 2019-11-05 → 2026-08-09 | 49 |
+| Bath Fitter \| O'Gorman Bros | 1,999 | 2020-01-27 → 2026-08-09 | 46 |
+| Veterinary mastermind | 139 | 2026-03-23 → 2026-08-09 | 1 |
+| The Escential Group | 168 | 2026-02-23 → 2026-08-09 | 0 |
+
+⛔ **WHAT THIS TABLE DECIDED:** any consecutive-empty threshold small enough to bound a quota leak (10–20
+windows) parks BusyBee's walk mid-gap and refuses the 2019 history on the far side. So the shipped design
+REPORTS at `EMPTY_STRETCH_REPORT_AFTER = 400` windows — above the worst dormancy ever measured at any
+window size — and NEVER stops. And the same arithmetic exposed the sizing defect: crossing 2,267 days at
+the old 7-day intermittent pin cost ~324 requests/surface (4.3× the 30-day cost), which is why the
+intermittent branch now WIDENS to maxDays under flat-per-request cost
+(LORAMER_INTERMITTENT_WIDENS_UNDER_FLAT_COST_V1, TESTED by `capture-adapter-seam.guard.mjs` leg (d3)).
+
 ## THE SUCCESSFUL COLUMN IS EMPTY, AND THAT IS THE POINT
 
 **NOTHING IN THIS REGISTRY IS CLASS `SUCCESSFUL`, AND NOTHING IS CLASS `TESTED` FOR THE RETENTION FACTS.**

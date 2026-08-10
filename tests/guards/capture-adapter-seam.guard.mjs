@@ -138,6 +138,19 @@ try {
   if (intermittent.basis !== 'intermittent-fixed') {
     findings.push(`(d2) a series that was ZERO in 3 of 4 windows was modelled rather than fixed. The median of an intermittent series is zero by construction — that is a different failure from inaccuracy, and reading it as inaccuracy is how it gets a wrong fix.`)
   }
+  // (d3) ── INTERMITTENT WIDENS UNDER FLAT COST — LORAMER_INTERMITTENT_WIDENS_UNDER_FLAT_COST_V1.
+  // Empty ground is where the window must be WIDEST when a request costs the same at any span. The pin to
+  // coldStartDays priced BusyBee's measured 2,267-day dormancy at 4.3× (≈324 seven-day windows against ≈76
+  // thirty-day ones). Under rises-with-range the pin stays CORRECT — widening there costs more by construction.
+  if (intermittent.days !== policy.maxDays) {
+    findings.push(`(d3) an intermittent series under FLAT-PER-REQUEST cost sized to ${intermittent.days}d instead of maxDays (${policy.maxDays}d). ` +
+      `Empty ground gets the widest window: one request costs the same at any span, and the pin priced a real 2,267-day dormancy crossing at 4.3×.`)
+  }
+  const intermittentRises = core.sizeFromPolicy(policy, 'rises-with-range', [0, 0, 0, 500], [0, 0, 0, 15000])
+  if (intermittentRises.days !== policy.coldStartDays) {
+    findings.push(`(d3) an intermittent series under RISES-WITH-RANGE cost sized to ${intermittentRises.days}d instead of the cold-start ${policy.coldStartDays}d. ` +
+      `Widening is only cheap under flat cost; on GA4 it is actively wrong, and the widen must not leak across the direction.`)
+  }
 } catch (e) {
   findings.push(`(b)(c)(d) behavioural legs could not run — ${e.message}. A guard that cannot execute its subject FAILS; it does not pass quietly.`)
 } finally {

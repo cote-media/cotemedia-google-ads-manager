@@ -321,8 +321,22 @@ export function sizeFromPolicy(
   }
   const zeroShare = priorRowTotals.filter((r) => r === 0).length / priorRowTotals.length
   if (zeroShare >= INTERMITTENT_ZERO_SHARE) {
+    // ⛔ THE DIRECTION DECIDES, HERE TOO — LORAMER_INTERMITTENT_WIDENS_UNDER_FLAT_COST_V1, 2026-08-10.
+    // This branch used to pin EVERY intermittent series to coldStartDays, and under flat-per-request cost
+    // that is BACKWARD: one request costs the same at any span, so empty ground is exactly where the window
+    // should be WIDEST. Measured on the roster: BusyBee's real 2,267-day dormancy gap (data on BOTH sides)
+    // crossed at 7-day windows is ~324 requests per surface — ~112k fleet-wide, 18.7 days of the whole
+    // 6,000/day lane, 4.3× the cost of crossing it at maxDays. The rows-per-day risk the pin was hedging is
+    // hedged the same way the yielding branch hedges it: a wrong guess costs ONE re-fetch, because
+    // day-committed resume narrows to what is still owed.
+    // ⛔ UNDER rises-with-range the pin REMAINS CORRECT — a wide window there costs more by construction,
+    // and "refusing to guess" (the branch below) is the stated policy for that direction.
+    if (direction === 'flat-per-request') {
+      return { days: policy.maxDays, basis: 'intermittent-fixed', estimateRowsPerDay: Math.round(priorRowsPerDay[0]), sizedOnRowsPerDay: null,
+        reason: `${(zeroShare * 100).toFixed(0)}% of the last ${priorRowTotals.length} window(s) returned ZERO rows — an intermittent series, whose median is zero by construction. Cost is FLAT per request, so empty ground gets the WIDEST window: ${policy.maxDays} day(s). (This branch pinned to ${policy.coldStartDays}d until 2026-08-10, which priced a measured 2,267-day dormancy at 4.3× — LORAMER_INTERMITTENT_WIDENS_UNDER_FLAT_COST_V1.)` }
+    }
     return { days: policy.coldStartDays, basis: 'intermittent-fixed', estimateRowsPerDay: Math.round(priorRowsPerDay[0]), sizedOnRowsPerDay: null,
-      reason: `${(zeroShare * 100).toFixed(0)}% of the last ${priorRowTotals.length} window(s) returned ZERO rows — an intermittent series, whose median is zero by construction. Not modelled; fixed ${policy.coldStartDays}-day window.` }
+      reason: `${(zeroShare * 100).toFixed(0)}% of the last ${priorRowTotals.length} window(s) returned ZERO rows — an intermittent series, whose median is zero by construction. Cost ${direction} — held at the ${policy.coldStartDays}-day cold-start size; widening is only cheap under flat-per-request.` }
   }
   const maxPerDay = Math.max(...priorRowsPerDay)
   const prevPerDay = priorRowsPerDay[0]
