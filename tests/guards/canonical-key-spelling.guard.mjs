@@ -40,6 +40,9 @@ import { resolve } from 'node:path'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const WITH_DB = process.argv.includes('--db')
 const findings = []
+// ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1 — evidence this machine could not GATHER, kept apart from evidence
+// of a defect. Both refuse to pass; conflating them is how a standing environmental red becomes background noise.
+const blockers = []
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return '' } }
 const strip = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 
@@ -143,7 +146,11 @@ if (!writer) { console.error(`[canonical-key-spelling] FAIL — ${WRITER} unread
 if (WITH_DB) {
   const pg = await import('pg')
   if (!process.env.SUPABASE_DB_URL) {
-    findings.push('(s) --db requested but SUPABASE_DB_URL is missing (.env.local). REFUSING TO PASS QUIETLY: a skipped duplicate count reads exactly like a clean one, which is the failure mode this leg exists to prevent.')
+    // ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1, 2026-08-10 — A BLOCKER, NOT A FINDING. The refusal is
+    // UNCHANGED and still exits non-zero; what changes is that it no longer RENDERS like a data defect.
+    // A recurring environmental red and a real one looked identical at a glance, and on 2026-08-10 that
+    // cost a push report that could not say which it was looking at.
+    blockers.push('(s) SUPABASE_DB_URL is missing (.env.local), so the duplicate-row count could not be taken on this machine. STILL REFUSING TO PASS: a skipped count reads exactly like a clean one, which is the failure mode this leg exists to prevent. This is an ENVIRONMENT blocker, NOT evidence about the data.')
   } else {
     const db = new pg.default.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } }); await db.connect()
     const { rows } = await db.query(`
@@ -166,10 +173,28 @@ if (WITH_DB) {
   }
 }
 
+// ⛔ TWO NON-ZERO STATES, AND THEY MUST NOT LOOK ALIKE. `FAILED` is a claim about the DATA. `CANNOT-RUN` is
+// a claim about THIS MACHINE. Both refuse to pass; only one is a defect. The difference lives in the BANNER, not in the exit
+// code: `check:data` takes the MAX exit of its legs, so a special code would outrank and mask a real failure.
 if (findings.length) {
-  console.error(`\n❌ LORAMER_CANONICAL_KEY_SPELLING_V1 FAILED — ${findings.length} finding(s)\n`)
+  console.error(`\n❌ LORAMER_CANONICAL_KEY_SPELLING_V1 FAILED — ${findings.length} finding(s) ABOUT THE DATA\n`)
   findings.forEach((f) => console.error('  • ' + f + '\n'))
+  if (blockers.length) {
+    console.error(`  ⚠ AND ${blockers.length} leg(s) COULD NOT RUN — listed below; they are not part of the count above.\n`)
+    blockers.forEach((b) => console.error('  ⚠ ' + b + '\n'))
+  }
   console.error('  ⛔ THE INCUMBENT SPELLING WINS. A new writer conforms to it; it never conforms to a new writer.\n')
+  process.exit(1)
+}
+if (blockers.length) {
+  console.error(`\n⚠ LORAMER_CANONICAL_KEY_SPELLING_V1 CANNOT-RUN — ${blockers.length} leg(s) blocked by the ENVIRONMENT, 0 findings about the data\n`)
+  blockers.forEach((b) => console.error('  ⚠ ' + b + '\n'))
+  console.error('  ⛔ THIS IS NOT A PASS. Nothing was proven about the data; the machine could not ask.\n')
+  // ⛔ EXIT 1, NOT A DISTINCT CODE, AND THE FIRST ATTEMPT AT THIS GOT IT WRONG. `check:data` chains its legs
+  // and takes the MAX exit code. A dedicated CANNOT-RUN code of 3 would OUTRANK a real exit-1 data failure
+  // elsewhere in the chain, and an operator reading "3" would conclude "just the environment" while a genuine
+  // defect sat underneath it. The distinction belongs in the OUTPUT, where a human reads it; the exit code
+  // must stay ordinary so nothing can hide behind it.
   process.exit(1)
 }
 console.log(

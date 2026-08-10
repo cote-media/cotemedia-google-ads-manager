@@ -226,10 +226,22 @@ export type ExhaustionVerdict =
  * `floor.floorDate`. There is no branch that can produce a completion without one.
  *
  * ⛔ AND THE RULE THAT PREDATES THIS AND STILL BINDS — `LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1`: a run of
- * empty days is DORMANCY, not a wall. 214 false completions came from a 36-month CLOCK concluding
- * exhaustion; the only input that may end a walk is the vendor returning zero AT OR BELOW a floor whose
- * provenance is recorded. For GA4, Shopify and WooCommerce there is no such floor, so the walk is ended by
- * something else entirely — an account-derived start date — and never by this function.
+ * empty days is **NO_DATA_OBSERVED**, not a wall. 214 false completions came from a 36-month CLOCK
+ * concluding exhaustion; the only input that may end a walk is the vendor returning zero AT OR BELOW a floor
+ * whose provenance is recorded. For GA4, Shopify and WooCommerce there is no such floor, so the walk is
+ * ended by something else entirely — an account-derived start date — and never by this function.
+ *
+ * ⛔ NO_DATA_OBSERVED, AND THE NAME IS THE CORRECTION — LORAMER_NO_DATA_OBSERVED_V1, 2026-08-10, from
+ * external adversarial review. This state used to be called DORMANCY, which is a claim about the ACCOUNT:
+ * "nothing was running". **A successful empty response establishes exactly one thing — THIS QUERY RETURNED
+ * NO ROWS.** It does not establish that the account was idle, that the entity never existed, or that the
+ * range is empty for any OTHER resource, segment or granularity. It grounds NO floor and implies NO
+ * account-level fact, and the verdicts below now say so in the words they return rather than leaving a
+ * reader to supply the stronger reading for himself.
+ * ⚠ Even the WEAK reading depends on a vendor rule, quoted rather than assumed: "Rows whose selected
+ * metrics are all zero won't be returned" and "Dates with no metrics are not returned in such a report"
+ * (developers.google.com/google-ads/api/docs/reporting/zero-metrics). That holds for a query that SELECTS
+ * metrics. It says nothing about one that selects none.
  */
 export function decideExhaustion(args: {
   windowStart: string
@@ -248,14 +260,16 @@ export function decideExhaustion(args: {
     // LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 exists to forbid.
     return {
       complete: false, exhaustedBelow: null,
-      proof: `vendor returned 0 rows for [${windowStart}] and this adapter declares NO retention wall (${floor.source}: ${floor.citation}). ` +
-        `⛔ EXHAUSTION IS NOT CLAIMABLE. Zero rows here is DORMANCY, and a walk with no vendor wall must be ended by an ACCOUNT-DERIVED start date, never by silence. via: ${asked}`,
+      proof: `NO_DATA_OBSERVED: this query returned 0 rows for [${windowStart}], and this adapter declares NO retention wall (${floor.source}: ${floor.citation}). ` +
+        `⛔ EXHAUSTION IS NOT CLAIMABLE. This establishes ONLY that THIS query returned nothing — NOT that the account was idle, NOT that the entity is absent, ` +
+        `and NOTHING about any other resource, segment or granularity. It grounds no floor. A walk with no vendor wall must be ended by an ACCOUNT-DERIVED start date, never by silence. via: ${asked}`,
     }
   }
   if (windowStart > floor.floorDate) {
     return {
       complete: false, exhaustedBelow: null,
-      proof: `vendor returned 0 rows for [${windowStart}], which is ABOVE the floor ${floor.floorDate} (${floor.source}) — that is ONE EMPTY WINDOW (dormancy), NOT exhaustion. The walk continues.`,
+      proof: `NO_DATA_OBSERVED: this query returned 0 rows for [${windowStart}], which is ABOVE the floor ${floor.floorDate} (${floor.source}) — ONE EMPTY WINDOW, NOT exhaustion. ` +
+        `It is a fact about this query, not about the account. The walk continues.`,
     }
   }
   return {

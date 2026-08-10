@@ -159,17 +159,28 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   // queue messages at the default 24h TTL, and any rolling boundary moves ONE DAY PER DAY — so the drift is
   // exactly one boundary-day, the worst possible ratio. Resolving it here closes the gap by construction:
   // the value cannot be stale because it is read in the same invocation that uses it.
-  // ⛔ `null` MEANS **UNKNOWN — NO WALL HAS BEEN OBSERVED FOR THIS SURFACE**. It does NOT mean "no history"
-  // and it is NOT a default. `advance()` below refuses to stop on it; only a recorded vendor refusal stops
-  // a walk. An unreadable store THROWS out of `readAccountWall` rather than answering null, because
-  // answering null would convert a failed read into "no wall known" — a lie in the safe-looking direction.
-  const wall = await readAccountWall({
+  // ⛔ THE WALL IS A **SURFACE** FACT, NEVER AN ACCOUNT FACT — LORAMER_SURFACE_SCOPED_WALL_V1, 2026-08-10,
+  // from external adversarial review. It is scoped account × resource × segment × granularity, and every
+  // one of those four is load-bearing: Google's retention rule is stated for GRANULAR segments specifically,
+  // so a refusal on `segments.date` says nothing about `segments.month`, and a refusal on one resource says
+  // nothing about another. **"The account's floor" is the sentence in which one resource's refusal becomes
+  // an account-wide seal** — floor36's exact shape, which sealed 214 cursors across 18 clients.
+  // ⚠ NAMING RESIDUAL, STATED RATHER THAN LEFT: `readAccountWall`/`recordAccountWall` still carry "Account"
+  // in their names. They are keyed correctly (client × vendor × resource × segment) and the guard below
+  // enforces that, but the NAME still invites the wrong reading. Renaming them to `readSurfaceWall` /
+  // `recordSurfaceWall` requires editing `google-ads-universe-writer.ts`, which was outside this flight's
+  // ceiling. QUEUE: ★WALL-HELPERS-STILL-NAMED-ACCOUNT.
+  // ⛔ `null` MEANS **UNKNOWN — NO REFUSAL HAS BEEN OBSERVED FOR THIS SURFACE**. It does NOT mean "no
+  // history" and it is NOT a default. `advance()` below refuses to stop on it; only a recorded vendor
+  // refusal stops a walk. An unreadable store THROWS rather than answering null, because answering null
+  // would convert a failed read into "no wall known" — a lie in the safe-looking direction.
+  const surfaceWall = await readAccountWall({
     clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
   })
-  const floorDate: string | null = wall?.wallDate ?? null
-  console.log(`[universe-v2] FLOOR ${clientId} ${label}: ` + (wall
-    ? `DISCOVERED ${wall.wallDate} (${wall.source}) — ${wall.citation.slice(0, 120)}`
-    : 'UNKNOWN — no vendor refusal has ever been observed for this surface on this account. The walk continues until the vendor refuses; it does NOT stop on a clock.'))
+  const floorDate: string | null = surfaceWall?.wallDate ?? null
+  console.log(`[universe-v2] SURFACE WALL ${clientId} ${label}: ` + (surfaceWall
+    ? `DISCOVERED ${surfaceWall.wallDate} (${surfaceWall.source}) for THIS resource+segment only — ${surfaceWall.citation.slice(0, 120)}`
+    : 'UNKNOWN — no vendor refusal has ever been observed for this resource+segment on this account. This says nothing about other surfaces. The walk continues until the vendor refuses; it does NOT stop on a clock.'))
 
   // ══ 1 · WHAT IS STILL OWED — THE ONLY QUESTION, AND IT IS ASKED OF THE WAREHOUSE ══════════════════════
   // ⛔ THE WALK DECISION PATH READS **ONLY** THE COVERAGE MODULE. Not `universe_window_log`, not the attempt
@@ -296,8 +307,9 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       // zero is DORMANCY and is already handled by `decideExhaustion` on the success path; only a REFUSAL
       // is a wall. `isRetentionWallRefusal` matches the vendor's own DateRangeError enum names and nothing else.
       noteWall(range.start, res.error)
-      // ⛔ `zero` MEANS THE VENDOR ANSWERED AND NAMED NOTHING — a FACT about the data, and the only thing
-      // that makes a dormant day distinguishable from a day never asked. `ok` at zero rows is NOT the same
+      // ⛔ `zero` MEANS THE VENDOR ANSWERED AND THIS QUERY RETURNED NOTHING — **NO_DATA_OBSERVED**, which is
+      // the only thing that makes it distinguishable from a day never asked. ⚠ It is NOT a claim that the
+      // account was idle: it is scoped to this resource, this segment, this granularity. `ok` at zero rows is NOT the same
       // claim (queue ★WALK-OK-MEANS-ZERO: 556 rows in the old log confused exactly these two), so the
       // outcome is derived from the count rather than hand-set.
       const outcome = res.error ? 'error' : res.skipped ? 'skipped' : res.apiRows === 0 ? 'zero' : 'ok'
@@ -334,8 +346,9 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
       wallDate: observedWall.date, citation: observedWall.citation,
     })
-    console.warn(`[universe-v2] WALL DISCOVERED ${clientId} ${label} at ${observedWall.date} — the vendor REFUSED this range. ` +
-      `Stored per (account, surface). This is a REFUSAL, not a zero: a successful empty window is dormancy and never reaches here.`)
+    console.warn(`[universe-v2] SURFACE WALL DISCOVERED ${clientId} ${label} at ${observedWall.date} — the vendor REFUSED this range ` +
+      `FOR THIS RESOURCE AND SEGMENT. Stored per (client, vendor, resource, segment); it seals nothing else and says nothing about the account. ` +
+      `This is a REFUSAL, not a zero: a successful empty window is NO_DATA_OBSERVED and never reaches here.`)
   }
   // ⛔ THE FLOOR THE ADVANCE USES. A wall discovered THIS invocation binds immediately — advancing past a
   // refusal we just received would spend the next request re-learning it.

@@ -232,8 +232,11 @@ const GUARDS = [
   'tests/guards/google-account-floor.guard.mjs',
   //   · the floor is evaluated at EXECUTE time, never frozen onto a queue message by the publisher
   'tests/guards/universe-floor-execute-time.guard.mjs',
-  //   · a SUCCESSFUL ZERO is dormancy; only a vendor DateRangeError refusal is a wall
+  //   · a SUCCESSFUL ZERO is NO_DATA_OBSERVED; only a vendor DateRangeError refusal is a wall
   'tests/guards/universe-zero-is-not-a-wall.guard.mjs',
+  // LORAMER_SURFACE_SCOPED_WALL_V1 — a wall is scoped account × resource × segment and NEVER account-wide.
+  // One resource's refusal becoming an account seal is floor36's exact shape, one level in.
+  'tests/guards/wall-is-surface-scoped.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

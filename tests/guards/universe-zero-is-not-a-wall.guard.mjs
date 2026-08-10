@@ -25,6 +25,7 @@ const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
 const ADAPTER = 'src/lib/backfill/capture-adapters/google-ads.adapter.ts'
 const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+let droveNotWalls = 0, droveWalls = 0
 
 // ── (a) BEHAVIOURAL — DRIVE THE DISCRIMINATOR WITH BOTH POLES AND THE NEAR-MISSES ────────────────────
 const out = mkdtempSync(join(tmpdir(), 'loramer-wall-guard-'))
@@ -57,7 +58,21 @@ try {
       ['DEADLINE_EXCEEDED', 'a TIMEOUT — ask again, do not seal history'],
       ['{"query_error":"UNRECOGNIZED_FIELD"} bad field', 'OUR bug, not a vendor wall'],
       ['request failed: INVALID_DATE was not the problem here', 'the enum NAME in free text with no date_range_error key'],
+      // ⛔ THE gRPC STATUS CODES, ADDED 2026-08-10 FROM EXTERNAL ADVERSARIAL REVIEW. Two reviewers
+      // independently named `GoogleAdsFailure ⇒ WALL` as too broad. The function was already narrow; these
+      // cases are the PROOF of that, so the claim rests on a driven check rather than on reading the regex.
+      ['RESOURCE_EXHAUSTED', 'the bare gRPC status — rate limited, not a wall'],
+      ['UNAVAILABLE', 'the bare gRPC status — the service is down, not a wall'],
+      ['INTERNAL', 'the bare gRPC status — a vendor-side fault, not a wall'],
+      ['UNKNOWN', 'the bare gRPC status — unclassified, and unclassified must never seal history'],
+      ['ABORTED', 'the bare gRPC status — a transient conflict, not a wall'],
+      ['INVALID_ARGUMENT', 'the bare gRPC status — very likely OUR malformed query, not a wall'],
+      ['FAILED_PRECONDITION', 'the bare gRPC status — account state, not a retention boundary'],
+      ['{"authorization_error":"USER_PERMISSION_DENIED"} no access', 'a PERMISSION failure — access, not history'],
     ]
+    // ⛔ COUNTED, NOT TYPED. The PASS line quoted "9 non-walls" for one commit after the list grew to 17 —
+    // a guard whose own summary is stale is the same defect class it exists to hunt.
+    droveNotWalls = NOT_WALLS.length
     for (const [input, why] of NOT_WALLS) {
       if (isWall(input) === true) {
         findings.push(`(a) isRetentionWallRefusal(${JSON.stringify(input)}) === true — but this is ${why}. ` +
@@ -69,6 +84,7 @@ try {
       ['{"date_range_error":"INVALID_DATE"} Date is not valid.', 'the error Google returns today, per its 2026-05-01 announcement'],
       ['{"date_range_error":"REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED"} granularity not supported', 'the v24+ error per developers.google.com/google-ads/api/docs/reporting/segmentation'],
     ]
+    droveWalls = WALLS.length
     for (const [input, why] of WALLS) {
       if (isWall(input) !== true) {
         findings.push(`(a) isRetentionWallRefusal(${JSON.stringify(input)}) !== true — this IS ${why}. ` +
@@ -124,4 +140,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-zero-is-not-a-wall] PASS — the discriminator was DRIVEN: 9 non-walls (a successful zero, quota, auth, timeout, our own query bug, and the enum name in bare free text) all read false, and both of Google's date-range refusal enums read true · the Google adapter's null floor leaves decideExhaustion structurally unable to complete on a zero · and the v2 consumer feeds the discriminator an ERROR string, never a row count.`)
+console.log(`[universe-zero-is-not-a-wall] PASS — the discriminator was DRIVEN: ${droveNotWalls} non-walls all read false (a successful zero, quota, auth, permission, timeout, our own query bug, the enum name in bare free text, and the bare gRPC statuses RESOURCE_EXHAUSTED / UNAVAILABLE / INTERNAL / UNKNOWN / ABORTED / INVALID_ARGUMENT / FAILED_PRECONDITION) and ${droveWalls} of Google's date-range refusal enums read true · the Google adapter's null floor leaves decideExhaustion structurally unable to complete on a zero · and the v2 consumer feeds the discriminator an ERROR string, never a row count.`)

@@ -25,6 +25,9 @@ import { resolve } from 'node:path'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const WITH_DB = process.argv.includes('--db')
 const findings = []
+// ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1 — evidence this machine could not GATHER, kept apart from evidence
+// of a defect. Both refuse to pass; conflating them is how a standing environmental red becomes background noise.
+const blockers = []
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return '' } }
 const strip = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 const body = (s) => strip(s).split('\n').filter((l) => !/^\s*import\b/.test(l)).join('\n')
@@ -79,7 +82,9 @@ const coverage = read(COVERAGE)
 if (WITH_DB) {
   const pg = await import('pg')
   if (!process.env.SUPABASE_DB_URL) {
-    findings.push('(v) --db requested but SUPABASE_DB_URL is missing (.env.local). REFUSING TO PASS QUIETLY: an unproven alias reads exactly like a proven one, and this leg is the only thing standing between a wrong alias and permanently skipped history.')
+    // ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1, 2026-08-10 — A BLOCKER, NOT A FINDING. The refusal is UNCHANGED
+    // and still exits non-zero; it simply no longer RENDERS like a wrong alias.
+    blockers.push('(v) SUPABASE_DB_URL is missing (.env.local), so no alias could be demonstrated against live rows on this machine. STILL REFUSING TO PASS: an unproven alias reads exactly like a proven one, and this leg is the only thing standing between a wrong alias and permanently skipped history. This is an ENVIRONMENT blocker, NOT evidence that an alias is wrong.')
   } else {
     let ALIASES = []
     try {
@@ -140,10 +145,25 @@ if (WITH_DB) {
   }
 }
 
+// ⛔ TWO NON-ZERO STATES, AND THEY MUST NOT LOOK ALIKE. `FAILED` is a claim about an ALIAS. `CANNOT-RUN` is a
+// claim about THIS MACHINE. Both refuse to pass; only one is a defect. The difference lives in the BANNER, not in the exit
+// code: `check:data` takes the MAX exit of its legs, so a special code would outrank and mask a real failure.
 if (findings.length) {
-  console.error(`\n❌ LORAMER_DRAIN_ALIAS_COVERAGE_V1 FAILED — ${findings.length} finding(s)\n`)
+  console.error(`\n❌ LORAMER_DRAIN_ALIAS_COVERAGE_V1 FAILED — ${findings.length} finding(s) ABOUT AN ALIAS\n`)
   findings.forEach((f) => console.error('  • ' + f + '\n'))
+  if (blockers.length) {
+    console.error(`  ⚠ AND ${blockers.length} leg(s) COULD NOT RUN — listed below; they are not part of the count above.\n`)
+    blockers.forEach((b) => console.error('  ⚠ ' + b + '\n'))
+  }
   console.error('  ⛔ CLAIMING COVERED WHEN IT IS NOT IS THE CATASTROPHIC DIRECTION. An alias is a claim; prove it.\n')
+  process.exit(1)
+}
+if (blockers.length) {
+  console.error(`\n⚠ LORAMER_DRAIN_ALIAS_COVERAGE_V1 CANNOT-RUN — ${blockers.length} leg(s) blocked by the ENVIRONMENT, 0 findings about an alias\n`)
+  blockers.forEach((b) => console.error('  ⚠ ' + b + '\n'))
+  console.error('  ⛔ THIS IS NOT A PASS. No alias was demonstrated; the machine could not ask.\n')
+  // ⛔ EXIT 1, NOT A DISTINCT CODE — see the note in canonical-key-spelling.guard.mjs. `check:data` takes the
+  // MAX exit of its legs, so a dedicated CANNOT-RUN code would outrank and therefore MASK a real data failure.
   process.exit(1)
 }
 console.log(
