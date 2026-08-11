@@ -185,79 +185,80 @@ export async function POST(request: Request) {
   }
 
   let systemPrompt = ''
-
-  if (clientId) {
-    // Fetch complete intelligence
-    try {
-      const intelligenceRes = await fetch(
-        `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
-        { headers: { Cookie: request.headers.get('cookie') || '' } }
-      )
-      const intelligenceData = await intelligenceRes.json()
-      const intelligence: ClientIntelligence = intelligenceData.intelligence
-      if (intelligence) {
-        phase('fetch1')
-        systemPrompt = buildClaudeContext(intelligence, focus, rowContext)
-        phase('build1')
-      }
-    } catch (e) {
-      console.error('Intelligence fetch error:', e)
-    }
-  }
-
-  // Fallback system prompt: agency/all-clients scope (no clientId), OR a single-client intelligence-fetch failure.
-  if (!systemPrompt) {
-    if (!clientId) {
-      // LORAMER_AGENCY_SCOPE_LORA_V1 — no single client is selected. Tools ARE attached at this scope, so give Lora
-      // the RBAC-SCOPED roster (only clients THIS viewer can access) + the resolve-a-named-client-or-ask rule.
-      const roster = await listAccessibleClientsWithNames(session.user.email)
-      systemPrompt = buildAgencyScopeContext(roster)
-    } else {
-      // LORAMER_CHAT_PLATFORM_UNDEFINED_FIX_V1 — omit the Platform clause entirely when absent; never render "undefined".
-      systemPrompt = `You are Lora, an expert digital advertising analyst in LoraMer. Always refer to yourself as Lora. Client: ${clientName}.${platform ? ` Platform: ${platform}.` : ''} Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
-    }
-  }
-
-  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
-  // Build a typed system array with cache_control on the prefix block so
-  // Anthropic caches the stable parts (hard constraints, identity, profile,
-  // platform data, memory) across turns. Conversation history + rules stay
-  // dynamic in the suffix and rebuild each call. Falls back to the plain
-  // string `systemPrompt` (Phase-1 wrapper output) if intelligence fetch
-  // failed — keeps the existing error path working unchanged.
   let systemArr: any = undefined
-  if (clientId) {
-    try {
-      const intelligenceRes2 = await fetch(
-        `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
-        { headers: { Cookie: request.headers.get('cookie') || '' } }
-      )
-      const intelligenceData2 = await intelligenceRes2.json()
-      const intelligence2: ClientIntelligence = intelligenceData2.intelligence
-      if (intelligence2) {
-        phase('fetch2')
-        const { prefix, suffix } = buildClaudeContextCacheable(intelligence2, focus, rowContext)
-        // ⛔ LORAMER_PROMPT_CACHE_1H_TTL_V1 — EXTENDED 1-HOUR TTL. `ttl` is the documented field on
-        // cache_control and takes '5m' (the default when omitted) or '1h'. ⛔ NO BETA HEADER: extended TTL is
-        // GA on the first-party API — verified against the current Anthropic reference this session, NOT from
-        // memory, per the standing rule that a model/API fact is never written from recall.
-        // ⛔ THE TRADE, STATED WITH THE MEASUREMENT THAT DECIDES IT: a 1h cache WRITE costs 2× base input
-        // (vs 1.25× at 5m); a READ costs ~0.1× either way. So 1h needs one more read than 5m to break even.
-        // MEASURED THIS SESSION over 22 paired turns: p50 87s, p90 281s, max 365s. **A SINGLE p90 TURN IS
-        // 4.7 MINUTES**, so under the 5-minute default the cache written for turn N has essentially expired by
-        // the time the user reads that answer and sends turn N+1 — the second turn of a conversation, which is
-        // exactly the turn caching exists to serve, was missing. At 1h it hits. That is the whole argument.
-        systemArr = [
-          { type: 'text', text: prefix, cache_control: { type: 'ephemeral', ttl: '1h' } },
-          ...(suffix ? [{ type: 'text', text: suffix }] : []),
-        ]
-        phase('build2')
+
+  // ── LORAMER_CHAT_FIRST_FRAME_V1, 2026-08-11 — ONE FETCH, BOTH BUILDERS, CALLED FROM WHERE EACH MODE
+  // NEEDS IT. Two things collapsed into this function, and they are separate fixes that share a body:
+  //
+  // ⛔ (1) THE DEDUP. This route fetched /api/intelligence TWICE, SEQUENTIALLY, with IDENTICAL parameters —
+  // once for the flat prompt (Phase-1) and once for the cacheable {prefix, suffix} rebuild (Phase-2). On an
+  // intelligence-cache miss the first call pays the full five-platform live pull and the second usually
+  // rides the 15-min cache it just warmed — but "usually" is a race, and two calls could return DIFFERENT
+  // snapshots, so the cached prefix could describe different numbers than the flat fallback. ONE response
+  // now feeds BOTH builders: half the internal HTTP round-trips, and the two prompt shapes cannot diverge.
+  //
+  // ⛔ (2) THE MOVE. Assembly is no longer awaited inline before the streaming branch — the streaming path
+  // calls this INSIDE its detached async, AFTER the Response has been returned, so the first status frame
+  // reaches the device in milliseconds instead of sitting in the stream buffer for the whole assembly +
+  // first-token wait (MEASURED at arrival, 2026-08-11 probe: headers at 49.16s, the t+0.1s status frame
+  // arriving at 49.17s). The blocking path awaits it inline exactly as before — nothing changes with the
+  // flag off.
+  //
+  // phase keys: fetch1 = the one fetch; build1 = flat prompt; build2 = cacheable pair. `fetch2` no longer
+  // exists as a phase — the telemetry line simply stops carrying it, which is itself the measurement.
+  const assemblePrompt = async () => {
+    if (clientId) {
+      try {
+        const intelligenceRes = await fetch(
+          `${process.env.NEXTAUTH_URL}/api/intelligence?clientId=${clientId}&dateRange=${dateRange || 'LAST_30_DAYS'}${customStart ? '&customStart=' + customStart : ''}${customEnd ? '&customEnd=' + customEnd : ''}`,
+          { headers: { Cookie: request.headers.get('cookie') || '' } }
+        )
+        const intelligenceData = await intelligenceRes.json()
+        const intelligence: ClientIntelligence = intelligenceData.intelligence
+        if (intelligence) {
+          phase('fetch1')
+          systemPrompt = buildClaudeContext(intelligence, focus, rowContext)
+          phase('build1')
+          // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1 — the cacheable pair, from the SAME response.
+          // Its own try/catch so a cacheable-build failure degrades to the flat prompt, never to nothing.
+          try {
+            const { prefix, suffix } = buildClaudeContextCacheable(intelligence, focus, rowContext)
+            // ⛔ LORAMER_PROMPT_CACHE_1H_TTL_V1 — EXTENDED 1-HOUR TTL. `ttl` is the documented field on
+            // cache_control and takes '5m' (the default when omitted) or '1h'. ⛔ NO BETA HEADER: extended TTL is
+            // GA on the first-party API — verified against the current Anthropic reference, NOT from memory,
+            // per the standing rule that a model/API fact is never written from recall.
+            // ⛔ THE TRADE, STATED WITH THE MEASUREMENT THAT DECIDES IT: a 1h cache WRITE costs 2× base input
+            // (vs 1.25× at 5m); a READ costs ~0.1× either way. So 1h needs one more read than 5m to break even.
+            // MEASURED over 22 paired turns: p50 87s, p90 281s, max 365s. A SINGLE p90 TURN IS 4.7 MINUTES,
+            // so under the 5-minute default the cache written for turn N has essentially expired by the time
+            // the user reads that answer and sends turn N+1 — the second turn of a conversation, which is
+            // exactly the turn caching exists to serve, was missing. At 1h it hits. That is the whole argument.
+            systemArr = [
+              { type: 'text', text: prefix, cache_control: { type: 'ephemeral', ttl: '1h' } },
+              ...(suffix ? [{ type: 'text', text: suffix }] : []),
+            ]
+            phase('build2')
+          } catch (e) {
+            console.error('Cacheable intelligence rebuild error:', e)
+          }
+        }
+      } catch (e) {
+        console.error('Intelligence fetch error:', e)
       }
-    } catch (e) {
-      console.error('Cacheable intelligence rebuild error:', e)
+    }
+    // Fallback system prompt: agency/all-clients scope (no clientId), OR a single-client intelligence-fetch failure.
+    if (!systemPrompt) {
+      if (!clientId) {
+        // LORAMER_AGENCY_SCOPE_LORA_V1 — no single client is selected. Tools ARE attached at this scope, so give Lora
+        // the RBAC-SCOPED roster (only clients THIS viewer can access) + the resolve-a-named-client-or-ask rule.
+        const roster = await listAccessibleClientsWithNames(session.user.email)
+        systemPrompt = buildAgencyScopeContext(roster)
+      } else {
+        // LORAMER_CHAT_PLATFORM_UNDEFINED_FIX_V1 — omit the Platform clause entirely when absent; never render "undefined".
+        systemPrompt = `You are Lora, an expert digital advertising analyst in LoraMer. Always refer to yourself as Lora. Client: ${clientName}.${platform ? ` Platform: ${platform}.` : ''} Current view: ${focus}.${rowContext ? '\nSpecifically looking at: ' + rowContext : ''}`
+      }
     }
   }
-
   const messages = [
     ...(history || []).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
     { role: 'user' as const, content: message }
@@ -268,71 +269,63 @@ export async function POST(request: Request) {
   // src/lib/claude-tools.ts) exposing query_metrics so chat can answer
   // historical / comparison questions from metrics_daily. Single-shot when the
   // model calls no tool or no clientId is present.
-  // ── LORAMER_CHAT_STREAMING_V1 ─────────────────────────────────────────────────────────────────────────────
-  // THE KNOWN FOOTGUN, handled explicitly: once SSE headers are written the status code is fixed, so a 401/404/503
-  // can no longer be expressed. We therefore do NOT commit to a stream until the model has produced its FIRST
-  // token. Every pre-token failure — auth, RBAC, a 529 that exhausts the whole model chain — is raised BEFORE the
-  // Response is returned and still comes back as ordinary JSON with its real status. Only a failure AFTER the
-  // first token (a later tool-turn dying mid-loop) degrades to an SSE `error` event, which is stated rather than
-  // hidden: at that point the user has already seen text, and a status code would be a lie.
+  // ── LORAMER_CHAT_STREAMING_V1 → LORAMER_CHAT_FIRST_FRAME_V1, 2026-08-11 ─────────────────────────────────
+  // ⛔ THE FOOTGUN RULE IS CONSCIOUSLY TRADED, ON RUSS'S CALL, AND THE TRADE IS RECORDED HERE AND IN
+  // DECISIONS RATHER THAN QUIETLY MADE. The rule was: never write SSE headers until the model's first
+  // token, so a pre-token failure keeps a REAL HTTP status. What it protected, precisely: TWO cases — the
+  // 503 all-models-overloaded and a pre-token 500 — as ordinary JSON. What it COST, measured at frame
+  // ARRIVAL (2026-08-11 probe, one real turn): headers held 49.16s; the status frame emitted at t+0.1s
+  // arrived at t+49.17s, buffered the entire time. The user saw NOTHING — the banked 34.9s / tonight's
+  // 49.2s of dead air at the start of EVERY streamed turn — and the ★CHAT-STATUS-SILENT-WINDOWS "Working…"
+  // symptom was this same buffering (status frames cannot arrive before headers), not a stomp.
+  //
+  // ⛔ WHAT REPLACES IT: the Response returns HERE, immediately after RBAC, and prompt assembly + the model
+  // chain run inside the detached async. A pre-token failure becomes an SSE `error` frame on HTTP 200 —
+  // WHICH THE CLIENT ALREADY HANDLES IDENTICALLY: readChatResponse (chat-stream-read.ts:75) returns
+  // {ok:false, error} for an error frame exactly as it does for the JSON body, and every user-facing
+  // sentence keys on `d.error` codes (use-lora-chat.ts:648-659), never on the HTTP status. The same
+  // machine-readable codes ride the frame ('overloaded', or the error message), so the sentences are
+  // byte-identical. The server-side console.error lines survive unchanged, so OUR telemetry keeps the
+  // request-id detail.
+  //
+  // ⛔ WHAT IS GENUINELY GIVEN UP, stated so the trade stays visible: failed streamed turns read HTTP 200
+  // in Vercel's status-code view. Anything that counts 5xx as "chat failures" undercounts streamed
+  // failures from this commit on — grep for `[chat] ALL MODELS OVERLOADED` / `Chat error (streaming` in
+  // runtime logs instead, which carry MORE detail than the status code did.
+  //
+  // ⛔ WHAT IS NOT TRADED: auth 401 and RBAC 404 sit ABOVE the stream construction and keep their real
+  // JSON status codes — the two failures the original footgun comment said "genuinely NEED a real status
+  // code" are untouched. And with the flag OFF, the blocking path below is byte-identical to before.
   if (CHAT_STREAMING) {
-    // LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 — `stream`, `ctrl` and `emitRaw` are NO LONGER BUILT HERE. They are
-    // constructed immediately after the RBAC gate, far above, so a frame can go out BEFORE the two sequential
-    // /api/intelligence fetches instead of after them. That ~20s window used to be three dots on the device.
-    // The ordering rule that comment used to carry still holds and is now enforced further up: the controller
-    // must be LIVE while the loop runs, never awaited-then-built, or every frame queues and replays at the end
-    // (measured once as 152 deltas inside a 332ms window at the tail of a 125s turn).
-
-    // THE FOOTGUN, still handled: once SSE headers are written the status code is fixed. So we do NOT return the
-    // Response until either (a) the first token has arrived — at which point streaming is unambiguously the right
-    // answer — or (b) the chain has settled. A pre-token failure (auth, RBAC, a 529 exhausting the whole chain)
-    // therefore still returns ordinary JSON with its real status. Only a failure AFTER first token degrades to an
-    // SSE `error` event, which is honest: the user has already seen text, and a status code would be a lie.
-    let firstToken!: () => void
-    const firstTokenP = new Promise<void>((r) => { firstToken = r })
-
-    const work = runWithModelChain({
-      models: MODEL_CHAIN,
-      onOverload: (a) =>
-        console.error(`[chat] ANTHROPIC OVERLOADED model=${a.model} request_id=${a.requestId ?? 'none'} elapsed=${a.elapsedMs}ms detail=${a.detail}`),
-      run: (model, requestOptions) =>
-        runClaudeToolLoopStreaming({
-          anthropic,
-          model,
-          maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
-          system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
-          messages,
-          clientId,
-          userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
-          clientName,  // LORAMER_CHAT_STATUS_SUBJECT_V1 — already on the body; lets the status line name the client with ZERO extra queries
-          requestOptions,
-          emit: emitRaw,
-          onFirstTurnStarted: firstToken,
-        }),
-    })
-
-    // Settle-or-first-token. `settled` distinguishes "the chain finished/failed" from "text started flowing".
-    let settledErr: any = null
-    let settledOk = false
-    const settled = work.then(() => { settledOk = true }, (e) => { settledErr = e })
-    await Promise.race([firstTokenP, settled])
-
-    if (!settledOk && settledErr) {
-      // Pre-token failure — no headers written yet, real status still available. Same branches as the blocking
-      // path, so flipping the flag cannot change what an error looks like.
-      try { (ctrl as any)?.close() } catch { /* not started */ }
-      if (settledErr instanceof AllModelsOverloadedError) {
-        console.error(`[chat] ALL MODELS OVERLOADED (streaming) tried=${settledErr.attempts.map((a: any) => a.model).join(',')} dropped=${settledErr.droppedModels.join(',') || 'none'} request_ids=${settledErr.attempts.map((a: any) => a.requestId ?? 'none').join(',')}`)
-        return NextResponse.json({ error: 'overloaded', tried: settledErr.attempts.map((a: any) => a.model), dropped: settledErr.droppedModels }, { status: 503 })
-      }
-      console.error('Chat error (streaming, pre-token):', settledErr)
-      return NextResponse.json({ error: settledErr.message }, { status: 500 })
-    }
-
-    // Committed to SSE. Everything from here rides the stream; the loop is STILL RUNNING and writing deltas.
+    // The controller is LIVE (constructed at RBAC, above) while the loop runs — never awaited-then-built,
+    // or every frame queues and replays at the end (measured once as 152 deltas inside a 332ms window).
     void (async () => {
       try {
-        const chain = await work
+        // ⛔ ASSEMBLY LIVES INSIDE THE STREAM'S LIFETIME NOW. The one fetch (deduped from two, see
+        // assemblePrompt) runs while the user already sees "Pulling <client>'s latest numbers together…" —
+        // the frame that used to sit in the buffer for the whole of this await.
+        await assemblePrompt()
+        const chain = await runWithModelChain({
+          models: MODEL_CHAIN,
+          onOverload: (a) =>
+            console.error(`[chat] ANTHROPIC OVERLOADED model=${a.model} request_id=${a.requestId ?? 'none'} elapsed=${a.elapsedMs}ms detail=${a.detail}`),
+          run: (model, requestOptions) =>
+            runClaudeToolLoopStreaming({
+              anthropic,
+              model,
+              maxTokens: 16000,  // LORAMER_CHAT_MAX_TOKENS_BUMP_V1
+              system: systemArr || systemPrompt,  // LORAMER_PROMPT_CACHING_PHASE_2_ENABLE_V1
+              messages,
+              clientId,
+              userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+              clientName,  // LORAMER_CHAT_STATUS_SUBJECT_V1 — already on the body; lets the status line name the client with ZERO extra queries
+              requestOptions,
+              emit: emitRaw,
+              // onFirstTurnStarted is gone WITH the race it served — nothing waits on the first token any
+              // more. The loop's optional param stays (claude-tools.ts is deliberately untouched; it is on
+              // the eval-sensitive list and an unused optional callback harms nothing).
+            }),
+        })
         const { responseText, usage } = chain.value
         const answered = chain.modelUsed
         const bodyText = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
@@ -371,8 +364,16 @@ export async function POST(request: Request) {
         })
         emitRaw('done', { model: answered })
       } catch (e: any) {
-        // POST-token failure. Status is already fixed at 200, so the only honest channel is an SSE error event.
-        console.error('Chat error (streaming, post-token):', e)
+        // ⛔ LORAMER_CHAT_FIRST_FRAME_V1 — EVERY streamed failure lands here now, pre-token included, because
+        // headers are already out. The only honest channel is an SSE `error` frame — and it is the SAME
+        // channel the client already reads: readChatResponse returns {ok:false, error}, and the per-failure
+        // sentences key on the code. The console lines below keep the request-id detail the old 503 JSON
+        // carried, so server-side telemetry loses nothing to the status code becoming 200.
+        if (e instanceof AllModelsOverloadedError) {
+          console.error(`[chat] ALL MODELS OVERLOADED (streaming) tried=${e.attempts.map((a: any) => a.model).join(',')} dropped=${e.droppedModels.join(',') || 'none'} request_ids=${e.attempts.map((a: any) => a.requestId ?? 'none').join(',')}`)
+        } else {
+          console.error('Chat error (streaming):', e)
+        }
         emitRaw('error', { error: e instanceof AllModelsOverloadedError ? 'overloaded' : (e?.message || 'stream failed') })
       } finally {
         try { (ctrl as any)?.close() } catch { /* already closed */ }
@@ -388,6 +389,10 @@ export async function POST(request: Request) {
       },
     })
   }
+
+  // BLOCKING PATH (flag off) — byte-identical behaviour to before LORAMER_CHAT_FIRST_FRAME_V1: assembly is
+  // awaited inline (there is no stream to hold), then the same chain, same JSON body, same status codes.
+  await assemblePrompt()
 
   // LORAMER_LORA_MODEL_CHAIN_V1 — retry the primary, then FALL BACK across models on Anthropic overload.
   // The chain owns the wall-clock budget (95s vs ChatLauncher's 120s abort); hops it cannot afford are DROPPED,

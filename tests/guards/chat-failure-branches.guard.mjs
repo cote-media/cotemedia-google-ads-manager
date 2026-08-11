@@ -112,10 +112,100 @@ if (chain) {
   }
 }
 
+// ── 5. LORAMER_CHAT_FIRST_FRAME_V1, 2026-08-11 — THE REORDER'S PINS, RUSS'S EXPLICIT TRADE ─────────────────
+// ⛔ THE FOOTGUN RULE (never write SSE headers before the first token) WAS CONSCIOUSLY TRADED for the first
+// frame: measured at ARRIVAL, headers were held 49.16s and the t+0.1s status frame arrived at t+49.17s —
+// dead air at the start of every streamed turn, and the ★CHAT-STATUS-SILENT-WINDOWS "Working…" symptom was
+// this same buffering. These legs pin the NEW shape so it cannot silently regress to the old one, and pin
+// what the trade DID NOT give up.
+{
+  // (5a) THE HELD-HEADERS RACE IS GONE. Its reappearance re-creates the 35-50s dead-air window wholesale.
+  if (/Promise\.race\s*\(\s*\[\s*firstTokenP|firstTokenP/.test(routeCode)) {
+    fail('(5a) the settle-or-first-token race is BACK in the chat route. Holding the Response until the first model token buffers every status frame for the whole assembly + first-token wait — measured 49.16s of dead air at arrival. The trade was decided by Russ 2026-08-11 (LORAMER_CHAT_FIRST_FRAME_V1); reversing it is a new decision, not an edit.')
+  }
+  // (5b) NO JSON ESCAPE HATCH INSIDE THE STREAMING BRANCH. A NextResponse.json between the branch opening
+  // and `return new Response(stream` means some failure path holds headers again (and would be unreachable
+  // or wrong once they are out).
+  const iBranch = routeCode.indexOf('if (CHAT_STREAMING) {')
+  const iReturn = routeCode.indexOf('return new Response(stream')
+  if (iBranch < 0 || iReturn < 0) {
+    fail('(5b) cannot locate the streaming branch or its Response return — the shape this guard pins has moved; re-derive the pin rather than trusting a green.')
+  } else if (routeCode.slice(iBranch, iReturn).includes('NextResponse.json')) {
+    fail('(5b) a NextResponse.json sits INSIDE the streaming branch before the Response returns — a pre-token JSON path is creeping back, which re-holds the headers it exists to serve.')
+  }
+  // (5c) THE DEDUP HOLDS: exactly ONE /api/intelligence fetch in the route. Two sequential identical
+  // fetches were the other half of the dead air (and could return DIVERGENT snapshots for the two builders).
+  const fetches = (routeCode.match(/api\/intelligence\?clientId=/g) || []).length
+  if (fetches !== 1) {
+    fail(`(5c) the chat route holds ${fetches} /api/intelligence fetches; the dedup (one response feeding BOTH prompt builders) requires exactly 1. Two identical sequential fetches double the assembly wait and can hand the flat and cacheable prompts different snapshots.`)
+  }
+  // (5d) WHAT THE TRADE KEPT — auth/RBAC real status codes ABOVE the stream, and the overload detail line.
+  const iStream = routeCode.indexOf('new ReadableStream')
+  const i401 = routeCode.indexOf("status: 401")
+  const i404 = routeCode.indexOf("status: 404")
+  if (iStream < 0 || i401 < 0 || i404 < 0 || i401 > iStream || i404 > iStream) {
+    fail('(5d) auth 401 / RBAC 404 no longer both sit ABOVE the stream construction with real JSON status codes — those are the two failures the original footgun rule said genuinely need one, and the trade explicitly kept them.')
+  }
+  if (!/ALL MODELS OVERLOADED \(streaming\)/.test(routeCode)) {
+    fail('(5d) the streamed overload path no longer logs the `[chat] ALL MODELS OVERLOADED (streaming)` line with request ids. Failed streamed turns read HTTP 200 now, so this log line is the ONLY server-side telemetry of an exhausted chain — losing it makes streamed failures invisible twice.')
+  }
+}
+
+// ── 6. BEHAVIOURAL — THE CLIENT RENDERS THE SAME SENTENCE FROM AN SSE ERROR FRAME AS FROM THE OLD JSON ────
+// ⛔ THIS IS THE LEG THAT PROVES THE TRADE SAFE, mechanically: readChatResponse (the REAL compiled reader,
+// not a stub of it) must return the same {ok:false, error:'overloaded'} shape for a pre-token failure
+// arriving as an SSE frame on HTTP 200 as it does for the blocking path's 503 JSON — because every
+// user-facing sentence keys on `d.error`, so shape-equality IS sentence-equality.
+{
+  const { spawnSync } = await import('node:child_process')
+  const { mkdtempSync, rmSync, writeFileSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { createRequire } = await import('node:module')
+  const out = mkdtempSync(join(tmpdir(), 'loramer-chat-read-'))
+  const tsc = resolve(ROOT, 'node_modules', '.bin', 'tsc')
+  const r = spawnSync(tsc, [resolve(ROOT, 'src/lib/chat-stream-read.ts'), '--target', 'es2020', '--module', 'commonjs',
+    '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out], { encoding: 'utf8' })
+  if (r.error || r.status !== 0) {
+    fail(`(6) could not compile chat-stream-read.ts to drive it — ${r.error?.message || (r.stdout + r.stderr).trim().slice(0, 300)}. A leg that cannot run is not a pass.`)
+  } else {
+    const req = createRequire(import.meta.url)
+    const { readChatResponse } = req(join(out, 'src/lib/chat-stream-read.js'))
+    const sse = (body) => ({
+      ok: true, status: 200,
+      headers: { get: (k) => (k.toLowerCase() === 'content-type' ? 'text/event-stream; charset=utf-8' : null) },
+      body: new ReadableStream({
+        start(c) { c.enqueue(new TextEncoder().encode(body)); c.close() },
+      }),
+    })
+    // A pre-token overload arriving as an SSE frame on 200 — the reorder's new shape.
+    const viaFrame = await readChatResponse(sse('event: error\ndata: {"error":"overloaded"}\n\n'), () => {})
+    if (viaFrame.ok !== false || viaFrame.error !== 'overloaded') {
+      fail(`(6) an SSE error frame did not surface as {ok:false, error:'overloaded'} (got ${JSON.stringify(viaFrame)}). The client's per-failure sentences key on d.error, so this shape IS the user's sentence — a pre-token failure would render the generic string, or worse, a silent success.`)
+    }
+    // The blocking path's 503 JSON — must produce the IDENTICAL shape, so the two transports cannot diverge.
+    const json503 = {
+      ok: false, status: 503,
+      headers: { get: (k) => (k.toLowerCase() === 'content-type' ? 'application/json' : null) },
+      json: async () => ({ error: 'overloaded' }),
+    }
+    const viaJson = await readChatResponse(json503, () => {})
+    if (viaJson.ok !== false || viaJson.error !== 'overloaded') {
+      fail(`(6) the 503 JSON path did not surface {ok:false, error:'overloaded'} (got ${JSON.stringify(viaJson)}).`)
+    }
+    // And a generic pre-token 500-class message must land in `error` (the client falls through to SERVER_ERROR).
+    const viaFrame500 = await readChatResponse(sse('event: error\ndata: {"error":"Request timed out"}\n\n'), () => {})
+    if (viaFrame500.ok !== false || viaFrame500.error !== 'Request timed out') {
+      fail(`(6) a generic error frame did not carry its message through (got ${JSON.stringify(viaFrame500)}).`)
+    }
+  }
+  rmSync(out, { recursive: true, force: true })
+}
+
 if (failures.length) {
   console.error('\n❌ LORAMER_CHAT_FAILURE_BRANCHES_GUARD_V1 FAILED\n')
   failures.forEach((f) => console.error('  • ' + f))
   console.error('')
   process.exit(1)
 }
-console.log('chat-failure-branches.guard: PASS — distinct error codes from the route, distinct non-duplicated client strings with an explicit overloaded branch, logSpend records the answering model, every chain model priced.')
+console.log('chat-failure-branches.guard: PASS — distinct error codes from the route, distinct non-duplicated client strings with an explicit overloaded branch, logSpend records the answering model, every chain model priced; the first-frame reorder holds (no held-headers race, no pre-token JSON in the streaming branch, ONE intelligence fetch, 401/404 real codes above the stream) and an SSE error frame surfaces to the client identically to the old 503 JSON (driven on the real compiled reader).')

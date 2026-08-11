@@ -101,10 +101,18 @@ for (const f of [CTX, ROUTE, REC]) {
   const code = route.split('\n').filter(isCode).join('\n')
   check(/Date\.now\(\)/.test(code),
     `(c) ${ROUTE} contains no Date.now() call. With zero timing, every latency question about prompt assembly is unanswerable and any split quoted for it is invented (★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH).`)
-  for (const p of ['session', 'fetch1', 'build1', 'fetch2', 'build2', 'model']) {
+  // ⛔ RE-POINTED 2026-08-11 (LORAMER_CHAT_FIRST_FRAME_V1) — 'fetch2' LEFT THE LIST BECAUSE THE QUESTION IT
+  // TIMED IS ANSWERED. This leg required a phase marker for the SECOND intelligence fetch because the double
+  // fetch was "the open question this instrument exists to answer". The dedup closed it: ONE fetch feeds both
+  // builders, so a fetch2 marker cannot exist — and requiring it would fail the build for the fix.
+  // Lesson 68 shape (a), an assertion encoding a superseded model, repaired at the moment the model changed
+  // rather than discovered later. The inverse is now pinned: fetch2 REAPPEARING means the dedup regressed.
+  for (const p of ['session', 'fetch1', 'build1', 'build2', 'model']) {
     check(new RegExp(`phase\\('${p}'\\)`).test(code),
-      `(c) no phase marker for '${p}'. The double fetch is the open question this instrument exists to answer, so both fetches and both builders must be timed separately — a single total cannot attribute it.`)
+      `(c) no phase marker for '${p}'. Every stage of assembly must be timed separately — a single total cannot attribute a latency question.`)
   }
+  check(!/phase\('fetch2'\)/.test(code),
+    `(c) a phase marker for 'fetch2' is BACK — the second intelligence fetch was deduped on 2026-08-11 (one response feeds both prompt builders, LORAMER_CHAT_FIRST_FRAME_V1); its reappearance means the route is paying the double fetch again.`)
   check(/\[chat\] phases/.test(code), `(c) the phase log line is missing or not greppable on the '[chat] phases' marker.`)
   check(/first_frame_ms/.test(code), `(c) time-to-first-frame is not recorded.`)
   check(/durationMs:/.test(code), `(c) durationMs is not passed to logSpend — the duration would live only in a Vercel log line that expires in an hour, which is the exact gap this flight exists to close.`)
