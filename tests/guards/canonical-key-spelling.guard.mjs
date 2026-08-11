@@ -46,6 +46,48 @@ const blockers = []
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return '' } }
 const strip = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 
+// ⛔ LORAMER_GUARD_LOADS_ENV_LOCAL_V1 (★CANNOT-RUN-LEGS-NEVER-LOAD-ENV-LOCAL), 2026-08-11. LEG (s) REPORTED
+// "SUPABASE_DB_URL is missing (.env.local)" WHILE IT SAT IN .env.local, POPULATED, THE WHOLE TIME — node does
+// not auto-load env files (Next.js does; `npm run check:data` runs bare `node`), and this guard read
+// `process.env` directly. The count that gates the 67,455-row cleanup was therefore never taken on this
+// machine, and the message blamed the machine for it.
+//
+// ⛔ CALLED LAZILY, INSIDE THE --db BRANCH, AND THAT PLACEMENT IS THE LOAD-BEARING PART. This guard ALSO runs
+// in the HERMETIC `npm run guard` (scripts/run-guards.mjs:210), which runs inside `next build` ON VERCEL where
+// there is no .env.local at all. A module-top `readFileSync` would throw there and break the deploy.
+//
+// ⛔ WHY THIS SHAPE AND NOT THE ONE THE QUEUE ENTRY NAMED. The entry said to copy
+// `scripts/check-parent-analyze.mjs:27`. Surveyed all 18 hand-rolled loaders first: that one belongs to a
+// three-file family that builds a LOCAL `env` object and lets `readFileSync` THROW on a missing file. Both
+// properties are wrong here — the throw is the Vercel break above, and a local object would force every
+// `process.env.SUPABASE_DB_URL` read site in this file to change and would diverge from the FOUR sibling
+// guards (canonical-client-identity, google-op-budget, universe-attempt-append-only,
+// universe-failure-is-durable) that all already use the process.env / soft / quote-stripping shape. That
+// family is canonical FOR GUARDS and is what this copies.
+// ⚠ WITH TWO CORRECTIONS TO IT, because the sibling shape has its own drift: it splits on '=' (which would
+// TRUNCATE any DSN carrying a query parameter such as `?sslmode=require` into a silently-broken connection
+// string — measured today: this value holds zero '=' characters, so it works BY LUCK) and it does not skip
+// comment lines. `indexOf('=')` and the '#' skip come from the other family, which had them right.
+// ⛔ AND IT READS FROM process.cwd(), NEVER FROM `ROOT`: .env.local is a property of THE MACHINE, not of the
+// tree under audit. A red-proof copy under LORAMER_GUARD_ROOT has no .env.local, and the --db leg asks about
+// LIVE DATA rather than about the copied tree.
+// SCOPE: this flight fixes THE TWO guards that had no loader. The other 18 are NOT unified here.
+function loadEnvLocal() {
+  let txt = ''
+  try { txt = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8') } catch { return }
+  for (const line of txt.split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const i = t.indexOf('=')
+    if (i <= 0) continue
+    const k = t.slice(0, i).trim()
+    // ⛔ NEVER CLOBBER A REAL ENVIRONMENT VARIABLE. A value exported in the shell or injected by CI outranks
+    // a file on disk; the file is the fallback, not the authority.
+    if (process.env[k]) continue
+    process.env[k] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '')
+  }
+}
+
 const WRITER = 'src/lib/backfill/google-ads-universe-writer.ts'
 const SURFACES = 'src/lib/backfill/universe-surfaces.ts'
 
@@ -145,6 +187,7 @@ if (!writer) { console.error(`[canonical-key-spelling] FAIL — ${WRITER} unread
 // steady green. It is expected RED until the duplicate rows are dealt with in their own flight.
 if (WITH_DB) {
   const pg = await import('pg')
+  loadEnvLocal()
   if (!process.env.SUPABASE_DB_URL) {
     // ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1, 2026-08-10 — A BLOCKER, NOT A FINDING. The refusal is
     // UNCHANGED and still exits non-zero; what changes is that it no longer RENDERS like a data defect.

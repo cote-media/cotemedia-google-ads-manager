@@ -32,6 +32,39 @@ const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catc
 const strip = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 const body = (s) => strip(s).split('\n').filter((l) => !/^\s*import\b/.test(l)).join('\n')
 
+// ⛔ LORAMER_GUARD_LOADS_ENV_LOCAL_V1 (★CANNOT-RUN-LEGS-NEVER-LOAD-ENV-LOCAL), 2026-08-11. LEG (v) REPORTED
+// "SUPABASE_DB_URL is missing (.env.local)" WHILE IT SAT IN .env.local, POPULATED, THE WHOLE TIME — node does
+// not auto-load env files (Next.js does; `npm run check:data` runs bare `node`), and this guard read
+// `process.env` directly. So the ONLY thing standing between a wrong alias and permanently skipped history had
+// never actually run on this machine, and its own message blamed the machine rather than the missing loader.
+//
+// ⛔ CALLED LAZILY, INSIDE THE --db BRANCH. This guard ALSO runs in the HERMETIC `npm run guard`
+// (scripts/run-guards.mjs:214) inside `next build` ON VERCEL, where there is no .env.local — a module-top
+// `readFileSync` would throw there and break the deploy.
+//
+// ⛔ SHAPE CHOSEN AFTER SURVEYING ALL 18 HAND-ROLLED LOADERS, not copied from the one the queue entry named.
+// `scripts/check-parent-analyze.mjs:27` belongs to a three-file family that builds a LOCAL `env` object and
+// lets `readFileSync` THROW; both properties are wrong for a file on the hermetic path. The process.env /
+// soft / quote-stripping family used by the four sibling guards is canonical FOR GUARDS, and this matches it —
+// plus `indexOf('=')` and the '#' skip taken from the other family, because splitting on '=' would truncate a
+// DSN carrying `?sslmode=require` into a silently-broken connection string.
+// ⛔ READS FROM process.cwd(), NEVER `ROOT`: the env file belongs to THE MACHINE, not to the tree under audit.
+// SCOPE: this flight fixes THE TWO guards that had no loader; the other 18 are NOT unified here.
+function loadEnvLocal() {
+  let txt = ''
+  try { txt = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8') } catch { return }
+  for (const line of txt.split('\n')) {
+    const t = line.trim()
+    if (!t || t.startsWith('#')) continue
+    const i = t.indexOf('=')
+    if (i <= 0) continue
+    const k = t.slice(0, i).trim()
+    // ⛔ NEVER CLOBBER A REAL ENVIRONMENT VARIABLE — a shell export or CI injection outranks a file on disk.
+    if (process.env[k]) continue
+    process.env[k] = t.slice(i + 1).trim().replace(/^["']|["']$/g, '')
+  }
+}
+
 const SURFACES = 'src/lib/backfill/universe-surfaces.ts'
 const COVERAGE = 'src/lib/backfill/universe-coverage.ts'
 
@@ -81,6 +114,7 @@ const coverage = read(COVERAGE)
 // per-row rounding because the two keys aggregate different row counts at 2dp.
 if (WITH_DB) {
   const pg = await import('pg')
+  loadEnvLocal()
   if (!process.env.SUPABASE_DB_URL) {
     // ⛔ LORAMER_CANNOT_RUN_IS_NOT_FAILED_V1, 2026-08-10 — A BLOCKER, NOT A FINDING. The refusal is UNCHANGED
     // and still exits non-zero; it simply no longer RENDERS like a wrong alias.
