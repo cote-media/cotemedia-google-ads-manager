@@ -14,17 +14,27 @@
 // (`universe-stream-consumer.guard.mjs` leg (e)) forced this edit by failing the build the moment the
 // resumer imported the topic — which is the guard working, not a nuisance.
 //
-// **THE INVARIANT NOW, and it is narrower rather than weaker:**
+// **THE INVARIANT CHANGED AGAIN ON 2026-08-11 — LORAMER_WALK_SCHEDULED_V1 — AND THE CHANGE IS THE POINT:
+// THE WALK IS NOW SCHEDULED.** The separate, explicit decision the previous invariant reserved for Russ was
+// TAKEN, with all three pre-scheduling gates closed (meter · lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1)
+// and the Foam OH dormancy eyeball done. The invariant now:
 //   · the ONLY publisher to this topic is `/api/cron/universe-resume`;
-//   · that route is **NOT IN `vercel.json`** — nothing invokes it on a schedule;
-//   · it **DEFAULTS TO DRY-RUN** (`?dryRun=0` is required to publish at all);
-//   · it is `Bearer $CRON_SECRET`-gated.
-// So this handler is still reachable only by a message a human deliberately causes to exist. Scheduling the
-// resumer is the act that wires the walk, and it is a separate, explicit decision.
+//   · that route IS in `vercel.json` — **EXACTLY ONE entry: Foam OH, `dryRun=0`, `30 * * * *`**, pinned
+//     byte-for-byte by `universe-stream-consumer.guard.mjs` leg (e); a second entry, a faster cadence, a
+//     different client or a dropped `dryRun=0` is a red build, because each changes unattended spend
+//     without a decision;
+//   · every published message is BOUNDED — `MAX_REQUESTS_PER_RUN = 20`/run, `windowsRemaining: 1`, so the
+//     worst hour is 20 vendor requests and the worst day 480 of the 13,500 lane;
+//   · it is `Bearer $CRON_SECRET`-gated, and Vercel sends that header on cron fires by its own contract.
+// So this handler is now reachable ON A SCHEDULE, unattended — which is why the quota sentinel sits at
+// step 0, why every attempt is ledgered before the vendor is called, and why coverage is DERIVED: a missed
+// or DUPLICATED cron fire (Vercel: delivery is best effort, duplicates possible, NO retry on failure)
+// re-finds exactly the still-owed windows and re-publishing an owed window is idempotent by key.
 //
-// ROLLBACK is therefore "stop publishing to this topic", which is the whole of it. No data motion, no
-// migration to undo. `universe_window_log` and `universe_run_state` are not written by this file at all —
-// this consumer's bookkeeping lives entirely in `universe_attempt_log`.
+// ROLLBACK is "delete the cron entry and redeploy" — leg (e) then goes red on ZERO entries, which forces the
+// un-scheduling to be recorded as a decision too. No data motion, no migration to undo. `universe_window_log`
+// and `universe_run_state` are not written by this file at all — this consumer's bookkeeping lives entirely
+// in `universe_attempt_log`.
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
 //
 // WHAT IS DIFFERENT FROM V1, each one a settled decision rather than a preference:

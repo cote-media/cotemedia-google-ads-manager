@@ -16,7 +16,7 @@
 //       re-published. This is June's `BackfillControl.tsx:81-83` and the defence v2 lacked; leg (f2) is red
 //       against a bound that only fires on failures, which is what v2 shipped with.
 //   (g) it never writes a row, a day commit, or to either old bookkeeping table
-//   (h) it is NOT SCHEDULED — vercel.json must not carry it
+//   (h) its SCHEDULE and its own header AGREE, in both directions (scheduled 2026-08-11, LORAMER_WALK_SCHEDULED_V1)
 import { readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -105,13 +105,26 @@ if (route) {
   }
 }
 
-// ── (h) NOT SCHEDULED ─────────────────────────────────────────────────────────────────────────────────
+// ── (h) SCHEDULED DELIBERATELY — THE HEADER MUST AGREE WITH vercel.json, IN BOTH DIRECTIONS ───────────
+// ⛔ OPENED 2026-08-11 (LORAMER_WALK_SCHEDULED_V1, Russ's explicit GO; seen RED refusing the entry first).
+// The exact cron shape is pinned by universe-stream-consumer.guard.mjs leg (e) — ONE owner per fact, not
+// re-pinned here. What THIS leg now guards is the thing it always guarded one level up: the route's own
+// header must tell the truth about whether it is scheduled. A header claiming NOT SCHEDULED over a live cron
+// is how the next session walks into unattended spend believing the safety is still on; a header claiming
+// SCHEDULED after the entry is deleted is the same lie in the safe-looking direction.
 {
   const vercel = read('vercel.json')
-  if (vercel && /universe-resume/.test(vercel)) {
-    findings.push(`(h) vercel.json SCHEDULES the resumer. Scheduling it is the act that finally wires the v2 topic and is a SEPARATE, EXPLICIT decision — if this is deliberate, the route header's "NOT SCHEDULED" claim must change in the SAME commit.`)
+  const routeSrc = read(ROUTE)
+  const isScheduled = Boolean(vercel && /universe-resume/.test(vercel))
+  const headerSaysScheduled = /SCHEDULED AS OF/.test(routeSrc)
+  const headerSaysNot = /NOT SCHEDULED\. THIS ROUTE IS NOT IN/.test(routeSrc)
+  if (isScheduled && (headerSaysNot || !headerSaysScheduled)) {
+    findings.push(`(h) vercel.json SCHEDULES the resumer but the route header still claims it is not (or carries no SCHEDULED AS OF banner). The next session reads the header first and would believe the safety is still on.`)
   }
-  if (route && !/NOT SCHEDULED/i.test(route)) findings.push(`(h) ${ROUTE} does not state that it is unscheduled.`)
+  if (!isScheduled && headerSaysScheduled) {
+    findings.push(`(h) the route header claims SCHEDULED but vercel.json has no universe-resume entry — the walk was un-scheduled without the header moving, which hides that a decision was reversed.`)
+  }
+  // (the old "header must say NOT SCHEDULED" clause is subsumed by the two-direction check above)
   if (route && !/dryRun.*!==\s*'0'|dryRun\s*=\s*url\.searchParams\.get\('dryRun'\)\s*!==\s*'0'/.test(code)) {
     findings.push(`(h) ${ROUTE} does not DEFAULT TO DRY-RUN. An unattended publisher whose default is "publish" is one misconfigured cron away from an unbounded run.`)
   }
@@ -209,4 +222,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-resumer] PASS — publishes from DERIVED coverage over the catalog denominator, never a list or a cursor · refuses and records four classes of implausible coverage (and does NOT invent a floor where the adapter declares none) · bounded in REQUESTS with single-window messages so the driver owns the loop · a BROKEN entry stops being published while a MIS-SIZED one narrows · an entry whose owed set did not shrink after a successful attempt is NOT re-published (June's bound) · the meter gates the publish and HOLDS when unreadable · it writes no row, no day commit and neither old table · and it is NOT scheduled.`)
+console.log(`[universe-resumer] PASS — publishes from DERIVED coverage over the catalog denominator, never a list or a cursor · refuses and records four classes of implausible coverage (and does NOT invent a floor where the adapter declares none) · bounded in REQUESTS with single-window messages so the driver owns the loop · a BROKEN entry stops being published while a MIS-SIZED one narrows · an entry whose owed set did not shrink after a successful attempt is NOT re-published (June's bound) · the meter gates the publish and HOLDS when unreadable · it writes no row, no day commit and neither old table · and its schedule agrees with its own header (SCHEDULED as of 2026-08-11, LORAMER_WALK_SCHEDULED_V1; the exact cron shape is pinned by universe-stream-consumer leg (e)).`)

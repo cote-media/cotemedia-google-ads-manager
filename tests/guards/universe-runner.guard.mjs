@@ -59,8 +59,15 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
 {
   const v = JSON.parse(read('vercel.json'))
   const crons = v.crons || []
-  const firing = crons.filter((c) => /universe/.test(String(c.path || '')))
-  if (firing.length) findings.push(`(c) vercel.json has ${firing.length} CRON entr(ies) pointing at the universe path (${firing.map((c) => c.path).join(', ')}). This flight ships WIRED BUT NOT FIRED — a cron starts the run, and starting it is Russ's call in a separate turn.`)
+  // ⛔ OPENED FOR EXACTLY ONE PATH ON 2026-08-11 — LORAMER_WALK_SCHEDULED_V1, Russ's explicit GO. "Starting it
+  // is Russ's call in a separate turn" was this leg's own text, and that turn happened: the v2 RESUMER
+  // (/api/cron/universe-resume) is now scheduled, and its exact shape is pinned by
+  // universe-stream-consumer.guard.mjs leg (e) — ONE entry, Foam OH, dryRun=0, hourly — not re-pinned here
+  // (one owner per fact). WHAT THIS LEG STILL REFUSES, unchanged: any cron pointing at the V1 universe path
+  // (this guard's own subject — v1 is UNCHECKED, not proven, and must never be fired), and any OTHER universe
+  // cron nobody decided. The lock was SEEN RED refusing the resumer entry before this rewrite.
+  const firing = crons.filter((c) => /universe/.test(String(c.path || '')) && !/^\/api\/cron\/universe-resume\?/.test(String(c.path || '')))
+  if (firing.length) findings.push(`(c) vercel.json has ${firing.length} CRON entr(ies) pointing at a universe path OTHER than the decided v2 resumer (${firing.map((c) => c.path).join(', ')}). The v1 consumer must never be fired (it is UNCHECKED — see the route-validator note), and any additional universe cron is a scheduling decision nobody made.`)
   const trig = v.functions?.[CONSUMER]?.experimentalTriggers?.[0]
   if (!trig || trig.type !== 'queue/v2beta') findings.push(`(c) the consumer has no queue/v2beta trigger in vercel.json — without it the route is a PUBLIC endpoint rather than a private queue consumer.`)
 }
@@ -230,4 +237,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-runner] PASS — a redelivered message lands on identical 7-column conflict keys with an identical payload (at-least-once is safe); the governor reserves ${G.RESERVED_FOR_FORWARD_OPS} forward + ${G.RESERVED_FOR_DRAIN_OPS} drain ops of ${G.GOOGLE_DAILY_OP_CAP} and returns zero once the ${G.BACKFILL_OP_ALLOWANCE}-op backfill allowance is spent; completion is recorded only from the writer's proof-carrying verdict, never from backfill_complete or a clock; and NO cron fires the universe path. ⛔ NOT ASSERTED: that Vercel Queues is enabled on the project — that is a platform fact only the deploy can settle.`)
+console.log(`[universe-runner] PASS — a redelivered message lands on identical 7-column conflict keys with an identical payload (at-least-once is safe); the governor reserves ${G.RESERVED_FOR_FORWARD_OPS} forward + ${G.RESERVED_FOR_DRAIN_OPS} drain ops of ${G.GOOGLE_DAILY_OP_CAP} and returns zero once the ${G.BACKFILL_OP_ALLOWANCE}-op backfill allowance is spent; completion is recorded only from the writer's proof-carrying verdict, never from backfill_complete or a clock; and no cron fires any universe path EXCEPT the decided v2 resumer entry (pinned byte-for-byte by universe-stream-consumer leg (e)). ⛔ NOT ASSERTED: that Vercel Queues is enabled on the project — that is a platform fact only the deploy can settle.`)

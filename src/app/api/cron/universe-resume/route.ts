@@ -1,11 +1,20 @@
 // LORAMER_UNIVERSE_RESUMER_V1 — THE WALK MOVES WITHOUT A HUMAN NAMING A ROW ID.
 //
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-// ⛔ NOT SCHEDULED. THIS ROUTE IS NOT IN `vercel.json` AND NOTHING INVOKES IT.
+// ⛔ SCHEDULED AS OF 2026-08-11 — LORAMER_WALK_SCHEDULED_V1, RUSS'S EXPLICIT GO. THE SEPARATE ACT HAPPENED.
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-// It is built, guarded, and reachable only by a `Bearer $CRON_SECRET` request somebody makes deliberately.
-// Adding the cron entry is a SEPARATE, EXPLICIT act — and it is the act that finally wires the v2 topic,
-// which is why it is not being done in the same commit as the code it would schedule.
+// EXACTLY ONE cron entry exists: Foam OH (957d484e), `dryRun=0`, `30 * * * *` — pinned byte-for-byte by
+// `universe-stream-consumer.guard.mjs` leg (e), so a second entry, a faster cadence, a different client or a
+// dropped `dryRun=0` is a red build. It was added only after all three pre-scheduling gates closed (meter ·
+// lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and the Foam OH dormancy eyeball.
+// ⛔ THE UNATTENDED-SPEND ARITHMETIC, derived from constants below rather than invented: 24 fires/day ×
+// MAX_REQUESTS_PER_RUN (20, exact by boundedSelection) = worst case 480 requests/day of the 13,500 lane
+// (3.6%). Vercel sends `Bearer $CRON_SECRET` on cron fires by its own contract; a manual hit WITHOUT
+// `dryRun=0` stays dry (`dryRun !== '0'`), so the flip lives only in the cron path itself.
+// ⛔ VERCEL'S OWN DELIVERY CAVEATS, designed-for rather than discovered: no retry on failure, occasional
+// missed or DUPLICATED fires. Both are safe here BY CONSTRUCTION — coverage is DERIVED so a missed fire's
+// work is simply re-found next hour, and a duplicated fire recomputes the same owed set and dedupes on the
+// same idempotency key.
 //
 // ⛔ WHY IT EXISTS. Every recovery on 2026-08-08 required a human to name a row id: 2871, 17959, 17966. A
 // one-click product cannot work that way. **THE RESUMER REMOVES THE HUMAN — AND THAT IS EXACTLY WHAT MAKES

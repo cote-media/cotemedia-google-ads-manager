@@ -144,11 +144,30 @@ if (route) {
   if (suspects.length) {
     findings.push(`(e) ${suspects.length} file(s) beyond the v2 route, its contract module and the RESUMER reach the topic '${TOPIC_LIT}': ${suspects.join(', ')}. THE ONLY PUBLISHER IS THE RESUMER. Two consumers can coexist safely only while exactly one of them receives anything, and every additional publisher is another way for that to stop being true.`)
   }
-  // ⛔ AND THE SECOND CLAUSE, WHICH IS WHAT MAKES THE FIRST ONE SAFE: the sole publisher must not be on a
-  // schedule. An unscheduled publisher is reachable only by a human; a scheduled one wires the walk.
+  // ⛔ THE SECOND CLAUSE OPENED DELIBERATELY ON 2026-08-11 — LORAMER_WALK_SCHEDULED_V1, RUSS'S EXPLICIT GO,
+  // after all three pre-scheduling gates closed (meter · lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and
+  // the Foam OH dormancy eyeball. It used to read "the sole publisher must not be on a schedule"; the lock
+  // was SEEN RED refusing this exact entry before it was rewritten, which is what a lock is for.
+  // ⛔ WHAT IT PINS NOW IS NARROWER, NOT WEAKER: the schedule that exists must be EXACTLY the decided one.
+  // The unattended-spend arithmetic rests on every clause of this string — hourly × MAX_REQUESTS_PER_RUN(20)
+  // = 480 requests/day = 3.6% of the 13,500 lane — so a second entry, a faster cadence, a different client,
+  // or a dropped dryRun=0 each change the spend without a decision and each goes RED here.
+  //   · ONE entry (a second one doubles unattended spend silently)
+  //   · client pinned to Foam OH — the ONLY account the engine has ever been proven on (both wet runs).
+  //     Fleet rollout is a SEPARATE decision after unattended operation is proven; roster: LORAMER_WALK_ROSTER_V1.
+  //   · dryRun=0 explicit — without it the route's safe-by-default dry-run makes the cron a daily no-op
+  //     that LOOKS scheduled (the exact false-comfort ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION described)
+  //   · cadence 30 * * * * — hourly, the resumer's DESIGNED cadence (universe-resumer.ts:40-45 derives its
+  //     bound arithmetic from 24 runs/day), minute 30 clear of the :00-:20 drain fires and :08 sync fires
   const vercelJson = read('vercel.json')
-  if (vercelJson && /universe-resume/.test(vercelJson)) {
-    findings.push(`(e) vercel.json SCHEDULES the only publisher to '${TOPIC_LIT}'. That WIRES THE v2 WALK. It is a separate, explicit decision, and the v2 route header's invariant must change in the SAME commit.`)
+  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '30 * * * *' }
+  if (vercelJson) {
+    const crons = (JSON.parse(vercelJson).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
+    if (crons.length !== 1) {
+      findings.push(`(e) vercel.json holds ${crons.length} universe-resume cron entr(ies); the 2026-08-11 decision authorises EXACTLY ONE. Zero means the walk was silently un-scheduled; more than one multiplies unattended spend without a decision.`)
+    } else if (crons[0].path !== DECIDED_ENTRY.path || crons[0].schedule !== DECIDED_ENTRY.schedule) {
+      findings.push(`(e) the universe-resume cron entry drifted from the decided shape.\n      decided: ${JSON.stringify(DECIDED_ENTRY)}\n      found:   ${JSON.stringify(crons[0])}\n      Client, dryRun=0 and cadence are each load-bearing for the unattended-spend arithmetic (480/day of 13,500); changing any of them is a NEW scheduling decision, not an edit.`)
+    }
   }
   // and the contract module must declare, not send
   const contract = read(CONTRACT)
@@ -316,4 +335,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer is not scheduled.`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · hourly at :30 — LORAMER_WALK_SCHEDULED_V1).`)
