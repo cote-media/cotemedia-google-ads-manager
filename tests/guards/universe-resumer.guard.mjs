@@ -65,10 +65,32 @@ if (route) {
 
 // ── (e) THE METER GATES THE PUBLISH ───────────────────────────────────────────────────────────────────
 if (route) {
-  const iGate = code.indexOf('mayFetch('), iSend = code.indexOf('send(TOPIC')
-  if (iGate < 0) findings.push(`(e) ${ROUTE} never calls mayFetch — nothing gates the publish on the adapter's meter.`)
+  const iGate = code.search(/mayFetch(Program)?\(/), iSend = code.indexOf('send(TOPIC')
+  if (iGate < 0) findings.push(`(e) ${ROUTE} never calls mayFetch/mayFetchProgram — nothing gates the publish on the adapter's meter.`)
   else if (iSend >= 0 && iGate > iSend) findings.push(`(e) ${ROUTE} publishes at ${iSend} BEFORE gating at ${iGate}.`)
   if (!/if\s*\(!gate\.ok\)/.test(code)) findings.push(`(e) ${ROUTE} does not act on the meter verdict.`)
+}
+
+// ── (e2) THE METER IS CHARGED FOR THE WHOLE PROGRAM, NOT ONE FETCH ────────────────────────────────────
+// ⛔ LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1, 2026-08-11 — MEASURED TWICE ON LIVE DATA, NOT PREDICTED. The
+// resumer publishes up to MAX_REQUESTS_PER_RUN = 20 vendor requests (one per owed range) and gated them with
+// `mayFetch(adapter, sel.requests)` — a REQUEST COUNT handed to a parameter that means DAYS. Google's
+// `costOf` is flat and discards `days`, so the mislabelling was invisible: both watched wet runs of
+// 2026-08-10/11 printed `0 + 1 of 6000` while authorising twenty requests. It failed SAFE only because
+// MAX_REQUESTS_PER_RUN is the real bound, which is precisely the problem — the meter was not holding the
+// line it appeared to hold, and the next person to raise that bound would have found out the hard way.
+// ⛔ THIS LEG IS INVOCATION-SHAPED, NOT NAME-SHAPED (Lesson 68 shape (c)): it refuses the SPECIFIC wrong
+// call, so restoring the defect with the import still present goes RED.
+if (route) {
+  if (/mayFetch\s*\(\s*adapter\s*,\s*sel\.requests\s*\)/.test(code)) {
+    findings.push(`(e2) ${ROUTE} charges the meter \`mayFetch(adapter, sel.requests)\` — a REQUEST COUNT passed to a \`days\` parameter. On Google \`costOf\` discards \`days\`, so a 20-request program is charged ONE operation and the gate reads "0 + 1 of 6000" while authorising twenty. Charge the PROGRAM: mayFetchProgram(adapter, sel.taken.flatMap((c) => c.rangeSpans)).`)
+  }
+  if (!/mayFetchProgram\s*\(\s*adapter\s*,/.test(code)) {
+    findings.push(`(e2) ${ROUTE} does not gate on mayFetchProgram(). The resumer authorises a PROGRAM of up to MAX_REQUESTS_PER_RUN vendor requests in one decision; a per-fetch cost cannot express that, and \`costOf(days)\` is per-fetch by contract (capture-adapter.ts:121-126).`)
+  }
+  if (!/rangeSpans/.test(code)) {
+    findings.push(`(e2) ${ROUTE} does not carry \`rangeSpans\`. ONE OWED RANGE IS ONE VENDOR REQUEST (universe-resumer.ts:201-203) and each range has its own day span; \`owed.ranges\` is computed here and reducing it to \`.length\` throws away the only thing \`costOf\` is defined over. On a rises-with-range adapter (GA4) that difference is the whole charge.`)
+  }
 }
 
 // ── (g) IT NEVER WRITES ROWS OR DAY COMMITS ───────────────────────────────────────────────────────────

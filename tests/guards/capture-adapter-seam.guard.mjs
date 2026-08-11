@@ -124,6 +124,46 @@ try {
   const full = { ...ok, meter: { ...ok.meter, spentSoFar: async () => 10 } }
   if ((await core.mayFetch(full, 7)).ok !== false) findings.push(`(d) a meter AT its cap granted permission.`)
 
+  // (d1) ── A PROGRAM OF N FETCHES COSTS N, NOT 1
+  // ⛔ LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1, 2026-08-11. `cron/universe-resume` authorises a bounded
+  // PROGRAM — up to MAX_REQUESTS_PER_RUN = 20 vendor requests, one per owed range — in a single meter
+  // decision, and it gated that with `mayFetch(adapter, sel.requests)`: a REQUEST COUNT handed to a `days`
+  // parameter. Google's costOf is flat and discards `days`, so the mislabelling was INVISIBLE and both
+  // watched wet runs printed `0 + 1 of 6000` while authorising twenty. THIS LEG IS BEHAVIOURAL: it runs the
+  // real function against a real meter, so it cannot pass on a stub (Lesson 68 shape (b)).
+  if (typeof core.mayFetchProgram !== 'function') {
+    findings.push(`(d1) the seam exports no mayFetchProgram(). \`costOf(days)\` is the cost of ONE fetch by contract, so an interface with only mayFetch() cannot express "N fetches" — and a caller that needs to say it will encode the count in \`days\`, which is exactly the undercharge this leg exists to stop.`)
+  } else {
+    const flatMeter = { platform: 'x', meter: { unit: 'ops', cap: 100, costDirection: 'flat-per-request', costOf: () => 1, spentSoFar: async () => 0 } }
+    const three = await core.mayFetchProgram(flatMeter, [7, 7, 7])
+    if (!/0 \+ 3\b/.test(three.reason)) {
+      findings.push(`(d1) a THREE-fetch program was not charged 3 on a flat meter (reason: ${JSON.stringify(three.reason)}). One request is one operation on Google, so N requests is N — a program charged as a single fetch is a gate that reads full while the lane empties.`)
+    }
+    const atCap = { ...flatMeter, meter: { ...flatMeter.meter, spentSoFar: async () => 98 } }
+    if ((await core.mayFetchProgram(atCap, [1, 1, 1])).ok !== false) {
+      findings.push(`(d1) a 3-fetch program was ADMITTED with 98 of 100 spent. The program's total is what must clear the cap; charging one fetch lets the other two through unmeasured.`)
+    }
+    if ((await core.mayFetchProgram(atCap, [1])).ok !== true) {
+      findings.push(`(d1) a 1-fetch program was refused with 2 of headroom left — the charge is now over-counting, which starves the lane instead of over-spending it.`)
+    }
+    // ⛔ VARIABLE-COST ADAPTERS ARE THE REASON THE SIGNATURE IS AN ARRAY OF SPANS RATHER THAN A COUNT. On GA4
+    // cost RISES WITH RANGE, so three requests of different spans do not cost 3× anything.
+    const risesMeter = { platform: 'ga', meter: { unit: 'tokens', cap: 10_000, costDirection: 'rises-with-range', costOf: (d) => d * 10, spentSoFar: async () => 0 } }
+    const mixed = await core.mayFetchProgram(risesMeter, [1, 5, 30])
+    if (!/0 \+ 360\b/.test(mixed.reason)) {
+      findings.push(`(d1) a mixed-span program on a rises-with-range meter was charged ${JSON.stringify(mixed.reason)} instead of 360 tokens (1+5+30 days at 10/day). Summing costOf PER SPAN is the whole point of the array; a single representative \`days\` would bake Google's flat curve into the shared core.`)
+    }
+    // ⛔ AN EMPTY PROGRAM IS FREE AND MUST NOT BE REFUSED — a run with nothing owed publishes nothing.
+    const empty = await core.mayFetchProgram(atCap, [])
+    if (empty.ok !== true) findings.push(`(d1) an EMPTY program was refused (${JSON.stringify(empty.reason)}). A resumer that found nothing owed spends nothing and must not be held for it.`)
+    // ⛔ AND THE UNREADABLE-METER HOLD MUST SURVIVE THE REFACTOR — mayFetch now delegates here, so if this
+    // path lost the hold, every caller lost it at once.
+    const heldProgram = await core.mayFetchProgram(unreadable, [7, 7])
+    if (heldProgram.ok !== false || !/HOLD/i.test(heldProgram.reason)) {
+      findings.push(`(d1) an UNREADABLE meter did not HOLD on the program path (${JSON.stringify(heldProgram)}). mayFetch() delegates here, so this is the single point where every caller's hold now lives.`)
+    }
+  }
+
   // (d2) ── SIZING DIRECTION IS OBEYED, and this is the GA4 defect caught before GA4 exists
   const policy = { rowBudget: 300_000, coldStartDays: 7, minDays: 1, maxDays: 30 }
   const flat = core.sizeFromPolicy(policy, 'flat-per-request', [1000, 500], [30000, 15000])

@@ -19,6 +19,10 @@ import {
 import { serializeVendorError } from '@/lib/backfill/universe-stream-capture'
 // ⛔ THE ALLOCATION IS IMPORTED FROM ITS OWNER, NOT RETYPED. LORAMER_GOOGLE_LANE_ALLOCATION_V1.
 import { LANE_ALLOCATIONS } from '@/lib/backfill/google-op-budget'
+// ⛔ THE WINDOW IS IMPORTED FROM ITS OWNER TOO, AND FOR THE SAME REASON ONE LAYER DOWN.
+// LORAMER_V2_METER_ROLLING_WINDOW_V1 — this file is the THIRD spend reader and it was measuring over a
+// different period than the other two. See the `spentSoFar` comment below.
+import { rollingWindowStart } from '@/lib/backfill/google-quota-window'
 
 /**
  * ⛔ ORDERED DELIVERY IS ASSERTED TWICE AND THAT IS WHY GOOGLE EARNS RULE (a). The query asks for it; the
@@ -120,10 +124,21 @@ const meter: Meter = {
     try {
       const { readLaneSpendToday } = await import('@/lib/backfill/universe-window-log')
       const { readAttemptLaneSpendToday } = await import('@/lib/backfill/universe-attempt-log')
-      const since = new Date(); since.setUTCHours(0, 0, 0, 0)
+      // ⛔ LORAMER_V2_METER_ROLLING_WINDOW_V1, 2026-08-11. THIS READ THE CALENDAR DAY
+      // (`since.setUTCHours(0, 0, 0, 0)`) WHILE THE v1 TERM BESIDE IT ROLLED 24 HOURS — verbatim the defect
+      // `google-quota-window.ts:22-24` forbids: "the fleet total is assembled from BOTH readers, so two
+      // independently-computed windows means one fleet measured over two different periods."
+      // ⛔ IT WAS NOT PREDICTED, IT WAS MEASURED, on the walk's second night alive: at 01:21Z on 2026-08-11
+      // `universe_attempt_lane_spend_today('google', rolling 24h)` read 23 while the midnight read gave 20.
+      // The failure shape is daily and specific — an hourly cron crosses midnight on day one and under-reads
+      // its own spend at exactly the hour the vendor is fullest.
+      // ⚠ EXPECT THIS TERM TO READ HIGHER AT ALMOST EVERY HOUR. That is the fix working, not a regression.
+      const since = rollingWindowStart()
       // ⛔ BOTH LOGS ARE SUMMED WHILE BOTH CONSUMERS EXIST. v1 bills into universe_window_log and v2 into
       // universe_attempt_log; reading only one under-counts the lane by exactly the other's spend, which is
       // a governor granting itself the difference. When v1 retires its term goes to zero on its own.
+      // ⛔ AND BOTH TERMS NOW MEASURE THE SAME PERIOD — `readLaneSpendToday()` argless defaults to
+      // `rollingWindowStart()` (universe-window-log.ts:256), so the sum is over ONE window, not two.
       const [v1, v2] = await Promise.all([readLaneSpendToday(), readAttemptLaneSpendToday('google', since)])
       return v1 + v2
     } catch {

@@ -30,7 +30,7 @@ import { send } from '@vercel/queue'
 import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, VENDOR_FLOOR_DATE, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
-import { mayFetch } from '@/lib/backfill/capture-adapter'
+import { mayFetchProgram } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptFinished, readAttemptsAtSpan, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   // call, and a scheduler that keeps publishing into an armed quota is spending the fleet's tomorrow one
   // message at a time. Checked BEFORE the catalog load and the coverage scan, so a held run also costs no DB
   // work — the same reason cron/drain/route.ts checks before its connection query.
-  // ⛔ THE METER DOES NOT COVER THIS: `mayFetch` reads OUR ledgers; the sentinel is GOOGLE'S refusal.
+  // ⛔ THE METER DOES NOT COVER THIS: `mayFetchProgram` reads OUR ledgers; the sentinel is GOOGLE'S refusal.
   const qp = await readGoogleQuotaPause()
   if (holdGoogleWork(qp)) {
     // ⛔ DURABLE, NOT SILENT (sweep C6, LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1). A cron whose only trace is a JSON
@@ -116,6 +116,10 @@ export async function GET(request: Request) {
   type Candidate = {
     entry: UniverseEntry; label: string; ranges: number; owedDays: number
     windowStart: string; windowEnd: string; sizingBasis: string
+    // ⛔ ONE ENTRY PER VENDOR REQUEST THIS CANDIDATE WILL MAKE, each carrying that request's own day span.
+    // LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1 — `ranges` is the COUNT and was all the meter ever saw; the
+    // spans are what `costOf` is defined over, and they were being computed here and thrown away.
+    rangeSpans: number[]
   }
   const candidates: Candidate[] = []
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
@@ -187,6 +191,9 @@ export async function GET(request: Request) {
     candidates.push({
       entry, label, ranges: owed.ranges.length, owedDays: owed.coverage.uncovered.length,
       windowStart, windowEnd, sizingBasis: sizing.basis,
+      // ⛔ ONE OWED RANGE IS ONE VENDOR REQUEST (universe-resumer.ts:201-203), so this is the program the
+      // meter must be charged for — not its length, which is what it used to be handed.
+      rangeSpans: owed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
     })
   }
 
@@ -198,7 +205,14 @@ export async function GET(request: Request) {
   // 15,000 daily cap MINUS 4,000 forward and 5,000 drain (`universe-governor.ts:40-42`). The walk cannot
   // reach the product lanes' 9,000 through this path — not by policy, but because the number it is measured
   // against never included them. THE WALK YIELDS TO PRODUCT, ALWAYS.
-  const gate = await mayFetch(adapter, sel.requests)
+  // ⛔ LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1, 2026-08-11. THIS READ `mayFetch(adapter, sel.requests)` — a
+  // REQUEST COUNT handed to a parameter that means DAYS. Google's `costOf` is flat and discards `days`, so
+  // the mislabelling was invisible and the gate charged ONE for a twenty-request program: both watched wet
+  // runs printed `0 + 1 of 6000` while authorising 20. It failed SAFE only because MAX_REQUESTS_PER_RUN is
+  // the real bound — which means the meter was not holding the line it appeared to be holding.
+  // ⛔ THE PROGRAM IS THE UNIT: one entry per vendor request, each with its own span, summed by the
+  // ADAPTER'S OWN costOf. Nothing here is expressed in operations (capture-adapter.ts:354-357).
+  const gate = await mayFetchProgram(adapter, sel.taken.flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
     return NextResponse.json({
       ok: true, published: 0, held: gate.reason, scanned,

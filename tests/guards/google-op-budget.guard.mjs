@@ -27,7 +27,7 @@
 // Drives the REAL transpiled decision function; the lane wiring is pinned at source because a route cannot be
 // executed hermetically inside `npm run build`. That split is stated rather than sold as a full proof.
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import Module, { createRequire } from 'node:module'
@@ -455,6 +455,34 @@ if (WITH_DB) {
   const uwl = readFileSync(resolve(ROOT, 'src/lib/backfill/universe-window-log.ts'), 'utf8')
   const nocomment = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 
+  // ── THE READER SET IS **DERIVED FROM CALL SITES**, NOT HAND-LISTED ─────────────────────────────────────
+  // ⛔ LORAMER_V2_METER_ROLLING_WINDOW_V1, 2026-08-11. Legs (l) and (o) below used to iterate a HAND-WRITTEN
+  // list of two files, written when there were two readers. A THIRD arrived —
+  // `capture-adapters/google-ads.adapter.ts`, the file the v2 walk actually meters through — and both legs
+  // stayed GREEN over a midnight window in it for the whole of the engine's first two live runs. That is
+  // Lesson 68 shape (a) exactly: AN ASSERTION THAT ENCODES A SUPERSEDED MODEL, here a model of WHO THE
+  // READERS ARE. A hand list cannot go red for a file nobody added to it.
+  // ⛔ MATCHED ON THE **CALL**, NOT THE IMPORT (Lesson 68 shape (c)). `queues/google-ads-universe-v2` imports
+  // `readAttemptLaneSpendToday` and never calls it — an import-shaped leg would have blessed a dead import
+  // and told us nothing. Function DECLARATIONS are excluded so the two definers do not match themselves.
+  const CALLS_A_SPEND_READER = /(?<!function\s)\b(readLaneSpendToday|readAttemptLaneSpendToday)\s*\(/
+  const spendReaderFiles = []
+  {
+    const walk = (dir) => {
+      for (const e of readdirSync(resolve(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${e.name}`
+        if (e.isDirectory()) { if (e.name !== 'node_modules' && e.name !== '.next') walk(rel); continue }
+        if (!/\.tsx?$/.test(e.name)) continue
+        const src = read(rel)
+        if (CALLS_A_SPEND_READER.test(nocomment(src))) spendReaderFiles.push([rel, src])
+      }
+    }
+    try { walk('src') } catch { /* a missing src is caught far louder elsewhere */ }
+    if (spendReaderFiles.length < 2) {
+      findings.push(`(l) the spend-reader scan found ${spendReaderFiles.length} file(s) calling readLaneSpendToday/readAttemptLaneSpendToday. It found at least 3 when this leg was written (google-op-budget, universe-window-log, google-ads.adapter), so the SCANNER is broken and legs (l)/(o) are proving nothing — a guard testing its own harness is Lesson 68 shape (b).`)
+    }
+  }
+
   // ── (l) THE WINDOW IS ROLLING, NOT A CALENDAR DAY ──────────────────────────────────────────────────────
   // ⛔ VERIFIED AT GOOGLE 2026-08-09: "per day is based on a rolling 24 hour period in which API requests were
   // made with your developer token", and the limits do not reset at the same time each day
@@ -462,9 +490,9 @@ if (WITH_DB) {
   // at 00:05 UTC the counter reads ~0 while the vendor may still hold ~14,000 from the previous 23 hours —
   // every lane sees an empty budget at exactly the hour refusal is most likely. MEASURED over 30 days: the
   // rolling measure breaches 15,000 in 57 of 721 hours (7.9%) against 2 of 30 calendar days.
-  for (const [file, src] of [['google-op-budget.ts', opb], ['universe-window-log.ts', uwl]]) {
+  for (const [file, src] of spendReaderFiles) {
     if (/setUTCHours\(\s*0\s*,\s*0\s*,\s*0\s*,\s*0\s*\)/.test(nocomment(src))) {
-      findings.push(`(l) ${file} still floors its spend window to UTC MIDNIGHT (setUTCHours(0,0,0,0)) while the vendor enforces a ROLLING 24-HOUR period. Every lane budgets against a counter that resets hours before Google's does.`)
+      findings.push(`(l) ${file} CALLS a spend reader and still floors a window to UTC MIDNIGHT (setUTCHours(0,0,0,0)) while the vendor enforces a ROLLING 24-HOUR period. MEASURED 2026-08-11 01:21Z on the walk's own ledger: rolling 23 vs midnight 20 — the two readings had already diverged. Every lane budgets against a counter that resets hours before Google's does.`)
     }
   }
   if (!/rollingWindowStart/.test(nocomment(opb)) || !/rollingWindowStart/.test(nocomment(uwl))) {
@@ -506,9 +534,17 @@ if (WITH_DB) {
   if (!existsSync(resolve(ROOT, winFile))) {
     findings.push(`(o) ${winFile} does not exist. The shared window must live in ONE module both readers import; google-op-budget imports universe-window-log, so it cannot own it without a cycle.`)
   } else {
-    for (const [file, src] of [['google-op-budget.ts', opb], ['universe-window-log.ts', uwl]]) {
-      if (!/import[^\n]*rollingWindowStart[^\n]*google-quota-window/.test(nocomment(src))) {
-        findings.push(`(o) ${file} does not IMPORT rollingWindowStart from google-quota-window. A local copy of the window is a second source of truth for the one number both readers must agree on.`)
+    // ⛔ SCOPED TO THE FILES THAT PASS AN EXPLICIT `since`, WHICH IS THE ONLY PLACE A SECOND WINDOW CAN BE
+    // BORN. `readAttemptLaneSpendToday(vendor, since)` REQUIRES one by signature, so every caller of it is
+    // in scope; `readLaneSpendToday()` called argless defaults to rollingWindowStart() INSIDE its own module
+    // and needs no import — demanding one there would be a false red on `universe-start` and the v1 consumer,
+    // and a guard that fires on correct code is a guard people learn to ignore.
+    for (const [file, src] of spendReaderFiles) {
+      const s = nocomment(src)
+      const passesSince = /readAttemptLaneSpendToday\s*\(/.test(s) || /readLaneSpendToday\s*\(\s*[^)\s]/.test(s)
+      if (!passesSince) continue
+      if (!/import[^\n]*rollingWindowStart[^\n]*google-quota-window/.test(s)) {
+        findings.push(`(o) ${file} computes its own \`since\` for a spend read but does not IMPORT rollingWindowStart from google-quota-window. A local copy of the window is a second source of truth for the one number every reader must agree on — and it is how the v2 walk's meter ended up summing a rolling term and a midnight term into a single fleet number.`)
       }
     }
   }

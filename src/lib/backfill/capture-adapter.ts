@@ -357,13 +357,46 @@ export function sizeFromPolicy(
  * the core can be tuned into meaning "operations".
  */
 export async function mayFetch(a: CaptureAdapter, days: number): Promise<{ ok: boolean; reason: string }> {
+  return mayFetchProgram(a, [days])
+}
+
+/**
+ * ⛔ MAY THIS ADAPTER SPEND ON A **PROGRAM OF SEVERAL FETCHES**? `spans` is ONE ENTRY PER VENDOR REQUEST the
+ * caller is about to authorise, each carrying that request's own day span. The cost is the SUM of the
+ * adapter's own `costOf` over them.
+ *
+ * ⛔ WHY THIS EXISTS — LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1, 2026-08-11, AND IT IS A REAL UNDERCHARGE THAT
+ * RAN TWICE ON LIVE DATA. `cron/universe-resume` publishes a bounded PROGRAM (up to `MAX_REQUESTS_PER_RUN`
+ * = 20 vendor requests, one per owed range) and gated it with `mayFetch(adapter, sel.requests)` — passing a
+ * REQUEST COUNT into a parameter that means DAYS. Google's `costOf` is flat and discards `days`, so the
+ * mislabelling was invisible and the gate charged **1 for a 20-request program**: both watched wet runs
+ * printed `0 + 1 of 6000` while authorising 20. It failed SAFE only because `MAX_REQUESTS_PER_RUN` is the
+ * real bound — the meter was not the thing holding the line it appeared to be holding.
+ *
+ * ⛔ AND NOTE WHAT WAS **NOT** CHANGED, BECAUSE THE OBVIOUS FIX IS THE WRONG ONE. The banked fix shape read
+ * "make costOf cost requests". `costOf(days)` is the cost of **ONE** fetch covering `days` days, and on
+ * Google that is genuinely 1 operation at any span (vendor-settled). Making it return a request count would
+ * have been correct for the resumer and WRONG for `queues/google-ads-universe-v2`, which passes a real day
+ * span for a single fetch and would then have been charged days-as-operations — a 30× over-charge in the
+ * other direction. The defect was never in the meter; it was in the caller, and the interface had no way to
+ * say "N fetches". Now it does.
+ *
+ * ⛔ THE SUM IS PER-SPAN RATHER THAN `n × costOf(d)` ON PURPOSE. On Google the two are identical because the
+ * curve is flat, so the difference buys nothing TODAY — it is the GA4 shape that makes it correct: under
+ * `'rises-with-range'` cost grows with each request's own span, and a single representative `days` would be
+ * a Google-shaped assumption baked into the shared core, which is exactly what this seam exists to prevent.
+ */
+export async function mayFetchProgram(a: CaptureAdapter, spans: number[]): Promise<{ ok: boolean; reason: string }> {
   const spent = await a.meter.spentSoFar()
   if (spent === null) {
     return { ok: false, reason: `${a.platform} meter unreadable — HOLDING. An instrument that cannot answer must never be read as permission; that is a governor granting itself unlimited quota because its own gauge broke.` }
   }
-  const want = a.meter.costOf(days)
+  // ⛔ AN EMPTY PROGRAM COSTS NOTHING AND IS NOT A SPECIAL CASE — reduce over [] is 0, and a caller with
+  // nothing to publish should not be refused for it.
+  const want = spans.reduce((sum, days) => sum + a.meter.costOf(days), 0)
+  const fetches = spans.length === 1 ? '' : ` (${spans.length} fetches)`
   if (spent + want > a.meter.cap) {
-    return { ok: false, reason: `${a.platform}: ${spent} + ${want} would exceed ${a.meter.cap} ${a.meter.unit}` }
+    return { ok: false, reason: `${a.platform}: ${spent} + ${want}${fetches} would exceed ${a.meter.cap} ${a.meter.unit}` }
   }
-  return { ok: true, reason: `${a.platform}: ${spent} + ${want} of ${a.meter.cap} ${a.meter.unit}` }
+  return { ok: true, reason: `${a.platform}: ${spent} + ${want}${fetches} of ${a.meter.cap} ${a.meter.unit}` }
 }

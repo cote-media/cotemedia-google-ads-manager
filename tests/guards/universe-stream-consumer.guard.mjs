@@ -128,10 +128,17 @@ if (route) {
   // the same commit; that is the guard working.
   const RESUMER = 'src/app/api/cron/universe-resume/route.ts'
   const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER])
+  // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
+  // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
+  // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.
+  // ⛔ AND THIS IS NOT A LOOSENING (the standing rule at the head of google-op-budget.guard.mjs): A COMMENT
+  // CANNOT PUBLISH. Stripping comments removes FALSE positives only — the leg still fires on any real
+  // reference in code, which is proven by red-proof rather than asserted here.
+  const nocomment = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
   const suspects = []
   for (const f of walk('src')) {
     if (ALLOWED.has(f)) continue
-    const src = readFileSync(resolve(ROOT, f), 'utf8')
+    const src = nocomment(readFileSync(resolve(ROOT, f), 'utf8'))
     if (src.includes(TOPIC_LIT) || /universe-v2-contract/.test(src)) suspects.push(f)
   }
   if (suspects.length) {
