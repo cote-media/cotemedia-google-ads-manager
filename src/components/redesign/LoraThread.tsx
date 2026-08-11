@@ -318,6 +318,97 @@ export default function LoraThread({
   }, [inputRef])
   useEffect(() => { autoGrow() }, [input, autoGrow])
 
+  // ── LORAMER_CHAT_GEOMETRY_PROBE_V1, 2026-08-11 — ★CHAT-RENDER-MEASUREMENT-MISSING, PHASE A ────────
+  // THE FIRST INSTRUMENT IN THIS REPO THAT MEASURES WHERE THE SCROLL SURFACE ACTUALLY IS. Every chat
+  // guard reads text; two flights shipped green on 65 of them and broke this surface on device. This
+  // captures the THREE numbers the open layout defects are defined by, as NUMBERS on screen and in the
+  // auth-gated probe log — never console-only (★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE).
+  //
+  //  (1) range — scrollHeight − clientHeight of the REAL scroller (panel: .scroll · page: the document).
+  //      This is the travel the thumb is drawn against.
+  //      clip — how many px of the scroller's own box sit BELOW the visible area (rect.bottom minus the
+  //      visual-viewport bottom). ⛔ THIS IS THE TRACK/THUMB MISMATCH AS ONE NUMBER: the browser draws
+  //      the scrollbar against the ELEMENT'S box; if clip > 0 the user sees only part of that box, so
+  //      thumb travel ≠ visible content range by construction — no screenshot required.
+  //  (2) pOver — panel/scroller rect.bottom − documentElement.clientHeight. The 2026-08-07 capture
+  //      (panelBottom 1987 vs docH 424) as a live readout instead of a one-off screenshot.
+  //  (3) cGap — visual-viewport bottom − composer rect.bottom. 0 = flush (correct) · negative = the
+  //      composer is BELOW the fold · large positive = stranded mid-content (the flick defect).
+  //
+  // ⛔ HARD-GATED ON `debug` exactly like every other probe: no flag → no listener, no state, no fetch.
+  // ⛔ MEASUREMENT ONLY — nothing here writes to layout, and the strip reuses the existing landingProbe
+  // class. TRIGGERS: tap the strip ('tap') · visualViewport resize/scroll ('vv') · scroller scroll,
+  // debounced 250ms ('scroll') — the flick case that an on-demand-only probe would always miss.
+  const [geoLines, setGeoLines] = useState<string[]>([])
+  const geoSeqRef = useRef(0)
+  const geoDebounceRef = useRef<number | null>(null)
+  const measureGeometry = useCallback((trigger: string) => {
+    if (!debug) return
+    try {
+      const vv = typeof window !== 'undefined' ? window.visualViewport : null
+      const docH = document.documentElement.clientHeight
+      const scroller: HTMLElement | null = isPanel
+        ? scrollRef.current
+        : (document.scrollingElement as HTMLElement | null)
+      const sRect = isPanel ? scrollRef.current?.getBoundingClientRect() : null
+      const cRect = composerRef.current?.getBoundingClientRect()
+      const vvH = vv ? Math.round(vv.height) : null
+      const vvBottom = vv ? Math.round(vv.offsetTop + vv.height) : docH
+      const scroll = scroller
+        ? { top: Math.round(scroller.scrollTop), height: Math.round(scroller.scrollHeight), client: Math.round(scroller.clientHeight) }
+        : null
+      const range = scroll ? scroll.height - scroll.client : null
+      const clip = sRect ? Math.round(sRect.bottom) - vvBottom : null
+      const pOver = sRect ? Math.round(sRect.bottom) - docH : null
+      const cGap = cRect ? vvBottom - Math.round(cRect.bottom) : null
+      const seq = ++geoSeqRef.current
+      const sample = {
+        seq, trigger, variant,
+        scroll, range, clip, pOver, cGap,
+        docH, vvH, vvTop: vv ? Math.round(vv.offsetTop) : null,
+        winH: window.innerHeight, scrollY: Math.round(window.scrollY),
+        scrollerRect: sRect ? { y: Math.round(sRect.y), h: Math.round(sRect.height), bottom: Math.round(sRect.bottom) } : null,
+        composerRect: cRect ? { y: Math.round(cRect.y), h: Math.round(cRect.height), bottom: Math.round(cRect.bottom) } : null,
+        ua: navigator.userAgent.slice(0, 80),
+      }
+      // The strip shows the DERIVED verdicts first — Russ should not have to do arithmetic on a phone.
+      setGeoLines([
+        `GEO#${seq} ${trigger} · ${variant}`,
+        `range ${range ?? '—'} · scrollTop ${scroll?.top ?? '—'} / max ${range ?? '—'}`,
+        `clip ${clip ?? '—'}${clip != null && clip > 8 ? ' ⛔ TRACK≠VISIBLE' : ''} · pOver ${pOver ?? '—'}${pOver != null && pOver > 8 ? ' ⛔ OVERHANG' : ''}`,
+        `cGap ${cGap ?? '—'}${cGap != null && (cGap < -8 || cGap > 80) ? ' ⛔ COMPOSER-OFF' : ''} · docH ${docH} vvH ${vvH ?? '—'}`,
+      ])
+      void fetch('/api/debug/viewport-probe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify({
+          probe: 'chat-viewport', phase: `geometry:${trigger}`,
+          at: new Date().toISOString(), route: window.location.pathname + window.location.search,
+          geometry: sample,
+        }),
+      }).catch(() => { /* a failed probe must never surface to the user */ })
+    } catch { /* measurement must never break the surface */ }
+  }, [debug, isPanel, variant])
+  useEffect(() => {
+    if (!debug) return
+    const vv = window.visualViewport
+    const onVv = () => measureGeometry('vv')
+    const onScroll = () => {
+      if (geoDebounceRef.current) window.clearTimeout(geoDebounceRef.current)
+      geoDebounceRef.current = window.setTimeout(() => measureGeometry('scroll'), 250)
+    }
+    vv?.addEventListener('resize', onVv)
+    vv?.addEventListener('scroll', onVv)
+    const scroller: EventTarget | null = isPanel ? scrollRef.current : window
+    scroller?.addEventListener('scroll', onScroll, { passive: true } as any)
+    measureGeometry('mount')
+    return () => {
+      vv?.removeEventListener('resize', onVv)
+      vv?.removeEventListener('scroll', onVv)
+      scroller?.removeEventListener('scroll', onScroll)
+      if (geoDebounceRef.current) window.clearTimeout(geoDebounceRef.current)
+    }
+  }, [debug, isPanel, measureGeometry])
+
   // ══ LORAMER_COMPOSER_VV_PROBE_V1, 2026-08-07 — THE MEASUREMENT FLIGHT'S ACTUAL DELIVERABLE ═══════
   //
   // ⛔ WRITTEN AGAINST ★LANDING-PROBE-SPEC-IS-WRONG, WHOSE TWO DEFECTS BOTH APPLY HERE:
@@ -485,6 +576,14 @@ export default function LoraThread({
         {debug && probeLines.length > 0 && (
           <div className={s.landingProbe}>
             {probeLines.map((l, i) => <div key={i}>{l}</div>)}
+          </div>
+        )}
+        {/* LORAMER_CHAT_GEOMETRY_PROBE_V1 — the geometry strip. TAP TO RE-MEASURE ('tap'); it also
+            self-updates on viewport events and after scrolls. Verdicts are pre-computed (⛔ markers) so
+            a phone reading needs no arithmetic. debug-gated; reuses the landingProbe styling. */}
+        {debug && (
+          <div className={s.landingProbe} onClick={() => measureGeometry('tap')} role="button" tabIndex={-1}>
+            {geoLines.length > 0 ? geoLines.map((l, i) => <div key={i}>{l}</div>) : <div>GEO PROBE ARMED — tap to measure</div>}
           </div>
         )}
         {list}
