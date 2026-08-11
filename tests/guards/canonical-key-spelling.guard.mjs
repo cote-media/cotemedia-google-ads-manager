@@ -196,22 +196,73 @@ if (WITH_DB) {
     blockers.push('(s) SUPABASE_DB_URL is missing (.env.local), so the duplicate-row count could not be taken on this machine. STILL REFUSING TO PASS: a skipped count reads exactly like a clean one, which is the failure mode this leg exists to prevent. This is an ENVIRONMENT blocker, NOT evidence about the data.')
   } else {
     const db = new pg.default.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } }); await db.connect()
+    // ⛔ RE-SCOPED 2026-08-11 BY THE CLEANUP FLIGHT (LORAMER_WALKDUPE_CLEANUP_V1), AND THE RE-SCOPE IS THE
+    // FINDING THAT FLIGHT PRODUCED. This leg counted walk-spelled rows IN THE SHARED KEY SPACE and called the
+    // total "duplicates". IT WAS NOT MEASURING DUPLICATES. Of the 67,455 it reported, only 51,068 had a legacy
+    // TWIN; the other 16,387 are rows the drain never wrote for that (day, entity, value) — REAL, UNIQUE DATA
+    // in a non-canonical spelling. **A DELETE KEYED ON THIS LEG'S OWN HEADLINE NUMBER WOULD HAVE DESTROYED
+    // 16,387 UNIQUE ROWS**, which is exactly the class of mistake the twin test exists to prevent, one level up
+    // from the ~68.1M catastrophe the queue entry already warned about.
+    // ⇒ TWO SEPARATE NUMBERS NOW, because they have DIFFERENT FIXES: `twinned` is a DUPLICATE and its fix is a
+    // DELETE (done for Foam OH); `untwinned` is a SPELLING defect on unique data and its fix is an UPDATE that
+    // normalises it — never a delete. Collapsing them into one figure is what made the first number dangerous.
+    // ⛔ ONE HASH JOIN, NOT A CORRELATED EXISTS. The EXISTS form re-scanned the 878k-row legacy side once per
+    // walk row and was CANCELLED by the statement timeout — a guard that cannot complete is not a guard.
+    // The walk side is small (16,387 after the cleanup) and the join key is the natural key, so at most one
+    // legacy row matches and the LEFT JOIN cannot multiply the count.
     const { rows } = await db.query(`
-      select entity_level, breakdown_type,
-             count(*) filter (where entity_id like 'customers/%') as walk_spelled,
-             count(*) filter (where entity_id not like 'customers/%') as legacy_spelled
-      from metrics_daily
-      where platform = 'google' and entity_level in ('campaign','ad_group','ad')
-        and breakdown_type in ('device','hour')
-      group by 1,2 having count(*) filter (where entity_id like 'customers/%') > 0`)
+      with walk as (
+        select client_id, entity_level, breakdown_type, date,
+               split_part(entity_id,'/',-1) as bare_id,
+               case when breakdown_type='device' then
+                      case breakdown_value when '0' then 'UNSPECIFIED' when '1' then 'UNKNOWN' when '2' then 'MOBILE'
+                        when '3' then 'TABLET' when '4' then 'DESKTOP' when '5' then 'OTHER'
+                        when '6' then 'CONNECTED_TV' else breakdown_value end
+                    else lpad(breakdown_value,2,'0') end as canon_value
+        from metrics_daily
+        where platform='google' and entity_level in ('campaign','ad_group','ad')
+          and breakdown_type in ('device','hour') and entity_id like 'customers/%'
+      ), legacy as (
+        select client_id, entity_level, breakdown_type, date, entity_id, breakdown_value
+        from metrics_daily
+        where platform='google' and entity_level in ('campaign','ad_group','ad')
+          and breakdown_type in ('device','hour') and entity_id not like 'customers/%'
+      )
+      select w.entity_level, w.breakdown_type,
+             count(*) as walk_spelled,
+             count(l.entity_id) as twinned
+      from walk w
+      left join legacy l
+        on l.client_id=w.client_id and l.entity_level=w.entity_level
+       and l.breakdown_type=w.breakdown_type and l.date=w.date
+       and l.entity_id=w.bare_id and l.breakdown_value=w.canon_value
+      group by 1,2 having count(*) > 0`)
     await db.end()
-    const total = rows.reduce((a, r) => a + Number(r.walk_spelled), 0)
-    if (total > 0) {
+    const twinned = rows.reduce((a, r) => a + Number(r.twinned), 0)
+    const walk = rows.reduce((a, r) => a + Number(r.walk_spelled), 0)
+    const untwinned = walk - twinned
+    // ⛔ THE DUPLICATE HALF IS A FINDING — it is what a DELETE fixes, and it must return to zero and stay there.
+    if (twinned > 0) {
       findings.push(
-        `(s) KNOWN-RED, ${total} walk-spelled row(s) still occupy a shared key space:\n` +
-        rows.map((r) => `        ${r.entity_level}/${r.breakdown_type}: walk ${r.walk_spelled} · legacy ${r.legacy_spelled}`).join('\n') +
-        `\n      This is EXPECTED until the cleanup flight and is NOT baselined on purpose — the number must move when\n` +
-        `      the rows are dealt with, and must be seen to grow if a writer regresses.`)
+        `(s) ${twinned} TWINNED duplicate row(s) — the same fact stored twice under two spellings:\n` +
+        rows.filter((r) => Number(r.twinned) > 0)
+            .map((r) => `        ${r.entity_level}/${r.breakdown_type}: twinned ${r.twinned} of ${r.walk_spelled} walk-spelled`).join('\n') +
+        `\n      NOT baselined on purpose — the number must move when the rows are dealt with, and must be seen to\n` +
+        `      GROW if a writer regresses. The fix is a scoped delete under the twin test, NEVER a delete keyed on\n` +
+        `      walk-spelling alone.`)
+    }
+    // ⛔ THE SPELLING HALF IS REPORTED, NOT FAILED, AND THE ASYMMETRY IS DELIBERATE. These rows are the ONLY
+    // copy of their fact — failing the build over them would pressure someone into deleting real data to get
+    // green, which is precisely the wrong incentive. They are named so they cannot be forgotten, and they carry
+    // their own fix (★WALKDUPE-UNTWINNED-NEED-NORMALISING).
+    if (untwinned > 0) {
+      console.log(`  ⚠ REPORTED, NOT FAILED: ${untwinned} walk-spelled row(s) have NO legacy twin — UNIQUE data in a`)
+      console.log(`    non-canonical spelling. queryBreakdown groups by breakdown_value, so Lora is handed buckets named`)
+      console.log(`    "2"/"3"/"4" beside MOBILE/TABLET/DESKTOP for these. THE FIX IS AN UPDATE, NEVER A DELETE —`)
+      console.log(`    deleting them destroys the only copy. ★WALKDUPE-UNTWINNED-NEED-NORMALISING owns it.`)
+      for (const r of rows.filter((r) => Number(r.walk_spelled) - Number(r.twinned) > 0)) {
+        console.log(`      ${r.entity_level}/${r.breakdown_type}: ${Number(r.walk_spelled) - Number(r.twinned)} un-twinned`)
+      }
     }
   }
 }
