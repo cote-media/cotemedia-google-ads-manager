@@ -22,7 +22,9 @@
 // costs ONE vendor request. **So every uncertainty in this file resolves to OWED.**
 import { supabaseAdmin } from '@/lib/supabase'
 // ⛔ THE ALIAS IS DATA, IN THE MODULE THAT OWNS SURFACE VOCABULARY — LORAMER_DRAIN_ALIAS_COVERAGE_V1.
-import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
+// breakdownTypeForSurface — LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1: the negative-coverage read must
+// scope a zero attestation to its OWN surface, and the segment→breakdown_type mapping is owned there.
+import { drainAliasFor, breakdownTypeForSurface } from '@/lib/backfill/universe-surfaces'
 
 export interface CoverageKey {
   clientId: string
@@ -172,9 +174,25 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
  * evidence.
  */
 export async function attestedEmptyDays(k: CoverageKey, windowStart: string, windowEnd: string): Promise<string[]> {
+  // ⛔ LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1 — A ZERO ATTESTS EXACTLY ITS OWN SURFACE, NOTHING ELSE.
+  //
+  // FOUND BY THE FIRST WET RUN (2026-08-10 23:52Z), not by review: this read filtered by RESOURCE ONLY,
+  // so a `zero` on `ad_group / segments.ad_destination_type` attested EVERY ad_group segment empty — 17 of
+  // 20 published surfaces were declared complete on a SIBLING'S evidence and never asked the vendor. That
+  // is claiming COVERED when it is not — the catastrophic direction this file's own header names — arriving
+  // through the negative-coverage door on the engine's first execution.
+  //
+  // THE SCOPE FILTER: the log's identity is (client, vendor, resource, segment, window); the coverage grain
+  // is (entityLevel, breakdownType). `segment` is selected and each row is kept only when ITS OWN surface
+  // maps to the asked grain — the same forward mapping the writer uses (`breakdownTypeForSurface`, one
+  // owner, universe-surfaces.ts). The mapping is lossy in reverse, so it is applied FORWARD over returned
+  // rows, never inverted into the query. Rows are already narrowed by resource + phase + outcome + window
+  // overlap, so the set this filters is small by construction.
+  // `segment` is `''` for the base entry (migrations/061:95, NOT NULL — `.eq` semantics are safe; nothing
+  // here needs `.is()`); `?? null` is defence against a relaxed column, and maps to the BASE surface only.
   const { data, error } = await supabaseAdmin
     .from('universe_attempt_log')
-    .select('window_start, window_end')
+    .select('window_start, window_end, segment')
     .eq('client_id', k.clientId).eq('vendor', k.platform)
     .eq('resource', k.entityLevel)
     .eq('phase', 'attempt_finished').eq('outcome', 'zero')
@@ -184,6 +202,7 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
   const attested = new Set<string>()
   for (const r of data ?? []) {
+    if (breakdownTypeForSurface(k.entityLevel, (r as { segment?: string | null }).segment ?? null) !== k.breakdownType) continue
     for (const d of dayList(String(r.window_start), String(r.window_end))) {
       if (d >= windowStart && d <= windowEnd) attested.add(d)
     }

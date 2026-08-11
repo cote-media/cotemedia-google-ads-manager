@@ -77,6 +77,25 @@ export function canonicalBreakdownValue(breakdownType: string, raw: string): str
   return raw
 }
 
+/**
+ * LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1 — the ONE owner of the (resource, segment) → breakdown_type
+ * mapping, moved here from the writer so the coverage module can consult it without importing a
+ * vendor-named module (capture-adapter-seam leg (a) bars platform vocabulary from the core).
+ *
+ * ⛔ WHY THE COVERAGE MODULE NEEDS IT AT ALL — the first wet run, 2026-08-10 23:52Z: `attestedEmptyDays`
+ * filtered the attempt log by RESOURCE ONLY, so a `zero` on `ad_group / segments.ad_destination_type`
+ * attested EVERY other ad_group segment empty and 17 of 20 published surfaces were declared complete on a
+ * sibling's evidence, never asked. A zero attests exactly its OWN surface — nothing else.
+ *
+ * ⛔ THE MAPPING IS LOSSY IN REVERSE ('.'→'_' collides with literal '_'), so it is only ever applied
+ * FORWARD (segment → breakdown_type), never inverted. `''` (the attempt log's base-entry convention,
+ * migrations/061:95, NOT NULL) maps to the resource itself — exactly `breakdownTypeFor`'s base branch.
+ */
+export function breakdownTypeForSurface(resource: string, segment: string | null | undefined): string {
+  if (!segment) return resource
+  return segment.replace(/^segments\./, '').replace(/\./g, '_')
+}
+
 // ── LORAMER_DRAIN_ALIAS_COVERAGE_V1, 2026-08-09 — THE SAME FETCH, STORED UNDER ANOTHER KEY ───────────────
 // ⛔ MEASURED, NOT ASSUMED: 1,220 of the 08-04..08-08 walk's 17,878 vendor requests (6.8%) were spent on
 // ground the drain had already covered, and 898 of those — 73% — were geo. The colliding surfaces (device,

@@ -221,6 +221,14 @@ query shape (`buildGaql`, campaign resource, DEFAULT_METRICS) except row 4, whic
 | UNKNOWN never falls through to a date; an unbounded walk REFUSES on it | TESTED | GLOBAL | guard leg (d), DRIVEN (4 scenarios), proven RED by making UNKNOWN fall through to held data | 2026-08-10 | UNKNOWN → stopDate null + inceptionKnown false → `advance()` returns REFUSED-UNBOUNDED unless the message carries `walkToEpoch: true`, which no code ever sets — walk-to-epoch is an explicit operator choice only. A wall may still stop a walk whose inception is unknown, but the unbounded refusal still fires. |
 | ⚠ NOTHING HERE HAS RUN | — | — | — | 2026-08-10 | Migration 063 not applied (`universe_record_account_inception` does not exist in the DB), no discovery op has been spent through the engine, and the consumer path is Gate-A'd on the pure function only. The SUCCESSFUL column stays empty. |
 
+## ATTESTATION SCOPE — FOUND BY THE FIRST WET RUN, FIXED SAME SESSION (2026-08-10)
+
+| FACT | CLASS | SCOPE | SOURCE | ESTABLISHED | NOTES |
+|---|---|---|---|---|---|
+| A `zero` attests EXACTLY its own (resource, segment) surface — a sibling segment's zero attests NOTHING | TESTED | GLOBAL | `attestedEmptyDays` scope filter (universe-coverage.ts); `tests/guards/attested-empty-segment-scope.guard.mjs`, proven RED first (5 findings against the pre-fix code, including the live wet-run shape) | 2026-08-10 | Found by the engine's FIRST execution, 23:52Z: the read filtered by resource only, so one segment's zero attested every sibling — 17 of 20 published surfaces read "already covered" and never asked the vendor. Which sibling won the race was nondeterministic (maxConcurrency 2). LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1. |
+| The (resource, segment) → breakdown_type mapping has ONE owner and is applied FORWARD only | TESTED | GLOBAL | `breakdownTypeForSurface` (universe-surfaces.ts); the writer's `breakdownTypeFor` delegates; guard leg (e), RED when the delegation is absent | 2026-08-10 | '.'→'_' collides with literal '_', so the mapping is lossy in reverse and is never inverted into a query — rows are filtered forward over the returned set. |
+| The attempt log's base-entry segment is `''`, NOT NULL — `.eq` semantics are safe; `.is()` not needed | VERIFIED | GLOBAL | `migrations/061_universe_attempt_log.sql:95` (`segment text not null, -- ''`); live rows ids 5/7 read `seg_is_empty_string=true`; guard leg (e) pins the migration line | 2026-08-10 | PostgREST: `eq` is SQL `=` and never matches NULL; `is` exists for exact null equality (docs.postgrest.org/en/stable/references/api/tables_views.html; supabase.com/docs/reference/javascript/using-filters). If the column is ever relaxed, the guard goes red before any `.eq('segment', …)` read silently loses rows. |
+
 ## THE SUCCESSFUL COLUMN IS EMPTY, AND THAT IS THE POINT
 
 **NOTHING IN THIS REGISTRY IS CLASS `SUCCESSFUL`, AND NOTHING IS CLASS `TESTED` FOR THE RETENTION FACTS.**

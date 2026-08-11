@@ -243,6 +243,9 @@ const GUARDS = [
   // LORAMER_INCEPTION_STOP_V1 — the account inception stop: unfiltered one-op discovery, per-account scope
   // with provenance, ONE composition site, and UNKNOWN refuses an unbounded walk rather than defaulting.
   'tests/guards/inception-stop.guard.mjs',
+  // LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1 — a zero attests exactly its OWN (resource, segment) surface;
+  // found by the first wet run, where one sibling's zero sealed 17 of 20 surfaces "already covered".
+  'tests/guards/attested-empty-segment-scope.guard.mjs',
   // LORAMER_FIVE_STEP_ROUNDS_V1 — placement of the framework law in ESSENCE; obedience lives in chat.
   'tests/guards/five-step-rounds.guard.mjs',
   // LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 — client construction is a ratchet: factory + 14 frozen sites.

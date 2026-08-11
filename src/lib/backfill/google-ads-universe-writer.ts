@@ -24,7 +24,7 @@ import { resolve } from 'node:path'
 import { upsertMetricsChunked, type ChunkedUpsertResult } from '@/lib/metrics-upsert'
 import { describeGaqlError } from '@/lib/intelligence/google-intelligence'
 // ⛔ THE CANONICAL KEY FORMS LIVE AS DATA IN THE SURFACE MODULE — LORAMER_CANONICAL_KEY_SPELLING_V1.
-import { canonicalEntityId, canonicalBreakdownValue } from '@/lib/backfill/universe-surfaces'
+import { canonicalEntityId, canonicalBreakdownValue, breakdownTypeForSurface } from '@/lib/backfill/universe-surfaces'
 
 export interface UniverseEntry {
   resource: string
@@ -464,8 +464,9 @@ export function declarableEntries(doc: UniverseDoc): UniverseEntry[] {
 // 'SEARCH|MOBILE' raw at a user. That declaration is a Flight-2 requirement and is asserted by the guard there,
 // not here — this flight writes no composites.
 export function breakdownTypeFor(entry: UniverseEntry): string {
-  if (!entry.segment) return entry.resource
-  return entry.segment.replace(/^segments\./, '').replace(/\./g, '_')
+  // LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1 — delegates to the ONE owner in universe-surfaces.ts, so the
+  // coverage module's negative-coverage scope filter and this writer can never disagree on the mapping.
+  return breakdownTypeForSurface(entry.resource, entry.segment)
 }
 
 export function compositeBreakdownType(a: UniverseEntry, b: UniverseEntry): string {
