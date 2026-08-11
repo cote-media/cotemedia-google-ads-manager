@@ -19,6 +19,9 @@ import type {
 } from './intelligence-types'
 import { resolveNaicsBlock } from '../naics/resolve-definitions' // LORAMER_NAICS_V1 — server-only resolver
 import { CLIENT_WORD_BUDGET, AGENCY_WORD_BUDGET } from '../knowledge/budgets' // LORAMER_KNOWLEDGE_INGEST_V1
+// LORAMER_WALK_TAKES_THE_LANE_V1 — the disclosure is DERIVED FROM THE ALLOCATION TABLE, never from a separate
+// flag. Import the owner so the prompt block appears and disappears WITH the policy and cannot drift from it.
+import { LANE_ALLOCATIONS } from '../backfill/google-op-budget'
 
 // LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2 fix) — GOVERNING BOUND: an objective rule may PRIORITIZE which
 // metric to judge success by; it may NEVER deny, suppress, or omit a CAPTURED figure. Lora must see, know, and say
@@ -546,6 +549,54 @@ export function buildGoogleQuotaLines(
   ]
 }
 
+/**
+ * LORAMER_WALK_TAKES_THE_LANE_V1 — THE PAUSED-LANE DISCLOSURE. Lora must say that deep-history backfill and
+ * interior gap repair are DELIBERATELY OFF, and must never let a purchased silence read as a vendor outage.
+ *
+ * ⛔ WHY THIS EXISTS AND WHY IT IS PART OF THE REALLOCATION FLIGHT RATHER THAN A FOLLOW-UP. The decision that
+ * silences the lanes carries its own condition: "Lora reports the gap honestly, never hides it." Verifying that
+ * path found NOTHING — `buildGoogleQuotaLines` returns `[]` unless the VENDOR sentinel is paused, and a lane
+ * allocation of 0 is not a vendor pause. So the lanes would have gone quiet with no mechanism anywhere to tell
+ * a user why: Lora would see interior days that never fill and deep history that stops advancing, with no line
+ * explaining it. That is ESSENCE judgment law 6 exactly — the dangerous state is not "I don't know", it is a
+ * confident answer over an uncaptured window — and it would have been introduced by the very change that
+ * promised not to.
+ *
+ * ⛔ IT IS DERIVED FROM THE TABLE, NOT FROM A FLAG SOMEBODY REMEMBERS TO SET. Read straight off
+ * `LANE_ALLOCATIONS`, so the disclosure appears and disappears WITH the policy. There is no second source of
+ * truth to drift, and the day Russ reverses the allocation this block stops rendering on its own.
+ *
+ * ⛔ AND IT DISTINGUISHES WHAT IS AND IS NOT AFFECTED, because a vague warning is its own defect. FORWARD
+ * capture is untouched (that is what the reserve protects), so today's numbers are current. What is paused is
+ * DEPTH (2022 history) and REPAIR (interior gaps in the trailing window). Saying "Google capture is paused"
+ * would be false and would invite exactly the over-warning ★LORA-OVER-WARNS-READ-FAILURES-AS-CAPTURE-FAILURE
+ * already records.
+ */
+export function buildPausedLaneLines(
+  allocations: Record<string, number>,
+  name = 'Google',
+): string[] {
+  const paused = (['drain', 'catchup'] as const).filter((l) => Number(allocations?.[l] ?? -1) === 0)
+  if (!paused.length) return []   // the ordinary policy adds NOTHING to the prompt
+  const what: string[] = []
+  if (paused.includes('drain')) what.push('DEEP-HISTORY backfill (reaching further back toward the platform floor)')
+  if (paused.includes('catchup')) what.push('INTERIOR GAP REPAIR (re-filling missed days inside the recent window)')
+  return [
+    `\n⛔ ${name.toUpperCase()} HISTORICAL CAPTURE IS DELIBERATELY PAUSED BY AN OPERATOR DECISION — this is NOT a ` +
+    `platform outage, NOT a quota exhaustion, NOT a broken connection, and NOT a fact about this client's account.`,
+    `  • WHAT IS PAUSED: ${what.join(' and ')}. The whole ${name} daily allowance is being spent on completing the ` +
+    `capture engine itself, and these lanes were set to zero on purpose while that happens.`,
+    `  • WHAT IS NOT AFFECTED: FORWARD capture still runs every day, so recent daily figures are current. Do not ` +
+    `describe today's or yesterday's numbers as stale because of this.`,
+    `  • SAY IT OUT LOUD, and attribute it correctly: if a question reaches a period with missing days, or asks how ` +
+    `far back the data goes, state that historical backfill is PAUSED BY CHOICE while the capture engine is ` +
+    `completed — never that ${name} refused, never that the quota ran out, and never that the account had no spend.`,
+    `  • A MISSING INTERIOR DAY IS A KNOWN, ACCEPTED GAP RIGHT NOW, NOT A ZERO. Never sum across it as though it ` +
+    `were zero, and never present a total over a window containing one without saying the window is incomplete.`,
+    `  • Do NOT offer to trigger a backfill or "try again later" — the lanes are off by decision, so neither can succeed.`,
+  ]
+}
+
 // LORAMER_PROJECT_3_STEP_1_V1 — added optional `limits` parameter
 // LORAMER_INTELLIGENCE_HONESTY_V1 — connected-but-empty no longer silently drops
 function buildPlatformSection(
@@ -568,6 +619,10 @@ function buildPlatformSection(
   // Placed here it survives the total-exhaustion shape (fetchFailed) — which is the shape the outage actually
   // produces most often — as well as the degraded and populated ones.
   lines.push(...buildGoogleQuotaLines(quota, name))
+  // LORAMER_WALK_TAKES_THE_LANE_V1 — the paused-lane disclosure sits BESIDE the quota block and for the same
+  // ordering reason: it must survive the fetchFailed shape, which RETURNS below. Google-only, because the
+  // allocation table is Google's; a Meta/Shopify section passes a name that never matches a paused lane.
+  if (name.toLowerCase().includes('google')) lines.push(...buildPausedLaneLines(LANE_ALLOCATIONS, name))
   // LORAMER_GOOGLE_CAMPAIGN_STATUS_FIX_V2 — a fetch that FAILED is a different
   // fact from "no spend" and from "not connected". Say so loudly so Lora never
   // reports $0 / "disconnected" when the data simply failed to load this turn.

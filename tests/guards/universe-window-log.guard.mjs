@@ -545,14 +545,23 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
 
     // (k3) THE CONSEQUENCE, EXECUTED. The truncated read is only a defect because of what the
     // governor then does with it — so both numbers are put through the real decision.
-    const truncated = 997   // what the real path actually returned on 2026-08-05
+    // ⛔ MADE ALLOWANCE-RELATIVE 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1). The fixture used the two REAL
+    // 2026-08-05 numbers — truncated 997 vs true 10,788 — which demonstrated the defect only while the
+    // allowance was 6,000 (997 < 6,000 < 10,788). The reallocation raised the allowance to 13,500, so the TRUE
+    // spend now sits legitimately UNDER it and the leg fired on a governor doing exactly the right thing.
+    // ⛔ THE PROPERTY IS "THE TRUE SPEND BINDS AND THE TRUNCATED ONE WOULD NOT", NOT THOSE TWO INTEGERS. Pinned
+    // to the live allowance, the leg demonstrates the same page-cap defect under any allocation policy. The
+    // real numbers stay in the message so the incident that produced this leg is still legible.
+    const ALLOW = gov.BACKFILL_OP_ALLOWANCE
+    const truncated = 997                 // what the real path actually returned on 2026-08-05
+    const honestSpend = ALLOW + 1         // a TRUE spend that must bind, whatever the allowance is today
     const blind = gov.decidePublish({ spentRequestsToday: truncated, want: 1 })
-    const honest = gov.decidePublish({ spentRequestsToday: TRUE_SPEND, want: 1 })
+    const honest = gov.decidePublish({ spentRequestsToday: honestSpend, want: 1 })
     if (!blind.mayPublish) {
       findings.push('(k3) the governor now HOLDS on the truncated figure too, so this leg can no longer demonstrate the defect — re-derive the fixture before trusting it.')
     }
     if (honest.mayPublish) {
-      findings.push(`(k3) handed the TRUE spend of ${TRUE_SPEND} against a ${gov.BACKFILL_OP_ALLOWANCE} allowance, the governor still authorised a publish. The walk must yield; the product never does (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).`)
+      findings.push(`(k3) handed a TRUE spend of ${honestSpend} against the ${ALLOW} allowance, the governor still authorised a publish. On 2026-08-05 the real pair was truncated 997 vs true ${TRUE_SPEND}, and ~10,800 consecutive publishes were authorised off the truncated figure. The walk must yield; the product never does (LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1).`)
     }
   } catch (e) {
     findings.push(`(k) could not drive the spend read: ${String(e.stdout || '').trim() || e.message}`)

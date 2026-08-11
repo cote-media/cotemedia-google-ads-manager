@@ -164,8 +164,44 @@ for (const [file, line] of [['src/app/api/cron/drain/route.ts', 77], ['src/app/a
 const intel = readSrc('src/app/api/intelligence/route.ts')
 if (/holdGoogleWork/.test(intel)) srcPins.push('src/app/api/intelligence/route.ts must NOT use holdGoogleWork — the answer path must stay on .paused so an unknown read never speaks to the user')
 if (!/if\s*\(\s*qp\.paused\s*\)\s*googleQuota\s*=\s*qp/.test(intel)) srcPins.push('src/app/api/intelligence/route.ts attach rule moved — the mirror in this guard (attachForAnswerPath) is now unpinned and must be re-derived')
+// ── 5b. LORAMER_WALK_TAKES_THE_LANE_V1 — A LANE SILENCED BY DECISION MUST REACH THE USER ────────────────
+// ⛔ THIS LEG IS THE OTHER HALF OF THE QUOTA CAVEAT, AND THE REALLOCATION FLIGHT IS WHY IT EXISTS. The quota
+// block above fires on a VENDOR pause. Setting a lane's allocation to 0 is not a vendor pause, so before this
+// leg the drain and catchup lanes could be turned off entirely and NOTHING in Lora's prompt would say so — she
+// would see interior days that never fill and depth that stops advancing, with no line explaining why. That is
+// ESSENCE judgment law 6 (a confident answer over an uncaptured window) introduced by the change that promised
+// to report it. The decision's own condition is "Lora reports the gap honestly, never hides it"; this is that
+// condition made mechanical.
+// ⛔ BEHAVIOURAL, AGAINST THE REAL COMPILED FUNCTION AND THE REAL TABLE — not a source grep, because a string
+// present in a file proves nothing about whether it renders.
+{
+  const fn = CTX?.buildPausedLaneLines
+  if (typeof fn !== 'function') {
+    srcPins.push('build-claude-context exports no buildPausedLaneLines() — a lane can be zeroed with no disclosure path to the user at all')
+  } else {
+    const BUD = req(join(out, 'src/lib/backfill/google-op-budget.js'))
+    const live = fn(BUD.LANE_ALLOCATIONS, 'Google')
+    const zeroed = ['drain', 'catchup'].filter((l) => Number(BUD.LANE_ALLOCATIONS?.[l] ?? -1) === 0)
+    if (zeroed.length && !live.length) {
+      srcPins.push(`lane(s) [${zeroed.join(', ')}] are at 0 in LANE_ALLOCATIONS and the prompt renders NOTHING — the pause is invisible to the user, which is the one thing the decision forbade`)
+    }
+    if (zeroed.length) {
+      const blob = live.join(' ')
+      // ⛔ EACH REQUIRED CLAUSE IS A SEPARATE FAILURE MODE THAT ACTUALLY HAPPENED TO THIS PROJECT.
+      if (!/NOT a platform outage|NOT a quota exhaustion/i.test(blob)) srcPins.push('the paused-lane disclosure does not deny a vendor outage — a purchased silence that reads as a Google failure is the exact misattribution ★LORA-OVER-WARNS-READ-FAILURES-AS-CAPTURE-FAILURE records')
+      if (!/FORWARD capture still runs/i.test(blob)) srcPins.push('the disclosure does not say FORWARD is unaffected — without it Lora will over-warn and call current figures stale')
+      if (!/NOT a ZERO|never sum across it/i.test(blob)) srcPins.push('the disclosure does not forbid treating a missing interior day as zero — silently summing across a known gap is the false-total class')
+      if (!/Do NOT offer to trigger a backfill|neither can succeed/i.test(blob)) srcPins.push('the disclosure does not forbid offering a retry/backfill — an offer that cannot succeed is a false promise, the same defect the quota block already fixed')
+    }
+    // ⛔ AND IT MUST VANISH WITH THE POLICY. A disclosure that outlives the pause becomes a permanent lie in the
+    // other direction, and the reversal must not have to remember to delete a prompt block.
+    if (fn({ forward: 2_000, drain: 3_000, catchup: 4_000, backfill: 6_000 }, 'Google').length !== 0) {
+      srcPins.push('buildPausedLaneLines renders on a FULLY-ALLOCATED table — the disclosure must disappear with the policy, or the reversal ships a prompt that contradicts the running system')
+    }
+  }
+}
 srcPins.forEach((p) => console.log(`  ✗ SOURCE PIN — ${p}`))
-if (!srcPins.length) console.log('  ✓ source pins — capture lanes gate on holdGoogleWork; the answer path stays on .paused; the attach mirror matches the route')
+if (!srcPins.length) console.log('  ✓ source pins — capture lanes gate on holdGoogleWork; the answer path stays on .paused; the attach mirror matches the route; and a lane zeroed by decision discloses itself to the user')
 
 Module._load = origLoad
 cleanup()

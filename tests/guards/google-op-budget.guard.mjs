@@ -149,7 +149,13 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   const b = decideBudget('catchup', null)
   check(b.state === 'unknown', `(d) an UNREADABLE budget resolved '${b.state}' — it must be 'unknown'. A failed read returning headroom is how 178 gap-days went out against an exhausted quota on 2026-07-28.`)
   check(holdForBudget(b) === true, `(d) holdForBudget did not HOLD on 'unknown'. The rule is identical to holdGoogleWork and for the identical reason.`)
-  check(holdForBudget(decideBudget('catchup', spend())) === false, `POSITIVE CONTROL: a healthy budget HELD — the gate can only ever say stop, so it says nothing.`)
+  // ⛔ THE POSITIVE CONTROL MOVED FROM 'catchup' TO 'backfill' ON 2026-08-11 AND THE PROPERTY DID NOT CHANGE.
+  // Under LORAMER_WALK_TAKES_THE_LANE_V1 catchup's allocation is ZERO BY DECISION, so a zero-spend catchup is
+  // CORRECTLY held — the control's premise ("this lane has headroom") died with the reallocation, not the
+  // property it protects. The lane that can still demonstrate "a healthy budget does not hold" is the one that
+  // now carries the allowance. Kept and re-pointed, never deleted: Lesson 68 shape (a) is an assertion
+  // encoding a superseded model, and this is what repairing one looks like.
+  check(holdForBudget(decideBudget('backfill', spend())) === false, `POSITIVE CONTROL: a healthy budget HELD — the gate can only ever say stop, so it says nothing.`)
 }
 
 // ── (b) CATCHUP MAY NOT SPEND INTO THE RESERVE ─────────────────────────────────────────────────────────
@@ -163,18 +169,24 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   const atLimit = Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST)
   const c = decideBudget('catchup', spend({ catchup: atLimit }))
   check(c.state === 'blocked', `(b) catchup at its full allocation resolved '${c.state}' — it can spend into the reserve.`)
-  // ⛔ THE REGRESSION THIS WHOLE FLIGHT EXISTS TO PREVENT: catchup's spend must NOT block the ranked lane.
-  const d = decideBudget('drain', spend({ catchup: atLimit }))
+  // ⛔ THE REGRESSION THIS WHOLE FLIGHT EXISTS TO PREVENT: a lower lane's spend must NOT block a ranked lane.
+  // ⛔ THE ASKER MOVED FROM 'drain' TO 'forward' ON 2026-08-11 AND THE PROPERTY IS UNCHANGED. Under
+  // LORAMER_WALK_TAKES_THE_LANE_V1 the drain's allocation is ZERO BY DECISION, so it is blocked on check (a)
+  // before the priority rule is ever reached — the leg would report a priority inversion that is not there.
+  // FORWARD still carries an allocation (the un-gated reserve) and still ranks above catchup, so it is the lane
+  // that can demonstrate the guarantee. The guarantee itself — a lane inside its own allocation is not refused
+  // for a LOWER lane's spend — is exactly what it always was.
+  const d = decideBudget('forward', spend({ catchup: atLimit }))
   check(d.state === 'not_blocked',
-    `(f) THE 2026-07-31 DEFECT: the RANKED lane was blocked by CATCHUP's spend ('${d.state}'). The drain spent none of it. This is the priority inversion reproduced inside the budget — forward and the geo lap starve exactly as they did.`)
+    `(f) THE 2026-07-31 DEFECT: the RANKED lane was blocked by CATCHUP's spend ('${d.state}'). Forward spent none of it. This is the priority inversion reproduced inside the budget — forward and the geo lap starve exactly as they did.`)
   // ⛔ REWRITTEN, AND THE CHANGE IS THE POINT. It used to assert that a ranked lane's allocation exceeds
   // catchup's, which was true only because every non-catchup lane inherited the whole 10,500 remainder — the
   // construction that gave 'backfill' a share nobody sized. Under the four-lane table catchup (4,000) is
   // LARGER than drain (3,000) and forward (2,000) BY DESIGN: it is the dominant spender being cut, not a
   // minority lane being kept small. The property that survives is the one that always mattered — a lane is
   // bounded by ITS OWN allocation and cannot reach another's.
-  check(d.allocation === LANE_ALLOCATIONS.drain && c.allocation === LANE_ALLOCATIONS.catchup,
-    `(b) a lane's allocation did not come from LANE_ALLOCATIONS (drain got ${d.allocation}, catchup ${c.allocation}). No lane may be computed as "everyone else".`)
+  check(d.allocation === LANE_ALLOCATIONS.forward && c.allocation === LANE_ALLOCATIONS.catchup,
+    `(b) a lane's allocation did not come from LANE_ALLOCATIONS (forward got ${d.allocation}, catchup ${c.allocation}). No lane may be computed as "everyone else".`)
   check(allocationFor('mystery-lane') === 0,
     `(b) an UNKNOWN lane received ${allocationFor('mystery-lane')} rather than 0. Fail-closed: a lane nobody sized may never inherit a remainder.`)
 }
@@ -188,8 +200,12 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // property this leg protects is "the cap bites even when the LANE still has room", and the lane that can
   // demonstrate it is now one with nothing below it holding spend. Kept, not deleted: an enforcer that is
   // rewritten because the behaviour changed must still assert the original guarantee.
+  // ⛔ AND THE ASKER MOVED AGAIN ON 2026-08-11, FROM 'catchup' TO 'backfill', FOR THE SAME REASON AS LEG (f):
+  // catchup's allocation is now ZERO, so check (a) fires first and the leg would read 'lane_allocation' while
+  // claiming to test the FLEET backstop — it would have gone green for the wrong reason, which is worse than red.
+  // 'backfill' has 13,500 of room and ranks LAST, so no lower lane can hold spend and the ceiling must refuse it.
   const perLane = Math.ceil(GOOGLE_DAILY_OP_CAP * 0.6)
-  const b = decideBudget('catchup', spend({ forward: perLane, drain: perLane }))
+  const b = decideBudget('backfill', spend({ forward: perLane, drain: perLane }))
   check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
     `(g) the FLEET total exceeded the ${GOOGLE_DAILY_OP_CAP} cap and the lane was still allowed ('${b.state}'/'${b.blockedBy}'). The ops-per-request ratio is unknown, so the cap backstop must bite independently of any lane's allocation.`)
   const lane = decideBudget('catchup', spend({ catchup: Math.ceil(CATCHUP_ALLOCATION / OPS_PER_REQUEST) }))
@@ -285,18 +301,36 @@ for (const [f] of LANES) {
     check(b.state === 'not_blocked' && !holdForBudget(b),
       `(i.a) FORWARD was refused (${b.state}/${b.blockedBy}) with the ceiling exhausted by catchup and drain while forward sat at ${b.estimatedOpsSpentToday}/${b.allocation} of its own allocation. Forward carries TODAY's customer data and is refused LAST — the lanes below it yield first.`)
   }
-  // (b) THE SAME PROTECTION ONE RUNG DOWN — drain, inside its allocation, above catchup.
+  // (b) ⛔ REWRITTEN 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1), AND THE REWRITE IS THE HONEST MOVE RATHER
+  // THAN A WEAKENING. It used to assert "the same protection one rung down": drain, inside its allocation,
+  // above catchup. UNDER THIS POLICY THERE IS NO SUCH RUNG — drain and catchup are both ZERO, and the only
+  // lanes carrying an allocation are forward (the un-gated reserve, top of the order) and backfill (bottom).
+  // A leg whose premise no longer exists cannot be repaired by swapping the lane; leg (i.a) already keeps the
+  // priority guarantee alive with forward. WHAT REPLACES IT IS THE GUARANTEE THAT NOW MATTERS MOST: a lane
+  // zeroed BY DECISION must decline on its OWN allocation and say so, never be misreported as a fleet problem.
+  // ⛔ WHY THAT IS WORTH A LEG: the decline reason is the only place a silenced lane explains itself. If a
+  // 0-allocation drain reported 'fleet_cap', every operator reading it — and Lora, reading the same field —
+  // would conclude Google was exhausted, when in fact Russ turned the lane off. A purchased silence must not
+  // masquerade as a vendor refusal.
   {
-    const b = decideBudget('drain', spend({ drain: 100, catchup: 14900 }))
-    check(b.state === 'not_blocked',
-      `(i.b) DRAIN was refused on a ceiling consumed by CATCHUP, a lower-priority lane, while drain was inside its own allocation. The drain's work expires against a moving wall; catchup's does not.`)
+    for (const zeroed of ['drain', 'catchup']) {
+      const b = decideBudget(zeroed, spend({ [zeroed]: 100, backfill: 200 }))
+      check(b.state === 'blocked' && b.blockedBy === 'lane_allocation',
+        `(i.b) the ZEROED lane '${zeroed}' declined as ${b.state}/${b.blockedBy} instead of blocked/lane_allocation. A lane silenced by LORAMER_WALK_TAKES_THE_LANE_V1 must attribute its decline to its OWN allocation — reporting 'fleet_cap' would tell every reader, including Lora, that GOOGLE refused when the truth is that Russ turned the lane off. A purchased silence must never look like a vendor outage.`)
+      check(Number(b.allocation) === 0,
+        `(i.b) '${zeroed}' reported allocation ${b.allocation}, not 0 — the decline must carry the real denominator (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1), and 0 is the number that explains it.`)
+    }
   }
   // ⛔ AND THE ORDER MUST ACTUALLY BITE — this is not "everyone is admitted". With only HIGHER lanes holding
   // spend, the lane at the bottom of those with spend IS refused.
+  // ⛔ ASKER MOVED FROM 'catchup' TO 'backfill' 2026-08-11: catchup now has no allocation, so check (a) fires
+  // first and this leg would have gone GREEN reading 'lane_allocation' while claiming to prove the CEILING
+  // bites — green for the wrong reason. 'backfill' has 13,500 of room and ranks LAST, so nothing below it can
+  // yield and the ceiling must refuse it. Same guarantee, a lane that can still demonstrate it.
   {
-    const b = decideBudget('catchup', spend({ forward: 14900, catchup: 100 }))
+    const b = decideBudget('backfill', spend({ forward: 14900, backfill: 100 }))
     check(b.state === 'blocked' && b.blockedBy === 'fleet_cap',
-      `(i.b2) CATCHUP was ADMITTED (${b.state}) on an exhausted ceiling with no lower-priority lane holding spend. Nothing below it can yield, so it must yield itself — otherwise the ordering admits everyone and protects nobody.`)
+      `(i.b2) the BOTTOM lane was ADMITTED (${b.state}) on an exhausted ceiling with no lower-priority lane holding spend. Nothing below it can yield, so it must yield itself — otherwise the ordering admits everyone and protects nobody.`)
   }
   // (c) FAIL-OPEN: an unknown lane identity must sort LAST, never inherit forward's seat.
   {
@@ -524,6 +558,35 @@ if (WITH_DB) {
     const sum = Object.values(alloc).reduce((a, b) => a + Number(b || 0), 0)
     if (sum !== mod.GOOGLE_DAILY_OP_CAP) {
       findings.push(`(n) the allocations sum to ${sum}, not the ${mod.GOOGLE_DAILY_OP_CAP} cap. Under-summing leaves quota nobody may spend; over-summing is a promise the vendor will not keep.`)
+    }
+
+    // ── (p) THE WALK-TAKES-THE-LANE POLICY IS THE ONE IN FORCE ─────────────────────────────────────────────
+    // ⛔ LORAMER_WALK_TAKES_THE_LANE_V1, Russ 2026-08-10, implemented 2026-08-11. This leg exists so a lane
+    // cannot be quietly restored WITHOUT A DECISION — the policy silences three live capture lanes on Russ's
+    // own clients, and the way that gets undone by accident is somebody "fixing" a zero that looks like a bug.
+    // ⛔ THE REVERSAL IS CONDITION-GATED, NOT DATE-GATED: the lanes come back when the backfill engine is
+    // COMPLETE AND PROVEN CORRECT, and RUSS CALLS IT. **DELETE THIS LEG IN THE SAME COMMIT AS THE REVERSAL** —
+    // it is a pin on a deliberate temporary state, not a permanent law, and leaving it behind would refuse the
+    // restoration it was written to protect.
+    if (Number(alloc.drain) !== 0 || Number(alloc.catchup) !== 0) {
+      findings.push(`(p) drain=${alloc.drain} catchup=${alloc.catchup} — LORAMER_WALK_TAKES_THE_LANE_V1 sets BOTH to 0. If the engine is now complete and Russ has called the reversal, delete this leg in the same commit; if not, a lane was restored without a decision.`)
+    }
+    if (Number(alloc.backfill) !== mod.GOOGLE_DAILY_OP_CAP - Number(mod.FORWARD_UNGATED_RESERVE)) {
+      findings.push(`(p) backfill=${alloc.backfill}, expected cap ${mod.GOOGLE_DAILY_OP_CAP} − forward reserve ${mod.FORWARD_UNGATED_RESERVE}. The walk takes everything that is ACTUALLY available, and the reserve is the only subtrahend.`)
+    }
+    // ⛔ THE RESERVE MAY NOT BE ZEROED WHILE cron/sync IS UNGATED, AND THIS IS THE LEG THAT MATTERS MOST.
+    // `backfill: 15_000` with forward still spending ~1,206/day un-metered and unseen by the walk's own meter
+    // is a 16,206-against-15,000 overrun — the 2026-08-06 crisis shape, designed in. The reserve may go to 0
+    // ONLY in a commit that genuinely gates forward, and this leg checks the gate rather than trusting a claim.
+    {
+      const sync = read('src/app/api/cron/sync/route.ts')
+      const syncIsGated = /getGoogleOpBudget|holdForBudget|holdGoogleWork/.test(nocomment(sync))
+      if (Number(mod.FORWARD_UNGATED_RESERVE) === 0 && !syncIsGated) {
+        findings.push(`(p) FORWARD_UNGATED_RESERVE is 0 while cron/sync consults NO budget and NO quota gate — so forward still spends (measured 2026-08-11: 18 connection-days/day ⇒ ~1,206 requests at the repo's ×67) and the walk's meter cannot see it. That authorises ~16,206 against a hard 15,000. Gate cron/sync first, or keep the reserve.`)
+      }
+      if (Number(mod.FORWARD_UNGATED_RESERVE) !== 0 && syncIsGated) {
+        findings.push(`(p) cron/sync now consults a budget/quota gate, so FORWARD_UNGATED_RESERVE (${mod.FORWARD_UNGATED_RESERVE}) is holding back quota nothing needs — the walk should take the literal 15,000 the decision asked for. Set the reserve to 0 in the same commit that gated forward.`)
+      }
     }
   }
 

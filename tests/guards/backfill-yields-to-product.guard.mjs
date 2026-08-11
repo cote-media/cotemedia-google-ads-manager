@@ -66,12 +66,24 @@ if (G) {
     findings.push('(a) decidePublishFleetAware() is gone — the governor is back to reading only its own lane, which is the defect itself.')
   } else {
     // ── (a) IT MUST NOT PUBLISH WHEN THE FLEET WOULD BREACH THE CAP ──────────────────────────────
-    // The heavy-drain day from the queue entry: forward 4,000 + drain 8,000 = 12,000 spent. Only
-    // 3,000 remain under the cap and the product reserve is fully consumed, so the walk gets nothing.
-    const heavy = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(4000, 0, 8000), want: 346 })
+    // ⛔ MADE RESERVE-RELATIVE 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1), AND THE REASON IS THE WHOLE
+    // POINT OF LESSON 68 SHAPE (a). This leg used to hardcode the heavy-drain day as "forward 4,000 +
+    // drain 8,000 = 12,000 spent, therefore the walk gets nothing" — true ONLY while PRODUCT_RESERVE_OPS
+    // was 9,000, because 12,000 + 9,000 > 15,000. The reallocation took the reserve to 1,500 (drain and
+    // catchup are 0, so there is nothing to reserve for them), and at 12,000 spent there is now 1,500 of
+    // GENUINE headroom under the cap — the governor allowing a publish there is ARITHMETICALLY CORRECT,
+    // not an overrun. The old assertion would have failed the build for the right answer.
+    // ⛔ THE PROPERTY BEING PROTECTED NEVER MENTIONED 12,000: the walk must stand down at the point where
+    // publishing would breach the cap GIVEN THE RESERVE IN FORCE. Expressed against the live RESERVE, the
+    // leg holds under every allocation policy — including the one that comes back on the reversal.
+    const noHeadroom = CAP - RESERVE                  // product spend that leaves the walk exactly nothing
+    const heavy = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(noHeadroom, 0, 0), want: 346 })
     if (heavy.mayPublish || heavy.allowance !== 0) {
-      findings.push(`(a) HEAVY DRAIN DAY: fleet has spent 12,000 of ${CAP} and the governor still allowed ${heavy.allowance} message(s). The walk must stand down — this is the exact 18,000-against-15,000 overrun the fix exists to prevent, and the lane that pays for it is the DRAIN.`)
+      findings.push(`(a) NO-HEADROOM DAY: the fleet has spent ${noHeadroom} of ${CAP} with a ${RESERVE} reserve in force — exactly zero left for the walk — and the governor still allowed ${heavy.allowance} message(s). The walk must stand down; this is the 18,000-against-15,000 overrun class, and the lane that pays for it is whichever product lane still has work.`)
     }
+    // ⛔ AND ONE STEP BEYOND IT MUST ALSO HOLD — the boundary is not the only place this can fail.
+    const past = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(noHeadroom + 500, 0, 0), want: 346 })
+    if (past.mayPublish) findings.push(`(a) the governor published with the fleet ${noHeadroom + 500} PAST the point where the reserve leaves it nothing.`)
     // Cap already blown outright.
     const over = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(9000, 3000, 4000), want: 10 })
     if (over.mayPublish) findings.push('(a) the governor published with the fleet already OVER the daily cap.')
@@ -103,8 +115,13 @@ if (G) {
 
     // ── (c) IT MUST NOT SILENTLY REVERT TO OWN-LANE-ONLY ─────────────────────────────────────────
     // Own-lane-only would ignore the fleet entirely: same own spend, wildly different fleet, same answer.
+    // ⛔ THE HOT READING IS RESERVE-RELATIVE 2026-08-11, same reason as leg (a). It was fleet(4000,2000,6000)
+    // = 12,000, which under the 9,000 reserve left nothing and under the 1,500 reserve leaves 1,500 — enough
+    // to satisfy want=50 either way, so BOTH readings returned 50 and the leg fired on a governor that was
+    // reading the fleet perfectly well. A leg that goes red for correct behaviour gets deleted by the next
+    // person; pin it to the boundary instead, where the fleet demonstrably changes the answer.
     const a = G.decidePublishFleetAware({ spentRequestsToday: 10, fleet: fleet(0, 0, 0), want: 50 })
-    const b = G.decidePublishFleetAware({ spentRequestsToday: 10, fleet: fleet(4000, 2000, 6000), want: 50 })
+    const b = G.decidePublishFleetAware({ spentRequestsToday: 10, fleet: fleet(CAP - RESERVE - 10, 0, 0), want: 50 })
     if (a.allowance === b.allowance) {
       findings.push(`(c) the fleet reading CHANGED NOTHING (${a.allowance} both times) — the governor is reading only its own lane again, which is the original defect restored.`)
     }

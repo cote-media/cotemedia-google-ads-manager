@@ -106,11 +106,39 @@ export const OPS_PER_REQUEST = 1
 // Measured 30-day requests/day, for whoever re-opens this: catchup mean 9,242 / p95 13,568 / max 14,271,
 // active 30 of 30 days · walk mean 4,470 / p95 11,106 / max 12,542, active 4 of 30 · drain mean 767 / p95
 // 1,849 / max 2,546, active 9 of 30 · forward mean 1,184 / p95 1,280 / max 1,407, active 30 of 30.
+// ⛔ LORAMER_WALK_TAKES_THE_LANE_V1 — REALLOCATED 2026-08-11 ON RUSS'S DECISION (2026-08-10). THE WALK TAKES
+// THE LANE; DRAIN AND CATCHUP GO TO ZERO. THE REVERSAL IS CONDITION-GATED, NOT DATE-GATED: the product lanes
+// are restored when the backfill engine is COMPLETE AND PROVEN CORRECT, and RUSS CALLS WHEN THAT BAR IS MET.
+// ⛔ THERE IS NO DEADLINE IN THIS TABLE AND THERE MUST NEVER BE ONE. The decision's original marker carried
+// "0915" (15 September) — that was A ROUGH ESTIMATE OF WHEN, NOT A COMMITMENT, and treating it as binding
+// would restore three live capture lanes on a calendar date rather than on the engine being right.
+//
+// ⛔ WHY forward IS 1,500 AND NOT 0, AND THIS IS THE ONE PLACE THE INSTRUCTION COULD NOT BE TAKEN LITERALLY.
+// The decision reads "forward, drain and catchup starve". Drain and catchup genuinely do: they are the ONLY
+// two production callers of `getGoogleOpBudget` (cron/drain/route.ts:140, cron/catchup/route.ts:281), so a
+// zero here stops them. **FORWARD DOES NOT CONSULT THIS TABLE AT ALL** — `cron/sync` has no budget gate and no
+// quota-pause consult, only a wall-clock `FORWARD_BUDGET_MS`. Setting forward to 0 would change NOTHING about
+// what forward spends; it would only DELETE THE RESERVE THAT KEEPS THE WALK OFF IT.
+// ⛔ AND THE WALK'S METER CANNOT SEE FORWARD. `google-ads.adapter.ts` sums the walk's OWN two ledgers
+// (universe_window_log + universe_attempt_log) and nothing else. So `backfill: 15_000` would authorise the walk
+// to spend the entire vendor cap while forward spent ~1,206/day INVISIBLY on top — 16,206 against a hard
+// 15,000 — which is not an allocation, it is a designed-in overrun, and it is the exact shape of the
+// 2026-08-06 quota crisis (a governor blind to a real spender).
+// MEASURED 2026-08-11 over 14 days from `cron_runs`: forward is 18 connection-days/day, EVERY day (max 18,
+// min 6 on the 08-06 outage), which is 1,206 requests/day at the repo's own ×67 — so the reserve is sized on a
+// stable measurement rather than a guess. ⚠ THE ×67 IS ITSELF UNMEASURED
+// ([[★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT]]), which is exactly why the reserve carries
+// headroom above 1,206 instead of matching it.
+// ⇒ THE WALK TAKES 13,500 OF 15,000 — 90% of the lane, and 100% of what is actually available.
+export const FORWARD_UNGATED_RESERVE = 1_500
 export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
-  forward: 2_000,   // p95 1,280 — small, and it must never lose
-  drain: 3_000,     // p95 1,849 — its work EXPIRES at a wall that moves daily
-  catchup: 4_000,   // p95 13,568 — THE CUT. Deferrable; nothing in its window expires
-  backfill: 6_000,  // p95 11,106 when active — 2022 history arrives later, not never
+  // ⛔ NOT A LANE FORWARD SPENDS FROM — a slice HELD BACK FROM THE WALK for a spender this table cannot gate.
+  // ⛔ SET THIS TO 0 ONLY IN THE SAME COMMIT THAT GENUINELY GATES cron/sync. Then, and only then, is
+  // `backfill: 15_000` the literal truth the decision asked for.
+  forward: FORWARD_UNGATED_RESERVE,
+  drain: 0,         // ZERO BY DECISION — was 3,000. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
+  catchup: 0,       // ZERO BY DECISION — was 4,000. Declines cleanly at cron/catchup/route.ts:281-286.
+  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE, // 13,500 — was 6,000
 }
 
 // ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the

@@ -96,10 +96,14 @@ Module._resolveFilename = function (request, ...rest) {
   return origResolve.call(this, request, ...rest)
 }
 const req = createRequire(import.meta.url)
-let W, G
+let W, G, BUD
 try {
   W = req(join(out, 'src/lib/backfill/google-ads-universe-writer.js'))
   G = req(join(out, 'src/lib/backfill/universe-governor.js'))
+  // ⛔ THE ALLOCATION TABLE IS READ FROM ITS OWNER, NOT INFERRED FROM THE GOVERNOR'S ALIASES. The governor
+  // re-exports forward/drain/backfill as named reserves but never catchup, so inferring the table from it
+  // cannot tell "declared 0" from "absent" — the exact distinction leg (b) exists to make.
+  BUD = req(join(out, 'src/lib/backfill/google-op-budget.js'))
 } catch (e) { Module._resolveFilename = origResolve; rmSync(out, { recursive: true, force: true }); fail(`compiled modules did not load — ${e.message}\n${r.stdout || ''}${r.stderr || ''}`) }
 
 // ── (a) IDEMPOTENCY — the SAME message twice must emit the SAME rows ──────────────────────────────────────
@@ -131,7 +135,33 @@ try {
 {
   const cap = G.GOOGLE_DAILY_OP_CAP, fwd = G.RESERVED_FOR_FORWARD_OPS, drn = G.RESERVED_FOR_DRAIN_OPS, allow = G.BACKFILL_OP_ALLOWANCE
   if (allow >= cap) findings.push(`(b) the backfill allowance (${allow}) is not less than the daily cap (${cap}) — nothing is reserved and the forward sync can be starved.`)
-  if (fwd <= 0 || drn <= 0) findings.push(`(b) the forward (${fwd}) or drain (${drn}) reserve is not positive — the lanes that keep TODAY's data arriving have no protection.`)
+  // ⛔ REWRITTEN 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1) — AND THIS IS THE SECOND TIME THIS LEG HAS
+  // ENCODED A SUPERSEDED MODEL, which is worth saying out loud. It first asserted an identity that was true
+  // only while catchup did not exist; it then asserted that EVERY product reserve is POSITIVE, which is true
+  // only while every lane is running. Russ's decision sets drain and catchup to ZERO on purpose, so a
+  // positivity check now fails the build for the policy in force.
+  // ⛔ THE PROPERTY THAT ACTUALLY MATTERED IS NOT POSITIVITY — IT IS THAT EVERY LANE IS **NAMED**. The original
+  // defect was a lane nobody sized inheriting the remainder (`backfill` silently holding 10,500). A lane
+  // DECLARED at 0 is sized; a lane MISSING from the table is not. That distinction survives every allocation
+  // policy, including the reversal, and it is what this now checks.
+  {
+    const alloc = BUD?.LANE_ALLOCATIONS
+    if (!alloc || typeof alloc !== 'object') {
+      findings.push('(b) LANE_ALLOCATIONS is not readable from the governor — the reserves cannot be derived from the one table, which is how a second model gets invented.')
+    } else {
+      for (const lane of ['forward', 'drain', 'catchup', 'backfill']) {
+        if (!Number.isFinite(Number(alloc[lane]))) {
+          findings.push(`(b) lane '${lane}' has no NUMERIC allocation in LANE_ALLOCATIONS (got ${JSON.stringify(alloc[lane])}). A lane that is absent rather than declared is a lane nobody sized, and the last one of those quietly held 10,500.`)
+        }
+      }
+      // ⛔ AND THE ONE POSITIVITY THAT IS STILL NON-NEGOTIABLE: a lane may be zeroed by decision, but the
+      // ALLOWANCE the walk spends from may not be zero or negative, or the engine cannot run at all.
+      if (!(allow > 0)) findings.push(`(b) the backfill allowance is ${allow} — the walk cannot run. A reallocation that starves the walk itself is not the policy; it is a typo.`)
+      if (Number(alloc.forward) < 0 || Number(alloc.drain) < 0 || Number(alloc.catchup) < 0) {
+        findings.push(`(b) a lane carries a NEGATIVE allocation (forward ${alloc.forward}, drain ${alloc.drain}, catchup ${alloc.catchup}). Zero is a decision; negative is arithmetic nobody intended.`)
+      }
+    }
+  }
   // ⛔ THE IDENTITY MOVED FROM THREE LANES TO FOUR ON 2026-08-09, AND THAT IS THE CORRECTION, NOT A LOOSENING.
   // It asserted `allowance === cap − forward − drain`, which was only true while CATCHUP DID NOT EXIST in this
   // model — and catchup is the DOMINANT spender (~82% of mean fleet volume), so the old identity quietly
@@ -139,7 +169,13 @@ try {
   // and sum to the cap, which is a STRICTER statement: nothing is left implicit for one lane to inherit.
   const ctu = cap - fwd - drn - allow
   if (fwd + drn + ctu + allow !== cap) findings.push(`(b) the four lane allocations do not sum to the cap (${fwd} + ${drn} + ${ctu} + ${allow} != ${cap}).`)
-  if (ctu <= 0) findings.push(`(b) catchup's implied allocation is ${ctu} — it is a real lane and the dominant spender; a model that leaves it at or below zero has not named it at all.`)
+  // ⛔ THE IMPLIED-CATCHUP CHECK IS GONE AND THE REASON IS THAT DERIVING IT WAS ALWAYS THE WEAKER TEST.
+  // 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1): catchup is now DECLARED at 0, so `cap − fwd − drn − allow`
+  // resolves to 0 and a `<= 0` check would fail the build for the policy in force. More importantly, the thing
+  // it was inferring — "catchup has been named" — is now read DIRECTLY off LANE_ALLOCATIONS in the block above,
+  // which is stronger: an implied value cannot distinguish "declared 0" from "omitted entirely", and that
+  // distinction is the whole defect this leg descends from.
+  if (ctu < 0) findings.push(`(b) the implied catchup share is NEGATIVE (${ctu}) — the other three lanes over-subscribe the cap between them, which is a promise the vendor will not keep.`)
 
   const perReq = G.ASSUMED_OPS_PER_REQUEST
   const atLimit = Math.floor(allow / perReq)
