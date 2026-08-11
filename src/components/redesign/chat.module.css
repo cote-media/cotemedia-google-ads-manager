@@ -29,16 +29,30 @@
   animation: fade .12s ease-out;
 }
 @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
-/* Mobile: full-screen sheet. 100dvh so the on-screen keyboard shrinks the sheet and the input stays visible. */
+/* Mobile: full-screen sheet.
+   ⛔ LORAMER_SHELF_DVH_RETIRED_V1, 2026-08-11 — 100dvh → the banked vh+svh fallback pair (the SAME unit
+   decision lora-page.module.css:28-40 already argued in full; not restated). This was THE ONE FILE the
+   surface's dvh ban never reached — chat-visual-viewport.guard leg (e) scanned the page and thread
+   stylesheets only, and this panel carried 100dvh for months behind a green guard. The old comment here
+   claimed "100dvh so the on-screen keyboard shrinks the sheet" — FALSE on iOS (the 874 finding: dvh is the
+   LARGE viewport and does not shrink with the keyboard); the claim was never measured and the geometry
+   harness's structural map is what surfaced it. MEASURED 2026-08-11 before the change: desktop Safari
+   panel.bottom==docH==723 and desktop Chrome ==712 — on desktop svh ≡ dvh ≡ innerHeight, so this change is
+   a NO-OP where it was measured and only SHRINKS the panel to the guaranteed-visible height where browser
+   chrome is dynamic (iPad, the unmeasured pairing). Fixed height, not min-height: the panel is the flex
+   frame the scroller sizes against; a floor would let it grow past the viewport. */
 .panel {
   display: flex; flex-direction: column;
-  width: 100%; min-width: 0; height: 100dvh; background: #fff; /* LORAMER_NEXT_CHAT_TABLE_SCROLL_V1 — min-width:0 down the flex chain so a wide table/pre defers to its own overflow-x scroll instead of widening the panel (iOS flex-min-width:auto trap) */
+  width: 100%; min-width: 0; background: #fff; /* LORAMER_NEXT_CHAT_TABLE_SCROLL_V1 — min-width:0 down the flex chain so a wide table/pre defers to its own overflow-x scroll instead of widening the panel (iOS flex-min-width:auto trap) */
+  height: 100vh;   /* fallback for engines without svh (pre-iOS 15.4) */
+  height: 100svh;  /* the small viewport — guaranteed visible with browser UI expanded; wins where understood */
   box-shadow: -8px 0 40px rgba(15, 23, 42, .18);
   animation: slideUp .18s ease-out;
 }
 @keyframes slideUp { from { transform: translateY(14px); opacity: .6 } to { transform: translateY(0); opacity: 1 } }
-/* Desktop: right-docked panel. */
-  .panel { width: 420px; max-width: 92vw; height: 100dvh; animation: slideIn .18s ease-out; }
+/* Desktop: right-docked panel. Same vh+svh pair as the mobile rule above (LORAMER_SHELF_DVH_RETIRED_V1) —
+   identical on desktop where svh ≡ innerHeight; correct on any dynamic-chrome engine. */
+  .panel { width: 420px; max-width: 92vw; height: 100vh; height: 100svh; animation: slideIn .18s ease-out; }
 @keyframes slideIn { from { transform: translateX(24px); opacity: .5 } to { transform: translateX(0); opacity: 1 } }
 .head {
   display: flex; align-items: center; justify-content: space-between;

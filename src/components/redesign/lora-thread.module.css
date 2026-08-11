@@ -21,7 +21,8 @@
   flex: 1; min-width: 0; overflow-y: auto; overscroll-behavior: contain;
   padding: 16px;
   display: flex; flex-direction: column; gap: 12px;
-  -webkit-overflow-scrolling: touch;
+  /* -webkit-overflow-scrolling: touch REMOVED 2026-08-11 (LORAMER_SHELF_DVH_RETIRED_V1 rider) — deprecated,
+     no effect since iOS 13; carrying it implies a behaviour it does not buy. */
 }
 /* PAGE: NOT a scroll container. The DOCUMENT scrolls; this is just long content. Making this the
    scroller would pin the composer to its height, which is the overlay pattern wearing a hat.

@@ -132,7 +132,16 @@ if (threadCss && threadTsx) {
 }
 
 // ── (e) NO dvh · (f) NO ZOOM SUPPRESSION ────────────────────────────────────────────────────────────
-for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
+// ⛔ chat.module.css JOINED THE SCAN 2026-08-11 (LORAMER_CHAT_GEOMETRY_PROBE_V1 Phase B). The ban listed
+// the page and thread stylesheets — written when those were the whole surface — and the SHELF's chrome
+// stylesheet kept `height:100dvh` on `.panel` for months, unseen: the one file the ban never reached,
+// found by the geometry harness's structural map, and the exact Lesson-68 shape (a) file-list gap this
+// suite keeps producing. Desktop measured clean (panel==docH on Safari AND Chrome, 2026-08-11), but the
+// unit is banned for what it does where chrome is dynamic (iPad is the unmeasured pairing), and a ban
+// with a hole is not a ban. This leg was SEEN RED against the live tree before the CSS moved to svh.
+const SHELF_CSS = 'src/components/redesign/chat.module.css'
+const shelfCss = read(SHELF_CSS)
+for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss], [SHELF_CSS, shelfCss]]) {
   if (!text) continue
   const code = strip(text)
   if (/\b\d+(\.\d+)?dvh\b/.test(code)) {
