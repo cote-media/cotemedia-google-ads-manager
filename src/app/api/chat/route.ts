@@ -8,7 +8,7 @@ import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/l
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop, runClaudeToolLoopStreaming } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
-import { parsePersistTarget, makeAssistantTurnWriter } from '@/lib/chat/persist-assistant-turn' // LORAMER_CHAT_SERVER_TURN_WRITE_V1
+import { parsePersistTarget, parseUserTurnFlag, makeAssistantTurnWriter } from '@/lib/chat/persist-assistant-turn' // LORAMER_CHAT_SERVER_TURN_WRITE_V1 + LORAMER_CHAT_TURN_PAIR_WRITE_V1
 
 // LORAMER_CHAT_MAXDURATION_V1 — make the function ceiling EXPLICIT instead of inheriting the (invisible, dashboard-
 // settable) project default. A real turn on 2026-07-24 ran ~59s server-side (multi-tool Opus loop) and returned 200,
@@ -95,10 +95,14 @@ export async function POST(request: Request) {
   if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 })
 
   // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — built ONCE per request so both paths share one latch.
+  // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — when the caller declares userTurn:true, the writer lands the
+  // [user, assistant] pair in ONE insert at answer time; a flagless (stale-tab) caller keeps the
+  // assistant-only behavior byte-identical. A turn that produces no answer writes nothing.
   const persistAssistantTurn = makeAssistantTurnWriter({
     clientId,
     userEmail: session.user.email,
     target: parsePersistTarget(persistTurn),
+    userMessage: parseUserTurnFlag(persistTurn) ? String(message) : null,
   })
 
   // LORAMER_QUERY_METRICS_OWNERSHIP_V1 / LORAMER_RBAC_ACCESS_ORG_V1 — when a client is in scope, the signed-in

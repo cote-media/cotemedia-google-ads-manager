@@ -47,6 +47,7 @@ const GUARDS = [
   'tests/guards/fetch-errors-rendered.guard.mjs',
   'tests/guards/source-parity.guard.mjs',
   'tests/guards/chat-failure-branches.guard.mjs',
+  'tests/guards/chat-turn-pair-write.guard.mjs', // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — server owns both turns, atomic pair, user first
   'tests/guards/chat-stream-consumers.guard.mjs',
   'tests/guards/chat-scroll-chain.guard.mjs',
   'tests/guards/chat-timer-ordering.guard.mjs',

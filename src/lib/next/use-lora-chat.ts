@@ -21,7 +21,7 @@ import { readChatResponse, CHAT_IDLE_GAP_MS, CHAT_TOTAL_MS } from '@/lib/chat-st
 import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS, type ConvRow } from '@/lib/next/chat-recovery'
 import { renderSubjectLine, aggregateSubjects, MIN_SUBJECT_MS } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
-import { logNextConversationTurn, NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn'
+import { NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — the client-side turn writer is no longer called here; the server owns both turns
 // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the thread is merged, never replaced. `Msg` moved to that module
 // because the merge OWNS the shape (id + lkey are the merge's own keys); it is re-exported here so every
 // existing `import type { Msg } from '@/lib/next/use-lora-chat'` keeps working.
@@ -553,9 +553,11 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     lastFrameAtRef.current = 0
     frameSeqRef.current = 0
     probeSendRef.current(q)
-    // LORAMER_NEXT_CONV_WRITE_V1 — persist the USER turn (fire-and-forget; never awaited, never throws). Logged
-    // regardless of whether the reply below succeeds — the user really said it, exactly as the legacy surfaces log.
-    logNextConversationTurn({ clientId, role: 'user', content: q, scope: turnScope })
+    // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — the pre-fetch user-turn write is GONE (★CHAT-USER-TURN-ORPHAN,
+    // fork a2, Russ 2026-08-12). It was the orphan generator (66 user turns with no answer fed back to
+    // Lora as questions she ignored) AND the inverse-orphan generator (34 answers whose fire-and-forget
+    // user write silently died). The SERVER now writes the [user, assistant] pair atomically at answer
+    // time — declared via persistTurn.userTurn below; a turn that produces no answer persists nothing.
     // LORAMER_CHAT_CLIENT_ABORT_V1 — a DELIBERATE client-side ceiling SHORTER than the server maxDuration (500s as of
     // 2026-08-05; was 300s), so a
     // slow turn fails at a KNOWN bound with an HONEST message instead of at an unknown browser/gateway limit that
@@ -594,7 +596,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
           location: 'chat',
           // LORAMER_CHAT_SERVER_TURN_WRITE_V1 — declare the conversation target so the SERVER writes
           // the assistant turn. This is what moves ownership; without it the server writes nothing.
-          persistTurn: { surface: NEXT_CHAT_SURFACE, scope: turnScope },
+          // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — userTurn:true declares that THIS client no longer writes
+          // its own user turn, so the server lands the [user, assistant] pair in one insert. A stale tab
+          // running the old bundle omits the flag and keeps the old split ownership — no duplicates.
+          persistTurn: { surface: NEXT_CHAT_SURFACE, scope: turnScope, userTurn: true },
           ...(rowCtxRef.current ? { rowContext: rowCtxRef.current } : {}), // LORAMER_NEXT_PLATFORM_PAGE_V1 — per-row focus (drill ✦); absent otherwise
         }),
       })
@@ -605,8 +610,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         rearmIdle()
         // LIVE RENDER. `live` is the answer text accumulated so far, so the user watches it appear instead of a
         // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
-        // show what Lora is actually doing. All of this is TRANSIENT — cleared in the finally block, and
-        // logNextConversationTurn still fires only on the authoritative answer, so nothing provisional persists.
+        // show what Lora is actually doing. All of this is TRANSIENT — cleared in the finally block; the
+        // server persists only the authoritative pair at answer time, so nothing provisional persists.
         // LORAMER_CHAT_STATUS_SUBJECT_V1 — the line now names the WORK, not the tool: "Reading Foam OH · Google ·
         // Nov–Dec 2024". renderSubjectLine is the SAME function the guard drives, so what ships and what is
         // proven cannot drift.
