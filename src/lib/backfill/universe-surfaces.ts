@@ -143,6 +143,35 @@ export const DRAIN_ALIAS: Record<string, DrainAlias> = {
   'user_location_view|geo_target_state': { entityLevel: 'campaign', breakdownType: 'user_geo_state' },
   'user_location_view|geo_target_district': { entityLevel: 'campaign', breakdownType: 'user_geo_district' },
   'user_location_view|geo_target_province': { entityLevel: 'campaign', breakdownType: 'user_geo_province' },
+
+  // ── ★WALK-BASE-SPELLING-SPLIT, RESOLVED 2026-08-12 — THE BASE TWINS ─────────────────────────────────────
+  // ⛔ SAME FACT, TWO KEYS, ONE AXIS OVER FROM GEO: the walk asks a BASE surface at
+  // `breakdown_type = <resource>` (breakdownTypeFor: base → resource name) while FORWARD capture stores the
+  // same per-entity-per-day fact at the LEGACY entity level with `breakdown_type = ''`. Found by wet run #2
+  // (986 held ad_group days re-asked) and it RECURRED UNATTENDED on the first scheduled night — the 23:30Z
+  // fire spent a request on ad_group_ad base 07-12..08-03 while forward held 920 `ad`/'' rows in that window.
+  //
+  // ⛔ THE TWIN SET WAS ENUMERATED FROM THE WAREHOUSE, NOT FROM MEMORY: exactly FOUR google entity_levels
+  // hold ''-spelled rows fleet-wide (ad 47,969 · ad_group 42,637 · campaign 33,897 · account 14,524 — read
+  // 2026-08-12). Four walk base surfaces map onto them; there is no fifth.
+  //
+  // ⛔ EVERY ENTRY PROVEN AGAINST LIVE ROWS BEFORE IT WAS WRITTEN, per this map's own standing discipline
+  // (Foam OH, overlap window 2023-10-17..2023-12-17, vendor-additive counters):
+  //     campaign|campaign       → campaign/''   124 per-entity pairs, 124 identical, 0 divergent
+  //     ad_group|ad_group       → ad_group/''    62 per-entity pairs,  62 identical, 0 divergent
+  //     customer|customer       → account/''     62 per-entity pairs,  62 identical, 0 divergent
+  //     ad_group_ad|ad_group_ad → ad/''          62 overlap DAYS: day-sums identical AND per-day row counts
+  //                                              equal, 0 divergent. ⚠ PER-ENTITY join is impossible here BY
+  //                                              KEY SHAPE — the walk's entity_id tail is the composite
+  //                                              `<agId>~<adId>` while forward stores the bare ad id — and
+  //                                              leg (v)'s own comparator is DAY-SUM grain, so the proof is
+  //                                              at exactly the grain the guard re-checks.
+  // The walk WRITER is unchanged — canonical spelling stays canonical; this is a READ-side coverage alias
+  // only, and ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS is inherited here exactly as it is on geo.
+  'campaign|campaign': { entityLevel: 'campaign', breakdownType: '' },
+  'ad_group|ad_group': { entityLevel: 'ad_group', breakdownType: '' },
+  'ad_group_ad|ad_group_ad': { entityLevel: 'ad', breakdownType: '' },
+  'customer|customer': { entityLevel: 'account', breakdownType: '' },
 }
 
 /**

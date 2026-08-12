@@ -121,15 +121,28 @@ if (WITH_DB) {
     blockers.push('(v) SUPABASE_DB_URL is missing (.env.local), so no alias could be demonstrated against live rows on this machine. STILL REFUSING TO PASS: an unproven alias reads exactly like a proven one, and this leg is the only thing standing between a wrong alias and permanently skipped history. This is an ENVIRONMENT blocker, NOT evidence that an alias is wrong.')
   } else {
     let ALIASES = []
+    let declaredCount = 0
     try {
       const m = strip(surfaces).match(/DRAIN_ALIAS[^=]*=\s*\{([\s\S]*?)\n\}/)
       if (m) {
+        // Every declared entry, counted independently of parseability — the denominator for the check below.
+        declaredCount = (m[1].match(/entityLevel:/g) || []).length
         for (const line of m[1].split('\n')) {
-          const e = line.match(/'([^']+)'\s*:\s*\{\s*entityLevel:\s*'([^']+)'\s*,\s*breakdownType:\s*'([^']+)'/)
+          // ⛔ breakdownType is `([^']*)` — ZERO OR MORE — as of 2026-08-12 (★WALK-BASE-SPELLING-SPLIT). The
+          // base twins alias to breakdown_type '' (forward's base spelling), and the old `+` regex silently
+          // FAILED TO PARSE any such entry: the alias would have shipped TRUSTED WITHOUT DEMONSTRATION,
+          // invisible to this leg — the exact "quotation is not assertion" class, in the demonstrator itself.
+          const e = line.match(/'([^']+)'\s*:\s*\{\s*entityLevel:\s*'([^']+)'\s*,\s*breakdownType:\s*'([^']*)'/)
           if (e) ALIASES.push({ key: e[1], entityLevel: e[2], breakdownType: e[3] })
         }
       }
     } catch { /* reported below */ }
+    // ⛔ THE DEMONSTRATOR MUST SEE EVERY DECLARED ENTRY. A declared alias the parser cannot read is an alias
+    // nothing re-proves — trusted on nobody's reading, which this leg exists to forbid. Seen RED with the
+    // four base entries declared and the old `+` regex in place (parsed 12 of 16).
+    if (declaredCount !== ALIASES.length) {
+      findings.push(`(v) DRAIN_ALIAS declares ${declaredCount} entr(ies) but the demonstrator parsed ${ALIASES.length} — ${declaredCount - ALIASES.length} alias(es) would ship WITHOUT live-row demonstration. An alias the demonstrator cannot see is a claim nobody re-proves.`)
+    }
     if (!ALIASES.length) {
       findings.push('(v) no parseable alias entries found — the leg cannot demonstrate what is not declared.')
     } else {
