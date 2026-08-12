@@ -147,7 +147,16 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
   }))
 
   const covered = coveredDaysStrict(hits.filter((h) => h.has).map((h) => h.day))
-  const attestedEmpty = await attestedEmptyDays(k, windowStart, windowEnd)
+  // ⛔ THE THREE SETS MUST PARTITION THE WINDOW — DISJOINT BY CONSTRUCTION, NOT BY LUCK.
+  // LORAMER_COVERAGE_SETS_PARTITION_V1, 2026-08-12: before the base aliases, a day was either covered or
+  // attested-empty, never both, and nothing enforced that — it was true by accident. The aliases ended the
+  // accident ON THE FIRST FIRE THEY WERE LIVE FOR: ad_group base days were COVERED via forward's '' rows AND
+  // attested by the previous night's paid-for zeros, the plausibility gate summed 28 + 30 + 0 = 58 over a
+  // 30-day window, and BOTH surfaces were refused — durably, for zero requests, exactly as fail-closed
+  // should, but forever. A day with rows is COVERED; an attestation is the NEGATIVE half and yields to the
+  // positive fact. The invariant the gate checks is right — this makes the sets actually satisfy it.
+  const coveredSet = new Set(covered)
+  const attestedEmpty = (await attestedEmptyDays(k, windowStart, windowEnd)).filter((d) => !coveredSet.has(d))
   const known = new Set([...covered, ...attestedEmpty])
   return {
     covered, attestedEmpty,

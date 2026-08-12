@@ -12,7 +12,7 @@
 //       the truth is that we asked for too much at once.
 //   (e) the blast-radius claim ("nothing publishes to this topic") is a FACT about the repo, so it is checked
 //       rather than asserted in a comment.
-import { readFileSync, readdirSync, statSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -207,6 +207,10 @@ try {
   const r = spawnSync(tsc, [
     resolve(ROOT, CAPTURE), resolve(ROOT, COVERAGE), resolve(ROOT, 'src/lib/backfill/google-ads-universe-writer.ts'),
     resolve(ROOT, 'src/lib/backfill/capture-adapter.ts'),
+    // universe-surfaces is import-free data; compiled so leg (b1a) can hand windowCoverage the REAL alias
+    // map + segment mapping instead of a no-op stub (a stubbed mapping filters the zero row out and the
+    // leg measures its own stub — the exact failure the resolver comment below documents).
+    resolve(ROOT, 'src/lib/backfill/universe-surfaces.ts'),
     '--target', 'es2020', '--module', 'commonjs', '--moduleResolution', 'node',
     '--skipLibCheck', '--noResolve', '--rootDir', resolve(ROOT), '--outDir', out,
   ], { encoding: 'utf8' })
@@ -249,6 +253,70 @@ try {
       findings.push(`(b1) an explicit day_committed record did NOT make the newest day covered. The reporting path must be able to sharpen the answer even though the walk never needs to.`)
     }
     if (cov.coveredDaysStrict([]).length !== 0) findings.push(`(b1) coveredDaysStrict invented coverage from an empty input.`)
+
+    // ── (b1a) COVERED AND ATTESTED-EMPTY ARE DISJOINT — LORAMER_COVERAGE_SETS_PARTITION_V1, 2026-08-12 ──
+    // ⛔ THE DEFECT RAN IN PRODUCTION ON THE FIRST FIRE THE BASE ALIASES WERE LIVE FOR: ad_group base days
+    // were COVERED via forward's '' rows (the new alias) AND attested by the previous night's paid-for zeros.
+    // The plausibility gate summed covered 28 + attested 30 + uncovered 0 = 58 over a 30-day window and
+    // REFUSED both surfaces — durably, for zero requests, exactly as fail-closed should, but FOREVER. Before
+    // the aliases the sets were disjoint BY ACCIDENT and nothing enforced it. This leg drives the REAL
+    // compiled windowCoverage through a chainable supabase stub where every day holds rows AND a zero
+    // attestation spans the window: the sets must PARTITION (disjoint, union = window), a day with rows
+    // reporting as covered and never double-counted as attested.
+    {
+      const stub2 = join(out, '__supabase_chain_stub.js')
+      writeFileSync(stub2, `
+        // Chainable stub: metrics_daily probes return a row for EVERY day; universe_attempt_log returns one
+        // zero attempt spanning the whole window at segment '' (the base surface).
+        function chain(table) {
+          const self = { _table: table, _day: null }
+          const h = new Proxy(self, { get(t, k) {
+            if (k === 'then') {
+              const result = t._table === 'universe_attempt_log'
+                ? { data: [{ window_start: '2025-12-01', window_end: '2025-12-04', segment: '' }], error: null }
+                : { data: [{ date: t._day }], error: null }
+              return (res) => res(result)
+            }
+            return (...args) => { if (k === 'eq' && args[0] === 'date') t._day = args[1]; return h }
+          } })
+          return h
+        }
+        module.exports = { supabaseAdmin: { from: (t) => chain(t) } }
+      `)
+      // ⛔ THE COPY MUST LIVE IN ITS OWN DIRECTORY. Node 20's Module._load memoises (parent.path, request)
+      // in relativeResolveCache ABOVE the _resolveFilename hook — a copy sharing universe-coverage.js's
+      // directory re-uses the ORIGINAL's '@/lib/supabase' → throwing-stub resolution and this leg's
+      // resolver is never consulted (measured: the leg died on "GUARD: no DB in the pure legs").
+      mkdirSync(join(out, '__partition'), { recursive: true })
+      const covPartitionJs = join(out, '__partition/__coverage_partition.js')
+      writeFileSync(covPartitionJs, readFileSync(join(out, 'src/lib/backfill/universe-coverage.js'), 'utf8'))
+      const surfacesJs = join(out, 'src/lib/backfill/universe-surfaces.js')
+      const prevResolve = Module._resolveFilename
+      Module._resolveFilename = function (request, ...rest) {
+        if (/lib\/supabase$/.test(request)) return stub2
+        if (/universe-surfaces$/.test(request)) return surfacesJs
+        if (request.startsWith('@/') || request.startsWith('./') || request.startsWith('../')) return stub
+        return origResolve.call(this, request, ...rest)
+      }
+      try {
+        const cov2 = req(covPartitionJs)
+        const wc = await cov2.windowCoverage(
+          { clientId: 'c', platform: 'google', entityLevel: 'ad_group', breakdownType: 'ad_group' },
+          '2025-12-01', '2025-12-04')
+        const overlap = wc.covered.filter((d) => wc.attestedEmpty.includes(d))
+        const sum = wc.covered.length + wc.attestedEmpty.length + wc.uncovered.length
+        if (overlap.length > 0) {
+          findings.push(`(b1a) covered ∩ attestedEmpty = ${JSON.stringify(overlap)} — the sets OVERLAP. The plausibility gate sums the three sets against the window length, so an overlap refuses the surface durably and forever (production, 2026-08-12 01:30Z: ad_group + ad_group_ad base, 28+30+0=58 over 30 days). A day with rows is COVERED; the attestation is the negative half and must yield.`)
+        }
+        if (sum !== 4) {
+          findings.push(`(b1a) covered ${wc.covered.length} + attested ${wc.attestedEmpty.length} + uncovered ${wc.uncovered.length} = ${sum} over a 4-day window — the three sets do not PARTITION the window, which is the exact arithmetic the resumer's plausibility gate refuses on.`)
+        }
+      } catch (e) {
+        findings.push(`(b1a) could not drive windowCoverage through the chainable stub — ${e?.message}. A leg that cannot run is not a pass. ${process.env.LORAMER_GUARD_DEBUG ? e?.stack : ''}`)
+      } finally {
+        Module._resolveFilename = prevResolve
+      }
+    }
     const gapped = cov.coveredDaysStrict(['2025-12-01', '2025-12-03', '2025-12-09'])
     if (gapped.includes('2025-12-09')) findings.push(`(b1) the newest day was counted as covered even across a gap.`)
     // and the owed set must come back as CONTIGUOUS RANGES, because BETWEEN is one operation at any span
@@ -355,4 +423,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · hourly at :30 — LORAMER_WALK_SCHEDULED_V1).`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · hourly at :30 — LORAMER_WALK_SCHEDULED_V1).`)
