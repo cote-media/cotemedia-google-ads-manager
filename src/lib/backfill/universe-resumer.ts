@@ -35,20 +35,32 @@ export type ResumeVerdict =
  * requests / 261,977 rows. A message is not a request, and the resumer knows the difference BEFORE it
  * publishes because it has already computed the owed ranges: **one owed range = one vendor request.**
  *
- * THE ARITHMETIC, and every number in it is ours or the governor's — none of it is a vendor claim:
- *   · the backfill allowance is 6,000 ops/day (15,000 daily cap − 4,000 forward − 5,000 drain,
- *     `universe-governor.ts:40-42`)
- *   · at an hourly cadence that is 24 runs/day
- *   · 20 requests/run × 24 = **480/day = 8% of the allowance**, leaving 92% for the walk's own chains,
- *     re-walks and anything a human starts
+ * THE ARITHMETIC, and every number in it is ours or the governor's — none of it is a vendor claim.
+ * ⛔ RE-DERIVED 2026-08-12 (LORAMER_WALK_BITE_40_V1) — the original block cited the RETIRED 6,000 allowance
+ * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
+ * constant and this derivation TOGETHER so they cannot drift apart again:
+ *   · the walk's lane is LANE_ALLOCATIONS.backfill = 13,500 ops/day (LORAMER_WALK_TAKES_THE_LANE_V1)
+ *   · at an hourly cadence that is 24 fires/day
+ *   · 40 requests/fire × 24 = **960/day = 7.1% of the lane**, leaving ~93% headroom — deliberately, so
+ *     variance, re-walks and anything a human starts are absorbed retry-free rather than sized-to-the-brim
+ *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN: each published
+ *     message is one consumer invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 2
+ *     (vercel.json), so a fire of 40 all-worst-case messages drains in 40 × 180s ÷ 2 = 3,600s — EXACTLY the
+ *     fire interval. 40 is the largest bite whose worst case cannot back the queue into the next fire.
+ *     (Typical observed is ~6s/message — the first unattended night drained 20 in ~62s — and a backlog
+ *     would be SAFE anyway: idempotency keys dedupe re-publishes and coverage is derived; the bound is for
+ *     smoothness, not correctness.)
+ *   · the resumer itself does not stretch with the bite — its ~60-90s duration is the coverage SCAN
+ *     (≤MAX_ENTRIES_SCANNED_PER_RUN entries), and the first night's fires found ~59 candidate ranges per
+ *     60-entry scan, so a bite of 40 is reachable without raising the scan cap
  *   · the WORST case is the same number, because the bound counts ranges rather than messages — a window
- *     fragmented into 15 owed ranges consumes 15 of the 20 and the run stops there
+ *     fragmented into 15 owed ranges consumes 15 of the 40 and the run stops there
  * ⛔ `MAX_PUBLISH_WITHOUT_FLAG = 4` (universe-start:50) IS THE WRONG BOUND TO REUSE AND IS DELIBERATELY NOT
  * REUSED. It bounds an OPERATOR's fan-out on a path where a human is present to say the dangerous thing out
  * loud. The resumer has no human, publishes single-window work rather than chains, and needs a bound
  * expressed in the unit that actually gets spent.
  */
-export const MAX_REQUESTS_PER_RUN = 20
+export const MAX_REQUESTS_PER_RUN = 40
 
 /**
  * ⛔ AND A SECOND, INDEPENDENT BOUND ON HOW MUCH THE RUN MAY *LOOK* AT. Coverage costs ~30 indexed reads per

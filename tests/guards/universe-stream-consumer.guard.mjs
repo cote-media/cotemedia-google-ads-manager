@@ -149,9 +149,11 @@ if (route) {
   // the Foam OH dormancy eyeball. It used to read "the sole publisher must not be on a schedule"; the lock
   // was SEEN RED refusing this exact entry before it was rewritten, which is what a lock is for.
   // ⛔ WHAT IT PINS NOW IS NARROWER, NOT WEAKER: the schedule that exists must be EXACTLY the decided one.
-  // The unattended-spend arithmetic rests on every clause of this string — hourly × MAX_REQUESTS_PER_RUN(20)
-  // = 480 requests/day = 3.6% of the 13,500 lane — so a second entry, a faster cadence, a different client,
-  // or a dropped dryRun=0 each change the spend without a decision and each goes RED here.
+  // The unattended-spend arithmetic rests on every clause of this string — hourly × MAX_REQUESTS_PER_RUN(40,
+  // raised from 20 by LORAMER_WALK_BITE_40_V1 on 2026-08-12) = 960 requests/day = 7.1% of the 13,500 lane —
+  // so a second entry, a faster cadence, a different client, or a dropped dryRun=0 each change the spend
+  // without a decision and each goes RED here. The BITE itself is pinned two blocks below, WITH its header
+  // arithmetic, so the constant and its derivation cannot move apart.
   //   · ONE entry (a second one doubles unattended spend silently)
   //   · client pinned to Foam OH — the ONLY account the engine has ever been proven on (both wet runs).
   //     Fleet rollout is a SEPARATE decision after unattended operation is proven; roster: LORAMER_WALK_ROSTER_V1.
@@ -159,6 +161,24 @@ if (route) {
   //     that LOOKS scheduled (the exact false-comfort ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION described)
   //   · cadence 30 * * * * — hourly, the resumer's DESIGNED cadence (universe-resumer.ts:40-45 derives its
   //     bound arithmetic from 24 runs/day), minute 30 clear of the :00-:20 drain fires and :08 sync fires
+  // ── THE BITE AND ITS DERIVATION MOVE TOGETHER — LORAMER_WALK_BITE_40_V1, 2026-08-12 ──────────────────
+  // ⛔ MAX_REQUESTS_PER_RUN is the whole unattended-spend rate (bite × 24 fires), and its header carries the
+  // derivation (lane share, queue-drain worst case). A constant changed without its arithmetic is exactly how
+  // the header spent three days citing the RETIRED 6,000 allowance. This leg requires BOTH: the decided
+  // value, and the derived daily figure present in the same file. SEEN RED against the bite-20 tree first.
+  {
+    const resumerSrc = read('src/lib/backfill/universe-resumer.ts') || ''
+    const m = resumerSrc.match(/export const MAX_REQUESTS_PER_RUN\s*=\s*(\d+)/)
+    const DECIDED_BITE = 40
+    const DERIVED_DAILY = DECIDED_BITE * 24 // 960
+    if (!m) {
+      findings.push('(e) MAX_REQUESTS_PER_RUN not found in universe-resumer.ts — the bite bound this whole schedule is sized on has moved or vanished; re-derive the pin.')
+    } else if (Number(m[1]) !== DECIDED_BITE) {
+      findings.push(`(e) MAX_REQUESTS_PER_RUN is ${m[1]}, decided ${DECIDED_BITE} (LORAMER_WALK_BITE_40_V1). The bite is the unattended spend rate — ${m[1]}×24=${Number(m[1]) * 24}/day vs the decided ${DERIVED_DAILY}/day. Changing it is a scheduling decision with its own derivation (lane share + queue-drain worst case), not an edit.`)
+    } else if (!resumerSrc.includes(String(DERIVED_DAILY) + '/day')) {
+      findings.push(`(e) universe-resumer.ts carries bite ${DECIDED_BITE} but its header no longer derives ${DERIVED_DAILY}/day beside it — the constant and its arithmetic have moved apart, which is how the header cited a retired allowance for three days.`)
+    }
+  }
   const vercelJson = read('vercel.json')
   const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '30 * * * *' }
   if (vercelJson) {
