@@ -144,9 +144,11 @@ correctable by changing a bid. Severity is therefore NOT uniform across question
 that treats them as equal is mis-weighted. The 95% bar was set against marketing questions; it is not
 automatically the right bar for a margin call.
 
-## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31, LAW 9 banked 2026-08-01]
-The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. These EIGHT are the
-JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
+## ⛔ THE JUDGMENT HALF OF THE GOVERNING LAW [LAW — 1-7 banked 2026-07-30, LAW 8 banked 2026-07-31, LAW 9 banked 2026-08-01, LAW 10 banked 2026-08-11 (Russ; recorded 2026-08-12 — the defining paste never reached the executing machine at first send)]
+The law above says capture EVERYTHING / EVERYWHERE / FOREVER. That is the SCOPE half. The numbered laws below
+are the JUDGMENT half — what "everything" means, when data counts as held, and what Lora owes when it is not.
+(⛔ NO COUNT IN THIS SENTENCE, deliberately: it read "These EIGHT" while nine laws stood below it — a count in
+prose is a fact with a shelf life, and this one had expired in place.)
 
 **1. EVERYTHING MEANS EVERY INPUT THAT EXPLAINS PERFORMANCE, WHEREVER IT LIVES — not every field of the
 reporting API.** Configuration (conversion window, attribution setting, whether conversion value includes
@@ -235,6 +237,17 @@ same failure all three share — treating something UNVERIFIED as SETTLED — an
 CLAUDE.md deliberately: CLAUDE.md gates what Claude Code will ACT ON, and a false mechanism is not refusable,
 only checkable. The executor's obligation under this law is to VERIFY a named mechanism before building on it
 and to SAY SO when it does not hold — never to assume the instruction did the research.
+
+**10. NO UNFENCED TOOLING — LORAMER_NO_UNFENCED_TOOLING_V1 (Russ, 2026-08-11).** Inside a flight, Claude Code
+may NOT install, enable, set up, or connect any NEW tool, extension, MCP server, browser integration, CLI, or
+service unless the flight instruction names it explicitly. Anything novel needed mid-flight = **STOP and ask,
+stating what and why.** Improvisation within already-available tools remains normal.
+CONTEXT, the bite that produced the law: the Claude-in-Chrome setup attempt during Chat Flight 2 Phase A
+(2026-08-11) — a browser integration reached for mid-flight without the instruction naming it; Russ declined
+it. The flight then proceeded fine without it, which is the point: the need was assumed, not established.
+⛔ THE MECHANICAL HALF IS QUEUED, NOT DONE: ★TOOL-INSTALL-PERMISSIONS-LOCKDOWN (/permissions on BOTH machines
+so tool-install/setup actions require explicit approval) — this law is the conduct half, and prose alone is
+not an enforcer (RULE-HOME LAW).
 
 
 ## ⛔ PRE-ACTION GATE (forcing function — output this line before ANY Claude Code paste or ANY UI proposal; a skipped line is a visible violation)
