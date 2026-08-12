@@ -58,7 +58,7 @@ import { handleCallback, send } from '@vercel/queue'
 // on this file within minutes of the file existing; that guard is the reason this comment is here.
 // ⛔ VENDOR_FLOOR_DATE IS DELIBERATELY NOT IMPORTED — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. The floor is
 // DISCOVERED per (account, surface) from the vendor's own refusal and resolved at EXECUTE time.
-import { readAccountWall, recordAccountWall, readAccountInception, readEarliestHeldDate, composeWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { readAccountWall, recordAccountWall, readAccountInception, discoverAccountInception, readEarliestHeldDate, composeWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
 // ⛔ THE ADAPTER SUPPLIES EVERY GOOGLE FACT THE CORE USED TO HOLD: the GAQL, the ORDER BY, the retention
 // floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
@@ -195,7 +195,16 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   // NOWHERE ELSE (inception-stop.guard.mjs leg (c)). The held-data min is the safeguard: rows we already
   // hold outrank the inception claim, so the stop can never orphan ground we can see. Date-only comparison
   // in the ACCOUNT-TIMEZONE frame — the registry's probe-op-6 row owns that caveat.
-  const inception = await readAccountInception({ clientId, vendor: adapter.platform })
+  let inception = await readAccountInception({ clientId, vendor: adapter.platform })
+  // ⛔ LORAMER_INCEPTION_EXECUTOR_V1 — FIRST TOUCH: no row = UNKNOWN = discover it NOW. One metered+ledgered
+  // op through the writer's executor (the ONLY executor of INCEPTION_DISCOVERY_GAQL; guard leg (b3)). Every
+  // failure path inside returns null — UNKNOWN never defaults, the composed stop stays honest, and a later
+  // message retries. Sits BELOW the holdGoogleWork gate (step 0) by construction: a held fire never reaches
+  // this line. The injected streamFor is the armed boundary-5 stream, so a quota refusal here arms the
+  // fleet sentinel like every other vendor call on this route.
+  if (inception === null) {
+    inception = await discoverAccountInception({ clientId, vendor: adapter.platform, adapter, stream: streamFor })
+  }
   const heldMin = await readEarliestHeldDate(clientId, adapter.platform)
   const walkStop = composeWalkStop({
     wallDate: surfaceWall?.wallDate ?? null,

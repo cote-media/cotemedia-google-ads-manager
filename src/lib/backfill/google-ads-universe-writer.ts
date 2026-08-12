@@ -299,6 +299,78 @@ export async function recordAccountInception(k: { clientId: string; vendor: stri
   if (error) throw new Error(`[universe-inception] write failed for ${k.clientId}: ${error.message}`)
 }
 
+// ── THE DISCOVERY EXECUTOR — LORAMER_INCEPTION_EXECUTOR_V1 (★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR) ──────────
+/**
+ * ⛔ THE SYNTHETIC LEDGER KEY, fixed so it is stable per account and attempt_no counts discovery tries.
+ * The epoch window is a KEY, not a claim about any day. It collides with no catalog surface (guard leg (e)),
+ * so its rows can never feed attestedEmptyDays or decideRepublish's exact-key reads — on a real surface key
+ * an 'ok'/'zero' here would poison both.
+ */
+export const INCEPTION_ATTEMPT_KEY = {
+  resource: '__account_inception', segment: '', windowStart: '1970-01-01', windowEnd: '1970-01-01',
+} as const
+
+/**
+ * ⛔ FIRST-TOUCH PER ACCOUNT, ONE OP — the caller gates on readAccountInception() === null, and this is the
+ * ONLY executor of INCEPTION_DISCOVERY_GAQL.
+ * ⛔ METERED AND LEDGERED, IN ORDER (inception-stop.guard.mjs leg (b3), every step proven red-first):
+ * mayFetchProgram — an unreadable meter HOLDS: skip the discovery, the bounded walk proceeds, a later
+ * message retries → appendAttemptStarted BEFORE the vendor call, so a killed invocation still counts
+ * (the v1 defect; ★UNLEDGERED-VENDOR-SPEND-IS-INVISIBLE measured 4 unledgered probe ops live) → the query
+ * → recordAccountInception with the vendor's raw string verbatim → appendAttemptFinished.
+ * ⛔ EVERY FAILURE LANDS AS A DURABLE 'error' ROW AND RETURNS null — UNKNOWN never defaults, the composed
+ * stop stays honest, and an unbounded walk keeps refusing. Zero campaigns = outcome 'zero', nothing
+ * recorded: an account with no campaigns HAS no inception, and absence stays UNKNOWN by design (063's
+ * source CHECK correctly refuses any sentinel row).
+ * ⛔ THE STREAM IS INJECTED — the consumer's armingStream-wrapped streamFor — so a quota refusal here arms
+ * the fleet sentinel through the EXISTING boundary 5 of 5 instead of inventing an un-armed sixth
+ * (google-quota-store.ts's own stated gap: "a new Google call site that invents a fifth wrapper is NOT
+ * caught"). No new client construction, no new token read.
+ */
+export async function discoverAccountInception(k: {
+  clientId: string
+  vendor: string
+  adapter: import('./capture-adapter').CaptureAdapter
+  stream: (gaql: string) => AsyncGenerator<any>
+}): Promise<{ inceptionDate: string; rawStartDateTime: string; source: string } | null> {
+  const { mayFetchProgram } = await import('./capture-adapter')
+  const { appendAttemptStarted, appendAttemptFinished } = await import('./universe-attempt-log')
+  const gate = await mayFetchProgram(k.adapter, [1])
+  if (!gate.ok) {
+    console.warn(`[universe-inception] DISCOVERY HELD for ${k.clientId}: ${gate.reason} — nothing spent; retried on a later message.`)
+    return null
+  }
+  const key = { clientId: k.clientId, vendor: k.vendor, ...INCEPTION_ATTEMPT_KEY }
+  const opened = await appendAttemptStarted(key, 1)
+  try {
+    let raw: string | null = null
+    for await (const row of k.stream(INCEPTION_DISCOVERY_GAQL)) {
+      raw = row?.campaign?.start_date_time ? String(row.campaign.start_date_time) : null
+      break // ASC LIMIT 1 — one row is the whole answer
+    }
+    if (raw === null) {
+      await appendAttemptFinished(key, opened.attemptNo, 'zero', { rowsWritten: 0, requestsSpent: 1 })
+      console.log(`[universe-inception] ZERO CAMPAIGNS for ${k.clientId} — no inception exists; absence stays UNKNOWN by design.`)
+      return null
+    }
+    await recordAccountInception({ clientId: k.clientId, vendor: k.vendor, rawStartDateTime: raw })
+    await appendAttemptFinished(key, opened.attemptNo, 'ok', { rowsWritten: 0, requestsSpent: 1 })
+    console.log(`[universe-inception] DISCOVERED ${k.clientId}: "${raw}" (raw, account-timezone frame) — one op, recorded with provenance.`)
+    // Re-read rather than echo: the store is the authority (LEAST() may keep an earlier concurrent write).
+    return await readAccountInception({ clientId: k.clientId, vendor: k.vendor })
+  } catch (e) {
+    const { serializeVendorError } = await import('./universe-stream-capture')
+    const msg = serializeVendorError(e)
+    try {
+      await appendAttemptFinished(key, opened.attemptNo, 'error', { rowsWritten: 0, requestsSpent: 1, error: msg })
+    } catch (e2: any) {
+      console.error(`[universe-inception] LEDGER WRITE ALSO FAILED for ${k.clientId}: ${String(e2?.message ?? e2)} — the spend was still charged at attempt_started.`)
+    }
+    console.error(`[universe-inception] DISCOVERY FAILED for ${k.clientId}: ${msg} — durable 'error' row written; inception stays UNKNOWN, retried on a later message.`)
+    return null
+  }
+}
+
 /** min(date) this account already holds in metrics_daily — an index-head read on
  *  idx_mdp_client_platform_date, one row. null = the account holds nothing yet. */
 export async function readEarliestHeldDate(clientId: string, platform: string): Promise<string | null> {

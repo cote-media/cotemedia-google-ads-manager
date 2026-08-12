@@ -6,6 +6,16 @@
 // ADAPTER and the v2 CONSUMER only. The WRITER cannot be swept the same way while VENDOR_FLOOR_DATE
 // legitimately survives there for the v1 consumer (★V1-CONSUMER-STILL-ON-A-GLOBAL-FLOOR) — so leg (d) here
 // scans the ONE writer function where a fallback literal could now do damage: composeWalkStop's own body.
+//
+// ⛔ LEG (b) WAS SPLIT 2026-08-12 (★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR): the original leg summed
+// read-OR-write call sites in ONE counter and failed only at zero, so `recordAccountInception` sat at ZERO
+// call sites for two days behind the consumer's one read — sweep shape (c), name-matching over
+// invocation-matching, hiding the exact defect this guard exists to catch. Now (b1) counts READS and (b2)
+// counts WRITES, each zero its own red; (b3) requires the discovery to be METERED AND LEDGERED at its
+// execution site (★UNLEDGERED-VENDOR-SPEND-IS-INVISIBLE is the measured defect it forbids); and (e) pins
+// the synthetic ledger key '__account_inception' against ever colliding with a real catalog surface —
+// a collision would let a discovery attempt poison decideRepublish's exact-key no-progress read or, on a
+// zero-campaign account, attest metric days empty through attestedEmptyDays.
 import { readFileSync, mkdtempSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -44,41 +54,53 @@ const writerSrc = read(WRITER)
   }
 }
 
-// ── (b) PER-ACCOUNT SCOPE + PROVENANCE — the mirror of wall-is-surface-scoped, opposite direction ────
-{
-  // Call sites: every readAccountInception/recordAccountInception must pass clientId (+ raw provenance on write).
-  const SRC = resolve(ROOT, 'src')
-  const files = []
-  ;(function walk(dir) {
+// ── shared: every .ts/.tsx under src/, and the comment-strip used by every source-scanning leg ────────
+const tsFilesUnder = (dir) => {
+  const out = []
+  ;(function walk(d) {
     let entries = []
-    try { entries = readdirSync(dir) } catch { return }
+    try { entries = readdirSync(d) } catch { return }
     for (const name of entries) {
-      const p = join(dir, name)
+      const p = join(d, name)
       let st; try { st = statSync(p) } catch { continue }
       if (st.isDirectory()) walk(p)
-      else if (/\.tsx?$/.test(name)) files.push(p)
+      else if (/\.tsx?$/.test(name)) out.push(p)
     }
-  })(SRC)
-  let sites = 0
+  })(dir)
+  return out
+}
+const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+
+// ── (b1)/(b2) READ AND WRITE SITES, COUNTED SEPARATELY — a missing WRITER goes red ON ITS OWN ─────────
+// ⛔ THE SPLIT IS THE LESSON (header): one shared counter let a zero-call-site writer hide behind the
+// consumer's one read. One counter per function; each zero is its own red.
+{
+  const files = tsFilesUnder(resolve(ROOT, 'src'))
+  const sites = { readAccountInception: 0, recordAccountInception: 0 }
   for (const abs of files) {
     const rel = abs.slice(resolve(ROOT).length + 1)
     let src = ''
     try { src = readFileSync(abs, 'utf8') } catch { continue }
-    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    const code = stripComments(src)
     for (const fn of ['readAccountInception', 'recordAccountInception']) {
       const re = new RegExp(`${fn}\\s*\\(\\s*\\{([\\s\\S]*?)\\}\\s*\\)`, 'g')
       let m
       while ((m = re.exec(code)) !== null) {
         if (/export\s+(async\s+)?function\s*$/.test(code.slice(Math.max(0, m.index - 40), m.index))) continue
-        sites++
-        if (!/\bclientId\b/.test(m[1])) findings.push(`(b) ${rel}: ${fn}({…}) omits clientId — an inception without an account is a global.`)
+        sites[fn]++
+        if (!/\bclientId\b/.test(m[1])) findings.push(`(${fn === 'readAccountInception' ? 'b1' : 'b2'}) ${rel}: ${fn}({…}) omits clientId — an inception without an account is a global.`)
         if (fn === 'recordAccountInception' && !/rawStartDateTime/.test(m[1])) {
-          findings.push(`(b) ${rel}: recordAccountInception({…}) omits rawStartDateTime — the derived date must stay reproducible from the vendor's own string.`)
+          findings.push(`(b2) ${rel}: recordAccountInception({…}) omits rawStartDateTime — the derived date must stay reproducible from the vendor's own string.`)
         }
       }
     }
   }
-  if (sites === 0) findings.push(`(b) NO inception read/write call site found in src/ — either the stop was removed or it moved to a name this guard does not know.`)
+  if (sites.readAccountInception === 0) {
+    findings.push(`(b1) NO readAccountInception call site in src/ — the stop is never consulted: either it was removed or it moved to a name this guard does not know.`)
+  }
+  if (sites.recordAccountInception === 0) {
+    findings.push(`(b2) NO recordAccountInception call site in src/ — the WRITER is dead code, universe_account_inception can never gain a row, and absence-is-UNKNOWN means every walk stop composes to UNKNOWN forever. This is the exact defect that hid for two days behind the old read-OR-write counter (★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR).`)
+  }
   // The store: PK (client_id, vendor), provenance columns, and LEAST() so a purged earliest campaign cannot RAISE the stop.
   const sql = read(MIG)
   if (sql) {
@@ -89,6 +111,76 @@ const writerSrc = read(WRITER)
       if (!new RegExp(col).test(sql)) findings.push(`(b) ${MIG} lacks provenance column ${col} — an inception with no provenance is a guess.`)
     }
     if (!/LEAST\(/.test(sql)) findings.push(`(b) ${MIG}'s record RPC does not keep the EARLIEST via LEAST() — a re-discovery against a purged earliest campaign would RAISE the stop and orphan ground below it.`)
+  }
+}
+
+// ── (b3) THE EXECUTOR EXISTS, AND IT IS METERED AND LEDGERED, IN ORDER ────────────────────────────────
+// ⛔ An executor site is a BARE reference to INCEPTION_DISCOVERY_GAQL — comment-stripped, import-stripped,
+// not the writer's own `const` definition, and NOT a quoted string ('INCEPTION_DISCOVERY_GAQL' appears
+// inside the consumer's refusal MESSAGE — quotation is not assertion, the shape this repo has banked three
+// times). Zero executor sites = the discovery is executed by nothing. At each site, the order is the
+// contract: mayFetchProgram (metered) → appendAttemptStarted (charged BEFORE the vendor call — a killed
+// invocation must still count, v2 route's own rule) → the query → appendAttemptFinished (closed). And the
+// site's file must ledger on the synthetic key '__account_inception', never a real surface key.
+// ⚠ STRUCTURAL, nearest-neighbour ordering on the stripped source — it proves the calls exist in the right
+// order in the file, not that the runtime path threads them; leg (d) is the driven half of this guard.
+{
+  const files = tsFilesUnder(resolve(ROOT, 'src'))
+  const executorSites = []
+  for (const abs of files) {
+    const rel = abs.slice(resolve(ROOT).length + 1)
+    let src = ''
+    try { src = readFileSync(abs, 'utf8') } catch { continue }
+    const code = stripComments(src)
+      .replace(/^\s*import\s[\s\S]*?from\s*['"][^'"]*['"];?/gm, '')
+      .replace(/^\s*import\s*['"][^'"]*['"];?/gm, '')
+      .replace(/^\s*export\s*\{[^}]*\}\s*from\s*['"][^'"]*['"];?/gm, '')
+    const token = 'INCEPTION_DISCOVERY_GAQL'
+    let i = -1
+    while ((i = code.indexOf(token, i + 1)) !== -1) {
+      const before = code[i - 1] ?? ''
+      const after = code[i + token.length] ?? ''
+      if (/['"`]/.test(before) || /['"`]/.test(after)) continue                       // quoted — a message, not a use
+      if (/(?:export\s+)?const\s+$/.test(code.slice(Math.max(0, i - 24), i))) continue // the definition itself
+      executorSites.push({ rel, code, idx: i })
+    }
+  }
+  if (executorSites.length === 0) {
+    findings.push(`(b3) INCEPTION_DISCOVERY_GAQL is EXECUTED BY NOTHING — no bare, non-definition, non-quoted reference exists in src/. The discovery query is pinned, guarded, and never runs; universe_account_inception stays at 0 rows by construction.`)
+  }
+  for (const s of executorSites) {
+    const startedBefore = s.code.lastIndexOf('appendAttemptStarted(', s.idx)
+    if (startedBefore === -1) {
+      findings.push(`(b3) ${s.rel}: the discovery executes with NO appendAttemptStarted( before the query — the request is not charged before the vendor call, so a killed invocation burns quota invisibly (the v1 defect, and ★UNLEDGERED-VENDOR-SPEND-IS-INVISIBLE measured it live: 4 probe ops in NO ledger).`)
+    } else if (s.code.lastIndexOf('mayFetchProgram(', startedBefore) === -1) {
+      findings.push(`(b3) ${s.rel}: the discovery is UNMETERED — no mayFetchProgram( before the charge. Every vendor op passes the meter or the governors re-grant its spend to someone else.`)
+    }
+    if (s.code.indexOf('appendAttemptFinished(', s.idx) === -1) {
+      findings.push(`(b3) ${s.rel}: the discovery attempt is never CLOSED — no appendAttemptFinished( after the query. An open attempt is a spend record with no outcome.`)
+    }
+    if (!s.code.includes("'__account_inception'")) {
+      findings.push(`(b3) ${s.rel}: the discovery does not ledger on the synthetic key '__account_inception'. On a real surface key its 'ok'/'zero' rows poison decideRepublish's exact-key no-progress read, and a zero-campaign account would ATTEST metric days empty through attestedEmptyDays.`)
+    }
+  }
+}
+
+// ── (e) THE SYNTHETIC LEDGER KEY CANNOT COLLIDE WITH A REAL SURFACE ───────────────────────────────────
+// ⛔ '__account_inception' is safe EXACTLY BECAUSE nothing else answers to it: coverage keys come from the
+// catalog and the surface mappings, so the name must never appear in either. A collision converts the
+// discovery's ledger rows into coverage evidence — the two poisonings named on (b3).
+{
+  try {
+    const cat = JSON.parse(read('docs/google-ads-capture-universe.json'))
+    const hits = (cat.entries ?? []).filter((e) => e.resource === '__account_inception' || e.segment === '__account_inception')
+    if (hits.length) {
+      findings.push(`(e) docs/google-ads-capture-universe.json carries ${hits.length} entr(ies) named '__account_inception' — the synthetic ledger key now collides with a catalog surface, and the discovery's attempt rows become coverage evidence for it.`)
+    }
+  } catch (err) {
+    findings.push(`(e) could not parse docs/google-ads-capture-universe.json — ${err.message}. A pin that cannot read its subject FAILS.`)
+  }
+  const surf = read('src/lib/backfill/universe-surfaces.ts')
+  if (surf && /__account_inception/.test(surf)) {
+    findings.push(`(e) src/lib/backfill/universe-surfaces.ts mentions '__account_inception' — the synthetic key must never gain a surface mapping or an alias; that is how its ledger rows would leak into coverage.`)
   }
 }
 
@@ -182,4 +274,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[inception-stop] PASS — the discovery query is pinned (start_date_time, no status filter, ASC LIMIT 1) · every inception read/write carries clientId with raw provenance and the store is PK (client_id, vendor) with LEAST() · composeWalkStop has exactly ONE call site · and DRIVEN: UNKNOWN yields stopDate null (held data alone is never a stop), a wall still stops but leaves inceptionKnown false, held data below the claim lowers the stop, and a higher vendor refusal outranks the inception. LIMIT: the consumer's refusal branch is checked structurally; v2 has never run.`)
+console.log(`[inception-stop] PASS — the discovery query is pinned (start_date_time, no status filter, ASC LIMIT 1) · (b1) the stop is READ and (b2) the store is WRITTEN, counted separately, every site carrying clientId (+rawStartDateTime on write), store PK (client_id, vendor) with LEAST() · (b3) the executor exists and is METERED (mayFetchProgram) and LEDGERED (appendAttemptStarted BEFORE the query, appendAttemptFinished after) on the synthetic key · (e) '__account_inception' collides with no catalog surface and no surface mapping · (c) composeWalkStop has exactly ONE call site · and (d) DRIVEN: UNKNOWN yields stopDate null (held data alone is never a stop), a wall still stops but leaves inceptionKnown false, held data below the claim lowers the stop, and a higher vendor refusal outranks the inception. LIMITS, named: (b3) is nearest-neighbour structural order on stripped source, not a runtime trace; the consumer's refusal branch is checked structurally.`)
