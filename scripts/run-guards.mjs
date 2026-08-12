@@ -250,6 +250,9 @@ const GUARDS = [
   'tests/guards/five-step-rounds.guard.mjs',
   // LORAMER_GOOGLE_CLIENT_CHOKE_POINT_V1 — client construction is a ratchet: factory + 14 frozen sites.
   'tests/guards/google-client-choke-point.guard.mjs',
+  // LORAMER_CHECKDATA_VERDICT_LINE_V1 — check:data's machine-final VERDICT line: runner pinned, roster
+  // pinned (13 checks), flush-safe exit, crash speaks, verdict LAST — the tail-truncation class enforcer.
+  'tests/guards/checkdata-verdict-line.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
