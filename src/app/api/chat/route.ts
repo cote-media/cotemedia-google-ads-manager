@@ -117,6 +117,10 @@ export async function POST(request: Request) {
     if (!access?.ok) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 }) // 404, don't confirm the id
     }
+    // LORAMER_CHAT_PHASES_MODEL_KEY_V1 — RBAC gets its OWN marker (the 2026-08-06 brief asked for it and it
+    // was never delivered): without this line resolveAccess hides inside fetch1, making fetch1 an upper
+    // bound on the intelligence fetch instead of the fetch itself. clientId-less turns emit no rbac key.
+    phase('rbac')
   }
 
   // ── LORAMER_CHAT_STREAM_OPENS_AT_RBAC_V1 ────────────────────────────────────────────────────────────────
@@ -347,8 +351,10 @@ export async function POST(request: Request) {
         if (persisted === 'failed') console.error(`[chat] answer NOT persisted client=${clientId}`)
         // LORAMER_CHAT_PHASE_TIMING_V1 — ONE greppable line, no client data. `client` is an 8-char id PREFIX
         // (enough to join to a row, not enough to identify a business); no question text, no client name, no
-        // email. `model_ms` is the whole model phase — assembly is already broken out in `phases`.
-        phase('model')
+        // email. `model_ms` is the whole model phase — assembly is already broken out in `phases`. (This
+        // sentence was FICTION until 2026-08-12: the phase was keyed 'model' and the name scalar after the
+        // spread destroyed it on every line — LORAMER_CHAT_PHASES_MODEL_KEY_V1 made the comment true.)
+        phase('model_ms') // LORAMER_CHAT_PHASES_MODEL_KEY_V1 — never 'model': the name scalar after ...phases clobbered it
         console.log('[chat] phases', JSON.stringify({
           client: typeof clientId === 'string' ? clientId.slice(0, 8) : null,
           total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,
@@ -437,7 +443,7 @@ export async function POST(request: Request) {
       output: usage.output,
     })
     // LORAMER_CHAT_PHASE_TIMING_V1 — same line, blocking path. streaming:false is the discriminator.
-    phase('model')
+    phase('model_ms') // LORAMER_CHAT_PHASES_MODEL_KEY_V1 — never 'model': the name scalar after ...phases clobbered it
     console.log('[chat] phases', JSON.stringify({
       client: typeof clientId === 'string' ? clientId.slice(0, 8) : null,
       total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,

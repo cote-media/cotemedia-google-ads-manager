@@ -107,9 +107,25 @@ for (const f of [CTX, ROUTE, REC]) {
   // builders, so a fetch2 marker cannot exist — and requiring it would fail the build for the fix.
   // Lesson 68 shape (a), an assertion encoding a superseded model, repaired at the moment the model changed
   // rather than discovered later. The inverse is now pinned: fetch2 REAPPEARING means the dedup regressed.
-  for (const p of ['session', 'fetch1', 'build1', 'build2', 'model']) {
+  // LORAMER_CHAT_PHASES_MODEL_KEY_V1 — 'model' → 'model_ms' (the DURATION key must not share a name with
+  // the model-NAME scalar set after the spread; the old name meant phases.model was clobbered on every line
+  // and the model phase existed only as total-minus-sum — ★CHAT-PHASES-MODEL-KEY-CLOBBERED). 'rbac' is the
+  // marker the 2026-08-06 brief asked for and never got: without it resolveAccess hides inside fetch1.
+  for (const p of ['session', 'rbac', 'fetch1', 'build1', 'build2', 'model_ms']) {
     check(new RegExp(`phase\\('${p}'\\)`).test(code),
       `(c) no phase marker for '${p}'. Every stage of assembly must be timed separately — a single total cannot attribute a latency question.`)
+  }
+  // ⛔ THE CLASS, not the instance: no key written by phase() may be re-assigned after `...phases` in ANY
+  // phases log object — that is precisely how the model duration was silently destroyed for six days.
+  {
+    const phaseNames = [...new Set([...code.matchAll(/phase\('([^']+)'\)/g)].map((m) => m[1]))]
+    for (const obj of code.match(/console\.log\('\[chat\] phases'[\s\S]{0,600}?\)\)/g) || []) {
+      const tail = obj.slice(obj.indexOf('...phases') + '...phases'.length)
+      for (const n of phaseNames) {
+        check(!new RegExp(`[,{\\s]${n}\\s*:`).test(tail),
+          `(c) the phases log object re-assigns '${n}:' AFTER ...phases — the scalar CLOBBERS the phase duration of the same name, exactly the defect that destroyed the model phase (★CHAT-PHASES-MODEL-KEY-CLOBBERED). Rename one of them.`)
+      }
+    }
   }
   check(!/phase\('fetch2'\)/.test(code),
     `(c) a phase marker for 'fetch2' is BACK — the second intelligence fetch was deduped on 2026-08-11 (one response feeds both prompt builders, LORAMER_CHAT_FIRST_FRAME_V1); its reappearance means the route is paying the double fetch again.`)
