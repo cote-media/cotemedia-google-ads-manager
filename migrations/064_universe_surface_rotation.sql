@@ -57,7 +57,17 @@ comment on function public.universe_surface_rotation(uuid, text) is
   'An ordering read over the append-only attempt log, never a cursor and never an owed list; coverage is '
   'still derived from metrics_daily by universe-coverage on every fire.';
 
--- ⛔ SAME POSTURE AS universe_disk_headroom (054b) and universe_lane_spend (057): RLS is deny-all except
--- service_role, so the function is revoked from public and granted only to the role the server uses.
+-- ⛔ SAME POSTURE AS universe_lane_spend (057), AND THE `anon`/`authenticated` LINES ARE NOT DECORATION —
+-- THIS WAS CAUGHT ON THIS MIGRATION, APPLIED, BY READING THE ACL BACK RATHER THAN TRUSTING THE SCRIPT.
+-- `revoke ... from public` ALONE DOES NOT REMOVE THEM: Supabase grants EXECUTE to `anon` and `authenticated`
+-- as explicit role grants, not through PUBLIC, so revoking PUBLIC leaves both in place. Measured after the
+-- first apply: proacl read `{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}`
+-- — a SECURITY DEFINER function over the walk's scheduling state, reachable by any anon caller, while the
+-- comment above it claimed "deny-all except service_role". 059 has the same single-line revoke and is
+-- CLEAN only because nothing ever granted it; `universe_record_account_inception` measured anon=true today.
+-- ⇒ ★RPC-GRANT-POSTURE-UNAUDITED queued: audit every SECURITY DEFINER function's ACL from the DATABASE, not
+-- from the migration text. A posture asserted in a comment is not a posture.
 revoke all on function public.universe_surface_rotation(uuid, text) from public;
+revoke all on function public.universe_surface_rotation(uuid, text) from anon;
+revoke all on function public.universe_surface_rotation(uuid, text) from authenticated;
 grant execute on function public.universe_surface_rotation(uuid, text) to service_role;
