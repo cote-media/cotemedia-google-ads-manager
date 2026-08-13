@@ -267,9 +267,42 @@ export async function POST(request: Request) {
       }
     }
   }
+  // ⛔ LORAMER_CHAT_HISTORY_CACHE_V1, 2026-08-13 — THE SECOND BREAKPOINT: THE CONVERSATION ITSELF.
+  //
+  // WHAT WAS MEASURED BEFORE THIS EXISTED (anthropic_spend_log, Opus-5 era): the FULL thread rode
+  // `messages` at FULL PRICE on EVERY model call of EVERY turn — and the tool loop re-pays it per
+  // iteration. The Escential Group thread (64,010 tokens of history across 230 rows) hit $2.1380 on one
+  // turn (285,526 full-price input tokens, 2026-08-07); the shipped prefix cache saved ~$1.49 NET across
+  // three weeks because it covered only the small static block while the growing block rode uncached.
+  //
+  // THE MECHANISM, vendor-documented (platform.claude.com/docs/en/docs/build-with-claude/prompt-caching —
+  // the multi-turn conversation pattern): mark the FINAL user message. The cache then covers
+  // tools → system → all history → this question. Next turn's lookback (20-block window; ours moves 2
+  // blocks/turn) READS that prefix at 0.1× and writes only the new tail. Within THIS turn, tool-loop
+  // iterations 2+ read everything through the question at 0.1× — which is exactly where the 2× waste
+  // lived. ⛔ ONE CONTINUOUS MIND IS UNTOUCHED: every verbatim turn is still SENT, stored and displayed —
+  // only its price changes.
+  //
+  // ⛔ TTL '5m' HERE IS A MEASURED DECISION AND AN ORDERING LAW, NOT A DEFAULT LEFT TO CHANCE:
+  //   · ORDERING (vendor, verbatim): "Cache entries with longer TTL must appear before shorter TTLs" —
+  //     the 1h prefix block above MUST precede this 5m block; a 1h-after-5m request is malformed.
+  //   · MEASURED inter-turn gaps (347 gaps, Opus-5 era): ≤5m 66% · 5m–1h 12.7% · >1h 21.3%. Expected
+  //     marginal cost per M history tokens: 5m = .66×$0.50 + .34×$6.25 = $2.46 · 1h = .787×$0.50 +
+  //     .213×$10 = $2.52. 5m is cheaper on the expectation AND cheaper on every cold rewrite ($6.25/M vs
+  //     $10/M). The prefix stays 1h for the reason its own comment records (turn N+1 after a long read).
+  //   · The 512-token Opus-5 minimum applies to the TOTAL prefix up to the breakpoint (system alone
+  //     clears it), so a short thread is never a silent no-op worth special-casing.
+  //
+  // ⚠ CONTENT SHAPE: cache_control requires array-of-blocks content, so ONLY the final message is
+  // converted; history entries stay verbatim strings. Empty text is guarded upstream (message required).
   const messages = [
     ...(history || []).map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user' as const, content: message }
+    {
+      role: 'user' as const,
+      content: [
+        { type: 'text' as const, text: message, cache_control: { type: 'ephemeral' as const, ttl: '5m' as const } },
+      ],
+    },
   ]
 
   // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
@@ -369,7 +402,10 @@ export async function POST(request: Request) {
           inputTokens: usage.input,
           outputTokens: usage.output,
           cacheReadTokens: usage.cache_read,
-          cacheCreationTokens: usage.cache_create,
+          // LORAMER_CHAT_HISTORY_CACHE_V1 — the SPLIT, so the ledger prices 1h prefix writes at 2× and 5m
+          // message writes at 1.25× instead of everything at 1.25×. The column still receives the SUM.
+          cacheCreationTokens: usage.cache_create_5m,
+          cacheCreation1hTokens: usage.cache_create_1h,
           durationMs: Date.now() - t0,   // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — migration 058
         })
         emitRaw('done', { model: answered })

@@ -286,7 +286,7 @@ export async function runQueryMetricsTool(input: any, clientId: string) {
 
 export type ToolLoopResult = {
   responseText: string
-  usage: { input: number; output: number; cache_create: number; cache_read: number }
+  usage: { input: number; output: number; cache_create: number; cache_read: number; cache_create_5m: number; cache_create_1h: number }
 }
 
 // Capped Claude tool-use loop. Exposes query_metrics only when a clientId is in
@@ -368,10 +368,21 @@ export async function runClaudeToolLoop(opts: {
   // LORAMER_LORA_TOOL_DECISION_LOG_V1 — capture the user's QUESTION once for the decision instrument; on later turns
   // the last message is a tool_result, not the question.
   const originalQuestion: string = (() => {
-    const lu = [...messages].reverse().find((m: any) => m?.role === 'user' && typeof m?.content === 'string')
-    return (lu?.content as string) || ''
+    // LORAMER_CHAT_HISTORY_CACHE_V1 — the FINAL user message now carries array-of-blocks content (the
+    // cache_control breakpoint requires it), so the extractor reads both shapes. String-only here would
+    // silently fall back to the PREVIOUS user turn and mislabel every tool-decision log row.
+    const lu = [...messages].reverse().find((m: any) => m?.role === 'user'
+      && (typeof m?.content === 'string' || Array.isArray(m?.content)))
+    if (!lu) return ''
+    if (typeof lu.content === 'string') return lu.content
+    return lu.content.map((b: any) => (b?.type === 'text' ? String(b.text ?? '') : '')).join(' ').trim()
   })()
-  const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
+  // LORAMER_CHAT_HISTORY_CACHE_V1 — cache writes now happen at TWO TTLs (1h prefix · 5m messages), and
+  // they are PRICED DIFFERENTLY ($10/M vs $6.25/M on Opus 5). The API splits them in
+  // `usage.cache_creation.ephemeral_{1h,5m}_input_tokens`; summing them into one number is how the ledger
+  // under-priced every 1h write by 37.5% for a week. `cache_create` stays as the TOTAL (the log column's
+  // meaning is unchanged); the split rides beside it for pricing.
+  const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0, cache_create_5m: 0, cache_create_1h: 0 }
   const MAX = opts.maxToolTurns ?? 5
 
   let out: any = null
@@ -388,6 +399,15 @@ export async function runClaudeToolLoop(opts: {
     usage.output += u.output_tokens || 0
     usage.cache_create += u.cache_creation_input_tokens || 0
     usage.cache_read += u.cache_read_input_tokens || 0
+    // The split object is present whenever cache_control was sent. If the API omits it while total
+    // creation is non-zero, attribute to 1h — the PREFIX (1h) is the block that dominates a cold write,
+    // and under-attributing to 5m is the exact under-pricing this split exists to end.
+    if (u.cache_creation && typeof u.cache_creation === 'object') {
+      usage.cache_create_5m += u.cache_creation.ephemeral_5m_input_tokens || 0
+      usage.cache_create_1h += u.cache_creation.ephemeral_1h_input_tokens || 0
+    } else if (u.cache_creation_input_tokens) {
+      usage.cache_create_1h += u.cache_creation_input_tokens
+    }
 
     // LORAMER_LORA_TOOL_DECISION_LOG_V1 — FIRE-AND-FORGET (not awaited) L2-retrieval instrument. Never blocks the
     // response and never breaks the turn (the try guards input-building; logToolDecision swallows internally).
@@ -489,10 +509,21 @@ export async function runClaudeToolLoopStreaming(opts: {
     userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
   const convo: any[] = [...messages]
   const originalQuestion: string = (() => {
-    const lu = [...messages].reverse().find((m: any) => m?.role === 'user' && typeof m?.content === 'string')
-    return (lu?.content as string) || ''
+    // LORAMER_CHAT_HISTORY_CACHE_V1 — the FINAL user message now carries array-of-blocks content (the
+    // cache_control breakpoint requires it), so the extractor reads both shapes. String-only here would
+    // silently fall back to the PREVIOUS user turn and mislabel every tool-decision log row.
+    const lu = [...messages].reverse().find((m: any) => m?.role === 'user'
+      && (typeof m?.content === 'string' || Array.isArray(m?.content)))
+    if (!lu) return ''
+    if (typeof lu.content === 'string') return lu.content
+    return lu.content.map((b: any) => (b?.type === 'text' ? String(b.text ?? '') : '')).join(' ').trim()
   })()
-  const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0 }
+  // LORAMER_CHAT_HISTORY_CACHE_V1 — cache writes now happen at TWO TTLs (1h prefix · 5m messages), and
+  // they are PRICED DIFFERENTLY ($10/M vs $6.25/M on Opus 5). The API splits them in
+  // `usage.cache_creation.ephemeral_{1h,5m}_input_tokens`; summing them into one number is how the ledger
+  // under-priced every 1h write by 37.5% for a week. `cache_create` stays as the TOTAL (the log column's
+  // meaning is unchanged); the split rides beside it for pricing.
+  const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0, cache_create_5m: 0, cache_create_1h: 0 }
   const MAX = opts.maxToolTurns ?? 5
 
   // LORAMER_CHAT_STATUS_SUBJECT_V1 — id -> human name, resolved SERVER-side so no id reaches the browser.
@@ -568,6 +599,15 @@ export async function runClaudeToolLoopStreaming(opts: {
     usage.output += u.output_tokens || 0
     usage.cache_create += u.cache_creation_input_tokens || 0
     usage.cache_read += u.cache_read_input_tokens || 0
+    // The split object is present whenever cache_control was sent. If the API omits it while total
+    // creation is non-zero, attribute to 1h — the PREFIX (1h) is the block that dominates a cold write,
+    // and under-attributing to 5m is the exact under-pricing this split exists to end.
+    if (u.cache_creation && typeof u.cache_creation === 'object') {
+      usage.cache_create_5m += u.cache_creation.ephemeral_5m_input_tokens || 0
+      usage.cache_create_1h += u.cache_creation.ephemeral_1h_input_tokens || 0
+    } else if (u.cache_creation_input_tokens) {
+      usage.cache_create_1h += u.cache_creation_input_tokens
+    }
 
     try {
       const decidedTool = (resp.content as any[])?.find((b) => b?.type === 'tool_use')

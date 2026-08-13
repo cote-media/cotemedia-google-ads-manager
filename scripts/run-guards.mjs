@@ -243,6 +243,10 @@ const GUARDS = [
   // 15 of 21 public functions came to be anon-callable — including a SECURITY DEFINER writer into the walk's
   // own spend ledger. SOURCE half here; the live-ACL half is check-rpc-grant-posture in check:data.
   'tests/guards/rpc-grant-posture.guard.mjs',
+  // LORAMER_CHAT_HISTORY_CACHE_V1 — the conversation breakpoint (final user message, ttl 5m), the vendor
+  // ordering law (1h prefix before 5m messages), the 4-breakpoint ceiling, and the DRIVEN ledger proof
+  // that 1h cache writes price at 2x base. Seen RED against the pre-change tree with 11 findings.
+  'tests/guards/chat-history-cache.guard.mjs',
   //   · a SUCCESSFUL ZERO is NO_DATA_OBSERVED; only a vendor DateRangeError refusal is a wall
   'tests/guards/universe-zero-is-not-a-wall.guard.mjs',
   // LORAMER_SURFACE_SCOPED_WALL_V1 — a wall is scoped account × resource × segment and NEVER account-wide.
