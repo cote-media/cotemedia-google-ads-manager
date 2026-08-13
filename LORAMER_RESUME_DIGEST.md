@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-13T14:55:03.295Z
-- built_from HEAD: 369007dd25fa3c3e3babaaeedc8cde9fa36184a1  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-13T15:48:59.059Z
+- built_from HEAD: 7910ef1157c223c256535a9cdaaa385f83587ff3  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,7 +16,7 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: b8b3699be6e1f4f6292c81ae014794c998a949e8b1d62333774117d8fb66ca9c
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
-    - CONTINUE_HERE.md: 2d02032efa83cff435181d944136ba9b5d18c438980d0e54d2c2a7e6cbd69916
+    - CONTINUE_HERE.md: 7b3f63d51827773950268b3bb81bab024355120b3ec665adfa183837db176c28
     - LORAMER_DECISIONS.md: 946e742ecf9540ec8557bcf2495e27b7cc04d4232fa9988dd8b7fc12136dba1c
     - LORAMER_QUEUE_OF_RECORD.md: 73714eee4597a8da3d8f730a18118b3700d5a45900bcbe9f24851b44a3b75741
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
@@ -532,7 +532,7 @@ CLOCKS: **META RE-ARM ~2026-08-25 — TWELVE DAYS, the nearest clock (cliff ~08-
 
 ⛔ **PARTITION PRUNING IS CONFIRMED WORKING — the Append node touched 2 partitions of 145** (2026_03 and 2026_04, exactly the months the date range spans). **THE WORST GEO READ WENT 28,257 ms → 3,627 ms COLD ON IDENTICAL HARDWARE — a 7.8× improvement**, still on XL, so it isolates the partitioning win from any compute change.
 
-⚠ **AND A LANDMINE FOR THE DROP DAY, FOUND DURING THE CHECKS AND NOT FIXED TONIGHT: `metrics_daily_id_seq` IS STILL INTERNALLY OWNED BY `metrics_daily_old.id`** (it was an IDENTITY column there). **Dropping `metrics_daily_old` would drop the sequence with it, and the new table's `id` DEFAULT `nextval('metrics_daily_id_seq')` would break EVERY INSERT.** ⛔ The drop day must first run `ALTER TABLE metrics_daily_old ALTER COLUMN id DROP IDENTITY` (or otherwise detach the sequence) and re-verify the default. This is recorded in the queue entry; do not drop the old table without it.
+⚠ **AND A LANDMINE FOR THE DROP DAY, FOUND DURING THE CHECKS AND NOT FIXED TONIGHT: `metrics_daily_id_seq` IS STILL INTERNALLY OWNED BY `metrics_daily_old.id`** (it was an IDENTITY column there). **Dropping `metrics_daily_old` would drop the sequence with it, and the new table's `id` DEFAULT `nextval('metrics_daily_id_seq')` would break EVERY INSERT.** ⛔ **THIS LINE'S ORIGINAL PRESCRIPTION WAS WRONG AND IS STRUCK, NOT DELETED, SO THE REASONING STAYS VISIBLE.** It read: "the drop day must first run `ALTER TABLE metrics_daily_old ALTER COLUMN id DROP IDENTITY` (or otherwise detach the sequence)". **THAT CANNOT WORK, and it would have been read as the instruction on the drop day.** Postgres drops the attached sequence together with the identity (pgsql-general, 2023-02-03: "The sequence is still dropped together with the column identity"; and in the same thread, "Changing the sequence owner to NONE before dropping identity is not allowed") — so the ALTER would try to drop `metrics_daily_id_seq`, which carries **146 normal dependents** (1 parent + 145 partitions, read from `pg_depend` 2026-08-13), and be REFUSED. It fails safe and accomplishes nothing. ⛔ The catalog hack in that same thread (`UPDATE pg_attribute SET attidentity=''`) is RULED OUT — its own author calls it risky, and catalog surgery on production is the improvisation §4 forbids. **THE CORRECT PATH IS §4's: a NEW sequence with all 146 defaults repointed, then the drop, then a rename** — planned in full (RESEARCH · ADVERSARY · TEST · RUN · VERIFY) in the 2026-08-13 metrics_daily_old drop flight, with execution gated on a named backup and Russ's separate confirm. Do not improvise a substitute.
 
 ⛔ **NEXT: DROP COMPUTE TO SMALL AND RE-MEASURE — A SEPARATE FLIGHT, NOT DONE HERE.** The swap is done, so that step is now unblocked. **The 3,627 ms figure above is the partitioning win measured on XL; it is NOT the steady-state number.** Re-run the same geo read on Small against the partitioned table — ⛔ **do not conflate the two measurements, and do not choose the tier from either one alone.**
 
