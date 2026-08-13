@@ -202,6 +202,76 @@ if (chain) {
   rmSync(out, { recursive: true, force: true })
 }
 
+// ── 7. THE DURABLE FAILED-TURN INSTRUMENT — LORAMER_CHAT_TURN_FAILED_DURABLE_V1 ─────────────────────────────
+// ★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE: the old `[chat] TURN FAILED` console.error lived in a CLIENT
+// component and never reached a server log — an instrument unreadable where the reader stands. The durable
+// record is chat_turn_failures via /api/debug/turn-failed (the viewport-probe gate shape). Post-pair-write,
+// a failed turn leaves NO conversation row, so this is the ONLY witness for "asked and got nothing".
+// These legs honor LORAMER_GUARD_ROOT so their reds are provable on throwaway copies.
+{
+  const GROOT = process.env.LORAMER_GUARD_ROOT || ROOT
+  const gread = (rel) => { try { return readFileSync(resolve(GROOT, rel), 'utf8') } catch { return null } }
+  const hookSrc = gread('src/lib/next/use-lora-chat.ts')
+  const hookCode = hookSrc ? hookSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1') : null
+
+  // (7a) the hook REPORTS — three call sites (catch, recovery verdict, mount-recovery) — and NEVER awaits.
+  if (!hookCode) fail('(7a) cannot read use-lora-chat.ts')
+  else {
+    const calls = (hookCode.match(/reportTurnFailure\s*\(/g) || []).length
+    if (calls < 3) fail(`(7a) reportTurnFailure has ${calls} call site(s) in use-lora-chat — the instrument needs THREE (the catch, the recovery verdict, the mount-recovery verdict): a failure with no verdict cannot answer "did the user get nothing?", and the mount path is the died-browser class's only witness.`)
+    if (/await\s+reportTurnFailure\s*\(/.test(hookCode)) fail(`(7a) reportTurnFailure is AWAITED — the reporter must never block or delay the turn; it is fire-and-forget by contract (log-conversation-turn's exact posture).`)
+  }
+
+  // (7b) DRIVE the real module via its own fetchImpl seam: one POST, right route, exact tag, NO text fields,
+  // and a THROWING fetch must be swallowed.
+  try {
+    const { spawnSync } = await import('node:child_process')
+    const { mkdtempSync, rmSync } = await import('node:fs')
+    const { tmpdir } = await import('node:os')
+    const { join } = await import('node:path')
+    const { createRequire } = await import('node:module')
+    const outDir = mkdtempSync(join(tmpdir(), 'loramer-turnfail-'))
+    const tsc = join(ROOT, 'node_modules', '.bin', 'tsc')
+    const r = spawnSync(tsc, [resolve(GROOT, 'src/lib/next/report-turn-failure.ts'), '--target', 'es2020', '--module', 'commonjs',
+      '--moduleResolution', 'node', '--skipLibCheck', '--noResolve', '--rootDir', resolve(GROOT), '--outDir', outDir], { encoding: 'utf8' })
+    if (r.error) fail(`(7b) could not run tsc — ${r.error.message}`)
+    const mod = createRequire(import.meta.url)(join(outDir, 'src/lib/next/report-turn-failure.js'))
+    const captured = []
+    mod.reportTurnFailure(
+      { clientId: 'c-1', surface: 'next-ask-lora', phase: 'turn-failed', branch: 'aborted', errName: 'AbortError', errMessage: 'x', signalAborted: true, elapsedMs: 12, correlationKey: 'k-1' },
+      (url, init) => { captured.push({ url, body: JSON.parse(init.body) }); return Promise.resolve(new Response(null, { status: 204 })) },
+    )
+    if (captured.length !== 1) fail(`(7b) the reporter made ${captured.length} POST(s) — exactly one per call.`)
+    else {
+      const { url, body } = captured[0]
+      if (url !== '/api/debug/turn-failed') fail(`(7b) the reporter posts to '${url}' — the route is /api/debug/turn-failed.`)
+      if (body.probe !== 'chat-turn-failed') fail(`(7b) the reporter omits the exact literal probe tag — a stray POST must be indistinguishable from noise at the route.`)
+      for (const banned of ['content', 'message', 'question', 'answer', 'text']) {
+        if (banned in body) fail(`(7b) the reporter carries a '${banned}' field — the record is failure METADATA; question/answer text never leaves the browser through this instrument.`)
+      }
+    }
+    let threw = false
+    try { mod.reportTurnFailure({ surface: 's', phase: 'turn-failed', correlationKey: 'k' }, () => { throw new Error('boom') }) } catch { threw = true }
+    if (threw) fail(`(7b) a throwing fetch escaped the reporter — telemetry must never break a turn.`)
+    rmSync(outDir, { recursive: true, force: true })
+  } catch (e) {
+    fail(`(7b) could not DRIVE report-turn-failure — ${e.message}. A guard that cannot run its subject FAILS rather than passing.`)
+  }
+
+  // (7c) the route: session gate, exact literal tag, exactly ONE insert, into chat_turn_failures only.
+  const routeSrc = gread('src/app/api/debug/turn-failed/route.ts')
+  if (!routeSrc) fail('(7c) src/app/api/debug/turn-failed/route.ts is MISSING — the reporter has nowhere durable to land.')
+  else {
+    const rc = routeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    if (!/getServerSession/.test(rc) || !/status:\s*401/.test(rc)) fail(`(7c) the route is not session-gated with a 401 — the probe precedent's first gate.`)
+    if (!/probe\s*!==\s*'chat-turn-failed'/.test(rc)) fail(`(7c) the route does not hard-gate on the exact literal 'chat-turn-failed' — a stray or malformed POST must write nothing (the viewport-probe rule).`)
+    const inserts = (rc.match(/\.insert\s*\(/g) || []).length
+    if (inserts !== 1) fail(`(7c) the route has ${inserts} insert call(s) — exactly one, append-only.`)
+    if (!/chat_turn_failures/.test(rc)) fail(`(7c) the route does not write chat_turn_failures.`)
+    if (/client_conversations/.test(rc)) fail(`(7c) the route touches client_conversations — telemetry must never write anywhere near the conversation store.`)
+  }
+}
+
 if (failures.length) {
   console.error('\n❌ LORAMER_CHAT_FAILURE_BRANCHES_GUARD_V1 FAILED\n')
   failures.forEach((f) => console.error('  • ' + f))

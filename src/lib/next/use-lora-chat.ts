@@ -22,6 +22,7 @@ import { getSharedPeriod, type SharedPeriod } from '@/lib/next/period-bus'
 import { classifyTurnFailure, pickRecoveredAnswer, COPY, RECOVERY_WINDOW_MS, RECOVERY_POLL_MS, type ConvRow } from '@/lib/next/chat-recovery'
 import { renderSubjectLine, aggregateSubjects, MIN_SUBJECT_MS } from '@/lib/chat/tool-subject' // LORAMER_CHAT_STATUS_SUBJECT_V1 — one renderer, shared with the guard
 import { NEXT_CHAT_SURFACE } from '@/lib/next/log-conversation-turn' // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — the client-side turn writer is no longer called here; the server owns both turns
+import { reportTurnFailure } from '@/lib/next/report-turn-failure' // LORAMER_CHAT_TURN_FAILED_DURABLE_V1 — fire-and-forget, never awaited
 // LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — the thread is merged, never replaced. `Msg` moved to that module
 // because the merge OWNS the shape (id + lkey are the merge's own keys); it is re-exported here so every
 // existing `import type { Msg } from '@/lib/next/use-lora-chat'` keeps working.
@@ -497,6 +498,10 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     setLoading(true)
     setStreamStatus(COPY.RESUMED)
     ;(async () => {
+      // LORAMER_CHAT_TURN_FAILED_DURABLE_V1 — the died-browser class's ONLY witness: a turn was in
+      // flight when this mount began, and nobody else can report whether its answer ever landed.
+      // Keyed to the in-flight record's own start time so rows from the same lost turn correlate.
+      let mountVerdict: 'found' | 'ambiguous' | 'nothing' = 'nothing'
       try {
         while (!cancelled && remainingWindowMs(rec, Date.now()) > 0) {
           try {
@@ -508,11 +513,18 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
               if (got.status === 'found' || got.status === 'ambiguous') {
                 threadMaxIdRef.current = rows.reduce((mx: number, m: any) => Math.max(mx, Number(m?.id) || 0), 0) || threadMaxIdRef.current
                 applyServerThread(cid, rows)
+                mountVerdict = got.status
                 break
               }
             }
           } catch { /* a failed resume read must never throw into a mount */ }
           await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
+        }
+        if (!cancelled) {
+          reportTurnFailure({
+            clientId: cid, surface: NEXT_CHAT_SURFACE, phase: 'mount-recovery',
+            recovered: mountVerdict, correlationKey: `mount:${rec.startedAt ?? 'unknown'}`,
+          })
         }
       } finally {
         // ⚠ CLEARED ON EVERY EXIT, INCLUDING THE TIMEOUT. A record that outlives its window would make
@@ -681,6 +693,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // the server returned a definite 500 and the client took the CATCH path and showed a network
       // story; from server logs alone it was impossible to tell whether the fetch threw, what it threw,
       // or whether our own abort fired. One line, console only, no PII beyond the client id.
+      const failKey = `turn:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 8)}`
       try {
         console.error('[chat] TURN FAILED', JSON.stringify({
           branch: kind,
@@ -691,6 +704,18 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
           clientId: clientId ?? null,
         }))
       } catch { /* telemetry must never break a turn */ }
+      // LORAMER_CHAT_TURN_FAILED_DURABLE_V1 — the DURABLE half (★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE):
+      // the console line above dies in the browser; this lands a row the reader can query. Fired BEFORE
+      // the recovery await below (the browser may die any moment), never awaited, rejection swallowed.
+      // Post-pair-write a failed turn writes NO conversation rows, so this row + its recovery-verdict
+      // sibling (same correlationKey) are the only durable answer to "asked and got nothing?".
+      reportTurnFailure({
+        clientId: clientId ?? null, surface: NEXT_CHAT_SURFACE, phase: 'turn-failed',
+        branch: kind, errName: (e as { name?: string } | null)?.name ?? null,
+        errMessage: String((e as { message?: string } | null)?.message ?? '').slice(0, 200),
+        signalAborted: controller.signal.aborted,
+        elapsedMs: Date.now() - (deadlineAt - CHAT_TOTAL_MS), correlationKey: failKey,
+      })
       // ⛔ LORAMER_ONE_WORKING_INDICATOR_PER_TURN_V1 — CLEAR `loading` BEFORE THE RECOVERY BUBBLE EXISTS,
       // AND THE ORDER OF THESE TWO STATEMENTS IS THE WHOLE FIX.
       //
@@ -729,6 +754,9 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       // RECOVERY IS A READ. It re-fetches the thread; it NEVER re-POSTs /api/chat. A silent retry would
       // double the spend on a turn that most likely already succeeded.
       let done = false
+      // LORAMER_CHAT_TURN_FAILED_DURABLE_V1 — the verdict half: what the poll concluded, correlated to the
+      // failure row by failKey. recovered:'nothing' IS "asked and got nothing".
+      let recoveryVerdict: 'found' | 'ambiguous' | 'nothing' = 'nothing'
       const since = threadMaxIdRef.current
       if (clientId && since != null) {
         const until = Date.now() + RECOVERY_WINDOW_MS
@@ -738,7 +766,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
             const rr = await fetch('/api/conversations?' + params.toString())
             const dd = await rr.json().catch(() => ({}))
             const got = pickRecoveredAnswer(Array.isArray(dd.messages) ? dd.messages : [], since)
-            if (got.status === 'found') { threadMaxIdRef.current = got.maxId; replace(got.text); done = true; break }
+            if (got.status === 'found') { threadMaxIdRef.current = got.maxId; replace(got.text); recoveryVerdict = 'found'; done = true; break }
             // ⛔ LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — D5: DO NOT NARRATE OUR OWN UNCERTAINTY AT A USER.
             // This used to render COPY.AMBIGUOUS (now AMBIGUOUS_INTERNAL_DO_NOT_RENDER) — "There's more than one new answer on this client and I
             // won't guess which is yours. Scroll up to see the full thread." — which reached Russ on
@@ -759,7 +787,7 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
                 // the visibility refresh pick the thread up.
                 setMessages((m) => m.filter((x) => x.recoveryKey !== key))
               }
-              done = true; break
+              recoveryVerdict = 'ambiguous'; done = true; break
             }
           } catch { /* a failed recovery read must never throw into the turn */ }
           await new Promise((r) => setTimeout(r, RECOVERY_POLL_MS))
@@ -771,6 +799,12 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         hydratedForRef.current = null
         replace(kind === 'aborted' ? COPY.ABORTED_UNCONFIRMED : COPY.NETWORK_UNCONFIRMED)
       }
+      // LORAMER_CHAT_TURN_FAILED_DURABLE_V1 — the verdict row, same correlation key as the failure row.
+      // Fire-and-forget: the finally below runs regardless, nothing waits on this.
+      reportTurnFailure({
+        clientId: clientId ?? null, surface: NEXT_CHAT_SURFACE, phase: 'recovery-verdict',
+        branch: kind, recovered: recoveryVerdict, correlationKey: failKey,
+      })
     } finally {
       clearTimeout(abortTimer)
       // LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — the turn is over on THIS mount, whichever branch got
