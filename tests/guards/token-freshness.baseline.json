@@ -25,7 +25,6 @@
     "src/app/api/cron/catchup/route.ts",
     "src/app/api/cron/order-grain/route.ts",
     "src/app/api/daily/route.ts",
-    "src/app/api/debug/viewport-probe/route.ts",
     "src/app/api/ga/connect/route.ts",
     "src/app/api/ga/daily/route.ts",
     "src/app/api/ga/properties/route.ts",

@@ -169,40 +169,27 @@ const thread = codeOf(read(THREAD))
   )
 }
 
-// ── (f) THE PROBE EXISTS AND IS FLAG-GATED ──────────────────────────────────────────────────────────
+// ── (f) THE PROBE FAMILY IS REMOVED AND MUST NOT RETURN PIECEMEAL ───────────────────────────────────
+// ⛔ THIS LEG INVERTED 2026-08-13 (LORAMER_GEO_PROBE_DISARMED_V1), SEEN RED FIRST — five findings against
+// the tree the removal produced, then each rewritten to pin the REMOVAL instead of the presence. Gate-B
+// closed on device (at-rest geometry exact, zero ⛔ flags across all samples), and the whole ?debug=chat
+// instrument family came out: strips, arming flag, endpoint, and the NEUTERED landing-probe machinery —
+// which, with its on-screen consumer deleted, could never be observed again and was therefore dead code
+// wearing an instrument's name.
+// ⛔ WHAT THIS LEG NOW PREVENTS: a HALF-RETURN. The old probe carried two banked spec defects (mismatched
+// bases; an arming window that closed before hydration — ★LANDING-PROBE-SPEC-IS-WRONG, recorded in the
+// QUEUE at ★LANDING-PROBE-STICKY-UNFIXED, closed-by-removal) and a sticky-detach defect. Re-adding any
+// piece of it without a NEW decision re-ships those. A future landing probe is welcome — behind a fresh
+// marker, with its spec argued against the recorded defects, and with this leg moved deliberately.
 {
   check(
-    stick.some(({ l }) => /scrollHeight|getMaxY\(\)/.test(l)) && stick.some(({ l }) => /\[scroll\]/.test(l)),
-    '(f) The landing probe is gone — the height-race vs router fork stays undecidable.',
-  )
-  // ⛔ NEUTERED, AND THE GUARD PINS THE NEUTERING. ★LANDING-PROBE-SPEC-IS-WRONG: the readout must NOT
-  // be reachable from `?debug=chat`, because that is the flag Russ opens for the FRAME probe and he must
-  // not meet this misleading bar again until its spec is repaired.
-  check(
-    !stick.some(({ l }) => /loramer:debug-chat/.test(l)),
-    '(f) The landing probe is back on the `loramer:debug-chat` flag. It is MIS-SPECIFIED (mismatched ' +
-      'bases; arming window closes before hydration) and must stay off the flag Russ actually opens.',
+    !stick.some(({ l }) => /setProbeLines\(|probeArmedRef|loramer:debug-landing/.test(l)),
+    '(f) landing-probe machinery is back in use-stick-to-bottom (setProbeLines/probeArmedRef/loramer:debug-landing). ' +
+      'It was REMOVED 2026-08-13 with Gate-B closed; its spec defects are banked in the QUEUE. A new probe needs a new decision, not a resurrection.',
   )
   check(
-    stick.some(({ l }) => /loramer:debug-landing/.test(l)),
-    '(f) The landing probe has no gate at all — it would reach a normal user.',
-  )
-  // ⛔ AND IT MUST BE READABLE BY THE OBSERVER. LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1: shipped in
-  // 1a76a4e as a console line, correctly gated, and UNREADABLE on Chrome iOS — the only device with the
-  // defect and the only one Russ can run it on. An instrument whose output cannot reach the observer is
-  // not an instrument, so the on-screen path is guarded, not just the capture.
-  check(
-    stick.some(({ l }) => /setProbeLines\(/.test(l)) && /probeLines/.test(read(STICK).split('return {').pop() || ''),
-    '(f) The landing probe no longer exposes its lines as state — it is console-only again, which is ' +
-      'invisible on the device that has the defect.',
-  )
-  check(
-    thread.some(({ l }) => /probeLines\.map\(/.test(l)),
-    '(f) LoraThread does not RENDER the landing probe. A gated console line is not a readout on iOS.',
-  )
-  check(
-    thread.some(({ l }) => /\{debug && probeLines\.length/.test(l)),
-    '(f) The on-screen landing readout is not gated on `debug` — it would reach a normal user.',
+    !thread.some(({ l }) => /probeLines\.map\(|landingProbe|GEO PROBE/.test(l)),
+    '(f) a probe strip is back in LoraThread (probeLines/landingProbe/GEO PROBE). The ?debug=chat strips were removed 2026-08-13 after Gate-B closed on device.',
   )
 }
 

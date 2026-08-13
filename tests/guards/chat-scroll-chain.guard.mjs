@@ -181,7 +181,12 @@ if (!page || !pageTsx) {
     // on the improvement — second time tonight, so this one matches what must be TRUE.
     // (`bottom(` matches followBottom( too — the focus scroll became pin-aware in
     // LORAMER_LORA_PAGE_STICK_TO_BOTTOM_V1 and both spellings are a scroll-to-bottom.)
-    ['on composer focus', /onFocus=\{\(\) => \{[\s\S]{0,160}onComposerFocus\(\)[\s\S]{0,160}[bB]ottom\(/],
+    // ⛔ ANCHOR MOVED 2026-08-13 (LORAMER_GEO_PROBE_DISARMED_V1), SEEN RED FIRST: `onComposerFocus()` was
+    // the probe's focus hook and was removed with the probe family. THE PROPERTY IS UNCHANGED — focusing
+    // the composer must still scroll to the newest message — and the anchor is now the scroll call itself,
+    // the callee, not the removed probe beside it (★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE: anchor on the
+    // callee, never the neighbour).
+    ['on composer focus', /onFocus=\{\(\) => \{[\s\S]{0,160}[bB]ottom\(/],
   ]) {
     if (!re.test(pageTsx)) fail(`THE LORA PAGE DOES NOT SCROLL TO BOTTOM ${what}. iOS does NOT do this for us — measured: clearance -2013 at scrollY 149, -761 at 1475, +308 only at the document bottom.`)
   }

@@ -12,7 +12,7 @@
 //
 // WHAT STAYED IN THE CONTAINERS (deliberately — these are container concerns, not engine concerns):
 //   shelf → open state, the portal, the scrim/panel markup, the body scroll lock, the history/back
-//           entry, Esc-to-close, and the legacy ?debug=chat horizontal readout (it measures the panel
+//           entry, and Esc-to-close.
 //           rect, which only the shelf has)
 //   page  → document scroll management, its own markup
 'use client'
@@ -32,15 +32,8 @@ import { markTurnInFlight, clearTurnInFlight, readTurnInFlight, remainingWindowM
 
 export type { Msg }
 
-// LORAMER_NEXT_CHAT_VISUAL_VIEWPORT_V2 / PROBE — "the keyboard is up" is a MEASURED geometric fact:
-// the layout viewport is materially taller than the visual one. Device values 2026-07-26: 766 vs 428.
-const KEYBOARD_MIN_DELTA_PX = 100
-
-// `panelRef` is the container's own outer element. The probe reports its rect, and the shelf and the
-// page have different outer elements — so the container supplies it rather than the engine assuming one.
-export function useLoraChat({ clientId, clientName, active, panelRef }: {
+export function useLoraChat({ clientId, clientName, active }: {
   clientId?: string; clientName?: string; active: boolean
-  panelRef?: React.RefObject<HTMLElement | null>
 }) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -93,8 +86,6 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
   // subjects on a turn that emitted at least 5. `renderedStatus` in the probe proved it: at seq 11 the
   // screen still held the previous line; 1ms later it held seq 11's, already being replaced by seq 12's.
   const activeToolsRef = useRef<Map<string, string>>(new Map())
-  const [probeLine, setProbeLine] = useState<string | null>(null)
-  const [debug, setDebug] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const rowCtxRef = useRef<string | null>(null)
   const threadMaxIdRef = useRef<number | null>(null)
@@ -177,233 +168,6 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
       if (hydratedForRef.current === cid) hydratedForRef.current = null
     }
   }, [active, clientId, applyServerThread])
-
-  useEffect(() => {
-    // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — STICKY for the session. This effect runs once on mount and
-    // reads window.location.search; -next navigates CLIENT-SIDE (TopBar does router.push(?clientId=)),
-    // which REWRITES the query and drops `debug=chat`. That is the most likely reason the readout was
-    // invisible on 2026-07-26 — the flag was silently lost on the way to the client page. Once seen, it
-    // is remembered for the tab, and `?debug=off` clears it.
-    // ── LORAMER_DEBUG_FLAG_SURVIVES_V1, 2026-08-07 — THE INSTRUMENT COST A GATE-B ROUND TRIP.
-    // FOUR device captures came back with NO readout: the flag had not survived the trip to the page,
-    // so the one screenshot that separates the last two composer candidates still does not exist.
-    // ⛔ WHICH EVENT CLEARED IT WAS NEVER ISOLATED, AND THAT IS RECORDED RATHER THAN GUESSED
-    // (★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE). Three candidates, and the fix below covers all three:
-    //   1. TAB CLOSE / DISCARD — sessionStorage is scoped to the tab session and dies with it (MDN).
-    //      A tab the OS discarded under memory pressure and restored is the same shape. UNVERIFIED.
-    //   2. URL-BAR NAVIGATION ON WebKit, VENDOR-ACKNOWLEDGED — developer.apple.com/forums/thread/724189:
-    //      sessionStorage does not persist when you navigate to another route on the same site by
-    //      editing the URL in the address bar. EVERY iOS BROWSER IS WebKit, and pasting the URL is
-    //      exactly how this flag gets turned on. The likeliest, and still a bet.
-    //   3. ⛔ THE ONE PROVABLE FROM THE CODE, AND A DEFECT WHATEVER ELSE IS TRUE: the old `catch`
-    //      swallowed a storage failure AND TOOK AN EXPLICIT `?debug=chat` DOWN WITH IT, because the URL
-    //      read sat INSIDE the try. The user asks for the probe, the URL says so, and the instrument
-    //      stays dark with no signal — the house `.catch(() => [])` pathology in the one place whose
-    //      entire job is to be observable.
-    //
-    // ⛔ THE URL IS READ OUTSIDE THE try AND WINS UNCONDITIONALLY. Persistence is a convenience; an
-    // explicit request is not. Storage may fail in every way it likes and `?debug=chat` still arms.
-    const q = (() => {
-      try { return new URLSearchParams(window.location.search).get('debug') } catch { return null }
-    })()
-    if (q === 'off') {
-      // The kill switch clears BOTH stores. Writing one and clearing the other would leave a stale key
-      // in the store we no longer write, and it would re-arm on the next mount.
-      try { localStorage.removeItem('loramer:debug-chat') } catch { /* ignore */ }
-      try { sessionStorage.removeItem('loramer:debug-chat') } catch { /* ignore */ }
-      setDebug(false)
-      return
-    }
-    // localStorage is the store that survives tab close, discard and restore; sessionStorage is still
-    // READ so a session armed before this change keeps working rather than silently going dark.
-    let remembered = false
-    try { remembered = localStorage.getItem('loramer:debug-chat') === '1' } catch { /* ignore */ }
-    if (!remembered) {
-      try { remembered = sessionStorage.getItem('loramer:debug-chat') === '1' } catch { /* ignore */ }
-    }
-    const on = q === 'chat' || remembered
-    if (on) {
-      try { localStorage.setItem('loramer:debug-chat', '1') } catch { /* persistence is best-effort */ }
-    }
-    setDebug(on)
-  }, [])
-
-  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — THE MEASUREMENT, automatic. On composer focus (i.e. the
-  // moment the keyboard is summoned) capture the full viewport state and POST it to the server, which
-  // logs it. Russ reads nothing and relays nothing.
-  // TWO SAMPLES, deliberately: the keyboard ANIMATES in, so a single synchronous read at focus captures
-  // the PRE-keyboard state and would lie. t=0 is the baseline, t=600ms is after the animation settles;
-  // the DIFFERENCE between them is the signal.
-  // `scale` is the number that decides the mechanism: > 1 means iOS auto-zoomed on the sub-16px input,
-  // which shrinks the VISUAL viewport while position:fixed stays sized to the LAYOUT viewport — that
-  // would explain content appearing below a "full-screen" sheet. == 1 falsifies the auto-zoom candidate.
-
-  const probeSample = useCallback((phase: string) => {
-    try {
-      const vv = window.visualViewport
-      const scrim = document.querySelector('[role="dialog"]')?.getBoundingClientRect()
-      const panel = panelRef?.current?.getBoundingClientRect()
-      const r = (b?: DOMRect) => (b ? { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height), bottom: Math.round(b.bottom) } : null)
-      return {
-        probe: 'chat-viewport',
-        phase,
-        at: new Date().toISOString(),
-        route: window.location.pathname + window.location.search,
-        ua: navigator.userAgent,
-        vv: vv ? { scale: vv.scale, height: vv.height, width: vv.width, offsetTop: vv.offsetTop, offsetLeft: vv.offsetLeft, pageTop: vv.pageTop, pageLeft: vv.pageLeft } : null,
-        doc: { clientHeight: document.documentElement.clientHeight, clientWidth: document.documentElement.clientWidth },
-        win: { innerHeight: window.innerHeight, innerWidth: window.innerWidth, scrollY: window.scrollY },
-        scrim: r(scrim as DOMRect | undefined),
-        panel: r(panel),
-      }
-    } catch { return null }
-  }, [])
-
-  // LORAMER_NEXT_CHAT_PROBE_FREEZE_V1 — FREEZE THE DISPLAY ON THE FIRST KEYBOARD-OPEN SAMPLE.
-  // THE DEFECT THIS FIXES (2026-07-26): the readout live-updated, so by the time Russ looked at it, it
-  // was showing whatever the latest sample was — and he relayed `scale 1.000 / vvH 766`, which the
-  // server proved was the focus+600 sample taken SIX SECONDS BEFORE the keyboard opened. The number was
-  // true and the phase was wrong, and it very nearly banked a false falsification of the real cause.
-  // The screen now latches the first sample where the keyboard is actually up and holds it, so what a
-  // human reads is always the phase that matters. The SERVER still receives every sample.
-
-  const frozenRef = useRef(false)
-  useEffect(() => { if (active) frozenRef.current = false }, [active])   // fresh latch per open
-
-  const probeRef = useRef<(p: string) => void>(() => {})
-  probeRef.current = (phase: string) => {
-    if (!debug) return   // HARD GATE — no flag, no capture, no request. Ever.
-    const s = probeSample(phase)
-    if (!s) return
-    // "keyboard is up" = the VISUAL viewport is materially shorter than the LAYOUT viewport. Measured
-    // 2026-07-26: 766 -> 428, a 338px delta. 100px is well clear of address-bar chrome jitter.
-    const keyboardUp = !!s.vv && s.doc.clientHeight - s.vv.height > 100
-    if (!frozenRef.current) {
-      setProbeLine(`${keyboardUp ? 'KEYBOARD UP · ' : ''}scale ${s.vv ? s.vv.scale.toFixed(4) : 'no-vv'} · vvH ${s.vv ? Math.round(s.vv.height) : '—'} · docH ${s.doc.clientHeight} · overhang ${s.vv ? Math.round(s.doc.clientHeight - s.vv.height) : '—'} · panelBottom ${s.panel?.bottom ?? '—'}`)
-      if (keyboardUp) frozenRef.current = true   // latch: this is the phase a human must see
-    }
-    void fetch('/api/debug/viewport-probe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s),
-      keepalive: true,   // the page may be mid-layout-thrash; keepalive so the beacon still lands
-    }).catch(() => { /* a failed probe must never surface to the user */ })
-  }
-
-  // ── LORAMER_CHAT_FRAME_PROBE_V1 — WHAT THE SCREEN ACTUALLY RECEIVES, AND WHEN ─────────────────────
-  // ⛔ THE QUESTION, AND IT IS NOT ANSWERABLE FROM A CODE READ. Streaming is CONFIRMED ON in production
-  // (`streaming: true` in the route's own `[chat] cache:` log, twice), and the route emits per-tool
-  // subjects — "Reading Foam OH · Google · Nov–Dec 2024". Russ still sees "Working…" for most of a
-  // multi-minute turn. THREE possibilities and a code read cannot separate them: the frames are NOT
-  // ARRIVING, they ARE arriving and NOT RENDERING, or they are being OVERWRITTEN faster than a human
-  // can read them. FIVE UI theories have died from code reads on this repo; this is the instrument.
-  //
-  // ⛔ TIMESTAMPS ARE THE POINT, NOT THE FRAME NAMES. The three silent windows have never been
-  // measured: (a) before the first frame — auth, RBAC and context assembly, with no channel open;
-  // (b) between a tool `start` and its `finish`, where one subject holds however long the query runs;
-  // (c) the final composing turn, where only `delta` moves and by decision paints nothing. `sinceSendMs`
-  // and `sincePrevMs` are what turn "8 frames arrived" into "and there were 94 seconds of silence here".
-  //
-  // ⛔ HARD-GATED ON `debug`, exactly like the viewport probe: no flag, no capture, no request, ever.
-  // It reuses the SAME auth-gated endpoint rather than adding a second one — a debug surface with two
-  // doors is two things to secure.
-  const turnStartRef = useRef<number>(0)
-  const lastFrameAtRef = useRef<number>(0)
-  const frameSeqRef = useRef<number>(0)
-  const probeFrameRef = useRef<(ev: string, data: any) => void>(() => {})
-  probeFrameRef.current = (ev: string, data: any) => {
-    if (!debug) return
-    const now = Date.now()
-    const seq = ++frameSeqRef.current
-    const sincePrev = lastFrameAtRef.current ? now - lastFrameAtRef.current : 0
-    lastFrameAtRef.current = now
-    // The LABEL is what the user would see. Captured verbatim so "the frame arrived" and "the frame
-    // carried something worth showing" are separable — a `tool` frame with an empty subject renders as
-    // nothing and would otherwise look identical to a frame that never came.
-    const label = typeof data?.label === 'string' ? data.label
-      : ev === 'tool' ? `${data?.phase ?? '?'}:${data?.name ?? data?.tool ?? '?'}`
-      : ev === 'delta' ? `+${String(data?.text ?? '').length}ch`
-      : null
-    void fetch('/api/debug/viewport-probe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({
-        probe: 'chat-viewport',          // the endpoint's literal gate — one door, not two
-        phase: `frame:${ev}`,
-        at: new Date(now).toISOString(),
-        route: window.location.pathname + window.location.search,
-        frame: {
-          seq, event: ev, label,
-          sinceSendMs: turnStartRef.current ? now - turnStartRef.current : null,
-          sincePrevMs: sincePrev,
-          // What the USER is looking at right now. If this reads "Working…" while `label` carries a
-          // real subject, the frames arrive and the render is the defect — which is the whole question.
-          renderedStatus: streamStatusRef.current,
-        },
-      }),
-    }).catch(() => { /* a failed probe must never surface to the user */ })
-  }
-
-  // ⛔ EVERY send() INVOCATION, WITH ENOUGH TO TELL A RE-FIRE FROM A KEYSTROKE. ★CHAT-FIVE-DEFECTS left
-  // "was the second send programmatic or Russ retyping" UNRESOLVED, and it must not stay a guess: a
-  // programmatic re-fire arrives with no interaction behind it, so `msSinceLastInput` is large and
-  // `hadRecentInteraction` is false, while a keystroke has both. `textHash` (a length + cheap digest,
-  // never the text) tells a duplicate question from a new one without logging what anyone asked.
-  const lastInputAtRef = useRef<number>(0)
-  const probeSendRef = useRef<(text: string) => void>(() => {})
-  probeSendRef.current = (text: string) => {
-    if (!debug) return
-    const now = Date.now()
-    let h = 0
-    for (let i = 0; i < text.length; i++) { h = (h * 31 + text.charCodeAt(i)) | 0 }
-    void fetch('/api/debug/viewport-probe', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-      body: JSON.stringify({
-        probe: 'chat-viewport',
-        phase: 'send',
-        at: new Date(now).toISOString(),
-        route: window.location.pathname + window.location.search,
-        send: {
-          textLen: text.length,
-          textHash: h,                                   // identity WITHOUT content
-          msSinceLastInput: lastInputAtRef.current ? now - lastInputAtRef.current : null,
-          hadRecentInteraction: !!lastInputAtRef.current && now - lastInputAtRef.current < 30_000,
-          visibility: document.visibilityState,
-        },
-      }),
-    }).catch(() => {})
-  }
-
-  // Fired from the textarea's onFocus. t=0 baseline, then t=600ms after the keyboard animation settles.
-  // LORAMER_CHAT_FRAME_PROBE_V1 — TYPING counts as interaction, not just Enter. A send preceded by
-  // neither is the signature of a programmatic re-fire, which is the question this half exists to
-  // settle; without this a user who typed and clicked Send would look exactly like a re-fire.
-  const noteInput = useCallback(() => { lastInputAtRef.current = Date.now() }, [])
-
-  const onComposerFocus = useCallback(() => {
-    if (!debug) return
-    probeRef.current('focus+0')
-    window.setTimeout(() => probeRef.current('focus+600'), 600)
-  }, [debug])
-
-  // LORAMER_NEXT_CHAT_VIEWPORT_PROBE_V1 — SAMPLE ON VIEWPORT CHANGE, not only on focus.
-  // CAUGHT IN GATE-A: the panel AUTO-FOCUSES the composer ~60ms after open, so by the time Russ taps
-  // the message box the textarea is ALREADY focused and onFocus never fires again. On iOS that is
-  // fatal to the whole instrument — programmatic focus does not raise the keyboard, so the only sample
-  // would be the no-keyboard state, which is exactly the reading we already have and do not need.
-  // visualViewport.resize fires when the keyboard actually opens, whatever caused it. That is the
-  // event that matters, so it is sampled directly and the focus path is kept as a belt.
-
-  useEffect(() => {
-    if (!debug || !active) return
-    const vv = window.visualViewport
-    if (!vv) return
-    let t: number | undefined
-    const onResize = () => {
-      window.clearTimeout(t)
-      probeRef.current('vv-resize')                                   // immediate: the transition itself
-      t = window.setTimeout(() => probeRef.current('vv-resize+600'), 600) // settled: after the animation
-    }
-    vv.addEventListener('resize', onResize)
-    return () => { vv.removeEventListener('resize', onResize); window.clearTimeout(t) }
-  }, [debug, active])
 
   // ── LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — D1: THE SCREEN MUST TRACK THE SERVER ────────────────
   // ⛔ THE DEFECT, PROVEN FROM ROWS AND NOT FROM A CODE READ. `hydratedForRef` reads the thread ONCE PER
@@ -558,13 +322,8 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
     // captured NOW because it is the watermark `pickRecoveredAnswer` needs, and it advances during the turn.
     turnRunningRef.current = true
     if (clientId) markTurnInFlight({ clientId, sinceId: threadMaxIdRef.current, startedAt: Date.now() })
-    // LORAMER_CHAT_FRAME_PROBE_V1 — the clock every frame gap is measured against.
     setStreamingText('')
     activeToolsRef.current.clear()
-    turnStartRef.current = Date.now()
-    lastFrameAtRef.current = 0
-    frameSeqRef.current = 0
-    probeSendRef.current(q)
     // LORAMER_CHAT_TURN_PAIR_WRITE_V1 — the pre-fetch user-turn write is GONE (★CHAT-USER-TURN-ORPHAN,
     // fork a2, Russ 2026-08-12). It was the orphan generator (66 user turns with no answer fed back to
     // Lora as questions she ignored) AND the inverse-orphan generator (34 answers whose fire-and-forget
@@ -616,9 +375,6 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
         }),
       })
       const d = await readChatResponse(res, (ev, data, live) => {
-        // FIRST, so a frame is recorded even if something below throws. A probe that only runs on the
-        // happy path cannot see the failure it was built for.
-        probeFrameRef.current(ev, data)
         rearmIdle()
         // LIVE RENDER. `live` is the answer text accumulated so far, so the user watches it appear instead of a
         // spinner. On a tool event the reader has already cleared it (preamble is narration, not answer) and we
@@ -820,13 +576,12 @@ export function useLoraChat({ clientId, clientName, active, panelRef }: {
 
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    lastInputAtRef.current = Date.now()   // LORAMER_CHAT_FRAME_PROBE_V1 — evidence of a real keystroke
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) }
   }
 
   return {
     messages, setMessages, input, setInput, loading, streamStatus, streamingText, period,
-    debug, probeLine, inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef, noteInput,
-    send, onKeyDown, onComposerFocus, probeRef,
+    inputRef, rowCtxRef, threadMaxIdRef, hydratedForRef,
+    send, onKeyDown,
   }
 }

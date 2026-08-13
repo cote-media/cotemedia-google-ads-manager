@@ -4,7 +4,7 @@
    DELETED here rather than left behind: dead CSS that still LOOKS authoritative is how two surfaces
    drifted in the first place, and a reader finding `.bubbleAssistant` in two files cannot tell which
    one paints. What remains is the trigger pill, the portal scrim, the panel frame, the header, the
-   close button and the ?debug=chat readout — the things only this surface has. */
+   close button — the things only this surface has. */
 
 /* LORAMER_NEXT_PARITY_V1 (P2 increment A) — Ask-Lora chat. Uses the redesign tokens (var(--ink/--accent/--muted/
    --surface)) inherited from .root. Mobile-first full-screen sheet; desktop (>=768px) right-docked slide-over.
@@ -69,33 +69,3 @@
 .close:hover { background: var(--surface); color: var(--ink); }
 @keyframes blink { 0%, 80%, 100% { opacity: .25 } 40% { opacity: 1 } }
 
-/* LORAMER_NEXT_CHAT_DEBUG_V1 — debug-gated (?debug=chat) readout. Rendered ONLY when the param is
-   present; additive, no default-path effect. IN-FLOW (not fixed): a floating fixed overlay panned
-   off-screen WITH everything at z-index 99999 (whatever pans takes every fixed element with it — a
-   finding), so this lives inside the scroll region, sticky to its top, and pans WITH the sheet.
-   ⛔ RESTORED AFTER THE LORAMER_CHAT_SHARED_THREAD_V1 STRIP, WHICH DROPPED IT: the sweep removed every
-   rule the container no longer referenced, and these two ARE still referenced — the container passes
-   `.debug` into LoraThread's debugSlot and renders `.probeBar` in its own header. Caught by a
-   class-by-class presence check, not by review. */
-.debug {
-  position: sticky; top: 0; z-index: 5;
-  margin: 0 0 8px; padding: 8px 10px;
-  background: rgba(2, 6, 23, .95); color: #e2f0ff;
-  font: 600 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
-  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
-  border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, .35);
-  pointer-events: none; max-width: 100%;
-}
-
-/* The UNMISSABLE probe readout, a flex child of .panel directly under .head so it cannot be scrolled
-   away or pushed out of view when the keyboard opens. #facc15 is DELIBERATELY not a brand token — it
-   is a debug bar and must never blend in. */
-.probeBar {
-  flex-shrink: 0;
-  padding: 10px 12px;
-  background: #facc15; color: #0f172a;
-  font: 700 15px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
-  letter-spacing: -0.01em;
-  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
-  border-bottom: 2px solid #0f172a;
-}

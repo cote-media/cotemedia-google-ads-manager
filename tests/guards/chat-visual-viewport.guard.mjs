@@ -171,7 +171,7 @@ const PINNED = {
   // and in 3 of the 4 captures on 2026-08-07. The header is solid because the LAYOUT viewport itself
   // tracks the visual one, so plain sticky was already correct — a reason nobody had written down.
   head: { owner: 'js-top', file: PAGE_CSS, provenBy: 'unproven' },
-  probe: { owner: 'js-top', file: PAGE_CSS, provenBy: 'unproven' },
+  // `.probe` and `.landingProbe` entries REMOVED 2026-08-13 with their classes (LORAMER_GEO_PROBE_DISARMED_V1).
   // ⛔ provenBy IS THE ANSWER TO ★GUARD-LEDGER-GREEN-ON-UNPROVEN-ELEMENT. On 2026-08-07 leg (k) printed
   // this element GREEN while it was broken on a device, because the ledger recorded a DECLARATION and
   // the declaration was an assertion I had reasoned to. `unproven` is a LEGAL value and it is PRINTED
@@ -187,14 +187,6 @@ const PINNED = {
   // flat out through the flick, so this is the fix holding UNDER LOAD rather than a gesture that failed
   // to reproduce.
   composer: { owner: 'param', file: THREAD_CSS, provenBy: 'gate-b:ff233aa' },
-  landingProbe: {
-    owner: 'declared-unfixed', file: THREAD_CSS, provenBy: 'unproven',
-    why: 'sticky top:0 inside the SHARED thread component AND NEUTERED — its gate moved to '
-       + '`loramer:debug-landing`, which nothing sets (LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1). Fixing it '
-       + 'means adding a visualViewport subscription INSIDE the shared component for an element nothing '
-       + 'renders: new pinning machinery on a live shared path for zero user-visible benefit. DECLARED, '
-       + 'not forgotten — ★LANDING-PROBE-STICKY-UNFIXED carries the re-check.',
-  },
 }
 for (const [rel, text] of [[PAGE_CSS, pageCss], [THREAD_CSS, threadCss]]) {
   if (!text) continue
@@ -281,61 +273,25 @@ if (threadCss) {
   }
 }
 
-// ═══ (n) THE PROBE MUST PRINT EVERY VARIABLE THAT POSITIONS A PINNED ELEMENT ════════════════════════
-// ⛔ THIS IS THE 3dd4692 DEFECT TURNED INTO AN ENFORCER. That commit moved the composer from
-// `--lora-kb-inset` to `--lora-composer-bottom` AND SHIPPED A PROBE THAT STILL PRINTED THE OLD ONE.
-// The device capture then showed `inset 168` beside 336px of displacement — a contradiction that was
-// unresolvable ONLY because the variable that actually positioned the element was never on screen.
-// An instrument aimed at the wrong variable costs a whole Gate-B round trip and looks like a mystery.
-if (threadCss && threadTsx) {
-  const css = strip(threadCss)
-  const tsx = strip(threadTsx)
-  const positioning = new Set()
-  // Every var() used in a top/bottom inside a rule that is position: sticky.
-  for (const m of css.matchAll(/\{[^}]*position:\s*sticky[^}]*\}/g)) {
-    for (const v of m[0].matchAll(/(?:top|bottom)\s*:\s*var\(\s*(--[\w-]+)/g)) positioning.add(v[1])
-  }
-  // ⛔ ANCHOR ON THE WHOLE PROBE EFFECT, NOT ON THE textContent ASSIGNMENT. First cut anchored on the
-  // template literal alone and reported a FALSE POSITIVE: the probe reads the var through a `readVar`
-  // helper ABOVE the assignment, so the name is in the effect but not in the template. That is
-  // ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE in miniature, caught in the same commit that added the leg —
-  // the property is "the probe surfaces this variable", not "this string appears in that one literal".
-  const probeBlock = (tsx.match(/const tick = \(\)[\s\S]*?requestAnimationFrame\(tick\)/) || [''])[0]
-  for (const v of positioning) {
-    if (!probeBlock.includes(v)) {
-      findings.push(`(n) the probe never prints \`${v}\`, which POSITIONS a sticky element. An instrument aimed at a variable that no longer positions anything is what made the 2026-08-07 capture unresolvable: 168px of the printed var beside 336px of measured displacement, with the value that could explain it absent from the readout.`)
+// ═══ (n)+(o) THE PROBE FAMILY IS REMOVED — THE LEGS THAT GUARDED ITS QUALITY NOW GUARD ITS ABSENCE ══
+// ⛔ INVERTED 2026-08-13 (LORAMER_GEO_PROBE_DISARMED_V1), SEEN RED FIRST — five findings fired against the
+// removal tree before this rewrite, which is exactly the deliberate-move-with-reason the RULE-HOME law asks
+// for. Gate-B closed on device (at-rest geometry exact, zero ⛔ flags), and the whole ?debug=chat family
+// came out: the GEO/BASIS/landing strips, the frame probe, the DBG badge, the arming flag and its two
+// storage keys, the probe CSS, and the caller-less /api/debug/viewport-probe endpoint.
+// ⛔ WHY THE OLD LEGS COULD NOT SIMPLY PASS: leg (n) required "the probe prints every positioning var" —
+// with no probe, every var reads unprinted, so the leg mandated the instrument's existence forever. The
+// PROPERTY those legs protected (an instrument must be armable, observable, and aimed at the live
+// variable) is not repealed; it is banked in the QUEUE (★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE ·
+// ★LANDING-PROBE-SPEC-IS-WRONG · the 3dd4692 wrong-variable capture) for whoever builds the NEXT one.
+// ⛔ WHAT IS ENFORCED NOW: the arming mechanism must not return piecemeal. A `loramer:debug-chat` read
+// re-arms whatever strip someone re-adds, silently, on every device that still holds the key — Russ's
+// phone holds it TODAY, which is why the flag reads, not the strips, are the thing to pin.
+{
+  for (const [rel, code] of [[HOOK_TS, hookTs], [PAGE_TSX, pageTsx], [THREAD_TSX, threadTsx]]) {
+    if (code && /loramer:debug-chat/.test(strip(code))) {
+      findings.push(`(n/o) ${rel} reads the retired arming flag \`loramer:debug-chat\`. The probe family was REMOVED 2026-08-13 with Gate-B closed; devices still hold the storage key, so any code that reads it re-arms silently. A new instrument needs a new flag and a new decision.`)
     }
-  }
-}
-
-// ═══ (o) THE DEBUG FLAG MUST SURVIVE, AND AN EXPLICIT REQUEST MUST NEVER BE SWALLOWED ══════════════
-// ⛔ FOUR GATE-B CAPTURES WERE SPENT ON SESSIONS WHERE THE PROBE WAS SILENTLY OFF. An instrument that
-// cannot be relied on to be ARMED is not an instrument, and the round trip it costs is measured in days
-// here, not minutes. ★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE.
-if (hookTs) {
-  const code = strip(hookTs)
-  if (!/localStorage\.(get|set)Item\(\s*'loramer:debug-chat'/.test(code)) {
-    findings.push(`(o) ${HOOK_TS} does not persist the debug flag in localStorage. sessionStorage is scoped to the tab session and dies with a tab close, a discard-and-restore, and — vendor-acknowledged, developer.apple.com/forums/thread/724189 — a URL-bar navigation on WebKit, which is exactly how this flag gets turned on.`)
-  }
-  // ⛔ THE KILL SWITCH MUST CLEAR BOTH STORES. Writing one and clearing the other leaves a stale key in
-  // the store no longer written, and it re-arms on the next mount.
-  const offBranch = (code.match(/q === 'off'[\s\S]{0,400}/) || [''])[0]
-  for (const store of ['localStorage', 'sessionStorage']) {
-    if (!new RegExp(`${store}\\.removeItem`).test(offBranch)) {
-      findings.push(`(o) \`?debug=off\` does not clear ${store}. The kill switch must clear BOTH stores or a stale key re-arms the probe on the next mount.`)
-    }
-  }
-  // ⛔ THE URL READ MUST NOT SIT INSIDE A try THAT SWALLOWS IT. An explicit ?debug=chat is a REQUEST,
-  // not a convenience: storage may fail in every way it likes and the probe must still arm.
-  if (/try\s*\{[^}]*URLSearchParams\(window\.location\.search\)[^}]*getItem/s.test(code)) {
-    findings.push(`(o) the URL param is read inside the same try as the storage access, so a storage failure discards an EXPLICIT \`?debug=chat\`. The user asked, the URL says so, and the instrument would stay dark with no signal — the house .catch(() => []) pathology in the one place whose job is to be observable.`)
-  }
-}
-// ⛔ THE ARMED STATE MUST BE VISIBLE, AND UNREACHABLE WHEN OFF.
-if (pageTsx) {
-  const code = strip(pageTsx)
-  if (!/\{debug \?[^}]*styles\.dbg/.test(code)) {
-    findings.push(`(o) ${PAGE_TSX} has no debug-gated armed indicator in the header. The probe strip sits above the COMPOSER at the bottom of a scrolled page, so its absence is indistinguishable from a page not scrolled down — which is how four captures were spent.`)
   }
 }
 

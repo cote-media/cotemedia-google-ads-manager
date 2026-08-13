@@ -36,9 +36,9 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   const router = useRouter()
   const rootRef = useRef<HTMLDivElement>(null)
   const {
-    messages, input, setInput, loading, streamStatus, streamingText, debug, probeLine,
-    inputRef, send, onKeyDown, onComposerFocus, noteInput,
-  } = useLoraChat({ clientId, clientName, active: true, panelRef: rootRef })
+    messages, input, setInput, loading, streamStatus, streamingText,
+    inputRef, send, onKeyDown,
+  } = useLoraChat({ clientId, clientName, active: true })
 
   // ⛔ THE KEYBOARD INSET EFFECT MOVED INTO <LoraThread> (LORAMER_CHAT_SHARED_THREAD_V1), because its
   // second half calls followBottom() and the scroll machine lives there now. Leaving it here would have
@@ -83,22 +83,19 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
   // before ours reads it. If that ever changed, the class would toggle ONE FRAME LATE at the
   // transition only — it cannot affect steady-state motion, because during motion the value is stable.
   // ⛔ LORAMER_PINNED_ELEMENT_SWEEP_V1, 2026-08-07 — EVERY TOP-PINNED ELEMENT ON THIS PAGE, NOT JUST THE
-  // ONE THAT WAS REPORTED. fb95147 fixed `.head` because `.head` was what Russ saw; `.probe` is the
-  // SAME shape — `position: sticky; top: 0` against the LAYOUT viewport (lora-page.module.css:112) —
-  // and would detach under the keyboard in exactly the same way. Three flights on this surface each
-  // fixed the instance that was noticed while its siblings carried the defect (★PINNED-ELEMENTS-FIXED-
+  // ONE THAT WAS REPORTED. fb95147 fixed `.head` because `.head` was what Russ saw; the probe strip was
+  // the SAME shape until its removal (LORAMER_GEO_PROBE_DISARMED_V1, 2026-08-13 — Gate-B closed, strip
+  // and instrumentation removed). Three flights on this surface each fixed the instance that was noticed
+  // while its siblings carried the defect (★PINNED-ELEMENTS-FIXED-
   // ONE-AT-A-TIME). A LIST, not a ref, is what makes the next one a one-line addition instead of a
   // fourth flight.
   const headRef = useRef<HTMLElement>(null)
-  const probeRef = useRef<HTMLDivElement>(null)
   const kbUpRef = useRef(false)
   const syncHead = useCallback(() => {
     const page = rootRef.current
     const vv = typeof window !== 'undefined' ? window.visualViewport : null
     if (!page || !vv) return
-    // ⚠ `.probe` is debug-only and usually absent — a null ref is NORMAL here, not an error, so the
-    // list is filtered rather than guarded element-by-element.
-    const pinned: HTMLElement[] = [headRef.current, probeRef.current].filter(Boolean) as HTMLElement[]
+    const pinned: HTMLElement[] = [headRef.current].filter(Boolean) as HTMLElement[]
     if (!pinned.length) return
     const inset = parseFloat(page.style.getPropertyValue('--lora-kb-inset')) || 0
     const kbUp = inset > 0
@@ -144,7 +141,7 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // IMMEDIATELY, returns the header to sticky and removes the flow compensation in the same task,
     // then re-reads on the next TWO frames so a late-but-correct offsetTop still wins.
     const onFocusOut = () => {
-      for (const el of [headRef.current, probeRef.current]) {
+      for (const el of [headRef.current]) {
         if (!el) continue
         el.style.top = ''
         el.style.transform = 'translate3d(0, 0, 0)'
@@ -171,8 +168,6 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
     // `shell.tokens` is NOT optional. Outside Shell there is no `.root`, so without it every var(--)
     // in this subtree resolves to nothing — the exact failure that made the send button invisible.
     <div ref={rootRef} className={`${shell.tokens} ${styles.page}`}>
-      {debug && <div ref={probeRef} className={styles.probe}>{probeLine || 'PROBE ARMED — tap the box'}</div>}
-
       <header ref={headRef} className={styles.head}>
         {/* LORAMER_LORA_PAGE_EXIT_V1 — A FULL-SCREEN PAGE MUST HAVE A VISIBLE WAY OUT. router.back()
             alone is not one: on a fresh load there is nothing to go back TO and the button silently
@@ -264,18 +259,11 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         <div className={styles.title}>
           <span className={styles.spark}><Icon d={SPARKLE} size={17} /></span> Ask Lora
           {clientName ? <span className={styles.client}>· {clientName}</span> : null}
-          {/* ⛔ LORAMER_DEBUG_FLAG_SURVIVES_V1 — THE INSTRUMENT SAYS WHETHER IT IS ARMED, IN THE HEADER,
-              BEFORE THE GESTURE STARTS. Four Gate-B captures were spent on sessions where the probe was
-              silently off, and the probe strip itself is no help: it sits above the COMPOSER, at the
-              bottom of a scrolled page, and its absence looks exactly like a page that has not been
-              scrolled to. This badge is the first thing on screen and it is unambiguous. */}
-          {debug ? <span className={styles.dbg} aria-hidden="true">DBG</span> : null}
         </div>
       </header>
 
       <LoraThread
         variant="page"
-        debug={debug}   /* LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 — on-screen landing readout */
         messages={messages}
         loading={loading}
         streamStatus={streamStatus}
@@ -284,8 +272,6 @@ export default function LoraPageClient({ clientId, clientName }: { clientId?: st
         setInput={setInput}
         inputRef={inputRef}
         onKeyDown={onKeyDown}
-        onComposerFocus={onComposerFocus}
-        noteInput={noteInput}
         send={send}
         clientId={clientId}
         clientName={clientName}
