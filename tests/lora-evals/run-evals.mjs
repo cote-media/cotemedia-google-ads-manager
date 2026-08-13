@@ -145,6 +145,11 @@ function score(q, response, card) {
   if (a.type === 'boundary') return { deferred: true, pass: null, detail: 'judge pending' }
   if (a.type === 'number') {
     const r = matchNumber(nums, a.expected, a.tolerancePct || 2)
+    // LORAMER_EVAL_SET_V3 — a top-entity question is not answered by the right figure beside the wrong
+    // name; when the assert carries mustMentionAny, the label must appear too.
+    if (a.mustMentionAny && !a.mustMentionAny.some((w) => lo.includes(String(w).toLowerCase()))) {
+      return { pass: false, detail: `number ok=${r.pass} but none of [${a.mustMentionAny.join('|')}] mentioned` }
+    }
     let cardNote = ''
     if (q.cardCheck && card && typeof card.spend === 'number') cardNote = ` | card spend=${card.spend} rev=${card.revenue}`
     return { pass: r.pass, detail: `expected ${a.expected} (${a.label||''}); closest-in-answer ${r.closest}${cardNote}` }
@@ -175,6 +180,21 @@ function score(q, response, card) {
   return { pass: false, detail: 'unknown assertion type' }
 }
 
+// LORAMER_EVAL_SET_V3 — multi-turn: q.turns = ['first question', ..., 'final question']. Each turn POSTs
+// through the REAL route with the accumulated [user, assistant] history — byte-identical to what the
+// surface sends, so the 5m conversation breakpoint (LORAMER_CHAT_HISTORY_CACHE_V1) prices turns 2+ at
+// cache rates. Only the FINAL answer is graded. ⚠ Turns persist to client_conversations like every eval
+// turn already does (single-turn evals write pairs today) — same accepted class, now N pairs per case.
+async function callChatTurns(cookie, q) {
+  const history = []
+  let last = null
+  for (const t of q.turns) {
+    last = await callChat(cookie, { ...q, message: t, history })
+    if (last.status !== 200) return last
+    history.push({ role: 'user', content: t }, { role: 'assistant', content: last.response })
+  }
+  return last
+}
 async function callChat(cookie, q) {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), CALL_TIMEOUT_MS)
@@ -182,7 +202,7 @@ async function callChat(cookie, q) {
     const res = await fetch(`${BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Cookie: `next-auth.session-token=${cookie}` },
-      body: JSON.stringify({ message: q.message, history: [], clientId: q.clientId, clientName: q.clientName, dateRange: q.dateRange || 'LAST_30_DAYS', location: 'chat' }),
+      body: JSON.stringify({ message: q.message, history: q.history || [], clientId: q.clientId, clientName: q.clientName, dateRange: q.dateRange || 'LAST_30_DAYS', location: 'chat' }),
       signal: ctrl.signal,
     })
     const j = await res.json().catch(() => ({}))
@@ -252,7 +272,7 @@ async function main() {
         if (q.cardCheck) card = await fetchCard(cookie, q.clientId)
         ledger.markChatStart(q.id)
         const _t0 = Date.now()
-        got = await callChat(cookie, q)
+        got = await (Array.isArray(q.turns) && q.turns.length > 1 ? callChatTurns(cookie, q) : callChat(cookie, q))
         got.elapsedMs = Date.now() - _t0
         ledger.markChatEnd(q.id, got.status)
       }

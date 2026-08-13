@@ -1,0 +1,217 @@
+{
+ "_meta": {
+  "name": "LORAMER_EVAL_TRUTH_V3",
+  "built": "2026-08-13",
+  "method": "SQL over metrics_daily via recorded recipes; coverage re-verified by distinct-date counts in-window (all computed windows read FULL days today)",
+  "modelTokens": 0
+ },
+ "computed": {
+  "A1": {
+   "expected": 2835.93,
+   "metric": "google spend 2024-11",
+   "days": 30
+  },
+  "A2": {
+   "expected": [
+    349653.78,
+    9343
+   ],
+   "note": "spend Nov-Dec 2024 + purchases via action_type 'purchase' (alias family: omni_purchase 9,623; base conversions 9,361 \u2014 tolerance must admit the family)",
+   "days": 61
+  },
+  "A3": {
+   "expected": [
+    2131.6,
+    887.8,
+    2.4
+   ],
+   "label": "Sales-Performance Max-BF '24",
+   "metric": "top campaign by conv + CPA 2024-11"
+  },
+  "A5": {
+   "top5": [
+    "bath fitters 8649.60",
+    "bath fitter 4252.70",
+    "bathrooms fitters 3754.72",
+    "bathroom remodeling 3560.68",
+    "bathfitter 3006.72"
+   ],
+   "client": "Bath Fitter"
+  },
+  "A8": {
+   "expected": [
+    1354
+   ],
+   "label": "New Sales Ad",
+   "note": "top meta ad by conversions 2024-11; runner-up New Sales Ad - Video 801"
+  },
+  "A12": {
+   "split": {
+    "MOBILE": [
+     1512.26,
+     5935
+    ],
+    "DESKTOP": [
+     295.64,
+     452
+    ],
+    "TABLET": [
+     8.8,
+     24
+    ]
+   },
+   "note": "google device q3-2024 spend+clicks; conv-rate proxy per device recorded"
+  },
+  "B1": {
+   "expected": 1817,
+   "metric": "ga sessions 2026-07 via extra->>sessions",
+   "days": 31
+  },
+  "B2": {
+   "top3": [
+    "/ 2742",
+    "/pages/easter-sale-2026 2033",
+    "/products/ramp-extra-cover-set 1315"
+   ],
+   "note": "top-10 computed, first 3 anchor"
+  },
+  "B3": {
+   "top3": [
+    "(direct)/(none) 571",
+    "google/organic 400",
+    "google/cpc 201"
+   ]
+  },
+  "B6": {
+   "top3": [
+    "page_view 5603",
+    "view_item 3252",
+    "session_start 2423"
+   ],
+   "recipeFix": "eventCount lives in extra->>'eventCount' \u2014 conversions column is 0 for ga_event"
+  },
+  "B7": {
+   "split": {
+    "mobile": 10567,
+    "desktop": 5766,
+    "tablet": 889
+   }
+  },
+  "B19": {
+   "split": {
+    "Direct": 1269,
+    "Organic Search": 728,
+    "Paid Search": 49,
+    "Cross-network": 86
+   }
+  },
+  "C1": {
+   "expected": [
+    53107.04,
+    1816.71
+   ],
+   "note": "google Q3-2025 vs Q3-2024 spend; 92/92 days both"
+  },
+  "C4": {
+   "series": {
+    "2024-01": 136.3,
+    "2024-02": 84.7,
+    "2024-03": 244.7,
+    "2024-04": 176.4,
+    "2024-05": 182.6,
+    "2024-06": 91.5
+   }
+  },
+  "C9": {
+   "weekly": {
+    "06-08": 18838.69,
+    "06-15": 20136.51,
+    "06-22": 17546.47,
+    "06-29": 19495.26,
+    "07-06": 19439.54,
+    "07-13": 19060.73,
+    "07-20": 17492.01,
+    "07-27": 9845.54
+   },
+   "note": "Bath Fitter; partial edge weeks trimmed at both ends"
+  },
+  "C11": {
+   "expected": [
+    169946.96,
+    777,
+    361504.79,
+    1612
+   ],
+   "note": "shopify 2025-11 rev/orders vs 2024-11; AOV derivable 218.72 vs 224.26"
+  },
+  "C18": {
+   "expected": [
+    791628,
+    552253
+   ],
+   "note": "ga sessions full-year 2024 vs 2025"
+  },
+  "E1": {
+   "parts": {
+    "google_Q2_2025": 51166.07,
+    "meta_Q2_2025": 7780.07,
+    "shopify_rev_Q2_2025": 117840.0,
+    "sessions_Q2_2025": "recipe-ready",
+    "google_Q2_2024": 12591.48,
+    "meta_Q2_2024": 34387.06,
+    "shopify_rev_Q2_2024": 126988.74
+   }
+  },
+  "E5": {
+   "expected": [
+    117840.0
+   ],
+   "note": "shopify NET Q2-2025; GA4 revenue half recipe-ready (sum revenue platform=ga)"
+  },
+  "E6": {
+   "expected": [
+    70,
+    559
+   ],
+   "note": "meta purchases (purchase=omni=70) vs shopify orders 559, Q2 2025"
+  },
+  "E18": {
+   "expected": [
+    142058.67,
+    261498.57
+   ],
+   "note": "Bath Fitter google Q2-2025 vs Q2-2026 (+84% spend, conv 347\u21922343); Foam OH incomplete both Q2s, Influential from 2026-04 only \u2014 correct answer names the asymmetry"
+  }
+ },
+ "recipe_ready": {
+  "A7": "BathFitter search_term 2026-07: sum spend,conversions group by breakdown_value having spend>50 and conv=0",
+  "A10": "meta placement 2024-01 account grain (computed set returned; bake top rows at build)",
+  "A11": "meta placement 2025-09 same recipe as A10",
+  "A17": "meta age+gender 2025-03..06 sums by breakdown_value",
+  "B4": "ga engagement rate monthly 2026-01..06: engagedSessions/sessions from extra, per month",
+  "B5": "ga_user_type new vs returning Q2 vs Q1 2026 via extra->>sessions",
+  "B9": "ga_item Q4-2025 top by revenue",
+  "B13": "ga_source_medium Q2-2026 conv/sessions best ratio, min-sessions floor stated",
+  "B17": "ga sitewide conv-rate monthly series 2026-01..06",
+  "B18": "ga_event 'refund' eventCount Q4-2025",
+  "C2": "meta ad-level 2024-11 vs 2024-06 top creatives",
+  "E4": "meta ad top rev 2024-11 \u00d7 ga_campaign attribution \u2014 join recipe recorded",
+  "E13": "meta purchase count vs ga purchase eventCount vs shopify orders, Q2-2025"
+ },
+ "refused": {
+  "C6": "2026Q1 reads 88/90 distinct days TODAY (Q1-2024 reads 91/91) \u2014 window no longer base-complete as authored; re-anchor or accept 2-day hole explicitly",
+  "A4": "only ONE ad group holds >=1 conversion in 2024-11 \u2014 'rank the top three by CPA' is unanswerable as phrased; correct Lora behaviour is to SAY so \u2192 reshape to boundary/judge with this computed fact as rubric",
+  "B20": "'exit rate in checkout path' \u2014 ga_landing_page family carries sessions/engaged/convRate/revenue, NO exits metric; not captured \u2192 reshape to coverage-honesty (Lora must say not captured), never a number",
+  "B12": "its own coverage note says the ad half is NOT complete for Q2-2026 \u2014 set-difference truth cannot be certified; judge-shaped with the GA-side list as partial anchor"
+ },
+ "judge_anchored": [
+  "E2",
+  "E8",
+  "E9(swapped-out)",
+  "E14",
+  "E15(swapped-out)",
+  "B8",
+  "B10",
+  "B11"
+ ]
+}
