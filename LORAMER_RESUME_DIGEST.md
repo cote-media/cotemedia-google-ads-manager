@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-13T15:48:59.059Z
-- built_from HEAD: 7910ef1157c223c256535a9cdaaa385f83587ff3  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-13T16:41:11.249Z
+- built_from HEAD: e8dd064ab07fef259e87d7eb63eb93019395c976  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,7 +16,7 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: b8b3699be6e1f4f6292c81ae014794c998a949e8b1d62333774117d8fb66ca9c
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
-    - CONTINUE_HERE.md: 7b3f63d51827773950268b3bb81bab024355120b3ec665adfa183837db176c28
+    - CONTINUE_HERE.md: a95215ad59a2a47f9d424f8977379bd657264cf1a37ddf95b384a233e78e345f
     - LORAMER_DECISIONS.md: 946e742ecf9540ec8557bcf2495e27b7cc04d4232fa9988dd8b7fc12136dba1c
     - LORAMER_QUEUE_OF_RECORD.md: 73714eee4597a8da3d8f730a18118b3700d5a45900bcbe9f24851b44a3b75741
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
@@ -414,6 +414,21 @@ ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_
 **DRY-RUN GATE — RUN AGAINST THE DEPLOYED CODE 2026-08-13 14:50Z, `dryRun` TRUE, ZERO SPEND, PASSED.** Instrument, verbatim: `scanned 60 · scanCap 60 · catalogSize 346 · scanCompleted true · rotationKnown 60 · neverAttempted 286 · candidates 60 · publishedOf 40 · requestsSelected 40 · droppedForBound 20 · receded 0 · oldestWindowStart 2026-08-06 · elapsedMs 62270 of maxDuration 300s`. ⛔ **THE ROTATION IS PROVEN LIVE: the first surface it published is `age_range_view / segments.click_type` — catalog entry 61, the exact first surface the old catalog-order scan could NEVER reach.** The bound held exactly (60 candidates → 40 taken, 20 dropped). The resolved stop read **`account inception 2022-03-04`** per surface — A-7 verified live, no `2022-03-05` global anywhere in it. The meter charged the PROGRAM (`63 + 40 (40 fetches) of 13500`) and nothing was sent.
 
 ⚠ **TWO HONEST GAPS IN THAT GATE, NEITHER PAPERED OVER.** (1) `receded: 0` — RECESSION ITSELF IS NOT YET EXERCISED LIVE, because every surface this fire scanned was never-attempted and correctly anchored at the newest ground. It first fires when the rotation returns to the original 60, around fire 6-7, and THAT is the observation to make before anything else. (2) `oldestWindowStart 2026-08-06` is a SEVEN-day window, not the 30 my pre-flight arithmetic assumed: `coldStartDays` is 7 and these surfaces have no history yet, so my local 55-windows-per-surface figure holds only once history exists and the sizer's intermittent branch returns `maxDays`. First-lap descent is therefore slower than modelled. `elapsedMs 62270` also predates the recede-gate's extra coverage read, which only costs anything on surfaces that HAVE history — so the fire duration under recession is still unmeasured.
+
+✅ **metrics_daily_old IS DROPPED — EXECUTED 2026-08-13 16:40–16:42Z ON RUSS'S EXPLICIT CONFIRM, BOTH GATES CLOSED. THE WALK'S RUNWAY WENT 21 → 51 OF 55 WINDOWS.**
+· S1 SEVERANCE (lock_timeout 3s, no timeout hit): 146 defaults repointed to a new sequence; in-transaction proof `must_be_0_on_old_seq=0 · must_be_146_on_new_seq=146`; post-commit re-read confirmed parent AND partition both on the new sequence.
+· S2 DROP + RENAME (lock_timeout 10s, guarded by the refusal check): committed clean. The old identity sequence went with the table; the new sequence was renamed back, so **the naming is byte-identical to before** — 146 defaults again render as `nextval('metrics_daily_id_seq')`.
+· S3 VERIFY, verbatim: `db_size_after 127 GB · db_bytes_after 135,975,595,155 · free_bytes_after 164,672,115,565 · walkable_gib_after 97.36 · defaults_on_seq 146 · old_table NULL · seq2 NULL · seq_last_value 1,533,149,362`.
+· BEFORE → AFTER: db **197,609,090,195 → 135,975,595,155 bytes (184 GB → 127 GB)**, freeing **61,633,495,040 bytes ≈ 57.40 GiB** — to the byte, the old table's measured size. Walkable headroom **39.96 → 97.36 GiB**, against a predicted 97.36. 
+· ⛔ **A-4 CONFIRMED BY MEASUREMENT, AND IT WAS THE ONE THE RUNWAY MATH DEPENDED ON: THE RECLAIM IS IMMEDIATE.** `DROP TABLE` unlinks at commit, so `pg_database_size` — which is exactly what `universe_disk_headroom()` reads (migrations/059:73) — moved the moment S2 committed. No VACUUM, no delay, nothing deferred.
+· WRITER PROVEN STILL FUNCTIONAL after the drop: a real INSERT through the partitioned parent took id **1,533,149,363** off the renamed sequence (rolled back, no row persisted).
+· TIMING: executed at :40 past the hour, outside BOTH exclusions, with the walk queue verified drained (last consumer row 16:34:29Z) and **zero locks held on the metrics_daily family by any other session** before the first statement. S1 never queued.
+
+**⛔ metrics_daily_old DROP — NAMED RESTORE POINT, RUSS 2026-08-13: `13 Aug 2026 14:34:37 (+0000)`, PHYSICAL, ~2h old at the time of naming.** That is the artefact the drop is gated on, and it PRECEDES the drop. After the drop the old table exists only inside backup retention (docs/LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1.md:359 — "THERE IS NO ROLLBACK. Point-in-time recovery only.").
+
+⚠ **READER RECONCILIATION — MY EARLIER ATTRIBUTION WAS WRONG AND IS CORRECTED HERE.** I reported the ~08:08Z full-table read as "the Supabase backup". Russ's dashboard shows scheduled backups landing **14:29–14:54 UTC** (last four 14:34, 14:38, 14:29, 14:54), PHYSICAL. **These are two different things and both are real.** Measured: `last_seq_scan` on metrics_daily_old sat at `2026-08-13 08:08:18Z` and did NOT advance through the 14:34 physical backup — a physical backup copies files and issues no SQL, so it leaves no seq-scan or COPY trace. The ~08:08Z reader is a separate **daily LOGICAL full-table COPY**: `pg_stat_statements` holds `COPY public.metrics_daily_old (…)` at **9 calls / 705,533,436 rows since `stats_since` 2026-08-05 06:20:05Z** — one whole-table dump per day, ~78.4M rows each, ~16 min of COPY per run. pg_cron was checked and ruled out (its one job is `analyze_metrics_daily()` at 03:30). ⇒ **EXECUTION EXCLUDES BOTH ~08:00–11:00 UTC AND 14:00–15:30 UTC.** Neither reader blocks correctness — each holds ACCESS SHARE and `lock_timeout` makes the drop fail fast rather than queue — but a drop that waits on a 16-minute COPY is a drop nobody should be watching.
+
+⚠ **AND ONE MORE OF MY OWN READINGS CORRECTED:** an index scan on the old table at 15:05:07Z looked like a live reader. It was MINE — `select max(id) from metrics_daily_old` during this flight's research, which is an index scan, and `idx_scan` moved by exactly 1. Checked rather than assumed, both times.
 
 **⛔ THE FINDING THAT OUTRANKS THE FLIGHT AND IS RUSS'S CALL, NOT MINE — DISK.** Measured live 2026-08-13: **free 95.96 GiB, floor 56 GiB ⇒ 39.96 GiB walkable**, against a Foam OH walk of ~104 GiB (the narrowed 346-entry set at the repo's own 832 B/row model). **The disk floor stops the walk at ~window 21 of 55 — ~38% of the way to 2022-03-04 — AT ANY SPEED.** Acceleration moves only WHEN: ~day 7.6 at 960/day, ~day 1.9 at 3,840/day. `checkDiskFloor()` stops cleanly and records, so this is a designed stop, not an outage. **`metrics_daily_old` is 57 GB of a 184 GB database (live-confirmed); dropping it takes walkable headroom to ~97 GiB = 51 of 55 windows.** That drop is now its own five-step flight — unrushed, and ON the walk's critical path, which it was not before.
 
