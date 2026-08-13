@@ -45,19 +45,49 @@ for (const d of destructures) {
 }
 
 // ── (b) THE FLOOR MUST BE RESOLVED INSIDE THE HANDLER — i.e. AT EXECUTE TIME ─────────────────────────
-// ⛔ POSITION IS THE POINT, NOT PRESENCE. A `readAccountWall()` at module scope would run once per cold
-// start and be shared across every message the instance handles — plan-time-by-another-name, and it would
-// pass a naive "is it called?" check.
+// ⛔ POSITION IS THE POINT, NOT PRESENCE. A resolution at module scope would run once per cold start and be
+// shared across every message the instance handles — plan-time-by-another-name, and it would pass a naive
+// "is it called?" check.
+// ⛔ THE SITE MOVED 2026-08-13 (LORAMER_WALK_STOP_ONE_RESOLVER_V1) AND THIS LEG MOVED WITH IT, RED FIRST.
+// The consumer's inline `readAccountWall(...)` + `composeWalkStop(...)` pair became `resolveWalkStop(...)`,
+// which performs exactly that wall read and that composition, so that the RESUMER could compose the SAME
+// stop without a second composition site (`inception-stop` leg (c) permits exactly one, and was NOT
+// relaxed). **THE INTENT IS UNCHANGED AND IS WHAT IS CHECKED: the floor is resolved from stored
+// per-(account,surface) state, in the same invocation that uses it.** Either spelling satisfies it; what
+// still fails is resolving at module scope, or not resolving at all. Widening a guard to admit a rename is
+// how a guard stops guarding — so this accepts a NAMED alternative, never a wildcard.
 const handlerAt = code.search(/handleCallback\s*\(/)
-const resolveAt = code.search(/readAccountWall\s*\(/)
+const RESOLVERS = [/readAccountWall\s*\(/, /resolveWalkStop\s*\(/]
+const positions = RESOLVERS.map((re) => code.search(re)).filter((i) => i !== -1)
+const resolveAt = positions.length ? Math.min(...positions) : -1
 if (resolveAt === -1) {
-  findings.push(`(b) ${CONSUMER} never calls readAccountWall(). The floor must be resolved from stored per-(account,surface) state ` +
-    `in the same invocation that uses it; nothing else closes the plan/execute gap.`)
+  findings.push(`(b) ${CONSUMER} calls neither readAccountWall() nor resolveWalkStop(). The floor must be resolved from stored ` +
+    `per-(account,surface) state in the same invocation that uses it; nothing else closes the plan/execute gap.`)
 } else if (handlerAt === -1) {
   findings.push(`(b) ${CONSUMER} has no handleCallback( — this guard cannot locate the execute-time boundary and FAILS rather than assuming.`)
 } else if (resolveAt < handlerAt) {
-  findings.push(`(b) ${CONSUMER} resolves the floor at MODULE SCOPE (readAccountWall at ${resolveAt}, handler opens at ${handlerAt}). ` +
+  findings.push(`(b) ${CONSUMER} resolves the floor at MODULE SCOPE (resolution at ${resolveAt}, handler opens at ${handlerAt}). ` +
     `That is once per cold start and shared across every message the instance handles — plan time wearing a different hat.`)
+}
+// ⛔ AND THE RESOLVER ITSELF MUST DO THE WALL READ, or the rename above becomes a hole: a `resolveWalkStop`
+// that stopped reading the per-surface wall would satisfy the leg while resolving nothing.
+// ⚠ SCOPED TO THE INDIRECTION IT EXISTS TO COVER. A consumer that reads the wall INLINE has no resolver to
+// assert, and demanding one would make this guard red on a tree that is perfectly correct — a guard that
+// fails on correct code is a guard someone deletes.
+if (/resolveWalkStop\s*\(/.test(code)) {
+  const WRITER = 'src/lib/backfill/google-ads-universe-writer.ts'
+  const w = readFileSync(resolve(ROOT, WRITER), 'utf8')
+  // ⛔ `\n\}` ALONE IS WRONG HERE AND IT FIRED FALSELY THE FIRST TIME IT RAN. `resolveWalkStop`'s return type
+  // is a multi-line object literal, so its closing `}` starts a line as `}>: {` — the non-greedy match ended
+  // at the SIGNATURE and reported the body as empty of every call it in fact makes. Anchor on a closing brace
+  // that ends its own line, which is the function's, not the type's.
+  const body = w.match(/export async function resolveWalkStop[\s\S]*?\n\}\n/)
+  if (!body) {
+    findings.push(`(b) ${WRITER} exports no resolveWalkStop — ${CONSUMER} resolves through a function this guard cannot find.`)
+  } else {
+    if (!/readAccountWall\s*\(/.test(body[0])) findings.push(`(b) resolveWalkStop does not call readAccountWall() — the per-(account,surface) wall is not being read, so the "resolved" floor is not resolved from stored state.`)
+    if (!/composeWalkStop\s*\(/.test(body[0])) findings.push(`(b) resolveWalkStop does not call composeWalkStop() — it returns a stop that was never composed with the account inception and the held-data safeguard.`)
+  }
 }
 
 // ── (c) THE ADVANCE MUST ACCEPT AN UNKNOWN FLOOR ─────────────────────────────────────────────────────
@@ -77,4 +107,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-floor-execute-time] PASS — ${CONSUMER} never reads a floor off the queue message · resolves it via readAccountWall INSIDE the handler (execute time, not module scope) · and advance() accepts \`string | null\` and branches on the null case explicitly. LIMIT: structural — it proves WHERE the floor is read, not that the value is right.`)
+console.log(`[universe-floor-execute-time] PASS — ${CONSUMER} never reads a floor off the queue message · resolves it INSIDE the handler (execute time, not module scope) via readAccountWall/resolveWalkStop, and the resolver itself reads the per-surface wall and composes the stop · and advance() accepts \`string | null\` and branches on the null case explicitly. LIMIT: structural — it proves WHERE the floor is read, not that the value is right.`)

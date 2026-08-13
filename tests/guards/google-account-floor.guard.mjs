@@ -91,9 +91,15 @@ for (const rel of [ADAPTER, CONSUMER]) {
     findings.push(`(c) ${CONSUMER} references VENDOR_FLOOR_DATE in code. That constant survives ONLY for the v1 consumer. ` +
       `The v2 path resolves a DISCOVERED floor per (account, surface); reaching for the global re-introduces the defect this replaced.`)
   }
-  if (!/readAccountWall\s*\(/.test(code)) {
-    findings.push(`(c) ${CONSUMER} never calls readAccountWall(). Something must resolve the floor, and if it is not the ` +
-      `discovered per-account wall it is a constant — there is no third option.`)
+  // ⛔ MOVED 2026-08-13 WITH THE CALL SITE (LORAMER_WALK_STOP_ONE_RESOLVER_V1), SEEN RED FIRST. The consumer
+  // now resolves through `resolveWalkStop`, which performs the wall read and the composition, so the RESUMER
+  // could compose the SAME stop without a second `composeWalkStop(` site. The assertion this leg makes is
+  // unchanged — SOMETHING must resolve the floor from the discovered per-(account,surface) wall, and if it
+  // is not that, it is a constant. Only a NAMED alternative is admitted; the resolver's own body is asserted
+  // by `universe-floor-execute-time` leg (b), so a resolver that stopped reading the wall still goes red.
+  if (!/readAccountWall\s*\(/.test(code) && !/resolveWalkStop\s*\(/.test(code)) {
+    findings.push(`(c) ${CONSUMER} calls neither readAccountWall() nor resolveWalkStop(). Something must resolve the floor, ` +
+      `and if it is not the discovered per-account wall it is a constant — there is no third option.`)
   }
 }
 

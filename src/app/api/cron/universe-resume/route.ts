@@ -37,7 +37,9 @@
 import { NextResponse } from 'next/server'
 import { send } from '@vercel/queue'
 import { supabaseAdmin } from '@/lib/supabase'
-import { loadUniverse, selectableEntries, VENDOR_FLOOR_DATE, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+// ⛔ LORAMER_WALK_STOP_ONE_RESOLVER_V1 — the resumer composes the SAME stop the consumer does, through the one
+// resolver, and no longer clamps to VENDOR_FLOOR_DATE (which is deliberately NOT imported here any more).
+import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { mayFetchProgram } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
@@ -49,6 +51,7 @@ import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quot
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 import {
   assessCoverage, decideRepublish, boundedSelection,
+  deriveAnchorEnd, deriveWindow, orderForRotation,
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
@@ -109,7 +112,16 @@ export async function GET(request: Request) {
     () => { throw new Error('the resumer never fetches — it publishes. A stream here would be a vendor call from a scheduler.') },
     (s) => byKey.get(`${s.resource}|${s.segment}`)!,
   )
-  const floorDate = adapter.retention.floorDate ?? VENDOR_FLOOR_DATE
+  // ⛔ LORAMER_WALK_STOP_ONE_RESOLVER_V1 — THE FLOOR THIS LINE USED TO INVENT. It read
+  // `adapter.retention.floorDate ?? VENDOR_FLOOR_DATE` = `null ?? '2022-03-05'`: ONE GLOBAL CONSTANT clamping
+  // every window of every account, which is the exact defect the adapter's own `retention` header records
+  // ("one account's measured floor, applied to every account") re-introduced one layer up by a `??`.
+  // MEASURED: Foam OH's DISCOVERED inception is 2022-03-04 — one day BELOW that constant, so a receding walk
+  // would have stopped one day above the floor it holds provenance for, forever, on every surface.
+  // The per-ACCOUNT half is read ONCE here; the per-SURFACE wall is composed per candidate below.
+  // ⚠ `discover: null` — the resumer NEVER fetches (the stream above throws), so it may never be the thing
+  // that triggers a discovery vendor call. First-touch discovery stays the consumer's, on the message path.
+  const stopFacts = await readWalkStopAccountFacts({ clientId, vendor: adapter.platform, discover: null })
 
   // ── THE DENOMINATOR, NOT A LIST ───────────────────────────────────────────────────────────────────────
   // ⛔ THE CANDIDATES COME FROM THE CATALOG — the DECLARED universe — and owed-ness is RECOMPUTED for every
@@ -121,10 +133,41 @@ export async function GET(request: Request) {
   const byKey = new Map<string, UniverseEntry>(entries.map((e) => [`${e.resource}|${e.segment ?? ''}`, e]))
 
   const yesterday = addDays(new Date().toISOString().slice(0, 10), -1)
+  const startedAt = Date.now()
+
+  // ── THE ROTATION — LORAMER_RESUMER_SCAN_ROTATES_V1 ────────────────────────────────────────────────────
+  // ⛔ WHAT THIS FIXES, MEASURED BEFORE IT WAS CHANGED. The scan ran the catalog IN ORDER and broke at
+  // MAX_ENTRIES_SCANNED_PER_RUN, so entries 61..346 were unreachable BY CONSTRUCTION. Live attempt log,
+  // 2026-08-13: 61 distinct surfaces ever touched (60 real + the __account_inception pseudo-row) of 346
+  // selectable — 286 surfaces had NEVER been asked once in the engine's entire scheduled life. The cap was
+  // doing its job; the ORDER silently turned it into a filter.
+  // ⛔ ONE GROUPED READ, NOT 346 — migrations/064. Returns one row per surface: the last window ASKED and
+  // when. An ordering read over the append-only log; owed-ness is still derived from metrics_daily below.
+  const { data: rotRows, error: rotErr } = await supabaseAdmin
+    .rpc('universe_surface_rotation', { p_client_id: clientId, p_vendor: adapter.platform })
+  if (rotErr) {
+    // ⛔ AN UNREADABLE ROTATION INDEX IS NOT AN EMPTY ONE. Falling through with an empty map would make every
+    // surface look never-attempted, which re-anchors the whole catalog at the newest ground — the exact
+    // horizon defect this flight exists to remove, restored by a swallowed error.
+    return NextResponse.json({
+      ok: true, published: 0, scanned: 0,
+      held: `REFUSING TO SCAN BLIND — the rotation index is unreadable: ${rotErr.message}. ` +
+        `migrations/064_universe_surface_rotation.sql creates universe_surface_rotation(); apply it before running. ` +
+        `An empty map would make every surface read as never-attempted and re-anchor the entire catalog at the newest ground.`,
+      refusals: [],
+    }, { status: 200 })
+  }
+  type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string; last_attempt_at: string }
+  const rotation = new Map<string, RotRow>()
+  for (const r of (rotRows ?? []) as RotRow[]) rotation.set(`${r.resource}|${r.segment ?? ''}`, r)
+  const lastAttemptedAt = new Map<string, string>()
+  for (const [k, r] of rotation) lastAttemptedAt.set(k, String(r.last_attempt_at))
+  const rotated = orderForRotation(entries, (e) => `${e.resource}|${e.segment ?? ''}`, lastAttemptedAt)
 
   type Candidate = {
     entry: UniverseEntry; label: string; ranges: number; owedDays: number
     windowStart: string; windowEnd: string; sizingBasis: string
+    anchorBasis: string; receded: boolean; stopBasis: string
     // ⛔ ONE ENTRY PER VENDOR REQUEST THIS CANDIDATE WILL MAKE, each carrying that request's own day span.
     // LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1 — `ranges` is the COUNT and was all the meter ever saw; the
     // spans are what `costOf` is defined over, and they were being computed here and thrown away.
@@ -134,30 +177,73 @@ export async function GET(request: Request) {
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
   let scanned = 0
 
-  for (const entry of entries) {
+  for (const entry of rotated) {
     if (scanned >= MAX_ENTRIES_SCANNED_PER_RUN) break
     scanned++
     const surface = surfaceOfEntry(entry)
     const label = `${surface.resource}${surface.segment ? ' / ' + surface.segment : ''}`
+    const coverageKey = { clientId, platform: adapter.platform, entityLevel: surface.entityLevel, breakdownType: surface.breakdownType }
 
-    // ⛔ THE WINDOW IS SIZED BY THE ADAPTER'S POLICY AND ITS COST DIRECTION, then anchored at the newest
-    // ground. Newest-first is the design: the user has the most recent months within hours and depth
-    // accrues over days.
+    // ⛔ THE STOP IS RESOLVED PER (ACCOUNT, SURFACE), THROUGH THE ONE COMPOSITION SITE — never a global
+    // constant. `null` stays UNKNOWN and clamps nothing; inventing a floor from silence is the defect
+    // LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 forbids and which sealed 214 cursors once already.
+    let stop
+    try {
+      stop = await resolveWalkStop({
+        clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, facts: stopFacts,
+      })
+    } catch (e: any) {
+      refusals.push({ label, verdict: 'stop-error', reason: String(e?.message ?? e) })
+      continue
+    }
+
+    // ⛔ THE WINDOW IS SIZED BY THE ADAPTER'S POLICY AND ITS COST DIRECTION, then anchored by the HORIZON —
+    // newest ground on first touch, and one window lower each time the last one is fully answered
+    // (LORAMER_WALK_HORIZON_RECEDES_V1). Newest-first is still the design: the user has the most recent
+    // months within hours. What changed is that depth now actually accrues instead of re-buying day one.
     const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
-    const windowEnd = yesterday
-    const windowStart = (() => { const s = addDays(windowEnd, -(sizing.days - 1)); return s < floorDate ? floorDate : s })()
+    const rot = rotation.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null
+
+    // ⛔ THE RECEDE GATE: the last window asked must owe NOTHING before the anchor may move below it.
+    // One coverage read, bounded by the window's own span — never the whole walked band (that shape was
+    // rejected on arithmetic: one probe per day × 1,622 days × 60 surfaces).
+    let lastCoverage: Awaited<ReturnType<typeof rangesStillOwed>> | null = null
+    if (rot) {
+      try {
+        lastCoverage = await rangesStillOwed(coverageKey, String(rot.last_window_start), String(rot.last_window_end))
+      } catch (e: any) {
+        refusals.push({ label, verdict: 'coverage-error', reason: `recede gate: ${String(e?.message ?? e)}` })
+        continue
+      }
+    }
+    const anchor = deriveAnchorEnd({
+      newestGround: yesterday,
+      lastWindowStart: rot ? String(rot.last_window_start) : null,
+      lastWindowEnd: rot ? String(rot.last_window_end) : null,
+      lastWindowFullyAnswered: lastCoverage === null ? true : lastCoverage.coverage.uncovered.length === 0,
+    })
+    const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate })
+    if (win === null) {
+      // ⛔ NOT A FAILURE — THE SURFACE IS DONE. The anchor has receded below the RESOLVED stop, so there is no
+      // ground left to ask for. Recorded so a completion can be told apart from a silence.
+      refusals.push({ label, verdict: 'floor-reached', reason: `anchor ${anchor.anchorEnd} is below the resolved stop (${stop.basis}) — this surface has been walked to its floor` })
+      continue
+    }
+    const { windowStart, windowEnd } = win
 
     let owed
-    try {
-      owed = await rangesStillOwed(
-        { clientId, platform: adapter.platform, entityLevel: surface.entityLevel, breakdownType: surface.breakdownType },
-        windowStart, windowEnd,
-      )
-    } catch (e: any) {
-      // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY OWED SET. Publishing on it would be publishing on a
-      // guess; treating it as "nothing owed" would be a silent all-clear. Record and move on.
-      refusals.push({ label, verdict: 'coverage-error', reason: String(e?.message ?? e) })
-      continue
+    if (lastCoverage !== null && !anchor.receded && windowStart === String(rot!.last_window_start) && windowEnd === String(rot!.last_window_end)) {
+      // The recede gate already answered this exact window — do not pay for the same probes twice.
+      owed = lastCoverage
+    } else {
+      try {
+        owed = await rangesStillOwed(coverageKey, windowStart, windowEnd)
+      } catch (e: any) {
+        // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY OWED SET. Publishing on it would be publishing on a
+        // guess; treating it as "nothing owed" would be a silent all-clear. Record and move on.
+        refusals.push({ label, verdict: 'coverage-error', reason: String(e?.message ?? e) })
+        continue
+      }
     }
 
     // ── ⛔ IMPLAUSIBLE COVERAGE — REFUSE AND RECORD, NEVER PUBLISH ───────────────────────────────────────
@@ -200,6 +286,7 @@ export async function GET(request: Request) {
     candidates.push({
       entry, label, ranges: owed.ranges.length, owedDays: owed.coverage.uncovered.length,
       windowStart, windowEnd, sizingBasis: sizing.basis,
+      anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis,
       // ⛔ ONE OWED RANGE IS ONE VENDOR REQUEST (universe-resumer.ts:201-203), so this is the program the
       // meter must be charged for — not its length, which is what it used to be handed.
       rangeSpans: owed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
@@ -236,7 +323,11 @@ export async function GET(request: Request) {
       startDate: c.windowStart, endDate: c.windowEnd,
       // ⛔ ONE WINDOW, NO SELF-REPUBLISH. June's driver shape: the loop belongs to the driver, not the work.
       windowsRemaining: WINDOWS_PER_PUBLISHED_MESSAGE,
-      floorDate,
+      // ⛔ NO `floorDate` ON THE MESSAGE — REMOVED 2026-08-13, AND IT WAS ALREADY DEAD. The consumer is
+      // FORBIDDEN to read it (`universe-floor-execute-time.guard.mjs` leg (a): "THE FLOOR MAY NOT RIDE THE
+      // MESSAGE"), so this field was a publisher's opinion nothing consumed — and it carried the globalised
+      // VENDOR_FLOOR_DATE this flight removed. A dead field holding a wrong value is how the wrong value
+      // comes back: someone reads the message, sees a floor, and wires it.
     }
     // ⛔ IDEMPOTENCY, AND THE MECHANISM STATED RATHER THAN ASSUMED. Two overlapping resumer runs compute the
     // SAME key for the same owed window — it is a pure function of (client, resource, segment, window) with
@@ -247,14 +338,38 @@ export async function GET(request: Request) {
     // coverage is the correctness.
     const idempotencyKey = `resume|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
     if (!dryRun) await send(TOPIC, msg satisfies UniverseMessageV2, { idempotencyKey } as any)
-    published.push({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, idempotencyKey })
+    published.push({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
   }
+
+  // ── THE FIRE INSTRUMENT — LORAMER_RESUMER_FIRE_INSTRUMENT_V1 ─────────────────────────────────────────
+  // ⛔ THE HOLE IT CLOSES, NAMED: a resumer that DIES MID-SCAN publishes a truncated prefix that reads in the
+  // log EXACTLY like a complete fire that found little. Nothing distinguished them. `scanCompleted` is the
+  // whole point — it is true only when the loop reached the cap or exhausted the rotation, so a fire that
+  // ended any other way cannot be read as a survey of the catalog.
+  // ⛔ AND IT IS A CONSOLE LINE, NOT A TABLE. It reports the SHAPE of a decision the durable records already
+  // carry (attempts, refusals, published) — inventing a row for it would add a second account of the same
+  // fire, which is the two-owners shape this subsystem keeps paying for.
+  const elapsedMs = Date.now() - startedAt
+  const instrument = {
+    scanned, scanCap: MAX_ENTRIES_SCANNED_PER_RUN, catalogSize: entries.length,
+    scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
+    rotationKnown: rotation.size, neverAttempted: entries.length - rotation.size,
+    candidates: candidates.length, publishedOf: published.length,
+    requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
+    receded: published.filter((p) => p.receded).length,
+    oldestWindowStart: published.reduce<string | null>((m, p) => {
+      const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m
+    }, null),
+    elapsedMs, maxDurationS: maxDuration,
+  }
+  console.log(`[universe-resume] FIRE ${clientId}${dryRun ? ' (DRY)' : ''}: ${JSON.stringify(instrument)}`)
 
   return NextResponse.json({
     ok: true, dryRun, clientId, scanned,
     entriesInCatalog: entries.length,
     bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound },
     meter: gate.reason,
+    instrument,
     published, refusals,
   })
 }

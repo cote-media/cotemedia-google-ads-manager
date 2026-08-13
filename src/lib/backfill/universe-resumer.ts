@@ -55,6 +55,13 @@ export type ResumeVerdict =
  *     60-entry scan, so a bite of 40 is reachable without raising the scan cap
  *   · the WORST case is the same number, because the bound counts ranges rather than messages — a window
  *     fragmented into 15 owed ranges consumes 15 of the 40 and the run stops there
+ * ⛔ AND THE INVARIANT THAT MAKES "EXACT" TRUE RATHER THAN MERELY TRUE-TODAY — `sizing.maxDays` ≤ THIS.
+ * `boundedSelection` admits an over-budget candidate ALONE when nothing has been taken yet (see its own
+ * ⚠ below: skipping it forever would starve the most fragmented entries), so the real worst case per fire is
+ * `max(MAX_REQUESTS_PER_RUN, largest single candidate's ranges)`. Ranges ≤ owed days ≤ window days ≤
+ * `sizing.maxDays` (30 on Google, google-ads.adapter.ts:159), and 30 ≤ 40 — so the worst case IS 40.
+ * Raise `maxDays` past this constant and the bound stops being exact with nothing to announce it, which is
+ * why `universe-horizon-recedes.guard.mjs` leg (d) pins the RELATIONSHIP rather than either number.
  * ⛔ `MAX_PUBLISH_WITHOUT_FLAG = 4` (universe-start:50) IS THE WRONG BOUND TO REUSE AND IS DELIBERATELY NOT
  * REUSED. It bounds an OPERATOR's fan-out on a path where a human is present to say the dangerous thing out
  * loud. The resumer has no human, publishes single-window work rather than chains, and needs a bound
@@ -218,6 +225,125 @@ export function decideRepublish(a: {
  * starve the most fragmented entries — the ones most likely to be genuinely broken. It is admitted alone
  * when nothing has been taken yet, and the run stops after it.
  */
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE HORIZON — LORAMER_WALK_HORIZON_RECEDES_V1
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * ⛔ WHAT WAS BROKEN, MEASURED BEFORE IT WAS CHANGED. The route read `const windowEnd = yesterday` — every
+ * window, every fire, every surface, anchored at yesterday and never moving. **MEASURED 2026-08-13 on the
+ * live attempt log: 244 vendor requests since 2026-08-10 23:52Z and ZERO ROWS WRITTEN, EVER. The oldest
+ * window_start ever attempted is 2026-07-12 — 1,622 days above Foam OH's discovered floor of 2022-03-04.**
+ * The scheduled walk was a second forward-capture loop re-buying the newest attested day every hour.
+ *
+ * ⛔ THE RECESSION IS DERIVED, NOT STORED, AND THAT IS THE WHOLE DESIGN CONSTRAINT. `universe-resumer.guard`
+ * leg (a) forbids a stored owed-list or a cursor, and it is right to: on 2026-08-08 the walk's own owed list
+ * was measured WRONG IN BOTH DIRECTIONS on the very range it was consulted about. So the anchor is recomputed
+ * every fire from the append-only attempt log — a fact about WHAT WE ASKED FOR, never a claim about what is
+ * captured. That separation is the same one `universe-sizing.ts` already respects and states in its header:
+ * the attempt log may answer "what did we ask, and what came back"; ONLY `universe-coverage` may answer
+ * "is this captured".
+ *
+ * ⛔ AND IT RECEDES ONLY OVER A WINDOW THAT IS ALREADY ANSWERED — the property that stops recession from
+ * becoming skipping. The anchor moves below the LAST WINDOW ASKED only when that window owes nothing. A
+ * window that still owes days HOLDS the anchor and is re-published, and `decideRepublish`'s no-progress
+ * bound is what stops THAT from looping forever. **Receding past an unanswered day would be the
+ * false-all-clear class this whole rebuild exists to end, arriving through a scheduler instead of a
+ * coverage read.**
+ *
+ * ⛔ ONE WINDOW AT A TIME, AND THE REASON IS A COST MEASUREMENT, NOT A STYLE CHOICE. The first shape of this
+ * checked the ENTIRE already-walked band before receding, which is strictly stronger and was rejected on
+ * arithmetic: `windowCoverage` fires ONE INDEXED PROBE PER DAY (universe-coverage.ts:122), so at Foam OH's
+ * 1,622-day depth that is 1,622 probes per surface × 60 surfaces = ~97k probes per fire. Checking the last
+ * window only is 30 probes, and every window in the chain passed the SAME check when it was the anchor.
+ *
+ * ⚠ THE LIMIT THAT BUYS, STATED RATHER THAN GLOSSED: a window answered when it was the anchor and later
+ * losing rows is not revisited by this scheduler — the anchor only moves down. That is a re-walk's job, not
+ * a scheduler's, and it is a KNOWN gap rather than a covered one.
+ */
+export function deriveAnchorEnd(a: {
+  /** Yesterday, in the caller's frame. The newest ground the vendor can answer for. */
+  newestGround: string
+  /** The most recent window this surface was ASKED for, or null if it never has been. */
+  lastWindowStart: string | null
+  lastWindowEnd: string | null
+  /** Does that last window still owe days? Only a fully-answered window may be receded past. */
+  lastWindowFullyAnswered: boolean
+}): { anchorEnd: string; receded: boolean; basis: string } {
+  const { newestGround, lastWindowStart, lastWindowEnd, lastWindowFullyAnswered } = a
+  if (lastWindowStart === null || lastWindowEnd === null) {
+    return { anchorEnd: newestGround, receded: false, basis: `never attempted — anchored at the newest ground ${newestGround}` }
+  }
+  if (!lastWindowFullyAnswered) {
+    return {
+      anchorEnd: lastWindowEnd, receded: false,
+      basis: `the last window asked (${lastWindowStart}..${lastWindowEnd}) STILL OWES days — the anchor HOLDS there until it is answered; receding past it would skip ground nothing else walks`,
+    }
+  }
+  const receded = addDaysISO(lastWindowStart, -1)
+  return {
+    anchorEnd: receded, receded: true,
+    basis: `${lastWindowStart}..${lastWindowEnd} fully answered — receding to ${receded}, the day below it`,
+  }
+}
+
+/** Date arithmetic in one place, so the pure decisions above stay drivable with no clock. */
+export function addDaysISO(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
+}
+
+/**
+ * ⛔ THE WINDOW, CLAMPED TO THE **RESOLVED** STOP — NEVER TO A GLOBAL CONSTANT. `stopDate === null` is
+ * UNKNOWN: no wall has been observed and no inception discovered, so there is nothing to clamp to and
+ * inventing one would be the wall-from-silence defect (LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1).
+ * Returns `null` when the anchor has fallen below the stop — that surface is COMPLETE, not owed.
+ */
+export function deriveWindow(a: {
+  anchorEnd: string
+  sizingDays: number
+  stopDate: string | null
+}): { windowStart: string; windowEnd: string } | null {
+  const { anchorEnd, sizingDays, stopDate } = a
+  if (stopDate !== null && anchorEnd < stopDate) return null
+  const raw = addDaysISO(anchorEnd, -(sizingDays - 1))
+  const windowStart = stopDate !== null && raw < stopDate ? stopDate : raw
+  return { windowStart, windowEnd: anchorEnd }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE ROTATION — LORAMER_RESUMER_SCAN_ROTATES_V1
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * ⛔ WHAT WAS BROKEN, MEASURED. The route scanned `entries` in CATALOG ORDER and broke at
+ * `MAX_ENTRIES_SCANNED_PER_RUN`, so entries 61..346 were unreachable BY CONSTRUCTION, forever.
+ * **MEASURED 2026-08-13: 61 distinct surfaces have ever been touched (60 real + the `__account_inception`
+ * pseudo-row) of 346 selectable. 286 surfaces had never been asked once, in the engine's entire scheduled
+ * life.** The scan cap was doing its job — bounding the run — while the ORDER silently made it a filter.
+ *
+ * ⛔ LEAST-RECENTLY-ATTEMPTED, WITH NEVER-ATTEMPTED FIRST, AND STARVATION IS IMPOSSIBLE BY CONSTRUCTION
+ * rather than by a fairness argument: a surface that is not scanned is not attempted, so its key does not
+ * move, so it strictly rises in the order every fire until it is scanned. The tie-break is the surface label,
+ * so the order is TOTAL and deterministic — a guard can drive it with no clock and no DB.
+ *
+ * ⚠ AND IT IS AN ORDERING READ, NOT A CURSOR. `guard leg (a)` forbids `universe_run_state`,
+ * `universe_window_log` and the June `sync_state` cursor — a stored list of PENDING WORK. This reads the
+ * append-only attempt log for "when did we last ask", which is the same table `sizeNextWindow` already reads
+ * for "what came back last time". Owed-ness is still recomputed from `metrics_daily` and from nothing else.
+ */
+export function orderForRotation<T>(
+  entries: T[],
+  keyOf: (e: T) => string,
+  lastAttemptedAt: Map<string, string>,
+): T[] {
+  return [...entries].sort((x, y) => {
+    const kx = keyOf(x), ky = keyOf(y)
+    const ax = lastAttemptedAt.get(kx), ay = lastAttemptedAt.get(ky)
+    if (ax === undefined && ay !== undefined) return -1
+    if (ax !== undefined && ay === undefined) return 1
+    if (ax !== undefined && ay !== undefined && ax !== ay) return ax < ay ? -1 : 1
+    return kx < ky ? -1 : kx > ky ? 1 : 0
+  })
+}
+
 export function boundedSelection<T extends { ranges: number }>(candidates: T[], maxRequests = MAX_REQUESTS_PER_RUN): { taken: T[]; requests: number; droppedForBound: number } {
   const taken: T[] = []
   let requests = 0

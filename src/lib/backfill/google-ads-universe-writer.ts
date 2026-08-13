@@ -421,6 +421,75 @@ export function composeWalkStop(args: {
   return { stopDate, inceptionKnown: inceptionDate !== null, basis }
 }
 
+// ── LORAMER_WALK_STOP_ONE_RESOLVER_V1 — TWO CALLERS, STILL ONE COMPOSITION SITE ────────────────────────────
+//
+// ⛔ WHY THIS EXISTS, AND IT IS A DEFECT WITH A MEASUREMENT. The RESUMER did not compose the stop at all: it
+// read `adapter.retention.floorDate ?? VENDOR_FLOOR_DATE` — `null ?? '2022-03-05'` — and clamped every window
+// of every account to that ONE GLOBAL CONSTANT. Foam OH's DISCOVERED inception is **2022-03-04**, one day
+// BELOW it, so a receding walk would have stopped one day above the floor it now holds provenance for, on
+// every surface, forever; on an account older than 2022-03-05 it would stop YEARS early. That is exactly the
+// defect the adapter's own header (`retention`, :44) records as "one account's measured floor, applied to
+// every account" — re-introduced one layer up by a `??`.
+//
+// ⛔ AND WHY IT IS A RESOLVER RATHER THAN A SECOND `composeWalkStop(` CALL. `inception-stop.guard.mjs` leg (c)
+// fails the build when more than one site composes the stop, and that leg is RIGHT — two compositions of the
+// same two facts is the two-owners shape that put a floor on a queue message. So the composition does not move
+// and does not multiply: it stays exactly once, HERE, and both the consumer and the resumer call this. Leg (c)
+// is untouched by this change and still reads exactly one call site. **The guard was not weakened to admit the
+// second caller; the second caller was shaped to fit the guard.**
+//
+// ⚠ ACCOUNT FACTS ARE READ SEPARATELY ON PURPOSE. `inception` and `earliestHeldDate` are per-ACCOUNT and the
+// resumer resolves up to MAX_ENTRIES_SCANNED_PER_RUN surfaces in one fire; folding them in here would re-read
+// a `min(date)` over metrics_daily once per surface. The consumer handles one surface per message and simply
+// reads them per message, exactly as it did before.
+export interface WalkStopAccountFacts {
+  inceptionDate: string | null
+  earliestHeldDate: string | null
+}
+
+/**
+ * The per-ACCOUNT half of the stop, read once per caller-invocation.
+ * `discover` is the CONSUMER's first-touch discovery hook and is `null` for the resumer — the resumer never
+ * fetches, so it may never be the thing that triggers a vendor call (universe-resume/route.ts:106-110).
+ */
+export async function readWalkStopAccountFacts(a: {
+  clientId: string
+  vendor: string
+  discover: null | (() => Promise<{ inceptionDate: string } | null>)
+}): Promise<WalkStopAccountFacts> {
+  const stored = await readAccountInception({ clientId: a.clientId, vendor: a.vendor })
+  const inception: { inceptionDate: string } | null =
+    stored !== null ? stored : (a.discover !== null ? await a.discover() : null)
+  const earliestHeldDate = await readEarliestHeldDate(a.clientId, a.vendor)
+  return { inceptionDate: inception?.inceptionDate ?? null, earliestHeldDate }
+}
+
+/**
+ * ⛔ THE STOP FOR ONE (ACCOUNT, SURFACE) — the per-surface vendor wall composed with the account facts, in the
+ * ONE composition site. Callers get `stopDate`/`inceptionKnown`/`basis` and the wall itself (the consumer logs
+ * it), and NOBODY gets a fallback date: `null` stays UNKNOWN all the way out.
+ */
+export async function resolveWalkStop(a: {
+  clientId: string
+  vendor: string
+  resource: string
+  segment: string
+  facts: WalkStopAccountFacts
+}): Promise<{
+  stopDate: string | null; inceptionKnown: boolean; basis: string
+  surfaceWall: { wallDate: string; source: string; citation: string } | null
+}> {
+  const surfaceWall = await readAccountWall({
+    clientId: a.clientId, vendor: a.vendor, resource: a.resource, segment: a.segment,
+  })
+  const composed = composeWalkStop({
+    wallDate: surfaceWall?.wallDate ?? null,
+    inceptionDate: a.facts.inceptionDate,
+    earliestHeldDate: a.facts.earliestHeldDate,
+  })
+  return { ...composed, surfaceWall }
+}
+
 // ── DEFERRED UNDER A DISK CONSTRAINT — LORAMER_UNIVERSE_NARROWED_SET_V1, 2026-08-04 ────────────────────────
 // ⛔ THESE ARE DEFERRED, NOT DROPPED, AND ALL-MEANS-ALL IS NOT REPEALED. This is SEQUENCING UNDER A DISK
 // CONSTRAINT and nothing else: 12 of 358 entries carry 41.9% of the walk's disk (68.2 GB of 162.9 GB),

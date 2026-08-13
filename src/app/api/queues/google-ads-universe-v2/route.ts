@@ -58,7 +58,7 @@ import { handleCallback, send } from '@vercel/queue'
 // on this file within minutes of the file existing; that guard is the reason this comment is here.
 // ⛔ VENDOR_FLOOR_DATE IS DELIBERATELY NOT IMPORTED — LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1. The floor is
 // DISCOVERED per (account, surface) from the vendor's own refusal and resolved at EXECUTE time.
-import { readAccountWall, recordAccountWall, readAccountInception, discoverAccountInception, readEarliestHeldDate, composeWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
+import { recordAccountWall, discoverAccountInception, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/universe-stream-capture'
 // ⛔ THE ADAPTER SUPPLIES EVERY GOOGLE FACT THE CORE USED TO HOLD: the GAQL, the ORDER BY, the retention
 // floor, the operations meter, the sizing policy AND its cost direction, and the day-closure entitlement.
@@ -184,33 +184,34 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   // history" and it is NOT a default. `advance()` below refuses to stop on it; only a recorded vendor
   // refusal stops a walk. An unreadable store THROWS rather than answering null, because answering null
   // would convert a failed read into "no wall known" — a lie in the safe-looking direction.
-  const surfaceWall = await readAccountWall({
-    clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
+  // ⛔ LORAMER_WALK_STOP_ONE_RESOLVER_V1 — the wall read and the composition moved into `resolveWalkStop`, so
+  // the RESUMER can compose the SAME stop without a second `composeWalkStop(` call site. `inception-stop`
+  // leg (c) still reads exactly one composition site and was NOT relaxed to allow this: the second caller was
+  // shaped to fit the guard. Everything below reads identically to what this block computed inline.
+  const stopFacts = await readWalkStopAccountFacts({
+    clientId, vendor: adapter.platform,
+    // ⛔ LORAMER_INCEPTION_EXECUTOR_V1 — FIRST TOUCH: no row = UNKNOWN = discover it NOW. One metered+ledgered
+    // op through the writer's executor (the ONLY executor of INCEPTION_DISCOVERY_GAQL; guard leg (b3)). Every
+    // failure path inside returns null — UNKNOWN never defaults, the composed stop stays honest, and a later
+    // message retries. Sits BELOW the holdGoogleWork gate (step 0) by construction: a held fire never reaches
+    // this line. The injected streamFor is the armed boundary-5 stream, so a quota refusal here arms the
+    // fleet sentinel like every other vendor call on this route. THE RESUMER PASSES `null` HERE — it never
+    // fetches, so it can never be the thing that triggers this.
+    discover: () => discoverAccountInception({ clientId, vendor: adapter.platform, adapter, stream: streamFor }),
   })
+  const walkStop = await resolveWalkStop({
+    clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, facts: stopFacts,
+  })
+  const surfaceWall = walkStop.surfaceWall
   console.log(`[universe-v2] SURFACE WALL ${clientId} ${label}: ` + (surfaceWall
     ? `DISCOVERED ${surfaceWall.wallDate} (${surfaceWall.source}) for THIS resource+segment only — ${surfaceWall.citation.slice(0, 120)}`
     : 'UNKNOWN — no vendor refusal has ever been observed for this resource+segment on this account. This says nothing about other surfaces. The walk continues until the vendor refuses; it does NOT stop on a clock.'))
   // ⛔ THE ONE COMPOSITION SITE — LORAMER_INCEPTION_STOP_V1. Surface wall (vendor refusal, per-surface store)
   // composed with the account inception stop (earliest campaign, per-account store) by composeWalkStop and
-  // NOWHERE ELSE (inception-stop.guard.mjs leg (c)). The held-data min is the safeguard: rows we already
-  // hold outrank the inception claim, so the stop can never orphan ground we can see. Date-only comparison
-  // in the ACCOUNT-TIMEZONE frame — the registry's probe-op-6 row owns that caveat.
-  let inception = await readAccountInception({ clientId, vendor: adapter.platform })
-  // ⛔ LORAMER_INCEPTION_EXECUTOR_V1 — FIRST TOUCH: no row = UNKNOWN = discover it NOW. One metered+ledgered
-  // op through the writer's executor (the ONLY executor of INCEPTION_DISCOVERY_GAQL; guard leg (b3)). Every
-  // failure path inside returns null — UNKNOWN never defaults, the composed stop stays honest, and a later
-  // message retries. Sits BELOW the holdGoogleWork gate (step 0) by construction: a held fire never reaches
-  // this line. The injected streamFor is the armed boundary-5 stream, so a quota refusal here arms the
-  // fleet sentinel like every other vendor call on this route.
-  if (inception === null) {
-    inception = await discoverAccountInception({ clientId, vendor: adapter.platform, adapter, stream: streamFor })
-  }
-  const heldMin = await readEarliestHeldDate(clientId, adapter.platform)
-  const walkStop = composeWalkStop({
-    wallDate: surfaceWall?.wallDate ?? null,
-    inceptionDate: inception?.inceptionDate ?? null,
-    earliestHeldDate: heldMin,
-  })
+  // NOWHERE ELSE (inception-stop.guard.mjs leg (c)) — now reached through `resolveWalkStop` above, which is
+  // itself that one site. The held-data min is the safeguard: rows we already hold outrank the inception
+  // claim, so the stop can never orphan ground we can see. Date-only comparison in the ACCOUNT-TIMEZONE
+  // frame — the registry's probe-op-6 row owns that caveat.
   const floorDate: string | null = walkStop.stopDate
   console.log(`[universe-v2] WALK STOP ${clientId} ${label}: ${walkStop.basis}` +
     (walkStop.inceptionKnown ? '' : ' · ⚠ INCEPTION UNKNOWN — an unbounded walk will REFUSE to advance (walkToEpoch is an explicit operator choice, never a fallback)'))

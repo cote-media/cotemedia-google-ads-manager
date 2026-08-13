@@ -233,6 +233,11 @@ const GUARDS = [
   'tests/guards/google-account-floor.guard.mjs',
   //   · the floor is evaluated at EXECUTE time, never frozen onto a queue message by the publisher
   'tests/guards/universe-floor-execute-time.guard.mjs',
+  // LORAMER_WALK_HORIZON_RECEDES_V1 + LORAMER_RESUMER_SCAN_ROTATES_V1 — the anchor must RECEDE over answered
+  // ground and HOLD over unanswered; the scan must ROTATE across all 346 surfaces; sizing.maxDays ≤
+  // MAX_REQUESTS_PER_RUN keeps the bite bound EXACT; and the resumer may carry no global floor. Driven, not
+  // grepped. Seen RED against the pre-change tree with six findings.
+  'tests/guards/universe-horizon-recedes.guard.mjs',
   //   · a SUCCESSFUL ZERO is NO_DATA_OBSERVED; only a vendor DateRangeError refusal is a wall
   'tests/guards/universe-zero-is-not-a-wall.guard.mjs',
   // LORAMER_SURFACE_SCOPED_WALL_V1 — a wall is scoped account × resource × segment and NEVER account-wide.
