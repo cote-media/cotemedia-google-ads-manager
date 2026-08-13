@@ -3,7 +3,8 @@
   "name": "LORAMER_EVAL_TRUTH_V3",
   "built": "2026-08-13",
   "method": "SQL over metrics_daily via recorded recipes; coverage re-verified by distinct-date counts in-window (all computed windows read FULL days today)",
-  "modelTokens": 0
+  "modelTokens": 0,
+  "revised": "2026-08-13 post-hand-verify: E18 re-anchored to vendor-current, Shopify tolerance 0.5% with basis reason, A5 truth upheld + checklist defect recorded"
  },
  "computed": {
   "A1": {
@@ -36,7 +37,9 @@
     "bathroom remodeling 3560.68",
     "bathfitter 3006.72"
    ],
-   "client": "Bath Fitter"
+   "client": "Bath Fitter",
+   "grain": "ACCOUNT-AGGREGATE across ad groups \u2014 the grain a user means by 'my top keywords'",
+   "note": "VERIFIED CORRECT 2026-08-13. Russ's UI reading ('bathroom remodeling' $2,776.00) EXISTS IN OUR ROWS TO THE CENT as a single keyword-criterion row. 'bath fitters' is SIX distinct keyword criteria across six ACTIVE campaigns summing to $8,649.60; no single row reaches that. The CHECKLIST INSTRUCTION was the defect \u2014 it told Russ to sort a per-criterion table, a different grain from the question. Capture correct, truth correct, verification method wrong."
   },
   "A8": {
    "expected": [
@@ -142,7 +145,9 @@
     361504.79,
     1612
    ],
-   "note": "shopify 2025-11 rev/orders vs 2024-11; AOV derivable 218.72 vs 224.26"
+   "note": "shopify 2025-11 rev/orders vs 2024-11; AOV derivable 218.72 vs 224.26",
+   "tolerancePct": 0.5,
+   "tolReason": "REFUND-DATE BASIS DIFFERENCE, not a defect: ours books a refund on the ORDER's date (net = currentSubtotal - totalRefunded); Shopify admin books the return on the DAY IT HAPPENED. One mechanism, both signs (Nov-2025 ours low $660.15; Q2-2025 ours high $44.18). Identical over all time; differs at period edges."
   },
   "C18": {
    "expected": [
@@ -166,7 +171,9 @@
    "expected": [
     117840.0
    ],
-   "note": "shopify NET Q2-2025; GA4 revenue half recipe-ready (sum revenue platform=ga)"
+   "note": "shopify NET Q2-2025; GA4 revenue half recipe-ready (sum revenue platform=ga)",
+   "tolerancePct": 0.5,
+   "tolReason": "REFUND-DATE BASIS DIFFERENCE, not a defect: ours books a refund on the ORDER's date (net = currentSubtotal - totalRefunded); Shopify admin books the return on the DAY IT HAPPENED. One mechanism, both signs (Nov-2025 ours low $660.15; Q2-2025 ours high $44.18). Identical over all time; differs at period edges."
   },
   "E6": {
    "expected": [
@@ -178,9 +185,11 @@
   "E18": {
    "expected": [
     142058.67,
-    261498.57
+    261472.11
    ],
-   "note": "Bath Fitter google Q2-2025 vs Q2-2026 (+84% spend, conv 347\u21922343); Foam OH incomplete both Q2s, Influential from 2026-04 only \u2014 correct answer names the asymmetry"
+   "note": "Q2-2026 value REPLACED 2026-08-13 with the VENDOR-CURRENT figure measured by one GAQL op ($261,472.11 \u2014 matches Russ's UI to the cent). Our captured row read $261,498.57, frozen $26.46 high by Google's retroactive invalid-traffic adjustment. Conversions ALSO drifted 2,343.3 -> 2,440.9 (+4.2%) via the 90-day conversion tail.",
+   "tolerancePct": 0.05,
+   "tolReason": "recent-window Google cost restates downward after capture (support.google.com/google-ads/answer/7457111); 0.05% absorbs it without hiding a real defect"
   }
  },
  "recipe_ready": {
@@ -213,5 +222,14 @@
   "B8",
   "B10",
   "B11"
- ]
+ ],
+ "certified": {
+  "meta": "spend to the cent; purchases alias family within tolerance",
+  "google_settled_windows": "A1/C1/E1 agree to two cents \u2014 capture pipeline verified on settled windows"
+ },
+ "open_before_baseline": {
+  "GA4_jul2026": "CAPTURE DEFECT \u2014 account rows captured at 1.3-day lag; GA4 not final. Ours 1,817 vs 1,915. Needs the GA restatement sweep; question tolerance cannot paper over it.",
+  "GA4_fy2025": "UNDETERMINED (+0.41%) \u2014 captured settled at 338-day lag. Awaiting Russ's GA4 Engagement-Overview reading for the same window.",
+  "shopify_returns_check": "Awaiting Russ's Shopify Returns column for Nov 2025 to confirm the refund-basis mechanism outright."
+ }
 }

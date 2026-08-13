@@ -408,11 +408,12 @@
    "dateRange": "LAST_30_DAYS",
    "message": "How many sessions did the site get in July 2026?",
    "assert": {
-    "type": "number",
+    "type": "ungraded",
     "expected": 1817,
     "tolerancePct": 1,
     "label": "ga sessions 2026-07 via extra->>sessions",
-    "truthRecipe": "truth-v3.json"
+    "truthRecipe": "truth-v3.json",
+    "truthSource": "HELD \u2014 GA4 family not certified (capture-lag defect + undetermined FY2025 delta). Restore when the GA restatement sweep lands and Russ re-reads."
    },
    "coverageDerivation": "Foam OH ga base COMPLETE 2026-07 (31 complete months, unbroken 2024-01..2026-07)."
   },
@@ -805,8 +806,9 @@
      361504.79,
      1612
     ],
-    "tolerancePct": 2,
-    "truthRecipe": "truth-v3.json"
+    "tolerancePct": 0.5,
+    "truthRecipe": "truth-v3.json",
+    "tolReason": "REFUND-DATE BASIS DIFFERENCE, not a defect: ours books a refund on the ORDER's date (net = currentSubtotal - totalRefunded); Shopify admin books the return on the DAY IT HAPPENED. One mechanism, both signs (Nov-2025 ours low $660.15; Q2-2025 ours high $44.18). Identical over all time; differs at period edges."
    },
    "coverageDerivation": "MOVED OFF 2023 (outside verified range). Foam OH shopify base COMPLETE for both 2024-11 and 2025-11."
   },
@@ -904,13 +906,14 @@
    "dateRange": "LAST_30_DAYS",
    "message": "GA4 sessions 2025 versus 2024, full year.",
    "assert": {
-    "type": "numbers",
+    "type": "ungraded",
     "expected": [
      791628,
      552253
     ],
     "tolerancePct": 2,
-    "truthRecipe": "truth-v3.json"
+    "truthRecipe": "truth-v3.json",
+    "truthSource": "HELD \u2014 GA4 family not certified (capture-lag defect + undetermined FY2025 delta). Restore when the GA restatement sweep lands and Russ re-reads."
    },
    "coverageDerivation": "BOTH FULL YEARS ARE COMPLETE: Foam OH ga base-complete for all 12 months of 2024 and all 12 of 2025. The only full-year-vs-full-year comparison in the set that is fully anchored."
   },
@@ -1337,8 +1340,9 @@
     "expected": [
      117840.0
     ],
-    "tolerancePct": 2,
-    "truthRecipe": "truth-v3.json"
+    "tolerancePct": 0.5,
+    "truthRecipe": "truth-v3.json",
+    "tolReason": "REFUND-DATE BASIS DIFFERENCE, not a defect: ours books a refund on the ORDER's date (net = currentSubtotal - totalRefunded); Shopify admin books the return on the DAY IT HAPPENED. One mechanism, both signs (Nov-2025 ours low $660.15; Q2-2025 ours high $44.18). Identical over all time; differs at period edges."
    },
    "notes": "GA4 runs 8\u201311% below Shopify most months; different bases, neither wrong.",
    "coverageDerivation": "ga and shopify both base-COMPLETE for 2025-04/05/06."
@@ -1522,10 +1526,11 @@
     "type": "numbers",
     "expected": [
      142058.67,
-     261498.57
+     261472.11
     ],
-    "tolerancePct": 2,
-    "truthRecipe": "truth-v3.json"
+    "tolerancePct": 0.05,
+    "truthRecipe": "truth-v3.json",
+    "tolReason": "recent-window Google cost restates downward after capture (support.google.com/google-ads/answer/7457111); 0.05% absorbs it without hiding a real defect"
    },
    "coverageDerivation": "Bath Fitter google is COMPLETE for both quarters; Foam OH google is complete for neither Q2; Influential only from 2026-04. A correct answer names the asymmetry rather than ranking three clients on unequal coverage."
   },

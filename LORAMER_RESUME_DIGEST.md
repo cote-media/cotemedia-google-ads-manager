@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-13T21:44:22.438Z
-- built_from HEAD: 992c52f507fe82554e379657127c25ba3668d521  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-13T23:43:48.352Z
+- built_from HEAD: f35767468e045dd003a9623cdc0fa22f56e70620  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 1cec05f6e1ca83ae7bee5438fe5b5ee1993549678695ddd576e6398f09b79837
     - LORAMER_DECISIONS.md: 946e742ecf9540ec8557bcf2495e27b7cc04d4232fa9988dd8b7fc12136dba1c
-    - LORAMER_QUEUE_OF_RECORD.md: 85b75870cd5e45b6bae9cf8e9e33e3ecb5402c3cf709f0bedcdfedda9dd9a3c2
+    - LORAMER_QUEUE_OF_RECORD.md: 3b28582bae045bc6602d4b6f0794f0bc0f3200bedfe8479564dfc763af3a48a7
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1954,8 +1954,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 790 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
-122 decision-only · 346 queue-only.
+TOTALS: 793 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
+122 decision-only · 349 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 166 DECISIONS entries and
 267 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2122,6 +2122,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GA-DIMENSIONAL-FALSE-COMPLETE — OPEN · decisions 1 · queue 1 · last 2026-07-30
 - ★GA-JULY-2026-SINGLE-DAY-DROPS — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★GA-RECOVER-SUBMONTH-WINDOW — OPEN · decisions 0 · queue 2 · last 2026-07-30
+- ★GA-RESTATEMENT-SWEEP-MISSING — DONE · decisions 0 · queue 1 · last 2026-08-13
 - ★GA-TOKEN-ROW-PHANTOM-WRITER — OPEN · decisions 0 · queue 3 · last 2026-07-30
 - ★GA4-RETENTION-WALL-UNESTABLISHED — OPEN · decisions 0 · queue 3 · last 2026-08-01
 - ★GAQL-OP-COUNT-DISCREPANCY — OPEN · decisions 1 · queue 2 · last 2026-09-30
@@ -2149,6 +2150,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GOOGLE-SEARCH-TERM-FLOOR-RECOVERY — OPEN · decisions 0 · queue 3 · last 2026-08-01
 - ★GOOGLE-SEARCH-TERM-RETENTION-WALL — OPEN · decisions 1 · queue 3 · last 2026-08-01
 - ★GOOGLE-V25-UPGRADE — OPEN · decisions 0 · queue 1 · last 2026-07-27
+- ★GOOGLE-WIDEN-30D-TOO-SHORT-FOR-CONVERSIONS — DONE · decisions 0 · queue 1 · last 2026-08-13
 - ★GRAIN-RETENTION-AUDIT — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★GUARD-BREAK-AND-RESTORE-IS-UNSAFE — OPEN · decisions 8 · queue 3 · last 2026-08-11
 - ★GUARD-IGNORES-LORAMER-GUARD-ROOT — OPEN · decisions 4 · queue 2 · last 2026-08-07
@@ -2685,6 +2687,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_RECONCILE_DAY_V1 — DONE · decisions 0 · queue 1 · last 2026-06-26
 - LORAMER_RECONCILE_ZERO_DELIVERY_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-13
 - LORAMER_REPORT_TRANSFER_DEFECT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-18
+- LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — DONE · decisions 0 · queue 1 · last 2026-08-13
 - LORAMER_RESTATEMENT_WINDOW_LAW_V1 — OPEN · decisions 6 · queue 4 · last 2026-08-05
 - LORAMER_RESUME_DIGEST_FRESHNESS_GUARD_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_RESUME_MUST_ADVANCE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-05
