@@ -52,6 +52,10 @@ const CHECKS = [
   { name: 'check-doc-ownership-data', cmd: ['scripts/check-doc-ownership-data.mjs'] },
   { name: 'check-drain-throttle', cmd: ['scripts/check-drain-throttle.mjs', '--guard'] },
   { name: 'check-parent-analyze', cmd: ['scripts/check-parent-analyze.mjs', '--gate'] },
+  // LORAMER_RPC_GRANT_POSTURE_V1 — the LIVE-ACL half. The build guard reads migration source and runs on
+  // Vercel with no database; this reads pg_proc and is the only half that can see a GRANT typed by hand
+  // straight into the SQL editor, which leaves no trace in migrations/.
+  { name: 'check-rpc-grant-posture', cmd: ['scripts/check-rpc-grant-posture.mjs'] },
   { name: 'google-op-budget', cmd: ['tests/guards/google-op-budget.guard.mjs', '--db'] },
   { name: 'universe-failure-is-durable', cmd: ['tests/guards/universe-failure-is-durable.guard.mjs', '--db'] },
   { name: 'universe-attempt-append-only', cmd: ['tests/guards/universe-attempt-append-only.guard.mjs', '--db'] },

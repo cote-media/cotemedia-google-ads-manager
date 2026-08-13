@@ -238,6 +238,11 @@ const GUARDS = [
   // MAX_REQUESTS_PER_RUN keeps the bite bound EXACT; and the resumer may carry no global floor. Driven, not
   // grepped. Seen RED against the pre-change tree with six findings.
   'tests/guards/universe-horizon-recedes.guard.mjs',
+  // LORAMER_RPC_GRANT_POSTURE_V1 — a function added to `public` may not be born anon-callable.
+  // `revoke … from public` does NOT remove anon/authenticated (Supabase grants them by name), which is how
+  // 15 of 21 public functions came to be anon-callable — including a SECURITY DEFINER writer into the walk's
+  // own spend ledger. SOURCE half here; the live-ACL half is check-rpc-grant-posture in check:data.
+  'tests/guards/rpc-grant-posture.guard.mjs',
   //   · a SUCCESSFUL ZERO is NO_DATA_OBSERVED; only a vendor DateRangeError refusal is a wall
   'tests/guards/universe-zero-is-not-a-wall.guard.mjs',
   // LORAMER_SURFACE_SCOPED_WALL_V1 — a wall is scoped account × resource × segment and NEVER account-wide.
