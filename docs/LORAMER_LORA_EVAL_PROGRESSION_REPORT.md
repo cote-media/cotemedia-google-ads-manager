@@ -14,6 +14,12 @@
 > reference in §8 is the same single account. **All figures are real and unaltered** — redaction removes
 > identity, never evidence.
 >
+> QUEUE-EXEMPT: this is a RECORD of measured evaluation results, not planned-but-unbuilt work — every open
+> item it names is owned by its own LORAMER_QUEUE_OF_RECORD.md entry (the §8.9 ranked list maps 1:1 onto
+> ★ENTITY-NAME-AND-GRAIN-UNREACHABLE / ★FALSE-ZERO-ON-UNCOVERED-WINDOW / ★MISCAVEATED-VENDOR-RETENTION /
+> ★EXTRA-METRICS-NONGA-UNVERIFIED), so a queue entry for the report itself would be the copy the ownership
+> gate forbids.
+>
 > **APPEND, DO NOT REWRITE.** Where a measurement was later found unreliable, both the original and the
 > correction are retained rather than the record being amended silently. §2.3 and §8.6 are both examples.
 
