@@ -409,11 +409,8 @@
    "message": "How many sessions did the site get in July 2026?",
    "assert": {
     "type": "ungraded",
-    "expected": 1817,
-    "tolerancePct": 1,
-    "label": "ga sessions 2026-07 via extra->>sessions",
-    "truthRecipe": "truth-v3.json",
-    "truthSource": "HELD \u2014 GA4 family not certified (capture-lag defect + undetermined FY2025 delta). Restore when the GA restatement sweep lands and Russ re-reads."
+    "truthSource": "CERTIFIED TRUTH 1,915 (GA4 range total, Russ 2026-08-13 grain call). HELD: stored per-day capture reads 1,817 (freshness defect) \u2014 \u2605GA-RESTATEMENT-SWEEP-MISSING.",
+    "certifiedTruth": 1915
    },
    "coverageDerivation": "Foam OH ga base COMPLETE 2026-07 (31 complete months, unbroken 2024-01..2026-07)."
   },
@@ -907,13 +904,11 @@
    "message": "GA4 sessions 2025 versus 2024, full year.",
    "assert": {
     "type": "ungraded",
-    "expected": [
-     791628,
-     552253
-    ],
-    "tolerancePct": 2,
-    "truthRecipe": "truth-v3.json",
-    "truthSource": "HELD \u2014 GA4 family not certified (capture-lag defect + undetermined FY2025 delta). Restore when the GA restatement sweep lands and Russ re-reads."
+    "truthSource": "CERTIFIED TRUTH 549,971 (2025) / 799,881 (2024) \u2014 GA4 range totals per the grain call. HELD: Lora sums per-day (552,253 / 791,628) \u2014 \u2605GA-SESSIONS-PERDAY-SUM-NE-RANGE-TOTAL + FY2024 shortfall.",
+    "certifiedTruth": [
+     549971,
+     799881
+    ]
    },
    "coverageDerivation": "BOTH FULL YEARS ARE COMPLETE: Foam OH ga base-complete for all 12 months of 2024 and all 12 of 2025. The only full-year-vs-full-year comparison in the set that is fully anchored."
   },
@@ -1758,8 +1753,9 @@
    "anchor": "B1",
    "assert": {
     "type": "number",
-    "expected": 1817,
-    "tolerancePct": 2
+    "expected": 1915,
+    "tolerancePct": 2,
+    "tolReason": "re-anchored to the GA4 RANGE total per the 2026-08-13 grain call"
    },
    "message": "how many site visits last july?",
    "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252",

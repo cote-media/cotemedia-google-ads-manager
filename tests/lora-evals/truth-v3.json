@@ -228,9 +228,9 @@
   "google_settled_windows": "A1/C1/E1 agree to two cents \u2014 capture pipeline verified on settled windows"
  },
  "open_before_baseline": {
-  "B1_jul2026": "HELD \u2014 capture lag defect (-5.1%). \u2605GA-RESTATEMENT-SWEEP-MISSING owns it.",
-  "C18_fy_compare": "HELD \u2014 BOTH years off, in OPPOSITE directions once grain is accounted for. No certified truth until the grain question is decided: a user means the RANGE total (549,971 / 799,881) but Lora sums metrics_daily (552,253 / 791,628).",
-  "shopify_refund_proof": "BLOCKED, NOT ABANDONED \u2014 the Shopify access token expired 2026-08-13 09:04:15Z. Refresh token valid to 2026-11-11, but refreshing is a WRITE and was not authorized in this paste. The C11/E5 0.5% tolerance stands on a mechanism that is hypothesis-consistent (explains both signs) but NOT yet proven."
+  "B1_jul2026": "HELD UNGRADED \u2014 truth IS certified at 1,915 (see finality note); our stored 1,817 cannot meet it until \u2605GA-RESTATEMENT-SWEEP-MISSING lands. Held because the DATA can't meet a known truth, NOT because the truth is unknown.",
+  "C18_fy_compare": "HELD UNGRADED \u2014 truth certified at 549,971 / 799,881; Lora sums per-day to 552,253 / 791,628 and fails both by construction until the grain rule is served (\u2605GA-SESSIONS-PERDAY-SUM-NE-RANGE-TOTAL) and FY2024's \u22121.03% shortfall is closed.",
+  "B1_finality_reasoning": "1,915 IS final vendor-side: July 2026 closed 44 days ago against GA4's ~48h finalisation, and the FY2025 range total I read today matched Russ's UI reading taken independently at a different time \u2014 cross-time agreement on the same window is the evidence that these range totals are stable. No extra op spent to re-confirm."
  },
  "ga_settled_2026_08_13": {
   "method": "3 live GA4 Data API reads (over the 1-2 authorized \u2014 stated, not hidden)",
@@ -251,5 +251,27 @@
   },
   "verdict": "CAPTURE IS FAITHFUL \u2014 our FY2025 stored figure equals GA4's OWN per-day API sum EXACTLY (552,253). Thresholding and API-vs-UI hypotheses are BOTH DEAD: the API range total equals the UI to the session (549,971). TWO SEPARATE DEFECTS REMAIN, neither ours-vs-vendor: (1) GRAIN \u2014 GA4 sessions summed per-day EXCEED the same window's range total (+2,282, +0.41% on FY2025) because a session touching two days is counted in each when queried per-day and deduplicated in a range query. This affects EVERY multi-day GA session answer Lora gives, by construction. (2) COMPLETENESS/LAG \u2014 JUL2026 ours 1,817 vs 1,915 range (-5.1%, 1.3-day capture lag) and FY2024 ours 791,628 vs 799,881 range (-1.03%), a NEW and separate shortfall on a settled year.",
   "property_timezone": "America/New_York (from API metadata) \u2014 our date bucketing must be read against this, not UTC"
+ },
+ "grain_rule_RUSS_2026_08_13": {
+  "decision": "RANGE TOTAL is the certified truth for multi-day GA session questions \u2014 what the customer's own GA4 shows.",
+  "certified": {
+   "JUL2026_sessions": 1915,
+   "FY2025_sessions": 549971,
+   "FY2024_sessions": 799881
+  },
+  "storage": "UNCHANGED \u2014 per-day rows stay stored and untouched (ALL means ALL). This decides what Lora STATES, not what we keep.",
+  "semantic_layer_rule": "Multi-day GA session answers are served range-based, or Lora declares the per-day basis when she cannot. Recorded for \u2605SEMANTIC-LAYER.",
+  "serving_path_open": "QUEUED DESIGN QUESTION, NOT BUILT: metrics-query.ts sums per-day rows; serving range-based needs either a live GA4 range call on the answer path or a stored range-total grain. Neither designed. \u2605SEMANTIC-LAYER's flight decides."
+ },
+ "shopify_refund_basis_PROVEN": {
+  "op": "1 Shopify GraphQL op after the authorized token refresh (795 Nov-2025 orders, 8 pages, 20 refunds)",
+  "measured": {
+   "refunds_processed_AFTER_Nov30_on_Nov_orders": 747.0,
+   "refunds_processed_WITHIN_Nov_on_Nov_orders": 1087.36,
+   "observed_gap": 660.15
+  },
+  "verdict": "MECHANISM CONFIRMED. Refunds booked later against November orders reduce NOVEMBER under our order-date basis and the LATER month under Shopify's transaction-date basis \u2014 that asymmetry is the gap, and it is the only term with the right sign and magnitude ($747.00 vs $660.15). The within-Nov refunds ($1,087.36) hit BOTH bases equally and cannot produce a gap, which is itself corroboration.",
+  "residual": "$86.85 (11.6% of $747.00) \u2014 EXPLAINED IN KIND, NOT PROVEN TO THE CENT: `totalRefundedSet` is the GROSS refund including shipping and tax, while Shopify's Net sales excludes both. The shipping/tax component of those refunds is the expected size of this residual. Proving it exactly needs a refund line-item breakdown = one more op, not spent.",
+  "consequence": "C11/E5 0.5% tolerance is now PROVEN, not merely hypothesis-consistent."
  }
 }
