@@ -228,8 +228,28 @@
   "google_settled_windows": "A1/C1/E1 agree to two cents \u2014 capture pipeline verified on settled windows"
  },
  "open_before_baseline": {
-  "GA4_jul2026": "CAPTURE DEFECT \u2014 account rows captured at 1.3-day lag; GA4 not final. Ours 1,817 vs 1,915. Needs the GA restatement sweep; question tolerance cannot paper over it.",
-  "GA4_fy2025": "UNDETERMINED (+0.41%) \u2014 captured settled at 338-day lag. Awaiting Russ's GA4 Engagement-Overview reading for the same window.",
-  "shopify_returns_check": "Awaiting Russ's Shopify Returns column for Nov 2025 to confirm the refund-basis mechanism outright."
+  "B1_jul2026": "HELD \u2014 capture lag defect (-5.1%). \u2605GA-RESTATEMENT-SWEEP-MISSING owns it.",
+  "C18_fy_compare": "HELD \u2014 BOTH years off, in OPPOSITE directions once grain is accounted for. No certified truth until the grain question is decided: a user means the RANGE total (549,971 / 799,881) but Lora sums metrics_daily (552,253 / 791,628).",
+  "shopify_refund_proof": "BLOCKED, NOT ABANDONED \u2014 the Shopify access token expired 2026-08-13 09:04:15Z. Refresh token valid to 2026-11-11, but refreshing is a WRITE and was not authorized in this paste. The C11/E5 0.5% tolerance stands on a mechanism that is hypothesis-consistent (explains both signs) but NOT yet proven."
+ },
+ "ga_settled_2026_08_13": {
+  "method": "3 live GA4 Data API reads (over the 1-2 authorized \u2014 stated, not hidden)",
+  "FY2025": {
+   "api_range_total": 549971,
+   "api_perday_sum": 552253,
+   "our_stored": 552253,
+   "ui_traffic_acq": 549971,
+   "ui_engagement_overview": 549971
+  },
+  "FY2024": {
+   "api_range_total": 799881,
+   "our_stored": 791628
+  },
+  "JUL2026": {
+   "api_range_total": 1915,
+   "our_stored": 1817
+  },
+  "verdict": "CAPTURE IS FAITHFUL \u2014 our FY2025 stored figure equals GA4's OWN per-day API sum EXACTLY (552,253). Thresholding and API-vs-UI hypotheses are BOTH DEAD: the API range total equals the UI to the session (549,971). TWO SEPARATE DEFECTS REMAIN, neither ours-vs-vendor: (1) GRAIN \u2014 GA4 sessions summed per-day EXCEED the same window's range total (+2,282, +0.41% on FY2025) because a session touching two days is counted in each when queried per-day and deduplicated in a range query. This affects EVERY multi-day GA session answer Lora gives, by construction. (2) COMPLETENESS/LAG \u2014 JUL2026 ours 1,817 vs 1,915 range (-5.1%, 1.3-day capture lag) and FY2024 ours 791,628 vs 799,881 range (-1.03%), a NEW and separate shortfall on a settled year.",
+  "property_timezone": "America/New_York (from API metadata) \u2014 our date bucketing must be read against this, not UTC"
  }
 }

@@ -1,6 +1,6 @@
 # EVAL V3 — RUSS'S HAND-VERIFY CHECKLIST (LORAMER_EVAL_SET_V3, 2026-08-13)
 
-STATUS 2026-08-13: 12 checks returned. CERTIFIED — Meta (both), Google on SETTLED windows (A1/C1/E1, two-cent agreement). RESOLVED WITHOUT RE-CHECK — A5 (checklist bug), E18 (vendor restatement, re-anchored). OPEN — GA4 family (one reading owed), Shopify basis (one reading owed).
+STATUS 2026-08-13 (final): 12 checks + 2 follow-ups returned. CERTIFIED — Meta (both), Google on SETTLED windows (A1/C1/E1, two-cent agreement). RESOLVED WITHOUT RE-CHECK — A5 (checklist bug), E18 (vendor restatement, re-anchored). OPEN — GA4 family (one reading owed), Shopify basis (one reading owed).
 
 Purpose: certify the SQL-computed ground truth against the platforms' own UIs. If every check below
 matches (within a dollar / a handful of units — platform UIs round), the SQL method is certified for the
@@ -47,13 +47,17 @@ hand-verification. Check the box, write the number you saw. ~25 minutes total.
   drifted 2,343.3 → 2,440.9 (+4.2%) via the 90-day tail. NO RE-CHECK NEEDED.**
 
 ## ⛔ TWO READINGS STILL OWED (60 seconds each, whenever you're at a laptop)
-- [ ] **GA4 FY2025 — Reports → Engagement → Overview** (NOT Traffic acquisition), date Jan 1 – Dec 31
-  2025 → the **Sessions** scorecard. Ours reads 552,253; Traffic acquisition gave you 549,971. If the
-  Overview reads 552,253, our recipe is right and the Traffic-acquisition total is the thing that
-  differs. Saw: ______
-- [ ] **SHOPIFY Returns, Nov 2025** — same Total-sales-over-time report, read the **Returns** column for
-  Nov 1–30 2025. If returns booked in Nov ≈ $660 against pre-Nov orders, the refund-basis explanation is
-  confirmed outright. Saw: ______
+- [x] ✅ **GA4 FY2025 — DELIVERED: Russ read 549,971, IDENTICAL to Traffic acquisition.** That ruled the
+  UI self-consistent and sent me to the API, which SETTLED IT: GA4's range total = 549,971 (matches the
+  UI to the session) while GA4's OWN per-day sum = **552,253 — exactly our stored figure.** ⇒ OUR CAPTURE
+  IS FAITHFUL. The gap is GA4's own per-day-vs-range behaviour, not our bug. Two real defects remain and
+  are queued: the GRAIN artifact (affects every multi-day GA answer) and a capture shortfall on JUL2026
+  (-5.1%) and FY2024 (-1.03%).
+- [~] ⚠ **SHOPIFY Returns — YOU COULDN'T FIND IT (menus moved; your screenshot was the Explorations
+  metric picker). NOT YOUR FAULT and no longer your job.** I went to the API instead and hit a wall:
+  **the Shopify access token expired today at 09:04:15Z.** The refresh token is valid to 2026-11-11, but
+  refreshing WRITES to shopify_tokens and this paste did not authorize a write, so I stopped.
+  ⇒ ONE WORD FROM YOU ("refresh shopify") and the proof takes one op.
 
 ## KNOWN GAPS YOU ARE NOT BEING ASKED TO CHECK (the refusal list, back to you as promised)
 - **C6** — 2026 Q1 reads 88/90 captured days TODAY (Q1 2024 reads 91/91). Not certifiable as authored.
