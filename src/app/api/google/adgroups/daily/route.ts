@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { GoogleAdsApi } from 'google-ads-api'
+import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 
 export async function GET(request: Request) {
   const session = await getServerSession(authOptions) as any
@@ -28,33 +29,12 @@ export async function GET(request: Request) {
     login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
   })
 
-  let dateFilter: string
-  if (customStart && customEnd) {
-    dateFilter = `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-  } else {
-    if (dateRange === 'LAST_90_DAYS') {
-      const end = new Date(); end.setDate(end.getDate() - 1);
-      const start = new Date(); start.setDate(start.getDate() - 90);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
-    } else {
-      if (dateRange === 'LAST_90_DAYS') {
-
-        const end = new Date(); end.setDate(end.getDate() - 1);
-
-        const start = new Date(); start.setDate(start.getDate() - 90);
-
-        const fmtD = (d: Date) => d.toISOString().split('T')[0];
-
-        dateFilter = `segments.date BETWEEN '${fmtD(start)}' AND '${fmtD(end)}'`;
-
-      } else {
-
-        dateFilter = `segments.date DURING ${dateRange}`;
-
-      };
-    }
-  }
+  // LORAMER_GAQL_DATE_WINDOW_V1 — replaced a DOUBLY-NESTED copy of the same LAST_90_DAYS special case (a
+  // paste artifact: the identical if/else pasted inside its own else) whose final branch was still
+  // `DURING ${dateRange}` — the hard-error path for CUSTOM. Per-route date math is exactly what Lesson 19
+  // bans; one resolver, explicit BETWEEN.
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart || undefined, customEnd || undefined)
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 
   const segmentField = granularity === 'week' ? 'segments.week'
     : granularity === 'month' ? 'segments.month'

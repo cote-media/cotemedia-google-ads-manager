@@ -6,6 +6,7 @@ import { fetchMetaCampaigns } from '@/lib/platforms/meta'
 import { buildCombinedData } from '@/lib/platforms/combined'
 import { GoogleAdsApi } from 'google-ads-api'
 import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
+import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 import { normalizeGoogleStatus } from '@/lib/platforms/types'
 import type { Campaign, PlatformData, PlatformTotals } from '@/lib/platforms/types'
 
@@ -31,19 +32,11 @@ async function fetchGoogleData(
     login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID!,
   })
 
-  let dateFilter: string
-  if (customStart && customEnd) {
-    dateFilter = `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-  } else {
-    if (dateRange === 'LAST_90_DAYS') {
-      const end = new Date(); end.setDate(end.getDate() - 1);
-      const start = new Date(); start.setDate(start.getDate() - 90);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
-    } else {
-      dateFilter = `segments.date DURING ${dateRange}`;
-    }
-  }
+  // LORAMER_GAQL_DATE_WINDOW_V1 — was a per-route LAST_90_DAYS special case with a `DURING ${dateRange}`
+  // tail: CUSTOM (sent by the UI before both date inputs are filled) hit `DURING CUSTOM`, a hard GAQL error
+  // the Campaigns tab rendered as an empty table. One resolver, explicit BETWEEN (Lesson 19).
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 
   // LORAMER_GOOGLE_GAQL_RETRY_V1 — retry transient deadline/internal/unavailable on the deep-window query
   // LORAMER_RMF_REPORTING_DEFAULTS_V1 — `metrics.all_conversions` added for RMF R.20 (Campaign) and, because this

@@ -279,6 +279,10 @@ const GUARDS = [
   // localStorage column preference, and pinned to the live adapter gate. Static; the live half is
   // scripts/rmf-adapter-gate.mjs, which spends real quota and stays off the build path.
   'tests/guards/rmf-reporting-defaults.guard.mjs',
+  // LORAMER_GAQL_DATE_WINDOW_V1 — no GAQL query may interpolate a preset into DURING (LAST_90_DAYS/CUSTOM are
+  // not GAQL enums; the error renders as 0 rows). Tree-wide zero + the eight fixed files stay on the ONE
+  // resolver + the resolver's CUSTOM guard + /api/campaigns forwards customs. Shipped 8 times before this.
+  'tests/guards/gaql-date-window.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

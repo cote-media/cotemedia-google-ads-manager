@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { GoogleAdsApi } from 'google-ads-api'
+import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 
 function getCustomer(refreshToken: string, customerId: string) {
   const client = new GoogleAdsApi({
@@ -29,9 +30,10 @@ export async function GET(request: Request) {
 
   if (!accountId || !adGroupId) return NextResponse.json({ error: 'accountId and adGroupId required' }, { status: 400 })
 
-  const dateFilter = customStart && customEnd
-    ? `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-    : `segments.date DURING ${dateRange}`
+  // LORAMER_GAQL_DATE_WINDOW_V1 — same defect + fix as /api/google/adgroups: DURING breaks on
+  // LAST_90_DAYS/CUSTOM, the drill caller swallows the 500 as 0 ads. One resolver, explicit BETWEEN.
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart || undefined, customEnd || undefined)
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 
   try {
     const customer = getCustomer(session.refreshToken, accountId)

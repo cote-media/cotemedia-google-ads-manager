@@ -26,6 +26,12 @@
 //
 // USAGE
 //   node scripts/rmf-adapter-gate.mjs --client <clientId> [--window YYYY-MM-DD..YYYY-MM-DD]
+//   node scripts/rmf-adapter-gate.mjs --client <clientId> --drill
+//     --drill (LORAMER_GAQL_DATE_WINDOW_V1): validates the CORRECTED ad-group + ad drill GAQL — the exact
+//     SELECT/WHERE shape /api/google/adgroups and /api/google/ads now emit — against the live API on the
+//     resolver-produced windows for LAST_90_DAYS and a CUSTOM range. ~5 ops (1 campaign-id discovery + 4
+//     window probes). The DURING form these queries used to emit is a hard vendor error on both ranges;
+//     this proves the replacement is accepted and returns rows where rows exist.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -88,11 +94,87 @@ async function main() {
   const api = new GoogleAdsApi({ client_id: process.env.GOOGLE_CLIENT_ID, client_secret: process.env.GOOGLE_CLIENT_SECRET, developer_token: process.env.GOOGLE_ADS_DEVELOPER_TOKEN })
   const customer = api.Customer({ customer_id: String(conn.account_id), refresh_token: refresh, login_customer_id: process.env.GOOGLE_ADS_MANAGER_ACCOUNT_ID })
 
-  console.log(`[rmf-adapter-gate] account ${conn.account_id} (${conn.account_name || 'unnamed'}) · window ${start}..${end}`)
-  console.log(`[rmf-adapter-gate] 2 vendor requests will be spent (1 op each, Basic cap 15,000/day).`)
-
   const reason = (e) => { const m = e?.errors?.[0] ?? e; return JSON.stringify(m?.error_code ? { error_code: m.error_code, message: m.message } : String(e?.message || e)).slice(0, 500) }
   const probes = []
+
+  // ── --drill (LORAMER_GAQL_DATE_WINDOW_V1): the corrected drill GAQL on the two ranges DURING broke on ──────
+  if (argv.includes('--drill')) {
+    // The resolver's own arithmetic, mirrored (this .mjs cannot import the TS resolver): LAST_90_DAYS =
+    // yesterday-89 .. yesterday, exactly src/lib/date-range.ts:70-74. CUSTOM = a fixed settled month.
+    const iso = (d) => d.toISOString().slice(0, 10)
+    const y = new Date(Date.now() - 86400000)
+    const l90 = { label: 'LAST_90_DAYS(resolved)', start: iso(new Date(y.getTime() - 89 * 86400000)), end: iso(y) }
+    const custom = { label: 'CUSTOM(2026-05-01..2026-05-31)', start: '2026-05-01', end: '2026-05-31' }
+    console.log(`[rmf-adapter-gate] --drill · account ${conn.account_id} (${conn.account_name || 'unnamed'}) · ~5 vendor requests (Basic cap 15,000/day).`)
+
+    let campaignId = null
+    try {
+      // GAQL requires ORDER BY fields to be in the SELECT (query_error 16 on first run — instrument, not product).
+      const rows = await customer.query(`SELECT campaign.id, metrics.cost_micros FROM campaign WHERE segments.date BETWEEN '${l90.start}' AND '${l90.end}' AND campaign.status != 'REMOVED' ORDER BY metrics.cost_micros DESC LIMIT 1`)
+      campaignId = rows[0]?.campaign?.id ? String(rows[0].campaign.id) : null
+    } catch (e) { console.error(`✗ campaign-id discovery REFUSED: ${reason(e)} — BROKEN INSTRUMENT, not a pass.`); process.exit(2) }
+    if (!campaignId) { console.error('✗ no campaign with spend in the L90 window — cannot exercise the drill on this account. Pick another --client.'); process.exit(2) }
+    console.log(`[rmf-adapter-gate] drill anchor: campaign ${campaignId}`)
+
+    // The EXACT WHERE/SELECT shape the two routes now emit (fields verbatim from the route files).
+    const adgroupsGaql = (w) => `
+      SELECT ad_group.id, ad_group.name, ad_group.status,
+      ad_group.type, ad_group.cpc_bid_micros,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value,
+      metrics.ctr, metrics.average_cpc
+      FROM ad_group
+      WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'
+      AND campaign.id = ${campaignId}
+      AND ad_group.status != 'REMOVED'
+      ORDER BY metrics.cost_micros DESC`
+    const adsGaql = (w, agId) => `
+      SELECT ad_group_ad.ad.id, ad_group_ad.ad.name,
+      ad_group_ad.status, ad_group_ad.ad.type,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.conversions_value,
+      metrics.ctr, metrics.average_cpc
+      FROM ad_group_ad
+      WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'
+      AND ad_group.id = ${agId}
+      AND ad_group_ad.status != 'REMOVED'
+      ORDER BY metrics.cost_micros DESC`
+
+    let adGroupId = null
+    for (const w of [l90, custom]) {
+      try {
+        const rows = await customer.query(adgroupsGaql(w))
+        if (!adGroupId && rows[0]?.ad_group?.id) adGroupId = String(rows[0].ad_group.id)
+        probes.push({ query: `adgroups·${w.label}`, selectable: true, error: null, rowCount: rows.length, delivery: {} })
+        console.log(`[rmf-adapter-gate] adgroups · ${w.label}: ✓ ACCEPTED · ${rows.length} row(s)`)
+      } catch (e) {
+        probes.push({ query: `adgroups·${w.label}`, selectable: false, error: reason(e), rowCount: 0, delivery: {} })
+        console.log(`[rmf-adapter-gate] adgroups · ${w.label}: ⛔ VENDOR REFUSED — ${reason(e)}`)
+      }
+    }
+    if (!adGroupId) { console.error('✗ no ad group returned in either window — the ads half cannot be exercised on this campaign. Findings above still stand.'); }
+    for (const w of adGroupId ? [l90, custom] : []) {
+      try {
+        const rows = await customer.query(adsGaql(w, adGroupId))
+        probes.push({ query: `ads·${w.label}`, selectable: true, error: null, rowCount: rows.length, delivery: {} })
+        console.log(`[rmf-adapter-gate] ads · ${w.label}: ✓ ACCEPTED · ${rows.length} row(s)`)
+      } catch (e) {
+        probes.push({ query: `ads·${w.label}`, selectable: false, error: reason(e), rowCount: 0, delivery: {} })
+        console.log(`[rmf-adapter-gate] ads · ${w.label}: ⛔ VENDOR REFUSED — ${reason(e)}`)
+      }
+    }
+    const dv = decideAdapterGate({ probes })
+    if (!dv.ok) {
+      console.error(`✗ rmf-adapter-gate --drill FAIL — ${dv.failures.length} finding(s):`)
+      for (const f of dv.failures) console.error(`  - ${f}`)
+      process.exit(1)
+    }
+    console.log('✓ rmf-adapter-gate --drill OK — the corrected drill GAQL is ACCEPTED on LAST_90_DAYS and CUSTOM windows.')
+    process.exit(0)
+  }
+
+  console.log(`[rmf-adapter-gate] account ${conn.account_id} (${conn.account_name || 'unnamed'}) · window ${start}..${end}`)
+  console.log(`[rmf-adapter-gate] 2 vendor requests will be spent (1 op each, Basic cap 15,000/day).`)
 
   // ── PROBE 1 · CAMPAIGN (R.20) + ACCOUNT (R.10, summed from campaigns by /api/platform) ───────────────────────
   const campaignGaql = `

@@ -30,10 +30,16 @@ export function resolveDateWindow(
   customEnd?: string,
   now?: Date
 ): { startDate: string; endDate: string } {
-  if ((customStart && customEnd) || dateRange === 'CUSTOM') {
+  // LORAMER_GAQL_DATE_WINDOW_V1 — CUSTOM requires BOTH dates. The old branch returned `customStart!` for
+  // dateRange === 'CUSTOM' even when the dates were absent, so a caller mid-custom-entry (the UI sends
+  // dateRange=CUSTOM before both date inputs are filled) received {undefined, undefined} and emitted
+  // `BETWEEN 'undefined' AND 'undefined'` into GAQL — a vendor error that reads as 0 rows. With either date
+  // missing, CUSTOM now falls through to the default window (same fallback the switch already applies to any
+  // unknown dateRange string). No caller can want a window made of the literal string 'undefined'.
+  if (customStart && customEnd) {
     return {
-      startDate: customStart!,
-      endDate: customEnd!,
+      startDate: customStart,
+      endDate: customEnd,
     }
   }
 

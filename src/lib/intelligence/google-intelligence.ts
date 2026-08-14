@@ -3,20 +3,19 @@
 // Output conforms to PlatformIntelligence schema.
 
 import { GoogleAdsApi, enums } from 'google-ads-api'
+import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
 import { noteGoogleQuotaError, readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import { GoogleQuotaError } from '@/lib/backfill/google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
 
+// LORAMER_GAQL_DATE_WINDOW_V1 — was per-file date math with a `DURING ${dateRange}` tail (a hard GAQL error
+// for any non-enum string; this helper feeds ELEVEN intelligence queries, so one bad preset killed them all
+// at once). One resolver, explicit BETWEEN. For the presets this path actually receives the emitted window is
+// value-identical to the old DURING enum (both exclude today for LAST_N_DAYS), so live behavior is unchanged.
 function buildDateFilter(dateRange: string, customStart?: string, customEnd?: string): string {
-  if (customStart && customEnd) return `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-  if (dateRange === 'LAST_90_DAYS') {
-    const end = new Date(); end.setDate(end.getDate() - 1)
-    const start = new Date(); start.setDate(start.getDate() - 90)
-    const fmt = (d: Date) => d.toISOString().split('T')[0]
-    return `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`
-  }
-  return `segments.date DURING ${dateRange}`
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
+  return `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 }
 
 function buildMetrics(row: any): IntelligenceMetrics {

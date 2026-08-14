@@ -1,4 +1,5 @@
 import { Campaign, PlatformData, PlatformTotals, normalizeGoogleStatus } from './types'
+import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 
 export async function fetchGoogleCampaigns(
   refreshToken: string,
@@ -7,27 +8,11 @@ export async function fetchGoogleCampaigns(
   customStart?: string,
   customEnd?: string
 ): Promise<PlatformData> {
-  // Build date filter
-  let dateFilter: string
-  if (customStart && customEnd) {
-    dateFilter = `segments.date BETWEEN '${customStart}' AND '${customEnd}'`
-  } else {
-    if (dateRange === 'LAST_90_DAYS') {
-      const end = new Date(); end.setDate(end.getDate() - 1);
-      const start = new Date(); start.setDate(start.getDate() - 90);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
-    } else {
-      if (dateRange === 'LAST_90_DAYS') {
-      const end = new Date(); end.setDate(end.getDate() - 1);
-      const start = new Date(); start.setDate(start.getDate() - 90);
-      const fmt = (d: Date) => d.toISOString().split('T')[0];
-      dateFilter = `segments.date BETWEEN '${fmt(start)}' AND '${fmt(end)}'`;
-    } else {
-      dateFilter = `segments.date DURING ${dateRange}`;
-    };
-    }
-  }
+  // LORAMER_GAQL_DATE_WINDOW_V1 — replaced a doubly-nested paste artifact of the LAST_90_DAYS special case
+  // whose tail was still `DURING ${dateRange}`. NOTE: this fetcher has NO callers in src today (the platform
+  // route carries its own copy) — fixed anyway so the defect class is at zero sites, not "zero live sites".
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
+  const dateFilter = `segments.date BETWEEN '${startDate}' AND '${endDate}'`
 
   const { GoogleAdsApi } = await import('google-ads-api')
   const client = new GoogleAdsApi({

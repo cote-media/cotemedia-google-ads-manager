@@ -36,14 +36,18 @@ export async function listAccessibleAccounts(refreshToken: string) {
   }))
 }
 
-export async function getCampaigns(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+// LORAMER_GAQL_DATE_WINDOW_V1 — `DURING ${dateRange}` breaks on LAST_90_DAYS/CUSTOM (not GAQL enums); one
+// resolver, explicit BETWEEN. customStart/customEnd are optional and additive — the MCP server's 3-arg calls
+// are unchanged.
+export async function getCampaigns(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS', customStart?: string, customEnd?: string) {
   const customer = getCustomer(refreshToken, customerId)
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
   const rows = await customer.query(`
     SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type,
     campaign_budget.amount_micros, metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.all_conversions, metrics.conversions_value, metrics.ctr, metrics.average_cpc
     FROM campaign
-    WHERE segments.date DURING ${dateRange}
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
     AND campaign.status != 'REMOVED'
     ORDER BY metrics.cost_micros DESC
   `)
@@ -124,15 +128,18 @@ export async function getKeywords(refreshToken: string, customerId: string, date
   }))
 }
 
-export async function getSearchTerms(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
+// LORAMER_GAQL_DATE_WINDOW_V1 — same DURING→resolver fix. Live caller: mcp-server.js get_search_terms
+// (presets only today; the resolver makes any preset safe).
+export async function getSearchTerms(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS', customStart?: string, customEnd?: string) {
   const customer = getCustomer(refreshToken, customerId)
+  const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
   const rows = await customer.query(`
     SELECT search_term_view.search_term, search_term_view.status,
     campaign.name, ad_group.name,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.ctr
     FROM search_term_view
-    WHERE segments.date DURING ${dateRange}
+    WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
     ORDER BY metrics.cost_micros DESC
     LIMIT 500
   `)
@@ -148,8 +155,8 @@ export async function getSearchTerms(refreshToken: string, customerId: string, d
   }))
 }
 
-export async function getAccountSummary(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS') {
-  const campaigns = await getCampaigns(refreshToken, customerId, dateRange)
+export async function getAccountSummary(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS', customStart?: string, customEnd?: string) {
+  const campaigns = await getCampaigns(refreshToken, customerId, dateRange, customStart, customEnd) // LORAMER_GAQL_DATE_WINDOW_V1 — customs forwarded, additive
   const totalCost = campaigns.reduce((sum: number, c: any) => sum + parseFloat(c.cost), 0)
   const totalClicks = campaigns.reduce((sum: number, c: any) => sum + Number(c.clicks), 0)
   const totalImpressions = campaigns.reduce((sum: number, c: any) => sum + Number(c.impressions), 0)
