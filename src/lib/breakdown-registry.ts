@@ -365,3 +365,128 @@ export const geoScopes = (): string[] => uniqSorted(BREAKDOWN.filter((e) => e.to
 // beyond these is NEW reach → routed through the bounded top-N RPC (migration 039). This list is a FROZEN invariant,
 // not an allowlist: it names the pre-2B contract so the query layer can keep those exact paths unchanged.
 export const EXISTING_TOOL_TYPES: ReadonlySet<string> = new Set(['search_term', 'keyword', 'placement', 'age', 'gender', 'device', 'device_platform', 'hour', 'action_type', 'conversion_action', 'impression_share', 'video', 'geo_country', 'geo_region'])
+
+// ── LORAMER_EXTRA_METRIC_REACHABILITY_V1 ─────────────────────────────────────────────────────────────────
+//
+// ⛔ THE DEFECT THIS EXISTS TO KILL, MEASURED, NOT SUPPOSED. The 2026-08-14 full-100 eval baseline scored
+// 56.1%, and the single largest failing class was PRESENT_BUT_UNREACHABLE: six questions (B2/B6/B7/B19/V5/MT3)
+// where Lora told Russ, in her own words, "sessions aren't in the captured store" and "the captured GA metric
+// set doesn't return sessions". EVERY ONE OF THOSE NUMBERS WAS ALREADY STORED. They live in the `extra` JSONB
+// column, and neither aggregation path ever read it: metrics-query.ts's aggregateWindow SELECTed six fixed
+// metric columns, and BOTH breakdown RPCs (038 query_breakdown_agg, 039 query_breakdown_agg_topn) summed the
+// same six. `extra` never crossed the wire, so the query layer could not see data the writers had persisted
+// for months — and Lora, reading an honest-looking empty result, reported OUR gap as the ACCOUNT's gap.
+// That is worse than a wrong number: it is a confident denial of the customer's own data.
+//
+// ⛔ WHY AN ALLOWLIST AND NOT `extra` WHOLESALE. Summing a JSONB blob blind is how you get a lifetime average
+// added to itself 90 times. `extra` mixes four distinct things: additive counts (sessions, orders), additive
+// money (eventValue), NON-additive dedup counts (totalUsers, reach — a user seen on ten days is ONE user, not
+// ten), and non-additive ratios/provenance (engagementRate, roas, netBasis, caveat). Only the first two may be
+// summed across days. Every other key is named in DENIED_EXTRA_METRICS with the reason, so an omission is a
+// DECISION ON THE RECORD rather than an oversight — the shape the repo keeps having to relearn (a half-shipped
+// family that looks fully wired everywhere else).
+//
+// ⛔ THIS LIST IS MIRRORED IN SQL (migrations/067) AND THE MIRROR IS GUARDED. The RPCs cannot import
+// TypeScript, so the key set is written twice; tests/guards/extra-metrics-reachable.guard.mjs fails the build
+// if the two ever diverge. TS is the source; the migration is the copy.
+//
+// ⛔ NON-ADDITIVITY OF THE SUM ITSELF (the GA session caveat, banked by Russ 2026-08-13). Even for a key that
+// IS additive across rows, Σ per-day sessions ≠ the vendor's RANGE total: GA4 deduplicates a session that
+// spans midnight, so our FY2025 sum reads 552,253 against the property's own 549,971 (+0.41%). Russ's grain
+// call is that the RANGE TOTAL is the certified customer-facing truth, and the serving path for it is NOT
+// built (★SEMANTIC-LAYER owns it). Until it is, the rule is the second half of that same decision: Lora
+// DECLARES the per-day basis. metrics-query.ts attaches that declaration as a note on every window carrying a
+// GA session metric — reachable AND labelled, never reachable and silently mis-stated.
+
+export type ExtraMetricKind = 'count' | 'money'
+export interface ExtraMetric {
+  platform: Platform
+  key: string              // the `extra` JSONB key EXACTLY as the writer persists it (camelCase — do not normalise)
+  kind: ExtraMetricKind
+  why: string              // why summing across days is CORRECT for this key
+}
+
+/** Extra-JSONB metrics that may be SUMMED across days. Additive by construction; each carries its argument. */
+export const ADDITIVE_EXTRA_METRICS: ExtraMetric[] = [
+  // GA — the six the baseline proved unreachable. Written by ga-metrics-row.ts (base) + ga-dimensional-backfill.ts.
+  { platform: 'ga', key: 'sessions', kind: 'count', why: 'A session belongs to exactly one day-row as captured; Σ days = sessions in the window ON THE PER-DAY BASIS (see the midnight-dedup caveat above).' },
+  { platform: 'ga', key: 'engagedSessions', kind: 'count', why: 'Subset of sessions, same per-day partition.' },
+  { platform: 'ga', key: 'newUsers', kind: 'count', why: 'A user is NEW on exactly one day, so the days do not overlap. (totalUsers is NOT additive — see DENIED.)' },
+  { platform: 'ga', key: 'eventCount', kind: 'count', why: 'Raw event fires on that day. B6 truth reproduces EXACTLY from Σ extra->>eventCount (5,603 / 3,252 / 2,423).' },
+  { platform: 'ga', key: 'eventValue', kind: 'money', why: 'Event value accrued on that day.' },
+  { platform: 'ga', key: 'transactions', kind: 'count', why: 'Transaction count booked on that day.' },
+  { platform: 'ga', key: 'refundAmount', kind: 'money', why: 'Refund money booked on that day.' },
+  // Meta — per-day action COUNTS from the Insights payload. Written by cron/sync + meta-metrics-row.ts.
+  { platform: 'meta', key: 'purchases', kind: 'count', why: 'Attributed purchase actions on that day.' },
+  { platform: 'meta', key: 'addToCart', kind: 'count', why: 'Attributed add-to-cart actions on that day.' },
+  { platform: 'meta', key: 'initiateCheckout', kind: 'count', why: 'Attributed checkout-initiation actions on that day.' },
+  { platform: 'meta', key: 'viewContent', kind: 'count', why: 'Attributed content-view actions on that day.' },
+  { platform: 'meta', key: 'outboundClicks', kind: 'count', why: 'Click COUNT (not a unique-people count — uniqueClicks is, and is DENIED).' },
+  // Shopify — per-day order facts. Written by shopify-metrics-row.ts.
+  { platform: 'shopify', key: 'orders', kind: 'count', why: 'An order is booked on exactly one date; Σ days = orders in the window (the same basis the registry notes call a partition of the day net).' },
+  { platform: 'shopify', key: 'units', kind: 'count', why: 'Line-item units sold that day.' },
+  { platform: 'shopify', key: 'grossRevenue', kind: 'money', why: 'Gross money on that day (the pre-refund sibling of the net revenue column).' },
+  { platform: 'shopify', key: 'refundedAmount', kind: 'money', why: 'Refund money booked on that day, on OUR order-date basis (LORAMER_SHOPIFY_REFUND_BASIS, proven 2026-08-13).' },
+  { platform: 'shopify', key: 'refundedOrderCount', kind: 'count', why: 'Orders carrying a refund that day.' },
+  { platform: 'shopify', key: 'newCustomers', kind: 'count', why: 'A customer is NEW on exactly one day (the dedup that breaks `customers` does not apply).' },
+  { platform: 'shopify', key: 'abandonedCheckoutCount', kind: 'count', why: 'Checkouts abandoned that day.' },
+  { platform: 'shopify', key: 'abandonedCheckoutValue', kind: 'money', why: 'Value of checkouts abandoned that day.' },
+  // WooCommerce — per-day order facts. Written by woocommerce-metrics-row.ts + woo-cohort-backfill.ts.
+  { platform: 'woocommerce', key: 'orders', kind: 'count', why: 'One order books on one date; the registry declares the sale subset as a partition of the day net.' },
+]
+
+/**
+ * Extra-JSONB keys that must NEVER be summed, WITH THE REASON. Not documentation — the guard pins this list
+ * too, so a future widen cannot quietly promote a ratio into a metric.
+ */
+export const DENIED_EXTRA_METRICS: { platform: Platform; key: string; reason: string }[] = [
+  { platform: 'ga', key: 'totalUsers', reason: 'DEDUP — a user active on ten days is ONE user in a range, not ten. Summing inflates by the return rate.' },
+  { platform: 'ga', key: 'engagementRate', reason: 'RATIO — recompute from engagedSessions/sessions, never add.' },
+  { platform: 'ga', key: 'sessionConversionRate', reason: 'RATIO — marked additive:false at capture (LORAMER_GA_DIM_DEDUP_V1) and dropped on merge.' },
+  { platform: 'ga', key: 'cartToPurchaseRate', reason: 'RATIO.' },
+  { platform: 'ga', key: 'purchaserConversionRate', reason: 'RATIO.' },
+  { platform: 'meta', key: 'reach', reason: 'DEDUP — reach is PEOPLE, deduplicated by Meta over the requested range. Σ daily reach is not range reach.' },
+  { platform: 'meta', key: 'frequency', reason: 'RATIO (impressions/reach).' },
+  { platform: 'meta', key: 'uniqueClicks', reason: 'DEDUP — unique PEOPLE who clicked.' },
+  { platform: 'meta', key: 'uniqueInlineLinkClicks', reason: 'DEDUP — unique PEOPLE.' },
+  { platform: 'meta', key: 'ctr', reason: 'RATIO. (Meta CTR is already a percentage — house fact.)' },
+  { platform: 'meta', key: 'cpc', reason: 'RATIO.' },
+  { platform: 'meta', key: 'cpm', reason: 'RATIO.' },
+  { platform: 'meta', key: 'cpa', reason: 'RATIO.' },
+  { platform: 'meta', key: 'roas', reason: 'RATIO — and the ONE Meta-reported ROAS already has a most-recent-day path (LORAMER_META_CONV_ACTION_VALUE_ROAS_V1).' },
+  { platform: 'meta', key: 'convRate', reason: 'RATIO.' },
+  { platform: 'meta', key: 'costPerPurchase', reason: 'RATIO.' },
+  { platform: 'google', key: 'ctr', reason: 'RATIO. Google writes NO additive extra metric — every google `extra` key is a ratio or provenance.' },
+  { platform: 'google', key: 'cpc', reason: 'RATIO.' },
+  { platform: 'google', key: 'cpm', reason: 'RATIO.' },
+  { platform: 'google', key: 'cpa', reason: 'RATIO.' },
+  { platform: 'google', key: 'roas', reason: 'RATIO.' },
+  { platform: 'google', key: 'convRate', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'customers', reason: 'DEDUP — a repeat buyer is one customer across the range.' },
+  { platform: 'shopify', key: 'avgOrderValue', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'newCustomerAov', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'returningCustomerAov', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'refundRate', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'returningRate', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'revenueConcentration', reason: 'RATIO.' },
+  { platform: 'shopify', key: 'returningCustomers', reason: 'DEDUP — the same repeat buyer recurs across days.' },
+  { platform: 'shopify', key: 'unknownCustomers', reason: 'DEDUP — same shape as customers.' },
+  { platform: 'shopify', key: 'avgLifetimeSpent', reason: 'LIFETIME, NOT WINDOWED — banked verbatim in the customer_cohort note: a customer ordering on ten days would contribute their whole lifetime value ten times.' },
+  { platform: 'shopify', key: 'products', reason: 'RECURRING ENTITY COUNT — the same product appears on many days.' },
+  { platform: 'woocommerce', key: 'customers', reason: 'DEDUP — see shopify.customers.' },
+]
+
+const ADDITIVE_BY_PLATFORM: Record<string, string[]> = (() => {
+  const m: Record<string, string[]> = {}
+  for (const e of ADDITIVE_EXTRA_METRICS) (m[e.platform] ||= []).push(e.key)
+  return m
+})()
+
+/** The additive `extra` keys for ONE platform, in declaration order. Empty (e.g. google) = nothing to surface. */
+export const additiveExtraKeys = (platform: string): string[] => ADDITIVE_BY_PLATFORM[platform] || []
+/** Every additive `extra` key across all platforms, deduped + sorted — the rankable/queryable universe. */
+export const allAdditiveExtraKeys = (): string[] => uniqSorted(ADDITIVE_EXTRA_METRICS.map((e) => e.key))
+/** TRUE iff this (platform, key) is declared summable. Any other key is refused, denied-listed or not. */
+export const isAdditiveExtraKey = (platform: string, key: string): boolean => additiveExtraKeys(platform).includes(key)
+/** Platforms that declare at least one additive extra metric (the ones the RPCs pay any cost for). */
+export const platformsWithExtraMetrics = (): string[] => uniqSorted(ADDITIVE_EXTRA_METRICS.map((e) => e.platform))

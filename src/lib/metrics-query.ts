@@ -16,7 +16,7 @@ import { aggregateMoney, MONEY_KEYS, chainForBasis } from '@/lib/next/money-surf
 // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (Fix #1 B2) — CONSUME the ONE canonical settle (B1). Do NOT write a 4th settle.
 import { settleRevenue, emptyRevenueAcc, type RevenueAcc } from '@/lib/next/revenue-settle'
 // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the ONE declared source for the breakdown allowlist + geo collapse.
-import { breakdownPlatformsMap, spendZeroTypes, breakdownToolTypes, resolveGeo, geoGrains, entryFor, EXISTING_TOOL_TYPES } from '@/lib/breakdown-registry'
+import { breakdownPlatformsMap, spendZeroTypes, breakdownToolTypes, resolveGeo, geoGrains, entryFor, EXISTING_TOOL_TYPES, additiveExtraKeys, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
 // LORAMER_REFUSED_RATIO_IS_NULL_V1 — the read path must refuse a refused metric, not serve it as 0.
 import { refusedMetricsFor, applyRefusal } from '@/lib/google-refused-metrics'
 
@@ -54,6 +54,10 @@ export type WindowResult = {
   // totals/derived are UNCHANGED so store-stats and the headless route stay byte-identical.
   canonical: Canonical
   bySource: BySource
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — additive metrics that live in the row's `extra` JSONB, keyed BY
+  // PLATFORM (ga.sessions, shopify.orders, meta.purchases…). Absent entirely when the window's platforms
+  // declare none, so its presence is itself the signal that the metric is real for this client.
+  extraMetrics?: Record<string, Record<string, number>>
 }
 
 export type QueryMetricsResult = {
@@ -75,9 +79,13 @@ type WindowAgg = {
   acc: RevenueAcc // ads spend/conv (google+meta) + store/ga revenue split — the card's RevenueAcc shape
   google: { spend: number; conversionValue: number }
   meta: { spend: number; conversionValue: number }
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — additive `extra`-JSONB metrics, PER PLATFORM. Kept per-platform and
+  // never flattened: 'orders' means Shopify orders AND Woo orders, and a single cross-platform 'orders' number
+  // would be the totals.revenue double-count defect wearing a different name.
+  extraMetrics: Record<string, Record<string, number>>
 }
 function emptyAgg(): WindowAgg {
-  return { totals: emptyTotals(), acc: emptyRevenueAcc(), google: { spend: 0, conversionValue: 0 }, meta: { spend: 0, conversionValue: 0 } }
+  return { totals: emptyTotals(), acc: emptyRevenueAcc(), google: { spend: 0, conversionValue: 0 }, meta: { spend: 0, conversionValue: 0 }, extraMetrics: {} }
 }
 // Build the card-canonical figure + labeled per-source split from an aggregate, via the ONE settle (B1).
 function buildCanonical(agg: WindowAgg): { canonical: Canonical; bySource: BySource } {
@@ -123,6 +131,62 @@ function derive(t: MetricTotals): Record<string, number> {
   return d
 }
 
+// ── LORAMER_EXTRA_METRIC_REACHABILITY_V1 helpers ─────────────────────────────────────────────────────────
+/**
+ * Normalise migration 067's `extra_metrics` object. Returns undefined (NOT {}) when nothing came back, so a
+ * consumer can tell "this family carries no extra metric" from "this family carries one and it is zero".
+ * Non-finite values are DROPPED rather than coerced: `extra` is written by five adapters and a NaN reaching
+ * Lora as a number is a fabricated fact, which costs more than an absent one.
+ */
+function readExtraMetrics(raw: unknown): Record<string, number> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const out: Record<string, number> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const n = Number(v)
+    if (Number.isFinite(n)) out[k] = n
+  }
+  return Object.keys(out).length ? out : undefined
+}
+/** Sum an extra-metrics object into an accumulator (used where several DB groups merge into one value row). */
+function mergeExtraMetrics(into: Record<string, number> | undefined, add: Record<string, number> | undefined): Record<string, number> | undefined {
+  if (!add) return into
+  const out = into || {}
+  for (const [k, v] of Object.entries(add)) out[k] = (out[k] || 0) + v
+  return out
+}
+/**
+ * ⛔ THE PER-DAY BASIS DECLARATION — the half of Russ's 2026-08-13 grain call this flight can actually honour.
+ * He certified the RANGE TOTAL as customer-facing truth against our per-day sum, and the range-serving path is
+ * NOT built (★SEMANTIC-LAYER owns it). His decision carries a second clause for exactly this state: Lora
+ * DECLARES the per-day basis when she cannot serve the range. Reachable-and-labelled is the deliverable;
+ * reachable-and-silent would trade a visible refusal for an invisible discrepancy against the customer's own
+ * dashboard, which is the worse of the two failures.
+ *
+ * ⛔ THE DIRECTION OF THE GAP IS NOT FIXED, AND AN EARLIER DRAFT OF THIS NOTE GOT THAT WRONG. Reasoning from
+ * the dedup mechanism alone predicts our sum always reads HIGH, and one measurement agreed. The other two did
+ * not. All three certified reads on the same property (2026-08-13/14), ours first:
+ *     FY2025   552,253 vs 549,971  → ours HIGH by 0.41%   (midnight-spanning sessions, deduped in a range)
+ *     FY2024   791,628 vs 799,881  → ours LOW  by 1.03%   (NOT dedup — dedup cannot make a sum smaller)
+ *     Jul-2026   1,817 vs   1,915  → ours LOW  by 5.12%   (the known trailing-freshness defect; B1 is held on it)
+ * TWO mechanisms push in OPPOSITE directions: dedup makes the vendor's range SMALLER than our sum, and any
+ * capture gap makes our sum smaller than theirs. Which dominates depends on the window, so the note below
+ * claims a DIFFERENCE and refuses to claim a direction. Stating "slightly high" as a rule would have handed
+ * Lora a confident explanation for a discrepancy that runs the other way two times in three.
+ */
+const GA_SESSION_KEYS = new Set(['sessions', 'engagedSessions'])
+const GA_PER_DAY_BASIS_NOTE =
+  `GA SESSION BASIS — PER-DAY SUM, NOT THE PROPERTY'S RANGE TOTAL. These session figures are Σ of the captured ` +
+  `per-day rows, and they will not exactly match what the customer sees in their own GA4 for the same window. ` +
+  `TWO causes, pushing OPPOSITE ways: GA4 DEDUPLICATES a session spanning midnight when it answers a range (making ` +
+  `their number smaller than ours), and any day we did not capture makes ours smaller than theirs. MEASURED on a ` +
+  `real property: ours read 0.41% HIGH over one full year, 1.03% LOW over the year before, and 5.12% LOW on a ` +
+  `recent month still filling in. So: state that this is a per-day sum whenever you quote a multi-day session ` +
+  `figure, never present it as identical to their dashboard, and do NOT explain a difference by guessing a ` +
+  `direction — the direction is not predictable from the metric alone. Single-day figures are exact.`
+/** TRUE when a result carries a GA session metric and therefore owes the reader the basis declaration above. */
+const needsGaSessionBasis = (platform: string, keys: Iterable<string>): boolean =>
+  platform === 'ga' && [...keys].some((k) => GA_SESSION_KEYS.has(k))
+
 const AGG_ADS = ['google', 'meta']
 const AGG_STORE = ['shopify', 'woocommerce']
 async function aggregateWindow(
@@ -141,7 +205,12 @@ async function aggregateWindow(
       .from('metrics_daily')
       // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (B2) — `platform` added to the SELECT (covered by the 035 index INCLUDE,
       // so the index-only scan / A6 latency is preserved) to split revenue per source for the canonical settle.
-      .select('platform,spend,impressions,clicks,conversions,conversion_value,revenue')
+      // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — `extra` joins the projection. This is the path V5 ("sessions for
+      // the full year, 25 versus 24") went through, and Lora answered "sessions aren't in the captured store"
+      // because the column holding them was never selected. The 035 partial index INCLUDEs only
+      // (platform, spend, revenue) and this query already reads impressions/clicks/conversions/conversion_value,
+      // so the scan was ALREADY visiting the heap — adding `extra` costs no plan change, only row width.
+      .select('platform,spend,impressions,clicks,conversions,conversion_value,revenue,extra')
       .eq('client_id', clientId)
       .eq('entity_level', level)
       .eq('breakdown_type', '')
@@ -167,6 +236,19 @@ async function aggregateWindow(
       const conversionValue = Number(row.conversion_value || 0)
       const revenue = Number(row.revenue || 0)
       const platform = String(row.platform || '')
+      // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — sum the DECLARED additive keys for this row's platform. Only
+      // keys a row actually carried are created, so a platform with no extra metrics (google) never gains an
+      // empty bucket and an absent metric stays absent rather than becoming a zero.
+      const ex = (row.extra || null) as Record<string, unknown> | null
+      if (ex) {
+        for (const k of additiveExtraKeys(platform)) {
+          const n = Number(ex[k])
+          if (Number.isFinite(n)) {
+            const bucket = (out.extraMetrics[platform] ||= {})
+            bucket[k] = (bucket[k] || 0) + n
+          }
+        }
+      }
       // totals — UNCHANGED raw cross-platform sums (additive law; store-stats + headless route must not move).
       totals.spend += spend
       totals.impressions += impressions
@@ -223,7 +305,7 @@ export async function queryMetrics(opts: {
       const agg = valid
         ? await aggregateWindow(opts.clientId, platforms, level, startDate, endDate)
         : emptyAgg()
-      windows.push({ label, startDate, endDate, totals: agg.totals, derived: derive(agg.totals), ...buildCanonical(agg) })
+      windows.push({ label, startDate, endDate, totals: agg.totals, derived: derive(agg.totals), ...buildCanonical(agg), ...(Object.keys(agg.extraMetrics).length ? { extraMetrics: agg.extraMetrics } : {}) })
     }
   } else {
     const offsets = opts.offsetsMonths && opts.offsetsMonths.length ? opts.offsetsMonths : [0, 6, 12, 18]
@@ -240,6 +322,7 @@ export async function queryMetrics(opts: {
         totals: agg.totals,
         derived: derive(agg.totals),
         ...buildCanonical(agg),
+        ...(Object.keys(agg.extraMetrics).length ? { extraMetrics: agg.extraMetrics } : {}),
       })
     }
   }
@@ -253,6 +336,16 @@ export async function queryMetrics(opts: {
   // LORAMER_LORA_QUERYMETRICS_CANONICAL_V1 (B2) — steer Lora onto canonical.*, away from the raw totals.revenue double-count.
   if (level === 'account') {
     notes.push('REVENUE/ROAS: the headline TOTAL is canonical.revenue and canonical.roas — these MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue / spend). totals.revenue is a RAW cross-platform SUM that DOUBLE-COUNTS store + GA — NEVER report totals.revenue as total revenue. derived.roas is AD-ATTRIBUTED (platform conversionValue / spend), a DIFFERENT basis — it is NOT the card ROAS; use canonical.roas for the dashboard figure.')
+  }
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — two notes, and they do different jobs. The FIRST tells Lora the
+  // metrics are THERE: the 2026-08-14 baseline's largest failing class was her denying, fluently and wrongly,
+  // that we capture sessions at all — so surfacing the numbers without saying so leaves the refusal intact.
+  // The SECOND is the per-day basis declaration Russ's grain call requires (see GA_PER_DAY_BASIS_NOTE).
+  if (windows.some(w => w.extraMetrics && Object.keys(w.extraMetrics).length)) {
+    const seen = new Set<string>()
+    for (const w of windows) for (const [p, m] of Object.entries(w.extraMetrics || {})) for (const k of Object.keys(m)) seen.add(`${p}.${k}`)
+    notes.push(`EXTRA METRICS ARE PRESENT AND REAL: ${[...seen].sort().join(', ')} — these come from the CAPTURED store (the row's extra column), not a live panel, and they cover the full window asked for. Report them when asked; do NOT say they are unavailable, live-only, or not captured.`)
+    if (windows.some(w => needsGaSessionBasis('ga', Object.keys(w.extraMetrics?.ga || {})))) notes.push(GA_PER_DAY_BASIS_NOTE)
   }
   if (windows.some(w => w.bySource.store.rows > 0 && w.bySource.ga.rows > 0)) {
     notes.push('MULTIPLE REVENUE SOURCES present (bySource shows BOTH store and ga). When the user asks about revenue or ROAS, surface BOTH sources labeled by origin, each with its own ROAS (that source’s revenue ÷ ad spend), and explain WHY they differ (attribution window / measurement basis). Do NOT collapse them into one number and do NOT silently drop the smaller source.')
@@ -315,7 +408,13 @@ const VIDEO_COUNT_FIELDS = ['video_plays', 'video_thruplays', 'video_p25', 'vide
 const VIDEO_RATE_FIELDS = ['video_avg_time_sec', 'cost_per_thruplay']
 const VIDEO_ENTITY_LEVELS = new Set(['account', 'campaign', 'ad_set', 'ad'])
 // revenue is rankable too — Shopify geo/product breakdowns are revenue-centric (LORAMER_SHOPIFY_DEPTH_2A_V1).
-const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'])
+// LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the additive `extra` keys join the rankable set, DERIVED from the
+// registry so this can never drift from what migration 067 actually sums. Reaching a number is only half of
+// "top ten landing pages BY SESSIONS": with 'sessions' refused here the question dies at the query layer
+// before any of the SQL matters — the half-fix that measures green and answers nothing.
+const RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue', ...allAdditiveExtraKeys()])
+/** The six COLUMN metrics. An extra-keyed rankBy is ranked off the row's extraMetrics, not off a column. */
+const COLUMN_RANKABLE = new Set(['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'])
 const VALUE_MAXLEN = 120
 
 export type BreakdownRow = {
@@ -351,6 +450,12 @@ export type BreakdownRow = {
   geoCanonicalName?: string
   geoLocationType?: string // 'presence' (physically there) | 'interest' (showed interest) | 'unspecified'
   geoResolved?: boolean
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — additive metrics that live in the row's `extra` JSONB rather than in
+  // one of the six metric columns (GA sessions/eventCount, Shopify orders/units, Meta purchases…). ABSENT, never
+  // zero, when no row in the group carried the key: migration 067 strips nulls in SQL for exactly this reason —
+  // a fabricated 0 is the FALSE_ZERO class the 2026-08-14 baseline counted eight times, and the fix for
+  // unreachability must not manufacture the neighbouring defect.
+  extraMetrics?: Record<string, number>
 }
 
 export type QueryBreakdownResult = {
@@ -603,6 +708,7 @@ export async function queryBreakdown(opts: {
         parentEntityId: g.parent_entity_id ? String(g.parent_entity_id) : undefined,
         spend: totals.spend, impressions: totals.impressions, clicks: totals.clicks, conversions: totals.conversions, conversionValue: totals.conversionValue, revenue: totals.revenue,
         derived: derive(totals),
+        extraMetrics: readExtraMetrics(g.extra_metrics),
       }
     })
     if (result.truncated) {
@@ -611,6 +717,11 @@ export async function queryBreakdown(opts: {
     if (SPEND_ZERO_BREAKDOWNS.has(bt)) {
       const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
       result.note = result.note ? `${result.note} ${z}` : z
+    }
+    // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — PER-DAY BASIS, declared on the bounded path (every GA family
+    // routes here, so this is where the six failing eval questions land).
+    if (needsGaSessionBasis(platform, result.rows.flatMap((r) => Object.keys(r.extraMetrics || {})))) {
+      result.note = result.note ? `${result.note} ${GA_PER_DAY_BASIS_NOTE}` : GA_PER_DAY_BASIS_NOTE
     }
     if (platform === 'google' && bt === 'hour') {
       const z = `Google hour "00" (midnight) is a CATCH-ALL bucket — it absorbs the full-day spend of campaigns without hourly segmentation (e.g. Display, and some Performance Max), so it is inflated and does NOT represent genuine 00:00 activity. Do NOT treat hour 0 as a real dayparting peak or recommend a midnight bid-down from it.`
@@ -711,7 +822,7 @@ export async function queryBreakdown(opts: {
     return result
   }
 
-  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; metaRoas?: number | null; metaRoasDate?: string }
+  type Agg = { value: string; parents: Set<string>; spend: number; impressions: number; clicks: number; conversions: number; conversionValue: number; revenue: number; metaRoas?: number | null; metaRoasDate?: string; extraMetrics?: Record<string, number> }
   const byValue = new Map<string, Agg>()
   if (carryRoas) {
     // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — carryRoas (canonicalize + action_type + meta) KEEPS the row-paging
@@ -758,6 +869,13 @@ export async function queryBreakdown(opts: {
         const roas = roasRaw == null ? null : Number(roasRaw)
         const dt = String(row.date ?? '')
         if (roas != null && Number.isFinite(roas) && dt >= (agg.metaRoasDate || '')) { agg.metaRoas = roas; agg.metaRoasDate = dt }
+        // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the row-pager sums the SAME declared keys the RPCs do. This
+        // path is only reached for canonicalized Meta action_type, but a family reachable on two of three
+        // paths is the half-shipped shape this repo keeps rediscovering: it works until the question changes.
+        for (const k of additiveExtraKeys(platform)) {
+          const n = Number(ex[k])
+          if (Number.isFinite(n)) agg.extraMetrics = mergeExtraMetrics(agg.extraMetrics, { [k]: n })
+        }
       }
       if (rows.length < PAGE) break
       from += PAGE
@@ -790,6 +908,9 @@ export async function queryBreakdown(opts: {
       agg.conversions += Number(g.conversions || 0)
       agg.conversionValue += Number(g.conversion_value || 0)
       agg.revenue += Number(g.revenue || 0)
+      // 038 groups by (value, parent); this loop merges parents into one value row, so the extra metrics merge
+      // with them — same additive contract, same summation, or the value row would under-report by parent.
+      agg.extraMetrics = mergeExtraMetrics(agg.extraMetrics, readExtraMetrics(g.extra_metrics))
     }
   }
 
@@ -812,8 +933,13 @@ export async function queryBreakdown(opts: {
   }
 
   const sorted = aggList.sort((a, b) => {
-    const av = (a as any)[rankBy] as number
-    const bv = (b as any)[rankBy] as number
+    // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — an extra-keyed rankBy ranks off extraMetrics, not off a column.
+    // A group missing the key sorts as 0 rather than undefined: NaN comparisons are not a total order, so an
+    // undefined here would make the sort's result depend on the input order (V8's TimSort is stable, but the
+    // comparator would be inconsistent) — a top-N that quietly changes between runs.
+    const pick = (x: Agg): number => (COLUMN_RANKABLE.has(rankBy) ? ((x as any)[rankBy] as number) : (x.extraMetrics?.[rankBy] ?? 0))
+    const av = pick(a)
+    const bv = pick(b)
     if (av !== bv) return orderDir === 'asc' ? av - bv : bv - av
     return a.value < b.value ? -1 : a.value > b.value ? 1 : 0 // LORAMER_BREAKDOWN_LEVEL_SCOPE_V1 — stable tiebreaker (value asc): deterministic order when the rank metric ties (e.g. commerce breakdowns ranked by spend=0)
   })
@@ -840,6 +966,7 @@ export async function queryBreakdown(opts: {
       derived: sup.derived,
       ...(refusedSet.size ? { refusedMetrics: refused } : {}),
       ...(carryRoas ? { metaRoas: a.metaRoas ?? null } : {}), // LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — absent for every other breakdown
+      ...(a.extraMetrics ? { extraMetrics: a.extraMetrics } : {}), // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — absent, never 0
     }
   })
   if (result.truncated) {
@@ -848,6 +975,10 @@ export async function queryBreakdown(opts: {
   if (SPEND_ZERO_BREAKDOWNS.has(bt)) {
     const z = `${bt} carries per-action conversions, NOT partitioned spend (spend is 0 here); ranked by ${rankBy}.`
     result.note = result.note ? `${result.note} ${z}` : z
+  }
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — PER-DAY BASIS, declared on the all-groups path too.
+  if (needsGaSessionBasis(platform, result.rows.flatMap((r) => Object.keys(r.extraMetrics || {})))) {
+    result.note = result.note ? `${result.note} ${GA_PER_DAY_BASIS_NOTE}` : GA_PER_DAY_BASIS_NOTE
   }
   // LORAMER_GOOGLE_HOUR0_NOTE_V1 — Google hour "00" is a CATCH-ALL: Google buckets spend from campaigns without
   // hourly segmentation (Display, some PMax) into hour 0, so it is inflated and NOT genuine midnight activity.

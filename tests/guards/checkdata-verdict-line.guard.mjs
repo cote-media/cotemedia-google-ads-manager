@@ -6,7 +6,7 @@
 // machine-final line, LAST in the output, carrying the exit code and every red BY NAME, printed by
 // scripts/run-checkdata.mjs. This guard pins the pieces that make the line trustworthy:
 //   (a) package.json's check:data actually invokes the runner (not a resurrected chain)
-//   (b) the roster is EXACTLY the 14 checks it must run (13 from the old chain + the RPC-grant-posture ACL half) — the port could not silently drop one,
+//   (b) the roster is EXACTLY the 15 checks it must run (13 from the old chain + the RPC-grant-posture ACL half + the extra-metric serving prover) — the port could not silently drop one,
 //       and neither can a future edit without moving this pin deliberately
 //   (c) the runner never calls process.exit — Node docs: process.exit "will force the process to exit
 //       ... even if there are still asynchronous operations pending ... including I/O operations to
@@ -36,7 +36,13 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 14 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — 15 checks, flags included, in order ────────────────────────────────────────
+// ⛔ MOVED 2026-08-14 FROM 14 → 15, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `check-extra-metrics-serving` is the LIVE half of LORAMER_EXTRA_METRIC_REACHABILITY_V1. Its build-time
+// sibling is hermetic and can only prove wiring; this one reads four hand-certified GA figures back through
+// the shipped RPC. The distinction is the whole point: on 2026-08-14 every hermetic check was green while six
+// scored eval questions failed, because "the enum is present" and "the number reaches the user" are different
+// claims and only the second one is the product.
 // ⛔ MOVED 2026-08-13 FROM 13 → 14, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-rpc-grant-posture` is the LIVE-ACL half of LORAMER_RPC_GRANT_POSTURE_V1: the build guard reads
 // migration source and runs on Vercel with no database, so this is the only half that can see a GRANT typed
@@ -57,6 +63,7 @@ const EXPECTED_ROSTER = [
   'tests/guards/universe-attempt-append-only.guard.mjs --db',
   'tests/guards/canonical-key-spelling.guard.mjs --db',
   'tests/guards/drain-alias-coverage.guard.mjs --db',
+  'scripts/check-extra-metrics-serving.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
@@ -131,4 +138,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[checkdata-verdict-line] PASS — check:data runs the verdict runner over EXACTLY the 14 pinned checks · the runner never calls process.exit (the verdict flushes to a pipe) and its catch path prints a CRASHED verdict · it is registered in run-guards · and the compiled-in-place behavioural leg proved the VERDICT is the LAST line, names reds by name with their ✗ banners, names crashes, and exits non-zero. LIMIT: whether a report QUOTES the line is the DECISIONS reporting rule — no guard can see chat output.`)
+console.log(`[checkdata-verdict-line] PASS — check:data runs the verdict runner over EXACTLY the 15 pinned checks · the runner never calls process.exit (the verdict flushes to a pipe) and its catch path prints a CRASHED verdict · it is registered in run-guards · and the compiled-in-place behavioural leg proved the VERDICT is the LAST line, names reds by name with their ✗ banners, names crashes, and exits non-zero. LIMIT: whether a report QUOTES the line is the DECISIONS reporting rule — no guard can see chat output.`)

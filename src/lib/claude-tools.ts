@@ -11,7 +11,7 @@
 import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
 // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the query_breakdown enums are GENERATED from the ONE declared
 // source (breakdown-registry.ts), never hand-written, so the tool schema and the query layer cannot drift.
-import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType } from '@/lib/breakdown-registry'
+import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote } from '@/lib/next/coverage'
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
@@ -130,8 +130,10 @@ export const QUERY_BREAKDOWN_TOOL: any = {
       endDate: { type: 'string', description: 'Optional explicit window end, YYYY-MM-DD (use with startDate).' },
       rankBy: {
         type: 'string',
-        enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue'],
-        description: 'Metric to rank by. Default spend (for the conversion families action_type/conversion_action the default is conversions, since their spend is 0). Use "revenue" for revenue-centric breakdowns like Shopify geo (ad breakdowns have no revenue; commerce breakdowns have no spend).',
+        // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the additive `extra` keys are rankable, DERIVED from the
+        // registry so the enum, the query layer and migration 067 cannot drift into three different answers.
+        enum: ['spend', 'impressions', 'clicks', 'conversions', 'conversionValue', 'revenue', ...allAdditiveExtraKeys()],
+        description: 'Metric to rank by. Default spend (for the conversion families action_type/conversion_action the default is conversions, since their spend is 0). Use "revenue" for revenue-centric breakdowns like Shopify geo (ad breakdowns have no revenue; commerce breakdowns have no spend). ⛔ SESSION AND EVENT METRICS ARE CAPTURED AND RANKABLE — this was WRONG until 2026-08-14 and you may have been told otherwise: GA4 families (ga_landing_page, ga_channel, ga_device, ga_source_medium, ga_event, ga_geo_*) carry sessions, engagedSessions, newUsers, eventCount, eventValue and transactions in the CAPTURED store, over the FULL history, not just a live 30-day panel. Rank by "sessions" for "top landing pages by traffic" and by "eventCount" for "which events fired most". Shopify/Woo carry orders, units, grossRevenue, refundedAmount, newCustomers; Meta carries purchases, addToCart, initiateCheckout, viewContent, outboundClicks. They come back on each row under extraMetrics. NEVER tell a user these are unavailable, live-only or not captured.',
       },
       topN: { type: 'number', description: 'How many to return. Default 20, maximum 50.' },
       orderDir: { type: 'string', enum: ['desc', 'asc'], description: 'desc (default) for top, asc for bottom.' },

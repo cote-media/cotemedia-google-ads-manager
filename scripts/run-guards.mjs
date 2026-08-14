@@ -258,6 +258,11 @@ const GUARDS = [
   // LORAMER_INCEPTION_STOP_V1 — the account inception stop: unfiltered one-op discovery, per-account scope
   // with provenance, ONE composition site, and UNKNOWN refuses an unbounded walk rather than defaulting.
   'tests/guards/inception-stop.guard.mjs',
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the `extra` JSONB reaches Lora: one declared additive key list,
+  // mirrored into migration 067's SQL and pinned against it, summed on all three breakdown paths AND the base
+  // path, rankable, and labelled with its per-day basis. Guards the largest failing class of the 2026-08-14
+  // baseline (PRESENT_BUT_UNREACHABLE), where Lora denied capturing data we had held for months.
+  'tests/guards/extra-metrics-reachable.guard.mjs',
   // LORAMER_ATTESTED_EMPTY_SEGMENT_SCOPE_V1 — a zero attests exactly its OWN (resource, segment) surface;
   // found by the first wet run, where one sibling's zero sealed 17 of 20 surfaces "already covered".
   'tests/guards/attested-empty-segment-scope.guard.mjs',

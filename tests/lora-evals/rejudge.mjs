@@ -40,8 +40,36 @@ const JUDGE_MODEL = 'claude-opus-4-8'
 const RATE = { in: 5, out: 25, cacheRead: 0.5, cacheWrite: 6.25 }
 const JUDGED_CATS = new Set(['B', 'C', 'D'])
 
-const golden = JSON.parse(fs.readFileSync(path.join(__dirname, 'golden-set.json'), 'utf8'))
-const byId = Object.fromEntries(golden.questions.map(q => [q.id, q]))
+// ⛔ LORAMER_REJUDGE_SET_PARITY_V1 — THE QUESTION SET IS NO LONGER HARDCODED, AND THE MISMATCH IS NOW FATAL.
+// WHAT HAPPENED, 2026-08-14: this file read golden-set.json unconditionally. Run against the v3 baseline it
+// matched question IDs against the OLD set's rubrics — same ids, different questions — and produced a
+// confident, entirely invalid report ("B1 ... Answer addresses July 2026 GA4 sessions, not January 2025 Google
+// Ads spend"). It cost $0.3304 and its output had to be deleted rather than filed, which also meant the 17
+// boundary FAILs of that baseline could not be re-judged and had to be reported as provisional.
+// THE FIX IS NOT JUST THE FLAG. A --set flag alone would have failed the same way whenever someone forgot it,
+// so the DEFAULT now comes from the results file's own _meta.set (every run stamps it), and any id present in
+// the results but absent from the set is a HARD ERROR rather than a skipped row. A judge grading answers
+// against the wrong rubric is worse than a judge that does not run: it is wrong with a number attached.
+const setArgIdx = process.argv.indexOf('--set')
+const setOverride = setArgIdx > -1 ? process.argv[setArgIdx + 1] : null
+function loadSet(resultsFile) {
+  let name = setOverride
+  if (!name) {
+    try {
+      const meta = JSON.parse(fs.readFileSync(resultsFile, 'utf8'))._meta || {}
+      name = meta.set
+    } catch { /* fall through to the error below */ }
+  }
+  if (!name) {
+    console.error(`FATAL: cannot determine the question set for ${resultsFile}. It carries no _meta.set and no --set was given. ` +
+      `Guessing golden-set.json is exactly the bug this check exists to prevent.`)
+    process.exit(1)
+  }
+  const p = path.isAbsolute(name) ? name : path.join(__dirname, name)
+  const set = JSON.parse(fs.readFileSync(p, 'utf8'))
+  return { name, byId: Object.fromEntries(set.questions.map(q => [q.id, q])) }
+}
+let byId = {}
 
 const cost = { in: 0, out: 0, cacheRead: 0, cacheWrite: 0, calls: 0 }
 function addUsage(u) {
@@ -101,10 +129,22 @@ async function judgeOnce(q, response) {
 async function rescoreFile(file, passes) {
   const abs = path.isAbsolute(file) ? file : path.join(__dirname, 'results', path.basename(file))
   const data = JSON.parse(fs.readFileSync(abs, 'utf8'))
+  // ⛔ SET PARITY, CHECKED BEFORE A SINGLE PAID JUDGE CALL. The void 2026-08-14 run spent $0.3304 before anyone
+  // could see it was grading against the wrong rubrics. Resolve and validate the set FIRST; refuse loudly.
+  const loaded = loadSet(abs)
+  byId = loaded.byId
+  const orphans = data.results.map(r => r.id).filter(id => !byId[id])
+  if (orphans.length) {
+    console.error(`FATAL: ${orphans.length} result id(s) are absent from ${loaded.name}: ${orphans.slice(0, 12).join(', ')}${orphans.length > 12 ? '…' : ''}`)
+    console.error(`This is a SET MISMATCH, not a data gap. Grading ${abs} against ${loaded.name} would score answers ` +
+      `against questions that were never asked — which is what produced the invalid, deleted report on 2026-08-14. ` +
+      `Pass the right set with --set, or fix _meta.set in the results file.`)
+    process.exit(1)
+  }
+  console.log(`[rejudge] ${path.basename(abs)} graded against ${loaded.name} (${Object.keys(byId).length} questions, ${data.results.length} results, 0 orphans)`)
   const rows = []
   for (const r of data.results) {
     const q = byId[r.id]
-    if (!q) { rows.push({ id: r.id, cat: r.cat, mode: 'MISSING-GOLDEN', pass: r.pass, verdicts: [] }); continue }
     if (!JUDGED_CATS.has(r.cat)) {
       // A/E/F: deterministic — carry the original harness verdict unchanged
       rows.push({ id: r.id, cat: r.cat, mode: 'deterministic', pass: !!r.pass, verdicts: [] })
@@ -133,8 +173,8 @@ function scorecard(rows) {
 }
 
 const passes = parseInt(process.argv[2] || '1', 10)
-const files = process.argv.slice(3)
-if (!files.length) { console.error('usage: node rejudge.mjs <passes> <resultsFile ...>'); process.exit(1) }
+const files = process.argv.slice(3).filter((a, i, arr) => a !== '--set' && arr[i - 1] !== '--set')
+if (!files.length) { console.error('usage: node rejudge.mjs <passes> <resultsFile ...> [--set <eval-set.json>]\n  --set is OPTIONAL: it defaults to the results file own _meta.set. A set that does not cover every result id is a FATAL error, never a silent skip.'); process.exit(1) }
 
 const out = { passes, files: [], acceptance: {}, stability: { flips: [] } }
 for (const f of files) {

@@ -70,6 +70,10 @@ module.exports = new Proxy({
   queryBreakdown: async () => { throw new Error('rigged failure — leg (b)') },
   queryMoney: async () => { throw new Error('rigged failure — leg (b)') },
   breakdownToolTypes: () => [], breakdownPlatforms: () => [], breakdownEntityLevels: () => [],
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — claude-tools SPREADS this into the rankBy enum. The proxy's
+  // fallback returns () => {} for unknown keys, whose undefined return is not iterable, so an absent stub
+  // CRASHES this guard rather than failing it. A new spread-import here needs a stub, not a proxy default.
+  allAdditiveExtraKeys: () => [],
   geoGrains: () => [], geoScopes: () => [], platformsForToolType: () => [],
   getCoverageForWindows: async () => ({}), coverageNotes: () => [],
   getBreakdownCoverage: async () => ({}), breakdownCoverageNote: () => null,

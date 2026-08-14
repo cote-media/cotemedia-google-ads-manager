@@ -61,6 +61,11 @@ const CHECKS = [
   { name: 'universe-attempt-append-only', cmd: ['tests/guards/universe-attempt-append-only.guard.mjs', '--db'] },
   { name: 'canonical-key-spelling', cmd: ['tests/guards/canonical-key-spelling.guard.mjs', '--db'] },
   { name: 'drain-alias-coverage', cmd: ['tests/guards/drain-alias-coverage.guard.mjs', '--db'] },
+  // LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the LIVE half. The build guard is hermetic and proves WIRING; this
+  // reads the four hand-certified GA figures back THROUGH the shipped RPC and fails with the numbers on the
+  // face if what we serve stops matching what we store. Every hermetic check was green on 2026-08-14 while six
+  // eval questions failed on exactly this.
+  { name: 'check-extra-metrics-serving', cmd: ['scripts/check-extra-metrics-serving.mjs'] },
 ]
 // ROSTER-END
 
