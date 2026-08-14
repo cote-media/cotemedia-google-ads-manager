@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-14T14:37:29.560Z
-- built_from HEAD: 5db1346190259a56d65c6c4a1bad06ac3729b69a  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-14T19:42:43.744Z
+- built_from HEAD: e45110477cb9a1dbed3754c766893334dbcd6021  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9e25fc99bc484f528cb447f0767dcd56e1ceccf19289ce60a8bca2637365f4a0
     - LORAMER_DECISIONS.md: 8cc7478d2dd561231c14054d4a1a1cf843f64a4ed1791d2a5367876ae05261fe
-    - LORAMER_QUEUE_OF_RECORD.md: 6864d08f133bb435c43401ad0cbfcc5a1b95bcc0807f0c28984f68bb52ac1696
+    - LORAMER_QUEUE_OF_RECORD.md: 536dab742a84423c8555fc647d47856935dbf16a660fa0744cf08698e8ff8fd5
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1961,8 +1961,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 803 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
-122 decision-only · 359 queue-only.
+TOTALS: 804 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
+122 decision-only · 360 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 166 DECISIONS entries and
 267 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2283,6 +2283,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★RESUMER-SCAN-CAP-NEVER-ROTATES — OPEN · decisions 0 · queue 2 · last 2026-08-13
 - ★RESUMER-TWO-FLOORS-ONE-GLOBALISED — OPEN · decisions 0 · queue 1 · last 2026-08-12
 - ★RETENTION-FLOORS-RE-DERIVED-IN-SEVEN-PLACES — OPEN · decisions 0 · queue 1 · last 2026-08-09
+- ★RMF-EXPORT-PER-LEVEL — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★RPC-GRANT-POSTURE-UNAUDITED — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★RUN-BACKFILL-268-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-07-30
 - ★SALES-CHANNEL-THREE-SOURCE-CONFLICT — OPEN · decisions 1 · queue 1 · last 2026-08-02

@@ -69,10 +69,20 @@ DEFERRED — Standard Access answer pack (reuse at scale-time; do NOT submit now
 ----------------------------------------------------------------------
 Apply in the Ads MCC API Center (tied to the developer token, NOT the GCP project).
 Declare External + Reporting-Only permissible use. RMF (which only applies at
-Standard) does NOT require write features for a reporting-only tool — it only
-requires required default columns + a clearly-labeled export per displayed
-hierarchy level (account/campaign/ad group/ad/keyword). Pre-submit audit: confirm
-default columns + a labeled export exist for each level we display.
+Standard) does NOT require write features for a reporting-only tool — it requires
+the required default columns per displayed hierarchy level
+(account/campaign/ad group/ad/keyword/search term). Pre-submit audit: confirm
+default columns exist for each level we display.
+⚠ CORRECTED 2026-08-14: this paragraph previously claimed "a clearly-labeled
+export per displayed hierarchy level" was also required. That misread the vendor
+policy. Per developers.google.com/google-ads/api/docs/api-policy/rmf
+("Downloadable Reports"), verbatim: "If your tool provides a download option, for
+example a CSV, instead of displaying reporting functionality within the user
+interface, then the download link must be prominently displayed and intuitively
+labeled." The rule is CONDITIONAL — it binds only a tool that offers downloads
+INSTEAD OF displaying reporting in the UI. Legacy displays all reporting in the
+UI, so no export is owed for RMF compliance. ★RMF-EXPORT-PER-LEVEL closed
+NOT-APPLICABLE on this citation (QUEUE owns the close).
 
 ### Pre-submit audit — DEFAULT COLUMNS: done 2026-08-14 (LORAMER_RMF_REPORTING_DEFAULTS_V1)
 
@@ -89,6 +99,9 @@ Required defaults now present, enforced by `tests/guards/rmf-reporting-defaults.
 - R.50 Keyword — keyword · match type · **status** (new column; the field was already selected and silently dropped by
   the mapper) · clicks · cost · **impressions** (was default-off) · **conversions** (was default-off) ·
   **first_page_cpc** + **first_position_cpc** (new).
+- R.70 Search Term — **entire level shipped 2026-08-14** (LORAMER_RMF_R70_SEARCH_TERMS_V1, e451104): search term ·
+  match type (enum-named) · spend · clicks · impressions, all default; live-gated 500 rows on every window on the
+  demo account.
 - Date range on every level: Today / Yesterday / Last 7 / 14 / 30 (default) / This month / Last month / Last 90 /
   Custom. ⚠ The Keywords screen's picker was INERT until this flight — `/api/keywords` never forwarded `dateRange`.
 
@@ -98,9 +111,14 @@ Required defaults now present, enforced by `tests/guards/rmf-reporting-defaults.
    exist and render an em dash. That is Google's data, not a capture defect — but a reviewer WILL see two empty
    columns, so do not let the screencast imply otherwise. `quality_score` is likewise sparse: 33/200 on one account,
    0/93 on the other.
-2. ⛔ **THE EXPORT HALF OF RMF IS STILL UNMET.** This audit closed the default-columns half only. There is NO
+2. ~~⛔ **THE EXPORT HALF OF RMF IS STILL UNMET.** This audit closed the default-columns half only. There is NO
    clearly-labeled export on ANY reporting level in legacy — the only download in the whole surface is a chat
-   transcript (`downloadChat`). Tracked as ★RMF-EXPORT-PER-LEVEL; it must land before submission.
+   transcript (`downloadChat`). Tracked as ★RMF-EXPORT-PER-LEVEL; it must land before submission.~~
+   **STRUCK 2026-08-14, NOT DELETED (tense-locked): the premise misread the vendor policy.** The RMF
+   "Downloadable Reports" rule is conditional — it binds only a tool providing downloads *instead of* UI
+   reporting (verbatim citation in the DEFERRED header above). Legacy displays every claimed level in the UI,
+   so no export is owed. ★RMF-EXPORT-PER-LEVEL closed NOT-APPLICABLE in the QUEUE, 2026-08-14. The factual
+   half of the struck text stays true and harmless: legacy has no per-level export, and it does not need one.
 
 - Tool type: Reporting-only, external/third-party SaaS.
 - Permissible use: Reporting (read-only). Keep stated use aligned with actual
