@@ -1,4 +1,4 @@
-import { GoogleAdsApi } from 'google-ads-api'
+import { GoogleAdsApi, enums } from 'google-ads-api' // enums: LORAMER_RMF_R70_SEARCH_TERMS_V1 match-type/status name maps
 import { resolveDateWindow } from '@/lib/date-range'
 
 const client = new GoogleAdsApi({
@@ -128,14 +128,25 @@ export async function getKeywords(refreshToken: string, customerId: string, date
   }))
 }
 
-// LORAMER_GAQL_DATE_WINDOW_V1 — same DURING→resolver fix. Live caller: mcp-server.js get_search_terms
-// (presets only today; the resolver makes any preset safe).
+// LORAMER_RMF_R70_SEARCH_TERMS_V1 — the R.70 (Search Term) query, REVIVED for the legacy Search Terms tab.
+// This function sat caller-less in the app for months (only mcp-server.js get_search_terms used it) while the
+// UI displayed no search-term level at all. RMF R.70 requires, default-ON: search term, match type, clicks,
+// cost, impressions. What changed:
+//  1. `segments.search_term_match_type` ADDED — it was never selected. ADAPTER GATE 2026-08-14 (account
+//     3699173394): ACCEPTED on all three windows, 500/500 rows each (L30/L90/custom), match_type 500/500
+//     non-null. It arrives as an integer enum; mapped through the lib's own enums.SearchTermMatchType so a
+//     `7` renders as AI_MAX, never as a bare number (values incl. BROAD/EXACT/PHRASE/NEAR_*/AI_MAX/PMAX).
+//  2. `search_term_view.status` was SELECTED AND DROPPED by the mapper — the exact keyword-status defect,
+//     third instance of the class. Now carried (targeting status: ADDED/EXCLUDED/NONE — negative-keyword
+//     visibility), mapped through enums.SearchTermTargetingStatus.
+//  3. Return keys are ADDITIVE ONLY (matchType, status) — mcp-server.js's 3-arg call is unchanged.
+// Dates ride resolveDateWindow (LORAMER_GAQL_DATE_WINDOW_V1; guard 108 holds DURING at zero tree-wide).
 export async function getSearchTerms(refreshToken: string, customerId: string, dateRange = 'LAST_30_DAYS', customStart?: string, customEnd?: string) {
   const customer = getCustomer(refreshToken, customerId)
   const { startDate, endDate } = resolveDateWindow(dateRange, customStart, customEnd)
   const rows = await customer.query(`
-    SELECT search_term_view.search_term, search_term_view.status,
-    campaign.name, ad_group.name,
+    SELECT search_term_view.search_term, segments.search_term_match_type,
+    search_term_view.status, campaign.name, ad_group.name,
     metrics.impressions, metrics.clicks, metrics.cost_micros,
     metrics.conversions, metrics.ctr
     FROM search_term_view
@@ -143,8 +154,13 @@ export async function getSearchTerms(refreshToken: string, customerId: string, d
     ORDER BY metrics.cost_micros DESC
     LIMIT 500
   `)
+  // Integer enum → name via the lib's own tables (the number→name direction of the bidirectional enum objects).
+  const mtName = (v: any): string => (v === null || v === undefined) ? '' : String((enums.SearchTermMatchType as any)[Number(v)] ?? v)
+  const stName = (v: any): string => (v === null || v === undefined) ? '' : String((enums.SearchTermTargetingStatus as any)[Number(v)] ?? v)
   return rows.map((row: any) => ({
     term: String(row.search_term_view?.search_term || ''),
+    matchType: mtName(row.segments?.search_term_match_type), // LORAMER_RMF_R70_SEARCH_TERMS_V1
+    status: stName(row.search_term_view?.status), // was selected-and-dropped; now carried
     campaign: String(row.campaign?.name || ''),
     adGroup: String(row.ad_group?.name || ''),
     impressions: Number(row.metrics?.impressions || 0),

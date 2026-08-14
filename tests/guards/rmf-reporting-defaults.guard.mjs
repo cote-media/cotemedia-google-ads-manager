@@ -26,6 +26,12 @@
 //        permanently empty column, the exact defect Quality Score had).
 //   R.50 Keyword — the four keyword fields are SELECTED and CARRIED, impressions/conversions/both CPC estimates are
 //        defaultOn, the Status column renders, and the query resolves its window through resolveDateWindow.
+//   R.70 Search Term (LORAMER_RMF_R70_SEARCH_TERMS_V1) — all five required fields SELECTED from search_term_view
+//        (search_term, segments.search_term_match_type, clicks, cost_micros, impressions), matchType/term CARRIED by
+//        the mapper (match type name-mapped via the lib's own enum, never a bare integer), spend/clicks/impressions
+//        defaultOn in the tab, the /api/google/search-terms route FORWARDS dateRange+customs (never inert), and the
+//        route is in the middleware legacy matcher (same session-only/shared-MCC shape as its siblings — absent from
+//        the matcher it is reachable by every authed user, reopening H2 for this route).
 //   NULL-PRESERVATION — the micros mapper and both estimate cells keep null distinct from zero.
 //   ANTI-STALE — rmfEnsure() is applied at BOTH column-picker seeds. `defaultOn` alone only governs a FRESH
 //        browser; both pickers seed from localStorage, so without the union a saved preference silently drops a
@@ -52,6 +58,8 @@ const F_ADS = 'src/lib/google-ads.ts'
 const F_TYPES = 'src/lib/platforms/types.ts'
 const F_DASH = 'src/app/dashboard/page.tsx'
 const F_KWROUTE = 'src/app/api/keywords/route.ts'
+const F_STROUTE = 'src/app/api/google/search-terms/route.ts' // LORAMER_RMF_R70_SEARCH_TERMS_V1
+const F_MIDDLEWARE = 'src/middleware.ts'
 const F_GATE = 'scripts/rmf-adapter-gate.mjs'
 
 const DROP_SELECT = process.argv.includes('--inject-drop-select')
@@ -93,6 +101,14 @@ export function decideRmfDefaults(i) {
   // Null preservation
   if (!i.microsPreservesNull) f.push(`${F_ADS}: the keyword micros helper no longer preserves null. \`Number(null || 0)\` turns "Google did not estimate this bid" into "$0.00" — a confident wrong number, measured null on 293 of 293 live rows.`)
   if (!i.estimateCellsNullSafe) f.push(`${F_DASH}: the first-page / first-position CPC cells no longer null-check before rendering, so a missing estimate would print as $0.00.`)
+  // R.70 Search Term
+  for (const field of i.missingSearchTermSelects) f.push(`${F_ADS}: the search-term GAQL no longer selects \`${field}\` (RMF R.70 requires it by default).`)
+  if (!i.stMapsMatchType) f.push(`${F_ADS}: getSearchTerms no longer carries matchType through the enum name-map. Either the field is fetched-and-dropped (the keyword-status defect, third instance) or a bare integer enum reaches the screen.`)
+  for (const id of i.stDefaultsOff) f.push(`${F_DASH}: search-term column \`${id}\` is no longer defaultOn (RMF R.70 requires it by default).`)
+  if (!i.stTabMounted) f.push(`${F_DASH}: the SearchTermsTab mount for activeTab==='searchterms' is gone — R.70 would be claimed with no screen displaying it.`)
+  if (!i.stRoutePassesRange) f.push(`${F_STROUTE}: /api/google/search-terms no longer forwards dateRange+customs to getSearchTerms — the inert-date-picker defect the keywords route shipped with.`)
+  if (!i.stRouteInMiddleware) f.push(`${F_MIDDLEWARE}: '/api/google/search-terms' is missing from the legacy matcher. The route is session-only over the shared MCC (the H1 shape); outside the matcher every authenticated user can call it — H2 reopens for this route.`)
+  if (!i.unionAtSearchTermPicker) f.push(`${F_DASH}: rmfEnsure() is gone from the search-term column state (the stale-localStorage hole).`)
   // Anti-stale
   if (!i.unionAtCampaignPicker) f.push(`${F_DASH}: rmfEnsure() is gone from the campaign column state. It seeds from localStorage, so without the union a saved preference silently drops a required column — on exactly the browser being reviewed.`)
   if (!i.unionAtKeywordPicker) f.push(`${F_DASH}: rmfEnsure() is gone from the keyword column state (same stale-localStorage hole).`)
@@ -103,8 +119,8 @@ export function decideRmfDefaults(i) {
 
 // ── INPUTS ──────────────────────────────────────────────────────────────────────────────────────────────────────
 const platform = read(F_PLATFORM), ads = read(F_ADS), types = read(F_TYPES), dash = read(F_DASH)
-const kwroute = read(F_KWROUTE), gate = read(F_GATE)
-for (const [n, s] of [[F_PLATFORM, platform], [F_ADS, ads], [F_TYPES, types], [F_DASH, dash], [F_KWROUTE, kwroute], [F_GATE, gate]]) {
+const kwroute = read(F_KWROUTE), stroute = read(F_STROUTE), middleware = read(F_MIDDLEWARE), gate = read(F_GATE)
+for (const [n, s] of [[F_PLATFORM, platform], [F_ADS, ads], [F_TYPES, types], [F_DASH, dash], [F_KWROUTE, kwroute], [F_STROUTE, stroute], [F_MIDDLEWARE, middleware], [F_GATE, gate]]) {
   if (!s) { console.error(`✗ ${n} unreadable — BROKEN INSTRUMENT, not a pass.`); process.exit(2) }
 }
 
@@ -159,6 +175,23 @@ const i = {
   unionAtCampaignPicker: !NO_UNION && /rmfEnsure\(lsJson\(storageKey, defaultCols\)/.test(dash),
   unionAtKeywordPicker: !NO_UNION && /rmfEnsure\(lsJson\('advar-kw-cols'/.test(dash),
 
+  // R.70 (LORAMER_RMF_R70_SEARCH_TERMS_V1)
+  missingSearchTermSelects: (() => {
+    const g = DROP_SELECT ? '' : block(ads, 'search_term_view')
+    return ['search_term_view.search_term', 'segments.search_term_match_type', 'metrics.clicks', 'metrics.cost_micros', 'metrics.impressions'].filter((f) => !g.includes(f))
+  })(),
+  stMapsMatchType: !DROP_MAPPER && /matchType:\s*mtName\(row\.segments\?\.search_term_match_type\)/.test(ads) && /enums\.SearchTermMatchType/.test(ads),
+  stDefaultsOff: (() => {
+    const stBlock = arrayBlock(dash, 'stCols')
+    if (!stBlock) return ['spend', 'clicks', 'impressions']
+    const def = (id) => new RegExp(`\\{\\s*id:\\s*'${id}'[^}]*\\}`).exec(stBlock)?.[0] || ''
+    return DEFAULT_OFF ? ['spend', 'clicks', 'impressions'] : ['spend', 'clicks', 'impressions'].filter((id) => !/defaultOn:\s*true/.test(def(id)))
+  })(),
+  stTabMounted: /activeTab === 'searchterms'[\s\S]{0,200}?<SearchTermsTab/.test(dash),
+  stRoutePassesRange: /getSearchTerms\(session\.refreshToken,\s*accountId,\s*dateRange,\s*customStart,\s*customEnd\)/.test(stroute),
+  stRouteInMiddleware: /'\/api\/google\/search-terms'/.test(middleware),
+  unionAtSearchTermPicker: !NO_UNION && /rmfEnsure\(lsJson\('advar-st-cols'/.test(dash),
+
   gateDrift: [...KEYWORD_FIELDS, 'metrics.all_conversions'].filter((f) => !gate.includes(f)),
 }
 
@@ -177,7 +210,8 @@ console.log(`[rmf-reporting-defaults] R.10+R.20 all_conversions: select=${i.plat
 console.log(`[rmf-reporting-defaults] R.20/R.40 columns: impressions defaultOn=${i.impressionsDefaultOn} · allConversions defaultOn=${i.allConvColumnDefaultOn} googleOnly=${i.allConvColumnGoogleOnly}`)
 console.log(`[rmf-reporting-defaults] R.50 keyword: ${KEYWORD_FIELDS.length - i.missingKeywordSelects.length}/${KEYWORD_FIELDS.length} fields selected · ${4 - i.missingKeywordMaps.length}/4 mapper carries · ${4 - i.keywordDefaultsOff.length}/4 defaults on · status column=${i.keywordStatusRendered}`)
 console.log(`[rmf-reporting-defaults] window: resolver=${i.keywordUsesResolver} during-regression=${i.keywordUsesDuring} route-forwards-range=${i.keywordRoutePassesRange}`)
-console.log(`[rmf-reporting-defaults] null-preservation: micros=${i.microsPreservesNull} cells=${i.estimateCellsNullSafe} · anti-stale unions: campaign=${i.unionAtCampaignPicker} keyword=${i.unionAtKeywordPicker}`)
+console.log(`[rmf-reporting-defaults] null-preservation: micros=${i.microsPreservesNull} cells=${i.estimateCellsNullSafe} · anti-stale unions: campaign=${i.unionAtCampaignPicker} keyword=${i.unionAtKeywordPicker} search-term=${i.unionAtSearchTermPicker}`)
+console.log(`[rmf-reporting-defaults] R.70 search-term: ${5 - i.missingSearchTermSelects.length}/5 fields selected · matchType mapped=${i.stMapsMatchType} · ${3 - i.stDefaultsOff.length}/3 defaults on · tab mounted=${i.stTabMounted} · route range=${i.stRoutePassesRange} · middleware-gated=${i.stRouteInMiddleware}`)
 console.log(`[rmf-reporting-defaults] adapter-gate pinning: ${5 - i.gateDrift.length}/5 fields also under live test`)
 console.log('[rmf-reporting-defaults] STATIC READ — proves the wiring, NOT that Google returned a value and NOT that a pixel rendered. See the header.')
 if (!v.ok) {

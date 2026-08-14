@@ -11,8 +11,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
 // LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF_REQUIRED_COLUMNS / RMF_REQUIRED_KEYWORD_COLUMNS / rmfEnsure
-import { COLUMN_DEFS, statusLabel, statusBadgeClass, normalizeGoogleStatus, RMF_REQUIRED_COLUMNS, RMF_REQUIRED_KEYWORD_COLUMNS, rmfEnsure } from '@/lib/platforms/types'
-import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard, IconCalendar } from '@tabler/icons-react'
+import { COLUMN_DEFS, statusLabel, statusBadgeClass, normalizeGoogleStatus, RMF_REQUIRED_COLUMNS, RMF_REQUIRED_KEYWORD_COLUMNS, RMF_REQUIRED_SEARCH_TERM_COLUMNS, rmfEnsure } from '@/lib/platforms/types'
+import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard, IconCalendar, IconListSearch } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 
 const DATE_RANGES = [
@@ -34,11 +34,12 @@ const NAV_ITEMS = [
   { id: 'woocommerce', label: 'WooCommerce', icon: '🛒', wooOnly: true },  // LORAMER_WOO_TAB_V1
   { id: 'ga', label: 'Analytics', icon: '📊', gaOnly: true },  // LORAMER_GA_DASHBOARD_TAB_V1
   { id: 'keywords', label: 'Keywords', icon: '⌖', googleOnly: true },
+  { id: 'searchterms', label: 'Search Terms', icon: '⌕', googleOnly: true }, // LORAMER_RMF_R70_SEARCH_TERMS_V1
   { id: 'chat', label: 'Lora', icon: '✦' },
 ]
 
 // LORAMER_NAV_ICONS_TYPE_V1
-const NAV_ICONS: Record<string, any> = { overview: IconLayoutDashboard, campaigns: IconTarget, keywords: IconSearch, chat: IconSparkles, shopify: IconShoppingBag, woocommerce: IconShoppingCart, ga: IconChartBar }
+const NAV_ICONS: Record<string, any> = { overview: IconLayoutDashboard, campaigns: IconTarget, keywords: IconSearch, searchterms: IconListSearch, chat: IconSparkles, shopify: IconShoppingBag, woocommerce: IconShoppingCart, ga: IconChartBar }
 function NavIcon({ id, size = 18 }: { id: string; size?: number }) { const Ico = NAV_ICONS[id]; return Ico ? <Ico size={size} stroke={1.75} className="flex-shrink-0" /> : null }
 
 // LORAMER_CLIENT_SWITCHER_V1
@@ -2554,6 +2555,138 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
   )
 }
 
+// ─── Search Terms Tab ─────────────────────────────────────────────────────────
+// LORAMER_RMF_R70_SEARCH_TERMS_V1 — the R.70 (Search Term) report. Cloned from KeywordsTab's exact pattern:
+// route forwards dateRange + customStart/customEnd (never inert), always-on identity columns + toggleable
+// metric columns with RMF defaults ON, rmfEnsure() against stale localStorage, totals row cell-aligned.
+// Required by R.70, all default: search term · match type (always-on) · spend · clicks · impressions.
+function SearchTermsTab({ accountId, dateRange, customStart, customEnd }: { accountId: string; dateRange: string; customStart?: string; customEnd?: string }) {
+  const [terms, setTerms] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [sortCol, setSortCol] = useState('spend')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
+  const [colPickerOpen, setColPickerOpen] = useState(false)
+  const stCols = [
+    { id: 'spend', label: 'Spend', defaultOn: true },
+    { id: 'clicks', label: 'Clicks', defaultOn: true },
+    { id: 'impressions', label: 'Impressions', defaultOn: true },
+    { id: 'conversions', label: 'Conv.', defaultOn: false },
+    { id: 'ctr', label: 'CTR', defaultOn: false },
+  ]
+  const [activeCols, setActiveCols] = useState<string[]>(() => rmfEnsure(lsJson('advar-st-cols', stCols.filter(c => c.defaultOn).map(c => c.id)), RMF_REQUIRED_SEARCH_TERM_COLUMNS))
+  const has = (id: string) => activeCols.includes(id)
+  const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet('advar-st-cols', JSON.stringify(cols)) }
+
+  useEffect(() => {
+    setLoading(true)
+    const custom = dateRange === 'CUSTOM' && customStart && customEnd ? '&customStart=' + customStart + '&customEnd=' + customEnd : ''
+    fetch('/api/google/search-terms?accountId=' + accountId + '&dateRange=' + dateRange + custom)
+      .then(r => r.json()).then(d => { setTerms(d.searchTerms || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [accountId, dateRange, customStart, customEnd])
+
+  function handleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortCol(col); setSortDir('desc') }
+  }
+  const sorted = [...terms].sort((a, b) => {
+    let av = 0, bv = 0
+    if (sortCol === 'spend') { av = Number(a.cost); bv = Number(b.cost) }
+    else if (sortCol === 'clicks') { av = Number(a.clicks); bv = Number(b.clicks) }
+    else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
+    else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
+    else if (sortCol === 'ctr') { av = Number(a.ctr); bv = Number(b.ctr) }
+    return sortDir === 'desc' ? bv - av : av - bv
+  })
+  const SortTh = ({ id, label }: { id: string; label: string }) => (
+    <th onClick={() => handleSort(id)} className="text-right px-3 py-3 font-mono text-xs text-muted tracking-wider cursor-pointer hover:text-ink select-none whitespace-nowrap">
+      {label}{sortCol === id ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+    </th>
+  )
+  // enums already name-mapped in getSearchTerms (BROAD/EXACT/PHRASE/NEAR_EXACT/NEAR_PHRASE/AI_MAX/PERFORMANCE_MAX)
+  const matchLabel = (mt: string) => mt ? mt.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()) : '—'
+
+  const totalSpend = terms.reduce((s, k) => s + Number(k.cost), 0)
+  const totalClicks = terms.reduce((s, k) => s + Number(k.clicks), 0)
+  const totalImpressions = terms.reduce((s, k) => s + Number(k.impressions || 0), 0)
+  const totalConversions = terms.reduce((s, k) => s + Number(k.conversions || 0), 0)
+  const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="font-display text-2xl md:text-3xl text-ink mb-1">Search Terms</h2>
+          <p className="text-sm text-muted font-mono">What people actually typed · top 500 by spend</p>
+        </div>
+        <div className="relative">
+          <button onClick={() => setColPickerOpen(!colPickerOpen)} className="text-xs font-mono text-muted hover:text-ink border border-border px-3 py-1.5 transition-colors">⊞ Columns</button>
+          {colPickerOpen && (
+            <div className="absolute right-0 top-9 bg-white border border-border shadow-lg z-20 p-4 w-48">
+              <p className="font-mono text-xs text-muted uppercase tracking-wider mb-3">Show columns</p>
+              {stCols.map(col => (
+                <label key={col.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                  <input type="checkbox" checked={activeCols.includes(col.id)}
+                    onChange={e => { if (e.target.checked) updateCols([...activeCols, col.id]); else updateCols(activeCols.filter(c => c !== col.id)) }}
+                    className="accent-accent" />
+                  <span className="text-xs text-ink">{col.label}</span>
+                </label>
+              ))}
+              <button onClick={() => setColPickerOpen(false)} className="mt-3 text-xs text-muted hover:text-ink font-mono">Done</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {loading ? <div className="text-muted text-sm font-mono">Loading search terms...</div> : (
+        <div className="bg-white border border-border overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-surface">
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Search term</th>
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Match</th>
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider hidden md:table-cell">Campaign</th>
+                {has('spend') && <SortTh id="spend" label="Spend" />}
+                {has('clicks') && <SortTh id="clicks" label="Clicks" />}
+                {has('impressions') && <SortTh id="impressions" label="Impr." />}
+                {has('conversions') && <SortTh id="conversions" label="Conv." />}
+                {has('ctr') && <SortTh id="ctr" label="CTR" />}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((k: any, i: number) => (
+                <tr key={i} className="table-row">
+                  <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-[160px] truncate">{k.term}</td>
+                  <td className="px-3 py-3 text-xs font-mono text-muted whitespace-nowrap">{matchLabel(k.matchType)}</td>
+                  <td className="px-3 py-3 text-xs text-muted truncate max-w-xs hidden md:table-cell">{k.campaign}</td>
+                  {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm">${k.cost}</td>}
+                  {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm">{k.clicks}</td>}
+                  {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm">{Number(k.impressions || 0).toLocaleString()}</td>}
+                  {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm">{k.conversions || '—'}</td>}
+                  {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm">{k.ctr}%</td>}
+                </tr>
+              ))}
+            </tbody>
+            {terms.length > 1 && (
+              <tfoot>
+                <tr className="border-t-2 border-border bg-surface font-medium">
+                  <td className="px-3 py-3 font-mono text-xs text-muted sticky left-0 bg-surface">Total</td>
+                  {/* Match · Campaign — two spacers, cell-aligned with the header (the totals-row lesson from Keywords). */}
+                  <td className="px-3 py-3" /><td className="px-3 py-3 hidden md:table-cell" />
+                  {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm">${totalSpend.toFixed(2)}</td>}
+                  {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm">{totalClicks.toLocaleString()}</td>}
+                  {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalImpressions.toLocaleString()}</td>}
+                  {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalConversions.toFixed(1)}</td>}
+                  {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm">{avgCtr.toFixed(2)}%</td>}
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Chat Tab ─────────────────────────────────────────────────────────────────
 function ChatTab({ messages, input, loading, onInputChange, onSend, accountSelected, onDownload, onUpload, exchangeCount, platform, clientName, drillLevel }: any) {
   // LORAMER_ASKCLAUDE_SCROLL_V1 — scroll to bottom on mount (refresh case) and on new messages.
@@ -3469,10 +3602,10 @@ function DashboardContent() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>(() => (ls('advar-active-platform') as Platform) || 'google')
-  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce' | 'ga'>(() => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'campaigns' | 'keywords' | 'searchterms' | 'chat' | 'shopify' | 'woocommerce' | 'ga'>(() => { // LORAMER_RMF_R70_SEARCH_TERMS_V1 — 'searchterms' added
     // LORAMER_DEFAULT_TAB_V1 - validate against known tabs, default to overview
     const saved = ls('advar-active-tab') as any
-    const valid = ['overview', 'campaigns', 'keywords', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
+    const valid = ['overview', 'campaigns', 'keywords', 'searchterms', 'chat', 'shopify', 'woocommerce', 'ga']  // LORAMER_GA_DASHBOARD_TAB_V1
     return valid.includes(saved) ? saved : 'overview'
   })
   const [dateRange, setDateRange] = useState<string>(() => ls('advar-date-range') || 'LAST_30_DAYS')
@@ -3709,7 +3842,7 @@ function DashboardContent() {
     if (selectedClient) loadData(selectedClient, platform, dateRange, customStart, customEnd)
   }
 
-  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'chat' | 'shopify' | 'woocommerce' | 'ga') {
+  function changeTab(tab: 'overview' | 'campaigns' | 'keywords' | 'searchterms' | 'chat' | 'shopify' | 'woocommerce' | 'ga') {
     setActiveTab(tab)
     lsSet('advar-active-tab', tab)
   }
@@ -3975,9 +4108,9 @@ function DashboardContent() {
   }
   // Channel-aware sub-tabs (rendered in <main>): Google = Overview/Campaigns/Keywords,
   // Meta = Overview/Campaigns. Combined Overview has NO sub-tabs (combined-campaigns retired).
-  const subTabs: { id: 'overview' | 'campaigns' | 'keywords'; label: string }[] | null =
+  const subTabs: { id: 'overview' | 'campaigns' | 'keywords' | 'searchterms'; label: string }[] | null =
     adChannelActive && activePlatform === 'google' && hasGoogle
-      ? [{ id: 'overview', label: 'Overview' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'keywords', label: 'Keywords' }]
+      ? [{ id: 'overview', label: 'Overview' }, { id: 'campaigns', label: 'Campaigns' }, { id: 'keywords', label: 'Keywords' }, { id: 'searchterms', label: 'Search Terms' }] // LORAMER_RMF_R70_SEARCH_TERMS_V1
       : adChannelActive && activePlatform === 'meta' && hasMeta
         ? [{ id: 'overview', label: 'Overview' }, { id: 'campaigns', label: 'Campaigns' }]
         : null
@@ -4150,6 +4283,10 @@ function DashboardContent() {
           )}
           {!loading && activeTab === 'keywords' && activePlatform === 'google' && googleAccountId && (
             <KeywordsTab accountId={googleAccountId} dateRange={dateRange} clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} platformData={platformData} customStart={customStart} customEnd={customEnd} />
+          )}
+          {/* LORAMER_RMF_R70_SEARCH_TERMS_V1 — R.70 Search Term report; same gate shape as Keywords */}
+          {!loading && activeTab === 'searchterms' && activePlatform === 'google' && googleAccountId && (
+            <SearchTermsTab accountId={googleAccountId} dateRange={dateRange} customStart={customStart} customEnd={customEnd} />
           )}
           {activeTab === 'shopify' && hasShopify && (
             <ShopifyTabWrapper clientId={selectedClient?.id || ''} clientName={selectedClient?.name || ''} dateRange={dateRange} platform={activePlatform} openPanel={openPanel} customStart={customStart} customEnd={customEnd} />

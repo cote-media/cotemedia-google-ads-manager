@@ -53,6 +53,7 @@ export const config = {
     '/api/daily',
     '/api/google/ads',
     '/api/google/adgroups/:path*',
+    '/api/google/search-terms', // LORAMER_RMF_R70_SEARCH_TERMS_V1 — same session-only/shared-MCC shape as its siblings; gated identically or H2 reopens for this route
     '/api/accounts',
   ],
 }

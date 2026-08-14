@@ -142,6 +142,9 @@ export const RMF_REQUIRED_COLUMNS: Record<string, string[]> = {
 export const RMF_REQUIRED_KEYWORD_COLUMNS: string[] = [
   'spend', 'clicks', 'impressions', 'conversions', 'firstPageCpc', 'firstPositionCpc',
 ]
+// R.70 Search Term (LORAMER_RMF_R70_SEARCH_TERMS_V1) — the metric half of the required set; the search term
+// and match type render always-on (not toggleable), like the keyword Match column.
+export const RMF_REQUIRED_SEARCH_TERM_COLUMNS: string[] = ['spend', 'clicks', 'impressions']
 
 // Union the required ids into a (possibly stale, possibly localStorage-sourced) active set, preserving the
 // user's own ordering and never dropping anything they added.

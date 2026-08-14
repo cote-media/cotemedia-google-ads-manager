@@ -26,6 +26,12 @@
 //
 // USAGE
 //   node scripts/rmf-adapter-gate.mjs --client <clientId> [--window YYYY-MM-DD..YYYY-MM-DD]
+//   node scripts/rmf-adapter-gate.mjs --client <clientId> --search-terms
+//     --search-terms (LORAMER_RMF_R70_SEARCH_TERMS_V1): validates the R.70 search-term GAQL — the exact
+//     SELECT getSearchTerms ships — on LAST_30_DAYS, LAST_90_DAYS and a CUSTOM window (3 ops). The load-bearing
+//     hypothesis it settles: `segments.search_term_match_type` selectability FROM search_term_view (the
+//     per-resource typings hold attributes only, so no static check can). Reports row counts and match-type
+//     delivery per window — an empty reviewer-facing tab is a finding, not a footnote.
 //   node scripts/rmf-adapter-gate.mjs --client <clientId> --drill
 //     --drill (LORAMER_GAQL_DATE_WINDOW_V1): validates the CORRECTED ad-group + ad drill GAQL — the exact
 //     SELECT/WHERE shape /api/google/adgroups and /api/google/ads now emit — against the live API on the
@@ -96,6 +102,49 @@ async function main() {
 
   const reason = (e) => { const m = e?.errors?.[0] ?? e; return JSON.stringify(m?.error_code ? { error_code: m.error_code, message: m.message } : String(e?.message || e)).slice(0, 500) }
   const probes = []
+
+  // ── --search-terms (LORAMER_RMF_R70_SEARCH_TERMS_V1): the R.70 GAQL on three windows ──────────────────────
+  if (argv.includes('--search-terms')) {
+    const iso = (d) => d.toISOString().slice(0, 10)
+    const y = new Date(Date.now() - 86400000)
+    const windows = [
+      { label: 'LAST_30_DAYS(resolved)', start: iso(new Date(y.getTime() - 29 * 86400000)), end: iso(y) },
+      { label: 'LAST_90_DAYS(resolved)', start: iso(new Date(y.getTime() - 89 * 86400000)), end: iso(y) },
+      { label: 'CUSTOM(2026-05-01..2026-05-31)', start: '2026-05-01', end: '2026-05-31' },
+    ]
+    console.log(`[rmf-adapter-gate] --search-terms · account ${conn.account_id} (${conn.account_name || 'unnamed'}) · 3 vendor requests (Basic cap 15,000/day).`)
+    // The EXACT SELECT the revived getSearchTerms ships (R.70 required fields + the always-carried context cols).
+    const stGaql = (w) => `
+      SELECT search_term_view.search_term, segments.search_term_match_type,
+      search_term_view.status, campaign.name, ad_group.name,
+      metrics.impressions, metrics.clicks, metrics.cost_micros,
+      metrics.conversions, metrics.ctr
+      FROM search_term_view
+      WHERE segments.date BETWEEN '${w.start}' AND '${w.end}'
+      ORDER BY metrics.cost_micros DESC
+      LIMIT 500`
+    for (const w of windows) {
+      try {
+        const rows = await customer.query(stGaql(w))
+        const mt = rows.filter((r) => r.segments?.search_term_match_type !== null && r.segments?.search_term_match_type !== undefined).length
+        probes.push({ query: `search_terms·${w.label}`, selectable: true, error: null, rowCount: rows.length, delivery: {} })
+        console.log(`[rmf-adapter-gate] search_terms · ${w.label}: ✓ ACCEPTED · ${rows.length} row(s) · match_type non-null ${mt}/${rows.length}`)
+        if (rows.length > 0) console.log(`[rmf-adapter-gate]     first row: ${JSON.stringify({ term: rows[0].search_term_view?.search_term, match_type: rows[0].segments?.search_term_match_type, clicks: rows[0].metrics?.clicks, cost_micros: rows[0].metrics?.cost_micros, impressions: rows[0].metrics?.impressions })}`)
+        else console.log(`[rmf-adapter-gate]     ⛔ ZERO ROWS in this window — a reviewer opening this tab on this window sees an EMPTY report. Selectability proven, delivery ABSENT here.`)
+      } catch (e) {
+        probes.push({ query: `search_terms·${w.label}`, selectable: false, error: reason(e), rowCount: 0, delivery: {} })
+        console.log(`[rmf-adapter-gate] search_terms · ${w.label}: ⛔ VENDOR REFUSED — ${reason(e)}`)
+      }
+    }
+    const sv = decideAdapterGate({ probes })
+    if (!sv.ok) {
+      console.error(`✗ rmf-adapter-gate --search-terms FAIL — ${sv.failures.length} finding(s):`)
+      for (const f of sv.failures) console.error(`  - ${f}`)
+      process.exit(1)
+    }
+    console.log('✓ rmf-adapter-gate --search-terms OK — the R.70 GAQL (incl. segments.search_term_match_type) is ACCEPTED on all three windows.')
+    process.exit(0)
+  }
 
   // ── --drill (LORAMER_GAQL_DATE_WINDOW_V1): the corrected drill GAQL on the two ranges DURING broke on ──────
   if (argv.includes('--drill')) {
