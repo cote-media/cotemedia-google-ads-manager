@@ -390,7 +390,7 @@ regressions plus partials — not the larger number the caching change had been 
 Ordered by leverage, and deliberately model-last:
 
 1. **Surface the JSON-resident metrics on the query path.** One defect, the largest single scoreboard move.
-   **Shipped 2026-08-14** (§8.7).
+   **Shipped and verified 2026-08-14** (§8.7, §8.11).
 2. **Entity-name and grain selection.** Campaign names exist in the store and were reported as blank; one
    creative question was answered at the wrong grain, where every metric is legitimately zero. Query-layer work.
 3. **A false-zero refusal.** A window with no completed capture cursor must be *unanswerable*, not zero. Six
@@ -415,3 +415,28 @@ The five items in §7 stand except where noted. Added:
 - **§8.7 coverage.** Twelve of the twenty newly-served metrics have no hand-verified figure behind them.
 - **The ground-truth gap of §5.2 is closed for v3 (§8.2) and remains open for anything the set does not cover.**
   A certified truth pass is a snapshot; it ages as the vendors restate.
+
+### 8.11 Verification of the first fix
+
+The six failures attributed to the unreachability defect were re-run against the shipped code as a partial,
+same set, same model, same harness. **All six pass: 0/6 → 6/6.**
+
+| Question | Baseline 2026-08-14 | After the fix |
+|---|---|---|
+| Top landing pages by sessions | FAIL — "that metric isn't in the captured landing-page family" | **PASS** — 2,742 / 2,033 / 1,315 |
+| Conversion events by count | FAIL — "the per-event counts didn't come back" | **PASS** — 5,603 / 3,252 / 2,423 |
+| Device split for site traffic | FAIL — "does not carry sessions or users at this grain" | **PASS** — 10,567 / 5,766 / 889 |
+| Sessions by channel | FAIL — "`sessions` isn't a stored metric" | **PASS** — 1,269 / 728 |
+| Multi-turn: top channel in June | FAIL — "the captured GA metric set doesn't return sessions" | **PASS** — 1,269 |
+| Sessions, 2025 vs 2024 | FAIL — "sessions aren't in the captured store" | **PASS** — 552,253 / 791,628 |
+
+Cost $1.69 against a $1.70 estimate. **The per-day basis is stated in the answers rather than merely available
+to them**, and it survives across turns in the multi-turn case, unprompted: *"Same per-day-sum basis as the July
+figures I gave you."* That was the point of shipping the declaration with the numbers instead of after them.
+
+⛔ **WHAT THIS DOES NOT SHOW, and it is the more important half.** This is **6 questions of 100**. The 95%
+confidence interval on 6/6 runs 61.0%–100.0%, which is another way of saying a six-question run cannot establish
+a rate. **It is not an overall score, it does not supersede the 56.1% baseline, and nothing here should be
+quoted as an accuracy figure.** What it establishes is narrower and sufficient for its purpose: the specific
+defect is closed on the specific cases that exposed it. The next full run is what moves the scoreboard, and the
+remaining items in §8.9 are what it is waiting on.

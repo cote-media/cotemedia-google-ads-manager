@@ -1,0 +1,148 @@
+{
+  "base": "http://localhost:3111",
+  "owner": "cotebrandmarketing@gmail.com",
+  "cats": {
+    "B": {
+      "p": 4,
+      "n": 4
+    },
+    "M": {
+      "p": 1,
+      "n": 1
+    },
+    "V": {
+      "p": 1,
+      "n": 1
+    }
+  },
+  "overall": {
+    "pass": 6,
+    "n": 6
+  },
+  "results": [
+    {
+      "id": "B2",
+      "cat": "B",
+      "axis": "correctness",
+      "scored": true,
+      "graded": true,
+      "assertType": "numbers",
+      "client": "Foam OH",
+      "message": "What were my top ten landing pages by sessions in Q2 2026?",
+      "pass": true,
+      "detail": "2742→ok , 2033→ok , 1315→ok",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 36390,
+      "response": "## Top 10 landing pages by sessions — Q2 2026 (Apr 1 – Jun 30)\n\nCaptured GA4 store, coverage **COMPLETE** — all 91 active days carry landing-page rows, so nothing is missing from this ranking. This is a historical window, so there's no live counterpart to show alongside it (the live panel above covers Jul 15 – Aug 13 only).\n\n| # | Landing page | Sessions | Engaged | Eng. rate | Conv. | Revenue |\n|---|---|---|---|---|---|---|\n| 1 | `/` | 2,742 | 1,727 | 63.0% | 560 | $2,287 |\n| 2 | `/pages/easter-sale-2026` *(?tw_source=google, adid 801802996686, campaign 23642185184)* | 2,033 | 643 | 31.6% | 0 | $0 |\n| 3 | `/products/ramp-extra-cover-set` *(variant 44891454111943, tw_adid 790947677251)* | 1,315 | 416 | 31.6% | 8 | $0 |\n| 4 | `/products/foamoh-headboard-daybed-twinxl-combo` *(variant 43011077013703)* | 920 | 322 | 35.0% | 4 | $0 |\n| 5 | `/products/step-extra-cover-set` *(variant 44891450605767)* | 702 | 242 | 34.5% | 4 | $0 |\n| 6 | `/products/play-sofa-extra-cover-set` *(variant 42940322873543)* | 544 | 201 | 36.9% | 2 | $0 |\n| 7 | `/products/foamoh-original-play-castle-sofa` | 462 | 220 | 47.6% | 85 | $1,294 |\n| 8 | `(not set)` | 409 | 8 | 2.0% | 0 | $0 |\n| 9 | `/products/deluxe-play-sofa-extra-cover-set` *(variant 43284994982087)* | 401 | 154 | 38.4% | 4 | $0 |\n| 10 | `/products/castle-sofa-extra-cover-set` *(variant 43284974829767)* | 391 | 119 | 30.4% | 8 | $0 |\n\n**Session basis:** these are a per-day sum of captured rows, not GA4's own range total. GA4 dedupes sessions that cross midnight when it answers a multi-day range, so your own dashboard will read slightly differently for the same window — measured deviation on a real property has run from ~1% low to ~0.4% high. Don't treat the two as identical, and don't assume the direction of the gap.\n\n---\n\n### Three things worth acting on\n\n**1. The Easter sale page is your #2 traffic destination and it produced zero conversions and zero revenue.** 2,033 sessions, 31.6% engagement, nothing out the door. That's a single Google campaign (`23642185184`, ad `801802996686`) pointed at `/pages/easter-sale-2026`. It's the second-largest traffic sink in the quarter and it converted nobody in the GA4 data. Either the page had no purchasable path on it, or purchase events weren't firing from it — both are worth 10 minutes to confirm before Easter 2027, because that campaign is still visible in the current-window GA4 campaign list (`us_sales_easter_sale_bof_spring26`, 3 sessions) so the landing page is presumably still live and indexed.\n\n**2. Five of your top ten are \"extra cover set\" variant URLs, all carrying the same `tw_adid=790947677251`.** Ramp, step, play sofa, deluxe play sofa, castle sofa cover sets — 3,353 combined sessions, 26 conversions, $0 attributed revenue. These are accessory SKUs pulling roughly a quarter of your top-ten traffic through one ad. Accessories at that volume with no revenue attribution is odd: either the revenue is landing on `/` and the product page (which together hold all $3,581 of the attributed revenue in this list), or the traffic genuinely isn't buying. Worth a look at whether that ad should be pointing at the sofa itself rather than its cover.\n\n**3. `/` and `/products/foamoh-original-play-castle-sofa` are doing all the revenue work.** They're the only two pages in the top ten with any revenue at all, and the Castle Sofa page converts at the highest engagement rate in the list (47.6%) on the smallest traffic of the revenue pair. That page is under-fed relative to how well it performs.\n\nOne flag on the data itself: **2,118 distinct landing-page values** in the quarter, and the tracking parameters (`tw_source`, `tw_adid`, `tw_campaign`, `variant`, `country`, `currency`) are fragmenting single pages across many rows. The true per-page totals are higher than what's shown here, because `/products/ramp-extra-cover-set` with different variant or adid strings counts as separate rows. If you want a clean page-level ranking with parameters stripped, say so and I'll pull deeper and consolidate.",
+      "card": null
+    },
+    {
+      "id": "B6",
+      "cat": "B",
+      "axis": "correctness",
+      "scored": true,
+      "graded": true,
+      "assertType": "numbers",
+      "client": "Foam OH",
+      "message": "Which conversion events fired most often in June 2026, and what value did they carry?",
+      "pass": true,
+      "detail": "5603→ok , 3252→ok , 2423→ok",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 61381,
+      "response": "## June 2026 — GA4 is the only place conversion events fired\n\nBoth ad platforms were dark: **Google spend $0 and Meta spend $0** for the whole month, coverage `covered` / `complete: true`. The Google `conversion_action` family came back empty, and the coverage payload is explicit that this is a fact about the account (no base-grain activity in the window), not a capture gap — so there are no Google conversion actions to report. That's worth flagging because the Google conversion-action family also failed to load in the live panel this turn; I pulled it from the captured store instead, and the captured store confirms the genuine zero.\n\nEverything below is **captured/settled through 2026-08-12**. June is fully historical, so there's no live counterpart to show alongside it. GA4 event coverage for the window is **COMPLETE — all 30 active days carry rows**.\n\n### Events by volume, June 1–30 2026\n\n| Event | Count | Value carried |\n|---|---|---|\n| page_view | 5,603 | — |\n| view_item | 3,252 | — |\n| session_start | 2,423 | — |\n| first_visit | 1,934 | — |\n| user_engagement | 1,842 | — |\n| form_start | 822 | — |\n| scroll | 415 | — |\n| **add_to_cart** | **160** | **$13,575.00** |\n| **begin_checkout** | **102** | **$27,997.00** |\n| click | 45 | — |\n| file_download | 33 | — |\n| form_submit | 22 | — |\n| search | 19 | — |\n| view_search_results | 19 | — |\n| add_payment_info | 17 | — |\n| **purchase** | **8** | **$1,034.00** |\n\n16 distinct events, nothing truncated.\n\n### Reading the value column\n\nOnly three events carry value, and **two of them are not money**. `add_to_cart` ($13,575) and `begin_checkout` ($27,997) are the catalog value of items pushed into the cart and checkout — intent, not revenue. Only `purchase` ($1,034) is transacted.\n\nThe funnel that implies: 3,252 item views → 160 adds (4.9%) → 102 checkouts started (64% of adds — healthy) → 17 payment-info events → **8 purchases**. The break is between checkout-start and payment: 102 begin_checkout produced 17 add_payment_info, so ~83% of started checkouts never reach the payment step. In dollar terms $27,997 of checkout value produced $1,034 of purchases. That's the single biggest leak in the month, and it's a site/checkout problem, not a media problem — there was no media running.\n\nAlso note `begin_checkout` value ($27,997) exceeds `add_to_cart` value ($13,575) on fewer events, which means checkout is being re-fired on multi-item or re-entered carts. Don't treat it as a clean per-user step.\n\n### One reconciliation you should know about before quoting the purchase figure\n\nThree sources disagree for June, and each is a different basis:\n\n| Basis | Orders/purchases | Value |\n|---|---|---|\n| GA4 event-scoped (`purchase` event) | 8 | $1,034.00 |\n| GA4 transactions (base grain) | 7 | $780.00 |\n| Shopify (canonical, refund-adjusted) | — | **$1,054.00** |\n\nThe **$1,054 Shopify figure is the dashboard/canonical number** (store takes precedence; never summed with GA). GA4 sits ~26% below it on the transactions basis and ~2% below on the event basis — the usual cause is consent/blocking and session-attribution loss on the GA4 side, plus GA4 crediting on click-date. Shopify also logged **2 refunded orders totalling $503** in June, which the $1,054 is already net of and GA4's figures are not. There's no ROAS to compute for the month — zero ad spend means the denominator doesn't exist.\n\nIf you want, I can pull the same event breakdown split by landing page or channel to see whether the checkout drop-off concentrates on the Castle Sofa PDP specifically.",
+      "card": null
+    },
+    {
+      "id": "B7",
+      "cat": "B",
+      "axis": "correctness",
+      "scored": true,
+      "graded": true,
+      "assertType": "numbers",
+      "client": "Foam OH",
+      "message": "What's the device category split for site traffic in Q2 2026?",
+      "pass": true,
+      "detail": "10567→ok , 5766→ok , 889→ok",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 44934,
+      "response": "## GA4 device split — Q2 2026 (Apr 1 – Jun 30)\n\nCaptured store, GA4 coverage `covered`, `complete: true`, settled through **2026-08-12**. Breakdown coverage is **COMPLETE** — all 91 base-active days carry device rows, no holes. This is a historical window that sits entirely outside the current live panel (Jul 15 – Aug 13), so there's no live counterpart to show alongside it.\n\n| Device | Sessions | Share | Engaged sessions | Engagement rate | Conversions | Revenue | Rev/session |\n|---|---|---|---|---|---|---|---|\n| **mobile** | 10,567 | 61.4% | 4,771 | 45.2% | 871 | $11,143 | $1.05 |\n| **desktop** | 5,766 | 33.5% | 2,368 | 41.1% | 669 | $954 | $0.17 |\n| **tablet** | 889 | 5.2% | 442 | 49.7% | 6 | $0 | $0.00 |\n| **Total** | **17,222** | 100% | 7,581 | 44.0% | 1,546 | $12,097 | $0.70 |\n\n**Session basis caveat:** these are the sum of captured per-day rows, not GA4's own range total. GA4 deduplicates sessions that span midnight when it answers a range query, so this will not tie exactly to what you see in the property's own UI, and the direction of the gap isn't predictable. Same reason the device rows (17,222) run ~169 sessions above the account-level GA4 total for the window (17,053) — different aggregation path, ~1% apart. Single-day figures are exact; multi-day ones are ±1-ish percent.\n\n---\n\n## What actually matters in this split\n\n**Mobile is 61% of traffic but 92% of revenue.** That's the headline. Mobile pulls $1.05 per session against desktop's $0.17 — a **6.4× gap in revenue per session**. For a $200-AOV physical product that's the reverse of the usual pattern, where desktop typically closes the higher-consideration purchase. Two readings, and I can't separate them from device data alone:\n\n1. Genuine — the Castle Sofa is a scroll-and-buy impulse-adjacent product driven by social/visual discovery, and that traffic is mobile-native.\n2. Attribution — desktop purchases are landing in GA4 with broken or missing device attribution on the transaction, or desktop sessions are the research leg of a journey that closes on mobile.\n\nThe second is worth ruling out, because you have a known GA4 identification problem on this account already (the 2025 under-reporting and Shopify linkage break we flagged earlier). Q2 GA4 shows **51 transactions** at account level while the device rows carry only $12,097 against an account canonical of $11,843 — the device dimension is carrying $254 more than the account row, which is small but confirms the device attribution isn't perfectly clean.\n\n**Desktop converts at volume but not at value.** 669 conversions on desktop vs 871 on mobile is nearly proportional to sessions — desktop is doing normal funnel work (add-to-cart, begin-checkout, which is what most of that 1,546 conversion count is; `purchase` is a tiny slice of it). It's the *purchase* step where desktop drops out. That points at desktop checkout, not desktop interest.\n\n**Tablet is 889 sessions with the highest engagement rate (49.7%) and zero revenue.** 5% of traffic producing nothing. At this volume it's not worth a dedicated fix, but it's a clean signal that if you're running any device bid modifiers on Google, tablet has no revenue evidence behind it in this window.\n\n---\n\n## What I'd do with this\n\n1. **Test desktop checkout on the Castle Sofa PDP.** A 6.4× revenue-per-session gap with proportional mid-funnel conversion is the signature of a checkout-step failure, not a demand failure. That's a 30-minute manual walkthrough, not an analysis project.\n2. **Pull `ga_device` against `ga_landing_page`-level behaviour** before concluding it's genuine mobile preference — if desktop's drop is concentrated on one or two templates, it's technical.\n3. **Don't set device bid modifiers off this table yet.** The 92/8 revenue split is real in GA4, but GA4 is the weaker of your two revenue sources on this account (it under-reports against Shopify — the current window shows GA4 at $1,098 vs Shopify $989 net, a −11.0% delta running the other way, so the two bases genuinely disagree). Shopify has no device dimension at all, so there's no way to corroborate the device revenue split against order data.\n\nWorth noting separately: Google's live panel failed to load this turn — that's a fetch failure, not zero spend, and it doesn't touch anything above since this is GA4 site analytics. If you want the paid side of Q2 2026 device performance (Google's own device breakdown, which is a different dimension on a different basis), say the word and I'll pull it from the captured store.",
+      "card": null
+    },
+    {
+      "id": "B19",
+      "cat": "B",
+      "axis": "correctness",
+      "scored": true,
+      "graded": true,
+      "assertType": "numbers",
+      "client": "Foam OH",
+      "message": "How many sessions came from paid vs organic vs direct in June 2026?",
+      "pass": true,
+      "detail": "1269→ok , 728→ok",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 74746,
+      "response": "## June 2026 sessions by channel — GA4, captured store\n\nCoverage is clean: `ga_channel` returned **COMPLETE** (all 30 base-active days carry rows), settled through **2026-08-12**. June is fully historical, so there's no live counterpart to show alongside it. One basis note: these session counts are a **per-day sum** of captured rows, so they won't tie exactly to what GA4's own UI shows for the same range (GA4 dedupes sessions that span midnight when it answers a range query) — expect a difference of ~1%, not a discrepancy.\n\n| Bucket | Sessions | Share |\n|---|---|---|\n| **Direct** | **1,269** | 52.3% |\n| **Organic (all forms)** | **828** | 34.1% |\n| **Paid (all forms)** | **189** | 7.8% |\n| Other (referral, unassigned, AI, email) | 139 | 5.7% |\n| **Total** | **2,425** | 100% |\n\nBroken out by the actual GA4 channel groups:\n\n| Channel | Sessions | Engaged | Conv. |\n|---|---|---|---|\n| Direct | 1,269 | 546 | 99 |\n| Organic Search | 728 | 498 | 118 |\n| Cross-network | 86 | 21 | 0 |\n| Referral | 74 | 57 | 40 |\n| Unassigned | 57 | 30 | 10 |\n| Organic Social | 50 | 22 | 10 |\n| Organic Shopping | 49 | 28 | 10 |\n| Paid Search | 49 | 17 | 0 |\n| Display | 37 | 16 | 0 |\n| Paid Social | 14 | 5 | 0 |\n| AI Assistant | 6 | 4 | 0 |\n| Paid Other | 3 | 2 | 0 |\n| Email | 2 | 2 | 0 |\n| Organic Video | 1 | 1 | 0 |\n\nOrganic = Organic Search + Social + Shopping + Video (828). Paid = Paid Search + Cross-network + Display + Paid Social + Paid Other (189).\n\n---\n\n## Three things in this that matter more than the split itself\n\n**1. The \"paid\" 189 sessions cost $0.** Captured spend for June 2026 is **$0.00 on Google and $0.00 on Meta** — coverage `covered`, contribution `ok` on both, `complete: true`, so that is a genuine zero, not a gap. Yet source/medium shows **152 sessions on `google / cpc`** plus 15 more on `facebook / paid`, `ig / paid`, `fb / paid`. With no spend behind them, those are almost certainly stale gclid/UTM-tagged links being re-entered (bookmarks, old emails, cached SERP entries) and Google's auto-tagging on free surfaces bleeding into the cpc bucket. Treat the 7.8% \"paid\" share as **residual tagging, not media**. Nothing was bought in June.\n\n**2. Direct at 52.3% is the real story.** More than half of all sessions arrived with no attributable origin, and Direct carried 99 conversions and $648 of GA4-attributed revenue — the single largest revenue channel. With zero paid media running, a Direct share that high is consistent with brand/repeat demand, but it also means GA4 can't tell you what *created* that demand. Nothing in the data separates \"typed the URL because they know the brand\" from \"lost referrer.\"\n\n**3. Referral traffic looks contaminated.** In the source/medium cut: `trendythreads.net / referral` = 12 sessions / 12 conversions, `chicfitworld.com / referral` = 8 sessions / 12 conversions, `l.instagram.com / referral` = 8 sessions / 10 conversions, `myblogsreview.net / referral` = 7 sessions / 1. Conversion counts at or above session counts on unknown low-traffic domains is a classic referral-spam / bot signature — and it's inflating the Referral row's 40 conversions. Worth a GA4 filter before those numbers get used in any channel comparison.\n\nTwo housekeeping notes on provenance: the source/medium list is the **top 30 of 73** values, so the tail below 2 sessions isn't shown; and the account-level GA row for June reports 2,381 sessions against the channel breakdown's 2,425 — both are per-day sums at different grains, and the ~1.8% gap is the usual dimension-level rounding, not a capture hole.",
+      "card": null
+    },
+    {
+      "id": "MT3",
+      "cat": "M",
+      "axis": "multi-turn",
+      "scored": true,
+      "graded": true,
+      "assertType": "number",
+      "client": "Foam OH",
+      "message": "Which channel drove the most of them in June?",
+      "pass": true,
+      "detail": "expected 1269 (Direct — window shifts to June per the question); closest-in-answer 1269",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 76266,
+      "response": "## June 2026: **Direct**, with 1,269 sessions — 52% of the month\n\nCaptured store, GA4 `covered` and `complete: true`, settled through **2026-08-12**. Breakdown coverage verdict **COMPLETE** — all 30 active days carry rows. Same per-day-sum basis as the July figures I gave you, so treat it as ~1% either side of what your own GA4 will show for the range; single days are exact.\n\nAccount total for June was **2,381 sessions** — up on July's 1,817.\n\n| Channel | Sessions | Engaged | Conv. | GA4 revenue |\n|---|---|---|---|---|\n| **Direct** | **1,269** | 546 | 99 | $648 |\n| Organic Search | 728 | 498 | 118 | $288 |\n| Cross-network | 86 | 21 | 0 | $0 |\n| Referral | 74 | 57 | 40 | $49 |\n| Unassigned | 57 | 30 | 10 | $49 |\n| Organic Social | 50 | 22 | 10 | $0 |\n| Organic Shopping | 49 | 28 | 10 | $0 |\n| Paid Search | 49 | 17 | 0 | $0 |\n| Display | 37 | 16 | 0 | $0 |\n| Paid Social | 14 | 5 | 0 | $0 |\n| AI Assistant | 6 | 4 | 0 | $0 |\n| Paid Other | 3 | 2 | 0 | $0 |\n| Email | 2 | 2 | 0 | $0 |\n| Organic Video | 1 | 1 | 0 | $0 |\n\nChannel rows sum to 2,425 against the account grain's 2,381 — the same session-scoped reassignment overlap I flagged for July. **2,381 is the number to quote.**\n\n### What actually changed between June and July\n\nThe leader flipped. **Direct fell 1,269 → 759 (−40%)** while **Organic Search rose 728 → 804 (+10%)**, which is what moved Organic Search into first place in July rather than any gain in absolute traffic — the month was smaller overall (2,381 → 1,817, −24%), and essentially all of that decline is the Direct drop.\n\nTwo things I'd read carefully rather than at face value:\n\n- **Direct's engagement is weak for its size.** 546 engaged out of 1,269 is 43%, versus Organic Search's 498/728 = 68%. Direct also produced *fewer* conversions than Organic Search (99 vs 118) off 74% more sessions. A Direct bucket that large, that unengaged, and that under-converting usually isn't people typing the URL — it's untagged or stripped referrals landing in Direct. Worth checking whether anything changed in June that would have dumped a batch of untagged traffic there.\n- **Unassigned behaves differently across the two months.** June: 57 sessions / 10 conversions. July: 187 sessions / 41 conversions. That's the identification gap moving around month to month, and it's the same one I flagged on the 2025 numbers — still unresolved.\n\n**Paid Search 49 sessions, Paid Social 14, Display 37, all with zero conversions** — consistent with Google being dark and Meta off since 2025-10-01. That's free-listing and residual traffic, not media.",
+      "card": null
+    },
+    {
+      "id": "V5",
+      "cat": "V",
+      "axis": "voice",
+      "scored": true,
+      "graded": true,
+      "assertType": "numbers",
+      "client": "Foam OH",
+      "message": "sessions for the full year, 25 versus 24?",
+      "pass": true,
+      "detail": "552253→ok , 791628→ok",
+      "judge": null,
+      "httpStatus": 200,
+      "elapsedMs": 44960,
+      "response": "## GA4 sessions — 2025 vs 2024\n\nCaptured store, GA4 coverage `covered` and `complete: true` on both years (capture floor 2022-02-02), settled through **2026-08-12**. Both are historical windows, so there's no live counterpart to sit alongside them. One basis note that matters: these are a **Σ of captured per-day rows**, not GA4's own range total — GA4 de-duplicates sessions that span midnight when it answers a range, so this will be very close to but not identical to what you'd see in the property UI.\n\n| | 2025 | 2024 | Δ |\n|---|---|---|---|\n| **Sessions** | **552,253** | **791,628** | **−239,375 (−30.2%)** |\n| New users | 449,433 | 640,134 | −190,701 (−29.8%) |\n| Transactions | 4,320 | 7,126 | −2,806 (−39.4%) |\n| GA4 revenue | $950,626.81 | $1,551,487.54 | −$600,860.73 (−38.7%) |\n| Sessions per transaction | 127.8 | 111.1 | +15% worse |\n\nTraffic fell 30%, but **transactions fell 39%** — so the sessions you kept converted worse, not just fewer of them arriving. Site-wide purchase rate went 0.90% → 0.78%.\n\n---\n\n## Where the 239k sessions went\n\n| Channel | 2025 | 2024 | Δ |\n|---|---|---|---|\n| Paid Social | 301,443 | 461,430 | −159,987 (−34.7%) |\n| Organic Social | 25,024 | 154,540 | **−129,516 (−83.8%)** |\n| Direct | 41,558 | 71,139 | −29,581 (−41.6%) |\n| Cross-network | 139,757 | 59,329 | **+80,428 (+135.6%)** |\n| Organic Search | 17,718 | 23,261 | −5,543 (−23.8%) |\n| Paid Shopping | 8,058 | 6 | +8,052 |\n| Display | 4,182 | 711 | +3,471 |\n| Paid Search | 4,155 | 3,222 | +933 |\n| Paid Other | 1,462 | 4 | +1,458 |\n| Paid Video | 994 | 24 | +970 |\n| Unassigned | 2,993 | 10,810 | −7,817 |\n| Referral | 2,813 | 5,237 | −2,424 |\n| Organic Shopping | 1,177 | 823 | +354 |\n| Email | 568 | 129 | +439 |\n\nChannel coverage is COMPLETE for both years — all 365/366 base-active days carry rows.\n\n**Three things this says:**\n\n1. **Two channels account for more than the entire net decline.** Paid Social (−160k) and Organic Social (−130k) together lost 289k sessions; everything else nets +50k back. This was a social traffic story, not a broad-based decline.\n\n2. **Organic Social collapsing 84% is the least-explained line here.** Paid Social falling tracks a deliberate spend cut — Meta February alone went $21,122 → $5,782 — so a 35% traffic drop on a far larger budget cut is actually *efficient*. Organic Social has no budget lever behind it, and it fell nearly six times harder. That's a content/posting-cadence or account-reach change, and it's worth checking against your own posting calendar before attributing any of it to paid.\n\n3. **Cross-network more than doubled and is now your revenue-densest channel** — 139,757 sessions carrying $441,572, i.e. 25% of sessions holding 46% of GA4-attributed revenue. That's PMax/Advantage+ absorbing traffic that previously landed in discrete channel buckets, which also means some of the Paid Social \"decline\" is reclassification rather than genuine loss. I can't split those two cleanly from channel data alone.\n\nOne caveat on the revenue column: this is GA4's site-analytics basis, not your store basis, and GA4 has under-reported against Shopify historically for this client. Use it for direction and channel mix here, not as the revenue total.\n\nWant me to run monthly sessions across both years so we can date the Organic Social break and see whether it's a step change or a slide?",
+      "card": null
+    }
+  ],
+  "_meta": {
+    "setVersion": "v3",
+    "set": "eval-set-v3.json",
+    "partial": true,
+    "only": [
+      "B2",
+      "B6",
+      "B7",
+      "B19",
+      "V5",
+      "MT3"
+    ],
+    "purpose": "VERIFY partial for LORAMER_EXTRA_METRIC_REACHABILITY_V1 — the six baseline fails attributed to PRESENT_BUT_UNREACHABLE.",
+    "ranAt": "2026-08-14T04:05Z..04:25Z",
+    "commit": "71591f4",
+    "model": "claude-opus-5",
+    "costUsd": 1.6896,
+    "turns": 7,
+    "baselineWas": "0/6 (all six FAIL in results-v3-baseline-20260814.json)",
+    "now": "6/6",
+    "note": "PARTIAL — 6 of 100. NOT an overall score and must never be quoted as one. The 95pct Wilson interval on 6/6 is 61.0-100.0pct."
+  }
+}
