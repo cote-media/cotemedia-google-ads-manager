@@ -43,7 +43,11 @@ import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkS
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { mayFetchProgram } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
-import { appendAttemptFinished, readAttemptsAtSpan, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
+// LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — appendAttemptStarted joins: the covered-ground advance appends a
+// started(0-requests)+finished('skipped') PAIR, because migrations/064's rotation reads phase='attempt_started'
+// ONLY — the resumer's existing finished-only 'skipped' appends (the implausible path) provably advance
+// nothing (two live rows on ad_group, 2026-08-12, rotation unmoved).
+import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { TOPIC, MAX_ATTEMPTS_AT_MIN_SPAN, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
@@ -75,6 +79,35 @@ export async function GET(request: Request) {
   const dryRun = url.searchParams.get('dryRun') !== '0'   // ⛔ DRY-RUN IS THE DEFAULT. `?dryRun=0` publishes.
   if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
 
+  // ── THE HEARTBEAT — LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 ──────────────────────────────────────────────
+  // ⛔ ONE DURABLE ROW PER FIRE, ON EVERY RETURN PATH — including held and errored fires. The wedge ran 21+
+  // hours invisible because a completed fire's only traces were a console line (gone in an hour) and a JSON
+  // body nothing reads. ⚠ SOFT-FAIL BY DESIGN: a heartbeat that cannot write (table not yet migrated, DB
+  // blip) must never kill the fire it describes — the failure is RETURNED in the response as heartbeatError
+  // and logged, never thrown. migrations/068 creates universe_fire_log.
+  const fireHeartbeat = async (h: {
+    fireOutcome: 'completed' | 'quota-hold' | 'rotation-error' | 'meter-held'
+    scanned?: number; scanCompleted?: boolean; catalogSize?: number; candidates?: number
+    published?: number; requestsSelected?: number; advanced?: number
+    refusals?: Array<{ verdict: string }>; elapsedMs?: number; held?: string | null
+  }): Promise<string | null> => {
+    try {
+      const histogram: Record<string, number> = {}
+      for (const r of h.refusals ?? []) histogram[r.verdict] = (histogram[r.verdict] ?? 0) + 1
+      const { error } = await supabaseAdmin.from('universe_fire_log').insert({
+        client_id: clientId, dry_run: dryRun, fire_outcome: h.fireOutcome,
+        scanned: h.scanned ?? 0, scan_completed: h.scanCompleted ?? false, catalog_size: h.catalogSize ?? 0,
+        candidates: h.candidates ?? 0, published: h.published ?? 0, requests_selected: h.requestsSelected ?? 0,
+        advanced: h.advanced ?? 0, refusals: histogram, elapsed_ms: h.elapsedMs ?? 0, held: h.held ?? null,
+      })
+      if (error) { console.error('[universe-resume] HEARTBEAT WRITE FAILED (fire unaffected):', error.message); return error.message }
+      return null
+    } catch (e: any) {
+      console.error('[universe-resume] HEARTBEAT WRITE THREW (fire unaffected):', e?.message ?? e)
+      return String(e?.message ?? e)
+    }
+  }
+
   // ⛔ THE VENDOR'S REFUSAL GATES THE SCHEDULER TOO — LORAMER_V2_QUOTA_SENTINEL_WIRED_V1.
   // This route never fetches, so it cannot OBSERVE a quota error; but everything it publishes BECOMES a vendor
   // call, and a scheduler that keeps publishing into an armed quota is spending the fleet's tomorrow one
@@ -87,8 +120,9 @@ export async function GET(request: Request) {
     // response nobody reads and a log line that expires in an hour is a lane nobody can tell apart from one
     // that never fired. Recorded BEFORE the return, and it charges nothing: nothing was asked.
     await recordQuotaHold({ lane: 'resumer', clientId, qp, wouldHaveDone: 'scan the catalog and publish owed windows' })
+    const hbErr = await fireHeartbeat({ fireOutcome: 'quota-hold', held: qp.state === 'unknown' ? `sentinel unreadable: ${qp.reason}` : `quota paused until ${qp.until}` })
     return NextResponse.json({
-      ok: true, published: 0, scanned: 0,
+      ok: true, published: 0, scanned: 0, heartbeatError: hbErr,
       held: qp.state === 'unknown'
         ? `google quota sentinel UNREADABLE — holding this lane (NOT a confirmed pause): ${qp.reason}`
         : `google quota paused until ${qp.until}`,
@@ -149,8 +183,9 @@ export async function GET(request: Request) {
     // ⛔ AN UNREADABLE ROTATION INDEX IS NOT AN EMPTY ONE. Falling through with an empty map would make every
     // surface look never-attempted, which re-anchors the whole catalog at the newest ground — the exact
     // horizon defect this flight exists to remove, restored by a swallowed error.
+    const hbErr = await fireHeartbeat({ fireOutcome: 'rotation-error', held: `rotation index unreadable: ${rotErr.message}` })
     return NextResponse.json({
-      ok: true, published: 0, scanned: 0,
+      ok: true, published: 0, scanned: 0, heartbeatError: hbErr,
       held: `REFUSING TO SCAN BLIND — the rotation index is unreadable: ${rotErr.message}. ` +
         `migrations/064_universe_surface_rotation.sql creates universe_surface_rotation(); apply it before running. ` +
         `An empty map would make every surface read as never-attempted and re-anchor the entire catalog at the newest ground.`,
@@ -176,6 +211,7 @@ export async function GET(request: Request) {
   const candidates: Candidate[] = []
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
   let scanned = 0
+  let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
 
   for (const entry of rotated) {
     if (scanned >= MAX_ENTRIES_SCANNED_PER_RUN) break
@@ -281,6 +317,32 @@ export async function GET(request: Request) {
       maxAttemptsAtMinSpan: MAX_ATTEMPTS_AT_MIN_SPAN,
       spanDays, minSpanDays: adapter.sizing.minDays, last,
     })
+    // ── ⛔ THE UNWEDGE — LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 (★WALK-WEDGES-AT-COVERED-GROUND) ─────────
+    // A derived window owing NOTHING used to be refused and NOTHING appended — but the anchor recedes only
+    // past a window the rotation has seen ASKED (deriveAnchorEnd reads rot.last_window; 064 reads
+    // phase='attempt_started'), so a refusal pinned the rotation and the SAME covered window was re-derived
+    // and re-refused every fire, forever. MEASURED: all 346 surfaces wedged by 2026-08-13 23:30Z; 21+ hours
+    // of hourly fires with candidates:0; reproduced live 2026-08-14 (refusals: {'nothing-owed': 60}).
+    // THE FIX: a fully-covered window is ADVANCED PAST, durably — a started(requests:0)+finished('skipped')
+    // pair for the derived window, so next fire's rotation sees it as the last window asked, the recede gate
+    // reads it fully answered (covered/attested), and the anchor moves below it. ZERO vendor ops.
+    // ⛔ rowsWritten is deliberately OMITTED (null): sizeNextWindow filters `.not('rows_written','is',null)`,
+    // so a skip never enters sizing history — a skip is a fact about OUR bookkeeping, not a vendor answer.
+    // ⛔ outcome 'skipped' is ALREADY excluded from vendor attestation: attestedEmptyDays filters
+    // outcome='zero' only (universe-coverage.ts:207). The COVERED_SKIP marker makes the row's nature
+    // grep-able; requests_spent=0 keeps every spend aggregate honest.
+    if (!verdict.publish && verdict.verdict === 'nothing-owed') {
+      if (!dryRun) {
+        const opened = await appendAttemptStarted(key, 0)
+        await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
+          requestsSpent: 0,
+          error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested (${plaus.reason}); advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
+        })
+      }
+      advancedCovered++
+      refusals.push({ label, verdict: 'advanced-covered', reason: `window ${windowStart}..${windowEnd} owes nothing — ${dryRun ? 'DRY: would advance' : 'advanced'} past covered ground (0 vendor ops); the anchor recedes below it next fire` })
+      continue
+    }
     if (!verdict.publish) { refusals.push({ label, verdict: verdict.verdict, reason: verdict.reason }); continue }
 
     candidates.push({
@@ -310,8 +372,13 @@ export async function GET(request: Request) {
   // ADAPTER'S OWN costOf. Nothing here is expressed in operations (capture-adapter.ts:354-357).
   const gate = await mayFetchProgram(adapter, sel.taken.flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
+    const hbErr = await fireHeartbeat({
+      fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
+      catalogSize: entries.length, candidates: candidates.length, advanced: advancedCovered, refusals,
+      elapsedMs: Date.now() - startedAt, held: gate.reason,
+    })
     return NextResponse.json({
-      ok: true, published: 0, held: gate.reason, scanned,
+      ok: true, published: 0, held: gate.reason, scanned, heartbeatError: hbErr,
       wouldHavePublished: sel.taken.map((c) => c.label), refusals,
     })
   }
@@ -356,6 +423,7 @@ export async function GET(request: Request) {
     rotationKnown: rotation.size, neverAttempted: entries.length - rotation.size,
     candidates: candidates.length, publishedOf: published.length,
     requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
+    advancedCovered, // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances (0 vendor ops each)
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
       const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m
@@ -363,9 +431,16 @@ export async function GET(request: Request) {
     elapsedMs, maxDurationS: maxDuration,
   }
   console.log(`[universe-resume] FIRE ${clientId}${dryRun ? ' (DRY)' : ''}: ${JSON.stringify(instrument)}`)
+  // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — the durable copy of the line above. rows_written stays derivable
+  // from the attempt log; the heartbeat records the FIRE's decisions, not the consumer's results.
+  const hbErr = await fireHeartbeat({
+    fireOutcome: 'completed', scanned, scanCompleted: instrument.scanCompleted, catalogSize: entries.length,
+    candidates: candidates.length, published: published.length, requestsSelected: sel.requests,
+    advanced: advancedCovered, refusals, elapsedMs,
+  })
 
   return NextResponse.json({
-    ok: true, dryRun, clientId, scanned,
+    ok: true, dryRun, clientId, scanned, heartbeatError: hbErr,
     entriesInCatalog: entries.length,
     bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound },
     meter: gate.reason,

@@ -94,11 +94,19 @@ if (route) {
 }
 
 // ── (g) IT NEVER WRITES ROWS OR DAY COMMITS ───────────────────────────────────────────────────────────
+// ⛔ MOVED 2026-08-14, DELIBERATELY, IN THE SAME COMMIT AS THE CHANGE IT CAUGHT (LORAMER_WALK_UNWEDGE_AND_
+// HEARTBEAT_V1). The blanket appendAttemptStarted ban encoded a superseded model: "opening = charging vendor
+// spend". The covered-ground advance opens a ZERO-REQUEST bookkeeping pair (started(0)+'skipped') because
+// 064's rotation reads phase='attempt_started' only — without it, a fully-covered window pins the rotation
+// and the surface wedges forever (★WALK-WEDGES-AT-COVERED-GROUND, 346/346 surfaces, 21 hours, measured).
+// THE PROPERTY THE LEG PROTECTS IS UNCHANGED AND NOW STATED PRECISELY: the resumer may never open a CHARGED
+// attempt — every appendAttemptStarted call site in this route must pass literal `0` requests. The row/day/
+// vendor bans are untouched. walk-unwedge-heartbeat.guard.mjs owns the skip pair's full shape.
 if (route) {
   for (const [pat, why] of [
     [/upsertMetricsChunked|from\('metrics_daily'\)[\s\S]{0,80}\.(upsert|insert)/, 'writes captured rows'],
     [/appendDayCommitted/, 'writes a day_committed record'],
-    [/appendAttemptStarted/, 'opens an attempt — the resumer PUBLISHES; the consumer opens and charges'],
+    [/appendAttemptStarted\((?!key, 0\))/, 'opens a CHARGED attempt — the resumer may append only the zero-request covered-skip pair; charged opens belong to the consumer'],
     [/googleAdsStreamFor|queryStream|customer\.query/, 'reaches the vendor. A scheduler that fetches is a scheduler that can spend without a message ever being counted'],
   ]) {
     if (pat.test(code)) findings.push(`(g) ${ROUTE} ${why}. WRITE-THEN-ADVANCE-PER-UNIT (June: run-backfill.ts:242-260) lives in universe-stream-capture's flush(); the resumer cannot break that ordering because it must never participate in it.`)

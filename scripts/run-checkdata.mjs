@@ -66,6 +66,9 @@ const CHECKS = [
   // face if what we serve stops matching what we store. Every hermetic check was green on 2026-08-14 while six
   // eval questions failed on exactly this.
   { name: 'check-extra-metrics-serving', cmd: ['scripts/check-extra-metrics-serving.mjs'] },
+  // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — the walk liveness invariant. Fires-with-no-output-and-no-floor
+  // is a WEDGE (the 2026-08-13/14 21-hour silence, RED); all-surfaces-at-inception-floor is DONE (GREEN).
+  { name: 'check-walk-liveness', cmd: ['scripts/check-walk-liveness.mjs', '--guard'] },
 ]
 // ROSTER-END
 

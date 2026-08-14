@@ -283,6 +283,11 @@ const GUARDS = [
   // not GAQL enums; the error renders as 0 rows). Tree-wide zero + the eight fixed files stay on the ONE
   // resolver + the resolver's CUSTOM guard + /api/campaigns forwards customs. Shipped 8 times before this.
   'tests/guards/gaql-date-window.guard.mjs',
+  // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — nothing-owed must ADVANCE (the started+finished pair, because
+  // 064's rotation reads attempt_started only), covered-skips never count as vendor attestation, every fire
+  // writes a heartbeat on all four return paths, and the wedge signal goes RED on 24h-no-progress while
+  // staying GREEN at the all-surfaces-at-inception-floor DONE state.
+  'tests/guards/walk-unwedge-heartbeat.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

@@ -36,7 +36,11 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 15 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — 16 checks, flags included, in order ────────────────────────────────────────
+// ⛔ MOVED 2026-08-14 FROM 15 → 16, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `check-walk-liveness` is LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1's loud surface: fires-with-no-output-and-
+// no-floor is a WEDGE red; all-at-inception-floor is the DONE green. The 2026-08-13/14 wedge ran 21+ hours
+// invisible precisely because no owned check watched the walk's output.
 // ⛔ MOVED 2026-08-14 FROM 14 → 15, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-extra-metrics-serving` is the LIVE half of LORAMER_EXTRA_METRIC_REACHABILITY_V1. Its build-time
 // sibling is hermetic and can only prove wiring; this one reads four hand-certified GA figures back through
@@ -64,6 +68,7 @@ const EXPECTED_ROSTER = [
   'tests/guards/canonical-key-spelling.guard.mjs --db',
   'tests/guards/drain-alias-coverage.guard.mjs --db',
   'scripts/check-extra-metrics-serving.mjs',
+  'scripts/check-walk-liveness.mjs --guard',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
