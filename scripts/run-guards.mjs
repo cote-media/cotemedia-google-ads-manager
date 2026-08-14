@@ -273,6 +273,12 @@ const GUARDS = [
   // LORAMER_CHECKDATA_VERDICT_LINE_V1 — check:data's machine-final VERDICT line: runner pinned, roster
   // pinned (13 checks), flush-safe exit, crash speaks, verdict LAST — the tail-truncation class enforcer.
   'tests/guards/checkdata-verdict-line.guard.mjs',
+  // LORAMER_RMF_REPORTING_DEFAULTS_V1 — the legacy /dashboard reporting surface is what a Google Ads API reviewer
+  // is given, so its DEFAULT columns are a compliance artifact under Required Minimum Functionality. Asserts the
+  // RMF fields are selected, carried through their mappers, default-on, null-preserving, immune to a stale
+  // localStorage column preference, and pinned to the live adapter gate. Static; the live half is
+  // scripts/rmf-adapter-gate.mjs, which spends real quota and stays off the build path.
+  'tests/guards/rmf-reporting-defaults.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

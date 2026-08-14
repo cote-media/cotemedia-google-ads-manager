@@ -10,7 +10,8 @@ import remarkGfm from 'remark-gfm'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import type { Campaign, PlatformData, Platform, CampaignStatus } from '@/lib/platforms/types'
 import type { IntelligenceGa } from '@/lib/intelligence/intelligence-types'
-import { COLUMN_DEFS, statusLabel, statusBadgeClass } from '@/lib/platforms/types'
+// LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF_REQUIRED_COLUMNS / RMF_REQUIRED_KEYWORD_COLUMNS / rmfEnsure
+import { COLUMN_DEFS, statusLabel, statusBadgeClass, normalizeGoogleStatus, RMF_REQUIRED_COLUMNS, RMF_REQUIRED_KEYWORD_COLUMNS, rmfEnsure } from '@/lib/platforms/types'
 import { IconLayoutDashboard, IconTarget, IconSearch, IconSparkles, IconChartBar, IconShoppingBag, IconShoppingCart, IconBrandGoogle, IconBrandMeta, IconRefresh, IconLogout, IconChevronLeft, IconChevronRight, IconChevronDown, IconCheck, IconLayoutGrid, IconPlus, IconCreditCard, IconCalendar } from '@tabler/icons-react'
 import { createPortal } from 'react-dom'
 
@@ -1211,6 +1212,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
     clicks: rows.reduce((s, r) => s + (r.clicks || 0), 0),
     impressions: rows.reduce((s, r) => s + (r.impressions || 0), 0),
     conversions: rows.reduce((s, r) => s + (r.conversions || 0), 0),
+    allConversions: rows.reduce((s, r) => s + (r.allConversions || 0), 0), // LORAMER_RMF_REPORTING_DEFAULTS_V1
     conversionValue: rows.reduce((s, r) => s + (r.conversionValue || 0), 0),
   }
   const tCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : 0
@@ -1224,6 +1226,7 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
       case 'clicks': return fmt(totals.clicks)
       case 'impressions': return fmt(totals.impressions)
       case 'conversions': return fmt(totals.conversions, 'decimal')
+      case 'allConversions': return fmt(totals.allConversions, 'decimal') // LORAMER_RMF_REPORTING_DEFAULTS_V1
       case 'ctr': return fmt(tCtr, 'percent')
       case 'roas': return tRoas ? fmt(tRoas, 'multiplier') : '—'
       case 'costPerConv': return tCpa ? fmt(tCpa, 'currency') : '—'
@@ -1242,7 +1245,8 @@ function DrillTable({ rows, level, platform, activeCols, onRowClick, onRowSelect
     if (['roas'].includes(colId)) return fmt(n, 'multiplier')
     if (['frequency'].includes(colId)) return n.toFixed(2)
     if (['clicks', 'impressions', 'reach', 'addToCart', 'initiateCheckout', 'purchases', 'viewContent', 'addToWishlist'].includes(colId)) return fmt(n)
-    if (['conversions'].includes(colId)) return n.toFixed(1)
+    // LORAMER_RMF_REPORTING_DEFAULTS_V1 — allConversions is a fractional count like conversions, not an integer.
+    if (['conversions', 'allConversions'].includes(colId)) return n.toFixed(1)
     return String(val)
   }
 
@@ -1897,6 +1901,11 @@ function OverviewTab({ data, googleAccountId, metaAccountId, dateRange, clientId
     { label: 'Clicks', value: fmt(totals!.clicks) },
     { label: 'Impressions', value: fmt(totals!.impressions) },
     { label: 'Conversions', value: fmt(totals!.conversions, 'decimal') },
+    // LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF R.10 (Account) requires all_conversions as a DEFAULT field.
+    // Rendered only when DEFINED: the google path always sets it, meta/combined never do (Meta serves no
+    // equivalent and blending the two would violate MULTI-SOURCE METRIC PROVENANCE). `?? undefined` rather than a
+    // truthiness test on purpose — a genuine 0 all-conversions account must still show the tile, as 0.
+    ...(totals!.allConversions !== undefined ? [{ label: 'All conv.', value: fmt(totals!.allConversions, 'decimal') }] : []),
     { label: 'ROAS', value: totals!.roas ? fmt(totals!.roas, 'multiplier') : '—' },
     { label: 'Avg CTR', value: fmt(totals!.avgCtr, 'percent') },
   ] : []
@@ -2168,7 +2177,11 @@ function CampaignsTab({ data, googleAccountId, metaAccountId, dateRange, clientI
   const { campaigns, platform } = data
   const storageKey = 'advar-cols-' + platform
   const defaultCols = COLUMN_DEFS.filter(c => c.platforms.includes(platform) && c.defaultOn).map(c => c.id)
-  const [activeCols, setActiveCols] = useState<string[]>(() => lsJson(storageKey, defaultCols))
+  // LORAMER_RMF_REPORTING_DEFAULTS_V1 — flipping `defaultOn` only changes what a FRESH browser sees; this state
+  // seeds from localStorage, so any browser that has opened this screen before would keep a saved set with the
+  // RMF columns missing and the fix would be invisible exactly where it is being reviewed. rmfEnsure unions the
+  // required ids back in. See the RMF_REQUIRED_COLUMNS header in src/lib/platforms/types.ts.
+  const [activeCols, setActiveCols] = useState<string[]>(() => rmfEnsure(lsJson(storageKey, defaultCols), RMF_REQUIRED_COLUMNS[platform] || []))
 
   const [drill, setDrill] = useState<DrillState>(() => lsJson('advar-drill-state', { level: 'campaigns', campaign: null, adGroup: null }))
   const [subRows, setSubRows] = useState<any[]>([])
@@ -2351,26 +2364,35 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
   const [sortCol, setSortCol] = useState('spend')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [colPickerOpen, setColPickerOpen] = useState(false)
+  // LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF R.50 requires clicks, cost, impressions, conversions, first_page_cpc
+  // and first_position_cpc as DEFAULT columns (plus status, rendered always-on below like Campaign/Ad already do).
+  // impressions and conversions were `defaultOn: false`; the two CPC estimates did not exist.
   const kwCols = [
     { id: 'spend', label: 'Spend', defaultOn: true },
     { id: 'clicks', label: 'Clicks', defaultOn: true },
+    { id: 'impressions', label: 'Impressions', defaultOn: true },
+    { id: 'conversions', label: 'Conv.', defaultOn: true },
     { id: 'ctr', label: 'CTR', defaultOn: true },
+    { id: 'firstPageCpc', label: 'First page CPC', defaultOn: true },
+    { id: 'firstPositionCpc', label: 'First pos. CPC', defaultOn: true },
     { id: 'qs', label: 'QS', defaultOn: true },
-    { id: 'impressions', label: 'Impressions', defaultOn: false },
     { id: 'avgCpc', label: 'Avg CPC', defaultOn: false },
-    { id: 'conversions', label: 'Conv.', defaultOn: false },
     { id: 'costPerConv', label: 'Cost/Conv', defaultOn: false },
   ]
-  const [activeCols, setActiveCols] = useState<string[]>(() => lsJson('advar-kw-cols', kwCols.filter(c => c.defaultOn).map(c => c.id)))
+  // Same stale-localStorage problem as the campaign table — see the RMF_REQUIRED_COLUMNS header in types.ts.
+  const [activeCols, setActiveCols] = useState<string[]>(() => rmfEnsure(lsJson('advar-kw-cols', kwCols.filter(c => c.defaultOn).map(c => c.id)), RMF_REQUIRED_KEYWORD_COLUMNS))
   const has = (id: string) => activeCols.includes(id)
   const updateCols = (cols: string[]) => { setActiveCols(cols); lsSet('advar-kw-cols', JSON.stringify(cols)) }
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange)
+    // LORAMER_RMF_REPORTING_DEFAULTS_V1 — customStart/customEnd now travel with dateRange. The route ignored
+    // dateRange entirely until this flight, so the "Custom range" preset silently reported the last 30 days.
+    const custom = dateRange === 'CUSTOM' && customStart && customEnd ? '&customStart=' + customStart + '&customEnd=' + customEnd : ''
+    fetch('/api/keywords?accountId=' + accountId + '&dateRange=' + dateRange + custom)
       .then(r => r.json()).then(d => { setKeywords(d.keywords || []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [accountId, dateRange])
+  }, [accountId, dateRange, customStart, customEnd])
 
   function handleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2386,6 +2408,10 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
     else if (sortCol === 'impressions') { av = Number(a.impressions || 0); bv = Number(b.impressions || 0) }
     else if (sortCol === 'avgCpc') { av = Number(a.avgCpc || 0); bv = Number(b.avgCpc || 0) }
     else if (sortCol === 'conversions') { av = Number(a.conversions || 0); bv = Number(b.conversions || 0) }
+    // LORAMER_RMF_REPORTING_DEFAULTS_V1 — null (Google did not estimate) sorts as 0 here, which only affects
+    // ORDERING. The CELL still renders an em dash; a null must never be displayed as $0.00.
+    else if (sortCol === 'firstPageCpc') { av = Number(a.firstPageCpc || 0); bv = Number(b.firstPageCpc || 0) }
+    else if (sortCol === 'firstPositionCpc') { av = Number(a.firstPositionCpc || 0); bv = Number(b.firstPositionCpc || 0) }
     else if (sortCol === 'costPerConv') { av = Number(a.conversions) > 0 ? Number(a.cost) / Number(a.conversions) : 0; bv = Number(b.conversions) > 0 ? Number(b.cost) / Number(b.conversions) : 0 }
     return sortDir === 'desc' ? bv - av : av - bv
   })
@@ -2455,6 +2481,10 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
               <tr className="border-b border-border bg-surface">
                 <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider sticky left-0 bg-surface">Keyword</th>
                 <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider">Match</th>
+                {/* LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF R.50 status, ALWAYS-ON, mirroring how the Campaign and
+                    Ad tables already render Status. It was selected by the GAQL and dropped by the mapper, so no
+                    column could show it; both halves are fixed. */}
+                <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider whitespace-nowrap">Status</th>
                 <th className="text-left px-3 py-3 font-mono text-xs text-muted tracking-wider hidden md:table-cell">Campaign</th>
                 {has('impressions') && <SortTh id="impressions" label="Impr." />}
                 {has('spend') && <SortTh id="spend" label="Spend" />}
@@ -2462,6 +2492,8 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
                 {has('avgCpc') && <SortTh id="avgCpc" label="Avg CPC" />}
                 {has('ctr') && <SortTh id="ctr" label="CTR" />}
                 {has('conversions') && <SortTh id="conversions" label="Conv." />}
+                {has('firstPageCpc') && <SortTh id="firstPageCpc" label="First page CPC" />}
+                {has('firstPositionCpc') && <SortTh id="firstPositionCpc" label="First pos. CPC" />}
                 {has('costPerConv') && <SortTh id="costPerConv" label="Cost/Conv" />}
                 {has('qs') && <SortTh id="qs" label="QS" />}
               </tr>
@@ -2471,6 +2503,11 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
                 <tr key={i} className="table-row">
                   <td className="px-3 py-3 font-medium sticky left-0 bg-white max-w-[120px] truncate">{k.text}</td>
                   <td className="px-3 py-3 text-xs font-mono text-muted">{matchLabel(k.matchType)}</td>
+                  {/* LORAMER_RMF_REPORTING_DEFAULTS_V1 — same badge treatment as Campaign/Ad. normalizeGoogleStatus
+                      already handles the integer enum the API returns ('2'=ENABLED, '3'=PAUSED, '4'=REMOVED). */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    <span className={'badge ' + statusBadgeClass(normalizeGoogleStatus(k.status || ''))}>{statusLabel(normalizeGoogleStatus(k.status || ''))}</span>
+                  </td>
                   <td className="px-3 py-3 text-xs text-muted truncate max-w-xs hidden md:table-cell">{k.campaign}</td>
                   {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm">{Number(k.impressions || 0).toLocaleString()}</td>}
                   {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm">${k.cost}</td>}
@@ -2478,6 +2515,11 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
                   {has('avgCpc') && <td className="px-3 py-3 text-right font-mono text-sm">{k.avgCpc ? '$' + k.avgCpc : '—'}</td>}
                   {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm">{k.ctr}%</td>}
                   {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm">{k.conversions || '—'}</td>}
+                  {/* LORAMER_RMF_REPORTING_DEFAULTS_V1 — null == "Google did not estimate a bid for this criterion".
+                      MEASURED 2026-08-14: null on 200/200 and 93/93 rows across two live accounts. It renders as an
+                      em dash and must NEVER render as $0.00 — a fabricated zero bid is a confident wrong number. */}
+                  {has('firstPageCpc') && <td className="px-3 py-3 text-right font-mono text-sm">{k.firstPageCpc != null ? '$' + k.firstPageCpc : '—'}</td>}
+                  {has('firstPositionCpc') && <td className="px-3 py-3 text-right font-mono text-sm">{k.firstPositionCpc != null ? '$' + k.firstPositionCpc : '—'}</td>}
                   {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm">{Number(k.conversions) > 0 ? '$' + (Number(k.cost) / Number(k.conversions)).toFixed(2) : '—'}</td>}
                   {has('qs') && <td className="px-3 py-3 text-right font-mono text-sm font-medium">{k.qualityScore ? <span className={'cursor-help ' + qsColor(k.qualityScore)}>{k.qualityScore}</span> : <span className="text-muted">—</span>}</td>}
                 </tr>
@@ -2487,13 +2529,19 @@ function KeywordsTab({ accountId, dateRange, clientId, clientName, platformData,
               <tfoot>
                 <tr className="border-t-2 border-border bg-surface font-medium">
                   <td className="px-3 py-3 font-mono text-xs text-muted sticky left-0 bg-surface">Total</td>
-                  <td className="px-3 py-3" /><td className="px-3 py-3 hidden md:table-cell" />
+                  {/* Match · Status · Campaign — three spacers. LORAMER_RMF_REPORTING_DEFAULTS_V1 added Status, and
+                      a totals row one cell short of its header silently shifts every figure into the wrong column. */}
+                  <td className="px-3 py-3" /><td className="px-3 py-3" /><td className="px-3 py-3 hidden md:table-cell" />
                   {has('impressions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalImpressions.toLocaleString()}</td>}
                   {has('spend') && <td className="px-3 py-3 text-right font-mono text-sm">${totalSpend.toFixed(2)}</td>}
                   {has('clicks') && <td className="px-3 py-3 text-right font-mono text-sm">{totalClicks.toLocaleString()}</td>}
                   {has('avgCpc') && <td className="px-3 py-3 text-right font-mono text-sm">{avgCpc > 0 ? '$' + avgCpc.toFixed(2) : '—'}</td>}
                   {has('ctr') && <td className="px-3 py-3 text-right font-mono text-sm">{avgCtr.toFixed(2)}%</td>}
                   {has('conversions') && <td className="px-3 py-3 text-right font-mono text-sm">{totalConversions.toFixed(1)}</td>}
+                  {/* Per-criterion bid ESTIMATES do not sum to anything meaningful — a total "first page CPC" is not
+                      a quantity that exists. Spacers, deliberately, rather than a plausible-looking wrong number. */}
+                  {has('firstPageCpc') && <td className="px-3 py-3" />}
+                  {has('firstPositionCpc') && <td className="px-3 py-3" />}
                   {has('costPerConv') && <td className="px-3 py-3 text-right font-mono text-sm">{cpa > 0 ? '$' + cpa.toFixed(2) : '—'}</td>}
                   {has('qs') && <td className="px-3 py-3 text-right font-mono text-sm text-muted">avg</td>}
                 </tr>

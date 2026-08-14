@@ -74,6 +74,34 @@ requires required default columns + a clearly-labeled export per displayed
 hierarchy level (account/campaign/ad group/ad/keyword). Pre-submit audit: confirm
 default columns + a labeled export exist for each level we display.
 
+### Pre-submit audit — DEFAULT COLUMNS: done 2026-08-14 (LORAMER_RMF_REPORTING_DEFAULTS_V1)
+
+⛔ SCOPE: LEGACY `/dashboard` ONLY — that is the surface a reviewer is given, because the demo/reviewer accounts sit
+in the legacy cohort (`src/lib/legacy-cohort.ts`) and `requirePreviewUser()` redirects them off `-next`. The `-next`
+surface has its OWN gaps (no status column at any level; keyword/search-term cards render one metric) and is a
+SEPARATE queued flight. Do not read this audit as covering `-next`.
+
+Required defaults now present, enforced by `tests/guards/rmf-reporting-defaults.guard.mjs` in `npm run guard`:
+- R.10 Account — clicks · cost · impressions · conversions · **all_conversions** (new; summed from the campaign rows).
+- R.20 Campaign — clicks · cost · **impressions** (was default-off) · conversions · **all_conversions** (new) · status
+  (always-on; paused campaigns appear, REMOVED are filtered).
+- R.40 Ad — clicks · cost · **impressions** (was default-off) · conversions · status (always-on).
+- R.50 Keyword — keyword · match type · **status** (new column; the field was already selected and silently dropped by
+  the mapper) · clicks · cost · **impressions** (was default-off) · **conversions** (was default-off) ·
+  **first_page_cpc** + **first_position_cpc** (new).
+- Date range on every level: Today / Yesterday / Last 7 / 14 / 30 (default) / This month / Last month / Last 90 /
+  Custom. ⚠ The Keywords screen's picker was INERT until this flight — `/api/keywords` never forwarded `dateRange`.
+
+⚠ TWO HONEST CAVEATS TO CARRY INTO THE SUBMISSION, both measured, neither papered over:
+1. `first_page_cpc` / `first_position_cpc` are SELECTABLE on google-ads-api v23 and the live API accepts them, but
+   returned NULL on **293 of 293 rows across two live accounts** (3699173394 and 2102961791, 2026-08-14). The columns
+   exist and render an em dash. That is Google's data, not a capture defect — but a reviewer WILL see two empty
+   columns, so do not let the screencast imply otherwise. `quality_score` is likewise sparse: 33/200 on one account,
+   0/93 on the other.
+2. ⛔ **THE EXPORT HALF OF RMF IS STILL UNMET.** This audit closed the default-columns half only. There is NO
+   clearly-labeled export on ANY reporting level in legacy — the only download in the whole surface is a chat
+   transcript (`downloadChat`). Tracked as ★RMF-EXPORT-PER-LEVEL; it must land before submission.
+
 - Tool type: Reporting-only, external/third-party SaaS.
 - Permissible use: Reporting (read-only). Keep stated use aligned with actual
   methods — do not list ad management we don't perform.

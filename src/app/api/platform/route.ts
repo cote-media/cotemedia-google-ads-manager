@@ -46,10 +46,16 @@ async function fetchGoogleData(
   }
 
   // LORAMER_GOOGLE_GAQL_RETRY_V1 — retry transient deadline/internal/unavailable on the deep-window query
+  // LORAMER_RMF_REPORTING_DEFAULTS_V1 — `metrics.all_conversions` added for RMF R.20 (Campaign) and, because this
+  // route DERIVES the account totals by summing these campaign rows rather than issuing a separate `FROM customer`
+  // query, it is also what satisfies R.10 (Account). ONE field add serves both levels.
+  // ADAPTER GATE, 2026-08-14: accepted by the live API on google-ads-api v23 and DELIVERING — 8/8 non-null on
+  // account 3699173394 (Influential Drones), 4/4 on 2102961791 (Ennis Exterminating).
+  // scripts/rmf-adapter-gate.mjs re-runs the proof.
   const rows = await withGaqlRetry('platform:google-campaigns', () => customer.query(`
     SELECT campaign.id, campaign.name, campaign.status,
     campaign_budget.amount_micros, metrics.impressions, metrics.clicks,
-    metrics.cost_micros, metrics.conversions, metrics.conversions_value,
+    metrics.cost_micros, metrics.conversions, metrics.all_conversions, metrics.conversions_value,
     metrics.ctr, metrics.average_cpc
     FROM campaign
     WHERE ${dateFilter}
@@ -62,6 +68,9 @@ async function fetchGoogleData(
     const clicks = Number(row.metrics?.clicks || 0)
     const impressions = Number(row.metrics?.impressions || 0)
     const conversions = Number(row.metrics?.conversions || 0)
+    // LORAMER_RMF_REPORTING_DEFAULTS_V1 — carried through the mapper. Selecting a field and then discarding it in
+    // the mapper is exactly how `ad_group_criterion.status` ended up invisible on the Keywords screen for months.
+    const allConversions = Number(row.metrics?.all_conversions || 0)
     const convValue = Number(row.metrics?.conversions_value || 0)
     const budget = row.campaign_budget?.amount_micros ? Number(row.campaign_budget.amount_micros) / 1e6 : null
     return {
@@ -74,6 +83,7 @@ async function fetchGoogleData(
       impressions,
       ctr: Number(row.metrics?.ctr || 0) * 100,
       conversions,
+      allConversions, // LORAMER_RMF_REPORTING_DEFAULTS_V1
       conversionValue: convValue,
       roas: cost > 0 && convValue > 0 ? convValue / cost : null,
       costPerConv: conversions > 0 ? cost / conversions : null,
@@ -87,12 +97,15 @@ async function fetchGoogleData(
   const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0)
   const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0)
   const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0)
+  // LORAMER_RMF_REPORTING_DEFAULTS_V1 — RMF R.10 (Account). Summed from the same campaign rows every other account
+  // total on this screen is summed from, so the tile reconciles with the table by construction.
+  const totalAllConversions = campaigns.reduce((s, c) => s + (c.allConversions ?? 0), 0)
   const totalConvValue = campaigns.reduce((s, c) => s + c.conversionValue, 0)
 
   const totals: PlatformTotals = {
     spend, clicks: totalClicks, impressions: totalImpressions,
     ctr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
-    conversions: totalConversions, conversionValue: totalConvValue,
+    conversions: totalConversions, allConversions: totalAllConversions, conversionValue: totalConvValue,
     roas: spend > 0 && totalConvValue > 0 ? totalConvValue / spend : null,
     avgCtr: totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0,
     activeCampaigns: campaigns.filter(c => c.status === 'active').length,
