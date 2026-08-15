@@ -81,8 +81,26 @@ async function main() {
   const wet = fires.body.filter((f) => !f.dry_run)
   const latestCompleted = wet.find((f) => f.fire_outcome === 'completed') ?? null
 
-  const rows = await get(`universe_attempt_log?select=rows_written.sum()&recorded_at=gte.${encodeURIComponent(since)}&phase=eq.attempt_finished`)
-  const rowsWritten24h = Array.isArray(rows.body) ? Number(rows.body[0]?.sum ?? 0) : 0
+  // ⛔ LORAMER_WALK_LIVENESS_ROWS_RPC_V1 — THIS READ WAS STRUCTURALLY ZERO FROM THE DAY IT SHIPPED
+  // (★WALK-LIVENESS-ROWS-COUNTER-IS-STRUCTURALLY-ZERO, measured 2026-08-15). It was
+  // `select=rows_written.sum()` — a PostgREST aggregate, and AGGREGATES ARE DISABLED ON THIS PROJECT: the
+  // live response was HTTP 400 PGRST123, the body an error object, and `Array.isArray(body) ? … : 0`
+  // turned that failure into a silent 0 on every run. This is the Deploy 2 gate's own instrument
+  // (`rows_written > 0`), so on the day the walk wrote rows it would still have said zero.
+  // Now a scalar RPC (migrations/070) — summed in Postgres because the attempt log outruns the 1,000-row
+  // page cap — and a read that cannot answer is CANNOT RUN, exit 2, NEVER a number. An unreadable counter
+  // reading as zero is the most permissive answer an instrument can give (house law, learned twice).
+  const rowsRes = await fetch(`${SB}/rest/v1/rpc/universe_walk_rows_written`, {
+    method: 'POST',
+    headers: { apikey: K, Authorization: `Bearer ${K}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_since: since }),
+  })
+  const rowsBody = await rowsRes.json().catch(() => null)
+  const rowsWritten24h = Number(rowsBody)
+  if (rowsRes.status !== 200 || !Number.isFinite(rowsWritten24h) || rowsWritten24h < 0) {
+    console.error(`✗ walk-liveness CANNOT RUN — rows-written read UNREADABLE (HTTP ${rowsRes.status}: ${JSON.stringify(rowsBody).slice(0, 200)}). migrations/070_walk_rows_written_fn.sql creates universe_walk_rows_written(); a counter that cannot answer must never pass as zero — that silent zero is the exact defect this read replaces.`)
+    process.exitCode = 2; return
+  }
 
   const verdict = decideWalkLiveness({
     fires: wet.length,
