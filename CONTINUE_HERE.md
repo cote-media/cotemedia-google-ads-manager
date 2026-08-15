@@ -45,12 +45,19 @@ this same freeze. Banked, watched, NOT touched.
 (c) **RUSS AUTHORS THE 100 EVAL QUESTIONS from a template.** Claude owns the template and the harness; the questions
     are Russ's, which is what makes the set a real bar rather than a self-graded one.
 
-── 6 · THE PARKED WIDEN — DECIDE EARLY, IT IS THE ONLY GUARD RED ──
-`src/lib/backfill/forward-widen-breadth.ts` (untracked) + the modified `src/app/api/cron/sync/route.ts` are STILL
-UNCOMMITTED and are the SOLE red in `npm run guard` (metrics-upsert-chunked: an unchunked upsert at
-forward-widen-breadth.ts:44, and a STALE ALLOWLIST entry — cron/sync says 13 where the file holds 9).
-⛔ **SHIP IT OR SHELVE IT EARLY NEXT SESSION.** While it sits there every future push report has to explain a red
-that belongs to neither the flight being shipped nor the tree at HEAD.
+── 6 · THE PARKED WIDEN — SHELVED 2026-08-15. SETTLED; NOTHING TO DECIDE ──
+✅ **SHELVED, NOT ABANDONED — branch `parked/widen-90d-restatement-tail` (`7b3d5e9`), pushed.** Both files went whole:
+`src/lib/backfill/forward-widen-breadth.ts` (51 lines) + the modified `src/app/api/cron/sync/route.ts`. main's tree is
+CLEAN and `npm run guard` reads **112/112 ALL GREEN** — the `metrics-upsert-chunked` red was the widen's and went with it.
+⛔ **WHY IT DID NOT SHIP: DECISIONS `LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1` OWNS THE ARGUMENT — READ IT THERE, IT IS NOT
+RESTATED HERE.** In one line: the WINDOW is blocked, not the machinery. Blocked on [[★GOOGLE-WIDEN-30D-TOO-SHORT-FOR-CONVERSIONS]]
+(QUEUE owns open/closed and carries the branch as the recovery path).
+⚠ **TWO GUARD DEBTS RIDE THAT BRANCH — they are not fixed, they moved; pay them on the flight that resumes it:** an
+UNCHUNKED `metrics_daily` upsert at `forward-widen-breadth.ts:44`, and a STALE `metrics-upsert-chunked` allowlist entry
+(`cron/sync` says 13 where the file holds 9).
+⛔ **THIS SUPERSEDES EVERY OLDER "held / uncommitted / SOLE guard red / 1 FAILED" WIDEN LINE IN THE DATED SESSION LOGS
+BELOW.** Those are tense-locked records of their own moment and are deliberately NOT rewritten — this line is the one
+that governs. As of 2026-08-15 the widen is on a branch and the guard suite is fully green.
 
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -311,6 +318,12 @@ Architecture, hours, falsifications and the June comparison: the plan file §22-
   `src/lib/backfill/forward-widen-breadth.ts` (untracked, 51 lines, md5 `5c800f54a0094faaf4e3600fe9d30380`)
   and a modification to `src/app/api/cron/sync/route.ts`. **This is the held Tier-1 forward widen.** It is
   also the cause of the standing guard failure below. Neither file is in any commit from this session.
+  ⛔ **[SUPERSEDED 2026-08-15 — the two lines above and the guard line below are a TENSE-LOCKED record of
+  2026-08-09 and are left standing as written. THE WIDEN IS NO LONGER UNCOMMITTED AND NO LONGER RED:** it was
+  SHELVED to branch `parked/widen-90d-restatement-tail` (`7b3d5e9`, pushed), main's tree is clean, and
+  `npm run guard` reads 112/112 ALL GREEN. Reasoning: DECISIONS `LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1`.
+  Status: QUEUE [[★GOOGLE-WIDEN-30D-TOO-SHORT-FOR-CONVERSIONS]]. See the session-gate block at the top of
+  this file, which governs.**
 - **STANDING `npm run guard` FAILURE — PRE-EXISTING, 1 of 84:** `metrics-upsert-chunked`, two findings, both
   on those two dirty files (an unchunked `metrics_daily` upsert at `forward-widen-breadth.ts:44`, and a
   stale allowlist entry saying 13 where `cron/sync/route.ts` now holds 9).
@@ -1430,7 +1443,10 @@ WHAT WAS BUILT — seven pieces of machinery, each with a guard SEEN RED first:
   · **Foam OH GA4 is 17 of 47 months.** 30 remain, blocked on a sub-month window, not a retry.
   · **Influential Drones 5bb9b2ff and My Vacation GA4: flags cleared, recovery not started.**
   · **Veterinary mastermind geo: found, confirmed losing data, untouched.** Two golden clients bleeding, not one.
-  · **The held Google Tier-1 widen: still uncommitted, still intact, eleven commits later.**
+  · **The held Google Tier-1 widen: still uncommitted, still intact, eleven commits later.** ⛔ [SUPERSEDED
+    2026-08-15 — tense-locked to 2026-08-09, left as written: the widen is now SHELVED to branch
+    `parked/widen-90d-restatement-tail` (`7b3d5e9`) and the guard suite is 112/112 green. See the
+    session-gate block at the top of this file, which governs.]
   · Open and unverified: which family threw on the ga_dimensional walks (logs past retention) · why Google served
     account grain but nothing at breakdown grain for the 43 · the GA4 retention wall (unestablished anywhere) ·
     Shopify abandoned_checkout (3 dates across 2,154 revenue-days, left UNKNOWN deliberately).
@@ -1442,11 +1458,15 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ═══ NEXT STEP ═══
 
-▶▶ NEXT STEP — 2026-08-15 SESSION CLOSE: THE HALF OF THE HONESTY CLASS THAT DID NOT CLOSE (latest — resume HERE).
-Open on **★ANSWERED-WITHOUT-ASKING + the BREAKDOWN-GRAIN half of ★FALSE-ZERO-ON-UNCOVERED-WINDOW — the two failure shapes the 08-14/15 arc did NOT reach.** ⛔ **READ THE EVIDENCE BEFORE SCOPING EITHER, because the architecture landing is easy to over-read:** the binding mechanism is built and the verdict feeding it now measures DENSITY, and that bound **5 of the 6 named account-grain windows (A16, C5, C19, C20, E12; C3 stays COMPLETE because it genuinely is).** **C13/V7/C10 fail because NO QUERY WAS ISSUED AT ALL** — a binding cannot fire on a call that never happened, so this is a tool-CHOICE problem, not a coverage one. **A13/E7/C14 fail ONE GRAIN DOWN**, where the account verdict is legitimately COMPLETE and the geo floor is what the answer needed. They are different flights; do not merge them.
+▶▶ NEXT STEP — 2026-08-15: ★ANSWERED-WITHOUT-ASKING — THE FAILURE WHERE NO QUERY WAS ISSUED AT ALL (latest — resume HERE).
+⛔ **HEAD, AND IT IS ONE FLIGHT: ★ANSWERED-WITHOUT-ASKING. START INVESTIGATE-ONLY — do NOT scope a fix before the evidence is read.** THE SHAPE, which is what makes it the head: **C13 / V7 / C10 fail because NO QUERY WAS ISSUED AT ALL.** Every honesty mechanism shipped on 08-14/15 sits on the query path — the binding gates the payload, and the verdict feeding it now measures density — and **NONE of it can fire on a call that never happened.** This is a tool-CHOICE problem, and the whole 08-14/15 architecture is structurally blind to it. Read the QUEUE entry and the three failing answers BEFORE naming a mechanism; "make her call the tool" is a conclusion, not a diagnosis, and this repo has shipped the wrong mechanism from exactly that shortcut before.
+⛔ **SECOND FLIGHT, SEPARATE, EXPLICITLY NOT TO BE MERGED WITH THE HEAD: the BREAKDOWN-GRAIN half of ★FALSE-ZERO-ON-UNCOVERED-WINDOW.** **A13 / E7 / C14 fail ONE GRAIN DOWN** — the account-grain verdict is legitimately COMPLETE and the GEO floor is what the answer actually needed. **DIFFERENT MECHANISM, DIFFERENT FIX, DIFFERENT GATE.** They look like one bug because they share a symptom (a confident answer over ground we do not hold); they are not. Merging them buys a fix that half-works on both and is provable on neither.
+⚠ **READ THE 08-14/15 LANDING CORRECTLY BEFORE SCOPING EITHER — IT IS EASY TO OVER-READ:** the binding mechanism IS built and the verdict DOES measure density, and that bound **5 of the 6 named account-grain windows (A16, C5, C19, C20, E12; C3 stays COMPLETE because it genuinely is).** That is real and it is finished. It closed neither of the two shapes above.
 **RANKED BEHIND THEM:** ★EXTRA-METRICS-NONGA-UNVERIFIED (one hand reading per platform) · ★MISCAVEATED-VENDOR-RETENTION (cheapest, deliberately last) · ★GOOGLE-AD-ENTITY-NAMES-MISSING. Those three plus the two above are the FULL completion list the eval paywall gates on — **no paid eval run fires until every one is closed, then ONE baseline with its cost line stated first** (DECISIONS LORAMER_EVAL_PAYWALL_MOVED_TO_END_OF_WIRING_V1).
-**DECIDE FIRST, BEFORE ANY FLIGHT:** the PARKED WIDEN (`forward-widen-breadth.ts`, untracked, + modified `cron/sync/route.ts`) is the SOLE red in `npm run guard` and belongs to neither HEAD nor the last three ships. **Ship it or shelve it — it distorts every push report while it sits there.**
-**STANDING, NOT WORK:** the walk publishes again post-unwedge and is descending Foam OH's dormant strip; Deploy 2's gate still opens on `rows_written > 0`. **OWED: the cross-fire recede confirmation (~04:30Z rotation lap) and the arithmetic of how many dormant windows remain before the first surface reaches live-spend history — without that, "still zero" and "wedged again" are indistinguishable.**
+✅ **SETTLED, NOTHING TO DECIDE — THE PARKED WIDEN IS SHELVED (2026-08-15).** Branch `parked/widen-90d-restatement-tail` (`7b3d5e9`, pushed); main's tree is clean; `npm run guard` is **112/112 ALL GREEN**. DECISIONS `LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1` owns the reasoning — not restated here. ⚠ **TWO GUARD DEBTS RIDE THAT BRANCH and must be paid by the flight that resumes it, not rediscovered: the UNCHUNKED `metrics_daily` upsert at `forward-widen-breadth.ts:44`, and the STALE `metrics-upsert-chunked` allowlist entry (`cron/sync` says 13 where the file holds 9).**
+**STANDING, NOT WORK:** the walk publishes again post-unwedge and is descending Foam OH's dormant strip; Deploy 2's gate still opens on `rows_written > 0`. **OWED, AND IT IS THE ONE THING THAT MAKES THE WALK LEGIBLE: the cross-fire recede confirmation (~04:30Z rotation lap) AND the arithmetic of how many dormant windows remain before the first surface reaches live-spend history — without that number, "still zero" and "wedged again" are indistinguishable, and the walk cannot be judged either way.**
+**CHECK:DATA — FOUR OWNED REDS, ALL PRE-EXISTING, NONE NEW (measured 2026-08-15: EXIT 1 · 19 checks · 15 green · 4 red). Expect them; a clean run would be the surprise.** `check-completion-claims` (3 uncovered claims + 8 stale baseline entries) and `check-drain-throttle` (the throttle has outlived its reason) are the two long-standing owned reds. **The other two are ALREADY ON THE EVAL-PAYWALL COMPLETION LIST above, which is why they are not separately actionable here:** `check-lora-named-entity` (google/ad top entity has an EMPTY `entity_name`) IS ★GOOGLE-AD-ENTITY-NAMES-MISSING, and `check-coverage-density` (L7 + L30 PARTIAL, Influential Drones/meta 0 days / 23d) IS [[★DRONES-META-CAPTURE-CLIFF-2026-08]] — the expired Meta token on the FROZEN demo fixture client, i.e. the drift monitor working as designed.
+**CLOCKS — DO NOT SLIP (QUEUE §DATE-GATED owns them):** ⛔ **META RE-ARM ~2026-08-25 via the admin valve, cliff ~08-30, 12 ad accounts ride it — the nearest clock; re-arm research was DESCOPED by Russ, the plan is the proven valve refresh.** · **GOOGLE ADS STANDARD ACCESS: forum follow-up trigger ~2026-08-19 if no reply — ⛔ DO NOT REAPPLY WHILE PENDING, a duplicate application resets the queue.**
 **FROZEN, DO NOT TOUCH:** legacy `/dashboard` and the demo twin 2617b163, pending Google's RMF reply (submission sent 2026-08-14) — including [[★DRONES-META-CAPTURE-CLIFF-2026-08]], a real expired Meta token on the demo fixture client.
 
 - (2026-08-14 opener — HISTORY, superseded 2026-08-15; demoted from `▶▶ NEXT STEP` because its head ★ENTITY-NAME-AND-GRAIN-UNREACHABLE CLOSED (`fe2d729`) and the honesty class it ranked second was half-closed by `1802675` + `c8a6273`. Its Deploy 2 gate stands EXACTLY as written and is restated above as standing-not-work.) 2026-08-14 SESSION CLOSE: FIX 2 OF THE BASELINE'S RANKED LIST (latest — resume HERE).
