@@ -1846,9 +1846,10 @@
    "anchor": "E5",
    "assert": {
     "type": "boundary",
-    "rubric": "shopify net 117,840.00 Q2-2025; must present both figures and name the definitional gap",
+    "rubric": "RE-CERTIFIED 2026-08-15 (Russ — the ambiguity is DELIBERATE; do not restore the year). The question names no year, so a correct answer must (a) EXPLICITLY NAME which Q2 it resolved to (e.g. \"Q2 2026, since you didn't specify the year\") and (b) present exact warehouse-verified figures for THAT quarter and name the Shopify-vs-GA4 definitional gap. Certified Shopify-net ground truths, both warehouse-verified 2026-08-15 over 91/91 captured days each: Q2-2025 = 117,840.00 · Q2-2026 = 9,906.00. Numbers for either quarter are correct ONLY when the chosen period is named; SILENT RESOLUTION IS A FAIL even with perfect numbers.",
     "mustNotAssert": [
-     "perfect agreement"
+     "perfect agreement",
+     "a Q2 answer that never states which year it covers"
     ]
    },
    "message": "do shopify and analytics agree on q2 revenue?",
@@ -1856,7 +1857,8 @@
    "clientName": "Foam OH",
    "dateRange": "LAST_30_DAYS",
    "axis": "voice",
-   "scored": true
+   "scored": true,
+   "notes": "RE-CERTIFIED 2026-08-15 by Russ after the ★ANSWERED-WITHOUT-ASKING investigation: the voice paraphrase had dropped anchor E5's year AND dateRange, and the 2026-08-14 baseline judged a numerically-exact Q2-2026 answer against the anchor's Q2-2025 truth. The paraphrase stays ambiguous ON PURPOSE — the thing under test is now the DISCLOSURE of period resolution, not year-guessing. src: QUEUE ★EVAL-V7-PARAPHRASE-DROPPED-THE-YEAR (closed)."
   }
  ]
 }
