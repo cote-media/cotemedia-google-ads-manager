@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-15T00:06:09.520Z
-- built_from HEAD: 87eb3e85232e4daea0e731db30d29e15784ae457  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-15T01:03:39.049Z
+- built_from HEAD: fe2d729a4414ff9c0c75092f2e31e021ef67cfec  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: b8b3699be6e1f4f6292c81ae014794c998a949e8b1d62333774117d8fb66ca9c
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9e25fc99bc484f528cb447f0767dcd56e1ceccf19289ce60a8bca2637365f4a0
-    - LORAMER_DECISIONS.md: 6e72fd6c8ea3125e3bbb8d9b9183d0f425a8d057e383fcadd8d95c550fd95662
-    - LORAMER_QUEUE_OF_RECORD.md: 6a9c44c9698f1d7c0080a7a64659ecc5e79cb59b190e419c4539c97f7339252e
+    - LORAMER_DECISIONS.md: 1cb11ff271d5e94bb0bd46abe7163680b4bc1fd0aabf4de84120b6c7dd3c9286
+    - LORAMER_QUEUE_OF_RECORD.md: f2cbebed52a9d0863421b75cb5ce9b1ce3db17dbbd97780ac23d20c265397fef
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1869,6 +1869,8 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★ENTITY-NAME-AND-GRAIN-UNREACHABLE — ⛔ **NEW 2026-08-14, RANK #2 ON THE BASELINE'S FIX LIST (behind the one already shipped). SAME CLASS AS [[★EXTRA-METRIC-UNREACHABLE]] — DATA WE HOLD THAT LORA CANNOT REACH — BUT A DIFFERENT MECHANISM, SO THE 067 FIX DOES NOT TOUCH IT.** **TWO MEASURED FAILURES, both re-derived from the store by hand:** (1) **CAMPAIGN NAMES READ BLANK.** Lora reported "the campaign breakdown returns one row with a blank name"; the same window queried directly returns a named campaign with 887.8 conversions. The rows and the names are both there. (2) **WRONG GRAIN SELECTED.** A Meta creative question was answered at asset grain, where every conversion is legitimately 0, when the answer lives at `entity_level='ad'` (a named ad, 1,354 conversions). ⇒ **BOTH ARE QUERY-LAYER/REGISTRY DEFECTS, NOT PROMPT DEFECTS**, and both produce the most dangerous output shape this repo tracks: a confident, sourced, *empty-looking* answer that is indistinguishable from a true zero ([[★NUMBER-ACCURACY-IS-100-NOT-95]]'s mechanical class). ⚠ **NOT YET DIAGNOSED TO A LINE** — the baseline triage located the symptom and the counter-evidence, not the cause; do not assume it is one bug. src: 2026-08-14 baseline triage. open [LC]
 - ★FALSE-ZERO-ON-UNCOVERED-WINDOW — ⛔ **NEW 2026-08-14, RANK #3 ON THE BASELINE'S FIX LIST, AND IT IS THE HONESTY CLASS RATHER THAN THE REACHABILITY ONE.** **MEASURED: 8 FALSE_ZERO and 9 FABRICATED classifications across the 2026-08-14 run.** The sharpest single case: a full WooCommerce year-over-year table, growth narrative included, built on a window with **no completed backfill cursor** — a window we never captured, presented as a confirmed zero. ⇒ **THE RULE THIS BUYS: a window with no completed cursor must be UNANSWERABLE, not zero.** ⛔ **THIS IS [[★SEMANTIC-LAYER]]'s CERTIFIED-METRIC JOB AND ITS PUBLISHED PROMISE, NOT A NEW MECHANISM** — the literature's finding is precisely that semantic-layer failures are REFUSALS while text-to-SQL failures are confident wrong numbers, so this item is the concrete first payment on that architecture rather than a competitor to it. **Do not build a bespoke guard here without reading that entry first.** ⚠ The completeness signal already exists (`complete`, per-platform `contribution` with statuses); what is missing is that reaching a zero through an incomplete window is not itself REFUSED. src: 2026-08-14 baseline triage. open [LC]
 - ★MISCAVEATED-VENDOR-RETENTION — ⚠ **NEW 2026-08-14, RANK #5 (LAST) ON THE BASELINE'S FIX LIST — CHEAPEST, AND DELIBERATELY LAST.** **MEASURED: 4 CORRECT_BUT_MISCAVEATED.** Right shape, right number, wrong confidence — each asserts a vendor retention boundary that has NOT been established. ⛔ **THIS IS THE UNVERIFIED-BOUNDARY ADVERSARIAL TYPE FAILING FROM THE OTHER SIDE:** the eval set added that type precisely because *asserting a vendor wall we cannot prove is itself a failure*, and these four do it in production prose rather than in a graded refusal. ⇒ Prompt / vendor-fact hygiene, and the one item on the list where prompt work is the right tool. src: 2026-08-14 baseline triage. open [LC]
+- ★LORA-ANSWER-EXPORT — ⚠ **NEW 2026-08-15, RUSS'S ITEM. POST-9/30-DEMO unless he says otherwise — NOT on the demo spine as scoped (dashboard walk + voice-directed Lora; nothing is exported on stage).** **THE MOTIVATION, in his words: her ACTION STEPS are frequently worth keeping and sending.** An answer a user cannot take out of the thread is an answer that dies in the thread. **THE SHAPE: a download control on a Lora answer + a format choice.** PRIMARY is MARKDOWN, and the reason is that it is nearly free: her answers are ALREADY markdown-shaped (the fence/copy work of LORAMER_CHAT_COPY_BLOCKS_V1 + LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 established that), so markdown export PRESERVES the action-step structure rather than flattening it. PDF is the likely second format for client-facing use and is the part that carries real work (rendering, pagination, branding). ⛔ **SMALL BY CONSTRUCTION AND THAT IS THE POINT: no data-layer work, no new query, no capture change** — it exports what the turn already produced. ⚠ ONE THING TO SETTLE AT THE FLIGHT, not now: an exported answer is a SNAPSHOT that outlives its data, so it needs its window and its as-of stamped on the artifact or it becomes a confident wrong number six weeks later on someone else's desk (the same class LORAMER_DEFINITIONAL_FOOTNOTE_V1 exists for). ⚠ THE SANDBOX CAVEAT for whoever builds it: a download the page starts itself is inert inside some embedded viewers — verify the delivery mechanism on Russ's actual phone before calling it done. src: Russ, 2026-08-15. open [LC]
+- ★REPORTING-WITH-LORA-OVERLAY — ⚠ **NEW 2026-08-15, RUSS'S ITEM, AND IT IS A PRODUCT SURFACE RATHER THAN A FEATURE — the distinction is the whole entry. POST-9/30-DEMO unless he says otherwise.** **THE SHAPE: a standard reporting surface where EVERY reported data section carries a Lora narration OF THAT SECTION** — not one summary bolted to the top of a report, but per-section commentary that makes the report argue with itself where the data disagrees. ⛔ **DELIBERATELY SEPARATE FROM [[★LORA-ANSWER-EXPORT]]: that one exports an answer she already gave; this one GENERATES an artifact that did not exist. Different shapes, different costs, different flights — do not merge them because both end in a file.** **WHAT IT REQUIRES, none of it small:** section definitions (what a "standard report" contains, per platform and per client type) · per-section Lora invocation · export rendering · and it lands on **-next**, where it must be GRID-NATIVE (a report section is a card or a card's detail view, never a floating panel — the standing law). ⛔ **THE COST MODEL IS A PRECONDITION, NOT A DETAIL: one report = MANY model calls, one per section.** At today's per-turn cost a 10-section report is 10 turns of spend per generation, per client, and a scheduled monthly report multiplies that by the fleet. **Model the cost BEFORE any build** — the caching posture (LORAMER_CHAT_HISTORY_CACHE_V1) will matter more here than anywhere else, since every section shares one prefix. INTERSECTS: [[★DEFINITIONAL-FOOTNOTE]] (a reported figure needs its basis on the page, and a report is read by people who were not in the conversation) · the grid-native law · [[★WHITE-LABEL-AGENCY]] (agencies WILL brand this artifact — it is the most client-facing thing the product would produce, so branding is a design input, not a later pass). src: Russ, 2026-08-15. open [LC]
 - ★GOOGLE-AD-ENTITY-NAMES-MISSING — ⛔ **NEW 2026-08-14, FOUND BY THE INSTRUMENT SHIPPED IN THE SAME FLIGHT (LORAMER_LORA_NAMED_ENTITY_READ_V1's live check, RED on its first run) AND MEASURED, NOT INFERRED.** **google `entity_level='ad'` base rows are 1.7% NAMED — 390 of 22,607 since 2026-05-01.** Every other ad grain is 100%: google campaign 15,978/15,978 · meta campaign 1,050/1,050 · meta ad_set 1,058/1,058 · meta ad 1,069/1,069. ⇒ **THE NAMED-ENTITY TOOL WORKS AND THIS GRAIN WILL STILL ANSWER BLANK**, so Lora asking "which google AD performed best" gets ids where names belong — the ★ENTITY-NAME-AND-GRAIN-UNREACHABLE symptom surviving one layer down, on one grain. ⚠ NOT the same defect: that one was a missing READ path (closed); this is a WRITER not populating `entity_name` on the google ad-grain capture. THE FIX SHAPE, unverified: the google ad writer's row builder — Google returns `ad_group_ad.ad.name` only for some ad types (RSAs commonly have no `name`, which may make 1.7% the VENDOR's answer rather than ours), so establish FIRST whether the name is absent at the vendor or dropped by us, and if the vendor withholds it, compose a display name from the ad's headlines the way /api/google/ads already does at :70-78 rather than storing a blank. ⛔ THE LIVE CHECK STAYS RED UNTIL THIS CLOSES — deliberately, per ★CHECKDATA-STANDING-REDS-OWNED: it is a TRUE red, named in every push report, not baselined away. src: LORAMER_LORA_NAMED_ENTITY_READ_V1 Gate-A, 2026-08-14. open [LC]
 - ★CATALOG-SURFACE-METRIC-INCOMPAT — ⚠ **NEW 2026-08-14, BANKED NOT BUILT (the honest fix is not one line).** The walk's only two `error` outcomes ever are `detail_content_suitability_placement_view` and `group_content_suitability_placement_view`, both vendor query_error 49 verbatim: clicks/conversions/conversions_value/cost_micros "incompatible with the resource in the FROM clause". The catalog declares the surfaces selectable; the WRITER asks its standard metric set; the vendor refuses that COMBINATION. The fix is NOT a hand-edit of docs/google-ads-capture-universe.json (⛔ generated, never hand-edited — LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1) and NOT a hand entry in google-refused-metrics.ts (also generated, build-refused-metrics.mjs); it is teaching the metric-incompat map or the writer's metric selection about resource-level refusals the same measured way segment-level ones were learned. Cost of leaving it: 1 wasted vendor op per surface per rotation lap (~2/day), each recorded honestly as `error`. src: LORAMER_WALK_STALL_DIAG_V1 2026-08-14. open [LC]
 - ★READINESS-SIGNALS-RPC-TIMEOUT — ⚠ **NEW 2026-08-13, found in passing during the RPC grant-posture sweep and queued at the next docs commit as owed.** `get_client_readiness_signals` returns **HTTP 500 `57014 canceling statement due to statement timeout`** on a direct service_role REST call with a real client id. ⛔ **NOT a permissions casualty**: it was one of the six functions already service_role-only BEFORE migrations/065 (untouched by the sweep), and a permission refusal is `42501`, not a timeout. It is a PERFORMANCE defect in the function body — a SECURITY DEFINER read that cannot finish inside the statement ceiling. EXPOSURE: `dashboard-next/client-profile/page.tsx:57` calls it server-side per page render; a timeout there degrades the readiness section, not the page. THE FIX SHAPE, unverified: EXPLAIN the function body against the live tables; likely an unpruned metrics_daily scan (the partition-pruning win was 7.8× on exactly that class). src: 2026-08-13 RPC posture flight. open [LC]
@@ -1988,8 +1990,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 810 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
-122 decision-only · 366 queue-only.
+TOTALS: 815 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
+122 decision-only · 371 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 166 DECISIONS entries and
 267 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2093,6 +2095,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DECISION-TOPIC-INDEX — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★DECISIONS-464-STALE — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★DECLARED-VS-LANDED-CHECK — OPEN · decisions 1 · queue 1 · last 2026-07-27
+- ★DEFINITIONAL-FOOTNOTE — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★DEGRADED-CHANNEL-PARITY — OPEN · decisions 1 · queue 1 · last 2026-07-25
 - ★DEGRADED-RENDER-LIVE-GATE-A — OPEN · decisions 1 · queue 2 · last 2026-07-26
 - ★DEMO-FIXTURE-META-REAUTH — OPEN · decisions 1 · queue 1 · last 2026-07-31
@@ -2220,6 +2223,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LIVE-VS-CAPTURED-DUAL-RENDER — OPEN · decisions 1 · queue 1 · last 2026-07-25
 - ★LIVE-VS-CAPTURED-DUAL-RENDER-HISTORY — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
+- ★LORA-ANSWER-EXPORT — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - ★LORA-BACK-BUTTON-DEAD — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★LORA-BACK-FALLBACK-TARGETS-ALL-CLIENTS — OPEN · decisions 0 · queue 1 · last 2026-08-06
 - ★LORA-CLIENT-RESOLUTION-DETERMINISM — OPEN · decisions 0 · queue 2 · last 2026-07-24
@@ -2308,6 +2312,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★RANGELAP-RATCHET-SWEEP — OPEN · decisions 0 · queue 4 · last 2026-07-29
 - ★READINESS-SIGNALS-RPC-TIMEOUT — OPEN · decisions 0 · queue 1 · last 2026-08-13
 - ★REJUDGE-SET-PARITY — DONE · decisions 0 · queue 1 · last 2026-08-14
+- ★REPORTING-WITH-LORA-OVERLAY — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★RESTATEMENT-SWEEP-FLEET — OPEN · decisions 2 · queue 2 · last 2026-07-25
 - ★RESUMER-SCAN-CAP-NEVER-ROTATES — OPEN · decisions 0 · queue 2 · last 2026-08-13
 - ★RESUMER-TWO-FLOORS-ONE-GLOBALISED — OPEN · decisions 0 · queue 1 · last 2026-08-12
@@ -2404,7 +2409,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★WALKDUPE-UNTWINNED-NEED-NORMALISING — OPEN · decisions 1 · queue 2 · last 2026-08-11
 - ★WALL-HELPERS-STILL-NAMED-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-10
 - ★WASTED-SPEND-COUNTER — OPEN · decisions 0 · queue 1 · last 2026-07-31
-- ★WHITE-LABEL-AGENCY — OPEN · decisions 0 · queue 2 · last 2026-07-29
+- ★WHITE-LABEL-AGENCY — OPEN · decisions 0 · queue 3 · last 2026-08-15
 - ★WIRE-COVERAGE-INSTRUMENT — OPEN · decisions 1 · queue 5 · last 2026-08-01
 - ★WITHGOOGLERETRY-TRANSIENT-NEVER-MATCHES — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★WOO-BREADTH-AND-TIER1-PARKED — OPEN · decisions 0 · queue 1 · last 2026-07-25
@@ -2439,7 +2444,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CHAT_COMPOSER_AUTOGROW_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_CHAT_COMPOSER_CLIP_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_CHAT_COMPOSER_FULL_WIDTH_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
-- LORAMER_CHAT_COPY_BLOCKS_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-14
+- LORAMER_CHAT_COPY_BLOCKS_V1 — OPEN · decisions 2 · queue 3 · last 2026-08-15
 - LORAMER_CHAT_COST_AND_RECOVERY_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-06
 - LORAMER_CHAT_DEADLINE_GAP_CLOSED_V1 — DONE · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_FAILURE_BRANCHES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-26
@@ -2447,11 +2452,12 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CHAT_FIRST_FRAME_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-14
 - LORAMER_CHAT_FRAME_PROBE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-06
 - LORAMER_CHAT_GEOMETRY_PROBE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-11
+- LORAMER_CHAT_HISTORY_CACHE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - LORAMER_CHAT_IN_FLIGHT_SURVIVES_REMOUNT_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-07
 - LORAMER_CHAT_IS_THREE_SURFACES_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-05
 - LORAMER_CHAT_MAXDURATION_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-30
 - LORAMER_CHAT_MERGE_NOT_REPLACE_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-07
-- LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-14
+- LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-15
 - LORAMER_CHAT_PHASES_MODEL_KEY_V1 — DONE · decisions 0 · queue 1 · last 2026-08-12
 - LORAMER_CHAT_SCREEN_TRACKS_SERVER_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-07
 - LORAMER_CHAT_SERVER_TURN_WRITE_V1 — DONE · decisions 4 · queue 2 · last 2026-09-30
@@ -2497,6 +2503,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_DEBUG_FLAG_SURVIVES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_DECIDE_AGAINST_DESTINATION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_DECISION_TOPIC_INDEX_V1 — DONE · decisions 1 · queue 1 · last 2026-07-31
+- LORAMER_DEFINITIONAL_FOOTNOTE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - LORAMER_DEGRADED_IS_NOT_FAILED_V1 — OPEN · decisions 2 · queue 4 · last 2026-09-30
 - LORAMER_DIGEST_H_COMPLETENESS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_DOC_OWNERSHIP_GUARD_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-04
