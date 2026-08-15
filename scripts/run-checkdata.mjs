@@ -80,6 +80,9 @@ const CHECKS = [
   // surface, 0/30 at build time), historical flip rates are PRINTED so capture degradation is visible here
   // rather than discovered on stage.
   { name: 'check-coverage-density', cmd: ['scripts/check-coverage-density.mjs', '--guard'] },
+  // LORAMER_FLEET_METER_SEES_THE_WALK_V1 — witnesses the walk's spend through universe_fire_log, a table
+  // neither spend aggregate reads. The static guard cannot see a ledger that has gone quiet; this can.
+  { name: 'check-fleet-meter-visibility', cmd: ['scripts/check-fleet-meter-visibility.mjs', '--guard'] },
 ]
 // ROSTER-END
 

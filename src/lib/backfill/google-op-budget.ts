@@ -55,11 +55,28 @@ import type { GoogleQuotaReadState } from './google-quota-store'
 // must move together; a second RPC call site here is exactly the drift they warn about. This imports the walk's
 // own reader instead of re-implementing the aggregate. (Acyclic: universe-window-log imports only @/lib/supabase.)
 import { readLaneSpendToday } from './universe-window-log'
+// ⛔ LORAMER_FLEET_METER_SEES_THE_WALK_V1, 2026-08-15 — THE SECOND LEDGER, AND THE WHOLE POINT OF THIS FIX.
+// The v1 consumer bills into `universe_window_log`; the v2 walk bills into `universe_attempt_log`
+// (universe-attempt-log.ts's header states it REPLACES universe-window-log.ts). Reading only the first is a
+// fleet total missing whichever consumer is actually running — which since 2026-08-12 18:16Z has been ALL of
+// it. `google-ads.adapter.ts:142` has summed both since LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1; this reader
+// was never given the second half. (Acyclic: universe-attempt-log imports only @/lib/supabase.)
+import { readAttemptLaneSpendToday } from './universe-attempt-log'
 // ⛔ THE WINDOW IS SHARED, NOT COPIED — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. The fleet total is assembled
 // from BOTH readers, so two independently-computed windows would measure one fleet over two different
 // periods. It lives one level below both because this file imports universe-window-log (acyclicity is
 // load-bearing here and is recorded above).
 import { rollingWindowStart } from './google-quota-window'
+
+// ⛔ THE VENDOR SPELLING THE ATTEMPT LEDGER ACTUALLY USES — LORAMER_FLEET_METER_SEES_THE_WALK_V1.
+// It is NOT 'google_ads' (that is universe_window_log's, universe-window-log.ts:18). universe_attempt_log
+// stores `adapter.platform` (capture-adapter.ts:192-193 — "the `vendor` value in universe_attempt_log"),
+// which the Google adapter sets to 'google' (google-ads.adapter.ts:167). MEASURED 2026-08-15: every one of
+// the 1,484 trailing-24h attempt rows carries vendor='google'.
+// ⛔ IT IS A LITERAL HERE AND NOT AN IMPORT ONLY BECAUSE IMPORTING THE ADAPTER WOULD CYCLE — google-ads.adapter
+// imports LANE_ALLOCATIONS from this file. A copied fact needs an enforcer, not a promise, so
+// fleet-meter-sees-the-walk.guard.mjs leg (e) reads BOTH files and fails if the two ever disagree.
+export const WALK_ATTEMPT_LOG_VENDOR = 'google'
 
 // Basic Access, developer-scope, shared across ALL google clients on ONE dev token.
 // ⛔ VERIFIED AT GOOGLE 2026-08-09: 15,000 operations/day is enforced PER DEVELOPER TOKEN, across every
@@ -148,9 +165,25 @@ export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 
 // ✅ 'backfill' IS NOW COUNTED — FLIGHT 2 OF 2, LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3, 2026-08-06.
 // The universe walk spends Google operations and writes NO cron_runs row, so for the whole of flight 1 this
-// reader reported 0 for it and every arithmetic below treated the largest single spender as zero. It is now
-// sourced from `universe_window_log` — the walk's own durable per-window ledger — via the SAME
-// `universe_lane_spend_today` aggregate the walk's own governor reads, so the two cannot drift.
+// reader reported 0 for it and every arithmetic below treated the largest single spender as zero. It is
+// sourced from THE WALK'S OWN LEDGERS — BOTH OF THEM — via the same two aggregates the walk's own governor
+// reads (`universe_lane_spend_today` over universe_window_log, `universe_attempt_lane_spend_today` over
+// universe_attempt_log).
+//
+// ⛔ THIS PARAGRAPH USED TO SAY THE WALK'S SPEND WAS "sourced from `universe_window_log` … via the SAME
+// aggregate the walk's own governor reads, SO THE TWO CANNOT DRIFT." THAT CLAIM WAS FALSE FROM
+// 2026-08-12 18:16:46Z AND THE COMMENT IS WHY NOBODY LOOKED — LORAMER_FLEET_METER_SEES_THE_WALK_V1, 2026-08-15.
+// What actually happened: the walk rebuild moved the ledger (migrations/061; universe-attempt-log.ts replaces
+// universe-window-log.ts), the WALK'S governor was given the second aggregate in the same flight
+// (`google-ads.adapter.ts:142`, LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1), and THIS reader was not. From the
+// moment window_log stopped receiving rows, the two readers no longer read the same thing: the walk saw its
+// own 960 requests/day and the fleet saw ZERO. MEASURED 2026-08-15: universe_window_log last row
+// 2026-08-12 18:16:46Z, while universe_fire_log recorded 18 fires selecting 680 requests in the 17h before
+// the fix. ⛔ AND IT SLIPPED PAST EVERY FAIL-CLOSED DEFENCE IN THIS FILE BECAUSE **A SUM OVER ZERO ROWS IS A
+// CLEAN, FINITE, NON-NEGATIVE 0** — it is not an unreadable counter, so nothing threw, nothing held, and the
+// most permissive possible answer arrived wearing the shape of a measurement. A ledger that goes quiet is
+// indistinguishable from a lane that spent nothing, and only a cross-check against a DIFFERENT witness
+// (universe_fire_log) can tell them apart. That cross-check is now `check-fleet-meter-visibility`.
 //
 // ⛔ WHY IT COULD NOT SHIP WITH FLIGHT 1, AND WHY THE TIMING OF THIS COMMIT IS LOAD-BEARING. Counting it on
 // 2026-08-05 would have put 13,230 trailing walk requests against the 15,000 cap and blocked forward, catchup
@@ -371,7 +404,8 @@ export function decideBudget(
 //   · cron_runs        → forward / catchup / drain. ⛔ ATTRIBUTED PER LANE BY `mode`, which v1 selected and
 //                        threw away: forward/drain bill per CONNECTION-day (connections_attempted), catchup
 //                        per GAP-day (days_filled). Units × GAQL_REQUESTS_PER_CONNECTION_DAY → requests.
-//   · universe_window_log → backfill (the universe walk). ALREADY IN REQUESTS — never multiplied.
+//   · universe_window_log + universe_attempt_log → backfill (the universe walk), SUMMED: v1 bills into the
+//     first, v2 into the second, they are disjoint. BOTH ALREADY IN REQUESTS — neither is ever multiplied.
 // ⛔ TWO SOURCES, ONE DAY. Both are read from the SAME `since`, so the fleet total cannot be assembled from
 // two different days. This is NOT a second source of truth for the same fact: the walk and the cron lanes are
 // disjoint spenders, and the walk's rows are the only place its spend has ever existed.
@@ -429,7 +463,30 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
     // The alternative — defaulting the walk to 0 when its ledger is unreadable — is the precise shape of the
     // defect that authorised ~10,800 consecutive publishes on 2026-08-05: an unreadable counter reading as
     // "nothing spent" is the single most permissive answer a governor can be handed.
-    const backfillRequests = await readLaneSpendToday(since)
+    //
+    // ⛔ BOTH LEDGERS, SUMMED — LORAMER_FLEET_METER_SEES_THE_WALK_V1, 2026-08-15. v1 bills into
+    // universe_window_log, v2 into universe_attempt_log, and they are DISJOINT: a window is opened by exactly
+    // one consumer, so summing them cannot double-count. This mirrors `google-ads.adapter.ts:142` deliberately
+    // — the walk's meter and the fleet meter must read the SAME thing, which is the property whose absence
+    // caused this fix. When v1 finally retires its term goes to zero on its own and nothing here changes.
+    //
+    // ⛔ THE DOUBLE-COUNT SEAM, NAMED SO IT IS NOT REDISCOVERED: `universe_attempt_log` records the SAME
+    // request TWICE — once as `attempt_started` and once as `attempt_finished` (measured 2026-08-15: 1,484
+    // rows summing to 1,360 requests for 680 real ones). `universe_attempt_lane_spend_today` filters
+    // `phase = 'attempt_started'` and is therefore the ONLY correct reader; a naive sum of the table
+    // over-states the walk by exactly 2× and a governor that over-counts STARVES the lanes it protects.
+    // The phase filter lives in migrations/061 and is pinned by fleet-meter-sees-the-walk.guard.mjs leg (d).
+    //
+    // ⛔ 'google', NOT 'google_ads' — THE TWO LEDGERS SPELL THE VENDOR DIFFERENTLY AND THAT IS NOT A TYPO.
+    // universe_window_log uses VENDOR = 'google_ads' (universe-window-log.ts:18); universe_attempt_log stores
+    // `adapter.platform`, which is 'google' (capture-adapter.ts:192-193, google-ads.adapter.ts:167). Passing
+    // the wrong spelling returns a clean 0 — the same silent-zero failure this whole fix is about — so the
+    // literal is pinned against the adapter's own value by guard leg (e) rather than trusted.
+    const [v1WindowLogRequests, v2AttemptLogRequests] = await Promise.all([
+      readLaneSpendToday(since),
+      readAttemptLaneSpendToday(WALK_ATTEMPT_LOG_VENDOR, since),
+    ])
+    const backfillRequests = v1WindowLogRequests + v2AttemptLogRequests
     return {
       byLane: {
         forward: units.forward * GAQL_REQUESTS_PER_CONNECTION_DAY,
@@ -440,7 +497,7 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
       unattributedRaw: unattributedUnits * GAQL_REQUESTS_PER_CONNECTION_DAY,
     }
   } catch (e: any) {
-    console.error('[google-op-budget] spend read THREW (cron_runs or universe_window_log) — lanes HOLD. detail:', e?.message ?? e)
+    console.error('[google-op-budget] spend read THREW (cron_runs, universe_window_log or universe_attempt_log) — lanes HOLD. detail:', e?.message ?? e)
     return null
   }
 }

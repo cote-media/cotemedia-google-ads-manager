@@ -301,6 +301,9 @@ const GUARDS = [
   // shorter runs read as no-activity · an empty window below a funded floor is a hole · ONE constant carrying
   // its own calibration and both failure directions.
   'tests/guards/coverage-density.guard.mjs',
+  // LORAMER_FLEET_METER_SEES_THE_WALK_V1 — the fleet spend reader must sum EVERY ledger the walk bills into.
+  // Shape only; the number is witnessed by check-fleet-meter-visibility against universe_fire_log.
+  'tests/guards/fleet-meter-sees-the-walk.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

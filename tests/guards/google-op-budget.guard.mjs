@@ -445,8 +445,14 @@ if (WITH_DB) {
       return chain
     },
     rpc: async (fn, args) => {
-      if (fn !== 'universe_lane_spend_today') return { data: null, error: { message: `unexpected rpc ${fn}` } }
-      const rows = await q(`select public.universe_lane_spend_today($1, $2::timestamptz) as v`, [args.p_vendor, args.p_since])
+      // ⛔ BOTH walk aggregates are served — LORAMER_FLEET_METER_SEES_THE_WALK_V1. The reader now sums the v1
+      // AND v2 ledgers; a stub that answers only the first turns the second call into a throw → null →
+      // leg (k) reporting UNREADABLE, which is this harness failing, not the reader. (Seen live 2026-08-15,
+      // the day the second read shipped.)
+      if (fn !== 'universe_lane_spend_today' && fn !== 'universe_attempt_lane_spend_today') {
+        return { data: null, error: { message: `unexpected rpc ${fn}` } }
+      }
+      const rows = await q(`select public.${fn}($1, $2::timestamptz) as v`, [args.p_vendor, args.p_since])
       return { data: rows[0]?.v ?? null, error: null }
     },
   })
@@ -458,9 +464,23 @@ if (WITH_DB) {
   // reader. Default and CI behaviour is unchanged: trailing 24h.
   const sinceOverride = process.env.LORAMER_OPBUDGET_DB_SINCE
   const since = sinceOverride ? new Date(sinceOverride) : new Date(Date.now() - 24 * 3600 * 1000)
+  // ⛔ THE WITNESS SUMS BOTH WALK LEDGERS — LORAMER_FLEET_METER_SEES_THE_WALK_V1, 2026-08-15. This leg's
+  // original witness was universe_window_log ALONE, and that is exactly why it never caught the blindness:
+  // when the walk's billing moved to universe_attempt_log the witness went quiet WITH the reader, and the leg
+  // printed "VACUOUS today" for three days of 960-requests/day spend. A witness that shares the subject's
+  // silence proves nothing. (The truly independent witness — universe_fire_log — is check-fleet-meter-
+  // visibility's job; this leg proves the reader agrees with its own inputs.)
   const [{ walk_requests: walkRequests, walk_rows: walkRows }] = await q(
-    `select coalesce(sum(requests_spent),0)::bigint as walk_requests, count(*)::int as walk_rows
-       from public.universe_window_log where vendor = 'google_ads' and started_at >= $1`, [since.toISOString()])
+    `select (select coalesce(sum(requests_spent),0) from public.universe_window_log
+              where vendor = 'google_ads' and started_at >= $1)::bigint
+          + (select coalesce(sum(requests_spent),0) from public.universe_attempt_log
+              where vendor = 'google' and phase = 'attempt_started' and recorded_at >= $1)::bigint
+            as walk_requests,
+            ((select count(*) from public.universe_window_log
+              where vendor = 'google_ads' and started_at >= $1)
+          + (select count(*) from public.universe_attempt_log
+              where vendor = 'google' and phase = 'attempt_started' and recorded_at >= $1))::int
+            as walk_rows`, [since.toISOString()])
   const walk = Number(walkRequests)
 
   globalThis.__SB__ = makeSb()
@@ -469,16 +489,16 @@ if (WITH_DB) {
   if (live === null) {
     findings.push(`(k) readGoogleSpendToday returned NULL over the trailing 24h — the fleet read is UNREADABLE, so every google lane is holding right now. That is fail-closed and therefore safe, but it is not a pass.`)
   } else if (walk > 0 && Number(live.byLane.backfill) === 0) {
-    findings.push(`(k) STRUCTURAL ZERO: universe_window_log records ${walk} vendor requests across ${walkRows} window(s) in the trailing 24h, and the backfill lane reports 0. The walk's spend is invisible to the fleet ceiling — forward, catchup and drain are all measuring against a denominator missing the largest single spender.`)
+    findings.push(`(k) STRUCTURAL ZERO: the walk ledgers record ${walk} vendor requests across ${walkRows} row(s) in the trailing 24h, and the backfill lane reports 0. The walk's spend is invisible to the fleet ceiling — forward, catchup and drain are all measuring against a denominator missing the largest single spender.`)
   } else if (walk > 0 && Number(live.byLane.backfill) !== walk) {
-    findings.push(`(k) the backfill lane reports ${live.byLane.backfill} against ${walk} requests in universe_window_log over the same window. requests_spent is ALREADY in requests — a mismatch here is the ×67 unit trap or a day-boundary drift.`)
+    findings.push(`(k) the backfill lane reports ${live.byLane.backfill} against ${walk} requests across BOTH walk ledgers (window_log 'google_ads' + attempt_log attempt_started 'google') over the same window. requests_spent is ALREADY in requests — a mismatch here is the ×67 unit trap, a day-boundary drift, or a missing/extra ledger term.`)
   }
   // ⛔ EMPTY CARRIES ITS DENOMINATOR. A quiet walk is the NORMAL state while it is halted, and this leg must
   // say so out loud rather than printing a bare PASS that a reader mistakes for "the counting works".
   console.log(
     walk > 0
-      ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} window(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`
-      : `[google-op-budget] (k) live: universe_window_log records ZERO walk requests in the trailing 24h (${walkRows} rows) — the walk is halted, so this leg is VACUOUS today. It asserts nothing about the counting; the static legs (j) do.`)
+      ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} ledger row(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`
+      : `[google-op-budget] (k) live: BOTH walk ledgers record ZERO requests in the trailing 24h (${walkRows} rows) — the walk is halted, so this leg is VACUOUS today. It asserts nothing about the counting; the static legs (j) do.`)
   await db.end()
 }
 
