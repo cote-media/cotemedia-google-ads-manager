@@ -296,6 +296,11 @@ const GUARDS = [
   // the payload STRUCTURALLY (the key is gone, not merely annotated), at every grain, with no silent catch —
   // and a COMPLETE zero stays answerable so the fix cannot over-refuse a genuine zero.
   'tests/guards/binding-coverage.guard.mjs',
+  // LORAMER_COVERAGE_DENSITY_V1 — the leg that makes the binding BITE: "capture reaches back this far" is not
+  // "every day in the window is present". Frontier (capture is T+1) · a >=7-day missing run is a hole while
+  // shorter runs read as no-activity · an empty window below a funded floor is a hole · ONE constant carrying
+  // its own calibration and both failure directions.
+  'tests/guards/coverage-density.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

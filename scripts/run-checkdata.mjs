@@ -76,6 +76,10 @@ const CHECKS = [
   // LORAMER_BINDING_COVERAGE_V1 — the LIVE half: a pre-floor window must not read as covered, or every
   // binding downstream is built on a false verdict.
   { name: 'check-binding-coverage', cmd: ['scripts/check-binding-coverage.mjs', '--guard'] },
+  // LORAMER_COVERAGE_DENSITY_V1 — DRIFT MONITOR, not only an assertion: recent-window flips FAIL (the demo
+  // surface, 0/30 at build time), historical flip rates are PRINTED so capture degradation is visible here
+  // rather than discovered on stage.
+  { name: 'check-coverage-density', cmd: ['scripts/check-coverage-density.mjs', '--guard'] },
 ]
 // ROSTER-END
 

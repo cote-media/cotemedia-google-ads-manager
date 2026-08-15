@@ -265,6 +265,118 @@ export function resolveBreakdownCoverage(
     detail: `${holeDays.length} of ${baseActiveDays.length} base-active day(s) carry NO breakdown rows: ${holeDays.slice(0, 12).join(', ')}${holeDays.length > 12 ? ` … +${holeDays.length - 12} more` : ''}` }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+// LORAMER_COVERAGE_DENSITY_V1 — IS EVERY DAY *IN* THE WINDOW PRESENT, not merely "does capture reach back
+// this far". The FLOOR test (resolveCoverageState, :38-57) answers the second question and its answer was
+// being read as the first: Shelley Kyle woocommerce 2024 holds 248 of 366 days — 118 ABSENT — and `complete`
+// came back TRUE through the real tool runner. That is baseline case C19, and C3/C5/C20/E12/A16 share it.
+//
+// ⛔ THE THRESHOLD IS CALIBRATED, NOT PROVEN, AND IT LIVES HERE SO NOBODY RE-DERIVES A DIFFERENT ONE.
+// DECISIONS LORAMER_COVERAGE_DENSITY_THRESHOLD_V1 owns the full record; the operative reasoning:
+// MEASURED across the golden fleet's 2025 (30 client×platform pairs), missing-day RUN LENGTHS are BIMODAL —
+//   · ≥7-day runs: 4 pairs, ALL META — Influential Drones 57 · Foam OH 36 · My Vacation 31 · Shelley Kyle 13.
+//     Every one is a known Meta token-cliff outage. REAL capture holes.
+//   · 1-6 day runs: 5 pairs — Shelley woo longest 6 with 48 SINGLE-day gaps (a store with no orders that day)
+//     · Glass Plus google 5 · Champion google 4 · My Vacation google 4 · BusyBee meta 4. GENUINE no-activity
+//     days: the writers omit them by design (the false-zero discipline — a gap, not a $0).
+// There is no vendor fact here and no derivation — 7 is the gap between those two clusters on THIS fleet.
+// ⛔ BOTH FAILURE DIRECTIONS, NAMED: a genuine 7+-day PAUSE (a paused campaign, a closed shop) will
+// OVER-REFUSE and read as a hole; a 6-day OUTAGE will UNDER-REFUSE and read as complete. Neither is
+// detectable from the warehouse at base grain, because base rows ARE the denominator and have no deeper one.
+// ⛔ THE ONLY TRUE FIX IS THE WALK'S VENDOR ATTESTATION (`attestedEmptyDays`, universe-coverage.ts) — the
+// vendor saying "I was asked and there was nothing" — and it is NOT REACHABLE from Lora's query path today
+// (★ATTESTED-EMPTY-UNREACHABLE-FROM-LORA; LORAMER_FALSE_ZERO_DIAG_V1 §4). This constant is the stand-in until
+// it is, and it should be DELETED when it is, not tuned.
+export const DENSITY_HOLE_RUN_DAYS = 7
+
+export type DensityVerdict = {
+  platform: string
+  verdict: BreakdownCoverageVerdict           // the SAME three states — not a fourth dialect
+  unknownReason?: BreakdownUnknownReason
+  daysInWindow: number                        // judged to the capturable frontier, never to today
+  daysPresent: number
+  longestMissingRun: number
+  holeRuns: Array<{ start: string; end: string; days: number }>
+  detail: string
+}
+
+/**
+ * PURE. Same shape and vocabulary as resolveBreakdownCoverage above — day arrays in, verdict out — so the
+ * guard drives it with no DB and the two resolvers cannot drift into different dialects.
+ *
+ * ⛔ THE FRONTIER LEG IS WHY THIS IS SHIPPABLE AT ALL. Judged against TODAY, 30 of 30 fleet pairs go PARTIAL
+ * on every recent window — capture is T+1, so today is always missing and the rule would refuse every
+ * present-tense question on every client. Measured: every L30 pair is 29/30, missing exactly today, with ZERO
+ * interior holes. Judged to the frontier (yesterday) the recent-window flip rate is 0 of 30.
+ */
+export function resolveDensity(a: {
+  platform: string
+  windowStart: string
+  windowEnd: string
+  /** The newest day capture could possibly hold — yesterday, not today. */
+  frontier: string
+  /** Distinct captured days inside the window, ascending. null ⇒ not measured. */
+  presentDays: string[] | null
+  /** Earliest captured day for this (client, platform), or null if nothing was ever captured. */
+  floor: string | null
+  runThresholdDays?: number
+}): DensityVerdict {
+  const { platform, windowStart, floor } = a
+  const threshold = a.runThresholdDays ?? DENSITY_HOLE_RUN_DAYS
+  // The window is only judged up to the frontier; a window entirely in the future judges nothing.
+  const end = a.windowEnd < a.frontier ? a.windowEnd : a.frontier
+  const dayCount = Math.floor((Date.parse(end + 'T00:00:00Z') - Date.parse(windowStart + 'T00:00:00Z')) / 86400000) + 1
+  const base = { platform, daysInWindow: Math.max(0, dayCount), daysPresent: a.presentDays?.length ?? 0, longestMissingRun: 0, holeRuns: [] as Array<{ start: string; end: string; days: number }> }
+
+  if (a.presentDays == null) {
+    return { ...base, verdict: 'UNKNOWN', unknownReason: 'read_failed', detail: `could not read captured days for ${platform} — NOT a completeness claim and NOT a statement about the account.` }
+  }
+  if (dayCount <= 0) {
+    return { ...base, verdict: 'UNKNOWN', unknownReason: 'no_activity_in_window', detail: `the window ends at or before the capturable frontier ${a.frontier} — there is nothing capture could hold yet.` }
+  }
+  // ZERO-DAYS-BELOW-FLOOR. Capture reaches back before this window and the window holds NOTHING. The floor
+  // test calls that "covered"; it is the starkest hole there is (measured: BusyBee google and Influential
+  // Drones google each hold 0 of 365 days of 2025 with floors in 2019 and 2018).
+  if (a.presentDays.length === 0) {
+    if (floor !== null && floor <= windowStart) {
+      return { ...base, verdict: 'PARTIAL', longestMissingRun: dayCount,
+        holeRuns: [{ start: windowStart, end, days: dayCount }],
+        detail: `${platform} captured NOTHING in ${windowStart}..${end} (${dayCount} day(s)) although capture reaches back to ${floor}. Not a zero — an unfilled window.` }
+    }
+    return { ...base, verdict: 'UNKNOWN', unknownReason: floor === null ? 'never_captured' : 'no_activity_in_window',
+      detail: floor === null ? `${platform} has never captured a row for this client, so this window's emptiness says nothing about it.` : `${platform}'s capture floor ${floor} is inside or after this window — the emptiness is a floor fact, already reported by the floor test.` }
+  }
+  // RUN DETECTION over the present days plus both window edges, so a gap at the START or END of the window is
+  // a run like any other. Leading/trailing absence is exactly where a stale-capture hole shows up, and a
+  // lag()-style scan over present days alone cannot see it.
+  const present = [...new Set(a.presentDays)].filter((d) => d >= windowStart && d <= end).sort()
+  const runs: Array<{ start: string; end: string; days: number }> = []
+  const dayBefore = (d: string) => new Date(Date.parse(d + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10)
+  const dayAfter = (d: string) => new Date(Date.parse(d + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
+  let cursor = windowStart
+  for (const d of present) {
+    if (d > cursor) {
+      const gapEnd = dayBefore(d)
+      const days = Math.floor((Date.parse(gapEnd + 'T00:00:00Z') - Date.parse(cursor + 'T00:00:00Z')) / 86400000) + 1
+      runs.push({ start: cursor, end: gapEnd, days })
+    }
+    cursor = dayAfter(d)
+  }
+  if (cursor <= end) {
+    const days = Math.floor((Date.parse(end + 'T00:00:00Z') - Date.parse(cursor + 'T00:00:00Z')) / 86400000) + 1
+    runs.push({ start: cursor, end, days })
+  }
+  const holeRuns = runs.filter((r) => r.days >= threshold)
+  const longest = runs.reduce((m, r) => (r.days > m ? r.days : m), 0)
+  if (holeRuns.length === 0) {
+    return { ...base, daysPresent: present.length, longestMissingRun: longest, verdict: 'COMPLETE',
+      detail: `${present.length} of ${dayCount} day(s) captured to the frontier; longest missing run ${longest} day(s), under the ${threshold}-day hole threshold — the absent days read as no-activity, not as gaps.` }
+  }
+  const missing = holeRuns.reduce((n, r) => n + r.days, 0)
+  return { ...base, daysPresent: present.length, longestMissingRun: longest, verdict: 'PARTIAL', holeRuns,
+    detail: `${holeRuns.length} capture hole(s) of ${threshold}+ consecutive days (${missing} day(s) total, longest ${longest}) in ${windowStart}..${end}: ${holeRuns.slice(0, 4).map((r) => `${r.start}..${r.end}`).join(', ')}${holeRuns.length > 4 ? ` … +${holeRuns.length - 4} more` : ''}. Days outside these runs read as no-activity.` }
+}
+
 // Data access for the above. Distinct-day extraction MUST happen in Postgres: a client like Foam OH holds ~2.3M
 // GA breakdown rows in a single window, and pulling dates client-side to de-dup them would blow the 8s PostgREST
 // statement_timeout on exactly the biggest clients — the LORAMER_8S_CEILING_AUDIT_V1 failure mode, which returns
@@ -401,4 +513,34 @@ export function coverageNotes(cov: CoverageResult[][]): string[] {
     else if (c.state === 'trailing_gap') notes.push(`COVERAGE: ${c.platform} — the asked window extends PAST our latest captured ${c.platform} data. Say the period is beyond our latest capture; a zero there is UNCONFIRMED (needs a live check), not a proven real zero.`)
   }
   return notes
+}
+
+// ⛔ IT LIVES DOWN HERE, BELOW THE PURE RESOLVERS, ON PURPOSE: coverage-breakdown-grain's SOURCE PIN slices
+// resolveBreakdownCoverage..getBreakdownCoverage and REFUSES a supabaseAdmin call inside it. It caught this
+// function sitting in the pure region on its first run. Data access belongs in the data-access half.
+// LORAMER_COVERAGE_DENSITY_V1 — the DB half of resolveDensity. One indexed distinct-day read per
+// (client, platform, window), the same shape breakdown_coverage_days already uses: distinct-day extraction
+// happens in POSTGRES, never by paging rows into Node (a client like Foam OH holds millions).
+// ⛔ A FAILED READ RETURNS null, WHICH resolveDensity CLASSIFIES AS read_failed — never as "no days", which
+// would read as a total hole and refuse a perfectly good window.
+export async function getDensityForWindow(
+  clientId: string,
+  platform: string,
+  win: { startDate: string; endDate: string },
+  frontier: string,
+): Promise<DensityVerdict> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc('coverage_density_days', {
+      p_client_id: clientId, p_platform: platform, p_start: win.startDate, p_end: win.endDate,
+    })
+    if (error) return resolveDensity({ platform, windowStart: win.startDate, windowEnd: win.endDate, frontier, presentDays: null, floor: null })
+    const row: any = Array.isArray(data) ? data[0] : data
+    if (!row) return resolveDensity({ platform, windowStart: win.startDate, windowEnd: win.endDate, frontier, presentDays: null, floor: null })
+    return resolveDensity({
+      platform, windowStart: win.startDate, windowEnd: win.endDate, frontier,
+      presentDays: row.present_days || [], floor: row.capture_floor ?? null,
+    })
+  } catch {
+    return resolveDensity({ platform, windowStart: win.startDate, windowEnd: win.endDate, frontier, presentDays: null, floor: null })
+  }
 }

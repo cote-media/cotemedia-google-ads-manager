@@ -36,7 +36,11 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 18 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — 19 checks, flags included, in order ────────────────────────────────────────
+// ⛔ MOVED 2026-08-15 FROM 18 → 19, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `check-coverage-density` is LORAMER_COVERAGE_DENSITY_V1's live half AND a drift monitor: it re-measures the
+// recent-window flip rate every run, because the fleet numbers behind the 7-day threshold are a snapshot and
+// a degrading client shows up there first.
 // ⛔ MOVED 2026-08-15 FROM 17 → 18, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-binding-coverage` is LORAMER_BINDING_COVERAGE_V1's live half: the build guard drives the pure
 // decider, this proves a pre-floor window really is uncovered in the data the resolver reads.
@@ -78,6 +82,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-walk-liveness.mjs --guard',
   'scripts/check-lora-named-entity.mjs --guard',
   'scripts/check-binding-coverage.mjs --guard',
+  'scripts/check-coverage-density.mjs --guard',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }

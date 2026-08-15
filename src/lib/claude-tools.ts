@@ -13,7 +13,7 @@ import { queryMetrics, queryBreakdown, queryMoney, queryEntities } from '@/lib/m
 // source (breakdown-registry.ts), never hand-written, so the tool schema and the query layer cannot drift.
 import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
-import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote } from '@/lib/next/coverage'
+import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote, getDensityForWindow, DENSITY_HOLE_RUN_DAYS } from '@/lib/next/coverage' // density: LORAMER_COVERAGE_DENSITY_V1
 import { bindWindow } from '@/lib/lora/coverage-binding' // LORAMER_BINDING_COVERAGE_V1 — the pure verdict-gating decider
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'
@@ -396,12 +396,33 @@ async function bindCoverage(result: any, ctx: { clientId: string; platforms: str
   // WHAT ACTUALLY CLOSES THE GAP: the account-grain resolver now runs for EVERY level instead of returning
   // early. It answers "did this platform capture in this window at all", which is a precondition for every
   // grain — if the platform captured nothing, no grain beneath it has data either.
+  // ⛔ THE DENSITY LEG — LORAMER_COVERAGE_DENSITY_V1. The floor test says "capture reaches back this far";
+  // this says "and every day inside is present". Without it the binding shipped in
+  // LORAMER_BINDING_COVERAGE_V1 gated faithfully on a verdict that answered the narrower question, and closed
+  // 0 of the 17 baseline failures. A PARTIAL density verdict downgrades the window exactly as a failing
+  // platform contribution does. Frontier = YESTERDAY: capture is T+1, and judged against today every fleet
+  // pair goes PARTIAL on every recent window (measured 30/30) for the most benign reason there is.
+  const frontier = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  const densityByWindow: any[][] = []
+  if (measured) {
+    const plats = ctx.platforms.length ? ctx.platforms : ['google', 'meta', 'ga', 'shopify', 'woocommerce']
+    for (const [i, w] of wins.entries()) {
+      // Only platforms the client is actually CONNECTED to and that the account verdict says are in scope —
+      // asking density of a platform with no connection would manufacture a hole out of an absence that the
+      // floor/connection legs already classify correctly.
+      const inScope = (cov[i] || []).filter((c: any) => c.connected).map((c: any) => c.platform)
+      const use = plats.filter((p) => inScope.length === 0 || inScope.includes(p))
+      const per = await Promise.all(use.map((p) => getDensityForWindow(ctx.clientId, p, w, frontier)))
+      densityByWindow[i] = per
+      if (per.some((d: any) => d.verdict === 'PARTIAL')) comp.completePerWindow[i] = false
+    }
+  }
   const windows2 = (result.windows || []).map((w: any, i: number) =>
     bindWindow(
       // The literal `comp.perWindow` / `comp.completePerWindow` shape is what check-query-completeness pins —
       // optional chaining here broke its match, and the pin is right to be literal: it is asserting that the
       // computed verdict REACHES Lora, which a renamed or chained access could silently stop doing.
-      { ...w, coverage: cov[i], contribution: measured ? comp.perWindow[i] : undefined, complete: measured ? comp.completePerWindow[i] : undefined },
+      { ...w, coverage: cov[i], contribution: measured ? comp.perWindow[i] : undefined, complete: measured ? comp.completePerWindow[i] : undefined, ...(densityByWindow[i] ? { density: densityByWindow[i] } : {}) },
       { complete: measured ? comp.completePerWindow[i] : undefined, measured, measureError },
     ))
   const notes = [...(result.notes || []), ...(measured ? [...coverageNotes(cov), ...comp.notes] : [
