@@ -24,6 +24,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
 import { reconcileDay } from './reconcile-day'
 import { gaqlWithRetry } from './gaql-with-retry'
+import { composeGoogleAdName } from '@/lib/google-ad-display-name' // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — ONE composition, ONE home
 import { GoogleAdsApi } from 'google-ads-api'
 
 const CONFLICT = 'client_id,platform,entity_level,entity_id,date,breakdown_type,breakdown_value'
@@ -136,8 +137,15 @@ export async function runGoogleAdGroupAdBackfill(
       },
       {
         level: 'ad',
-        gaql: `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group.id, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ad_group_ad WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
-        extract: (r) => ({ entityId: String(r.ad_group_ad?.ad?.id), entityName: String(r.ad_group_ad?.ad?.name || ''), parentId: String(r.ad_group?.id), campaignId: String(r.campaign?.id) }),
+        // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — the GAQL is WIDENED to select the name-bearing MATERIAL, because
+        // Google serves NO ad.name for search-type ads (vendor-empty by probe 2026-08-15; FACT REGISTRY
+        // §AD.NAME): 44 of Foam OH's 50 ads returned `name` ABSENT while their RSA headlines came back
+        // populated. The old `ad.name || ''` faithfully stored the vendor's nothing as '' on 22,607 rows.
+        // ⛔ SELECTING REPEATED FIELDS DOES NOT MULTIPLY ROWS — attributes ride the row; only segments
+        // multiply. Proven in production, not assumed: google-intelligence.ts:355-361 and
+        // /api/google/ads/route.ts:41-49 have SELECTed these exact headline fields daily since PROJECT_3.
+        gaql: `SELECT ad_group_ad.ad.id, ad_group_ad.ad.name, ad_group_ad.ad.responsive_search_ad.headlines, ad_group_ad.ad.expanded_text_ad.headline_part1, ad_group_ad.ad.expanded_text_ad.headline_part2, ad_group.id, campaign.id, metrics.cost_micros, metrics.clicks, metrics.impressions, metrics.conversions, metrics.conversions_value, segments.date FROM ad_group_ad WHERE segments.date BETWEEN '${chunk.from}' AND '${chunk.to}'`,
+        extract: (r) => ({ entityId: String(r.ad_group_ad?.ad?.id), entityName: composeGoogleAdName(r.ad_group_ad?.ad), parentId: String(r.ad_group?.id), campaignId: String(r.campaign?.id) }),
       },
     ]
 

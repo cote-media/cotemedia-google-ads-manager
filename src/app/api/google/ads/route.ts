@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { GoogleAdsApi } from 'google-ads-api'
 import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
+import { composeGoogleAdName } from '@/lib/google-ad-display-name' // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — ONE composition, ONE home
 
 function getCustomer(refreshToken: string, customerId: string) {
   const client = new GoogleAdsApi({
@@ -66,18 +67,11 @@ export async function GET(request: Request) {
       const ad = row.ad_group_ad?.ad || {}
       const adType = String(ad.type || '')
 
-      // Build headline/description from whichever ad type is present
-      let headline = ''
-      let description = ''
-      if (ad.responsive_search_ad?.headlines?.length > 0) {
-        headline = (ad.responsive_search_ad.headlines.slice(0, 3) || []).map((h: any) => h.text).filter(Boolean).join(' | ')
-        description = (ad.responsive_search_ad.descriptions?.[0]?.text) || ''
-      } else if (ad.expanded_text_ad) {
-        headline = [ad.expanded_text_ad.headline_part1, ad.expanded_text_ad.headline_part2].filter(Boolean).join(' | ')
-        description = ad.expanded_text_ad.description || ''
-      } else {
-        headline = ad.name || 'Ad'
-      }
+      // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — the composition moved to its ONE home (google-ad-display-name.ts)
+      // so the warehouse writers and this live surface can never drift apart. Behavior here is byte-compatible
+      // with the previous inline version: RSA first-3 ' | ', ETA part1|part2, else the vendor name.
+      const headline = composeGoogleAdName(ad) || 'Ad'
+      const description = (ad.responsive_search_ad?.descriptions?.[0]?.text) || ad.expanded_text_ad?.description || ''
 
       return {
         id: String(ad.id || ''),

@@ -5,6 +5,7 @@
 import { GoogleAdsApi, enums } from 'google-ads-api'
 import { resolveDateWindow } from '@/lib/date-range' // LORAMER_GAQL_DATE_WINDOW_V1 — the ONE resolver (Lesson 19)
 import { withGaqlRetry } from '@/lib/google-retry' // LORAMER_GOOGLE_GAQL_RETRY_V1
+import { composeGoogleAdName } from '@/lib/google-ad-display-name' // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — ONE composition, ONE home
 import { noteGoogleQuotaError, readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import { GoogleQuotaError } from '@/lib/backfill/google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
@@ -378,7 +379,11 @@ export async function fetchGoogleIntelligence(
     const description = row.ad_group_ad?.ad?.responsive_search_ad?.descriptions?.[0]?.text || row.ad_group_ad?.ad?.expanded_text_ad?.description || ''
     return {
       id: String(row.ad_group_ad?.ad?.id || ''),
-      name: String(row.ad_group_ad?.ad?.name || ''),
+      // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — Google serves NO ad.name for search-type ads (vendor-empty by
+      // probe, FACT REGISTRY §AD.NAME), so this used to write '' into every forward ad-grain metrics row via
+      // google-metrics-row.ts:71. Compose from the headlines this query ALREADY selects; the shared function
+      // is the one home (junk vendor names lose to composition, real video/image names win — no material).
+      name: composeGoogleAdName(row.ad_group_ad?.ad),
       adGroupId: String(row.ad_group?.id || ''),
       adGroupName: String(row.ad_group?.name || ''),
       campaignId: String(row.campaign?.id || ''),

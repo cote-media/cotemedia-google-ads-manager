@@ -313,6 +313,9 @@ const GUARDS = [
   // LORAMER_EVENT_ATTRIBUTION_V1 + LORAMER_PERIOD_RESOLUTION_NAMED_V1 — events need attestation, hedges are
   // the same claim, discontinuities stay describable, ambiguous periods get named. Prefix-placement pinned.
   'tests/guards/event-attribution-in-prefix.guard.mjs',
+  // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — one composition home, junk-loses/vendor-wins precedence, the writer's
+  // GAQL carries the material, the repair script stays double-gated, the live check stays rostered.
+  'tests/guards/google-ad-name-compose.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
