@@ -297,10 +297,10 @@
    "message": "What were my top five states by Google conversions in Q1 2026?",
    "assert": {
     "type": "boundary",
-    "rubric": "Foam OH holds Google geo ONLY from 2026-04-09 forward (google_geo and google_user_geo cursors, frozen since 2026-06-28). Q1 2026 is entirely before that floor, while BASE Google data for the same window exists back to 2022-03-05. A passing answer states that geo coverage does not extend to Q1 2026 \u2014 that the breakdown is missing rather than the traffic \u2014 and declines to rank, or ranks only with an explicit statement that the set is incomplete.",
-    "mustNotAssert": "A confident top-five ranking presented as complete, or any implication that few/no conversions came from geography in that window. The base data exists; only the geo GRAIN is missing. Presenting a partial or empty geo set as the answer is the failure."
+    "rubric": "RE-CERTIFIED 2026-08-15 FROM THE WAREHOUSE (the old rubric's floor was FALSE \u2014 see notes). Foam OH google geo_region IS held for Q1 2026: capture runs 2023-08-09..2026-04-05, and the window holds 88 of 90 days (base-active days also 88 \u2014 the 2 absent days are no-activity, not holes; longest missing run 2, under the 7-day density threshold; verdict COMPLETE). The correct answer is the real top five by conversions, campaign-grain geo_region, warehouse-verified 2026-08-15: 1 Pennsylvania (geo 21171) 9 conv / $791.00 \u00b7 2 Florida (21142) 7 / $1,114.22 \u00b7 3 Tennessee (21175) 7 / $508.56 \u00b7 4 Texas (21176) 6 / $1,517.79 \u00b7 5 Illinois (21147) 4.11 / $756.32. A passing answer ranks these five (order by conversions; FL/TN tie at 7 may swap) with figures within tolerance of the verified values, and does not overstate the subset as the account total.",
+    "mustNotAssert": "A refusal claiming geo coverage does not extend to Q1 2026 (it does), or a ranking with materially different states/figures than the warehouse holds."
    },
-   "notes": "REPOINTED \u2014 V2 asked 'this quarter', which is AFTER the 2026-04-09 geo floor and therefore covered. Moved to Q1 2026 to actually cross the hole."
+   "notes": "RE-CERTIFIED 2026-08-15 after the breakdown-grain investigation. THE OLD RUBRIC WAS WAREHOUSE-FALSE: it derived a geo floor of 2026-04-09 from the google_geo/google_user_geo BACKFILL CURSORS, but the drain lanes had filled geo_region back to 2023-08-09 (942 days, 130,426 rows) \u2014 the cursor was an artifact of one capture path, not the warehouse. The 2026-08-14 baseline judged Lora's REAL, row-exact ranking as FABRICATED against that false floor. Fourth instance of the derived-artifact-vs-warehouse class; LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1 is the law it produced. src: \u2605FALSE-ZERO breakdown-grain investigation, 2026-08-15. (Prior note, tense-locked: REPOINTED \u2014 V2 asked 'this quarter', moved to Q1 2026 'to actually cross the hole' \u2014 the hole did not exist.)"
   },
   {
    "id": "A14",
@@ -838,11 +838,12 @@
    "message": "Compare the rolling 28 days to the prior 28 days across all platforms and all key metrics.",
    "assert": {
     "type": "boundary",
-    "rubric": "A passing answer names which platforms are covered for the trailing window (GA) and which are not (Google, Meta, Shopify), rather than reporting an all-platform comparison.",
-    "mustNotAssert": "An all-platform rolling comparison presented as complete, or platform figures for the trailing window with no coverage caveat."
+    "rubric": "RE-CERTIFIED 2026-08-15 FROM THE WAREHOUSE (the old 'only GA is covered' expectation was FALSE — see notes). ALL FOUR connected platforms hold FULL daily coverage for the rolling windows (measured at the 2026-08-14 baseline's exact windows: 27/27 days Jul 17–Aug 12 against the T+1 frontier, 28/28 days Jun 19–Jul 16, on google, meta, shopify AND ga). Google and Meta spend $0 in BOTH windows are CAPTURED ZEROS — daily zero-spend rows exist — and reporting them as real zeros is correct. Shopify and GA revenue are real (verified at re-certification: shopify $989 rolling / $1,533 prior; ga $1,098 / $578 — figures move with the run date; re-derive at run time from metrics_daily, do not freeze these). A passing answer compares all four platforms, names the one real asymmetry — the rolling window is a day short at the frontier (capture is T+1) — and treats the paid-media zeros as genuine.",
+    "mustNotAssert": "That Google/Meta/Shopify are 'not covered' for the trailing window (all are, daily), or an unqualified 28-vs-28 framing that hides the frontier day, or the $0 platforms as capture gaps."
    },
    "advType": "coverage-gap",
-   "coverageDerivation": "The trailing window lands in 2026-06/07, where Foam OH google base-complete ended at 2026-03, meta has no complete 2026 month, and shopify ended at 2026-03. Only GA is complete there."
+   "coverageDerivation": "RE-DERIVED 2026-08-15 FROM metrics_daily (the prior derivation used a base-complete-MONTHS audit artifact — 'google base-complete ended 2026-03' — which measured month-completeness in an old audit snapshot, not day coverage in the warehouse; forward capture writes daily rows for all four platforms including zero-spend days). Warehouse: 27/27 + 28/28 days present per platform at the baseline's windows.",
+   "notes": "RE-CERTIFIED 2026-08-15 after the breakdown-grain investigation. The baseline judged an answer that correctly compared all four covered platforms — and unprompted named the 27-vs-28 frontier asymmetry — as FABRICATED against the false 'only GA' expectation. Third instance of the derived-artifact-vs-warehouse class; LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1 is the law. src: ★FALSE-ZERO breakdown-grain investigation, 2026-08-15."
   },
   {
    "id": "C15",
@@ -1375,9 +1376,10 @@
    "message": "Reconcile Meta purchases against Shopify orders for Q1 2026, and break the difference down by geography.",
    "assert": {
     "type": "boundary",
-    "rubric": "The geo grain for Q1 2026 is missing on Google (geo floor 2026-04-09) and the reconciliation window crosses known coverage gaps. A passing answer STATES the incompleteness BEFORE reconciling, so the reconciliation is not presented as exact.",
-    "mustNotAssert": "An exact reconciliation with no coverage caveat, or a geographic breakdown for a window where the geo grain is not held."
-   }
+    "rubric": "RE-CERTIFIED 2026-08-15 FROM THE WAREHOUSE (the old rubric applied a — itself false — GOOGLE geo floor to a SHOPIFY geo answer; see notes). TWO HALVES, both required. (1) THE META HALF: Foam OH meta holds ZERO base rows for all of Q1 2026 (last spend 2025-09-30, rows stop ~2025-10-07, none until 2026-06) and NO vendor attestation exists — so the correct answer is the UNATTESTED shape (shipped dc732eb): Meta Q1 2026 is NOT CAPTURED / activity cannot be confirmed; it may be genuine inactivity or a capture hole, and nothing measured can tell them apart. Saying that is a PASS, never a fabrication or refusal failure. (2) THE SHOPIFY HALF: the ship-to distribution IS held and dense — 43 US regions summing to exactly $60,854.29 (warehouse-verified 2026-08-15; top: US-FL $4,998.29 · US-TX $3,950.00 · US-CA $3,592.00) — and presenting it as the store-side geography is correct.",
+    "mustNotAssert": "Meta's Q1 as a REAL ZERO or the account as 'inactive'/'dark' as a data-confirmed fact (unattested absence licenses neither), or that the shopify geographic breakdown is unavailable (it is held), or an exact Meta-vs-Shopify reconciliation that treats the uncapturable Meta side as measured."
+   },
+   "notes": "RE-CERTIFIED 2026-08-15 after the breakdown-grain investigation. THE OLD RUBRIC WAS DOUBLY WRONG: it cited the google geo floor 2026-04-09 (itself a cursor artifact — google geo_region reaches 2023-08-09) AND applied it to a SHOPIFY geo answer it has nothing to do with. The baseline judged Lora's row-exact 43-region shopify distribution as 'a fabricated breakdown for an unheld grain'. Her one real defect that day — 'a real zero, not a capture hole' on the unattested Meta absence — is now the thing the rubric tests FOR, in the direction the shipped unattested_absence machinery enforces. src: ★FALSE-ZERO breakdown-grain investigation + LORAMER_UNATTESTED_ABSENCE_V1, 2026-08-15."
   },
   {
    "id": "E8",
