@@ -13,11 +13,12 @@ import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaDailyMetrics } from '@/lib/meta-ads' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1 account grain)
 import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dims (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
-import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
-import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
-import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
-import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
-import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
+import { fetchGoogleDimensional, fetchGoogleDimensionalWindow, bucketWindowByDate, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1 + LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Window widen; Day kept for the overflow fallback)
+import { DEVICE_GRAINS, fetchDeviceGrainWindow, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainWindow, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
+import { HOUR_GRAINS, fetchHourGrainWindow, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
+import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicWindow, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
+import { widenForwardBreadth } from '@/lib/backfill/forward-widen-breadth' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Google breadth forward restatement (bucket-by-date, per-day REPLACE)
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -203,13 +204,14 @@ export async function GET(request: Request) {
   // BEFORE the clients query / heavy work, so a crash or maxDuration kill still leaves a started
   // row with finished_at NULL (the silent-hole signal). Observability only; never throws.
   const platform = (new URL(request.url).searchParams.get('platform') ?? 'all').trim().toLowerCase()
-  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Shopify forward Tier-1 restatement controls. dryRun re-sums the
-  // trailing window against live Shopify WITHOUT any write (no metrics upsert, no claim, no cursor, no
-  // health), scoped to `client` (CSV); it early-returns a per-day would-write report. Production writes.
-  // SHOPIFY_FWD_RESTATE_DAYS is the trailing window the forward pass re-sums and REPLACEs day-by-day.
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Google forward Tier-1 restatement controls. dryRun exercises the breadth widen
+  // against live Google WITHOUT any write (no metrics upsert, no claim, no cursor, no health), scoped to `client` (CSV);
+  // it early-returns a per-family would-write report. Production (dryRun absent) always writes. GOOGLE_FWD_RESTATE_DAYS
+  // is the trailing window the forward pass re-states (breadth only — the base stays single-date until its own split).
   const gForwardParams = new URL(request.url).searchParams
   const gDryRun = gForwardParams.get('dryRun') === 'true'
   const gOnlyClients = (gForwardParams.get('client') || '').split(',').map((s) => s.trim()).filter(Boolean)
+  const GOOGLE_FWD_RESTATE_DAYS = 30
   const SHOPIFY_FWD_RESTATE_DAYS = 21 // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — Shopify Tier-1 trailing re-sum window (day-level REPLACE)
   const gWidenReport: Array<Record<string, unknown>> = []
   const cronTrigger = detectTrigger(request)
@@ -626,10 +628,14 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'google') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
-  const __pending = await pendingForwardClients('google', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run scopes to the requested clients (no cursor dependence) and never claims.
+  const __pending = gDryRun
+    ? clientRows.filter((c) => gOnlyClients.includes(c.id))
+    : await pendingForwardClients('google', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
+  const gStart = addDaysUTC(captureDate, -GOOGLE_FWD_RESTATE_DAYS) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — trailing restatement window start
   for (const client of __pending) {
-    if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
-    if (!(await claimForward('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
+    if (!gDryRun && Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
+    if (!gDryRun && !(await claimForward('google', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
     const connections = client.platform_connections || []
     const googleConnections = connections.filter(c => c.platform === 'google')
 
@@ -686,38 +692,63 @@ export async function GET(request: Request) {
           intel
         )
 
-        const { error: metricsError } = await supabaseAdmin
-          .from('metrics_daily')
-          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — the BASE (account/campaign/ad_group/ad) is NOT widened here: it is a
+        // single-date aggregate (buildGoogleMetricsRows stamps one captureDate), so its restatement is the separate
+        // split (runGoogleCampaignBackfill + runGoogleAdgroupAdBackfill over the window), deferred. Dry-run skips the write.
+        if (!gDryRun) {
+          const { error: metricsError } = await supabaseAdmin
+            .from('metrics_daily')
+            .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
 
-        if (metricsError) {
-          throw metricsError
+          if (metricsError) {
+            throw metricsError
+          }
+
+          summary.rowsWritten += rows.length
         }
-
-        summary.rowsWritten += rows.length
 
         // LORAMER_SEARCH_TERMS_CAPTURE_V1 — dimensional capture (search terms + keywords) as
         // breakdown rows. Own try/catch: a dimensional failure logs LOUD and is recorded, but never
         // drops the platform's main rows or its sync_state write. 0 rows = logged empty, not error.
         try {
-          const dim = await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)
-          if (dim.searchTermsTruncated || dim.keywordsTruncated) {
-            console.warn(
-              `[cron/sync] client=${client.id} platform=google dimensional capture TRUNCATED — searchTerms@cap=${dim.searchTermsTruncated} keywords@cap=${dim.keywordsTruncated} (lower-spend rows dropped)`
-            )
+          // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — widen to the trailing window: ONE windowed query per type (flat GAQL),
+          // bucket by segments.date via bucketWindowByDate (same per-day top-N as the backfill + Day path), build + upsert
+          // PER DAY (conflict-key REPLACE). On a row-cap OVERFLOW (huge account), fall back to the single captureDate — keeps
+          // the request count flat + prior behavior; the backfill/drain carries the trailing days. Byte-identical rows.
+          const dimWin = await fetchGoogleDimensionalWindow(tokenRow.refresh_token, customerId, gStart, captureDate)
+          let dayDims: ReturnType<typeof bucketWindowByDate>
+          if (dimWin.overflow) {
+            console.warn(`[cron/sync] client=${client.id} platform=google dimensional WINDOW OVERFLOW (>= row cap) — restating captureDate only; backfill/drain carries the trailing days`)
+            dayDims = new Map([[captureDate, await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)]])
+          } else {
+            dayDims = bucketWindowByDate(dimWin)
           }
-          const dimRows = buildGoogleDimensionalRows(client.id, userEmail, captureDate, customerId, dim)
-          if (dimRows.length === 0) {
+          let dimWritten = 0; const dimDates = new Set<string>(); let dimSample: Record<string, unknown> | null = null
+          for (const [date, dim] of dayDims) {
+            if (dim.searchTermsTruncated || dim.keywordsTruncated) {
+              console.warn(
+                `[cron/sync] client=${client.id} platform=google dimensional capture TRUNCATED date=${date} — searchTerms@cap=${dim.searchTermsTruncated} keywords@cap=${dim.keywordsTruncated} (lower-spend rows dropped)`
+              )
+            }
+            const dimRows = buildGoogleDimensionalRows(client.id, userEmail, date, customerId, dim)
+            if (dimRows.length === 0) continue
+            dimDates.add(date); if (!dimSample) dimSample = dimRows[0]
+            if (!gDryRun) {
+              const { error: dimError } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
+              if (dimError) throw dimError
+            }
+            dimWritten += dimRows.length
+          }
+          if (dimWritten === 0) {
             console.log(
               `[cron/sync] client=${client.id} platform=google dimensional capture: 0 search-term/keyword rows (empty, not an error)`
             )
-          } else {
-            const { error: dimError } = await supabaseAdmin
-              .from('metrics_daily')
-              .upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
-            if (dimError) throw dimError
-            summary.rowsWritten += dimRows.length
+          } else if (!gDryRun) {
+            summary.rowsWritten += dimWritten
           }
+          if (gDryRun) gWidenReport.push({ client: client.id, family: 'dimensional', gaqlCalls: dimWin.overflow ? 1 : 2, days: dimDates.size, distinctDates: [...dimDates].sort(), wouldWriteRows: dimWritten, sample: dimSample, overflow: dimWin.overflow })
         } catch (dimErr) {
           const message = serializeCaughtError(dimErr)
           console.error(
@@ -734,17 +765,16 @@ export async function GET(request: Request) {
         // 4 entity grains (campaign/ad_group/ad/keyword × device). Writes all grains; no forward reconcile
         // (backfill/drain carry FLAG-NOT-BLOCK).
         try {
-          let devRows = 0
+          // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — one windowed BETWEEN per grain (request count FLAT vs the old Day fetch),
+          // bucket by segments.date → build + upsert PER DAY (conflict-key REPLACE).
+          let devRows = 0; const devDates = new Set<string>(); let devSample: Record<string, unknown> | null = null
           for (const grain of DEVICE_GRAINS) {
-            const built = buildDeviceGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchDeviceGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
-            if (built.length > 0) {
-              const { error: devError } = await supabaseAdmin
-                .from('metrics_daily')
-                .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
-              if (devError) throw devError
-              summary.rowsWritten += built.length; devRows += built.length
-            }
+            const w = await fetchDeviceGrainWindow(grain, tokenRow.refresh_token, customerId, gStart, captureDate)
+            const res = await widenForwardBreadth(w, (date, dayRows) => buildDeviceGrainRows(grain, client.id, userEmail, date, customerId, dayRows), { dryRun: gDryRun })
+            devRows += res.written; res.dates.forEach((d) => devDates.add(d)); if (!devSample) devSample = res.sample
           }
+          if (!gDryRun) summary.rowsWritten += devRows
+          else gWidenReport.push({ client: client.id, family: 'device', gaqlCalls: DEVICE_GRAINS.length, wouldWriteRows: devRows, days: devDates.size, distinctDates: [...devDates].sort(), sample: devSample })
           if (devRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google device capture: 0 rows (empty, not an error)`)
           }
@@ -766,11 +796,13 @@ export async function GET(request: Request) {
             ...buildGoogleImpressionShareRows(client.id, userEmail, captureDate, customerId, intel.impressionShares),
           ]
           if (t0Rows.length > 0) {
-            const { error: t0Error } = await supabaseAdmin
-              .from('metrics_daily')
-              .upsert(normalizeMetricsRows(t0Rows), { onConflict: METRICS_DAILY_CONFLICT })
-            if (t0Error) throw t0Error
-            summary.rowsWritten += t0Rows.length
+            if (!gDryRun) { // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — conv-action/IS ride the base intel (not widened); dry-run skips the write
+              const { error: t0Error } = await supabaseAdmin
+                .from('metrics_daily')
+                .upsert(normalizeMetricsRows(t0Rows), { onConflict: METRICS_DAILY_CONFLICT })
+              if (t0Error) throw t0Error
+              summary.rowsWritten += t0Rows.length
+            }
           } else {
             console.log(`[cron/sync] client=${client.id} platform=google conv-action/IS persist: 0 rows (empty, not an error)`)
           }
@@ -786,19 +818,17 @@ export async function GET(request: Request) {
         // WRITE-ONLY — no reconcile (geo is non-partitioning: location_type overlap + multi-grain).
         for (const [famLabel, grains] of [['geo', GEOGRAPHIC_GRAINS], ['user_geo', USER_GRAINS]] as const) {
           try {
-            let famRows = 0
+            // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — one windowed BETWEEN per (grain × entity), bucket by date, per-day REPLACE.
+            let famRows = 0, famCalls = 0; const famDates = new Set<string>(); let famSample: Record<string, unknown> | null = null
             for (const grain of grains) {
               for (const entity of GEO_ENTITIES) {
-                const built = buildGeoGrainRows(grain, entity, client.id, userEmail, captureDate, customerId, await fetchGeoGrainDay(grain, entity, tokenRow.refresh_token, customerId, captureDate))
-                if (built.length > 0) {
-                  const { error: geoError } = await supabaseAdmin
-                    .from('metrics_daily')
-                    .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
-                  if (geoError) throw geoError
-                  summary.rowsWritten += built.length; famRows += built.length
-                }
+                const w = await fetchGeoGrainWindow(grain, entity, tokenRow.refresh_token, customerId, gStart, captureDate); famCalls++
+                const res = await widenForwardBreadth(w, (date, dayRows) => buildGeoGrainRows(grain, entity, client.id, userEmail, date, customerId, dayRows), { dryRun: gDryRun })
+                famRows += res.written; res.dates.forEach((d) => famDates.add(d)); if (!famSample) famSample = res.sample
               }
             }
+            if (!gDryRun) summary.rowsWritten += famRows
+            else gWidenReport.push({ client: client.id, family: famLabel, gaqlCalls: famCalls, wouldWriteRows: famRows, days: famDates.size, distinctDates: [...famDates].sort(), sample: famSample })
             if (famRows === 0) {
               console.log(`[cron/sync] client=${client.id} platform=google ${famLabel} capture: 0 rows (empty, not an error)`)
             }
@@ -813,17 +843,15 @@ export async function GET(request: Request) {
         // failure logs LOUD and is recorded, but NEVER drops base/dimensional/device/geo rows or sync_state.
         // Writes both grains; no forward reconcile (matches device/geo — the backfill carries FLAG-NOT-BLOCK).
         try {
-          let hourRows = 0
+          // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — one windowed BETWEEN per grain, bucket by date, per-day REPLACE.
+          let hourRows = 0; const hourDates = new Set<string>(); let hourSample: Record<string, unknown> | null = null
           for (const grain of HOUR_GRAINS) {
-            const built = buildHourGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchHourGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
-            if (built.length > 0) {
-              const { error: hourError } = await supabaseAdmin
-                .from('metrics_daily')
-                .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
-              if (hourError) throw hourError
-              summary.rowsWritten += built.length; hourRows += built.length
-            }
+            const w = await fetchHourGrainWindow(grain, tokenRow.refresh_token, customerId, gStart, captureDate)
+            const res = await widenForwardBreadth(w, (date, dayRows) => buildHourGrainRows(grain, client.id, userEmail, date, customerId, dayRows), { dryRun: gDryRun })
+            hourRows += res.written; res.dates.forEach((d) => hourDates.add(d)); if (!hourSample) hourSample = res.sample
           }
+          if (!gDryRun) summary.rowsWritten += hourRows
+          else gWidenReport.push({ client: client.id, family: 'hour', gaqlCalls: HOUR_GRAINS.length, wouldWriteRows: hourRows, days: hourDates.size, distinctDates: [...hourDates].sort(), sample: hourSample })
           if (hourRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google hour capture: 0 rows (empty, not an error)`)
           }
@@ -839,20 +867,18 @@ export async function GET(request: Request) {
         // base/dimensional/device/geo/hour rows or sync_state. ONE view fetch per dimension → both grains. No
         // forward reconcile (matches device/geo/hour — the backfill/drain carries FLAG-NOT-BLOCK).
         try {
-          let demoRows = 0
+          // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — one windowed BETWEEN per dimension (1 call/dim; both grains built from it),
+          // bucket by date, per-day REPLACE.
+          let demoRows = 0; const demoDates = new Set<string>(); let demoSample: Record<string, unknown> | null = null
           for (const dim of DEMO_DIMENSIONS) {
-            const dayRows = await fetchDemographicDay(dim, tokenRow.refresh_token, customerId, captureDate)
+            const w = await fetchDemographicWindow(dim, tokenRow.refresh_token, customerId, gStart, captureDate)
             for (const grain of DEMO_GRAINS) {
-              const built = buildDemographicGrainRows(dim, grain, client.id, userEmail, captureDate, customerId, dayRows)
-              if (built.length > 0) {
-                const { error: demoError } = await supabaseAdmin
-                  .from('metrics_daily')
-                  .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
-                if (demoError) throw demoError
-                summary.rowsWritten += built.length; demoRows += built.length
-              }
+              const res = await widenForwardBreadth(w, (date, dayRows) => buildDemographicGrainRows(dim, grain, client.id, userEmail, date, customerId, dayRows), { dryRun: gDryRun })
+              demoRows += res.written; res.dates.forEach((d) => demoDates.add(d)); if (!demoSample) demoSample = res.sample
             }
           }
+          if (!gDryRun) summary.rowsWritten += demoRows
+          else gWidenReport.push({ client: client.id, family: 'demographic', gaqlCalls: DEMO_DIMENSIONS.length, wouldWriteRows: demoRows, days: demoDates.size, distinctDates: [...demoDates].sort(), sample: demoSample })
           if (demoRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google demographic capture: 0 rows (empty, not an error)`)
           }
@@ -862,24 +888,27 @@ export async function GET(request: Request) {
           summary.errors.push({ clientId: client.id, platform: 'google', message: `demographic: ${message}` })
         }
 
-        const { error: syncError } = await supabaseAdmin
-          .from('sync_state')
-          .upsert(
-            {
-              client_id: client.id,
-              platform: 'google',
-              last_forward_sync_date: captureDate,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'client_id,platform' }
-          )
+        // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run writes NOTHING: no cursor advance, no connection-health stamp.
+        if (!gDryRun) {
+          const { error: syncError } = await supabaseAdmin
+            .from('sync_state')
+            .upsert(
+              {
+                client_id: client.id,
+                platform: 'google',
+                last_forward_sync_date: captureDate,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'client_id,platform' }
+            )
 
-        if (syncError) {
-          throw syncError
+          if (syncError) {
+            throw syncError
+          }
+
+          // LORAMER_CONNECTION_HEALTH_V1
+          await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail })
         }
-
-        // LORAMER_CONNECTION_HEALTH_V1
-        await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail })
       } catch (err) {
         const message = serializeCaughtError(err)
         console.error(
@@ -894,11 +923,24 @@ export async function GET(request: Request) {
         })
         // LORAMER_CONNECTION_HEALTH_V1 — invalid_grant flips the whole MCC OAuth credential;
         // a per-customer permission denial flips only this account.
-        await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail, error: err })
+        if (!gDryRun) await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail, error: err }) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — no health write in dry-run
       }
     }
   }
   await finalizeSection('google', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run short-circuits here with the per-family would-write report (skips woo/ga; no writes anywhere above).
+  if (gDryRun) {
+    return NextResponse.json({
+      dryRun: true,
+      captureDate,
+      window: `${gStart} → ${captureDate}`,
+      restateDays: GOOGLE_FWD_RESTATE_DAYS,
+      clients: gOnlyClients,
+      note: 'Google BREADTH widen only (device/geo/hour/demographic/dimensional). BASE + conv-action/IS are NOT widened (single-date; separate split). Zero rows written.',
+      googleWiden: gWidenReport,
+      errors: summary.errors,
+    })
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end google guard
 
   if (platform === 'all' || platform === 'woocommerce') {
