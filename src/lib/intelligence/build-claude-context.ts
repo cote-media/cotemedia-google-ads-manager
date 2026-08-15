@@ -1355,6 +1355,28 @@ When data is absent, you must name WHICH KIND of boundary it is. These are not i
 === END CAPTURE BOUNDARIES ===`)
   // LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 (D2) — what the Meta `conversions` number IS, so an objective rule can never make her deny it.
   lines.push(`META CONVERSIONS — what the number IS: Meta's account-grain conversions metric is a NARROW, CURATED set (purchase, lead, complete_registration, offsite_conversion, submit_application). It is NOT engagement or clicks — page_engagement, link_click, and landing_page_view are captured but are NOT conversions, and they dwarf real conversions by volume. So a small captured conversions count (even 1) is a REAL conversion — report it, never say "no conversions" because the campaign optimizes for traffic/clicks. To NAME what a Meta conversion was, call query_breakdown(breakdownType="action_type"): the curated conversion types (a registration, lead, or purchase) are what the conversions metric counts, even though action_type ranked by volume is dominated by engagement rows. The registration aliases complete_registration / offsite_conversion.fb_pixel_complete_registration / offsite_complete_registration_add_meta_leads are ONE event — never triple-count them.`)
+  // LORAMER_EVENT_ATTRIBUTION_V1 + LORAMER_PERIOD_RESOLUTION_NAMED_V1 — the instruction-surface half of the
+  // 2026-08-14 baseline's C13 and V7 failures, diagnosed records-first on 2026-08-15 (DECISIONS
+  // LORAMER_DIAGNOSE_FROM_RECORDS_V1 is the law that diagnosis produced).
+  // ⛔ C13, THE PRECEDENT THIS EXISTS FOR: asked "compare the 30 days before and after our last major account
+  // restructure", Lora ran 4-5 REAL queries, found a REAL discontinuity (2025-10-19→20: impressions
+  // 14,871→106,892, CPC $1.23→$0.53 — exact warehouse values) and answered "Confirmed: … That's the go-live."
+  // The NUMBERS were all true; the EVENT was invented — config/account-change history is not captured anywhere,
+  // so no tool result can attest a restructure. Number-provenance and coverage checks are structurally blind to
+  // this failure (every number HAS a tool result); the only home for the rule is this surface.
+  // ⛔ V7, THE OTHER HALF: asked "do shopify and analytics agree on q2 revenue?" (no year) she answered Q2 2026
+  // with exact-true numbers and NEVER SAID which Q2 she chose. The rubric was re-certified by Russ 2026-08-15:
+  // ambiguity stays in the question, DISCLOSURE of the resolution is what is tested.
+  // ⛔ PLACEMENT IS LOAD-BEARING: ABOVE the `lines = suffixLines` swap, so it rides the cache_control PREFIX —
+  // written once per cache window, never billed per answer. event-attribution-in-prefix.guard.mjs pins both the
+  // placement and the block's required parts (including the over-correction and hedge clauses) verbatim.
+  lines.push(`=== EVENT ATTRIBUTION & PERIOD RESOLUTION — WHAT NUMBERS CAN AND CANNOT TESTIFY TO ===
+NUMBERS vs EVENTS. A tool result attests NUMBERS: spend, impressions, a discontinuity between two days. It does NOT attest EVENTS: restructures, launches, go-lives, migrations, rebrands, budget decisions, campaigns "going live", or the CAUSE of any change. LoraMer does not capture account-change or configuration history, so no query result can currently attest that any such event happened or when.
+⛔ NEVER ASSERT AN UNATTESTED EVENT — AND A HEDGE IS THE SAME CLAIM IN WEAKER CLOTHES. "That's the go-live", "this was your restructure", "consistent with a restructure", "likely your go-live", "appears to be the migration", "probably when you launched" are ALL the same unattested attribution and all equally banned. Softening the verb does not add evidence.
+✅ DESCRIBING A CHANGE IS NEVER RESTRICTED — describe it fully and precisely. "Impressions jumped 14,871 → 106,892 overnight on Oct 19→20 and CPC halved" is a statement about captured numbers and is exactly what you should say. The ban is ONLY on naming the unattested cause.
+THE CORRECT SHAPE, when asked about an event we do not hold: (1) say plainly that the event/change history is not in captured data, so you cannot confirm the event or its date; (2) OFFER any observed discontinuity as a candidate — "if your restructure happened around Oct 19–20, that is where the account's behavior pivots"; (3) INVITE the user to confirm the date. If the USER asserts the event or its date, you may build on it — attributed to them ("on the date you gave…"), never presented as something the data confirmed.
+PERIOD RESOLUTION — NAME THE PERIOD YOU CHOSE. When the question's time period is ambiguous (a quarter or month with no year, "recently", "last season"), state your resolution at the FIRST mention of the period in the answer — e.g. "Q2 2026 (you didn't name a year, so I used the most recent complete quarter)" — and when a different reading is also plausible, say which and offer to run it. Silent resolution of an ambiguous period is a wrong answer even when the numbers are perfect.
+=== END EVENT ATTRIBUTION & PERIOD RESOLUTION ===`)
   // LORAMER_CHAT_PASTE_ABLE_OUTPUT_V1 — THE OTHER HALF OF ★CHAT-COPY-BLOCKS. Flight A shipped a copy button
   // on fenced blocks; a button over an answer that never fences anything is decorative, which is what the
   // queue entry warned about by name ("Build the button alone and it will look shipped and be useless on the

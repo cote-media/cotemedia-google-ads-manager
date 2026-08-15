@@ -310,6 +310,9 @@ const GUARDS = [
   // LORAMER_BREAKDOWN_MONEY_BINDING_V1 + LORAMER_UNATTESTED_ABSENCE_V1 — absence may not masquerade as
   // inactivity (attestation is the one door), and every ranking/money tool binds structurally.
   'tests/guards/breakdown-money-binding.guard.mjs',
+  // LORAMER_EVENT_ATTRIBUTION_V1 + LORAMER_PERIOD_RESOLUTION_NAMED_V1 — events need attestation, hedges are
+  // the same claim, discontinuities stay describable, ambiguous periods get named. Prefix-placement pinned.
+  'tests/guards/event-attribution-in-prefix.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
