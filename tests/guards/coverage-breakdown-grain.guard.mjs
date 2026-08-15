@@ -131,7 +131,12 @@ const days = (from, n) => {
 // (d) no UNKNOWN path may return COMPLETE. Load-bearing and restated here at the reason level.
 {
   const days = (from, n) => { const o = []; const d = new Date(from + 'T00:00:00Z'); for (let i = 0; i < n; i++) { o.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) } return o }
-  const REASONS = ['not_connected', 'never_captured', 'no_activity_in_window', 'read_failed']
+  // ⛔ FIVE REASONS SINCE LORAMER_UNATTESTED_ABSENCE_V1 (2026-08-15). 'unattested_absence' exists because
+  // the old 'idle window' fixture below — zero base rows on connected+everCaptured alone — was BEING READ AS
+  // AN INACTIVITY FACT, and E7's "a real zero, not a capture hole" (Foam OH meta Q1 2026, token-dead) was
+  // Lora repeating it. This leg's own previous expectation encoded that defect and was seen RED against the
+  // fix before being moved — the superseded-assertion shape the guard-sweep taxonomy names.
+  const REASONS = ['not_connected', 'never_captured', 'no_activity_in_window', 'unattested_absence', 'read_failed']
 
   // (a) EVERY UNKNOWN carries a reason, whichever path produced it.
   const unknowns = [
@@ -141,7 +146,8 @@ const days = (from, n) => {
     ['explicit read error', resolveBreakdownCoverage('ga', null, null, {}, { readError: 'canceling statement due to statement timeout' })],
     ['not connected', resolveBreakdownCoverage('ga', [], [], {}, { connected: false, everCaptured: false })],
     ['never captured', resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: false })],
-    ['idle window', resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })],
+    ['unattested empty window', resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })],
+    ['attested idle window', resolveBreakdownCoverage('google', [], [], {}, { connected: true, everCaptured: true, attestationCoversWindow: true })],
   ]
   for (const [label, v] of unknowns) {
     check(v.verdict === 'UNKNOWN', `(a) '${label}' returned ${v.verdict}, expected UNKNOWN.`)
@@ -150,13 +156,24 @@ const days = (from, n) => {
     check(v.verdict !== 'COMPLETE', `(d) '${label}' returned COMPLETE from an UNKNOWN path.`)
   }
 
-  // (b) read_failed and no_activity_in_window are DISTINCT values AND distinct text.
+  // (b) read_failed, unattested_absence and no_activity_in_window are DISTINCT values AND distinct text.
+  // ⛔ RE-PINNED FOR LORAMER_UNATTESTED_ABSENCE_V1: zero base rows WITHOUT attestation must never classify as
+  // account inactivity — 'no_activity_in_window' is reachable ONLY with attestationCoversWindow === true.
   const timedOut = resolveBreakdownCoverage('ga', null, null, {}, { readError: 'canceling statement due to statement timeout' })
-  const idle = resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })
+  const unattested = resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true })
+  const attested = resolveBreakdownCoverage('google', [], [], {}, { connected: true, everCaptured: true, attestationCoversWindow: true })
   check(timedOut.unknownReason === 'read_failed', `(b) a read failure reported '${timedOut.unknownReason}', expected 'read_failed'.`)
-  check(idle.unknownReason === 'no_activity_in_window', `(b) a genuinely idle window reported '${idle.unknownReason}', expected 'no_activity_in_window'.`)
-  check(timedOut.unknownReason !== idle.unknownReason, `(b) a timed-out read and an idle window COLLAPSED to the same reason — the Foam OH / Thought Streams pair this exists to separate.`)
-  check(timedOut.detail !== idle.detail, `(b) a timed-out read and an idle window produced the IDENTICAL detail string, which is the pre-fix behaviour verbatim.`)
+  check(unattested.unknownReason === 'unattested_absence', `(b) zero base rows WITHOUT attestation reported '${unattested.unknownReason}', expected 'unattested_absence' — connected+everCaptured alone must never license an inactivity claim (E7-meta, LORAMER_UNATTESTED_ABSENCE_V1).`)
+  check(attested.unknownReason === 'no_activity_in_window', `(b) a VENDOR-ATTESTED empty window reported '${attested.unknownReason}', expected 'no_activity_in_window' — attestation is the ONE door to inactivity, and it must still open.`)
+  // The attestation flag in its false/null forms must land on the same safe side.
+  for (const [label, flag] of [['false', false], ['null', null], ['absent', undefined]]) {
+    const v = resolveBreakdownCoverage('ga', [], [], {}, { connected: true, everCaptured: true, ...(flag === undefined ? {} : { attestationCoversWindow: flag }) })
+    check(v.unknownReason === 'unattested_absence', `(b) attestationCoversWindow=${label} classified as '${v.unknownReason}' — every non-true form must read as unattested (safe), never as inactivity.`)
+  }
+  check(!/fact about the account/i.test(unattested.detail) && !/genuinely inactive|is real/i.test(unattested.detail), `(b) the unattested_absence detail still carries inactivity language: ${JSON.stringify(unattested.detail).slice(0, 120)}`)
+  check(/ATTESTS|attest/i.test(attested.detail), `(b) the attested no_activity detail does not name the attestation — the reader cannot tell WHY this one is licensed.`)
+  check(timedOut.unknownReason !== unattested.unknownReason, `(b) a timed-out read and an unattested-empty window COLLAPSED to the same reason — the Foam OH / Thought Streams pair this exists to separate.`)
+  check(timedOut.detail !== unattested.detail, `(b) a timed-out read and an unattested-empty window produced the IDENTICAL detail string, which is the pre-fix behaviour verbatim.`)
   check(/statement timeout/.test(timedOut.detail), `(b) the RPC error text was DISCARDED — the old code checked \`error\` and threw the message away, so the one fact that identifies the failure never reached the reader.`)
 
   // (c) never-captured must not masquerade as an idle window.

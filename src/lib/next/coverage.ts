@@ -15,6 +15,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { reconcile, type StepResult } from '@/lib/completeness/reconcile'
 import { isConnectedForCoverage, type Health } from '@/lib/connection-health-view' // LORAMER_CONN_DEGRADED_STATE_V1
+// LORAMER_UNATTESTED_ABSENCE_V1 — the walk's negative coverage ("asked, and the vendor named nothing"),
+// wired into Lora's read path for the first time (closes the reachability half of
+// ★ATTESTED-EMPTY-UNREACHABLE-FROM-LORA). Acyclic: universe-coverage imports only supabase + universe-surfaces.
+import { attestedEmptyDays, dayList } from '@/lib/backfill/universe-coverage'
 
 export type CoverageState = 'not_connected' | 'predates_capture' | 'covered' | 'draining_unknown' | 'trailing_gap'
 export type CoverageResult = {
@@ -179,12 +183,21 @@ export type BreakdownCoverageVerdict = 'COMPLETE' | 'PARTIAL' | 'UNKNOWN'
 // alarm hardest exactly where the data is heaviest.
 //   'not_connected'         — no platform_connections row. There is no window to have activity in.
 //   'never_captured'        — connected, but this (client, platform) has never captured a single row, ever.
-//   'no_activity_in_window' — connected AND has captured before, but reported nothing inside THIS window.
-//                             The only one of the four that is a fact about the ACCOUNT rather than about us.
+//   'no_activity_in_window' — VENDOR-ATTESTED inactivity: the vendor was ASKED for this window and answered
+//                             nothing (the walk's outcome='zero' records). The only reason that is a fact
+//                             about the ACCOUNT — and it is now reachable ONLY through attestation.
+//   'unattested_absence'    — connected AND has captured before, but this window holds zero base rows AND no
+//                             vendor attestation. ⛔ LORAMER_UNATTESTED_ABSENCE_V1 (2026-08-15): this used to
+//                             classify as 'no_activity_in_window', which ATTRIBUTED capture absence to account
+//                             inactivity — the E7-meta baseline failure verbatim (Foam OH meta Q1 2026: 0/90
+//                             base days during a token-dead stretch, reported as "a real zero, not a capture
+//                             hole"). Absence of rows is evidence of NOTHING by itself; only the vendor saying
+//                             "asked, and there was nothing" may license an inactivity claim
+//                             (★ATTESTED-EMPTY-UNREACHABLE-FROM-LORA — this member is the reachability fix).
 //   'read_failed'           — we could not measure: the RPC errored, threw, returned no row, or the connection
 //                             denominator was not supplied so the emptiness cannot be attributed.
 export type BreakdownUnknownReason =
-  | 'not_connected' | 'never_captured' | 'no_activity_in_window' | 'read_failed'
+  | 'not_connected' | 'never_captured' | 'no_activity_in_window' | 'unattested_absence' | 'read_failed'
 
 export type BreakdownCoverage = {
   platform: string
@@ -207,6 +220,14 @@ export type ConnectionFacts = {
   connected?: boolean | null
   everCaptured?: boolean | null
   readError?: string | null
+  /**
+   * ⛔ LORAMER_UNATTESTED_ABSENCE_V1 — does VENDOR ATTESTATION cover every day of this window? Measured by the
+   * caller from the walk's `outcome='zero'` records (attestedEmptyDays — "asked, and the vendor named
+   * nothing"). `true` is the ONLY door to 'no_activity_in_window'. `false`/`null`/absent both mean the same
+   * safe thing — no attestation demonstrated — and classify as 'unattested_absence'; the distinction between
+   * "source read and empty" and "source not measured" lives in the detail, never in the verdict.
+   */
+  attestationCoversWindow?: boolean | null
 }
 
 // THE THREE STATES, and they are the quota vocabulary deliberately (google-quota-store.ts:34
@@ -246,7 +267,16 @@ export function resolveBreakdownCoverage(
       return unknown('never_captured', `${platform} is connected but has NEVER captured a row for this client, in any window — so this window's emptiness says nothing about the window. Capture has not started.`)
     }
     if (conn.connected === true && conn.everCaptured === true) {
-      return unknown('no_activity_in_window', `${platform} is connected and has captured before, but reported no base-grain activity inside this window — there is no denominator to judge breakdown coverage against. This is a fact about the account, not about our capture.`, breakdownDays.length)
+      // ⛔ LORAMER_UNATTESTED_ABSENCE_V1 — ATTESTATION IS THE ONE DOOR TO AN INACTIVITY CLAIM. The branch this
+      // replaces returned 'no_activity_in_window' ("a fact about the account") on connected+everCaptured
+      // alone — but everCaptured proves capture worked ONCE EVER, not that THIS window's emptiness is the
+      // account's doing. Foam OH meta Q1 2026 (0/90 base days inside a token-dead stretch, a NAMED
+      // token-cliff client in the density calibration) classified as account-inactive through this exact
+      // line, and E7's "a real zero, not a capture hole" was Lora repeating it.
+      if (conn.attestationCoversWindow === true) {
+        return unknown('no_activity_in_window', `${platform} reported no base-grain activity inside this window, and the VENDOR ATTESTS IT — every day of the window is covered by a finished walk attempt the vendor answered with nothing. This is a fact about the account, not about our capture, and an empty result here IS real.`, breakdownDays.length)
+      }
+      return unknown('unattested_absence', `${platform} is connected and has captured before, but this window holds ZERO captured base rows AND NO vendor attestation — the absence cannot be attributed. It may be genuine account inactivity or a capture hole (token outage, paused capture); nothing measured here can tell them apart. Do NOT assert the account was inactive and do NOT report a zero here as a real zero — say the window is NOT CAPTURED and activity cannot be confirmed.`, breakdownDays.length)
     }
     // ⛔ THE DENOMINATOR WAS NOT SUPPLIED, so the emptiness CANNOT BE ATTRIBUTED. Reporting
     // 'no_activity_in_window' here is exactly the defect being closed — it asserts the connection exists and
@@ -409,7 +439,28 @@ export async function getBreakdownCoverage(
     const baseDays: string[] = row.base_active_days || []
     // The connection denominator is measured ONLY when it can change the answer — i.e. when there is no base
     // activity to judge against. On the COMPLETE/PARTIAL paths it is irrelevant, so this costs nothing there.
-    const conn = baseDays.length === 0 ? await readConnectionFacts(clientId, platform) : {}
+    const conn: ConnectionFacts = baseDays.length === 0 ? await readConnectionFacts(clientId, platform) : {}
+    // ⛔ LORAMER_UNATTESTED_ABSENCE_V1 — measure VENDOR ATTESTATION only where it can change the answer (empty
+    // window, connected, has captured). The source is the walk's outcome='zero' records on the BASE account
+    // surface (`customer`, segment '') — "the vendor was asked for the account's own activity and named
+    // nothing". A read failure or an empty attestation set both leave attestationCoversWindow != true, which
+    // classifies as unattested_absence — the SAFE direction (we decline to attribute), never a false claim.
+    // ⛔ The key spelling is the walk's own: attestedEmptyDays filters resource = entityLevel and
+    // breakdownTypeForSurface('customer','') === 'customer', so breakdownType must be 'customer' to keep the
+    // base rows (universe-surfaces.ts:94-97). Today only google has a walk; every other platform reads [] and
+    // lands on unattested_absence, which is exactly its honest state.
+    if (baseDays.length === 0 && conn.connected === true && conn.everCaptured === true) {
+      try {
+        const attested = await attestedEmptyDays(
+          { clientId, platform, entityLevel: 'customer', breakdownType: 'customer' },
+          win.startDate, win.endDate,
+        )
+        const wanted = dayList(win.startDate, win.endDate)
+        conn.attestationCoversWindow = wanted.length > 0 && wanted.every((d) => attested.includes(d))
+      } catch {
+        conn.attestationCoversWindow = null // unreadable attestation is NOT attestation — safe direction
+      }
+    }
     return resolveBreakdownCoverage(platform, baseDays, row.breakdown_days || [], fams, conn)
   } catch (e: any) {
     return resolveBreakdownCoverage(platform, null, null, {}, { readError: `RPC breakdown_coverage_days threw: ${e?.message ?? e}` })
@@ -487,8 +538,13 @@ export function breakdownCoverageNote(cov: BreakdownCoverage, family: string): s
       )
     case 'no_activity_in_window':
       return (
-        `COVERAGE (${cov.platform} ${fam}): ${cov.platform} is connected and has captured before, but reported NO activity inside this window, so there is no denominator to judge ${fam} coverage against. ` +
+        `COVERAGE (${cov.platform} ${fam}): ${cov.platform} reported NO activity inside this window and the VENDOR ATTESTS IT — every day is covered by a finished walk attempt the vendor answered with nothing. ` +
         `This is a fact about the ACCOUNT, not about our capture — an empty ranking here is genuine, and you may say the account was inactive in this period.`
+      )
+    case 'unattested_absence':
+      return (
+        `COVERAGE (${cov.platform} ${fam}): this window holds ZERO captured base rows for ${cov.platform} and NO vendor attestation — the absence CANNOT BE ATTRIBUTED. It may be genuine inactivity or a capture hole (token outage, paused capture); nothing measured can tell them apart. ` +
+        `Say the window is NOT CAPTURED and that activity cannot be confirmed. Do NOT say the account was inactive, do NOT report a real zero, and do NOT present an empty ranking as evidence of anything.`
       )
     default:
       return (

@@ -307,6 +307,9 @@ const GUARDS = [
   // LORAMER_POSTGREST_AGGREGATE_BAN_V1 — aggregates are disabled on this project; a select=col.sum() read
   // 400s and the idiomatic fallback turns that into a silent zero. Ban the class, pin the repaired instance.
   'tests/guards/postgrest-aggregate-ban.guard.mjs',
+  // LORAMER_BREAKDOWN_MONEY_BINDING_V1 + LORAMER_UNATTESTED_ABSENCE_V1 — absence may not masquerade as
+  // inactivity (attestation is the one door), and every ranking/money tool binds structurally.
+  'tests/guards/breakdown-money-binding.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

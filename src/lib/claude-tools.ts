@@ -14,7 +14,7 @@ import { queryMetrics, queryBreakdown, queryMoney, queryEntities } from '@/lib/m
 import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote, getDensityForWindow, DENSITY_HOLE_RUN_DAYS } from '@/lib/next/coverage' // density: LORAMER_COVERAGE_DENSITY_V1
-import { bindWindow } from '@/lib/lora/coverage-binding' // LORAMER_BINDING_COVERAGE_V1 — the pure verdict-gating decider
+import { bindWindow, bindRanking, bindMoney, combineRankingVerdict } from '@/lib/lora/coverage-binding' // LORAMER_BINDING_COVERAGE_V1 + LORAMER_BREAKDOWN_MONEY_BINDING_V1 — the pure verdict-gating deciders
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'
 import { logToolDecision } from '@/lib/lora-tool-log' // LORAMER_LORA_TOOL_DECISION_LOG_V1 — L2-retrieval instrument (fire-and-forget)
@@ -95,7 +95,7 @@ export const QUERY_METRICS_TOOL: any = {
 export const QUERY_BREAKDOWN_TOOL: any = {
   name: 'query_breakdown',
   description:
-    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta/Google breakdowns (placement, age, gender, device, hour, action_type/conversion_action). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead. COMPLETENESS — READ THIS BEFORE STATING A RANKING: every result carries "breakdownCoverage" with a verdict of COMPLETE, PARTIAL or UNKNOWN, and when it is not COMPLETE a "coverageNote" tells you what to say. PARTIAL means some days on which the platform DID report activity carry NO rows for this family — the ranking is computed over an incomplete window, so state that it is partial and name the gap, and never treat a value missing from the list as proof it did not occur. UNKNOWN carries an "unknownReason" and they are NOT interchangeable: "read_failed" is a failure on OUR side (say the completeness could not be measured; never claim the ranking is complete and never say the account was inactive), "not_connected" means the platform is not connected, "never_captured" means capture has never run for it so an empty ranking says NOTHING about the account, and "no_activity_in_window" means the account itself was genuinely inactive in this period and an empty ranking IS real. COMPLETE carries no note and needs no caveat.',
+    'List the TOP breakdown values for the CURRENT client over a SINGLE time window, ranked by a metric, from LoraMer’s historical store. Use this for "top search terms" (the actual queries people typed that triggered ads), "top keywords" (the keywords you bid on), or Meta/Google breakdowns (placement, age, gender, device, hour, action_type/conversion_action). Returns up to topN rows, each with the value text, summed spend/impressions/clicks/conversions/conversionValue and derived CTR/CPC/CPA/ROAS, plus distinctValueCount and a truncated flag. CRITICAL: these values are a SUBSET of the entity’s activity — their summed spend is LESS THAN the account or campaign total and you must describe them as "top search terms/keywords", NEVER as the account’s or campaign’s total spend. If rows is empty or the note says no data, tell the user that no data of that kind was captured for that period — do NOT infer or invent values from anything else in context. Scope to a campaign or ad group by passing parentEntityId or entityId. This is for ranking within one window; for whole-account or period-over-period TOTALS use query_metrics instead. COMPLETENESS — READ THIS BEFORE STATING A RANKING: every result carries "breakdownCoverage" with a verdict of COMPLETE, PARTIAL or UNKNOWN, and when it is not COMPLETE a "coverageNote" tells you what to say. PARTIAL means some days on which the platform DID report activity carry NO rows for this family — the ranking is computed over an incomplete window, so state that it is partial and name the gap, and never treat a value missing from the list as proof it did not occur. UNKNOWN carries an "unknownReason" and they are NOT interchangeable: "read_failed" is a failure on OUR side (say the completeness could not be measured; never claim the ranking is complete and never say the account was inactive), "not_connected" means the platform is not connected, "never_captured" means capture has never run for it so an empty ranking says NOTHING about the account, "unattested_absence" means the window holds NO captured base rows AND NO vendor attestation — report it as NOT CAPTURED / activity cannot be confirmed, NEVER as "genuinely inactive" and NEVER as a real zero (it may be a capture hole), and "no_activity_in_window" is VENDOR-ATTESTED inactivity — the vendor was asked and answered nothing for every day, so an empty ranking IS real and you may say the account was inactive. COMPLETE carries no note and needs no caveat. STRUCTURE — the verdict gates the payload, not just the note: on a COMPLETE window `rows` is present as usual; on PARTIAL the ranking lives on `partialRows` and on UNKNOWN on `unverifiedRows`, each with a `withheld {reason, mustSay}` — follow mustSay verbatim, and never present partialRows/unverifiedRows as the complete ranking.',
   input_schema: {
     type: 'object',
     properties: {
@@ -219,7 +219,20 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
   // honest message for another.
   const coverageNote = breakdownCoverageNote(cov, family)
   if (coverageNote) result.coverageNote = coverageNote
-  return result
+  // ⛔ LORAMER_BREAKDOWN_MONEY_BINDING_V1 — STRUCTURE, NOT ADVICE, matching query_metrics exactly. The grain
+  // verdict above plus the BASE density verdict (the calibrated 7-day/frontier/zero-days resolver — the SAME
+  // one query_metrics uses, never a stricter breakdown-only threshold) combine into ONE decision, and a
+  // non-COMPLETE decision moves `rows` to partialRows/unverifiedRows with a `withheld.mustSay`. A13 quoted
+  // the coverage note while contradicting it; a key that no longer exists cannot be quoted.
+  const frontier = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  let density: any = null
+  try { density = await getDensityForWindow(clientId, platform, win, frontier) } catch { density = null }
+  if (density) result.baseDensity = { verdict: density.verdict, unknownReason: density.unknownReason, daysInWindow: density.daysInWindow, daysPresent: density.daysPresent, longestMissingRun: density.longestMissingRun, detail: density.detail }
+  const decision = combineRankingVerdict({
+    grainVerdict: cov.verdict, grainUnknownReason: cov.unknownReason, grainDetail: cov.detail,
+    densityVerdict: density?.verdict, densityDetail: density?.detail,
+  })
+  return bindRanking(result, decision)
 }
 
 // LORAMER_LORA_NAMED_ENTITY_READ_V1 — THE NAMED-THING READ. Lora's third query tool, and the one that was missing.
@@ -325,7 +338,7 @@ export async function runQueryEntitiesTool(input: any, clientId: string) {
 export const QUERY_MONEY_TOOL: any = {
   name: 'query_money',
   description:
-    'Break the CURRENT client’s STORE revenue into its money components over a single window — gross sales, discounts, taxes, shipping, fees, tips, refunds, total sales, net sales, and an on-sale-markdown residual — from LoraMer’s historical store, at ACCOUNT grain. Use this when the user asks how revenue breaks down / where the money goes / gross vs net / discounts or taxes or shipping totals. Returns per-component values (each a summed $ amount) plus a "chain" giving the correct waterfall order and +/- direction for the store’s basis, and coverage info. IMPORTANT: net-sales BASIS differs by platform and is reported in "basis" — WooCommerce net INCLUDES shipping + tax; Shopify net EXCLUDES them — so never compare net across the two as like-for-like. A component value of null means it was not captured on at least one day in the window (honestly "not captured", NOT $0). Store-only: pass platform "shopify" or "woocommerce"; there is no cross-platform money total. For plain revenue/spend totals or period-over-period use query_metrics instead.',
+    'Break the CURRENT client’s STORE revenue into its money components over a single window — gross sales, discounts, taxes, shipping, fees, tips, refunds, total sales, net sales, and an on-sale-markdown residual — from LoraMer’s historical store, at ACCOUNT grain. Use this when the user asks how revenue breaks down / where the money goes / gross vs net / discounts or taxes or shipping totals. Returns per-component values (each a summed $ amount) plus a "chain" giving the correct waterfall order and +/- direction for the store’s basis, and coverage info. IMPORTANT: net-sales BASIS differs by platform and is reported in "basis" — WooCommerce net INCLUDES shipping + tax; Shopify net EXCLUDES them — so never compare net across the two as like-for-like. A component value of null means it was not captured on at least one day in the window (honestly "not captured", NOT $0). COMPLETENESS — STRUCTURE, not advice: the result carries a base-density verdict (`baseDensity` + `coverageVerdict`). On a COMPLETE window `components` is present as usual; on PARTIAL the figures live on `partialComponents` and on UNKNOWN on `unverifiedComponents`, each with `withheld {reason, mustSay}` — follow mustSay verbatim, name the gap, and never present partial components as the window’s money story. An absent window is NOT a $0 window. Store-only: pass platform "shopify" or "woocommerce"; there is no cross-platform money total. For plain revenue/spend totals or period-over-period use query_metrics instead.',
   input_schema: {
     type: 'object',
     properties: {
@@ -340,13 +353,35 @@ export const QUERY_MONEY_TOOL: any = {
 }
 
 export async function runQueryMoneyTool(input: any, clientId: string) {
-  return queryMoney({
+  const result: any = await queryMoney({
     clientId,
     platform: typeof input?.platform === 'string' ? input.platform : '',
     baseRange: typeof input?.baseRange === 'string' ? input.baseRange : undefined,
     startDate: typeof input?.startDate === 'string' ? input.startDate : undefined,
     endDate: typeof input?.endDate === 'string' ? input.endDate : undefined,
   })
+  // ⛔ LORAMER_BREAKDOWN_MONEY_BINDING_V1 — query_money carried NO coverage instrument at all
+  // (★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE named it 2026-08-01; this closes that door). The money grain rides
+  // the BASE rows, so the base density verdict — the same calibrated resolver query_metrics uses — decides,
+  // and a non-COMPLETE window moves `components` to partialComponents/unverifiedComponents structurally.
+  // An unresolvable platform ('' — queryMoney already returns its own refusal note) has no window to judge.
+  if (result?.platform && result?.window?.startDate && result?.window?.endDate) {
+    const frontier = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    let density: any = null
+    try { density = await getDensityForWindow(clientId, result.platform, result.window, frontier) } catch { density = null }
+    if (density) result.baseDensity = { verdict: density.verdict, unknownReason: density.unknownReason, daysInWindow: density.daysInWindow, daysPresent: density.daysPresent, longestMissingRun: density.longestMissingRun, detail: density.detail }
+    // ⛔ GRAIN IS VACUOUSLY COMPLETE HERE — money has no grain instrument, so DENSITY alone decides. The grain
+    // slot must NOT receive density's unknownReason: density spells its beyond-frontier state
+    // 'no_activity_in_window' (calibrated 2026-08-15, "not held YET"), and in the GRAIN slot that token is the
+    // vendor-attestation door — a frontier gap would bind as attested-real-zero, the exact false-zero shape
+    // this flight closes. Attestation does not reach the money path at all; absence here always withholds.
+    const decision = combineRankingVerdict({
+      grainVerdict: 'COMPLETE',
+      densityVerdict: density?.verdict, densityDetail: density?.detail,
+    })
+    return bindMoney(result, decision)
+  }
+  return result
 }
 
 export async function runQueryMetricsTool(input: any, clientId: string) {

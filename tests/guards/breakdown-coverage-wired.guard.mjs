@@ -149,11 +149,16 @@ const days = (from, n) => { const o = []; const d = new Date(from + 'T00:00:00Z'
 // (c) FOUR REASONS, FOUR DIFFERENT SENTENCES. Re-collapsing here would undo the fix at the last inch.
 {
   const mk = (conn) => breakdownCoverageNote(resolveBreakdownCoverage('ga', [], [], {}, conn), 'ga_device')
+  // ⛔ LORAMER_UNATTESTED_ABSENCE_V1 (2026-08-15): the no_activity fixture now REQUIRES attestation — the old
+  // `{connected, everCaptured}` shape yields 'unattested_absence', and this map briefly passed with the WRONG
+  // note under the old label (the `account` regex matched inside the unattested note's "Do NOT say the account
+  // was inactive"). Both reasons are pinned separately so that lucky green cannot recur.
   const notes = {
     read_failed: mk({ readError: 'canceling statement due to statement timeout' }),
     not_connected: mk({ connected: false }),
     never_captured: mk({ connected: true, everCaptured: false }),
-    no_activity_in_window: mk({ connected: true, everCaptured: true }),
+    unattested_absence: mk({ connected: true, everCaptured: true }),
+    no_activity_in_window: mk({ connected: true, everCaptured: true, attestationCoversWindow: true }),
   }
   for (const [k, v] of Object.entries(notes)) check(!!v, `(c) unknownReason '${k}' produced NO note.`)
   const keys = Object.keys(notes)
@@ -168,8 +173,10 @@ const days = (from, n) => { const o = []; const d = new Date(from + 'T00:00:00Z'
   // The two that must never be confused for each other: ours vs the account's.
   check(/OUR side|our side/.test(notes.read_failed || ''),
     `(c) the read_failed note does not say the failure is OURS — she must not report it as a fact about the account.`)
-  check(/ACCOUNT|account/.test(notes.no_activity_in_window || ''),
-    `(c) the no_activity_in_window note does not say it is a fact about the ACCOUNT — it is the ONLY one of the four that licenses saying the account was inactive.`)
+  check(/ACCOUNT|account/.test(notes.no_activity_in_window || '') && /attest/i.test(notes.no_activity_in_window || ''),
+    `(c) the no_activity_in_window note must say it is a fact about the ACCOUNT and NAME the attestation that licenses it — it is the ONLY reason that licenses saying the account was inactive, and attestation is why.`)
+  check(/NOT CAPTURED|cannot be confirmed/i.test(notes.unattested_absence || '') && !/may say the account was inactive|is genuine/i.test(notes.unattested_absence || ''),
+    `(c) the unattested_absence note must say NOT CAPTURED / cannot confirm activity and must NOT license an inactivity claim — that licence is what E7-meta walked through (LORAMER_UNATTESTED_ABSENCE_V1).`)
 }
 
 // (d) COMPLETE MUST BE SILENT.
@@ -192,7 +199,7 @@ const days = (from, n) => { const o = []; const d = new Date(from + 'T00:00:00Z'
   const j = src.indexOf('input_schema', i)
   const desc = i > 0 && j > i ? src.slice(i, j) : ''
   check(/breakdownCoverage/.test(desc), `(c-prose) the query_breakdown description never mentions breakdownCoverage — the field is reachable in principle and invisible in practice.`)
-  for (const r of ['PARTIAL', 'read_failed', 'not_connected', 'never_captured', 'no_activity_in_window']) {
+  for (const r of ['PARTIAL', 'read_failed', 'not_connected', 'never_captured', 'unattested_absence', 'no_activity_in_window']) {
     check(new RegExp(r).test(desc), `(c-prose) the query_breakdown description does not teach '${r}'.`)
   }
 }

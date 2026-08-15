@@ -85,3 +85,110 @@ export function bindWindow(w: any, opts: BindOpts): any {
     ...(rowCount === 0 ? { zeroIsReal: true } : {}),
   }
 }
+
+// ═══ LORAMER_BREAKDOWN_MONEY_BINDING_V1 (2026-08-15) — THE SAME STRUCTURE, TWO MORE DOORS ═══════════════
+//
+// ⛔ WHY: the binding above gated query_metrics ONLY. query_breakdown returned its ranking + a verdict + a
+// note — ADVICE — and query_money returned components with no verdict at all. A13/E7/C14 (the baseline's
+// breakdown-grain trio) walked through those doors: the model quoted rankings while contradicting the
+// attached note, exactly as it quoted totals while contradicting coverageNotes before LORAMER_BINDING_
+// COVERAGE_V1. Same disease, same cure: the figure MOVES TO A KEY CARRYING ITS STANDING.
+//
+// ⛔ PURE AND IMPORT-FREE, like everything in this file, so the guard can DRIVE it rather than read it.
+// The verdict inputs arrive as plain strings; the combination rules live here so they are testable:
+//   · either input UNKNOWN  → UNKNOWN  (grain reason wins the narration — it is the more specific fact)
+//   · else either PARTIAL   → PARTIAL
+//   · else                  → COMPLETE
+//   · EXCEPTION — grain UNKNOWN/no_activity_in_window is VENDOR-ATTESTED EMPTINESS, the one absence that
+//     is a fact about the account (LORAMER_UNATTESTED_ABSENCE_V1). It binds as COMPLETE with
+//     `attestedEmpty: true`: an attested-empty ranking is a REAL empty, and withholding it would be the
+//     over-refusal defect the account-grain binding's zeroIsReal exists to prevent.
+export type RankingBindDecision = {
+  verdict: CoverageVerdict
+  attestedEmpty?: boolean
+  reason: string
+  mustSay: string
+}
+
+export function combineRankingVerdict(i: {
+  grainVerdict: string
+  grainUnknownReason?: string
+  grainDetail?: string
+  densityVerdict?: string
+  densityDetail?: string
+}): RankingBindDecision {
+  const g = i.grainVerdict, d = i.densityVerdict
+  if (g === 'UNKNOWN' && i.grainUnknownReason === 'no_activity_in_window') {
+    return {
+      verdict: 'COMPLETE', attestedEmpty: true,
+      reason: 'VENDOR-ATTESTED EMPTY WINDOW: the vendor was asked and answered with nothing for every day.',
+      mustSay: 'This emptiness is vendor-attested — you may state plainly that the account had no activity in this window. An empty result here IS real.',
+    }
+  }
+  if (g === 'UNKNOWN' || d === 'UNKNOWN' || d === undefined) {
+    const reason = g === 'UNKNOWN'
+      ? `UNMEASURABLE AT THE GRAIN (${i.grainUnknownReason ?? 'unknown'}): ${i.grainDetail ?? ''}`
+      : `BASE DENSITY UNMEASURABLE: ${i.densityDetail ?? 'the base-grain density read did not run for this window.'}`
+    const mustSay = i.grainUnknownReason === 'unattested_absence'
+      ? 'Say this window is NOT CAPTURED and activity cannot be confirmed — it may be genuine inactivity or a capture hole, and nothing measured can tell them apart. NEVER assert the account was inactive, NEVER report a real zero, and report any figures only as UNVERIFIED.'
+      : 'Say the completeness of this ranking could not be measured. Report figures only if you label them UNVERIFIED. Do NOT claim the window is complete and do NOT treat emptiness as a real zero.'
+    return { verdict: 'UNKNOWN', reason, mustSay }
+  }
+  if (g === 'PARTIAL' || d === 'PARTIAL') {
+    const parts = [
+      ...(g === 'PARTIAL' ? [`grain holes: ${i.grainDetail ?? 'some base-active days carry no breakdown rows'}`] : []),
+      ...(d === 'PARTIAL' ? [`base capture holes: ${i.densityDetail ?? 'a 7+-day run of days is missing from base capture'}`] : []),
+    ]
+    return {
+      verdict: 'PARTIAL',
+      reason: `PARTIAL COVERAGE — ${parts.join(' · ')}`,
+      mustSay: 'State that this ranking/figure is PARTIAL and NAME the gap. You may report the partial values as the COVERED PORTION — never as the window total, and never treat a value missing from the list as proof it did not occur.',
+    }
+  }
+  return { verdict: 'COMPLETE', reason: '', mustSay: '' }
+}
+
+// The ranking payload: `rows` moves exactly the way `totals` does one binding up.
+//   COMPLETE → rows stay; attested-empty carries attestedEmpty:true + emptyIsReal.
+//   PARTIAL  → NO `rows` key: `partialRows` + `withheld`.
+//   UNKNOWN  → NO `rows` key: `unverifiedRows` + `withheld`.
+export function bindRanking(result: any, decision: RankingBindDecision): any {
+  if (decision.verdict === 'COMPLETE') {
+    return {
+      ...result,
+      coverageVerdict: 'COMPLETE' as CoverageVerdict,
+      answerable: true,
+      ...(decision.attestedEmpty ? { attestedEmpty: true, emptyIsReal: true, withheld: undefined } : {}),
+    }
+  }
+  const { rows, ...rest } = result ?? {}
+  const key = decision.verdict === 'PARTIAL' ? 'partialRows' : 'unverifiedRows'
+  return {
+    ...rest,
+    [key]: rows ?? [],
+    coverageVerdict: decision.verdict,
+    answerable: false,
+    withheld: { reason: decision.reason, mustSay: decision.mustSay },
+  }
+}
+
+// The money payload: `components` is its `totals`.
+export function bindMoney(result: any, decision: RankingBindDecision): any {
+  if (decision.verdict === 'COMPLETE') {
+    return {
+      ...result,
+      coverageVerdict: 'COMPLETE' as CoverageVerdict,
+      answerable: true,
+      ...(decision.attestedEmpty ? { attestedEmpty: true, emptyIsReal: true } : {}),
+    }
+  }
+  const { components, ...rest } = result ?? {}
+  const key = decision.verdict === 'PARTIAL' ? 'partialComponents' : 'unverifiedComponents'
+  return {
+    ...rest,
+    [key]: components ?? {},
+    coverageVerdict: decision.verdict,
+    answerable: false,
+    withheld: { reason: decision.reason, mustSay: decision.mustSay },
+  }
+}
