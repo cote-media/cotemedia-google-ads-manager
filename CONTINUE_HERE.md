@@ -1,4 +1,98 @@
-╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-07, ~07:00Z). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-15, session close). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
+
+⛔ **EVERY LIVE VALUE BELOW IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).
+Where a number IS written it is a MEASUREMENT with its date on it, which is a record of a moment and cannot drift.
+
+── 1 · THE WIRING CHECKLIST — WHERE LORA'S TOOLKIT ACTUALLY STANDS ──
+This is the list the eval paywall gates on, and it is the spine of the next session.
+  1. EXTRA-METRICS REACHABILITY ......... ✅ LORAMER_EXTRA_METRIC_REACHABILITY_V1 (0/6 → 6/6)
+  2. NAMED-ENTITY READ .................. ✅ LORAMER_LORA_NAMED_ENTITY_READ_V1 (`fe2d729`)
+  3. HONESTY ABOUT ABSENCE .............. ⚠ **HALF DONE.** ACCOUNT GRAIN ✅ (LORAMER_BINDING_COVERAGE_V1 `1802675`
+       + LORAMER_COVERAGE_DENSITY_V1 `c8a6273` — 5 of 6 named account-grain windows bind: A16, C5, C19, C20, E12).
+       **OPEN: the BREAKDOWN-GRAIN path (A13, E7, C14 — the account verdict is legitimately COMPLETE and the geo
+       floor is one grain down) and [[★ANSWERED-WITHOUT-ASKING]] (C13, V7, C10 — no query was issued at all, so no
+       binding can fire on a call that never happened).** Two separate flights. Neither is scheduled.
+  4. EXTRA-METRICS-SERVING (non-GA) ..... ⬜ ★EXTRA-METRICS-NONGA-UNVERIFIED — one hand reading per platform.
+  5. RETENTION CAVEATS .................. ⬜ ★MISCAVEATED-VENDOR-RETENTION — cheapest, deliberately last.
+  6. GOOGLE AD NAMES .................... ⬜ ★GOOGLE-AD-ENTITY-NAMES-MISSING — found by its own instrument, red stays.
+
+── 2 · THE EVAL PAYWALL — WHY NO PAID RUN FIRES YET ──
+DECISIONS LORAMER_EVAL_PAYWALL_MOVED_TO_END_OF_WIRING_V1 owns it. **No paid eval run until all six above are green.
+Then ONE baseline run, with its cost line stated BEFORE it launches.** Until then every verification happens at the
+dispatcher / guard / check:data layers at zero model cost — which is how the whole 08-14/15 arc was proven.
+
+── 3 · THE WALK ──
+PUBLISHING AGAIN post-unwedge (LORAMER_WALK_UNWEDGE_V1 + the heartbeat). **DEPLOY 2 IS STILL GATED and the gate has
+not moved: it opens on a measured fire with `rows_written > 0`, and the walk is currently descending Foam OH's
+DORMANT STRIP — real windows, correctly attested, zero rows.** ⛔ **TWO THINGS ARE OWED AND BOTH ARE READS, NOT
+BUILDS: (a) CROSS-FIRE RECEDE CONFIRMATION — the horizon must be seen to recede across a rotation lap (~04:30Z), not
+within one fire; (b) THE ARITHMETIC NOBODY HAS DONE — how many windows of dormant strip remain before the first
+surface reaches live-spend history. Without (b) the rows-written gate has no ETA and "still zero" cannot be told
+apart from "wedged again".**
+
+── 4 · GOOGLE RMF — SUBMITTED, AND THE SURFACE IS FROZEN ──
+**Submission sent 2026-08-14.** ⛔ **LEGACY `/dashboard` AND THE DEMO TWIN (2617b163) ARE FROZEN pending Google's
+reply — no changes to either, including connector surfaces.** ⚠ **IF THEY REQUEST CREDENTIALS:** Users → LoraMer Demo
+→ Security → **Login challenge → Turn off for 10 min**, done IMMEDIATELY BEFORE their window, then send the password
+in-thread. Not before, not left off.
+⚠ Cross-ref [[★DRONES-META-CAPTURE-CLIFF-2026-08]] — the demo fixture client's Meta connection is expired and under
+this same freeze. Banked, watched, NOT touched.
+
+── 5 · THE 9/30 SPINE, AS RE-PLANNED THIS SESSION — THREE DESTINATION CALLS RUSS MADE ──
+(a) **THE DEMO IS THE WHOLE DASHBOARD, not Lora alone.** ⇒ **-next parity AND a UI punch-list scoped to the demo path
+    are DEMO-CRITICAL**, not polish. Anything off the demo path is not.
+(b) **FOAM OH'S SECOND META ACCOUNT is CONDITIONAL-IN — pending a scoping verdict**, not committed and not dropped.
+(c) **RUSS AUTHORS THE 100 EVAL QUESTIONS from a template.** Claude owns the template and the harness; the questions
+    are Russ's, which is what makes the set a real bar rather than a self-graded one.
+
+── 6 · THE PARKED WIDEN — DECIDE EARLY, IT IS THE ONLY GUARD RED ──
+`src/lib/backfill/forward-widen-breadth.ts` (untracked) + the modified `src/app/api/cron/sync/route.ts` are STILL
+UNCOMMITTED and are the SOLE red in `npm run guard` (metrics-upsert-chunked: an unchunked upsert at
+forward-widen-breadth.ts:44, and a STALE ALLOWLIST entry — cron/sync says 13 where the file holds 9).
+⛔ **SHIP IT OR SHELVE IT EARLY NEXT SESSION.** While it sits there every future push report has to explain a red
+that belongs to neither the flight being shipped nor the tree at HEAD.
+
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+
+
+⛔ Read **LORAMER_ESSENCE.md** first, every session.
+⛔ GOVERNING LAW (LORAMER_ESSENCE.md, top): capture EVERYTHING from EVERYWHERE, store FOREVER, at FULL grain WITH history — now, not "later." The ONLY exception is a platform that genuinely doesn't serve the data. "Future/phase/scope" deferrals of any capture = a violation. Read it before proposing anything.
+⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
+
+**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
+**AUTHORITY:** The git repo is the ONLY source of truth. The Claude project-knowledge panel, background memory, and any old handoff zip/export are NOT authoritative — they lag. Act only on the live repo read THIS session (this file + REQUIRED READING + the actual code).
+
+## REQUIRED READING — ACTIVE WORKSTREAM
+Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
+
+⛔ MANDATORY REGISTERS — read IN FULL every session (the consolidated source of truth): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped, with status). Before proposing anything, restate the relevant decisions + queued items to prove you read them (per the SESSION START GATE).
+
+★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
+
+ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
+
+# CONTINUE_HERE — LoraMer
+
+## REPORT FORMAT — how Claude Code delivers everything to Russ (2026-06-09, supersedes all earlier OUT.txt wording)
+Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
+
+## REMOTE CONTROL (work from phone)
+- In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
+- On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
+- Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
+
+=== LAUNCH RITUAL (start every session this way) ===
+1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
+2. In claude.ai: say  resume loramer  → Claude outputs the DEFAULT digest fast-path paste (per RESUME_INSTRUCTIONS.md, the single source of the resume-flow wording).
+3. Paste that ONE line back into claude.ai. Claude runs the freshness gate: FRESH → reads the digest, one paste, done; STALE → falls back to the tiered read.
+4. cat every REQUIRED READING file and read it fully before acting.
+5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
+=== end launch ritual ===
+
+FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
+
+╔═══ TIMED ITEMS — 2026-08-07 ⛔ SUPERSEDED 2026-08-15 · HISTORY · DO NOT ACT ON ITS DATES OR ITS RANKING ═══╗
 
 ⛔ **EVERY LIVE VALUE BELOW IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).
 Where a number IS written it is a MEASUREMENT with its date on it, which is a record of a moment and cannot drift.
@@ -82,43 +176,15 @@ function; it went idle at the 2022-03-05 vendor floor, which is a completed rang
 
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
+## Session log (2026-08-13 → 2026-08-15 — THE RMF SUBMISSION WENT OUT, THE WALK CAME UNWEDGED, AND LORA'S HONESTY LAYER WENT FROM ADVICE TO ARCHITECTURE) — SHIPPED
 
-
-⛔ Read **LORAMER_ESSENCE.md** first, every session.
-⛔ GOVERNING LAW (LORAMER_ESSENCE.md, top): capture EVERYTHING from EVERYWHERE, store FOREVER, at FULL grain WITH history — now, not "later." The ONLY exception is a platform that genuinely doesn't serve the data. "Future/phase/scope" deferrals of any capture = a violation. Read it before proposing anything.
-⛔ See **SESSION START GATE** in LORAMER_HANDOFF.md — the one authoritative resume protocol. Read it (and everything below) before proposing, verifying, or building anything. The git repo is the only source of truth.
-
-**LAUNCH CONTEXT:** Soft launch target: July 14, 2026 (confirmed by Russ 2026-06-09) — invite-only founding cohort, Russ onboards manually. Full launch Q4 2026.
-**AUTHORITY:** The git repo is the ONLY source of truth. The Claude project-knowledge panel, background memory, and any old handoff zip/export are NOT authoritative — they lag. Act only on the live repo read THIS session (this file + REQUIRED READING + the actual code).
-
-## REQUIRED READING — ACTIVE WORKSTREAM
-Authoritative files for the live task. `cat` and read each in full before acting. KEEP CURRENT AT EVERY HANDOFF.
-
-⛔ MANDATORY REGISTERS — read IN FULL every session (the consolidated source of truth): **LORAMER_DECISIONS.md** (every settled decision / do-not-relitigate + all 59 lessons + accepted caps) and **LORAMER_QUEUE_OF_RECORD.md** (every planned-but-not-built item, deduped, with status). Before proposing anything, restate the relevant decisions + queued items to prove you read them (per the SESSION START GATE).
-
-★ STANDING — read EVERY session (north star, NOT just the active task): **LORAMER_LORA_INTELLIGENCE_BAR.md** — the analytical bar / what Lora is FOR (best-in-class cross-platform + external-research analysis, not a dashboard+chatbot). Build toward the PRODUCT, not just the pipeline.
-
-ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
-
-# CONTINUE_HERE — LoraMer
-
-## REPORT FORMAT — how Claude Code delivers everything to Russ (2026-06-09, supersedes all earlier OUT.txt wording)
-Every report you give Russ is printed ONCE, IN FULL, inside ONE single fenced code block (triple backticks) in your chat reply — so the Claude phone app renders it with a one-tap COPY button. Nothing of substance outside that block (a one-line lead-in is fine). Never a long version plus a condensed version. Never a file. OUT.txt stays retired. If a report must contain commands or verbatim text for Russ, they live INSIDE that same single block, delimited with `<<<START>>>`/`<<<END>>>` markers instead of nested backticks.
-
-## REMOTE CONTROL (work from phone)
-- In a running Claude Code session, type `/rc` to mirror it to the Claude mobile app (preserves history). One-time set-all: `/config` -> "Enable Remote Control for all sessions" = true.
-- On phone: open Claude app -> CODE tab (NOT chat list) -> find the session (computer icon + green dot when online).
-- Laptop terminal must stay open and machine online. Run `claude update` if `/rc` is unknown (needs v2.1.52+; push notifications need v2.1.110+).
-
-=== LAUNCH RITUAL (start every session this way) ===
-1. Terminal: type  loramer  (alias launches Claude Code from the repo so .mcp.json loads + stays authenticated). iMac one-time setup still pending — see iMac block below.
-2. In claude.ai: say  resume loramer  → Claude outputs the DEFAULT digest fast-path paste (per RESUME_INSTRUCTIONS.md, the single source of the resume-flow wording).
-3. Paste that ONE line back into claude.ai. Claude runs the freshness gate: FRESH → reads the digest, one paste, done; STALE → falls back to the tiered read.
-4. cat every REQUIRED READING file and read it fully before acting.
-5. To drive from your phone, type `/rc` in the session to mirror it to the Claude mobile app (see REMOTE CONTROL above).
-=== end launch ritual ===
-
-FAST-PATH RESUME = THE DEFAULT. The canonical resume wording lives in ONE place — RESUME_INSTRUCTIONS.md — and is mirrored in the SESSION START GATE of LORAMER_HANDOFF.md; this ritual POINTS there, never restates it. Short version: "resume loramer" → digest one-paste → freshness gate → FRESH reads the digest, STALE falls back to the tiered read. Do not restate the gate steps here; edit RESUME_INSTRUCTIONS.md (then re-paste it into Claude app settings) if the flow changes.
+- **GOOGLE RMF, READ-ONLY AUDIT → BUILD → SUBMISSION.** The audit enumerated what Reporting-Only actually requires per displayed hierarchy level, then the build made those fields present BY DEFAULT on legacy `/dashboard` only (R.10/R.20/R.40/R.50 columns, R.70 search-term level reviving the dead `getSearchTerms`), scope-fenced away from `-next`, with every named Google field path treated as a HYPOTHESIS and adapter-gated against the live API before deploy. **Submission sent 2026-08-14; legacy + the demo twin 2617b163 are FROZEN pending Google's reply** (see the timed block). A docs-only correction retired the "export per displayed level required" claim — it misread the vendor policy, and ★RMF-EXPORT-PER-LEVEL closed NOT-APPLICABLE rather than building an export nobody asked for.
+- **THE DURING-RANGE CLASS, PAID ONCE INSTEAD OF PER-SURFACE.** `DURING ${dateRange}` was interpolating a resolved window into a GAQL enum slot on the ad-group and ad drill paths. Rather than fix the two reported sites, the flight grepped the tree and fixed **all 8 → 0**, with a guard that fails the build on the pattern. The guard's first block regex excluded the WHERE clause and had to be anchored on the closing backtick — a locator defect, the third in as many flights (★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE).
+- **THE WALK CAME UNWEDGED AND PROVED IT ON THE FIRST WET FIRE (advanced 60).** Plus a liveness heartbeat: a red verdict line, deliberately NOT a monitoring UI. Migration 068 applied. Deploy 2's gate did not move and still opens on `rows_written > 0`.
+- **LORA'S TOOLKIT, TWO RUNGS.** Fix 2 shipped as **LORAMER_LORA_NAMED_ENTITY_READ_V1** (`fe2d729`) — she had NO per-entity named read, not a broken one; `queryEntities` already existed and simply was not exposed. Its A1 writer half was **REFUSED with reasons, not deferred** (DECISIONS owns them). Its own live check was a **FALSE GREEN on first cut** — a 57014 timeout read as "no rows" — and once fixed went RED on a real defect (google ad names 390 of 22,607).
+- **THEN THE HONESTY LAYER, AND THE ARC IS THE LESSON.** **LORAMER_BINDING_COVERAGE_V1** (`1802675`) made a non-COMPLETE window structurally unable to hand back a bare total — and **closed 0 of the 17 on the day it shipped**, because every one of those windows still resolved COMPLETE. Its own Gate-A found why: coverage was a FLOOR test ("does capture reach back this far") being read as a DENSITY question ("is every day here"), with **Shelley Kyle woo 2024 at 248 of 366 days reporting `complete: true`**. **LORAMER_COVERAGE_DENSITY_V1** (`c8a6273`) closed that, and the binding started biting: **5 of 6 named account-grain windows now bind, control window intact.** The threshold (7 days) is banked as **CALIBRATED, NOT PROVEN**, in one named constant with the fleet's bimodal distribution and both failure directions at its definition — and it is to be DELETED when vendor attestation becomes reachable, not tuned.
+- ⛔ **THE PATTERN WORTH CARRYING OUT OF ALL THREE:** every flight in this arc was proven at the dispatcher / guard / check:data layers at **ZERO model cost**, under the eval paywall — including two false greens and one over-refusal that MY OWN instruments caught before Russ saw them. **The guards that mattered most were the ones that refused my work: breakdown-coverage-wired leg (e), check-query-completeness's literal pin, and coverage-breakdown-grain's purity SOURCE PIN.**
+- **CHECK:DATA AT CLOSE — four owned reds, all named in the push reports: 3 completion claims + 8 stale baselines · the drain throttle that has outlived its reason · google ad names · the new Influential Drones / meta capture cliff ([[★DRONES-META-CAPTURE-CLIFF-2026-08]]), which is a real expired token found by an instrument on its first run and is under the reviewer freeze.**
 
 ## Session log (2026-08-11 → 2026-08-12 — THE CRON ENTRY WENT LIVE, AND THE WALK'S FIRST UNATTENDED NIGHT PRODUCED ITS FIRST STRUCTURAL FINDING: IT IS COVERAGE-LIMITED, NOT BITE-LIMITED)
 
@@ -1376,7 +1442,14 @@ flights that shipped them, which is the argument for shipping them at all.
 
 ═══ NEXT STEP ═══
 
-▶▶ NEXT STEP — 2026-08-14 SESSION CLOSE: FIX 2 OF THE BASELINE'S RANKED LIST (latest — resume HERE).
+▶▶ NEXT STEP — 2026-08-15 SESSION CLOSE: THE HALF OF THE HONESTY CLASS THAT DID NOT CLOSE (latest — resume HERE).
+Open on **★ANSWERED-WITHOUT-ASKING + the BREAKDOWN-GRAIN half of ★FALSE-ZERO-ON-UNCOVERED-WINDOW — the two failure shapes the 08-14/15 arc did NOT reach.** ⛔ **READ THE EVIDENCE BEFORE SCOPING EITHER, because the architecture landing is easy to over-read:** the binding mechanism is built and the verdict feeding it now measures DENSITY, and that bound **5 of the 6 named account-grain windows (A16, C5, C19, C20, E12; C3 stays COMPLETE because it genuinely is).** **C13/V7/C10 fail because NO QUERY WAS ISSUED AT ALL** — a binding cannot fire on a call that never happened, so this is a tool-CHOICE problem, not a coverage one. **A13/E7/C14 fail ONE GRAIN DOWN**, where the account verdict is legitimately COMPLETE and the geo floor is what the answer needed. They are different flights; do not merge them.
+**RANKED BEHIND THEM:** ★EXTRA-METRICS-NONGA-UNVERIFIED (one hand reading per platform) · ★MISCAVEATED-VENDOR-RETENTION (cheapest, deliberately last) · ★GOOGLE-AD-ENTITY-NAMES-MISSING. Those three plus the two above are the FULL completion list the eval paywall gates on — **no paid eval run fires until every one is closed, then ONE baseline with its cost line stated first** (DECISIONS LORAMER_EVAL_PAYWALL_MOVED_TO_END_OF_WIRING_V1).
+**DECIDE FIRST, BEFORE ANY FLIGHT:** the PARKED WIDEN (`forward-widen-breadth.ts`, untracked, + modified `cron/sync/route.ts`) is the SOLE red in `npm run guard` and belongs to neither HEAD nor the last three ships. **Ship it or shelve it — it distorts every push report while it sits there.**
+**STANDING, NOT WORK:** the walk publishes again post-unwedge and is descending Foam OH's dormant strip; Deploy 2's gate still opens on `rows_written > 0`. **OWED: the cross-fire recede confirmation (~04:30Z rotation lap) and the arithmetic of how many dormant windows remain before the first surface reaches live-spend history — without that, "still zero" and "wedged again" are indistinguishable.**
+**FROZEN, DO NOT TOUCH:** legacy `/dashboard` and the demo twin 2617b163, pending Google's RMF reply (submission sent 2026-08-14) — including [[★DRONES-META-CAPTURE-CLIFF-2026-08]], a real expired Meta token on the demo fixture client.
+
+- (2026-08-14 opener — HISTORY, superseded 2026-08-15; demoted from `▶▶ NEXT STEP` because its head ★ENTITY-NAME-AND-GRAIN-UNREACHABLE CLOSED (`fe2d729`) and the honesty class it ranked second was half-closed by `1802675` + `c8a6273`. Its Deploy 2 gate stands EXACTLY as written and is restated above as standing-not-work.) 2026-08-14 SESSION CLOSE: FIX 2 OF THE BASELINE'S RANKED LIST (latest — resume HERE).
 Open on **★ENTITY-NAME-AND-GRAIN-UNREACHABLE — data we HOLD that Lora cannot reach, mechanism ≠ Fix 1's, NOT yet diagnosed to a line.** The QUEUE entry owns the two measured failures; the shape to hold while diagnosing: (1) campaign names read BLANK through her path while direct SQL on the same window returns `Sales-Performance Max-BF '24` with 887.8 conversions — the rows and names exist; (2) a Meta creative question answered at ASSET grain (every conversion legitimately 0) when the answer lives at `entity_level='ad'` ("New Sales Ad", 1,354). Investigate-only first, then a tight fix with its guard — do NOT assume one bug.
 **RANKED BEHIND IT (the baseline's fix list, order = leverage):** ★FALSE-ZERO-ON-UNCOVERED-WINDOW (the honesty class, 8 FALSE_ZERO + 9 FABRICATED — it is ★SEMANTIC-LAYER's certified-metric job; read that entry BEFORE building anything bespoke) · ★MISCAVEATED-VENDOR-RETENTION (4 cases, prompt/vendor-fact hygiene, deliberately last) · ★EXTRA-METRICS-NONGA-UNVERIFIED (one hand reading per platform converts 13 declared-additive keys into measured ones — small, cheap, honest).
 **CONTEXT THAT MAKES THE HEAD MAKE SENSE:** the 2026-08-14 full-100 baseline scored **56.1% on 66 gradeable with ZERO WRONG_ARITHMETIC** — the model is almost never the problem; the query layer is. Fix 1 (★EXTRA-METRIC-UNREACHABLE, migration 067) SHIPPED + VERIFIED the same day, 0/6 → 6/6 on the exact failing questions, $1.69. The living record is docs/LORAMER_LORA_EVAL_PROGRESSION_REPORT.md §8. The 17 boundary FAILs are PROVISIONAL (the rejudge tool was broken at baseline time; fixed since — a 3× rejudge of the baseline's boundary fails is legitimate work if Russ wants the verdicts settled before Fix 2).
