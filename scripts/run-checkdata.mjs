@@ -69,6 +69,10 @@ const CHECKS = [
   // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — the walk liveness invariant. Fires-with-no-output-and-no-floor
   // is a WEDGE (the 2026-08-13/14 21-hour silence, RED); all-surfaces-at-inception-floor is DONE (GREEN).
   { name: 'check-walk-liveness', cmd: ['scripts/check-walk-liveness.mjs', '--guard'] },
+  // LORAMER_LORA_NAMED_ENTITY_READ_V1 — the LIVE half. The build guard proves the tool is wired; this proves a
+  // NAME actually comes back at each grain. Both claims are needed: on 2026-08-14 every hermetic check was
+  // green while the named read did not exist at all.
+  { name: 'check-lora-named-entity', cmd: ['scripts/check-lora-named-entity.mjs', '--guard'] },
 ]
 // ROSTER-END
 

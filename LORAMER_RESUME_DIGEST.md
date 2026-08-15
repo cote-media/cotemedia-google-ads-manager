@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-14T23:20:04.181Z
-- built_from HEAD: 2b59c6a393b686d31aaedc579469dde7ea99269e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-15T00:06:09.520Z
+- built_from HEAD: 87eb3e85232e4daea0e731db30d29e15784ae457  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 4a051d9e9b05dbb993137417049c9c2df88b14f0ba51c249476f3af8e9fb545d
     - CONTINUE_HERE.md: 9e25fc99bc484f528cb447f0767dcd56e1ceccf19289ce60a8bca2637365f4a0
     - LORAMER_DECISIONS.md: 6e72fd6c8ea3125e3bbb8d9b9183d0f425a8d057e383fcadd8d95c550fd95662
-    - LORAMER_QUEUE_OF_RECORD.md: 228550f0a444dc9b30f8de8ec79ed8513e44e470e856cbf9663b0a190a7bef8c
+    - LORAMER_QUEUE_OF_RECORD.md: 6a9c44c9698f1d7c0080a7a64659ecc5e79cb59b190e419c4539c97f7339252e
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1869,6 +1869,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★ENTITY-NAME-AND-GRAIN-UNREACHABLE — ⛔ **NEW 2026-08-14, RANK #2 ON THE BASELINE'S FIX LIST (behind the one already shipped). SAME CLASS AS [[★EXTRA-METRIC-UNREACHABLE]] — DATA WE HOLD THAT LORA CANNOT REACH — BUT A DIFFERENT MECHANISM, SO THE 067 FIX DOES NOT TOUCH IT.** **TWO MEASURED FAILURES, both re-derived from the store by hand:** (1) **CAMPAIGN NAMES READ BLANK.** Lora reported "the campaign breakdown returns one row with a blank name"; the same window queried directly returns a named campaign with 887.8 conversions. The rows and the names are both there. (2) **WRONG GRAIN SELECTED.** A Meta creative question was answered at asset grain, where every conversion is legitimately 0, when the answer lives at `entity_level='ad'` (a named ad, 1,354 conversions). ⇒ **BOTH ARE QUERY-LAYER/REGISTRY DEFECTS, NOT PROMPT DEFECTS**, and both produce the most dangerous output shape this repo tracks: a confident, sourced, *empty-looking* answer that is indistinguishable from a true zero ([[★NUMBER-ACCURACY-IS-100-NOT-95]]'s mechanical class). ⚠ **NOT YET DIAGNOSED TO A LINE** — the baseline triage located the symptom and the counter-evidence, not the cause; do not assume it is one bug. src: 2026-08-14 baseline triage. open [LC]
 - ★FALSE-ZERO-ON-UNCOVERED-WINDOW — ⛔ **NEW 2026-08-14, RANK #3 ON THE BASELINE'S FIX LIST, AND IT IS THE HONESTY CLASS RATHER THAN THE REACHABILITY ONE.** **MEASURED: 8 FALSE_ZERO and 9 FABRICATED classifications across the 2026-08-14 run.** The sharpest single case: a full WooCommerce year-over-year table, growth narrative included, built on a window with **no completed backfill cursor** — a window we never captured, presented as a confirmed zero. ⇒ **THE RULE THIS BUYS: a window with no completed cursor must be UNANSWERABLE, not zero.** ⛔ **THIS IS [[★SEMANTIC-LAYER]]'s CERTIFIED-METRIC JOB AND ITS PUBLISHED PROMISE, NOT A NEW MECHANISM** — the literature's finding is precisely that semantic-layer failures are REFUSALS while text-to-SQL failures are confident wrong numbers, so this item is the concrete first payment on that architecture rather than a competitor to it. **Do not build a bespoke guard here without reading that entry first.** ⚠ The completeness signal already exists (`complete`, per-platform `contribution` with statuses); what is missing is that reaching a zero through an incomplete window is not itself REFUSED. src: 2026-08-14 baseline triage. open [LC]
 - ★MISCAVEATED-VENDOR-RETENTION — ⚠ **NEW 2026-08-14, RANK #5 (LAST) ON THE BASELINE'S FIX LIST — CHEAPEST, AND DELIBERATELY LAST.** **MEASURED: 4 CORRECT_BUT_MISCAVEATED.** Right shape, right number, wrong confidence — each asserts a vendor retention boundary that has NOT been established. ⛔ **THIS IS THE UNVERIFIED-BOUNDARY ADVERSARIAL TYPE FAILING FROM THE OTHER SIDE:** the eval set added that type precisely because *asserting a vendor wall we cannot prove is itself a failure*, and these four do it in production prose rather than in a graded refusal. ⇒ Prompt / vendor-fact hygiene, and the one item on the list where prompt work is the right tool. src: 2026-08-14 baseline triage. open [LC]
+- ★GOOGLE-AD-ENTITY-NAMES-MISSING — ⛔ **NEW 2026-08-14, FOUND BY THE INSTRUMENT SHIPPED IN THE SAME FLIGHT (LORAMER_LORA_NAMED_ENTITY_READ_V1's live check, RED on its first run) AND MEASURED, NOT INFERRED.** **google `entity_level='ad'` base rows are 1.7% NAMED — 390 of 22,607 since 2026-05-01.** Every other ad grain is 100%: google campaign 15,978/15,978 · meta campaign 1,050/1,050 · meta ad_set 1,058/1,058 · meta ad 1,069/1,069. ⇒ **THE NAMED-ENTITY TOOL WORKS AND THIS GRAIN WILL STILL ANSWER BLANK**, so Lora asking "which google AD performed best" gets ids where names belong — the ★ENTITY-NAME-AND-GRAIN-UNREACHABLE symptom surviving one layer down, on one grain. ⚠ NOT the same defect: that one was a missing READ path (closed); this is a WRITER not populating `entity_name` on the google ad-grain capture. THE FIX SHAPE, unverified: the google ad writer's row builder — Google returns `ad_group_ad.ad.name` only for some ad types (RSAs commonly have no `name`, which may make 1.7% the VENDOR's answer rather than ours), so establish FIRST whether the name is absent at the vendor or dropped by us, and if the vendor withholds it, compose a display name from the ad's headlines the way /api/google/ads already does at :70-78 rather than storing a blank. ⛔ THE LIVE CHECK STAYS RED UNTIL THIS CLOSES — deliberately, per ★CHECKDATA-STANDING-REDS-OWNED: it is a TRUE red, named in every push report, not baselined away. src: LORAMER_LORA_NAMED_ENTITY_READ_V1 Gate-A, 2026-08-14. open [LC]
 - ★CATALOG-SURFACE-METRIC-INCOMPAT — ⚠ **NEW 2026-08-14, BANKED NOT BUILT (the honest fix is not one line).** The walk's only two `error` outcomes ever are `detail_content_suitability_placement_view` and `group_content_suitability_placement_view`, both vendor query_error 49 verbatim: clicks/conversions/conversions_value/cost_micros "incompatible with the resource in the FROM clause". The catalog declares the surfaces selectable; the WRITER asks its standard metric set; the vendor refuses that COMBINATION. The fix is NOT a hand-edit of docs/google-ads-capture-universe.json (⛔ generated, never hand-edited — LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1) and NOT a hand entry in google-refused-metrics.ts (also generated, build-refused-metrics.mjs); it is teaching the metric-incompat map or the writer's metric selection about resource-level refusals the same measured way segment-level ones were learned. Cost of leaving it: 1 wasted vendor op per surface per rotation lap (~2/day), each recorded honestly as `error`. src: LORAMER_WALK_STALL_DIAG_V1 2026-08-14. open [LC]
 - ★READINESS-SIGNALS-RPC-TIMEOUT — ⚠ **NEW 2026-08-13, found in passing during the RPC grant-posture sweep and queued at the next docs commit as owed.** `get_client_readiness_signals` returns **HTTP 500 `57014 canceling statement due to statement timeout`** on a direct service_role REST call with a real client id. ⛔ **NOT a permissions casualty**: it was one of the six functions already service_role-only BEFORE migrations/065 (untouched by the sweep), and a permission refusal is `42501`, not a timeout. It is a PERFORMANCE defect in the function body — a SECURITY DEFINER read that cannot finish inside the statement ceiling. EXPOSURE: `dashboard-next/client-profile/page.tsx:57` calls it server-side per page render; a timeout there degrades the readiness section, not the page. THE FIX SHAPE, unverified: EXPLAIN the function body against the live tables; likely an unpruned metrics_daily scan (the partition-pruning win was 7.8× on exactly that class). src: 2026-08-13 RPC posture flight. open [LC]
 - ★IOS-NO-STANDARDS-FIX-FOR-KEYBOARD-VIEWPORT — ⚠ **NEW 2026-08-07. BANKED SO A FUTURE SESSION RE-CHECKS RATHER THAN RE-DERIVES, because the answer exists, is specified, and is simply not implemented where we need it.** `interactive-widget=resizes-content` on the viewport meta **WOULD close this entire class outright** — the keyboard would resize the LAYOUT viewport, sticky and fixed would resolve against the visible area on their own, and every line of our visualViewport JS would become unnecessary. **The spec author confirms it in w3c/csswg-drafts#10464.** ⛔ **WebKit HAS NOT IMPLEMENTED IT — bugs.webkit.org/show_bug.cgi?id=259770 — AND EVERY iOS BROWSER IS WebKit, INCLUDING CHROME-iOS. So it is UNAVAILABLE TO US, not merely unused.** Do not add it to the viewport meta hoping it helps; `chat-visual-viewport.guard.mjs` leg (i) now fails if it appears, precisely so it cannot be added and read as though the keyboard case were handled declaratively. ⚠ **THE SAME ISSUE RECORDS THAT position:fixed, visualViewport JS, `vh` and `dvh` WERE ALL TRIED AND NONE GIVES A STANDARDS-BASED FIX ON SAFARI** — which is why our answer is JS OWNERSHIP (LORAMER_LORA_HEADER_ONE_OWNER_V1) and not a CSS property we have not found yet. **THE RE-CHECK, stated so it is cheap: read webkit bug 259770. If it has shipped, delete the ownership dance and the flow compensation and let the platform do it.** src: 2026-08-07 header-flicker flight. open [LC]
@@ -1987,8 +1988,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 808 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
-122 decision-only · 364 queue-only.
+TOTALS: 810 tokens indexed · 322 resolve to BOTH a decision and a queue item ·
+122 decision-only · 366 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 166 DECISIONS entries and
 267 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2071,7 +2072,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-UI-DEDICATED-DAY — OPEN · decisions 1 · queue 4 · last 2026-09-30
 - ★CHAT-UPLOAD-IN-COMPOSER — OPEN · decisions 0 · queue 3 · last 2026-08-06
 - ★CHAT-USER-TURN-ORPHAN — OPEN · decisions 2 · queue 2 · last 2026-08-12
-- ★CHECKDATA-STANDING-REDS-OWNED — OPEN · decisions 2 · queue 2 · last 2026-08-12
+- ★CHECKDATA-STANDING-REDS-OWNED — OPEN · decisions 2 · queue 3 · last 2026-08-14
 - ★CHROME-IOS-COMPOSER-THREE-SYMPTOMS — OPEN · decisions 3 · queue 1 · last 2026-08-11
 - ★CLIENT-PROFILE-BUSINESS-IDENTITY — OPEN · decisions 0 · queue 2 · last 2026-07-24
 - ★CLIENT-PROFILE-SERVICE-AREA-GRANULAR — OPEN · decisions 0 · queue 2 · last 2026-07-24
@@ -2117,7 +2118,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DRYRUN-IS-NOT-ZERO-WRITE — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★DUPLICATE-CLIENT-NAMES — OPEN · decisions 0 · queue 1 · last 2026-07-24
 - ★DUPLICATE-CLIENT-SAME-AD-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-01
-- ★ENTITY-NAME-AND-GRAIN-UNREACHABLE — OPEN · decisions 0 · queue 1 · last 2026-08-14
+- ★ENTITY-NAME-AND-GRAIN-UNREACHABLE — OPEN · decisions 0 · queue 2 · last 2026-08-14
 - ★EVAL-BIND — OPEN · decisions 1 · queue 2 · last 2026-07-29
 - ★EVAL-COST-PER-CORRECT-ANSWER — OPEN · decisions 0 · queue 1 · last 2026-08-06
 - ★EVAL-HARNESS-SCORED-NO-ANSWER-AS-FAILURE — OPEN · decisions 1 · queue 3 · last 2026-08-06
@@ -2167,6 +2168,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GAQL-OP-COUNT-DISCREPANCY — OPEN · decisions 1 · queue 2 · last 2026-09-30
 - ★GAQL-OP-METER — OPEN · decisions 5 · queue 9 · last 2026-09-30
 - ★GATE-B-2026-07-28 — OPEN · decisions 0 · queue 2 · last 2026-07-28
+- ★GOOGLE-AD-ENTITY-NAMES-MISSING — OPEN · decisions 0 · queue 1 · last 2026-08-14
 - ★GOOGLE-ADS-CAPTURE-UNIVERSE-SECOND-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-03
 - ★GOOGLE-AUCTION-INSIGHTS-TOKEN-ACCESS — OPEN · decisions 2 · queue 1 · last 2026-08-03
 - ★GOOGLE-CAPTURE-UNIVERSE-SECOND-ACCOUNT — DONE · decisions 0 · queue 1 · last 2026-08-03
@@ -2603,6 +2605,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_LORA_LLM_JUDGE_V1 — OPEN · decisions 4 · queue 1 · last 2026-07-15
 - LORAMER_LORA_MODEL_CHAIN_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-25
 - LORAMER_LORA_MODEL_PRICING_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-06
+- LORAMER_LORA_NAMED_ENTITY_READ_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-14
 - LORAMER_LORA_PAGE_ICONS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-06
 - LORAMER_LORA_PAGE_PROBE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-26
 - LORAMER_LORA_PAGE_SHELL_RESOLUTION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-26

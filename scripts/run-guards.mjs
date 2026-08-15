@@ -288,6 +288,10 @@ const GUARDS = [
   // writes a heartbeat on all four return paths, and the wedge signal goes RED on 24h-no-progress while
   // staying GREEN at the all-surfaces-at-inception-floor DONE state.
   'tests/guards/walk-unwedge-heartbeat.guard.mjs',
+  // LORAMER_LORA_NAMED_ENTITY_READ_V1 — every grain Lora is OFFERED must have a path that returns its NAME,
+  // the tool must be dispatched and attached to BOTH loops, the writer/reader column disagreement must stay
+  // DECLARED, and the description must keep teaching THINGS-vs-DIMENSION-VALUES + the Meta asset trap.
+  'tests/guards/lora-named-entity-read.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

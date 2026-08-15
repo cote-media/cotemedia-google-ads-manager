@@ -36,7 +36,11 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 16 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — 17 checks, flags included, in order ────────────────────────────────────────
+// ⛔ MOVED 2026-08-14 FROM 16 → 17, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `check-lora-named-entity` is LORAMER_LORA_NAMED_ENTITY_READ_V1's live half — it reads a NAME back out of the
+// warehouse per grain. It went RED on its first run and the red is TRUE (google/ad names 1.7% populated), which
+// is the check doing its job on day one rather than a reason to soften it.
 // ⛔ MOVED 2026-08-14 FROM 15 → 16, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-walk-liveness` is LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1's loud surface: fires-with-no-output-and-
 // no-floor is a WEDGE red; all-at-inception-floor is the DONE green. The 2026-08-13/14 wedge ran 21+ hours
@@ -69,6 +73,7 @@ const EXPECTED_ROSTER = [
   'tests/guards/drain-alias-coverage.guard.mjs --db',
   'scripts/check-extra-metrics-serving.mjs',
   'scripts/check-walk-liveness.mjs --guard',
+  'scripts/check-lora-named-entity.mjs --guard',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
@@ -143,4 +148,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[checkdata-verdict-line] PASS — check:data runs the verdict runner over EXACTLY the 15 pinned checks · the runner never calls process.exit (the verdict flushes to a pipe) and its catch path prints a CRASHED verdict · it is registered in run-guards · and the compiled-in-place behavioural leg proved the VERDICT is the LAST line, names reds by name with their ✗ banners, names crashes, and exits non-zero. LIMIT: whether a report QUOTES the line is the DECISIONS reporting rule — no guard can see chat output.`)
+console.log(`[checkdata-verdict-line] PASS — check:data runs the verdict runner over EXACTLY the ${EXPECTED_ROSTER.length} pinned checks · the runner never calls process.exit (the verdict flushes to a pipe) and its catch path prints a CRASHED verdict · it is registered in run-guards · and the compiled-in-place behavioural leg proved the VERDICT is the LAST line, names reds by name with their ✗ banners, names crashes, and exits non-zero. LIMIT: whether a report QUOTES the line is the DECISIONS reporting rule — no guard can see chat output.`)

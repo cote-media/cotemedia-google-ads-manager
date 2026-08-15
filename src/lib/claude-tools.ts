@@ -8,7 +8,7 @@
 // surfaces cannot drift (handoff lesson 26). clientId is injected server-side by
 // the caller - it is NEVER a model-controlled input.
 
-import { queryMetrics, queryBreakdown, queryMoney } from '@/lib/metrics-query'
+import { queryMetrics, queryBreakdown, queryMoney, queryEntities } from '@/lib/metrics-query' // queryEntities: LORAMER_LORA_NAMED_ENTITY_READ_V1
 // LORAMER_BREAKDOWN_REGISTRY_CONSUME_V1 (G2 2B) — the query_breakdown enums are GENERATED from the ONE declared
 // source (breakdown-registry.ts), never hand-written, so the tool schema and the query layer cannot drift.
 import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
@@ -221,6 +221,105 @@ export async function runQueryBreakdownTool(input: any, clientId: string) {
   return result
 }
 
+// LORAMER_LORA_NAMED_ENTITY_READ_V1 — THE NAMED-THING READ. Lora's third query tool, and the one that was missing.
+//
+// ⛔ WHY IT EXISTS, MEASURED 2026-08-14 (★ENTITY-NAME-AND-GRAIN-UNREACHABLE): Lora had NO per-entity named read —
+// not a broken one, NONE. `query_metrics` sums a whole entity_level into ONE unnamed total (aggregateWindow's
+// projection carries no entity_id/entity_name, deliberately — migration-035's partial index depends on its shape,
+// and it is NOT widened by this flight). `query_breakdown` groups by `breakdown_value` over dimension rows and
+// never reads `entity_name`. The consequences were both baseline failures:
+//   · "the campaign breakdown returns one row with a blank name" — literally true: 2,564 google campaign-family
+//     rows carry breakdown_value='' (identity is in entity_id), so grouping by value yields ONE blank group,
+//     while the 4,878 BASE rows holding "Sales-Performance Max-BF '24" were unreachable.
+//   · a Meta creative question answered at ASSET grain where every conversion is legitimately 0 — she chose
+//     CORRECTLY given what she could reach: the asset families are the only ones offering NAMED values, and the
+//     ad-grain answer (2,164 base rows, 1,523 conversions, names in entity_name) was not on the menu.
+// ⛔ THE FIX IS NOT A NEW QUERY LAYER. `queryEntities` already existed, correct and paginated, wired to exactly one
+// consumer (/api/next/entities, the -next drill). CHECK-WHAT-ALREADY-WORKS: this exposes it, nothing more.
+export const QUERY_ENTITIES_TOOL: any = {
+  name: 'query_entities',
+  description:
+    'List the CURRENT client’s NAMED ENTITIES — individual campaigns, ad groups / ad sets, ads, or store products — with each one’s own metrics over a single window, from LoraMer’s historical store. Returns up to topN rows, each carrying entityId, entityName (the real name as it appears in the ad platform), spend, impressions, clicks, conversions, conversionValue, revenue and derived CTR/CPC/CPA/ROAS/convRate, plus the level’s totals and entityCount. ' +
+    '⛔ CHOOSING BETWEEN THIS AND query_breakdown — GET THIS RIGHT OR YOU WILL ANSWER A DIFFERENT QUESTION THAN THE ONE ASKED. Use query_entities for a named THING the advertiser created and can point at: "which CAMPAIGN drove the most conversions" (→ level "campaign"), "what was our best AD last month" (→ level "ad"). Use query_breakdown for a named DIMENSION VALUE the platform reports activity against: "which AGE BAND converts best" (→ breakdownType "age"), "which CREATIVE ASSET was served most" (→ breakdownType "image_asset"). ' +
+    '⛔ THE TRAP THIS EXISTS TO END, stated because it produced a confident wrong answer on a real question: for "which creative/ad performed best", the ASSET breakdown families are NOT the answer — Meta does not attribute conversions to individual creative assets, so those families legitimately carry ZERO conversions and ranking them returns all-zeros that look like real data. The answer lives at the AD level here (level "ad"), where the ad’s name and its real conversions are. If a question is about performance of a THING WITH A NAME, reach for this tool first. ' +
+    'Scope to one parent with parentEntityId (a campaign id to list its ad groups, an ad-group id to list its ads) — the drill mechanic. Reads CAPTURED base rows only, never a live platform call, and never breakdown rows, so its numbers are directly comparable to query_metrics’ totals for the same level and window. ' +
+    '⚠ HONEST LIMITS: entity-level history begins at the client’s connect date (query_metrics account totals reach further back), and an empty result means no entity of that level was captured in that window — say that, never infer a zero. If entityName comes back empty for a row, report the entityId and say the name was not captured rather than presenting a blank.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      clientId: {
+        type: 'string',
+        description: 'The target client’s id, taken ONLY from the "clients you can access" list in your instructions. REQUIRED at the agency / all-clients view; IGNORED at a single-client view (the current client is used). Never invent an id.', // LORAMER_AGENCY_SCOPE_LORA_V1
+      },
+      platform: {
+        type: 'string',
+        enum: ['google', 'meta', 'shopify', 'woocommerce'],
+        description: 'Which platform’s entities. REQUIRED — entity names are per-platform and there is no cross-platform entity list. google/meta carry campaign/ad_group/ad_set/ad; shopify/woocommerce carry product/variant.',
+      },
+      level: {
+        type: 'string',
+        enum: ['campaign', 'ad_group', 'ad_set', 'ad', 'product', 'variant'],
+        description: 'Which grain to list. google uses ad_group, meta uses ad_set — passing the wrong one for the platform returns an empty list, not an error. "product"/"variant" are the store grains.',
+      },
+      parentEntityId: {
+        type: 'string',
+        description: 'Optional. List only the children of this entity — a campaign id to get its ad groups / ad sets, an ad-group / ad-set id to get its ads. Take the id from a previous query_entities row’s entityId; never invent one.',
+      },
+      rankBy: {
+        type: 'string',
+        enum: ['spend', 'conversions', 'clicks', 'impressions', 'conversionValue', 'revenue'],
+        description: 'Which metric orders the list. Default "spend". For "best/top performing by conversions" pass "conversions" — do NOT rank by spend and describe the result as best-performing.',
+      },
+      topN: { type: 'number', description: 'How many entities to return, default 10, max 50. The response always carries entityCount so you can say how many exist beyond the ones shown.' },
+      baseRange: { type: 'string', description: 'Single-window preset: LAST_7_DAYS, LAST_14_DAYS, LAST_30_DAYS, LAST_90_DAYS, THIS_MONTH, LAST_MONTH. Default LAST_30_DAYS. For any specific calendar period use startDate/endDate instead.' },
+      startDate: { type: 'string', description: 'Optional explicit window start, YYYY-MM-DD (use with endDate). Overrides baseRange.' },
+      endDate: { type: 'string', description: 'Optional explicit window end, YYYY-MM-DD (use with startDate).' },
+    },
+    required: ['platform', 'level'],
+  },
+}
+
+// LORAMER_LORA_NAMED_ENTITY_READ_V1 — the runner. queryEntities returns EVERY entity in the window (it is the
+// drill's data source); the tool ranks and truncates here rather than in the query layer, so the -next drill's
+// behaviour is byte-identical and only this caller sees a cap.
+export const QUERY_ENTITIES_MAX_TOPN = 50
+export async function runQueryEntitiesTool(input: any, clientId: string) {
+  const platform = typeof input?.platform === 'string' ? input.platform : ''
+  const level = typeof input?.level === 'string' ? input.level : ''
+  const rankBy = typeof input?.rankBy === 'string' ? input.rankBy : 'spend'
+  const topN = Math.max(1, Math.min(QUERY_ENTITIES_MAX_TOPN, typeof input?.topN === 'number' ? input.topN : 10))
+  const result = await queryEntities({
+    clientId,
+    platform,
+    level,
+    parentEntityId: typeof input?.parentEntityId === 'string' ? input.parentEntityId : undefined,
+    baseRange: typeof input?.baseRange === 'string' ? input.baseRange : undefined,
+    startDate: typeof input?.startDate === 'string' ? input.startDate : undefined,
+    endDate: typeof input?.endDate === 'string' ? input.endDate : undefined,
+  })
+  // Rank on the requested metric, DESC. queryEntities sorts by spend for the drill; re-sorting here leaves that
+  // contract untouched. An unknown rankBy falls back to spend rather than throwing — the enum already bounds it.
+  const key = ['spend', 'conversions', 'clicks', 'impressions', 'conversionValue', 'revenue'].includes(rankBy) ? rankBy : 'spend'
+  const ranked = [...result.rows].sort((a: any, b: any) => Number(b[key] ?? 0) - Number(a[key] ?? 0))
+  const rows = ranked.slice(0, topN)
+  return {
+    platform: result.platform,
+    level: result.level,
+    window: result.window,
+    parentEntityId: result.parentEntityId,
+    rankBy: key,
+    rows,
+    totals: result.totals,
+    entityCount: result.entityCount,
+    truncated: result.entityCount > rows.length,
+    // THE DENOMINATOR ON AN EMPTY RESULT (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1): an empty list must say what
+    // it examined, or it reads as "this client has no campaigns" when it means "none were captured in this window".
+    ...(result.entityCount === 0
+      ? { note: `No ${level} entities were CAPTURED for ${platform} between ${result.window.startDate} and ${result.window.endDate}. That is a statement about our capture for this window, NOT proof the advertiser had none — say so plainly and do not report zero performance.` }
+      : {}),
+  }
+}
+
 // LORAMER_QUERY_MONEY_V1 — the store money surface (gross→net waterfall components) for ONE store platform.
 export const QUERY_MONEY_TOOL: any = {
   name: 'query_money',
@@ -325,6 +424,7 @@ export async function executeToolUses(
       } else if (tu.name === 'query_metrics') payload = await runQueryMetricsTool(tu.input, target)
       else if (tu.name === 'query_breakdown') payload = await runQueryBreakdownTool(tu.input, target)
       else if (tu.name === 'query_money') payload = await runQueryMoneyTool(tu.input, target)
+      else if (tu.name === 'query_entities') payload = await runQueryEntitiesTool(tu.input, target) // LORAMER_LORA_NAMED_ENTITY_READ_V1
       else { payload = { error: 'unknown tool: ' + tu.name }; isError = true }
     } catch (err) {
       payload = { error: err instanceof Error ? err.message : String(err) }
@@ -365,7 +465,7 @@ export async function runClaudeToolLoop(opts: {
   // PER TOOL CALL in the executor below (resolve the TARGET client, viewerCanAccess that target, FAIL CLOSED) — the
   // right place, because at agency scope the target is chosen by the model per call, not fixed for the loop.
   const tools: any[] | undefined =
-    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
+    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL, QUERY_ENTITIES_TOOL] : undefined // LORAMER_LORA_NAMED_ENTITY_READ_V1 — the named-thing read joins BOTH loops (blocking + streaming); one list per loop, and they must not drift
   const convo: any[] = [...messages]
   // LORAMER_LORA_TOOL_DECISION_LOG_V1 — capture the user's QUESTION once for the decision instrument; on later turns
   // the last message is a tool_result, not the question.
@@ -508,7 +608,7 @@ export async function runClaudeToolLoopStreaming(opts: {
   const clientId = opts.clientId || ''
   const userEmail = opts.userEmail || ''
   const tools: any[] | undefined =
-    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL] : undefined
+    userEmail ? [QUERY_METRICS_TOOL, QUERY_BREAKDOWN_TOOL, QUERY_MONEY_TOOL, QUERY_ENTITIES_TOOL] : undefined // LORAMER_LORA_NAMED_ENTITY_READ_V1 — the named-thing read joins BOTH loops (blocking + streaming); one list per loop, and they must not drift
   const convo: any[] = [...messages]
   const originalQuestion: string = (() => {
     // LORAMER_CHAT_HISTORY_CACHE_V1 — the FINAL user message now carries array-of-blocks content (the
