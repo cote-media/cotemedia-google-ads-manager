@@ -36,7 +36,10 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 17 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — 18 checks, flags included, in order ────────────────────────────────────────
+// ⛔ MOVED 2026-08-15 FROM 17 → 18, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `check-binding-coverage` is LORAMER_BINDING_COVERAGE_V1's live half: the build guard drives the pure
+// decider, this proves a pre-floor window really is uncovered in the data the resolver reads.
 // ⛔ MOVED 2026-08-14 FROM 16 → 17, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-lora-named-entity` is LORAMER_LORA_NAMED_ENTITY_READ_V1's live half — it reads a NAME back out of the
 // warehouse per grain. It went RED on its first run and the red is TRUE (google/ad names 1.7% populated), which
@@ -74,6 +77,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-extra-metrics-serving.mjs',
   'scripts/check-walk-liveness.mjs --guard',
   'scripts/check-lora-named-entity.mjs --guard',
+  'scripts/check-binding-coverage.mjs --guard',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }

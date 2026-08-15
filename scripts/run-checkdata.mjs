@@ -73,6 +73,9 @@ const CHECKS = [
   // NAME actually comes back at each grain. Both claims are needed: on 2026-08-14 every hermetic check was
   // green while the named read did not exist at all.
   { name: 'check-lora-named-entity', cmd: ['scripts/check-lora-named-entity.mjs', '--guard'] },
+  // LORAMER_BINDING_COVERAGE_V1 — the LIVE half: a pre-floor window must not read as covered, or every
+  // binding downstream is built on a false verdict.
+  { name: 'check-binding-coverage', cmd: ['scripts/check-binding-coverage.mjs', '--guard'] },
 ]
 // ROSTER-END
 

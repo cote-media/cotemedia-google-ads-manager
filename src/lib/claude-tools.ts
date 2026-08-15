@@ -14,6 +14,7 @@ import { queryMetrics, queryBreakdown, queryMoney, queryEntities } from '@/lib/m
 import { breakdownToolTypes, breakdownPlatforms, breakdownEntityLevels, geoGrains, geoScopes, platformsForToolType, allAdditiveExtraKeys } from '@/lib/breakdown-registry'
 // LORAMER_LORA_COVERAGE_V1 — coverage FACT (state) for the query_metrics tool layer ONLY (queryMetrics untouched).
 import { getCoverageForWindows, coverageNotes, getBreakdownCoverage, breakdownCoverageNote } from '@/lib/next/coverage'
+import { bindWindow } from '@/lib/lora/coverage-binding' // LORAMER_BINDING_COVERAGE_V1 — the pure verdict-gating decider
 import { annotateContribution } from '@/lib/next/query-completeness' // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1)
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'
 import { logToolDecision } from '@/lib/lora-tool-log' // LORAMER_LORA_TOOL_DECISION_LOG_V1 — L2-retrieval instrument (fire-and-forget)
@@ -33,7 +34,7 @@ async function viewerCanAccess(viewerEmail: string, clientId: string): Promise<b
 export const QUERY_METRICS_TOOL: any = {
   name: 'query_metrics',
   description:
-    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. REVENUE & ROAS — READ THIS: for any total-revenue or ROAS answer use `canonical` — canonical.revenue and canonical.roas are the figures that MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue/spend). `totals.revenue` is a RAW cross-platform SUM that double-counts store + GA — NEVER report totals.revenue as the total revenue. `bySource` breaks revenue/spend out by origin (store, ga, google, meta), each labeled — when more than one revenue source is present, surface them ALL with their own ROAS and explain why they differ. `derived.roas` is AD-ATTRIBUTED (platform conversionValue/spend) and is NOT the card ROAS. COMPLETENESS — READ BEFORE STATING ANY TOTAL: the result carries a top-level `complete` (boolean) and each window carries `complete` plus a per-platform `contribution` array (each item has platform + status: ok / capture_failing / trailing_gap / predates_capture / draining / not_connected). If `complete` is false, or any platform`s contribution status is `capture_failing` or `trailing_gap`, the total is PARTIAL — state it AS incomplete and NAME the platform (e.g. "this is the Google total; WooCommerce capture is currently failing, so the store side is missing and the combined figure is understated"). NEVER present a partial total as a whole number, and NEVER report $0 for a platform whose status is capture_failing / trailing_gap / predates_capture — that is NOT $0 and NOT disconnected; its data simply was not captured for that period. A platform with status `ok` and zero rows IS a genuine zero — say so plainly. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
+    'Query LoraMer\u2019s historical store for aggregated advertising/commerce metrics over one or more time windows for the CURRENT client. Data is read from our own database (not a live fetch), so it is fast and covers paused or historical periods, including periods older than the ad platforms themselves retain. Returns spend, impressions, clicks, conversions, conversionValue, revenue and rowCount per window, plus derived CTR/CPC/CPA/ROAS/AOV. REVENUE & ROAS — READ THIS: for any total-revenue or ROAS answer use `canonical` — canonical.revenue and canonical.roas are the figures that MATCH THE DASHBOARD CARDS (revenue precedence store > ga > none, NEVER summed; roas = revenue/spend). `totals.revenue` is a RAW cross-platform SUM that double-counts store + GA — NEVER report totals.revenue as the total revenue. `bySource` breaks revenue/spend out by origin (store, ga, google, meta), each labeled — when more than one revenue source is present, surface them ALL with their own ROAS and explain why they differ. `derived.roas` is AD-ATTRIBUTED (platform conversionValue/spend) and is NOT the card ROAS. ⛔ COMPLETENESS IS STRUCTURAL, NOT ADVISORY — READ THE SHAPE OF WHAT COMES BACK. Every window carries `coverageVerdict` (COMPLETE / PARTIAL / UNKNOWN) and `answerable`. THE FIGURE MOVES DEPENDING ON THE VERDICT, and that is deliberate: (1) COMPLETE — `totals` and `canonical` are present as normal and the window is fully answerable; if it also carries `zeroIsReal: true` the account GENUINELY had no activity and you should say so plainly as a real zero. (2) PARTIAL — THERE IS NO `totals` KEY. The numbers are on `partialTotals` / `partialCanonical`, and a `withheld` object carries the reason and a `mustSay` directive. Report partialTotals ONLY as the covered portion, name the platform and reason from `contribution[]`, and NEVER present it as the window total. (3) UNKNOWN — THERE IS NO `totals` KEY. The numbers are on `unverifiedTotals` and `withheld.reason` says why coverage could not be measured; label any figure you give as UNVERIFIED and never treat a zero here as a real zero. A missing `totals` key is the system telling you the number is not safe to state as a whole figure — it is not an error and you must not reconstruct a total from the parts. Each window also carries `contribution[]` (platform + status: ok / capture_failing / trailing_gap / predates_capture / draining / not_connected); a platform whose status is capture_failing / trailing_gap / predates_capture is NOT $0 — its data simply was not captured. Non-account grains additionally carry `grainCoverage`: a grain can have its OWN floor inside a window the account covers, so a breakdown-level claim needs the grain’s verdict, never the account’s. There are two MUTUALLY EXCLUSIVE ways to specify time. (1) For ANY specific calendar period - a quarter, a named month, a year, or any arbitrary explicit range - translate it to exact YYYY-MM-DD dates YOURSELF and pass them in `windows`, one object per period you want compared. Examples: "Q4 2024" -> [{label:"Q4 2024",startDate:"2024-10-01",endDate:"2024-12-31"}]; "compare Q4 2024 to Q4 2025" -> two window objects. Label each window for the exact dates it covers and NEVER relabel a different span as the requested period. (2) For rolling recent-vs-prior comparisons only, use `baseRange` (a preset such as LAST_30_DAYS) together with `offsetsMonths`. If `windows` is provided, `baseRange` and `offsetsMonths` are ignored. Prefer this tool over reasoning from numbers already in your context whenever the question involves a specific historical period or a period-over-period comparison.',
   input_schema: {
     type: 'object',
     properties: {
@@ -366,22 +367,51 @@ export async function runQueryMetricsTool(input: any, clientId: string) {
     : undefined
   const platforms = platform && platform !== 'all' ? [platform] : []
   const result = await queryMetrics({ clientId, platforms, level, baseRange, offsetsMonths, windows })
-  // LORAMER_LORA_COVERAGE_V1 — annotate each window with the coverage FACT (state) so Lora answers from FACT, not
-  // from ambiguous rowCount-0 zeros (identical for not-connected / pre-capture / true-zero). ADDITIVE + best-effort:
-  // wrapped in try/catch so it NEVER breaks the tool; account grain only (coverage is an account-grain concept).
-  if (level && level !== 'account') return result
+  return await bindCoverage(result, { clientId, platforms, level })
+}
+
+// LORAMER_BINDING_COVERAGE_V1 — the pure decider lives in src/lib/lora/coverage-binding.ts (zero imports) so a
+// guard can DRIVE it rather than read its source; this module owns only the DB reads that feed it.
+// (1) NO GRAIN GAP + (3) BINDING. Every level the tool enum accepts gets a verdict — the account-only early
+// return is gone. Non-account grains ALSO carry the breakdown-grain resolver's answer, because that is the
+// exact gap A13/E7/C14 fell through: account coverage said `complete: true` (TRUE for base rows) while the
+// GEO grain's floor postdated the window, and she applied the account verdict to a grain-level claim.
+async function bindCoverage(result: any, ctx: { clientId: string; platforms: string[]; level: string }): Promise<any> {
+  const wins = (result.windows || []).map((w: any) => ({ startDate: w.startDate, endDate: w.endDate }))
+  let cov: any[] = [], comp: any = null, measured = true, measureError: string | undefined
   try {
-    const wins = result.windows.map((w) => ({ startDate: w.startDate, endDate: w.endDate }))
-    const cov = await getCoverageForWindows(clientId, platforms, wins)
-    // LORAMER_LORA_INCOMPLETE_TOTAL_V1 (T0#2 slice 1) — per-platform CONTRIBUTION flag + a top-level completeness
-    // verdict, so a total that silently omits a currently-FAILING platform (Shelley's woo) is marked incomplete
-    // instead of stated as a whole number. A total is NEVER emitted here without `complete`.
-    const comp = await annotateContribution(clientId, wins, cov)
-    const windows2 = result.windows.map((w, i) => ({ ...w, coverage: cov[i], contribution: comp.perWindow[i], complete: comp.completePerWindow[i] }))
-    const notes = [...(result.notes || []), ...coverageNotes(cov), ...comp.notes]
-    return { ...result, windows: windows2, complete: comp.overallComplete, notes: notes.length ? notes : undefined }
-  } catch {
-    return result
+    cov = await getCoverageForWindows(ctx.clientId, ctx.platforms, wins)
+    comp = await annotateContribution(ctx.clientId, wins, cov)
+  } catch (e: any) {
+    measured = false
+    measureError = e instanceof Error ? e.message : String(e)
+  }
+  // ⛔ THE GRAIN GAP — CLOSED BY REMOVING THE EARLY RETURN, **NOT** BY CALLING getBreakdownCoverage HERE.
+  // My first cut wired the breakdown-grain resolver into this path and `breakdown-coverage-wired.guard` leg (e)
+  // refused it, correctly and for a reason I had not thought through: getBreakdownCoverage answers "do the
+  // BREAKDOWN FAMILIES have holes", which does not bear on a BASE-grain total, so its caveat would hang on a
+  // number it says nothing about. Worse, it returned UNKNOWN for a grain with no families to measure and my
+  // code converted that into PARTIAL — a FALSE refusal, the over-refusal failure arriving through a side door
+  // that leg (iv) could not see. The guard was the only thing between that and production.
+  // WHAT ACTUALLY CLOSES THE GAP: the account-grain resolver now runs for EVERY level instead of returning
+  // early. It answers "did this platform capture in this window at all", which is a precondition for every
+  // grain — if the platform captured nothing, no grain beneath it has data either.
+  const windows2 = (result.windows || []).map((w: any, i: number) =>
+    bindWindow(
+      // The literal `comp.perWindow` / `comp.completePerWindow` shape is what check-query-completeness pins —
+      // optional chaining here broke its match, and the pin is right to be literal: it is asserting that the
+      // computed verdict REACHES Lora, which a renamed or chained access could silently stop doing.
+      { ...w, coverage: cov[i], contribution: measured ? comp.perWindow[i] : undefined, complete: measured ? comp.completePerWindow[i] : undefined },
+      { complete: measured ? comp.completePerWindow[i] : undefined, measured, measureError },
+    ))
+  const notes = [...(result.notes || []), ...(measured ? [...coverageNotes(cov), ...comp.notes] : [
+    `⛔ COVERAGE UNMEASURED (read_failed): ${measureError}. Every window below is labelled UNKNOWN. Do not state any figure as complete and do not report a zero as a real zero.`,
+  ])]
+  return {
+    ...result, windows: windows2,
+    complete: measured ? comp.overallComplete : false,
+    coverageMeasured: measured,
+    notes: notes.length ? notes : undefined,
   }
 }
 

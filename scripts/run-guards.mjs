@@ -292,6 +292,10 @@ const GUARDS = [
   // the tool must be dispatched and attached to BOTH loops, the writer/reader column disagreement must stay
   // DECLARED, and the description must keep teaching THINGS-vs-DIMENSION-VALUES + the Meta asset trap.
   'tests/guards/lora-named-entity-read.guard.mjs',
+  // LORAMER_BINDING_COVERAGE_V1 — a not-COMPLETE window may not hand back a bare `totals`. The verdict gates
+  // the payload STRUCTURALLY (the key is gone, not merely annotated), at every grain, with no silent catch —
+  // and a COMPLETE zero stays answerable so the fix cannot over-refuse a genuine zero.
+  'tests/guards/binding-coverage.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
