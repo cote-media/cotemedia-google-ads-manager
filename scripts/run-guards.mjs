@@ -93,6 +93,9 @@ const GUARDS = [
   // floor DECISIONS:599 banked for the chat composer and nobody ever applied here. Registered the same day it
   // was written: an unregistered guard never runs.
   'tests/guards/next-focusable-16px.guard.mjs',
+  // LORAMER_COMPARE_LABEL_YEAR_V1 — a comparison chart whose two series carry the SAME name reads as broken
+  // even when the data is right. Observed on device 2026-08-16; the leg lifts and DRIVES the real label fn.
+  'tests/guards/compare-label-year.guard.mjs',
   'tests/guards/chat-screen-tracks-server.guard.mjs',
   'tests/guards/lora-back-parity.guard.mjs',
   'tests/guards/chat-status-truthful.guard.mjs',

@@ -59,3 +59,25 @@ export function winLabel(w: Win): string {
   }
   return `${fmt(w.startDate)}–${fmt(w.endDate).replace(/^[A-Za-z]+ /, (s) => (w.startDate.slice(0, 7) === w.endDate.slice(0, 7) ? '' : s))}`
 }
+
+// LORAMER_COMPARE_LABEL_YEAR_V1 — TWO WINDOWS SHOWN TOGETHER MUST BE DISTINGUISHABLE.
+//
+// ⛔ OBSERVED ON DEVICE 2026-08-16: range 2026-07-16→2026-08-11 with compare "Previous year" rendered a chart
+// legend reading "Jul 16–Aug 11" for BOTH series. The data was correct — the resolver subtracts a year (:49)
+// and the two series are fetched separately — but `winLabel` above prints month+day only, so a year-apart
+// pair is indistinguishable.
+//
+// ⛔ THE YEAR IS CONDITIONAL, NOT ALWAYS-ON, AND THAT IS THE WHOLE DESIGN. Two same-year windows already
+// differ by month and day, and a year on every label costs horizontal width on a phone toolbar that is
+// already several lines tall. The year appears only when it is the thing that tells the two windows apart.
+// A window that itself spans a year boundary carries both years, because one would be a lie.
+export function winLabelPair(a: Win, b: Win): [string, string] {
+  const years = (w: Win) => `${w.startDate.slice(0, 4)}|${w.endDate.slice(0, 4)}`
+  if (years(a) === years(b)) return [winLabel(a), winLabel(b)]
+  const withYear = (w: Win): string => {
+    const ys = w.startDate.slice(0, 4)
+    const ye = w.endDate.slice(0, 4)
+    return ys === ye ? `${winLabel(w)}, ${ys}` : `${winLabel(w)}, ${ys}–${ye}`
+  }
+  return [withYear(a), withYear(b)]
+}

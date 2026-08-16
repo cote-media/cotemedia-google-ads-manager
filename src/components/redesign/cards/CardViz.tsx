@@ -11,7 +11,7 @@ import type { CardConfig } from './card-types'
 import { statMetric } from './card-types'
 import { useCardData, type BreakdownRow } from './useCardData'
 import { deltaLabel } from '@/lib/next/portfolio-windows'
-import { winLabel, type Win } from '@/lib/next/card-windows'
+import { winLabel, winLabelPair, type Win } from '@/lib/next/card-windows' // LORAMER_COMPARE_LABEL_YEAR_V1 — pair-aware label wherever TWO windows render together
 import styles from './cards.module.css'
 
 const fmtMoney = (v: number) => '$' + Math.round(v).toLocaleString('en-US')
@@ -37,7 +37,7 @@ function StatBody({ clientId, cfg, current, compare }: { clientId: string; cfg: 
     <div className={styles.statBody}>
       <div className={styles.statV}>{val}</div>
       {dl
-        ? <div className={deltaCls(dl.dir)}>{dl.text} vs {winLabel(compare!)}</div>
+        ? <div className={deltaCls(dl.dir)}>{dl.text} vs {winLabelPair(current, compare!)[1]}</div>
         : sub
           ? <div className={styles.roasBasis}>{sub}</div>
           : <div className={styles.muted}>{winLabel(current)}</div>}
@@ -141,8 +141,8 @@ function CompareLine({ clientId, current, compare }: { clientId: string; current
           <YAxis tick={{ fontSize: 11 }} width={48} tickFormatter={fmt} />
           <Tooltip formatter={(v: any) => fmt(Number(v))} />
           <Legend />
-          <Line type="monotone" dataKey="current" name={winLabel(current)} stroke="#2563eb" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="compare" name={winLabel(compare)} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+          <Line type="monotone" dataKey="current" name={winLabelPair(current, compare)[0]} stroke="#2563eb" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="compare" name={winLabelPair(current, compare)[1]} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>
@@ -216,8 +216,8 @@ function StoreTimeseriesBody({ clientId, cfg, current, compare }: { clientId: st
             <YAxis tick={{ fontSize: 11 }} width={48} tickFormatter={fmt} />
             <Tooltip formatter={(x: any) => fmt(Number(x))} />
             <Legend />
-            <Line type="monotone" dataKey="current" name={winLabel(current)} stroke="#2563eb" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="compare" name={winLabel(compare)} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+            <Line type="monotone" dataKey="current" name={winLabelPair(current, compare)[0]} stroke="#2563eb" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="compare" name={winLabelPair(current, compare)[1]} stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
