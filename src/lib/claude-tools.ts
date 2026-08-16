@@ -474,7 +474,58 @@ async function bindCoverage(result: any, ctx: { clientId: string; platforms: str
 export type ToolLoopResult = {
   responseText: string
   usage: { input: number; output: number; cache_create: number; cache_read: number; cache_create_5m: number; cache_create_1h: number }
+  /** LORAMER_TOOL_LOOP_EXHAUSTION_V1 — TRUE when the loop hit its turn cap with every turn still asking for a
+   *  tool, so the answer was FORCED out of the model with tools withheld. The answer is real (it is written
+   *  from the tool results already in hand) but it is BOUNDED: the model stopped mid-investigation. Callers
+   *  must record it. A truncation nobody records is indistinguishable from a complete answer — which is
+   *  exactly how H3-12 shipped a 78-character deflection to a user at HTTP 200. */
+  truncated?: boolean
+  /** WHY it stopped, because the two causes are DIFFERENT PRODUCT PROBLEMS and one number cannot show both:
+   *  'turn_cap'    — she still wanted more rounds than the cap allows ⇒ the cap is the thing to revisit.
+   *  'time_budget' — the wall clock ran out before the cap did ⇒ the cap is irrelevant; the turn is too slow.
+   *  Collapsing these into a single boolean is how you spend a quarter raising a cap that was never binding. */
+  truncationReason?: 'turn_cap' | 'time_budget'
 }
+
+// ── LORAMER_TOOL_LOOP_EXHAUSTION_V1 — THE CAP, SET FROM THE MEASURED DISTRIBUTION ────────────────────────
+// MEASURED 2026-08-16 over the FULL population in `lora_tool_decisions` (the LORAMER_LORA_TOOL_DECISION_LOG_V1
+// instrument, one row per loop turn), 2026-07-24 → 2026-08-16: 515 loops segmented on turn_index=0, of which
+// 509 were well-formed (6 dropped as interleaving artifacts of a fire-and-forget writer — 1.2%).
+//
+//   tool rounds │ loops │   %   │ cumulative
+//        0      │   70  │ 13.75 │  13.75      (no tool at all — a single create(), unchanged behavior)
+//        1      │  289  │ 56.78 │  70.53
+//        2      │   94  │ 18.47 │  89.00
+//        3      │   38  │  7.47 │  96.46
+//        4      │    9  │  1.77 │  98.23      ← the most rounds any turn has ever COMPLETED in
+//        5      │    9  │  1.77 │ 100.00      ← EXHAUSTED. Every turn asked for a tool; the loop ran out.
+//
+// ⛔ READ THE LAST ROW HONESTLY: it is not "9 turns needed 5 rounds". It is **CENSORED** — 9 turns needed
+// FIVE OR MORE and we have never once let one finish, so the true tail is UNKNOWN and unknowable from this
+// table. Fitting the decay (289→94→38→9, ratio ~0.24–0.40) predicts ~4.4 loops in the whole ≥5 tail; we
+// observe 9. The tail is roughly TWICE as heavy as the body's decay implies. **No cap value makes exhaustion
+// impossible.** That is why the forced final answer, not this number, is the fix — and why raising the cap
+// alone was rejected.
+//
+// 5 → 8 buys three rounds of headroom over the highest COMPLETED count (4) while the real binding constraint
+// becomes the wall clock below. **1.77% of every chat turn shipped a silent truncation** for as long as this
+// loop has existed; that is the defect being closed, and it is 9 real user turns, not the 1 the eval caught.
+export const TOOL_LOOP_MAX_TURNS = 8
+
+// ⛔ THE CAP IS NOT THE ONLY CEILING, AND ON THE SLOW TAIL IT IS NOT THE BINDING ONE.
+// MEASURED, same window, `anthropic_spend_log` (endpoint='chat', n=168 turns with duration_ms):
+//   p50 56.8s · p90 125.1s · p99 244.9s · MAX 408.4s — against a 440s client ceiling (CHAT_TOTAL_MS) and a
+//   500s route maxDuration. The worst real turn already lands within 32s of the client's abort.
+// So raising the turn cap WITHOUT a clock would trade a truncation for a DEAD SPINNER, which is strictly
+// worse: a bounded answer is an answer, an aborted turn is nothing. The loop therefore refuses to START a
+// new tool round unless this much time remains before the caller's deadline — the reserve that keeps the
+// forced final answer affordable. Sized above p90 (125.1s) because the forced call is a full 16k-token
+// answer with a warm prefix, i.e. output-bound, and the p99 tail is dominated by MULTI-round turns that
+// this single no-tools call is not.
+// ⚠ RESIDUAL, NAMED: the reserve is a budget, not a guarantee. A forced answer that itself runs past the
+// deadline still dies at the client. Shrinking that window further means capping max_tokens on the forced
+// call, which trades one truncation for another — not obviously better, and not decided here.
+export const FINAL_ANSWER_RESERVE_MS = 120_000
 
 // Capped Claude tool-use loop. Exposes query_metrics only when a clientId is in
 // scope. If the model calls no tool, this is a single create() - identical to the
@@ -541,6 +592,10 @@ export async function runClaudeToolLoop(opts: {
   // LORAMER_LORA_MODEL_CHAIN_V1 — per-request SDK options (maxRetries + timeout) supplied by the model chain, so
   // retry budget is owned by the caller that also owns the wall-clock deadline. Absent ⇒ SDK defaults, unchanged.
   requestOptions?: { maxRetries?: number; timeout?: number }
+  /** LORAMER_TOOL_LOOP_EXHAUSTION_V1 — epoch ms by which the CALLER must have its answer. The loop owns no
+   *  deadline of its own: only the route knows when its own client gives up. Absent ⇒ turn cap only (the
+   *  pre-existing behavior), which is why /api/insight can keep calling this unchanged. */
+  deadlineAt?: number
 }): Promise<ToolLoopResult> {
   const { anthropic, model, maxTokens, system, messages } = opts
   const clientId = opts.clientId || ''
@@ -571,11 +626,20 @@ export async function runClaudeToolLoop(opts: {
   // under-priced every 1h write by 37.5% for a week. `cache_create` stays as the TOTAL (the log column's
   // meaning is unchanged); the split rides beside it for pricing.
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0, cache_create_5m: 0, cache_create_1h: 0 }
-  const MAX = opts.maxToolTurns ?? 5
+  const MAX = opts.maxToolTurns ?? TOOL_LOOP_MAX_TURNS
 
   let out: any = null
   let last: any = null
+  let outOfTime = false
   for (let turn = 0; turn < MAX; turn++) {
+    // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — THE CLOCK GATE. Only reachable at turn>0, i.e. after a tool round has
+    // already run: turn 0 must always be attempted or the caller gets nothing at all. Breaking here leaves
+    // `out` null, so control lands in the SAME exhaustion handler as the turn cap — one exit, one forced
+    // answer, two reasons. This is what makes an 8-turn cap safe on a 440s leash.
+    if (turn > 0 && opts.deadlineAt && Date.now() + FINAL_ANSWER_RESERVE_MS > opts.deadlineAt) {
+      outOfTime = true
+      break
+    }
     const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
     if (tools) createParams.tools = tools
     const resp: any = opts.requestOptions
@@ -617,6 +681,50 @@ export async function runClaudeToolLoop(opts: {
     break
   }
 
+  // ⛔ LORAMER_TOOL_LOOP_EXHAUSTION_V1 — EXHAUSTION MUST NEVER RETURN A PREAMBLE AS THE ANSWER.
+  //
+  // THE DEFECT THIS CLOSES, measured on the 2026-08-16 post-wiring run (question H3-12): when EVERY one of the
+  // MAX turns ends in `stop_reason === 'tool_use'`, `out` is never assigned and `finalResp` fell back to
+  // `last` — the final TOOL-CALLING message, whose only text block is the model's lead-in sentence. The API
+  // itself documents that shape: "Claude often comments on what it's doing … before calling tools", with a
+  // text block sitting beside the tool_use block. So the user received, HTTP 200 and with no error of any
+  // kind, the 78-character string "Confirming exactly which campaigns carried impressions on the jump day
+  // itself." — after 92,185 input tokens and $0.68 of real work. A silent truncation is the worst shape a
+  // failure can take: it is indistinguishable from an answer.
+  //
+  // ⛔ RAISING THE CAP IS NOT THE FIX AND WAS REJECTED AS ONE — it moves the cliff, it does not remove it.
+  // THIS is the fix: on exhaustion, ask ONE more time with NO TOOLS, so the model must answer from the tool
+  // results it already has. `tool_choice: 'none'` is the documented way to forbid tool use ("prevents Claude
+  // from using any tools"); omitting `tools` entirely achieves the same and keeps the request simpler.
+  // ⚠ THE ANSWER MAY BE PARTIAL — she ran out of room — so the caller is TOLD (`truncated`), and the caller
+  // is what surfaces it. An exhausted turn that reports itself is a bounded answer; one that does not is a lie.
+  let truncated = false
+  let truncationReason: 'turn_cap' | 'time_budget' | undefined
+  if (!out) {
+    truncated = true
+    truncationReason = outOfTime ? 'time_budget' : 'turn_cap'
+    console.warn(`[chat] TOOL LOOP EXHAUSTED reason=${truncationReason} cap=${MAX} — forcing a final no-tools answer (LORAMER_TOOL_LOOP_EXHAUSTION_V1)`)
+    const finalParams: any = { model, max_tokens: maxTokens, system, messages: convo }
+    const forced: any = opts.requestOptions
+      ? await anthropic.messages.create(finalParams, opts.requestOptions)
+      : await anthropic.messages.create(finalParams)
+    // Accounting is a VERBATIM MIRROR of the per-turn block above, not a variant of it. The forced call is a
+    // real billed request — the run it was measured on spent $0.68 before reaching this point, and a turn that
+    // silently under-reports its own cost is the same class of defect as one that silently truncates.
+    const fu = forced.usage || {}
+    usage.input += fu.input_tokens || 0
+    usage.output += fu.output_tokens || 0
+    usage.cache_create += fu.cache_creation_input_tokens || 0
+    usage.cache_read += fu.cache_read_input_tokens || 0
+    if (fu.cache_creation && typeof fu.cache_creation === 'object') {
+      usage.cache_create_5m += fu.cache_creation.ephemeral_5m_input_tokens || 0
+      usage.cache_create_1h += fu.cache_creation.ephemeral_1h_input_tokens || 0
+    } else if (fu.cache_creation_input_tokens) {
+      usage.cache_create_1h += fu.cache_creation_input_tokens
+    }
+    out = forced
+  }
+
   const finalResp: any = out || last
   const responseText = finalResp
     ? (finalResp.content as any[])
@@ -625,7 +733,7 @@ export async function runClaudeToolLoop(opts: {
         .join('\n')
         .trim()
     : ''
-  return { responseText, usage }
+  return { responseText, usage, truncated, truncationReason }
 }
 
 // LORAMER_CHAT_STREAMING_V1 — the STREAMING twin of runClaudeToolLoop.
@@ -658,6 +766,8 @@ export async function runClaudeToolLoopStreaming(opts: {
   userEmail?: string | null
   maxToolTurns?: number
   requestOptions?: { maxRetries?: number; timeout?: number }
+  /** LORAMER_TOOL_LOOP_EXHAUSTION_V1 — see the blocking twin. Epoch ms; the route owns it, the loop obeys it. */
+  deadlineAt?: number
   emit: StreamEmit
   /** LORAMER_CHAT_STATUS_SUBJECT_V1 — the BOUND client's human name, already on the request body. Lets the
    *  status line name the client at single-client scope without a single extra query. */
@@ -712,7 +822,7 @@ export async function runClaudeToolLoopStreaming(opts: {
   // under-priced every 1h write by 37.5% for a week. `cache_create` stays as the TOTAL (the log column's
   // meaning is unchanged); the split rides beside it for pricing.
   const usage = { input: 0, output: 0, cache_create: 0, cache_read: 0, cache_create_5m: 0, cache_create_1h: 0 }
-  const MAX = opts.maxToolTurns ?? 5
+  const MAX = opts.maxToolTurns ?? TOOL_LOOP_MAX_TURNS
 
   // LORAMER_CHAT_STATUS_SUBJECT_V1 — id -> human name, resolved SERVER-side so no id reaches the browser.
   // TWO SOURCES, cheapest first:
@@ -738,7 +848,18 @@ export async function runClaudeToolLoopStreaming(opts: {
   }
 
   let last: any = null
+  // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — the turn that ENDED the loop (stop_reason !== 'tool_use'). Null after the
+  // loop means every turn asked for another tool, i.e. EXHAUSTION — the state this path had no way to represent
+  // before, which is exactly why it returned a preamble as the answer.
+  let ended: any = null
+  let outOfTime = false
   for (let turn = 0; turn < MAX; turn++) {
+    // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — THE CLOCK GATE, identical to the blocking twin's. Falls through to the
+    // same exhaustion handler below, so the user gets a real answer instead of the client's abort.
+    if (turn > 0 && opts.deadlineAt && Date.now() + FINAL_ANSWER_RESERVE_MS > opts.deadlineAt) {
+      outOfTime = true
+      break
+    }
     const createParams: any = { model, max_tokens: maxTokens, system, messages: convo }
     if (tools) createParams.tools = tools
 
@@ -844,12 +965,54 @@ export async function runClaudeToolLoopStreaming(opts: {
     }
 
     // FINAL turn — its deltas already streamed above. The route's `answer` event carries the authoritative text.
+    ended = resp
     break
   }
 
-  const finalResp: any = last
+  // ⛔ LORAMER_TOOL_LOOP_EXHAUSTION_V1 — THE STREAMING TWIN, AND IT WAS THE WORSE OF THE TWO.
+  // The blocking loop at least had an `out` that stayed null on exhaustion; this one assigned
+  // `const finalResp = last` UNCONDITIONALLY, so an exhausted stream returned the last tool-calling turn's
+  // preamble with no branch to notice. Both paths now force a final no-tools completion; both report it.
+  // ⚠ THE STREAM HAS ALREADY EMITTED that preamble as deltas, and the client demoted it to a STATUS LINE at
+  // the `tool` event above — so the forced answer is the FIRST real answer text the user sees, and the route's
+  // `answer` event (which carries the authoritative text) is what renders it. That ordering is why the fix is
+  // safe here: nothing the user has seen is contradicted, a status line is simply followed by an answer.
+  let truncated = false
+  let truncationReason: 'turn_cap' | 'time_budget' | undefined
+  if (!ended) {
+    truncated = true
+    truncationReason = outOfTime ? 'time_budget' : 'turn_cap'
+    console.warn(`[chat] TOOL LOOP EXHAUSTED reason=${truncationReason} cap=${MAX} streaming=true — forcing a final no-tools answer (LORAMER_TOOL_LOOP_EXHAUSTION_V1)`)
+    // The forced turn STREAMS like every other turn. A blocking create() here would have been simpler and
+    // wrong in the one place it matters: the user has just watched N status lines and would then sit on a dead
+    // line for the entire length of the answer — the exact defect LORAMER_CHAT_STATUS_FIRST_V1 exists to kill.
+    // NO `tools` on createParams — that is the whole mechanism. Without a tools array the model CANNOT emit a
+    // tool_use block, so this turn is guaranteed terminal; there is no second exhaustion to handle.
+    emit('status', { phase: 'composing', label: 'Working through the numbers…' })
+    const forcedParams: any = { model, max_tokens: maxTokens, system, messages: convo }
+    const forcedStream = opts.requestOptions
+      ? anthropic.messages.stream(forcedParams, opts.requestOptions)
+      : anthropic.messages.stream(forcedParams)
+    forcedStream.on('text', (t: string) => emit('delta', { text: t }))
+    const forced: any = await forcedStream.finalMessage()
+    // Accounting is a VERBATIM MIRROR of the per-turn block above — see the blocking twin's note.
+    const fu = forced.usage || {}
+    usage.input += fu.input_tokens || 0
+    usage.output += fu.output_tokens || 0
+    usage.cache_create += fu.cache_creation_input_tokens || 0
+    usage.cache_read += fu.cache_read_input_tokens || 0
+    if (fu.cache_creation && typeof fu.cache_creation === 'object') {
+      usage.cache_create_5m += fu.cache_creation.ephemeral_5m_input_tokens || 0
+      usage.cache_create_1h += fu.cache_creation.ephemeral_1h_input_tokens || 0
+    } else if (fu.cache_creation_input_tokens) {
+      usage.cache_create_1h += fu.cache_creation_input_tokens
+    }
+    ended = forced
+  }
+
+  const finalResp: any = ended || last
   const responseText = finalResp
     ? (finalResp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim()
     : ''
-  return { responseText, usage }
+  return { responseText, usage, truncated, truncationReason }
 }

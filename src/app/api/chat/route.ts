@@ -7,6 +7,7 @@ import { buildClaudeContext, buildClaudeContextCacheable, buildAgencyScopeContex
 import { runWithModelChain, AllModelsOverloadedError, provenanceNote } from '@/lib/lora-model-chain' // LORAMER_LORA_MODEL_CHAIN_V1
 import type { ClientIntelligence } from '@/lib/intelligence/intelligence-types'
 import { runClaudeToolLoop, runClaudeToolLoopStreaming } from '@/lib/claude-tools'  // LORAMER_QUERY_METRICS_SHARED_LOOP_V1
+import { CHAT_TOTAL_MS } from '@/lib/chat-stream-read' // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — the CLIENT's abort is the real deadline; imported, never re-typed, so the two cannot drift
 import { resolveAccess, listAccessibleClientsWithNames } from '@/lib/access/can-access'  // LORAMER_RBAC_ACCESS_ORG_V1 + LORAMER_AGENCY_SCOPE_LORA_V1 (RBAC-scoped roster)
 import { parsePersistTarget, parseUserTurnFlag, makeAssistantTurnWriter } from '@/lib/chat/persist-assistant-turn' // LORAMER_CHAT_SERVER_TURN_WRITE_V1 + LORAMER_CHAT_TURN_PAIR_WRITE_V1
 
@@ -361,13 +362,17 @@ export async function POST(request: Request) {
               userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
               clientName,  // LORAMER_CHAT_STATUS_SUBJECT_V1 — already on the body; lets the status line name the client with ZERO extra queries
               requestOptions,
+              // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — anchored on t0 (route entry), NOT on the loop's own start, because
+              // assembly time is spent out of the SAME budget the client is counting down. CHAT_TOTAL_MS is the
+              // client's AbortController ceiling: past it the answer is thrown away no matter how good it is.
+              deadlineAt: t0 + CHAT_TOTAL_MS,
               emit: emitRaw,
               // onFirstTurnStarted is gone WITH the race it served — nothing waits on the first token any
               // more. The loop's optional param stays (claude-tools.ts is deliberately untouched; it is on
               // the eval-sensitive list and an unused optional callback harms nothing).
             }),
         })
-        const { responseText, usage } = chain.value
+        const { responseText, usage, truncated, truncationReason } = chain.value
         const answered = chain.modelUsed
         const bodyText = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
         const finalText = chain.fellBack ? provenanceNote(answered, MODEL_CHAIN[0]) + bodyText : bodyText
@@ -393,6 +398,10 @@ export async function POST(request: Request) {
           total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,
           input: usage.input, cache_read: usage.cache_read, cache_create: usage.cache_create, output: usage.output,
           streaming: true, model: answered,
+          // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — ALWAYS EMITTED, including as `false`. A key that appears only on
+          // failure cannot be counted: `truncated:false` is what makes a RATE computable from these lines, and a
+          // rate is the only thing that would have shown 1.77% of turns were shipping preambles for three weeks.
+          truncated: !!truncated, truncation_reason: truncationReason ?? null,
         }))
         await logSpend({
           userEmail: session.user.email,
@@ -461,9 +470,10 @@ export async function POST(request: Request) {
           clientId,
           userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
           requestOptions,
+          deadlineAt: t0 + CHAT_TOTAL_MS, // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — see the streaming twin
         }),
     })
-    const { responseText, usage } = chain.value
+    const { responseText, usage, truncated, truncationReason } = chain.value
     const answered = chain.modelUsed
     // PROVENANCE (LORAMER_LIVE_VS_CAPTURED_ARE_TWO_SOURCES_V1, same law): a substituted model is NEVER silent.
     // Code-authored, not model-authored — the model cannot forget or soften a fact about its own substitution,
@@ -485,6 +495,8 @@ export async function POST(request: Request) {
       total_ms: Date.now() - t0, first_frame_ms: firstTokenMs, ...phases,
       input: usage.input, cache_read: usage.cache_read, cache_create: usage.cache_create, output: usage.output,
       streaming: false, model: answered,
+      // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — see the streaming twin. Always emitted, false included.
+      truncated: !!truncated, truncation_reason: truncationReason ?? null,
     }))
     logSpend({
       durationMs: Date.now() - t0,   // LORAMER_SPEND_LOG_DURATION_AND_CACHE_V1 — migration 058

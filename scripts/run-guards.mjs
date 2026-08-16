@@ -316,6 +316,10 @@ const GUARDS = [
   // LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — one composition home, junk-loses/vendor-wins precedence, the writer's
   // GAQL carries the material, the repair script stays double-gated, the live check stays rostered.
   'tests/guards/google-ad-name-compose.guard.mjs',
+  // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — a capped tool loop may not return the model's PREAMBLE as the answer.
+  // Both loops driven against a model that never stops asking for tools; forced tools-free final answer, the
+  // clock gate, and unconditional `truncated` telemetry on both route paths.
+  'tests/guards/tool-loop-exhaustion.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

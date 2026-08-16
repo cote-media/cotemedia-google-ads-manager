@@ -137,6 +137,12 @@ export async function POST(request: Request) {
       messages,
       clientId,
       userEmail: session.user.email,  // LORAMER_QUERY_METRICS_OWNERSHIP_V1
+      // LORAMER_TOOL_LOOP_EXHAUSTION_V1 — PINNED AT THE OLD DEFAULT, DELIBERATELY. The 5→8 raise was read off
+      // 509 CHAT loops; this surface has no maxDuration export of its own (it inherits the project default) and
+      // was never measured separately. Letting a shared constant silently lengthen a second route's worst case
+      // is exactly the drift the measurement was supposed to prevent. The exhaustion FIX still applies here —
+      // an exhausted insight follow-up now gets a forced final answer instead of a preamble.
+      maxToolTurns: 5,
     })
     const insight = responseText || 'I wasn\u2019t able to complete that request. Please try rephrasing.'
     console.log('[insight] cache (followup sonnet):', {
