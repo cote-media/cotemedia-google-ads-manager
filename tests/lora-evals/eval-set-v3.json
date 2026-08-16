@@ -378,9 +378,10 @@
    "message": "Give me the BEST / GOOD / LOW label for each individual PMax asset.",
    "assert": {
     "type": "boundary",
-    "rubric": "Per-asset performance labels are UI-ONLY in Google Ads API v23 \u2014 validator-confirmed, and recorded in our own code comment at google-intelligence.ts. They are not API-selectable at any date. A passing answer says the labels cannot be retrieved via the API and offers the combinations report (asset_group_top_combination_view) as the available substitute.",
-    "mustNotAssert": "Any BEST/GOOD/LOW label for a specific asset, or an implication that the labels could be fetched with a different date range or more quota. This is a capability wall, not a coverage gap."
-   }
+    "rubric": "RE-CERTIFIED 2026-08-15 FROM A LIVE PROBE (the premise was contested; it is now settled and it settles BOTH ways \u2014 docs/LORAMER_CAPTURE_FACTS.md \u00a75b-SETTLED). PMax per-asset performance LABELS are genuinely NOT retrievable on the API major we speak: `SELECT asset_group_asset.performance_label` returns query_error 32 'Unrecognized field in the query' \u2014 a field-existence refusal, on an account that really does have PMax (20 asset groups, channel type 10). So the core of the old rubric STANDS: a passing answer says the per-asset BEST/GOOD/LOW labels cannot be retrieved through the API and offers the combinations report (asset_group_top_combination_view) as the substitute. \u26d4 TWO CORRECTIONS TO THE OLD WORDING, both probe-established: (1) scope it to the API VERSION \u2014 'not selectable in the v23 API we run' \u2014 NOT 'at any date'; the cited Google page is v24-era and whether v24+ adds the field is unestablished, so an answer that scopes the wall to our version is MORE correct, not less. (2) per-asset METRICS on asset_group_asset ARE served (impressions/clicks/conversions selectable, 20 rows, no error) \u2014 an answer offering per-asset metrics as the substitute is CORRECT and must not be failed for it.",
+    "mustNotAssert": "Any BEST/GOOD/LOW label for a specific asset; an implication that the labels could be fetched with a different date range or more quota; or a claim that per-asset METRICS are unavailable (they are served)."
+   },
+   "notes": "RE-CERTIFIED 2026-08-15. The old rubric asserted labels are UI-only 'at any date' from a code comment whose OTHER half ('per-asset raw metrics also not exposed') the probe FALSIFIED. CAPTURE_FACTS \u00a75b had flagged this rubric as possibly mis-specified and forbidden adopting either side until a probe settled it; the probe (5 GAQL requests, Foam OH) settled it. Lora's baseline answer still fails \u2014 she attributed the missing labels to an unrun capture walk and zero serving volume, i.e. a coverage gap, when it is a capability wall \u2014 but it fails for a reason the rubric can now state truthfully. src: \u2605MISCAVEATED-VENDOR-RETENTION re-scope, 2026-08-15."
   },
   {
    "id": "A20",
@@ -666,11 +667,12 @@
    "message": "What was Shopify revenue in 2025 versus 2024, full year?",
    "assert": {
     "type": "boundary",
-    "rubric": "A passing answer states that neither year is fully covered before offering any comparison, and does not present a full-year revenue delta as complete. Naming which months are missing is a strong pass.",
-    "mustNotAssert": "A clean full-year 2025-vs-2024 revenue figure or growth percentage presented without a coverage caveat."
+    "rubric": "RE-CERTIFIED 2026-08-15 FROM THE WAREHOUSE — THE OLD RUBRIC WAS FALSE AND ITS DEMANDED CAVEAT WOULD HAVE BEEN A LIE. Foam OH shopify holds BOTH years COMPLETE: 366/366 days of 2024 and 365/365 days of 2025. The correct answer is the clean comparison, warehouse-verified 2026-08-15: 2024 net $1,610,860.36 · 2025 net $1,062,971.05 · −34.0%. A passing answer gives those figures (within tolerance) as a complete, covered comparison; naming the T+1 frontier or the refund-date basis is a bonus, never a requirement.",
+    "mustNotAssert": "A claim that either year is incompletely covered (both are complete), or a manufactured coverage caveat over fully-captured ground."
    },
-   "advType": "coverage-gap",
-   "coverageDerivation": "Foam OH shopify base-complete is PARTIAL in BOTH years: 2024 is missing 2024-07; 2025 is missing 2025-01, 2025-02 and 2025-10."
+   "advType": "correctness",
+   "coverageDerivation": "RE-DERIVED 2026-08-15 FROM metrics_daily: 2024 366/366 days present, 2025 365/365. The prior derivation ('2024 is missing 2024-07; 2025 is missing 2025-01, 2025-02 and 2025-10') came from a base-complete-MONTHS audit artifact and is FALSIFIED — each of those four months was spot-read at mid-month and holds rows with revenue (2024-07 $1,311.15 · 2025-01 $468 · 2025-02 $953 · 2025-10 present).",
+   "notes": "RE-CERTIFIED 2026-08-15. The 2026-08-14 baseline graded Lora CORRECT_BUT_MISCAVEATED for giving a clean full-year delta — and her −34.0% matches the warehouse to the decimal. The rubric, not the answer, was the defect. FIFTH instance of the class LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1 was banked for (already counted there; not a new instance). advType moved coverage-gap → correctness, because there is no gap to test. src: ★MISCAVEATED-VENDOR-RETENTION re-scope, 2026-08-15."
   },
   {
    "id": "C4",
