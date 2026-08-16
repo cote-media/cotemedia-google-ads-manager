@@ -5,7 +5,9 @@
 
 .toolbar { display: flex; align-items: center; gap: 10px; margin: 4px 0 10px; flex-wrap: wrap; }
 .toolRight { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.viewSel { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
+/* LORAMER_NEXT_FOCUSABLE_16PX_V1 — 16px is the iOS auto-zoom floor (DECISIONS:599, measured 1.1431818×);
+   padding raised with it so the control clears WCAG 2.2 SC 2.5.8's 24px target with room. */
+.viewSel { font: inherit; font-size: 16px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
 .tool, .toolOn { font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #334155; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
 .toolOn { background: #0f172a; color: #fff; border-color: #0f172a; }
 .tool:hover { background: #f8fafc; }
@@ -63,7 +65,9 @@
 .panelBody { flex: 1; overflow: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
 .panelFoot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #eef0f3; }
 .fLabel { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
-.sel { font: inherit; font-size: 13px; padding: 7px 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; width: 100%; }
+/* LORAMER_NEXT_FOCUSABLE_16PX_V1 — the config panel is where a user TYPES, so it is the most zoom-prone of
+   the three; same 16px floor, same reason (DECISIONS:599). */
+.sel { font: inherit; font-size: 16px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; width: 100%; }
 .seg { display: flex; gap: 4px; }
 .segBtn, .segOn { flex: 1; font: inherit; font-size: 12px; padding: 6px 4px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #475569; cursor: pointer; text-transform: capitalize; }
 .segOn { background: #2563eb; color: #fff; border-color: #2563eb; }
@@ -72,7 +76,9 @@
 
 /* RESHAPE — header controls, full-screen, compare, dual-corner resize */
 .customRow { display: inline-flex; align-items: center; gap: 5px; }
-.dateIn { font: inherit; font-size: 12px; padding: 5px 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
+/* LORAMER_NEXT_FOCUSABLE_16PX_V1 — <input type="date"> opens the PLATFORM calendar; at 12px the tap that
+   opened it zoomed the page first (DECISIONS:599). The picker was never the problem, its trigger was. */
+.dateIn { font: inherit; font-size: 16px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
 .checkRow { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #334155; cursor: pointer; padding: 2px 0; }
 .ovIcon { font-size: 12px; color: #2563eb; margin-left: 5px; }
 .tsToggle { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; }

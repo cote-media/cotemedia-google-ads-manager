@@ -89,6 +89,10 @@ const GUARDS = [
   'tests/guards/one-working-indicator.guard.mjs',
   'tests/guards/chat-deadline-margin.guard.mjs',
   'tests/guards/lora-thread-shared.guard.mjs',
+  // LORAMER_NEXT_FOCUSABLE_16PX_V1 — the card surface's focusable controls must clear the 16px iOS auto-zoom
+  // floor DECISIONS:599 banked for the chat composer and nobody ever applied here. Registered the same day it
+  // was written: an unregistered guard never runs.
+  'tests/guards/next-focusable-16px.guard.mjs',
   'tests/guards/chat-screen-tracks-server.guard.mjs',
   'tests/guards/lora-back-parity.guard.mjs',
   'tests/guards/chat-status-truthful.guard.mjs',
