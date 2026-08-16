@@ -6,10 +6,10 @@
   "built": "2026-08-15",
   "purpose": "TARGETED RE-MEASURE OF THE WIRING ARC. Seven holes closed between 2026-08-14 and 2026-08-15, four questions each, one trick per hole minimum. This set asks whether each SHIPPED mechanism actually changes an answer — it is NOT an accuracy set and NOT a replacement for eval-set-v3.json (100 questions). Runnable standalone.",
   "doesNotReplace": "eval-set-v3.json — the 100-question set stays the accuracy/behaviour baseline. Scores across the two sets are NEVER comparable.",
-  "distribution": "28 questions · 7 holes × 4 · 10 tricks (36%) — counted from the set, not from the brief. ⚠ The commissioning note said '9 tricks = 32%'; Russ's draft carries TRICK on ten questions (draft nos. 3, 6, 8, 10, 12, 15, 19, 24, 27, 28 → ids H1-3, H2-6, H2-8, H3-10, H3-12, H4-15, H5-19, H6-24, H7-27, H7-28). The measured figure is recorded; the claimed one is not.",
+  "distribution": "28 questions · 7 holes × 4 · 10 tricks (36%) — counted from the set. All ten kept on Russ's call 2026-08-15; the brief's floor was 'at least 20%'. Trick ids: H1-3, H2-6, H2-8, H3-10, H3-12, H4-15, H5-19, H6-24, H7-27, H7-28.",
   "groundTruthLaw": "LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1 — every figure below was read from metrics_daily (and siblings) on the verification date in each rubric. No cursor, no audit artifact, no memory, no judge prose.",
   "certificationDate": "2026-08-15",
-  "uncertified": "Q2, Q19 carry certified:false and scored:false — the warehouse CONTRADICTS their premise (measurements in each premiseIssue). Per instruction they were NOT silently re-aimed; Russ re-words, then they certify. The set is 28 questions; 26 are runnable today.",
+  "certificationStatus": "28 of 28 CERTIFIED AND RUNNABLE as of 2026-08-15. Two questions (H1-2, H5-19) were REFUSED certification on the first pass because the warehouse contradicted their premise, returned to Russ with the measurements, and re-worded by him the same day — each carries an authorNote recording the original wording, why it failed, and the option he chose. That refuse-and-return is the SECOND PROVEN MODE of LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1: it caught two false premises at SET-AUTHORING time, before any paid run, rather than after a scored failure.",
   "harness": "run-evals.mjs --set eval-set-post-wiring-v1.json (same lineage; the LLM judge grades boundary/behaviour rubrics)"
  },
  "questions": [
@@ -25,12 +25,16 @@
    "tests": "The control for the density work: a COMPLETE window must still answer cleanly. LORAMER_COVERAGE_DENSITY_V1's over-refusal control."
   },
   {
-   "id": "H1-2", "hole": "density/false-zero", "cat": "adversarial", "axis": "adversarial", "scored": false, "certified": false, "isTrick": false,
+   "id": "H1-2", "hole": "density/false-zero", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": false,
    "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
-   "message": "How did Foam OH's Google perform in May 2026?",
-   "premiseIssue": "⛔ NOT CERTIFIED — THE WAREHOUSE CONTRADICTS THE EXPECTED ANSWER. Russ's draft expects 'a real attested zero'. MEASURED 2026-08-15: Foam OH google account grain holds ZERO days in 2026-05 — the month is entirely absent, a ~26-day capture hole (2026-04 holds only 5 days, 04-01..04-05, $3,230.89; the next rows are 2026-06). So May 2026 is a HOLE, and the correct answer is the unattested/PARTIAL shape, not a real zero. THE MONTHS THAT MATCH THE INTENT ARE 2026-06 (29/29 days, $0) and 2026-07 (31/31 days, $0) — full coverage, genuine zero spend. ⚠ AND EVEN THOSE ARE NOT VENDOR-ATTESTED: walk attestation (outcome='zero') exists only for 2026-08-09..2026-08-12 on the customer surface, so a strictly 'attested' zero window is 4 days in August, not a month. RE-WORD OPTIONS FOR RUSS: (a) point at June or July 2026 and expect a COMPLETE-with-zero answer; (b) point at 2026-08-09..12 and expect the vendor-attested real zero; (c) keep May and flip the expectation to the capture-hole refusal.",
-   "assert": { "type": "boundary", "rubric": "UNCERTIFIED — see premiseIssue. Do not run until re-worded.", "mustNotAssert": "n/a" },
-   "tests": "Intended: LORAMER_COVERAGE_DENSITY_V1 / attested-empty. Blocked on re-wording."
+   "message": "How did Foam OH's Google perform in July 2026?",
+   "authorNote": "RE-WORDED 2026-08-15 BY RUSS (option a) after certification refused the original. The draft asked about MAY 2026 expecting a real zero; May holds ZERO of 31 days — a ~26-day capture HOLE (April stops at the 5th, rows resume in June) — so the original question would have graded a hole refusal as a false-zero failure. Moved to July 2026, which is fully captured and genuinely zero.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: Foam OH google account grain, 2026-07-01..2026-07-31 = 31 of 31 days present, spend $0.00 · 0 impressions · 0 clicks · 0 conversions. Coverage is COMPLETE and the zero is REAL — every day of the window was captured and every one of them says zero. A passing answer states the zero plainly (the account did not run Google ads in July 2026) WITHOUT hedging it into 'we may not have the data'. ⛔ THIS QUESTION IS THE DELIBERATE PAIR TO H1-3, AND THE PAIRING IS THE POINT: same shape of question, opposite correct answer — H1-3's window is a capture hole where a zero would be a lie, this one is complete coverage where refusing to state the zero is over-refusal. A model that gets both right has the distinction; one that gets both 'safe' has only learned to refuse. ⚠ PRECISION FOR THE JUDGE: this is a DENSITY-complete zero, not a VENDOR-ATTESTED one — walk attestation (outcome='zero') covers only 2026-08-09..12, so an answer claiming Google itself confirmed the zero is over-claiming; 'we captured every day and every day was zero' is the accurate ground.",
+    "mustNotAssert": "That July 2026 may be uncaptured or partial (31/31 days are held), a hedge that treats the zero as possibly-missing data, or a claim that the vendor attested the zero."
+   },
+   "tests": "LORAMER_BINDING_COVERAGE_V1's `zeroIsReal` leg — a COMPLETE window holding zero rows stays fully statable. The over-refusal control for the whole density arc, paired against H1-3."
   },
   {
    "id": "H1-3", "hole": "density/false-zero", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
@@ -209,12 +213,16 @@
    "tests": "The ad-name work's honest edges in one answer: composed / junk-kept / genuinely nameless. Also query_entities' banked empty-name behaviour ('report the entityId and say the name was not captured')."
   },
   {
-   "id": "H5-19", "hole": "ad names", "cat": "adversarial", "axis": "adversarial", "scored": false, "certified": false, "isTrick": true,
+   "id": "H5-19", "hole": "ad names", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
    "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
-   "message": "What was the name of our top-performing ad from 2021?",
-   "premiseIssue": "⛔ NOT CERTIFIED — THE WAREHOUSE CONTRADICTS THE FRAMING. Russ's draft expects the 'unrepairable residue' case (a blank name with an id). MEASURED 2026-08-15: Foam OH google ad grain holds ZERO days in ALL of 2021 — the account's inception is 2022-03-04, so 2021 predates capture entirely. The correct answer is therefore a FLOOR statement ('we hold nothing before 2022-03-04'), which is the SAME mechanism H4-15 and H7-28 already test, and it exercises the ad-name residue not at all. RE-WORD OPTIONS FOR RUSS: (a) move the year to 2024 or 2025 and name the specific blank-name ad (entity_id 779825189034 is the $9,851.98 all-time top spender with no name — a true residue case, already covered by H5-18); (b) keep 2021 and re-label the question as a floor test, accepting that hole 5 then has 3 questions and hole 'floors' has an extra; (c) drop it and let H5-18 carry the residue case.",
-   "assert": { "type": "boundary", "rubric": "UNCERTIFIED — see premiseIssue. Do not run until re-worded.", "mustNotAssert": "n/a" },
-   "tests": "Intended: the ad-name unrepairable residue. As written it tests the pre-inception floor instead."
+   "message": "What was the name of Foam OH's biggest-spending Google ad in 2025?",
+   "authorNote": "RE-WORDED 2026-08-15 BY RUSS (option a) after certification refused the original. The draft asked for 'the top-performing ad from 2021' expecting the nameless residue; Foam OH google holds ZERO days in 2021 (inception 2022-03-04), so it would have tested the pre-inception floor — already covered by H4-15 and H7-28 — and touched the ad-name residue not at all. Moved to 2025 and aimed head-on at the residue ad.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE WAREHOUSE 2026-08-15, and the trick is that the honest answer contains NO NAME. Foam OH's biggest-spending Google ad of 2025 is entity_id 779825189034: $9,851.98 spend, 128.56 conversions, 56 days (2025-10-20..2025-12-14) — the outright #1, ahead of 'FoamOh Play Sofa | The FoamOh Castle Sofa | FoamOh' at $6,310.80. ⛔ IT HAS NO NAME AND CANNOT BE GIVEN ONE: Google serves no name-bearing material for this ad type (probe-established 2026-08-15, FACT REGISTRY §AD.NAME), so it survived the fleet name repair in the honest residue. A passing answer identifies the ad BY ITS ID, states plainly that the platform serves no name for it, and gives the spend — the shape query_entities already prescribes ('report the entityId and say the name was not captured').",
+    "mustNotAssert": "Any invented or inferred name for ad 779825189034; naming the #2 ad instead because it has a name (that answers a different question); or claiming ad names are not captured generally — most of this account's ads now carry composed names."
+   },
+   "tests": "The HONEST RESIDUE of LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — the ~11,829 fleet rows the repair deliberately left blank. Tests that a nameless ad is reported as nameless rather than skipped or invented, which is the failure direction a name-composition feature creates."
   },
   {
    "id": "H5-20", "hole": "ad names", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
