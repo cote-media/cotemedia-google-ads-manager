@@ -94,6 +94,22 @@ Precedent: "a green check answers a narrower question than the reader assumes" w
 
 THE LIMIT, stated plainly: these are refusals by a model reading instructions — STRONGER than prose the strategy Claude reads (you re-read this every session; you are the last thing between an instruction and the repo), WEAKER than a build guard (which cannot be talked out of it). The real, un-talk-out-of-able version is a script (`check-doc-ownership.mjs`: grep owned facts, fail the build) — QUEUED as ★DOC-OWNERSHIP-GUARD, NOT built now.
 
+## ⛔ THE SEAMS GATE — LORAMER_SEAMS_PROOF_V1 (this binds YOU, Claude Code, on every rebuild-adjacent flight)
+
+**When a flight changes a thing OTHER CODE ALREADY READS OR WRITES, Gate-A is not done until you have NAMED every existing reader and writer of that thing and PROVEN each one still sees it correctly. In the same gate. Not the next flight.**
+
+Before you write the Gate-A plan, answer in one line each: *what else reads this? what else writes this? which of them did I just prove?* If the answer to the third is "none", the plan is incomplete — go back.
+
+WHY, and it is not a hypothetical: **all four defects found in the 2026-08-13→16 arc were seams with the old system, and no brief had ever asked for that proof.**
+- the fleet meter summed only the dead v1 ledger while the walk billed into v2 — a new writer, an old reader
+- the Deploy-2 rows counter read a DISABLED PostgREST aggregate and silently yielded 0 — a new reader, an old ceiling
+- both tool loops returned a preamble on exhaustion — a new cap, an unexamined exit path
+- ad names were composed at one writer while another wrote blanks
+
+⛔ **"WE FOUND IT" IS NOT THE VIRTUE. IT SHOULD NOT HAVE BROKEN.** Russ's correction, banked verbatim: finding a defect you introduced is not a win, it is the cost of not having looked at the seam. A flight that ships a new producer without walking its consumers has not finished, however green its own gate reads.
+
+THE LIMIT, stated so nobody mistakes this for a guard: **no build check can see this.** It governs what a PLAN must contain, and plans are not in the repo. The enforcer is you, refusing your own Gate-A when the seam question is unanswered — which is exactly the posture of the IN-FLIGHT and DOC-OWNERSHIP gates above. (DECISIONS `LORAMER_SEAMS_PROOF_V1` owns the full reasoning; QUEUE ★SEAMS-GATE-HAS-NO-MECHANICAL-ENFORCER carries the unbuilt half.)
+
 ## Read these first
 
 This is **LoraMer** — an active, multi-week, multi-hundred-commit build of a business intelligence platform for marketing agencies. The repo carries its own institutional memory; do not design or patch anything non-trivial before consulting:
