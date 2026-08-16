@@ -44,6 +44,13 @@ for (const l of readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n')) {
 const EXECUTE = process.argv.includes('--execute')
 const argOf = (name) => { const i = process.argv.indexOf(name); return i > -1 ? process.argv[i + 1] : undefined }
 const ONLY_CLIENT = argOf('--client')
+// ⛔ LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 — EXCLUSION IS A FLAG, NOT A HAND-EDITED MANIFEST. The 2026-08-15 fleet
+// run had to skip client 2617b163 — the RMF-FROZEN demo twin, CONTINUE_HERE §4; identity verified against the
+// registry, src/lib/clients/canonical.ts (a client NAME is not an identifier, and "Influential Drones" names
+// TWO ids — the other, 5bb9b2ff, is the live client and WAS repaired). Filtering the JSON by hand would have
+// broken the property the execute path depends on — that the manifest is EXACTLY a dry-run output — so the
+// skip happens at BUILD time and is recorded in the manifest's own `excluded` field.
+const EXCLUDE = (argOf('--exclude') || '').split(',').map((s) => s.trim()).filter(Boolean)
 const MANIFEST_PATH = argOf('--manifest') || './ad-name-repair-manifest.json'
 if (EXECUTE && process.env.LORAMER_REPAIR_CONFIRM !== 'ad-names') {
   console.error('⛔ REFUSING --execute: LORAMER_REPAIR_CONFIRM=ad-names is not set. The execution is Russ-gated by design.')
@@ -106,12 +113,13 @@ async function main() {
   const { data: conns, error: cErr } = await q
   if (cErr) { console.error(`✗ connection read failed: ${cErr.message}`); process.exit(1) }
 
-  const manifest = { builtAt: null, note: 'ad-name repair manifest — dry-run output; --execute applies EXACTLY this. Reversal = oldName.', clients: [] }
+  const manifest = { builtAt: null, note: 'ad-name repair manifest — dry-run output; --execute applies EXACTLY this. Reversal = oldName.', excluded: EXCLUDE, clients: [] }
   let vendorRequests = 0, totalRows = 0, totalRepairable = 0, totalUnrepairable = 0
 
   for (const conn of conns || []) {
     const client = conn.clients
     if (!client || client.deleted_at) continue
+    if (EXCLUDE.includes(conn.client_id)) { console.log(`  ${client.name} (${conn.client_id}): EXCLUDED by --exclude — skipped entirely, 0 vendor requests, 0 rows in the manifest`); continue }
     // Target rows: '' or junk names, base ad grain, grouped per ad.
     // ⛔ PAGINATED — PostgREST caps a single read at 1,000 rows on this project, and the first dry run of this
     // very script read EXACTLY 1,000 of Foam OH's 3,727 ad-grain rows and reported the truncation as a total
