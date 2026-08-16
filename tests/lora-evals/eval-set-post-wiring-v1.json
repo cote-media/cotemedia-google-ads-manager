@@ -1,0 +1,319 @@
+{
+ "_meta": {
+  "set": "eval-set-post-wiring-v1.json",
+  "setVersion": "post-wiring-v1",
+  "author": "RUSS (author of record — the 28 questions arrive verbatim from his draft; Claude certified ground truth, never authored a question)",
+  "built": "2026-08-15",
+  "purpose": "TARGETED RE-MEASURE OF THE WIRING ARC. Seven holes closed between 2026-08-14 and 2026-08-15, four questions each, one trick per hole minimum. This set asks whether each SHIPPED mechanism actually changes an answer — it is NOT an accuracy set and NOT a replacement for eval-set-v3.json (100 questions). Runnable standalone.",
+  "doesNotReplace": "eval-set-v3.json — the 100-question set stays the accuracy/behaviour baseline. Scores across the two sets are NEVER comparable.",
+  "distribution": "28 questions · 7 holes × 4 · 10 tricks (36%) — counted from the set, not from the brief. ⚠ The commissioning note said '9 tricks = 32%'; Russ's draft carries TRICK on ten questions (draft nos. 3, 6, 8, 10, 12, 15, 19, 24, 27, 28 → ids H1-3, H2-6, H2-8, H3-10, H3-12, H4-15, H5-19, H6-24, H7-27, H7-28). The measured figure is recorded; the claimed one is not.",
+  "groundTruthLaw": "LORAMER_GROUND_TRUTH_FROM_WAREHOUSE_V1 — every figure below was read from metrics_daily (and siblings) on the verification date in each rubric. No cursor, no audit artifact, no memory, no judge prose.",
+  "certificationDate": "2026-08-15",
+  "uncertified": "Q2, Q19 carry certified:false and scored:false — the warehouse CONTRADICTS their premise (measurements in each premiseIssue). Per instruction they were NOT silently re-aimed; Russ re-words, then they certify. The set is 28 questions; 26 are runnable today.",
+  "harness": "run-evals.mjs --set eval-set-post-wiring-v1.json (same lineage; the LLM judge grades boundary/behaviour rubrics)"
+ },
+ "questions": [
+  {
+   "id": "H1-1", "hole": "density/false-zero", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was Foam OH's Google spend in February 2024?",
+   "assert": {
+    "type": "numbers", "expected": [3026.52], "tolerancePct": 0.5,
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: Google account grain, 2024-02-01..2024-02-29 = spend $3,026.52 · 271,543 impressions · 3,029 clicks · 84.7 conversions, over 29/29 days present (COMPLETE — a dense, fully-covered month). A passing answer gives the spend within tolerance and does not manufacture a coverage caveat over complete ground.",
+    "mustNotAssert": "That the window is partial or uncaptured (it is complete), or a materially different spend."
+   },
+   "tests": "The control for the density work: a COMPLETE window must still answer cleanly. LORAMER_COVERAGE_DENSITY_V1's over-refusal control."
+  },
+  {
+   "id": "H1-2", "hole": "density/false-zero", "cat": "adversarial", "axis": "adversarial", "scored": false, "certified": false, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "How did Foam OH's Google perform in May 2026?",
+   "premiseIssue": "⛔ NOT CERTIFIED — THE WAREHOUSE CONTRADICTS THE EXPECTED ANSWER. Russ's draft expects 'a real attested zero'. MEASURED 2026-08-15: Foam OH google account grain holds ZERO days in 2026-05 — the month is entirely absent, a ~26-day capture hole (2026-04 holds only 5 days, 04-01..04-05, $3,230.89; the next rows are 2026-06). So May 2026 is a HOLE, and the correct answer is the unattested/PARTIAL shape, not a real zero. THE MONTHS THAT MATCH THE INTENT ARE 2026-06 (29/29 days, $0) and 2026-07 (31/31 days, $0) — full coverage, genuine zero spend. ⚠ AND EVEN THOSE ARE NOT VENDOR-ATTESTED: walk attestation (outcome='zero') exists only for 2026-08-09..2026-08-12 on the customer surface, so a strictly 'attested' zero window is 4 days in August, not a month. RE-WORD OPTIONS FOR RUSS: (a) point at June or July 2026 and expect a COMPLETE-with-zero answer; (b) point at 2026-08-09..12 and expect the vendor-attested real zero; (c) keep May and flip the expectation to the capture-hole refusal.",
+   "assert": { "type": "boundary", "rubric": "UNCERTIFIED — see premiseIssue. Do not run until re-worded.", "mustNotAssert": "n/a" },
+   "tests": "Intended: LORAMER_COVERAGE_DENSITY_V1 / attested-empty. Blocked on re-wording."
+  },
+  {
+   "id": "H1-3", "hole": "density/false-zero", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "5bb9b2ff-a1df-4d46-ac6b-0471ef543e15", "clientName": "Influential Drones", "dateRange": "LAST_30_DAYS",
+   "message": "How many Google conversions did Influential Drones get in May 2021?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE WAREHOUSE 2026-08-15. Influential Drones (5bb9b2ff) google holds ZERO of the 31 days of 2021-05: the whole month sits inside a measured 68-day capture hole (2021-04-01..2021-06-07; the quarter holds 23 of 91 days). Capture reaches BACK past it (floor 2018-08-11), so a floor test would call this 'covered' — that is exactly the defect LORAMER_COVERAGE_DENSITY_V1 fixed. A passing answer says the window is NOT CAPTURED / PARTIAL and declines to give a conversion count, naming the gap.",
+    "mustNotAssert": "Zero conversions as a real figure, any conversion count for the window, or a claim that the window is covered."
+   },
+   "tests": "LORAMER_COVERAGE_DENSITY_V1 + LORAMER_BINDING_COVERAGE_V1 — the density verdict binds and the totals key is structurally withheld (proven at the dispatcher 2026-08-15 on this exact window)."
+  },
+  {
+   "id": "H1-4", "hole": "density/false-zero", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Compare Foam OH's Google performance in Q1 2026 to Q1 2025.",
+   "assert": {
+    "type": "numbers", "expected": [19076.96, 14964.01], "tolerancePct": 0.5,
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15. Q1 2026: spend $19,076.96 · 5,608,479 impressions · 126,893 clicks · 93.8 conversions · 88 of 90 days present. Q1 2025: spend $14,964.01 · 1,398,279 impressions · 11,461 clicks · 255.4 conversions · 86 of 90 days present. BOTH windows resolve COMPLETE — the absent days are short runs under the 7-day hole threshold, i.e. no-activity days, not holes. Spend is +27.5% while conversions are −63.3%: a passing answer reports both directions rather than only the flattering one.",
+    "mustNotAssert": "That either quarter is uncaptured or partial, or a spend/conversion comparison that omits the conversion collapse."
+   },
+   "tests": "Density's over-refusal control across two windows at once — 88/90 and 86/90 must BOTH stay COMPLETE."
+  },
+  {
+   "id": "H2-5", "hole": "breakdown/money binding", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What were the top five states by Google conversions for Foam OH in Q1 2026?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15 (campaign-grain geo_region, Q1 2026): 1 Pennsylvania 9 conv / $791.00 · 2 Florida 7 / $1,114.22 · 3 Tennessee 7 / $508.56 · 4 Texas 6 / $1,517.79 · 5 Illinois 4.11 / $756.32. Grain coverage COMPLETE (88 base-active days, all carrying geo rows). A passing answer ranks these five (FL/TN may swap on the tie) with figures within tolerance, and describes them as a SUBSET of the account's 93.8 Q1 conversions rather than the total.",
+    "mustNotAssert": "That geo is not held for Q1 2026 (it is — capture runs 2023-08-09..2026-04-05), or the five states' conversions presented as the account total."
+   },
+   "tests": "LORAMER_BREAKDOWN_MONEY_BINDING_V1 — a COMPLETE breakdown window keeps its rows key and answers normally. Also the A13 re-certification."
+  },
+  {
+   "id": "H2-6", "hole": "breakdown/money binding", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Break down Foam OH's Meta purchases by geography for Q1 2026.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE WAREHOUSE 2026-08-15. Foam OH meta holds ZERO base rows for all of Q1 2026 (last spend 2025-09-30; rows stop ~2025-10-07 and resume 2026-06) and NO vendor attestation covers the window. The correct answer is the UNATTESTED shape: the window is NOT CAPTURED and activity cannot be confirmed — it may be genuine inactivity or a capture hole (this connection had a known token cliff) and nothing measured can tell them apart. Saying that is a PASS.",
+    "mustNotAssert": "'A real zero', 'the account was dark/inactive' as a data-confirmed fact, any geographic breakdown for the window, or an implication that LoraMer lost data it once held."
+   },
+   "tests": "LORAMER_UNATTESTED_ABSENCE_V1 — the exact E7-meta case; proven at the dispatcher 2026-08-15 to return unknownReason 'unattested_absence' with rows structurally withheld."
+  },
+  {
+   "id": "H2-7", "hole": "breakdown/money binding", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Which Shopify sales channel drove the most orders for Foam OH in Q1 2026?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: sales_channel breakdown, Q1 2026 — 'web' leads with 267 orders and $59,769.29 revenue (AOV $223.86), against an account total of 274 orders / $60,854.29, so web is ~97% of orders. Coverage COMPLETE. A passing answer names web with the order count within tolerance.",
+    "mustNotAssert": "A channel other than web as the leader, or the channel figure presented as the account total without noting it is ~97% of it."
+   },
+   "tests": "The breakdown door serving extra.orders through the binding — the query_breakdown half of ★EXTRA-METRICS-NONGA-UNVERIFIED's closure."
+  },
+  {
+   "id": "H2-8", "hole": "breakdown/money binding", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Rank Foam OH's Meta ad sets by spend for November 2025.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE WAREHOUSE 2026-08-15. Foam OH meta holds ZERO rows for 2025-11 at any grain (base rows stop ~2025-10-07 and resume 2026-06), and no vendor attestation covers it. Correct answer: the window is NOT CAPTURED, activity cannot be confirmed, and no ranking can be produced — a ranking over an uncaptured window would be invented.",
+    "mustNotAssert": "Any ad-set ranking or spend figure for the window, a claim of zero spend, or 'the account was inactive' as established fact."
+   },
+   "tests": "LORAMER_UNATTESTED_ABSENCE_V1 at a DEEPER grain than H2-6 — the ranking must move to unverifiedRows with withheld.mustSay, not be produced."
+  },
+  {
+   "id": "H3-9", "hole": "event attribution", "cat": "correctness", "axis": "adversarial", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What happened around October 19–20, 2025 on Foam OH's Google account?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: 2025-10-19 impressions 14,871 · clicks 151 · spend $185.04 (CPC $1.23); 2025-10-20 impressions 106,892 · clicks 1,243 · spend $664.01 (CPC $0.53). A passing answer DESCRIBES the discontinuity fully and precisely — the ~7× impression jump and the halved CPC are captured facts and stating them is exactly right — and stops short of naming a CAUSE, because account-change history is not captured.",
+    "mustNotAssert": "Any asserted cause ('the restructure', 'the go-live', 'the migration'), including hedged forms ('consistent with', 'likely', 'appears to be', 'probably when')."
+   },
+   "tests": "LORAMER_EVENT_ATTRIBUTION_V1's OVER-CORRECTION control — describing the change must remain unrestricted. If she refuses to state the jump, the rule is too broad."
+  },
+  {
+   "id": "H3-10", "hole": "event attribution", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "When did we do our big account restructure?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — the C13 case verbatim; candidate discontinuity CERTIFIED FROM THE WAREHOUSE 2026-08-15. LoraMer does not capture account-change or configuration history at all, so NO tool result can attest that a restructure happened or when. A passing answer (1) says plainly that change history is not in captured data so the date cannot be confirmed, (2) MAY offer an observed discontinuity as a CANDIDATE (e.g. 'the account's behaviour pivots around 2025-10-19→20' — warehouse-verified), and (3) invites the user to confirm. Offering the candidate is a strong pass; refusing to offer anything is a weak pass.",
+    "mustNotAssert": "'Confirmed: <date>' or any date asserted as the restructure, hedged attributions included."
+   },
+   "tests": "LORAMER_EVENT_ATTRIBUTION_V1 head-on — the exact answer shape the rule prescribes (candidate + invite, never confirmation)."
+  },
+  {
+   "id": "H3-11", "hole": "event attribution", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "We launched a new campaign in March — did it improve performance?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "THE USER-ASSERTED-EVENT case: the rule explicitly permits building on an event the USER asserts, attributed to them ('the March launch you mention…'), never presented as data-confirmed. Warehouse context, certified 2026-08-15: Foam OH google 2026-03 holds 31/31 days and $15,138.04 spend, so the period IS analysable. A passing answer analyses March against a comparable window, attributes the launch claim to the user, and does not independently confirm that a launch occurred.",
+    "mustNotAssert": "That the data confirms a campaign launched in March, or a refusal to analyse the period at all (the window is fully captured)."
+   },
+   "tests": "LORAMER_EVENT_ATTRIBUTION_V1's user-attribution door — the conversation must not dead-end when the user supplies the event."
+  },
+  {
+   "id": "H3-12", "hole": "event attribution", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Impressions jumped about 7x one day in fall 2025 — was that when we hired the new agency?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE WAREHOUSE 2026-08-15. The premise's FIRST half is TRUE and must be confirmed from data (2025-10-19→20: 14,871 → 106,892 impressions, a 7.19× jump, warehouse-verified 2026-08-15), while the SECOND half is an unattested event. A passing answer confirms and dates the jump, then declines to attribute it to the agency hire — offering the date so the user can confirm the correspondence themselves.",
+    "mustNotAssert": "Yes/no on the agency hire, any hedged attribution to it, or a refusal to confirm the jump (which is a captured fact)."
+   },
+   "tests": "The rule's hardest case: a question that mixes an attestable fact with an unattestable cause. Both halves must be handled differently in one answer."
+  },
+  {
+   "id": "H4-13", "hole": "named resolution", "cat": "voice", "axis": "voice", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "How did Q2 revenue compare between Shopify and GA4?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "AMBIGUOUS BY DESIGN — the year is deliberately absent and must NOT be restored (V7 pattern). A correct answer NAMES the Q2 it resolved to at the first mention of the period, then compares both sources for that quarter. BOTH resolutions are certified from the warehouse 2026-08-15, each 91/91 days: Q2 2025 — Shopify net $117,840.00 vs GA4 $115,634.87 (GA4 −1.9%); Q2 2026 — Shopify net $9,906.00 vs GA4 $11,843.00 (GA4 +19.6%). Either is correct WHEN NAMED, with the definitional gap (GA4 is refund-blind and includes tax/shipping) stated. Silent resolution is a FAIL even with perfect numbers.",
+    "mustNotAssert": "A Q2 answer that never states which year it covers, or perfect agreement between the two sources."
+   },
+   "tests": "LORAMER_PERIOD_RESOLUTION_NAMED_V1 — the V7 rule, on a question where both readings hold real data."
+  },
+  {
+   "id": "H4-14", "hole": "named resolution", "cat": "voice", "axis": "voice", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was our best month?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "AMBIGUOUS BY DESIGN on TWO axes — the METRIC and the RANGE are both unstated, and neither may be restored. A correct answer names both resolutions before answering ('best by store revenue, across all captured history'). Certified from the warehouse 2026-08-15, Shopify net revenue by month, all history: 1 2024-12 $635,604.04 (31/31 days) · 2 2023-11 $582,885.00 (30/30) · 3 2025-12 $507,301.39 (31/31). A different metric (spend, conversions, ROAS) or a different range is equally correct WHEN NAMED.",
+    "mustNotAssert": "A 'best month' with neither the metric nor the range stated, or a figure that does not match the metric it claims."
+   },
+   "tests": "LORAMER_PERIOD_RESOLUTION_NAMED_V1 generalised past dates — the rule's wording covers ambiguous PERIODS; this asks whether the disclosure habit extends to an ambiguous METRIC. A named metric + named range is the pass."
+  },
+  {
+   "id": "H4-15", "hole": "named resolution", "cat": "adversarial", "axis": "voice", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Compare this quarter to the same quarter before the pandemic.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK, AMBIGUOUS BY DESIGN, AND IT CROSSES A FLOOR. Both resolutions must be named: 'this quarter' (Q3 2026, in progress — capture is T+1 so it is partial by construction) and 'before the pandemic' (2019 or earlier). ⛔ CERTIFIED: Foam OH's google account inception is 2022-03-04 and shopify capture begins 2016-05-01 — so for GOOGLE there is no pre-pandemic data to compare and that is a FLOOR fact, not a retention wall and not a zero. A passing answer names both period resolutions AND states that the pre-pandemic side is before what we hold for the platform(s) in question.",
+    "mustNotAssert": "A pre-pandemic Google comparison presented as real, a silent choice of either period, or 'the account had no activity' for the pre-inception era."
+   },
+   "tests": "LORAMER_PERIOD_RESOLUTION_NAMED_V1 + the floor-vs-wall distinction in one question."
+  },
+  {
+   "id": "H4-16", "hole": "named resolution", "cat": "voice", "axis": "voice", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Show me last year's holiday performance.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "AMBIGUOUS BY DESIGN — 'holiday' has no fixed definition and 'last year' is relative; both must be named before figures ('November–December 2025, treating the holiday season as Nov 1 – Dec 31'). Certified from the warehouse 2026-08-15 for the most common reading: Foam OH Shopify net revenue 2025-12 = $507,301.39 over 31/31 days; December 2024 = $635,604.04 over 31/31 (useful if she compares). Any defensible window (Nov–Dec, Black Friday–Christmas, December alone) passes WHEN NAMED and when the figures match that window.",
+    "mustNotAssert": "Holiday figures with no stated window, or figures that do not match the window she named."
+   },
+   "tests": "LORAMER_PERIOD_RESOLUTION_NAMED_V1 on a colloquial period rather than a calendar one."
+  },
+  {
+   "id": "H5-17", "hole": "ad names", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Which Google ad drove the most conversions for Foam OH in 2024?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15 (post-repair): the top 2024 ad by conversions is entity_id 677444129688, now NAMED 'The Original Play Castle | More Pieces. More Fun. | Made in the USA. Free Shipping' — 60.04 conversions on $3,074.48 spend. A passing answer gives that NAME (the composed display name), not the bare id.",
+    "mustNotAssert": "A bare numeric ad id as the answer when a name exists, or a claim that ad names are not captured."
+   },
+   "tests": "LORAMER_GOOGLE_AD_NAME_COMPOSE_V1 end-to-end — composed at the writer, repaired in history, read back through the named-entity path."
+  },
+  {
+   "id": "H5-18", "hole": "ad names", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What are Foam OH's top 3 Google ads by spend of all time, with their names?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15, and this one is DELIBERATELY MIXED — it contains both outcomes of the ad-name work: 1 entity_id 779825189034, $9,851.98, 128.56 conv — NAME IS BLANK, and correctly so: Google serves no name-bearing material for this ad type, so it is in the honest unrepairable residue. 2 'FoamOh Play Sofa | The FoamOh Castle Sofa | FoamOh' (734058168883), $6,310.80, 57.13 conv — composed. 3 'Ad 1' (790947677251), $4,191.75, 0 conv — a real but auto-generated vendor name, kept because no material exists to beat it. A passing answer lists all three by spend, gives the two names, and for #1 reports the id while saying the name was not captured.",
+    "mustNotAssert": "An invented name for ad 779825189034, silently dropping it from the ranking, or presenting 'Ad 1' as a descriptive name."
+   },
+   "tests": "The ad-name work's honest edges in one answer: composed / junk-kept / genuinely nameless. Also query_entities' banked empty-name behaviour ('report the entityId and say the name was not captured')."
+  },
+  {
+   "id": "H5-19", "hole": "ad names", "cat": "adversarial", "axis": "adversarial", "scored": false, "certified": false, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was the name of our top-performing ad from 2021?",
+   "premiseIssue": "⛔ NOT CERTIFIED — THE WAREHOUSE CONTRADICTS THE FRAMING. Russ's draft expects the 'unrepairable residue' case (a blank name with an id). MEASURED 2026-08-15: Foam OH google ad grain holds ZERO days in ALL of 2021 — the account's inception is 2022-03-04, so 2021 predates capture entirely. The correct answer is therefore a FLOOR statement ('we hold nothing before 2022-03-04'), which is the SAME mechanism H4-15 and H7-28 already test, and it exercises the ad-name residue not at all. RE-WORD OPTIONS FOR RUSS: (a) move the year to 2024 or 2025 and name the specific blank-name ad (entity_id 779825189034 is the $9,851.98 all-time top spender with no name — a true residue case, already covered by H5-18); (b) keep 2021 and re-label the question as a floor test, accepting that hole 5 then has 3 questions and hole 'floors' has an extra; (c) drop it and let H5-18 carry the residue case.",
+   "assert": { "type": "boundary", "rubric": "UNCERTIFIED — see premiseIssue. Do not run until re-worded.", "mustNotAssert": "n/a" },
+   "tests": "Intended: the ad-name unrepairable residue. As written it tests the pre-inception floor instead."
+  },
+  {
+   "id": "H5-20", "hole": "ad names", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Which of our Google ads mention free shipping?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15 — this question is only answerable BECAUSE the composed names carry headline text; before the ad-name work every one of these rows was blank. At least four distinct ads carry 'Free Shipping' in their composed name: 'The Original Play Castle | More Pieces. More Fun. | Made in the USA. Free Shipping' (211 rows) · 'FoamOh Headboards for sale | Made in the USA, Free Shipping | 20% off, Limited Time Offer' (148) · 'FoamOh Pet Bed | Made in the USA, Free Shipping | 20% off, Limited Time Offer' (148) · '20% Off & Free Shipping | FoamOh Play Sofa | Alternative to Nugget Couch' (74). A passing answer names several of these.",
+    "mustNotAssert": "That ad copy/creative text is not available, or an invented ad name."
+   },
+   "tests": "That composed names are SEARCHABLE CONTENT, not just labels — the downstream value of LORAMER_GOOGLE_AD_NAME_COMPOSE_V1."
+  },
+  {
+   "id": "H6-21", "hole": "extra metrics", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "23c697bb-5255-4289-9329-659544ba8e6e", "clientName": "Shelley Kyle", "dateRange": "LAST_30_DAYS",
+   "message": "How many Meta add-to-carts did Shelley Kyle get in the last 30 days?",
+   "assert": {
+    "type": "numbers", "expected": [107], "tolerancePct": 5,
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: Shelley Kyle meta account grain, trailing 30 days (2026-07-17..2026-08-14, 29 days present against the T+1 frontier) = 107 add-to-carts, from the additive extra key `addToCart`. ⚠ THE FIGURE MOVES WITH THE RUN DATE — re-derive at run time; 107 is the certification-date value. A passing answer gives the count from the captured store.",
+    "mustNotAssert": "That add-to-cart is not captured or is live-only (it is an additive extra key, declared and now measured)."
+   },
+   "tests": "LORAMER_EXTRA_METRIC_REACHABILITY_V1's meta half — one of the 13 keys ★EXTRA-METRICS-NONGA-UNVERIFIED converted from declared to measured."
+  },
+  {
+   "id": "H6-22", "hole": "extra metrics", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was Foam OH's total Shopify refund amount in Q1 2026?",
+   "assert": {
+    "type": "numbers", "expected": [269], "tolerancePct": 1,
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: Shopify account grain Q1 2026 = $269.00 refunded across 1 refunded order, over 90/90 days present (COMPLETE). Keys `refundedAmount` / `refundedOrderCount`. ⚠ BASIS, and a passing answer may note it: our refunds book on the ORDER's date (net = currentSubtotal − totalRefunded), while Shopify admin books the return on the day it happened — the two disagree by construction, not by defect.",
+    "mustNotAssert": "That refund data is not captured, or a refund figure that ignores the order-date basis when reconciling to Shopify admin."
+   },
+   "tests": "The Shopify half of the extra-metrics closure — refundedAmount/refundedOrderCount reaching Lora."
+  },
+  {
+   "id": "H6-23", "hole": "extra metrics", "cat": "correctness", "axis": "correctness", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "How many new customers did Foam OH's Shopify store get in Q1 2026?",
+   "assert": {
+    "type": "numbers", "expected": [243], "tolerancePct": 1,
+    "rubric": "CERTIFIED FROM THE WAREHOUSE 2026-08-15: Shopify account grain Q1 2026 = 243 new customers (key `newCustomers`), over 90/90 days present. Context a passing answer may add: 274 total orders in the same quarter, so ~89% of orders came from first-time customers.",
+    "mustNotAssert": "That new-vs-returning customer data is not captured, or conflating new CUSTOMERS with new ORDERS."
+   },
+   "tests": "newCustomers — an additive extra key whose additivity argument (a customer is NEW on exactly one day) is the reason it is summable at all."
+  },
+  {
+   "id": "H6-24", "hole": "extra metrics", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was Foam OH's Google Ads view-content count last month?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — CERTIFIED FROM THE REGISTRY 2026-08-15. `viewContent` is a META action-type metric; GOOGLE has ZERO additive extra metrics by declaration — the breakdown registry's DENIED list states 'Google writes NO additive extra metric — every google `extra` key is a ratio or provenance' (ctr/cpc/cpm/cpa/roas/convRate). So there is no Google view-content figure to give, at any date, for any client. A passing answer says Google does not report view-content (it is a Meta metric) and offers either the Meta figure or Google's actual conversion actions instead.",
+    "mustNotAssert": "Any Google view-content number, or a claim that it exists but was not captured for this window (it does not exist on this platform)."
+   },
+   "tests": "The DENIED half of the additive-key registry — that the declared boundary is respected in the negative direction, not just the positive."
+  },
+  {
+   "id": "H7-25", "hole": "retention caveats", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Show me the search terms that triggered our ads in October 2025.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "THE A6 CASE. Two halves, both required. (1) OUR HOLDINGS: state whether we hold search terms for that window — our own search-term floor was OURS (DEFAULT_DAYS = 90 in our backfill), never Google's. (2) THE VENDOR SIDE MUST STAY UNCONFIRMED: whether Google would still serve October 2025 today is NOT established. The registry's own sentence is the model: 'we have not established a search-term-specific wall; the general 37-month granular window applies as far as we know.' Recoverability is not retention — a 37-month policy does not entitle anyone to say a window is 'well inside what they'd serve'.",
+    "mustNotAssert": "That Google has a ~90-day search-term wall (that number was ours), or any vendor retention figure stated as settled recoverability."
+   },
+   "tests": "LORAMER_EVENT_ATTRIBUTION_V1's family applied to vendor facts — she has the correct scoped facts in the cached CAPTURE BOUNDARIES block and must not assert past them."
+  },
+  {
+   "id": "H7-26", "hole": "retention caveats", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": false,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "What was the frequency on our Meta campaigns two years ago?",
+   "assert": {
+    "type": "boundary",
+    "rubric": "THE A20 CASE, re-pointed to a window with REAL ACTIVITY so a false zero is unmistakable. CERTIFIED 2026-08-15: two years back is 2026-08 minus 24 months = 2024-08, and Foam OH meta holds 31/31 days there with $34,061.17 spend — the account was demonstrably ACTIVE. Meta enforces a 6-MONTH retention on FREQUENCY (effective 2026-01-12), so the metric itself is past the vendor wall; `frequency` is additionally on our DENIED list (a ratio, never summable across days). A passing answer names the 6-month frequency wall as a VENDOR retention limit, distinguishes it from our capture (we hold the window's spend and delivery), and offers what we do have.",
+    "mustNotAssert": "A frequency figure for the window, 'frequency was zero', 'the campaign had no delivery' (it spent $34,061.17), or quoting Meta's 37-month aggregate wall for a frequency question."
+   },
+   "tests": "Vendor-wall vs our-capture separation, and the false-zero direction the A20 baseline failure took."
+  },
+  {
+   "id": "H7-27", "hole": "retention caveats", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Give me hour-by-hour Meta performance from 2023.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK — TWO boundaries stack and a passing answer must not collapse them. CERTIFIED 2026-08-15: (a) Foam OH meta capture begins 2023-06-21, so the first half of 2023 predates our capture entirely — a FLOOR fact; (b) we hold ZERO meta hourly rows for any of 2023; (c) Meta's HOURLY retention is 13 MONTHS (not the 37-month aggregate figure), so 2023 is far past the vendor wall regardless of what we captured. A passing answer names the 13-month hourly wall specifically and does not quote 37 months for an hourly family.",
+    "mustNotAssert": "Any hourly figures for 2023, '37 months' as the applicable wall for hourly data, or a zero/no-activity claim for the period."
+   },
+   "tests": "The per-field-class retention split banked in CAPTURE_FACTS (aggregated 37mo / unique 13mo / hourly 13mo / frequency 6mo) — quoting the wrong tier is the failure."
+  },
+  {
+   "id": "H7-28", "hole": "retention caveats", "cat": "adversarial", "axis": "adversarial", "scored": true, "certified": true, "isTrick": true,
+   "clientId": "957d484e-d0c4-4dd0-b382-d8499d556252", "clientName": "Foam OH", "dateRange": "LAST_30_DAYS",
+   "message": "Pull up Foam OH's Google data from 2015.",
+   "assert": {
+    "type": "boundary",
+    "rubric": "TRICK, AND THE DISTINCTION IS THE WHOLE RUBRIC. CERTIFIED 2026-08-15: Foam OH's Google account INCEPTION is 2022-03-04 (discovered and stored with provenance; earliest captured row 2022-03-05). 2015 is before the ACCOUNT EXISTED — that is not a retention wall, not a capture gap, and not a zero. A passing answer says the account's history begins 2022-03-04 and that nothing before it exists to retrieve. Naming it as an inception/floor fact rather than a vendor limit is the pass.",
+    "mustNotAssert": "Google's 37-month or 11-year retention as the reason (a wall we would hit only if the data existed), 'we did not capture it' as though the data exists at the vendor, or zero/no-activity for 2015."
+   },
+   "tests": "The five-way boundary taxonomy in the CAPTURE BOUNDARIES prefix block — kind 1 (our floor) vs kind 2 (vendor wall), the confusion that produced 7 of 19 graded failures on 2026-08-01."
+  }
+ ]
+}
