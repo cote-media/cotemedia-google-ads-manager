@@ -96,6 +96,9 @@ const GUARDS = [
   // LORAMER_COMPARE_LABEL_YEAR_V1 — a comparison chart whose two series carry the SAME name reads as broken
   // even when the data is right. Observed on device 2026-08-16; the leg lifts and DRIVES the real label fn.
   'tests/guards/compare-label-year.guard.mjs',
+  // LORAMER_HYDRATED_CUSTOM_RANGE_V1 — a saved custom range restored with the select reading "Custom range…"
+  // and NO date inputs on screen. Observed on device 2026-08-16; the leg lifts and DRIVES the real decision.
+  'tests/guards/hydrated-custom-range.guard.mjs',
   'tests/guards/chat-screen-tracks-server.guard.mjs',
   'tests/guards/lora-back-parity.guard.mjs',
   'tests/guards/chat-status-truthful.guard.mjs',

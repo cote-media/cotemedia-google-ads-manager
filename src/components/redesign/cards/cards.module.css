@@ -78,7 +78,22 @@
 .customRow { display: inline-flex; align-items: center; gap: 5px; }
 /* LORAMER_NEXT_FOCUSABLE_16PX_V1 — <input type="date"> opens the PLATFORM calendar; at 12px the tap that
    opened it zoomed the page first (DECISIONS:599). The picker was never the problem, its trigger was. */
-.dateIn { font: inherit; font-size: 16px; padding: 8px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #0f172a; }
+/* LORAMER_DATE_INPUT_AFFORDANCE_V1 — B4: on iOS the two date fields render as bare text and read as LABELS,
+   not controls; Russ tapped one only after being told it was tappable. A calendar mark is the one glyph that
+   says "this opens a picker" without a word of copy. Inline SVG data-URI: a CSP-safe, request-free background
+   that cannot 404 the way an <img> asset can, on a control that must never look broken. */
+.dateIn { font: inherit; font-size: 16px; padding: 8px 32px 8px 8px; border: 1px solid #e2e8f0; border-radius: 8px; color: #0f172a; position: relative;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3' y='5' width='18' height='16' rx='2'/%3E%3Cpath d='M3 10h18M8 3v4M16 3v4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 15px 15px; }
+/* ⛔ CHROME/EDGE ALREADY DRAW THEIR OWN INDICATOR — WITHOUT THIS, DESKTOP SHOWS TWO CALENDARS SIDE BY SIDE.
+   The native one is made transparent and stretched over OUR glyph, so there is exactly one visible mark and
+   clicking it still opens the real picker. Deliberately 32px wide, not the full field: the icon opens the
+   picker, the text stays typeable — which is what a visible icon promises. WebKit-only by construction;
+   Firefox draws no indicator (our glyph is decorative there) and iOS shows the wheel on a tap anywhere in the
+   field regardless. If `height: 100%` does not resolve inside the shadow tree, the indicator keeps its own
+   height — the mark stays single either way, only the hit area shrinks. */
+.dateIn::-webkit-calendar-picker-indicator { position: absolute; right: 0; top: 0; width: 32px; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 .checkRow { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #334155; cursor: pointer; padding: 2px 0; }
 .ovIcon { font-size: 12px; color: #2563eb; margin-left: 5px; }
 .tsToggle { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 4px; }

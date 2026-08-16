@@ -71,6 +71,33 @@ export function winLabel(w: Win): string {
 // differ by month and day, and a year on every label costs horizontal width on a phone toolbar that is
 // already several lines tall. The year appears only when it is the thing that tells the two windows apart.
 // A window that itself spans a year boundary carries both years, because one would be a lie.
+// LORAMER_HYDRATED_CUSTOM_RANGE_V1 — A RESTORED CUSTOM RANGE MUST COME BACK VISIBLE AND FILLED.
+//
+// ⛔ OBSERVED ON DEVICE 2026-08-16 (Gate-B, iPhone): a saved view with a custom range reloaded with the select
+// reading "Custom range…" and NO date inputs on screen. `globalCustom` was restored correctly — the CARDS were
+// showing the right window — but the row that displays it is gated on a separate `customRangeOpen` flag whose
+// only writer was the onRange handler, so nothing ever re-opened it. The saved range was applied and invisible.
+//
+// ⛔ WHY THIS LIVES HERE AND NOT IN THE COMPONENT, WHICH IS THE ENTIRE POINT OF THE FIX: the decision used to be
+// three setState calls inside applyWorking, where no guard can reach it. A rule that cannot be driven is a rule
+// nobody can prove. As a pure function it is lifted and CALLED by hydrated-custom-range.guard.mjs.
+//
+// The drafts are seeded as well as the flag: an open row with two empty boxes hides the saved range just as
+// effectively as a closed one. A partial/blank stored range seeds nothing and stays closed (Lesson 53's
+// "never carry a stale blank", applied to the UI state rather than the data).
+export type RangeUi = { customRangeOpen: boolean; rangeDraft: Win; cmpDraft: Win }
+export function hydratedRangeUi(v: { globalCustom?: Win | null; compareMode?: string | null; customCompare?: Win | null }): RangeUi {
+  const gc = v.globalCustom
+  const cc = v.compareMode === 'custom' ? v.customCompare : null
+  const openRange = !!(gc && gc.startDate && gc.endDate)
+  const openCmp = !!(cc && cc.startDate && cc.endDate)
+  return {
+    customRangeOpen: openRange,
+    rangeDraft: { startDate: openRange ? (gc?.startDate || '') : '', endDate: openRange ? (gc?.endDate || '') : '' },
+    cmpDraft: { startDate: openCmp ? (cc?.startDate || '') : '', endDate: openCmp ? (cc?.endDate || '') : '' },
+  }
+}
+
 export function winLabelPair(a: Win, b: Win): [string, string] {
   const years = (w: Win) => `${w.startDate.slice(0, 4)}|${w.endDate.slice(0, 4)}`
   if (years(a) === years(b)) return [winLabel(a), winLabel(b)]

@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CardConfig, GridItem, SavedView } from './card-types'
 import { defaultOverviewView, newCardId } from './card-types'
-import { RANGE_PRESETS, COMPARE_PRESETS, type ComparePreset, type Win } from '@/lib/next/card-windows'
+import { RANGE_PRESETS, COMPARE_PRESETS, hydratedRangeUi, type ComparePreset, type Win } from '@/lib/next/card-windows'
 import { setSharedPeriod } from '@/lib/next/period-bus' // LORAMER_NEXT_CHAT_POLISH_V1 — publish the page period to the Ask-Lora chat
 import CardGrid from './CardGrid'
 import CardConfigPanel from './CardConfigPanel'
@@ -72,9 +72,13 @@ export default function CardEngine({ pageKey, clientId, defaultView, source, sto
   const [customCompare, setCustomCompare] = useState<Win | null>(fallback.customCompare || null)
   const [fullscreen, setFullscreen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
-  const [rangeDraft, setRangeDraft] = useState<Win>({ startDate: '', endDate: '' })
-  const [cmpDraft, setCmpDraft] = useState<Win>({ startDate: '', endDate: '' })
-  const [customRangeOpen, setCustomRangeOpen] = useState(false)
+  // LORAMER_HYDRATED_CUSTOM_RANGE_V1 — the custom-range ROW STATE is derived from the view, never assumed empty.
+  // The initial values come from the same pure rule the load path uses, so the first paint of a fallback/default
+  // view carrying a custom range already shows its dates instead of an empty row that fills in a beat later.
+  const fallbackUi = hydratedRangeUi(fallback)
+  const [rangeDraft, setRangeDraft] = useState<Win>(fallbackUi.rangeDraft)
+  const [cmpDraft, setCmpDraft] = useState<Win>(fallbackUi.cmpDraft)
+  const [customRangeOpen, setCustomRangeOpen] = useState(fallbackUi.customRangeOpen)
 
   // LORAMER_NEXT_WORKING_LAYOUT_V1 — autosave plumbing: a hydration guard so a load doesn't immediately re-save, a debounce
   // timer, and a pending-body ref so we can flush the LAST edit on client-switch / tab-close (keepalive) with no loss.
@@ -102,6 +106,15 @@ export default function CardEngine({ pageKey, clientId, defaultView, source, sto
     setCards(r.cards); setLayout(r.layout); setLayoutSm(r.layoutSm || []); setPinned(new Set(r.pinned || []))
     setGlobalPeriod(r.globalPeriod || 'LAST_30_DAYS'); setGlobalCustom(r.globalCustom || null)
     setCompareMode(r.compareMode || 'none'); setCustomCompare(r.customCompare || null)
+    // LORAMER_HYDRATED_CUSTOM_RANGE_V1 — restore the custom-range ROW alongside the range itself. Before this,
+    // `customRangeOpen` had exactly one writer (the onRange handler), so a saved custom range came back applied
+    // but INVISIBLE: the select read "Custom range…" over no inputs, and the only way to see the dates again was
+    // to pick another preset and re-pick Custom. Seeding cannot arm a write — none of these three are autosave
+    // dependencies (see the effect below), and the working view is built from globalCustom/customCompare, never
+    // from the drafts. The compare row is gated on compareMode (real state) and reappears on its own; its DRAFT
+    // is the half that was missing.
+    const ui = hydratedRangeUi(r)
+    setCustomRangeOpen(ui.customRangeOpen); setRangeDraft(ui.rangeDraft); setCmpDraft(ui.cmpDraft)
   }
 
   // publish the page's shared date range so the Ask-Lora chat's ambient window follows it.
