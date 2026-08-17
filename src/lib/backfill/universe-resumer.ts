@@ -198,8 +198,16 @@ export function decideRepublish(a: {
   spanDays: number
   minSpanDays: number
   last: LastAttempt
+  /**
+   * ⛔ LORAMER_NO_PROGRESS_TESTS_THE_OWED_SET_V1 — OPTIONAL, AND ITS ABSENCE MUST MEAN "UNKNOWN", NEVER
+   * "STALLED". How many days this SAME range owed when the last attempt ran. Derived by the caller from the
+   * range's own span — `readLastAttempt` is keyed on the exact bounds, so the attempt found there was
+   * published over that whole range. Undefined ⇒ the shrink test does not run and the bound behaves exactly
+   * as it did before this field existed.
+   */
+  owedDaysAtLastAttempt?: number
 }): ResumeVerdict {
-  const { owedDays, attemptsAtMinSpan, maxAttemptsAtMinSpan, spanDays, minSpanDays, last } = a
+  const { owedDays, attemptsAtMinSpan, maxAttemptsAtMinSpan, spanDays, minSpanDays, last, owedDaysAtLastAttempt } = a
 
   if (owedDays === 0) return { publish: false, verdict: 'nothing-owed', reason: 'nothing owed in this window' }
 
@@ -211,7 +219,8 @@ export function decideRepublish(a: {
   }
 
   // ⛔ NO PROGRESS — June's rule.
-  if (last.outcome !== null && (last.outcome === 'ok' || last.outcome === 'zero') && last.daysCommitted === 0) {
+  const completed = last.outcome !== null && (last.outcome === 'ok' || last.outcome === 'zero')
+  if (completed && last.daysCommitted === 0) {
     return {
       publish: false, verdict: 'no-progress',
       reason: `NO PROGRESS: the last attempt (#${last.attemptNo}) reported '${last.outcome}' and committed ZERO days, yet ${owedDays} day(s) are still owed. ` +
@@ -219,6 +228,25 @@ export function decideRepublish(a: {
         (last.outcome === 'zero'
           ? `An honest zero should have attested these days empty and removed them from the owed set; it did not, so the attestation is not taking.`
           : `A successful attempt that committed no days did not do the work it reported.`),
+    }
+  }
+  // ⛔ LORAMER_NO_PROGRESS_TESTS_THE_OWED_SET_V1 — THE SECOND SHAPE, AND IT IS THE ONE THAT ACTUALLY BIT.
+  // The bound above asks "did the lap commit a day". The real stall commits EXACTLY ONE day per pass and
+  // shrinks the owed set by NOTHING, because `coveredDaysStrict` strips the newest day-with-rows: measured
+  // 2026-08-17, 340 of 346 Foam OH surfaces re-asked an identical range for an average of 10.4 hours while
+  // this bound sat silent at 1 !== 0. Committing a day is not progress; SHRINKING THE OWED SET is.
+  // ⛔ IT IS A SEPARATE BRANCH RATHER THAN A WIDER CONDITION, AND THAT IS DELIBERATE. Dropping the
+  // `daysCommitted === 0` conjunct instead would refuse a legitimately fragmented window — an attempt that
+  // committed 12 of 30 days and still owes 5 MUST be re-published or the walk never finishes it.
+  // `universe-resumer.guard.mjs` leg (f) pins exactly that case and caught this being got wrong.
+  // ⛔ AND UNKNOWN NEVER STALLS A WALK: with `owedDaysAtLastAttempt` undefined this branch cannot fire, so
+  // every caller that has not been taught to derive it behaves exactly as before.
+  if (completed && owedDaysAtLastAttempt !== undefined && owedDays >= owedDaysAtLastAttempt) {
+    return {
+      publish: false, verdict: 'no-progress',
+      reason: `NO PROGRESS: the last attempt (#${last.attemptNo}) reported '${last.outcome}' over THIS EXACT RANGE and committed ${last.daysCommitted} day(s), ` +
+        `yet the owed set did not shrink — ${owedDaysAtLastAttempt} day(s) owed then, ${owedDays} now. ` +
+        `Committing a day is not progress; shrinking the owed set is. Re-publishing spends a vendor request to re-write ground we already hold.`,
     }
   }
 

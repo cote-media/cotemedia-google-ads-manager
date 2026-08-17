@@ -83,6 +83,11 @@ const CHECKS = [
   // LORAMER_FLEET_METER_SEES_THE_WALK_V1 — witnesses the walk's spend through universe_fire_log, a table
   // neither spend aggregate reads. The static guard cannot see a ledger that has gone quiet; this can.
   { name: 'check-fleet-meter-visibility', cmd: ['scripts/check-fleet-meter-visibility.mjs', '--guard'] },
+  // LORAMER_COMMITTED_DAY_CLOSES_V1 — the FIX-WITH-GUARD half, and it is a LIVE check by necessity: the
+  // defect is a disagreement between what the walk COMMITTED (universe_attempt_log) and what coverage COUNTS
+  // (metrics_daily), so no hermetic fixture can hold it. Observed RED 4/4 against the pre-fix code at 7218bbd
+  // and GREEN 4/4 after, both on live rows through the real rangesStillOwed entry.
+  { name: 'check-topwindow-frontier', cmd: ['scripts/check-topwindow-frontier.mjs'] },
 ]
 // ROSTER-END
 

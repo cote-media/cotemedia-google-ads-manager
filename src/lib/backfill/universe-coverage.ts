@@ -146,7 +146,15 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
     return { day, has: (aData?.length ?? 0) > 0 }
   }))
 
-  const covered = coveredDaysStrict(hits.filter((h) => h.has).map((h) => h.day))
+  // ⛔ LORAMER_COMMITTED_DAY_CLOSES_V1 — RULE (b) IS NOW WIRED, AND IT WAS ALWAYS THE MISSING HALF.
+  // The header above documents TWO closure rules. Rule (a) — "a later day has rows" — was the only one this
+  // call ever used, and its stated cost ("resolved for free by the adjacent newer window") IS NOT PAYABLE AT
+  // THE WALK'S LEADING EDGE: windows are disjoint (`nextEnd = addDays(startDate, -1)`), so no newer window
+  // ever contains the stripped day. MEASURED 2026-08-17 on Foam OH: 329 of 346 surfaces sat on a top window
+  // whose newest day-with-rows was inside the owed range, re-asked every fire, 59% of 24h row output spent
+  // re-writing days already committed. Rule (b) is the proof we already hold — one narrow read.
+  const committed = await committedDays(k, windowStart, windowEnd)
+  const covered = coveredDaysStrict(hits.filter((h) => h.has).map((h) => h.day), { dayCommitted: committed })
   // ⛔ THE THREE SETS MUST PARTITION THE WINDOW — DISJOINT BY CONSTRUCTION, NOT BY LUCK.
   // LORAMER_COVERAGE_SETS_PARTITION_V1, 2026-08-12: before the base aliases, a day was either covered or
   // attested-empty, never both, and nothing enforced that — it was true by accident. The aliases ended the
@@ -163,6 +171,50 @@ export async function windowCoverage(k: CoverageKey, windowStart: string, window
     uncovered: days.filter((d) => !known.has(d)),
     probes: days.length, ms: Date.now() - t0,
   }
+}
+
+/**
+ * POSITIVE CLOSURE — days an attempt DURABLY COMMITTED. Rule (b) of the predicate above.
+ *
+ * ⛔ IT DOES NOT IMPORT THE ATTEMPT-LOG MODULE, AND THAT DISTINCTION IS THE GUARDED ONE.
+ * `universe-stream-consumer.guard.mjs` leg (c) bars an ES import of that module — the SPEND-AND-FAILURE API
+ * reaching a coverage decision — and says so in its own words: "THE MODULE BOUNDARY IS THE THING BEING
+ * GUARDED, not the table... Read the negative-coverage rows directly instead."
+ * ⚠ AND THE BANNED IMPORT SPECIFIER IS DELIBERATELY NOT SPELLED OUT ANYWHERE IN THIS FILE. The guard's regex
+ * is not comment-stripped, so quoting the pattern to explain it TRIPS IT — measured 2026-08-17, and it is the
+ * same phantom-token-in-prose class that failed a push on 2026-08-15. This is the
+ * same narrow direct read `attestedEmptyDays` below already makes, one phase over.
+ *
+ * ⛔ A `day_committed` RECORD IS A SOUND CLOSURE CLAIM, BY CONSTRUCTION AND NOT BY TRUST. It is appended ONLY
+ * from `flush()` (universe-stream-capture.ts), only AFTER the upsert resolves, and only at a day BOUNDARY or
+ * a CLEANLY-ENDED stream — a throw returns from the catch before the final flush, and a platform kill runs
+ * nothing. `universe-stream-consumer.guard.mjs` leg (b2) already fails the build if the day a stream DIED IN
+ * is committed.
+ * ⚠ THE RESIDUAL, STATED: a stream that ends EARLY WITHOUT THROWING would commit a partial day. That
+ * exposure already exists for every day rule (a) closes; this widens it by one day per window and creates no
+ * new class.
+ *
+ * SCOPE FILTER: identical to `attestedEmptyDays` — the log's identity is (client, vendor, resource, segment)
+ * and the coverage grain is (entityLevel, breakdownType), so the mapping is applied FORWARD over returned
+ * rows via `breakdownTypeForSurface`, never inverted into the query.
+ */
+export async function committedDays(k: CoverageKey, windowStart: string, windowEnd: string): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from('universe_attempt_log')
+    .select('day, segment')
+    .eq('client_id', k.clientId).eq('vendor', k.platform)
+    .eq('resource', k.entityLevel)
+    .eq('phase', 'day_committed')
+    .gte('day', windowStart).lte('day', windowEnd)
+  if (error) throw new Error(
+    `[universe-coverage] committed-day read failed for ${k.entityLevel}: ${error.message}. ` +
+    `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+  const days = new Set<string>()
+  for (const r of data ?? []) {
+    if (breakdownTypeForSurface(k.entityLevel, (r as { segment?: string | null }).segment ?? null) !== k.breakdownType) continue
+    days.add(String(r.day))
+  }
+  return [...days].sort()
 }
 
 /**

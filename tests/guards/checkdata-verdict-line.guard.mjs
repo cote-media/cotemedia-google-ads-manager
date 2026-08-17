@@ -36,7 +36,8 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
   findings.push(`(a) package.json check:data is ${JSON.stringify(pkg?.scripts?.['check:data'])} — not the verdict runner. The \`;\`-chain prints no terminal verdict, which is the exact gap that produced two false-clean reports.`)
 }
 
-// ── (b) THE ROSTER PIN — 20 checks, flags included, in order ────────────────────────────────────────
+// ── (b) THE ROSTER PIN — flags included, in order. ⛔ NO COUNT IN THIS LINE: it read "20 checks" while the
+// list below held 21, and a count in prose is a fact with a shelf life. The list IS the count.  ────────
 // ⛔ MOVED 2026-08-15 FROM 19 → 20, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-fleet-meter-visibility` is LORAMER_FLEET_METER_SEES_THE_WALK_V1's live half, and the reason it must
 // be a CHECK rather than only a guard is the defect it exists to catch: the fleet meter summed a ledger that
@@ -91,6 +92,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-binding-coverage.mjs --guard',
   'scripts/check-coverage-density.mjs --guard',
   'scripts/check-fleet-meter-visibility.mjs --guard',
+  'scripts/check-topwindow-frontier.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
