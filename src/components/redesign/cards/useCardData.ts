@@ -18,6 +18,11 @@ export interface CardData {
   rows?: BreakdownRow[]
   note?: string
   incompleteNote?: string // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — set when a platform's failing/stale capture makes this total PARTIAL
+  // LORAMER_MER_BASIS_TRUTHFUL_V1 — which revenue the settle actually used ('store' | 'ga' | 'none'), and WHICH store
+  // when exactly one supplied it. The route has returned revenueSource all along (client-metrics/route.ts:154); this
+  // hook dropped it, which is why the MER card had nothing truthful to say about its own numerator.
+  revenueSource?: string | null
+  revenueStore?: string | null
 }
 
 const num = (v: any): number | null => { const n = Number(v); return Number.isFinite(n) ? n : null }
@@ -90,11 +95,19 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
           // LORAMER_QUERY_COMPLETENESS_V1 slice 4 — this card reads ITS OWN metric's note (scoped to the platforms that
           // feed that metric), NOT the client-wide note — else Spend/Conversions get captioned for a store stale tail
           // that feeds neither. Fall back to undefined (never the wrong client-wide note) if the per-metric map is absent.
-          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null, incompleteNote: d.incompleteNotes ? d.incompleteNotes[m] : undefined })
+          // LORAMER_MER_BASIS_TRUTHFUL_V1 — carry the settle's own revenueSource, plus the ONE store that supplied it
+          // when there is exactly one (channels holds per-platform revenue). Two stores with revenue → revenueStore
+          // stays null and the label says "Store", because settleRevenue sums both and naming one would misattribute.
+          const stores = Array.isArray(d.channels) ? d.channels.filter((c: any) => (c.platform === 'shopify' || c.platform === 'woocommerce') && Number(c.revenue) > 0) : []
+          setData({ loading: false, error: null, hasCompare: !!compare, statValue: num(d[m]), statCompare: compare && priorKey ? num(d[priorKey]) : null, incompleteNote: d.incompleteNotes ? d.incompleteNotes[m] : undefined, revenueSource: typeof d.revenueSource === 'string' ? d.revenueSource : null, revenueStore: d.revenueSource === 'store' && stores.length === 1 ? stores[0].platform : null })
         })
         .catch(fail)
     } else if (cfg.kind === 'breakdown') {
       const p = new URLSearchParams({ clientId, breakdownType: cfg.breakdownType || '', rankBy: cfg.rankBy || 'spend', topN: String(cfg.topN || 8), ...winParams(current, compare) })
+      // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — a card titled for a platform must ASK for that platform. Omitted →
+      // metrics-query.ts:586-589 refuses to guess on a multi-platform family and returns its refusal as the card body.
+      // Sent only when the card declares one, so every existing single-platform card resolves exactly as before.
+      if (cfg.platform) p.set('platform', cfg.platform)
       fetch(`/api/next/card-breakdown?${p.toString()}`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d) => {
@@ -106,7 +119,7 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
       if (alive) setData({ loading: false, error: null, hasCompare: !!compare })
     }
     return () => { alive = false }
-  }, [clientId, cfg.kind, cfg.metric, cfg.breakdownType, cfg.rankBy, cfg.topN, cfg.source, cfg.storePlatform, current.startDate, current.endDate, cmpKey])
+  }, [clientId, cfg.kind, cfg.metric, cfg.breakdownType, cfg.platform, cfg.rankBy, cfg.topN, cfg.source, cfg.storePlatform, current.startDate, current.endDate, cmpKey])
 
   return data
 }

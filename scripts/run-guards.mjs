@@ -99,6 +99,12 @@ const GUARDS = [
   // LORAMER_HYDRATED_CUSTOM_RANGE_V1 — a saved custom range restored with the select reading "Custom range…"
   // and NO date inputs on screen. Observed on device 2026-08-16; the leg lifts and DRIVES the real decision.
   'tests/guards/hydrated-custom-range.guard.mjs',
+  // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — a card TITLED for a platform must REQUEST it; "Age (Meta)" did not,
+  // so metrics-query's developer refusal rendered on a customer-facing card. Lifts and BUILDS the default views.
+  'tests/guards/default-card-platform-claim.guard.mjs',
+  // LORAMER_MER_BASIS_TRUTHFUL_V1 — the MER card called a store-only numerator "blended revenue". Drives the real
+  // label function against each source the settle can pick. Asserts the LABEL, never the arithmetic.
+  'tests/guards/mer-basis-truthful.guard.mjs',
   'tests/guards/chat-screen-tracks-server.guard.mjs',
   'tests/guards/lora-back-parity.guard.mjs',
   'tests/guards/chat-status-truthful.guard.mjs',

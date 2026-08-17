@@ -26,6 +26,12 @@ export interface CardConfig {
   metric?: string              // spend | revenue | conversions | roas | clicks | impressions
   // breakdown:
   breakdownType?: string       // one of the query-exposed families
+  // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — WHICH platform this breakdown reads. Required whenever the family is
+  // captured on more than one platform: metrics-query.ts:586-589 REFUSES to guess (it returned "pass platform to
+  // choose one" onto a customer-facing card on 2026-08-16) and that refusal is correct — the request has to say.
+  // Single-platform families (keyword, search_term) also carry it, because "works because there is only one" is a
+  // property of today's capture set, not of the code. Distinct from storePlatform below, which scopes STORE reads.
+  platform?: string            // google | meta | ga | shopify | woocommerce
   rankBy?: string              // spend | conversions | …
   topN?: number
   // roas: LORAMER_NEXT_ROAS_CARD_V1 — which basis-labeled ROAS sources the user has checked ON. Undefined/empty →
@@ -146,17 +152,25 @@ export function defaultOverviewView(): SavedView {
     { id: 'd-spend', kind: 'stat', viz: 'stat', metric: 'spend', dateRange: 'LAST_30_DAYS' },
     { id: 'd-rev', kind: 'stat', viz: 'stat', metric: 'revenue', dateRange: 'LAST_30_DAYS' },
     { id: 'd-conv', kind: 'stat', viz: 'stat', metric: 'conversions', dateRange: 'LAST_30_DAYS' },
-    { id: 'd-roas', kind: 'stat', viz: 'stat', metric: 'roas', title: 'MER', subtitle: 'Marketing Efficiency Ratio · blended revenue ÷ all ad spend', dateRange: 'LAST_30_DAYS' },
+    // LORAMER_MER_BASIS_TRUTHFUL_V1 — this subtitle is now the FALLBACK only; the live card derives its basis from the
+    // source settleRevenue actually used. "blended revenue" is gone because the settle never blends: store > ga, never
+    // summed (revenue-settle.ts:59-61), and the discarded source is invisible to the reader.
+    { id: 'd-roas', kind: 'stat', viz: 'stat', metric: 'roas', title: 'MER', subtitle: 'Marketing Efficiency Ratio · revenue ÷ Google + Meta spend', dateRange: 'LAST_30_DAYS' },
     { id: 'd-ts', kind: 'timeseries', viz: 'line', dateRange: 'LAST_30_DAYS', title: 'Combined performance' },
-    { id: 'd-age', kind: 'breakdown', viz: 'bar', breakdownType: 'age', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Age (Meta)' },
+    // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — platform:'meta' is what the title has always PROMISED; without it the
+    // card rendered metrics-query's developer refusal to a customer (age is captured on google AND meta).
+    { id: 'd-age', kind: 'breakdown', viz: 'bar', breakdownType: 'age', platform: 'meta', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Age (Meta)' },
     // LORAMER_NEXT_MONEY_CARD_V1 — the money breakdown = the drill-down behind Revenue (Net sales == the Revenue
     // headline). Placed in a NEW bottom row, left edge under the Revenue stat (x=3); no existing card is moved.
     { id: 'd-money', kind: 'money', viz: 'money', dateRange: 'LAST_30_DAYS', title: 'Revenue — money breakdown' },
     // LORAMER_NEXT_KW_ST_CARD_V1 — P2-B: prebuilt Google keyword + search_term breakdown cards (single-level,
     // already query-exposed). They ALWAYS carry the truncation "subset" note → BreakdownBody now renders it as an
     // advisory caption beneath the top-N rows (not in place of them).
-    { id: 'd-kw', kind: 'breakdown', viz: 'table', breakdownType: 'keyword', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Keywords (Google)' },
-    { id: 'd-st', kind: 'breakdown', viz: 'table', breakdownType: 'search_term', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Search terms (Google)' },
+    // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — these two RESOLVED correctly with no platform only because keyword and
+    // search_term happen to live on one platform today; the resolver was inferring what the request never stated. The
+    // day a second platform captures either family they break exactly as Age did, silently and with no code change.
+    { id: 'd-kw', kind: 'breakdown', viz: 'table', breakdownType: 'keyword', platform: 'google', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Keywords (Google)' },
+    { id: 'd-st', kind: 'breakdown', viz: 'table', breakdownType: 'search_term', platform: 'google', rankBy: 'spend', topN: 8, dateRange: 'LAST_30_DAYS', title: 'Search terms (Google)' },
   ]
   const layout: GridItem[] = [
     { i: 'd-spend', x: 0, y: 0, w: 3, h: 2 },

@@ -71,3 +71,30 @@ export function settleRevenue(a: RevenueAcc): SettledRevenue {
     cpa: ratio(a.spend, a.conversions),
   }
 }
+
+// LORAMER_MER_BASIS_TRUTHFUL_V1 — the SENTENCE that describes what the ratio above actually divided.
+//
+// ⛔ OBSERVED ON DEVICE 2026-08-16: the MER card read 0.05× under the fixed subtitle "blended revenue ÷ all ad
+// spend". The number was right (Shopify $367.75 ÷ google+meta $7,510.59, measured). The word BLENDED was false —
+// the precedence above is store > ga, NEVER a sum, and that client also had $322.75 of GA revenue the settle
+// deliberately discarded. A misdescribed basis is worse than a missing one: the reader reasons from a
+// denominator set that was never used.
+//
+// ⛔ IT LIVES HERE, NEXT TO THE RULE IT DESCRIBES, and not in the card catalogue. A static subtitle cannot know
+// which source won — that is decided per client per window by settleRevenue — so the label has to be derived
+// from the same decision, or it is a second source of truth that drifts (the copy-a-fact failure this repo
+// keeps paying for).
+//
+// Returns null when there is no source to name: the caller falls back rather than being handed an invention.
+// In practice the MER card never renders that case — revenue null makes roas null, and the card shows "No data".
+export function revenueBasisLine(revenueSource: string | null | undefined, storePlatform: string | null): string | null {
+  const DEN = 'Google + Meta spend' // matches the law above: store/ga rows contribute NO spend
+  if (revenueSource === 'store') {
+    // Named only when ONE store supplied it. A multi-store client sums both into storeRev, so naming one would be
+    // a false attribution — "Store" is the honest word when the caller cannot say which.
+    const named = storePlatform === 'shopify' ? 'Shopify' : storePlatform === 'woocommerce' ? 'WooCommerce' : null
+    return named ? `${named} net revenue ÷ ${DEN}` : `Store net revenue ÷ ${DEN}`
+  }
+  if (revenueSource === 'ga') return `Google Analytics revenue ÷ ${DEN}`
+  return null
+}

@@ -24,6 +24,11 @@ export async function GET(request: Request) {
   if (!access) return NextResponse.json({ error: 'Not found' }, { status: 404 }) // 404, don't confirm the id
 
   const breakdownType = sp.get('breakdownType') || ''
+  // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — pass the CALLER's platform through, and pass NOTHING when it is absent.
+  // ⛔ No server-side default: queryBreakdown refuses to guess on a multi-platform family (metrics-query.ts:586-589)
+  // and that refusal is right — a server that picks for you produces a chart labelled one platform and drawn from
+  // another. The fix is that the request states the platform, never that this route invents one.
+  const platform = sp.get('platform') || undefined
   const rankBy = sp.get('rankBy') || 'spend'
   const topN = Math.max(1, Math.min(50, Number(sp.get('topN')) || 8))
   const ISO = /^\d{4}-\d{2}-\d{2}$/
@@ -32,7 +37,7 @@ export async function GET(request: Request) {
   const hasWin = !!(qs && qe && ISO.test(qs) && ISO.test(qe))
 
   const result = await queryBreakdown({
-    clientId, breakdownType, rankBy, topN,
+    clientId, breakdownType, platform, rankBy, topN,
     canonicalize: true, // LORAMER_META_ALIAS_CANON — -next card path opts in; no-op for non-(action_type,meta)
     ...(hasWin ? { startDate: qs!, endDate: qe! } : { baseRange: period }),
   })
@@ -41,7 +46,7 @@ export async function GET(request: Request) {
   // compare-window rankBy metric (cmpRank) so the card renders a per-row delta. WRITE-nothing; metrics_daily reads only.
   let withCmp = result.rows as any[]
   if (qcs && qce && ISO.test(qcs) && ISO.test(qce)) {
-    const cmp = await queryBreakdown({ clientId, breakdownType, rankBy, topN: 50, startDate: qcs, endDate: qce, canonicalize: true }) // LORAMER_META_ALIAS_CANON — MUST match primary or compare deltas mis-join canonical-vs-raw
+    const cmp = await queryBreakdown({ clientId, breakdownType, platform, rankBy, topN: 50, startDate: qcs, endDate: qce, canonicalize: true }) // LORAMER_META_ALIAS_CANON — MUST match primary or compare deltas mis-join canonical-vs-raw · LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — the SAME platform as the primary read, or the delta joins two platforms' rows
     const cmpByValue = new Map<string, number>()
     for (const r of cmp.rows as any[]) cmpByValue.set(r.value, Number((r as any)[rankBy] ?? r.spend ?? 0))
     withCmp = result.rows.map((r: any) => ({ ...r, cmpRank: cmpByValue.get(r.value) ?? 0 }))

@@ -11,6 +11,7 @@ import type { CardConfig } from './card-types'
 import { statMetric } from './card-types'
 import { useCardData, type BreakdownRow } from './useCardData'
 import { deltaLabel } from '@/lib/next/portfolio-windows'
+import { revenueBasisLine } from '@/lib/next/revenue-settle' // LORAMER_MER_BASIS_TRUTHFUL_V1 — the label lives with the settle that decides the source
 import { winLabel, winLabelPair, type Win } from '@/lib/next/card-windows' // LORAMER_COMPARE_LABEL_YEAR_V1 — pair-aware label wherever TWO windows render together
 import styles from './cards.module.css'
 
@@ -32,7 +33,11 @@ function StatBody({ clientId, cfg, current, compare }: { clientId: string; cfg: 
     ? (storeMoney ? fmtMoney(v) : fmtNum(v))
     : m.money ? fmtMoney(v) : m.suffix ? v.toFixed(2) + m.suffix : fmtNum(v)
   const dl = d.hasCompare ? deltaLabel(v, d.statCompare ?? null) : null
-  const sub = cfg.subtitle // LORAMER_NEXT_MER_SUBTITLE_V1 — basis line replaces the plain window label; delta still wins (B2 delta-priority)
+  // LORAMER_NEXT_MER_SUBTITLE_V1 — basis line replaces the plain window label; delta still wins (B2 delta-priority)
+  // LORAMER_MER_BASIS_TRUTHFUL_V1 — for MER the basis is DERIVED from the source the settle actually used, not
+  // asserted by a fixed string. cfg.subtitle stays as the fallback for the case where no source is known (which the
+  // MER card does not reach: a null revenue makes roas null and the card returns "No data" above).
+  const sub = (cfg.metric === 'roas' ? revenueBasisLine(d.revenueSource, d.revenueStore ?? null) : null) || cfg.subtitle
   return (
     <div className={styles.statBody}>
       <div className={styles.statV}>{val}</div>
