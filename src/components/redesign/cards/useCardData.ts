@@ -6,6 +6,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import type { CardConfig } from './card-types'
+import { resolveCardPlatform } from './card-types' // LORAMER_CARD_PLATFORM_RESOLUTION_V1 — the catalogue answers what a stored card never said
 import type { Win } from '@/lib/next/card-windows'
 
 export interface BreakdownRow { value: string; spend: number; conversions: number; conversionValue: number; impressions: number; clicks: number; revenue: number; metaRoas?: number | null; cmpRank?: number; geoId?: string; geoName?: string; geoCanonicalName?: string; geoLocationType?: string; geoResolved?: boolean } // metaRoas: LORAMER_META_CONV_ACTION_VALUE_ROAS_V1 — Meta-reported ROAS, present only on the canonicalized action_type card rows | geo*: LORAMER_GEO_RESOLVE_V1 — resolved place name alongside the raw geoTargetConstants id (google geo breakdowns only)
@@ -106,8 +107,12 @@ export function useCardData(clientId: string, cfg: CardConfig, current: Win, com
       const p = new URLSearchParams({ clientId, breakdownType: cfg.breakdownType || '', rankBy: cfg.rankBy || 'spend', topN: String(cfg.topN || 8), ...winParams(current, compare) })
       // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — a card titled for a platform must ASK for that platform. Omitted →
       // metrics-query.ts:586-589 refuses to guess on a multi-platform family and returns its refusal as the card body.
-      // Sent only when the card declares one, so every existing single-platform card resolves exactly as before.
-      if (cfg.platform) p.set('platform', cfg.platform)
+      // LORAMER_CARD_PLATFORM_RESOLUTION_V1 — RESOLVED, not read straight off the card. Every stored breakdown card in
+      // production predates the field (0 of 37 carry it), so `cfg.platform` alone reached nobody; the catalogue has
+      // known each family's platform all along. Explicit still wins; a blank catalogue entry sends nothing and lets
+      // the refusal stand. Still set only when a platform is known, so single-platform families resolve as before.
+      const platform = resolveCardPlatform(cfg)
+      if (platform) p.set('platform', platform)
       fetch(`/api/next/card-breakdown?${p.toString()}`)
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((d) => {

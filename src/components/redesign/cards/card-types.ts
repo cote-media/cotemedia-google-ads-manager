@@ -119,6 +119,27 @@ export const BREAKDOWN_CATALOG: BreakdownOption[] = [
   { key: 'customer_mix', label: 'Customer mix (store)', platform: 'woocommerce', coming: true },
 ]
 export const breakdownOption = (k?: string): BreakdownOption | undefined => BREAKDOWN_CATALOG.find((b) => b.key === k)
+
+// LORAMER_CARD_PLATFORM_RESOLUTION_V1 — WHICH PLATFORM A CARD ASKS FOR, RESOLVED AT RENDER TIME.
+//
+// ⛔ THE STORED CARD IS THE ONE THAT RENDERS, NOT THE DEFAULT. fde8122 added platform:'meta' to the default
+// Overview card, the suite went green, and the Age card stayed broken on a real phone — because
+// defaultOverviewView() is consulted ONLY by a user with no saved layout, and 0 of 37 stored breakdown cards in
+// production carry the field. A default cannot reach a card that already exists.
+//
+// ⛔ SO THE ANSWER IS READ, NOT MIGRATED. The catalogue above has carried `{key:'age', platform:'meta'}` since
+// it was written; the card simply never asked it. Resolving here fixes saved rows, new users and user-added
+// cards in one move, with no write to anybody's data — instead of a migration that fixes today's rows and has
+// to be re-run by hand for every future catalogue change.
+//
+// PRECEDENCE: an EXPLICIT platform on the card always wins. The catalogue is the fallback for a card that never
+// said, never an override of a user who did. A family the catalogue leaves blank (device, hour) resolves to
+// undefined on purpose: the request then stays silent and queryBreakdown's honest refusal survives, because a
+// resolver that fills the blank is the guess this design rejected (metrics-query.ts:586-589).
+export function resolveCardPlatform(cfg: CardConfig): string | undefined {
+  if (cfg.platform) return cfg.platform
+  return breakdownOption(cfg.breakdownType)?.platform || undefined
+}
 // LORAMER_NEXT_STORE_CATALOG_V1 — the store-scoped breakdown families. The config panel PARTITIONS on this: source==='store'
 // shows ONLY these (filtered to the active storePlatform); the ad panel shows ONLY the non-store families. Keeps 'product'
 // off the Overview add-card list and the ad families off the store add-card list.

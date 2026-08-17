@@ -108,7 +108,7 @@ if (mod?.defaultOverviewView && mod?.storeDefaultView) {
 if (findings.length) {
   console.error(`\n✗ DEFAULT-CARD-PLATFORM-CLAIM FAILED — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
-  console.error(`  LIMIT: this checks the BUILT-IN default views only. A card a user adds by hand is the config panel's job, and whether the platform then reaches the warehouse is the route's — neither is asserted here.`)
+  console.error(`  LIMIT, CORRECTED 2026-08-16 — the first version of this sentence said user-added cards were "asserted elsewhere" and there WAS no elsewhere, which is how fde8122 shipped green with the card still broken: this checks the BUILT-IN default views, which only a user with NO saved layout ever renders. Stored cards, user-added cards and the resolution that serves them are card-platform-resolution.guard.mjs — that guard now exists and is the elsewhere.`)
   process.exit(1)
 }
-console.log(`[default-card-platform-claim] PASS — the REAL default views were lifted from ${SRC} and built; ${claimedTotal} card title(s) name a platform and every one of them requests that platform explicitly. LIMIT: built-in defaults only — user-added cards and the route's handling of the field are asserted elsewhere.`)
+console.log(`[default-card-platform-claim] PASS — the REAL default views were lifted from ${SRC} and built; ${claimedTotal} card title(s) name a platform and every one of them requests that platform explicitly. LIMIT: built-in defaults only, and a default is read ONLY by a user with no saved layout — every stored and user-added card is card-platform-resolution.guard.mjs's job, not this one's.`)

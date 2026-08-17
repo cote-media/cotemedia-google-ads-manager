@@ -102,6 +102,9 @@ const GUARDS = [
   // LORAMER_DEFAULT_CARD_PLATFORM_CLAIM_V1 — a card TITLED for a platform must REQUEST it; "Age (Meta)" did not,
   // so metrics-query's developer refusal rendered on a customer-facing card. Lifts and BUILDS the default views.
   'tests/guards/default-card-platform-claim.guard.mjs',
+  // LORAMER_CARD_PLATFORM_RESOLUTION_V1 — the guard above proved the DEFAULT view and the card stayed broken for
+  // every user who has a saved one. This drives the RESOLUTION with the verbatim stored card from production.
+  'tests/guards/card-platform-resolution.guard.mjs',
   // LORAMER_MER_BASIS_TRUTHFUL_V1 — the MER card called a store-only numerator "blended revenue". Drives the real
   // label function against each source the settle can pick. Asserts the LABEL, never the arithmetic.
   'tests/guards/mer-basis-truthful.guard.mjs',
