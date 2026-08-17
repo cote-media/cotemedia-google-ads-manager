@@ -88,6 +88,12 @@ const CHECKS = [
   // (metrics_daily), so no hermetic fixture can hold it. Observed RED 4/4 against the pre-fix code at 7218bbd
   // and GREEN 4/4 after, both on live rows through the real rangesStillOwed entry.
   { name: 'check-topwindow-frontier', cmd: ['scripts/check-topwindow-frontier.mjs'] },
+  // LORAMER_CONSUMER_LIVENESS_V1 — DELIVERY, witnessed from the consumer's side only. It sits BESIDE
+  // check-walk-liveness rather than replacing it: that one asks whether the SCHEDULER is alive, this one
+  // whether what it publishes is being CONSUMED. On 2026-08-17 the first read ALIVE for 10h+ through a dead
+  // consumer because `published > 0` is the producer's own count; this reads universe_attempt_log and
+  // nothing else, and goes red inside 45 minutes.
+  { name: 'check-consumer-liveness', cmd: ['scripts/check-consumer-liveness.mjs', '--guard'] },
 ]
 // ROSTER-END
 

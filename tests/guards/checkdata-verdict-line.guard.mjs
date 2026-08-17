@@ -6,7 +6,8 @@
 // machine-final line, LAST in the output, carrying the exit code and every red BY NAME, printed by
 // scripts/run-checkdata.mjs. This guard pins the pieces that make the line trustworthy:
 //   (a) package.json's check:data actually invokes the runner (not a resurrected chain)
-//   (b) the roster is EXACTLY the 15 checks it must run (13 from the old chain + the RPC-grant-posture ACL half + the extra-metric serving prover) — the port could not silently drop one,
+//   (b) the roster is EXACTLY the list in EXPECTED_ROSTER below — the port could not silently drop one,
+//       ⛔ NO COUNT IN THIS SENTENCE: it read "the 15 checks" while the pin held 22. The list IS the count.
 //       and neither can a future edit without moving this pin deliberately
 //   (c) the runner never calls process.exit — Node docs: process.exit "will force the process to exit
 //       ... even if there are still asynchronous operations pending ... including I/O operations to
@@ -93,6 +94,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-coverage-density.mjs --guard',
   'scripts/check-fleet-meter-visibility.mjs --guard',
   'scripts/check-topwindow-frontier.mjs',
+  'scripts/check-consumer-liveness.mjs --guard',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
