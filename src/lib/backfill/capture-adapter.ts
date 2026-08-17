@@ -207,7 +207,30 @@ export interface CaptureAdapter<TRow = any> {
   /** The day this row belongs to, or null when it carries none. The core never guesses a date. */
   dateOf(row: TRow): string | null
   /** Vendor rows → metrics_daily rows, for ONE day. The core calls this at the commit boundary. */
-  buildRows(surface: CaptureSurface, ctx: CaptureContext, rows: TRow[]): { rows: Record<string, unknown>[]; grainDeclines: number }
+  /**
+   * ⛔ LORAMER_DROP_REASON_IS_A_FACT_V1 — EVERY ADAPTER OWES ITS DROP REASONS, NOT A DROP COUNT.
+   * A builder that returns only surviving rows makes "the vendor answered and nothing here was a grain"
+   * indistinguishable from "we stored nothing and cannot say why". The first is an ATTESTABLE EMPTY; the
+   * second is an unexplained gap that must stay OWED. MEASURED 2026-08-17 on Google: 32 windows across 14
+   * surfaces re-asked forever, 65 vendor requests spent to store nothing, because the caller could see only
+   * `apiRows > 0` and therefore called it 'ok'.
+   * ⛔ THE COUNTS MUST PARTITION: seen === rows.length + droppedNoDate + droppedEmptySegment +
+   * droppedAllZeroMetrics + (rows collapsed by aggregation). A reason that is not one of these is NOT
+   * attestable — an adapter that cannot explain a drop must leave it unexplained rather than inventing a
+   * bucket, because the attesting predicate keys on `droppedNoDate === 0`.
+   */
+  buildRows(surface: CaptureSurface, ctx: CaptureContext, rows: TRow[]): {
+    rows: Record<string, unknown>[]
+    grainDeclines: number
+    /** Rows the vendor returned, before any filtering. */
+    seen: number
+    /** UNEXPLAINED — a row with no date. Never attestable; it keeps the window owed. */
+    droppedNoDate: number
+    /** VENDOR-EXPLAINED — the segment value was empty, i.e. this segment does not apply here. */
+    droppedEmptySegment: number
+    /** VENDOR-EXPLAINED — every metric was zero, i.e. the vendor answered and there was no activity. */
+    droppedAllZeroMetrics: number
+  }
   /** Vendor error → a readable string. NEVER `String(e)`: a GoogleAdsFailure yields "[object Object]". */
   serializeError(e: unknown): string
 }

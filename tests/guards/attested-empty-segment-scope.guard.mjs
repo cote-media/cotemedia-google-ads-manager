@@ -73,6 +73,12 @@ class Q {
   constructor(rows) { this.rows = rows; this.conds = []; this.cols = null }
   select(cols) { this.cols = String(cols).split(',').map((s) => s.trim()); return this }
   eq(c, v) { this.conds.push((r) => String(r[c]) === String(v)); return this }
+  // ⛔ ADDED 2026-08-17 (LORAMER_NONGRAIN_ATTESTS_V1) BECAUSE THE SUBJECT STARTED USING IT AND THIS GUARD
+  // WENT RED RATHER THAN GREEN — which is the stub's fidelity contract working. attestedEmptyDays now reads
+  // .in('outcome', ['zero','nongrain']); a stub that silently lacked .in would have thrown, and a stub that
+  // silently ACCEPTED it without filtering would have let an unfiltered row attest. Same semantics as
+  // PostgREST: membership over the string form.
+  in(c, vs) { const set = new Set((vs ?? []).map(String)); this.conds.push((r) => set.has(String(r[c]))); return this }
   lte(c, v) { this.conds.push((r) => String(r[c]) <= String(v)); return this }
   gte(c, v) { this.conds.push((r) => String(r[c]) >= String(v)); return this }
   limit() { return this }

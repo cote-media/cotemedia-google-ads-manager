@@ -256,7 +256,12 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     .select('window_start, window_end, segment')
     .eq('client_id', k.clientId).eq('vendor', k.platform)
     .eq('resource', k.entityLevel)
-    .eq('phase', 'attempt_finished').eq('outcome', 'zero')
+    // ⛔ TWO VENDOR-EXPLAINED EMPTIES, KEPT APART IN THE LOG AND EQUAL IN COVERAGE. 'zero' = the vendor
+    // returned nothing. 'nongrain' = it returned rows and none was a grain at this surface (segment not
+    // applicable, or every metric zero) — LORAMER_NONGRAIN_ATTESTS_V1. Both are the VENDOR answering; neither
+    // is our bookkeeping. ⛔ 'skipped' STILL MUST NOT APPEAR HERE: that is US declining to ask, and letting it
+    // attest is the false-all-clear class.
+    .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
     .lte('window_start', windowEnd).gte('window_end', windowStart)
   if (error) throw new Error(
     `[universe-coverage] negative-coverage read failed for ${k.entityLevel}: ${error.message}. ` +

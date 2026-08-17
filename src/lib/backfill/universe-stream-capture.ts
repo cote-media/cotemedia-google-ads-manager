@@ -59,6 +59,20 @@ export interface StreamCaptureResult {
    * void is the CLAIM that the earlier days were closed.
    */
   orderViolation: boolean
+  /**
+   * ⛔ LORAMER_DROP_REASON_IS_A_FACT_V1 — summed across every flushed day of this invocation.
+   */
+  seen: number
+  droppedNoDate: number
+  droppedEmptySegment: number
+  droppedAllZeroMetrics: number
+  /**
+   * ⛔ TRUE ONLY WHEN THE VENDOR ANSWERED AND NOTHING IT RETURNED WAS A GRAIN HERE, FOR REASONS THE VENDOR
+   * ITSELF EXPLAINS. This is the ATTESTABLE empty. It is false on a MIXED window (any surviving row makes
+   * rowsWritten > 0), and false whenever a single row was dropped unexplained (`droppedNoDate > 0`) —
+   * because "we cannot say why we stored nothing" must keep the window OWED, never seal it.
+   */
+  nonGrainOnly: boolean
 }
 
 /**
@@ -100,6 +114,7 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     entry: label, asked: null, apiRows: 0, rowsWritten: 0, daysCommitted: [], observedZero: false,
     skipped: null, exhaustion: null, error: null, entityLevel: surface.entityLevel, grainDeclines: 0,
     orderViolation: false,
+    seen: 0, droppedNoDate: 0, droppedEmptySegment: 0, droppedAllZeroMetrics: 0, nonGrainOnly: false,
   }
 
   const source = args.stream
@@ -125,6 +140,12 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
     // window at once. An adapter whose builder is NOT within-day-decomposable may not use this path.
     const built = adapter.buildRows(surface, ctx, rows)
     out.grainDeclines += built.grainDeclines
+    // ⛔ ACCUMULATED PER DAY, NOT RECOMPUTED AT THE END — a kill mid-window leaves the tallies describing
+    // exactly the days that were actually built, which is the same discipline as write-then-advance.
+    out.seen += built.seen
+    out.droppedNoDate += built.droppedNoDate
+    out.droppedEmptySegment += built.droppedEmptySegment
+    out.droppedAllZeroMetrics += built.droppedAllZeroMetrics
     if (built.rows.length) out.rowsWritten += (await upsert(built.rows)).written
     committed.add(day)
     out.daysCommitted.push(day)
@@ -163,6 +184,12 @@ export async function captureSurfaceStreaming<TRow>(args: StreamCaptureArgs<TRow
   // adapter that was never entitled to rule (a) would read as "ordering verified" to the next reader.
   if (!mayInferOrder) out.orderViolation = true
   out.observedZero = out.rowsWritten === 0 && out.apiRows === 0
+  // ⛔ THE ATTESTING PREDICATE, AND EVERY CONJUNCT IS LOAD-BEARING. seen>0: the vendor was asked and answered.
+  // rowsWritten===0: nothing survived. droppedNoDate===0: every drop was one the VENDOR explains. The last
+  // term: at least one such drop actually happened, so this cannot fire on an empty response (that is already
+  // `observedZero`). ⛔ IT IS NOT A COUNT OF DROPS — a count cannot be attested, a reason can.
+  out.nonGrainOnly = out.seen > 0 && out.rowsWritten === 0 && out.droppedNoDate === 0 &&
+    (out.droppedEmptySegment + out.droppedAllZeroMetrics) > 0
   out.exhaustion = decideExhaustion({
     windowStart: startDate, rowsReturned: out.apiRows, floor: adapter.retention,
     asked: `${adapter.platform} ${surface.resource}/${surface.segment || '(base)'} ${startDate}..${endDate}`,

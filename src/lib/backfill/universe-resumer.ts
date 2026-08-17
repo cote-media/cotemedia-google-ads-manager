@@ -219,7 +219,10 @@ export function decideRepublish(a: {
   }
 
   // ⛔ NO PROGRESS — June's rule.
-  const completed = last.outcome !== null && (last.outcome === 'ok' || last.outcome === 'zero')
+  // 'nongrain' is a COMPLETED pass exactly like 'ok' and 'zero' — the vendor was asked and answered
+  // (LORAMER_NONGRAIN_ATTESTS_V1). Omitting it here would leave the no-progress bound blind to the one
+  // outcome most likely to repeat.
+  const completed = last.outcome !== null && (last.outcome === 'ok' || last.outcome === 'zero' || last.outcome === 'nongrain')
   if (completed && last.daysCommitted === 0) {
     return {
       publish: false, verdict: 'no-progress',

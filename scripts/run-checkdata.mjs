@@ -94,6 +94,11 @@ const CHECKS = [
   // consumer because `published > 0` is the producer's own count; this reads universe_attempt_log and
   // nothing else, and goes red inside 45 minutes.
   { name: 'check-consumer-liveness', cmd: ['scripts/check-consumer-liveness.mjs', '--guard'] },
+  // LORAMER_NONGRAIN_ATTESTS_V1 — the FIX-WITH-GUARD half. It asserts the PROPERTY, not the remedy: a window a
+  // completed pass has answered must end up COVERED or ATTESTED, never still owed. ⛔ IT SHIPS RED AND STAYS
+  // RED UNTIL THE FIX IS DEPLOYED — the attesting rows cannot exist until the fixed consumer runs, so this is
+  // the one check whose green is GATE-B by construction rather than by choice.
+  { name: 'check-nongrain-window-resolves', cmd: ['scripts/check-nongrain-window-resolves.mjs'] },
 ]
 // ROSTER-END
 

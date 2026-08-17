@@ -880,6 +880,17 @@ export interface BuiltRows {
   rows: Record<string, unknown>[]
   /** Rows the vendor returned WITHOUT a resource_name. Recorded, never silently folded into the account. */
   grainDeclines: number
+  /**
+   * ⛔ LORAMER_DROP_REASON_IS_A_FACT_V1 — WHY ROWS DID NOT SURVIVE, PER REASON, NEVER AS A TOTAL.
+   * A count of drops cannot be attested; a REASON can. "the vendor answered and nothing here was a grain"
+   * is an honest empty; "rows arrived with no date" is an unexplained gap and must stay owed and loud.
+   * Collapsing these into one number is precisely how `apiRows > 0` came to mean 'ok' for a window that
+   * stored nothing and could never attest (measured 2026-08-17: 32 windows, 14 surfaces, 65 requests).
+   */
+  seen: number
+  droppedNoDate: number
+  droppedEmptySegment: number
+  droppedAllZeroMetrics: number
 }
 
 /**
@@ -902,9 +913,10 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
   const agg = new Map<string, any>()
   const refusal = refusalStamp(entry)
   let grainDeclines = 0
+  let droppedNoDate = 0, droppedEmptySegment = 0, droppedAllZeroMetrics = 0
   for (const r of apiRows) {
     const date = r?.segments?.date
-    if (!date) continue
+    if (!date) { droppedNoDate++; continue }
     // Segment entry → the value is the segment. Resource-only entry → there is no segment axis, so the value
     // is the base '' and the row is identified entirely by its entity. Both branches read the ENTRY.
     const raw = segPath
@@ -916,7 +928,11 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
     // a fact only the walk writes has no incumbent to conform to, and inventing one would repeat the mistake.
     const rawValue = raw === undefined || raw === null ? '' : String(raw)
     const value = rawValue === '' ? '' : canonicalBreakdownValue(bt, rawValue)
-    if (segPath && value === '') continue // a SEGMENT row with no segment value is not a grain, it is noise
+    // ⛔ THE FILTER IS CORRECT AND STAYS. Google's own convention is that a NULL segment means the segment
+    // is NOT APPLICABLE (travel_destination_city on a non-travel account), and its shopping guidance is to
+    // EXCLUDE unset product attributes. What changes is that the drop is now COUNTED BY REASON, so the
+    // caller can tell "nothing here was a grain" from "we stored nothing and cannot say why".
+    if (segPath && value === '') { droppedEmptySegment++; continue } // a SEGMENT row with no segment value is not a grain, it is noise
     const id = entityIdFor(entry, r)
     if (id === null) grainDeclines++
     const entityId = id ?? VENDOR_DECLINED_GRAIN
@@ -932,7 +948,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
   for (const a of agg.values()) {
     // ⛔ ALL-ZERO ROWS ARE DROPPED FROM THE PAYLOAD, NOT FROM THE RECORD. The observed zero is reported by the
     // caller as a captureResult; it is not smuggled in as 0-valued rows that would inflate every row count.
-    if (a.spend === 0 && a.impressions === 0 && a.clicks === 0 && a.conversions === 0) continue
+    if (a.spend === 0 && a.impressions === 0 && a.clicks === 0 && a.conversions === 0) { droppedAllZeroMetrics++; continue }
     const spend = Number(a.spend.toFixed(2))
     const convValue = Number(a.convValue.toFixed(2))
     out.push({
@@ -954,7 +970,7 @@ export function buildUniverseRowsAtGrain(entry: UniverseEntry, ctx: BuildCtx, ap
       },
     })
   }
-  return { rows: out, grainDeclines }
+  return { rows: out, grainDeclines, seen: apiRows.length, droppedNoDate, droppedEmptySegment, droppedAllZeroMetrics }
 }
 
 /**

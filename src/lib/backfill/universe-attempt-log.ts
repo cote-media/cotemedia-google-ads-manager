@@ -21,7 +21,12 @@
 import { supabaseAdmin } from '@/lib/supabase'
 
 export type AttemptOutcome =
-  | 'ok' | 'zero' | 'skipped' | 'error' | 'quota_stop' | 'floor_stop' | 'abandoned_owed'
+  // ⛔ 'nongrain' ADDED 2026-08-17 — LORAMER_NONGRAIN_ATTESTS_V1. THE VENDOR ANSWERED AND NOTHING IT RETURNED
+  // WAS A GRAIN AT THIS SURFACE (the segment does not apply here, or every metric was zero). It ATTESTS like
+  // 'zero' and READS APART from it: folding it into 'ok' left 32 windows across 14 surfaces re-asked forever
+  // for 65 wasted requests, and folding it into 'zero' would destroy the very distinction that made the class
+  // findable. ⛔ IT IS NOT 'skipped' — that is US declining to ask, and it must never attest.
+  | 'ok' | 'zero' | 'nongrain' | 'skipped' | 'error' | 'quota_stop' | 'floor_stop' | 'abandoned_owed'
 
 /** The RANGE. This identifies WHAT WAS ATTEMPTED; `attempt_no` is a column and never part of it. */
 export interface AttemptKey {

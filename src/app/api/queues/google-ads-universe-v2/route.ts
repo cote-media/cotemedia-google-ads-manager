@@ -346,7 +346,16 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
       // account was idle: it is scoped to this resource, this segment, this granularity. `ok` at zero rows is NOT the same
       // claim (queue ★WALK-OK-MEANS-ZERO: 556 rows in the old log confused exactly these two), so the
       // outcome is derived from the count rather than hand-set.
-      const outcome = res.error ? 'error' : res.skipped ? 'skipped' : res.apiRows === 0 ? 'zero' : 'ok'
+      // ⛔ LORAMER_NONGRAIN_ATTESTS_V1 — 'nongrain' SITS BETWEEN 'zero' AND 'ok', AND IT EXISTS BECAUSE
+      // CONFLATING IT WITH EITHER ONE COSTS SOMETHING REAL. Folded into 'ok' (what shipped) the window can
+      // never attest and is re-asked forever — 32 windows, 14 surfaces, 65 wasted requests, measured
+      // 2026-08-17. Folded into 'zero' it becomes indistinguishable in the log from "the vendor returned
+      // nothing", which is the very distinction that made this class findable. It attests like a zero and
+      // reads apart from one.
+      const outcome = res.error ? 'error' : res.skipped ? 'skipped'
+        : res.apiRows === 0 ? 'zero'
+        : res.nonGrainOnly ? 'nongrain'
+        : 'ok'
       await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
         error: res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
