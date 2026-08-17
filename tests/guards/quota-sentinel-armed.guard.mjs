@@ -38,6 +38,12 @@ const code = (p) => read(p).split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test
 
 // ── (a) READ IMPLIES WRITE ─────────────────────────────────────────────────────────────────────────────
 const READ_ONLY = {
+  'src/app/api/backfill/universe-drive/route.ts':
+    'THE DRIVE PUBLISHES; IT NEVER FETCHES. Its stream factory throws by construction, exactly as the ' +
+    'resumer\'s does, so it can never observe a Google rejection to arm the sentinel with. It READS the ' +
+    'sentinel for the same reason the resumer does: everything it publishes BECOMES a vendor call, and an ' +
+    'operator is not a reason to skip the vendor\'s own refusal. The arming happens where the call happens — ' +
+    'in the v2 consumer, one message later.',
   'src/app/api/intelligence/route.ts':
     'THE ANSWER PATH. It reads the sentinel to caveat the prompt and now also builds the caveat from an observed ' +
     'refusal, but it never issues a Google call itself — the arming happens one level down, in google-intelligence ' +

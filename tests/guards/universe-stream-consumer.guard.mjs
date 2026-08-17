@@ -127,7 +127,17 @@ if (route) {
   // build the moment the resumer imported the topic, which is what forced the v2 header to be restated in
   // the same commit; that is the guard working.
   const RESUMER = 'src/app/api/cron/universe-resume/route.ts'
-  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER])
+  // ⛔ WIDENED 2026-08-17 — LORAMER_SINGLE_SURFACE_DRIVE_V1, AND THE INVARIANT IT CHANGES IS NAMED RATHER
+  // THAN QUIETLY RELAXED. The rule was ONE PUBLISHER, and its stated reason was that two consumers coexist
+  // safely only while exactly one receives anything. THE DRIVE DOES NOT THREATEN THAT: it publishes to the
+  // SAME v2 topic the resumer does, so the v1 consumer still receives nothing, which is the property the
+  // reason protects. What the rule ALSO carried implicitly is the UNATTENDED-SPEND argument — exactly one
+  // cron entry, pinned byte-for-byte below — and the drive does not touch that either: it has NO cron entry,
+  // it is CRON_SECRET-gated, it publishes EXACTLY ONE message per call, and its default is dryRun.
+  // ⛔ WHAT THE SET STILL MEANS: no file may reach this topic WITHOUT being named here. The list is the
+  // decision. A third publisher is a third decision, not an edit.
+  const DRIVE = 'src/app/api/backfill/universe-drive/route.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE])
   // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
   // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
   // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.

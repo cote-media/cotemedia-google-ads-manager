@@ -20,6 +20,10 @@ const nextConfig = {
       // it ENOENTs on Vercel while passing every local check — which is how it shipped broken once already.
       // `universe-runner.guard.mjs` leg (d) caught this within minutes of the route existing.
       '/api/cron/universe-resume': ['./docs/google-ads-capture-universe.json'],
+      // LORAMER_SINGLE_SURFACE_DRIVE_V1 — the drive resolves ONE catalog entry by (resource, segment) and so
+      // reads the same artifact. Same ENOENT trap, same fix; `universe-runner.guard.mjs` leg (d) caught it
+      // within minutes of this route existing, exactly as it caught the resumer.
+      '/api/backfill/universe-drive': ['./docs/google-ads-capture-universe.json'],
     },
   },
 }
