@@ -95,18 +95,58 @@ if (CHECK_ONLY) {
   process.exit(0)
 }
 
-console.log('[wrap-docs] 1/4  re-stamping the manifest FIRST (the digest reads it)…')
-const { changed, head, total } = restampManifest()
-if (changed.length) changed.forEach((c) => console.log(`         restamped ${c.rel}  ${c.from} → ${c.to}  lines ${c.lines}`))
-else console.log('         no source doc changed')
-console.log(`         ${total} tracked docs, ${changed.length} re-stamped, HEAD ${head}`)
+// ── LORAMER_WRAP_STAMP_ROLLBACK_V1 — THE STAMP IS A PROMISE, AND IT MAY ONLY BE KEPT BY A WRAP THAT FINISHED.
+//
+// ⛔ THE DEFECT, DEMONSTRATED 2026-08-17 BEFORE THIS EXISTED. `restampManifest` writes the manifest at the END
+// OF STEP 1 (:69) — content_hash, line_count, last_reconciled_date and last_reconciled_head — and steps 2, 3
+// and 4 are the things that establish everything that write CLAIMS. Force a step-2 refusal and the stamp
+// advanced anyway: DECISIONS 08f8018 → 2ae716e on a wrap that exited 1.
+//
+// ⛔ WHY REORDERING IS NOT THE FIX, AND DO NOT "SIMPLIFY" IT INTO ONE: LORAMER_WRAP_DOCS_ORDER_V1 (this file's
+// own header) exists because THE DIGEST READS THE STAMPED MANIFEST. Building it before the re-stamp ships
+// stamps describing the PREVIOUS state and produces a structural false RED the next morning. Step 1 must still
+// write before step 2 reads. So the write stays exactly where it is, and what changes is that it is UNDONE
+// unless every step succeeds.
+//
+// ⛔ THE KNOWN LIMIT, WRITTEN DOWN RATHER THAN LEFT IMPLICIT: this is a try/finally, so a HARD KILL between the
+// write and the rollback — SIGKILL, a crashed terminal, power loss — still leaves the advanced stamp on disk.
+// Nothing in a single process can close that; the shape that does is a `wrap_incomplete` marker written BEFORE
+// step 1 and cleared only at the end, which is deliberately NOT built here (queued). What IS closed is every
+// ordinary failure: a digest refusal, a freshness RED, a missing file, a throw.
+//
+// ⛔ AND THE HALF THIS DOES NOT TOUCH: nothing anywhere VALIDATES `last_reconciled_head`. The freshness gate
+// asserts content_hash only and never reads the head. That is fine while the field is an error-message
+// decoration and stops being fine the moment a detector keys a commit range on it —
+// ★LAST-RECONCILED-HEAD-IS-VALIDATED-BY-NOTHING.
+//
+// PROVEN BY: scripts/check-wrap-rollback.mjs, which drives THIS file on a throwaway copy of HEAD and asserts
+// the stamp is unchanged after a real step-2 refusal. Seen RED against the pre-fix tree.
+const manifestBefore = fs.readFileSync(abs(MANIFEST))
+let wrapCompleted = false
+try {
+  console.log('[wrap-docs] 1/4  re-stamping the manifest FIRST (the digest reads it)…')
+  const { changed, head, total } = restampManifest()
+  if (changed.length) changed.forEach((c) => console.log(`         restamped ${c.rel}  ${c.from} → ${c.to}  lines ${c.lines}`))
+  else console.log('         no source doc changed')
+  console.log(`         ${total} tracked docs, ${changed.length} re-stamped, HEAD ${head}`)
 
-console.log('[wrap-docs] 2/4  rebuilding the digest FROM the just-stamped manifest…')
-execFileSync(process.execPath, [abs('scripts/build-resume-digest.mjs')], { cwd: ROOT, stdio: 'inherit' })
+  console.log('[wrap-docs] 2/4  rebuilding the digest FROM the just-stamped manifest…')
+  execFileSync(process.execPath, [abs('scripts/build-resume-digest.mjs')], { cwd: ROOT, stdio: 'inherit' })
 
-console.log('[wrap-docs] 3/4  re-stamping the digest\'s OWN manifest entry (it changed in step 2)…')
-restampDigestEntry(head)
+  console.log('[wrap-docs] 3/4  re-stamping the digest\'s OWN manifest entry (it changed in step 2)…')
+  restampDigestEntry(head)
 
-console.log('[wrap-docs] 4/4  verifying — the same gate tomorrow\'s resume runs…')
-execFileSync(process.execPath, [abs('tests/guards/resume-digest-freshness.guard.mjs')], { cwd: ROOT, stdio: 'inherit' })
-console.log('[wrap-docs] DONE — manifest, digest and freshness gate are consistent. Commit them together.')
+  console.log('[wrap-docs] 4/4  verifying — the same gate tomorrow\'s resume runs…')
+  execFileSync(process.execPath, [abs('tests/guards/resume-digest-freshness.guard.mjs')], { cwd: ROOT, stdio: 'inherit' })
+  wrapCompleted = true
+  console.log('[wrap-docs] DONE — manifest, digest and freshness gate are consistent. Commit them together.')
+} finally {
+  // ⛔ RESTORE THE EXACT BYTES, not a re-serialisation: a rollback that reformats the file is a second edit
+  // wearing the costume of an undo. The digest may have been rewritten by a step-2 that partially succeeded —
+  // that is fine and deliberate, because the digest is REGENERATED from scratch by the next wrap, whereas the
+  // manifest's stamps are the only record of when reconciliation last actually happened.
+  if (!wrapCompleted) {
+    fs.writeFileSync(abs(MANIFEST), manifestBefore)
+    console.error('[wrap-docs] ROLLED BACK — the wrap did not complete, so the manifest stamps are restored to their pre-wrap values. Nothing now claims a reconciliation that did not happen. Fix the failure above and re-run.')
+  }
+}
