@@ -40,13 +40,22 @@ export type ResumeVerdict =
  * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
  * constant and this derivation TOGETHER so they cannot drift apart again:
  *   · the walk's lane is LANE_ALLOCATIONS.backfill = 13,500 ops/day (LORAMER_WALK_TAKES_THE_LANE_V1)
- *   · at an hourly cadence that is 24 fires/day
- *   · 40 requests/fire × 24 = **960/day = 7.1% of the lane**, leaving ~93% headroom — deliberately, so
- *     variance, re-walks and anything a human starts are absorbed retry-free rather than sized-to-the-brim
- *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN: each published
- *     message is one consumer invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 2
- *     (vercel.json), so a fire of 40 all-worst-case messages drains in 40 × 180s ÷ 2 = 3,600s — EXACTLY the
- *     fire interval. 40 is the largest bite whose worst case cannot back the queue into the next fire.
+ *   · ⛔ RE-DERIVED AGAIN 2026-08-17 (DEPLOY 2, DECISIONS:812) — the cadence is now every 15 minutes, i.e.
+ *     96 fires/day, and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
+ *     asterisk-slash form would CLOSE THIS COMMENT BLOCK and turn the rest of the header into code. It cost
+ *     one red guard to learn; vercel.json holds the token and the consumer guard pins it byte-for-byte.)
+ *     The gate that authorised it: a measured fire with rows_written > 0,
+ *     met at 88,140 rows/24h against the migration-070 RPC counter (the counter that read a structural zero
+ *     until 2026-08-15, which is why the gate could not have been honestly read before then).
+ *   · 40 requests/fire × 96 = **3840/day = 28.4% of the lane**, leaving ~72% headroom — still deliberately
+ *     unsized-to-the-brim, so variance, re-walks and anything a human starts are absorbed retry-free
+ *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN, AND IT IS WHY THE TWO
+ *     DEPLOY-2 TOKENS ARE ONE DECISION RATHER THAN TWO KNOBS: each published message is one consumer
+ *     invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 8 (vercel.json), so a fire of
+ *     40 all-worst-case messages drains in 40 × 180s ÷ 8 = 900s — EXACTLY the new fire interval, precisely as
+ *     40 × 180s ÷ 2 = 3,600s was exactly the old hourly one. Quartering the interval WITHOUT quadrupling the
+ *     concurrency would back the queue into the next fire; that is the property being preserved, not a
+ *     coincidence of the numbers. 40 remains the largest bite whose worst case cannot back the queue up.
  *     (Typical observed is ~6s/message — the first unattended night drained 20 in ~62s — and a backlog
  *     would be SAFE anyway: idempotency keys dedupe re-publishes and coverage is derived; the bound is for
  *     smoothness, not correctness.)

@@ -149,8 +149,9 @@ if (route) {
   // the Foam OH dormancy eyeball. It used to read "the sole publisher must not be on a schedule"; the lock
   // was SEEN RED refusing this exact entry before it was rewritten, which is what a lock is for.
   // ⛔ WHAT IT PINS NOW IS NARROWER, NOT WEAKER: the schedule that exists must be EXACTLY the decided one.
-  // The unattended-spend arithmetic rests on every clause of this string — hourly × MAX_REQUESTS_PER_RUN(40,
-  // raised from 20 by LORAMER_WALK_BITE_40_V1 on 2026-08-12) = 960 requests/day = 7.1% of the 13,500 lane —
+  // The unattended-spend arithmetic rests on every clause of this string — 96 fires/day (*/15, DEPLOY 2
+  // 2026-08-17) × MAX_REQUESTS_PER_RUN(40, raised from 20 by LORAMER_WALK_BITE_40_V1 on 2026-08-12) = 3,840
+  // requests/day = 28.4% of the 13,500 lane, up from 960/day = 7.1% at the hourly cadence —
   // so a second entry, a faster cadence, a different client, or a dropped dryRun=0 each change the spend
   // without a decision and each goes RED here. The BITE itself is pinned two blocks below, WITH its header
   // arithmetic, so the constant and its derivation cannot move apart.
@@ -159,8 +160,11 @@ if (route) {
   //     Fleet rollout is a SEPARATE decision after unattended operation is proven; roster: LORAMER_WALK_ROSTER_V1.
   //   · dryRun=0 explicit — without it the route's safe-by-default dry-run makes the cron a daily no-op
   //     that LOOKS scheduled (the exact false-comfort ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION described)
-  //   · cadence 30 * * * * — hourly, the resumer's DESIGNED cadence (universe-resumer.ts:40-45 derives its
-  //     bound arithmetic from 24 runs/day), minute 30 clear of the :00-:20 drain fires and :08 sync fires
+  //   · cadence */15 — DEPLOY 2's rate, with the resumer's bound arithmetic re-derived from 96 runs/day in
+  //     the same commit. ⛔ IT IS PAIRED WITH maxConcurrency 8 AND THE PAIR IS THE SAFETY PROPERTY: the
+  //     consumer's worst-case drain is 40 × WALK_BUDGET_MS(180s) ÷ concurrency, which is 900s at 8 — exactly
+  //     the new fire interval, as 3,600s at 2 was exactly the old one. A faster cadence WITHOUT the
+  //     concurrency raise backs the queue into the next fire.
   // ── THE BITE AND ITS DERIVATION MOVE TOGETHER — LORAMER_WALK_BITE_40_V1, 2026-08-12 ──────────────────
   // ⛔ MAX_REQUESTS_PER_RUN is the whole unattended-spend rate (bite × 24 fires), and its header carries the
   // derivation (lane share, queue-drain worst case). A constant changed without its arithmetic is exactly how
@@ -170,7 +174,11 @@ if (route) {
     const resumerSrc = read('src/lib/backfill/universe-resumer.ts') || ''
     const m = resumerSrc.match(/export const MAX_REQUESTS_PER_RUN\s*=\s*(\d+)/)
     const DECIDED_BITE = 40
-    const DERIVED_DAILY = DECIDED_BITE * 24 // 960
+    // ⛔ DEPLOY 2, 2026-08-17 (DECISIONS:812) — the cadence moved */15, so the fires-per-day multiplier moves
+    // WITH it: 24 → 96. The BITE did not change. This factor is the cadence expressed as arithmetic, and it
+    // must track the schedule pinned below or the two halves of the same decision drift apart — the exact
+    // failure this leg exists to prevent.
+    const DERIVED_DAILY = DECIDED_BITE * 96 // 3840
     if (!m) {
       findings.push('(e) MAX_REQUESTS_PER_RUN not found in universe-resumer.ts — the bite bound this whole schedule is sized on has moved or vanished; re-derive the pin.')
     } else if (Number(m[1]) !== DECIDED_BITE) {
@@ -180,7 +188,10 @@ if (route) {
     }
   }
   const vercelJson = read('vercel.json')
-  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '30 * * * *' }
+  // ⛔ DEPLOY 2, 2026-08-17 — schedule moved '30 * * * *' → '*/15 * * * *' on Russ's explicit GO, after the
+  // gate it was always waiting on (a fire with rows_written > 0) was MET at 88,140 rows/24h. The client,
+  // dryRun=0 and the ONE-entry rule are untouched: this raised the RATE on one proven account, nothing else.
+  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '*/15 * * * *' }
   if (vercelJson) {
     const crons = (JSON.parse(vercelJson).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
     if (crons.length !== 1) {
@@ -423,4 +434,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · hourly at :30 — LORAMER_WALK_SCHEDULED_V1).`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · every 15 minutes — LORAMER_WALK_SCHEDULED_V1 as raised by DEPLOY 2, 2026-08-17).`)
