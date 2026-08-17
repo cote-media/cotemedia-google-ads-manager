@@ -292,6 +292,10 @@ const GUARDS = [
   // LORAMER_CHECKDATA_VERDICT_LINE_V1 — check:data's machine-final VERDICT line: runner pinned, roster
   // pinned (13 checks), flush-safe exit, crash speaks, verdict LAST — the tail-truncation class enforcer.
   'tests/guards/checkdata-verdict-line.guard.mjs',
+  // LORAMER_DB_ENUM_MIRRORS_TS_V1 — a TS union and the CHECK constraint behind it must not diverge. Red-first
+  // against the 2026-08-17 incident shape: 'nongrain' in the union, absent from the constraint, every write
+  // rejected 23514 while build + 124 guards + check:data all read green.
+  'tests/guards/db-enum-mirrors-ts.guard.mjs',
   // LORAMER_RMF_REPORTING_DEFAULTS_V1 — the legacy /dashboard reporting surface is what a Google Ads API reviewer
   // is given, so its DEFAULT columns are a compliance artifact under Required Minimum Functionality. Asserts the
   // RMF fields are selected, carried through their mappers, default-on, null-preserving, immune to a stale
