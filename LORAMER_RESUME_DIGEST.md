@@ -7,14 +7,14 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-17T02:58:26.335Z
-- built_from HEAD: ee786d19b426a525d28e3e4db0e680358b6c13a9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-17T14:22:36.950Z
+- built_from HEAD: f073d889f616d085e225df5640d253fae4d51c55  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_ESSENCE.md: 4ed80e8e51c9d0e9b286e2061099cb0c37f4d1af44db0986f59748900f1b6b2c
+    - LORAMER_ESSENCE.md: fb0f5e45b8881e2b7be0f9f820ee0521108d7727e5962c0acd84d5b905140f36
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 36a22d6e68ac5abd232f2d8fb580b04975d5fe501517349a0cae8be423cea1ca
     - LORAMER_DECISIONS.md: 6f15cd7fe7ac2853f895466120583600f011f964b8c7f63c96184de717905317
@@ -304,11 +304,53 @@ High-stakes = any claim gating a destructive/rotate/delete action, a "this is a 
 ⇒ **THE RULE GENERALISES THE 08-12 FIX FROM ONE SCRIPT TO EVERY GATED CHAIN.** `[run-guards] ALL GREEN — N/N`, `[check:data] VERDICT — …`, and `✓ Compiled successfully` are verdicts. Quote them, then push. A report whose push line has no verdict line above it is INCOMPLETE — the same standing rule CLAUDE.md already applies to check:data, now applied to every gate.
 ⚠ **THIS IS A READING DISCIPLINE, NOT A GUARD** — no repo check can observe whether a chain's output was read, and the honest enforcer is the report itself (a missing quoted verdict is visible to Russ in the moment). The mechanical half — a wrapper that refuses to push on a non-green verdict — is QUEUED as ★VERDICT-ENFORCER-BEFORE-PUSH, deliberately NOT built in the same breath as the law (a law banked as prose is not banked; this one says so about itself).
 
+## ⛔ WHAT "DONE" MEANS FOR A BACKFILL — LORAMER_BACKFILL_DONE_DONE_V1 [LAW — RUSS, banked 2026-08-17]
+
+**THE BACKFILL IS DONE ONLY WHEN a new customer connects a client on a platform (Google Ads, GA4, Meta, or
+Shopify), clicks ONE Backfill button, and ALL SIX conditions below hold — proven as ONE pass/fail ACCEPTANCE
+PROOF, green once on a GENUINELY COLD connection, through the REAL entry path.** Never a rehearsal that
+hand-feeds the inputs which make it pass (LORAMER_REAL_INPUT_GATE_A_V1 applies at acceptance scale).
+
+1. **ALL GRAINS.** Every resource × segment THE VENDOR SERVES. The denominator is the vendor's own field
+   catalog, never our registry checked against itself (LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1).
+   Anything served-but-uncaptured is a FAIL.
+2. **FLOOR TO INCEPTION.** The frontier reaches the platform's data floor with NO surface pinned short, and
+   every interior day is either FILLED or ATTESTED-EMPTY **with a stated reason**. No silent gap, no false
+   zero.
+3. **CORRECT, NOT JUST PRESENT.** No rewriting of already-committed days; restatement-aware wherever the
+   vendor restates (LORAMER_RESTATEMENT_WINDOW_LAW_V1); and the numbers RECONCILE to the customer's own
+   platform UI.
+4. **EXPEDITIOUS.** It uses the lane it is allowed — but only AFTER correct. Speed never precedes
+   correctness (RIGHT > FAST governs the trade).
+5. **LORA-WIRED.** Every captured grain is READABLE BY LORA. Captured-but-dark is NOT done (JUDGMENT LAW 2 —
+   unwired is missing).
+6. **HONEST INSTRUMENTS.** Liveness tests **CONSUMPTION**, not publishing. No-progress tests whether the
+   FRONTIER MOVED / the OWED SET SHRANK, not a proxy for it. **An instrument that reports green while the
+   property it names is false is ITSELF A DEFECT**, ranked and fixed like any other.
+
+⛔ **THE PROOF IS THE GATE, AND IT IS ONE PROOF RATHER THAN SIX GREENS.** Six separately-green checks are how
+a system reads healthy while it is broken; this is a single pass/fail run end to end. Prove **Foam OH / Google
+Ads FIRST** — it becomes the TEMPLATE for Meta, GA4 and Shopify, and only then the other eight clients, then
+Bath Fitter. ⛔ **EVERY BACKFILL FIX IS SCORED AGAINST THIS PROOF, NOT SHIPPED AS ITS OWN GREEN.**
+
+⛔ **STANDING, AND IT DOES NOT COMPRESS:** the FIVE-STEP (RESEARCH → ADVERSARY → TEST → RUN → VERIFY) runs on
+EVERY backfill piece, uncompressed. **VERIFY is never skipped for anything that WRITES or SPENDS.**
+
+⚠ **ENFORCEABILITY, STAMPED RATHER THAN ASSUMED (per A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD).** The
+acceptance proof itself is the enforcer — a human-run, cold-connection, real-path pass/fail — and it is the
+strongest one available, because no repo guard can observe a new customer connecting a live account.
+Conditions 1–5 are therefore **UNENFORCEABLE BY BUILD GUARD** and say so on their face. Condition 6 is the
+exception and it is NOT theoretical: on 2026-08-17 `check-walk-liveness.mjs` reported **ALIVE for 7h35m while
+the consumer had been dead since 05:32Z**, because its ALIVE branch tests `published > 0` — the PRODUCER —
+and the walk's own no-progress bound tested `daysCommitted === 0` while the owed set never shrank. Both are
+mechanically fixable and are the two buildable halves of this law; neither is built by this entry.
+
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
 - [LAW] A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD. No law, lesson or falsification is recorded without a paired MECHANICAL CHECK in the same commit — FIX-WITH-GUARD applied to laws instead of code. A law that genuinely cannot be checked is stamped UNENFORCEABLE with the reason, so prose is never mistaken for protection. SIX FOR SIX, measured 2026-08-09: everything that became CODE held (the no-progress bound caught a real republish the day it landed; write-then-advance-per-unit; serializeVendorError) and everything that stayed PROSE failed — "check what already works" was violated inside 24 hours of being banked (v2 walked past the between-iteration budget check, the quota sentinel and the fleet-aware yield, all three already live in production); google-op-budget.ts:20-23 bans `Math.max(conns, days)` ANYWHERE while :330 uses it; the falsified API-Center-UI mechanism came back verbatim in a newer file and the new guard found a THIRD copy; the op cap is declared in three non-importing files; the ops-per-request ratio is settled at 1 in one file while 1.5 stays live in another. A baseline freeze of existing violations is a BURN-DOWN under Russ's approval, never absolution. INHERITED LIMIT: no guard can observe chat output, so the one-block and terseness laws stay UNENFORCEABLE by construction and are stamped as such.
 - [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)
 - [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)
 - [LAW] RIGHT > FAST. ALWAYS. If it takes 8 hours to get it right, that is fine. A deferral made because something was slow is NOT a decision, it is an unexamined cost — re-argue it with speed removed from the trade and say what changed. An hours estimate is never shaved to make a plan acceptable; a number that RISES when the work is understood properly is the estimate working. (Precedent 2026-08-08: sub-window checkpointing deferred to "a later flight" while speed was silently in the trade; with the trade corrected it moved INTO the rebuild the same day and the density model it propped up became an optimisation rather than a dependency.)
+- [LAW] LORAMER_BACKFILL_DONE_DONE_V1 — A BACKFILL IS DONE ONLY WHEN a new customer connects a client (Google Ads / GA4 / Meta / Shopify), clicks ONE Backfill button, and ALL SIX hold as ONE pass/fail acceptance proof, green once on a GENUINELY COLD connection through the REAL entry path — never a rehearsal that hand-feeds the inputs that make it pass: (1) ALL GRAINS, denominator = the vendor's own catalog, served-but-uncaptured = fail · (2) FLOOR TO INCEPTION, no surface pinned short, every interior day filled OR attested-empty WITH A STATED REASON · (3) CORRECT NOT JUST PRESENT — no rewriting committed days, restatement-aware, reconciles to the customer's own platform UI · (4) EXPEDITIOUS, but only AFTER correct · (5) LORA-WIRED — captured-but-dark is not done · (6) HONEST INSTRUMENTS — liveness tests CONSUMPTION not publishing, no-progress tests whether the frontier moved / the owed set shrank, and an instrument that reads green while its property is false is ITSELF A DEFECT. THE PROOF IS THE GATE, one proof not six greens: Foam OH / Google first, then the template to Meta/GA4/Shopify, then the other eight, then Bath Fitter — every backfill fix is SCORED AGAINST THIS PROOF, never shipped as its own green. FIVE-STEP runs uncompressed on every backfill piece; VERIFY is never skipped for anything that writes or spends. (Full text + the enforceability stamp: the section directly above.)
 - GOVERNING LAW (above): capture EVERYTHING / EVERYWHERE / FOREVER, full grain + history. A thin slice (account-only, forward-only) is UNFINISHED CODE, never a "phase-4 / later."
 - VIDEO = ASSET **AND** METRIC, ALL MEANS ALL — the full video creative/asset layer AND the full video metric family (plays/ThruPlay/p25-100/avg-time/cost-per-thruplay), every grain, every platform.
 - INVENTORY-FIRST sequencing — map all 5 platforms' full capture surface, THEN one master gap list + value-ordered build queue, THEN build. Never writer-by-writer ahead of the map.
