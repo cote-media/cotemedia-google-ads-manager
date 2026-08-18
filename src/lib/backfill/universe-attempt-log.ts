@@ -39,6 +39,23 @@ export interface AttemptKey {
   windowEnd: string
 }
 
+/**
+ * ⛔ THE WINDOW THAT WAS ASKED — LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1. NOT part of `AttemptKey`, and the
+ * separation is the whole point: identity is the RANGE, the parent is a PROPERTY of the attempt saying what
+ * larger ask it was one piece of. `universe_surface_rotation` prefers it and `deriveAnchorEnd` recedes by it,
+ * so a walked 30-day window gains ~30 days instead of the width of whichever range was written last.
+ *
+ * ⛔ OMITTING IT IS A REAL CHOICE WITH A REAL COST, NOT A CONVENIENCE. A row written without a parent reads as
+ * UNKNOWN at the rotation (`parent_known = false`), and an unknown window HOLDS the anchor rather than
+ * receding it — deliberately, because the window a parentless row belonged to is recoverable from no stored
+ * fact (sizing is adaptive and time-varying). So a writer that forgets this does not corrupt anything; it
+ * STALLS that surface until a stamped row lands. Fail-safe, and visible.
+ */
+export interface ParentWindow {
+  startDate: string
+  endDate: string
+}
+
 export interface AttemptOpened {
   attemptNo: number
   /**
@@ -70,7 +87,12 @@ const fail = (what: string, detail: unknown): never => {
  * Returns the attempt number and the count at this span. **Neither is a coverage answer**: both describe
  * how many times WE have tried, which is a fact about us, not about the data.
  */
-export async function appendAttemptStarted(k: AttemptKey, requests = 1): Promise<AttemptOpened> {
+export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow): Promise<AttemptOpened> {
+  // ⛔ THE PARENT IS STAMPED **IN THE RPC**, NOT HERE, AND THAT IS NOT AN IMPLEMENTATION DETAIL. This function
+  // does not INSERT — `universe_attempt_open` (migrations/082, SECURITY DEFINER) owns the only INSERT that
+  // ever writes an `attempt_started` row, because `attempt_no` must be derived under an advisory lock. The
+  // 2026-08-18 adversary pass caught the banked design saying "written by the consumer": the consumer cannot
+  // write it, it can only PASS it. Sending null is the same as sending nothing — the row reads UNKNOWN.
   const { data, error } = await supabaseAdmin.rpc('universe_attempt_open', {
     p_client_id: k.clientId,
     p_vendor: k.vendor,
@@ -79,6 +101,8 @@ export async function appendAttemptStarted(k: AttemptKey, requests = 1): Promise
     p_window_start: k.windowStart,
     p_window_end: k.windowEnd,
     p_requests: requests,
+    p_parent_window_start: parent?.startDate ?? null,
+    p_parent_window_end: parent?.endDate ?? null,
   })
   if (error) fail('attempt_started', error)
   // ⛔ THE RPC DERIVES `attempt_no` UNDER AN ADVISORY LOCK because `maxConcurrency: 2` lets two invocations

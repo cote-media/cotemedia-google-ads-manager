@@ -96,7 +96,7 @@ if (typeof S.breakdownTypeForSurface !== 'function' || typeof S.drainAliasFor !=
 const pg = (await import('pg')).default
 const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
 const iso = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10))
-let rot = [], frontiers = [], skipped = []
+let rot = [], frontiers = [], skipped = [], rotHasParentKnown = false
 try {
   await db.connect()
   const q = async (s, p = []) => (await db.query(s, p)).rows
@@ -161,12 +161,20 @@ try {
   // ── 3 · THE FRONTIER — the REAL compiled deriveAnchorEnd, one call per surface, exactly as the resumer
   // calls it at universe-resume/route.ts:255-260.
   const newestGround = (() => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10) })()
+  // ⛔ THE DETECTOR MUST MODEL THE ENGINE THAT IS ACTUALLY RUNNING, IN BOTH ERAS, OR ITS FRONTIER IS FICTION.
+  // Before migrations/082 the rotation returns FIVE columns and the deployed resumer trusts whatever bounds it
+  // gets — so `lastWindowKnown` is passed TRUE, reproducing that trust. After 082 the rotation returns
+  // `parent_known` and the guard uses it. Hard-coding either would silently mis-place the frontier by up to a
+  // full window, in the direction that HIDES skips, which is the failure this whole guard exists to refuse.
+  rotHasParentKnown = Object.prototype.hasOwnProperty.call(rot[0], 'parent_known')
+  const knownAt = new Map(rot.map((r) => [`${r.resource}|${r.segment ?? ''}`, rotHasParentKnown ? r.parent_known === true : true]))
   frontiers = surfaces.map((s) => {
     const owed = owedAt.get(`${s.resource}|${s.segment}`) ?? 0
     const a = R.deriveAnchorEnd({
       newestGround,
       lastWindowStart: s.ws, lastWindowEnd: s.we,
       lastWindowFullyAnswered: owed === 0,
+      lastWindowKnown: knownAt.get(`${s.resource}|${s.segment}`) === true,
     })
     return { resource: s.resource, segment: s.segment, bt: s.bt, a_el: s.a_el, a_bt: s.a_bt,
              frontier: a.anchorEnd, receded: a.receded, owed, ws: s.ws, we: s.we }
@@ -233,7 +241,7 @@ if (!knownInBand) {
 }
 
 const totalDays = skipped.reduce((n, s) => n + s.days, 0)
-console.log(`[no-owed-day-left-behind] measured ${rot.length} surface(s) of ${CLIENT}/${VENDOR} · frontier from the live rotation + the real deriveAnchorEnd · ` +
+console.log(`[no-owed-day-left-behind] measured ${rot.length} surface(s) of ${CLIENT}/${VENDOR} · frontier from the live rotation + the real deriveAnchorEnd (parent_known ${rotHasParentKnown ? 'READ FROM THE ROTATION — 082 is applied' : 'ABSENT — pre-082 rotation, modelling the deployed resumer'}) · ` +
             `guard-on-guard OK (${KNOWN.resource} reports ${known.days} skipped day(s), ${iso(known.oldest)}..${iso(known.newest)}).`)
 
 if (skipped.length) {

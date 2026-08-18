@@ -88,6 +88,11 @@ const findings = []
     lastWindowStart: NO_ADVANCE ? null : skipWindow.start,
     lastWindowEnd: NO_ADVANCE ? null : skipWindow.end,
     lastWindowFullyAnswered: true, // covered ground — exactly the condition the skip records
+    // ⛔ KNOWN, 2026-08-18: the covered-skip pair this leg simulates is written BY THE RESUMER, which stamps
+    // the derived window as the parent (LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1). So the row it leaves behind is
+    // vouched-for by construction, and the unwedge depends on that — a skip recorded WITHOUT a parent would
+    // read UNKNOWN, hold the anchor, and put the wedge straight back. That is why the writer stamps it.
+    lastWindowKnown: true,
   })
   const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: 30, stopDate: '2022-03-04' })
   const movedBelow = !NO_ADVANCE && anchor.receded && anchor.anchorEnd === '2026-07-12' && win !== null && win.windowEnd < skipWindow.start
@@ -95,7 +100,7 @@ const findings = []
     findings.push(`(a) the anchor did NOT move below a fully-answered skip window (anchor=${anchor.anchorEnd}, receded=${anchor.receded}, next=${win ? `${win.windowStart}..${win.windowEnd}` : 'null'}). With the skip recorded as last-asked, recession must continue — otherwise the wedge is back.`)
   }
   // Source: the nothing-owed branch appends the PAIR (started is what 064's rotation reads).
-  const branch = /verdict\.verdict === 'nothing-owed'[\s\S]{0,900}?appendAttemptStarted\(key, 0\)[\s\S]{0,400}?appendAttemptFinished\(key, opened\.attemptNo, 'skipped'/.test(route)
+  const branch = /verdict\.verdict === 'nothing-owed'[\s\S]{0,900}?appendAttemptStarted\(key, 0[,)][\s\S]{0,400}?appendAttemptFinished\(key, opened\.attemptNo, 'skipped'/.test(route)
   if (NO_ADVANCE || !branch) {
     findings.push(`(a) ${F_ROUTE}: the nothing-owed branch no longer appends the started(0)+finished('skipped') PAIR. The rotation (migrations/064) reads phase='attempt_started' ONLY — a finished-only skip provably advances nothing (two live rows on ad_group, 2026-08-12), and without the started row every covered surface wedges again.`)
   }

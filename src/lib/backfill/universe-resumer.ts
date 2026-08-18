@@ -283,6 +283,16 @@ export function decideRepublish(a: {
  * the attempt log may answer "what did we ask, and what came back"; ONLY `universe-coverage` may answer
  * "is this captured".
  *
+ * ⛔ AND THE UNIT IT RECEDES BY IS THE **WINDOW THAT WAS ASKED** — LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1,
+ * 2026-08-18. For a year it was the LAST RANGE WRITTEN, because five writers shared one column pair and the
+ * rotation returned whichever row was newest. Ranges are walked in ASCENDING date order, so the newest row is
+ * the range nearest the TOP of the window and the anchor gained ONE DAY per pass. MEASURED by
+ * `scripts/drive-one-surface.mjs`, five consecutive passes, zero variance: ~1,427 passes and ~2,854 vendor
+ * requests to floor ONE surface, ~4 years each, 346 surfaces — the walk could not reach inception at all.
+ * `universe_attempt_log.parent_window_start/end` (migrations/082) records the ask; the rotation prefers it and
+ * reports `parent_known`; a row without one is UNKNOWN and HOLDS. See the branch below and the § PROGRESS-TRUTH
+ * spec in docs/LORAMER_WALK_REBUILD_ARCHITECTURE.md.
+ *
  * ⛔ AND IT RECEDES ONLY OVER A WINDOW THAT IS ALREADY ANSWERED — the property that stops recession from
  * becoming skipping. The anchor moves below the LAST WINDOW ASKED only when that window owes nothing. A
  * window that still owes days HOLDS the anchor and is re-published, and `decideRepublish`'s no-progress
@@ -308,10 +318,34 @@ export function deriveAnchorEnd(a: {
   lastWindowEnd: string | null
   /** Does that last window still owe days? Only a fully-answered window may be receded past. */
   lastWindowFullyAnswered: boolean
+  /**
+   * ⛔ IS THAT REALLY A WINDOW, OR ONLY THE RANGE WE HAPPENED TO WRITE LAST?
+   * `universe_surface_rotation.parent_known` (migrations/082). FALSE = the row predates the parent stamp, so
+   * the bounds above are RANGE bounds wearing a window's name. Defaults to FALSE so a caller that forgets to
+   * pass it gets the SAFE answer rather than the fast one.
+   */
+  lastWindowKnown?: boolean
 }): { anchorEnd: string; receded: boolean; basis: string } {
   const { newestGround, lastWindowStart, lastWindowEnd, lastWindowFullyAnswered } = a
+  const lastWindowKnown = a.lastWindowKnown === true
   if (lastWindowStart === null || lastWindowEnd === null) {
     return { anchorEnd: newestGround, receded: false, basis: `never attempted — anchored at the newest ground ${newestGround}` }
+  }
+  // ⛔ UNKNOWN IS NOT "ANSWERED", AND IT IS NOT "UNANSWERED" EITHER — IT IS **DO NOT MOVE**.
+  // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1, and this branch is the transitional half of it. A legacy row carries
+  // no parent, and the window it belonged to is recoverable from NO STORED FACT: sizing is adaptive and
+  // time-varying, so yesterday's window cannot be re-derived from today's policy — the same argument that
+  // ruled out recomputation, applied backwards. Receding by bounds we cannot vouch for is precisely the
+  // false-all-clear this rebuild exists to end, so an unknown window is never receded past.
+  // ⚠ THE RESIDUAL, STATED RATHER THAN GLOSSED: holding at `lastWindowEnd` still ANCHORS AT A RANGE'S END on a
+  // legacy row, and a range's end can sit below the true window top. That is today's behaviour, unchanged and
+  // not made worse — and it ends for a surface the moment ONE parent-stamped `attempt_started` lands on it,
+  // which is one consumer pass. It is a transitional exposure with a known end, not a design position.
+  if (!lastWindowKnown) {
+    return {
+      anchorEnd: lastWindowEnd, receded: false,
+      basis: `the last attempt on this surface carries NO parent window (a pre-082 row) — the bounds ${lastWindowStart}..${lastWindowEnd} are a RANGE, not the window that was asked. UNKNOWN does not authorise a recession; holding until a parent-stamped attempt lands`,
+    }
   }
   if (!lastWindowFullyAnswered) {
     return {
@@ -323,6 +357,46 @@ export function deriveAnchorEnd(a: {
   return {
     anchorEnd: receded, receded: true,
     basis: `${lastWindowStart}..${lastWindowEnd} fully answered — receding to ${receded}, the day below it`,
+  }
+}
+
+/**
+ * ⛔ THE MIS-SIZED SPLIT — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1, AND IT IS A PURE FUNCTION SO THAT THE
+ * PROPERTY CAN BE DRIVEN RATHER THAN ARGUED. It lives here, beside the other pure decisions, because the
+ * arithmetic that decides WHICH GROUND STAYS OWED must be testable with no clock, no DB and no queue.
+ *
+ * ⛔ WHAT IT REPLACES: the consumer computed `narrowedEnd = startDate + half - 1` inline, published
+ * `[startDate, narrowedEnd]`, and DROPPED `[narrowedEnd+1, endDate]` on the floor. Nothing republished it and
+ * the resumer could not: the anchor only moves DOWN, and the narrowed window's own attempt rows pull the
+ * rotation below the dropped ground on the next fire. MEASURED 2026-08-18 — 12 surfaces holding exactly the
+ * 15-day upper half of a 30-day window this branch had narrowed.
+ *
+ * THE CONTRACT, and every clause is asserted by `mis-size-must-re-owe.guard.mjs`:
+ *   · `lower` starts where the window started and is `max(minDays, floor(span/2))` days wide — unchanged.
+ *   · `upper` is EXACTLY the remainder, `[lower.end + 1, windowEnd]`, or null when the narrow consumed the
+ *     whole window (`span <= minDays * 2` can leave nothing above).
+ *   · The two are CONTIGUOUS and DISJOINT and their union is the original window, day for day. No day of the
+ *     window may belong to neither — that is the defect, restated as an invariant.
+ */
+export function planMisSizedSplit(a: {
+  windowStart: string
+  windowEnd: string
+  minDays: number
+}): { lower: { start: string; end: string }; upper: { start: string; end: string } | null; halfDays: number } {
+  const { windowStart, windowEnd, minDays } = a
+  const spanDays = Math.round((Date.parse(windowEnd + 'T00:00:00Z') - Date.parse(windowStart + 'T00:00:00Z')) / 86_400_000) + 1
+  const halfDays = Math.max(minDays, Math.floor(spanDays / 2))
+  const lowerEnd = addDaysISO(windowStart, halfDays - 1)
+  // ⛔ CLAMPED, SO THE FUNCTION CANNOT INVENT GROUND ABOVE THE WINDOW. If the half is not smaller than the
+  // window there is nothing to split; returning an `upper` past `windowEnd` would publish a message for days
+  // the walk was never asked about.
+  if (lowerEnd >= windowEnd) {
+    return { lower: { start: windowStart, end: windowEnd }, upper: null, halfDays: spanDays }
+  }
+  return {
+    lower: { start: windowStart, end: lowerEnd },
+    upper: { start: addDaysISO(lowerEnd, 1), end: windowEnd },
+    halfDays,
   }
 }
 

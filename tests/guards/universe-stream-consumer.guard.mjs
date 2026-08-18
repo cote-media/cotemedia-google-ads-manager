@@ -59,7 +59,11 @@ if (route && capture) {
   else if (iCall < 0) findings.push(`(a) ${ROUTE} never calls captureEntryStreaming — this is not the streaming consumer.`)
   else if (iStart > iCall) findings.push(`(a) ${ROUTE} calls captureEntryStreaming at ${iCall} BEFORE appendAttemptStarted at ${iStart}. Spend must be charged BEFORE the vendor call, or a hard kill leaves the request unbilled.`)
   // and the charge must be non-zero on that path
-  if (route && !/appendAttemptStarted\([^)]*,\s*1\s*\)/.test(route)) {
+  // ⛔ PATTERN WIDENED 2026-08-18, DELIBERATELY, AND THE PROPERTY IS UNCHANGED: the call now carries a THIRD
+  // argument (the parent window — LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1), so `(key, 1)` no longer ends the
+  // call. What this leg guards is the CHARGE — a literal 1 in the requests position — and that is exactly
+  // what the widened pattern still requires. It does NOT accept a computed or defaulted charge.
+  if (route && !/appendAttemptStarted\([^,]*,\s*1\s*[,)]/.test(route)) {
     findings.push(`(a) ${ROUTE} opens the attempt without charging a request (expected \`appendAttemptStarted(key, 1)\`). An attempt that bills 0 is invisible to the governor exactly like v1's.`)
   }
   // and the vendor must not be reachable any other way from this route

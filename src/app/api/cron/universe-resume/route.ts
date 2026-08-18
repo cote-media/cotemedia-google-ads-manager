@@ -192,7 +192,9 @@ export async function GET(request: Request) {
       refusals: [],
     }, { status: 200 })
   }
-  type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string; last_attempt_at: string }
+  // ⛔ `parent_known` (migrations/082) IS NOT OPTIONAL METADATA — it is the difference between "the window we
+  // asked for" and "the last range we happened to write". Pre-082 rows return false and must HOLD the anchor.
+  type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string; last_attempt_at: string; parent_known: boolean }
   const rotation = new Map<string, RotRow>()
   for (const r of (rotRows ?? []) as RotRow[]) rotation.set(`${r.resource}|${r.segment ?? ''}`, r)
   const lastAttemptedAt = new Map<string, string>()
@@ -243,6 +245,11 @@ export async function GET(request: Request) {
     // ⛔ THE RECEDE GATE: the last window asked must owe NOTHING before the anchor may move below it.
     // One coverage read, bounded by the window's own span — never the whole walked band (that shape was
     // rejected on arithmetic: one probe per day × 1,622 days × 60 surfaces).
+    // ⛔ AND IT NOW EVALUATES OVER THE **PARENT WINDOW**, BECAUSE THAT IS WHAT `rot.last_window_*` RETURNS
+    // AFTER migrations/082 — the two halves of LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 move together, on
+    // purpose. Recording the window while this gate still answered over the RANGE is the CATASTROPHIC
+    // configuration named by the 2026-08-18 adversary pass: the anchor would recede a full window on the
+    // evidence of one answered day and skip the rest permanently and silently. Neither half ships alone.
     let lastCoverage: Awaited<ReturnType<typeof rangesStillOwed>> | null = null
     if (rot) {
       try {
@@ -257,6 +264,7 @@ export async function GET(request: Request) {
       lastWindowStart: rot ? String(rot.last_window_start) : null,
       lastWindowEnd: rot ? String(rot.last_window_end) : null,
       lastWindowFullyAnswered: lastCoverage === null ? true : lastCoverage.coverage.uncovered.length === 0,
+      lastWindowKnown: rot ? rot.parent_known === true : false,
     })
     const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate })
     if (win === null) {
@@ -333,7 +341,10 @@ export async function GET(request: Request) {
     // grep-able; requests_spent=0 keeps every spend aggregate honest.
     if (!verdict.publish && verdict.verdict === 'nothing-owed') {
       if (!dryRun) {
-        const opened = await appendAttemptStarted(key, 0)
+        // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — the covered-skip advances past the DERIVED window, so the
+        // parent is that window. Stamped rather than left null: a null parent HOLDS the anchor, which would
+        // reinstate ★WALK-WEDGES-AT-COVERED-GROUND through the very branch built to end it.
+        const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd })
         await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
           requestsSpent: 0,
           error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested (${plaus.reason}); advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,

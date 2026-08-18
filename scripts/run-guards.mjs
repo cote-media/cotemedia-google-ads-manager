@@ -159,6 +159,12 @@ const GUARDS = [
   // before every vendor call · a day is covered only when a later day closes it (synthetic mid-day kill) ·
   // the coverage module never reaches the attempt-log module · the bound is judged at the MINIMUM span.
   'tests/guards/universe-stream-consumer.guard.mjs',
+  // LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 — a narrowed window must be SPLIT, never TRUNCATED. Drives the
+  // real `planMisSizedSplit` for the invariant (no day of the window belongs to neither half) and reads the
+  // consumer for the ORDER (the endangered upper half is published FIRST, and a refusal holds the whole
+  // window). It belongs in the BUILD, not check:data: it needs no database and it is GREEN, so a red here is
+  // a regression someone just wrote rather than history waiting on a re-walk.
+  'tests/guards/mis-size-must-re-owe.guard.mjs',
   // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.

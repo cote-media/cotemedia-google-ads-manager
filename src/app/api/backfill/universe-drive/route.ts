@@ -102,10 +102,15 @@ export async function GET(request: Request) {
   const { data: rotRows, error: rotErr } = await supabaseAdmin
     .rpc('universe_surface_rotation', { p_client_id: clientId, p_vendor: adapter.platform })
   if (rotErr) return NextResponse.json({ error: `rotation index unreadable: ${rotErr.message}` }, { status: 500 })
-  type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string }
+  // `parent_known` per migrations/082 — false on a pre-082 row, and an unknown window HOLDS rather than recedes.
+  type RotRow = { resource: string; segment: string; last_window_start: string; last_window_end: string; parent_known: boolean }
   const rot = ((rotRows ?? []) as RotRow[]).find((r) => r.resource === resource && (r.segment ?? '') === segment) ?? null
 
   const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
+  // ⛔ THE RECEDE GATE, OVER THE **PARENT WINDOW** — `rot.last_window_*` is the window ASKED after
+  // migrations/082, not the last range walked. Both halves of LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 move
+  // together here exactly as they do in the resumer; recording the window while this still measured the range
+  // is the configuration that skips owed days silently.
   const lastCoverage = rot
     ? await rangesStillOwed(coverageKey, String(rot.last_window_start), String(rot.last_window_end))
     : null
@@ -114,6 +119,7 @@ export async function GET(request: Request) {
     lastWindowStart: rot ? String(rot.last_window_start) : null,
     lastWindowEnd: rot ? String(rot.last_window_end) : null,
     lastWindowFullyAnswered: lastCoverage === null ? true : lastCoverage.coverage.uncovered.length === 0,
+    lastWindowKnown: rot ? rot.parent_known === true : false,
   })
   const win = deriveWindow({ anchorEnd: anchor.anchorEnd, sizingDays: sizing.days, stopDate: stop.stopDate })
   if (win === null) {
@@ -147,7 +153,9 @@ export async function GET(request: Request) {
     // only), so this can never masquerade as coverage. requests_spent = 0 keeps every spend aggregate honest.
     const key: AttemptKey = { clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, windowStart, windowEnd }
     if (!dryRun) {
-      const opened = await appendAttemptStarted(key, 0)
+      // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — same shape as the resumer's block, carried over rather than
+      // re-derived: the covered-skip's parent is the derived window it is advancing past.
+      const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd })
       await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
         requestsSpent: 0,
         error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,

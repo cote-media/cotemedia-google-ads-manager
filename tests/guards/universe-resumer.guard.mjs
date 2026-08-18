@@ -106,7 +106,11 @@ if (route) {
   for (const [pat, why] of [
     [/upsertMetricsChunked|from\('metrics_daily'\)[\s\S]{0,80}\.(upsert|insert)/, 'writes captured rows'],
     [/appendDayCommitted/, 'writes a day_committed record'],
-    [/appendAttemptStarted\((?!key, 0\))/, 'opens a CHARGED attempt — the resumer may append only the zero-request covered-skip pair; charged opens belong to the consumer'],
+    // ⛔ WIDENED 2026-08-18 FOR THE PARENT-WINDOW ARGUMENT AND NOT ONE STEP FURTHER: the call is now
+    // `appendAttemptStarted(key, 0, { startDate, endDate })`, so the negative lookahead has to admit a third
+    // argument while STILL refusing any charge other than a literal 0. `(?!key, 0[,)])` does exactly that —
+    // `appendAttemptStarted(key, 1, …)` remains a finding, which is the whole point of the leg.
+    [/appendAttemptStarted\((?!key, 0[,)])/, 'opens a CHARGED attempt — the resumer may append only the zero-request covered-skip pair; charged opens belong to the consumer'],
     [/googleAdsStreamFor|queryStream|customer\.query/, 'reaches the vendor. A scheduler that fetches is a scheduler that can spend without a message ever being counted'],
   ]) {
     if (pat.test(code)) findings.push(`(g) ${ROUTE} ${why}. WRITE-THEN-ADVANCE-PER-UNIT (June: run-backfill.ts:242-260) lives in universe-stream-capture's flush(); the resumer cannot break that ordering because it must never participate in it.`)

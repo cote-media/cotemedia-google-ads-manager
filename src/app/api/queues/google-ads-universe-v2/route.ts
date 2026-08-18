@@ -68,6 +68,9 @@ import { mayFetch } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
+// ⛔ THE MIS-SIZED SPLIT IS A PURE DECISION AND LIVES WITH THE OTHER PURE DECISIONS — importing it rather
+// than recomputing it here is what lets a guard DRIVE the "no day belongs to neither half" invariant.
+import { planMisSizedSplit } from '@/lib/backfill/universe-resumer'
 import { checkDiskFloor } from '@/lib/backfill/universe-window-log'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // ⛔ THE TOPIC, THE MESSAGE SHAPE AND THE TWO BOUNDS LIVE IN A CONTRACT MODULE, NOT HERE. Next.js rejects
@@ -244,7 +247,10 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // COVERED_SKIP marker, rowsWritten OMITTED so it never enters sizing history, and 'skipped' already
     // excluded from vendor attestation so it can never masquerade as coverage.
     const coveredKey: AttemptKey = { ...key, windowStart: startDate, windowEnd: endDate }
-    const coveredOpened = await appendAttemptStarted(coveredKey, 0)
+    // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — here the range IS the window, so the parent is trivially itself.
+    // Stamped anyway rather than left null: a null parent reads as UNKNOWN and HOLDS the anchor, which would
+    // re-wedge exactly the covered ground this branch exists to advance past.
+    const coveredOpened = await appendAttemptStarted(coveredKey, 0, { startDate, endDate })
     await appendAttemptFinished(coveredKey, coveredOpened.attemptNo, 'skipped', {
       requestsSpent: 0,
       error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${startDate}..${endDate} fully covered/attested on delivery; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
@@ -283,17 +289,63 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // ⛔ **MIS-SIZED**, which is a completely different verdict and gets a completely different remedy:
     // re-publish this same ground at HALF the span. Nothing is abandoned and nobody is told anything is
     // broken, because nothing is.
-    const half = Math.max(MIN_WINDOW_DAYS, Math.floor(spanDays / 2))
-    const narrowedEnd = addDays(startDate, half - 1)
+    // ⛔ THE SPLIT IS A PURE FUNCTION AND NOT INLINE ARITHMETIC, DELIBERATELY — `planMisSizedSplit`
+    // (universe-resumer.ts) so `mis-size-must-re-owe.guard.mjs` can DRIVE the property "no day of the window
+    // belongs to neither half" instead of grepping for it. The inline version is what dropped the upper half.
+    const split = planMisSizedSplit({ windowStart: startDate, windowEnd: endDate, minDays: MIN_WINDOW_DAYS })
+    const half = split.halfDays
+    const narrowedEnd = split.lower.end
+    // ⛔ LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 — THE HALF THIS BRANCH USED TO THROW AWAY.
+    // It narrowed to `[startDate, narrowedEnd]` — the OLDER half — and NOTHING ever republished
+    // `[narrowedEnd+1, endDate]`. The resumer cannot rescue it: the anchor only moves DOWN, and the narrowed
+    // window's own attempt rows drag the rotation below the dropped ground on the very next fire. So the upper
+    // half was not "walked later", it was walked NEVER.
+    // ⛔ MEASURED LIVE, 2026-08-18, BY `no-owed-day-left-behind.guard.mjs` — 270 owed days above the frontier
+    // across 14 surfaces, and TWELVE of them report EXACTLY 15 days at 2026-03-24..2026-04-07: the upper half
+    // of a 30-day window this branch narrowed to 15. The guard knows nothing about narrowing; it read the
+    // warehouse and reproduced this arithmetic. 18 mis-sized events stand in the log.
+    // ⛔ AND THE parent_window FIX DOES NOT CLOSE IT, WHICH IS WHY IT IS A SEPARATE MARKER: the narrowed
+    // message's window genuinely IS the narrow one, so the parent stamp records it FAITHFULLY. The ground is
+    // lost at the PUBLISH site, not at the anchor. A fix that closes a hole and leaves the CLASS alive is a
+    // failure even shipped green.
+    const hasUpper = split.upper !== null
+    const upperStart = split.upper?.start ?? endDate
+    // ⛔ THE UPPER HALF IS PUBLISHED **FIRST**, AND THE ORDER IS THE SAFETY PROPERTY, NOT A PREFERENCE.
+    // The governor may refuse. If the lower half went out first and the upper were then refused, we would
+    // have re-created the exact defect — the rotation would move down onto the narrowed window and the upper
+    // half would be below no future ask. Publishing the endangered half first means a refusal costs us the
+    // NARROWING (recoverable: the window is re-derived next fire and nothing was spent) instead of costing us
+    // the DATA (unrecoverable). Fail-closed, in the direction the coverage module's own header names as the
+    // catastrophic one.
+    const upper = hasUpper
+      ? await publishGoverned(adapter,
+          { ...msg, startDate: upperStart, endDate }, dayDiff(upperStart, endDate) + 1,
+          `${clientId}|${entry.resource}|${entry.segment ?? ''}|${upperStart}|${endDate}|narrow-upper`,
+        )
+      : { published: true, reason: 'no upper half — the narrow consumed the whole window' }
+    if (!upper.published) {
+      // ⛔ HOLD THE WHOLE WINDOW RATHER THAN SPLIT IT. Nothing is published and nothing is spent, so the
+      // newest ASKED row for this surface stays the FULL window, the anchor holds at its top, and the resumer
+      // re-derives all of it next fire. A quota refusal must never become a permanent hole.
+      await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
+        rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
+        error: `MIS-SIZE HELD, NOT SPLIT: ${attemptsHere} attempt(s) at ${spanDays} days, but the upper half ${upperStart}..${endDate} could not be published (${upper.reason}). ` +
+          `Publishing only the older half would drop the upper half permanently — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1. The whole window stays owed and is re-derived next fire.`,
+      })
+      console.warn(`[universe-v2] MIS-SIZE HELD ${clientId} ${label}: upper half ${upperStart}..${endDate} refused (${upper.reason}) — window NOT split, nothing dropped.`)
+      return
+    }
     const pub = await publishGoverned(adapter,
       { ...msg, startDate, endDate: narrowedEnd }, half,
       `${clientId}|${entry.resource}|${entry.segment ?? ''}|${startDate}|${narrowedEnd}|narrow`,
     )
     await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
-      error: `MIS-SIZED, not broken: ${attemptsHere} attempt(s) at ${spanDays} days. Re-published at ${half} day(s). ${pub.reason}`,
+      error: `MIS-SIZED, not broken: ${attemptsHere} attempt(s) at ${spanDays} days. Re-published at ${half} day(s). ${pub.reason}` +
+        (hasUpper ? ` · UPPER HALF ${upperStart}..${endDate} RE-OWED as its own message (${upper.reason}) — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1.` : ''),
     })
-    console.log(`[universe-v2] MIS-SIZED ${clientId} ${label}: ${spanDays}d → ${half}d, published=${pub.published} (${pub.reason})`)
+    console.log(`[universe-v2] MIS-SIZED ${clientId} ${label}: ${spanDays}d → ${half}d, published=${pub.published} (${pub.reason})` +
+      (hasUpper ? ` · upper ${upperStart}..${endDate} re-owed (${upper.reason})` : ''))
     return
   }
 
@@ -338,7 +390,12 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // ⛔ THE ATTEMPT IS OPENED **BEFORE** THE VENDOR IS CALLED, AND THE REQUEST IS CHARGED HERE. v1 wrote
     // `requests_spent` only on close, so a killed invocation left 0 and burned quota INVISIBLY to the rate
     // governor — which is exactly how three poison loops persisted. This ordering is the fix.
-    const opened = await appendAttemptStarted(rangeKey, 1)
+    // ⛔ LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — THE DEFECT WAS HERE AND IT WAS NEVER A LOST FACT.
+    // `key` (the WINDOW, built from msg.startDate/endDate at :160) is still in scope four lines above, and
+    // `rangeKey` spreads it and then overwrites exactly the two columns that carry the meaning. For a year
+    // the log recorded the RANGE under a column named `window_start`, the rotation returned it as "the last
+    // window asked", and the anchor receded by ONE DAY per pass. The window is passed, not re-derived.
+    const opened = await appendAttemptStarted(rangeKey, 1, { startDate, endDate })
     requests++
     try {
       const res = await captureSurfaceStreaming({

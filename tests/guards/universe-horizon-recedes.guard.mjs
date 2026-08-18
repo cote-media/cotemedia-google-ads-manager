@@ -73,13 +73,17 @@ if (R) {
     findings.push(`(a) a NEVER-ATTEMPTED surface did not anchor at the newest ground: ${JSON.stringify(first)}. Newest-first is the design — the user has the most recent months within hours.`)
   }
   // 2. ⛔ THE WHOLE POINT: an answered window must RECEDE, to the day BELOW it.
-  const receded = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: '2026-07-14', lastWindowEnd: '2026-08-12', lastWindowFullyAnswered: true })
+  // ⛔ `lastWindowKnown: true` ADDED 2026-08-18 — LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1. The recession legs of
+  // this guard assert what happens to a window the engine can VOUCH FOR, so they must say so. A row without a
+  // parent stamp is UNKNOWN and deliberately does NOT recede, and that separate contract is asserted by
+  // `anchor-recedes-by-window.guard.mjs` leg (B) rather than duplicated here.
+  const receded = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: '2026-07-14', lastWindowEnd: '2026-08-12', lastWindowFullyAnswered: true, lastWindowKnown: true })
   if (!receded.receded || receded.anchorEnd !== '2026-07-13') {
     findings.push(`(a) AN ANSWERED WINDOW DID NOT RECEDE: ${JSON.stringify(receded)} — expected anchorEnd 2026-07-13, the day below 2026-07-14. ` +
       `THIS IS THE DEFECT: anchored at yesterday forever, the scheduled walk spent 244 requests for ZERO rows and never reached below 2026-07-12 against a 2022-03-04 floor.`)
   }
   // 3. ⛔ AND IT MUST NOT RECEDE PAST UNANSWERED GROUND — receding there would skip days nothing else walks.
-  const held = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: '2026-07-14', lastWindowEnd: '2026-08-12', lastWindowFullyAnswered: false })
+  const held = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: '2026-07-14', lastWindowEnd: '2026-08-12', lastWindowFullyAnswered: false, lastWindowKnown: true })
   if (held.receded || held.anchorEnd !== '2026-08-12') {
     findings.push(`(a) THE ANCHOR RECEDED PAST A WINDOW THAT STILL OWED DAYS: ${JSON.stringify(held)}. A day skipped here is walked by NOTHING — ` +
       `that is the false-all-clear class this rebuild exists to end, arriving through a scheduler instead of a coverage read.`)
@@ -88,7 +92,7 @@ if (R) {
   let cursor = { start: '2026-07-14', end: '2026-08-12' }
   let prev = '9999-12-31'
   for (let i = 0; i < 5; i++) {
-    const a = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: cursor.start, lastWindowEnd: cursor.end, lastWindowFullyAnswered: true })
+    const a = R.deriveAnchorEnd({ newestGround: NEWEST, lastWindowStart: cursor.start, lastWindowEnd: cursor.end, lastWindowFullyAnswered: true, lastWindowKnown: true })
     if (!(a.anchorEnd < prev)) { findings.push(`(a) the anchor did not STRICTLY descend on lap ${i}: ${a.anchorEnd} vs previous ${prev}. A walk that stops descending re-buys ground forever.`); break }
     prev = a.anchorEnd
     const w = R.deriveWindow({ anchorEnd: a.anchorEnd, sizingDays: 30, stopDate: '2022-03-04' })

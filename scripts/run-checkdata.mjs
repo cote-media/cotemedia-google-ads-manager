@@ -110,6 +110,10 @@ const CHECKS = [
   // publish). This one asks only "did the walk leave owed ground above its own frontier", which stays a valid
   // question after the anchor is re-plumbed. Red like its neighbour, and here for the same reason.
   { name: 'no-owed-day-left-behind', cmd: ['tests/guards/no-owed-day-left-behind.guard.mjs'] },
+  // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — the DATABASE half of the parent-window fix, proven by WRITING the
+  // bad rows rather than by reading the migration that declares the CHECK. Red until migrations/082 is
+  // applied, and that red IS the mechanical proof of the apply. Rolls back everything it writes.
+  { name: 'parent-window-check-rejects', cmd: ['tests/guards/parent-window-check-rejects.guard.mjs'] },
 ]
 // ROSTER-END
 

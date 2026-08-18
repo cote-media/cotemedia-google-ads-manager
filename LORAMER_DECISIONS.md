@@ -390,6 +390,83 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 17 of 18 google `sync_state` rows carry theirs. **The mechanism is UNRESOLVABLE FROM THE REPO** — `sync_state`
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
+
+**THE UNIT THE WALK ADVANCES BY IS THE WINDOW THAT WAS ASKED, AND IT IS RECORDED — NEVER INFERRED FROM
+WHICHEVER ATTEMPT ROW HAPPENS TO BE NEWEST.** `universe_attempt_log.window_start/window_end` meant "the RANGE
+walked" or "the WINDOW asked" depending on which of five writers touched the row last; `universe_surface_rotation`
+returned the newest row and called it "the last window ASKED"; ranges are walked in ASCENDING date order, so the
+newest row was the range nearest the TOP of the window and `deriveAnchorEnd` receded by ONE DAY. Measured by
+`scripts/drive-one-surface.mjs` over five consecutive passes with zero variance: **~1,427 passes and ~2,854
+vendor requests to floor ONE surface, ~4 years each, 346 surfaces — the walk could not reach inception at all.**
+THE SHAPE: additive nullable `parent_window_start/end` (migrations/082), stamped by the ONE site that inserts an
+`attempt_started` row, preferred by the rotation, which also reports `parent_known`.
+⛔ **THREE THINGS THE ADVERSARY PASS CHANGED ABOUT THE BANKED DESIGN, EACH LOAD-BEARING, EACH THE RESULT OF
+PROVING THE OBVIOUS FIX RATHER THAN ASSUMING IT:**
+- **THE CONSUMER CANNOT WRITE THE PARENT — IT CAN ONLY PASS IT.** `appendAttemptStarted` does not INSERT; it
+  calls `universe_attempt_open`, a SECURITY DEFINER function whose INSERT is the only writer of an
+  `attempt_started` row. And it must stay ONE SIGNATURE: `universe-attempt-append-only.guard.mjs` leg (h)
+  counts `pg_proc` rows for the two helpers and fails unless it finds exactly 2 — pg_proc holds one row per
+  OVERLOAD, so defaulted extra parameters would make it 3. DROP + CREATE, never CREATE OR REPLACE.
+- **A NULL PARENT IS UNKNOWN AND MUST NOT AUTHORISE A RECESSION.** No backfill is derivable: the window a
+  legacy row belonged to is recoverable from no stored fact, because sizing is adaptive and time-varying — the
+  same argument that ruled out recomputation, applied backwards. A guessed parent is the range lie with a new
+  column name. Hence `parent_known` and the UNKNOWN-holds branch.
+- **A THREE-LEG CHECK IS OWED** (both-or-neither · ordering · containment). The rotation COALESCEs the two
+  columns INDEPENDENTLY, so a half-set pair yields a window's bottom with a range's top straight into the
+  anchor derivation, and nothing else in the schema forbids it. CONTAINMENT is the one that matters most: it
+  makes "the range lies inside the window it was asked under" a fact Postgres refuses to store otherwise.
+⛔ **BOTH HALVES SHIP TOGETHER OR NEITHER DOES.** Recording the window while the fully-answered gate still
+measured the RANGE is the CATASTROPHIC configuration: the anchor would recede a full window on the evidence of
+one answered day and skip the rest permanently and silently. The reverse (gate over the window, only the range
+recorded) is merely INERT. **THE DANGEROUS HALF IS THE COLUMNS LANDING BEFORE THE GATE MOVES**, and that
+asymmetry — not the symmetry the spec first stated — is the reason they are one commit.
+
+## LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
+
+**A MIS-SIZED WINDOW IS SPLIT, NEVER TRUNCATED.** The narrowing branch published the OLDER half and dropped
+`[narrowedEnd+1, endDate]` on the floor; nothing republished it and the resumer could not, because the anchor
+only moves DOWN. ⛔ **AND THE PARENT-WINDOW FIX DOES NOT CLOSE IT — the narrowed message's window genuinely IS
+the narrow one, so the parent stamp records it FAITHFULLY. The ground is lost at the PUBLISH site, not at the
+anchor.** That is LORAMER_ENGINEER_OF_RECORD_V1's own test: a fix that closes a hole and leaves the CLASS alive
+is a failure even shipped green.
+MEASURED, from the warehouse and not from the code: 270 owed days above the frontier across 14 surfaces, TWELVE
+of them exactly the 15-day upper half of a 30-day window this branch had narrowed. 18 mis-sized events in the log.
+THE SHAPE: `planMisSizedSplit` as a PURE decision beside the other pure decisions, so the invariant *"the two
+halves partition the window — no day belongs to neither"* is DRIVEN by a guard rather than argued; and the
+UPPER half is published FIRST, with a refused upper half HOLDING the whole window. ⛔ **THE ORDER IS THE SAFETY
+PROPERTY, NOT A PREFERENCE:** the governor can refuse, and a refusal must cost the NARROWING (recoverable — the
+window is re-derived next fire, nothing spent) instead of the DATA (not recoverable at all).
+
+## LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1 (2026-08-18) — SETTLED. Do not relitigate. SHIPPED (502fd8e).
+
+**THE DETECTOR MEASURES THE PROPERTY, NOT THE MECHANISM: did the walk leave owed ground above its own
+frontier?** Answerable from the WAREHOUSE alone, so it survives every future re-plumbing of the anchor — and it
+is what proves the fix worked rather than merely compiled. It exists because `anchor-recedes-by-window` is a
+UNIT DRIVE of `deriveAnchorEnd` and is structurally BLIND to both live skip mechanisms, which sit at that
+function's CALLERS. **IT WAS RED ON ITS FIRST RUN, ON REAL DAYS, AND ITS 15-DAY CLUSTERS REPRODUCED THE
+MIS-SIZED ARITHMETIC FROM DATA IT WAS NEVER TOLD ABOUT.**
+⛔ **GUARD-ON-GUARD IS PART OF THE DECISION, NOT AN ORNAMENT:** it must independently see the skip traced by
+hand, or it EXITS 2 (BROKEN) rather than 0 or 1 — because a blind detector reads exactly like a clean bill of
+health. Its count is a FLOOR, never a total: covered is read loosely and the ASKED band is built from RECORDED
+bounds, so days owed inside a window but never opened as a range are invisible to it.
+COROLLARY, banked as the general rule: **a detector written against a mechanism dies with the mechanism.** When
+a fix and its detector are designed together, the detector is written against the PROPERTY the fix is supposed
+to establish, so it stays valid after the fix and can prove the NEXT regression too.
+
+## LORAMER_SURFACE_UNASKABLE_IS_A_SURFACE_FACT_V1 (2026-08-18) — OPEN PROBLEM, NAMED. Not built.
+
+**A VENDOR REFUSAL OF THE QUERY IS A PROPERTY OF THE SURFACE, NOT OF THE ATTEMPT — and the engine has no way to
+say so.** Every attempt on google/`group_content_suitability_placement_view` finished `outcome='error'` with
+GAQL `{"query_error":49} Cannot select or filter on the following…`: a permanent rejection of the query itself.
+Eleven attempts, zero rows, and the anchor still marching down a surface that can never succeed at ANY window
+size. ⛔ **NEITHER BOUND CATCHES IT:** BROKEN fires only at the MINIMUM span, and MIS-SIZED halving keeps
+narrowing a window whose problem is not its width. It belongs beside the surface wall (`resolveWalkStop`),
+never in the retry bound. Queued as ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 and deliberately NOT bundled with
+the parent-window flight: "what may we ask" is a different question from "how far may we recede".
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907

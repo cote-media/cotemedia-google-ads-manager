@@ -39,6 +39,10 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
 
 // ── (b) THE ROSTER PIN — flags included, in order. ⛔ NO COUNT IN THIS LINE: it read "20 checks" while the
 // list below held 21, and a count in prose is a fact with a shelf life. The list IS the count.  ────────
+// ⛔ MOVED 2026-08-18 FROM 25 → 26, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION.
+// `parent-window-check-rejects` writes deliberately-invalid parent pairs and asserts Postgres refuses each
+// with 23514, inside a transaction it always rolls back. It is red until migrations/082 is applied, which is
+// exactly what makes it the mechanical proof of that apply.
 // ⛔ MOVED 2026-08-18 FROM 24 → 25, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `no-owed-day-left-behind` is the DATA-LAYER half of the anchor work: `anchor-recedes-by-window` drives
 // `deriveAnchorEnd` and can only see the STEP SIZE, while both live skip mechanisms sit at that function's
@@ -103,6 +107,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-nongrain-window-resolves.mjs',
   'tests/guards/anchor-recedes-by-window.guard.mjs',
   'tests/guards/no-owed-day-left-behind.guard.mjs',
+  'tests/guards/parent-window-check-rejects.guard.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
