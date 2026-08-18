@@ -391,6 +391,72 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_SPEED_DOES_NOT_COST_DISK_V1 (2026-08-18) — MEASURED, not modelled. Re-measure before reusing.
+
+**THE QUESTION: does a faster walk need MORE disk than a slow one? THE MEASURED ANSWER: NO, not materially —
+because in virgin ground the walk is an INSERTER, and bloat is capped per partition by autovacuum's own
+trigger regardless of the rate that reaches it.**
+
+**1 · THE WRITE PATH IS AN UPSERT, SO DEAD TUPLES ARE IN PLAY — BUT ONLY ON RE-WRITES.**
+`upsertMetricsChunked` (metrics-upsert.ts:88-90) calls `.upsert(rows, { onConflict: METRICS_DAILY_CONFLICT })`
+with `ignoreDuplicates` UNSET ⇒ PostgREST emits `ON CONFLICT … DO UPDATE`, never DO NOTHING. The file's own
+header (:4-5) states the consequence: *"every row in that array is a CONFLICT — i.e. an UPDATE, not an insert.
+Postgres writes a new heap tuple per updated row."* The walk reaches it through
+`universe-stream-capture.ts:111`.
+
+⛔ **2 · AND THE PARTITIONS THE WALK IS ACTUALLY DESCENDING INTO SHOW ALMOST NO UPDATES AT ALL** (pg_stat_user_tables, live):
+  2025_07  ins 7,619,166 · upd 121,090 · **upd/ins 0.02** · dead **2,926**
+  2025_08  ins 5,785,493 · upd 121,030 · **0.02** · dead **3,041**
+  2025_09  ins 6,086,641 · upd 119,882 · **0.02** · dead **3,264**
+  2025_10  ins 10,181,740 · upd 120,566 · **0.01** · dead **5,739**
+  vs 2025_12  ins 13,126,188 · upd **51,036,759** · **3.89** · dead 1,854,311 · HOT 62.3%
+**THE CONTRAST IS THE FINDING.** 2025_12 is the pre-fix re-write churn (the class
+LORAMER_COMMITTED_DAY_CLOSES_V1 measured as 59% of a day's row output spent re-writing committed days).
+Virgin ground is 0.01–0.03 updates per insert. ⇒ **DEAD TUPLES COME FROM RE-ASKING COVERED GROUND, WHICH IS A
+CORRECTNESS PROPERTY, NOT A SPEED ONE. Going faster does not create them; going wrong does.**
+
+**3 · AUTOVACUUM IS NOT BEHIND — IT IS CORRECTLY IDLE, AND THAT IS A STRUCTURAL CAP.**
+Settings in force: `autovacuum on` · scale_factor **0.2** · threshold 50 · max_workers 3 · naptime 60s ·
+cost_delay **2ms** · cost_limit −1 ⇒ inherits `vacuum_cost_limit` 200 · autovacuum_work_mem −1 ⇒
+maintenance_work_mem 128 MB. No per-table overrides.
+Trigger = 50 + 0.2 × n_live_tup. Worst partition 2026_03: needs 2,985,000 dead, HOLDS 2,822,179 — **94.5% of
+the way and not triggered**. Fleet-wide: **0 of 145 partitions over their own threshold**, 9,744,796 dead
+against 160,527,539 live = **6.1%**, zero autovacuum workers running at the moment of measurement.
+⇒ **~20% DEAD PER PARTITION IS THE STEADY-STATE CEILING BY CONSTRUCTION.** A faster writer reaches that
+ceiling sooner and triggers vacuum sooner; it does not raise the ceiling. Bloat is bounded by a SETTING, not
+by a rate.
+
+**4 · WAL IS A THROUGHPUT COST, NOT A RESIDENCY COST.**
+`pg_stat_wal`: 1,631,850,963,978 bytes = **1,520 GB over 46.1 days ⇒ ~33 GB/day** across ALL lanes, with
+482,208,929 full-page images. On-volume WAL is **1 GiB** (dashboard) because `max_wal_size` **4096 MB** bounds
+it, `checkpoint_timeout` 300s / completion_target 0.9, `wal_compression` **zstd**, `wal_level` **logical**,
+`wal_keep_size` 0. ⇒ A 3–5 day sustained run raises WAL GENERATION and checkpoint frequency; it does not
+raise WAL RESIDENCY unless archiving falls behind, which is a Supabase-side property we do not control and
+cannot see from SQL. ⚠ `wal_level = logical` generates more WAL than `replica` — a standing cost, not a
+run-specific one.
+
+**5 · THE FLOOR PARKS THE WALK BEFORE AUTOSCALE CAN EVER FIRE — CONFIRMED, WITH THE VENDOR'S NUMBERS.**
+Supabase (https://supabase.com/docs/guides/platform/database-size): autoscale at **90% of allocated disk**,
+expands **+50%**, max **four modifications per rolling 24 hours**; read-only mode at **95% utilisation with
+the modification quota exhausted**.
+Our floor stops the walk when free < 56 GiB. Against the corrected **274 GiB** provisioned that is a stop at
+~**82% used** (the code's inflated 280 GiB constant pushes the stop ~2 points later than the intended 80%).
+⇒ **THE WALK SELF-PARKS ~8 POINTS BELOW THE AUTOSCALE TRIGGER AND CAN NEVER REACH IT** — roughly 22 GiB of
+provisioned disk the walk will never touch. Autoscale is reachable only by the OTHER writers. That is
+fail-safe, and it is also a permanently stranded slice of paid disk.
+
+**6 · VACUUM THROUGHPUT HERE IS COST-THROTTLED, NOT CPU-BOUND.** `autovacuum_vacuum_cost_delay 2ms` with
+`cost_limit 200` is an artificial rate limit that a compute tier does not change. What a tier bump WOULD
+change is indirect: more `shared_buffers` than the current 512 MB means more page HITS (cost 1) instead of
+MISSES (cost 2) per page vacuumed, and dedicated cores (Large and above per the vendor's table) remove
+shared-core contention for 3 autovacuum workers on 2 shared cores. `maintenance_work_mem` 128 MB is NOT
+currently binding — the worst partition's 2.8M dead TIDs fit one pass. ⇒ **The first-order lever is a setting
+nobody has touched, not a tier.** No change proposed.
+
+⇒ **BOTTOM LINE, BANKED: SPEED DOES NOT COST DISK. RE-WRITING DOES.** The disk blocker is about TOTAL VOLUME
+at full depth, and it is not made worse by going faster.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_DISK_HEADROOM_IS_CIRCULAR_V1 (2026-08-18) — MEASURED. Do not relitigate the measurements; re-measure before reusing them.
 
 ⛔ **THE WALK'S DISK SAFETY CHECK MEASURES THE DATABASE AGAINST A GUESS, AND THE FUNCTION'S OWN COMMENT SAYS SO.**
@@ -448,8 +514,10 @@ MEASURED LIVE 2026-08-18 from `pg_settings`: shared_buffers **512 MB** · effect
 maintenance_work_mem **128 MB** · work_mem 5 MB · max_connections 90 · max_parallel_workers 2 ·
 max_parallel_maintenance_workers 1. **THAT IS THE SMALL TIER, BYTE-FOR-BYTE THE 2026-08-02 SMALL BASELINE
 (LORAMER_COMPUTE_BASELINE_2026_08_02_V1).** DECISIONS 2026-08-03 recorded XL for the partition migration
-(shared_buffers 4 GB, maintenance_work_mem 1 GB, parallel maintenance 2). ⇒ **THE PROJECT WAS RAISED TO XL AND HAS
-SINCE RETURNED TO SMALL, and nothing in the repo records the drop.**
+(shared_buffers 4 GB, maintenance_work_mem 1 GB, parallel maintenance 2). ⇒ **THE PROJECT WAS RAISED TO XL FOR THE PARTITION MIGRATION AND
+DELIBERATELY REVERTED AFTERWARDS — CORRECTED BY RUSS 2026-08-18, SAME DAY.** ⚠ My first draft called it an
+unrecorded drop; that framing was WRONG and is struck. The round trip was intentional and is not a finding.
+What remains a finding is only this: the tier is Small TODAY and the data size is what it is.
 Vendor's published tier table (https://supabase.com/docs/guides/platform/compute-and-disk): *"Small | 2 GB | 2-core
 (shared) | 50 GB"* recommended max database size. **WE ARE AT 127.63 GiB — 2.55× the vendor's recommendation for
 this tier**, at 70% CPU and 69% memory SUSTAINED across 2026-08-11..18 (Russ's dashboard read). The vendor states
