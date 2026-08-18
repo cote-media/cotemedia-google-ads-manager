@@ -391,8 +391,75 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1 (2026-08-18) — SHIPPED. Do not relitigate.
+
+THREE-SOURCE — PRIOR CHATS: Russ's 2026-08-18 audit instruction and the four prior instances it turned up, each read at file:line before anything was changed. · WEB: NONE-APPLICABLE: this is our own guard against our own file format — the subject is `LORAMER_DECISIONS.md`'s markdown, and no vendor or published practice governs which of OUR lines count as an entry. · REPO: `three-source-header.guard.mjs:84` (the `/^- \[/` selector that is the hole), ESSENCE:382 and :385 (both statements of the law, quoted in full), HANDOFF:274, and `seams-proof-includes-the-database.guard.mjs`'s allowlist for the cite-don't-assert precedent. — /THREE-SOURCE
+
+⛔ **THE STRONGEST PROSE IN THIS REPO WAS ENFORCED BY A REGEX THAT COULD NOT SEE NINE OF THE DAY'S DECISIONS.**
+`LORAMER_THREE_SOURCE_PRECONDITION_V1` (ESSENCE:385, RUSS, 2026-08-02) is the governing form — it moves the
+gate BEFORE authoring, binds the AUTHOR rather than the executor, and makes the DECISIONS entry the artifact.
+Its enforcer, `three-source-header.guard.mjs`, selected its subject with `text.split('\n').filter(l => /^- \[/)`.
+**MEASURED 2026-08-18: 441 bullet entries checked, 11 `## ` SECTION entries not.** Nine of those eleven were
+banked that same day — **including one LAW and two SHIPPED** — with no header at all, and `npm run guard`
+read **127/127 GREEN on every one of those commits**.
+⚠ **THE FORMAT IS NOT THE DEFECT AND WAS NOT INVENTED THAT DAY** — `LORAMER_WALK_TEARDOWN_AND_REBUILD_V1`
+(2026-08-08) uses it too. The defect is that a legitimate format was never brought into the subject.
+
+**WHAT SHIPPED, THREE LEGS:**
+1. **SUBJECT WIDENED** to dated `## LORAMER_*_V<n>` sections, heading plus body. ⛔ **AND THE SCOPING RULE
+   DIFFERS ON PURPOSE:** a bullet is filtered by its `[TAG]` (DECIDED|DECISION|SHIPPED|LAW) because bullets
+   also carry measurements and unwindings; the `## ` format is only ever used for a banked decision, so it
+   needs no tag filter and is given none. **Applying the bullet filter would have caught ONE of the nine —
+   the only one saying "SHIPPED" — and let eight through, which is how a widening becomes a fig leaf.**
+2. **THE WEB LEG MUST CITE, NOT ASSERT** (entries dated ≥ 2026-08-18 only). Accepts a URL · `NONE-APPLICABLE:
+   <reason naming what makes this not a vendor question>` · `SKIPPED: <what should have been searched>`.
+   Rejects bare "none" / "none found" / "not load-bearing". Shape borrowed from
+   `seams-proof-includes-the-database.guard.mjs`'s allowlist — *"'It probably doesn't' is not a reason; the
+   reason must name where the value goes."* ⛔ **THE `SKIPPED:` FORM IS LOAD-BEARING AND NOT A LOOPHOLE:
+   without it an honest admission of a miss is UNWRITABLE, and the only compliant move left is to retrofit a
+   clean history — which IS the rubber-stamping the law names as its own residual failure.** The cutoff is
+   the day the leg was added, not the 2026-08-02 floor: 441 entries were written under a rule that
+   explicitly accepted "NONE FOUND" in Russ's own words, and retro-failing them would rewrite the contract
+   they were authored under.
+3. **THE NINE BACKFILLED HONESTLY.** ⛔ **FOUR CARRY `SKIPPED:`** — DRIVE_QUIESCE, MISSIZE_REOWES,
+   NO_OWED_DAY and SURFACE_UNASKABLE each name what should have been searched and was not. Two more record
+   PARTIAL or TOO-LATE searches in their own words. **The record of the miss is the point; a clean history
+   here would have been the failure.**
+
+**RED-FIRST, RUN AND QUOTED (RUN-IT-FOR-REAL):** the widened guard was run against HEAD BEFORE any backfill
+and failed on **exactly the nine, by name, exit 1** — not the grandfathered section, not the 441 bullets.
+Then green after the backfill, **because the headers exist and not because the subject narrowed**: 113
+in-scope entries, 9 of them sections.
+⚠ **AND IT WENT RED TWICE MORE ON ITSELF BEFORE IT WAS RIGHT, BOTH FOUND BY RUNNING IT:** (a) `/^none\b/i`
+MATCHES `"NONE-APPLICABLE:"` — the `\b` sits between `none` and `-` — so the first cut rejected two correctly
+cited legs; an accepted form must win before a rejection is considered. (b) `sectionsInScope` was incremented
+before the grandfather check, so the summary reported 10 sections carrying headers when 9 did — **a guard
+misreporting its own denominator, inside the fix for a guard that could not see its own subject.**
+
+**ONE GRANDFATHERING ADDED, NAMED AND FINITE:** `LORAMER_WALK_TEARDOWN_AND_REBUILD_V1` (2026-08-08, `## `,
+unheadered). ⛔ **I CANNOT WRITE A TRUTHFUL THREE-SOURCE HEADER FOR RESEARCH I DID NOT DO.** Inventing one
+would be rubber-stamping committed inside the guard that exists to prevent it.
+
+**THE PAPER TRAIL — FOUR INSTANCES ACROSS A MONTH, WHICH MAKES THIS A CLASS AND NOT A DRIFT:**
+2026-07-19 the Meta 1/99 fix engineered end-to-end and searched afterwards · 2026-07-23 the T0#4 detector
+built with nothing searched, which drove the scope widening · 2026-08-02 Russ's precondition, banked because
+*"the recurring failure is work being designed FROM MEMORY OR PATTERN rather than from sources"* · 2026-08-18
+this entry.
+**AND TODAY'S SCORE, COUNTED RATHER THAN CHARACTERISED: SIX VENDOR FACTS, 2 SEARCHED BEFORE THE DESIGN THAT
+NEEDED THEM, 4 AFTER.** Before: the PostgREST schema reload; the Google Ads 15,000/day sliding window.
+After: Vercel's `maxDuration` 800/1800 (I derived a ceiling from a code literal first) · the
+Airbyte/Temporal/SQS completion shape (options authored and chosen, THEN searched) · the Correlation
+Identifier / Idempotent Consumer patterns, **which overturned a residual I had already banked as acceptable**
+· and the Supabase disk endpoints, which existed through two earlier flights that priced disk without them.
+
+⛔ **THE LIMIT, INHERITED UNCHANGED AND NOT IMPLIED AWAY:** this proves the ARTIFACT. No guard sees whether a
+search happened, was competent, or preceded the design. What changed today is that the artifact can no longer
+be omitted by choosing a heading style, and the WEB leg can no longer be a verdict with nothing behind it.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_DRIVE_QUIESCE_IS_AN_ADJACENT_NUMBER_V1 (2026-08-18) — MEASURED. The gate is NOT satisfied.
 
+THREE-SOURCE — PRIOR CHATS: this session's own two drive runs and the script header's record of the v1 quiesce bug; the v2 constant's sizing argument was read in full before diagnosing. · WEB: SKIPPED: should have searched how established workers signal completion — Temporal heartbeat/start-to-close, SQS visibility-timeout + explicit delete, Airbyte's per-partition state echo. All three were read the NEXT round on Russ's instruction and they RESHAPED the fix: the prior art says silence is never completion, which is the whole defect, and I had already written the diagnosis without them. · REPO: `scripts/drive-one-surface.mjs:42-43,124-135`, `universe_attempt_log` rows 22:31:53-22:32:09, migrations/061's open-attempt index comment. — /THREE-SOURCE
 **THE GATE RAN AND HALTED AT PASS 3 OF ~41. THE STALL WAS REAL, THE DEFECT IS IN THE INSTRUMENT, AND THE
 ENGINE IS NOT PROVEN TO INCEPTION.**
 
@@ -444,6 +511,7 @@ until its quiesce is fixed, and fixing it is a separate flight.
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_PROVE_ONE_SURFACE_FIRST_V1 (decided 2026-08-17, BANKED 2026-08-18) — SETTLED. Do not relitigate.
 
+THREE-SOURCE — PRIOR CHATS: Russ's 2026-08-17 decision, which lived ONLY in chat — that is the defect this entry exists to correct. · WEB: NONE-APPLICABLE: a build-order gate over our own engine; no vendor or published practice governs which of OUR surfaces we prove first. · REPO: `drive-one-surface.mjs:36-37` (the hard-coded reference surface), QUEUE:67 and CONTINUE_HERE:1474 (the only two prior mentions, both descriptive), DECISIONS LORAMER_SINGLE_SURFACE_DRIVE_V1 (2026-08-17) whose 'proving ONE surface to its inception floor' sentence is the closest prior statement. — /THREE-SOURCE
 ⛔ **BEFORE ANY FLEET-SHAPED OR COVERAGE-SHAPED WORK, THE ENGINE IS PROVEN ON ONE SURFACE DRIVEN
 FLOOR-TO-INCEPTION IN A SINGLE SITTING.**
 
@@ -480,6 +548,7 @@ CHAT IS NOT EVEN PROSE IN A DOC**, which is already the weakest form of enforcem
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_DEPTH_DENSITY_IS_BETWEEN_V1 (2026-08-18) — MEASURED, 1 vendor request. Do not relitigate; re-measure before reusing.
 
+THREE-SOURCE — PRIOR CHATS: ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X and LORAMER_UNIVERSE_ONE_WINDOW_MEASURED_V1 (2026-08-03), the two figures in disagreement, both read in full first. · WEB: NONE-APPLICABLE: the question is how dense OUR account's own history is; a live warehouse and a live vendor probe are the only authorities and no published article outranks them. · REPO: `metrics_daily` per-year reads, `universe_window_log` for the probe result, `universe-start/route.ts` for the arbitrary-window publisher, `universe-surfaces.ts:94-97` for the base breakdown spelling I got wrong first. — /THREE-SOURCE
 **THE VERDICT, UNSOFTENED: the 3.7× disk disagreement resolves to ~2.4-2.6×, WHICH IS BETWEEN THE TWO
 DECISION RULES. Deep ground is lighter than the pessimistic figure assumed and NOT the 5-10× the optimistic
 case needed. It FITS, with ~17% margin, on an estimate that is not robust.**
@@ -540,6 +609,7 @@ to "2.4-2.6×, bracketed, fits-with-thin-margin". Nothing about the depth run is
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_SPEED_DOES_NOT_COST_DISK_V1 (2026-08-18) — MEASURED, not modelled. Re-measure before reusing.
 
+THREE-SOURCE — PRIOR CHATS: the same session's disk-circularity finding and LORAMER_COMMITTED_DAY_CLOSES_V1's re-write measurement, both read before measuring. · WEB: https://supabase.com/docs/guides/platform/database-size — verified the autoscale trigger (90% used, +50%, four per rolling 24h) and read-only mode (95% with quota exhausted) BEFORE computing the floor-vs-autoscale gap, so the gap is the vendor's numbers and not mine. · REPO: `metrics-upsert.ts:88-90` for the ON CONFLICT DO UPDATE, `pg_stat_user_tables` per partition, `pg_settings` for autovacuum and WAL, `universe-window-log.ts:26-36` for the floor. — /THREE-SOURCE
 **THE QUESTION: does a faster walk need MORE disk than a slow one? THE MEASURED ANSWER: NO, not materially —
 because in virgin ground the walk is an INSERTER, and bloat is capped per partition by autovacuum's own
 trigger regardless of the rate that reaches it.**
@@ -606,6 +676,7 @@ at full depth, and it is not made worse by going faster.
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_DISK_HEADROOM_IS_CIRCULAR_V1 (2026-08-18) — MEASURED. Do not relitigate the measurements; re-measure before reusing them.
 
+THREE-SOURCE — PRIOR CHATS: DECISIONS 2026-08-03's 'two independent methods agreeing' sentence, which this entry falsifies — found by reading the prior record rather than by re-deriving. · WEB: https://supabase.com/docs/reference/api/v1-get-database-disk and https://supabase.com/docs/guides/platform/compute-and-disk — the Management API disk endpoints and the tier table. ⚠ SEARCHED IN THIS FLIGHT AND HONESTLY TOO LATE: the same endpoints existed during the two EARLIER flights that priced disk against the unverified 280 GiB constant, and ★35X sat 'undetermined' for a day because nobody asked the vendor. · REPO: `universe_disk_headroom`'s body from pg_proc, `universe-window-log.ts:26-48`, and the five call sites of `checkDiskFloor`. — /THREE-SOURCE
 ⛔ **THE WALK'S DISK SAFETY CHECK MEASURES THE DATABASE AGAINST A GUESS, AND THE FUNCTION'S OWN COMMENT SAYS SO.**
 `universe_disk_headroom(provisioned_bytes)` (read from pg_proc 2026-08-18) computes
 `least(provisioned_bytes - pg_database_size(), 500GiB - pg_database_size())`. `provisioned_bytes` is supplied
@@ -680,6 +751,7 @@ source and no expiry. A number nobody can re-verify is how a safety floor become
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
 
+THREE-SOURCE — PRIOR CHATS: the § PROGRESS-TRUTH spec (2026-08-17) read in full and implemented rather than re-derived, per its own instruction. · WEB: https://supabase.com/docs/guides/troubleshooting/refresh-postgrest-schema — the schema-cache reload, searched BEFORE the migration was written. ⚠ PARTIAL AND SAID SO: the DESIGN itself rests on Airbyte prior art banked a day earlier rather than searched here, and the pg_proc overload / 42P13 facts were learned from the LIVE database and from Postgres's own error rather than from documentation — one of them only after the first apply attempt rolled back. · REPO: `universe-attempt-log.ts:73-88`, `universe-resumer.ts:300-350`, migrations/061 and 064 in full, and all five writer sites verified at file:line. — /THREE-SOURCE
 **THE UNIT THE WALK ADVANCES BY IS THE WINDOW THAT WAS ASKED, AND IT IS RECORDED — NEVER INFERRED FROM
 WHICHEVER ATTEMPT ROW HAPPENS TO BE NEWEST.** `universe_attempt_log.window_start/window_end` meant "the RANGE
 walked" or "the WINDOW asked" depending on which of five writers touched the row last; `universe_surface_rotation`
@@ -712,6 +784,7 @@ asymmetry — not the symmetry the spec first stated — is the reason they are 
 
 ## LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
 
+THREE-SOURCE — PRIOR CHATS: the 2026-08-18 adversary pass that found G2, and the warehouse detector's 12-surface 15-day cluster that confirmed it independently. · WEB: SKIPPED: should have searched how batch processors re-own a partially-processed unit — dbt microbatch retry, Airbyte partition re-emission, SQS partial-batch failure reporting. The split was authored from first principles. It happens to match the partition shape the PROGRESS-TRUTH spec already banked from Airbyte, which is luck rather than method. · REPO: `google-ads-universe-v2/route.ts:281-296` (the narrowing as it was), `universe-resumer.ts:96` (WINDOWS_PER_PUBLISHED_MESSAGE=1, which is why advance cannot rescue it), and the publish path read in full before writing. — /THREE-SOURCE
 **A MIS-SIZED WINDOW IS SPLIT, NEVER TRUNCATED.** The narrowing branch published the OLDER half and dropped
 `[narrowedEnd+1, endDate]` on the floor; nothing republished it and the resumer could not, because the anchor
 only moves DOWN. ⛔ **AND THE PARENT-WINDOW FIX DOES NOT CLOSE IT — the narrowed message's window genuinely IS
@@ -728,6 +801,7 @@ window is re-derived next fire, nothing spent) instead of the DATA (not recovera
 
 ## LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1 (2026-08-18) — SETTLED. Do not relitigate. SHIPPED (502fd8e).
 
+THREE-SOURCE — PRIOR CHATS: LORAMER_NO_PROGRESS_TESTS_THE_OWED_SET_V1 and the anchor guard's stated blindness to caller-side defects, both read before building. · WEB: SKIPPED: should have searched prior art on completeness/gap detectors over an append-only ledger — Airbyte's coverage reporting, dbt source freshness, Great Expectations' completeness checks. The predicate was derived from our own warehouse. · REPO: `universe-coverage.ts` in full for the covered/attested definitions, `universe-surfaces.ts` for `breakdownTypeForSurface`/`drainAliasFor` (driven, never re-spelled), migrations/064 for the rotation. — /THREE-SOURCE
 **THE DETECTOR MEASURES THE PROPERTY, NOT THE MECHANISM: did the walk leave owed ground above its own
 frontier?** Answerable from the WAREHOUSE alone, so it survives every future re-plumbing of the anchor — and it
 is what proves the fix worked rather than merely compiled. It exists because `anchor-recedes-by-window` is a
@@ -744,6 +818,7 @@ to establish, so it stays valid after the fix and can prove the NEXT regression 
 
 ## LORAMER_SURFACE_UNASKABLE_IS_A_SURFACE_FACT_V1 (2026-08-18) — OPEN PROBLEM, NAMED. Not built.
 
+THREE-SOURCE — PRIOR CHATS: the skip-class trace that surfaced it; ★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR noted as the same shape one layer down. · WEB: SKIPPED: should have searched Google Ads API `query_error` 49 / 'Cannot select or filter on the following fields' to learn whether this is a DOCUMENTED permanent field incompatibility — which would settle whether it is unaskable forever or unaskable in this combination. That is a vendor fact and I asserted the conclusion without it. · REPO: `universe_attempt_log` outcome/error rows for both surfaces, `resolveWalkStop` as the proposed home, the two bounds in `google-ads-universe-v2/route.ts:266-296`. — /THREE-SOURCE
 **A VENDOR REFUSAL OF THE QUERY IS A PROPERTY OF THE SURFACE, NOT OF THE ATTEMPT — and the engine has no way to
 say so.** Every attempt on google/`group_content_suitability_placement_view` finished `outcome='error'` with
 GAQL `{"query_error":49} Cannot select or filter on the following…`: a permanent rejection of the query itself.

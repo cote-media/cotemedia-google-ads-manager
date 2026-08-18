@@ -58,7 +58,32 @@ const GRANDFATHERED = new Set([
   'LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1',  // shipped 7f5a2ed, hours before the law
   'LORAMER_CHAT_STATUS_SUBJECT_V1',          // shipped 9fa8b86, hours before the law
   'LORAMER_COMPUTE_BASELINE_2026_08_02_V1',  // MEASURED — excluded by tag too; listed so the count is explicit
+  // ⛔ ADDED 2026-08-18 WITH THE SUBJECT WIDENING, AND THE REASON IS THE LAW'S OWN: this section entry was
+  // banked 2026-08-08 by a flight I did not run, and I cannot write a TRUTHFUL three-source header for
+  // somebody else's research. The named residual failure of this whole law is RUBBER-STAMPING; inventing a
+  // header here would BE that failure, committed inside the guard that exists to prevent it. Named and
+  // finite, auditable, and it must not grow.
+  'LORAMER_WALK_TEARDOWN_AND_REBUILD_V1',    // ## section, 2026-08-08, unheadered — see above
 ])
+
+// ── THE WEB LEG MUST CITE, NOT ASSERT — added 2026-08-18 ──────────────────────────────────────────────
+// ⛔ WHY A SECOND CUTOFF RATHER THAN THE FLOOR: 441 historical entries were written under a rule that
+// explicitly accepted "NONE FOUND", and Russ said so in his own words. Retro-failing them would be
+// rewriting the contract they were written under. This leg binds entries dated ON OR AFTER the day it
+// was added, and nothing earlier.
+// ⛔ WHAT IT ACCEPTS AND WHY EACH IS THERE:
+//   · a URL — the search happened and here is what it returned. The strongest form.
+//   · NONE-APPLICABLE: <reason> — the shape borrowed from `seams-proof-includes-the-database.guard.mjs`'s
+//     allowlist, whose rule is "'It probably doesn't' is not a reason; the reason must name where the value
+//     goes." A verdict without a reason is the escape hatch this leg exists to close.
+//   · SKIPPED: <what should have been searched> — ⛔ THIS ONE IS LOAD-BEARING AND IT IS NOT A LOOPHOLE.
+//     Without it an honest admission of a miss is UNWRITABLE, and the only compliant move left would be to
+//     retrofit a clean history — which is the rubber-stamp failure again, and the exact thing the 2026-08-18
+//     backfill was instructed not to do. A recorded miss is worth more than a fabricated hit.
+// REJECTED: bare "none", "none found", "not load-bearing", "n/a" — verdicts with nothing behind them.
+const WEB_CITE_FLOOR = '2026-08-18'
+const WEB_CITE_OK = /(https?:\/\/|\bNONE-APPLICABLE:|\bSKIPPED:)/
+const WEB_BARE_VERDICT = /^(none|none found|none needed|none searched|not load[- ]bearing|not applicable|n\/?a)\b/i
 
 const CONSTRUCTION = /\b(DECIDED|DECISION|SHIPPED|LAW)\b/
 const UNWINDING = /\b(RETIRED|CLOSED|SUPERSEDED|CORRECTION)\b/
@@ -81,31 +106,74 @@ try { text = readFileSync(resolve(ROOT, DOC), 'utf8') } catch (e) {
   process.exit(1)
 }
 
-const entries = text.split('\n').map((t, i) => ({ n: i + 1, t })).filter((l) => /^- \[/.test(l.t))
+// ── THE SUBJECT — WIDENED 2026-08-18 AFTER IT WAS MEASURED TO HAVE A FORMAT HOLE ─────────────────────
+// ⛔ THE HOLE, AND IT WAS NOT THEORETICAL. This selector read `/^- \[/` only. `LORAMER_DECISIONS.md` also
+// carries entries as `## ` SECTIONS — a legitimate format that predates the miss (LORAMER_WALK_TEARDOWN_AND_
+// REBUILD_V1, 2026-08-08). MEASURED 2026-08-18: 441 bullet entries were checked and 11 section entries were
+// not; NINE of those eleven were banked that same day — including a LAW and two SHIPPED — with no header at
+// all, and `npm run guard` read 127/127 GREEN on every one of those commits.
+// ⛔ AND THE SCOPING RULE DIFFERS FOR SECTIONS, DELIBERATELY. A bullet entry is filtered by its `[TAG]`
+// (DECIDED|DECISION|SHIPPED|LAW) because bullets carry measurements and unwindings too. THE `## ` FORMAT IS
+// ONLY EVER USED FOR A BANKED DECISION, so there is no tag to filter on and none is wanted: a dated
+// `## LORAMER_*_V<n>` section IS a decision by virtue of being written that way. Applying the bullet tag
+// filter here would have caught ONE of the nine (the only one saying "SHIPPED") and let eight through —
+// which is how a widening becomes a fig leaf.
+// A section's entry text is the heading PLUS its body, because the header is written in the body.
+const lines = text.split('\n')
+const entries = lines.map((t, i) => ({ n: i + 1, t })).filter((l) => /^- \[/.test(l.t))
+const sections = []
+for (let i = 0; i < lines.length; i++) {
+  const h = lines[i]
+  if (!/^## /.test(h)) continue
+  if (!/\bLORAMER_[A-Z0-9_]+_V\d+\b/.test(h)) continue
+  let j = i + 1
+  while (j < lines.length && !/^## /.test(lines[j]) && !/^═══/.test(lines[j])) j++
+  sections.push({ n: i + 1, t: lines.slice(i, j).join(' ') })
+}
 let inScope = 0, grandfathered = 0, undated = 0, excludedByTag = 0, belowFloor = 0
 
-for (const e of entries) {
-  const tagM = e.t.match(/^- \[([^\]]*)\]/)
-  if (!tagM) continue
-  const tag = tagM[1]
-
-  const dates = [...tag.matchAll(/\b(20\d{2}-\d{2}-\d{2})\b/g)].map((m) => m[1]).sort()
-  if (dates.length === 0) { undated++; continue }
-  if (dates[dates.length - 1] < FLOOR) { belowFloor++; continue }
-
-  if (!CONSTRUCTION.test(tag) || UNWINDING.test(tag)) { excludedByTag++; continue }
+let sectionsInScope = 0
+for (const e of [...entries.map((x) => ({ ...x, kind: 'bullet' })), ...sections.map((x) => ({ ...x, kind: 'section' }))]) {
+  let tag, dates, entryDate
+  if (e.kind === 'bullet') {
+    const tagM = e.t.match(/^- \[([^\]]*)\]/)
+    if (!tagM) continue
+    tag = tagM[1]
+    dates = [...tag.matchAll(/\b(20\d{2}-\d{2}-\d{2})\b/g)].map((m) => m[1]).sort()
+    if (dates.length === 0) { undated++; continue }
+    entryDate = dates[dates.length - 1]
+    if (entryDate < FLOOR) { belowFloor++; continue }
+    if (!CONSTRUCTION.test(tag) || UNWINDING.test(tag)) { excludedByTag++; continue }
+  } else {
+    // SECTION: the scope is the HEADING — a dated LORAMER section is a banked decision by construction.
+    const head = e.t.slice(0, e.t.indexOf('  ') === -1 ? 400 : Math.max(120, e.t.indexOf('  ')))
+    tag = head
+    dates = [...head.matchAll(/\b(20\d{2}-\d{2}-\d{2})\b/g)].map((m) => m[1]).sort()
+    if (dates.length === 0) { undated++; continue }
+    entryDate = dates[dates.length - 1]
+    if (entryDate < FLOOR) { belowFloor++; continue }
+    if (UNWINDING.test(head)) { excludedByTag++; continue }
+  }
 
   // ⛔ NAME THE RIGHT DECISION. The first cut took the first LORAMER_*_V<n> in the line and, on its very first
   // RED run, blamed LORAMER_WEB_FIRST_DIAGNOSIS_V1 — because this entry's TAG says "AMENDS [[…WEB_FIRST…]]".
   // A guard that names the wrong decision sends the reader to the wrong entry. Prefer the house's canonical
   // trailing token (`| LORAMER_X_V1, <date> |`), then the first token in the BODY (never the tag).
   const trailingM = e.t.match(/\|\s*(LORAMER_[A-Z0-9_]+_V\d+)\s*,/)
-  const bodyM = e.t.slice(tagM[0].length).match(/\bLORAMER_[A-Z0-9_]+_V\d+\b/)
+  // A SECTION names itself in its heading; a bullet names itself in its body (never its tag — the tag may
+  // cite the decision it AMENDS, which is how the first cut blamed the wrong entry on its very first RED run).
+  const bodyM = e.kind === 'section'
+    ? e.t.match(/\bLORAMER_[A-Z0-9_]+_V\d+\b/)
+    : e.t.slice(e.t.indexOf(']') + 1).match(/\bLORAMER_[A-Z0-9_]+_V\d+\b/)
   const nameM = trailingM ? trailingM[1] : (bodyM ? bodyM[0] : null)
   const name = nameM || `(untokened entry at ${DOC}:${e.n})`
   if (nameM && GRANDFATHERED.has(name)) { grandfathered++; continue }
 
   inScope++
+  // ⛔ COUNTED HERE, NOT AT THE SCOPE TEST. The first cut incremented this BEFORE the grandfather check, so
+  // the summary reported 10 section entries carrying headers when only 9 did — a guard misreporting its own
+  // denominator, which is the exact class ESSENCE's every-zero-carries-its-denominator corollary exists for.
+  if (e.kind === 'section') sectionsInScope++
 
   const o = e.t.indexOf(OPEN)
   const c = e.t.indexOf(CLOSE)
@@ -146,6 +214,13 @@ for (const e of entries) {
       findings.push(`${DOC}:${e.n} — ${name}'s "${LEGS[k].replace(':', '')}" leg is EMPTY. An empty leg is a claim that a search happened with nothing to say about it, which is indistinguishable from no search. "NONE FOUND" is a valid answer here; silence is not.`)
     } else if (PLACEHOLDER.test(content)) {
       findings.push(`${DOC}:${e.n} — ${name}'s "${LEGS[k].replace(':', '')}" leg is a PLACEHOLDER ("${content}"). Say what was searched and what came back. "NONE FOUND" is accepted; a token that defers the answer is not.`)
+    } else if (LEGS[k] === 'WEB:' && entryDate >= WEB_CITE_FLOOR && !WEB_CITE_OK.test(content)) {
+      // ⛔ AN ACCEPTED FORM WINS, AND THIS ORDERING IS A BUG THIS GUARD ALREADY MADE ONCE. The first cut
+      // tested WEB_BARE_VERDICT first, and `/^none\b/i` MATCHES "NONE-APPLICABLE:" — the `\b` sits between
+      // `none` and `-` — so two correctly-cited legs were rejected on its first real run. Caught by running
+      // it, which is the only reason it is not in the shipped file. WEB_BARE_VERDICT now only SHARPENS the
+      // message; it never decides the verdict.
+      findings.push(`${DOC}:${e.n} — ${name}'s WEB leg ${WEB_BARE_VERDICT.test(content) ? 'is a BARE VERDICT' : 'ASSERTS instead of CITING'} ("${content.slice(0, 90)}"). From ${WEB_CITE_FLOOR} this leg must carry ONE of: a URL · "NONE-APPLICABLE: <reason naming what makes this not a vendor question>" · "SKIPPED: <what should have been searched>". A bare verdict is the escape hatch LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1 measured — 54 self-waived WEB legs, and on 2026-08-18 four of six vendor facts were searched only AFTER the design that needed them. Entries before ${WEB_CITE_FLOOR} are untouched: they were written under a rule that accepted "NONE FOUND", and retro-failing them would rewrite the contract they were authored under.`)
     }
   }
 }
@@ -159,4 +234,4 @@ if (findings.length) {
 // ⛔ EVERY ZERO CARRIES ITS DENOMINATOR (ESSENCE corollary). A guard with nothing in scope is VACUOUSLY green,
 // and a vacuous green read as a real one is the narrow-green class this repo has banked repeatedly. The
 // denominator is printed on every run so the reader can never mistake "nothing to check" for "checked".
-console.log(`[three-source-header] PASS — ${inScope} in-scope entr${inScope === 1 ? 'y carries' : 'ies carry'} all three legs, non-empty and non-placeholder. DENOMINATOR of ${entries.length} total: ${belowFloor} predate the ${FLOOR} floor, ${excludedByTag} are measurement/observation/unwinding tags, ${grandfathered} explicitly grandfathered by name, ${undated} carry no date in their tag (unscoped — the known blind spot). ⛔ This proves the ARTIFACT, never that a search happened.`)
+console.log(`[three-source-header] PASS — ${inScope} in-scope entr${inScope === 1 ? 'y carries' : 'ies carry'} all three legs, non-empty and non-placeholder (${sectionsInScope} of them '## ' SECTION entries, checked since the 2026-08-18 subject widening; the WEB-must-cite leg binds entries dated >= ${WEB_CITE_FLOOR}). DENOMINATOR of ${entries.length} bullet + ${sections.length} section: ${belowFloor} predate the ${FLOOR} floor, ${excludedByTag} are measurement/observation/unwinding tags, ${grandfathered} explicitly grandfathered by name, ${undated} carry no date in their tag (unscoped — the known blind spot). ⛔ This proves the ARTIFACT, never that a search happened.`)
