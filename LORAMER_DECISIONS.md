@@ -391,6 +391,112 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_COMPLETION_SIGNAL_DESIGN_V1 (2026-08-18) — DESIGN SETTLED, NOT BUILT. Do not relitigate the prior art; three items remain open for step 3.
+
+THREE-SOURCE — PRIOR CHATS: this session's own STEP-1/2 research on `drive-one-surface.mjs` (the quiesce loop, every sized constant, the six readers) and LORAMER_DRIVE_QUIESCE_IS_AN_ADJACENT_NUMBER_V1, both read in full; the § PROGRESS-TRUTH spec's already-banked Airbyte prior art was reused rather than re-derived. · WEB: https://docs.temporal.io/encyclopedia/detecting-activity-failures + https://temporal.io/blog/activity-timeouts + https://docs.temporal.io/activity-execution + https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html + https://www.enterpriseintegrationpatterns.com/patterns/messaging/CorrelationIdentifier.html + https://learn.microsoft.com/en-gb/azure/architecture/patterns/idempotent-consumer + https://vercel.com/docs/functions/configuring-functions/duration — all fetched 2026-08-18 in the round this entry banks; NOT re-searched to write it. · REPO: `google-ads-universe-v2/route.ts` exits enumerated at file:line, `universe-attempt-log.ts`, `universe-coverage.ts`, `universe-sizing.ts`, migrations/061 + 064 + 082 constraints read from the file and from pg_proc. — /THREE-SOURCE
+
+⛔ **THIS ENTRY EXISTS BECAUSE THE ROUND IT BANKS LIVED ONLY IN CHAT — THE THIRD INSTANCE IN ONE DAY.**
+LORAMER_PROVE_ONE_SURFACE_FIRST_V1 cost a session by living in chat; LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1
+closed the enforcer's blind spot four commits ago; and then this round's answer bypassed the artifact
+entirely. The governing law's third change is *"THE ANSWER BECOMES AN ARTIFACT."* Written down, it is now one.
+
+**W4 — DIED vs NOT-YET-FINISHED. THE DECIDING ANSWER: NOBODY AVOIDS TIME, AND A DERIVED, VENDOR-GUARANTEED
+TIMEOUT IS THE ACCEPTED DISCRIMINATOR.**
+- Temporal (docs.temporal.io — VENDOR/PROJECT-AUTHORITATIVE, current platform docs, no version pinned; the
+  `temporal.io/blog/activity-timeouts` companion is a VENDOR BLOG, weaker): *"The Temporal Server doesn't
+  detect failures when a Worker loses communication with the Server or crashes."* Start-To-Close *"detect[s]
+  when a Worker crashes after it has started executing an Activity Task"*; Heartbeat Timeout: *"If the
+  Temporal Service does not receive a Heartbeat within a Heartbeat Timeout time period, **the Activity will
+  be considered failed**."*
+- AWS SQS (docs.aws.amazon.com Developer Guide — VENDOR-AUTHORITATIVE, current): *"If you don't process and
+  delete a message before the visibility timeout expires… the message becomes visible again in the queue."*
+  Renewal is the named best practice: *"Implement a heartbeat mechanism to periodically extend the visibility
+  timeout"* via `ChangeMessageVisibility`.
+- Airbyte (already banked in § PROGRESS-TRUTH — PROJECT-AUTHORITATIVE): completion is a STATE MESSAGE echoed
+  by the destination, per completed partition.
+⇒ **THREE FOR THREE: COMPLETION IS A POSITIVE, DURABLE, EXPLICIT RECORD. ABSENCE IS FAILURE OR NOT-YET,
+NEVER SUCCESS.** ⛔ **WHAT MAKES THEIR TIME LEGITIMATE, AND THE BAR OURS MUST MEET:** (1) the timeout is a
+DECLARED CONTRACT ENFORCED BY SOMETHING OTHER THAN THE OBSERVER — Vercel's is stronger than Temporal's,
+because Vercel *"will terminate"* the function rather than merely timing it
+(vercel.com/docs/functions/configuring-functions/duration, page states last_updated 2026-07-01; Pro allows
+800s and 1800s extended, so **our 300 is a CHOICE and must be read from the route, never written as a
+literal**); (2) it is RENEWED BY PROGRESS — our `day_committed` rows already are that heartbeat; (3) expiry
+produces an EXPLICIT FAILURE STATE, never a success. **THE ORIGINAL DEFECT WAS NEVER "TIME IS A GUESS" — IT
+WAS THAT `QUIET_MS` CAME FROM AN OBSERVATION (a 1-4s inter-range gap) INSTEAD OF A CONTRACT.**
+
+**W5 — WHOSE WORK IS IT. ⛔ BINDING, AND IT OVERTURNED A POSITION THIS PROJECT HAD ALREADY BANKED.**
+Enterprise Integration Patterns (Hohpe/Woolf catalogue — FIELD-DEFINING REFERENCE, stable since 2003, not a
+vendor) and Azure Architecture Center's Idempotent Consumer (VENDOR-AUTHORITATIVE, current): *"the consumer
+maintains a record of processed messages and skips any message it saw before, **keying this decision on a
+stable identifier that survives redelivery** and checking a persistent store"*; and *"**Use a
+producer-assigned message identifier or a business-level idempotency key that identifies the specific logical
+operation**, not a shared correlation context that several messages can carry."*
+⇒ **THE MINIMUM DURABLE FACT IS A PRODUCER-ASSIGNED IDENTIFIER PERSISTED WITH THE RECORD. WE HAVE ONE AND WE
+THROW IT AWAY:** the idempotency key (`drive|<runId>|…`) is assigned by the publisher and never written to
+`universe_attempt_log`.
+⛔ **THE OVERTURN, RECORDED AS AN OVERTURN:** the earlier design banked the same-window collision as *"an
+acceptable counting error"*. **THE PATTERN DOES NOT OFFER THAT OPTION** — two publishers on one unit is
+either the SAME logical operation, in which case the second must be a no-op, or a DIFFERENT one, in which
+case it needs a different key. It is **A MISSING REQUIRED FACT, NOT A TOLERABLE ERROR**, and 4c, 4f and 4g
+independently converge on that same identifier.
+
+**THE NINE EXIT PATHS OF THE CONSUMER — enumerated from code, verified again 2026-08-18:**
+`:154` QUOTA HOLD (fires BEFORE `key` is built at :160 and before `surface`/`adapter` at :155-158) ·
+`:260` COVERED-SKIP · `:270` FLOOR STOP · `:286` BROKEN · `:336` MIS-SIZE HELD · `:349` MIS-SIZED ·
+`:491` BUDGET STOP · `:516` NORMAL FALL-THROUGH (`advance()` at `WINDOWS_PER_PUBLISHED_MESSAGE = 1` returns
+"bounded run exhausted" and **writes nothing**).
+⛔ **THE NINTH IS NOT A `return`: AN UNCAUGHT THROW. `:400` IS THE HANDLER'S ONLY `try`**, wrapping the
+per-range capture. Everything outside it propagates — `googleAdsStreamFor`, `resolveWalkStop`,
+`rangesStillOwed`, `checkDiskFloor`, `readAttemptsAtSpan`, `sizeNextWindow`, `publishGoverned`, and
+`appendAttemptStarted`/`appendAttemptFinished`, **which throw by design** (`fail()` — *"THIS MUST NOT BE
+SWALLOWED"*).
+
+**THE EIGHT VERDICTS, AS DELIVERED:**
+4a **NEEDS-CHANGE** — nine sites, one not a `return`; a per-`return` write cannot cover it.
+4b **HOLDS** — a missing terminal reads INDETERMINATE under W4's contract bar, not complete.
+4c **BREAKS** — redelivery yields two terminal rows; harmless as data, wrong as a signal.
+4d **HOLDS** — all six readers name a phase: rotation (064) `attempt_started` · `readAttemptsAtSpan`
+   `attempt_started` · `readLastAttempt` `attempt_finished` · `attestedEmptyDays` `attempt_finished`+outcome ·
+   `committedDays` `day_committed` · `sizeNextWindow` `attempt_finished`+rows_written. Plus the two
+   aggregates. **A new phase is inert to every one.**
+4e **HOLDS bare / NEEDS-CHANGE with an outcome** — `phase_ck` widens by one value; `day_ck` and `parent_ck`
+   accept the shape as-is; **`outcome_ck` admits a new phase ONLY with `outcome IS NULL`**, so carrying a
+   terminal outcome means rewriting that constraint's STRUCTURE, not its value list — strictly larger than
+   the 'nongrain' widening, on the constraint that already caused a live 23514.
+4f **BREAKS** — across a redelivery a terminal row can land before later `attempt_finished` rows.
+   Terminal-then-more-writes reintroduces the original defect through the fix.
+4g **NEEDS-CHANGE** — the collision can corrupt numbers quoted in five governance docs (the
+   ~1,427-passes / ~2,854-requests extrapolation and the 30/30/30 day-gain are per-pass readings).
+4h **DESIGNED** — a per-`return` guard is the wrong shape (it cannot see the throw). Make the write
+   structurally unavoidable with ONE top-level `try/finally`, then guard the STRUCTURE: (i) the finally
+   exists and holds the write · (ii) **no `return` lies outside it** — the leg that fails when someone adds
+   exit ten · (iii) red-first proof with the finally removed. Wires into `run-guards.mjs` (static, no DB).
+
+**DESIGN (A) — THE CONSUMER RECORDS COMPLETION.** One row per consumed message, on every exit path,
+recording the WINDOW finished. Chosen on the prior art, not on taste: (B) a drive-local terminal state leaves
+the unobservability in place for `no-owed-day-left-behind`, `consumer-liveness`, the resumer's own bound and
+every future instrument. **THE ENGINE ALREADY HAS THE HEARTBEAT AND IS MISSING ONLY THE TERMINAL.**
+BLAST RADIUS: the consumer's every exit path (the point and the risk) · one migration widening `phase_ck` ·
+`db-enum-mirrors-ts.guard.mjs` must register the pair or the 23514 class repeats verbatim ·
+`universe-attempt-append-only` legs unaffected.
+⛔ **THREE ITEMS STEP 3 MUST RESOLVE, AND THEY ARE NOT DETAILS:**
+1. **A PRODUCER-ASSIGNED MESSAGE IDENTIFIER PERSISTED ON THE ROW** — 4c, 4f and 4g all converge here, and W5
+   says it is required rather than optional. Without it the terminal row is UNINTERPRETABLE under redelivery.
+2. **THE CEILING** — derived from the consumer's CONFIGURED `maxDuration` (read, not written as 300; Pro
+   permits 800/1800) and pinned by a guard, with expiry a LOUD INDETERMINATE that invalidates the pass.
+   Today the quiesce deadline expires SILENTLY when `sawAny` is true.
+3. **WHETHER THE TERMINAL ROW CARRIES AN OUTCOME** — if yes, the `outcome_ck` rewrite of 4e is in scope and
+   the migration is materially larger.
+ALSO IN SCOPE AND ALREADY DECIDED: the counter joins on `parent_window_start/end` (exact only post-082, and
+closed only once the terminal row exists); `FLOOR` is read from the route's own dryRun `stopBasis` rather
+than asserted, killing the `LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1` class the instrument reintroduced.
+
+⚠ **STALENESS PIN:** this round was run against **7cd2f13**. `google-ads-universe-v2/route.ts`,
+`universe-attempt-log.ts`, `universe-coverage.ts` and migrations 061/082 are UNCHANGED since — re-verified
+2026-08-18: the same eight bare returns at :154 :260 :270 :286 :336 :349 :491 :516 and `:400` still the only
+`try`. **If any of those files moves, re-run 4a before trusting the enumeration.**
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1 (2026-08-18) — SHIPPED. Do not relitigate.
 
 THREE-SOURCE — PRIOR CHATS: Russ's 2026-08-18 audit instruction and the four prior instances it turned up, each read at file:line before anything was changed. · WEB: NONE-APPLICABLE: this is our own guard against our own file format — the subject is `LORAMER_DECISIONS.md`'s markdown, and no vendor or published practice governs which of OUR lines count as an entry. · REPO: `three-source-header.guard.mjs:84` (the `/^- \[/` selector that is the hole), ESSENCE:382 and :385 (both statements of the law, quoted in full), HANDOFF:274, and `seams-proof-includes-the-database.guard.mjs`'s allowlist for the cite-don't-assert precedent. — /THREE-SOURCE
