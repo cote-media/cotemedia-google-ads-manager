@@ -296,6 +296,11 @@ const GUARDS = [
   // against the 2026-08-17 incident shape: 'nongrain' in the union, absent from the constraint, every write
   // rejected 23514 while build + 124 guards + check:data all read green.
   'tests/guards/db-enum-mirrors-ts.guard.mjs',
+  // LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1 — the DISCOVERY half: every string-literal union in a file
+  // that writes to supabase must be REGISTERED as a pair or ALLOWLISTED with a reason naming where the value
+  // goes. db-enum-mirrors-ts can only check pairs somebody remembered to register; this is what makes
+  // "somebody remembered" mechanical.
+  'tests/guards/seams-proof-includes-the-database.guard.mjs',
   // LORAMER_RMF_REPORTING_DEFAULTS_V1 — the legacy /dashboard reporting surface is what a Google Ads API reviewer
   // is given, so its DEFAULT columns are a compliance artifact under Required Minimum Functionality. Asserts the
   // RMF fields are selected, carried through their mappers, default-on, null-preserving, immune to a stale

@@ -33,6 +33,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
+// ⛔ THE UNWEDGE NEEDS THE ATTEMPT LOG — the same import the RESUMER makes for the same reason. (The module
+// bar is on `universe-coverage.ts`, which may never reach the spend-and-failure API; a publisher may.)
+import { appendAttemptStarted, appendAttemptFinished, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow } from '@/lib/backfill/universe-sizing'
 import { TOPIC, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
@@ -129,10 +132,29 @@ export async function GET(request: Request) {
     : await rangesStillOwed(coverageKey, windowStart, windowEnd)
 
   if (owed.ranges.length === 0) {
-    // Nothing owed in the derived window. The drive does NOT publish and does NOT advance anything itself —
-    // it reports, and the operator's next pass re-derives with the anchor receded.
+    // ── ⛔ THE UNWEDGE — LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1, CARRIED OVER FROM THE RESUMER RATHER THAN
+    // RE-DERIVED (universe-resume/route.ts:334-345; the shape below is that block, byte-for-byte in its
+    // effect: appendAttemptStarted(key, 0) then appendAttemptFinished(..., 'skipped', {requestsSpent: 0, …})).
+    // ⛔ THE DEFECT IT CLOSES, MEASURED IN THIS ROUTE ON 2026-08-17: this branch returned `nothingOwed` and
+    // wrote NOTHING, so no `attempt_started` row existed, so `universe_surface_rotation` never saw the window
+    // as ASKED, so `deriveAnchorEnd` never receded past it — and the drive re-derived the SAME covered window
+    // **566 consecutive times**. That is ★WALK-WEDGES-AT-COVERED-GROUND exactly, reintroduced in a new
+    // publisher by omitting the one thing that makes derivation terminate. The route claimed to "invent no
+    // window math" and then left out the unwedge, which is the same failure with better manners.
+    // ⛔ rowsWritten deliberately OMITTED (null): `sizeNextWindow` filters `.not('rows_written','is',null)`,
+    // so a skip never enters sizing history — a skip is a fact about OUR bookkeeping, not a vendor answer.
+    // ⛔ 'skipped' is ALREADY excluded from vendor attestation (attestedEmptyDays takes 'zero'/'nongrain'
+    // only), so this can never masquerade as coverage. requests_spent = 0 keeps every spend aggregate honest.
+    const key: AttemptKey = { clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, windowStart, windowEnd }
+    if (!dryRun) {
+      const opened = await appendAttemptStarted(key, 0)
+      await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
+        requestsSpent: 0,
+        error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
+      })
+    }
     return NextResponse.json({
-      ok: true, published: 0, nothingOwed: true, window: `${windowStart}..${windowEnd}`,
+      ok: true, published: 0, nothingOwed: true, advancedCovered: !dryRun, window: `${windowStart}..${windowEnd}`,
       anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis,
       coverage: { covered: owed.coverage.covered.length, attestedEmpty: owed.coverage.attestedEmpty.length, uncovered: 0 },
     })

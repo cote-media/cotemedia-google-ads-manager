@@ -305,6 +305,41 @@ the consumer had been dead since 05:32Z**, because its ALIVE branch tests `publi
 and the walk's own no-progress bound tested `daysCommitted === 0` while the owed set never shrank. Both are
 mechanically fixable and are the two buildable halves of this law; neither is built by this entry.
 
+## ⛔ THE ADJACENT NUMBER — LORAMER_ADJACENT_NUMBER_V1 [LAW — banked 2026-08-17, from a session where EVERY defect was this one]
+
+**A NUMBER THAT MEASURES SOMETHING ADJACENT TO THE THING THAT MATTERS WILL READ GREEN WHILE THE THING THAT
+MATTERS IS BROKEN.** Not sometimes. Every defect found on 2026-08-17 — seven of them, in code, in instruments,
+and in my own watchers — was the same species, and none of them was a lie. Each number was CORRECT about what
+it measured and IRRELEVANT to what was being asked.
+
+    rows written                  ≠ days gained
+    publishing                    ≠ consuming
+    days committed                ≠ the owed set shrinking
+    range bounds                  ≠ window bounds
+    a green build + 124 guards    ≠ a write the database will accept
+    a frontier moving             ≠ a frontier that arrives
+    a watcher matching a string that DESCRIBES a condition ≠ one that REPORTS it
+
+⛔ **THE COROLLARY IS THE OPERATIVE HALF, AND IT COST THE MOST: A NUMBER MOVING IN THE RIGHT DIRECTION IS NOT
+A NUMBER THAT WILL ARRIVE.** The walk's frontier moved 2026-03-09 → 2026-02-02 in four hours and I reported it
+as the fix working — which it was. What I never did was convert the RATE into a TIME TO TARGET. One day of
+ground per pass against 1,427 days to the floor is four years per surface, and there are 346 surfaces. The
+direction was right and the arrival was impossible, and only the arithmetic could tell those apart.
+⇒ **CONVERT EVERY RATE INTO TIME-TO-TARGET BEFORE REPORTING IT AS PROGRESS.** A progress report without a
+distance is a vibe.
+
+⛔ **THE DIAGNOSTIC QUESTION, TO BE ASKED OF ANY NUMBER BEFORE IT IS TRUSTED:** *what would have to be true for
+this number to look exactly like this while the thing I care about is broken?* If that question has an easy
+answer, the number is adjacent and the instrument is not yet built. `check-walk-liveness` read ALIVE for
+eleven hours over a dead consumer because its health branch was `published > 0` — the PRODUCER's own count.
+The answer to the question was one sentence long and nobody had asked it.
+
+⚠ **THIS LAW IS UNENFORCEABLE BY GUARD AND SAYS SO** (per A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD). No
+check can know which number a human meant. What IS mechanical, and shipped the same day: `db-enum-mirrors-ts`
+(the TS union and the DB constraint may not diverge) and `seams-proof-includes-the-database` (every union in a
+writer file is registered or allowlisted with a reason). Those two catch ONE species of adjacency — the schema
+one. The rest is the question above, asked out loud, every time.
+
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
 - [LAW] A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD. No law, lesson or falsification is recorded without a paired MECHANICAL CHECK in the same commit — FIX-WITH-GUARD applied to laws instead of code. A law that genuinely cannot be checked is stamped UNENFORCEABLE with the reason, so prose is never mistaken for protection. SIX FOR SIX, measured 2026-08-09: everything that became CODE held (the no-progress bound caught a real republish the day it landed; write-then-advance-per-unit; serializeVendorError) and everything that stayed PROSE failed — "check what already works" was violated inside 24 hours of being banked (v2 walked past the between-iteration budget check, the quota sentinel and the fleet-aware yield, all three already live in production); google-op-budget.ts:20-23 bans `Math.max(conns, days)` ANYWHERE while :330 uses it; the falsified API-Center-UI mechanism came back verbatim in a newer file and the new guard found a THIRD copy; the op cap is declared in three non-importing files; the ops-per-request ratio is settled at 1 in one file while 1.5 stays live in another. A baseline freeze of existing violations is a BURN-DOWN under Russ's approval, never absolution. INHERITED LIMIT: no guard can observe chat output, so the one-block and terseness laws stay UNENFORCEABLE by construction and are stamped as such.
 - [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)

@@ -234,6 +234,21 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // early, and none re-published. The starter reported "started: true, published: 346" and the chain was
     // already dead. **A resume that does not advance is indistinguishable from one that worked, right up
     // until nothing happens.**
+    // ── ⛔ THE UNWEDGE, HERE TOO — LORAMER_NOTHING_OWED_MUST_UNWEDGE_V1, FOUND BY THE GUARD WRITTEN FOR THE
+    // DRIVE AND TRUE OF THIS ROUTE ALL ALONG. With `windowsRemaining: 1` the advance below is TERMINAL: it
+    // publishes nothing and this branch wrote nothing, so a message delivered for an already-covered window
+    // left NO `attempt_started` row, the rotation never saw that window as ASKED, and `deriveAnchorEnd` could
+    // not recede past it. Rarer than the resumer's version — it needs coverage to change between publish and
+    // consume — but the identical mechanism, and the third instance of it in three publishers.
+    // Same shape as the resumer's block, deliberately: started(requests:0) + finished('skipped') with the
+    // COVERED_SKIP marker, rowsWritten OMITTED so it never enters sizing history, and 'skipped' already
+    // excluded from vendor attestation so it can never masquerade as coverage.
+    const coveredKey: AttemptKey = { ...key, windowStart: startDate, windowEnd: endDate }
+    const coveredOpened = await appendAttemptStarted(coveredKey, 0)
+    await appendAttemptFinished(coveredKey, coveredOpened.attemptNo, 'skipped', {
+      requestsSpent: 0,
+      error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${startDate}..${endDate} fully covered/attested on delivery; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
+    })
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
     return
