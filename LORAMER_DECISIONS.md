@@ -391,6 +391,93 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_DRIVE_QUIESCE_IS_AN_ADJACENT_NUMBER_V1 (2026-08-18) — MEASURED. The gate is NOT satisfied.
+
+**THE GATE RAN AND HALTED AT PASS 3 OF ~41. THE STALL WAS REAL, THE DEFECT IS IN THE INSTRUMENT, AND THE
+ENGINE IS NOT PROVEN TO INCEPTION.**
+
+**THE RUN** — `campaign_search_term_view / segments.device`, caps 55 passes / 70 requests, floor 2022-03-04:
+  pass 1  window 2025-06-27..2025-07-26  1 range 2025-07-26  ok/3,292 rows  owed 1→1  requests 1
+  pass 2  window 2025-05-28..2025-06-26  1 range 2025-06-26  ok/4,006 rows  owed 1→1  requests 2
+  pass 3  window 2025-04-28..2025-05-27  **0 range(s) reported · rows 0**  owed 1→1  ⇒ **STALL, halted**
+  terminal state **(ii) STALL** at window 2025-04-28..2025-05-27.
+  ledger: **3 requests · 15,947 rows**. Script counter said 2 — **THE LEDGER IS THE AUTHORITY AND IT IS ONE HIGHER.**
+
+⛔ **PASS 3 DID NOT FAIL. THE DRIVE STOPPED WATCHING BEFORE IT FINISHED.** From `universe_attempt_log`:
+  22:31:53.470  attempt_started  2025-05-27..2025-05-27  parent **2025-04-28..2025-05-27**  requests_spent 1
+  22:32:09.169  day_committed    2025-05-27  **8,649 rows**
+  22:32:09.300  attempt_finished **ok**  8,649 rows
+The gap from open to finish was **~16 SECONDS**. `QUIET_MS` is **10 seconds**, so the quiesce loop saw ten
+seconds of silence at ~22:32:03 and broke **six seconds before the rows landed**. The post-pass dry-run probe
+then re-derived the same window with the same owed day, and `progressByOwedSet` correctly reported no progress
+over a number that was still being written.
+
+⛔ **THIS IS [[LORAMER_ADJACENT_NUMBER_V1]], AND IT IS THE SECOND INSTRUMENT TO CARRY THE SAME DEFECT.** The
+script's own header explains that v1 "returned on the FIRST new `attempt_finished`… so the read fired
+MID-INVOCATION… and reported a stall over a number still being written", and sizes N=10s from the measured
+**inter-range gap of 1-4s**. **THAT IS THE WRONG QUANTITY.** What bounds the wait is not the gap BETWEEN
+ranges, it is the time from OPEN to FINISH on ONE range — the vendor call plus the upsert — which is
+row-count-dependent and was 16s on an 8,649-row day. A dense day is exactly when the instrument goes blind.
+⇒ THE FIX IS NOT SIMPLY A BIGGER N: a constant sized on any single observation reproduces the class. The
+quiesce must be bounded by the OPEN attempt (an `attempt_started` with no `attempt_finished` is work still in
+flight, and the log already says so) rather than by elapsed silence. **NOT BUILT IN THIS FLIGHT.**
+
+✅ **WHAT THE THREE PASSES DID PROVE, AND IT IS NOT NOTHING:**
+- **THE 30-DAY STEP HELD FOR THREE MORE PASSES.** Window ends 2025-08-25 → 07-26 → 06-26 → 05-27: **30 · 30 ·
+  30**, zero variance, on a surface reading `parent_known = true` throughout. **NO 1-DAY MOVE OCCURRED** — the
+  finding condition did not fire.
+- **EVERY `attempt_started` CARRIED ITS PARENT**: 1-day ranges stamped with 30-day parents
+  (2025-06-27..07-26 · 2025-05-28..06-26 · 2025-04-28..05-27). The range-vs-window fix is holding in
+  production under a driven load, not only under the scheduler.
+- **NO REWRITE OF COMMITTED DAYS**: three `day_committed` rows, three distinct days, 15,947 rows, no repeats.
+- `no-owed-day-left-behind` **UNCHANGED at 300 days / 14 surfaces** — the drive stranded nothing.
+
+⚠ **A DATA-MODEL ASYMMETRY I INTRODUCED AND SHOULD NAME:** `parent_window_start/end` are stamped on
+`attempt_started` ONLY. `day_committed` and `attempt_finished` carry NULL, because the rotation reads
+`attempt_started` and nothing else needed it. Correct for the anchor; it means a finished record cannot be
+joined to its parent window without going through the started row. Recorded rather than discovered later.
+
+⛔ **THE GATE IS NOT SATISFIED. [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] REMAINS OPEN.** The surface moved
+2025-08-25 → 2025-05-27 — **90 days of 1,241, about 7%.** The drive cannot complete the remaining ~38 passes
+until its quiesce is fixed, and fixing it is a separate flight.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_PROVE_ONE_SURFACE_FIRST_V1 (decided 2026-08-17, BANKED 2026-08-18) — SETTLED. Do not relitigate.
+
+⛔ **BEFORE ANY FLEET-SHAPED OR COVERAGE-SHAPED WORK, THE ENGINE IS PROVEN ON ONE SURFACE DRIVEN
+FLOOR-TO-INCEPTION IN A SINGLE SITTING.**
+
+**PURPOSE: SURFACE THE NEXT MECHANISM DEFECT ON THE CHEAPEST POSSIBLE TEST.** It proves the walk RUNS —
+recedes correctly, does not stall, does not skip, does not rewrite committed days, and ARRIVES at inception.
+One surface to the floor costs ~50-70 vendor requests; learning the same defect by waiting for the scheduled
+rotation costs days and learns it at fleet cost, which is the arithmetic `LORAMER_SINGLE_SURFACE_DRIVE_V1`
+(DECISIONS, 2026-08-17) already wrote down when it built the drive for exactly this.
+
+⛔ **IT EXPLICITLY DOES NOT PROVE DONE-DONE.** Conditions 1 (ALL GRAINS against the vendor's own catalog),
+3 (RECONCILES TO THE CUSTOMER'S PLATFORM UI) and 5 (LORA-WIRED) are ACCOUNT-WIDE and come AFTER. One surface
+cannot speak to any of them, and a green here must never be reported as progress against them.
+⇒ **THIS IS AN ENGINEERING GATE, PRIOR TO AND DISTINCT FROM [[LORAMER_BACKFILL_DONE_DONE_V1]].** Two gates,
+two questions: this one asks "does the machine work"; that one asks "is the customer's data complete".
+
+**REFERENCE SURFACE: `campaign_search_term_view` / `segments.device` — RATIFIED HERE, NOT ACCIDENTAL.**
+It is hard-coded at `scripts/drive-one-surface.mjs:36-37` and until now appeared in the registers only
+descriptively ("the reference surface", QUEUE:67) — a constant nobody had ratified. It is the right choice
+and now it is a decision: it is the surface every anchor measurement of 2026-08-17/18 was taken on, so its
+history is comparable pass-for-pass, and it is a high-cardinality search-term family, which is the expensive
+shape rather than a convenient one.
+
+⛔ **A STALL IS THE RUN WORKING.** The drive halts on exactly one of: (i) the frontier reaches the floor —
+PROVEN · (ii) a QUIESCED pass leaves the OWED SET unchanged — STALL · (iii) a real vendor wall — the floor is
+learned. **(ii) IS THE EXPECTED AND USEFUL OUTCOME**: it is the next mechanism defect, surfaced for ~2
+requests instead of found in production a week later. Halt, diagnose, do not push past it and do not fix it
+in the same flight.
+
+⚠ **WHY THIS IS BANKED LATE, STATED SO THE FAILURE IS LEGIBLE:** the decision was taken 2026-08-17 and lived
+ONLY IN CHAT. On 2026-08-18 an entire session went fleet-shaped — disk pricing for all 346 surfaces, a depth
+density probe, a compute-tier question — because nothing in the repo said this gate came first. **PROSE IN A
+CHAT IS NOT EVEN PROSE IN A DOC**, which is already the weakest form of enforcement this project recognises.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_DEPTH_DENSITY_IS_BETWEEN_V1 (2026-08-18) — MEASURED, 1 vendor request. Do not relitigate; re-measure before reusing.
 
 **THE VERDICT, UNSOFTENED: the 3.7× disk disagreement resolves to ~2.4-2.6×, WHICH IS BETWEEN THE TWO
