@@ -104,6 +104,12 @@ const CHECKS = [
   // usually one day. It lives here rather than in `npm run guard` for the same reason the nongrain check does:
   // it is red until the fix lands, and a red in the BUILD would block every unrelated push.
   { name: 'anchor-recedes-by-window', cmd: ['tests/guards/anchor-recedes-by-window.guard.mjs'] },
+  // LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1 — the PROPERTY behind the entry above, measured against the WAREHOUSE
+  // instead of against the function. The anchor guard is a unit drive of `deriveAnchorEnd` and is blind to the
+  // two skip mechanisms that live at its CALLERS (the ungated hold branch; the mis-sized upper half dropped at
+  // publish). This one asks only "did the walk leave owed ground above its own frontier", which stays a valid
+  // question after the anchor is re-plumbed. Red like its neighbour, and here for the same reason.
+  { name: 'no-owed-day-left-behind', cmd: ['tests/guards/no-owed-day-left-behind.guard.mjs'] },
 ]
 // ROSTER-END
 

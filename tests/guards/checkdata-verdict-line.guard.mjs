@@ -39,6 +39,11 @@ if (pkg && pkg.scripts?.['check:data'] !== 'node scripts/run-checkdata.mjs') {
 
 // ── (b) THE ROSTER PIN — flags included, in order. ⛔ NO COUNT IN THIS LINE: it read "20 checks" while the
 // list below held 21, and a count in prose is a fact with a shelf life. The list IS the count.  ────────
+// ⛔ MOVED 2026-08-18 FROM 24 → 25, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
+// `no-owed-day-left-behind` is the DATA-LAYER half of the anchor work: `anchor-recedes-by-window` drives
+// `deriveAnchorEnd` and can only see the STEP SIZE, while both live skip mechanisms sit at that function's
+// CALLERS and are invisible to it. This one asks the warehouse whether any asked-for day sits above the
+// walk's own frontier holding nothing — a question that survives the fix and outlives the mechanism.
 // ⛔ MOVED 2026-08-15 FROM 19 → 20, DELIBERATELY, IN THE SAME COMMIT AS THE ADDITION THE PIN CAUGHT.
 // `check-fleet-meter-visibility` is LORAMER_FLEET_METER_SEES_THE_WALK_V1's live half, and the reason it must
 // be a CHECK rather than only a guard is the defect it exists to catch: the fleet meter summed a ledger that
@@ -97,6 +102,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-consumer-liveness.mjs --guard',
   'scripts/check-nongrain-window-resolves.mjs',
   'tests/guards/anchor-recedes-by-window.guard.mjs',
+  'tests/guards/no-owed-day-left-behind.guard.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
