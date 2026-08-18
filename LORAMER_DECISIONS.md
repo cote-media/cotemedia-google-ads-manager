@@ -391,6 +391,66 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_DEPTH_DENSITY_IS_BETWEEN_V1 (2026-08-18) — MEASURED, 1 vendor request. Do not relitigate; re-measure before reusing.
+
+**THE VERDICT, UNSOFTENED: the 3.7× disk disagreement resolves to ~2.4-2.6×, WHICH IS BETWEEN THE TWO
+DECISION RULES. Deep ground is lighter than the pessimistic figure assumed and NOT the 5-10× the optimistic
+case needed. It FITS, with ~17% margin, on an estimate that is not robust.**
+
+⛔ **THE PROBE WAS RE-SCOPED BEFORE FIRING, AND THE PRE-FLIGHT IS WHY.** The authorised design was three
+surfaces × one 2022-06 window, 3-6 requests. Pre-flight read the warehouse first and found TWO of the three
+ALREADY CAPTURED at that depth (campaign_search_term_view/device **18,214 rows**; geographic_view/
+geo_target_city **28,412 rows**). Probing captured ground re-upserts identical rows and measures nothing.
+⇒ **ONE request spent instead of 3-6**, on the only surface with information value.
+
+**THE PROBE, from universe_window_log (the ledger, not the caller):** `ad_group_ad` / '' ·
+2022-06-01..2022-06-30 · outcome **ok** · **rows_written 148** · **requests_spent 1** · refused 0.
+⚠ It publishes to the **v1** topic (universe-start imports TOPIC from the v1 consumer), so it books into
+`universe_window_log`, not `universe_attempt_log`. SEAMS-CHECKED BEFORE FIRING: v1's `captureUniverseEntry`
+writes through the SAME `upsertMetricsChunked` on the SAME 7-column conflict key, so the rows are
+byte-identical to what v2 would have written. Real capture, not a throwaway.
+
+⛔ **AND A CORRECTION I OWE ON MY OWN PRE-FLIGHT: `breakdown_type=''` IS NOT THE BASE SPELLING.**
+`breakdownTypeForSurface` (universe-surfaces.ts:94-97) returns the RESOURCE NAME when there is no segment.
+My "0 rows held" baseline for `ad_group_ad` used `breakdown_type=''` and was therefore meaningless — the
+surface already held **1,526 rows** across 16 breakdown_types for that window. The two SEGMENTED baselines
+were spelled correctly and stand.
+
+**THE DENSITY EVIDENCE, and it does NOT reduce to one multiplier:**
+- SINGLE SURFACE CAPTURED THROUGHOUT — `geographic_view/geo_target_city`, rows/day by year:
+  2022 **2,324** (280 days held) · 2023 **2,073** (286) · 2024 **1,987** (349) · 2025 **4,809** (355) · 2026 **6,071** (93)
+  ⇒ 2022-2024 mean ~2,128 vs 2025-2026 ~5,440 = **2.56× lighter at depth**. THIS IS THE BEST INSTRUMENT: one
+  surface, complete coverage on both sides, no surface-mix confound.
+- ⛔ **AND IT CORRECTS MY OWN EARLIER NUMBER.** A single-month comparison (2022-06 vs 2026-02) gave 6.8-8.7×
+  on the same geo surfaces and an aggregate 5.98× over 330 shared surfaces. That was a WEAK 2022 month
+  (947 rows/day against a 2,324 annual mean) against a STRONG 2026 one. **The month comparison overstated the
+  ratio by ~2.5×; the year curve is the honest one.**
+- ⛔ **AND THE DIRECTION IS SURFACE-DEPENDENT, WHICH KILLS ANY SINGLE MULTIPLIER.** `ad_group_ad` across all
+  breakdown_types: **2022-06 = 1,526 rows (5 distinct ads) vs 2026-02 = 503 rows (1 ad)** — depth is **3×
+  HEAVIER** there. Entity-grain families shrank toward the present while geo families grew. The aggregate is
+  geo-dominated, so geo governs the disk estimate — but "density rises with recency" is FALSE as a general claim.
+- ACCOUNT ACTIVITY, for context: avg daily spend 2022 $192 · 2023 $118 · 2024 $100 · **2025 $852** · 2026 $131.
+  Campaign entities 2023 **4** → 2024 **6** → 2025 **11** → 2026 **43**; ad_group 1 → 2 → 7 → 34.
+
+**THE RE-PRICING, arithmetic shown:**
+  basis: LORAMER_UNIVERSE_ONE_WINDOW_MEASURED_V1 — 6,048,263 rows in ONE 30-day window on 2026 ground,
+         **4.69 GB of heap+index**. That window is the pessimistic figure's entire foundation.
+  depth: 1,622 days inception→top = **54 windows**. Walked so far 2025-08-25→2026-08-12 = 352 days ≈ **11.7 windows**.
+  remaining **42.3 windows** at the measured **1/2.56** depth discount ⇒ 4.69 / 2.56 = **1.83 GB/window**
+  ⇒ **42.3 × 1.83 = ~77 GB ≈ 72 GiB REMAINING**, against **~89 GiB walkable**.
+  ⇒ **IT FITS, WITH ~17 GiB (≈19%) OF MARGIN.**
+⚠ **AND THE MARGIN IS NOT ROBUST:** the 2.56× rests on ONE surface family, the walked 11.7 windows are already
+spent, and `ad_group_ad` proves the discount does not apply uniformly. A 1.5× discount instead of 2.56×
+⇒ 132 GB ⇒ **DOES NOT FIT**. The estimate is one measurement away from flipping.
+⚠ The route's own start gate still reports **"ONLY 21 OF 50 WINDOWS FIT"** because it hard-codes
+`MEASURED_BYTES_PER_WINDOW = 4.53 GB` (universe-start:158) with no depth discount — pessimistic by the same
+factor, and it will refuse to start a run this arithmetic says fits.
+
+⇒ **BOTTOM LINE: DISK IS NO LONGER A HARD BLOCKER AND IS NOT YET A CLEARANCE. It is a 19% margin resting on a
+single-family measurement.** ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X moves from "35× and undetermined"
+to "2.4-2.6×, bracketed, fits-with-thin-margin". Nothing about the depth run is proposed here.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_SPEED_DOES_NOT_COST_DISK_V1 (2026-08-18) — MEASURED, not modelled. Re-measure before reusing.
 
 **THE QUESTION: does a faster walk need MORE disk than a slow one? THE MEASURED ANSWER: NO, not materially —
