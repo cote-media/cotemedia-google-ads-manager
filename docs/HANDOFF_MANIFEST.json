@@ -36,10 +36,10 @@
     "line_count": 863
   },
   "LORAMER_ESSENCE.md": {
-    "content_hash": "68994d3ba7f151ec6ada5b770d877d6db7870cd4172113883c6c8542848f2e22",
-    "last_reconciled_date": "2026-08-17",
-    "last_reconciled_head": "bcdf09c",
-    "line_count": 534
+    "content_hash": "6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d",
+    "last_reconciled_date": "2026-08-18",
+    "last_reconciled_head": "164da71",
+    "line_count": 547
   },
   "LORAMER_HANDOFF.md": {
     "content_hash": "9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680",
@@ -66,10 +66,10 @@
     "line_count": 1103
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "97a8707686a693880c0aff7d0c343cb04aea745b3ff20277501261618f4ed368",
-    "last_reconciled_date": "2026-08-17",
-    "last_reconciled_head": "bcdf09c",
-    "line_count": 3105
+    "content_hash": "ddb4039b6916b99f8cdaab206e8ad9a6829e9e367b479f963290a2386e0209ad",
+    "last_reconciled_date": "2026-08-18",
+    "last_reconciled_head": "164da71",
+    "line_count": 3106
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
     "content_hash": "31ec61bce2866fc8b4368ee370e92f5ee415c41c45080da068e3447caf3d813e",
@@ -84,10 +84,10 @@
     "line_count": 98
   },
   "RESUME_INSTRUCTIONS.md": {
-    "content_hash": "cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a",
-    "last_reconciled_date": "2026-08-03",
-    "last_reconciled_head": "a8615f7",
-    "line_count": 52
+    "content_hash": "0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456",
+    "last_reconciled_date": "2026-08-18",
+    "last_reconciled_head": "164da71",
+    "line_count": 58
   },
   "ROADMAP.md": {
     "content_hash": "ce2cb516783d15a1389281d6af61207cf305bb060c36a388200a1b9ae58e6f71",
@@ -228,10 +228,10 @@
     "line_count": 15
   },
   "docs/LORAMER_WALK_REBUILD_ARCHITECTURE.md": {
-    "content_hash": "3ae38f68efb4f8015f611f9eaab614889bdc53920f52927ac614003ea94fe79b",
-    "last_reconciled_date": "2026-08-09",
-    "last_reconciled_head": "cfc3e0a",
-    "line_count": 534
+    "content_hash": "23a1f4ccbe5cf22311d831ee2e1f19da263a775ee72550d7fc6a25cda4bb4934",
+    "last_reconciled_date": "2026-08-18",
+    "last_reconciled_head": "164da71",
+    "line_count": 619
   },
   "docs/META_APP_REVIEW_ANSWERS.md": {
     "content_hash": "090808f16a3c049315189753595d79975009e738bb643888fe4154d98690d0ef",

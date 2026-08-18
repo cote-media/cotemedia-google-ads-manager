@@ -96,6 +96,7 @@ const EXPECTED_ROSTER = [
   'scripts/check-topwindow-frontier.mjs',
   'scripts/check-consumer-liveness.mjs --guard',
   'scripts/check-nongrain-window-resolves.mjs',
+  'tests/guards/anchor-recedes-by-window.guard.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }

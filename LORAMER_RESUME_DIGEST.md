@@ -7,20 +7,20 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-17T23:26:42.999Z
-- built_from HEAD: bcdf09cb260b5babafe3a675c4d305e458dfd0f1  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-18T01:33:21.527Z
+- built_from HEAD: 164da710ee05ac3e1b221014c5bea16ae90c6c22  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
   exactly as fresh as the manifest is honest; the wrap-step regenerates manifest + digest together.
   Source-doc content_hash at build time:
-    - LORAMER_ESSENCE.md: 68994d3ba7f151ec6ada5b770d877d6db7870cd4172113883c6c8542848f2e22
+    - LORAMER_ESSENCE.md: 6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 117f7833007f69aafac002a3706f3356bf96d08254fecc7743d97d5b124436a9
     - LORAMER_DECISIONS.md: 087c37eadab2e6f146f2ea335b47d20fcf64635ae80018dd152c931453e9b8be
     - LORAMER_QUEUE_OF_RECORD.md: 460f593ce5349f7fa3317f17cd1a96304b73840b7d68852f769d3f6badca6700
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
-    - RESUME_INSTRUCTIONS.md: cdac6714947ea914adaead66925bdd0418d90984b65b3738ef395079afa7a00a
+    - RESUME_INSTRUCTIONS.md: 0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
     - docs/LORAMER_SECURITY_POSTURE.md: a283fa6f55f64dc91dd52bcf8dbf6c2a38e90dba993fde72d9ae9f6b68c98444
 
@@ -381,6 +381,7 @@ writer file is registered or allowlisted with a reason). Those two catch ONE spe
 one. The rest is the question above, asked out loud, every time.
 
 ## ⛔ THINGS RUSS SHOULD NEVER HAVE TO RE-STATE (settled non-negotiables — restate-to-prove each session)
+- [STANDARD] LORAMER_ENGINEER_OF_RECORD_V1 — YOU ARE THE ENGINEER OF RECORD, and this system's core failures are INVISIBLE: wrong looks exactly like right — rows go up, jobs return 200, nothing errors, every check reads green (seven defects on 2026-08-17, all found by looking, none by an alarm). Name the failure mode BEFORE writing code · name every reader AND writer INCLUDING THE DATABASE (a CHECK constraint is a reader; so is a guard fixture) · read prior art first, the repo's own shipped version then the outside world · design the DETECTOR before the implementation · ⛔ a fix that closes a hole and leaves the CLASS alive is a FAILURE even shipped green · prefer a guard to a sentence, because prose laws here are 0-for-6 and coded laws are unbroken. WHOLE APP — capture, coverage, evals, the meter, Lora's grounding.
 - [LAW] A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD. No law, lesson or falsification is recorded without a paired MECHANICAL CHECK in the same commit — FIX-WITH-GUARD applied to laws instead of code. A law that genuinely cannot be checked is stamped UNENFORCEABLE with the reason, so prose is never mistaken for protection. SIX FOR SIX, measured 2026-08-09: everything that became CODE held (the no-progress bound caught a real republish the day it landed; write-then-advance-per-unit; serializeVendorError) and everything that stayed PROSE failed — "check what already works" was violated inside 24 hours of being banked (v2 walked past the between-iteration budget check, the quota sentinel and the fleet-aware yield, all three already live in production); google-op-budget.ts:20-23 bans `Math.max(conns, days)` ANYWHERE while :330 uses it; the falsified API-Center-UI mechanism came back verbatim in a newer file and the new guard found a THIRD copy; the op cap is declared in three non-importing files; the ops-per-request ratio is settled at 1 in one file while 1.5 stays live in another. A baseline freeze of existing violations is a BURN-DOWN under Russ's approval, never absolution. INHERITED LIMIT: no guard can observe chat output, so the one-block and terseness laws stay UNENFORCEABLE by construction and are stamped as such.
 - [LAW] CHECK WHAT ALREADY WORKS BEFORE BUILDING IT AGAIN. Read the version that already shipped before rebuilding a capability; a working predecessor is EVIDENCE, not sentiment. (Precedent 2026-08-08: Russ asked THREE times whether the June backfill engine had been read; it had not, eight steps in. It already held write-then-advance-per-unit and the warehouse-over-cursor rule — the latter in a comment stating the law better than the plan did — and its no-progress bound was not planned at all and would have shipped missing.)
 - [LAW] THE RESUMABLE UNIT IS THE DAY BECAUSE THE WAREHOUSE IS KEYED BY DAY; the vendor's fetch unit is an adapter concern. Coverage is derived from `metrics_daily`, never from a vendor's convenience. (Proof 2026-08-08: Shopify offers only an opaque order cursor with no day concept and no ordering guarantee, and STILL resolves to days — what it withholds is only the entitlement to infer closure from ordering, which is an adapter declaration, not a second engine.)

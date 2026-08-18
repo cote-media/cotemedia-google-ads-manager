@@ -531,3 +531,88 @@ overwrite: PostgREST merge-duplicates SETs only the columns in the payload, and 
 by the forward path every run, so it says nothing about when the backfill columns were last written. One
 row, one client, no trace. What did NOT do it is known; what did is not.
 ⇒ **A CURSOR IS A CLAIM THAT CAN VANISH; THE WAREHOUSE IS THE FACT.** Everything in §25 follows from this.
+
+
+---
+
+# ⛔ PROGRESS-TRUTH — LORAMER_PROGRESS_TRUTH_SPEC_V1 (2026-08-17, IMPLEMENT FROM THIS; DO NOT RE-DERIVE IT)
+
+⛔ **THIS SECTION IS COMPLETE ENOUGH TO BUILD FROM. If the next flight finds itself re-tracing writers or
+re-reading migration 064, stop — the answer is here and re-deriving it is how a session gets spent twice.**
+
+## THE ONE FACT THAT OWNS PROGRESS
+**THE WINDOW THAT WAS ASKED, AND WHETHER THAT WINDOW IS FULLY ANSWERED.** Everything else is a reader of it.
+Today no site records that fact. Progress is INFERRED from whichever attempt row happens to be newest.
+
+## PRIOR ART, ADOPTED (Airbyte, verified 2026-08-17)
+- `DatetimeBasedCursor` partitions a range into windows by `step`, and — quoted —
+  *"This cursor is progressed as these partitions of records are successfully transmitted to the destination."*
+  **Advancement is per COMPLETED PARTITION, never per record.**
+- Progress is **ONE value** (a single datetime), carried in a STATE message, and only real once echoed:
+  *"If a source sends a state message out, and the destination echos that same state message back… that means
+  'I have committed all the records the source gave me up to this point'."*
+- A partially-consumed partition advances only to the last CONFIRMED state — *"State B was checkpointed but not
+  State C… we have checkpointed up to Record 6."*
+⇒ **THREE PROPERTIES WE MUST MATCH: one value · advanced only on completion of the unit it names · exactly one
+writer.** We violate all three. Sources: docs.airbyte.com/platform/connector-development/config-based/understanding-the-yaml-file/incremental-syncs · airbyte.com/blog/checkpointing
+
+## THE FIVE WRITERS — one column pair, two meanings
+| # | site | records |
+|---|---|---|
+| 1 | `src/app/api/queues/google-ads-universe-v2/route.ts:341` `appendAttemptStarted(rangeKey, 1)` | **the RANGE ← THE DEFECT** |
+| 2 | `src/app/api/queues/google-ads-universe-v2/route.ts:247` `appendAttemptStarted(coveredKey, 0)` | the WINDOW (covered-skip) |
+| 3 | `src/app/api/cron/universe-resume/route.ts:336` | the WINDOW (covered-skip + implausible refusal) |
+| 4 | `src/app/api/backfill/universe-drive/route.ts:150` | the WINDOW (covered-skip) |
+| 5 | `src/lib/backfill/google-ads-universe-writer.ts:344` | the `__account_inception` pseudo-row (1970 window, excluded from rotation by name) |
+
+⛔ **`universe_attempt_log.window_start/window_end` MEANS "RANGE" OR "WINDOW" DEPENDING ON WHICH WRITER TOUCHED
+IT LAST.** The consumer builds `key` from `msg.startDate/msg.endDate` — **that IS the window** — and then
+discards it one line later: `const rangeKey = { ...key, windowStart: range.start, windowEnd: range.end }`.
+**THE WINDOW IS NOT LOST. IT IS IN SCOPE AT THE WRITE SITE AND SIMPLY NOT WRITTEN.**
+
+## THE FIVE READERS
+`universe_surface_rotation` (migrations/064) → the resumer's anchor + rotation order, and the drive ·
+`readAttemptsAtSpan` (BROKEN / MIS-SIZED bound) · `readLastAttempt` (no-progress bound) · `attestedEmptyDays`
+(window-overlap on outcome zero/nongrain) · `sizeNextWindow` (rows_written history).
+
+## MIGRATION 064 SAYS ONE THING AND RETURNS ANOTHER
+Its own comment: *"one row per (resource, segment): **the last window ASKED** and when."*
+What it returns: `select distinct on (l.resource, l.segment) … l.window_start, l.window_end … where l.phase =
+'attempt_started' … order by l.resource, l.segment, l.recorded_at desc` — **the last RANGE WALKED.**
+The name, the column and the comment agree with each other and disagree with the data. That is why nobody
+caught it: every reader believed the name.
+
+## WHY THE STEP IS 1, OR 16, OR 30 — AN ARTIFACT OF WRITE ORDER
+`ORDER BY recorded_at DESC` takes the **LAST-WRITTEN** row, and the consumer walks owed ranges in **ASCENDING
+date order**, so the last row written is the **NEWEST** range — the one nearest the top of the window.
+`deriveAnchorEnd` then recedes to `lastWindowStart − 1`.
+- window `2026-02-03..2026-03-04`, ranges walked `02-03` then **`03-04` (written last)** ⇒ anchor `03-03` ⇒ **1 day**
+- one range only, `2025-12-26..2026-01-10` (16 days) ⇒ anchor `12-25` ⇒ **16 days**
+- covered-skip (a WINDOW is written) ⇒ **~30 days, at zero vendor cost**
+⇒ **STEP = previous window end − start of the LAST-WRITTEN RANGE.** It is not a property of the walk.
+
+## THE DESIGN
+- **ADDITIVE, NULLABLE `parent_window_start` / `parent_window_end`** on `universe_attempt_log`, written by the
+  consumer from `msg.startDate` / `msg.endDate` (already in scope). Rotation PREFERS them and falls back to the
+  existing columns when null. **No backfill, no rename, no reader breaks** — legacy rows keep today's behaviour.
+- ⛔ **SIZING CANNOT BE RECOMPUTED.** `sizeNextWindow` is adaptive and time-varying (`{minDays:1,maxDays:30}`,
+  row-budget driven), so yesterday's window cannot be re-derived from today's policy. Recomputation is a guess
+  wearing a schema's clothes. RULED OUT.
+
+## ⛔ THE TRAP — BOTH HALVES OR IT IS WRONG
+Window owes 20 of 30 days. The consumer walks 2 ranges and hits `deferredForBudget`, which returns **without
+advancing**. If the anchor recedes by the full WINDOW, the 18 unwalked owed days fall below it and are
+**SKIPPED PERMANENTLY AND SILENTLY** — the false-all-clear class this rebuild exists to end.
+**AND THE EXISTING GUARD DOES NOT PROTECT AGAINST IT, BECAUSE IT IS BLIND THE SAME WAY:** the resumer computes
+`lastWindowFullyAnswered` as `rangesStillOwed(coverageKey, rot.last_window_start, rot.last_window_end)` — over
+the ROTATION's bounds, i.e. **the RANGE**. It verifies the last range is answered, never the window.
+⇒ **RECORD THE WINDOW *AND* EVALUATE `fullyAnswered` OVER THAT WINDOW. Either half alone is worse than today.**
+
+## BLAST RADIUS + POSTURE
+The walk's entire progress mechanism: **346 surfaces, every client, five writers, five readers, two publishers.**
+Schema change ⇒ its own migration ⇒ **`seams-proof-includes-the-database` posture: name every reader AND the
+constraint before shipping.** The 23514 incident of 2026-08-17 came from skipping exactly that.
+
+## HOW IT IS PROVEN
+`scripts/drive-one-surface.mjs` — **~10 vendor requests.** Correct fix = days-gained-per-pass goes **1 → ~30**.
+`tests/guards/anchor-recedes-by-window.guard.mjs` is RED until it does.

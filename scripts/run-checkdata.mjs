@@ -99,6 +99,11 @@ const CHECKS = [
   // RED UNTIL THE FIX IS DEPLOYED — the attesting rows cannot exist until the fixed consumer runs, so this is
   // the one check whose green is GATE-B by construction rather than by choice.
   { name: 'check-nongrain-window-resolves', cmd: ['scripts/check-nongrain-window-resolves.mjs'] },
+  // LORAMER_ANCHOR_RECEDES_BY_WINDOW_V1 — THE HEAD OF THE QUEUE, SHIPPED RED ON PURPOSE. A fully-answered
+  // 30-day window must recede the anchor ~30 days; today it recedes by the width of the LAST RANGE WRITTEN,
+  // usually one day. It lives here rather than in `npm run guard` for the same reason the nongrain check does:
+  // it is red until the fix lands, and a red in the BUILD would block every unrelated push.
+  { name: 'anchor-recedes-by-window', cmd: ['tests/guards/anchor-recedes-by-window.guard.mjs'] },
 ]
 // ROSTER-END
 
