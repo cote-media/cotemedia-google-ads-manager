@@ -391,6 +391,78 @@ resumer, and the resumer is NOT in `vercel.json` and defaults to dry-run. Zero r
 has no history. ⇒ A cursor is a CLAIM that can vanish; the warehouse is the FACT. Detail: plan file §28.1.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_DISK_HEADROOM_IS_CIRCULAR_V1 (2026-08-18) — MEASURED. Do not relitigate the measurements; re-measure before reusing them.
+
+⛔ **THE WALK'S DISK SAFETY CHECK MEASURES THE DATABASE AGAINST A GUESS, AND THE FUNCTION'S OWN COMMENT SAYS SO.**
+`universe_disk_headroom(provisioned_bytes)` (read from pg_proc 2026-08-18) computes
+`least(provisioned_bytes - pg_database_size(), 500GiB - pg_database_size())`. `provisioned_bytes` is supplied
+BY THE CALLER — `readHeadroom()` passes `PROVISIONED_BYTES` (universe-window-log.ts:26), a hand-typed constant.
+⇒ **`freeBytes` IS A DERIVATION, NEVER AN OBSERVATION.** Its own header states the reason: *"Provisioned disk is
+not readable from Postgres, so a percentage here would be computed against a number this function cannot see."*
+FIVE CALL SITES depend on it: universe-window-log.ts:73 `checkDiskFloor` → google-ads-universe-v2:264 ·
+google-ads-universe:127 and :233 · universe-start:159-165.
+
+⛔ **AND THE SAFETY ARGUMENT THAT WAS BANKED FOR IT IS FALSIFIED BY THIS.** DECISIONS 2026-08-03
+(LORAMER_PARTITION_METRICS_DAILY_V1) reads: *"disk 143.63 GB free of 200 GB read programmatically and landing
+within 0.16 GB of Russ's dashboard number — two independent methods agreeing is what makes an unattended run
+safe."* **THEY WERE NEVER INDEPENDENT.** The "programmatic" read was this same function, i.e. the hand-typed
+provisioned constant minus `pg_database_size()`. The 0.16 GB agreement proves only that `pg_database_size()`
+matches the dashboard's DATABASE figure. It proves **nothing whatsoever** about provisioned size, which was
+supplied by hand on BOTH sides of the comparison. An unattended overnight run was authorised on that sentence.
+
+**THE UNIT QUESTION, RESOLVED BY EXACT MATCH RATHER THAN BY ASSUMPTION.** `pg_database_size()` = 137,036,967,059
+bytes = **127.63 GiB** = 137.04 GB decimal. Russ's dashboard read of the same moment: **DATABASE 127.6 GB**.
+The match is exact in GiB and off by 7% in decimal GB ⇒ **the Supabase usage panel labels GiB as "GB"**. Every
+figure below is therefore GiB, and the code's `280 * 1024**3` is consistent in UNIT — it is wrong in VALUE.
+
+**DERIVED PROVISIONED SIZE, from Russ's dashboard read 2026-08-18 (DISK 47% · DATABASE 127.6 · WAL 1 · SYSTEM 172.6 MB):**
+  volume used = 127.63 + 1 + 0.169 = **128.80 GiB**
+  provisioned = 128.80 / 0.47 = **274.0 GiB**   (bracket 46.5-47.5% ⇒ **271.2 - 277.0 GiB**)
+  code constant = **280 GiB** ⇒ **OVERSTATES BY ~6 GiB (bracket 3-9 GiB)**, and always in the dangerous direction.
+⚠ **A SECOND, INDEPENDENT OVERSTATEMENT IN THE SAME DIRECTION:** `pg_database_size()` counts the DATABASE only.
+WAL (1 GiB) and SYSTEM (0.17 GiB) consume the same volume and are invisible to it — another ~1.2 GiB of free
+space the check believes it has. The two errors COMPOUND; neither cancels the other.
+
+**HEADROOM, CORRECTED:**
+  code believes free 152.37 GiB (measured live) ⇒ walkable = 152.37 − 56 = **96.4 GiB**
+  TRUE free = 274.0 − 128.80 = 145.2 GiB ⇒ walkable = 145.2 − 56 = **~89 GiB**
+  ⇒ the walk has been authorised against **~7 GiB it does not have**. `FLOOR_BYTES` is itself 20% of the WRONG
+  constant (56 GiB rather than 54.8), which by luck is conservative and does not offset the error above.
+
+⛔ **A MACHINE PATH EXISTS AND HAS EXISTED ALL ALONG — the human step was never necessary.** Supabase Management API:
+  `GET /v1/projects/{ref}/config/disk` — database disk attributes  (https://supabase.com/docs/reference/api/v1-get-database-disk)
+  `GET /v1/projects/{ref}/config/disk/util` — disk utilization      (https://supabase.com/docs/reference/api/v1-get-disk-utilization)
+  `GET /v1/projects/{ref}/config/disk/autoscale` — autoscale config (https://supabase.com/docs/reference/api/v1-get-project-disk-autoscale-config)
+  AUTH: `Authorization: Bearer $SUPABASE_ACCESS_TOKEN` (PAT from supabase.com/dashboard/account/tokens), or OAuth
+  `projects:read` / a fine-grained token with `project_admin_read`.
+  ⚠ **THE SUPABASE MCP DOES NOT EXPOSE IT** — its surface is SQL, migrations, advisors, logs, branches and docs; there
+  is no disk or compute tool. So this is an HTTP call with a NEW credential, not a tool we already hold.
+  ⛔ **AND THE SAME PATH IS A WRITE PATH:** `POST /v1/projects/{ref}/config/disk` MODIFIES the disk. Any token minted
+  for this must be read-scoped, or a disk-reader becomes a disk-resizer.
+  ⚠ **NO POSTGRES-SIDE SIGNAL BOUNDS VOLUME SIZE.** `pg_database_size` is the database; `pg_ls_waldir` is WAL and needs
+  elevated rights; there is no statfs. DECISIONS 2026-08-03 already recorded *"Provisioned disk is NOT READABLE FROM
+  SQL — it is a dashboard read and a HUMAN step"* and the limitation was accepted rather than routed around.
+
+⛔ **COMPUTE — A SECOND UNVERIFIED ASSUMPTION UNDER THE SAME RUN, AND IT IS WORSE THAN THE DISK ONE.**
+MEASURED LIVE 2026-08-18 from `pg_settings`: shared_buffers **512 MB** · effective_cache_size **1.5 GB** ·
+maintenance_work_mem **128 MB** · work_mem 5 MB · max_connections 90 · max_parallel_workers 2 ·
+max_parallel_maintenance_workers 1. **THAT IS THE SMALL TIER, BYTE-FOR-BYTE THE 2026-08-02 SMALL BASELINE
+(LORAMER_COMPUTE_BASELINE_2026_08_02_V1).** DECISIONS 2026-08-03 recorded XL for the partition migration
+(shared_buffers 4 GB, maintenance_work_mem 1 GB, parallel maintenance 2). ⇒ **THE PROJECT WAS RAISED TO XL AND HAS
+SINCE RETURNED TO SMALL, and nothing in the repo records the drop.**
+Vendor's published tier table (https://supabase.com/docs/guides/platform/compute-and-disk): *"Small | 2 GB | 2-core
+(shared) | 50 GB"* recommended max database size. **WE ARE AT 127.63 GiB — 2.55× the vendor's recommendation for
+this tier**, at 70% CPU and 69% memory SUSTAINED across 2026-08-11..18 (Russ's dashboard read). The vendor states
+performance degrades past the recommendation; it does not promise a cliff, and there is no measured ceiling here.
+⇒ **A 3-5 DAY CONTINUOUS DEPTH RUN WOULD ADD SUSTAINED WRITE AND INDEX-MAINTENANCE LOAD TO AN INSTANCE ALREADY
+2.55× PAST ITS RECOMMENDED DATA SIZE AND ~70% UTILISED ON BOTH AXES.** That is a finding, not a plan.
+
+**THE PROCESS DEFECT, WHICH IS THE REAL ONE:** the provisioned figure has now been hand-fetched from the dashboard
+TWICE (2026-08-03, 2026-08-18) and both times it entered the arithmetic as a typed constant with no stamp, no
+source and no expiry. A number nobody can re-verify is how a safety floor becomes a guess wearing a unit.
+⇒ Queued as ★PROVISIONED-DISK-IS-A-HUMAN-STEP and ★COMPUTE-TIER-BELOW-DATA-SIZE. Nothing built this flight.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
 
 **THE UNIT THE WALK ADVANCES BY IS THE WINDOW THAT WAS ASKED, AND IT IS RECORDED — NEVER INFERRED FROM
