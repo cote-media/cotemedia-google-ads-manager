@@ -1291,29 +1291,64 @@ parent is legitimately narrower than the sizing. MEASURED, all three arrivals, a
   · run #2 `geo_target_most_specific_location` — terminal parent 2022-03-04..2022-03-23, **20 days**
   · run #3 `geo_target_airport` — terminal parent 2022-03-04..2022-03-26, **23 days**, and the arithmetic is
     on the face of it: **2022-03-27 − 2022-03-04 = 23**. Its recede series is **15 × 30 then 1 × 23**.
-⛔ **AND WHY NOT "≥ 30" OR "≤ 30", WHICH ARE THE TWO TEMPTING WEAKENINGS.** Demanding 30 everywhere goes RED on
-all three arrivals — red on the only three successes the engine has. Accepting anything ≤ 30 accepts the
-ONE-DAY range step that cost this project a rebuild. **The remainder is legal EXACTLY when the new parent
-STARTS AT the stop**; a short step anywhere else is a step nobody sized.
+⛔⛔ **THE FIRST SHIPPED VERSION OF THIS LEG WAS WRONG, IT PRODUCED A FALSE RED, AND THE WRONG DIAGNOSIS WAS
+BANKED IN THIS ENTRY AND IN `a281c19`'s COMMIT MESSAGE. BOTH ARE RETRACTED HERE. The retraction is kept above
+the corrected rule because the mistake teaches more than the fix does.**
+  · **RETRACTED CLAIM:** "It ships red on 5 steps… all five are 15-day descents on the two
+    `content_suitability_placement_view` surfaces… **that is [[★ANCHOR-HOLD-BRANCH-IS-UNGATED]], reproduced
+    from data the guard was never told about**." **FALSE.** Every one of those 15-day parents is a
+    `planMisSizedSplit` half, and the ledger says so IN WORDS in the `error` field of the `attempt_finished`
+    row that precedes it — six such records, three per surface, reading verbatim:
+    `MIS-SIZED, not broken: 2 attempt(s) at 30 days. Re-published at 15 day(s). google: 793 + 1 of 13500 operations/day`.
+    I asserted a cause from a number without reading the row that named the cause. Those five findings were a
+    FALSE RED — mine, not the engine's.
+  · **DEFECT 1 — IT HARDCODED 30.** `policy.maxDays = 30` is a CEILING, not the size.
+    `sizeFromPolicy` (`capture-adapter.ts:338-375`) legally returns `coldStartDays` (7) on a cold start and
+    under `rises-with-range`, and `Math.min(maxDays, Math.max(minDays, floor(rowBudget / maxPerDay)))` on the
+    yielding branch — **exactly 15 at 20,000 rows/day**. `planMisSizedSplit` legally halves 30 to 15 again.
+    Four legal sizes, all called illegal. ⚠ AND THE ENTRY PRAISED THE HARDCODE — "maxDays is READ from the
+    adapter, never retyped, so the legality rule cannot drift" — which was true and irrelevant: reading the
+    right constant does not help when the rule should not contain a constant at all.
+  · **DEFECT 2 — IT MEASURED A PROXY, NOT THE PROPERTY.** It compared `parent_window_START` to
+    `parent_window_START`. That equals the anchor's movement ONLY when consecutive parents share a width.
+    **THE ANCHOR IS `parent_window_END`** (`deriveWindow` sets `windowEnd = anchorEnd`), so when a mis-size
+    split changes the width from 30 to 15 the START moves 15 while **the anchor has not moved at all.**
+⛔ **THE CORRECTED RULE, AND IT NEEDS NO SIZE CONSTANT, NO TERMINAL EXCEPTION, AND NO KNOWLEDGE OF THE SIZING
+POLICY AT ALL:** `anchor(n) == start(n−1) − 1`. Contiguity and correct step size are the SAME statement —
+`anchor(n−1) − anchor(n) == width(n−1)` follows from it by arithmetic — so one comparison asserts both "the
+anchor moved by the window that was asked" and "no day was skipped between consecutive windows". Four legal
+transitions, each named so a red says which one it failed to be: **HOLD** (`end(n) == end(n−1)` — still owing,
+or a mis-size UPPER half, which shares its parent's end) · **RECEDE** (`end(n) == start(n−1) − 1`) ·
+**SPLIT-LOWER** (`start(n) == start(n−1) && end(n) < end(n−1)`) · **ILLEGAL**, sub-classified as a 1-day
+range-step, a named count of SKIPPED DAYS, a risen anchor, or unexplained.
+⛔ **AND THE TERMINAL CASE TURNS OUT NOT TO BE A SPECIAL CASE FOR THE ANCHOR — WHICH STRENGTHENS THIS ENTRY
+RATHER THAN WEAKENING IT.** On all three arrivals the anchor still moved **30 days = the PREVIOUS window's
+width**; it is the NEW window's START that `deriveWindow` clamps to the stop. The clamp is real and the
+11/20/23-day terminal WINDOWS are real; they simply never required the legality rule to know about them.
 ⇒ **SHIPPED AS LEG (C) OF `anchor-recedes-by-window.guard.mjs`, IN check:data** (it reads the live ledger, so
-it cannot live in `npm run guard`, which runs on Vercel with no database). The pure `classifyRecede` decision
-is exported and the guard drives it against six fixtures BEFORE any DB read — **if the classifier ever admits
-a 1-day step the guard exits 2 BROKEN rather than 0 or 1**, because a detector that cannot see the defect
-reads exactly like a clean bill of health ([[LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1]]'s own guard-on-guard rule).
-`--inject-illegal-recede` appends a synthetic 1-day step to the longest real series and announces that it did:
-**RED-PROVEN 6 findings with the flag (the injected 1-day step named as the ★ANCHOR-RECEDES-BY-RANGE class),
-5 without it**, on the same live data, through the shipped path.
-⛔ **IT SHIPS RED ON 5 STEPS, AND THE RED IS OWNED, NOT NEW.** All five are 15-day descents on
-`detail_content_suitability_placement_view` and `group_content_suitability_placement_view` — the two surfaces
-where every attempt finishes `outcome='error'` (GAQL query_error 49), so the window is never fully answered and
-the anchor leaves through the HOLD branch, which is a MOVER. **That is [[★ANCHOR-HOLD-BRANCH-IS-UNGATED]],
-reproduced from data the guard was never told about**, and it is the second time a property-shaped detector has
-independently found a defect its author had already traced by hand. `maxDays` is READ from the adapter, never
-retyped, so the legality rule cannot drift from the sizing it is judging ([[LORAMER_ADJACENT_NUMBER_V1]]).
-⚠ **LIMITS, so the green is not over-read:** it judges only STRICTLY-DESCENDING steps — a hold (0) is leg (B)'s
-subject and a negative step is `mis-size-must-re-owe.guard.mjs`'s ([[LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1]])
-— it keys each parent at its FIRST sighting, so a parent re-asked much later reads at its original position,
-and it says nothing whatever about whether the ground INSIDE a window was covered.
+it cannot live in `npm run guard`, which runs on Vercel with no database). The pure `classifyStep` decision is
+exported and driven against **EIGHT fixtures before any DB read** — three legal recedes (30-day, terminal-
+clamped, and a 15-day *legal smaller size*), a hold, a mis-size lower half, and three illegal shapes.
+**If the classifier admits a 1-day step or a skipped gap — OR REJECTS A LEGAL SMALLER SIZE — the guard exits 2
+BROKEN rather than 0 or 1.** That third clause is new and is the direct lesson of the false red: a detector
+that cannot see the defect reads like a clean bill of health, and one that cannot see LEGAL behaviour ships a
+standing red that trains the reader to discount reds.
+**RED-THEN-GREEN, MEASURED ON THE SAME LIVE LEDGER THROUGH THE SHIPPED PATH:** `--inject-illegal-recede`
+(a synthetic one-day anchor move) → **exit 1, 1 finding**, named as the ★ANCHOR-RECEDES-BY-RANGE class ·
+`--inject-skipped-gap` (a step that skips 5 days) → **exit 1, 1 finding**, naming the exact skipped range ·
+no flag → **exit 0, GREEN: 1,671 recedes by the asked window · 4 holds · 1 mis-size lower half · 0 ILLEGAL
+across 346 surfaces**, the 15s included. check:data's red count returns from 8 to 7.
+⚠ **LIMITS, so the green is not over-read:** it keys each parent at its FIRST sighting, so a parent re-asked
+much later reads at its original position; a SPLIT-LOWER is accepted on SHAPE alone — the leg does not verify
+that a mis-size record exists for it; and it says nothing whatever about whether the ground INSIDE a window
+was covered ([[LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1]] owns that, and is itself blind above the frontier —
+[[★TOP-EDGE-HAS-NO-LANE]]).
+⚠ **AND THE HALF-SPEED DESCENT THE FALSE RED ACCIDENTALLY SURFACED IS REAL AND IS NOT CLAIMED HERE:** on both
+`content_suitability_placement_view` surfaces the window END descends 15 per cycle (08-12 → 07-28 → 07-13 →
+06-28 → 06-13 → 05-29), because the narrowed half errors and the anchor then holds at the NARROWED end. Every
+step is legal under two separately-banked mechanisms; whether their INTERACTION is a defect is an open
+question this entry does not answer. Both surfaces fail with GAQL `query_error 49` at EVERY width, which is
+[[LORAMER_SURFACE_UNASKABLE_IS_A_SURFACE_FACT_V1]] — a width fix for a problem that is not about width.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
