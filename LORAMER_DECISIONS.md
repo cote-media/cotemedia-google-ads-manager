@@ -1009,6 +1009,33 @@ block. Run #2 hit pass 50 and broke on `floorReached` BEFORE reaching it, so the
 replaced the dangling `FLOOR` is guard-proven and still has never executed live.
 
 
+## LORAMER_DIGEST_MISSED_THE_SECTION_FORMAT_V1 (2026-08-19) — SETTLED. Do not re-litigate; the fix is in the READER.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1]], banked 2026-08-18 — the identical class one consumer over, and the entry that established "widen the reader, never retype the decisions"; plus Russ's session-wrap instruction to VERIFY the bank is greppable rather than assume it. · WEB: NONE-APPLICABLE: this is a defect in a script in this repository, found by grepping this repository's own generated artifact against its own source. Nothing outside could know either format existed. · REPO: `scripts/build-resume-digest.mjs:141` (§G's selector as it stood), `LORAMER_DECISIONS.md` (both formats, side by side), `three-source-header.guard.mjs`'s subject-selection comment (whose argument is reused verbatim here), and the 20-vs-10 count measured at wrap. — /THREE-SOURCE
+⛔ **A DECISION THE NEXT SESSION CANNOT GREP IS A DECISION THAT LIVED IN CHAT, ONE FILE LATER.**
+DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | do not relitigate.` bullet, and the
+`## LORAMER_X_V1 (date) — …` section. **§G of the digest selected on the BULLET TRAILER and matched ZERO
+sections.** MEASURED at wrap: **20 section decisions existed and TEN were absent from the resume digest
+entirely** — including **two GOVERNING rules Russ banked that same evening**
+([[LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1]], [[LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1]]) and
+[[LORAMER_DRIVE_TAKES_ITS_SURFACE_V1]] from the same day. **The ten that DID appear got there only because
+some queue entry happened to cite their token — reachability by luck, not by design.**
+⛔ **THE FIRST FIX WAS STILL TOO NARROW AND THAT IS THE INSTRUCTIVE PART.** Widening §G to "a section heading
+that also says do-not-relitigate" recovered four of ten and **left six**, because headings legitimately read
+*"Do not reintroduce a default"*, *"MEASURED, not modelled"*, *"OPEN PROBLEM, NAMED"*. **The predicate was
+the bug, not the format.** The settled rule — already argued in `three-source-header.guard.mjs` for exactly
+this subject — is that **the `## ` form is ONLY ever used for a banked decision, so the dated heading IS the
+proof and needs no tag.** §G now takes every one. 535 → 555 lines; **20 of 20 reachable.**
+GUARD: `banked-decision-reaches-the-digest.guard.mjs` — every dated `## LORAMER_*_V<n>` in DECISIONS must be
+findable in the digest. **RED-PROVEN against the digest as pushed at 9911a73 with all ten findings**, green
+after. ⚠ LIMIT in its own PASS line: it proves the TOKEN is present, never that the entry's content survived
+the build, and it says nothing about decisions banked outside DECISIONS.
+⇒ **THE GENERAL RULE, third instance in two days: WHEN A DOCUMENT HAS TWO LEGITIMATE FORMATS, EVERY CONSUMER
+IS A PLACE ONE OF THEM CAN BE INVISIBLE.** The enforcer belongs at the consumer, and "we only ever write it
+one way" is not a fact about the corpus — it was false here, false for the three-source guard, and it will be
+false for the next reader somebody writes.
+
+
 ## LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]], does not replace it.
 
 THREE-SOURCE — PRIOR CHATS: Russ, 2026-08-19, in his own words at session wrap; sharpens [[LORAMER_BACKFILL_DONE_DONE_V1]] (the six conditions) and follows [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]], which gates the engine work that comes first. · WEB: NONE-APPLICABLE: this is a definition of what "finished" means for THIS product's onboarding path — a proof standard Russ is setting for his own operators, not a question any vendor doc or external practice can answer. · REPO: [[LORAMER_BACKFILL_DONE_DONE_V1]] in this file (the six conditions being sharpened), `BackfillControl.tsx` (the one-click mechanism this must be proven THROUGH), and the Foam OH google surfaces whose completion is the precondition. — /THREE-SOURCE

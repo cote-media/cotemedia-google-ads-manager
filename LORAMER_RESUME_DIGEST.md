@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-19T05:11:15.399Z
-- built_from HEAD: 548afd11876e4cbdda8ca4fb3a26a1765b0c75cd  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-19T05:23:27.391Z
+- built_from HEAD: 9911a738304fbd10c71253b9a1b2a98523ff62e9  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,7 +17,7 @@
     - LORAMER_ESSENCE.md: 6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: f2cb29b883393c35d505b764368120098eee738e95a17b3c66772de4cdc202ae
-    - LORAMER_DECISIONS.md: eb0f6f2b486b118871664cae1f4689e504dd723b2162a946fa636425c028d65e
+    - LORAMER_DECISIONS.md: de54051a7560184dfc5dc69a7b2269e6d362bfb9a9bdcbcf6d1605c27dc61097
     - LORAMER_QUEUE_OF_RECORD.md: bc29f2d8a92d493fd1ab2a981040011385be5554b779240297f9a21636e85c64
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456
@@ -1120,6 +1120,28 @@ LORA-GROUNDING GATE — THE ARC'S FIRST ENFORCER (2026-07-20): scripts/check-lor
 - [CORRECTION 2026-07-15] The 2026-05-30 GA connector design (docs/GA_CONNECTOR_DESIGN_2026_05_29.md) filed GA verification as "not a V1 blocker, revisit past ~100 users." That decision was never PROMOTED onto the pre-launch checklist when the June adwords submission went out, so analytics.readonly was never added to it — which is why the scope sat undeclared for weeks and surfaced as an "intermittent unverified-app warning" nobody could place. Superseded by the submission above. ROOT CAUSE, generalize it: a filed "future concern" with NO TRIGGER to re-check is a silent liability. A deferral needs a trip-wire (a date, a threshold, or a checklist line), or it is just forgetting with extra steps. | LORAMER_OAUTH_TOPOLOGY_V1, 2026-07-15 | do not relitigate.
 - [CORRECTION 2026-07-15, measured] The 8s live-ceiling audit banked "heavy read null, light read a date." That is TRUE only for SINGLE-CLIENT routes (client-metrics: Champion returned 2026-07-14 pre-fix). It is FALSE for /api/clients/metrics: its Promise.all FAN-OUT across all 20 accessible clients meant the heavy clients' 8s scans took the light ones down with them, so lastActive was null for ALL clients, Champion included — the live-path route was blank for 100% of the cohort, not just the heavy tail. Proven by a measured BEFORE at 45781ff (throwaway worktree, same machine, same DB): 14,107ms, every lastActive null. Only visible because BEFORE was MEASURED rather than recalled from the note. | LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1, 2026-07-15 | do not relitigate.
 - [LESSON 45 BROADENED 2026-07-15] `vercel env pull` now blanks ALL 46 user-defined vars, not just the handful listed at HANDOFF:391 — only Vercel's own turbo/NX vars carry values. The Vercel MCP has NO env-read tool (it exposes projects/deployments/logs/toolbar only). CONSEQUENCE, and the useful half: to confirm what production actually SENDS, read the LIVE PRODUCTION REDIRECT (e.g. GET /api/ga/start → 307 → parse client_id/scope from the Location header) — that is STRONGER evidence than the settings panel anyway, because it proves what the running code emits rather than what is filed. Corollary: prod's NEXTAUTH_SECRET is unreadable, so a prod-cookie Gate-B is IMPOSSIBLE from Claude Code; the house pattern (live dev server + minted cookie against the SAME prod DB) is the real-path proof, and it is faithful for DB-ceiling questions because the 8s statement_timeout is enforced by PostgREST, not Vercel. | LORAMER_LATEST_DATE_ACCOUNT_GRAIN_V1, 2026-07-15 | do not relitigate.
+## LORAMER_WALK_TEARDOWN_AND_REBUILD_V1 (2026-08-08/09) — SETTLED. Do not relitigate.
+## LORAMER_COMPLETION_SIGNAL_DESIGN_V1 (2026-08-18) — DESIGN SETTLED, NOT BUILT. Do not relitigate the prior art; three items remain open for step 3.
+## LORAMER_THREE_SOURCE_ENFORCER_HAD_A_FORMAT_HOLE_V1 (2026-08-18) — SHIPPED. Do not relitigate.
+## LORAMER_DRIVE_QUIESCE_IS_AN_ADJACENT_NUMBER_V1 (2026-08-18) — MEASURED. The gate is NOT satisfied.
+## LORAMER_PROVE_ONE_SURFACE_FIRST_V1 (decided 2026-08-17, BANKED 2026-08-18) — SETTLED. Do not relitigate.
+## LORAMER_DEPTH_DENSITY_IS_BETWEEN_V1 (2026-08-18) — MEASURED, 1 vendor request. Do not relitigate; re-measure before reusing.
+## LORAMER_SPEED_DOES_NOT_COST_DISK_V1 (2026-08-18) — MEASURED, not modelled. Re-measure before reusing.
+## LORAMER_DISK_HEADROOM_IS_CIRCULAR_V1 (2026-08-18) — MEASURED. Do not relitigate the measurements; re-measure before reusing them.
+## LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
+## LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 (2026-08-18) — SETTLED. Do not relitigate. AUTHORED, HELD AT GATE-A.
+## LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1 (2026-08-18) — SETTLED. Do not relitigate. SHIPPED (502fd8e).
+## LORAMER_SURFACE_UNASKABLE_IS_A_SURFACE_FACT_V1 (2026-08-18) — OPEN PROBLEM, NAMED. Not built.
+## LORAMER_PARENT_IS_THE_UNIT_PROVEN_UNDER_FRAGMENTATION_V1 (2026-08-19) — SETTLED on the mechanism. ⛔ THE RUN ITSELF IS INCONCLUSIVE. Count stays 2 of 3.
+## LORAMER_COMPLETION_SIGNAL_HOLDS_UNDER_DENSITY_V1 (2026-08-19) — MEASURED. Run #2 of 3 is clean. Do not re-measure to re-decide; re-measure only to re-derive.
+## LORAMER_DIGEST_MISSED_THE_SECTION_FORMAT_V1 (2026-08-19) — SETTLED. Do not re-litigate; the fix is in the READER.
+DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | do not relitigate.` bullet, and the
+## LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]], does not replace it.
+## LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. AMENDS the WEB leg of [[LORAMER_THREE_SOURCE_PRECONDITION_V1]].
+## LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. Do not re-litigate the count or the reset rule.
+## LORAMER_DRIVE_TAKES_ITS_SURFACE_V1 (2026-08-19) — SETTLED. Do not reintroduce a default.
+## LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 (2026-08-19) — SETTLED. The engineering gate is SATISFIED. Do not re-litigate the build order.
+## LORAMER_NO_DANGLING_REFERENCE_V1 (2026-08-19) — SETTLED. Do not relitigate. SHIPPED.
 The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do not relitigate.
   commit). The existing 06-27→today hole is NOT fixed — G1(b), next flight. | do not relitigate.
   Blast radius: LIVE-PATH (shared read path) = STOP-and-confirm. Cheapest large win in the system. | do not relitigate.
@@ -2207,8 +2229,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 916 tokens indexed · 344 resolve to BOTH a decision and a queue item ·
-135 decision-only · 437 queue-only.
+TOTALS: 917 tokens indexed · 344 resolve to BOTH a decision and a queue item ·
+136 decision-only · 437 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -3140,6 +3162,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_WRAP_DOCS_ORDER_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-17
 - LORAMER_WRAP_STAMP_ROLLBACK_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-17
 - LORAMER_WS1C_WIDE_SWALLOW_HARDEN_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27
+- LORAMER_X_V1 — DECIDED · decisions 1 · queue 0
 - LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 — DONE · decisions 1 · queue 1 · last 2026-08-09
 
 --- end of digest · regenerate with: node scripts/build-resume-digest.mjs ---

@@ -138,7 +138,24 @@ const nextStep = must('E next-step', (() => {
 const dateGated = must('F date-gated', fenceSection(queue, 'DATE-GATED (CONTINUE_HERE'))
 
 // ── G. settled-decisions index (every do-not-relitigate line) ──
-const settled = must('G settled-decisions', decisions.split('\n').filter((l) => /\|\s*do not relitigate/i.test(l)).join('\n'))
+// ⛔ TWO FORMATS, AND FOR MONTHS THIS READ ONLY ONE — LORAMER_DIGEST_MISSED_THE_SECTION_FORMAT_V1.
+// The filter was `/\|\s*do not relitigate/i`, which is the BULLET trailer (`| LORAMER_X_V1, date | do not
+// relitigate.`). `LORAMER_DECISIONS.md` also banks decisions as `## ` SECTIONS, a legitimate format that
+// predates this consumer — and **that filter matched ZERO of them**. MEASURED 2026-08-19: 20 section
+// decisions existed and **10 were absent from the digest entirely**, including two GOVERNING rules banked by
+// Russ that same night. The ten that did appear got there only because a QUEUE entry happened to cite their
+// token — reachability by luck, not by design.
+// ⛔ SAME CLASS AS `three-source-header.guard.mjs`'s format hole one day earlier, one consumer over: a real
+// format the reader did not know about. The fix is to WIDEN THE READER, never to retype the decisions.
+// ⛔ AND NO "do not relitigate" PREDICATE ON THE SECTION SIDE — the same argument this repo already settled
+// for `three-source-header.guard.mjs`'s subject selection: **the `## ` format is only ever used for a banked
+// decision**, so a dated `## LORAMER_*_V<n>` heading IS one by construction and needs no tag to prove it.
+// Requiring the phrase re-created the hole at half size: it still dropped SIX of twenty, because headings
+// legitimately say "Do not reintroduce a default", "MEASURED, not modelled", "OPEN PROBLEM, NAMED".
+const SECTION_DECISION = /^##\s+LORAMER_[A-Z0-9_]+_V\d+\b/
+const settled = must('G settled-decisions', decisions.split('\n')
+  .filter((l) => /\|\s*do not relitigate/i.test(l) || SECTION_DECISION.test(l))
+  .join('\n'))
 
 // ── H. open-queue index — SELECT BY MEANING, NOT BY POSITION ──
 // Emit one line per OPEN queue item — its header line. An item is its header PLUS the continuation

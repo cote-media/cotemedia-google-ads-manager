@@ -192,6 +192,12 @@ const GUARDS = [
   // and that is precisely the row `drive-one-surface.mjs` joins on to learn what a pass walked. Uses the
   // TypeScript compiler, because these calls span six lines and carry parenthesised template literals.
   'tests/guards/provenance-on-every-append.guard.mjs',
+  // ⛔ LORAMER_DIGEST_MISSED_THE_SECTION_FORMAT_V1 — a decision the next session cannot GREP is one
+  // re-derivation away from having lived only in chat. §G of the digest selected on the BULLET trailer and
+  // matched ZERO `## ` section entries: MEASURED 2026-08-19, 10 of 20 section decisions were absent from the
+  // digest, two of them governing rules banked by Russ hours earlier. Same class as three-source-header's
+  // format hole one day before, one consumer over — widen the READER, never retype the decisions.
+  'tests/guards/banked-decision-reaches-the-digest.guard.mjs',
   // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.
