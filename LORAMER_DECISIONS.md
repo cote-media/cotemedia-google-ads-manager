@@ -1216,14 +1216,25 @@ STOP 2022-03-04, EACH WITH A DIFFERENT STRESS AXIS, EACH WITH ZERO `error` OUTCO
     80 ranges opened : 80 finished · 80 requests · 15 days committed · 28 rows · outcomes 15 `ok` / 65 `zero`
     / 0 `error` · 17 parent windows · 29 messages : 29 terminals : 29 invocation_ids · 0 unstamped rows ·
     0 rows without a parent window.** Terminal parent `2022-03-04..2022-03-26`, remainder **23 days**.
-⛔ **THE RUN #3 VERDICT LINE WAS ASKED FOR VERBATIM AND IS NOT REPRODUCED HERE, BECAUSE IT WAS NOT CAPTURED.**
-`scripts/drive-one-surface.mjs` writes no run artifact — its `✅ PROVEN` line goes to stdout and nowhere else,
-and that stdout was not persisted. The route's format string is
-`anchor ${anchorEnd} is below the resolved stop (${stopBasis}) — this surface has been walked to its floor`
-(`universe-drive/route.ts:136-140`), so the line's SHAPE is known; its exact text is not, and inventing one
-would be a fabricated quote in the file this repo trusts most. **THE ARRIVAL IS EVIDENCED FROM THE LEDGER
-INSTEAD**, by the numbers above and by the guard leg that re-derives them. ⇒ A drive run that persists its own
-verdict is queued as [[★DRIVE-VERDICT-NOT-PERSISTED]]; nothing about it is built in this flight.
+⛔ **THE RUN #3 VERDICT, QUOTED VERBATIM FROM THE DRIVE'S OWN STDOUT — SUPPLIED BY RUSS FROM THE TERMINAL
+SCROLLBACK 2026-08-19 AND RECOVERED INTO THE RECORD RATHER THAN RECONSTRUCTED.** It is the instrument's own
+words, not a re-derivation:
+
+    [drive] ✅ PROVEN — anchor 2022-03-03 is below the resolved stop (account inception 2022-03-04) — this surface has been walked to its floor
+    [drive] END — frontier 2022-03-04 · 80 vendor request(s) spent.
+    [verdict] RUN #3 drive-20260819133358 geographic_view/segments.geo_target_airport — FLOOR-REACHED at 2022-03-04 (account inception) · 29 passes · 80/220 requests · 28 rows · 0 error outcomes · 29:29:29 messages:terminals:invocations · 0 unstamped · script==ledger 80==80 · recedes 15×30 + 1×23 (inception clamp), none==1 · ISOLATED (0 foreign, 0 null-key) · CLEAN TALLY 3 of 3
+
+**IT AGREES WITH THE LEDGER ON EVERY NUMBER THAT APPEARS IN BOTH** — 29 passes, 80 requests, 28 rows, 0 error
+outcomes, 29:29:29, 0 unstamped, and the recede series `15×30 + 1×23` that leg (C) re-derived independently
+from `parent_window_start`. The stdout carries three facts the ledger does not: the run id
+`drive-20260819133358`, the request CAP (`80/220`), and the drive's own ISOLATED check (0 foreign, 0 null-key).
+⚠ **AND THE RECOVERY DOES NOT CLOSE THE GAP THAT MADE IT NECESSARY.** This is ONE instance rescued from a
+terminal buffer by a human who happened still to have it. [[★DRIVE-VERDICT-NOT-PERSISTED]] STAYS OPEN:
+persisting the verdict is the fix, and a recovered scrollback is not a mechanism.
+⛔ **THE EARLIER STATE OF THIS PARAGRAPH IS PART OF THE RECORD, NOT AN EMBARRASSMENT TO EDIT OUT:** it said the
+line was not captured and REFUSED to reconstruct one from the route's format string, because a fabricated
+quote in this file is worse than a missing one. The format string would in fact have produced the first line
+almost exactly — and "almost exactly" is precisely the failure that refusal exists to prevent.
 ⚠ **AND THE HALF THAT MUST NOT BE GLOSSED: RUN #3 WAS NOT WALKED BY THE DRIVE ALONE.** The scheduled resumer
 fired on this same surface at 02:03, 08:02 and 12:02Z between the two drive segments, one parent window each.
 The pass and request counts above are segment B's, not the surface's total cost, and anyone re-deriving fleet
