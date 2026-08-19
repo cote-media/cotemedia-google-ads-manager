@@ -332,6 +332,11 @@ export async function discoverAccountInception(k: {
   vendor: string
   adapter: import('./capture-adapter').CaptureAdapter
   stream: (gaql: string) => AsyncGenerator<any>
+  // ⛔ LORAMER_PROVENANCE_ON_EVERY_APPEND_V1 — THIS DISCOVERY SPENDS A VENDOR REQUEST AND IT IS TRIGGERED BY
+  // A MESSAGE. Unstamped, that request is invisible to every reader that attributes spend by message_key —
+  // including `drive-one-surface.mjs`, which sums `requests_spent` over exactly that join and would have
+  // under-counted its own pass by one on any surface whose inception was discovered mid-walk.
+  prov?: import('./universe-attempt-log').WriteProvenance
 }): Promise<{ inceptionDate: string; rawStartDateTime: string; source: string } | null> {
   const { mayFetchProgram } = await import('./capture-adapter')
   const { appendAttemptStarted, appendAttemptFinished } = await import('./universe-attempt-log')
@@ -341,7 +346,7 @@ export async function discoverAccountInception(k: {
     return null
   }
   const key = { clientId: k.clientId, vendor: k.vendor, ...INCEPTION_ATTEMPT_KEY }
-  const opened = await appendAttemptStarted(key, 1)
+  const opened = await appendAttemptStarted(key, 1, undefined, k.prov)
   try {
     let raw: string | null = null
     for await (const row of k.stream(INCEPTION_DISCOVERY_GAQL)) {
@@ -349,12 +354,12 @@ export async function discoverAccountInception(k: {
       break // ASC LIMIT 1 — one row is the whole answer
     }
     if (raw === null) {
-      await appendAttemptFinished(key, opened.attemptNo, 'zero', { rowsWritten: 0, requestsSpent: 1 })
+      await appendAttemptFinished(key, opened.attemptNo, 'zero', { rowsWritten: 0, requestsSpent: 1 }, k.prov)
       console.log(`[universe-inception] ZERO CAMPAIGNS for ${k.clientId} — no inception exists; absence stays UNKNOWN by design.`)
       return null
     }
     await recordAccountInception({ clientId: k.clientId, vendor: k.vendor, rawStartDateTime: raw })
-    await appendAttemptFinished(key, opened.attemptNo, 'ok', { rowsWritten: 0, requestsSpent: 1 })
+    await appendAttemptFinished(key, opened.attemptNo, 'ok', { rowsWritten: 0, requestsSpent: 1 }, k.prov)
     console.log(`[universe-inception] DISCOVERED ${k.clientId}: "${raw}" (raw, account-timezone frame) — one op, recorded with provenance.`)
     // Re-read rather than echo: the store is the authority (LEAST() may keep an earlier concurrent write).
     return await readAccountInception({ clientId: k.clientId, vendor: k.vendor })
@@ -362,7 +367,7 @@ export async function discoverAccountInception(k: {
     const { serializeVendorError } = await import('./universe-stream-capture')
     const msg = serializeVendorError(e)
     try {
-      await appendAttemptFinished(key, opened.attemptNo, 'error', { rowsWritten: 0, requestsSpent: 1, error: msg })
+      await appendAttemptFinished(key, opened.attemptNo, 'error', { rowsWritten: 0, requestsSpent: 1, error: msg }, k.prov)
     } catch (e2: any) {
       console.error(`[universe-inception] LEDGER WRITE ALSO FAILED for ${k.clientId}: ${String(e2?.message ?? e2)} — the spend was still charged at attempt_started.`)
     }

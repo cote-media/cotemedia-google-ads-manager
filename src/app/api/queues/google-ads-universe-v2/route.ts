@@ -215,7 +215,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     // this line. The injected streamFor is the armed boundary-5 stream, so a quota refusal here arms the
     // fleet sentinel like every other vendor call on this route. THE RESUMER PASSES `null` HERE — it never
     // fetches, so it can never be the thing that triggers this.
-    discover: () => discoverAccountInception({ clientId, vendor: adapter.platform, adapter, stream: streamFor }),
+    discover: () => discoverAccountInception({ clientId, vendor: adapter.platform, adapter, stream: streamFor, prov }),
   })
   const walkStop = await resolveWalkStop({
     clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, facts: stopFacts,
@@ -269,7 +269,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     await appendAttemptFinished(coveredKey, coveredOpened.attemptNo, 'skipped', {
       requestsSpent: 0,
       error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${startDate}..${endDate} fully covered/attested on delivery; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
-    })
+    }, prov)
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
     return
@@ -279,7 +279,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
   const floor = await checkDiskFloor()
   if (!floor.ok) {
     await appendAttemptFinished(key, await nextAttemptNoWithoutCharging(key), 'floor_stop',
-      { rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes, error: floor.reason })
+      { rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes, error: floor.reason }, prov)
     console.error(`[universe-v2] FLOOR STOP ${clientId} ${label}: ${floor.reason}`)
     // ⛔ NO RE-PUBLISH. The lane goes quiet rather than hammering a full volume.
     return
@@ -296,7 +296,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     await appendAttemptFinished(key, attemptsHere + 1, 'abandoned_owed', {
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
       error: `BROKEN: ${attemptsHere} attempt(s) at the ${MIN_WINDOW_DAYS}-day minimum span. Not mis-sized — there is nothing left to narrow.`,
-    })
+    }, prov)
     console.error(`[universe-v2] BROKEN ${clientId} ${label} ${startDate}..${endDate} — ${attemptsHere} attempt(s) at the ${MIN_WINDOW_DAYS}-day minimum. Escalate.`)
     return
   }
@@ -346,7 +346,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
         rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
         error: `MIS-SIZE HELD, NOT SPLIT: ${attemptsHere} attempt(s) at ${spanDays} days, but the upper half ${upperStart}..${endDate} could not be published (${upper.reason}). ` +
           `Publishing only the older half would drop the upper half permanently — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1. The whole window stays owed and is re-derived next fire.`,
-      })
+      }, prov)
       console.warn(`[universe-v2] MIS-SIZE HELD ${clientId} ${label}: upper half ${upperStart}..${endDate} refused (${upper.reason}) — window NOT split, nothing dropped.`)
       return
     }
@@ -358,7 +358,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
       error: `MIS-SIZED, not broken: ${attemptsHere} attempt(s) at ${spanDays} days. Re-published at ${half} day(s). ${pub.reason}` +
         (hasUpper ? ` · UPPER HALF ${upperStart}..${endDate} RE-OWED as its own message (${upper.reason}) — LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1.` : ''),
-    })
+    }, prov)
     console.log(`[universe-v2] MIS-SIZED ${clientId} ${label}: ${spanDays}d → ${half}d, published=${pub.published} (${pub.reason})` +
       (hasUpper ? ` · upper ${upperStart}..${endDate} re-owed (${upper.reason})` : ''))
     return
@@ -446,7 +446,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       await appendAttemptFinished(rangeKey, opened.attemptNo, outcome, {
         rowsWritten: res.rowsWritten, requestsSpent: 1, diskFreeBytes: floor.freeBytes,
         error: res.error ?? (res.orderViolation ? 'ORDER VIOLATION: the vendor returned a row for an already-committed day, so this attempt\'s day commits do not prove closure' : res.skipped ? res.skipped.requirement : null),
-      })
+      }, prov)
       maxRangeMs = Math.max(maxRangeMs, Date.now() - rangeStartedAt)
     } catch (e: any) {
       // ⛔ A RANGE THAT THREW STILL CONSUMED THE CLOCK — feed it to the reservation before any exit, or the
@@ -457,7 +457,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       // A refusal can arrive as a throw rather than in `res.error` — the same signal, the same rule.
       noteWall(range.start, lastError)
       await appendAttemptFinished(rangeKey, opened.attemptNo, 'error',
-        { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, error: lastError })
+        { rowsWritten: 0, requestsSpent: 1, diskFreeBytes: floor.freeBytes, error: lastError }, prov)
     }
   }
 
@@ -499,7 +499,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       error: `BUDGET STOP, NOT A FAILURE: ${deferredForBudget} of ${owed.ranges.length} owed range(s) were not started — ` +
         `${Date.now() - started}ms elapsed of a ${WALK_BUDGET_MS}ms budget under maxDuration ${maxDuration}s, worst range ${maxRangeMs}ms. ` +
         `The days stay UNCOVERED and owed-ness is DERIVED, so the resumer re-finds them without anyone naming a row id.`,
-    })
+    }, prov)
     console.warn(`[universe-v2] BUDGET STOP ${clientId} ${label}: deferred ${deferredForBudget}/${owed.ranges.length} range(s) — NOT advancing; the resumer re-derives what is still owed.`)
     // ⛔ NO ADVANCE ON A BUDGET STOP. Advancing to an older window while this one still owes ground would leave
     // a hole behind the walk that only a re-scan could find. THE DRIVER OWNS THE LOOP (June, BackfillControl.tsx:64-86).
@@ -521,7 +521,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       error: `EMPTY-STRETCH REPORT, NOT A STOP: ${emptyStretch} consecutive all-empty windows on this chain — ` +
         `longer than the longest dormancy ever measured (2,267 days ≈ 324 windows, BusyBee). The walk CONTINUES; ` +
         `nothing is parked and nothing is sealed. An operator should look at why this surface is empty at unprecedented depth.`,
-    })
+    }, prov)
     console.warn(`[universe-v2] EMPTY-STRETCH ${clientId} ${label}: ${emptyStretch} consecutive all-empty windows — reported, NOT stopped. The walk continues.`)
   }
 

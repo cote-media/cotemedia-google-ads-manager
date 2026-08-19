@@ -47,7 +47,8 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 // started(0-requests)+finished('skipped') PAIR, because migrations/064's rotation reads phase='attempt_started'
 // ONLY — the resumer's existing finished-only 'skipped' appends (the implausible path) provably advance
 // nothing (two live rows on ad_group, 2026-08-12, rotation unmoved).
-import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
+import { randomUUID } from 'node:crypto'
+import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 import { TOPIC, MAX_ATTEMPTS_AT_MIN_SPAN, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
@@ -69,6 +70,13 @@ const addDays = (iso: string, n: number) => {
 }
 
 export async function GET(request: Request) {
+// ⛔ LORAMER_PROVENANCE_ON_EVERY_APPEND_V1 — PRODUCER-SIDE ROWS CARRY AN INVOCATION, NOT A MESSAGE KEY.
+// A covered-skip / refusal row is written by the PUBLISHER and no message was ever sent for it, so
+// `message_key` — documented as "the idempotency key the publisher passed to send()" — stays NULL here on
+// purpose. Filling it with a synthesised value would make one column mean two different things, which is
+// LORAMER_ADJACENT_NUMBER_V1 in a schema. `invocation_id` is still exactly right: this row was written by
+// THIS execution, and that is the question it answers.
+  const prov: WriteProvenance = { messageKey: null, invocationId: randomUUID() }
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
   const got = (authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : authHeader).trim()
@@ -308,7 +316,7 @@ export async function GET(request: Request) {
         await appendAttemptFinished(key, (await readAttemptsAtSpan(key)) + 1, 'skipped', {
           rowsWritten: 0, requestsSpent: 0,
           error: `RESUMER REFUSED — IMPLAUSIBLE COVERAGE: ${plaus.reason}`,
-        })
+        }, prov)
       }
       refusals.push({ label, verdict: 'implausible', reason: plaus.reason })
       continue
@@ -344,11 +352,11 @@ export async function GET(request: Request) {
         // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — the covered-skip advances past the DERIVED window, so the
         // parent is that window. Stamped rather than left null: a null parent HOLDS the anchor, which would
         // reinstate ★WALK-WEDGES-AT-COVERED-GROUND through the very branch built to end it.
-        const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd })
+        const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd }, prov)
         await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
           requestsSpent: 0,
           error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested (${plaus.reason}); advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
-        })
+        }, prov)
       }
       advancedCovered++
       refusals.push({ label, verdict: 'advanced-covered', reason: `window ${windowStart}..${windowEnd} owes nothing — ${dryRun ? 'DRY: would advance' : 'advanced'} past covered ground (0 vendor ops); the anchor recedes below it next fire` })

@@ -35,7 +35,8 @@ import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 // ⛔ THE UNWEDGE NEEDS THE ATTEMPT LOG — the same import the RESUMER makes for the same reason. (The module
 // bar is on `universe-coverage.ts`, which may never reach the spend-and-failure API; a publisher may.)
-import { appendAttemptStarted, appendAttemptFinished, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
+import { randomUUID } from 'node:crypto'
+import { appendAttemptStarted, appendAttemptFinished, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow } from '@/lib/backfill/universe-sizing'
 import { TOPIC, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
@@ -50,6 +51,13 @@ const addDays = (iso: string, n: number) => {
 }
 
 export async function GET(request: Request) {
+// ⛔ LORAMER_PROVENANCE_ON_EVERY_APPEND_V1 — PRODUCER-SIDE ROWS CARRY AN INVOCATION, NOT A MESSAGE KEY.
+// A covered-skip / refusal row is written by the PUBLISHER and no message was ever sent for it, so
+// `message_key` — documented as "the idempotency key the publisher passed to send()" — stays NULL here on
+// purpose. Filling it with a synthesised value would make one column mean two different things, which is
+// LORAMER_ADJACENT_NUMBER_V1 in a schema. `invocation_id` is still exactly right: this row was written by
+// THIS execution, and that is the question it answers.
+  const prov: WriteProvenance = { messageKey: null, invocationId: randomUUID() }
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
   const got = (authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : authHeader).trim()
@@ -155,11 +163,11 @@ export async function GET(request: Request) {
     if (!dryRun) {
       // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — same shape as the resumer's block, carried over rather than
       // re-derived: the covered-skip's parent is the derived window it is advancing past.
-      const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd })
+      const opened = await appendAttemptStarted(key, 0, { startDate: windowStart, endDate: windowEnd }, prov)
       await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
         requestsSpent: 0,
         error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${windowStart}..${windowEnd} fully covered/attested; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
-      })
+      }, prov)
     }
     return NextResponse.json({
       ok: true, published: 0, nothingOwed: true, advancedCovered: !dryRun, window: `${windowStart}..${windowEnd}`,

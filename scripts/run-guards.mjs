@@ -185,6 +185,13 @@ const GUARDS = [
   // every-50-passes progress block — so the drive would have halted on pass 1 blaming the route, and crashed
   // at pass 50 after ~50 passes of real vendor spend. `npm run build` never parses .mjs. Acorn does.
   'tests/guards/no-dangling-reference.guard.mjs',
+  // ⛔ LORAMER_PROVENANCE_ON_EVERY_APPEND_V1 — AN OPTIONAL PARAMETER IS ONE NOBODY PASSES. migrations/083
+  // added two identifier columns and threaded `prov?` through four append helpers; three were wired and the
+  // fourth was missed at ALL NINE of its exits. The first live fire said so in one read: attempt_started
+  // 38/38 stamped, day_committed 66/66, message_finished 33/33, **attempt_finished 39/39 NULL on both** —
+  // and that is precisely the row `drive-one-surface.mjs` joins on to learn what a pass walked. Uses the
+  // TypeScript compiler, because these calls span six lines and carry parenthesised template literals.
+  'tests/guards/provenance-on-every-append.guard.mjs',
   // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.
