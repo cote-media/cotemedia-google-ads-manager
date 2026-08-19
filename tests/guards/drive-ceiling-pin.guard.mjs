@@ -75,10 +75,35 @@ if (drive) {
   }
 }
 
+// ── (d) THE SURFACE IS AN ARGUMENT, NOT A LITERAL — LORAMER_DRIVE_TAKES_ITS_SURFACE_V1 ────────────────────
+// ⛔ THE SAME CLASS AS (c), WITH A WORSE FAILURE MODE. A stale `FLOOR` crashes or misreports; a stale
+// (client, resource, segment) does neither — it walks the WRONG SURFACE to completion and prints a clean
+// run about something nobody asked for. There is nothing in the output to notice.
+// ⛔ AND A DEFAULT IS AS BAD AS A LITERAL, which is why the resolver must have none: a default is
+// indistinguishable from an argument the operator believes they passed.
+if (drive) {
+  const LITERALS = [
+    { re: /const CLIENT_ID\s*=\s*['"][0-9a-f-]{8,}['"]/, name: 'CLIENT_ID', why: 'a frozen client id walks the wrong ACCOUNT — every number in the report would be about somebody else' },
+    { re: /const RESOURCE\s*=\s*['"][a-z_]+['"]/, name: 'RESOURCE', why: 'a frozen resource walks the wrong SURFACE and the run still reads clean' },
+    { re: /const SEGMENT\s*=\s*['"][a-z_.]*['"]/, name: 'SEGMENT', why: 'a frozen segment is the subtlest of the three: same resource, different grain, and the frontier moves plausibly' },
+  ]
+  for (const l of LITERALS) {
+    if (l.re.test(drive)) {
+      findings.push(`(d) ${DRIVE} hard-codes ${l.name} as a string literal. ${l.why}. It must come from argv/env through \`resolveSurface\`, with NO default.`)
+    }
+  }
+  if (!/export const resolveSurface\s*=/.test(drive)) {
+    findings.push(`(d) ${DRIVE} does not export \`resolveSurface\`. The subject must be resolved by one pure function the self-test can drive — otherwise the refusal path is code nobody ever executes until the night it matters.`)
+  }
+  if (!/process\.exit\(2\)/.test(drive) || !/REFUSING/.test(drive)) {
+    findings.push(`(d) ${DRIVE} has no LOUD REFUSAL for a missing surface. A missing argument must exit non-zero before any network call; falling back to a default is the defect this leg exists for.`)
+  }
+}
+
 if (findings.length) {
   console.error(`[drive-ceiling-pin] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
   process.exitCode = 1
 } else {
-  console.log(`[drive-ceiling-pin] PASS — CONSUMER_MAX_DURATION_S=${declared}s is declared once in the contract, referenced by the route's maxDuration export, and read by the drive; no hard-coded pass timeout, quiesce window or floor date survives. ⛔ LIMIT: this proves the three AGREE, never that ${declared}s is the right number for the work.`)
+  console.log(`[drive-ceiling-pin] PASS — CONSUMER_MAX_DURATION_S=${declared}s is declared once in the contract, referenced by the route's maxDuration export, and read by the drive; no hard-coded pass timeout, quiesce window or floor date survives; and the SURFACE (client/resource/segment) is resolved from argv/env by \`resolveSurface\` with no default and a loud refusal. ⛔ LIMIT: this proves the values AGREE and the subject is passed in — never that ${declared}s is right for the work, nor that the surface passed is the one intended.`)
 }

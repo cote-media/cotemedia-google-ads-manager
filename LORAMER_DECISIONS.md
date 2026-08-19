@@ -934,6 +934,173 @@ narrowing a window whose problem is not its width. It belongs beside the surface
 never in the retry bound. Queued as ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 and deliberately NOT bundled with
 the parent-window flight: "what may we ask" is a different question from "how far may we recede".
 
+## LORAMER_PARENT_IS_THE_UNIT_PROVEN_UNDER_FRAGMENTATION_V1 (2026-08-19) — SETTLED on the mechanism. ⛔ THE RUN ITSELF IS INCONCLUSIVE. Count stays 2 of 3.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]] (the rule this run answers to and fails), [[LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1]] (the design under test, shipped in migrations/082 and never exercised above 3 ranges/parent), and runs #1-2 whose 1.33 and 3 ranges/parent are the baseline this run had to beat. · WEB: NONE-APPLICABLE: whether OUR anchor recedes by OUR parent window across OUR fragmented ground is answerable only from our own ledger; no vendor doc or external practice bears on it, and the prior art on completion signalling was already cited and is not what is under test here. · REPO: `scripts/drive-one-surface.mjs` (the run), `universe-resumer.ts` `deriveAnchorEnd`/`deriveWindow`, migrations/082's parent columns and 3-leg CHECK, and `universe_attempt_log` read by producer key — the recede series below is computed from `parent_window_start`, which exists precisely so this question can be asked. — /THREE-SOURCE
+⛔ **THE RUN DID NOT REACH THE FLOOR. IT HIT THE REQUEST CAP AT 151/150 AFTER 49 PASSES**, frontier
+2025-11-06 → **2023-07-21** — 838 of 1,374 days, 61%. Terminal state is a **CAP-STOP = INCONCLUSIVE**, which
+by [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]] is **not clean and does not advance the count. IT STAYS AT
+2 OF 3.** It is not a RESET either — nothing hiccuped; the run was under-provisioned by me.
+⛔ **MY CAP ARITHMETIC WAS WRONG, AND THE ERROR IS WORTH MORE THAN THE RUN.** I derived ~115 requests from a
+TWO-REGIME MODEL: fragmented near the frontier where forward capture leaves a patchwork, contiguous at depth
+where the ground is virgin. **THE SECOND REGIME DOES NOT EXIST.** Fragmentation did not decay with depth —
+pass 34 (2024-03) took 8 ranges, **pass 36 (2024-02) took 9**, pass 49 (2023-07) took 6. Airport targeting is
+INTERMITTENT BY NATURE, at every depth, so the owed set is shredded everywhere. **I dressed an assumption as
+arithmetic and raised the cap by the wrong multiple.** Measured rate: **0.180 requests per day of ground**.
+⇒ THE RESUMABLE REMAINDER, since the frontier persists: 2023-07-21 → 2022-03-04 is **504 days ≈ 91 more
+requests**. A retry does not restart; a 150 cap covers the rest with margin.
+═══ ⛔ AND THE MECHANISM PASSED ITS OWN TEST, WHICH IS A SEPARATE CLAIM AND MUST STAY SEPARATE ═══
+**MAX 9 RANGES IN ONE PARENT WINDOW** — pass 36, `2024-02-15..2024-03-15`, nine ranges of which eight were
+`zero`, one `ok/2` — against run #1's 1.33 and run #2's 3. The shape 082 was built for finally happened.
+⛔ **EVERY ANCHOR RECEDE ACROSS ALL 49 PASSES WAS EXACTLY 30 DAYS OR EXACTLY 0. NEVER 1.** The series runs
+30, 0, 30, 0, 30, 0 … — recede by the **PARENT**, then **HOLD** when that parent came back partially
+answered. A range-width recede would have shown as 1; **it never once appeared.**
+⛔ **THE TRAP THE SPEC NAMES WAS EXERCISED ~20 TIMES AND THE ANCHOR HELD EVERY TIME.** Quoted in full:
+    pass 3: window 2025-08-08..2025-09-06 · 5 range(s) · owed 26 → 7 · frontier 2025-09-10 → 2025-08-08
+    pass 4: window 2025-08-08..2025-09-06 · 1 range(s) · owed  7 → 18 · frontier 2025-08-08 → 2025-08-08
+The parent ended with 7 days still owed; the anchor did **not** recede past them — it held at the window and
+the next pass **re-asked the same parent**. That is the skip class refusing to happen, on real ground.
+**LEDGER, not stdout:** 49 messages : 49 terminals : **49 invocation_ids** · every terminal `MESSAGE
+returned`, none threw · **151 opened = 151 finished** · **script count == ledger count (151 = 151)** ·
+0 messages without a terminal · **0 unstamped rows** · **0 rows without a parent window** · outcomes 125
+`zero` / 26 `ok` / **0 `error`**. 35 rows written, 26 days committed, 6m44s.
+**DISK +400 kB** (bracket was 0.4-3.0 MB — inside it, at the low end) · WAL unchanged ·
+`no-owed-day-left-behind` **330, UNCHANGED** across the run, same 14 surfaces; the driven surface is in
+neither list.
+⚠ **STILL UNEXERCISED:** the every-50-passes `══ PROGRESS` block. This run halted at pass 49 — one short.
+Three runs, three different reasons, and that `stopDate` wiring has still never executed live.
+
+
+## LORAMER_COMPLETION_SIGNAL_HOLDS_UNDER_DENSITY_V1 (2026-08-19) — MEASURED. Run #2 of 3 is clean. Do not re-measure to re-decide; re-measure only to re-derive.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]] (the rule this run answers to), [[LORAMER_COMPLETION_SIGNAL_DESIGN_V1]] (the mechanism under test), and the 2026-08-18 measurement that named the defect — an 8,649-row day whose open→finish was 15,830 ms against a 10,000 ms quiesce. · WEB: the completion-signal round's sources, CITED not re-searched, because this run is their empirical test rather than a new question: https://docs.temporal.io/encyclopedia/detecting-activity-failures · https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html · https://vercel.com/docs/functions/configuring-functions/duration . SKIPPED: no new search was run for this entry — nobody outside this repo can say whether OUR consumer survives OUR densest day. · REPO: `scripts/drive-one-surface.mjs` (the parameterised drive, first live use), `universe_attempt_log` read by producer key for every number below, `metrics_daily` partitions for bytes/row, `no-owed-day-left-behind.guard.mjs` run before and after. — /THREE-SOURCE
+**RUN #2 REACHED THE FLOOR. `geographic_view / segments.geo_target_most_specific_location`, Foam OH.**
+50 passes · **60 vendor requests** (caps 60/90) · 213,148 rows · 45 days committed · **12m01s** ·
+frontier **2025-12-25 → 2022-03-04**. Terminal state **(i) FLOOR REACHED** — the route's own words.
+Outcomes **45 `ok` / 15 `zero` / 0 `error`**. **COUNT: 2 of 3.**
+⛔ **THE NUMBER THIS RUN EXISTED FOR: THE DENSEST DAY TOOK 22,064 ms OPEN→FINISH ON 18,780 ROWS.**
+That is **2.17× the 8,649-row day** that blinded the v2 quiesce and **2.21× the 10,000 ms QUIET_MS** it
+waited — the old instrument would have declared the pass finished **12.1 seconds early**, mid-write.
+**SIX of this run's eight densest days exceeded 10,000 ms** (22.1s · 19.1s · 12.8s · 12.8s · 11.1s · 10.6s),
+so under the old mechanism **six passes would have been misread in a single run.** The terminal row landed on
+every one. Throughput held flat at **851–1,240 rows/sec** across 9k–19k-row days, and 22.1s is **7.3% of the
+302s ceiling** — the mechanism is not near its bound.
+**LEDGER VERIFICATION, not stdout:** 50 messages : 50 terminals : **50 distinct invocation_ids** · every
+terminal `MESSAGE returned`, **none threw** · **60 opened = 60 finished** · **script count == ledger count to
+the unit (60 = 60)** · 0 messages without a terminal · 0 redeliveries · **0 unstamped rows**, which is
+[[LORAMER_PROVENANCE_ON_EVERY_APPEND_V1]] holding in production.
+⚠ **THE DISK ESTIMATE WAS WRONG BY 3-9×, IN THE SAFE DIRECTION, AND THE REASON MATTERS.** Projected
+262-873 MB; **actual +91 MB** — 448 B/row against the 873 B/row measured from the partitions. The gap is
+upserts: the ground was already 91% covered (1,270 of 1,393 days), so most writes landed in existing pages
+rather than extending the relation. **A row count is not a byte count when the write is an upsert** — record
+that before the next projection is made from rows alone. WAL unchanged.
+⚠ **AND A CORRECTION TO MY OWN SELECTION REPORT:** I flagged "~5-7M rows" for this run. That assumed virgin
+ground and was wrong — the check returned 0 because I queried `breakdown_type='geo_most_specific_location'`
+when the walk stores it as **`geo_target_most_specific_location`**. Corrected before firing; the real span was
+**123 owed days, not 1,392**. A key-spelling slip in a projection is the same class as one in a query.
+⛔ **DISK CLEARED WITHOUT THE NUMBER I COULD NOT READ, and that method is the durable part.** There is no
+Supabase Management API token on this machine, so provisioned could not be derived from a live utilization
+ratio — only the hand-typed 280 GiB constant that ★PROVISIONED-DISK-IS-A-HUMAN-STEP exists for. Instead:
+**for the run to cross the 90% autoscale trigger, provisioned would have to be ≤154.5 GB — which would put
+the database at 89.4% BEFORE the run, and autoscale would already have fired.** The decision was
+INSENSITIVE to the unknown. Prefer that shape over waiting for the human step.
+⚠ **ONE PATH STILL UNEXERCISED, NAMED SO IT IS NOT MISTAKEN FOR PROVEN:** the every-50-passes `══ PROGRESS`
+block. Run #2 hit pass 50 and broke on `floorReached` BEFORE reaching it, so the `stopDate` wiring that
+replaced the dangling `FLOOR` is guard-proven and still has never executed live.
+
+
+## LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]], does not replace it.
+
+THREE-SOURCE — PRIOR CHATS: Russ, 2026-08-19, in his own words at session wrap; sharpens [[LORAMER_BACKFILL_DONE_DONE_V1]] (the six conditions) and follows [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]], which gates the engine work that comes first. · WEB: NONE-APPLICABLE: this is a definition of what "finished" means for THIS product's onboarding path — a proof standard Russ is setting for his own operators, not a question any vendor doc or external practice can answer. · REPO: [[LORAMER_BACKFILL_DONE_DONE_V1]] in this file (the six conditions being sharpened), `BackfillControl.tsx` (the one-click mechanism this must be proven THROUGH), and the Foam OH google surfaces whose completion is the precondition. — /THREE-SOURCE
+⛔ **DONE-DONE IS PROVEN ALL THE WAY TO ONE CLICK, AND THE PROOF IS AN ACT, NOT A REPORT.** A backfill that
+satisfies the six conditions on ground somebody already walked by hand has proven the DATA, not the PATH. The
+path is what a new client actually meets.
+**EITHER OF THESE IS ACCEPTABLE. BOTH ARE EVENTUALLY REQUIRED:**
+  **(a) DELETE IT AND DO IT AGAIN.** Once Foam OH / Google is complete to inception, **test DELETION of all
+      of it and re-run through the one-click mechanism while that mechanism is being built.** ⛔ Deletion
+      capability is proven AS PART OF THIS, not as a separate someday — a system that can only ever add is a
+      system nobody can re-run, and every re-run to date has been on ground that was already there.
+  **(b) A GENUINELY COLD SURFACE.** Stand up **Foam OH's SECOND META ACCOUNT** and test one-click cold on the
+      Meta surface — a different platform, a different account, nothing pre-warmed.
+⇒ **WHY EITHER WORKS AND WHY BOTH ARE NEEDED:** (a) proves the path is REPEATABLE on known-good ground and
+buys the deletion capability we do not have; (b) proves it is COLD-CORRECT on ground nobody has ever touched,
+across a platform boundary. Each covers the other's blind spot. **Neither is satisfied by a green report on
+ground that was already walked.**
+⚠ THE ORDER IS NOT A DECISION YET: this sits behind [[★THREE-CLEAN-RUNS-BEFORE-FAMILY]] and
+[[★BACKFILL-DONE-DONE-ACCOUNT-WIDE]], and which of (a)/(b) goes first is open.
+
+## LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. AMENDS the WEB leg of [[LORAMER_THREE_SOURCE_PRECONDITION_V1]].
+
+THREE-SOURCE — PRIOR CHATS: Russ, 2026-08-19, at session wrap; amends [[LORAMER_THREE_SOURCE_PRECONDITION_V1]] and the [[LORAMER_WEB_FIRST_DIAGNOSIS_V1]] law it enforces, both of which required a WEB leg but never said WHERE to look. · WEB: NONE-APPLICABLE: a rule about how to conduct research is a house standard, and searching the web to decide how to search the web is the circularity this repo already refuses elsewhere. The rule's own justification is empirical and local — see REPO. · REPO: the 2026-08-18 completion-signal round, whose seven sources were ALL vendor primaries (Temporal, SQS, Airbyte, EIP, Azure, Vercel) and which still missed that our own consumer never stamped `attempt_finished` — a failure mode no vendor doc would ever carry; and `three-source-header.guard.mjs`, whose WEB-must-cite leg this amends and which cannot enforce the new half. — /THREE-SOURCE
+⛔ **A WEB ROUND GOES WIDER THAN VENDOR PRIMARIES. THE DOCS SAY HOW IT IS MEANT TO WORK; THE FAILURE MODES
+LIVE ELSEWHERE** — public GitHub issues, changelogs, mailing lists, forum threads, and real implementations
+in other people's repositories. A round that reads only the vendor's own documentation has surveyed the
+INTENT and not the EXPERIENCE.
+**WHAT EVERY SOURCE MUST CARRY, and this is the enforceable-by-a-human part:**
+  · **CITED** — the URL, always. Unchanged from the existing leg.
+  · **MARKED** — **authoritative** (vendor doc, spec, source code) versus **field report** (issue, thread,
+    blog, someone else's implementation). They carry different weight and conflating them is how a
+    stranger's workaround gets quoted as a guarantee.
+  · **DATED AND VERSIONED** — when it was written and what version it describes. **RECENCY MATTERS**: a 2019
+    issue about a 2019 release is history, not evidence, and this repo has already been bitten by a doc line
+    that was true when written and false when read.
+  · **DISAGREEMENT REPORTED, NEVER RESOLVED BY PICKING.** If the vendor doc and three field reports
+    disagree, **say so and say which you acted on and why.** Silently choosing the convenient one is the
+    rubber-stamp failure the three-source law already names, wearing a citation.
+⚠ **THE HONEST LIMIT, AND IT IS THE SAME ONE THE PARENT LAW STATES: NO GUARD CAN REACH THIS.**
+`three-source-header.guard.mjs` can see that the WEB leg contains a URL; it cannot see whether the round went
+wide, whether the marks are truthful, or whether a disagreement was suppressed. **This is banked as a
+standard a human reads, and the enforcer is Russ reading the legs.** Building a stricter regex here would
+police FORM and licence exactly the fabrication it looks like it prevents — not built, deliberately.
+
+
+## LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. Do not re-litigate the count or the reset rule.
+
+THREE-SOURCE — PRIOR CHATS: Russ, 2026-08-19, in his own words — three consecutive surfaces walked to floor, each clean, before the Foam OH full-family conversation is even opened; builds directly on [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] (one surface first) and [[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]] (run #1, banked). · WEB: SKIPPED: should have searched the release-engineering literature on consecutive-green gates before promotion — soak/burn-in periods, "bake time" in progressive delivery, and the statistical argument for N=3 over N=1. The rule here is Russ's judgement call and is recorded as his, not as a derived best practice. No URL is cited because no search was run. · REPO: `scripts/drive-one-surface.mjs` (the instrument the rule governs), `universe-drive/route.ts` (the derivation each run reuses), `universe_attempt_log` read by producer key for run #1's totals, and the live dryRun probes of the four candidate surfaces quoted in the selection below. — /THREE-SOURCE
+**THE RULE, VERBATIM IN EFFECT: THREE CONSECUTIVE SURFACES WALKED TO FLOOR, EACH CLEAN — no stall, no false
+reading, no crash, no instrument defect — BEFORE THE FOAM OH FULL-FAMILY CONVERSATION IS OPENED.**
+⛔ **A HICCUP ON ANY RUN RESETS THE COUNT TO ZERO.** Not "note it and continue": the point of three is that
+the mechanism is boring, and a run that needed a fix was not boring. Run #1 is banked
+([[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]] — 43 passes, 53 requests, 0 error outcomes, floor declared by
+the route). **COUNT STANDS AT 1 OF 3.**
+⛔ **"CLEAN" INCLUDES THE INSTRUMENT, AND THAT IS THE HALF THAT WILL BE TEMPTING TO WAIVE.** 2026-08-18
+produced six defects and FIVE were instruments; run #1 itself was preceded by two dangling reads and an
+unstamped ledger column, each of which would have produced a run that *looked* clean. A pass that required
+an instrument fix mid-flight is a RESET, however green the walk was.
+⛔ **AND A CAP-STOP IS NOT A CLEAN RUN — it is INCONCLUSIVE.** The terminal states that count are (i) floor
+reached. A stall, a vendor wall, a LOUD INDETERMINATE, or exhausting the pass/request cap all end the run
+without satisfying it; only the first resets nothing because only the first is an arrival.
+⇒ **WHY THREE AND NOT ONE:** run #1 was the drive's HOME TURF — the surface the instrument was tuned
+against, sparse ground, single-day ranges, 1.33 ranges per parent window. One arrival on the surface you
+built the tool against is a demonstration, not evidence. The remaining two must stress SHAPES run #1 never
+met, which is why the selection below is made from measurements rather than convenience.
+
+## LORAMER_DRIVE_TAKES_ITS_SURFACE_V1 (2026-08-19) — SETTLED. Do not reintroduce a default.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_NO_DANGLING_REFERENCE_V1]] and [[LORAMER_ADJACENT_NUMBER_V1]], both banked hours earlier the same day and both about constants in THIS FILE; and the [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]] sequence above, which is impossible to execute with a frozen subject. · WEB: SKIPPED: should have searched CLI-design practice on required-versus-defaulted arguments for destructive or metered operations — the "no default for the thing that costs money" convention. The argument here was settled by this repo's own two constant defects on 2026-08-18, not by research. · REPO: `scripts/drive-one-surface.mjs:34-37` as it stood (three literals), the same file's `resolveSurface`/pre-flight after, `tests/guards/drive-ceiling-pin.guard.mjs` leg (d), and `universe-drive/route.ts` whose 400 on an unselectable pair is the validation this now consumes before spending. — /THREE-SOURCE
+**THE SURFACE IS AN ARGUMENT. `CLIENT_ID`, `RESOURCE` and `SEGMENT` were three hard-coded literals in the
+one file whose hard-coded constants caused BOTH of 2026-08-18's instrument defects.**
+⛔ **AND A FROZEN SUBJECT IS THE WORST OF THE THREE, BECAUSE IT DOES NOT FAIL.** A stale `FLOOR` crashed; a
+mis-sized `PASS_TIMEOUT_MS` misreported. A stale (client, resource, segment) **walks the wrong surface to
+completion and prints a clean run about something nobody asked for.** There is nothing in the output to
+notice — the frontier moves, the rows land, the floor is declared. It would have been banked as evidence.
+⛔ **NO DEFAULT, AND THAT IS THE DECISION RATHER THAN THE IMPLEMENTATION.** A default is indistinguishable
+from an argument the operator believes they passed. Missing → LOUD REFUSAL, exit 2, **before any network
+call**. ⛔ AND THE SUBTLE HALF: an EMPTY segment is legitimate (unsegmented surfaces write `segment=''`), so
+absence cannot be detected by emptiness — `--segment=` must be passed EXPLICITLY to mean "none", or a
+forgotten argument and an unsegmented surface look identical.
+**VALIDATION HAPPENS BEFORE SPENDING, VIA THE ENGINE:** one `dryRun` call publishes nothing and costs no
+vendor request, and it is the only honest validator because "is this pair selectable FOR THIS CLIENT" is a
+question the catalogue and the client's connection answer together — both of which the route already owns. A
+typo'd segment used to surface as a 400 partway through a spending loop. The run now echoes its resolved
+subject, client, frontier, resolved stop and first window at START, so **the run's subject is in its own
+output** rather than in the head of whoever launched it.
+GUARD: `drive-ceiling-pin.guard.mjs` leg (d) — fails on any of the three as a literal, on a missing
+`resolveSurface`, or on the absence of a loud refusal. **RED-PROVEN against the pushed tree 548afd1 with all
+five findings**, green after. ⚠ LIMIT, stated: it proves the subject is PASSED IN, never that the subject
+passed is the one intended.
+
+
 ## LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 (2026-08-19) — SETTLED. The engineering gate is SATISFIED. Do not re-litigate the build order.
 
 THREE-SOURCE — PRIOR CHATS: [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] (the gate itself, decided 2026-08-17 and banked 2026-08-18), [[LORAMER_COMPLETION_SIGNAL_DESIGN_V1]] (the design this run is the first real exercise of), and the 2026-08-18 run that HALTED at pass 3 of ~41 — the stall that turned out to be the instrument, not the engine. · WEB: the completion-signal round's sources, CITED rather than re-searched — this run is that design's first real exercise and the prior art is what predicted the 1:1 terminal count: https://docs.temporal.io/encyclopedia/detecting-activity-failures · https://docs.temporal.io/activity-execution · https://temporal.io/blog/activity-timeouts · https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html · https://www.enterpriseintegrationpatterns.com/patterns/messaging/CorrelationIdentifier.html · https://learn.microsoft.com/en-gb/azure/architecture/patterns/idempotent-consumer · https://vercel.com/docs/functions/configuring-functions/duration . SKIPPED: no new search was run for THIS entry — whether anyone outside this repo has published a floor-to-inception convergence criterion for a paginated vendor backfill. The run's own arrival is the evidence here, and a search that did not happen is recorded as not having happened. · REPO: `scripts/drive-one-surface.mjs` and `universe-drive/route.ts` (the pass loop and the derivation it reuses), `universe_attempt_log` read by producer key for the run totals, `universe_account_inception` and `metrics_daily` for the independent floor proof, `universe-resumer.ts` for deriveAnchorEnd/deriveWindow. — /THREE-SOURCE

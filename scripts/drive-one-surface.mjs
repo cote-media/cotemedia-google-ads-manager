@@ -31,10 +31,39 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const CLIENT_ID = '957d484e-d0c4-4dd0-b382-d8499d556252'
+
+// ⛔ THE SURFACE IS AN ARGUMENT — LORAMER_DRIVE_TAKES_ITS_SURFACE_V1. It was three hard-coded literals, and
+// hard-coded constants in THIS FILE caused both of 2026-08-18's instrument defects: a deleted `FLOOR` whose
+// readers survived, and a `PASS_TIMEOUT_MS` sized on the wrong quantity. A frozen (client, resource,
+// segment) is the same class with a worse failure mode — it does not crash, it silently walks the WRONG
+// SURFACE and reports a clean run about something nobody asked for.
+// ⛔ THERE IS NO DEFAULT, DELIBERATELY. A default here is indistinguishable from an argument the operator
+// thought they passed. Missing → LOUD REFUSAL, exit 2, before any network call.
+// VENDOR is NOT a parameter and that is not an oversight: `/api/backfill/universe-drive` constructs the
+// google adapter itself, so a second vendor would be a lie the route cannot honour. Stated, not defaulted.
 const VENDOR = 'google'
-const RESOURCE = 'campaign_search_term_view'
-const SEGMENT = 'segments.device'
+
+/** Pure so the self-test can drive it. Returns {ok:true, …} or {ok:false, missing:[…]}. */
+export const resolveSurface = (argv, env) => {
+  const flag = (name) => {
+    const hit = argv.find((a) => a.startsWith(`--${name}=`))
+    return hit ? hit.slice(name.length + 3).trim() : ''
+  }
+  const clientId = flag('client') || (env.DRIVE_CLIENT_ID ?? '').trim()
+  const resource = flag('resource') || (env.DRIVE_RESOURCE ?? '').trim()
+  const segment = argv.some((a) => a.startsWith('--segment=')) ? flag('segment')
+    : (env.DRIVE_SEGMENT ?? '').trim()
+  // ⛔ SEGMENT MAY LEGITIMATELY BE EMPTY (an unsegmented surface writes segment=''), so its ABSENCE cannot be
+  // detected by emptiness — the operator must pass `--segment=` explicitly to mean "none". Anything else and
+  // an unsegmented run and a forgotten argument look identical, which is the whole defect class.
+  const segmentGiven = argv.some((a) => a.startsWith('--segment=')) || env.DRIVE_SEGMENT !== undefined
+  const missing = []
+  if (!clientId) missing.push('--client=<uuid> (or DRIVE_CLIENT_ID)')
+  if (!resource) missing.push('--resource=<catalogue resource> (or DRIVE_RESOURCE)')
+  if (!segmentGiven) missing.push('--segment=<segment or empty for none> (or DRIVE_SEGMENT)')
+  if (missing.length) return { ok: false, missing }
+  return { ok: true, clientId, resource, segment }
+}
 // ⛔ NO FLOOR CONSTANT — LORAMER_COMPLETION_SIGNAL_V1. It read `'2022-03-04'`: Foam OH's DISCOVERED inception,
 // frozen into an instrument, which is exactly the class `LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1` killed in the
 // engine and this script then reintroduced. The route resolves the stop per (account, surface) at execute
@@ -118,6 +147,24 @@ if (process.argv.includes('--selftest')) {
     ok: !/const FLOOR\s*=\s*'\d{4}-\d{2}-\d{2}'/.test(readFileSync(path.resolve(ROOT, 'scripts/drive-one-surface.mjs'), 'utf8')),
     why: 'a per-account discovered inception frozen as a script constant is exactly the class LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1 killed in the engine; the route returns stopBasis and floorReached',
   })
+  // (4) ⛔ THE SURFACE IS AN ARGUMENT AND ITS ABSENCE MUST REFUSE — LORAMER_DRIVE_TAKES_ITS_SURFACE_V1.
+  //     The fixture on the WRONG side of it is the real run #1 invocation: had `--segment=` been forgotten,
+  //     a defaulting resolver would have walked segments.device again and reported a clean run about a
+  //     surface nobody asked for. Emptiness cannot detect a missing segment — an unsegmented surface writes
+  //     segment='' — so the fixture drives the OMITTED case, not the empty one.
+  const noArgs = resolveSurface([], {})
+  const omittedSegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view'], {})
+  const emptySegment = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment='], {})
+  const full = resolveSurface(['--client=957d484e-d0c4-4dd0-b382-d8499d556252', '--resource=campaign_search_term_view', '--segment=segments.device'], {})
+  fixtures.push({
+    name: 'CLIENT_ID/RESOURCE/SEGMENT come from argv and REFUSE when absent (run #1\'s own surface as the fixture)',
+    ok: noArgs.ok === false && noArgs.missing.length === 3
+      && omittedSegment.ok === false && omittedSegment.missing.length === 1
+      && emptySegment.ok === true && emptySegment.segment === ''
+      && full.ok === true && full.clientId === '957d484e-d0c4-4dd0-b382-d8499d556252'
+      && full.resource === 'campaign_search_term_view' && full.segment === 'segments.device',
+    why: 'no args must refuse with 3 missing; an OMITTED segment must refuse with 1; an EXPLICITLY EMPTY segment must be accepted as "no segment"; a full triple must resolve verbatim',
+  })
   for (const f of fixtures) console.log(`[selftest] fixture ${f.ok ? 'PASS' : '⛔ FAIL'} — ${f.name}${f.ok ? '' : ` :: ${f.why}`}`)
   const fixturesOk = fixtures.every((f) => f.ok)
   const ok = !oldSaysProgress && newSaysProgress && !progressByOwedSet(genuine) && fixturesOk
@@ -131,6 +178,18 @@ try {
     const i = t.indexOf('='); if (i > 0) { const k = t.slice(0, i); if (!process.env[k]) process.env[k] = t.slice(i + 1).replace(/^["']|["']$/g, '') }
   }
 } catch {}
+// ⛔ IDENTITY FIRST, AND IT REFUSES RATHER THAN GUESSES.
+const picked = resolveSurface(process.argv.slice(2), process.env)
+if (!picked.ok) {
+  console.error('[drive] REFUSING — the surface is an ARGUMENT and nothing was passed. There is no default: a')
+  console.error('        default is indistinguishable from an argument you thought you gave, and this script')
+  console.error('        spends real vendor quota. Missing:')
+  for (const m of picked.missing) console.error(`          ${m}`)
+  console.error('        e.g. node scripts/drive-one-surface.mjs --client=<uuid> --resource=campaign_search_term_view --segment=segments.device')
+  process.exit(2)
+}
+const { clientId: CLIENT_ID, resource: RESOURCE, segment: SEGMENT } = picked
+
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL, K = process.env.SUPABASE_SERVICE_ROLE_KEY
 const DRIVE_URL = process.env.DRIVE_URL, SECRET = (process.env.CRON_SECRET ?? '').trim()
 if (!SB || !K || !DRIVE_URL || !SECRET) {
@@ -166,7 +225,25 @@ let fBefore = await frontier()
 const START_FRONTIER = fBefore
 const MAX_DUR_S = readConsumerMaxDurationS(readFileSync(path.resolve(ROOT, 'src/lib/backfill/universe-v2-contract.ts'), 'utf8'))
 const CEILING_MS = MAX_DUR_S * 1000 + POLL_MS
-console.log(`[drive] START ${RESOURCE}/${SEGMENT} · frontier=${fBefore} · floor=FROM THE ROUTE (stopBasis) · runId=${RUN_ID}`)
+// ⛔ PRE-FLIGHT: VALIDATE THE SURFACE BEFORE SPENDING, NOT AFTER. One dryRun call — it publishes nothing and
+// costs no vendor request — is the ONLY honest validator, because "is this (resource, segment) selectable
+// for THIS client" is a question the catalogue and the client's own connection answer together, and the
+// route already owns both. A typo'd segment used to surface as a 400 partway through a spending loop.
+let preflight
+try {
+  preflight = await call(true, 'preflight')
+} catch (e) {
+  console.error(`[drive] REFUSING — the surface did not validate, and NOTHING was spent: ${String(e?.message ?? e)}`)
+  console.error(`        Asked for client=${CLIENT_ID} resource=${RESOURCE} segment=${SEGMENT === '' ? '<none>' : SEGMENT}.`)
+  console.error(`        A 400 naming the catalog entry means the pair is not selectable for this client — check the resource/segment spelling against the universe catalogue.`)
+  process.exit(2)
+}
+if (preflight.stopDate) stopDate = preflight.stopDate
+
+console.log(`[drive] START ${RESOURCE}/${SEGMENT === '' ? '<no segment>' : SEGMENT} · client=${CLIENT_ID} · vendor=${VENDOR}`)
+console.log(`[drive] SUBJECT VALIDATED by a dryRun (no publish, no vendor request) · frontier=${fBefore} · ` +
+  `stop=${preflight.stopDate ?? 'UNREPORTED'} (${preflight.stopBasis ?? 'basis unreported'}) · ` +
+  `first window=${preflight.floorReached ? 'FLOOR ALREADY REACHED' : (preflight.window ?? 'none')} · owed=${preflight.owedDays ?? (preflight.nothingOwed ? 0 : '?')} · runId=${RUN_ID}`)
 console.log(`[drive] caps ${PASS_CAP} passes / ${REQUEST_CAP} requests · ceiling ${CEILING_MS / 1000}s DERIVED from CONSUMER_MAX_DURATION_S=${MAX_DUR_S}s + one poll · WAITS FOR THE TERMINAL ROW, never for silence`)
 
 for (let pass = 1; pass <= PASS_CAP; pass++) {
