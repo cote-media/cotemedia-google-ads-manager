@@ -253,7 +253,7 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
   // here needs `.is()`); `?? null` is defence against a relaxed column, and maps to the BASE surface only.
   const { data, error } = await supabaseAdmin
     .from('universe_attempt_log')
-    .select('window_start, window_end, segment')
+    .select('window_start, window_end, segment, message_key, invocation_id, lane')
     .eq('client_id', k.clientId).eq('vendor', k.platform)
     .eq('resource', k.entityLevel)
     // ⛔ TWO VENDOR-EXPLAINED EMPTIES, KEPT APART IN THE LOG AND EQUAL IN COVERAGE. 'zero' = the vendor
@@ -268,6 +268,14 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     // granular `segments.date` row becomes available, and it may differ per resource. Letting the top-edge
     // lane attest would seal a merely-lagging day as EMPTY, permanently, from evidence that does not exist —
     // the false-all-clear class this whole module's header names as catastrophic.
+    // ⛔⛔ THE LANE IS TAKEN FROM THE **MESSAGE**, NOT FROM THIS ROW — AND THAT CORRECTION IS THE WHOLE POINT
+    // OF THIS READ. The first cut filtered `.eq('lane','descend')` on the TERMINAL row, and terminal rows do
+    // not carry the lane: `appendAttemptFinished`/`appendDayCommitted`/`appendMessageFinished` INSERT
+    // directly and the column takes its DEFAULT. MEASURED 2026-08-19, 8 minutes after that deploy: two
+    // top-edge strips finished `zero` stamped `lane='descend'` and DID attest — 12 surface-days sealed on
+    // evidence that cannot tell empty from lagging, by the very filter written to prevent it. The lane is
+    // now resolved by joining to the `attempt_started` row of the SAME MESSAGE, which is the only row that
+    // has ever carried it truthfully.
     // ⛔ THE COST OF EXCLUDING IT IS ONE REQUEST PER SURFACE PER PASS, AND IT IS NOT WASTE: re-asking the
     // recent window is what LORAMER_RESTATEMENT_WINDOW_LAW_V1 has required since 2026-07-24 (Google revises
     // conversions for up to 90 days). A strip is ONE operation at any span, so a dormant surface's strip
@@ -277,19 +285,89 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     // range in the log grows — ★TOP-EDGE-STRIP-NEVER-NARROWS, not fixed here.
     // ⛔ `day_committed` IS DELIBERATELY NOT FILTERED (see committedDays above): a day whose rows are durably
     // written is CAPTURED, and which lane paid for it is not a property of the data.
-    .eq('lane', 'descend')
     .lte('window_start', windowEnd).gte('window_end', windowStart)
   if (error) throw new Error(
     `[universe-coverage] negative-coverage read failed for ${k.entityLevel}: ${error.message}. ` +
     `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ.`)
+  // ── THE MESSAGE JOIN — ONE EXTRA NARROW READ, KEYED ON WHAT THE ROWS ALREADY CARRY ─────────────────
+  // Only terminals that survived the surface filter matter, and they are few by construction (already
+  // narrowed by resource + phase + outcome + window overlap), so the key set handed to `.in()` is small.
+  const rows = (data ?? []) as TerminalRow[]
+  const scoped = rows.filter((r) => breakdownTypeForSurface(k.entityLevel, r.segment ?? null) === k.breakdownType)
+  const keys = [...new Set(scoped.map((r) => r.message_key).filter((x): x is string => !!x))]
+  const startsByKey = new Map<string, Array<{ invocationId: string | null; lane: string | null }>>()
+  if (keys.length) {
+    const { data: starts, error: sErr } = await supabaseAdmin
+      .from('universe_attempt_log')
+      .select('message_key, invocation_id, lane')
+      .eq('phase', 'attempt_started')
+      .in('message_key', keys)
+    if (sErr) throw new Error(
+      `[universe-coverage] lane-provenance read failed for ${k.entityLevel}: ${sErr.message}. ` +
+      `⛔ A COVERAGE ANSWER MUST NOT BE SYNTHESISED FROM A FAILED READ — and an unresolved lane would let a top-edge zero attest.`)
+    for (const s of (starts ?? []) as Array<{ message_key: string; invocation_id: string | null; lane: string | null }>) {
+      const list = startsByKey.get(s.message_key) ?? []
+      list.push({ invocationId: s.invocation_id ?? null, lane: s.lane ?? null })
+      startsByKey.set(s.message_key, list)
+    }
+  }
+
   const attested = new Set<string>()
-  for (const r of data ?? []) {
-    if (breakdownTypeForSurface(k.entityLevel, (r as { segment?: string | null }).segment ?? null) !== k.breakdownType) continue
+  for (const r of scoped) {
+    if (resolveTerminalLane(r, startsByKey) !== 'descend') continue
     for (const d of dayList(String(r.window_start), String(r.window_end))) {
       if (d >= windowStart && d <= windowEnd) attested.add(d)
     }
   }
   return [...attested].sort()
+}
+
+export interface TerminalRow {
+  window_start: string
+  window_end: string
+  segment?: string | null
+  message_key?: string | null
+  invocation_id?: string | null
+  lane?: string | null
+}
+
+/**
+ * ⛔ WHICH LANE ASKED FOR THE WORK THIS TERMINAL ROW REPORTS — LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1.
+ * PURE, so the guard drives every branch with no DB.
+ *
+ * ⛔ THE ROW'S OWN `lane` IS NEVER TRUSTED, and that is not caution — it is measured. Terminal rows are
+ * written by direct INSERTs that omit the column, so it takes its DEFAULT ('descend') no matter which lane
+ * actually asked. The `attempt_started` row of the SAME MESSAGE is the only row that carries the truth,
+ * because it is the only one written through `universe_attempt_open(p_lane)`.
+ *
+ * THE FOUR CASES, each resolved in the direction that CANNOT seal a day on absent evidence:
+ *  1. NULL message_key ⇒ **'descend'.** MEASURED: 20,825 of 34,715 rows predate provenance stamping
+ *     (LORAMER_PROVENANCE_ON_EVERY_APPEND_V1), 4,234 of them attesting terminals — and every one was
+ *     written BEFORE the top-edge lane existed, so 'descend' is not a guess, it is the only lane there was.
+ *     Treating them as UNKNOWN instead would un-attest 4,234 historical zeros and re-owe years of ground
+ *     the walk has already paid for, which is a coverage regression dressed as caution.
+ *  2. key + invocation_id matches a start ⇒ that start's lane. **EXACT**, and it is the case that matters
+ *     for REDELIVERIES: 178 message keys carry more than one invocation_id, each delivery writing its own
+ *     start and its own terminals, so the pair is what disambiguates them.
+ *  3. key matches starts but the invocation does not ⇒ if ANY start for that key is 'top-edge', **refuse**;
+ *     otherwise 'descend'. (Measured today: 0 keys carry mixed lanes, so this branch is unanimous — but it
+ *     resolves toward refusal on purpose, because a key that ever asked at the top edge is exactly the one
+ *     whose zero must not be trusted.)
+ *  4. key present, NO start row at all ⇒ **refuse.** MEASURED: 0 such rows exist today (1,785 keyed
+ *     attesting terminals, 0 orphans by key and 0 by key+invocation). If one ever appears its provenance is
+ *     unknown, and unknown must cost one vendor request rather than seal a day.
+ */
+export function resolveTerminalLane(
+  r: { message_key?: string | null; invocation_id?: string | null },
+  startsByKey: Map<string, Array<{ invocationId: string | null; lane: string | null }>>,
+): 'descend' | 'top-edge' | 'unknown' {
+  const key = r.message_key ?? null
+  if (key === null) return 'descend'
+  const starts = startsByKey.get(key)
+  if (!starts || starts.length === 0) return 'unknown'
+  const exact = starts.find((s) => (s.invocationId ?? '') === (r.invocation_id ?? ''))
+  if (exact) return exact.lane === 'top-edge' ? 'top-edge' : 'descend'
+  return starts.some((s) => s.lane === 'top-edge') ? 'top-edge' : 'descend'
 }
 
 /**

@@ -90,9 +90,34 @@ export interface ParentWindow {
  * Both are OPTIONAL and both are NULL on every pre-083 row; the readers that matter fall back exactly as the
  * parent-window columns do.
  */
+/**
+ * ⛔ WHICH LANE ASKED — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. `'descend'` is the walk marching toward
+ * inception; `'top-edge'` is the lane holding the strip between the descent's top window and yesterday.
+ * `universe_surface_rotation` (migrations/084) reads ONLY `'descend'` rows, because the rotation answers
+ * "where is the descent" and a top-edge attempt is not part of it — without the filter the newest top-edge
+ * row wins the DISTINCT ON and drags the anchor to the top of the calendar every pass.
+ * ⛔ THE DEFAULT IS THE SAFE DIRECTION, NOT THE COMMON ONE. A caller that forgets the lane writes `'descend'`,
+ * which can only make the descent HOLD on ground it has seen; the reverse default would hide a real window
+ * from the anchor.
+ */
+export type AttemptLane = 'descend' | 'top-edge'
+
 export interface WriteProvenance {
   messageKey?: string | null
   invocationId?: string | null
+  /**
+   * ⛔ WHICH LANE PUBLISHED THE MESSAGE THESE ROWS BELONG TO — LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1.
+   * IT RIDES ON THE PROVENANCE RATHER THAN ON EACH CALL, AND THAT IS THE FIX FOR A DEFECT I SHIPPED:
+   * the first cut put the lane on `appendAttemptStarted` ALONE, so the three TERMINAL writers below inserted
+   * without it and the column took its DEFAULT ('descend'). MEASURED 8 minutes after deploy: top-edge strips
+   * finished `zero` stamped 'descend' and ATTESTED — 12 surface-days sealed by the very mechanism written to
+   * stop it. Every writer here already threads `prov`; putting the lane on it means a NEW writer cannot
+   * forget the lane without also forgetting the provenance, which `universe-attempt-append-only.guard` and
+   * `attempt-writers-carry-the-lane.guard` both refuse.
+   * ⛔ ABSENT MEANS 'descend' — the safe direction. A mis-stamped row can only make the descent HOLD or make
+   * a day attest that a descending pass already answered; it can never hide a window from the anchor.
+   */
+  lane?: AttemptLane
 }
 
 export interface AttemptOpened {
@@ -126,19 +151,11 @@ const fail = (what: string, detail: unknown): never => {
  * Returns the attempt number and the count at this span. **Neither is a coverage answer**: both describe
  * how many times WE have tried, which is a fact about us, not about the data.
  */
-/**
- * ⛔ WHICH LANE ASKED — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. `'descend'` is the walk marching toward
- * inception; `'top-edge'` is the lane holding the strip between the descent's top window and yesterday.
- * `universe_surface_rotation` (migrations/084) reads ONLY `'descend'` rows, because the rotation answers
- * "where is the descent" and a top-edge attempt is not part of it — without the filter the newest top-edge
- * row wins the DISTINCT ON and drags the anchor to the top of the calendar every pass.
- * ⛔ THE DEFAULT IS THE SAFE DIRECTION, NOT THE COMMON ONE. A caller that forgets the lane writes `'descend'`,
- * which can only make the descent HOLD on ground it has seen; the reverse default would hide a real window
- * from the anchor.
- */
-export type AttemptLane = 'descend' | 'top-edge'
 
-export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow, prov?: WriteProvenance, lane: AttemptLane = 'descend'): Promise<AttemptOpened> {
+export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow, prov?: WriteProvenance, lane?: AttemptLane): Promise<AttemptOpened> {
+  // ⛔ ONE SOURCE OF TRUTH: an explicit argument wins, otherwise the MESSAGE's provenance decides, otherwise
+  // 'descend'. A caller that threads `prov` therefore cannot disagree with the terminal rows it will write.
+  const laneOf: AttemptLane = lane ?? prov?.lane ?? 'descend'
   // ⛔ THE PARENT IS STAMPED **IN THE RPC**, NOT HERE, AND THAT IS NOT AN IMPLEMENTATION DETAIL. This function
   // does not INSERT — `universe_attempt_open` (migrations/082, SECURITY DEFINER) owns the only INSERT that
   // ever writes an `attempt_started` row, because `attempt_no` must be derived under an advisory lock. The
@@ -156,7 +173,7 @@ export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?:
     p_parent_window_end: parent?.endDate ?? null,
     p_message_key: prov?.messageKey ?? null,
     p_invocation_id: prov?.invocationId ?? null,
-    p_lane: lane,
+    p_lane: laneOf,
   })
   if (error) fail('attempt_started', error)
   // ⛔ THE RPC DERIVES `attempt_no` UNDER AN ADVISORY LOCK because `maxConcurrency: 2` lets two invocations
@@ -191,7 +208,7 @@ export async function appendDayCommitted(
     client_id: k.clientId, vendor: k.vendor, resource: k.resource, segment: k.segment,
     window_start: k.windowStart, window_end: k.windowEnd,
     attempt_no: attemptNo, phase: 'day_committed', day, rows_written: rowsWritten,
-    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null, lane: prov?.lane ?? 'descend',
   })
   if (error) fail('day_committed', error)
 }
@@ -225,7 +242,7 @@ export async function appendAttemptFinished(
     client_id: k.clientId, vendor: k.vendor, resource: k.resource, segment: k.segment,
     window_start: k.windowStart, window_end: k.windowEnd,
     attempt_no: attemptNo, phase: 'attempt_finished', outcome,
-    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null, lane: prov?.lane ?? 'descend',
     rows_written: detail.rowsWritten ?? null,
     requests_spent: detail.requestsSpent ?? null,
     refused_rows: detail.refusedRows ?? null,
@@ -266,7 +283,7 @@ export async function appendMessageFinished(
     parent_window_start: k.windowStart, parent_window_end: k.windowEnd,
     attempt_no: 1, phase: TERMINAL_PHASE,
     error: detail.error ?? null,
-    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null, lane: prov?.lane ?? 'descend',
   })
   if (error) fail('message_finished', error)
 }

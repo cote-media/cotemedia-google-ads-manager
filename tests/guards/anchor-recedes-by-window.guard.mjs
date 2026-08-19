@@ -248,8 +248,17 @@ async function legC() {
 
   let starts, inceptions, walls
   try {
+    // ⛔ THE DESCENDING LANE ONLY — LORAMER_TOP_EDGE_LANE_V1, added 2026-08-19 THE MOMENT THE SECOND LANE
+    // WENT LIVE AND THIS LEG WENT RED WITH IT. This leg asserts how the DESCENT's anchor moves. A top-edge
+    // attempt's parent window sits at the TOP of the calendar and is recorded AFTER the descent's deep
+    // windows, so an unfiltered series reads it as an anchor that ROSE — 18 findings of −349 to −1,618 days
+    // on the first check:data run after the lane shipped, every one a FALSE RED of my own making.
+    // ⛔ IT MIRRORS `universe_surface_rotation`'s OWN FILTER (migrations/084) ON PURPOSE: this leg exists to
+    // check what that view feeds `deriveAnchorEnd`, so reading a wider set than the view does would be
+    // measuring something the engine never sees. Same lesson, same day, second time: a detector must read
+    // the same rows as its subject.
     starts = await pageAll('universe_attempt_log?select=client_id,vendor,resource,segment,parent_window_start,parent_window_end,recorded_at' +
-      '&phase=eq.attempt_started&parent_window_start=not.is.null&order=recorded_at.asc')
+      '&phase=eq.attempt_started&lane=eq.descend&parent_window_start=not.is.null&order=recorded_at.asc')
     inceptions = await get('universe_account_inception?select=client_id,vendor,inception_date')
     walls = await get('universe_account_floor?select=client_id,vendor,resource,segment,wall_date')
   } catch (e) {

@@ -560,6 +560,12 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
   const prov: WriteProvenance = {
     messageKey: msg.messageKey ?? null,
     invocationId: randomUUID(),
+    // ⛔ THE LANE IS MINTED HERE, ONCE, WITH THE REST OF THE PROVENANCE — LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1.
+    // Every append in this route threads `prov`, so stamping it here is what makes the terminal rows agree
+    // with the `attempt_started` row instead of silently taking the column default. The first cut passed the
+    // lane to appendAttemptStarted alone and the terminals landed 'descend' — measured, 12 surface-days
+    // sealed. One source, every writer.
+    lane: msg.lane ?? 'descend',
   }
   // ⛔ THE TERMINAL KEY IS BUILT FROM THE MESSAGE ALONE, and that is not tidiness. The quota-hold exit fires
   // at :154 — BEFORE `key` exists at :160 and before `surface`/`adapter` — so a key derived from those

@@ -120,6 +120,10 @@ const CHECKS = [
   // 346 surfaces sat 6 days behind when it landed — and goes green only after the top-edge lane has run a
   // full cycle (~14.4h). Same posture as check-nongrain-window-resolves.
   { name: 'top-edge-is-held', cmd: ['tests/guards/top-edge-is-held.guard.mjs'] },
+  // LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 — the SAFETY half, and it reads WHAT LANDED rather than what the
+  // code says. Drives the real compiled attestedEmptyDays over live rows and fails if any day is sealed on
+  // the evidence of a top-edge message alone. RED-PROVEN against the pre-fix reader: 12 surfaces × 6 days.
+  { name: 'top-edge-never-attests', cmd: ['tests/guards/top-edge-never-attests.guard.mjs'] },
 ]
 // ROSTER-END
 

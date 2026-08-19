@@ -109,6 +109,7 @@ const EXPECTED_ROSTER = [
   'tests/guards/no-owed-day-left-behind.guard.mjs',
   'tests/guards/parent-window-check-rejects.guard.mjs',
   'tests/guards/top-edge-is-held.guard.mjs',
+  'tests/guards/top-edge-never-attests.guard.mjs',
 ]
 let runnerSrc = ''
 try { runnerSrc = read('scripts/run-checkdata.mjs') } catch (e) { findings.push(`(b) runner missing — ${e?.message}`) }
