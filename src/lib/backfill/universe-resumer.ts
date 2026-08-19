@@ -40,28 +40,47 @@ export type ResumeVerdict =
  * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
  * constant and this derivation TOGETHER so they cannot drift apart again:
  *   · the walk's lane is LANE_ALLOCATIONS.backfill = 13,500 ops/day (LORAMER_WALK_TAKES_THE_LANE_V1)
- *   · ⛔ RE-DERIVED AGAIN 2026-08-17 (DEPLOY 2, DECISIONS:812) — the cadence is now every 15 minutes, i.e.
- *     96 fires/day, and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
+ *   · ⛔ RE-DERIVED AGAIN 2026-08-19 (DEPLOY 3) — the cadence is now every 5 minutes, i.e. 288 fires/day,
+ *     and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
  *     asterisk-slash form would CLOSE THIS COMMENT BLOCK and turn the rest of the header into code. It cost
  *     one red guard to learn; vercel.json holds the token and the consumer guard pins it byte-for-byte.)
- *     The gate that authorised it: a measured fire with rows_written > 0,
- *     met at 88,140 rows/24h against the migration-070 RPC counter (the counter that read a structural zero
- *     until 2026-08-15, which is why the gate could not have been honestly read before then).
- *   · 40 requests/fire × 96 = **3840/day = 28.4% of the lane**, leaving ~72% headroom — still deliberately
- *     unsized-to-the-brim, so variance, re-walks and anything a human starts are absorbed retry-free
+ *     ⛔ THE GATE THAT AUTHORISED IT WAS A MEASUREMENT OF THE LANE, NOT AN APPETITE FOR THROUGHPUT. Trailing
+ *     24h at the 15-minute cadence, read from the ledgers rather than modelled (⛔ AND THE TOKEN IS SPELLED
+ *     OUT IN WORDS HERE FOR THE REASON THIS HEADER ALREADY GAVE, WHICH I WALKED INTO ANYWAY ON THE VERY EDIT
+ *     THAT RAISED THE CADENCE: the asterisk-slash form closed this block and broke the build): the walk spent 3,215 REAL vendor
+ *     requests of its 13,500 lane (24%), the whole fleet 4,421 of the 15,000 cap — 10,579 requests/day
+ *     unspent, every day, against 436,616 days of ground still owed on ONE client. Both of the walk's own
+ *     bounds sat at the wall (scan 60.0/60 on 96 of 96 fires; 37.6 of the 40-request bite) while neither the
+ *     meter nor the quota sentinel held a single fire. ⇒ THE BITE WAS NOT THE THING TO RAISE: with the scan
+ *     already binding, a bigger bite has nothing to bite. (DEPLOY 2, 2026-08-17, had moved hourly → 15 min
+ *     on its own gate — a measured fire with rows_written > 0, met at 88,140 rows/24h against the
+ *     migration-070 RPC counter, which read a structural zero until 2026-08-15.)
+ *   · 40 requests/fire × 288 = **11520/day = 85.3% of the lane**, leaving ~15% headroom — still deliberately
+ *     unsized-to-the-brim, so variance, re-walks and anything a human starts are absorbed retry-free.
+ *     (Was 3840/day = 28.4% at 96 fires, and 960/day = 7.1% hourly.)
  *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN, AND IT IS WHY THE TWO
- *     DEPLOY-2 TOKENS ARE ONE DECISION RATHER THAN TWO KNOBS: each published message is one consumer
- *     invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 8 (vercel.json), so a fire of
- *     40 all-worst-case messages drains in 40 × 180s ÷ 8 = 900s — EXACTLY the new fire interval, precisely as
- *     40 × 180s ÷ 2 = 3,600s was exactly the old hourly one. Quartering the interval WITHOUT quadrupling the
- *     concurrency would back the queue into the next fire; that is the property being preserved, not a
- *     coincidence of the numbers. 40 remains the largest bite whose worst case cannot back the queue up.
+ *     DEPLOY TOKENS ARE ONE DECISION RATHER THAN TWO KNOBS: each published message is one consumer
+ *     invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 24 (vercel.json), so a fire of
+ *     40 all-worst-case messages drains in 40 × 180s ÷ 24 = 300s — EXACTLY the new fire interval, precisely as
+ *     40 × 180s ÷ 8 = 900s was exactly the 15-minute one and 40 × 180s ÷ 2 = 3,600s the hourly one. Cutting
+ *     the interval WITHOUT raising the concurrency in step backs the queue into the next fire; that is the
+ *     property being preserved, not a coincidence of the numbers. 40 remains the largest bite whose worst
+ *     case cannot back the queue up.
+ *     ⛔ AND THAT IDENTITY IS NO LONGER ONLY WRITTEN DOWN — it is EXECUTED by
+ *     `tests/guards/queue-drain-fits-the-interval.guard.mjs` (LORAMER_DRAIN_FITS_THE_INTERVAL_V1), which
+ *     reads all four terms from their own sources and was SEEN RED at 5 minutes with concurrency 8 (900s
+ *     drain against a 300s interval, 3.00× over) before the concurrency was raised. For two deploys this
+ *     paragraph was the only thing holding the property, and a cadence change alone would have passed all
+ *     133 guards.
  *     (Typical observed is ~6s/message — the first unattended night drained 20 in ~62s — and a backlog
  *     would be SAFE anyway: idempotency keys dedupe re-publishes and coverage is derived; the bound is for
  *     smoothness, not correctness.)
- *   · the resumer itself does not stretch with the bite — its ~60-90s duration is the coverage SCAN
- *     (≤MAX_ENTRIES_SCANNED_PER_RUN entries), and the first night's fires found ~59 candidate ranges per
- *     60-entry scan, so a bite of 40 is reachable without raising the scan cap
+ *   · the resumer itself does not stretch with the bite — its duration is the coverage SCAN
+ *     (≤MAX_ENTRIES_SCANNED_PER_RUN entries), MEASURED over 96 fires at min 75.6s / avg 96.4s / p95 130.8s /
+ *     max 157.4s against its own maxDuration of 300s, so a bite of 40 is reachable without raising the scan
+ *     cap. ⚠ AT A 5-MINUTE CADENCE THAT maxDuration EQUALS THE INTERVAL: a slow fire can overlap the next.
+ *     Overlap is SAFE — publishes are idempotency-keyed and owed-ness is derived — but it is a real change
+ *     in shape, and the worst fire measured (157.4s) sits at 52% of the interval rather than 17%.
  *   · the WORST case is the same number, because the bound counts ranges rather than messages — a window
  *     fragmented into 15 owed ranges consumes 15 of the 40 and the run stops there
  * ⛔ AND THE INVARIANT THAT MAKES "EXACT" TRUE RATHER THAN MERELY TRUE-TODAY — `sizing.maxDays` ≤ THIS.

@@ -163,22 +163,33 @@ if (route) {
   // the Foam OH dormancy eyeball. It used to read "the sole publisher must not be on a schedule"; the lock
   // was SEEN RED refusing this exact entry before it was rewritten, which is what a lock is for.
   // ⛔ WHAT IT PINS NOW IS NARROWER, NOT WEAKER: the schedule that exists must be EXACTLY the decided one.
-  // The unattended-spend arithmetic rests on every clause of this string — 96 fires/day (*/15, DEPLOY 2
-  // 2026-08-17) × MAX_REQUESTS_PER_RUN(40, raised from 20 by LORAMER_WALK_BITE_40_V1 on 2026-08-12) = 3,840
-  // requests/day = 28.4% of the 13,500 lane, up from 960/day = 7.1% at the hourly cadence —
+  // The unattended-spend arithmetic rests on every clause of this string — 288 fires/day (*/5, DEPLOY 3
+  // 2026-08-19) × MAX_REQUESTS_PER_RUN(40, raised from 20 by LORAMER_WALK_BITE_40_V1 on 2026-08-12) = 11,520
+  // requests/day = 85.3% of the 13,500 lane, up from 3,840/day = 28.4% at */15 and 960/day = 7.1% hourly —
   // so a second entry, a faster cadence, a different client, or a dropped dryRun=0 each change the spend
   // without a decision and each goes RED here. The BITE itself is pinned two blocks below, WITH its header
   // arithmetic, so the constant and its derivation cannot move apart.
+  // ⛔ DEPLOY 3, 2026-08-19 — THE CADENCE ROSE ON MEASUREMENT, NOT ON APPETITE. Trailing-24h at */15: the
+  // walk spent 3,215 real vendor requests of a 13,500 lane (24%) while the fleet total sat at 4,421 of the
+  // 15,000 cap — 10,579 requests/day unspent, every day, against 436,616 days of ground still owed on ONE
+  // client. Both of the walk's own bounds were at the wall (scan 60.0/60 on 96 of 96 fires; 37.6 of the
+  // 40-request bite) and neither the meter nor the quota sentinel ever held a fire. The BITE did not change:
+  // a bigger bite has nothing to bite when the scan is already binding. THE CADENCE DID.
+  // ⛔ AND THE PAIR IDENTITY IS NO LONGER ONLY WRITTEN DOWN — `queue-drain-fits-the-interval.guard.mjs`
+  // EXECUTES IT (LORAMER_DRAIN_FITS_THE_INTERVAL_V1), reading all four terms from their own sources. It was
+  // SEEN RED at */5 with maxConcurrency 8 (900s drain against a 300s interval, 3.00× over) and green at 24.
+  // Before that guard existed this cadence change passed all 133 guards with the concurrency untouched.
   //   · ONE entry (a second one doubles unattended spend silently)
   //   · client pinned to Foam OH — the ONLY account the engine has ever been proven on (both wet runs).
   //     Fleet rollout is a SEPARATE decision after unattended operation is proven; roster: LORAMER_WALK_ROSTER_V1.
   //   · dryRun=0 explicit — without it the route's safe-by-default dry-run makes the cron a daily no-op
   //     that LOOKS scheduled (the exact false-comfort ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION described)
-  //   · cadence */15 — DEPLOY 2's rate, with the resumer's bound arithmetic re-derived from 96 runs/day in
-  //     the same commit. ⛔ IT IS PAIRED WITH maxConcurrency 8 AND THE PAIR IS THE SAFETY PROPERTY: the
-  //     consumer's worst-case drain is 40 × WALK_BUDGET_MS(180s) ÷ concurrency, which is 900s at 8 — exactly
-  //     the new fire interval, as 3,600s at 2 was exactly the old one. A faster cadence WITHOUT the
-  //     concurrency raise backs the queue into the next fire.
+  //   · cadence */5 — DEPLOY 3's rate, with the resumer's bound arithmetic re-derived from 288 runs/day in
+  //     the same commit. ⛔ IT IS PAIRED WITH maxConcurrency 24 AND THE PAIR IS THE SAFETY PROPERTY: the
+  //     consumer's worst-case drain is 40 × WALK_BUDGET_MS(180s) ÷ concurrency, which is 300s at 24 — exactly
+  //     the new fire interval, as 900s at 8 was exactly */15's and 3,600s at 2 was exactly hourly's. A faster
+  //     cadence WITHOUT the concurrency raise backs the queue into the next fire.
+  //     ⛔ THAT SENTENCE WAS PROSE FOR TWO DEPLOYS AND IS NOW EXECUTED — `queue-drain-fits-the-interval.guard.mjs`.
   // ── THE BITE AND ITS DERIVATION MOVE TOGETHER — LORAMER_WALK_BITE_40_V1, 2026-08-12 ──────────────────
   // ⛔ MAX_REQUESTS_PER_RUN is the whole unattended-spend rate (bite × 24 fires), and its header carries the
   // derivation (lane share, queue-drain worst case). A constant changed without its arithmetic is exactly how
@@ -188,11 +199,12 @@ if (route) {
     const resumerSrc = read('src/lib/backfill/universe-resumer.ts') || ''
     const m = resumerSrc.match(/export const MAX_REQUESTS_PER_RUN\s*=\s*(\d+)/)
     const DECIDED_BITE = 40
-    // ⛔ DEPLOY 2, 2026-08-17 (DECISIONS:812) — the cadence moved */15, so the fires-per-day multiplier moves
-    // WITH it: 24 → 96. The BITE did not change. This factor is the cadence expressed as arithmetic, and it
-    // must track the schedule pinned below or the two halves of the same decision drift apart — the exact
-    // failure this leg exists to prevent.
-    const DERIVED_DAILY = DECIDED_BITE * 96 // 3840
+    // ⛔ DEPLOY 3, 2026-08-19 — the cadence moved */5, so the fires-per-day multiplier moves WITH it:
+    // 24 → 96 → 288. The BITE did not change, and did not need to: the scan cap was measured binding on
+    // 96 of 96 fires, so a bigger bite would have had nothing to bite. This factor is the cadence expressed
+    // as arithmetic, and it must track the schedule pinned below or the two halves of the same decision
+    // drift apart — the exact failure this leg exists to prevent.
+    const DERIVED_DAILY = DECIDED_BITE * 288 // 11520
     if (!m) {
       findings.push('(e) MAX_REQUESTS_PER_RUN not found in universe-resumer.ts — the bite bound this whole schedule is sized on has moved or vanished; re-derive the pin.')
     } else if (Number(m[1]) !== DECIDED_BITE) {
@@ -202,16 +214,20 @@ if (route) {
     }
   }
   const vercelJson = read('vercel.json')
-  // ⛔ DEPLOY 2, 2026-08-17 — schedule moved '30 * * * *' → '*/15 * * * *' on Russ's explicit GO, after the
-  // gate it was always waiting on (a fire with rows_written > 0) was MET at 88,140 rows/24h. The client,
-  // dryRun=0 and the ONE-entry rule are untouched: this raised the RATE on one proven account, nothing else.
-  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '*/15 * * * *' }
+  // ⛔ DEPLOY 3, 2026-08-19 — schedule moved '*/15 * * * *' → '*/5 * * * *' on Russ's explicit GO, after the
+  // lane was MEASURED rather than estimated: 4,421 of the 15,000 cap in a rolling 24h, 10,579 unspent, both
+  // walk bounds at the wall, zero meter holds and zero quota holds. Shipped WITH maxConcurrency 8 → 24, and
+  // the pair is now executed by queue-drain-fits-the-interval.guard.mjs rather than described in a comment.
+  // (DEPLOY 2, 2026-08-17, had moved '30 * * * *' → '*/15 * * * *' after a fire with rows_written > 0 was met
+  // at 88,140 rows/24h.) The client, dryRun=0 and the ONE-entry rule are untouched: this raises the RATE on
+  // one proven account, nothing else.
+  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '*/5 * * * *' }
   if (vercelJson) {
     const crons = (JSON.parse(vercelJson).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
     if (crons.length !== 1) {
       findings.push(`(e) vercel.json holds ${crons.length} universe-resume cron entr(ies); the 2026-08-11 decision authorises EXACTLY ONE. Zero means the walk was silently un-scheduled; more than one multiplies unattended spend without a decision.`)
     } else if (crons[0].path !== DECIDED_ENTRY.path || crons[0].schedule !== DECIDED_ENTRY.schedule) {
-      findings.push(`(e) the universe-resume cron entry drifted from the decided shape.\n      decided: ${JSON.stringify(DECIDED_ENTRY)}\n      found:   ${JSON.stringify(crons[0])}\n      Client, dryRun=0 and cadence are each load-bearing for the unattended-spend arithmetic (480/day of 13,500); changing any of them is a NEW scheduling decision, not an edit.`)
+      findings.push(`(e) the universe-resume cron entry drifted from the decided shape.\n      decided: ${JSON.stringify(DECIDED_ENTRY)}\n      found:   ${JSON.stringify(crons[0])}\n      Client, dryRun=0 and cadence are each load-bearing for the unattended-spend arithmetic (11,520/day of 13,500 at */5 x bite 40); changing any of them is a NEW scheduling decision, not an edit.`)
     }
   }
   // and the contract module must declare, not send
@@ -448,4 +464,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · every 15 minutes — LORAMER_WALK_SCHEDULED_V1 as raised by DEPLOY 2, 2026-08-17).`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · every 5 minutes — LORAMER_WALK_SCHEDULED_V1 as raised by DEPLOY 3, 2026-08-19, paired with maxConcurrency 24 and executed by queue-drain-fits-the-interval.guard.mjs).`)

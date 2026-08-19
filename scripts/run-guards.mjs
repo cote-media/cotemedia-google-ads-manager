@@ -159,6 +159,10 @@ const GUARDS = [
   // before every vendor call · a day is covered only when a later day closes it (synthetic mid-day kill) ·
   // the coverage module never reaches the attempt-log module · the bound is judged at the MINIMUM span.
   'tests/guards/universe-stream-consumer.guard.mjs',
+  // LORAMER_DRAIN_FITS_THE_INTERVAL_V1 — the pair identity (bite × WALK_BUDGET_MS ÷ maxConcurrency ≤ cron
+  // interval) EXECUTED rather than described. It lived in three comments across two deploys and nothing
+  // asserted it; a cadence change alone passed all 133 guards on 2026-08-19. Hermetic — file reads only.
+  'tests/guards/queue-drain-fits-the-interval.guard.mjs',
   // LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 — a narrowed window must be SPLIT, never TRUNCATED. Drives the
   // real `planMisSizedSplit` for the invariant (no day of the window belongs to neither half) and reads the
   // consumer for the ORDER (the endangered upper half is published FIRST, and a refusal holds the whole

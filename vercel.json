@@ -66,7 +66,7 @@
     },
     {
       "path": "/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {
@@ -86,7 +86,7 @@
           "type": "queue/v2beta",
           "topic": "google-ads-universe-v2",
           "retryAfterSeconds": 60,
-          "maxConcurrency": 8
+          "maxConcurrency": 24
         }
       ]
     }
