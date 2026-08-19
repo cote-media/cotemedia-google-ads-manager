@@ -15,12 +15,19 @@ import styles from './lora-working.module.css'
 
 /** ONE MARK, TWO STATES. Lora's avatar on an assistant turn AND the working indicator — the same element,
  *  in the same place, animating or not. `working` is the only difference between them. */
-export function LmMark({ working = false, size = 34 }: { working?: boolean; size?: number }) {
+/* ⛔ NO `size` PROP — LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1, 2026-08-19. It defaulted to 34, which is a NUMBER
+ *  SOMEBODY CHOSE, and it is why Russ's 2026-08-03 correction ("roughly TEXT-HEIGHT, not a large graphic")
+ *  never reached the screen: the correction was banked in chat and the constant was never touched. The box
+ *  is now DERIVED in CSS from the answer text's own font-size x line-height (`.lmMark`,
+ *  lora-working.module.css), so it cannot be set to a number again without changing the text it sits on.
+ *  ⛔ AND WIDTH/HEIGHT ARE NOT PRESENTATION ATTRIBUTES ANY MORE. An SVG `width=` attribute loses to any
+ *  stylesheet rule, so leaving it would have meant two sources of truth with the CSS silently winning —
+ *  the shape of defect that makes a UI number impossible to trace. `viewBox` stays: it is the coordinate
+ *  system the paths are drawn in, not a size. */
+export function LmMark({ working = false }: { working?: boolean }) {
   return (
     <svg
       className={`${styles.lmMark} ${styles.mark} ${working ? styles.lmMarkWorking : ''}`}
-      width={size}
-      height={size}
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"

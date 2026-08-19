@@ -135,7 +135,20 @@
    ⛔ IT NEEDS MASS (correction (b)). At 14–22px with a 2.4 stroke it read as caption-height letterforms
    sharing the muted styling of the text beside it. It is a GRAPHIC OBJECT: 34px, 3.2 stroke, full opacity,
    brand colour — roughly 3.5x the visual weight, and it no longer inherits anything from the status text. */
-.lmMark { display: block; flex: 0 0 auto; }
+/* ⛔ LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 — THE MARK IS ONE LINE OF THE ANSWER TALL, DERIVED AND NOT CHOSEN.
+   Russ's correction, 2026-08-03: "the mark is small and compact — roughly TEXT-HEIGHT, not a large graphic,"
+   sitting top-left of the response area where the answer begins. It shipped as a free `size = 34` prop
+   default in LoraWorking.tsx and the correction evaporated.
+   THE DERIVATION, and every term is read rather than picked: the answer text is `.bubbleAssistant` at
+   font-size 15.5px / line-height 1.65 (lora-thread.module.css), so its line box is 15.5 x 1.65 = 25.575px.
+   The mark is that expression, not that number — the same two tokens, multiplied here.
+   ⛔ WIDTH/HEIGHT LIVE IN CSS, NOT ON THE SVG ATTRIBUTES, because a presentation attribute would be
+   overridden by any stylesheet and a JS prop cannot see the text metric at all. */
+.lmMark {
+  display: block; flex: 0 0 auto;
+  width: calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65));
+  height: calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65));
+}
 .lmStroke {
   stroke: var(--accent, #2563eb);
   /* ⛔ DASH LENGTH IN REAL USER UNITS, NOT NORMALISED. pathLength is gone (see LmMark in LoraWorking.tsx):

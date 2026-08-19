@@ -168,6 +168,11 @@ const GUARDS = [
   // measured 2026-08-19, three terminal writers omitted it and a top-edge zero attested 12 surface-days.
   // Hermetic — source reads only.
   'tests/guards/attempt-writers-carry-the-lane.guard.mjs',
+  // LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 — the LM mark is the answer's LINE BOX, derived from the same two
+  // tokens the text uses, on both axes, with identical portal-fallbacks. It shipped as `size = 34` — a free
+  // constant — for sixteen days while Russ's "roughly TEXT-HEIGHT" correction sat banked in chat with nothing
+  // able to go red about it. Hermetic — CSS/TSX source reads only.
+  'tests/guards/lm-mark-is-text-height.guard.mjs',
   // LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1 — a narrowed window must be SPLIT, never TRUNCATED. Drives the
   // real `planMisSizedSplit` for the invariant (no day of the window belongs to neither half) and reads the
   // consumer for the ORDER (the endangered upper half is published FIRST, and a refusal holds the whole

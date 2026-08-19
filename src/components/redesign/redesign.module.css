@@ -13,6 +13,20 @@
    subtree can opt into the scale without inheriting the shell's geometry.
    `.root` COMPOSES it rather than restating the values — one source of truth, no drift. */
 .tokens {
+  /* ⛔ LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 — THE ANSWER'S TEXT METRIC, DECLARED ONCE SO THE MARK CAN BE
+     DERIVED FROM IT RATHER THAN CHOSEN. `.bubbleAssistant` (lora-thread.module.css) and `.lmMark`
+     (lora-working.module.css) both consume these; neither carries a size of its own. Change the text
+     metric here and the mark follows in the same paint — which is the entire point, because the banked
+     correction ("roughly TEXT-HEIGHT, not a large graphic") had already evaporated once as a free
+     constant of 34.
+     ⚠ EVERY CONSUMER USES THE var(--x, <literal>) FALLBACK IDIOM THIS SURFACE ALREADY MANDATES, and that
+     is not belt-and-braces: LORAMER_PORTAL_SEVERS_CSS_VARS_V1 — the desktop shelf is PORTALED to
+     document.body, which severs custom-property inheritance from every ancestor including this one. The
+     fallbacks are the same measured numbers, so a severed subtree still sizes the mark to the text.
+     `lm-mark-size.guard.mjs` pins that the two fallbacks agree; drift between them is the only way this
+     can go wrong and it is the one thing a human cannot see. */
+  --lora-answer-font-size: 15.5px;
+  --lora-answer-line-height: 1.65;
   --ink: #0f172a;
   --paper: #f8fafc;
   --accent: #2563eb;

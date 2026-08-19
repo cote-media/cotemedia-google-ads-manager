@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-19T15:04:46.183Z
-- built_from HEAD: a41cb36856a1b1162d490ad725f64ea71a399322  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-19T23:19:10.601Z
+- built_from HEAD: 5f08f3a548acf6bb33aa46b6ce334a33ddcf8919  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,7 +17,7 @@
     - LORAMER_ESSENCE.md: 6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: f2cb29b883393c35d505b764368120098eee738e95a17b3c66772de4cdc202ae
-    - LORAMER_DECISIONS.md: 762ec47eea6baefcd2cffb151dbce0418677d2c147bdf334062794cbbd60520c
+    - LORAMER_DECISIONS.md: f6d3b73c70957e155b6d04401c2ceffbecdefd0142259fda8f005e070667d4e7
     - LORAMER_QUEUE_OF_RECORD.md: 4642f8d8cea52f8465167406bd9e682cc7cb412889463691f796d5dd5f38bc59
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456
@@ -1145,6 +1145,7 @@ DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | d
 ## LORAMER_THREE_CLEAN_RUNS_SATISFIED_V1 (2026-08-19) — SETTLED. The gate is SATISFIED, 3 of 3. Do not re-run it to re-decide.
 ## LORAMER_FLOOR_REACHED_IS_NOT_FULLY_COVERED_V1 (2026-08-19) — SETTLED. A vocabulary decision. Do not re-read the phrase the other way.
 ## LORAMER_TERMINAL_PARENT_CLAMPS_TO_INCEPTION_V1 (2026-08-19) — SETTLED. SHIPPED as leg (C). Do not re-derive the legality rule.
+## LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 (2026-08-19) — SETTLED. The mark is DERIVED, never chosen. Do not reintroduce a size.
 The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do not relitigate.
   commit). The existing 06-27→today hole is NOT fixed — G1(b), next flight. | do not relitigate.
   Blast radius: LIVE-PATH (shared read path) = STOP-and-confirm. Cheapest large win in the system. | do not relitigate.

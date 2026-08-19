@@ -70,7 +70,13 @@
 .bubbleAssistant {
   max-width: 100%; min-width: 0; padding: 0;
   color: var(--ink, #0f172a);
-  font-size: 15.5px; line-height: 1.65; word-break: break-word;
+  /* ⛔ LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 — MEASURED, THEN TOKENISED. These were free literals; the LM mark
+     is now derived from the SAME two values (lora-working.module.css .lmMark), so the mark cannot drift
+     from the line it sits on. Measured line box = 15.5 x 1.65 = 25.575px, identical on both surfaces and
+     at sm (this stylesheet carries no @media rule and neither page overrides it). */
+  font-size: var(--lora-answer-font-size, 15.5px);
+  line-height: var(--lora-answer-line-height, 1.65);
+  word-break: break-word;
 }
 
 /* ── MARKDOWN — wide tables and code scroll INSIDE the bubble, never widening the surface ───────── */

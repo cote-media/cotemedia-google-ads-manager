@@ -1351,6 +1351,39 @@ question this entry does not answer. Both surfaces fail with GAQL `query_error 4
 [[LORAMER_SURFACE_UNASKABLE_IS_A_SURFACE_FACT_V1]] — a width fix for a problem that is not about width.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 (2026-08-19) — SETTLED. The mark is DERIVED, never chosen. Do not reintroduce a size.
+
+THREE-SOURCE — PRIOR CHATS: Russ's correction of 2026-08-03, verbatim as he gave it — "the mark is small and compact — roughly TEXT-HEIGHT, not a large graphic," sitting top-left of the response area where the answer begins; and [[LORAMER_LORA_WORKING_SHARED_V1]], which had already made the mark ONE component for both surfaces and is what makes a single derivation reach both. · WEB: NONE-APPLICABLE: the question is what size OUR mark is beside OUR answer text, and the answer is arithmetic over two values in our own stylesheet — no vendor doc or external practice bears on it, and the CSS mechanisms used (custom properties, calc, presentation-attribute precedence) are settled platform behaviour rather than a design question. · REPO: `src/components/redesign/LoraWorking.tsx` (the `size = 34` default), `lora-thread.module.css` `.bubbleAssistant` (the text metric it was supposed to match), `lora-working.module.css` `.lmMark`, `redesign.module.css` `.tokens`, and [[LORAMER_PORTAL_SEVERS_CSS_VARS_V1]] for why every consumer keeps a literal fallback. — /THREE-SOURCE
+**THE MARK IS ONE LINE OF THE ANSWER TALL, AND IT IS EXPRESSED AS THE TEXT'S OWN TOKENS RATHER THAN AS THEIR
+PRODUCT.** `--lora-answer-font-size` x `--lora-answer-line-height`, declared once in `.tokens`, consumed by
+`.bubbleAssistant` for the text and by `.lmMark` for the mark's width AND height. Change the text metric and
+the mark follows in the same paint; there is no number in either place to get wrong.
+**MEASURED, NOT PICKED: 15.5px x 1.65 = 25.575px.** That is the computed line box of `.bubbleAssistant`
+(lora-thread.module.css), and it is the SAME on both surfaces and at every breakpoint — that stylesheet
+carries no `@media` rule at all, and neither `lora-page.module.css` (phone page) nor the shelf overrides the
+answer's font-size or line-height. One measurement covers ChatLauncher and dashboard-next/lora.
+⛔ **WHAT WAS WRONG, AND IT IS THE MORE USEFUL HALF: THE CORRECTION NEVER REACHED THE REPO.** `LmMark` shipped
+`size = 34` — 33% larger than the line it sits beside — and stayed that way for SIXTEEN DAYS while the
+correction sat banked in a chat nobody re-read. A free constant has no relationship to the thing it is
+supposed to match, so no build check, no guard and no review could ever have gone red about it. **That is the
+class: a UI value agreed in conversation and then written as a literal is a correction with no enforcer.**
+⛔ **THE PROP IS GONE, NOT DEFAULTED.** `LmMark` takes `{ working }` and nothing else, and the SVG no longer
+carries `width=`/`height=` presentation attributes — a presentation attribute LOSES to any stylesheet rule,
+so leaving them would have been two sources of truth with the CSS silently winning, which is a UI number
+nobody can trace. `viewBox` stays: it is the coordinate system the paths are drawn in, not a size.
+⛔ **AND THE FALLBACKS MUST AGREE, WHICH IS THE LEG A HUMAN CANNOT SEE.** [[LORAMER_PORTAL_SEVERS_CSS_VARS_V1]]
+— the desktop shelf is portaled to `document.body`, which severs custom-property inheritance from `.tokens`,
+so on that surface BOTH the text and the mark fall back to their literals. If the two literals ever drift the
+mark matches the text on the phone and not on the shelf: visible on one surface, invisible on the other, and
+nothing in the build would say a word. `lm-mark-is-text-height.guard.mjs` leg (d) pins their equality.
+GUARD, same commit, RED-PROVEN against the pre-fix files from HEAD — **8 findings**: both tokens undeclared,
+`.bubbleAssistant` on free literals, `.lmMark` missing the calc on both axes, `LmMark` still carrying
+`size = 34`, and the SVG width/height attributes. GREEN after, printing the measurement it derived.
+⚠ **LIMIT, AND IT IS NOT A FORMALITY: THIS PROVES THE DERIVATION, NEVER THE PIXEL.** Whether 25.575px reads
+correctly beside the answer is Gate-B on a device at the sm breakpoint (DECISIONS:65 — "Desktop works" is NOT
+a pass), and no guard can see a screen. **NOT DONE IN THIS FLIGHT.**
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907
