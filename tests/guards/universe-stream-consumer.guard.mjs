@@ -114,6 +114,35 @@ if (route) {
   }
 }
 
+// ── (f) A TOP-EDGE MESSAGE NEVER SELF-CHAINS — LORAMER_TOP_EDGE_LANE_V1 ──────────────────────────────
+// ⛔ WHAT THIS PREVENTS, AND IT IS ARITHMETIC RATHER THAN A WORRY. `advance()` derives its successor as
+// `startDate − 1` (route:611). A top-edge message covers [descendTop+1 … yesterday], so its successor would
+// be a full window ending the day BELOW the strip — a SECOND descent, competing with the real one for the
+// same bite, on the same surfaces, forever, and re-walking ground already covered.
+// ⛔ BOTH EXITS MUST CARRY THE REFUSAL. `advance` is reached from the nothing-owed branch AND from the
+// after-capture path; guarding only one leaves the strip self-chaining on exactly the passes that captured
+// rows, which are the passes that matter. This leg drives BOTH and was SEEN RED with either one removed.
+// ⚠ LIMIT, stated: this is a STRUCTURAL read of the source, not a drive of the compiled route — the route's
+// import graph reaches the queue client and the Google client, which is why leg (b) compiles the pure
+// modules instead. It proves the refusal is PRESENT at both call sites, never that it is reachable.
+{
+  const src = route || ''
+  const sites = [...src.matchAll(/await\s+advance\(/g)].map((m) => m.index)
+  if (sites.length === 0) {
+    findings.push(`(f) ${ROUTE} contains no \`await advance(\` call at all — either the walk can no longer advance, or this leg is measuring a file that is not the consumer.`)
+  }
+  const GUARD = /if\s*\(\s*lane\s*===\s*'top-edge'\s*\)\s*\{[\s\S]{0,600}?\breturn\b/
+  const unguarded = sites.filter((i) => !GUARD.test(src.slice(Math.max(0, i - 1200), i)))
+  if (unguarded.length) {
+    findings.push(`(f) ${unguarded.length} of ${sites.length} \`await advance(\` call site(s) in ${ROUTE} are NOT preceded by an \`if (lane === 'top-edge') { … return }\` refusal. ` +
+      `A top-edge message reaching advance() publishes a successor ending the day BELOW the strip and starts a second descent through covered ground — competing with the real walk for the same bite, forever. BOTH exits must refuse.`)
+  }
+  // and the lane must actually reach the ledger, or the rotation filter in migrations/084 guards nothing
+  if (src && !/appendAttemptStarted\([^)]*prov,\s*lane\s*\)/.test(src)) {
+    findings.push(`(f) ${ROUTE} does not pass \`lane\` to appendAttemptStarted. The lane would default to 'descend' in the RPC, every strip attempt would enter the rotation, and the descending anchor would be dragged to the top of the calendar every pass — the exact defect migrations/084 exists to prevent.`)
+  }
+}
+
 // ── (e) BLAST RADIUS: NOTHING PUBLISHES TO THE v2 TOPIC ──────────────────────────────────────────────
 // ⛔ THE SAFETY OF TWO CONSUMERS EXISTING AT ONCE RESTS ENTIRELY ON THIS. Vercel Queues delivers by TOPIC;
 // if any publisher outside the v2 route itself sends to it, the two engines can interleave on the same entry.

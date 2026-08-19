@@ -104,7 +104,14 @@ module.exports = { supabaseAdmin: { from: (t) => new Q(globalThis.__GUARD_ATTEMP
   const cov = req(join(out, 'src/lib/backfill/universe-coverage.js'))
 
   const W = { window_start: '2026-08-03', window_end: '2026-08-09' }
-  const base = { client_id: 'c1', vendor: 'google', resource: 'ad_group', phase: 'attempt_finished', outcome: 'zero', ...W }
+  // ⛔ `lane` ADDED 2026-08-19 (LORAMER_TOP_EDGE_LANE_V1) BECAUSE THE SUBJECT STARTED FILTERING ON IT AND
+  // THIS GUARD WENT RED RATHER THAN GREEN — the stub's fidelity contract working for the second time, in
+  // exactly the shape its own `.in()` comment predicted. `attestedEmptyDays` now reads `.eq('lane','descend')`
+  // so that a TOP-EDGE zero can never attest: at the top of the calendar a zero and a NOT-YET-SERVED day are
+  // indistinguishable, and sealing a lagging day as empty is the false-all-clear class. A fixture without the
+  // column is filtered out by the stub exactly as PostgREST would filter a row whose lane did not match,
+  // which is why all three own-attestation legs failed rather than one.
+  const base = { client_id: 'c1', vendor: 'google', resource: 'ad_group', phase: 'attempt_finished', outcome: 'zero', lane: 'descend', ...W }
   const K = (breakdownType) => ({ clientId: 'c1', platform: 'google', entityLevel: 'ad_group', breakdownType })
   const SEVEN = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07', '2026-08-08', '2026-08-09']
 

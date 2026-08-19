@@ -75,6 +75,20 @@ export interface UniverseMessageV2 {
   /** How many windows this chain may still walk, including this one. UNDEFINED = unbounded. */
   windowsRemaining?: number
   /**
+   * ⛔ WHICH LANE PUBLISHED THIS — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. `'descend'` (or absent) is the walk
+   * marching toward inception; `'top-edge'` holds the strip between the descent's top window and the newest
+   * servable day. It rides the MESSAGE for the same reason `windowsRemaining` does — the chain is the only
+   * writer and the only reader — and it decides exactly two things in the consumer:
+   *   1. the lane stamped on `attempt_started`, which the rotation (migrations/084) filters on so a top-edge
+   *      attempt cannot drag the descending anchor to the top of the calendar; and
+   *   2. ⛔ WHETHER `advance()` RUNS AT ALL. A top-edge message MUST NOT self-chain: `advance` derives its
+   *      successor as `startDate − 1`, so a strip message would publish a window ending the day below the
+   *      strip and start a SECOND descent through ground the walk has already covered.
+   * ⛔ ABSENT MEANS `'descend'`, so every in-flight message published before this field existed consumes
+   * with byte-identical behaviour.
+   */
+  lane?: 'descend' | 'top-edge'
+  /**
    * ⛔ THE PRODUCER-ASSIGNED MESSAGE IDENTIFIER — LORAMER_COMPLETION_SIGNAL_V1, and it is REQUIRED prior art
    * rather than a convenience. Enterprise Integration Patterns: *"Use a producer-assigned message identifier
    * or a business-level idempotency key that identifies the specific logical operation."* We already MINT one

@@ -114,6 +114,12 @@ const CHECKS = [
   // bad rows rather than by reading the migration that declares the CHECK. Red until migrations/082 is
   // applied, and that red IS the mechanical proof of the apply. Rolls back everything it writes.
   { name: 'parent-window-check-rejects', cmd: ['tests/guards/parent-window-check-rejects.guard.mjs'] },
+  // LORAMER_TOP_EDGE_LANE_V1 — the ONE property no other detector can see. `no-owed-day-left-behind` defines
+  // its own subject as days INSIDE the asked band, so ground ABOVE the highest window ever asked is invisible
+  // to it by construction. This asks whether the top of the calendar is held at all. ⛔ IT SHIPS RED — 346 of
+  // 346 surfaces sat 6 days behind when it landed — and goes green only after the top-edge lane has run a
+  // full cycle (~14.4h). Same posture as check-nongrain-window-resolves.
+  { name: 'top-edge-is-held', cmd: ['tests/guards/top-edge-is-held.guard.mjs'] },
 ]
 // ROSTER-END
 

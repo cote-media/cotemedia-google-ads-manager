@@ -262,6 +262,22 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
     // is our bookkeeping. ⛔ 'skipped' STILL MUST NOT APPEAR HERE: that is US declining to ask, and letting it
     // attest is the false-all-clear class.
     .eq('phase', 'attempt_finished').in('outcome', ['zero', 'nongrain'])
+    // ⛔ ONLY THE DESCENDING LANE MAY ATTEST — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19, AND IT IS THE ONE CLAUSE
+    // THAT MAKES AN UNMEASURED VENDOR LAG HARMLESS. At the top edge a `zero` and a NOT-YET-SERVED day are
+    // indistinguishable: Google publishes a 37-month lookback but says NOTHING about how far behind today a
+    // granular `segments.date` row becomes available, and it may differ per resource. Letting the top-edge
+    // lane attest would seal a merely-lagging day as EMPTY, permanently, from evidence that does not exist —
+    // the false-all-clear class this whole module's header names as catastrophic.
+    // ⛔ THE COST OF EXCLUDING IT IS ONE REQUEST PER SURFACE PER PASS, AND IT IS NOT WASTE: re-asking the
+    // recent window is what LORAMER_RESTATEMENT_WINDOW_LAW_V1 has required since 2026-07-24 (Google revises
+    // conversions for up to 90 days). A strip is ONE operation at any span, so a dormant surface's strip
+    // costs the same whether it is 6 days or 300.
+    // ⚠ AND THE RESIDUAL, STATED: a genuinely-dormant surface's strip therefore never shrinks, so it widens
+    // by one day per day. Cost is flat (one request), response size is nil (it returns nothing), but the
+    // range in the log grows — ★TOP-EDGE-STRIP-NEVER-NARROWS, not fixed here.
+    // ⛔ `day_committed` IS DELIBERATELY NOT FILTERED (see committedDays above): a day whose rows are durably
+    // written is CAPTURED, and which lane paid for it is not a property of the data.
+    .eq('lane', 'descend')
     .lte('window_start', windowEnd).gte('window_end', windowStart)
   if (error) throw new Error(
     `[universe-coverage] negative-coverage read failed for ${k.entityLevel}: ${error.message}. ` +

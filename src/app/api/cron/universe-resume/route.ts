@@ -56,8 +56,9 @@ import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quot
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 import {
   assessCoverage, decideRepublish, boundedSelection,
-  deriveAnchorEnd, deriveWindow, orderForRotation,
+  deriveAnchorEnd, deriveWindow, orderForRotation, deriveTopStrip,
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
+  TOP_EDGE_REQUESTS_PER_RUN,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
 
@@ -219,6 +220,10 @@ export async function GET(request: Request) {
     rangeSpans: number[]
   }
   const candidates: Candidate[] = []
+  // ⛔ THE SECOND LANE — LORAMER_TOP_EDGE_LANE_V1. Same scan, same catalog, same coverage module, same
+  // fetcher, same writer, same meter. What differs is ONE flag on the message and TWO bounds instead of one.
+  // A second catalog or a second engine is exactly what this shape refuses to become.
+  const topEdge: Candidate[] = []
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
   let scanned = 0
   let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
@@ -249,6 +254,42 @@ export async function GET(request: Request) {
     // months within hours. What changed is that depth now actually accrues instead of re-buying day one.
     const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
     const rot = rotation.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null
+
+    // ── ⛔ THE TOP STRIP — LORAMER_TOP_EDGE_LANE_V1 ────────────────────────────────────────────────────
+    // The descent's anchor only ever moves DOWN, so the ground between its top window and yesterday is held
+    // by NOTHING (★TOP-EDGE-HAS-NO-LANE): measured 2026-08-19, 346 of 346 surfaces topped out at 2026-08-12
+    // with a 6-day strip each — 2,076 owed days, growing 346/day forever.
+    // ⛔ IT IS COMPUTED HERE, BEFORE EVERY `continue` THE DESCENT CAN TAKE, and that placement is the point:
+    // a surface whose DESCENT is floor-reached, wedged, refused as implausible or bounded still has a top
+    // strip, and hanging the strip off the descent's success would leave exactly the finished surfaces
+    // unheld. `newestServable` is YESTERDAY — the one value this route can defend (forward capture
+    // demonstrates it daily for the four base grains) and an ASSUMPTION for the other 342, recorded as one
+    // in deriveTopStrip's header. The assumption is made HARMLESS rather than trusted: a top-edge `zero`
+    // does not attest (universe-coverage.ts), so a merely-LAGGING day can never be sealed empty.
+    const strip = deriveTopStrip({
+      descendTopEnd: rot ? String(rot.last_window_end) : null,
+      newestServable: yesterday,
+      maxSpanDays: adapter.sizing.maxDays,
+    })
+    if (strip) {
+      try {
+        const stripOwed = await rangesStillOwed(coverageKey, strip.windowStart, strip.windowEnd)
+        if (stripOwed.ranges.length > 0) {
+          topEdge.push({
+            entry, label, ranges: stripOwed.ranges.length, owedDays: stripOwed.coverage.uncovered.length,
+            windowStart: strip.windowStart, windowEnd: strip.windowEnd, sizingBasis: 'top-edge-strip',
+            anchorBasis: `strip above the descent's last window ${rot ? String(rot.last_window_end) : '(none)'} , clamped to ${adapter.sizing.maxDays} day(s)`,
+            receded: false, stopBasis: 'n/a — the top edge has no floor',
+            rangeSpans: stripOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+          })
+        }
+      } catch (e: any) {
+        // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY STRIP. Record it and let the DESCENT continue — the
+        // two lanes fail independently on purpose; a strip probe that cannot answer must not cost the
+        // descent its pass.
+        refusals.push({ label, verdict: 'top-edge-coverage-error', reason: String(e?.message ?? e) })
+      }
+    }
 
     // ⛔ THE RECEDE GATE: the last window asked must owe NOTHING before the anchor may move below it.
     // One coverage read, bounded by the window's own span — never the whole walked band (that shape was
@@ -376,6 +417,12 @@ export async function GET(request: Request) {
 
   // ── BOUNDED BY CONSTRUCTION, IN THE UNIT THAT GETS SPENT ────────────────────────────────────────────
   const sel = boundedSelection(candidates, MAX_REQUESTS_PER_RUN)
+  // ⛔ A SEPARATE BOUND, NOT A SHARE OF THE 40 — LORAMER_TOP_EDGE_LANE_V1. Folding the strip into the
+  // descending bite would let a fragmented descent starve the top edge, or the top edge starve the descent,
+  // depending only on scan order. Two lanes, two bounds, ONE meter (the program below sums both).
+  // Derivation of the 2 lives beside the constant in universe-resumer.ts: demand is 346 strip-days/day = 346
+  // requests/day, capacity is 288 fires × k, and k=1 is BELOW demand.
+  const selTop = boundedSelection(topEdge, TOP_EDGE_REQUESTS_PER_RUN)
 
   // ── THE METER — THE ADAPTER'S, IN ITS OWN UNIT, AND IT HOLDS WHEN UNREADABLE ────────────────────────
   // ⛔ THE PRODUCT RESERVE IS RESPECTED BECAUSE THE METER'S CAP *IS* THE BACKFILL ALLOWANCE: 6,000 = the
@@ -389,7 +436,13 @@ export async function GET(request: Request) {
   // the real bound — which means the meter was not holding the line it appeared to be holding.
   // ⛔ THE PROGRAM IS THE UNIT: one entry per vendor request, each with its own span, summed by the
   // ADAPTER'S OWN costOf. Nothing here is expressed in operations (capture-adapter.ts:354-357).
-  const gate = await mayFetchProgram(adapter, sel.taken.flatMap((c) => c.rangeSpans))
+  // ⛔ ONE METER FOR BOTH LANES, AND THE PROGRAM IS THEIR UNION. The top edge is not a new budget line: it
+  // spends from LANE_ALLOCATIONS.backfill exactly as the descent does, so the four-lane table still sums to
+  // the cap and FORWARD_UNGATED_RESERVE is untouched. A second allocation key would have been a second
+  // governor over the same pool — the shape LORAMER_GOOGLE_LANE_ALLOCATION_V1 replaced.
+  // ⛔ AND THE QUOTA SENTINEL NEEDS NO CHANGE AT ALL: it is checked at :125-126, BEFORE the catalog load, so
+  // a vendor pause holds BOTH lanes for free and neither can publish into an armed quota.
+  const gate = await mayFetchProgram(adapter, [...sel.taken, ...selTop.taken].flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
     const hbErr = await fireHeartbeat({
       fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
@@ -398,15 +451,28 @@ export async function GET(request: Request) {
     })
     return NextResponse.json({
       ok: true, published: 0, held: gate.reason, scanned, heartbeatError: hbErr,
-      wouldHavePublished: sel.taken.map((c) => c.label), refusals,
+      wouldHavePublished: [...sel.taken.map((c) => c.label), ...selTop.taken.map((c) => `${c.label} [top-edge]`)], refusals,
     })
   }
 
   const published: any[] = []
-  for (const c of sel.taken) {
+  // ⛔ THE DESCENT PUBLISHES FIRST AND THE TOP EDGE SECOND, DELIBERATELY. If the meter or the queue is going
+  // to refuse anything it refuses the newest work, not the deepest: the strip is re-derived from scratch
+  // every fire and loses nothing by waiting 5 minutes, whereas a dropped descending window costs the pass.
+  const toSend: Array<{ c: Candidate; lane: 'descend' | 'top-edge' }> = [
+    ...sel.taken.map((c) => ({ c, lane: 'descend' as const })),
+    ...selTop.taken.map((c) => ({ c, lane: 'top-edge' as const })),
+  ]
+  for (const { c, lane } of toSend) {
     const msg: UniverseMessageV2 = {
       clientId, userEmail, customerId, entry: c.entry,
       startDate: c.windowStart, endDate: c.windowEnd,
+      // ⛔ THE LANE RIDES THE MESSAGE — LORAMER_TOP_EDGE_LANE_V1. It decides the lane stamped on
+      // `attempt_started` (which the rotation filters on, so a strip cannot drag the descending anchor to
+      // the top of the calendar) AND whether the consumer calls `advance()` at all. A top-edge message must
+      // never self-chain: `advance` derives its successor as `startDate − 1`, which would start a SECOND
+      // descent through ground the walk has already covered.
+      lane,
       // ⛔ ONE WINDOW, NO SELF-REPUBLISH. June's driver shape: the loop belongs to the driver, not the work.
       windowsRemaining: WINDOWS_PER_PUBLISHED_MESSAGE,
       // ⛔ NO `floorDate` ON THE MESSAGE — REMOVED 2026-08-13, AND IT WAS ALREADY DEAD. The consumer is
@@ -422,12 +488,14 @@ export async function GET(request: Request) {
     // second run that somehow did publish would land on a consumer that recomputes coverage and finds the
     // days already covered — one indexed read, no vendor request. Dedupe is the optimisation; derived
     // coverage is the correctness.
-    const idempotencyKey = `resume|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
+    // ⛔ THE LANE IS IN THE KEY. Without it a strip and a descending window that happened to share bounds
+    // would dedupe against each other — different work, different lane stamp, one of them silently dropped.
+    const idempotencyKey = `resume|${lane}|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
   // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
   // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
   // name its publisher is what let a scheduled fire's requests be counted as a drive's.
     if (!dryRun) await send(TOPIC, { ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
-    published.push({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
+    published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
   }
 
   // ── THE FIRE INSTRUMENT — LORAMER_RESUMER_FIRE_INSTRUMENT_V1 ─────────────────────────────────────────
@@ -445,6 +513,11 @@ export async function GET(request: Request) {
     rotationKnown: rotation.size, neverAttempted: entries.length - rotation.size,
     candidates: candidates.length, publishedOf: published.length,
     requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
+    // LORAMER_TOP_EDGE_LANE_V1 — the second lane reports its own numbers rather than being summed into the
+    // descent's, so a report can never say "the walk spent N" and mean two different things.
+    topEdgeCandidates: topEdge.length, topEdgePublished: selTop.taken.length,
+    topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound,
+    topEdgeOwedDays: topEdge.reduce((n, c) => n + c.owedDays, 0),
     advancedCovered, // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances (0 vendor ops each)
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
@@ -464,7 +537,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true, dryRun, clientId, scanned, heartbeatError: hbErr,
     entriesInCatalog: entries.length,
-    bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound },
+    bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
+      topEdgeRequestsPerRun: TOP_EDGE_REQUESTS_PER_RUN, topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound },
     meter: gate.reason,
     instrument,
     published, refusals,

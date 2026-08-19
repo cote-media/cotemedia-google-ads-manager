@@ -114,6 +114,77 @@ export const MAX_ENTRIES_SCANNED_PER_RUN = 60
  */
 export const WINDOWS_PER_PUBLISHED_MESSAGE = 1
 
+/**
+ * ⛔ THE TOP-EDGE BITE — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. DERIVED FROM DEMAND, NOT CHOSEN.
+ *
+ * THE DEMAND IS EXACT AND IT IS NOT AN ESTIMATE: the strip grows by ONE DAY PER SURFACE PER DAY, forever,
+ * because the descent's anchor only moves down (★TOP-EDGE-HAS-NO-LANE). Foam OH's catalogue holds 346
+ * selectable surfaces ⇒ **346 owed strip-days/day**, and one contiguous strip is ONE vendor request at any
+ * span (a `segments.date BETWEEN` query is one operation — vendor-settled), so demand is **346 requests/day**.
+ *
+ * THE ARITHMETIC:
+ *   · the cadence is 288 fires/day (5-minute cron; the token lives in vercel.json, not here)
+ *   · at k slots/fire the lane can publish 288k/day
+ *   · k = 1 → 288/day, BELOW the 346/day demand — the strip would grow faster than it is held. REFUSED.
+ *   · k = 2 → 576/day = 1.66× demand. **This is the smallest k that meets demand at all**, which is why it
+ *     is the value and not a preference.
+ *   · every surface is therefore reached within 346/576 of a day = **14.4 hours worst case**
+ *   · FIRST FULL CLOSURE of the standing 2,076-day strip (346 surfaces × 6 days): 346 requests at 2/fire =
+ *     173 fires × 5 minutes = **~14.4 hours**
+ *   · CEILING 288 × 2 = 576/day against the ~3,100/day headroom under the 13,500 lane = 19% of headroom;
+ *     ACTUAL ~346/day = 11%. The walk's descent keeps its own MAX_REQUESTS_PER_RUN = 40 untouched.
+ * ⛔ IT IS A SEPARATE BOUND RATHER THAN A SHARE OF THE 40, AND THAT IS THE POINT: folding the strip into the
+ * descending bite would let a fragmented descent starve the top edge, or the top edge starve the descent,
+ * depending only on scan order. Two lanes, two bounds, one meter.
+ */
+export const TOP_EDGE_REQUESTS_PER_RUN = 2
+
+/**
+ * ⛔ THE STRIP — the ground between the DESCENT's top window and the newest day the vendor can answer for.
+ * Pure, so the guard drives it with no clock and no DB.
+ *
+ * ⛔ `newestServable` IS AN INPUT AND IS NOT DEFAULTED HERE, DELIBERATELY. Google's own retention doc states
+ * a 37-month lookback but publishes NOTHING about how far behind "today" a granular `segments.date` row
+ * becomes available, and it may differ per resource. The caller supplies the value it can defend — the
+ * resumer supplies YESTERDAY, which forward capture demonstrates daily for the four base grains and which is
+ * an ASSUMPTION for the other 342. ⚠ THAT ASSUMPTION IS RECORDED AS ONE: it was NOT measured, and the flight
+ * that measures it changes this call site, not this function.
+ * ⛔ AND THE ASSUMPTION IS MADE HARMLESS RATHER THAN TRUSTED: a top-edge `zero` DOES NOT ATTEST
+ * (universe-coverage.ts filters attestation to the descending lane), so a day that was merely LAGGING can
+ * never be sealed as empty. It is re-asked on the next pass for the same one request. That is
+ * LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 applied where the ambiguity actually lives.
+ *
+ * Returns null when there is no strip — the descent's top already reaches the newest servable day.
+ */
+export function deriveTopStrip(a: {
+  /** The newest `window_end` the DESCENDING lane asked for on this surface (the rotation's `last_window_end`). */
+  descendTopEnd: string | null
+  /** The newest day the vendor can answer for, in the caller's frame. */
+  newestServable: string
+  /**
+   * ⛔ THE PROBE CEILING, AND IT IS THE ADAPTER'S OWN `sizing.maxDays` — NOT A NEW CONSTANT. Without it the
+   * strip is `[rotationsLastWindowEnd + 1 … yesterday]`, and the rotation returns the descent's MOST RECENT
+   * window rather than its TOP — so on a surface that has receded four months the strip would span ~112 days
+   * and `windowCoverage` fires ONE INDEXED PROBE PER DAY. At 60 entries × 288 fires that is ~1.9M probes/day
+   * for ground the descent has already covered. Clamping to the same span the descent itself uses keeps the
+   * probe cost identical to one descending window, and the lane still CONVERGES: it closes the newest
+   * `maxSpanDays` per pass while the unheld gap grows one day per day.
+   */
+  maxSpanDays: number
+}): { windowStart: string; windowEnd: string; days: number } | null {
+  const { descendTopEnd, newestServable, maxSpanDays } = a
+  // ⛔ A SURFACE THE DESCENT HAS NEVER ASKED HAS NO STRIP TO HOLD — it has a WHOLE HISTORY, and that is the
+  // descending lane's job. Publishing a strip here would put the first-ever attempt on a surface into the
+  // lane the rotation ignores, and the descent would then anchor at the newest ground and re-walk it.
+  if (descendTopEnd === null) return null
+  const rawStart = addDaysISO(descendTopEnd, 1)
+  if (rawStart > newestServable) return null
+  const clamped = addDaysISO(newestServable, -(Math.max(1, maxSpanDays) - 1))
+  const windowStart = rawStart > clamped ? rawStart : clamped
+  const days = Math.round((Date.parse(newestServable + 'T00:00:00Z') - Date.parse(windowStart + 'T00:00:00Z')) / 86_400_000) + 1
+  return { windowStart, windowEnd: newestServable, days }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 // IMPLAUSIBLE COVERAGE — REFUSE AND RECORD
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────

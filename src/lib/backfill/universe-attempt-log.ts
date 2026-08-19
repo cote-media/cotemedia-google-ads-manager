@@ -126,7 +126,19 @@ const fail = (what: string, detail: unknown): never => {
  * Returns the attempt number and the count at this span. **Neither is a coverage answer**: both describe
  * how many times WE have tried, which is a fact about us, not about the data.
  */
-export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow, prov?: WriteProvenance): Promise<AttemptOpened> {
+/**
+ * ⛔ WHICH LANE ASKED — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. `'descend'` is the walk marching toward
+ * inception; `'top-edge'` is the lane holding the strip between the descent's top window and yesterday.
+ * `universe_surface_rotation` (migrations/084) reads ONLY `'descend'` rows, because the rotation answers
+ * "where is the descent" and a top-edge attempt is not part of it — without the filter the newest top-edge
+ * row wins the DISTINCT ON and drags the anchor to the top of the calendar every pass.
+ * ⛔ THE DEFAULT IS THE SAFE DIRECTION, NOT THE COMMON ONE. A caller that forgets the lane writes `'descend'`,
+ * which can only make the descent HOLD on ground it has seen; the reverse default would hide a real window
+ * from the anchor.
+ */
+export type AttemptLane = 'descend' | 'top-edge'
+
+export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow, prov?: WriteProvenance, lane: AttemptLane = 'descend'): Promise<AttemptOpened> {
   // ⛔ THE PARENT IS STAMPED **IN THE RPC**, NOT HERE, AND THAT IS NOT AN IMPLEMENTATION DETAIL. This function
   // does not INSERT — `universe_attempt_open` (migrations/082, SECURITY DEFINER) owns the only INSERT that
   // ever writes an `attempt_started` row, because `attempt_no` must be derived under an advisory lock. The
@@ -144,6 +156,7 @@ export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?:
     p_parent_window_end: parent?.endDate ?? null,
     p_message_key: prov?.messageKey ?? null,
     p_invocation_id: prov?.invocationId ?? null,
+    p_lane: lane,
   })
   if (error) fail('attempt_started', error)
   // ⛔ THE RPC DERIVES `attempt_no` UNDER AN ADVISORY LOCK because `maxConcurrency: 2` lets two invocations

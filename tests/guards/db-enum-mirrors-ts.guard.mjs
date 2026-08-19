@@ -52,6 +52,18 @@ const PAIRS = [
     tsFile: 'src/lib/backfill/universe-attempt-log.ts',
     tsAnchor: 'export type AttemptPhase',
   },
+  // ⛔ REGISTERED IN THE SAME COMMIT AS THE UNION IT COVERS — LORAMER_TOP_EDGE_LANE_V1, migrations/084, and
+  // it was NOT registered voluntarily: `seams-proof-includes-the-database.guard.mjs` went RED on the very
+  // build that introduced `AttemptLane`, naming it as "a string-literal union in a file that WRITES to
+  // supabase and is neither REGISTERED here nor allowlisted". That is the seams law catching its own author
+  // one commit after he wrote the entry about walking seams. The DB side is
+  // `universe_attempt_log_lane_chk check (lane in ('descend','top-edge'))`.
+  {
+    label: 'universe_attempt_log.lane ↔ AttemptLane',
+    constraint: 'universe_attempt_log_lane_chk',
+    tsFile: 'src/lib/backfill/universe-attempt-log.ts',
+    tsAnchor: 'export type AttemptLane',
+  },
 ]
 
 // ⛔ THE LAST MIGRATION THAT DEFINES THE CONSTRAINT WINS — migrations are applied in filename order and a

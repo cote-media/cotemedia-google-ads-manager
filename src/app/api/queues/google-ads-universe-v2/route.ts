@@ -143,7 +143,12 @@ async function publishGoverned(
 async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Promise<void> {
   const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
-  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
+  // ⛔ ABSENT MEANS 'descend' — LORAMER_TOP_EDGE_LANE_V1. Every message published before the field existed,
+  // and every message a future publisher forgets to stamp, consumes as the descending walk: the lane the
+  // rotation reads, the lane that may attest, the lane that self-chains. A forgotten field can therefore
+  // only ever produce the OLD behaviour, never a silently-unchained or silently-unattesting one.
+  const lane: NonNullable<UniverseMessageV2['lane']> = msg.lane ?? 'descend'
+  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}${lane === 'top-edge' ? ' [top-edge]' : ''}`
 
   // ══ 0 · THE VENDOR'S OWN REFUSAL, BEFORE ANYTHING ELSE ════════════════════════════════════════════════
   // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL). Placed FIRST, the
@@ -265,11 +270,20 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — here the range IS the window, so the parent is trivially itself.
     // Stamped anyway rather than left null: a null parent reads as UNKNOWN and HOLDS the anchor, which would
     // re-wedge exactly the covered ground this branch exists to advance past.
-    const coveredOpened = await appendAttemptStarted(coveredKey, 0, { startDate, endDate }, prov)
+    const coveredOpened = await appendAttemptStarted(coveredKey, 0, { startDate, endDate }, prov, lane)
     await appendAttemptFinished(coveredKey, coveredOpened.attemptNo, 'skipped', {
       requestsSpent: 0,
       error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${startDate}..${endDate} fully covered/attested on delivery; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
     }, prov)
+    // ⛔ A TOP-EDGE MESSAGE NEVER SELF-CHAINS — LORAMER_TOP_EDGE_LANE_V1. `advance` derives its successor as
+    // `startDate − 1`, so a strip message would publish a window ending the day BELOW the strip and start a
+    // SECOND descent through ground the walk has already covered — competing with the real descent for the
+    // same bite, on the same surfaces, forever. The strip is re-derived from the rotation every fire; it does
+    // not need a chain and must not have one.
+    if (lane === 'top-edge') {
+      console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a top-edge message never self-chains).`)
+      return
+    }
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
     console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
     return
@@ -410,7 +424,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     // `rangeKey` spreads it and then overwrites exactly the two columns that carry the meaning. For a year
     // the log recorded the RANGE under a column named `window_start`, the rotation returned it as "the last
     // window asked", and the anchor receded by ONE DAY per pass. The window is passed, not re-derived.
-    const opened = await appendAttemptStarted(rangeKey, 1, { startDate, endDate }, prov)
+    const opened = await appendAttemptStarted(rangeKey, 1, { startDate, endDate }, prov, lane)
     requests++
     try {
       const res = await captureSurfaceStreaming({
@@ -525,6 +539,13 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     console.warn(`[universe-v2] EMPTY-STRETCH ${clientId} ${label}: ${emptyStretch} consecutive all-empty windows — reported, NOT stopped. The walk continues.`)
   }
 
+  // ⛔ THE SECOND advance() EXIT, AND THE SAME REFUSAL — LORAMER_TOP_EDGE_LANE_V1. Both exits must carry it:
+  // guarding only one leaves the strip self-chaining on every pass that actually captured rows, which is the
+  // pass that matters. `universe-stream-consumer.guard.mjs` leg (f) drives BOTH and was seen red on each.
+  if (lane === 'top-edge') {
+    console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a top-edge message never self-chains).`)
+    return
+  }
   const adv = await advance({ ...msg, emptyStretch }, adapter, { stopDate: effectiveFloor, inceptionKnown: walkStop.inceptionKnown },
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
