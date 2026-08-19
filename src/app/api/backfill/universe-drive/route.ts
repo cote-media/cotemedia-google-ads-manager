@@ -127,7 +127,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ok: true, published: 0, floorReached: true,
       reason: `anchor ${anchor.anchorEnd} is below the resolved stop (${stop.basis}) — this surface has been walked to its floor`,
-      anchorBasis: anchor.basis, stopBasis: stop.basis,
+      anchorBasis: anchor.basis, stopBasis: stop.basis, stopDate: stop.stopDate,
     })
   }
   const { windowStart, windowEnd } = win
@@ -163,7 +163,7 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({
       ok: true, published: 0, nothingOwed: true, advancedCovered: !dryRun, window: `${windowStart}..${windowEnd}`,
-      anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis,
+      anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis, stopDate: stop.stopDate,
       coverage: { covered: owed.coverage.covered.length, attestedEmpty: owed.coverage.attestedEmpty.length, uncovered: 0 },
     })
   }
@@ -184,6 +184,6 @@ export async function GET(request: Request) {
     ok: true, published: dryRun ? 0 : 1, dryRun,
     window: `${windowStart}..${windowEnd}`, ranges: owed.ranges.length, owedDays: owed.coverage.uncovered.length,
     sizing: { days: sizing.days, basis: sizing.basis },
-    anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis, idempotencyKey,
+    anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis, stopDate: stop.stopDate, idempotencyKey,
   })
 }

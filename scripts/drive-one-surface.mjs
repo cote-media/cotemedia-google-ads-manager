@@ -148,13 +148,19 @@ const frontier = async () => (await q(`universe_attempt_log?select=window_start&
 const newestRowAt = async () => (await q(`universe_attempt_log?select=recorded_at&${SURF}&order=recorded_at.desc&limit=1`))[0]?.recorded_at ?? '1970-01-01T00:00:00Z'
 const call = async (dry, tag) => {
   const r = await fetch(`${DRIVE_URL}?clientId=${CLIENT_ID}&resource=${RESOURCE}&segment=${enc(SEGMENT)}&runId=${RUN_ID}-${tag}&dryRun=${dry ? 1 : 0}`,
-    { headers: { Authorization: `Bearer ${SECRET}` }, signal: AbortSignal.timeout(PASS_TIMEOUT_MS) })
+    // ⛔ BOUNDED BY THE SAME DERIVED CEILING, NEVER BY A SECOND OPINION. This read referenced
+    // PASS_TIMEOUT_MS — deleted in this very commit — so it threw ReferenceError inside the pass-1
+    // try/catch and printed "publish failed", blaming the route for a defect in the instrument.
+    { headers: { Authorization: `Bearer ${SECRET}` }, signal: AbortSignal.timeout(CEILING_MS) })
   const body = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(`route HTTP ${r.status}: ${JSON.stringify(body).slice(0, 200)}`)
   return body
 }
 
 let requests = 0, rowsTotal = 0
+// ⛔ THE ENGINE'S FLOOR, LATCHED AS IT IS REPORTED. Never a constant: Foam OH inceptions at 2022-03-04 and
+// Bath Fitter at 2020-01-27, and the old hard-coded value was simply wrong for the second.
+let stopDate = null
 const daysBetween = (a, b) => Math.round((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000)
 let fBefore = await frontier()
 const START_FRONTIER = fBefore
@@ -174,6 +180,7 @@ for (let pass = 1; pass <= PASS_CAP; pass++) {
   if (pub.nothingOwed) { console.log(`[drive] pass ${pass}: window ${pub.window} owes nothing — no publish; the anchor recedes on the next derivation.`); fBefore = await frontier(); continue }
   if (!pub.published) { console.log(`[drive] HALT — route published nothing and gave no reason: ${JSON.stringify(pub).slice(0, 240)}`); break }
   const windowBefore = pub.window, owedBefore = Number(pub.owedDays)
+  if (pub.stopDate) stopDate = pub.stopDate
 
   // ── ⛔ WAIT FOR THE TERMINAL ROW, NEVER FOR SILENCE — LORAMER_COMPLETION_SIGNAL_V1. Two versions of this
   // loop inferred completion from write activity and both were wrong, because write activity has gaps in the
@@ -212,6 +219,7 @@ for (let pass = 1; pass <= PASS_CAP; pass++) {
   const fAfter = await frontier()
   let after
   try { after = await call(true, `${pass}-probe`) } catch (e) { console.log(`[drive] HALT — post-pass derivation failed: ${String(e?.message ?? e)}`); break }
+  if (after.stopDate) stopDate = after.stopDate
   const windowAfter = after.floorReached ? 'FLOOR' : (after.window ?? 'none')
   const owedAfter = after.floorReached ? 0 : Number(after.owedDays ?? (after.nothingOwed ? 0 : NaN))
 
@@ -227,10 +235,15 @@ for (let pass = 1; pass <= PASS_CAP; pass++) {
   // ⛔ PROGRESS CARRIES THE DISTANCE, NOT ONLY THE POSITION. A frontier date alone cannot tell anyone whether
   // this run will arrive; days-remaining and the pass estimate are what make the rate legible while it runs.
   if (pass % 50 === 0) {
-    const remain = fAfter ? daysBetween(fAfter, FLOOR) : null
+    // ⛔ THE FLOOR IS READ, NEVER WRITTEN. This block referenced a FLOOR constant deleted in the same
+    // commit — outside every try, so it would have crashed the run at pass 50 having already spent ~50
+    // passes, and printed no END line. `stopDate` is the engine's per-(account,surface) answer, carried
+    // back by the route beside `stopBasis`; when it has not been reported yet the distance is simply
+    // unknown and says so, which is the honest reading and not an estimate.
+    const remain = fAfter && stopDate ? daysBetween(fAfter, stopDate) : null
     const perPass = fAfter ? (daysBetween(START_FRONTIER, fAfter) / pass) : 0
     const est = remain !== null && perPass > 0 ? Math.ceil(remain / perPass) : null
-    console.log(`[drive] ══ PROGRESS · frontier ${fAfter} · ${pass} passes · ${requests} requests (${REQUEST_CAP - requests} left) · ${rowsTotal.toLocaleString()} rows · ${remain} day(s) to floor ${FLOOR} · ~${est ?? '?'} passes remaining at ${perPass.toFixed(2)} day/pass`)
+    console.log(`[drive] ══ PROGRESS · frontier ${fAfter} · ${pass} passes · ${requests} requests (${REQUEST_CAP - requests} left) · ${rowsTotal.toLocaleString()} rows · ${remain ?? '?'} day(s) to floor ${stopDate ?? 'UNREPORTED'} · ~${est ?? '?'} passes remaining at ${perPass.toFixed(2)} day/pass`)
   }
 }
 console.log(`[drive] END — frontier ${await frontier()} · ${requests} vendor request(s) spent.`)

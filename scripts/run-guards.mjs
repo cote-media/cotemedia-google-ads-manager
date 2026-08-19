@@ -179,6 +179,12 @@ const GUARDS = [
   // defects were instruments, and an ungraded instrument is why. It drives the script's own --selftest and
   // requires a real-recorded-data fixture for every sized constant, named rather than counted.
   'tests/guards/drive-constants-have-fixtures.guard.mjs',
+  // ⛔ LORAMER_NO_DANGLING_REFERENCE_V1 — AND THIS IS THE ONE THAT CAUGHT THE PAIR ABOVE BEING WRONG. The
+  // two guards immediately preceding were written to police three deleted constants and asked only whether
+  // the DECLARATIONS were gone; two READS survived — `PASS_TIMEOUT_MS` in the publish call and `FLOOR` in the
+  // every-50-passes progress block — so the drive would have halted on pass 1 blaming the route, and crashed
+  // at pass 50 after ~50 passes of real vendor spend. `npm run build` never parses .mjs. Acorn does.
+  'tests/guards/no-dangling-reference.guard.mjs',
   // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.

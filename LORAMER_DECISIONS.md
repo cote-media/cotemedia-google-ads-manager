@@ -934,6 +934,41 @@ narrowing a window whose problem is not its width. It belongs beside the surface
 never in the retry bound. Queued as ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 and deliberately NOT bundled with
 the parent-window flight: "what may we ask" is a different question from "how far may we recede".
 
+## LORAMER_NO_DANGLING_REFERENCE_V1 (2026-08-19) — SETTLED. Do not relitigate. SHIPPED.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_ADJACENT_NUMBER_V1]], banked 2026-08-17 — every defect that day was one number measuring something NEXT TO the thing that mattered; and this session's own `drive-constants-have-fixtures` reasoning, which had already named the one-level-too-low failure ("it tested the predicate; nothing tested the CONSTANT") and then committed the same error one level up. · WEB: SKIPPED: should have searched `no-undef` / `no-unresolved` coverage for plain `.mjs` under `eslint-config-next`, and how other repos gate operator scripts that no type-checker parses. The defect was found by reading the file before spending on it, not by research, and the record says so rather than inventing a citation. · REPO: MEASURED, and it is why the new guard is not redundant — there is **NO eslint config file in this repo at all**, `lint` is a bare `next lint`, and `eslint-config-next` lints `app/pages/components/lib/src` only. **`scripts/` and `tests/` are linted by nothing.** Also `scripts/drive-one-surface.mjs` (both dangling reads), `tests/guards/drive-ceiling-pin.guard.mjs` (the guard that missed them), `src/app/api/backfill/universe-drive/route.ts` (`stop.stopDate`, already computed and never returned), and `node_modules/acorn` (already present via Next.js since 2026-05-27 — nothing was installed for this). — /THREE-SOURCE
+⛔ **THE CLASS: A GUARD THAT MEASURES A DELETION HAS NOT MEASURED THE PROPERTY.** `drive-ceiling-pin.guard.mjs`
+was written in the SAME COMMIT as the deletion, FOR THE EXPRESS PURPOSE of policing those exact three
+constants — `PASS_TIMEOUT_MS`, `QUIET_MS`, `FLOOR` — and it asked only whether the `const` LINES were gone.
+Two READS survived it: `AbortSignal.timeout(PASS_TIMEOUT_MS)` in the publish call, and `daysBetween(fAfter,
+FLOOR)` in the every-50-passes progress block. **DELETING A BINDING IS INCOMPLETE UNTIL ITS READERS ARE
+PROVEN GONE.** The absence of a declaration is ADJACENT to the property; the property is that nothing reads it.
+This is [[LORAMER_ADJACENT_NUMBER_V1]] committed inside a guard, by the guard's own author, on the same day
+the law was being quoted.
+⛔ **AND IT WOULD HAVE COST REAL SPEND, WHICH IS WHY IT IS BANKED AS A LAW AND NOT A TYPO.** The first read
+throws inside `call()`, where the pass-1 `try/catch` swallows it and prints `HALT — publish failed` — **the
+instrument halting on pass 1 and blaming the route for its own defect.** The second sits OUTSIDE every `try`:
+a crash at pass 50, after ~50 passes of real vendor requests, with no END line and no total. The authorised
+cap that day was 55 passes. It would have reached it.
+⛔ **EVERY GATE WAS GREEN OVER BOTH, AND THAT IS THE STRUCTURAL POINT.** `npm run build` does not parse
+`.mjs`. `next lint` does not reach `scripts/`. The script's own `--selftest` returns before either line. 131
+guards passed. **A green check answers a narrower question than the reader assumes** — here the narrow
+question was "were the declarations removed", and nobody asked "does this file still run".
+THE FIX IS A PARSER, NOT A PATTERN: `no-dangling-reference.guard.mjs` parses each subject with **acorn**,
+collects every binding the module introduces (declarations, params, destructuring, imports, catch clauses,
+function and class names) and reports any identifier READ that resolves to neither a binding nor a named
+global. ⛔ **A REGEX COULD NOT HAVE DONE THIS HONESTLY:** `${FLOOR}` sits inside a template literal and
+`'\d{4}'` inside a regex literal, and a text scan gets one of those two wrong whichever way it is written.
+RED-PROVEN on the real pre-fix tree — *"`:151` reads `PASS_TIMEOUT_MS` … `:230` reads `FLOOR` … At runtime
+that line throws ReferenceError. If it was a constant deleted on purpose, its READERS are part of the
+deletion."* — then GREEN after the fix, and registered in `run-guards.mjs` in the same commit.
+⚠ **STATED LIMITS, so the green is not over-read:** bindings are collected FILE-WIDE, not per-scope, so this
+catches DANGLING references and never MIS-SCOPED ones; a name that exists but holds the wrong value passes
+every leg; and only the listed subjects are parsed. It is a spelling gate for the files nothing else parses.
+COROLLARY, general: **when a guard is written to police a removal, its subject is the READERS, not the
+declaration.** The declaration is what you deleted; the readers are what you broke.
+
+
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
