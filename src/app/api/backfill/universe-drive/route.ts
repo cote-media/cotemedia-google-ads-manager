@@ -175,7 +175,10 @@ export async function GET(request: Request) {
   }
   // The resumer's shape, scoped by runId — see the header for why the scope is required rather than optional.
   const idempotencyKey = `drive|${runId}|${clientId}|${entry.resource}|${entry.segment ?? ''}|${windowStart}|${windowEnd}`
-  if (!dryRun) await send(TOPIC, msg satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
+  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
+  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
+  if (!dryRun) await send(TOPIC, { ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
 
   return NextResponse.json({
     ok: true, published: dryRun ? 0 : 1, dryRun,

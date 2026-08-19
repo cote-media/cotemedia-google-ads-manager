@@ -28,6 +28,26 @@ export type AttemptOutcome =
   // findable. ⛔ IT IS NOT 'skipped' — that is US declining to ask, and it must never attest.
   | 'ok' | 'zero' | 'nongrain' | 'skipped' | 'error' | 'quota_stop' | 'floor_stop' | 'abandoned_owed'
 
+/**
+ * ⛔ THE PHASES, AS A UNION SO THE DATABASE CAN BE PINNED TO IT — LORAMER_COMPLETION_SIGNAL_V1.
+ * `universe_attempt_log_phase_ck` is the DB half and `db-enum-mirrors-ts.guard.mjs` registers the pair. It
+ * exists because on 2026-08-17 `AttemptOutcome` was widened and its CHECK was not: Postgres rejected every
+ * write with 23514 while `npm run build`, 124 guards and a full check:data all read GREEN, because not one of
+ * them wrote such a row. This union is the same shape of change in the opposite order, and the guard is what
+ * stops the two drifting apart in EITHER direction.
+ * ⛔ 'message_finished' IS NOT AN ATTEMPT. It is the MESSAGE's terminal fact — the thing no observer could see
+ * before, which is why two instruments guessed at it. It carries no outcome (outcome_ck admits none on a
+ * non-finished phase) and no day; its reason goes in `error`.
+ */
+export type AttemptPhase = 'attempt_started' | 'day_committed' | 'attempt_finished' | 'message_finished'
+
+// ⛔ THE TERMINAL PHASE LIVES HERE, NOT IN THE CONTRACT MODULE, AND THE REASON IS A GUARD RATHER THAN TASTE.
+// It was in `universe-v2-contract.ts` for one build, and importing it made THIS file "reach the v2 topic" in
+// `universe-stream-consumer.guard.mjs` leg (e) — the guard that keeps the publisher set to exactly one. The
+// guard was right: an append helper has no business importing a topic module. The phases belong with the
+// union that names them and with the writers that use them.
+export const TERMINAL_PHASE: AttemptPhase = 'message_finished'
+
 /** The RANGE. This identifies WHAT WAS ATTEMPTED; `attempt_no` is a column and never part of it. */
 export interface AttemptKey {
   clientId: string
@@ -54,6 +74,25 @@ export interface AttemptKey {
 export interface ParentWindow {
   startDate: string
   endDate: string
+}
+
+/**
+ * ⛔ WHOSE WORK, AND WHICH EXECUTION — LORAMER_COMPLETION_SIGNAL_V1. TWO FACTS, AND THE SECOND IS NOT
+ * REDUNDANT. This was worked out against three separate adversary findings and each needs a different half:
+ *  · `messageKey` — PRODUCER-ASSIGNED, the idempotency key the publisher already mints. It answers WHOSE
+ *    WORK THIS IS, which is what a drive needs to stop counting a scheduled fire's requests as its own
+ *    (finding 4g). Enterprise Integration Patterns names exactly this as the minimum durable fact.
+ *  · `invocationId` — CONSUMER-ASSIGNED, minted once per handler entry. It answers WHICH EXECUTION wrote a
+ *    row. ⛔ **A MESSAGE KEY CANNOT DO THIS AND THAT IS WHY THERE ARE TWO.** Vercel Queues retries, and a
+ *    REDELIVERY OF THE SAME MESSAGE CARRIES THE SAME KEY — so an observer keyed on the message alone still
+ *    sees delivery #1's terminal row followed by delivery #2's range rows (finding 4f), and still cannot tell
+ *    two terminal rows apart (finding 4c). One id per delivery is the only thing that separates them.
+ * Both are OPTIONAL and both are NULL on every pre-083 row; the readers that matter fall back exactly as the
+ * parent-window columns do.
+ */
+export interface WriteProvenance {
+  messageKey?: string | null
+  invocationId?: string | null
 }
 
 export interface AttemptOpened {
@@ -87,7 +126,7 @@ const fail = (what: string, detail: unknown): never => {
  * Returns the attempt number and the count at this span. **Neither is a coverage answer**: both describe
  * how many times WE have tried, which is a fact about us, not about the data.
  */
-export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow): Promise<AttemptOpened> {
+export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?: ParentWindow, prov?: WriteProvenance): Promise<AttemptOpened> {
   // ⛔ THE PARENT IS STAMPED **IN THE RPC**, NOT HERE, AND THAT IS NOT AN IMPLEMENTATION DETAIL. This function
   // does not INSERT — `universe_attempt_open` (migrations/082, SECURITY DEFINER) owns the only INSERT that
   // ever writes an `attempt_started` row, because `attempt_no` must be derived under an advisory lock. The
@@ -103,6 +142,8 @@ export async function appendAttemptStarted(k: AttemptKey, requests = 1, parent?:
     p_requests: requests,
     p_parent_window_start: parent?.startDate ?? null,
     p_parent_window_end: parent?.endDate ?? null,
+    p_message_key: prov?.messageKey ?? null,
+    p_invocation_id: prov?.invocationId ?? null,
   })
   if (error) fail('attempt_started', error)
   // ⛔ THE RPC DERIVES `attempt_no` UNDER AN ADVISORY LOCK because `maxConcurrency: 2` lets two invocations
@@ -131,11 +172,13 @@ export async function appendDayCommitted(
   attemptNo: number,
   day: string,
   rowsWritten: number,
+  prov?: WriteProvenance,
 ): Promise<void> {
   const { error } = await supabaseAdmin.from('universe_attempt_log').insert({
     client_id: k.clientId, vendor: k.vendor, resource: k.resource, segment: k.segment,
     window_start: k.windowStart, window_end: k.windowEnd,
     attempt_no: attemptNo, phase: 'day_committed', day, rows_written: rowsWritten,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
   })
   if (error) fail('day_committed', error)
 }
@@ -163,11 +206,13 @@ export async function appendAttemptFinished(
     diskFreeBytes?: number | null
     error?: string | null
   } = {},
+  prov?: WriteProvenance,
 ): Promise<void> {
   const { error } = await supabaseAdmin.from('universe_attempt_log').insert({
     client_id: k.clientId, vendor: k.vendor, resource: k.resource, segment: k.segment,
     window_start: k.windowStart, window_end: k.windowEnd,
     attempt_no: attemptNo, phase: 'attempt_finished', outcome,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
     rows_written: detail.rowsWritten ?? null,
     requests_spent: detail.requestsSpent ?? null,
     refused_rows: detail.refusedRows ?? null,
@@ -177,6 +222,41 @@ export async function appendAttemptFinished(
   if (error) fail('attempt_finished', error)
 }
 
+
+/**
+ * PHASE 4 — ⛔ THE MESSAGE IS FINISHED. THE FACT THAT DID NOT EXIST, AND WHOSE ABSENCE MADE EVERY OBSERVER
+ * GUESS. LORAMER_COMPLETION_SIGNAL_V1.
+ *
+ * ⛔ IT IS WRITTEN FROM A `finally`, ON EVERY EXIT PATH INCLUDING AN UNCAUGHT THROW. The consumer has NINE
+ * exits — eight bare returns and a throw — and its only `try` wrapped one range. A per-return write would have
+ * covered eight of nine, and the ninth is the one that matters: `appendAttemptStarted` and
+ * `appendAttemptFinished` throw BY DESIGN, so the paths most likely to end badly were the paths least likely
+ * to record it.
+ *
+ * ⛔ IT CARRIES **NO OUTCOME**, DELIBERATELY, AND THE REASON IS A CONSTRAINT RATHER THAN A PREFERENCE.
+ * `universe_attempt_log_outcome_ck` binds `outcome` to `phase = 'attempt_finished'` BY STRUCTURE — a new phase
+ * is admitted only with `outcome IS NULL`. Carrying one would mean rewriting that constraint's shape, not its
+ * value list: a SECOND 23514-class change on the very constraint that produced a live incident on 2026-08-17.
+ * The exit reason goes in `error`, which is free text and carries no CHECK, so nothing is lost but the cost.
+ *
+ * ⚠ `attemptNo` IS 1 AND IS NOT AN ATTEMPT COUNT. `universe_attempt_log_attempt_no_ck` requires >= 1 and a
+ * message is not a try; the number is a constraint tax, stated so nobody reads meaning into it.
+ */
+export async function appendMessageFinished(
+  k: AttemptKey,
+  detail: { error?: string | null } = {},
+  prov?: WriteProvenance,
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('universe_attempt_log').insert({
+    client_id: k.clientId, vendor: k.vendor, resource: k.resource, segment: k.segment,
+    window_start: k.windowStart, window_end: k.windowEnd,
+    parent_window_start: k.windowStart, parent_window_end: k.windowEnd,
+    attempt_no: 1, phase: TERMINAL_PHASE,
+    error: detail.error ?? null,
+    message_key: prov?.messageKey ?? null, invocation_id: prov?.invocationId ?? null,
+  })
+  if (error) fail('message_finished', error)
+}
 
 /**
  * HOW MANY TIMES THIS RANGE HAS BEEN OPENED **AT A GIVEN SPAN**, read WITHOUT opening one.

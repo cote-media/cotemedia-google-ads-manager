@@ -66,7 +66,7 @@ import { captureSurfaceStreaming, serializeVendorError } from '@/lib/backfill/un
 import { googleAdsCaptureAdapter, surfaceOfEntry, isRetentionWallRefusal } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { mayFetch } from '@/lib/backfill/capture-adapter'
 import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
-import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey } from '@/lib/backfill/universe-attempt-log'
+import { appendAttemptStarted, appendDayCommitted, appendAttemptFinished, appendMessageFinished, readAttemptsAtSpan, readAttemptLaneSpendToday, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
 // ⛔ THE MIS-SIZED SPLIT IS A PURE DECISION AND LIVES WITH THE OTHER PURE DECISIONS — importing it rather
 // than recomputing it here is what lets a guard DRIVE the "no day belongs to neither half" invariant.
@@ -77,7 +77,7 @@ import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // any non-Route export from a route file ("TOPIC is not a valid Route export field") — and `tsc --noEmit`
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
 // topic and the message type without dragging a handler and its maxDuration into scope.
-import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, CONSUMER_MAX_DURATION_S, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate, imported, never re-derived. `holdGoogleWork`
 // and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
@@ -86,10 +86,16 @@ import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_
 // ⛔ LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the SHIPPED rule, not a second copy. lap-budget.ts:14-17:
 // "A BETWEEN-ITERATION BUDGET CHECK IS ONLY SAFE IF ONE ITERATION CANNOT EXCEED THE REMAINING CEILING."
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
+import { randomUUID } from 'node:crypto'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
-export const maxDuration = 300
+// ⛔ THE CEILING IS THE CONTRACT'S, NOT A LITERAL — LORAMER_COMPLETION_SIGNAL_V1. An observer has to know how
+// long an invocation may live, and Vercel's guarantee is "if a function runs for longer than its set maximum
+// duration, Vercel will terminate it". Written as 300 here it was a number two other files had to guess at;
+// `drive-ceiling-pin.guard.mjs` now pins this export, the contract and the drive to ONE value, because Pro
+// permits 800s (1800s extended) and raising it is legal.
+export const maxDuration = CONSUMER_MAX_DURATION_S
 
 // ⛔ 120s OF HEADROOM UNDER THE 300s CEILING — the SAME margin the drain holds under its own
 // (cron/drain/route.ts: 1,680,000 under 1800s). This is the budget that stops the route TAKING ON a range;
@@ -110,7 +116,10 @@ async function publishGoverned(
   // percentage across three simultaneous meters.
   const gate = await mayFetch(adapter, days)
   if (!gate.ok) return { published: false, reason: gate.reason }
-  await send(TOPIC, next satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
+  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
+  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
+  await send(TOPIC, { ...next, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
   return { published: true, reason: gate.reason }
 }
 
@@ -125,7 +134,13 @@ async function publishGoverned(
 // validator for v2 and none for v1 after a clean `rm -rf .next/types`. So v1 is not proven compliant — it
 // is UNCHECKED, and would surface the same error the day it is edited. That is a latent trap for whoever
 // touches it next, not a difference in correctness.
-const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) => {
+// ⛔ THE BODY IS A NAMED FUNCTION SO THE HANDLER CAN WRAP IT — LORAMER_COMPLETION_SIGNAL_V1. Every exit of
+// this function, INCLUDING A THROW, passes through the handler's `finally` below. That is the whole design:
+// the consumer has NINE exits (eight bare returns and an uncaught throw) and its only `try` wrapped one
+// range, so a per-return write would have covered eight of nine — and the ninth is the one that matters,
+// because `appendAttemptStarted`/`appendAttemptFinished` throw BY DESIGN and the paths most likely to end
+// badly were the paths least likely to record it.
+async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Promise<void> {
   const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`
@@ -250,7 +265,7 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1 — here the range IS the window, so the parent is trivially itself.
     // Stamped anyway rather than left null: a null parent reads as UNKNOWN and HOLDS the anchor, which would
     // re-wedge exactly the covered ground this branch exists to advance past.
-    const coveredOpened = await appendAttemptStarted(coveredKey, 0, { startDate, endDate })
+    const coveredOpened = await appendAttemptStarted(coveredKey, 0, { startDate, endDate }, prov)
     await appendAttemptFinished(coveredKey, coveredOpened.attemptNo, 'skipped', {
       requestsSpent: 0,
       error: `COVERED_SKIP — LORAMER_WALK_UNWEDGE_V1: window ${startDate}..${endDate} fully covered/attested on delivery; advanced past it with ZERO vendor ops. NOT a vendor attestation — coverage derivation ignores 'skipped'.`,
@@ -395,14 +410,14 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     // `rangeKey` spreads it and then overwrites exactly the two columns that carry the meaning. For a year
     // the log recorded the RANGE under a column named `window_start`, the rotation returned it as "the last
     // window asked", and the anchor receded by ONE DAY per pass. The window is passed, not re-derived.
-    const opened = await appendAttemptStarted(rangeKey, 1, { startDate, endDate })
+    const opened = await appendAttemptStarted(rangeKey, 1, { startDate, endDate }, prov)
     requests++
     try {
       const res = await captureSurfaceStreaming({
         adapter, surface,
         ctx: { clientId, userEmail, accountId: customerId },
         startDate: range.start, endDate: range.end,
-        onDayCommitted: (day: string, rows: number) => appendDayCommitted(rangeKey, opened.attemptNo, day, rows),
+        onDayCommitted: (day: string, rows: number) => appendDayCommitted(rangeKey, opened.attemptNo, day, rows, prov),
       })
       totalRows += res.rowsWritten
       totalApi += res.apiRows
@@ -514,6 +529,46 @@ const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) =>
     `walked ${owed.ranges.length} owed range(s): ${totalRows} rows, ${daysCommitted.length} day(s) committed`)
   console.log(`[universe-v2] ADVANCE ${clientId} ${label}: ${JSON.stringify(adv)}`)
   return
+}
+
+const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) => {
+  // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
+  // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
+  // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
+  // the message alone can tell delivery #1's terminal row from delivery #2's later range rows.
+  const prov: WriteProvenance = {
+    messageKey: msg.messageKey ?? null,
+    invocationId: randomUUID(),
+  }
+  // ⛔ THE TERMINAL KEY IS BUILT FROM THE MESSAGE ALONE, and that is not tidiness. The quota-hold exit fires
+  // at :154 — BEFORE `key` exists at :160 and before `surface`/`adapter` — so a key derived from those
+  // variables could not be written on the earliest exit path there is.
+  const termKey: AttemptKey = {
+    clientId: msg.clientId, vendor: VENDOR,
+    resource: msg.entry.resource, segment: msg.entry.segment ?? '',
+    windowStart: msg.startDate, windowEnd: msg.endDate,
+  }
+  let ended = 'returned'
+  try {
+    await runOneMessage(msg, prov)
+  } catch (e: any) {
+    // ⛔ RECORD AND RETHROW. Swallowing here would convert a crash into a silent success and hand the queue a
+    // 2xx for work that did not happen — the exact inversion of what this row exists to prevent.
+    ended = `THREW: ${String(e?.message ?? e).slice(0, 400)}`
+    throw e
+  } finally {
+    // ⛔ THE TERMINAL WRITE MAY NOT MASK THE ORIGINAL ERROR. A throw from inside a `finally` REPLACES the
+    // exception in flight, so a failed bookkeeping write would erase the real fault and send the next reader
+    // to the wrong subsystem. It is caught, logged loudly, and dropped — the ONE place in this codebase where
+    // swallowing is correct, and it is stated rather than assumed.
+    try {
+      await appendMessageFinished(termKey, { error: `MESSAGE ${ended}` }, prov)
+    } catch (termErr: any) {
+      console.error(`[universe-v2] TERMINAL ROW FAILED for ${msg.clientId} ${msg.entry.resource}/${msg.entry.segment ?? ''} ` +
+        `${msg.startDate}..${msg.endDate}: ${String(termErr?.message ?? termErr)}. ⛔ The pass is now INDETERMINATE to every ` +
+        `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
+    }
+  }
 })
 
 export const POST = handler as unknown as (req: Request) => Promise<Response>

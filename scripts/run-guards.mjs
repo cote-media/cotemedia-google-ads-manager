@@ -165,6 +165,20 @@ const GUARDS = [
   // window). It belongs in the BUILD, not check:data: it needs no database and it is GREEN, so a red here is
   // a regression someone just wrote rather than history waiting on a re-walk.
   'tests/guards/mis-size-must-re-owe.guard.mjs',
+  // LORAMER_COMPLETION_SIGNAL_V1 — the terminal row must be UNAVOIDABLE, not remembered. The consumer has
+  // nine exits and one of them is an uncaught throw, so a per-return write covers eight; this checks the
+  // STRUCTURE (named body · one try/catch/finally · the write inside the finally · the catch rethrows · no
+  // exit above the try). RED-PROVEN against 7cd2f13, which fails four of its legs.
+  'tests/guards/completion-signal-on-every-exit.guard.mjs',
+  // LORAMER_COMPLETION_SIGNAL_V1 — one ceiling, declared once, read in three places, written in none. Pro
+  // permits 800s/1800s, so `maxDuration` moving is legal and a hard-coded 300 elsewhere would go silently
+  // wrong. RED-PROVEN against 7cd2f13, which fails all seven legs.
+  'tests/guards/drive-ceiling-pin.guard.mjs',
+  // ⛔ LORAMER_COMPLETION_SIGNAL_V1 — AND THIS ONE IS THE STRUCTURAL FIX. `drive-one-surface.mjs` had its
+  // numbers quoted in FIVE governance documents and sat in no guard suite at all; five of 2026-08-18's six
+  // defects were instruments, and an ungraded instrument is why. It drives the script's own --selftest and
+  // requires a real-recorded-data fixture for every sized constant, named rather than counted.
+  'tests/guards/drive-constants-have-fixtures.guard.mjs',
   // LORAMER_CAPTURE_ADAPTER_CONTRACT_V1 — the seam: the core may not name a platform, an ordering
   // entitlement needs a MECHANISM, a null-floor adapter cannot claim exhaustion, the meter refuses a
   // bare cap-and-spend constant, and the sizer obeys the cost DIRECTION instead of always sizing up.

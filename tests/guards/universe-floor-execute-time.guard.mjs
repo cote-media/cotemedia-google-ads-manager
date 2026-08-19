@@ -56,7 +56,13 @@ for (const d of destructures) {
 // per-(account,surface) state, in the same invocation that uses it.** Either spelling satisfies it; what
 // still fails is resolving at module scope, or not resolving at all. Widening a guard to admit a rename is
 // how a guard stops guarding — so this accepts a NAMED alternative, never a wildcard.
-const handlerAt = code.search(/handleCallback\s*\(/)
+// ⛔ RE-ANCHORED 2026-08-18 — LORAMER_COMPLETION_SIGNAL_V1, AND THE PROPERTY IS UNCHANGED. The consumer's
+// body is now the named `runOneMessage` and `handleCallback(` moved to the END of the file, so anchoring on
+// the callback made a per-message resolution INSIDE the body look like module scope — the guard's PROXY
+// moved, not the fact it protects. The execute-time boundary is the start of the per-message body, whichever
+// form it takes; `handleCallback(` remains the fallback for a handler that has not been split.
+const bodyAt = code.search(/async function runOneMessage\s*\(/)
+const handlerAt = bodyAt !== -1 ? bodyAt : code.search(/handleCallback\s*\(/)
 const RESOLVERS = [/readAccountWall\s*\(/, /resolveWalkStop\s*\(/]
 const positions = RESOLVERS.map((re) => code.search(re)).filter((i) => i !== -1)
 const resolveAt = positions.length ? Math.min(...positions) : -1

@@ -69,7 +69,16 @@ if (/Date\.now\(\)\s*-\s*\w+\s*>\s*[A-Z_]*BUDGET/.test(src)) {
 }
 
 // ── (d) THE BUDGET LEAVES REAL HEADROOM UNDER THE PLATFORM CEILING ────────────────────────────────────────
-const md = src.match(/export\s+const\s+maxDuration\s*=\s*(\d+)/)
+// ⛔ WIDENED 2026-08-18 — LORAMER_COMPLETION_SIGNAL_V1. `maxDuration` is no longer a literal here: it now
+// REFERENCES `CONSUMER_MAX_DURATION_S` in the contract, because an observer (the drive) has to read the same
+// ceiling and a number restated in two files is a number that drifts. The property this guard protects is
+// UNCHANGED — the reservation must be measured against the real ceiling — so the read follows the constant to
+// its declaration instead of demanding a digit. A literal is still accepted; both forms resolve to one value,
+// and `drive-ceiling-pin.guard.mjs` is what stops them disagreeing.
+const mdRef = /export\s+const\s+maxDuration\s*=\s*CONSUMER_MAX_DURATION_S\b/.test(src)
+const md = mdRef
+  ? (readFileSync(resolve(ROOT, 'src/lib/backfill/universe-v2-contract.ts'), 'utf8').match(/export const CONSUMER_MAX_DURATION_S\s*=\s*(\d+)/))
+  : src.match(/export\s+const\s+maxDuration\s*=\s*(\d+)/)
 const budget = src.match(/const\s+[A-Z_]*BUDGET_MS\s*=\s*([\d_]+)/)
 if (!md) {
   findings.push(`${CONSUMER} declares no maxDuration — the ceiling this reservation is measured against is unknown.`)

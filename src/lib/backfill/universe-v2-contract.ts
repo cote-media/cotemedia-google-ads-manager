@@ -45,6 +45,25 @@ export const NARROW_AFTER_ATTEMPTS = 2
  */
 export const EMPTY_STRETCH_REPORT_AFTER = 400
 
+/**
+ * ⛔ THE CONSUMER'S DECLARED DURATION CONTRACT — LORAMER_COMPLETION_SIGNAL_V1, and it lives HERE rather than
+ * in the route because an OBSERVER needs it and must not import a handler to get it.
+ *
+ * ⛔ WHY THIS IS A CONTRACT AND NOT AN OBSERVATION, WHICH IS THE WHOLE POINT. Vercel's own documentation
+ * (vercel.com/docs/functions/configuring-functions/duration, page last_updated 2026-07-01): *"If a function
+ * runs for longer than its set maximum duration, Vercel will terminate it."* That is a PLATFORM GUARANTEE
+ * enforced by someone other than the observer — the bar Temporal's Start-To-Close and SQS's visibility
+ * timeout both meet, and the bar `QUIET_MS = 10_000` never met, because 10s came from a measured 1-4s
+ * inter-range GAP rather than from any contract. An invocation cannot be alive past this value.
+ *
+ * ⛔ AND 300 IS OUR CHOICE, NOT THE PLATFORM'S CEILING. The same page gives Pro a maximum of 800s and an
+ * extended maximum of 1800s. Raising this is legal and plausible; anything that hard-codes 300 elsewhere
+ * becomes silently wrong the day it moves. `drive-ceiling-pin.guard.mjs` pins the route's export and the
+ * drive's ceiling to THIS constant for exactly that reason.
+ */
+export const CONSUMER_MAX_DURATION_S = 300
+
+
 export interface UniverseMessageV2 {
   clientId: string
   userEmail: string
@@ -55,6 +74,16 @@ export interface UniverseMessageV2 {
   endDate: string
   /** How many windows this chain may still walk, including this one. UNDEFINED = unbounded. */
   windowsRemaining?: number
+  /**
+   * ⛔ THE PRODUCER-ASSIGNED MESSAGE IDENTIFIER — LORAMER_COMPLETION_SIGNAL_V1, and it is REQUIRED prior art
+   * rather than a convenience. Enterprise Integration Patterns: *"Use a producer-assigned message identifier
+   * or a business-level idempotency key that identifies the specific logical operation."* We already MINT one
+   * — it is the idempotency key every publisher hands the queue — and until now we threw it away, so no
+   * durable row could say WHICH PUBLISHER caused it. That is what let a scheduled fire's requests be
+   * attributed to a drive's pass, and the earlier design banked that as "an acceptable counting error"; the
+   * pattern does not offer that option. Optional on the type so a legacy in-flight message still consumes.
+   */
+  messageKey?: string
   /**
    * ⛔ DEAD FIELD — the consumer NEVER reads it (universe-floor-execute-time.guard.mjs fails the build if it
    * does). The floor is resolved at EXECUTE time from universe_account_floor. The field survives only

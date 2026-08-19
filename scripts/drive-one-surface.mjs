@@ -35,15 +35,39 @@ const CLIENT_ID = '957d484e-d0c4-4dd0-b382-d8499d556252'
 const VENDOR = 'google'
 const RESOURCE = 'campaign_search_term_view'
 const SEGMENT = 'segments.device'
-const FLOOR = '2022-03-04'
+// ⛔ NO FLOOR CONSTANT — LORAMER_COMPLETION_SIGNAL_V1. It read `'2022-03-04'`: Foam OH's DISCOVERED inception,
+// frozen into an instrument, which is exactly the class `LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1` killed in the
+// engine and this script then reintroduced. The route resolves the stop per (account, surface) at execute
+// time and RETURNS it — `floorReached` and `stopBasis` — so the drive reads the engine's answer instead of
+// asserting one. Bath Fitter's google history begins 2020-01-27; the constant was wrong for it by 4 years.
 
 const PASS_CAP = Number(process.env.DRIVE_PASS_CAP ?? 1600)
 const REQUEST_CAP = Number(process.env.DRIVE_REQUEST_CAP ?? 3200)
-const PASS_TIMEOUT_MS = 180_000
-const QUIET_MS = 10_000
+
+// ⛔ THE CEILING IS READ FROM THE CONSUMER'S DECLARED CONTRACT — LORAMER_COMPLETION_SIGNAL_V1.
+// `PASS_TIMEOUT_MS = 180_000` used to sit here and it mirrored `WALK_BUDGET_MS`, the consumer's budget for
+// TAKING a new range — the wrong quantity. What bounds "could the consumer still be alive" is
+// `CONSUMER_MAX_DURATION_S`, because Vercel's guarantee is "if a function runs for longer than its set
+// maximum duration, Vercel will terminate it". Pro permits 800s and 1800s extended, so the number is OURS
+// and must be read, never written: `drive-ceiling-pin.guard.mjs` pins this read, the contract and the
+// route's export to one value.
+export const readConsumerMaxDurationS = (src) => {
+  const m = src.match(/export const CONSUMER_MAX_DURATION_S\s*=\s*(\d+)/)
+  if (!m) throw new Error('CONSUMER_MAX_DURATION_S not found in universe-v2-contract.ts — the ceiling has no contract to derive from, and a guessed one is the defect this replaced')
+  return Number(m[1])
+}
+// ⛔ THE MARGIN IS DERIVED, NOT CHOSEN. After the platform kill no further row can appear, so the observer
+// needs exactly one more poll to see the absence — nothing else is being waited for.
+const POLL_MS = 2000
 const RUN_ID = process.env.DRIVE_RUN_ID || `drive-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}`
 
 // ── THE TWO PREDICATES, PURE, SO THEY CAN BE DRIVEN WITH RECORDED DATA ──────────────────────────────────
+/** v2's quiesce, KEPT ONLY AS A FIXTURE SUBJECT. Silence is not completion — Temporal, SQS and Airbyte all
+ *  say so, and pass 3 of 2026-08-18 proved it locally: open 22:31:53.470, finish 22:32:09.300, 8,649 rows,
+ *  against a 10s quiet window. `quiesceWouldHaveFired` exists so a guard can drive that recorded trace and go
+ *  RED on any constant that would blind the instrument again. */
+export const quiesceWouldHaveFired = (a) => a.quietMs < a.openToFinishMs
+
 /** v1 — WRONG. Kept ONLY so the self-test can show it false-stalling on real recorded numbers. */
 export const progressByFrontier = (a) => Boolean(a.frontierBefore && a.frontierAfter && a.frontierAfter < a.frontierBefore)
 /** v2 — the owed set. A changed window is progress; a shrunken owed count is progress. Neither is a stall. */
@@ -67,8 +91,37 @@ if (process.argv.includes('--selftest')) {
   // And the case that MUST still halt: quiesced, same window, owed unchanged.
   const genuine = { frontierBefore: '2026-02-04', frontierAfter: '2026-02-04', windowBefore: 'W', windowAfter: 'W', owedBefore: 3, owedAfter: 3 }
   console.log(`[selftest] v2 on a GENUINE stall (same window, owed 3 → 3) → ${progressByOwedSet(genuine) ? 'progress ⛔ WRONG' : 'STALL ✅'}`)
-  const ok = !oldSaysProgress && newSaysProgress && !progressByOwedSet(genuine)
-  console.log(`[selftest] ${ok ? 'PASS — v1 false-stalls on real data, v2 reads it as progress, v2 still halts on a genuine stall.' : 'FAIL'}`)
+  // ── ⛔ CONSTANT FIXTURES — LORAMER_COMPLETION_SIGNAL_V1. EVERY SIZED CONSTANT GETS A FIXTURE DRAWN FROM
+  // REAL RECORDED DATA THAT SITS ON THE WRONG SIDE OF IT. This is the leg that was missing: the self-test
+  // above proved the PREDICATES and nothing ever proved the CONSTANTS, so `QUIET_MS = 10_000` — sized on a
+  // measured 1-4s inter-range gap — shipped and blinded the instrument on the first dense day it met.
+  const fixtures = []
+  // (1) THE RECORDED TRACE THAT BROKE IT. Pass 3, 2026-08-18: attempt_started 22:31:53.470,
+  //     attempt_finished 22:32:09.300 — 15,830 ms open→finish on an 8,649-row day.
+  fixtures.push({
+    name: 'QUIET_MS vs the 2026-08-18 pass-3 trace (15,830 ms open→finish, 8,649 rows)',
+    ok: quiesceWouldHaveFired({ quietMs: 10_000, openToFinishMs: 15_830 }) === true,
+    why: 'a 10s quiet window MUST be shown firing early on this trace; if it does not, the fixture has stopped measuring what it was written for',
+  })
+  // (2) THE CEILING MUST COME FROM THE CONTRACT, and the contract must still be readable.
+  let maxDurS = null
+  try { maxDurS = readConsumerMaxDurationS(readFileSync(path.resolve(ROOT, 'src/lib/backfill/universe-v2-contract.ts'), 'utf8')) } catch { maxDurS = null }
+  fixtures.push({
+    name: 'ceiling derives from CONSUMER_MAX_DURATION_S (an invocation alive at maxDuration)',
+    ok: Number.isInteger(maxDurS) && maxDurS > 0 && (maxDurS * 1000 + POLL_MS) > maxDurS * 1000,
+    why: `read ${maxDurS}s from the contract; a ceiling at or below maxDuration cannot tell "still running" from "dead", which is the whole point of deriving it`,
+  })
+  // (3) THE FLOOR IS THE ENGINE'S ANSWER, NOT A CONSTANT. Bath Fitter's google history begins 2020-01-27 —
+  //     an inception this script's old hard-coded '2022-03-04' is simply wrong about.
+  fixtures.push({
+    name: "FLOOR is not hard-coded (an account whose inception is 2020-01-27, not 2022-03-04)",
+    ok: !/const FLOOR\s*=\s*'\d{4}-\d{2}-\d{2}'/.test(readFileSync(path.resolve(ROOT, 'scripts/drive-one-surface.mjs'), 'utf8')),
+    why: 'a per-account discovered inception frozen as a script constant is exactly the class LORAMER_UNIVERSE_DISCOVERED_FLOOR_V1 killed in the engine; the route returns stopBasis and floorReached',
+  })
+  for (const f of fixtures) console.log(`[selftest] fixture ${f.ok ? 'PASS' : '⛔ FAIL'} — ${f.name}${f.ok ? '' : ` :: ${f.why}`}`)
+  const fixturesOk = fixtures.every((f) => f.ok)
+  const ok = !oldSaysProgress && newSaysProgress && !progressByOwedSet(genuine) && fixturesOk
+  console.log(`[selftest] ${ok ? 'PASS — v1 false-stalls on real data, v2 reads it as progress, v2 still halts on a genuine stall, and every sized constant has a real-data fixture on the wrong side of it.' : 'FAIL'}`)
   process.exitCode = ok ? 0 : 1
 } else {
 
@@ -105,12 +158,14 @@ let requests = 0, rowsTotal = 0
 const daysBetween = (a, b) => Math.round((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000)
 let fBefore = await frontier()
 const START_FRONTIER = fBefore
-console.log(`[drive] START ${RESOURCE}/${SEGMENT} · frontier=${fBefore} · floor=${FLOOR} · runId=${RUN_ID}`)
-console.log(`[drive] caps ${PASS_CAP} passes / ${REQUEST_CAP} requests · quiesce ${QUIET_MS / 1000}s · HALT when a QUIESCED pass leaves the OWED SET unchanged`)
+const MAX_DUR_S = readConsumerMaxDurationS(readFileSync(path.resolve(ROOT, 'src/lib/backfill/universe-v2-contract.ts'), 'utf8'))
+const CEILING_MS = MAX_DUR_S * 1000 + POLL_MS
+console.log(`[drive] START ${RESOURCE}/${SEGMENT} · frontier=${fBefore} · floor=FROM THE ROUTE (stopBasis) · runId=${RUN_ID}`)
+console.log(`[drive] caps ${PASS_CAP} passes / ${REQUEST_CAP} requests · ceiling ${CEILING_MS / 1000}s DERIVED from CONSUMER_MAX_DURATION_S=${MAX_DUR_S}s + one poll · WAITS FOR THE TERMINAL ROW, never for silence`)
 
 for (let pass = 1; pass <= PASS_CAP; pass++) {
   if (requests >= REQUEST_CAP) { console.log(`[drive] HALT — request cap ${REQUEST_CAP} reached.`); break }
-  if (fBefore && fBefore <= FLOOR) { console.log(`[drive] ✅ PROVEN — frontier ${fBefore} reached the floor ${FLOOR} after ${pass - 1} pass(es), ${requests} request(s).`); break }
+  // ⛔ NO LOCAL FLOOR TEST. `pub.floorReached` below is the ENGINE's answer, resolved per (account, surface).
 
   const since = await newestRowAt()
   let pub
@@ -120,19 +175,38 @@ for (let pass = 1; pass <= PASS_CAP; pass++) {
   if (!pub.published) { console.log(`[drive] HALT — route published nothing and gave no reason: ${JSON.stringify(pub).slice(0, 240)}`); break }
   const windowBefore = pub.window, owedBefore = Number(pub.owedDays)
 
-  // ── QUIESCE: wait until this surface has been silent for QUIET_MS, not for the first finished attempt. ──
-  const deadline = Date.now() + PASS_TIMEOUT_MS
-  let lastSeen = since, lastChange = Date.now(), sawAny = false
+  // ── ⛔ WAIT FOR THE TERMINAL ROW, NEVER FOR SILENCE — LORAMER_COMPLETION_SIGNAL_V1. Two versions of this
+  // loop inferred completion from write activity and both were wrong, because write activity has gaps in the
+  // MIDDLE: v1 returned on the first finished row (a 1-4s inter-range gap fooled it), v2 waited 10s of quiet
+  // (a 15.8s open→finish on a dense day fooled it). Airbyte, Temporal and SQS all say the same thing —
+  // completion is a POSITIVE record and absence is failure-or-not-yet, never done. The consumer now writes one.
+  // ⛔ MATCHED ON THE PRODUCER'S OWN KEY, which the route returns, so a scheduled */15 fire landing on this
+  // same surface mid-pass can never be mistaken for the drive's work.
+  const msgKey = pub.idempotencyKey
+  if (!msgKey) { console.log(`[drive] HALT — the route returned no idempotencyKey, so this pass cannot be attributed. Refusing to measure work I cannot prove is mine.`); break }
+  const deadline = Date.now() + CEILING_MS
+  let terminal = null
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 2000))
-    const newest = await newestRowAt()
-    if (newest !== lastSeen) { lastSeen = newest; lastChange = Date.now(); sawAny = true }
-    else if (sawAny && Date.now() - lastChange >= QUIET_MS) break
+    await new Promise((r) => setTimeout(r, POLL_MS))
+    const t = await q(`universe_attempt_log?select=recorded_at,error&${SURF}&phase=eq.message_finished&message_key=eq.${enc(msgKey)}&limit=1`)
+    if (t.length) { terminal = t[0]; break }
   }
-  if (!sawAny) { console.log(`[drive] HALT — pass ${pass} (window ${windowBefore}) produced no attempt row within ${PASS_TIMEOUT_MS / 1000}s. A pass that never lands is a halt, not a hang.`); break }
+  if (!terminal) {
+    // ⛔ LOUD INDETERMINATE, AND IT INVALIDATES THE MEASUREMENT RATHER THAN COLOURING IT. Vercel's contract is
+    // that an invocation cannot outlive its configured maxDuration, so past the ceiling there is no terminal
+    // row coming — the message did not finish, and a pass that cannot be proven complete must not be counted.
+    // The old loop fell through here SILENTLY when it had seen any row at all.
+    console.log(`[drive] ⛔ INDETERMINATE — pass ${pass} (window ${windowBefore}, key ${msgKey}) produced NO terminal row within ${CEILING_MS / 1000}s, which is CONSUMER_MAX_DURATION_S(${MAX_DUR_S}s) + one poll. Past that ceiling Vercel has terminated the invocation, so no terminal row is coming. THE MEASUREMENT IS VOID — not a stall, not a pass. Halting.`)
+    break
+  }
 
-  const walked = await q(`universe_attempt_log?select=window_start,window_end,outcome,rows_written&${SURF}&phase=eq.attempt_finished&recorded_at=gt.${enc(since)}&order=recorded_at.asc`)
-  requests += walked.length
+  // ⛔ THE COUNTER JOINS ON THE PRODUCER'S KEY, NOT ON A TIME WINDOW, and it sums the column that is CHARGED
+  // BEFORE the vendor call. Counting `attempt_finished` rows inside a `recorded_at >` window — the old shape —
+  // inherits the same boundary one layer down (it reported 2 where the ledger held 3) and silently drops every
+  // attempt that was charged and then died.
+  const started = await q(`universe_attempt_log?select=requests_spent&${SURF}&phase=eq.attempt_started&message_key=eq.${enc(msgKey)}`)
+  const walked = await q(`universe_attempt_log?select=window_start,window_end,outcome,rows_written&${SURF}&phase=eq.attempt_finished&message_key=eq.${enc(msgKey)}&order=recorded_at.asc`)
+  requests += started.reduce((a, r) => a + Number(r.requests_spent ?? 0), 0)
   const rows = walked.reduce((s, w) => s + Number(w.rows_written ?? 0), 0)
   rowsTotal += rows
   const fAfter = await frontier()

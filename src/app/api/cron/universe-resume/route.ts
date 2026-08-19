@@ -415,7 +415,10 @@ export async function GET(request: Request) {
     // days already covered — one indexed read, no vendor request. Dedupe is the optimisation; derived
     // coverage is the correctness.
     const idempotencyKey = `resume|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
-    if (!dryRun) await send(TOPIC, msg satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
+  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
+  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
+    if (!dryRun) await send(TOPIC, { ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
     published.push({ label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
   }
 

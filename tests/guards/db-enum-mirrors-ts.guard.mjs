@@ -42,6 +42,16 @@ const PAIRS = [
     tsFile: 'src/lib/backfill/universe-attempt-log.ts',
     tsAnchor: 'export type AttemptOutcome',
   },
+  // ⛔ REGISTERED IN THE SAME COMMIT AS THE WIDENING IT COVERS — LORAMER_COMPLETION_SIGNAL_V1, migrations/083.
+  // The 2026-08-17 incident was a union widened without its CHECK; this pair is a CHECK widened alongside its
+  // union, registered immediately rather than "queued", because ★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR
+  // exists precisely because registration is the step that gets deferred.
+  {
+    label: 'universe_attempt_log.phase ↔ AttemptPhase',
+    constraint: 'universe_attempt_log_phase_ck',
+    tsFile: 'src/lib/backfill/universe-attempt-log.ts',
+    tsAnchor: 'export type AttemptPhase',
+  },
 ]
 
 // ⛔ THE LAST MIGRATION THAT DEFINES THE CONSTRAINT WINS — migrations are applied in filename order and a
