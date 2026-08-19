@@ -934,6 +934,34 @@ narrowing a window whose problem is not its width. It belongs beside the surface
 never in the retry bound. Queued as ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 and deliberately NOT bundled with
 the parent-window flight: "what may we ask" is a different question from "how far may we recede".
 
+## LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 (2026-08-19) — SETTLED. The engineering gate is SATISFIED. Do not re-litigate the build order.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] (the gate itself, decided 2026-08-17 and banked 2026-08-18), [[LORAMER_COMPLETION_SIGNAL_DESIGN_V1]] (the design this run is the first real exercise of), and the 2026-08-18 run that HALTED at pass 3 of ~41 — the stall that turned out to be the instrument, not the engine. · WEB: the completion-signal round's sources, CITED rather than re-searched — this run is that design's first real exercise and the prior art is what predicted the 1:1 terminal count: https://docs.temporal.io/encyclopedia/detecting-activity-failures · https://docs.temporal.io/activity-execution · https://temporal.io/blog/activity-timeouts · https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html · https://www.enterpriseintegrationpatterns.com/patterns/messaging/CorrelationIdentifier.html · https://learn.microsoft.com/en-gb/azure/architecture/patterns/idempotent-consumer · https://vercel.com/docs/functions/configuring-functions/duration . SKIPPED: no new search was run for THIS entry — whether anyone outside this repo has published a floor-to-inception convergence criterion for a paginated vendor backfill. The run's own arrival is the evidence here, and a search that did not happen is recorded as not having happened. · REPO: `scripts/drive-one-surface.mjs` and `universe-drive/route.ts` (the pass loop and the derivation it reuses), `universe_attempt_log` read by producer key for the run totals, `universe_account_inception` and `metrics_daily` for the independent floor proof, `universe-resumer.ts` for deriveAnchorEnd/deriveWindow. — /THREE-SOURCE
+**THE GATE IS SATISFIED. `campaign_search_term_view/segments.device` on Foam OH (957d484e) IS WALKED TO ITS
+INCEPTION.** 43 passes · **53 vendor requests** against caps of 55/70 · **36,862 rows** · 34 days committed ·
+**7 minutes wall clock** (02:50:24 → 02:57:24Z) · frontier **2025-04-27 → 2022-03-04**. Terminal state **(i)
+FLOOR REACHED**, in the route's own words: *"anchor 2022-03-03 is below the resolved stop (account inception
+2022-03-04) — this surface has been walked to its floor."*
+⛔ **THE PROOF IS INDEPENDENT OF BOTH THE ROUTE'S CLAIM AND THE SCRIPT'S STDOUT, AND THAT IS THE POINT — five
+of 2026-08-18's six defects were instruments.** Read from the ledger and the warehouse afterwards: the
+deepest window ever asked on this surface is **2022-03-04, exactly the recorded account inception**; 129
+ranges have been asked across its life; **0 have EVER finished `error`**; 1,363 distinct days carry rows at
+or after inception, earliest 2022-03-05. This run's outcomes: 34 `ok`, 19 `zero`, **0 `error`** — so it is a
+floor, not a vendor wall wearing one.
+⛔ **THE COMPLETION SIGNAL IS WHAT MADE THE RUN LEGIBLE, AND ITS NUMBERS ARE EXACT RATHER THAN CLOSE.** 43
+messages : 43 terminal rows : 43 distinct `invocation_id`s. Every terminal read `MESSAGE returned` — none
+threw. **ZERO indeterminate passes.** And the script's own request count agreed with the ledger TO THE UNIT
+(53 = 53), where the quiesce-based predecessor had reported 2 where the ledger held 3. An instrument that
+agrees with the system of record is the difference between a measurement and an anecdote.
+⇒ **WHAT THIS PROVES: THE ENGINE RUNS.** It recedes, it does not stall, it does not skip, it does not rewrite
+committed days, and it ARRIVES. ⛔ **WHAT IT DOES NOT PROVE, stated so nobody reads it wider than it is:
+NOTHING about DONE-DONE 1/3/5** — all grains, reconciles to the vendor UI, Lora-wired. Those are
+ACCOUNT-WIDE and they come next. One surface arriving is the precondition for going wide, never a substitute.
+⚠ AND THE HONEST COST LINE: 53 requests bought 1,623 days on ONE surface of one account. The fleet arithmetic
+that follows from that belongs to whoever opens the width question, and it should be re-derived from this
+measurement rather than from the ~1,427-pass estimate this run supersedes.
+
+
 ## LORAMER_NO_DANGLING_REFERENCE_V1 (2026-08-19) — SETTLED. Do not relitigate. SHIPPED.
 
 THREE-SOURCE — PRIOR CHATS: [[LORAMER_ADJACENT_NUMBER_V1]], banked 2026-08-17 — every defect that day was one number measuring something NEXT TO the thing that mattered; and this session's own `drive-constants-have-fixtures` reasoning, which had already named the one-level-too-low failure ("it tested the predicate; nothing tested the CONSTANT") and then committed the same error one level up. · WEB: SKIPPED: should have searched `no-undef` / `no-unresolved` coverage for plain `.mjs` under `eslint-config-next`, and how other repos gate operator scripts that no type-checker parses. The defect was found by reading the file before spending on it, not by research, and the record says so rather than inventing a citation. · REPO: MEASURED, and it is why the new guard is not redundant — there is **NO eslint config file in this repo at all**, `lint` is a bare `next lint`, and `eslint-config-next` lints `app/pages/components/lib/src` only. **`scripts/` and `tests/` are linted by nothing.** Also `scripts/drive-one-surface.mjs` (both dangling reads), `tests/guards/drive-ceiling-pin.guard.mjs` (the guard that missed them), `src/app/api/backfill/universe-drive/route.ts` (`stop.stopDate`, already computed and never returned), and `node_modules/acorn` (already present via Next.js since 2026-05-27 — nothing was installed for this). — /THREE-SOURCE
