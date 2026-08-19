@@ -1100,7 +1100,12 @@ without satisfying it; only the first resets nothing because only the first is a
 ⇒ **WHY THREE AND NOT ONE:** run #1 was the drive's HOME TURF — the surface the instrument was tuned
 against, sparse ground, single-day ranges, 1.33 ranges per parent window. One arrival on the surface you
 built the tool against is a demonstration, not evidence. The remaining two must stress SHAPES run #1 never
-met, which is why the selection below is made from measurements rather than convenience.
+met, which is why the selection is made from measurements rather than convenience.
+⛔ **POINTER CORRECTED 2026-08-19 ([[LORAMER_NO_DANGLING_REFERENCE_V1]]'s class, one file over): this line read
+"the selection below" and there is no selection below it — the next line is a different decision's heading.
+THE SELECTION LIVES AT `LORAMER_QUEUE_OF_RECORD.md:61` (★THREE-CLEAN-RUNS-BEFORE-FAMILY), which is the QUEUE's
+to own per the ownership map.** A doc pointer that resolves to nothing sends the reader to the wrong entry, and
+nothing in this repo checks doc-to-doc pointers — the acorn guard parses `.mjs` identifiers only.
 
 ## LORAMER_DRIVE_TAKES_ITS_SURFACE_V1 (2026-08-19) — SETTLED. Do not reintroduce a default.
 
@@ -1190,6 +1195,114 @@ every leg; and only the listed subjects are parsed. It is a spelling gate for th
 COROLLARY, general: **when a guard is written to police a removal, its subject is the READERS, not the
 declaration.** The declaration is what you deleted; the readers are what you broke.
 
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_THREE_CLEAN_RUNS_SATISFIED_V1 (2026-08-19) — SETTLED. The gate is SATISFIED, 3 of 3. Do not re-run it to re-decide.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_THREE_CLEAN_RUNS_BEFORE_FAMILY_V1]] (the rule, Russ, and the count it set at 1 of 3), [[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]] (run #1), [[LORAMER_COMPLETION_SIGNAL_HOLDS_UNDER_DENSITY_V1]] (run #2), and [[LORAMER_PARENT_IS_THE_UNIT_PROVEN_UNDER_FRAGMENTATION_V1]] (run #3's cap-stop, which this entry does NOT overturn — it records what happened after it). · WEB: NONE-APPLICABLE: whether OUR three named surfaces reached OUR resolved stop is answerable only from our own append-only ledger; no vendor doc or external practice bears on the count, and the prior art on completion signalling was cited when that design was banked and is not what is being decided here. · REPO: `universe_attempt_log` read by producer key for all three runs (passes, ranges, requests, outcomes, invocation stamping, parent windows), `universe_account_inception` for the resolved stop, `scripts/drive-one-surface.mjs` for the instrument, and the new leg (C) of `tests/guards/anchor-recedes-by-window.guard.mjs`, which re-derives all three arrivals from the ledger independently of this entry. — /THREE-SOURCE
+**THE GATE IS SATISFIED. THREE CONSECUTIVE SURFACES ON FOAM OH (957d484e) HAVE BEEN WALKED TO THE RESOLVED
+STOP 2022-03-04, EACH WITH A DIFFERENT STRESS AXIS, EACH WITH ZERO `error` OUTCOMES.** This SUPERSEDES the
+"COUNT: 2 of 3" at `LORAMER_QUEUE_OF_RECORD.md:15` and `:61`.
+  · **RUN #1 — stress HOME TURF / SPARSE.** `campaign_search_term_view / segments.device`. 43 passes ·
+    53 vendor requests (caps 55/70) · 36,862 rows · 34 days committed · ~7 min · 1.33 ranges/parent.
+    Terminal parent `2022-03-04..2022-03-14`, remainder **11 days**.
+  · **RUN #2 — stress DEPTH-DENSITY.** `geographic_view / segments.geo_target_most_specific_location`.
+    50 passes · 60 requests · 213,148 rows · 45 days · 12m01s · densest day 18,780 rows at 22,064 ms
+    open→finish. Terminal parent `2022-03-04..2022-03-23`, remainder **20 days**.
+  · **RUN #3 — stress MULTI-RANGE / FRAGMENTATION.** `geographic_view / segments.geo_target_airport`.
+    Segment A (04:32:23→04:54:55Z) hit the request cap at 151/150 after 49 passes — INCONCLUSIVE, banked as
+    [[LORAMER_PARENT_IS_THE_UNIT_PROVEN_UNDER_FRAGMENTATION_V1]], and by the rule's own words a cap-stop is
+    **not a reset**. Segment B RESUMED and ARRIVED (13:34:04.568→13:38:50.449Z, **4m45.9s**): **29 passes ·
+    80 ranges opened : 80 finished · 80 requests · 15 days committed · 28 rows · outcomes 15 `ok` / 65 `zero`
+    / 0 `error` · 17 parent windows · 29 messages : 29 terminals : 29 invocation_ids · 0 unstamped rows ·
+    0 rows without a parent window.** Terminal parent `2022-03-04..2022-03-26`, remainder **23 days**.
+⛔ **THE RUN #3 VERDICT LINE WAS ASKED FOR VERBATIM AND IS NOT REPRODUCED HERE, BECAUSE IT WAS NOT CAPTURED.**
+`scripts/drive-one-surface.mjs` writes no run artifact — its `✅ PROVEN` line goes to stdout and nowhere else,
+and that stdout was not persisted. The route's format string is
+`anchor ${anchorEnd} is below the resolved stop (${stopBasis}) — this surface has been walked to its floor`
+(`universe-drive/route.ts:136-140`), so the line's SHAPE is known; its exact text is not, and inventing one
+would be a fabricated quote in the file this repo trusts most. **THE ARRIVAL IS EVIDENCED FROM THE LEDGER
+INSTEAD**, by the numbers above and by the guard leg that re-derives them. ⇒ A drive run that persists its own
+verdict is queued as [[★DRIVE-VERDICT-NOT-PERSISTED]]; nothing about it is built in this flight.
+⚠ **AND THE HALF THAT MUST NOT BE GLOSSED: RUN #3 WAS NOT WALKED BY THE DRIVE ALONE.** The scheduled resumer
+fired on this same surface at 02:03, 08:02 and 12:02Z between the two drive segments, one parent window each.
+The pass and request counts above are segment B's, not the surface's total cost, and anyone re-deriving fleet
+arithmetic from them must say which number they are using.
+⇒ **WHAT THIS UNBLOCKS AND WHAT IT DOES NOT.** It discharges the ENGINE gate only. Conditions 1 (all grains),
+3 (reconciles to the customer's UI) and 5 (Lora-wired) of [[LORAMER_BACKFILL_DONE_DONE_V1]] are ACCOUNT-WIDE
+and untouched by three surfaces, and [[LORAMER_FLOOR_REACHED_IS_NOT_FULLY_COVERED_V1]] below bounds what
+"walked to its floor" is even a claim ABOUT.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_FLOOR_REACHED_IS_NOT_FULLY_COVERED_V1 (2026-08-19) — SETTLED. A vocabulary decision. Do not re-read the phrase the other way.
+
+THREE-SOURCE — PRIOR CHATS: the 2026-08-19 read-only top-edge audit that produced [[★TOP-EDGE-HAS-NO-LANE]], and my own ship report for [[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]], which said "walked to its floor" and let it be read as "covered". · WEB: NONE-APPLICABLE: this fixes the meaning of a phrase THIS repo's own route emits about ITS own anchor; no vendor doc defines it, and the incremental-sync prior art that DOES bear on the underlying gap is cited where it belongs, on [[★TOP-EDGE-HAS-NO-LANE]]. · REPO: `src/app/api/queues/google-ads-universe-v2/route.ts:611-614` (the floor declaration), `src/lib/backfill/universe-resumer.ts:420-421` (`deriveWindow`'s null return) and its `deriveAnchorEnd` header, plus the live coverage read over `metrics_daily` + `universe_attempt_log` that measured the 7-day strip. — /THREE-SOURCE
+**"WALKED TO ITS FLOOR" IS A CLAIM ABOUT THE BOTTOM ONLY: inception was reached FROM WHEREVER THE WALK BEGAN.
+IT IS NOT A CLAIM THAT THE SURFACE IS COVERED EDGE-TO-INCEPTION, AND IT NEVER WAS.**
+⛔ **BOTH FLOOR DECLARATIONS COMPARE ONLY THE DESCENDING EDGE AGAINST THE STOP. NEITHER READS THE TOP.**
+    `google-ads-universe-v2/route.ts:611-614`
+      const nextEnd = addDays(startDate, -1)
+      if (floorDate !== null && nextEnd < floorDate) {
+        return { ok: true, advanced: false, reason: `wall reached — next window would end ${nextEnd}, below the DISCOVERED vendor refusal at ${floorDate}`, why }
+      }
+    `universe-resumer.ts:420-421`
+      if (stopDate !== null && anchorEnd < stopDate) return null
+      ("Returns null when the anchor has fallen below the stop — that surface is COMPLETE, not owed.")
+  `advance` derives its next window as `startDate − 1` and never looks up; `deriveWindow` is handed an
+  `anchorEnd` that `deriveAnchorEnd` can only hold or lower. **A surface can therefore be declared complete
+  with any number of days sitting above the anchor**, and on 2026-08-19 that number was 7 on all 346 Foam OH
+  surfaces (2026-08-13..08-19, never asked by any lane — [[★TOP-EDGE-HAS-NO-LANE]]).
+⛔ **THE PROPERTY WAS ALREADY WRITTEN DOWN — IN A CODE COMMENT, AND NOWHERE ELSE**, which is
+[[★ENGINE-MARKERS-LIVE-IN-CODE-ONLY]] exactly. `deriveAnchorEnd`'s header, verbatim: *"a window answered when
+it was the anchor and later losing rows is not revisited by this scheduler — the anchor only moves down. That
+is a re-walk's job, not a scheduler's, and it is a KNOWN gap rather than a covered one."*
+⇒ **THE REPORTING RULE, and it is the operative half of this entry: a floor-reached result is reported as
+"walked to its floor from <the anchor it started at>", never as "complete" and never as "fully covered".**
+Two different questions — *how deep did it get* and *is the surface covered* — and only the first has an
+answer today. The same distinction [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] draws between the ENGINE gate and
+[[LORAMER_BACKFILL_DONE_DONE_V1]], one grain finer.
+⚠ **AND THE DETECTOR CANNOT CLOSE THE GAP EITHER, SO ITS GREEN MUST NOT BE READ AS ONE.**
+`no-owed-day-left-behind.guard.mjs:23-24` defines `ASKED` as "every day covered by an `attempt_started` row's
+recorded bounds" and `SKIPPED` as `ASKED ∧ day > FRONTIER ∧ …`. Days ABOVE the highest window ever asked are
+not in ASKED, so they can never be SKIPPED. The detector built to find left-behind owed ground is blind to
+this class BY DEFINITION.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_TERMINAL_PARENT_CLAMPS_TO_INCEPTION_V1 (2026-08-19) — SETTLED. SHIPPED as leg (C). Do not re-derive the legality rule.
+
+THREE-SOURCE — PRIOR CHATS: [[LORAMER_PARENT_WINDOW_IS_THE_UNIT_V1]] (the recede unit), [[LORAMER_PARENT_IS_THE_UNIT_PROVEN_UNDER_FRAGMENTATION_V1]] (whose "every recede was exactly 30 or exactly 0, never 1" is the observation this turns into a standing assertion), and [[★ANCHOR-RECEDES-BY-RANGE-NOT-WINDOW]], the closed defect whose signature is a step of ONE. · WEB: NONE-APPLICABLE: the legality rule is arithmetic over OUR sizing policy and OUR resolved stop — `maxDays` in our adapter, `inception_date` in our table. There is no vendor behaviour in it to search, and the batch-processing prior art that shaped the parent-window design was cited when that design was banked. · REPO: `src/lib/backfill/universe-resumer.ts` `deriveWindow` (the clamp that MAKES the terminal case legal), `src/lib/backfill/capture-adapters/google-ads.adapter.ts:159` (`maxDays: 30`, read by the guard rather than retyped), `universe_attempt_log.parent_window_start/end`, `universe_account_inception` + `universe_account_floor` (the composed stop), and `tests/guards/anchor-recedes-by-window.guard.mjs` where leg (C) now lives. — /THREE-SOURCE
+**A DESCENDING STEP IS EXACTLY ONE WINDOW, EXCEPT THE LAST, WHICH IS EXACTLY THE REMAINDER TO THE RESOLVED
+STOP. THERE IS NO THIRD LEGAL VALUE.**
+⛔ **WHY THE TERMINAL CASE IS LEGAL AND NOT AN EXCEPTION SNUCK IN.** `deriveWindow` clamps the last window's
+START to the stop — `const windowStart = stopDate !== null && raw < stopDate ? stopDate : raw` — so the final
+parent is legitimately narrower than the sizing. MEASURED, all three arrivals, all landing on 2022-03-04:
+  · run #1 `campaign_search_term_view/segments.device` — terminal parent 2022-03-04..2022-03-14, **11 days**
+  · run #2 `geo_target_most_specific_location` — terminal parent 2022-03-04..2022-03-23, **20 days**
+  · run #3 `geo_target_airport` — terminal parent 2022-03-04..2022-03-26, **23 days**, and the arithmetic is
+    on the face of it: **2022-03-27 − 2022-03-04 = 23**. Its recede series is **15 × 30 then 1 × 23**.
+⛔ **AND WHY NOT "≥ 30" OR "≤ 30", WHICH ARE THE TWO TEMPTING WEAKENINGS.** Demanding 30 everywhere goes RED on
+all three arrivals — red on the only three successes the engine has. Accepting anything ≤ 30 accepts the
+ONE-DAY range step that cost this project a rebuild. **The remainder is legal EXACTLY when the new parent
+STARTS AT the stop**; a short step anywhere else is a step nobody sized.
+⇒ **SHIPPED AS LEG (C) OF `anchor-recedes-by-window.guard.mjs`, IN check:data** (it reads the live ledger, so
+it cannot live in `npm run guard`, which runs on Vercel with no database). The pure `classifyRecede` decision
+is exported and the guard drives it against six fixtures BEFORE any DB read — **if the classifier ever admits
+a 1-day step the guard exits 2 BROKEN rather than 0 or 1**, because a detector that cannot see the defect
+reads exactly like a clean bill of health ([[LORAMER_NO_OWED_DAY_LEFT_BEHIND_V1]]'s own guard-on-guard rule).
+`--inject-illegal-recede` appends a synthetic 1-day step to the longest real series and announces that it did:
+**RED-PROVEN 6 findings with the flag (the injected 1-day step named as the ★ANCHOR-RECEDES-BY-RANGE class),
+5 without it**, on the same live data, through the shipped path.
+⛔ **IT SHIPS RED ON 5 STEPS, AND THE RED IS OWNED, NOT NEW.** All five are 15-day descents on
+`detail_content_suitability_placement_view` and `group_content_suitability_placement_view` — the two surfaces
+where every attempt finishes `outcome='error'` (GAQL query_error 49), so the window is never fully answered and
+the anchor leaves through the HOLD branch, which is a MOVER. **That is [[★ANCHOR-HOLD-BRANCH-IS-UNGATED]],
+reproduced from data the guard was never told about**, and it is the second time a property-shaped detector has
+independently found a defect its author had already traced by hand. `maxDays` is READ from the adapter, never
+retyped, so the legality rule cannot drift from the sizing it is judging ([[LORAMER_ADJACENT_NUMBER_V1]]).
+⚠ **LIMITS, so the green is not over-read:** it judges only STRICTLY-DESCENDING steps — a hold (0) is leg (B)'s
+subject and a negative step is `mis-size-must-re-owe.guard.mjs`'s ([[LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1]])
+— it keys each parent at its FIRST sighting, so a parent re-asked much later reads at its original position,
+and it says nothing whatever about whether the ground INSIDE a window was covered.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
