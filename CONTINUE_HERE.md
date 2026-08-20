@@ -1,3 +1,48 @@
+╔═══ SESSION CLOSE 2026-08-19/20 — THE HEAD, THE FIRST THREE, AND TWO THINGS ONLY RUSS CAN DO. READ FIRST. ═══╗
+
+⛔ **THE HEAD IS [[★LORA-ANSWERED-TWICE]], AND THE REASON IS COST, NOT COSMETICS.** Two identical assistant
+turns rendered on The Escential Group (2026-08-20 ~01:05Z, "best actionable meta ad task") and the duplicate
+was GONE ON RELOAD. That points to a RENDER duplicate — **and it is NOT CONFIRMED.** A turn that vanishes on
+reload was never persisted, and a completion that was never persisted **may still have been paid for**. The
+two readings differ by real money on every affected turn and by NOTHING on the screen, which is exactly the
+shape this repo calls a silent-wrong-answer generator. **Settling it is two read-only queries**: assistant
+rows in the conversation store for that thread, and completions actually ISSUED for that turn (spend log /
+Anthropic request ids). Verdict RENDER vs BILLED, then rank the fix. Russ's ranking, confirmed against the
+law: cheap to settle, unbounded if wrong — that is the ordering LORAMER_ESSENCE's blast-radius gate implies.
+
+**(2) ★CHAT-STOP-BUTTON — AND IT IS NOW VERIFIED BUILDABLE, WHICH IT WAS NOT THIS MORNING.**
+⛔ **RECORDED SO TOMORROW DOES NOT RE-RESEARCH IT — THE SOURCE IS THE INSTALLED SDK, NOT MEMORY:**
+`@anthropic-ai/sdk` **0.96.0**, present in this repo:
+  · `node_modules/@anthropic-ai/sdk/lib/MessageStream.d.ts:26` — `controller: AbortController;`
+  · `node_modules/@anthropic-ai/sdk/lib/MessageStream.d.ts:66` — `abort(): void;`
+  · `node_modules/@anthropic-ai/sdk/internal/request-options.d.ts:56` — `signal?: AbortSignal | undefined | null;`
+⇒ **TWO INDEPENDENT ROUTES EXIST**: `messages.stream()` returns a stream carrying its own `AbortController`
+and an `abort()` method (we already use `messages.stream()` — `claude-tools.ts:881`), and `requestOptions`
+already accepts a `signal`. ⚠ **THE NARROWING IS OURS, NOT THE SDK'S**: `lora-model-chain.ts:113` types
+requestOptions as `{ maxRetries: number; timeout: number }` — the signal field is simply not in our type.
+⛔ **AND THE SERVER STILL HAS NOTHING TO ABORT WITH.** `src/app/api/chat/route.ts` reads `request.signal`
+**zero times**, its `ReadableStream` (`:148`) has **no `cancel()` handler**, and the write path swallows the
+disconnect (`:155` — `catch { /* client gone */ }`). So the requirement in QUEUE:1001(e) — "must CANCEL
+SERVER-SIDE, not hide output" — is unmet from the ground up, and now provably fixable rather than
+speculatively so.
+
+**(3) THE WALK'S ARRIVAL AT INCEPTION** — behind both, because it is RUNNING UNATTENDED and needs watching
+rather than working. Status is a read, never a number in prose: the walk-status block at the top of every
+flight. Two live watch items came out of today: [[★WALK-AT-90-PERCENT-OF-LANE]] and
+[[★FLEET-METER-DRIFT-FLICKERS]].
+
+── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY, AND NEITHER CAN BE DONE BY CLAUDE CODE ──
+**1. THE META TOKEN CLIFF — ~5 DAYS, 12 ACCOUNTS, AND IT IS OAUTH CLICKS.** Re-auth is a human in a browser
+per account; nothing in this repo can mint those tokens. When they lapse, Meta capture stops for every
+affected client and the failure will present as empty data rather than as an error. **This is the nearest
+hard clock on the board.**
+**2. THE CLAUDE CODE WEEKLY CAP IS THE BINDING CONSTRAINT ON EVERYTHING BEFORE 9/30 — not compute, not
+Google quota, not disk.** It is why CLAUDE.md's terseness law calls approval bandwidth "the scarcest resource
+on the 9/30 path". Sequencing decisions should be made against that budget explicitly, not discovered when it
+runs out mid-arc.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 ╔═══ TIMED ITEMS — FOR THE NEXT SESSION (authored 2026-08-15, session close). READ THIS BLOCK BEFORE ANYTHING ELSE IN THIS FILE. ═══╗
 
 ⛔ **EVERY LIVE VALUE BELOW IS WRITTEN AS A READ, NEVER AS A NUMBER** (DECISIONS LORAMER_DOCS_NEVER_RESTATE_LIVE_STATE_V1).

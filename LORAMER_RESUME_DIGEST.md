@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-20T01:09:57.671Z
-- built_from HEAD: b2ba7ee12f7fbb2a256f0359b7f9d3ef1dde23b1  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-20T01:55:34.153Z
+- built_from HEAD: 70720c49283f598fab3fb3435b4cb5492b166837  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: f2cb29b883393c35d505b764368120098eee738e95a17b3c66772de4cdc202ae
-    - LORAMER_DECISIONS.md: e9f5bd6537f6b35df165fda5c3f7eae01ba5447e8145b5914c8bd62d17a1fd0c
-    - LORAMER_QUEUE_OF_RECORD.md: 4642f8d8cea52f8465167406bd9e682cc7cb412889463691f796d5dd5f38bc59
+    - CONTINUE_HERE.md: 980e7b350c675ac7f99e432a033adbc71d99a98836ece2438dfa3d6e60068613
+    - LORAMER_DECISIONS.md: daf9d470ce42547455ab8a705757e9b930be0799f3c2b8d3254cde5971815b0e
+    - LORAMER_QUEUE_OF_RECORD.md: 1842796efa03c2b8f5e72db3dee73a979085742c731910b2c5e313b8a982bfa1
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1148,6 +1148,11 @@ DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | d
 ## LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 (2026-08-19) — SETTLED. The mark is DERIVED, never chosen. Do not reintroduce a size.
 ## LORAMER_LM_MARK_BASELINE_V1 (2026-08-19) — SETTLED. Optical offsets are RATIOS OF THE BOX. Do not write one as a pixel.
 ## LORAMER_LM_EQUAL_CAP_HEIGHT_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. The L and the M are the same height.
+## LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1 (2026-08-19) — GOVERNING CLASS. SETTLED. Three instances in one day.
+## LORAMER_WALK_CADENCE_5MIN_V1 (2026-08-19) — SETTLED, DEPLOYED. Do not re-derive the cadence.
+## LORAMER_DRAIN_FITS_THE_INTERVAL_V1 (2026-08-19) — SETTLED. The pair identity is EXECUTED, not described.
+## LORAMER_TOP_EDGE_LANE_V1 (2026-08-19) — SETTLED, DEPLOYED. One catalog, one fetcher, one writer, one meter.
+## LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 (2026-08-19) — SETTLED, DEPLOYED. A top-edge zero may NEVER attest.
 The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do not relitigate.
   commit). The existing 06-27→today hole is NOT fixed — G1(b), next flight. | do not relitigate.
   Blast radius: LIVE-PATH (shared read path) = STOP-and-confirm. Cheapest large win in the system. | do not relitigate.
@@ -1483,6 +1488,12 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★CHECKDATA-OVERLAPPING-A-DRIVE-READS-AS-A-CRASH — ⛔ **NEW 2026-08-19, MEASURED TWICE. `npm run check:data` run CONCURRENTLY with a drive returns EXIT 2 with `canonical-key-spelling: exit=1` and a `57014 canceling statement due to statement timeout`.** It reads as a CRASHED check — the most alarming bucket the verdict has — and it is pure lock/IO contention with the rows the drive is landing. **RE-RUN IN ISOLATION IMMEDIATELY AFTER: PASS.** ⇒ **THE HAZARD IS NOT THE TIMEOUT, IT IS THE MISREAD:** a crashed check:data is the one signal this repo treats as never-a-clean-gate, so a contention artifact can either block a legitimate push or — worse — train the reader to wave at EXIT 2. ⇒ FIX SHAPE (not built): either serialise the gate against live drives, or have the runner RETRY a 57014 once in isolation before classifying it as CRASHED and say so in the verdict line. ⛔ UNTIL THEN THE OPERATOR RULE IS: **never run check:data while a drive is in flight, and if EXIT 2 names a timeout, re-run that check alone before believing it.** src: 2026-08-19, observed on runs #2 and #3. open [LC]
 - ★LORAMER-R2-BACKUPS-ARE-INVISIBLE-TO-THE-CLOUDFLARE-CONNECTOR — ⛔ **NEW 2026-08-19, AND IT MATTERS THE DAY SOMEBODY AUDITS CLOUDFLARE.** LoraMer's off-site database backups live in R2 bucket **`loramer-db-backups`** (`.github/workflows/db-backup.yml`, nightly `pg_dump -Fc -Z9` → R2 via the S3 API, 30-day prune; 74 runs, last twelve all green, most recent 2026-08-18 04:07Z with the upload step confirmed success). **`r2_bucket_get("loramer-db-backups")` against the Cloudflare MCP connector returns 404 (code 10006) — the bucket is NOT in the account that connector is authenticated to**, whose only bucket is `signforge-avatars`. ⇒ **AN INVENTORY TAKEN FROM THAT CONNECTOR IS NOT LORAMER'S CLOUDFLARE FOOTPRINT**, and reasoning about "what Cloudflare holds for us" from it will be wrong in the most dangerous direction. **THE FULL FOOTPRINT, MEASURED: (1) `loramer-db-backups` — off-site DR, load-bearing, removal re-opens the gap ROADMAP:346 records as closed; (2) Cloudflare DNS for `loramer.com` and `app.loramer.com` (DNS-only, Vercel SSL) — removal takes the product offline; (3) Cloudflare named to Meta as a declared data processor — a compliance statement.** ⛔ **THE APP RUNTIME READS ZERO CLOUDFLARE/R2 VARIABLES** — the four R2 credentials are GitHub Actions secrets, not Vercel env vars, and `src/` contains no SDK, no import and no reference (the only `r2` in the tree is a round-to-2-decimals helper). NEXT ACTION: record the backup account id somewhere findable, or add a Management-API token so the account can be enumerated without a human — see [[★PROVISIONED-DISK-IS-A-HUMAN-STEP]], which is the same missing credential. src: 2026-08-19 read-only audit. open [LC]
 - ★BACKFILL-DONE-DONE-ACCOUNT-WIDE — ⛔ **THE HEAD, RANKED 2026-08-19 the moment [[★PROVE-ONE-SURFACE-TO-INCEPTION]] was satisfied.** [[LORAMER_BACKFILL_DONE_DONE_V1]] defines a finished backfill by six conditions and this arc discharged the ENGINE half only: one surface arrives ([[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]]). **THE REMAINING CONDITIONS ARE ACCOUNT-WIDE AND CANNOT BE ANSWERED ONE SURFACE AT A TIME: all grains captured · reconciles to the vendor UI · Lora-wired** — on Foam OH / Google first, delivered as ONE pass/fail proof from a COLD connection, which is the law's own shape. ⇒ FIRST ACTION IS A MEASUREMENT, NOT A BUILD: enumerate Foam OH's selectable google surfaces and read, per surface, how far each has actually walked — the reference surface is at inception and the rest are not, and nobody has read the distribution. ⛔ **DO NOT SUBSTITUTE WIDTH FOR DEPTH:** rolling to eight connections before Foam OH answers done-done is exactly what [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] was banked to prevent, and it cost a session once. ⚠ COST IS MEASURED NOW, NOT ESTIMATED: **53 requests bought 1,623 days on ONE surface**; every fleet number should be re-derived from that and the ~1,427-pass estimate retired. src: 2026-08-19 inception run. open [LC]
+- ★LORA-ANSWERED-TWICE — ⛔ **NEW 2026-08-20 ~01:05Z, RUSS ON DEVICE, AND IT IS THE HEAD FOR TOMORROW BECAUSE THE EXPENSIVE READING IS CHEAP TO RULE OUT.** The Escential Group, prompt "best actionable meta ad task": **TWO IDENTICAL ASSISTANT TURNS RENDERED**, and the duplicate was **GONE ON RELOAD**. ⚠ **THAT POINTS TO A RENDER DUPLICATE RATHER THAN A SECOND BILLED COMPLETION — AND IT IS NOT CONFIRMED.** A turn that vanishes on reload was never persisted, and a completion that was never persisted may still have been PAID FOR. The two readings differ by real money on every affected turn and by nothing on the screen. ⇒ **TOMORROW, FIRST: count the assistant rows in the conversation store for that thread and the completions actually ISSUED (spend log / Anthropic request ids) for that turn, and return a verdict RENDER vs BILLED.** Both are read-only. Candidate mechanisms already banked and worth checking before theorising: [[★CHAT-MESSAGES-REPLACED-WHOLESALE]], [[★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE]], [[★CHAT-USER-TURN-ORPHAN]] (client-side turn writes), and the streaming path's `answer` event vs the persisted finalResp. src: Russ, 2026-08-20. open [LC]
+- ★FENCED-BLOCK-OVERFLOWS-ON-MOBILE — ⛔ **NEW 2026-08-20. THE PASTE-ABLE FORMAT AND THE READABLE FORMAT ARE IN DIRECT CONFLICT, AND THE PROMPT RULE PICKED ONE WITHOUT NAMING THE COST.** A fenced block preserves whitespace and does not wrap, so on a phone the block runs off-screen: a table's columns disappear to the right and prose is cut mid-sentence. **Paste-able but unreadable is not a win** — and the whole justification of [[★CHAT-COPY-BLOCKS]]'s prompt half is that the user will paste it somewhere. `.md pre` already scrolls internally (`overflow-x: auto`, `-webkit-overflow-scrolling: touch`, `max-width: 100%`), so the block does not widen the surface — the content is reachable by horizontal scroll and NOT lost. ⚠ THE REAL QUESTION IS THEREFORE NOT OVERFLOW BUT **WHICH ANSWERS SHOULD BE FENCED AT ALL**: the prompt rule (build-claude-context.ts:1390-1400) already says "when a list is genuinely NOT paste-able — a ranked table with metrics the user asked to see, or a comparison — use normal markdown, not a fence", so a fenced TABLE is the rule being MISAPPLIED rather than the rule being wrong. Settle by looking at the real answers before changing prompt text. src: Russ on device, 2026-08-20. open [LC]
+- ★CHAT-BLOCK-EXPAND-CONTROL — ⚠ **NEW 2026-08-20, RUSS'S REFERENCE. NOT SCOPED, AND THE MISSING HALF IS NOT THE BUTTON.** His reference shows copy AND expand on a block; only copy is built ([[★CHAT-COPY-BLOCKS]] flight A, f88e313). **Expand needs a surface to expand INTO**, and this repo has no such surface: the phone page is already full-bleed, and the desktop shelf is a portaled panel whose width is the constraint. It therefore lands on top of [[★CHAT-DESKTOP-SIDE-PANEL]] (the Sidekick sibling-panel pattern) rather than beside it, and GRID-NATIVE law applies to whatever it expands into. Do not build the control before the surface exists. src: Russ, 2026-08-20. open [LC]
+- ★FLEET-METER-DRIFT-FLICKERS — ⛔ **NEW 2026-08-20. SOMETHING REAL IS DRIFTING AND THE CURRENT READING IS "IT COMES AND GOES", WHICH IS NOT A DIAGNOSIS.** `check-fleet-meter-visibility` went RED (445 requests) → RED (353) → RED (273) → **GREEN** → RED (82) → RED (79) across 2026-08-19, on commits that touch CSS, guards and docs and **cannot move a fleet meter**. The magnitude is shrinking, which suggests a TIMING window rather than a structural miscount — the meter and the fire log are read at different instants and a fire in flight between them is counted by one and not the other. ⚠ **IT IS NOT SAFE TO ASSUME THAT**: the same check was built because the fleet meter summed only the dead v1 ledger while the walk billed into v2, and a drift that flickers is exactly how that presented. ⇒ Read both sides at a PINNED instant and see whether the gap survives. src: measured across the 2026-08-19 gate runs. open [LC]
+- ★WALK-AT-90-PERCENT-OF-LANE — ⚠ **NEW 2026-08-20. THE CADENCE WAS SIZED FOR 85.3% AND IS RUNNING AT 90%.** Measured 01:07Z: 509 requests in the trailing hour ⇒ **12,216/day against the 13,500 lane** — under it, but ~1,300/day of headroom instead of the ~2,000 [[LORAMER_WALK_CADENCE_5MIN_V1]] derived. The ceiling arithmetic (288 × 40 = 11,520) is not the binding number in practice because the top-edge lane spends on top of it and both lanes share one meter. ⛔ **WHY THINNER HEADROOM IS NOT MERELY UNTIDY: A REQUEST REJECTED WITH `GoogleAdsFailure` STILL COUNTS AGAINST QUOTA** (registry, RESEARCHED/GLOBAL, developers.google.com/google-ads/api/docs/best-practices/quotas), so a refusal storm bills at full rate against whatever margin is left. The meter WILL hold the lane at 13,500 — this is about how much variance the lane can absorb before it starts holding, not about a breach. ⇒ Re-measure over a full 24h before touching the cadence; one hour is not a rate. src: walk-status read 2026-08-20 01:07Z. open [LC]
+- ★TOP-EDGE-STRIP-NEVER-NARROWS — ⚠ **NEW 2026-08-19, THE KNOWN RESIDUAL OF [[LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1]], BANKED SO IT IS A CHOICE RATHER THAN A SURPRISE.** A top-edge `zero` may never attest (empty and not-yet-served are indistinguishable at the top edge), so on a genuinely DORMANT surface the strip never shrinks: it widens by one day per day, forever, and is re-asked every pass. **COST IS FLAT — one GAQL operation at any span, and a dormant surface returns nothing — so this is a legibility problem, not a quota one:** the ledger accumulates ever-wider ranges that all mean "still nothing here". The strip IS clamped at the adapter's `sizing.maxDays` (30) for PROBE cost, so coverage reads stay bounded; it is the window in the log that grows. ⇒ The honest fix is a way to distinguish a dormant surface from a lagging one, which is the same measurement [[LORAMER_TOP_EDGE_LANE_V1]]'s T-1 assumption is waiting on. Not fixed. src: 2026-08-19. open [LC]
 - ★TOP-EDGE-HAS-NO-LANE — ⛔ **NEW 2026-08-19, FOUND BY A READ-ONLY AUDIT, AND IT GROWS ONE DAY PER DAY. RANKED IMMEDIATELY BEHIND [[★BACKFILL-DONE-DONE-ACCOUNT-WIDE]] AND AS A BLOCKER OF ITS DECLARATION, NOT OF ITS MEASUREMENT** — the done-done enumeration is read-only and should proceed; but condition 1 of [[LORAMER_BACKFILL_DONE_DONE_V1]] is ALL GRAINS CAPTURED, and a surface with an unwalked strip at the top is not captured, so done-done cannot be DECLARED over this. It also outranks fleet rollout: rolling the walk to eight connections would open the same hole eight times. **THE PROPERTY: the walk's anchor is MONOTONICALLY NON-INCREASING, and nothing in the repo ever raises it.** A fresh connect anchors at YESTERDAY (`universe-resumer.ts:331-333`, `newestGround` supplied by `cron/universe-resume/route.ts:177` and `backfill/universe-drive/route.ts:126`); the moment one attempt lands, a rotation row exists and the first-pass branch is UNREACHABLE — every remaining branch returns `lastWindowEnd` (hold) or `lastWindowStart − 1` (recede). The only way to place a window above the anchor is an operator calling `/api/backfill/universe-start`, which requires an explicit `endDate` ("the first window is explicit, never inferred from a clock", route.ts:99-100). **MEASURED ON FOAM OH 2026-08-19: max `window_end` is 2026-08-12 across ALL 346 surfaces (0 attempts anywhere with `window_end >= 2026-08-13`); the only google grains holding a row in 2026-08-13..08-19 are five — account/'' · ad/'' · ad_group/'' · campaign/'' · campaign/impression_share — so exactly 4 of 346 walk surfaces have their top strip held by another lane (the base twins via `DRAIN_ALIAS`), and 342 hold NOTHING above 2026-08-12 under any key, own or aliased.** Spot-check on the strongest counter-case, `geographic_view/geo_target_state` (which HAS a drain alias): 0 rows under its own key AND 0 under `campaign/geo_state` for 2026-08-13..today, and 0 under the alias since 2026-05-01. ⚠ **FORWARD CAPTURE IS HEALTHY — THIS IS A SCOPE MISMATCH, NOT A FAILURE:** nightly `/api/cron/sync` writes those five grains at T+1 like clockwork (43 campaign rows/day, synced ~08:15Z the following morning, no `grain`/`grainSource` stamp, so it is demonstrably not the walk's writer). It covers 5 grains; the walk's catalogue is 346. ⛔ **AND NO DETECTOR CAN SEE IT:** `no-owed-day-left-behind.guard.mjs:23-24` defines `ASKED = every day covered by an attempt_started row's recorded bounds` and `SKIPPED = ASKED ∧ day > FRONTIER ∧ …` — days above the highest window EVER asked are not in ASKED, so they can never be SKIPPED. The detector built to find left-behind owed ground is blind to this class by definition. ⛔ **PRIOR ART, AND IT NAMES THE DEFECT SHAPE: both mature incremental-sync engines keep ONE catalog for both directions.** Fivetran: "After a successful initial sync, the connection runs in incremental sync mode" — the SAME connection, over the SAME selected tables, maintaining internal progress cursors (https://fivetran.com/docs/core-concepts/syncoverview). Airbyte: "subsequent syncs will use the last cursor value as the new start date", so the next read begins where the previous one ended and no gap can open (https://docs.airbyte.com/platform/using-airbyte/core-concepts/sync-modes/incremental-append; state/cursor semantics at https://docs.airbyte.com/platform/understanding-airbyte/airbyte-protocol). **OUR TWO LANES CARRY DIFFERENT CATALOGS — forward captures 5 grains, the walk 346 — and the historical lane's cursor only ever moves DOWN. That divergence is the defect shape, not the recede itself.** ⛔ [[LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1]]'s shelved widen (branch `parked/widen-90d-restatement-tail`, commit `7b3d5e9`) **IS NOT THIS MECHANISM AND MUST NOT BE MISTAKEN FOR IT** — read the file: it buckets rows FORWARD CAPTURE ALREADY FETCHED and re-upserts them per day. It re-states the 5 grains; it adds no surface and touches no anchor. 5 cannot cover 342. Cross-ref [[★ENGINE-MARKERS-LIVE-IN-CODE-ONLY]]: this property was written down exactly once, in `deriveAnchorEnd`'s own header ("the anchor only moves down… a KNOWN gap rather than a covered one"), and in no governance doc until now. ⇒ **THIS ENTRY RECORDS THE PROPERTY AND THE MEASUREMENTS. IT PROPOSES NO FIX SHAPE, DELIBERATELY** — [[LORAMER_FLOOR_REACHED_IS_NOT_FULLY_COVERED_V1]] is the vocabulary half and is banked; the mechanism is a decision Russ has not made. src: read-only audit 2026-08-19 (universe_attempt_log · metrics_daily · universe-resumer.ts · universe-surfaces.ts); web round run same day. open [LC]
 - ★DRIVE-VERDICT-NOT-PERSISTED — ⚠ **NEW 2026-08-19, SMALL AND REAL, FOUND WHEN A BANKING INSTRUCTION ASKED FOR RUN #3'S VERDICT LINE VERBATIM AND IT DID NOT EXIST.** `scripts/drive-one-surface.mjs` prints its terminal `[drive] ✅ PROVEN — …` line to STDOUT and writes no artifact anywhere — no file, no table, no `universe_fire_log` row. A run that arrives leaves its EVIDENCE in `universe_attempt_log` (which is why the arrival was still provable) but its OWN VERDICT is gone the moment the terminal scrolls. Every banked run therefore quotes ledger-derived numbers where the instruction expects the instrument's own words, and the gap is invisible until somebody asks. ⇒ Fix shape NOT decided here; the cheapest honest one is the drive writing its START/END/verdict block to a file it names in its own output. Cross-ref [[LORAMER_CHECKDATA_VERDICT_LINE_V1]], which solved exactly this class for `check:data` by putting the truth in the LAST LINE — the drive has the line and not the persistence. src: [[LORAMER_THREE_CLEAN_RUNS_SATISFIED_V1]] bank, 2026-08-19. open [LC]
 - ★THREE-SOURCE-UNWINDING-TAG-SWALLOWS-A-NEW-DECISION — ⛔ **NEW 2026-08-19, FOUND BY WATCHING THE GUARD'S OWN DENOMINATOR MOVE THE WRONG WAY.** `three-source-header.guard.mjs` excludes entries whose tag matches `/(RETIRED|CLOSED|SUPERSEDED|CORRECTION)/` — sound for an entry that UNWINDS a prior decision, because the sources belonged to the decision being unwound. But it matches the WHOLE HEADING, so a NEW construction entry that merely says a queue item is now CLOSED is silently excused from the enforcer. MEASURED: [[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]] was written with *"The engineering gate is CLOSED"* in its heading; the guard's in-scope count did not move (116) while its denominator did (14→15 sections), and the excluded-by-tag bucket absorbed it (34→35). ⛔ **AND THE EXCLUSION WAS HIDING A REAL DEFECT, WHICH IS WHY THIS IS RANKED RATHER THAN NOTED:** on rewording one word the entry went RED — its WEB leg asserted instead of citing. **A SILENT EXCLUSION AND A PASS ARE INDISTINGUISHABLE TO THE READER**, which is the class this repo keeps paying for. ⇒ FIX SHAPE (not built, deliberately — this is one observation, not a repeat offence, and the RULE-HOME LAW says an enforcer is earned): scope the UNWINDING test to the entry's TAG/verdict clause rather than the whole heading, and make the guard PRINT the names it excluded by tag so an exclusion is visible instead of arithmetic. src: 2026-08-19 inception-run bank, measured on the guard itself. open [LC]
@@ -2236,8 +2247,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 921 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
-135 decision-only · 441 queue-only.
+TOTALS: 930 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
+135 decision-only · 450 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2291,11 +2302,12 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CATCHUP-PAUSE-NOT-BITING — OPEN · decisions 1 · queue 1 · last 2026-07-29
 - ★CHAMPION-NO-GA-CONNECTION — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★CHANNEL-TYPE-ENUM-UNMAPPED — OPEN · decisions 0 · queue 1 · last 2026-08-01
+- ★CHAT-BLOCK-EXPAND-CONTROL — OPEN · decisions 0 · queue 2 · last 2026-08-20
 - ★CHAT-CLIENT-SERVER-DEADLINE-GAP — DONE · decisions 1 · queue 1 · last 2026-08-05
 - ★CHAT-COMPOSER-CHROME-IOS — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★CHAT-CONFIRMED-WORKING-2026-08-06 — OPEN · decisions 0 · queue 1 · last 2026-08-06
-- ★CHAT-COPY-BLOCKS — OPEN · decisions 2 · queue 2 · last 2026-08-14
-- ★CHAT-DESKTOP-SIDE-PANEL — OPEN · decisions 0 · queue 4 · last 2026-08-08
+- ★CHAT-COPY-BLOCKS — OPEN · decisions 2 · queue 5 · last 2026-08-20
+- ★CHAT-DESKTOP-SIDE-PANEL — OPEN · decisions 0 · queue 5 · last 2026-08-20
 - ★CHAT-FIRST-FRAME — DECIDED · decisions 1 · queue 0 · last 2026-08-11
 - ★CHAT-FIRST-FRAME-BLOCKED-BY-INTELLIGENCE-FETCH — OPEN · decisions 1 · queue 1 · last 2026-08-14
 - ★CHAT-FIVE-DEFECTS-2026-08-05 — DONE · decisions 1 · queue 1 · last 2026-08-06
@@ -2305,12 +2317,12 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-GUARD-FAILURE-PATH-UNTESTED — OPEN · decisions 1 · queue 1 · last 2026-08-05
 - ★CHAT-LANDING-FIRES-BEFORE-HYDRATION — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★CHAT-LEGACY-503-STRING — OPEN · decisions 0 · queue 1 · last 2026-07-25
-- ★CHAT-MESSAGES-REPLACED-WHOLESALE — OPEN · decisions 0 · queue 1 · last 2026-08-07
+- ★CHAT-MESSAGES-REPLACED-WHOLESALE — OPEN · decisions 0 · queue 2 · last 2026-08-20
 - ★CHAT-PHASES-MODEL-KEY-CLOBBERED — OPEN · decisions 0 · queue 2 · last 2026-08-12
 - ★CHAT-PREFIX-STILL-CHURNS-ON-LIVE-DATA — OPEN · decisions 0 · queue 1 · last 2026-08-06
 - ★CHAT-PROBE-DISPLAY-CANNOT-SHOW-DISMISSAL — OPEN · decisions 0 · queue 3 · last 2026-08-12
 - ★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH — OPEN · decisions 3 · queue 7 · last 2026-08-14
-- ★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE — OPEN · decisions 1 · queue 3 · last 2026-08-07
+- ★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE — OPEN · decisions 1 · queue 4 · last 2026-08-20
 - ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 9 · queue 6 · last 2026-08-08
 - ★CHAT-RETENTION-MARKETING — OPEN · decisions 0 · queue 3 · last 2026-07-26
 - ★CHAT-SHELF-IPAD-TAP — OPEN · decisions 0 · queue 1 · last 2026-08-11
@@ -2326,7 +2338,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-TURN-FAILED-TELEMETRY-INVISIBLE — DONE · decisions 2 · queue 2 · last 2026-08-12
 - ★CHAT-UI-DEDICATED-DAY — OPEN · decisions 1 · queue 4 · last 2026-09-30
 - ★CHAT-UPLOAD-IN-COMPOSER — OPEN · decisions 0 · queue 3 · last 2026-08-06
-- ★CHAT-USER-TURN-ORPHAN — OPEN · decisions 2 · queue 2 · last 2026-08-12
+- ★CHAT-USER-TURN-ORPHAN — OPEN · decisions 2 · queue 3 · last 2026-08-20
 - ★CHECKDATA-OVERLAPPING-A-DRIVE-READS-AS-A-CRASH — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★CHECKDATA-STANDING-REDS-OWNED — OPEN · decisions 2 · queue 3 · last 2026-08-15
 - ★CHROME-IOS-COMPOSER-THREE-SYMPTOMS — OPEN · decisions 3 · queue 1 · last 2026-08-11
@@ -2403,8 +2415,10 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★EXTRA-METRICS-NONGA-UNVERIFIED — DONE · decisions 0 · queue 2 · last 2026-08-15
 - ★FALSE-ZERO-ON-UNCOVERED-WINDOW — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - ★FAMILIES-NEVER-COMPLETE-ANYWHERE — OPEN · decisions 0 · queue 1 · last 2026-08-01
+- ★FENCED-BLOCK-OVERFLOWS-ON-MOBILE — OPEN · decisions 0 · queue 2 · last 2026-08-20
 - ★FIFTEEN-MESSAGE-OVERSPEND-INCIDENT — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★FIRST-FAILURE-AT-UNDERREPORTS — OPEN · decisions 0 · queue 2 · last 2026-07-31
+- ★FLEET-METER-DRIFT-FLICKERS — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FLEET-ROLLOUT-BLOCKED-ON-THREE-THINGS — OPEN · decisions 0 · queue 2 · last 2026-08-17
 - ★FLEET-SPEND-OMITS-INTELLIGENCE-LANE — OPEN · decisions 1 · queue 2 · last 2026-08-11
 - ★FLEET-WIDE-REMEASURE-BEFORE-SCHEDULING — OPEN · decisions 1 · queue 3 · last 2026-08-10
@@ -2494,6 +2508,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LIVE-VS-CAPTURED-DUAL-RENDER-HISTORY — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★LORA-ANSWER-EXPORT — OPEN · decisions 0 · queue 2 · last 2026-08-15
+- ★LORA-ANSWERED-TWICE — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★LORA-BACK-BUTTON-DEAD — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★LORA-BACK-FALLBACK-TARGETS-ALL-CLIENTS — OPEN · decisions 0 · queue 1 · last 2026-08-06
 - ★LORA-CLIENT-RESOLUTION-DETERMINISM — OPEN · decisions 0 · queue 2 · last 2026-07-24
@@ -2635,6 +2650,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TOKEN-THE-UNTOKENED — OPEN · decisions 1 · queue 2 · last 2026-07-31
 - ★TOOL-INSTALL-PERMISSIONS-LOCKDOWN — OPEN · decisions 1 · queue 1 · last 2026-08-12
 - ★TOP-EDGE-HAS-NO-LANE — OPEN · decisions 0 · queue 1 · last 2026-08-19
+- ★TOP-EDGE-STRIP-NEVER-NARROWS — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★TOPLEVEL-COMPLETE-IGNORES-DENSITY — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★TOTAL-SURFACE-AUDIT — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★TRAINED-LORA-ROADMAP — OPEN · decisions 0 · queue 1 · last 2026-08-04
@@ -2686,6 +2702,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★VETMASTERMIND-META-PRODUCT-CLAIM-EXCEEDS-ROWS — OPEN · decisions 0 · queue 1 · last 2026-08-08
 - ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 4 · last 2026-09-30
+- ★WALK-AT-90-PERCENT-OF-LANE — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★WALK-BASE-SPELLING-SPLIT — OPEN · decisions 2 · queue 1 · last 2026-08-12
 - ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X — OPEN · decisions 0 · queue 3 · last 2026-08-19
 - ★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL — OPEN · decisions 0 · queue 2 · last 2026-08-09
@@ -3116,6 +3133,8 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_THREE_SOURCE_PRECONDITION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-02
 - LORAMER_TOKEN_VALIDATE_BEFORE_PERSIST_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - LORAMER_TOOL_LOOP_EXHAUSTION_V1 — OPEN · decisions 2 · queue 5 · last 2026-08-16
+- LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-19
+- LORAMER_TOP_EDGE_LANE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - LORAMER_TRUNCATION_BLAST_RADIUS_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-16
 - LORAMER_TWO_AXIS_REPORT_BY_GRAIN_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-09
 - LORAMER_UI_DEFECTS_SHIP_IN_FILE_BATCHES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
@@ -3149,6 +3168,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_VERSION_BUMP_IS_A_CAPTURE_EVENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-27
 - LORAMER_WALK_BASE_ALIAS_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-12
 - LORAMER_WALK_BITE_40_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-12
+- LORAMER_WALK_CADENCE_5MIN_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - LORAMER_WALK_HORIZON_RECEDES_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_WALK_LIVENESS_ROWS_RPC_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - LORAMER_WALK_ROSTER_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-17

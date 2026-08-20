@@ -1471,6 +1471,146 @@ explaining the 2026-08-02 bug. Comments are stripped before matching.
 build environment — no screenshot, no computed-style readback. **OUTSTANDING.**
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1 (2026-08-19) — GOVERNING CLASS. SETTLED. Three instances in one day.
+
+THREE-SOURCE — PRIOR CHATS: the three false reds of 2026-08-19, each found by Russ or by a gate rather than by review, and [[LORAMER_ADJACENT_NUMBER_V1]], which is the same disease one layer down (a number measuring the thing NEXT TO the thing that matters). · WEB: SKIPPED: should have searched the testing literature on oracle scope — differential-testing "oracle mismatch", and the observability practice of instrumenting the code path rather than a neighbouring one. The class was derived from three of our own failures in a single day; no search was run and the record says so rather than inventing a citation. · REPO: `anchor-recedes-by-window.guard.mjs` legs (C) and (g), `lm-mark-is-text-height.guard.mjs`, `capture-adapter.ts:338-375` (`sizeFromPolicy`, the ceiling that was read as a size), `migrations/084` (the rotation's lane filter the detector did not mirror). — /THREE-SOURCE
+**A DETECTOR MUST READ EXACTLY THE ROWS, THE VALUES AND THE TEXT ITS SUBJECT READS. A detector scoped wider,
+narrower, or to a neighbouring source does not measure the property — it measures its own scope, and it goes
+red or green for reasons that have nothing to do with the code.**
+⛔ **THREE INSTANCES IN ONE DAY, AND THEY LOOK NOTHING ALIKE UNTIL THEY ARE NAMED TOGETHER:**
+  1. **A CEILING READ AS A SIZE.** `anchor-recedes-by-window` leg (C) hardcoded `maxDays = 30` as THE window
+     size. `sizeFromPolicy` legally returns `coldStartDays` (7), `floor(rowBudget / maxPerDay)` (exactly 15 at
+     20,000 rows/day) and `planMisSizedSplit`'s half — four legal sizes the detector called illegal. **5 false
+     findings**, reported as ★ANCHOR-HOLD-BRANCH-IS-UNGATED, which they were not.
+  2. **A WIDER ROW SET THAN THE SUBJECT.** The same leg then read ALL parent-stamped starts while its subject
+     — `universe_surface_rotation` — filters `lane='descend'` (migrations/084). Top-edge parents sit at the
+     TOP of the calendar and are recorded AFTER the descent's deep windows, so the detector read them as an
+     anchor that ROSE: **18 false findings of −349 to −1,618 days**, on the first check:data run after the
+     lane shipped.
+  3. **PROSE READ AS CODE.** `lm-mark-is-text-height` leg (g) matched `stroke-dasharray: 1` out of the
+     stylesheet's own COMMENT, which quotes the historical value while explaining the 2026-08-02 WebKit bug.
+     The shipped value was 40. **Third phantom-token-in-prose catch in this repo.**
+⇒ **THE RULE, MECHANICAL ENOUGH TO APPLY BEFORE WRITING A LEG: name the subject's OWN read — the exact query,
+the exact constant, the exact text — and make the detector issue that read, not an equivalent one.** Where the
+subject filters, filter. Where the subject strips comments, strip them. Where the subject derives a value from
+a policy, drive the policy rather than copying its ceiling.
+⛔ **AND THE COST IS NOT THE FALSE RED, IT IS WHAT A FALSE RED TEACHES.** Each of these shipped or nearly
+shipped as a standing red with a confident explanation attached — one was banked in DECISIONS naming the wrong
+open defect. **A standing red trains the reader to discount reds** (CONTINUE_HERE already says so about the
+owned check:data set), and a red with a wrong cause is worse than no red: it spends the reader's attention on
+a defect that is not there while the real one keeps running.
+⚠ THE LIMIT: this is a rule for AUTHORS, and no guard can enforce it — a guard that checked guards would need
+the same discipline one level up. Its enforcement is the habit of naming the subject's read out loud in the
+leg's own comment, which all three legs now do.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_WALK_CADENCE_5MIN_V1 (2026-08-19) — SETTLED, DEPLOYED. Do not re-derive the cadence.
+
+THREE-SOURCE — PRIOR CHATS: Russ's explicit GO after the lane measurement, 2026-08-19; supersedes DEPLOY 2's 15-minute rate (DECISIONS:812). · WEB: NONE-APPLICABLE: how fast to spend OUR OWN metered lane against OUR OWN measured headroom is not a question any vendor doc answers; the one vendor fact involved (a Search request is one operation at any span) was cited when the meter was built. · REPO: `vercel.json` (the cron token and the v2 consumer's maxConcurrency), `universe-resumer.ts` `MAX_REQUESTS_PER_RUN` and its derivation block, `google-op-budget.ts` `LANE_ALLOCATIONS`, and the ledgers the measurement came from. — /THREE-SOURCE
+**THE WALK FIRES EVERY 5 MINUTES — 288 fires/day × a bite of 40 = 11,520/day = 85.3% of the 13,500 lane.**
+Was 96 fires/day = 3,840 = 28.4%; hourly before that = 960 = 7.1%.
+⛔ **THE GATE WAS A MEASUREMENT OF THE LANE, NOT AN APPETITE FOR THROUGHPUT.** Trailing 24h at the 15-minute
+cadence, from the ledgers: walk **3,215** real vendor requests of its 13,500 lane (24%); fleet **4,421 of the
+15,000 cap** — **10,579 requests/day unspent, every day**, against 436,616 days of ground still owed on ONE
+client. Both of the walk's own bounds were at the wall (scan 60.0/60 on 96 of 96 fires; 37.6 of the 40-request
+bite) and neither the meter nor the quota sentinel held a single fire.
+⛔ **THE BITE WAS NOT THE THING TO RAISE.** With the scan cap binding on every fire, a bigger bite has nothing
+to bite. `MAX_REQUESTS_PER_RUN` stays 40 and `MAX_ENTRIES_SCANNED_PER_RUN` stays 60.
+⛔ **AND THE CADENCE DOES NOT MOVE ALONE — see [[LORAMER_DRAIN_FITS_THE_INTERVAL_V1]].** maxConcurrency went
+8 → 24 in the same commit, and that pairing is now executed rather than described.
+GATE-B, 22.4 minutes after deploy: 4 fires (one per 5.6 min ⇒ cadence live), 10,400/day projected, **0
+quota-holds**, max **13 concurrent consumer invocations** — already above the OLD cap of 8, so the pairing was
+not theoretical — 0 errors outside the two known-unaskable surfaces, descent frontier unmoved.
+⚠ **AND THE NUMBER TO WATCH, RECORDED SO IT IS NOT DISCOVERED LATER: 2026-08-20 01:07Z READ 12,216/day —
+90% of the lane, above the 85.3% this cadence was sized for.** Under the lane, thinner than designed. Queued
+as [[★WALK-AT-90-PERCENT-OF-LANE]].
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_DRAIN_FITS_THE_INTERVAL_V1 (2026-08-19) — SETTLED. The pair identity is EXECUTED, not described.
+
+THREE-SOURCE — PRIOR CHATS: the DEPLOY-2 pairing note and the resumer's own bite derivation, both of which stated this property in prose across two deploys. · WEB: NONE-APPLICABLE: the arithmetic is over OUR bite, OUR per-message budget, OUR concurrency and OUR cron interval — four numbers this repo owns. · REPO: `queue-drain-fits-the-interval.guard.mjs`, `vercel.json`, `universe-resumer.ts` MAX_REQUESTS_PER_RUN, `google-ads-universe-v2/route.ts` WALK_BUDGET_MS. — /THREE-SOURCE
+**bite × WALK_BUDGET_MS ÷ maxConcurrency ≤ cron interval — with all four terms READ FROM THEIR OWN SOURCES and
+none retyped.** 40 × 180s ÷ 24 = 300s = the 5-minute interval exactly, as 900s at 8 was the 15-minute one and
+3,600s at 2 was the hourly one.
+⛔ **IT HAD BEEN WRITTEN DOWN THREE TIMES AND ASSERTED NOWHERE** — the resumer header, the consumer guard's
+leg (e) comment, and the DEPLOY-2 decision. **MEASURED: changing the cadence WITHOUT the concurrency raise
+passed all 133 guards.** RULE-HOME LAW, paid again: prose in a doc is not a guard.
+RED-PROVEN on the real files at 5 minutes with concurrency 8 — *"worst case 40 × 180s ÷ 8 = 900s, against a
+300s interval — over by 600s (3.00×)"* — and the guard names the minimum concurrency itself. Green at 24.
+⚠ WHAT BREAKING IT COSTS, so nobody trades it for throughput: a backlog is SAFE for correctness (idempotency
+keys dedupe, owed-ness is derived). What is lost is every rate measurement taken from the fire log — requests
+appear long after the fire that authorised them, the meter's rolling window smears, and **a genuine runaway
+becomes indistinguishable from a queue catching up.**
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_TOP_EDGE_LANE_V1 (2026-08-19) — SETTLED, DEPLOYED. One catalog, one fetcher, one writer, one meter.
+
+THREE-SOURCE — PRIOR CHATS: [[★TOP-EDGE-HAS-NO-LANE]] (the read-only audit that found it) and [[LORAMER_FLOOR_REACHED_IS_NOT_FULLY_COVERED_V1]] (the vocabulary half). · WEB: the incremental-sync prior art cited on the queue item — Fivetran runs incremental mode on the SAME connection after the initial sync (https://fivetran.com/docs/core-concepts/syncoverview) and Airbyte's cursor makes the next read start where the last ended (https://docs.airbyte.com/platform/using-airbyte/core-concepts/sync-modes/incremental-append). Both keep ONE catalog for both directions; our two lanes carried different catalogs, which is the defect shape. · REPO: `migrations/084`, `universe-resumer.ts` `deriveTopStrip`/`TOP_EDGE_REQUESTS_PER_RUN`, `cron/universe-resume/route.ts`, `universe-v2-contract.ts`, `queues/google-ads-universe-v2/route.ts`, `universe-coverage.ts`. — /THREE-SOURCE
+**THE TOP-EDGE LANE IS A FLAG ON A MESSAGE, NOT A SECOND ENGINE.** Same catalog, same coverage module, same
+fetcher, same writer, same attestation path, same meter (`LANE_ALLOCATIONS.backfill` — no new allocation key,
+so the four-lane table still sums to the cap), same quota sentinel (checked before the catalog load, so it
+holds BOTH lanes for free). What differs: one field on `UniverseMessageV2`, and TWO bounds instead of one.
+⛔ **IT IS AN ENGINE CHANGE, NOT A SCHEDULER ONE, AND ONE LINE OF SQL IS WHY.**
+`universe_surface_rotation` returns the MOST RECENTLY RECORDED attempt (`order by recorded_at desc`). Publish
+a top-edge window and the next fire hands `deriveAnchorEnd` THAT window — the descent, at a ~2026-04-30
+frontier, reset four months upward, **every pass, forever**. migrations/084 filters the rotation to
+`lane='descend'`; nothing else could have.
+⛔ **THE RPC ORDERING HAZARD, ANSWERED BEFORE BUILDING AND PROVEN LIVE.** supabase-js calls by NAMED
+arguments, so replacing `universe_attempt_open` with a 12th parameter would have made the DEPLOYED build's
+every `appendAttemptStarted` fail to resolve (PGRST202) — **the walk stops dead at 10,400/day until the deploy
+lands.** `p_lane text DEFAULT 'descend'` disarms it. Apply order MIGRATION FIRST, DEPLOY SECOND, and it was
+verified rather than argued: after the apply, 32,951 rows all `lane='descend'`, newest written by the OLD
+build through the NEW signature.
+⛔ **AND THE THREE REVOKES + ONE GRANT WERE RE-APPLIED VERBATIM AND THE ACL READ BACK** —
+`{postgres=X/postgres,service_role=X/postgres}` on both replaced SECURITY DEFINER functions, no anon, no
+authenticated (064's header records this being wrong once).
+CONSTANTS DERIVED, NOT PICKED: `TOP_EDGE_REQUESTS_PER_RUN = 2` — demand is 346 strip-days/day and one
+contiguous strip is ONE operation at any span, so 346 requests/day; capacity is 288 fires × k, and **k=1 gives
+288/day which is BELOW demand**. k=2 = 576/day = 1.66×, every surface reached within 14.4h, first full closure
+of the standing 2,076-day strip in ~14.4h. Ceiling 576/day = 19% of the ~3,100/day headroom.
+`TOLERANCE_DAYS = 1` in the guard — the refresh cycle is 0.6 days, so 1 is the smallest integer above it.
+⛔ **A TOP-EDGE MESSAGE NEVER SELF-CHAINS.** `advance()` derives its successor as `startDate − 1`, so a strip
+message would publish a window ending the day BELOW the strip and start a SECOND descent through covered
+ground. Both `advance` exits refuse it; `universe-stream-consumer.guard.mjs` leg (f) drives BOTH.
+⚠ T-1 IS AN ASSUMPTION, RECORDED AS ONE: `deriveTopStrip` takes `newestServable` as an INPUT and the resumer
+passes YESTERDAY. No read-only path exists to ask 6 resource families what Google serves for T-1 (the probe
+route is campaign-grain only). The assumption is made HARMLESS rather than trusted — see the next entry.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 (2026-08-19) — SETTLED, DEPLOYED. A top-edge zero may NEVER attest.
+
+THREE-SOURCE — PRIOR CHATS: the Gate-B read 8 minutes after [[LORAMER_TOP_EDGE_LANE_V1]] deployed, which found the rule I had just written performing the exact seal it forbade. · WEB: NONE-APPLICABLE: the ambiguity is a property of OUR ledger's own rows; the one vendor fact that bears on it (Google publishes a 37-month lookback and says NOTHING about availability lag for a granular segments.date row) is already banked with its citation in docs/LORAMER_BACKFILL_FACT_REGISTRY.md. · REPO: `universe-coverage.ts` `attestedEmptyDays`/`resolveTerminalLane`, `universe-attempt-log.ts` (the four writers), `top-edge-never-attests.guard.mjs`, `attempt-writers-carry-the-lane.guard.mjs`. — /THREE-SOURCE
+**AT THE TOP OF THE CALENDAR A `zero` AND A NOT-YET-SERVED DAY ARE INDISTINGUISHABLE, SO THE TOP-EDGE LANE
+MUST NOT ATTEST.** Sealing a lagging day as empty is permanent and self-reinforcing: the strip then reads as
+held, the lane stops asking, and nothing behind the walk ever comes back for it. This is
+LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 applied where the ambiguity actually lives — and it is what makes the
+unmeasured T-1 lag HARMLESS rather than trusted.
+⛔ **THE FIRST IMPLEMENTATION PERFORMED THE SEAL IT FORBADE, AND IT SHIPPED.** It filtered `.eq('lane',
+'descend')` on the TERMINAL row — and terminal rows do not carry the lane: `appendAttemptFinished`,
+`appendDayCommitted` and `appendMessageFinished` INSERT directly and the column took its DEFAULT ('descend').
+MEASURED 8 minutes after deploy: top-edge strips finished `zero` stamped 'descend' and DID attest. **12
+surface-days sealed, growing to 72 across 12 surfaces while the fix was written.**
+⛔ **THE LANE COMES FROM THE MESSAGE.** `resolveTerminalLane` joins each terminal to the `attempt_started` row
+of the SAME MESSAGE by `message_key`, and by `invocation_id` where both carry one — the only row ever written
+through `universe_attempt_open(p_lane)` and therefore the only one that has carried the truth. Four cases,
+each resolving in the direction that cannot seal a day on absent evidence:
+  NULL message_key ⇒ 'descend' — 20,825 of 34,715 rows predate provenance stamping (4,234 attesting), every
+    one written BEFORE the lane existed. Treating them as UNKNOWN would re-owe years of paid-for ground.
+  key + invocation match ⇒ that lane. EXACT, and it is what disambiguates REDELIVERIES: **178 message keys
+    carry more than one invocation_id.**
+  key matches, invocation does not ⇒ REFUSE if ANY start for that key was top-edge (0 mixed-lane keys today).
+  key present, no start row ⇒ REFUSE (0 orphans today: 1,785 keyed attesting terminals, 0 orphans either way).
+PROVEN on live rows through the real compiled module: BEFORE — 6 attested days, OWED 0, ranges 0 on both named
+surfaces; AFTER — 0 attested, **OWED 6, ranges 1**. The sealed days went back to owed.
+⛔ **AND THE WRITERS WERE PLUMBED SO THE LEDGER STOPS DISAGREEING WITH THE READER.** `lane` moved onto
+`WriteProvenance` — the object every writer already threads — so a new writer cannot forget the lane without
+also forgetting the provenance. **No ledger row was mutated: `universe_attempt_log` is append-only
+(migrations/061 revokes update/delete/truncate from every application role) and old rows stay as written.**
+⚠ **THE COST OF NOT ATTESTING, AND THE RESIDUAL:** one re-ask per surface per pass — which is also the
+restatement sweep queued since 2026-07-24. A genuinely dormant surface's strip therefore never narrows:
+[[★TOP-EDGE-STRIP-NEVER-NARROWS]].
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907
