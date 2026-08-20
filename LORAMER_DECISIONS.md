@@ -1423,6 +1423,54 @@ There is no browser in the build environment: no screenshot, no computed-style r
 now lands on the adjacent text's cap-height is Russ's eyes, and it is OUTSTANDING.
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_LM_EQUAL_CAP_HEIGHT_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. The L and the M are the same height.
+
+THREE-SOURCE — PRIOR CHATS: Russ on device, 2026-08-19, after two flights that moved the BOX and then the box's PADDING and left the glyph wrong both times — "the L and the M are the SAME HEIGHT", called as an artwork defect rather than an alignment one. Builds on [[LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1]] (the box) and [[LORAMER_LM_MARK_BASELINE_V1]] (the padding), neither of which is reversed. · WEB: NONE-APPLICABLE: this is the proportion of OUR brand mark, decided by its owner. No vendor doc or external practice bears on it, and the SVG mechanics involved (absolute path commands, round-cap ink extents, stroke-dasharray coverage) are settled platform behaviour rather than an open question. · REPO: the two `<path d=…>` strings in `LoraWorking.tsx`, `.lmStroke`'s `stroke-dasharray` and the `loramerLmDraw` keyframe in `lora-working.module.css`, and the ink-padding tokens in `redesign.module.css` `.tokens`. — /THREE-SOURCE
+**THE MARK'S TWO LETTERS ARE EQUAL CAP-HEIGHT OFF A SHARED BASELINE. RUSS'S CALL, SETTLED.**
+⛔ **WHAT WAS WRONG, AND WHY TWO PRIOR FLIGHTS COULD NOT FIX IT.** The L spanned y 4.5→16.5 = **12 units**;
+the M spanned y 7.5→16.5 = **9 units — 75% of the L**, sharing the bottom edge. A shorter letter on a shared
+baseline reads as *sitting low*, which is exactly the symptom that was reported. **The defect was in the
+ARTWORK, and both previous flights operated on the CONTAINER** — first the box (34px → the text's 25.575px
+line box), then the box's optical padding (offsets stale against the old box). Each fixed a real defect and
+neither could have touched this one. **A glyph that is the wrong shape cannot be corrected by any margin.**
+⛔ **THE RESCALE, EVERY COORDINATE FROM ARITHMETIC.** k = 12/9 = 4/3, applied about the shared baseline
+y = 16.5 so the bottom is fixed and the top rises: `y' = 16.5 − (16.5 − y) × 4/3`.
+    top    16.5 − (16.5 − 7.5) × 4/3 = 16.5 − 12 = **4.5**   (matches the L exactly)
+    middle 16.5 − (16.5 − 12 ) × 4/3 = 16.5 − 6  = **10.5**  ← scales WITH the letter; it does NOT stay at 12
+  OLD `M13.5 16.5 V7.5 L16.75 12 L20 7.5 V16.5` → NEW `M13.5 16.5 V4.5 L16.75 10.5 L20 4.5 V16.5`
+⛔ **THE WIDTH IS DELIBERATELY NOT SCALED, AND THAT IS A JUDGEMENT WITH NUMBERS RATHER THAN A SHORTCUT.**
+At 6.5 × 12 the M's aspect is 0.542 against the L's 5.5/12 = 0.458 — the M stays the WIDER letter, which is
+correct for an M beside an L. Scaling the width by the same 4/3 gives 8.667, putting the M's ink edge at
+x 23.767 of a 24-unit box — **0.233 units of right padding against 3.4 on the left** — and would require
+moving the L to re-centre the pair. The pair still fits: ink x 3.4 → 21.6 is unchanged.
+⛔ **THE INK PADDING TOKENS DO NOT CHANGE, AND THE REASON IS WORTH STATING RATHER THAN ASSUMING.** Ink box
+before: L y 2.9→18.1, M y 5.9→18.1 ⇒ union **2.9→18.1**. After: L unchanged, M y 2.9→18.1 ⇒ union
+**2.9→18.1**. **The L already held the top boundary; raising the M to meet it cannot move a limit the L
+already set.** `--lm-ink-top` (2.9/24) and `--lm-ink-bottom` (5.9/24) stand as written, still as calc() off
+the box, never as pixels — [[LORAMER_LM_MARK_BASELINE_V1]] is untouched by this change.
+⛔ **THE DASH ANIMATION HAD TO MOVE WITH THE GEOMETRY, AND IT WOULD HAVE BROKEN SILENTLY.** The M's path
+length rose **29.1018 → 37.6473** user units (12 + 6.8237 + 6.8237 + 12). `stroke-dasharray` must exceed the
+LONGER path so one dash covers either stroke; at the shipped **32** the M would have started 5.65 units
+already-visible and finished 5.65 units short of drawn — read by the eye as a glitching animation, and
+invisible to every check. Raised to **40** (37.6473 + 2.35 headroom, the same posture 32 had against 29.1018),
+and the keyframe's opening `stroke-dashoffset` moved with it or the stroke starts part-drawn.
+⛔ **pathLength IS STILL NOT AN OPTION** — WebKit parses and ignores it and every browser on iOS is WebKit
+(the 2026-08-02 Gate-B failure). The dash stays in real user units, coupled to the paths, and leg (g) below
+computes the coupling rather than trusting it.
+GUARD: `lm-mark-is-text-height.guard.mjs` leg (g) — parses both `d` strings, asserts EQUAL vertical extent
+off a SHARED baseline, and computes the longest path to check the dash covers it and that the keyframe agrees.
+RED-PROVEN against the shipped artwork: *"THE TWO LETTERS ARE NOT THE SAME HEIGHT — L spans 12 vertical units
+(y 4.5→16.5), M spans 9 (y 7.5→16.5); the M is 75% of the L."* GREEN after, reporting
+*"both letters span 12 vertical units off a shared baseline y=16.5; longest path 37.6473 units, dash 40
+(headroom 2.3527)"*. ⚠ An unparseable path command is a FINDING, not a skip — the parser handles absolute
+M/V/H/L and refuses anything else rather than silently stopping.
+⚠ **AND ONE MORE PHANTOM-TOKEN CATCH, RECORDED BECAUSE IT IS THE THIRD TIME:** leg (g) first went red reading
+`stroke-dasharray: 1` out of the stylesheet's own COMMENT — the header quotes the historical value while
+explaining the 2026-08-02 bug. Comments are stripped before matching.
+⚠ **LIMIT, UNCHANGED: THE RENDERED PIXEL IS GATE-B ON A DEVICE AT sm** (DECISIONS:65). No browser in the
+build environment — no screenshot, no computed-style readback. **OUTSTANDING.**
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907

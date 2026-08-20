@@ -41,7 +41,18 @@ export function LmMark({ working = false }: { working?: boolean }) {
           .lmStroke), so it is coupled to the geometry below — a stated coupling is honest; an attribute
           that silently does nothing on the target browser is not. */}
       <path className={styles.lmStroke} d="M5 4.5 V16.5 H10.5" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path className={styles.lmStroke} d="M13.5 16.5 V7.5 L16.75 12 L20 7.5 V16.5" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      {/* ⛔ LORAMER_LM_EQUAL_CAP_HEIGHT_V1 — THE M IS THE SAME HEIGHT AS THE L. Russ's call, settled.
+          It was y 7.5→16.5 = 9 units against the L's 4.5→16.5 = 12 — 75% of the L, sharing a bottom edge,
+          which reads as the M sitting low. Every coordinate below is k = 12/9 = 4/3 applied about the
+          SHARED BASELINE y = 16.5, so the bottom is fixed and the top rises:
+            top    16.5 - (16.5 - 7.5) * 4/3 = 16.5 - 12  = 4.5
+            middle 16.5 - (16.5 - 12 ) * 4/3 = 16.5 - 6   = 10.5   ← scales WITH the letter, does not stay at 12
+          ⛔ THE WIDTH IS DELIBERATELY NOT SCALED, and that is a judgement with numbers behind it: at 6.5 x 12
+          the M's aspect is 0.542 against the L's 5.5/12 = 0.458, so the M remains the wider letter, which is
+          correct for an M beside an L. Scaling the width by the same 4/3 would make it 8.667 wide, put its
+          ink edge at x 23.767 of a 24 box — 0.233 units of right padding against 3.4 on the left — and
+          require moving the L to re-centre the pair. Stated rather than done. */}
+      <path className={styles.lmStroke} d="M13.5 16.5 V4.5 L16.75 10.5 L20 4.5 V16.5" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

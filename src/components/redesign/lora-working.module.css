@@ -167,9 +167,17 @@
   stroke: var(--accent, #2563eb);
   /* ⛔ DASH LENGTH IN REAL USER UNITS, NOT NORMALISED. pathLength is gone (see LmMark in LoraWorking.tsx):
      WebKit parses it and ignores it, so on every iOS browser `stroke-dasharray: 1` was read against paths of
-     17.5 and 29.1 units — 1-unit dashes with 1-unit gaps, invisible. 32 is longer than the longer path, so
-     one dash covers either stroke completely. */
-  stroke-dasharray: 32;
+     17.5 and 29.1 units — 1-unit dashes with 1-unit gaps, invisible. The dash must be LONGER THAN THE LONGER
+     PATH so one dash covers either stroke completely.
+     ⛔ RE-DERIVED 2026-08-19 (LORAMER_LM_EQUAL_CAP_HEIGHT_V1) AND IT HAD TO BE. Raising the M to the L's
+     cap-height lengthened it: 12 + 6.8237 + 6.8237 + 12 = **37.6473** user units, up from 29.1018. The old
+     value of 32 is SHORTER than that, so the M would have started 5.65 units already-visible instead of
+     hidden and finished 5.65 units short of drawn — a break the eye reads as "the animation is glitching",
+     with nothing in the build to catch it. 40 clears 37.6473 with 2.35 units of headroom, the same posture
+     32 had against 29.1018.
+     ⛔ THE KEYFRAME'S OPENING `stroke-dashoffset` MUST EQUAL THIS NUMBER or the stroke starts partly drawn;
+     `lm-mark-is-text-height.guard.mjs` leg (g) pins the two together AND against the measured path length. */
+  stroke-dasharray: 40;
   stroke-dashoffset: 0;
   opacity: 1;
 }
@@ -180,7 +188,7 @@
 /* ⛔ NO NEGATIVE stroke-dashoffset ANYWHERE. Safari does not support negative dash offsets — the standard
    self-erasing-stroke trick — so the dissolve is done with OPACITY, which is universally supported. */
 @keyframes loramerLmDraw {
-  0%   { stroke-dashoffset: 32; opacity: 0.2; }
+  0%   { stroke-dashoffset: 40; opacity: 0.2; }
   45%  { stroke-dashoffset: 0;  opacity: 1; }
   72%  { stroke-dashoffset: 0;  opacity: 1; }
   100% { stroke-dashoffset: 0;  opacity: 0.2; }

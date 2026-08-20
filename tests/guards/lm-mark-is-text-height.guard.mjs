@@ -183,6 +183,76 @@ if (markTsx) {
   }
 }
 
+// ── (g) THE TWO LETTERS ARE THE SAME HEIGHT, AND THE DASH COVERS THE LONGER OF THEM ──────────────────
+// ⛔ LORAMER_LM_EQUAL_CAP_HEIGHT_V1 — RUSS'S CALL, SETTLED: the L and the M are equal cap-height. It shipped
+// with the M at y 7.5→16.5 = 9 units against the L's 4.5→16.5 = 12 — **75% of the L, sharing a bottom edge**
+// — which is what made the M read as sitting low. That is an ARTWORK defect, and no amount of CSS margin
+// could have fixed it: the earlier flights moved the box and then the box's padding, and the glyph inside
+// stayed wrong both times.
+// ⛔ AND THE DASH IS COUPLED TO THE GEOMETRY, WHICH IS WHY IT IS THE SAME LEG. Raising the M lengthened it
+// 29.1018 → 37.6473 user units. `stroke-dasharray` must exceed the LONGER path or one dash cannot cover the
+// stroke: at the old 32 the M would have started 5.65 units already-visible and finished 5.65 short of
+// drawn. The keyframe's opening `stroke-dashoffset` must equal the dasharray or the stroke starts partly
+// drawn. Both are computed here from the PATHS THEMSELVES, so an artwork edit that forgets the dash fails.
+{
+  const tsx = markTsx || ''
+  // ⛔ COMMENTS STRIPPED BEFORE MATCHING, AND IT IS NOT HYGIENE — IT WENT RED ON THE FIRST RUN. The
+  // stylesheet's own header QUOTES the historical value ("`stroke-dasharray: 1` was read against paths of
+  // 17.5 and 29.1"), so an unstripped scan reads the number out of the PROSE EXPLAINING THE OLD BUG and
+  // reports it as the shipped value. Same phantom-token-in-prose class this repo has paid for twice.
+  const wk = String(workingCss || '').replace(/\/\*[\s\S]*?\*\//g, '')
+  // Parse the absolute M/V/H/L subset these two paths use. Anything else is a finding, not a guess.
+  const points = (d) => {
+    const pts = []
+    let x = null, y = null
+    const toks = String(d).trim().split(/(?=[MVHL])/)
+    for (const t of toks) {
+      const cmd = t[0], nums = t.slice(1).trim().split(/[\s,]+/).filter(Boolean).map(Number)
+      if (nums.some((n) => !Number.isFinite(n))) return null
+      if (cmd === 'M') { x = nums[0]; y = nums[1] }
+      else if (cmd === 'V') { y = nums[0] }
+      else if (cmd === 'H') { x = nums[0] }
+      else if (cmd === 'L') { x = nums[0]; y = nums[1] }
+      else return null
+      pts.push([x, y])
+    }
+    return pts.every((p) => Number.isFinite(p[0]) && Number.isFinite(p[1])) ? pts : null
+  }
+  const len = (pts) => pts.slice(1).reduce((n, p, i) => n + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0)
+  const ds = [...tsx.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1])
+  if (ds.length !== 2) {
+    findings.push(`(g) expected exactly 2 <path d="…"> in ${MARK_TSX}, found ${ds.length}. The mark is two letters; a third path or a missing one means this leg is measuring something else.`)
+  } else {
+    const parsed = ds.map(points)
+    if (parsed.some((p) => p === null)) {
+      findings.push(`(g) a path in ${MARK_TSX} uses a command this leg cannot parse (it handles absolute M/V/H/L only). ⛔ AN UNPARSED PATH IS NOT A PASS — teach the parser in the same commit that introduces the command, or the equal-height and dash checks silently stop running.`)
+    } else {
+      const ys = parsed.map((p) => p.map((q) => q[1]))
+      const extent = ys.map((a2) => Math.max(...a2) - Math.min(...a2))
+      const tops = ys.map((a2) => Math.min(...a2)), bottoms = ys.map((a2) => Math.max(...a2))
+      if (Math.abs(extent[0] - extent[1]) > 0.001) {
+        findings.push(`(g) THE TWO LETTERS ARE NOT THE SAME HEIGHT — L spans ${extent[0]} vertical units (y ${tops[0]}→${bottoms[0]}), M spans ${extent[1]} (y ${tops[1]}→${bottoms[1]}); the M is ${((extent[1] / extent[0]) * 100).toFixed(0)}% of the L. Sharing a bottom edge, a shorter M reads as sitting low, and NO CSS margin can correct it — the defect is in the artwork. Russ settled this: equal cap-height (LORAMER_LM_EQUAL_CAP_HEIGHT_V1).`)
+      }
+      if (Math.abs(bottoms[0] - bottoms[1]) > 0.001) {
+        findings.push(`(g) the letters do not share a baseline — L bottoms at y ${bottoms[0]}, M at y ${bottoms[1]}. Equal height off a shared baseline is the whole property; equal height off two different baselines is a different mark.`)
+      }
+      const longest = Math.max(...parsed.map(len))
+      const dashM = /stroke-dasharray:\s*([\d.]+)/.exec(wk)
+      const offM = /0%\s*\{\s*stroke-dashoffset:\s*([\d.]+)/.exec(wk)
+      if (!dashM) findings.push('(g) no `stroke-dasharray` found in the working stylesheet — the draw-on animation has no dash to animate.')
+      else if (Number(dashM[1]) <= longest) {
+        findings.push(`(g) \`stroke-dasharray: ${dashM[1]}\` is NOT longer than the longest path (${longest.toFixed(4)} user units). One dash must cover either stroke completely, or the stroke starts partly visible and finishes short of drawn — which reads as a glitching animation and which nothing else in the build can see. ⛔ pathLength cannot be used to normalise this: WebKit parses and ignores it, and every browser on iOS is WebKit.`)
+      }
+      if (dashM && offM && dashM[1] !== offM[1]) {
+        findings.push(`(g) the keyframe opens at \`stroke-dashoffset: ${offM[1]}\` but the dash is \`${dashM[1]}\`. They must be equal or the stroke is already part-drawn at 0%.`)
+      }
+      if (!findings.length) {
+        console.log(`[lm-mark-is-text-height] (g) artwork: both letters span ${extent[0]} vertical units off a shared baseline y=${bottoms[0]}; longest path ${longest.toFixed(4)} units, dash ${dashM ? dashM[1] : '?'} (headroom ${dashM ? (Number(dashM[1]) - longest).toFixed(4) : '?'}).`)
+      }
+    }
+  }
+}
+
 if (findings.length) {
   console.error(`[lm-mark-is-text-height] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  ✗ ${f}`)
