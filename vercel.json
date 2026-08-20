@@ -86,7 +86,7 @@
           "type": "queue/v2beta",
           "topic": "google-ads-universe-v2",
           "retryAfterSeconds": 60,
-          "maxConcurrency": 24
+          "maxConcurrency": 48
         }
       ]
     }
