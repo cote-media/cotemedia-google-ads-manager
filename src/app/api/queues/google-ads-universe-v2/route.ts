@@ -103,6 +103,20 @@ export const maxDuration = CONSUMER_MAX_DURATION_S
 // would stop nothing. A range dispatched just under this can still finish before Vercel kills the function.
 const WALK_BUDGET_MS = 180_000
 
+// LORAMER_CONSUMER_META_PROBE_V1 — TEMPORARY DIAGNOSTIC, and it exists to answer two questions the tree
+// cannot: the CONSUMER GROUP the push trigger registered under, and the REGION these messages live in.
+// Both arrive on every delivery in the SDK's metadata (MessageMetadata.consumerGroup / .region) and this
+// route has discarded them since it was written — the parameter was `_metadata`, declared and unused. The
+// region is required to construct a PollingQueueClient (the SDK: "messages can only be received from the
+// region they were sent to"), and the group name decides whether a puller would COMPETE with the push
+// consumer or FAN OUT beside it and double-spend. Neither is knowable from the repo or from Vercel's
+// Queues dashboard, which reported "No data found" for a topic that provably delivered.
+// ⛔ ONCE PER FUNCTION INSTANCE, NOT PER DELIVERY. A per-delivery line is ~420/hour at the current cadence
+// for two values that never change within an instance. The flag is module scope, so it resets on every cold
+// start — which is what makes the line reappear after a deploy instead of being lost forever.
+// ⛔ REMOVE THIS ONCE THE VALUES ARE BANKED. It has no self-removal and nothing will fail if it is left.
+let consumerMetaLogged = false
+
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
 }
@@ -552,7 +566,9 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
   return
 }
 
-const handler = handleCallback(async (msg: UniverseMessageV2, _metadata: any) => {
+const handler = handleCallback(async (msg: UniverseMessageV2, metadata: any) => {
+  // LORAMER_CONSUMER_META_PROBE_V1 — see the flag's declaration for why this exists and when it goes.
+  if (!consumerMetaLogged) { consumerMetaLogged = true; console.log('[consumer-meta]', JSON.stringify({ consumerGroup: metadata?.consumerGroup ?? null, region: metadata?.region ?? null, topicName: metadata?.topicName ?? null, deliveryCount: metadata?.deliveryCount ?? null })); }
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
