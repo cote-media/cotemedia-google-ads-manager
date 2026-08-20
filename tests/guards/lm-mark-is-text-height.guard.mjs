@@ -105,9 +105,15 @@ if (workingCss) {
   const body = ruleBody(workingCss, '.lmMark')
   if (!body) findings.push(`(c) ${WORKING} has no \`.lmMark\` rule.`)
   else {
+    // ⛔ EITHER FORM IS THE SAME DERIVATION, AND BOTH ARE ACCEPTED ON PURPOSE: the axis may name
+    // `--lm-mark-size` (declared in .tokens as exactly this product, and leg (f) pins that declaration) or
+    // spell the product inline. What is REFUSED is a length that is neither — a number somebody chose.
+    // This widened when the size and the ink-padding tokens were unified; a guard that only accepted the
+    // inline spelling would have gone red on the very commit that removed the duplication.
     for (const axis of ['width', 'height']) {
-      const m = new RegExp(`${axis}\\s*:\\s*calc\\([^;]*${FS}[^;]*\\*[^;]*${LH}[^;]*\\)`).exec(body)
-      if (!m) findings.push(`(c) \`.lmMark\` does not set \`${axis}\` to \`calc(var(${FS}, …) * var(${LH}, …))\`. The mark must be the answer's LINE BOX, expressed as the tokens rather than as their product — a hardcoded ${axis} is a number somebody chose, which is the defect.`)
+      const inline = new RegExp(`${axis}\\s*:\\s*calc\\([^;]*${FS}[^;]*\\*[^;]*${LH}[^;]*\\)`).test(body)
+      const viaToken = new RegExp(`${axis}\\s*:\\s*var\\(\\s*--lm-mark-size\\b`).test(body)
+      if (!inline && !viaToken) findings.push(`(c) \`.lmMark\` does not set \`${axis}\` from the answer's line box — expected \`var(--lm-mark-size, …)\` or \`calc(var(${FS}, …) * var(${LH}, …))\`. A hardcoded ${axis} is a number somebody chose, which is the defect.`)
     }
     const fb = new Map(varFallbacks(body))
     markFs = fb.get(FS) ?? null
@@ -138,6 +144,41 @@ if (markTsx) {
     }
     if (!/viewBox=/.test(body)) {
       findings.push(`(e) \`LmMark\` lost its \`viewBox\`. That is the coordinate system the paths are drawn in, NOT a size — removing it while removing the size attributes would collapse the mark.`)
+    }
+  }
+}
+
+// ── (f) THE OPTICAL OFFSETS ARE THE ARTWORK'S OWN PADDING, EXPRESSED — LORAMER_LM_MARK_BASELINE_V1 ────
+// ⛔ THIS LEG EXISTS BECAUSE THE SIZE FIX BROKE THE ALIGNMENT AND NOTHING NOTICED. `.mark`'s `-4px` and
+// `.statusText`'s `-6px` were both DERIVED — correctly — against a 34px box, and both comments said so in
+// writing ("at 34px there is ~4.1px … and ~8.4px below"; "change the viewBox and this number changes with
+// it"). The very next commit changed the box to 25.575px and left both: over-pulling by 0.91px and 1.71px,
+// so the mark sat low and the status line rode up under it. A correct derivation written as a NUMBER is one
+// resize away from being a wrong number, and the comment saying it was derived is what makes it look safe.
+// ⛔ THE INK BOX IS READ FROM THE PATHS, NOT ASSUMED: viewBox `0 0 24 24`; centrelines y 4.5→16.5 (L) and
+// 7.5→16.5 (M) — FLUSH at the bottom, the M does not descend — plus 1.6 of round-cap ink each side from
+// strokeWidth 3.2 ⇒ ink y 2.9→18.1 ⇒ 2.9 above, 5.9 below.
+{
+  const tok = tokensCss || ''
+  for (const [name, ratio] of [['--lm-ink-top', '2.9'], ['--lm-ink-bottom', '5.9']]) {
+    const body = ruleBody(tok, '.tokens') || ''
+    const re = new RegExp(`${name}\\s*:\\s*calc\\([^;]*--lm-mark-size[^;]*\\*[^;]*${ratio.replace('.', '\\.')}[^;]*/[^;]*24[^;]*\\)`)
+    if (!re.test(body)) {
+      findings.push(`(f) \`${name}\` is not declared as \`calc(var(--lm-mark-size) * ${ratio} / 24)\`. The mark's optical padding is a RATIO OF THE BOX taken from the viewBox — write it as a pixel value and the next resize silently un-aligns the mark, which is exactly what happened between LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 and this commit.`)
+    }
+  }
+  const wk = workingCss || ''
+  const markBody = ruleBody(wk, '.mark') || ''
+  if (!/margin-top:\s*calc\([^;]*--lm-ink-top/.test(markBody)) {
+    findings.push(`(f) \`.mark\` does not pull its margin-top from \`--lm-ink-top\`. It must cancel EXACTLY the empty box above the stroke so the ink top lands where the adjacent text's cap-height starts; a literal here was -4px against a real 3.090px and it over-pulled.`)
+  }
+  const statusBody = ruleBody(wk, '.statusText') || ''
+  if (!/margin-top:\s*calc\([^;]*--lm-ink-bottom/.test(statusBody)) {
+    findings.push(`(f) \`.statusText\` does not derive its margin-top from \`--lm-ink-bottom\`. It must cancel the empty box BELOW the stroke and leave the authored optical gap; a literal here was -6px against a real 6.287px, leaving 0.29px instead of 2px.`)
+  }
+  for (const [label, body] of [['.mark', markBody], ['.statusText', statusBody]]) {
+    if (/margin-top:\s*-?\d/.test(body)) {
+      findings.push(`(f) \`${label}\` sets margin-top to a bare number. Optical offsets against this artwork are ratios of the box; a number is correct only for the box size it was measured against, and nothing tells you which one that was.`)
     }
   }
 }

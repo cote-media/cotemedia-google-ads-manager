@@ -1384,6 +1384,45 @@ correctly beside the answer is Gate-B on a device at the sm breakpoint (DECISION
 a pass), and no guard can see a screen. **NOT DONE IN THIS FLIGHT.**
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_LM_MARK_BASELINE_V1 (2026-08-19) — SETTLED. Optical offsets are RATIOS OF THE BOX. Do not write one as a pixel.
+
+THREE-SOURCE — PRIOR CHATS: Russ on device, 2026-08-19 — the box is text-height now but the glyph "sits low", reading taller and lower than adjacent text; and [[LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1]], banked hours earlier, which is the commit that CAUSED it. · WEB: NONE-APPLICABLE: this is arithmetic over OUR artwork's own viewBox against OUR box size — no vendor doc, no external practice, and the CSS involved (calc, custom properties, negative margins) is settled platform behaviour. · REPO: `LoraWorking.tsx` (the two `<path d=…>` strings, strokeWidth and linecap), `lora-working.module.css` `.mark` and `.statusText` (the two stale offsets AND their own comments, which state the box size they were derived against), `redesign.module.css` `.tokens`. — /THREE-SOURCE
+**THE GLYPH'S OPTICAL PADDING IS A RATIO OF THE BOX, AND IT IS WRITTEN AS ONE.** `--lm-ink-top` and
+`--lm-ink-bottom` are `calc(var(--lm-mark-size) * 2.9 / 24)` and `* 5.9 / 24`; `.mark` cancels the first and
+`.statusText` cancels the second less a 2px authored gap. Resize the mark and both follow in the same paint.
+⛔ **THE MEASUREMENT, READ OFF THE PATHS RATHER THAN ASSUMED.** viewBox `0 0 24 24`. Centrelines:
+L = `M5 4.5 V16.5 H10.5` ⇒ x 5→10.5, y 4.5→16.5. M = `M13.5 16.5 V7.5 L16.75 12 L20 7.5 V16.5` ⇒ x 13.5→20,
+y 7.5→16.5. **BOTH BOTTOM OUT AT y = 16.5 — THEY ARE FLUSH, AND THE M DOES NOT DESCEND BELOW THE L.**
+strokeWidth 3.2 with round caps adds 1.6 of ink on every side ⇒ INK BOX x 3.4→21.6, y 2.9→18.1. So the box
+carries **2.9 units of emptiness above the artwork and 5.9 below — twice as much underneath.** That is the
+real asymmetry, and with the box top-aligned it reads exactly as "the mark sits low with a gap beneath it".
+⛔ **WHAT ACTUALLY BROKE, AND IT WAS MINE, ONE COMMIT OLD.** `.mark { margin-top: -4px }` and
+`.statusText { margin-top: -6px }` were both DERIVED CORRECTLY — against a **34px** box, and both comments
+said so in writing ("at 34px there is ~4.1px of empty box above the stroke and ~8.4px below"; "change the
+viewBox and this number changes with it"). [[LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1]] resized the box to 25.575px
+and **left both offsets untouched**. At 25.575px the real padding is 3.090px above and 6.287px below, so
+`-4px` over-pulled the mark by 0.91px and `-6px` left 0.29px of gap where 2px was intended — the status line
+rode up under the mark and the whole unit read low.
+⛔ **THE LESSON IS SHARPER THAN THE FIX: A CORRECT DERIVATION WRITTEN AS A NUMBER IS ONE RESIZE AWAY FROM
+BEING A WRONG NUMBER, AND THE COMMENT SAYING IT WAS DERIVED IS WHAT MAKES IT LOOK SAFE.** Both comments were
+honest, complete, and named the exact condition under which they would stop being true. Neither could stop
+anything. This is [[LORAMER_ADJACENT_NUMBER_V1]] with a paper trail — the number measured the right thing,
+against the wrong box, and prose cannot notice a resize.
+⇒ MECHANISM CHOSEN, AND WHY IT IS CSS RATHER THAN THE viewBox: re-cropping the viewBox to the ink would make
+the box non-square (18.2 x 15.2) while width and height are one shared size token, so it would either distort
+the artwork or need a `preserveAspectRatio` rule — a second mechanism to keep in step. Cancelling the padding
+in the margin keeps ONE size token, keeps the artwork untouched, and keeps the ROUND-CAP ink geometry (which
+the dash animation is coupled to — see `.lmStroke`) exactly as measured.
+GUARD: `lm-mark-is-text-height.guard.mjs` leg (f), same commit. RED-PROVEN against the previous commit's own
+files — **6 findings**: both tokens undeclared, neither `.mark` nor `.statusText` deriving from them, and both
+still setting a bare-number margin-top. GREEN after. Leg (c) was WIDENED in the same pass to accept
+`var(--lm-mark-size, …)` as well as the inline product, because unifying the size token would otherwise have
+gone red on the very commit that removed the duplication.
+⚠ **LIMIT, UNCHANGED AND NOT A FORMALITY: THE RENDERED PIXEL IS STILL GATE-B ON A DEVICE AT sm** (DECISIONS:65).
+There is no browser in the build environment: no screenshot, no computed-style readback. Whether the ink top
+now lands on the adjacent text's cap-height is Russ's eyes, and it is OUTSTANDING.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907

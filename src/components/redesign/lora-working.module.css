@@ -41,10 +41,16 @@
    lora-page.module.css agree on `padding: 9px 13px`). Indenting the mark by exactly that puts it on the
    answer's own text margin rather than the bubble's outer edge — standing where the first character lands,
    which is the point of the position. */
-/* margin-top: -4px CANCELS THE SVG'S OWN OPTICAL PADDING so the mark HUGS the message above it. The artwork
-   spans y 2.9→18.1 of a 24 viewBox, so at 34px there is ~4.1px of empty box above the stroke and ~8.4px
-   below. Without the pull the mark floats a full line-gap under the user's message. */
-.mark { margin-left: 13px; margin-top: -4px; }
+/* ⛔ LORAMER_LM_MARK_BASELINE_V1 — THE PULL IS THE INK'S OWN TOP PADDING, EXPRESSED, NOT A NUMBER.
+   The artwork spans y 2.9→18.1 of a 24 viewBox (paths + 1.6 of round-cap ink each side), so the box carries
+   exactly `size * 2.9/24` of emptiness above the stroke. Cancelling precisely that puts the INK TOP flush
+   with the block's top edge — where the adjacent text's cap-height starts — which is the alignment the
+   original design intended and which a resize silently broke.
+   ⛔ IT WAS `-4px`, AND THAT WAS RIGHT FOR A 34px BOX AND ONLY FOR A 34px BOX. Its own comment said so.
+   LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 resized the box to 25.575px and left the offset: 4px against a real top
+   padding of 3.090px, over-pulling by 0.91px. A derived offset cannot drift from the box it is derived from;
+   an absolute one drifts the moment anything moves. */
+.mark { margin-left: 13px; margin-top: calc(-1 * var(--lm-ink-top, 3.09px)); }
 
 /* ⛔ RESERVE THE SPACE — BELOW THE CONTENT, NOT AROUND IT. The loading state is the mark plus OPEN VERTICAL
    SPACE where the answer will land: no skeleton, no placeholder rows, no shimmer. A skeleton draws fake
@@ -62,11 +68,15 @@
    leading segments carry the information, and a clipped tail beats a moving layout. */
 .statusText {
   margin-left: 13px;
-  /* TIGHT UNDER THE MARK — ONE VISUAL UNIT. -6px cancels most of the ~8.4px of empty box the SVG carries
-     BELOW its strokes (the artwork ends at y 18.1 of a 24 viewBox, at a 34px box), leaving ~2px of optical
-     space between the bottom of the M and the cap-height of the line. Measured against the artwork rather
-     than eyeballed; change the viewBox and this number changes with it. */
-  margin-top: -6px;
+  /* TIGHT UNDER THE MARK — ONE VISUAL UNIT. This cancels the empty box the SVG carries BELOW its strokes
+     (the artwork ends at y 18.1 of a 24 viewBox) and LEAVES 2px of optical space between the bottom of the M
+     and the cap-height of the line. The 2px is the one authored value here; everything else is the artwork's
+     own geometry.
+     ⛔ IT WAS `-6px`, DERIVED AGAINST A 34px BOX — and its own comment ended "change the viewBox and this
+     number changes with it", which is exactly what happened and exactly what did NOT get done:
+     LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 resized the box to 25.575px, where the real bottom padding is 6.287px,
+     so -6px left 0.29px of gap instead of 2px and the line rode up under the mark. Now expressed. */
+  margin-top: calc(-1 * (var(--lm-ink-bottom, 6.287px) - 2px));
   max-width: 100%;
   min-width: 0;
   white-space: nowrap;
@@ -146,8 +156,12 @@
    overridden by any stylesheet and a JS prop cannot see the text metric at all. */
 .lmMark {
   display: block; flex: 0 0 auto;
-  width: calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65));
-  height: calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65));
+  /* ⛔ ONE SOURCE FOR THE BOX — LORAMER_LM_MARK_BASELINE_V1. `--lm-mark-size` is the same product, declared
+     once beside the ink-padding tokens that are ratios OF it, so the size and the two optical offsets can
+     never disagree about how big the mark is. The fallback repeats the product for the PORTALED shelf,
+     where LORAMER_PORTAL_SEVERS_CSS_VARS_V1 severs every custom property. */
+  width: var(--lm-mark-size, calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65)));
+  height: var(--lm-mark-size, calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65)));
 }
 .lmStroke {
   stroke: var(--accent, #2563eb);

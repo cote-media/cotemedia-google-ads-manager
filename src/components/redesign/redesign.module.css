@@ -27,6 +27,21 @@
      can go wrong and it is the one thing a human cannot see. */
   --lora-answer-font-size: 15.5px;
   --lora-answer-line-height: 1.65;
+  /* ⛔ LORAMER_LM_MARK_BASELINE_V1 — THE MARK'S BOX AND THE ARTWORK'S PADDING INSIDE IT, AS EXPRESSIONS.
+     Every number below is READ OFF THE SVG in LoraWorking.tsx, not chosen: viewBox is `0 0 24 24`; the two
+     paths run y 4.5→16.5 (L) and y 7.5→16.5 (M) on their CENTRELINES — FLUSH at the bottom, the M does NOT
+     descend below the L — and strokeWidth 3.2 with round caps adds 1.6 of ink on every side, so the INK box
+     is y 2.9 → 18.1. That leaves 2.9 units of empty box above the artwork and 5.9 below: TWICE as much
+     underneath, which is why the mark reads as sitting low with a gap beneath it.
+     ⛔ THESE ARE EXPRESSIONS BECAUSE THE LAST TWO WERE NUMBERS AND THEY WENT STALE IN ONE COMMIT.
+     `.mark { margin-top: -4px }` and `.statusText { margin-top: -6px }` were both derived — correctly —
+     against a 34px box, and both comments SAID SO ("at 34px there is ~4.1px … and ~8.4px below"; "change the
+     viewBox and this number changes with it"). LORAMER_LM_MARK_IS_TEXT_HEIGHT_V1 then resized the box to
+     25.575px and left both offsets untouched: they now over-pull by 0.91px and 1.71px. Written as a ratio of
+     the box, they cannot go stale again. */
+  --lm-mark-size: calc(var(--lora-answer-font-size, 15.5px) * var(--lora-answer-line-height, 1.65));
+  --lm-ink-top: calc(var(--lm-mark-size) * 2.9 / 24);
+  --lm-ink-bottom: calc(var(--lm-mark-size) * 5.9 / 24);
   --ink: #0f172a;
   --paper: #f8fafc;
   --accent: #2563eb;
