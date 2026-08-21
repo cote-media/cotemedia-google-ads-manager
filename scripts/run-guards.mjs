@@ -345,6 +345,10 @@ const GUARDS = [
   // LORAMER_CHECKDATA_VERDICT_LINE_V1 — check:data's machine-final VERDICT line: runner pinned, roster
   // pinned (13 checks), flush-safe exit, crash speaks, verdict LAST — the tail-truncation class enforcer.
   'tests/guards/checkdata-verdict-line.guard.mjs',
+  // LORAMER_QUEUE_TAG_MATCHES_TEXT_V1 — an item's TAG and an item's PROSE must not disagree. Reads the queue
+  // through the SHARED walk (scripts/lib/queue-walk.mjs), so it grades against the same statusIsDone the
+  // digest's §H/§L use. Also ratchets the untokened-item count (§L can only find what carries a token).
+  'tests/guards/queue-tag-matches-text.guard.mjs',
   // LORAMER_DB_ENUM_MIRRORS_TS_V1 — a TS union and the CHECK constraint behind it must not diverge. Red-first
   // against the 2026-08-17 incident shape: 'nongrain' in the union, absent from the constraint, every write
   // rejected 23514 while build + 124 guards + check:data all read green.

@@ -17,6 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
+import { walkQueue } from './lib/queue-walk.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -172,86 +173,13 @@ const settled = must('G settled-decisions', decisions.split('\n')
 // are unaffected). Guards the class the 2026-07-17 omission exposed: the old code sliced qLines at the
 // marker and silently dropped EVERY item banked below it (the whole post-07-15 audit list + every ★
 // follow-on). See DECISIONS LORAMER_SOURCE_CONFLICT_GATE_V1.
-const qLines = queue.split('\n')
-const doneMarker = qLines.findIndex((l) => l.includes('DONE — DO NOT REBUILD'))
-if (doneMarker === -1) throw new Error('queue DONE appendix marker not found')
-const fenceRe = /^═+/u
-// appendix span = [marker, the fence/header that ENDS the appendix blob]. The marker sits inside a
-// fence box; the blob ends at the next ═══ fence or ## header after that box.
-const fenceAfterMarker = qLines.findIndex((l, i) => i > doneMarker && fenceRe.test(l))
-let appendixEnd = qLines.length
-for (let i = (fenceAfterMarker === -1 ? doneMarker : fenceAfterMarker) + 1; i < qLines.length; i++) {
-  if (fenceRe.test(qLines[i]) || /^##\s/.test(qLines[i])) { appendixEnd = i; break }
-}
-// LORAMER_DIGEST_H_FILLQUEUE_V1 — FILL-QUEUE ENTRIES ARE FIRST-CLASS ITEMS, even though they are INDENTED
-// under the ★ PLATFORM-SURFACE-AUDIT bullet rather than written as "- " bullets. Before this, isItemStart
-// matched "- " only, so every M-FILL#/G-FILL#/S-FILL#/W-FILL#/GA-FILL# line was swallowed as CONTINUATION
-// TEXT of that one parent bullet and truncated wherever the parent block ended: M-FILL#1, G-FILL#2 and
-// S-FILL#1 survived by position while M-FILL#3, GA-FILL#1 and everything after them silently vanished.
-// The fill queue IS the active build order, so losing its tail is losing the work list. Same class as the
-// 2026-07-17 omission — the extractor dropping real items without saying so.
-const FILL_ENTRY = /^[A-Z]{1,3}-FILL\b/
-const isItemStart = (l) => { const t = l.trimStart(); return t.startsWith('- ') || /^P\d+ /.test(t) || FILL_ENTRY.test(t) || t.startsWith('DATA COMPLETENESS ONBOARDING') }
-const TAG = /\[(?:LC|NP|EXT|DG)[^\]]*\]/
-const INCLUDE_RE = /\b(open(?:\([^)]*\))?|partial|blocked|decision-pending|deferred|banked|parked|mostly-closed|proposed|standing)\b[^[]*\[/i
-const statusIsDone = (block) => {
-  let statusLine = ''
-  for (const l of block) if (TAG.test(l)) statusLine = l                 // LAST tag-bearing line = the authored status
-  if (!statusLine) return false
-  const s = statusLine.replace(/\([^)]*\)/g, ' ')                        // drop parentheticals like "(V1 done)"
-  let lastTag = -1, re = /\[(?:LC|NP|EXT|DG)[^\]]*\]/g, m
-  while ((m = re.exec(s))) lastTag = m.index
-  if (lastTag < 0) return false
-  const window = s.slice(Math.max(0, lastTag - 26), lastTag)            // the keyword governing the final tag
-  const kws = [...window.matchAll(/\b(open(?:-watch)?|partial|blocked|decision-pending|deferred|banked|parked|mostly-closed|proposed|standing|resolved|done|closed)\b/gi)]
-  return kws.length ? /^(resolved|done|closed)$/i.test(kws[kws.length - 1][1]) : false
-}
-// LORAMER_DECISION_TOPIC_INDEX_V1 — the walk is now SHARED. §H and §L are produced from the SAME pass over the
-// same blocks with the SAME statusIsDone, so the index and the open-queue list CANNOT disagree about an item's
-// status. That is the generate-don't-guard principle applied to a second consumer: two readers of one walk can
-// drift only if there are two walks.
-const allQueueItems = []   // { header, block, isOpen }
-const openHeaders = []
-for (let hdr = 0; hdr < qLines.length; hdr++) {
-  if (!isItemStart(qLines[hdr])) continue
-  // gather this item's block: header + continuations until the next item-start / section boundary
-  let end = hdr + 1
-  const block = [qLines[hdr]]
-  for (; end < qLines.length; end++) {
-    const t = qLines[end]
-    if (isItemStart(t) || /^##\s/.test(t) || fenceRe.test(t) || t.includes('DONE — DO NOT REBUILD')) break
-    block.push(t)
-  }
-  const headerIdx = hdr
-  hdr = end - 1
-  const __rec = (isOpen) => allQueueItems.push({ header: qLines[headerIdx], block, isOpen })
-  if (headerIdx >= doneMarker && headerIdx < appendixEnd) continue                 // skip the DONE appendix blob
-  // LORAMER_DIGEST_H_FILLQUEUE_V1 — done-detection is SPLIT BY ITEM SHAPE, and the split is load-bearing.
-  // "- " bullets keep the ORIGINAL narrow (RESOLVED|FIXED|DONE) test, anywhere in the line. Widening THAT
-  // to SHIPPED/COMPLETE/APPLIED buried 8 still-open parents on the first attempt — "NATIVE AUTH … SLICE 1
-  // ✅ SHIPPED", "RBAC PATH B … SPINE ✅ APPLIED", "★ PLATFORM-SURFACE-AUDIT ✅ COMPLETE … the ranked FILL
-  // QUEUE below is the open follow-on work" — every one of them a live item whose header happens to record
-  // one finished slice. That is precisely the mid-history-done-buries-an-open-item trap this file already
-  // warns about at the top of §H.
-  // FILL entries are different: they are single-purpose and mark their own completion at the HEAD of the
-  // entry ("M-FILL#1  ✅ SHIPPED 2026-07-18"), so the wider vocabulary is safe ANCHORED to that position.
-  const isFill = FILL_ENTRY.test(qLines[headerIdx].trimStart())
-  const fillDone = isFill && /^[A-Z]{1,3}-FILL\S*(\s+\S+)?\s+✅\s*(SHIPPED|DONE|COMPLETE|CLOSED|RESOLVED|FIXED|APPLIED)\b/i.test(qLines[headerIdx].trimStart())
-  const bulletDone = !isFill && /✅\s*(RESOLVED|FIXED|DONE)\b/i.test(qLines[headerIdx])
-  if (fillDone || bulletDone || /^-\s*\[x\]/i.test(qLines[headerIdx])) { __rec(false); continue }
-  // LORAMER_DIGEST_H_FILLQUEUE_V1 — TRACKED = CARRIES A TAG. This replaces `if (!INCLUDE_RE.test(...)) continue`,
-  // which required the queue's "src: … open [TAG]" prose convention and SILENTLY DROPPED any tagged item that
-  // did not happen to use it (an entry ending "…no exceptions. [LC]" read as untracked and vanished). Absence
-  // of a recognised status word must NEVER mean "omit" — the failure mode of an omission is invisible, the
-  // failure mode of an extra line is that Russ reads one more item. Default to INCLUDE and let the explicit
-  // done-checks below do the excluding. INCLUDE_RE is retained only as the fallback signal for legacy
-  // untagged-but-tracked lines.
-  const blockText = block.join('\n')
-  if (!TAG.test(blockText) && !INCLUDE_RE.test(blockText)) { __rec(false); continue } // genuinely untracked prose
-  if (statusIsDone(block)) { __rec(false); continue }                              // terminal tag says done → exclude
-  __rec(true)
-  openHeaders.push(qLines[headerIdx])
-}
+// LORAMER_QUEUE_WALK_SHARED_V1 — the walk moved to scripts/lib/queue-walk.mjs so the guard that grades this
+// queue reads THE SAME block-splitting and THE SAME statusIsDone. Two readers of one walk drift only if there
+// are two walks. Behaviour is unchanged: the module is a byte-faithful transcription of the code that was here,
+// and the swap was proven by regenerating the digest with both implementations and diffing — identical SHA-256
+// once the inherently-per-run `generated_at` line is removed (2026-08-20).
+const { items: allQueueItems, doneMarker, appendixEnd } = walkQueue(queue)
+const openHeaders = allQueueItems.filter((i) => i.isOpen).map((i) => i.header)
 const openItems = must('H open-queue', openHeaders.join('\n'))
 
 // ── I. lessons index ──
