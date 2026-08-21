@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-21T04:17:58.443Z
-- built_from HEAD: 5e7387d28e0b5e31b842b57af61577f68096f575  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-21T13:22:39.026Z
+- built_from HEAD: d3903d7d4f547199f174ba637ad8e3aeb9c07c3e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 6a3ea968d65020280e6c387ee4d4cad06c009f50c2f894a50298ab2c929c929d
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: 44f79399a6dd71c57d1344f9fe8313078ffc6b0365ef45555eb40b768b9d654b
+    - CONTINUE_HERE.md: fde2c0ae1fb7be79bc534d1d09deda694a6ecc4afff935fe74bfb5a3ae3cbc56
     - LORAMER_DECISIONS.md: b998066dd5190d627de32a9706fa9d9b7de6b0be10772b00291f548954cc4441
-    - LORAMER_QUEUE_OF_RECORD.md: 99f6bb06999ebdc190d7e8105e926b4216510acc51a3b33cb2aa7c8cfdf46331
+    - LORAMER_QUEUE_OF_RECORD.md: 44ead8303c948d1da3a3674778e8c4575d5e6aeec6d5406a39fbaa853ed92ca6
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -492,65 +492,87 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
-═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-08-20). THIS IS THE NEXT STEP. ═══
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-08-21). THIS IS THE NEXT STEP. ═══
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-08-20/21 — THE HEAD, WHAT IS UNPUSHED, AND WHAT ONLY RUSS CAN DO. READ FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-21 — THE HEAD IS HALF-ANSWERED, AND THE REST NEEDS RUSS AT A DASHBOARD. READ FIRST. ═══╗
 
-⛔ **THE HEAD IS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]], AND THE FIRST ACTION IS A READ, NOT A BUILD.**
-Four hypotheses died tonight and the cause is genuinely unknown — which is a better position than the three
-confident wrong ones it replaces. [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] owns the refutation and
-every number; do not re-derive them.
-**WHAT SURVIVED, AND IT POINTS AWAY FROM THE QUEUE: Send Attempts rose to a 12-hour HIGH while First
-Deliveries and Notifications collapsed, redeliveries stayed flat ZERO, and delivery age IMPROVED (avg
-893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ the next diagnostic is the
-**INVOCATION PATH** — Fluid instance behaviour, function init, WAF / deployment protection, and the
-community report's five causes, none of them chased.
-⛔ **TAKE THE READ WHILE A DECAY IS LIVE.** A re-arming redeploy resets the consumer and erases the evidence:
-that is exactly what happened to run 5, which was ended by our own deploy while still at peak 23 and could
-therefore never answer this. **Run 6 was the first run watched all the way down without intervening.** A
-fourth re-arm before the read would destroy the only instance we have.
-⛔ **AND FOUR THINGS ARE DEAD — DO NOT RE-RANK ANY OF THEM:** the maxConcurrency ceiling (24→48 shipped, it
-worked as designed, peak never reached 48 — [[LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1]]); the
-"unfixable vendor fault" premise, which was never verified and was inherited for three days; the ~2h50m
-periodicity, killed by its own evidence (real runs are 1.8 h / 12.5 h / 41.3 h / 2.8 h / 4 h+); and slot
-erosion at the ceiling, killed by redeliveries being flat zero across 12 hours.
+⛔ **THE HEAD REMAINS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]] AND IT IS NOW HALF-ANSWERED: THE FAULT IS AT
+INSTANCE CREATION, UPSTREAM OF EVERY LINE OF CODE WE OWN.** Read taken 2026-08-21 05:25Z while delivery was
+fully dark — the condition run 5 never survived long enough to give us.
+**THE MEASUREMENT: 73 MINUTES OF DARKNESS (last consumer invocation 04:11:57Z), ZERO invocations of
+`/api/queues/google-ads-universe-v2`.** No 4xx, no 5xx, no error-level line, no `[universe-v2]` output, no
+`console.warn` from the quota gate — **nothing at all.** ⛔ **A FUNCTION THAT RAN AND FAILED WOULD LEAVE
+SOMETHING.** In the same window the producer fired 14 times, all 200, publishing 41 messages each
+(`publishedOf:39` + `topEdgePublished:2`), with `oldestWindowStart:"2024-02-16"` and
+`advancedCovered:0 · receded:0` **byte-identical on every fire** — re-deriving the same 39 surfaces forever
+because nothing consumes them.
 
-── ⛔ WHAT IS SITTING UNPUSHED, SO IT IS NOT DISCOVERED BY A CONFLICT ──
-**TWO LOCAL COMMITS ON `main` ARE COMMITTED AND NOT PUSHED:** `291e7f6` (UI-session setup —
-[[LORAMER_UI_SESSION_SETUP_V1]]) and `0740522` (the queue-tag guard — [[LORAMER_QUEUE_TAG_MATCHES_TEXT_V1]]).
-⚠ **A push auto-deploys production and therefore restarts the consumer**, which is why they were held while
-run 6 was still producing evidence. **`npm run check:data` is owed before the push and its result belongs in
-the push report** — CLAUDE.md's gate, and there is no pre-push hook to catch a miss.
-**THE UI FORK IS SET UP AND HAS NOT BEEN STARTED.** `docs/UI_SESSION_SCOPE.md` holds the fixed three-item
-list; branch `ui` is 205 behind `main` and 2 ahead and syncs by MERGE, never rebase. **A merge to main costs
-≤5 minutes of walk progress and ZERO data — no merge window is needed and none should be scheduled.**
-**11 QUEUE CONTRADICTIONS ARE HELD FOR A HUMAN READ**, each named individually with a reason in
-`tests/guards/queue-tag-matches-text.baseline.mjs`: 4 matcher false positives, 4 vocabulary/format bugs owned
-by [[★FILLDONE-TOLERATES-ONE-WORD-TITLES]], and **3 genuine judgement calls that need Russ** (:314
-closed-with-a-follow-on, :695 half-closed, :867 a master-audit line that reads as a true contradiction).
+⛔ **EVERY DELIVERY IS A COLD START. 1:1. NO INSTANCE IS EVER REUSED — PROVEN TWICE, INDEPENDENTLY.**
+  · the `[consumer-meta]` probe is module-scope and fires ONCE PER INSTANCE: **40 consumer invocations in the
+    healthy window, 40 probe lines.** Every one `deliveryCount:1`, which also corroborates zero redeliveries.
+  · the Node `DEP0169 url.parse()` deprecation warning fires ONCE PER PROCESS: **61 of them on this route in
+    the healthy 23:00Z hour** — a second instrument, measuring the same thing, agreeing.
+  · the arrival shape is what makes that expensive: **24 simultaneous cold starts in ONE SECOND**
+    (`23:12:12` ×15, `23:12:11` ×8, `23:12:13` ×1), because deliveries land in a burst at each 5-minute fire.
+**⇒ INSTANCE CREATION IS WHAT DECAYED: 29 → 24 → 18 → 3 → 0.** Not our throughput, not the queue.
 
-── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY, AND NEITHER CAN BE DONE BY CLAUDE CODE ──
-**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, AND IT IS OAUTH CLICKS IN A BROWSER.** Nothing
-in this repo can mint those tokens. When they lapse, Meta capture stops for every affected client and **the
-failure presents as EMPTY DATA rather than as an error.** This is the nearest hard clock on the board and it
-is now inside a week.
-**2. THE CLAUDE CODE WEEKLY CAP IS THE BINDING CONSTRAINT BEFORE 9/30 — not compute, not Google quota, not
-disk.** Sequence against that budget explicitly rather than discovering it mid-arc.
+**AND VERCEL KEPT OFFERING THE WHOLE TIME — this is the half that makes it not-our-fault-shaped:** Send
+Attempts rose to a **12-hour HIGH** while First Deliveries and Notifications collapsed, **redeliveries stayed
+flat ZERO across 12h**, and **delivery age IMPROVED to avg 893 ms**. Offering more, faster, and refused
+sooner. Nothing was ever leased and lost.
 
-── THE 9/30 BOARD — **40 DAYS OUT** (2026-08-21 → 2026-09-30) ──
-**FIVE ITEMS ARE TAGGED 9/30-BLOCKING. Everything else on the queue is behind them by definition:**
-  1. **LORA-VOICE**
-  2. **★CHAT-STATUS-INDICATOR**
-  3. **★CHAT-STREAMING** — a foundation, not a flag: the status indicator and the stop button both sit on it.
-  4. **HOMEPAGE UNIFICATION** — ⛔ **PARKED UNTIL THE GOOGLE REVIEWS CLEAR.** OAuth verification is closed;
-     **Standard Access is PENDING and Google has asked us to "clarify the company website"** — which is the
-     exact surface this item would change. Do not touch it while that question is open.
-  5. **THE DEMO SPINE** — the dashboard walk plus voice-directed Lora, the thing an agency is actually shown.
-⚠ **THE HEAD IS NOT ON THIS LIST, and that is deliberate:** the walk is the product's data floor and a
-delivery fault that halves throughput every hour compounds against all five. It ranks first because it is
-cheap to READ and unbounded if left.
+⛔ **RULED OUT — DO NOT RE-CHASE ANY OF THESE:** our handler · auth · the quota gate (`holdGoogleWork` logs a
+`console.warn` by design, and none appears; `quotaHeld=false` independently) · the ledger · every silent
+early exit (the route's own header counts nine exits, eight of them downstream of `appendAttemptStarted`) ·
+function init failure (an init error logs; the only error group on this route is the deprecation warning) ·
+**deployment protection** — `ssoProtection` IS enabled (`all_except_custom_domains`, `app.loramer.com`
+exempt), but it is a CONSTANT and was in force at 23:07Z while 40 deliveries succeeded; **a constant cannot
+produce a decay.**
+
+── ⛔ THE NEXT ACTION IS A DASHBOARD READ ONLY RUSS CAN TAKE. CLAUDE CODE CANNOT SEE THIS. ──
+**Vercel → (team) Russell Cote's projects → the `cotemedia-google-ads-manager` project → Observability →
+Fluid Compute** (and then **Usage** at the team level, left nav → Usage → Fluid Compute / Function
+Invocations). **WHAT TO LOOK FOR, in order:**
+  1. **Concurrency / active instances over the last 12h** — does the instance count fall to zero around
+     04:11Z while invocations are still being attempted?
+  2. **Any limit, cap, throttle or "concurrency limit reached" indicator** on the account or the project.
+  3. **Usage against plan limits** — whether a Fluid/function quota was reached tonight.
+  4. If the dashboard shows a refusal we cannot explain, that is a **Vercel support ticket**, and this block
+     is the evidence to paste into it.
+⚠ **AND ONE OBSERVED FACT I AM DELIBERATELY NOT INTERPRETING: `get_project` returns `"live": false` on this
+project.** I do not know what that flag governs, and guessing at it is how a wrong mechanism gets banked.
+Check it while you are in there.
+
+⚠ **STILL UNKNOWN AFTER TONIGHT:** why instance creation stopped (account Fluid concurrency vs per-project
+cap vs platform refusal) · whether any WAF rule exists (not readable from the tools Claude Code has) ·
+whether `"live": false` matters · and **why the consumer is cold on EVERY invocation** — a warm instance
+would serve a 41-message burst with a handful of processes instead of 41. That last one is its own item now:
+[[★CONSUMER-IS-COLD-ON-EVERY-INVOCATION]].
+
+── WHAT ELSE CAME OUT OF TONIGHT ──
+**THE RESUME FLOW WAS REBUILT AND IT WAS BADLY BROKEN.** §E of the digest was pointing every fresh session at
+★THREE-CLEAN-RUNS-BEFORE-FAMILY — **satisfied 2026-08-19** — because the generator read a fence 1,584 lines
+below the real head, and all 137 guards read green over it. Fixed at the source
+([[LORAMER_CONTINUE_HEAD_ONE_SELECTOR_V1]]); the resume now reads the head FROM THIS FILE and costs
+**27,752 tokens instead of 530,000.** ⛔ **RUSS MUST RE-PASTE `RESUME_INSTRUCTIONS.md` INTO CLAUDE APP
+SETTINGS — the repo cannot do it, and until he does, "Resume LoraMer" still runs the old flow.**
+**TWO REAL DEFECTS FOUND BY check:data AND NEWLY BANKED:**
+[[★GOOGLE-BASE-ROWS-DOUBLE-ON-DAY-SUM]] (a live silent-wrong-number generator) and
+[[★PARENT-ANALYZE-TURNS-NULL-INTO-1970]].
+
+── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY ──
+**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, OAUTH CLICKS IN A BROWSER.** Nothing in this
+repo can mint those tokens, and **the failure presents as EMPTY DATA rather than as an error.** Inside a week.
+**2. THE FLUID/USAGE READ ABOVE.** It is the head, and Claude Code cannot take it.
+
+── THE 9/30 BOARD — **40 DAYS OUT** ──
+Five items are 9/30-blocking; everything else is behind them: **LORA-VOICE · [[★CHAT-STATUS-INDICATOR]] ·
+[[★CHAT-STREAMING]]** (a foundation — the indicator and the stop button both sit on it) · **HOMEPAGE
+UNIFICATION** (⛔ parked until the Google reviews clear — Standard Access is pending and Google asked us to
+"clarify the company website", which is the surface this item would change) · **the demo spine** (dashboard
+walk + voice-directed Lora). §F of the digest carries the clock as [[★9-30-IS-THE-GOVERNING-DATE]].
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1550,6 +1572,9 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - [FINDING 2026-08-17 — VENDOR OUTAGE, RESOLVED; and a second vendor fault still OPEN] **VERCEL QUEUES v2beta STOPPED DELIVERING FOR 11 HOURS WHILE PUBLICATION KEPT SUCCEEDING, AND EVERY LAYER WE OWN WAS PROVEN CORRECT BEFORE THE VENDOR WAS BLAMED.** The consumer `/api/queues/google-ads-universe-v2` last ran 2026-08-17 05:32:32Z (HTTP 200, clean exit) and was not invoked again for 11h; the producer fired every 15 minutes throughout and Vercel returned 2xx for **1,548+ messages**, which by their own durability contract means each was replicated to three availability zones before the call returned. PROVEN OURS-IS-CORRECT, in order: ONE deployment in play and none since 03:10:04Z · producer and consumer on that same deployment · the topic name a single shared constant imported by both · the `experimentalTriggers` block byte-for-byte in the deployed vercel.json · exactly one subscriber · zero consumer errors in 3h of error-level logs · **the stall began 2h22m AFTER the last deploy with ~78 successful invocations in between, so it was NOT a build-time registration failure**. ⛔ **THE DEDUPE HYPOTHESIS WAS RAISED AND FALSIFIED BY MEASUREMENT** — the same stable idempotency key was delivered at 03:02:25Z and again at 05:16:45Z, 2h14m apart, and 325 owed-ranges ran twice inside 16h; Vercel releases the key on ACK, not at TTL. RESOLVED BY REDEPLOY at 20:49:28Z READY — **delivery resumed 2 SECONDS after the first fire on the new deployment** (17:02:07.296Z fire → 17:02:09.291Z first attempt row, on the earlier of the two deploys). Redeploy is the vendor's sanctioned re-arm; beta features are barred from private ticketing on non-Enterprise, so the support artifact was written and the root cause is theirs to give. ⛔ **A SECOND VENDOR FAULT REMAINS OPEN AND UNEXPLAINED: the Queues observability tab reported "No data found" for this topic over the last 3 days, in a window where it PROVABLY delivered 78 messages** (runtime logs, 05:00-05:45Z, one entry quoted verbatim). Their telemetry cannot see the topic. That also removed the instrument that would have distinguished "not delivered" from "delivered and not acknowledged", which is why this entry cannot narrow further. ⇒ THE LESSON THAT IS OURS RATHER THAN THEIRS: the outage ran 11 hours because `check-walk-liveness` tested the PRODUCER, and the only instrument that saw it (`check-fleet-meter-visibility`) **detected it and MISDIAGNOSED it** as a fleet-meter accounting fault. [[LORAMER_CONSUMER_LIVENESS_V1]] is the repair; [[LORAMER_ADJACENT_NUMBER_V1]] is the species. | 2026-08-17 | do not relitigate the dedupe theory; it was falsified on measured data.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
+- ★CONSUMER-IS-COLD-ON-EVERY-INVOCATION — ⛔ **NEW 2026-08-21, MEASURED TWICE BY TWO INDEPENDENT INSTRUMENTS, AND IT IS WORTH ITS OWN ITEM WHATEVER [[★DELIVERY-DECAY-CAUSE-UNKNOWN]] TURNS OUT TO BE.** `/api/queues/google-ads-universe-v2` gets a **BRAND-NEW FUNCTION INSTANCE FOR EVERY SINGLE QUEUE DELIVERY. No instance is ever reused.** PROOF 1: the `[consumer-meta]` probe is module-scope (`let consumerMetaLogged = false`) and fires ONCE PER INSTANCE — **40 consumer invocations in the 22:50–00:10Z window, 40 probe lines, 1:1**, every one `deliveryCount:1`. PROOF 2: Node's `DEP0169 url.parse()` deprecation warning fires ONCE PER PROCESS — **61 of them on this route in the 23:00Z hour alone**, a second instrument measuring the same thing and agreeing. ⛔ **AND THE ARRIVAL SHAPE IS WHAT MAKES IT EXPENSIVE: deliveries land in a BURST at each 5-minute fire — 24 simultaneous cold starts in ONE SECOND** (`23:12:12` ×15 · `23:12:11` ×8 · `23:12:13` ×1) — so a 41-message fire costs **41 cold starts** where a warm instance would serve the burst with a handful. ⇒ **THIS IS THE MOST PLAUSIBLE MECHANISM BEHIND THE DECAY AND IT IS NOT THE SAME QUESTION**: whatever provisioning limit exists, we are hitting it 41 times per fire instead of a few. **THE WORK, and the first half is a READ:** establish whether cold-per-delivery is (a) how Vercel Queues push mode works by design, (b) a consequence of our route's module-scope imports or `maxDuration`, or (c) Fluid not keeping the instance warm at this arrival rate — then decide whether the fix is fewer/bigger messages, a warm path, or nothing. ⚠ **DO NOT ASSUME IT IS A DEFECT before the vendor's intended behaviour is established** — per [[LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1]] this needs the field-report half, not just the docs. src: the 2026-08-21 invocation-path read. open [LC]
+- ★GOOGLE-BASE-ROWS-DOUBLE-ON-DAY-SUM — ⛔ **NEW 2026-08-21. A LIVE SILENT-WRONG-NUMBER GENERATOR, FOUND BY `drain-alias-coverage` LEG (v) AND DIAGNOSED BY READING THE ROWS RATHER THAN THE BANNER.** Any DAY-SUM over google base rows at the walk's spelling returns **exactly 2× the truth** for affected campaign-days. THE CAUSE, read directly off `metrics_daily` for Foam OH 2026-04-05: `entity_level='campaign', breakdown_type='campaign'` holds **8 rows / 8 distinct entity_ids** where `campaign/''` holds **4** — and the extra four are the SAME four campaigns under a DIFFERENT id spelling: `customers/7688521852/campaigns/23642185184` (**full resource name, synced Aug 03**) beside `23642185184` (**bare id, synced Aug 18**), impressions and clicks identical on both. Same shape at ad_group (10 rows vs 5). ⇒ **THE WALK WROTE FULL RESOURCE NAMES UNTIL ~2026-08-03 AND BARE IDS FROM ~2026-08-18, AND THE OLD ROWS WERE NEVER REMOVED.** ⛔ **[[★WALK-BASE-SPELLING-SPLIT]]'s CLOSE WAS CORRECT AND IS NOT REOPENED**: it proved the alias **PER ENTITY** ("248 per-entity pairs identical"), and per entity it still holds exactly — every bare-id row matches its `''` twin to the impression. Leg (v) compares **day-SUMS**, which the stale duplicate population doubles. ⚠ NOT the same as the geo findings in the same banner (`80346 vs 80345`, `63936 vs 63935`): those are 4 entities vs 2 across two sync days and a genuine 1-impression difference, a different question. **THE WORK:** find every (client, surface, day) carrying both spellings, decide DELETE-the-stale vs canonicalise-in-place, and add the detector — `canonical-key-spelling` already exists in check:data and did not catch this. ⚠ **BLAST RADIUS: any reader that day-sums google base rows is affected TODAY**, including Lora. src: 2026-08-21 check:data run 2 + a direct row read. open [LC]
+- ★PARENT-ANALYZE-TURNS-NULL-INTO-1970 — ⚠ **NEW 2026-08-21. THE GUARD FLIPPED PASS→FAIL BETWEEN TWO RUNS 40 MINUTES APART AND THE FAILING NUMBER IS FICTION.** Run 1: *"parent statistics age: 1.2h (limit 48h)"* → PASS. Run 2: *"(a) the PARENT's statistics are **496469.2h** old (limit 48h)"* → FAIL. **496,469 hours is 56.7 years — it is the UNIX epoch wearing a duration.** I read the subject directly: `select last_analyze, last_autoanalyze from pg_stat_user_tables where relname='metrics_daily'` returns **`null, null`**, so the guard turned a NULL into 1970 and reported it as an age. ⇒ **SAME CLASS AS [[LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1]]**: a detector must issue its subject's OWN read and handle the subject's OWN null. **THE WORK: make a NULL `last_analyze` report CANNOT-DETERMINE, never an age** — and settle which of the two readings is true, because the guard also has a ledger path (`cron_runs`, which gave the 1.2h) and a `pg_stat` path (which gave the null), and **two sources inside one detector is how it can disagree with itself.** ⚠ The underlying claim may still be real — PostgreSQL never autoanalyses a partitioned parent — but a detector that reports 1970 as a measurement cannot be the thing that tells us. src: 2026-08-21, two check:data runs plus a direct `pg_stat_user_tables` read. open [LC]
 - ★DELIVERY-DECAY-CAUSE-UNKNOWN — ⛔ **THE HEAD, 2026-08-21. FOUR HYPOTHESES ARE DEAD AND THE CAUSE IS GENUINELY UNKNOWN — WHICH IS A BETTER POSITION THAN THE THREE CONFIDENT WRONG ONES IT REPLACES.** [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] owns the refutation and every number; this item owns the SEARCH. **THE SURVIVING EVIDENCE POINTS AWAY FROM THE QUEUE: Send Attempts rose to a 12-hour HIGH while First Deliveries and Notifications collapsed, redeliveries stayed flat ZERO, and delivery age IMPROVED (avg 893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ **THE NEXT DIAGNOSTIC IS THE INVOCATION PATH, NOT THE QUEUE**, and the first action is a READ taken WHILE A DECAY IS LIVE rather than a build — a re-arming redeploy erases the evidence, which is what happened to run 5. **THE CANDIDATES ALREADY SURFACED AND NEVER CHASED, named so the search starts from a list instead of from scratch:** (a) **FLUID COMPUTE INSTANCE BEHAVIOUR** — whether instances are being reclaimed or capped under sustained low-rate delivery, and what that does to a callback the platform is still offering; (b) **FUNCTION INIT** — cold-start / init cost on a route whose module scope holds the walk budget and the probe flag, and whether init failures present as non-acceptance rather than as errors; (c) **WAF / DEPLOYMENT PROTECTION** — whether protection rules can refuse a queue callback in a way that counts as a Send Attempt and never as a First Delivery, which is EXACTLY the shape observed; (d) **THE COMMUNITY REPORT'S FIVE CAUSES** surfaced in the 2026-08-20 vendor round and never read through. ⚠ **AND THE WEB ROUND OWED HERE IS THE FIELD-REPORT HALF, explicitly SKIPPED in the decision entry per [[LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1]]** — the vendor docs describe intent and this is a failure mode; issues, changelogs and other people's implementations are where it will be found. ⛔ DO NOT RE-RANK: the ceiling ([[LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1]]), the "unfixable vendor fault" premise, the ~2h50m periodicity, and slot erosion are all dead — see the decision entry for why each. src: the 4h walk-status read + Queues Observability, 2026-08-21 03:06Z. open [LC]
 - ★LIVENESS-PREDICATE-TOO-COARSE — ⛔ **NEW 2026-08-21. THE INSTRUMENT READ "ALIVE" THROUGH THE WHOLE COLLAPSE, TRUTHFULLY, AND THAT IS THE DEFECT.** `check-consumer-liveness` reported **ALIVE at 27 consumer attempts against 369 messages published in the trailing 45 minutes — ~7% — and exited 0**, because its predicate is *attempts > 0*. That predicate answers "is delivery dark?" and it was built for a night when delivery WAS dark; it cannot answer "is delivery decaying?", which is the failure this walk actually has. ⇒ **IT SHOULD MEASURE THE RATIO OR THE SLOPE, NOT EXISTENCE**: attempts ÷ published over the window (with the denominator stated, per ESSENCE's every-zero-carries-its-denominator corollary), or the trailing per-hour attempt count against the previous hour's. ⚠ **THE TRAP TO AVOID WHEN FIXING IT, because this repo has paid for it three times:** the threshold must be DERIVED from the walk's own numbers, not typed — [[LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1]] — and a decayed-but-nonzero walk must read differently from a healthy one and from a dark one, which is three states and not two. src: the 4h walk-status read, 2026-08-21. open [LC]
 - ★STATUS-TAIL-WITHOUT-BRACKET-TAG — ⚠ **NEW 2026-08-20, THE CHEAP GUARD THAT SITS ONE LAYER BELOW [[LORAMER_QUEUE_TAG_MATCHES_TEXT_V1]] AND CATCHES THE CLASS BEFORE A CONTRADICTION EXISTS.** `statusIsDone` cannot judge an item carrying no `[LC|NP|EXT|DG]` tag: it returns "not done" silently, forever. **7 of the 31 items retagged today were that shape, and TWO of them record in their own text that somebody hand-corrected the same tails on 2026-08-14 and the correction did not take — because it carried no tag, and nobody could tell for six days.** ⇒ **THE ASSERTION: an item whose block contains a status word (`open`/`closed`/`partial`/`blocked`/…) in a tail position but NO bracket tag anywhere is a finding.** It is strictly cheaper than parsing the tail's meaning — presence, not comprehension — and it fires BEFORE the prose and the tag can disagree, which is the whole point. ⚠ Wire it into the existing `queue-tag-matches-text.guard.mjs` rather than as a new file (it reads the same shared walk and would otherwise be a second reader), and expect a baseline on first run. src: the 2026-08-20 guard build's own findings. open [LC]
@@ -1572,7 +1597,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★DRIVE-VERDICT-NOT-PERSISTED — ⚠ **NEW 2026-08-19, SMALL AND REAL, FOUND WHEN A BANKING INSTRUCTION ASKED FOR RUN #3'S VERDICT LINE VERBATIM AND IT DID NOT EXIST.** `scripts/drive-one-surface.mjs` prints its terminal `[drive] ✅ PROVEN — …` line to STDOUT and writes no artifact anywhere — no file, no table, no `universe_fire_log` row. A run that arrives leaves its EVIDENCE in `universe_attempt_log` (which is why the arrival was still provable) but its OWN VERDICT is gone the moment the terminal scrolls. Every banked run therefore quotes ledger-derived numbers where the instruction expects the instrument's own words, and the gap is invisible until somebody asks. ⇒ Fix shape NOT decided here; the cheapest honest one is the drive writing its START/END/verdict block to a file it names in its own output. Cross-ref [[LORAMER_CHECKDATA_VERDICT_LINE_V1]], which solved exactly this class for `check:data` by putting the truth in the LAST LINE — the drive has the line and not the persistence. src: [[LORAMER_THREE_CLEAN_RUNS_SATISFIED_V1]] bank, 2026-08-19. open [LC]
 - ★THREE-SOURCE-UNWINDING-TAG-SWALLOWS-A-NEW-DECISION — ⛔ **NEW 2026-08-19, FOUND BY WATCHING THE GUARD'S OWN DENOMINATOR MOVE THE WRONG WAY.** `three-source-header.guard.mjs` excludes entries whose tag matches `/(RETIRED|CLOSED|SUPERSEDED|CORRECTION)/` — sound for an entry that UNWINDS a prior decision, because the sources belonged to the decision being unwound. But it matches the WHOLE HEADING, so a NEW construction entry that merely says a queue item is now CLOSED is silently excused from the enforcer. MEASURED: [[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]] was written with *"The engineering gate is CLOSED"* in its heading; the guard's in-scope count did not move (116) while its denominator did (14→15 sections), and the excluded-by-tag bucket absorbed it (34→35). ⛔ **AND THE EXCLUSION WAS HIDING A REAL DEFECT, WHICH IS WHY THIS IS RANKED RATHER THAN NOTED:** on rewording one word the entry went RED — its WEB leg asserted instead of citing. **A SILENT EXCLUSION AND A PASS ARE INDISTINGUISHABLE TO THE READER**, which is the class this repo keeps paying for. ⇒ FIX SHAPE (not built, deliberately — this is one observation, not a repeat offence, and the RULE-HOME LAW says an enforcer is earned): scope the UNWINDING test to the entry's TAG/verdict clause rather than the whole heading, and make the guard PRINT the names it excluded by tag so an exclusion is visible instead of arithmetic. src: 2026-08-19 inception-run bank, measured on the guard itself. open [LC]
 - ★MISSIZE-DROPS-THE-UPPER-HALF — ⛔ **NEW 2026-08-18. FIX AUTHORED AND HELD AT GATE-A (not applied, not pushed). THE PARENT-WINDOW FIX DOES NOT CLOSE IT, WHICH IS WHY IT IS ITS OWN ITEM.** When a window fails `NARROW_AFTER_ATTEMPTS` above the minimum span, `google-ads-universe-v2/route.ts:286` re-published `[startDate, narrowedEnd]` — the OLDER half — and **NOTHING ever republished `[narrowedEnd+1, endDate]`.** The resumer cannot rescue it: the anchor only moves DOWN, and the narrowed window's own attempt rows pull the rotation below the dropped ground on the next fire, so the upper half was not walked later, it was walked NEVER. ⛔ **MEASURED LIVE, NOT REASONED: `no-owed-day-left-behind.guard.mjs` read the warehouse and found 270 owed days above the frontier across 14 surfaces — TWELVE of them EXACTLY 15 days at 2026-03-24..2026-04-07, which is precisely the upper half of the 30-day window [2026-03-09..2026-04-07] this branch narrowed to 15.** The guard knows nothing about narrowing; it reproduced the arithmetic from data. 18 mis-sized events stand in the log, all Foam OH. ⛔ **AND THE PARENT COLUMNS RECORD THE NARROW FAITHFULLY** — the narrowed message's window genuinely IS the narrow one — so the ground is lost at the PUBLISH site, not at the anchor. FIX AUTHORED: `planMisSizedSplit` (a pure decision in universe-resumer.ts, so the invariant is DRIVEN not argued) + publish the UPPER half FIRST and hold the WHOLE window if the governor refuses it — a refusal must cost the NARROWING, which is recoverable, never the DATA, which is not. Guard: [[LORAMER_MISSIZE_REOWES_THE_UPPER_HALF_V1]] `mis-size-must-re-owe.guard.mjs`, in `npm run guard`. src: STEP-2 adversary + the warehouse detector, 2026-08-18, measured. open [LC]
-- ★ANCHOR-HOLD-BRANCH-IS-UNGATED — ⛔ **NEW 2026-08-18. FIX AUTHORED AND HELD AT GATE-A. THE RECEDE GATE ONLY EVER GUARDED HALF THE FUNCTION.** `deriveAnchorEnd`'s `!lastWindowFullyAnswered` branch (universe-resumer.ts:316-321) returns `lastWindowEnd` TAKEN FROM THE ROTATION, with no fully-answered check of any kind. So whenever the rotation's newest bounds END BELOW the previous anchor, **the anchor drops and nothing gates it** — the "hold" branch is a MOVER. ⛔ The traced instance: google/`group_content_suitability_placement_view` went 2026-08-12 → 07-28 → 07-13 → 06-28 in 15-day drops, EVERY ONE through the hold branch (every attempt on that surface finished `outcome='error'`), leaving 2026-07-29..08-12 asked once and never again. FIX AUTHORED: the rotation reports `parent_known`, and an UNKNOWN window HOLDS rather than recedes — with a KNOWN parent, `lastWindowEnd` is the TRUE window top rather than a narrowed or range end, which is what makes holding there safe. ⚠ **RESIDUAL, STATED: on a pre-082 row the hold still anchors at a RANGE's end.** That is today's behaviour unchanged, it is not made worse, and it ends for a surface the moment one parent-stamped `attempt_started` lands on it — one consumer pass. src: STEP-2 adversary, 2026-08-18, measured. open [LC]
+- ★ANCHOR-HOLD-BRANCH-IS-UNGATED — ⛔ **NEW 2026-08-18. FIX AUTHORED AND HELD AT GATE-A. THE RECEDE GATE ONLY EVER GUARDED HALF THE FUNCTION.** `deriveAnchorEnd`'s `!lastWindowFullyAnswered` branch (universe-resumer.ts:316-321) returns `lastWindowEnd` TAKEN FROM THE ROTATION, with no fully-answered check of any kind. So whenever the rotation's newest bounds END BELOW the previous anchor, **the anchor drops and nothing gates it** — the "hold" branch is a MOVER. ⛔ The traced instance: google/`group_content_suitability_placement_view` went 2026-08-12 → 07-28 → 07-13 → 06-28 in 15-day drops, EVERY ONE through the hold branch (every attempt on that surface finished `outcome='error'`), leaving 2026-07-29..08-12 asked once and never again. FIX AUTHORED: the rotation reports `parent_known`, and an UNKNOWN window HOLDS rather than recedes — with a KNOWN parent, `lastWindowEnd` is the TRUE window top rather than a narrowed or range end, which is what makes holding there safe. ⚠ **RESIDUAL, STATED: on a pre-082 row the hold still anchors at a RANGE's end.** That is today's behaviour unchanged, it is not made worse, and it ends for a surface the moment one parent-stamped `attempt_started` lands on it — one consumer pass. ⛔ **MEASURED 2026-08-21 AND IT IS SMALLER THAN FEARED, WHICH IS THE USEFUL HALF: ONE illegal move in 6,999.** `anchor-recedes-by-window` leg (C) over the live ledger: **346 surface(s) · 6,976 recede(s) by the asked window · 13 hold(s) · 10 mis-size lower half/halves · 1 ILLEGAL.** The one is *(C) ILLEGAL ANCHOR MOVE of -15 day(s) on `group_content_suitability_placement_view/(base)` — window 2026-03-16..2026-03-30 (15d) then 2026-04-07..2026-04-14*, i.e. the anchor moved BACKWARD. **COST: 7 skipped days (2026-03-31..2026-04-06)** — and NOT the 128 that surface shows in `no-owed-day-left-behind`, because its sibling `detail_content_suitability_placement_view` has NO illegal move and a BIGGER band (150 days), so the rest is the top-edge class ([[★TOP-EDGE-HAS-NO-LANE]]) rather than this. ⚠ It lands on one of the two **error-49 permanently-unaskable** surfaces ([[★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49]]), which is suggestive and is NOT proof. ⛔ **THE READ THAT SETTLES IT, NAMED SO NOBODY GUESSES: pull `universe_attempt_log` for that surface across 2026-03-30..2026-04-07 and check whether the pass that moved the anchor exited through the `!lastWindowFullyAnswered` branch at `universe-resumer.ts:316-321`.** If it did, this item is the cause and the authored fix closes it; if it did not, the cause is elsewhere and this item is not it. Reproduced identically on both 2026-08-21 check:data runs, so it is deterministic. src: STEP-2 adversary, 2026-08-18, measured. open [LC]
 - ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 — ⛔ **NEW 2026-08-18, AND NOTHING IN THE ENGINE CAN TELL IT APART FROM A SLOW SURFACE.** Every attempt ever made on google/`group_content_suitability_placement_view` (segment '') finished `outcome='error'` with GAQL `{"query_error":49} Cannot select or filter on the following…` — a PERMANENT vendor rejection of the query itself, not a timeout, not a quota hold, not an empty answer. Eleven `attempt_started` rows, zero rows written, and the anchor marching down a surface that **can never succeed at any window size**. ⛔ **THE BOUND DOES NOT CATCH IT:** BROKEN fires only at the MINIMUM span after `MAX_ATTEMPTS_AT_MIN_SPAN`, and MIS-SIZED narrowing keeps halving a window whose problem is not its width — so a permanently-unaskable surface is re-asked forever, ~2 requests per window, all the way to inception. ⇒ **THE MISSING FACT IS A CLASSIFICATION: a vendor refusal of the QUERY is a property of the SURFACE, not of the attempt**, and it belongs beside the surface wall (`resolveWalkStop`) rather than in the retry bound. ⚠ NOT DESIGNED and deliberately NOT bundled with the parent-window flight — it is a different question (what may we ask) from that one (how far may we recede). Related: [[★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR]] is the same shape one layer down. src: skip-class trace, 2026-08-18, measured. open [LC]
 - ★WALK-ROSTER-CANNOT-BE-ENUMERATED — ⛔ **NEW 2026-08-17, FOUND IN DEPLOY 2's RESEARCH PASS. RANKS AHEAD OF FLEET-ROLLOUT BECAUSE IT IS A PRECONDITION OF IT: nobody can write eight cron entries without knowing which eight.** [[LORAMER_WALK_ROSTER_V1]] (DECISIONS:792) defines the roster BY REFERENCE — "the golden ten minus Bath Fitter", citing `tests/lora-evals/eval-set-v2.json` for the ten ids. **MEASURED: that file has 100 entries and names FIVE distinct clients** (Foam OH 957d484e · Bath Fitter 60e6dd99 · Inside 4a7faf0a · Influential Drones 5bb9b2ff · Shelley Kyle 23c697bb). `src/lib/clients/canonical.ts` is a name-COLLISION registry (8 entries, roles fixture/cohort/non-production), not a roster. **EIGHTEEN clients hold a google connection; the decision's named exclusions cover FOUR of them** (Bath Fitter, demo twin 2617b163, skinregimen fe71cd89, Glenn Stearns 3111c7e1), leaving fourteen — not eight. ⇒ **THE RULE IS BANKED AND THE MEMBERSHIP IS NOT WRITTEN ANYWHERE A HUMAN OR A SCRIPT CAN READ.** ⚠ The three checks the decision DOES let you verify mechanically all held: Shelley Kyle has no google `platform_connections` row; the demo twin shares `account_id` 3699173394 with the real Influential Drones (the "pays twice" exclusion is arithmetic, not judgement); Bath Fitter exists with google history from 2020-01-27 and zero walk attempts ever. ⛔ **THE FIX IS NOT TO GUESS SIX NAMES** — it is for Russ to name the eight, or for the roster to become a machine-readable artifact the way `canonical.ts` is, so a cron generator and a guard can both read it. src: Deploy 2 research, 2026-08-17, measured. open [LC]
 - ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X — ⛔ **NEW 2026-08-17. TWO MEASUREMENTS OF THE SAME QUESTION DIFFER BY ~35×, AND THE OPTIMISTIC ONE IS THE ONE CURRENTLY IN VIEW.** MEASURED 2026-08-17 off the walk's own ledger: free **152.93 GiB**, floor **56 GiB** (`universe-window-log.ts:36`, max(15 GiB, 20% of the 280 GB provisioned)) ⇒ **walkable headroom 96.93 GiB**; consumption in 24h was **0.16 GiB** while writing 88,140 rows. Straight-lined, Deploy 2 (4×, one client) is ~0.64 GiB/day ⇒ ~151 days of headroom, comfortably past 9/30. ⛔ **BUT [[LORAMER_UNIVERSE_WALK_DISK_CEILING_V1]] (DECISIONS:741, measured 2026-08-04) prices ONE client's full walk at ~226.7 GB and the other nine at "~2.27 TB behind this one" — against 96.93 GiB walkable, that says a SINGLE client does not fit.** ⇒ The likely reconciliation is that the 08-04 figure was taken against a DIFFERENT PROGRAM (50 fixed windows over the full entry set, before the receding-horizon + rotation redesign), and that today's observed rate is a **FLOOR** — 642 of the last 24h's attempts returned zero rows, and density per window rises as the walk descends into funded history. **NEITHER OF THOSE IS MEASURED, SO THE PROJECTION IS UNDETERMINED.** ⛔ **THE PESSIMISTIC READING GOVERNS ANYTHING FLEET-SHAPED** until one of the two numbers is re-derived against the program actually running. It does NOT block Deploy 2, which is single-client and cheap under either figure. ⚠ Related instrument gap found in the same pass: `metrics_daily.synced_at` is UNINDEXED, and four read-only diagnostic queries against it timed out — the fleet-wide "how many rows did the walk actually touch" question cannot be answered until that changes. src: Deploy 2 research, 2026-08-17, measured. open [LC]
@@ -2291,8 +2316,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 944 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
-135 decision-only · 464 queue-only.
+TOTALS: 947 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
+135 decision-only · 467 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2317,7 +2342,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ADVAR-NON-PRODUCTION — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★AGENTS-MD-IS-DEAD-WEIGHT — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS — OPEN · decisions 1 · queue 2 · last 2026-08-12
-- ★ANCHOR-HOLD-BRANCH-IS-UNGATED — OPEN · decisions 0 · queue 2 · last 2026-08-19
+- ★ANCHOR-HOLD-BRANCH-IS-UNGATED — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★ANCHOR-RECEDES-BY-RANGE-NOT-WINDOW — DONE · decisions 0 · queue 1 · last 2026-08-19
 - ★ANCHOR-SWAP-FALSIFIED-BEFORE-BUILD — DONE · decisions 1 · queue 1 · last 2026-08-07
 - ★ANSWERED-WITHOUT-ASKING — OPEN · decisions 0 · queue 5 · last 2026-08-16
@@ -2402,6 +2427,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★COMPOSER-DRIVEN-BY-TRANSIENT-OFFSETTOP — DONE · decisions 1 · queue 2 · last 2026-08-11
 - ★COMPOSER-STICKY-BOTTOM-TOOLBAR-COLLAPSE — DONE · decisions 1 · queue 1 · last 2026-08-11
 - ★COMPUTE-TIER-BELOW-DATA-SIZE — OPEN · decisions 0 · queue 2 · last 2026-08-19
+- ★CONSUMER-IS-COLD-ON-EVERY-INVOCATION — OPEN · decisions 0 · queue 1 · last 2026-08-21
 - ★CONV-GET-LIMIT-PARAM-UNUSED — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - ★CONV-WINDOW-EVAL-SLICE — OPEN · decisions 0 · queue 3 · last 2026-09-30
 - ★COVERAGE-INSTRUMENT-8S-CEILING-DIVERGES — OPEN · decisions 0 · queue 1 · last 2026-08-01
@@ -2417,7 +2443,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DEFINITIONAL-FOOTNOTE — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★DEGRADED-CHANNEL-PARITY — OPEN · decisions 1 · queue 1 · last 2026-07-25
 - ★DEGRADED-RENDER-LIVE-GATE-A — OPEN · decisions 1 · queue 2 · last 2026-07-26
-- ★DELIVERY-DECAY-CAUSE-UNKNOWN — OPEN · decisions 0 · queue 1 · last 2026-08-21
+- ★DELIVERY-DECAY-CAUSE-UNKNOWN — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★DEMO-FIXTURE-META-REAUTH — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - ★DENOMINATOR-SWEEP — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★DEPLOY-WEBHOOK — DECIDED · decisions 1 · queue 0 · last 2026-07-16
@@ -2506,6 +2532,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GOOGLE-AD-ENTITY-NAMES-MISSING — DONE · decisions 0 · queue 1 · last 2026-08-15
 - ★GOOGLE-ADS-CAPTURE-UNIVERSE-SECOND-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-03
 - ★GOOGLE-AUCTION-INSIGHTS-TOKEN-ACCESS — OPEN · decisions 2 · queue 1 · last 2026-08-03
+- ★GOOGLE-BASE-ROWS-DOUBLE-ON-DAY-SUM — OPEN · decisions 0 · queue 1 · last 2026-08-21
 - ★GOOGLE-CAPTURE-UNIVERSE-SECOND-ACCOUNT — DONE · decisions 0 · queue 1 · last 2026-08-03
 - ★GOOGLE-CLICK-VIEW-90-DAY-WALL — OPEN · decisions 2 · queue 1 · last 2026-08-05
 - ★GOOGLE-DAILY-OP-CAP-DECLARED-IN-THREE-FILES — OPEN · decisions 0 · queue 2 · last 2026-08-09
@@ -2629,6 +2656,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ORPHAN-SHOPIFY-TOKEN-ROWS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★ORPHANED-CURSOR-CLEANUP — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★OVER-REFUSAL-ON-CAPTURED-DISCONTINUITY — DONE · decisions 0 · queue 1 · last 2026-08-16
+- ★PARENT-ANALYZE-TURNS-NULL-INTO-1970 — OPEN · decisions 0 · queue 1 · last 2026-08-21
 - ★PARTITION-METRICS-DAILY — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★PARTITIONED-PARENT-NEVER-AUTOANALYZED — OPEN · decisions 0 · queue 2 · last 2026-08-04
 - ★PER-CID-QPS-METER-IS-UNMODELLED — OPEN · decisions 1 · queue 1 · last 2026-08-09
@@ -2686,7 +2714,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★STATUS-TAIL-WITHOUT-BRACKET-TAG — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★STEADY-STATE-NUMBERS-MOVE-WITH-CACHE-STATE — OPEN · decisions 0 · queue 1 · last 2026-08-04
 - ★SUPPORT-BOT — DECIDED · decisions 1 · queue 0 · last 2026-07-17
-- ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 — OPEN · decisions 0 · queue 1 · last 2026-08-18
+- ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★SURFACE-TRUNCATION-TO-THE-USER — OPEN · decisions 0 · queue 1 · last 2026-08-16
 - ★SWEEP — OPEN · decisions 0 · queue 18 · last 2026-08-09
 - ★SWEEP-THE-WALK-AND-DRAIN-PATHS — OPEN · decisions 0 · queue 2 · last 2026-08-09
@@ -2701,7 +2729,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TOKEN — OPEN · decisions 2 · queue 3 · last 2026-09-30
 - ★TOKEN-THE-UNTOKENED — OPEN · decisions 1 · queue 2 · last 2026-07-31
 - ★TOOL-INSTALL-PERMISSIONS-LOCKDOWN — OPEN · decisions 1 · queue 1 · last 2026-08-12
-- ★TOP-EDGE-HAS-NO-LANE — OPEN · decisions 0 · queue 1 · last 2026-08-19
+- ★TOP-EDGE-HAS-NO-LANE — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★TOP-EDGE-STRIP-NEVER-NARROWS — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★TOPLEVEL-COMPLETE-IGNORES-DENSITY — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★TOTAL-SURFACE-AUDIT — OPEN · decisions 0 · queue 2 · last 2026-07-31
@@ -2755,7 +2783,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VETMASTERMIND-META-PRODUCT-CLAIM-EXCEEDS-ROWS — OPEN · decisions 0 · queue 1 · last 2026-08-08
 - ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 4 · last 2026-09-30
 - ★WALK-AT-90-PERCENT-OF-LANE — OPEN · decisions 0 · queue 1 · last 2026-08-20
-- ★WALK-BASE-SPELLING-SPLIT — DONE · decisions 2 · queue 1 · last 2026-08-12
+- ★WALK-BASE-SPELLING-SPLIT — OPEN · decisions 2 · queue 2 · last 2026-08-21
 - ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X — OPEN · decisions 0 · queue 3 · last 2026-08-19
 - ★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★WALK-DRAIN-DUPLICATE-ROWS-NOT-CLEANED — DONE · decisions 3 · queue 2 · last 2026-08-11
@@ -2783,7 +2811,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★WOO-TIER2-BLOCKED-BY-PLATFORM — OPEN · decisions 0 · queue 3 · last 2026-07-25
 - ★WRAP-HARD-KILL-STILL-ADVANCES-THE-STAMP — OPEN · decisions 1 · queue 1 · last 2026-08-17
 - LORAMER_8S_CEILING_AUDIT_V1 — DONE · decisions 10 · queue 2 · last 2026-07-31
-- LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-21
+- LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-16
 - LORAMER_ACCOUNT_ROW_INVARIANT_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-23
 - LORAMER_ADJACENT_NUMBER_V1 — DONE · decisions 1 · queue 1 · last 2026-08-19
@@ -3239,7 +3267,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_WALKDUPE_CLEANUP_V1 — DONE · decisions 1 · queue 1 · last 2026-08-11
 - LORAMER_WEB_FIRST_APPLIES_TO_LAYOUT_V1 — OPEN · decisions 4 · queue 1 · last 2026-08-06
 - LORAMER_WEB_FIRST_DIAGNOSIS_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-06
-- LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-21
+- LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - LORAMER_WIDEN_BRANCH_CANONICAL_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-10
 - LORAMER_WIRE_COVERAGE_INSTRUMENT_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-31
 - LORAMER_WOO_BATCH_WA_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-19

@@ -1,58 +1,80 @@
-╔═══ SESSION CLOSE 2026-08-20/21 — THE HEAD, WHAT IS UNPUSHED, AND WHAT ONLY RUSS CAN DO. READ FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-21 — THE HEAD IS HALF-ANSWERED, AND THE REST NEEDS RUSS AT A DASHBOARD. READ FIRST. ═══╗
 
-⛔ **THE HEAD IS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]], AND THE FIRST ACTION IS A READ, NOT A BUILD.**
-Four hypotheses died tonight and the cause is genuinely unknown — which is a better position than the three
-confident wrong ones it replaces. [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] owns the refutation and
-every number; do not re-derive them.
-**WHAT SURVIVED, AND IT POINTS AWAY FROM THE QUEUE: Send Attempts rose to a 12-hour HIGH while First
-Deliveries and Notifications collapsed, redeliveries stayed flat ZERO, and delivery age IMPROVED (avg
-893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ the next diagnostic is the
-**INVOCATION PATH** — Fluid instance behaviour, function init, WAF / deployment protection, and the
-community report's five causes, none of them chased.
-⛔ **TAKE THE READ WHILE A DECAY IS LIVE.** A re-arming redeploy resets the consumer and erases the evidence:
-that is exactly what happened to run 5, which was ended by our own deploy while still at peak 23 and could
-therefore never answer this. **Run 6 was the first run watched all the way down without intervening.** A
-fourth re-arm before the read would destroy the only instance we have.
-⛔ **AND FOUR THINGS ARE DEAD — DO NOT RE-RANK ANY OF THEM:** the maxConcurrency ceiling (24→48 shipped, it
-worked as designed, peak never reached 48 — [[LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1]]); the
-"unfixable vendor fault" premise, which was never verified and was inherited for three days; the ~2h50m
-periodicity, killed by its own evidence (real runs are 1.8 h / 12.5 h / 41.3 h / 2.8 h / 4 h+); and slot
-erosion at the ceiling, killed by redeliveries being flat zero across 12 hours.
+⛔ **THE HEAD REMAINS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]] AND IT IS NOW HALF-ANSWERED: THE FAULT IS AT
+INSTANCE CREATION, UPSTREAM OF EVERY LINE OF CODE WE OWN.** Read taken 2026-08-21 05:25Z while delivery was
+fully dark — the condition run 5 never survived long enough to give us.
+**THE MEASUREMENT: 73 MINUTES OF DARKNESS (last consumer invocation 04:11:57Z), ZERO invocations of
+`/api/queues/google-ads-universe-v2`.** No 4xx, no 5xx, no error-level line, no `[universe-v2]` output, no
+`console.warn` from the quota gate — **nothing at all.** ⛔ **A FUNCTION THAT RAN AND FAILED WOULD LEAVE
+SOMETHING.** In the same window the producer fired 14 times, all 200, publishing 41 messages each
+(`publishedOf:39` + `topEdgePublished:2`), with `oldestWindowStart:"2024-02-16"` and
+`advancedCovered:0 · receded:0` **byte-identical on every fire** — re-deriving the same 39 surfaces forever
+because nothing consumes them.
 
-── ⛔ WHAT IS SITTING UNPUSHED, SO IT IS NOT DISCOVERED BY A CONFLICT ──
-**TWO LOCAL COMMITS ON `main` ARE COMMITTED AND NOT PUSHED:** `291e7f6` (UI-session setup —
-[[LORAMER_UI_SESSION_SETUP_V1]]) and `0740522` (the queue-tag guard — [[LORAMER_QUEUE_TAG_MATCHES_TEXT_V1]]).
-⚠ **A push auto-deploys production and therefore restarts the consumer**, which is why they were held while
-run 6 was still producing evidence. **`npm run check:data` is owed before the push and its result belongs in
-the push report** — CLAUDE.md's gate, and there is no pre-push hook to catch a miss.
-**THE UI FORK IS SET UP AND HAS NOT BEEN STARTED.** `docs/UI_SESSION_SCOPE.md` holds the fixed three-item
-list; branch `ui` is 205 behind `main` and 2 ahead and syncs by MERGE, never rebase. **A merge to main costs
-≤5 minutes of walk progress and ZERO data — no merge window is needed and none should be scheduled.**
-**11 QUEUE CONTRADICTIONS ARE HELD FOR A HUMAN READ**, each named individually with a reason in
-`tests/guards/queue-tag-matches-text.baseline.mjs`: 4 matcher false positives, 4 vocabulary/format bugs owned
-by [[★FILLDONE-TOLERATES-ONE-WORD-TITLES]], and **3 genuine judgement calls that need Russ** (:314
-closed-with-a-follow-on, :695 half-closed, :867 a master-audit line that reads as a true contradiction).
+⛔ **EVERY DELIVERY IS A COLD START. 1:1. NO INSTANCE IS EVER REUSED — PROVEN TWICE, INDEPENDENTLY.**
+  · the `[consumer-meta]` probe is module-scope and fires ONCE PER INSTANCE: **40 consumer invocations in the
+    healthy window, 40 probe lines.** Every one `deliveryCount:1`, which also corroborates zero redeliveries.
+  · the Node `DEP0169 url.parse()` deprecation warning fires ONCE PER PROCESS: **61 of them on this route in
+    the healthy 23:00Z hour** — a second instrument, measuring the same thing, agreeing.
+  · the arrival shape is what makes that expensive: **24 simultaneous cold starts in ONE SECOND**
+    (`23:12:12` ×15, `23:12:11` ×8, `23:12:13` ×1), because deliveries land in a burst at each 5-minute fire.
+**⇒ INSTANCE CREATION IS WHAT DECAYED: 29 → 24 → 18 → 3 → 0.** Not our throughput, not the queue.
 
-── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY, AND NEITHER CAN BE DONE BY CLAUDE CODE ──
-**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, AND IT IS OAUTH CLICKS IN A BROWSER.** Nothing
-in this repo can mint those tokens. When they lapse, Meta capture stops for every affected client and **the
-failure presents as EMPTY DATA rather than as an error.** This is the nearest hard clock on the board and it
-is now inside a week.
-**2. THE CLAUDE CODE WEEKLY CAP IS THE BINDING CONSTRAINT BEFORE 9/30 — not compute, not Google quota, not
-disk.** Sequence against that budget explicitly rather than discovering it mid-arc.
+**AND VERCEL KEPT OFFERING THE WHOLE TIME — this is the half that makes it not-our-fault-shaped:** Send
+Attempts rose to a **12-hour HIGH** while First Deliveries and Notifications collapsed, **redeliveries stayed
+flat ZERO across 12h**, and **delivery age IMPROVED to avg 893 ms**. Offering more, faster, and refused
+sooner. Nothing was ever leased and lost.
 
-── THE 9/30 BOARD — **40 DAYS OUT** (2026-08-21 → 2026-09-30) ──
-**FIVE ITEMS ARE TAGGED 9/30-BLOCKING. Everything else on the queue is behind them by definition:**
-  1. **LORA-VOICE**
-  2. **★CHAT-STATUS-INDICATOR**
-  3. **★CHAT-STREAMING** — a foundation, not a flag: the status indicator and the stop button both sit on it.
-  4. **HOMEPAGE UNIFICATION** — ⛔ **PARKED UNTIL THE GOOGLE REVIEWS CLEAR.** OAuth verification is closed;
-     **Standard Access is PENDING and Google has asked us to "clarify the company website"** — which is the
-     exact surface this item would change. Do not touch it while that question is open.
-  5. **THE DEMO SPINE** — the dashboard walk plus voice-directed Lora, the thing an agency is actually shown.
-⚠ **THE HEAD IS NOT ON THIS LIST, and that is deliberate:** the walk is the product's data floor and a
-delivery fault that halves throughput every hour compounds against all five. It ranks first because it is
-cheap to READ and unbounded if left.
+⛔ **RULED OUT — DO NOT RE-CHASE ANY OF THESE:** our handler · auth · the quota gate (`holdGoogleWork` logs a
+`console.warn` by design, and none appears; `quotaHeld=false` independently) · the ledger · every silent
+early exit (the route's own header counts nine exits, eight of them downstream of `appendAttemptStarted`) ·
+function init failure (an init error logs; the only error group on this route is the deprecation warning) ·
+**deployment protection** — `ssoProtection` IS enabled (`all_except_custom_domains`, `app.loramer.com`
+exempt), but it is a CONSTANT and was in force at 23:07Z while 40 deliveries succeeded; **a constant cannot
+produce a decay.**
+
+── ⛔ THE NEXT ACTION IS A DASHBOARD READ ONLY RUSS CAN TAKE. CLAUDE CODE CANNOT SEE THIS. ──
+**Vercel → (team) Russell Cote's projects → the `cotemedia-google-ads-manager` project → Observability →
+Fluid Compute** (and then **Usage** at the team level, left nav → Usage → Fluid Compute / Function
+Invocations). **WHAT TO LOOK FOR, in order:**
+  1. **Concurrency / active instances over the last 12h** — does the instance count fall to zero around
+     04:11Z while invocations are still being attempted?
+  2. **Any limit, cap, throttle or "concurrency limit reached" indicator** on the account or the project.
+  3. **Usage against plan limits** — whether a Fluid/function quota was reached tonight.
+  4. If the dashboard shows a refusal we cannot explain, that is a **Vercel support ticket**, and this block
+     is the evidence to paste into it.
+⚠ **AND ONE OBSERVED FACT I AM DELIBERATELY NOT INTERPRETING: `get_project` returns `"live": false` on this
+project.** I do not know what that flag governs, and guessing at it is how a wrong mechanism gets banked.
+Check it while you are in there.
+
+⚠ **STILL UNKNOWN AFTER TONIGHT:** why instance creation stopped (account Fluid concurrency vs per-project
+cap vs platform refusal) · whether any WAF rule exists (not readable from the tools Claude Code has) ·
+whether `"live": false` matters · and **why the consumer is cold on EVERY invocation** — a warm instance
+would serve a 41-message burst with a handful of processes instead of 41. That last one is its own item now:
+[[★CONSUMER-IS-COLD-ON-EVERY-INVOCATION]].
+
+── WHAT ELSE CAME OUT OF TONIGHT ──
+**THE RESUME FLOW WAS REBUILT AND IT WAS BADLY BROKEN.** §E of the digest was pointing every fresh session at
+★THREE-CLEAN-RUNS-BEFORE-FAMILY — **satisfied 2026-08-19** — because the generator read a fence 1,584 lines
+below the real head, and all 137 guards read green over it. Fixed at the source
+([[LORAMER_CONTINUE_HEAD_ONE_SELECTOR_V1]]); the resume now reads the head FROM THIS FILE and costs
+**27,752 tokens instead of 530,000.** ⛔ **RUSS MUST RE-PASTE `RESUME_INSTRUCTIONS.md` INTO CLAUDE APP
+SETTINGS — the repo cannot do it, and until he does, "Resume LoraMer" still runs the old flow.**
+**TWO REAL DEFECTS FOUND BY check:data AND NEWLY BANKED:**
+[[★GOOGLE-BASE-ROWS-DOUBLE-ON-DAY-SUM]] (a live silent-wrong-number generator) and
+[[★PARENT-ANALYZE-TURNS-NULL-INTO-1970]].
+
+── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY ──
+**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, OAUTH CLICKS IN A BROWSER.** Nothing in this
+repo can mint those tokens, and **the failure presents as EMPTY DATA rather than as an error.** Inside a week.
+**2. THE FLUID/USAGE READ ABOVE.** It is the head, and Claude Code cannot take it.
+
+── THE 9/30 BOARD — **40 DAYS OUT** ──
+Five items are 9/30-blocking; everything else is behind them: **LORA-VOICE · [[★CHAT-STATUS-INDICATOR]] ·
+[[★CHAT-STREAMING]]** (a foundation — the indicator and the stop button both sit on it) · **HOMEPAGE
+UNIFICATION** (⛔ parked until the Google reviews clear — Standard Access is pending and Google asked us to
+"clarify the company website", which is the surface this item would change) · **the demo spine** (dashboard
+walk + voice-directed Lora). §F of the digest carries the clock as [[★9-30-IS-THE-GOVERNING-DATE]].
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
