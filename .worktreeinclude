@@ -1,0 +1,30 @@
+# .worktreeinclude — gitignored files Claude Code copies into every new worktree.
+# .gitignore syntax. ONLY files that match a pattern AND are gitignored are copied,
+# so tracked files are never duplicated.
+#
+# ⛔ EXACT PATHS ONLY, NO GLOBS. A pattern like `.env*` would sweep in the
+# secret-bearing `.env.local.bak-*` backups that .gitignore:32-34 exists to keep
+# untracked. Every line here is a literal path, chosen deliberately.
+
+# The 24 runtime secrets. Without this a worktree cannot run `npm run dev`,
+# `npm run check:data`, or any --db guard leg: src/lib/supabase.ts:3-5 reads
+# NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY at import time.
+.env.local
+
+# tsconfig.json lists this file LITERALLY in `include`. Next regenerates it on
+# `next dev`/`next build`, but a bare `npx tsc --noEmit` in a fresh checkout runs
+# before anything regenerates it — copying it makes the worktree's type check
+# behave identically to the main checkout from the first command.
+next-env.d.ts
+
+# The Vercel project link (orgId + projectId). Identifiers, not secrets. Without
+# it, `vercel` CLI commands from inside a worktree prompt to re-link.
+.vercel/
+
+# ── DELIBERATELY NOT COPIED ────────────────────────────────────────────────────
+# .env.local.bak-*  — secret-bearing backups; .gitignore says "never track".
+# .claude/          — permission approvals already resolve to the MAIN checkout's
+#                     .claude/settings.local.json (Claude Code docs, "What worktrees
+#                     share"), so copying it would duplicate shared state.
+# tsconfig.tsbuildinfo, .next/, node_modules/ — build caches; regenerated.
+# .shopify/, .naics-tmp/, OUT.txt, *_REPORT.txt — transient, not needed to build.
