@@ -18,6 +18,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { execSync } from 'child_process'
 import { walkQueue } from './lib/queue-walk.mjs'
+import { selectHead } from './lib/continue-head.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')
@@ -134,6 +135,20 @@ const nextStep = must('E next-step', (() => {
   for (let i = start + 1; i < ls.length; i++) { if (/^═+/u.test(ls[i]) || /^### /.test(ls[i])) { end = i; break } }
   return ls.slice(start, end).join('\n')
 })())
+
+// LORAMER_CONTINUE_HEAD_ONE_SELECTOR_V1 — ⛔ THE FENCE IS NO LONGER ASSUMED TO BE THE HEAD.
+// Everything above validates the FENCE and is kept: it is the enforcer for LORAMER_DIGEST_NEXTSTEP_AMBIGUITY_V1
+// (exactly one `▶▶` opener, and it lives inside the fence) and those defects are real and still possible.
+// ⛔ WHAT IT NEVER CHECKED IS WHETHER THE FENCE IS STILL WHERE THE HEAD LIVES. MEASURED 2026-08-21: it was not.
+// CONTINUE_HERE's convention had moved to `╔═══ SESSION CLOSE …` BOXES at the top of the file, and the last TWO
+// closes were written that way while the fence still held the 2026-08-19 opener. §E therefore told every
+// resuming session the head was ★THREE-CLEAN-RUNS-BEFORE-FAMILY — ✅ SATISFIED two days earlier — and the
+// freshness gate read 9/9 green over it, because every check compared readers of the fence to each other.
+// THE SELECTOR IS SHARED (`scripts/lib/continue-head.mjs`) and it REFUSES rather than guessing when file order
+// and date order disagree. `resume-digest-freshness.guard.mjs` asserts the emitted §E carries what it returns.
+const chHead = selectHead(continueHere)
+// If the head IS the fence opener, `nextStep` already contains it — emitting both would duplicate the block.
+const headBlock = chHead.kind === 'box' ? chHead.block : ''
 
 // ── F. date-gated ──
 const dateGated = must('F date-gated', fenceSection(queue, 'DATE-GATED (CONTINUE_HERE'))
@@ -303,7 +318,13 @@ ${standing}
 
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ${activeLine}
+${headBlock ? `
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line ${chHead.line}, ${chHead.date}). THIS IS THE NEXT STEP. ═══
+⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
+from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
+${headBlock}
+` : ''}
 ${nextStep}
 
 ## F. DATE-GATED — DO NOT SLIP  (source: LORAMER_QUEUE_OF_RECORD.md)
@@ -320,7 +341,7 @@ ${lessons}
 
 ## J. MACHINES / STACK / HOW TO USE THIS DIGEST
 - Machines: iMac ~/Downloads/cotemedia-ads-manager · MacBook Air ~/Downloads/cotemedia-google-ads-manager (folder names differ BY DESIGN). Stack: Next.js 14 App Router + TS + Tailwind, Supabase (Postgres), NextAuth (Google OAuth), Anthropic (model ids OWNED BY THE CODE — LORA_CHAT_MODEL / LORA_INSIGHT_MODEL defaults in chat/insight route.ts; NOT restated here, this line carried two stale ids), Vercel auto-deploy on push to main. (full: LORAMER_HANDOFF.md → Tech stack + MACHINES & ENV STATE)
-- HOW TO USE: run the section-A freshness gate. FRESH → read this file IN FULL, restate the section-G decisions + section-H queue items relevant to the task (RESTATE-TO-PROVE), state the section-E NEXT STEP, WAIT for Russ's "go". Before calling anything NEW, grep §L (the token index). STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
+- HOW TO USE — ⛔ NEVER \`cat\` THIS WHOLE FILE. It is 2.1 MB / ~530k tokens and ~95% of it is corpus, not reading material. RESUME_INSTRUCTIONS.md owns the exact command; it prints §A/B/C/D/F/J/K (~93 KB) and the HEAD BLOCK FROM CONTINUE_HERE.md. Run the section-A freshness gate. FRESH → read those short sections IN FULL, take the NEXT STEP FROM CONTINUE_HERE's head block (§E here is CORROBORATION ONLY — if the two differ, CONTINUE_HERE wins and this digest is stale), restate the §G decisions + §H queue items relevant to the task (RESTATE-TO-PROVE) by GREPPING for them, and WAIT for Russ's "go". §G / §H / §L are GREP TARGETS: \`grep -n '★TOKEN' LORAMER_RESUME_DIGEST.md\` answers decided-or-open in one line, and grepping §L before calling anything NEW is the claim-of-novelty gate. STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
 
 ## K. GATED REFERENCE DOCS (hash-guarded in §A; read on-demand — they can't silently rot)
 These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their hashes are stamped in §A). They are NOT embedded here (the digest stays lean = ONE paste); open them when the task needs them — the gate guarantees they are current, and a change to any of them WITHOUT a manifest re-stamp turns §A RED on the next resume:

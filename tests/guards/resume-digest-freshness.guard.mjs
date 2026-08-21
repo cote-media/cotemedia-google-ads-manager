@@ -21,6 +21,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { selectHead } from '../../scripts/lib/continue-head.mjs'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return null } }
@@ -94,6 +95,38 @@ if (!chOpener) {
   fail(`§E OPENER IS SUPERSEDED. CONTINUE_HERE says:\n      ${chOpener.slice(0, 150)}\n    the digest says:\n      ${dgOpener.slice(0, 150)}\n    The digest was regenerated before CONTINUE_HERE's opener was written. Run \`node scripts/wrap-docs.mjs\` AFTER the docs are final.`)
 }
 
+// ── 3b. THE HEAD THE DIGEST CARRIES MUST BE THE NEWEST HEAD IN CONTINUE_HERE ────────────────
+// ⛔ LEG 3 ABOVE PASSES WHEN THE TWO FILES AGREE — INCLUDING WHEN THEY AGREE ON A STALE HEAD, WHICH IS
+// EXACTLY WHAT HAPPENED. MEASURED 2026-08-21 at HEAD 5e7387d: CONTINUE_HERE's real head was the
+// `╔═══ SESSION CLOSE 2026-08-20/21` box on line 1; §E carried the `▶▶ NEXT STEP — 2026-08-19` opener from the
+// fence 1,584 lines below, naming ★THREE-CLEAN-RUNS-BEFORE-FAMILY — an item marked ✅ SATISFIED two days
+// earlier. Leg 3 found the SAME stale opener in both files, agreed, and passed. Nine of nine hashes green.
+// ⛔ A CHECK THAT COMPARES TWO READERS OF ONE STALE SOURCE PROVES THEY AGREE, NEVER THAT THEY ARE RIGHT.
+// This leg asks a different question: is the head the digest carries the NEWEST head CONTINUE_HERE holds?
+// The answer comes from `scripts/lib/continue-head.mjs`, the SAME selector the generator uses to pick it —
+// a second implementation here would be a second walk (the `queue-walk.mjs` law), and would drift the first
+// time either side moved.
+try {
+  const head = selectHead(continueHere)
+  const headerLine = head.header.trim()
+  if (!digest.includes(headerLine)) {
+    const others = head.candidates.filter((c) => c.line !== head.line)
+    fail(
+      `§E DOES NOT CARRY THE NEWEST HEAD. CONTINUE_HERE's newest live head is a [${head.kind}] dated ${head.date} at ` +
+      `CONTINUE_HERE.md:${head.line}:\n      ${headerLine.slice(0, 150)}\n` +
+      `    and the digest does not contain that line anywhere. The digest is pointing the next session at an OLDER ` +
+      `block, which is the failure the §A stamps and leg 3 both structurally cannot see.\n` +
+      (others.length
+        ? `    Older live candidates §E may be reading instead:\n${others.map((c) => `      CONTINUE_HERE.md:${c.line} [${c.kind}] ${c.date} ${c.header.trim().slice(0, 110)}`).join('\n')}\n`
+        : '') +
+      `    FIX: run \`node scripts/wrap-docs.mjs\` AFTER the head block is written.`
+    )
+  }
+} catch (e) {
+  // selectHead REFUSES rather than guessing — an ambiguous head is a failure, never a pass.
+  fail(`HEAD SELECTION REFUSED — CONTINUE_HERE's head is AMBIGUOUS, so the digest cannot be trusted to carry it:\n    ${String(e.message).split('\n').join('\n    ')}`)
+}
+
 // ── 4. THE GOVERNING LAW BLOCK MUST BE PRESENT ────────────────────────────────────────────────────
 // §C is what makes the digest safe to use INSTEAD of the tiered read. A digest missing it is not a
 // fast path, it is a shortcut past the law.
@@ -107,4 +140,4 @@ if (failures.length) {
   console.error('\n  FIX: node scripts/wrap-docs.mjs   (manifest → digest → digest\'s own entry → this gate, in that order)\n')
   process.exit(1)
 }
-console.log(`resume-digest-freshness.guard: PASS — ${SOURCE_DOCS.length}/${SOURCE_DOCS.length} §A stamps match the manifest, all ${Object.keys(manifest).length} manifest entries match their files, §E opener matches CONTINUE_HERE, §C governing law present.`)
+console.log(`resume-digest-freshness.guard: PASS — ${SOURCE_DOCS.length}/${SOURCE_DOCS.length} §A stamps match the manifest, all ${Object.keys(manifest).length} manifest entries match their files, §E opener matches CONTINUE_HERE, §E carries CONTINUE_HERE's NEWEST head, §C governing law present.`)

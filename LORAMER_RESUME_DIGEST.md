@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-21T03:29:15.041Z
-- built_from HEAD: 07405228fac36d25361acdb04ce4ff9ad3fb8722  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-21T04:17:58.443Z
+- built_from HEAD: 5e7387d28e0b5e31b842b57af61577f68096f575  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,9 +18,9 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: 44f79399a6dd71c57d1344f9fe8313078ffc6b0365ef45555eb40b768b9d654b
     - LORAMER_DECISIONS.md: b998066dd5190d627de32a9706fa9d9b7de6b0be10772b00291f548954cc4441
-    - LORAMER_QUEUE_OF_RECORD.md: 2d787acb5c34450dd13ebf96f05ada7f2ad7bdca860a2ed38fa4e95261a39be8
+    - LORAMER_QUEUE_OF_RECORD.md: 99f6bb06999ebdc190d7e8105e926b4216510acc51a3b33cb2aa7c8cfdf46331
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
-    - RESUME_INSTRUCTIONS.md: 0fd4c636eb2184b736c14cba73a99095d868be67c527deeb2720604bf1e5e456
+    - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
     - docs/LORAMER_SECURITY_POSTURE.md: a283fa6f55f64dc91dd52bcf8dbf6c2a38e90dba993fde72d9ae9f6b68c98444
 
@@ -492,6 +492,68 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-08-20). THIS IS THE NEXT STEP. ═══
+⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
+from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
+
+╔═══ SESSION CLOSE 2026-08-20/21 — THE HEAD, WHAT IS UNPUSHED, AND WHAT ONLY RUSS CAN DO. READ FIRST. ═══╗
+
+⛔ **THE HEAD IS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]], AND THE FIRST ACTION IS A READ, NOT A BUILD.**
+Four hypotheses died tonight and the cause is genuinely unknown — which is a better position than the three
+confident wrong ones it replaces. [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] owns the refutation and
+every number; do not re-derive them.
+**WHAT SURVIVED, AND IT POINTS AWAY FROM THE QUEUE: Send Attempts rose to a 12-hour HIGH while First
+Deliveries and Notifications collapsed, redeliveries stayed flat ZERO, and delivery age IMPROVED (avg
+893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ the next diagnostic is the
+**INVOCATION PATH** — Fluid instance behaviour, function init, WAF / deployment protection, and the
+community report's five causes, none of them chased.
+⛔ **TAKE THE READ WHILE A DECAY IS LIVE.** A re-arming redeploy resets the consumer and erases the evidence:
+that is exactly what happened to run 5, which was ended by our own deploy while still at peak 23 and could
+therefore never answer this. **Run 6 was the first run watched all the way down without intervening.** A
+fourth re-arm before the read would destroy the only instance we have.
+⛔ **AND FOUR THINGS ARE DEAD — DO NOT RE-RANK ANY OF THEM:** the maxConcurrency ceiling (24→48 shipped, it
+worked as designed, peak never reached 48 — [[LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1]]); the
+"unfixable vendor fault" premise, which was never verified and was inherited for three days; the ~2h50m
+periodicity, killed by its own evidence (real runs are 1.8 h / 12.5 h / 41.3 h / 2.8 h / 4 h+); and slot
+erosion at the ceiling, killed by redeliveries being flat zero across 12 hours.
+
+── ⛔ WHAT IS SITTING UNPUSHED, SO IT IS NOT DISCOVERED BY A CONFLICT ──
+**TWO LOCAL COMMITS ON `main` ARE COMMITTED AND NOT PUSHED:** `291e7f6` (UI-session setup —
+[[LORAMER_UI_SESSION_SETUP_V1]]) and `0740522` (the queue-tag guard — [[LORAMER_QUEUE_TAG_MATCHES_TEXT_V1]]).
+⚠ **A push auto-deploys production and therefore restarts the consumer**, which is why they were held while
+run 6 was still producing evidence. **`npm run check:data` is owed before the push and its result belongs in
+the push report** — CLAUDE.md's gate, and there is no pre-push hook to catch a miss.
+**THE UI FORK IS SET UP AND HAS NOT BEEN STARTED.** `docs/UI_SESSION_SCOPE.md` holds the fixed three-item
+list; branch `ui` is 205 behind `main` and 2 ahead and syncs by MERGE, never rebase. **A merge to main costs
+≤5 minutes of walk progress and ZERO data — no merge window is needed and none should be scheduled.**
+**11 QUEUE CONTRADICTIONS ARE HELD FOR A HUMAN READ**, each named individually with a reason in
+`tests/guards/queue-tag-matches-text.baseline.mjs`: 4 matcher false positives, 4 vocabulary/format bugs owned
+by [[★FILLDONE-TOLERATES-ONE-WORD-TITLES]], and **3 genuine judgement calls that need Russ** (:314
+closed-with-a-follow-on, :695 half-closed, :867 a master-audit line that reads as a true contradiction).
+
+── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY, AND NEITHER CAN BE DONE BY CLAUDE CODE ──
+**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, AND IT IS OAUTH CLICKS IN A BROWSER.** Nothing
+in this repo can mint those tokens. When they lapse, Meta capture stops for every affected client and **the
+failure presents as EMPTY DATA rather than as an error.** This is the nearest hard clock on the board and it
+is now inside a week.
+**2. THE CLAUDE CODE WEEKLY CAP IS THE BINDING CONSTRAINT BEFORE 9/30 — not compute, not Google quota, not
+disk.** Sequence against that budget explicitly rather than discovering it mid-arc.
+
+── THE 9/30 BOARD — **40 DAYS OUT** (2026-08-21 → 2026-09-30) ──
+**FIVE ITEMS ARE TAGGED 9/30-BLOCKING. Everything else on the queue is behind them by definition:**
+  1. **LORA-VOICE**
+  2. **★CHAT-STATUS-INDICATOR**
+  3. **★CHAT-STREAMING** — a foundation, not a flag: the status indicator and the stop button both sit on it.
+  4. **HOMEPAGE UNIFICATION** — ⛔ **PARKED UNTIL THE GOOGLE REVIEWS CLEAR.** OAuth verification is closed;
+     **Standard Access is PENDING and Google has asked us to "clarify the company website"** — which is the
+     exact surface this item would change. Do not touch it while that question is open.
+  5. **THE DEMO SPINE** — the dashboard walk plus voice-directed Lora, the thing an agency is actually shown.
+⚠ **THE HEAD IS NOT ON THIS LIST, and that is deliberate:** the walk is the product's data floor and a
+delivery fault that halves throughput every hour compounds against all five. It ranks first because it is
+cheap to READ and unbounded if left.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 ═══ NEXT STEP ═══
 
 ▶▶ NEXT STEP — 2026-08-19 SESSION CLOSE (arc opened 2026-08-18): THE WALK REACHES INCEPTION. THE ENGINEERING GATE IS SATISFIED AND THE HEAD MOVES TO ACCOUNT-WIDE DONE-DONE (latest — resume HERE).
@@ -901,6 +963,7 @@ EVERYTHING ELSE IS OWNED ELSEWHERE, NOT RESTATED IN THIS OPENER: external-gate +
 ▶▶ 2026-07-12 SESSION WRAP. SHIPPED (all live + verified): NOT-NULL lock applied + Gate-B(b) closed (migration 027) · org_type persistence spine (028) · NATIVE AUTH slice 1 email/password (029) + slice 2 invite-only allowlist + Mailchimp interest (030) · -next manual add-client · the CONNECT ARC — F1 (truthful state + disconnect) + F2a (Shopify/Woo) + F2b (Meta/GA + hardened connections writer) + F3 (native-user Google-Ads decoupler) ⇒ ALL 5 platforms connect/reconnect/disconnect from -next, connect-flow cutover blocker CLOSED. Banked LORAMER_CADENCE_V1 (ESSENCE restate + HANDOFF).
 
 ## F. DATE-GATED — DO NOT SLIP  (source: LORAMER_QUEUE_OF_RECORD.md)
+- [DG] ★9-30-IS-THE-GOVERNING-DATE — ⛔ **2026-09-30 IS THE DATE EVERY OTHER ITEM ON THIS BOARD IS RANKED AGAINST, AND UNTIL 2026-08-21 IT WAS THE ONE CLOCK THIS SECTION DID NOT CARRY** — the Meta cliff, the Graph sunset and the Google forms were all here; the date that governs them was not, so a session reading §F got every deadline except the one that decides what is worth doing. **MEASURED 2026-08-21: 40 days out.** ⛔ **WHAT IT GATES: the five 9/30-blocking items, named by token rather than re-listed so this line cannot drift from them** — LORA-VOICE, [[★CHAT-STATUS-INDICATOR]], [[★CHAT-STREAMING]], HOMEPAGE UNIFICATION (⚠ parked while the Google Standard Access review is pending — it would change the very surface Google asked us to clarify), and the demo spine (dashboard walk + voice-directed Lora). CONTINUE_HERE's head block owns the narrative and the ranking; this line owns the CLOCK. ⚠ **THE COUNTDOWN IS A DATED MEASUREMENT, NOT A LIVE VALUE** — recompute it from the date, never read the number off this line. src: 2026-08-21 resume-flow audit; the five-item list is Russ's, 2026-08-21. open [LC]
 - [DG] META TOKEN — ⛔ **RANK: T0-CLASS WHEN THE CLOCK ARRIVES — re-arm ~2026-08-25, cliff ~2026-08-30, 12 ad accounts ride it; ranked 2026-08-10 so open-item filters return it (it previously carried status 're-armed' and no rank).** ⛔ **RE-ARM RESEARCH DESCOPED — RUSS, 2026-08-13: no research flight runs for this clock; the cliff ~08-30 stands unresearched, and the plan is exactly the proven admin-valve refresh (~08-25) that worked on 2026-07-01. Recorded so the absence of a research flight reads as a decision, not an omission.** ✅ REFRESHED 2026-07-01 via /api/admin/meta-token-write (updated_at 07-01, new cliff ~2026-08-30; 12 ad accounts ride it — the earlier "7" was stale). Verified stored + live-valid (fb_user_id 10242550452717848). Re-armed: next deliberate refresh ~2026-08-25 via the admin valve. NOTE the app's self-serve reconnect is REPAIRED 2026-07-02 (LORAMER_META_CALLBACK_ONCONFLICT_V1 — callback onConflict fix shipped; Meta review approved, freeze lifted for that file). src: CONTINUE_HERE date-gated#1, 2026-07-01. re-armed
 - [DG] cote@ META TOKEN early-refresh — verify ~2026-07-10 (early-refresh due); hard expiry ~2026-08-30 (to-confirm). NON-BLOCKING. Cross-ref the META TOKEN [DG] line ABOVE (refreshed 2026-07-01, cliff ~08-30, next deliberate re-arm ~08-25 via the admin valve) — this is the early verify of the timeline, NOT a new cliff. src: 2026-07-09 remote-control bank. open(verify)
 - [DG] META GRAPH v21.0 SUNSET 2027-01-21 — the code's pinned Graph version dies then (measured 2026-08-10; current head v26.0). Re-pin within the year; rides ★PLATFORM-VERSION-MAINTENANCE-PRACTICE. src: 2026-08-10 stack-currency verify. open
@@ -1949,6 +2012,7 @@ P20 MULTI-USER WORKSPACES: workspaces+workspace_members; backfill user_email→w
 P21 EXPORT & SHARING: Markdown/txt → PDF/Word/XLSX → HTML-email/bulk → scheduled-digest/JSON/white-label. src: ROADMAP P21. open [NP]
 P22 PROMPT CACHING: Phase3 two-tier (1hr TTL profile/memory) + conversation-prefix breakpoint — deferred until cache-hit data warrants. src: ROADMAP P22. deferred [NP]
 DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress meter (green/backfilling%/red/N-A); N/A path; notification state machine (stop only on connected|N/A); human-assist CTA. src: ROADMAP §Data-Completeness-Onboarding. open [LC]
+- [DG] ★9-30-IS-THE-GOVERNING-DATE — ⛔ **2026-09-30 IS THE DATE EVERY OTHER ITEM ON THIS BOARD IS RANKED AGAINST, AND UNTIL 2026-08-21 IT WAS THE ONE CLOCK THIS SECTION DID NOT CARRY** — the Meta cliff, the Graph sunset and the Google forms were all here; the date that governs them was not, so a session reading §F got every deadline except the one that decides what is worth doing. **MEASURED 2026-08-21: 40 days out.** ⛔ **WHAT IT GATES: the five 9/30-blocking items, named by token rather than re-listed so this line cannot drift from them** — LORA-VOICE, [[★CHAT-STATUS-INDICATOR]], [[★CHAT-STREAMING]], HOMEPAGE UNIFICATION (⚠ parked while the Google Standard Access review is pending — it would change the very surface Google asked us to clarify), and the demo spine (dashboard walk + voice-directed Lora). CONTINUE_HERE's head block owns the narrative and the ranking; this line owns the CLOCK. ⚠ **THE COUNTDOWN IS A DATED MEASUREMENT, NOT A LIVE VALUE** — recompute it from the date, never read the number off this line. src: 2026-08-21 resume-flow audit; the five-item list is Russ's, 2026-08-21. open [LC]
 - [DG] META TOKEN — ⛔ **RANK: T0-CLASS WHEN THE CLOCK ARRIVES — re-arm ~2026-08-25, cliff ~2026-08-30, 12 ad accounts ride it; ranked 2026-08-10 so open-item filters return it (it previously carried status 're-armed' and no rank).** ⛔ **RE-ARM RESEARCH DESCOPED — RUSS, 2026-08-13: no research flight runs for this clock; the cliff ~08-30 stands unresearched, and the plan is exactly the proven admin-valve refresh (~08-25) that worked on 2026-07-01. Recorded so the absence of a research flight reads as a decision, not an omission.** ✅ REFRESHED 2026-07-01 via /api/admin/meta-token-write (updated_at 07-01, new cliff ~2026-08-30; 12 ad accounts ride it — the earlier "7" was stale). Verified stored + live-valid (fb_user_id 10242550452717848). Re-armed: next deliberate refresh ~2026-08-25 via the admin valve. NOTE the app's self-serve reconnect is REPAIRED 2026-07-02 (LORAMER_META_CALLBACK_ONCONFLICT_V1 — callback onConflict fix shipped; Meta review approved, freeze lifted for that file). src: CONTINUE_HERE date-gated#1, 2026-07-01. re-armed
 - [DG] cote@ META TOKEN early-refresh — verify ~2026-07-10 (early-refresh due); hard expiry ~2026-08-30 (to-confirm). NON-BLOCKING. Cross-ref the META TOKEN [DG] line ABOVE (refreshed 2026-07-01, cliff ~08-30, next deliberate re-arm ~08-25 via the admin valve) — this is the early verify of the timeline, NOT a new cliff. src: 2026-07-09 remote-control bank. open(verify)
 - [DG] META GRAPH v21.0 SUNSET 2027-01-21 — the code's pinned Graph version dies then (measured 2026-08-10; current head v26.0). Re-pin within the year; rides ★PLATFORM-VERSION-MAINTENANCE-PRACTICE. src: 2026-08-10 stack-currency verify. open
@@ -2213,7 +2277,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 
 ## J. MACHINES / STACK / HOW TO USE THIS DIGEST
 - Machines: iMac ~/Downloads/cotemedia-ads-manager · MacBook Air ~/Downloads/cotemedia-google-ads-manager (folder names differ BY DESIGN). Stack: Next.js 14 App Router + TS + Tailwind, Supabase (Postgres), NextAuth (Google OAuth), Anthropic (model ids OWNED BY THE CODE — LORA_CHAT_MODEL / LORA_INSIGHT_MODEL defaults in chat/insight route.ts; NOT restated here, this line carried two stale ids), Vercel auto-deploy on push to main. (full: LORAMER_HANDOFF.md → Tech stack + MACHINES & ENV STATE)
-- HOW TO USE: run the section-A freshness gate. FRESH → read this file IN FULL, restate the section-G decisions + section-H queue items relevant to the task (RESTATE-TO-PROVE), state the section-E NEXT STEP, WAIT for Russ's "go". Before calling anything NEW, grep §L (the token index). STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
+- HOW TO USE — ⛔ NEVER `cat` THIS WHOLE FILE. It is 2.1 MB / ~530k tokens and ~95% of it is corpus, not reading material. RESUME_INSTRUCTIONS.md owns the exact command; it prints §A/B/C/D/F/J/K (~93 KB) and the HEAD BLOCK FROM CONTINUE_HERE.md. Run the section-A freshness gate. FRESH → read those short sections IN FULL, take the NEXT STEP FROM CONTINUE_HERE's head block (§E here is CORROBORATION ONLY — if the two differ, CONTINUE_HERE wins and this digest is stale), restate the §G decisions + §H queue items relevant to the task (RESTATE-TO-PROVE) by GREPPING for them, and WAIT for Russ's "go". §G / §H / §L are GREP TARGETS: `grep -n '★TOKEN' LORAMER_RESUME_DIGEST.md` answers decided-or-open in one line, and grepping §L before calling anything NEW is the claim-of-novelty gate. STALE → ignore this file, do the full tiered read (RESUME_INSTRUCTIONS fallback). This digest NEVER overrides the authoritative docs; it is a derived fast path.
 
 ## K. GATED REFERENCE DOCS (hash-guarded in §A; read on-demand — they can't silently rot)
 These load-bearing docs are now in the FRESHNESS-GATE SOURCE_DOCS set (their hashes are stamped in §A). They are NOT embedded here (the digest stays lean = ONE paste); open them when the task needs them — the gate guarantees they are current, and a change to any of them WITHOUT a manifest re-stamp turns §A RED on the next resume:
@@ -2227,8 +2291,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 943 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
-135 decision-only · 463 queue-only.
+TOTALS: 944 tokens indexed · 345 resolve to BOTH a decision and a queue item ·
+135 decision-only · 464 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2245,6 +2309,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
   · [queue] - **[FINDING 2026-07-30 — SEQUENCING, and it INVERTS the recovery ranking]** Sorting the recover…
   · [queue] - Google Tier-1 BREADTH widen — Gate-A green, UNCOMMITTED in the working tree (src/lib/backfill/…
 
+- ★9-30-IS-THE-GOVERNING-DATE — OPEN · decisions 0 · queue 1 · last 2026-09-30
 - ★A19-QUOTA-CAVEAT-CONTAMINATION — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★A2-NEGATION-HANDLING — OPEN · decisions 2 · queue 1 · last 2026-07-31
 - ★A6-NEVER-COUNT-WHAT-YOU-ONLY-NEED-TO-EXIST — OPEN · decisions 0 · queue 1 · last 2026-08-08
@@ -2308,11 +2373,11 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 9 · queue 6 · last 2026-08-08
 - ★CHAT-RETENTION-MARKETING — OPEN · decisions 0 · queue 3 · last 2026-07-26
 - ★CHAT-SHELF-IPAD-TAP — OPEN · decisions 0 · queue 1 · last 2026-08-11
-- ★CHAT-STATUS-INDICATOR — OPEN · decisions 3 · queue 3 · last 2026-09-30
+- ★CHAT-STATUS-INDICATOR — OPEN · decisions 3 · queue 4 · last 2026-09-30
 - ★CHAT-STATUS-SILENT-WINDOWS — OPEN · decisions 2 · queue 2 · last 2026-08-14
 - ★CHAT-STOP-BUTTON — OPEN · decisions 0 · queue 4 · last 2026-09-30
 - ★CHAT-STOP-RESEND-DUPLICATES-USER-BUBBLE — OPEN · decisions 0 · queue 2 · last 2026-08-08
-- ★CHAT-STREAMING — OPEN · decisions 2 · queue 3 · last 2026-09-30
+- ★CHAT-STREAMING — OPEN · decisions 2 · queue 4 · last 2026-09-30
 - ★CHAT-STREAMING-FLAG-FLIP — OPEN · decisions 2 · queue 2 · last 2026-08-06
 - ★CHAT-SURFACE-REVERTED-2026-08-05 — OPEN · decisions 0 · queue 1 · last 2026-08-06
 - ★CHAT-SURFACE-UNIFICATION-PLAN — OPEN · decisions 0 · queue 3 · last 2026-08-06
