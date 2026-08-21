@@ -34,6 +34,10 @@
 //      producer when both are executed on the same input
 //  (s) --db ONLY: no (client, platform, entity_level, breakdown_type, date) holds two rows whose
 //      breakdown_values are a known pair. KNOWN-RED until the cleanup flight — see the header on that leg.
+//  (t) --db ONLY: no natural key (minus entity_id) holds two rows whose entity_ids differ only by a
+//      'customers/<id>/<resource>/' prefix. ⛔ (s) CANNOT SEE THIS — it is scoped to device+hour and keys off
+//      the VALUE axis, so a pair that agrees on breakdown_value and splits only on entity_id is invisible to
+//      it. KNOWN-RED until the cleanup flight — see the header on that leg.
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -267,6 +271,181 @@ if (WITH_DB) {
   }
 }
 
+// ── (t) THE ENTITY_ID TWIN LEG — LORAMER_ENTITY_ID_TWIN_DETECTOR_V1, 2026-08-21 ───────────────────────────
+// ⛔ WHY THIS EXISTS WHEN LEG (s) IS RIGHT THERE, AND THE ANSWER IS THE WHOLE POINT: leg (s) IS SCOPED TO
+// `breakdown_type in ('device','hour')` AND REQUIRES A KNOWN breakdown_value PAIR. It was built for the
+// VALUE axis — ordinal-vs-enum, padded-vs-unpadded — and the entity_id half rides along only inside those two
+// families. So the split that mattered most was invisible to it: at `campaign|campaign` the two rows agree on
+// breakdown_value ('' both sides) and differ ONLY in entity_id, and leg (s) never looks there.
+// MEASURED 2026-08-21, after LORAMER_CANONICAL_KEY_SPELLING_V1 had been green for twelve days:
+// 11,309 prefixed rows across 34 (level, breakdown_type) surfaces still carry a bare twin, and leg (s)
+// reported none of them because none of them is device or hour.
+// ⛔ AND THE WRITER IS NOT THE DEFECT — LEG (p) IS CORRECT AND STAYS GREEN. `canonicalEntityId` has emitted
+// the bare id since 2026-08-09 and both emit sites in the writer go through it (`entityIdFor`, at :961 and
+// :1028). These are STALE ROWS from the 2026-08-03..08-07 walk, and a leg that tests the writer can never see
+// them. THIS LEG READS ROWS. That is the difference, and it is the difference the repo keeps re-learning.
+// ⛔ IT GROWS WHILE UNATTENDED. Every day the walk re-covers that it had already covered before 08-07 mints a
+// new twin: the `campaign|campaign` count was 45 at 13:5xZ on 2026-08-21 and 46 forty minutes later, with the
+// newest row written 42 seconds before the read. A number that moves on its own is not baselined here for the
+// same reason leg (s) is not baselined — a frozen count would hide exactly the growth that matters.
+//
+// ── HOW IT STAYS INSIDE A BUDGET WITHOUT NARROWING WHAT IT ASKS ──
+// `entity_id` has NO index and metrics_daily is ~162M rows across ~55 monthly partitions, so the obvious
+// query cannot run: a fleet-wide GROUP BY was CANCELLED at 115s, and so were a breakdown_type-scoped variant
+// (the planner drops to a Bitmap Heap Scan) and a per-client variant on the two heaviest clients.
+// ⛔ THE THING THAT MADE IT CHEAP IS THAT THE COVERING INDEX ALREADY EXISTS. `metrics_daily_p_natural_key` is
+// (client_id, platform, entity_level, entity_id, date, breakdown_type, breakdown_value) — entity_id is its
+// FOURTH column, so with EQUALITY on the first three the walk's resource-path ids are one contiguous band and
+// Postgres range-seeks straight to them. Foam OH: 78.8s with `entity_level = ANY(...)` (no index cond) →
+// 4.4s with one query per level (a real Index Cond). Same rows, same answer, ~18× cheaper.
+// ⛔ NO NEW INDEX IS CREATED, DELIBERATELY. CREATE INDEX CONCURRENTLY is not supported on a partitioned
+// parent, and the sanctioned workaround (per-partition CONCURRENTLY, then the parent non-concurrently) is a
+// migration on a live 160GB table — not something a guard may do to the database it is auditing.
+// THREE PHASES, each one bounded:
+//   1. an existence probe per (client, entity_level): the band + LIMIT 1. 84 probes, ~11.7s total.
+//   2. only for a client that HIT: the band grouped by breakdown_type — discovers the affected families from
+//      the ROWS, never from a hand-list, so a family nobody thought of is still found.
+//   3. per (client, level, breakdown_type): the twin test, on the (client, platform, breakdown_type,
+//      entity_level, date) index.
+// MEASURED END TO END: 40.7s, whole fleet, zero timeouts, zero breakdown_types excluded.
+//
+// ⛔ THE BAND IS SOUND, AND THE LEG PROVES IT IN THE SERVER RATHER THAN ARGUING IT. The database collates
+// en_US.UTF-8 (ICU), so `LIKE 'customers/%'` is a filter and not a range — the band `>= 'customers' AND
+// < 'customert'` is what reaches the index, and the LIKE stays as an exact recheck. The band can only ever be
+// WIDER than the pattern (any string with the prefix sorts after 'customers' and before 'customert', because
+// they first differ at 's' < 't'), so it cannot produce a FALSE NEGATIVE — but that ordering is a property of
+// the live collation, so it is TESTED on every run. If it ever stops holding, this leg goes CANNOT-RUN rather
+// than quietly reporting a clean fleet.
+//
+// ⛔ WHAT THIS LEG DOES NOT COVER, STATED RATHER THAN IMPLIED, because an unstated scope limit is the defect
+// class this whole guard exists to fight:
+//   · PLATFORM: google only. A resource-path entity_id is a Google Ads API artifact; every other google writer
+//     builds entity_id from a bare vendor id (google-device.ts:56,61,66 · google-campaign-backfill.ts:93 ·
+//     google-adgroup-ad-backfill.ts:64 · google-metrics-row.ts:41), and meta/shopify/woo/ga are NOT examined.
+//   · ENTITY_LEVEL: exactly the levels in LEGACY_ENTITY_LEVEL_RESOURCES, READ FROM universe-surfaces.ts rather
+//     than typed here. At every OTHER level the walk's resource_name is the only spelling that has ever
+//     existed, so no twin is possible — and if that set ever grows, this leg grows with it on the next run.
+//   · DIRECTION: it counts PREFIXED rows that HAVE a bare twin. A bare row without a prefixed twin is the
+//     normal, correct state and is not a finding.
+//   · parent_entity_id: the twin pair also disagrees there (7688521852 vs NULL) and this leg catches the pair
+//     anyway, because it does not group on parent. ⚠ BUT A PARENT-ONLY SPLIT CANNOT BE DETECTED BY ANY
+//     DUPLICATE TEST AND THIS ONE IS NO EXCEPTION: parent_entity_id is NOT in the natural key, so two rows
+//     differing only there cannot both exist — the second write UPDATES the first. Parent drift is invisible
+//     by construction, not by omission. ⚠ NOT YET A QUEUE ITEM — it is OWED one, and this comment is the
+//     only place it is currently written down.
+if (WITH_DB) {
+  const pg = await import('pg')
+  loadEnvLocal()
+  if (!process.env.SUPABASE_DB_URL) {
+    blockers.push('(t) SUPABASE_DB_URL is missing (.env.local), so the entity_id twin count could not be taken on this machine. STILL REFUSING TO PASS. ENVIRONMENT blocker, NOT evidence about the data.')
+  } else {
+    // The levels are the walk resources that share a key space with the drain — READ FROM THE DECLARATION,
+    // never re-typed. A hand-copy here is how 'ad' gets dropped and a whole grain stops being asked about.
+    const m = surfaces.match(/LEGACY_ENTITY_LEVEL_RESOURCES\s*=\s*new Set\(\[([^\]]*)\]\)/)
+    const LEVELS = m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : []
+    if (!LEVELS.length) {
+      blockers.push(`(t) could not read LEGACY_ENTITY_LEVEL_RESOURCES out of ${SURFACES}, so the leg does not know which entity_levels can hold a twin. REFUSING TO GUESS a level list — a guessed list is how a grain silently stops being audited.`)
+    } else if (LEVELS.join(',') !== CANONICAL[0].collidingResources.join(',')) {
+      findings.push(`(t) the colliding-resource set has DRIFTED: ${SURFACES} declares [${LEVELS.join(', ')}] while this guard's registry says [${CANONICAL[0].collidingResources.join(', ')}]. One of them is auditing a grain the other is not.`)
+    } else {
+      const db = new pg.default.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+      await db.connect()
+      await db.query("SET statement_timeout='115s'")
+      const BAND = `entity_id >= 'customers' and entity_id < 'customert' and entity_id like 'customers/%'`
+      // ⛔ THE DENOMINATOR IS TRACKED, NOT ASSUMED (LORAMER_EMPTY_CARRIES_ITS_DENOMINATOR_V1). A zero from a
+      // probe that RAN and a zero from a probe that was never issued must never print the same.
+      let probes = 0, discoveries = 0, twinQueries = 0, twinned = 0, prefixedSeen = 0
+      const offenders = []
+      const perSurface = []
+      let failed = null
+      try {
+        // COLLATION SOUNDNESS, asked of the server every run — see the header. Worst-case tails included,
+        // because the point is the ORDERING and not a happy-path string.
+        const { rows: [band] } = await db.query(
+          `select ('customers/' >= 'customers') as lo, ('customers/' < 'customert') as hi,
+                  ('customers/' || repeat(chr(255), 4) < 'customert') as hi_tail,
+                  ('999999999999' < 'customers') as bare_below`)
+        if (!band.lo || !band.hi || !band.hi_tail) {
+          blockers.push(`(t) the index band ['customers','customert') no longer brackets 'customers/%' under this database's collation (lo=${band.lo} hi=${band.hi} tail=${band.hi_tail}). The seek could MISS rows, so this leg refuses to report a count rather than report one that may be short.`)
+          failed = 'band'
+        }
+        if (!failed) {
+          const { rows: clients } = await db.query(`select id, name from clients order by name`)
+          for (const c of clients) {
+            for (const level of LEVELS) {
+              probes++
+              const { rows: hit } = await db.query(
+                `select 1 from metrics_daily where client_id=$1 and platform='google' and entity_level=$2 and ${BAND} limit 1`,
+                [c.id, level])
+              if (!hit.length) continue
+              discoveries++
+              const { rows: fams } = await db.query(
+                `select breakdown_type, count(*) as prefixed from metrics_daily
+                 where client_id=$1 and platform='google' and entity_level=$2 and ${BAND} group by 1 order by 1`,
+                [c.id, level])
+              for (const f of fams) {
+                prefixedSeen += Number(f.prefixed)
+                twinQueries++
+                const { rows: pairs } = await db.query(
+                  `select date, breakdown_value, split_part(entity_id,'/',-1) as bare_id,
+                          count(*) filter (where entity_id like 'customers/%') as prefixed,
+                          min(entity_id) filter (where entity_id like 'customers/%') as prefixed_id
+                   from metrics_daily
+                   where client_id=$1 and platform='google' and entity_level=$2 and breakdown_type=$3
+                   group by 1,2,3
+                   having count(*) filter (where entity_id like 'customers/%') > 0
+                      and count(*) filter (where entity_id not like 'customers/%') > 0
+                   order by 1`,
+                  [c.id, level, f.breakdown_type])
+                if (!pairs.length) continue
+                const n = pairs.reduce((a, r) => a + Number(r.prefixed), 0)
+                twinned += n
+                perSurface.push(`${level}/${f.breakdown_type}: ${n} twinned of ${f.prefixed} walk-spelled (${c.name})`)
+                if (offenders.length < 5) {
+                  const p = pairs[0]
+                  offenders.push(`${c.name} · ${level}/${f.breakdown_type} · ${new Date(p.date).toISOString().slice(0, 10)} · ${p.prefixed_id}  ==  ${p.bare_id}`)
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // ⛔ A TIMEOUT IS A BLOCKER, NEVER A ZERO. The whole reason this leg was designed in three phases is
+        // that the naive query could not complete; if the bounded one cannot either, the honest report is
+        // "could not ask", not a clean fleet.
+        failed = e.code === '57014' ? 'timeout' : e.message
+        blockers.push(`(t) the twin scan could not complete (${failed}) after ${probes} probe(s), ${discoveries} hit(s) and ${twinQueries} family quer(ies). NOTHING is proven about the rows it did not reach — this is NOT a zero.`)
+      }
+      await db.end()
+      if (!failed) {
+        // ⛔ THE DENOMINATOR PRINTS ON EVERY RUN, GREEN OR RED. A silent green here would answer a narrower
+        // question than the reader assumes: "no twins" must be readable as "N probes ran and found none".
+        console.log(`  (t) entity_id twin scan: ${probes} probe(s) across ${LEVELS.length} level(s) [${LEVELS.join(', ')}], ${discoveries} carrying a walk-spelled row, ${twinQueries} family quer(ies), ${prefixedSeen} walk-spelled row(s) examined.`)
+      }
+      if (twinned > 0) {
+        findings.push(
+          `(t) ${twinned} TWINNED row(s) whose entity_id differs ONLY by a 'customers/<id>/<resource>/' prefix —\n` +
+          `      the same fact stored twice, one bare id and one resource path, on the same natural key minus entity_id:\n` +
+          offenders.map((o) => `        ${o}`).join('\n') +
+          (perSurface.length > 5 ? `\n      … ${perSurface.length} affected surface(s) in total; first 5 shown.` : '') +
+          `\n      ⛔ ANY DAY-SUM OVER THESE RETURNS 2× — proven live through query_breakdown_agg_topn (migration 039\n` +
+          `      groups by breakdown_value only), which is the RPC Lora's query_breakdown reaches for google\n` +
+          `      'campaign'/'ad_group'. NOT baselined: this number GROWS while the walk re-covers old ground.\n` +
+          `      The fix is a scoped DELETE under the twin test, then an UPDATE for the untwinned remainder —\n` +
+          `      NEVER a delete keyed on walk-spelling alone (leg (s) records what that would have cost).`)
+      }
+      const untwinned = prefixedSeen - twinned
+      if (!failed && untwinned > 0) {
+        // ⛔ SAME ASYMMETRY AS LEG (s), AND FOR THE SAME REASON. These rows are the ONLY copy of their fact.
+        // Failing the build over them would pressure someone into deleting real data to get green.
+        console.log(`  ⚠ (t) REPORTED, NOT FAILED: ${untwinned} walk-spelled row(s) have NO bare twin — UNIQUE data in a`)
+        console.log(`    non-canonical spelling, invisible to any reader that looks up the bare id. THE FIX IS AN UPDATE,`)
+        console.log(`    NEVER A DELETE — deleting them destroys the only copy. NOT YET A QUEUE ITEM — it is OWED one.`)
+      }
+    }
+  }
+}
+
 // ⛔ TWO NON-ZERO STATES, AND THEY MUST NOT LOOK ALIKE. `FAILED` is a claim about the DATA. `CANNOT-RUN` is
 // a claim about THIS MACHINE. Both refuse to pass; only one is a defect. The difference lives in the BANNER, not in the exit
 // code: `check:data` takes the MAX exit of its legs, so a special code would outrank and mask a real failure.
@@ -294,6 +473,6 @@ if (blockers.length) {
 console.log(
   `canonical-key-spelling.guard: PASS — ${CANONICAL.length} canonical fact(s); the walk normalises entity_id at ` +
   `[${CANONICAL[0].collidingResources.join(', ')}] and canonicalises device + hour values against the incumbent ` +
-  `producers.${WITH_DB ? '' : ' (data leg (s) runs under --db in check:data.)'} ` +
+  `producers.${WITH_DB ? '' : ' (data legs (s) + (t) run under --db in check:data.)'} ` +
   `LIMIT: it checks the WRITER's shape, not every row already in the warehouse.`
 )
