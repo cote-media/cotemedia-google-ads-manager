@@ -309,6 +309,16 @@ if (WITH_DB) {
 //      entity_level, date) index.
 // MEASURED END TO END: 40.7s, whole fleet, zero timeouts, zero breakdown_types excluded.
 //
+// ⛔ WHAT A TIMEOUT ACTUALLY DOES, WRITTEN DOWN BECAUSE THE WRONG REASON IS THE TEMPTING ONE. Exceeding
+// `statement_timeout` CANCELS the statement and raises 57014; it does NOT return a short result set that
+// reads like a clean one (postgresql.org/docs/current/runtime-config-client.html). So the danger this leg
+// guards against is not a silent partial ANSWER — it is a silent partial RUN, and that danger is real here
+// precisely BECAUSE the budget is per-STATEMENT: this leg issues 84 probes plus one query per discovered
+// family, and NO single statement tripping the limit says nothing about whether every statement was issued.
+// ⇒ THAT is why the catch below converts any error into a BLOCKER carrying how far it got, and why the
+// denominator prints on every run. A paged or cursored scan can burn any amount of total time while each
+// statement stays innocent; only the counts can tell you the sweep was complete.
+//
 // ⛔ THE BAND IS SOUND, AND THE LEG PROVES IT IN THE SERVER RATHER THAN ARGUING IT. The database collates
 // en_US.UTF-8 (ICU), so `LIKE 'customers/%'` is a filter and not a range — the band `>= 'customers' AND
 // < 'customert'` is what reaches the index, and the LIKE stays as an exact recheck. The band can only ever be
