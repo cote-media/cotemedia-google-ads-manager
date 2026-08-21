@@ -1611,6 +1611,182 @@ restatement sweep queued since 2026-07-24. A genuinely dormant surface's strip t
 [[★TOP-EDGE-STRIP-NEVER-NARROWS]].
 
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1 (2026-08-20) — SETTLED, DEPLOYED. The ceiling is DERIVED and it is ABOVE the structural burst. ⛔ This is NOT unresolved config and must not be re-opened as one.
+
+THREE-SOURCE — PRIOR CHATS: the 2026-08-17 delivery-dark arc, which blamed Vercel Queues for two flights before our own layers were proven, and [[LORAMER_DRAIN_FITS_THE_INTERVAL_V1]] (2026-08-19), which set 24 as the pair of a 5-minute cadence and was read ever after as if it had set a MAXIMUM. · WEB: https://vercel.com/docs/queues — AUTHORITATIVE (Vercel's own docs for Queues v2beta, read 2026-08-20 against the version we run): a consumer group's `maxConcurrency` is a DELIVERY GATE, not a scheduling hint — at the ceiling Vercel "holds back delivery until an in-flight message is acknowledged or its lease expires". ⚠ THE FIELD-REPORT HALF OF THE WIDE ROUND WAS NOT RUN FOR THIS ENTRY, and per [[LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1]] that is stated rather than hidden: the vendor's INTENT was enough to size a ceiling, and it was NOT enough to diagnose the decay — see the SKIPPED leg on [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]]. · REPO: `vercel.json` (both consumer triggers), `universe-resumer.ts:98` `MAX_REQUESTS_PER_RUN = 40` and `:140` `TOP_EDGE_REQUESTS_PER_RUN = 2`, `queue-drain-fits-the-interval.guard.mjs` (the inequality a raise can only loosen), and the fire / invocation / `universe_attempt_log` ledgers the measurements came from. — /THREE-SOURCE
+**maxConcurrency 24 → 48 on the v2 consumer, `6505f71`.** The v1 trigger stays at 2 and the 17 cron entries
+are untouched — one number moved.
+⛔ **THE DERIVATION, THREE NUMBERS EACH READ FROM ITS OWN SOURCE AND NONE RETYPED:**
+  · **REQUIRED concurrency for the steady state is 1.** Measured 152 messages/hour against a 1.676 s mean
+    consumer duration ⇒ 0.07 concurrent. Little's Law; the steady state has never needed a second slot.
+  · **STRUCTURAL BURST MAXIMUM is 42** — `MAX_REQUESTS_PER_RUN` 40 + `TOP_EDGE_REQUESTS_PER_RUN` 2. **One
+    fire cannot publish more than 42 messages**, so no ceiling above 42 can ever bind, and 48 is chosen to
+    sit above it with margin rather than to buy throughput.
+  · ⛔ **24 WAS NEVER DERIVED AS A MAXIMUM AND NOBODY NOTICED FOR A MONTH.** It arrived as the *minimum* half
+    of the drain-fits-the-interval identity (40 × 180 s ÷ 24 = 300 s = the 5-minute interval). That identity
+    fixes a FLOOR. **Nothing in this repo ever set the ceiling**, and a floor left standing as a ceiling is
+    how the consumer came to run pinned at exactly 24 for hours at a time.
+⛔ **IT WORKED AS DESIGNED, AND IT DID NOT FIX THE FAULT. BOTH HALVES ARE THE RECORD, deliberately, so no
+future reader files this as a loose end.** Deploy READY 2026-08-20 23:02:19Z, first consumer row 23:03:15Z.
+Post-deploy peak concurrent in-flight reached **29** in the 23:00 hour — **impossible under a ceiling of
+24**, so the change took effect and the hold-back branch stopped being entered. It then **never touched 48**
+across the next four hours, which independently confirms the 42-message derivation: there is no third raise
+owed and none should be proposed.
+⇒ **THE CEILING QUESTION IS CLOSED.** 48 sits above the structural burst maximum, so it cannot bind. The
+decay that survived the change is a DIFFERENT fault with a DIFFERENT mechanism and is owned by
+[[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] — do not re-rank the concurrency number when reading it.
+⚠ **THE ONE THING THE CHANGE IS ENTITLED TO CLAIM:** it removed a real defect — ~288 fires/day entering a
+documented throttle branch for no throughput reason — and that removal stands on its own merits, on the
+vendor's own text, whatever the decay turns out to be.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1 (2026-08-20) — MEASURED. THE HYPOTHESIS IS REFUTED AND THREE MORE DIE WITH IT. OPEN PROBLEM, NAMED — do not re-rank any of the four dead options.
+
+THREE-SOURCE — PRIOR CHATS: the whole 2026-08-17 → 08-20 delivery arc read as ONE record rather than flight by flight — the 11-hour outage banked as a vendor fault, the two re-arming redeploys (14:13Z and 23:02Z), the architecture adversary round whose refutation condition Russ and I both wrote down BEFORE this data existed, and the walk-status read that met it. · WEB: https://vercel.com/docs/queues — AUTHORITATIVE, Vercel Queues v2beta as of 2026-08-20: the ceiling semantics, the 24h default TTL, redelivery on lease expiry, and topic partitioning by deployment id — all four used here to KILL hypotheses rather than to support one. ⛔ SKIPPED, AND NAMED RATHER THAN PAPERED OVER per [[LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1]]: the field-report round on the INVOCATION path — Fluid compute instance lifecycle, function init behaviour under sustained low-rate delivery, and deployment-protection/WAF interaction with queue callbacks. That is where the surviving evidence points and NO web round has been run on it. It is the first item of [[★DELIVERY-DECAY-CAUSE-UNKNOWN]], not a gap to be quietly closed by this entry. · REPO: the Vercel invocation log (start/end sweep for concurrent in-flight), `universe_attempt_log` and `universe_window_log` (rows, days, requests, surfaces, lane), the fire log (`cron_runs`), `check-consumer-liveness`, and `universe_attempt_lane_spend_today('google')`. — /THREE-SOURCE
+⛔ **THE MECHANISM IS NOT THE CEILING. PEAK IN-FLIGHT NEVER REACHED 48 AND THE DECAY HAPPENED ANYWAY.**
+**PEAK CONCURRENT IN-FLIGHT PER HOUR** (sweep of invocation start/end events, ±1 running sum):
+  pre-deploy, ceiling 24 ...... 19:00 **24** · 20:00 22 · 21:00 23 · 22:00 13
+  post-deploy, ceiling 48 ..... 23:00 **29** · 00:00 24 · 01:00 18 · 02:00 **3** · 03:00 **3**
+**AND PUBLICATION ROSE WHILE CONSUMPTION COLLAPSED — which is the half that makes it undeniable:**
+  invocations/hour ....... 272 → 300 → 158 → **36** → 6
+  published/hour ......... 308 → 368 → **461** → **492** (twelve fires every hour, none held)
+  days committed/hour .... 386 → 479 → 354 → 20 → 1
+⇒ **BOTH REFUTATION CONDITIONS WERE WRITTEN DOWN BEFORE THE DATA WAS READ AND BOTH WERE MET**: the peak
+stayed off the ceiling, *and* the decay happened regardless. **The throttle was never the mechanism.** The
+slope begins **~2 hours into the run** — run 5's onset was ~3 hours on the LOWER ceiling, so raising it did
+not even delay onset. This is not "less work to do": the producer is handing over MORE while the consumer
+takes LESS, so the backlog is growing.
+⛔ **THREE FURTHER HYPOTHESES DIE HERE. EACH IS NAMED SO IT IS NOT SILENTLY RE-RANKED TOMORROW:**
+  **(a) "AN UNFIXABLE VENDOR FAULT" — KILLED, AND THE REASON IS THAT WE NEVER VERIFIED IT.** It entered as a
+  conclusion of the 2026-08-17 11-hour outage and was inherited as a PREMISE by every flight after. Nothing
+  was ever measured that separates *"Vercel stopped delivering"* from *"something on our side stopped
+  accepting"* — and the evidence below now points at the second. ⛔ **An unverified premise that ranks an
+  option out of contention is worse than a wrong measurement: a wrong number gets corrected, a premise
+  terminates the search.** Same class as [[LORAMER_DIAGNOSE_FROM_RECORDS_V1]], one layer out.
+  **(b) "~2h50m PERIODICITY" — KILLED BY ITS OWN EVIDENCE.** The real run lengths are **1.8 h / 12.5 h /
+  41.3 h / 2.8 h / 4 h+**. A 41.3-hour run and a 1.8-hour run cannot share a clock. The period was read off
+  two ADJACENT runs and generalised — [[LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1]]'s disease at the
+  level of a hypothesis rather than a guard.
+  **(c) "SLOT EROSION AT THE CEILING" — KILLED BY THE REDELIVERY COUNTER.** Erosion requires messages whose
+  leases expire unacknowledged, and by the vendor's own semantics those REDELIVER. **Redeliveries are flat
+  ZERO across 12 hours.** No lease ever expired, so no slot was ever leaked. This one was cheap to kill and
+  was never checked until today.
+⚠ **WHAT SURVIVES, AND IT IS THE OPPOSITE SHAPE FROM EVERYTHING WE CHASED: Send Attempts rose to a 12-hour
+HIGH while First Deliveries and Notifications collapsed, redeliveries stayed 0, and delivery age IMPROVED
+(avg 893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ **the next diagnostic is
+the INVOCATION PATH, not the queue** — owned by [[★DELIVERY-DECAY-CAUSE-UNKNOWN]].
+**RUN 6, THE RUN THIS WAS MEASURED ON: first consumer row 23:03:15.731Z, lifetime 4h03m at the read, still
+ALIVE but decayed to peak 3.** ⛔ **It is the first run watched decay this far WITHOUT intervening** — run 5
+was ended by our own deploy while still at peak 23, which is precisely why it could not answer this and why
+a fourth re-arm would have destroyed the evidence instead of producing it.
+**FOUR-HOUR PROGRESS (measurements, dated, not live state):** 4,194 ledger rows · 1,240 days committed ·
+1,091 vendor requests · 345 distinct surfaces · deepest `window_start` asked since the deploy 2023-12-05.
+⚠ **1,213 of those 1,240 days landed in the first three hours.** The last hour bought one.
+**LANE, PINNED INSTANT 2026-08-21 03:06:55.566376Z:** v1 ledger 0 · v2 ledger 4,488 ⇒ **spent 4,488 of
+13,500, headroom 9,012.** Lower than the 14:22Z read of 5,253 because the rolling 24h window is ageing out
+faster than the decayed walk adds. **The lane was never the constraint tonight.**
+**ERRORS: 7 since the deploy, ALL the standing `detail_content_suitability_placement_view` /
+`group_content_suitability_placement_view` query_error 49 pair** ([[★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49]],
+[[★CATALOG-SURFACE-METRIC-INCOMPAT]]). 0 quota holds, 0 non-completed fires.
+⚠ **AND THE INSTRUMENT THAT SAID "ALIVE" IS PART OF THE FINDING, NOT A FOOTNOTE:** `check-consumer-liveness`
+read ALIVE at **27 consumer attempts against 369 messages published in the trailing 45 minutes — ~7%** —
+because its predicate is *attempts > 0*. True, and useless for a decay. [[★LIVENESS-PREDICATE-TOO-COARSE]].
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_QUEUE_TAG_MATCHES_TEXT_V1 (2026-08-20) — SHIPPED (`0740522`, HELD UNPUSHED). The backlog denominator is corrected and the blind spot underneath it is named. Do not re-derive the open count by grep.
+
+THREE-SOURCE — PRIOR CHATS: my own "348 open" figure, reported from this file by grep the day before and wrong by roughly half; and the 2026-08-14 hand-correction of two status tails, which is the prior instance of the exact class this guard exposes. · WEB: NONE-APPLICABLE: the subject is THIS repo's own status vocabulary in ITS own markdown backlog — `open [LC]`, `statusIsDone`, the `[LC|NP|EXT|DG]` tags — and no external source has an opinion about a convention we invented. The generalisable half (a checker must read its subject's OWN rule, not a plausible re-implementation) is already banked locally as [[LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1]]. · REPO: `scripts/build-resume-digest.mjs` §H/§L and its shared-walk comment, `scripts/lib/queue-walk.mjs` (the extraction), `tests/guards/queue-tag-matches-text.guard.mjs` + `.baseline.mjs`, and `LORAMER_QUEUE_OF_RECORD.md` itself. — /THREE-SOURCE
+⛔ **THE DEFECT WAS A COUNTING DEFECT BEFORE IT WAS A TAGGING ONE.** An item could open with *"✅ CLOSED
+2026-08-04, VERIFIED END TO END BY RUSS"* and still be counted as open work, forever, with no signal
+anywhere — because `statusIsDone` reads the keyword governing the FINAL bracket tag and nothing ever
+compared that answer against the item's own prose. **Neither half is a bug alone; the CONTRADICTION is.**
+**THE NUMBERS: 48 findings → 45 after two matcher corrections → 11 held for a human. 31 items retagged.
+OPEN COUNT 676 → 652 → 644 → 645 with one new item banked.** Digest §H and the guard's walk both report
+**645** — exact agreement, which is the check that the extraction is faithful rather than merely plausible.
+⛔ **THE BLIND SPOT IT EXPOSED, AND IT IS THE PART WORTH KEEPING: `statusIsDone` CANNOT JUDGE AN ITEM THAT
+CARRIES NO BRACKET TAG. It returns "not done" — silently, forever.** 7 of the 31 were that shape: a tail
+reading `**closed**` in bold with no `[LC]`. ⛔ **TWO OF THEM SAY IT IN THEIR OWN TEXT** — ★CHAT-COPY-BLOCKS
+and ★CHAT-FIRST-FRAME-BLOCKED-BY-INTELLIGENCE-FETCH both carry *"status tail corrected 2026-08-14: the BODY
+already recorded the close and the tail still read `open`, so digest §H counted a shipped item as backlog."*
+**Somebody hit this exact class six days earlier, corrected the tail by hand, and the correction did not
+work — because it carried no tag, and nobody could tell.** A hand-fix that silently fails is the argument
+for the guard, made by the file itself. ⇒ [[★STATUS-TAIL-WITHOUT-BRACKET-TAG]].
+**FALSE POSITIVES FIXED IN THE MATCHER RATHER THAN WAIVED:** "COMPLETE" removed from the closure vocabulary
+(in this repo it describes DATA COVERAGE — T3 is titled CAPTURE COMPLETENESS — and a word that means two
+things cannot be a status test); `open(<residual>)` excluded (an item tagged `open(layer-3 only)` has
+shipped and is naming what is left — flagging it would punish precision); and an item's own name token
+stripped on the header line.
+**ONE WALK, NOT TWO.** The split and the status test moved to `scripts/lib/queue-walk.mjs` and BOTH the
+digest generator and the guard read it — a guard with its own copy would be the second walk the generator's
+own comment warns about. ⚠ **PROVEN BYTE-IDENTICAL IN A SCRATCH TREE, AND THE PROOF CAUGHT A REAL DEFECT IN
+MY OWN EXTRACTION** — the first cut RECORDED DONE-appendix items where the original `continue`s, leaking two
+entries into §L (932 tokens vs 930). Fixed and re-proven to an identical SHA-256.
+**TWO SHRINK-ONLY BASELINES, both DATA and neither a mute:** `UNTOKENED_BASELINE = 265`,
+`CONTRADICTION_BASELINE = 11` with all eleven named individually and a reason each. A RISE fails.
+⚠ **THE RESIDUAL VOCABULARY BUGS ARE NOT FIXED AND ARE OWNED ELSEWHERE:** `statusIsDone`'s terminal
+vocabulary is `resolved|done|closed` only, so `shipped`, `decided`, `answered` and `withdrawn` tags still
+count open; and the fill done-check tolerates exactly one token between the id and the ✅.
+⇒ [[★FILLDONE-TOLERATES-ONE-WORD-TITLES]] owns both halves.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_HOOKS_OVER_PROSE_V1 (2026-08-20) — GOVERNING. SETTLED. The RULE-HOME LAW finally has a mechanism, and the mechanism is a hook. ⛔ The gates may NOT become path-scoped.
+
+THREE-SOURCE — PRIOR CHATS: the adversary round on session context and rule enforcement (2026-08-20), and the whole documented history of the RULE-HOME LAW — CLAUDE.md's own ONE-BLOCK OUTPUT entry recording that it was banked and then broken on the very next report and four times in one day, and the four 2026-07-16 IN-FLIGHT violations. · WEB: https://code.claude.com/docs/en/memory — AUTHORITATIVE, Anthropic's own Claude Code memory documentation, read 2026-08-20, describing the CLAUDE.md mechanism as it ships today: **"Claude treats them as context, not enforced configuration. To block an action regardless of what Claude decides, use a PreToolUse hook instead."** · https://code.claude.com/docs/en/context-window — AUTHORITATIVE, same date, for what survives compaction. · https://code.claude.com/docs/en/hooks — AUTHORITATIVE, for the event list and the exit-code contract. ⚠ MARKED HONESTLY: all three are VENDOR PRIMARIES and no field-report round was run — the claim being banked is about the documented contract, not about a failure mode in the wild. · REPO: `.claude/settings.local.json` (the whole of this repo's Claude Code configuration), `CLAUDE.md`, and the DOC-OWNERSHIP / IN-FLIGHT / SEAMS gates whose own text states they are model refusals rather than enforcers. — /THREE-SOURCE
+⛔ **CLAUDE.md IS CONTEXT, NOT CONFIGURATION — ON THE VENDOR'S OWN WORDS, NOT ON INFERENCE.** Instructions in
+it are followed at roughly **70%**; a hook is code in the harness that runs BEFORE the tool call and whose
+exit code decides, so it enforces at **100%**. That gap is the entire difference between a rule that is
+usually obeyed and a rule that cannot be disobeyed.
+⛔ **AND ZERO HOOKS EXIST IN THIS REPO TODAY.** `.claude/settings.local.json` carries exactly two keys —
+`permissions` and `enabledMcpjsonServers` — and **no `hooks` key at all**. ⇒ **every behavioural gate this
+repo owns is prose, which means every one of them sits in the ~70% band**, including the three that CLAUDE.md
+itself describes as refusals a model performs: the IN-FLIGHT gate, the DOC-OWNERSHIP gates, and the SEAMS
+gate. Each of those already states its own limit in writing. This entry supplies what they were missing.
+⛔ **THE COMPACTION RULING — AND IT DECIDES A DESIGN QUESTION RATHER THAN DESCRIBING ONE.** On compaction the
+project-root `CLAUDE.md` and **UNSCOPED** `.claude/rules/*.md` are RE-INJECTED; a rule scoped with `paths:`
+frontmatter is **LOST** until a matching file is read again. **⇒ THE GATES MAY NOT BECOME PATH-SCOPED.** The
+obvious tidy-up — move the behavioural gates into `.claude/rules/` with `paths:` so they load only when
+"relevant" — would **delete them from context at exactly the moment context is scarcest and the executor is
+most likely to freelance.** Hooks are the ONLY mechanism in the list that cannot be summarised away, because
+they are not context at all: they are code.
+⇒ **THE ORDER THIS SETTLES, so no future session re-opens it as a formatting preference:**
+  **1. The gates are SHORTENED IN PLACE. They are NOT relocated.** Longer memory files reduce adherence, so
+     length is a real cost — but path-scoping pays for it with disappearance. [[★CLAUDE-MD-GATES-ARE-59-PERCENT]]
+  **2. Repeat-offense rules get HOOKS.** This is the RULE-HOME LAW's *"where does it execute?"* answered at
+     last with something other than another paragraph.
+  **3. THE FIRST HOOK IS DECIDED: [[★VERDICT-ENFORCER-BEFORE-PUSH]], `PreToolUse` with `if: "Bash(git push *)"`.**
+     It is the one whose failure has already cost a push on red.
+⚠ **THE HONEST LIMIT, stated so a hook is not oversold the way prose was:** a hook enforces the CHAIN, never
+the READING. It can refuse a push whose gate chain did not run green; it cannot make anyone look at the
+output. It narrows the gap; it does not close it.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+## LORAMER_UI_SESSION_SETUP_V1 (2026-08-20) — SETTLED, COMMITTED (`291e7f6`, HELD UNPUSHED). A second session has a place to stand. Do not re-derive the isolation, the branch, or the merge cost.
+
+THREE-SOURCE — PRIOR CHATS: the four adversary rounds that scoped the parallel session (2026-08-20), including the one that asked how a UI session proves its own work; and the 2026-08-04 preview-auth arc (QUEUE 211/213/287), which had already solved the branch-scoped auth this round nearly re-solved from scratch. · WEB: https://code.claude.com/docs/en/hooks and the Claude Code worktree documentation — AUTHORITATIVE, read 2026-08-20, for the fact that `--worktree` isolation is enforced by the harness and cannot be disabled from inside the session, and for `.worktreeinclude` semantics. ⚠ NO field-report round, and none is claimed: the load-bearing facts here are our own branch, our own env vars, and our own walk. · REPO: `.worktreeinclude`, `.gitignore`, `docs/UI_SESSION_SCOPE.md`, `docs-queue-coverage.guard.mjs` (which the new doc had to satisfy), and the Vercel project's branch-scoped `NEXTAUTH_URL` Preview override. — /THREE-SOURCE
+**WORKTREE ISOLATION IS ENFORCED, NOT ELECTED.** `claude --worktree` puts the UI session in its own tree and
+the isolation cannot be switched off from inside that session — so it cannot reach main's working tree even
+by mistake. That is the property that makes a second writer safe at all.
+**`.worktreeinclude` — THREE EXACT PATHS, NO GLOBS:** `.env.local`, `next-env.d.ts`, `.vercel/`. These are
+untracked files a worktree needs in order to BUILD; without them the UI session cannot run its own gate.
+⚠ **`.env.local.bak-*` is excluded DELIBERATELY** — a glob would have swept the backups in, and a stale env
+backup in a fresh tree is a silent wrong-credentials bug.
+**THE ONE-WRITER RULE:** the UI session works on branch **`ui`** and nowhere else. It never touches `main`,
+never runs `check:data`, never writes a session doc, and never runs the wrap. `docs/UI_SESSION_SCOPE.md`
+holds the FIXED three-item list (headless render gate → chat status indicator → G2) and the standing rules,
+and **the list may not be extended by the session working it.**
+⛔ **BRANCH `ui` IS THE UI LANE AND ITS PREVIEW AUTH WAS ALREADY SOLVED — DO NOT RE-DERIVE IT.** A
+branch-scoped `NEXTAUTH_URL` Preview override exists (next-auth v4 resolves the callback from that variable,
+never from the request host), it was solved 2026-08-04, and **its redirect URI was CONFIRMED LIVE in the
+Google Cloud Console on 2026-08-20.** Two sessions nearly rebuilt this from zero.
+⛔ **MERGE COST, MEASURED, SO NO MERGE WINDOW IS EVER NEGOTIATED: a merge to `main` costs ≤5 MINUTES OF WALK
+PROGRESS AND ZERO DATA.** A deploy restarts the CONSUMER's clock, not the walk's ledger — owed-ness is
+DERIVED rather than held in the queue, published messages are idempotent, and a message lost to a redeploy is
+simply re-derived on the next fire. ⇒ **no merge window is needed and none should be scheduled.** This is the
+same property that made three re-arming redeploys safe tonight.
+⚠ **THE SYNC IS A MERGE, NOT A REBASE.** `ui` is 205 commits behind `main` and 2 ahead; the two ahead are
+published, so rebasing them would rewrite pushed history.
+
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ## MASTER AUDIT 2026-07-15 (LORAMER_MASTER_AUDIT_2026_07_15_V1) — data-capture completeness + Lora readiness
 ═══════════════════════════════════════════════════════════════════════════════════════════════════
 Read-only audit of all 5 platforms against the governing law, verified against the WRITERS and the LIVE DB (35,176,907

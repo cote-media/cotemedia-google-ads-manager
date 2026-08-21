@@ -1,4 +1,62 @@
-╔═══ SESSION CLOSE 2026-08-19/20 — THE HEAD, THE FIRST THREE, AND TWO THINGS ONLY RUSS CAN DO. READ FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-20/21 — THE HEAD, WHAT IS UNPUSHED, AND WHAT ONLY RUSS CAN DO. READ FIRST. ═══╗
+
+⛔ **THE HEAD IS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]], AND THE FIRST ACTION IS A READ, NOT A BUILD.**
+Four hypotheses died tonight and the cause is genuinely unknown — which is a better position than the three
+confident wrong ones it replaces. [[LORAMER_DELIVERY_DECAY_IS_NOT_THE_CEILING_V1]] owns the refutation and
+every number; do not re-derive them.
+**WHAT SURVIVED, AND IT POINTS AWAY FROM THE QUEUE: Send Attempts rose to a 12-hour HIGH while First
+Deliveries and Notifications collapsed, redeliveries stayed flat ZERO, and delivery age IMPROVED (avg
+893 ms). Vercel is offering more, faster, and something is not accepting.** ⇒ the next diagnostic is the
+**INVOCATION PATH** — Fluid instance behaviour, function init, WAF / deployment protection, and the
+community report's five causes, none of them chased.
+⛔ **TAKE THE READ WHILE A DECAY IS LIVE.** A re-arming redeploy resets the consumer and erases the evidence:
+that is exactly what happened to run 5, which was ended by our own deploy while still at peak 23 and could
+therefore never answer this. **Run 6 was the first run watched all the way down without intervening.** A
+fourth re-arm before the read would destroy the only instance we have.
+⛔ **AND FOUR THINGS ARE DEAD — DO NOT RE-RANK ANY OF THEM:** the maxConcurrency ceiling (24→48 shipped, it
+worked as designed, peak never reached 48 — [[LORAMER_QUEUE_CONCURRENCY_ABOVE_THE_BURST_V1]]); the
+"unfixable vendor fault" premise, which was never verified and was inherited for three days; the ~2h50m
+periodicity, killed by its own evidence (real runs are 1.8 h / 12.5 h / 41.3 h / 2.8 h / 4 h+); and slot
+erosion at the ceiling, killed by redeliveries being flat zero across 12 hours.
+
+── ⛔ WHAT IS SITTING UNPUSHED, SO IT IS NOT DISCOVERED BY A CONFLICT ──
+**TWO LOCAL COMMITS ON `main` ARE COMMITTED AND NOT PUSHED:** `291e7f6` (UI-session setup —
+[[LORAMER_UI_SESSION_SETUP_V1]]) and `0740522` (the queue-tag guard — [[LORAMER_QUEUE_TAG_MATCHES_TEXT_V1]]).
+⚠ **A push auto-deploys production and therefore restarts the consumer**, which is why they were held while
+run 6 was still producing evidence. **`npm run check:data` is owed before the push and its result belongs in
+the push report** — CLAUDE.md's gate, and there is no pre-push hook to catch a miss.
+**THE UI FORK IS SET UP AND HAS NOT BEEN STARTED.** `docs/UI_SESSION_SCOPE.md` holds the fixed three-item
+list; branch `ui` is 205 behind `main` and 2 ahead and syncs by MERGE, never rebase. **A merge to main costs
+≤5 minutes of walk progress and ZERO data — no merge window is needed and none should be scheduled.**
+**11 QUEUE CONTRADICTIONS ARE HELD FOR A HUMAN READ**, each named individually with a reason in
+`tests/guards/queue-tag-matches-text.baseline.mjs`: 4 matcher false positives, 4 vocabulary/format bugs owned
+by [[★FILLDONE-TOLERATES-ONE-WORD-TITLES]], and **3 genuine judgement calls that need Russ** (:314
+closed-with-a-follow-on, :695 half-closed, :867 a master-audit line that reads as a true contradiction).
+
+── ⛔ TWO THINGS THAT NEED RUSS PERSONALLY, AND NEITHER CAN BE DONE BY CLAUDE CODE ──
+**1. THE META TOKEN CLIFF — ~2026-08-25 to 08-30, 12 ACCOUNTS, AND IT IS OAUTH CLICKS IN A BROWSER.** Nothing
+in this repo can mint those tokens. When they lapse, Meta capture stops for every affected client and **the
+failure presents as EMPTY DATA rather than as an error.** This is the nearest hard clock on the board and it
+is now inside a week.
+**2. THE CLAUDE CODE WEEKLY CAP IS THE BINDING CONSTRAINT BEFORE 9/30 — not compute, not Google quota, not
+disk.** Sequence against that budget explicitly rather than discovering it mid-arc.
+
+── THE 9/30 BOARD — **40 DAYS OUT** (2026-08-21 → 2026-09-30) ──
+**FIVE ITEMS ARE TAGGED 9/30-BLOCKING. Everything else on the queue is behind them by definition:**
+  1. **LORA-VOICE**
+  2. **★CHAT-STATUS-INDICATOR**
+  3. **★CHAT-STREAMING** — a foundation, not a flag: the status indicator and the stop button both sit on it.
+  4. **HOMEPAGE UNIFICATION** — ⛔ **PARKED UNTIL THE GOOGLE REVIEWS CLEAR.** OAuth verification is closed;
+     **Standard Access is PENDING and Google has asked us to "clarify the company website"** — which is the
+     exact surface this item would change. Do not touch it while that question is open.
+  5. **THE DEMO SPINE** — the dashboard walk plus voice-directed Lora, the thing an agency is actually shown.
+⚠ **THE HEAD IS NOT ON THIS LIST, and that is deliberate:** the walk is the product's data floor and a
+delivery fault that halves throughput every hour compounds against all five. It ranks first because it is
+cheap to READ and unbounded if left.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-19/20 ⛔ SUPERSEDED 2026-08-21 · HISTORY · DO NOT ACT ON ITS HEAD OR ITS DATES ═══╗
 
 ⛔ **THE HEAD IS [[★LORA-ANSWERED-TWICE]], AND THE REASON IS COST, NOT COSMETICS.** Two identical assistant
 turns rendered on The Escential Group (2026-08-20 ~01:05Z, "best actionable meta ad task") and the duplicate
