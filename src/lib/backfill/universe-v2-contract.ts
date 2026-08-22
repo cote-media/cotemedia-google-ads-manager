@@ -63,6 +63,18 @@ export const EMPTY_STRETCH_REPORT_AFTER = 400
  */
 export const CONSUMER_MAX_DURATION_S = 300
 
+/**
+ * ⛔ THE FIRE-LEASE TTL — LORAMER_INLINE_FIRE_LEASE_V1, and it lives HERE, beside the ceiling it is
+ * derived from, so the two can never drift apart in separate files. A lease holder cannot live past the
+ * platform kill at CONSUMER_MAX_DURATION_S, so ceiling + grace covers every possible holder lifetime.
+ * The 30s is a NAMED GRACE for the acquisition write landing after process start (argued ≪ 30s at pdx1;
+ * not measured). THE INVARIANT (pinned by the C2 interval guard): LEASE_TTL_S > CONSUMER_MAX_DURATION_S —
+ * raising the ceiling without this moving must fail the build, never silently invert the lease.
+ * All TTL COMPARISON happens in DB time inside migrations/085's CAS function; this constant is passed
+ * on every call and the DB default is only a fallback.
+ */
+export const LEASE_TTL_S = CONSUMER_MAX_DURATION_S + 30
+
 
 export interface UniverseMessageV2 {
   clientId: string
