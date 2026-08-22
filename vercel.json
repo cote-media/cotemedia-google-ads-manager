@@ -83,6 +83,15 @@
           "maxConcurrency": 2
         }
       ]
+    },
+    "src/app/api/cron/universe-resume/route.ts": {
+      "regions": ["pdx1"]
+    },
+    "src/app/api/cron/universe-drain-poll/route.ts": {
+      "regions": ["pdx1"]
+    },
+    "src/app/api/backfill/universe-drive/route.ts": {
+      "regions": ["pdx1"]
     }
   }
 }
