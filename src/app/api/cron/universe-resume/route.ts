@@ -35,7 +35,6 @@
 //      `universe-stream-capture`'s `flush()`. This route CANNOT break that ordering because it never writes
 //      a row or a day commit at all; it only publishes. Guarded, not asserted.
 import { NextResponse } from 'next/server'
-import { send } from '@vercel/queue'
 import { supabaseAdmin } from '@/lib/supabase'
 // ⛔ LORAMER_WALK_STOP_ONE_RESOLVER_V1 — the resumer composes the SAME stop the consumer does, through the one
 // resolver, and no longer clamps to VENDOR_FLOOR_DATE (which is deliberately NOT imported here any more).
@@ -50,7 +49,19 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, readAttemptsAtSpan, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow, dayDiff } from '@/lib/backfill/universe-sizing'
-import { TOPIC, MAX_ATTEMPTS_AT_MIN_SPAN, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import {
+  MAX_ATTEMPTS_AT_MIN_SPAN, LEASE_TTL_S, CONSUMER_MAX_DURATION_S,
+  SCAN_ALLOWANCE_MS, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS,
+  type UniverseMessageV2,
+} from '@/lib/backfill/universe-v2-contract'
+// ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — THE FIRE EXECUTES ITS OWN SELECTION. `processMessage` is the
+// SAME function every queue delivery ran (terminal row per unit, per-range capture, all nine exits); only
+// who hands the work over changed. This route's OWN code still never fetches — the vendor reach lives in
+// the worker behind the meter gate and the lease below, which is what the resumer guard's vendor-symbol
+// ban continues to pin.
+import { processMessage, type DeadlineOpts } from '@/lib/backfill/universe-v2-worker'
+import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
+import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
@@ -64,7 +75,9 @@ import {
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
-export const maxDuration = 300
+// ⛔ THE CEILING IS THE CONTRACT'S — these routes are now the walk's EXECUTION HOSTS, so their ceiling is
+// the one the budget reservation and the lease TTL are derived against. Never a literal (drive-ceiling-pin).
+export const maxDuration = CONSUMER_MAX_DURATION_S
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
@@ -77,7 +90,8 @@ export async function GET(request: Request) {
 // purpose. Filling it with a synthesised value would make one column mean two different things, which is
 // LORAMER_ADJACENT_NUMBER_V1 in a schema. `invocation_id` is still exactly right: this row was written by
 // THIS execution, and that is the question it answers.
-  const prov: WriteProvenance = { messageKey: null, invocationId: randomUUID() }
+  const fireInvocationId = randomUUID()
+  const prov: WriteProvenance = { messageKey: null, invocationId: fireInvocationId }
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
   const authHeader = request.headers.get('authorization') ?? ''
   const got = (authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : authHeader).trim()
@@ -95,7 +109,7 @@ export async function GET(request: Request) {
   // blip) must never kill the fire it describes — the failure is RETURNED in the response as heartbeatError
   // and logged, never thrown. migrations/068 creates universe_fire_log.
   const fireHeartbeat = async (h: {
-    fireOutcome: 'completed' | 'quota-hold' | 'rotation-error' | 'meter-held'
+    fireOutcome: 'completed' | 'quota-hold' | 'rotation-error' | 'meter-held' | 'lease-held'
     scanned?: number; scanCompleted?: boolean; catalogSize?: number; candidates?: number
     published?: number; requestsSelected?: number; advanced?: number
     refusals?: Array<{ verdict: string }>; elapsedMs?: number; held?: string | null
@@ -116,6 +130,33 @@ export async function GET(request: Request) {
       return String(e?.message ?? e)
     }
   }
+
+  // ══ THE FIRE LEASE — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1, FIRST DB ACT OF A WET FIRE ═══════════════
+  // ⛔ WHY FIRST: the vendor documents cron overlap, duplicate invocation, AND deploy-straddle
+  // (migrations/085 quotes all three), and an operator drive shares this lane. The loser exits HERE,
+  // before the sentinel read, the catalog load and the 47s scan — visible ('lease-held' heartbeat),
+  // never silent. ⛔ A DRY RUN TAKES NO LEASE: it executes nothing, so it may not block the fire that does.
+  // ⛔ RELEASE LIVES IN THE `finally` AT THE BOTTOM OF THIS HANDLER — every return path between here and
+  // there releases through it; a hard kill releases nothing and the TTL (LEASE_TTL_S, DB-time CAS)
+  // recovers the lane within one skipped fire.
+  let leaseWon = false
+  if (!dryRun) {
+    const lease = await acquireFireLease(clientId, 'google_ads', fireInvocationId, LEASE_TTL_S)
+    if (!lease.won) {
+      const hbErr = await fireHeartbeat({ fireOutcome: 'lease-held', held: `fire lease held by ${lease.holder ?? 'unknown'} since ${lease.heldSince ?? 'unknown'}` })
+      return NextResponse.json({
+        ok: true, published: 0, executed: 0, scanned: 0, heartbeatError: hbErr,
+        held: `FIRE LEASE HELD — another fire (or an operator drive) is running this lane: holder ${lease.holder ?? 'unknown'} since ${lease.heldSince ?? 'unknown'}. ` +
+          `Nothing scanned, nothing spent. Owed-ness is derived; the next fire after release (or TTL ${LEASE_TTL_S}s) recomputes the same answer.`,
+        refusals: [],
+      })
+    }
+    leaseWon = true
+  }
+  // ⛔ FLAT-INDENT try/finally, DELIBERATE: the shell below wraps ~400 existing lines so the lease is
+  // released on EVERY return path; re-indenting the whole body would bury this cutover's real diff in
+  // whitespace. The `finally` is at the bottom of the handler.
+  try {
 
   // ⛔ THE VENDOR'S REFUSAL GATES THE SCHEDULER TOO — LORAMER_V2_QUOTA_SENTINEL_WIRED_V1.
   // This route never fetches, so it cannot OBSERVE a quota error; but everything it publishes BECOMES a vendor
@@ -166,6 +207,9 @@ export async function GET(request: Request) {
   // that triggers a discovery vendor call. First-touch discovery stays the consumer's, on the message path.
   const stopFacts = await readWalkStopAccountFacts({ clientId, vendor: adapter.platform, discover: null })
 
+  // ══ SCAN — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 marker; the resumer guard splits the file HERE. ═════
+  // ⛔ NOTHING BETWEEN THIS MARKER AND `EXECUTE` MAY REACH THE VENDOR. The scan derives and selects; the
+  // vendor is reached only inside processMessage, below the EXECUTE marker, behind the meter and the lease.
   // ── THE DENOMINATOR, NOT A LIST ───────────────────────────────────────────────────────────────────────
   // ⛔ THE CANDIDATES COME FROM THE CATALOG — the DECLARED universe — and owed-ness is RECOMPUTED for every
   // one of them, every run. There is no stored list of pending work and no cursor. That is not a style
@@ -455,15 +499,38 @@ export async function GET(request: Request) {
     })
   }
 
+  // ══ EXECUTE — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 marker; vendor reach is legal below this line. ═══
+  // ⛔ THE FIRE RUNS ITS OWN SELECTION, unit by unit, where it used to publish. `processMessage` is the
+  // queue consumer's function, byte-for-byte — terminal row per unit, per-range capture, the meter, the
+  // quota sentinel — with ONE addition: the fire's absolute deadline rides down so a mis-size continuation
+  // can never outrun the ceiling. THE DESCENT EXECUTES FIRST AND THE TOP EDGE SECOND, same reason as when
+  // this loop published: what gets deferred is the newest work (re-derived from scratch every fire), not
+  // the deepest (which costs the pass).
   const published: any[] = []
-  // ⛔ THE DESCENT PUBLISHES FIRST AND THE TOP EDGE SECOND, DELIBERATELY. If the meter or the queue is going
-  // to refuse anything it refuses the newest work, not the deepest: the strip is re-derived from scratch
-  // every fire and loses nothing by waiting 5 minutes, whereas a dropped descending window costs the pass.
+  const executed: Array<{ label: string; lane: string; window: string; ms: number }> = []
+  const unitErrors: Array<{ label: string; error: string }> = []
+  let deferredUnits = 0
+  let maxUnitMs = 0
+  const captureStartedAt = Date.now()
+  // ⛔ THE DEADLINE IS ABSOLUTE AND SHARED: capture start + CAPTURE_BUDGET_MS. Unit admission here, range
+  // admission inside the unit, and every mis-size continuation all reserve against THIS one number.
+  const unitOpts: DeadlineOpts = { deadlineAt: captureStartedAt + CAPTURE_BUDGET_MS }
   const toSend: Array<{ c: Candidate; lane: 'descend' | 'top-edge' }> = [
     ...sel.taken.map((c) => ({ c, lane: 'descend' as const })),
     ...selTop.taken.map((c) => ({ c, lane: 'top-edge' as const })),
   ]
-  for (const { c, lane } of toSend) {
+  for (let unitIdx = 0; unitIdx < toSend.length; unitIdx++) {
+    const { c, lane } = toSend[unitIdx]
+    // ⛔ ADMISSION BEFORE EVERY UNIT — lap-budget's reservation rule at the fire grain. The first unit is
+    // always admitted (elapsed 0 + max(0, FLOOR) ≤ budget); a deferred unit costs NOTHING and is re-derived
+    // next fire — it opened no attempt and the anchor has not moved for it.
+    if (!dryRun && !shouldStartAnotherLap(Date.now() - captureStartedAt, maxUnitMs, CAPTURE_BUDGET_MS, UNIT_RESERVATION_FLOOR_MS)) {
+      deferredUnits = toSend.length - unitIdx
+      console.warn(`[universe-resume] FIRE BUDGET STOP: deferred ${deferredUnits}/${toSend.length} unit(s) — ` +
+        `${Date.now() - captureStartedAt}ms of ${CAPTURE_BUDGET_MS}ms capture budget, worst unit ${maxUnitMs}ms. ` +
+        `Nothing lost: deferred units opened no attempt and are re-derived next fire.`)
+      break
+    }
     const msg: UniverseMessageV2 = {
       clientId, userEmail, customerId, entry: c.entry,
       startDate: c.windowStart, endDate: c.windowEnd,
@@ -491,11 +558,25 @@ export async function GET(request: Request) {
     // ⛔ THE LANE IS IN THE KEY. Without it a strip and a descending window that happened to share bounds
     // would dedupe against each other — different work, different lane stamp, one of them silently dropped.
     const idempotencyKey = `resume|${lane}|${clientId}|${c.entry.resource}|${c.entry.segment ?? ''}|${c.windowStart}|${c.windowEnd}`
-  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
-  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
-  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
-    if (!dryRun) await send(TOPIC, { ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ THE KEY RIDES ON THE UNIT — LORAMER_COMPLETION_SIGNAL_V1, unchanged by the cutover: it is the
+  // producer-assigned identifier the terminal row persists, minted here exactly as it was for the queue's
+  // dedupe. A durable row that cannot name its publisher is what let a scheduled fire's requests be
+  // counted as a drive's.
     published.push({ lane, label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays, sizing: c.sizingBasis, receded: c.receded, anchor: c.anchorBasis, stop: c.stopBasis, idempotencyKey })
+    if (!dryRun) {
+      // ⛔ PER-UNIT EXECUTION, PER-UNIT ISOLATION. processMessage writes the unit's terminal row on EVERY
+      // exit including a throw (its own try/finally); a unit that throws here has already recorded itself,
+      // so the fire RECORDS AND CONTINUES — one broken surface must not cost the other 41 their pass.
+      const unitStartedAt = Date.now()
+      try {
+        await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, unitOpts)
+        executed.push({ label: c.label, lane, window: `${c.windowStart}..${c.windowEnd}`, ms: Date.now() - unitStartedAt })
+      } catch (e: any) {
+        unitErrors.push({ label: c.label, error: String(e?.message ?? e).slice(0, 300) })
+        console.error(`[universe-resume] UNIT THREW ${c.label} ${c.windowStart}..${c.windowEnd}: ${String(e?.message ?? e)} — terminal row already written by processMessage; continuing to the next unit.`)
+      }
+      maxUnitMs = Math.max(maxUnitMs, Date.now() - unitStartedAt)
+    }
   }
 
   // ── THE FIRE INSTRUMENT — LORAMER_RESUMER_FIRE_INSTRUMENT_V1 ─────────────────────────────────────────
@@ -518,6 +599,11 @@ export async function GET(request: Request) {
     topEdgeCandidates: topEdge.length, topEdgePublished: selTop.taken.length,
     topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound,
     topEdgeOwedDays: topEdge.reduce((n, c) => n + c.owedDays, 0),
+    // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
+    // ⚠ COLUMN-SEMANTICS NOTE for readers of universe_fire_log: `published` now means UNITS SELECTED FOR
+    // EXECUTION (the wet ones all execute or error in-fire), and `elapsed_ms` now spans SCAN + CAPTURE
+    // (~75-125s typical) where it used to span scan+publish (~48s). Same columns, wider meaning.
+    executedOf: executed.length, unitErrorCount: unitErrors.length, deferredUnits,
     advancedCovered, // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances (0 vendor ops each)
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
@@ -541,8 +627,15 @@ export async function GET(request: Request) {
       topEdgeRequestsPerRun: TOP_EDGE_REQUESTS_PER_RUN, topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound },
     meter: gate.reason,
     instrument,
-    published, refusals,
+    published, executed, unitErrors, deferredUnits, refusals,
   })
+
+  } finally {
+    // ⛔ THE LEASE RELEASE — every return path above runs through here. Holder-checked in the DB, so a
+    // TTL-expired loser can never release a newer winner. A failed release logs inside the module and the
+    // TTL recovers the lane; nothing here may throw over the fire's real result.
+    if (leaseWon) await releaseFireLease(clientId, 'google_ads', fireInvocationId, LEASE_TTL_S)
+  }
 }
 
 /**

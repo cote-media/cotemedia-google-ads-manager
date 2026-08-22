@@ -28,7 +28,6 @@
 // USAGE: GET /api/backfill/universe-drive?clientId=…&resource=…&segment=…&runId=…[&dryRun=0]
 // ⛔ DRY-RUN IS THE DEFAULT, same as the resumer. `?dryRun=0` publishes.
 import { NextResponse } from 'next/server'
-import { send } from '@vercel/queue'
 import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
@@ -38,13 +37,21 @@ import { rangesStillOwed } from '@/lib/backfill/universe-coverage'
 import { randomUUID } from 'node:crypto'
 import { appendAttemptStarted, appendAttemptFinished, type AttemptKey, type WriteProvenance } from '@/lib/backfill/universe-attempt-log'
 import { sizeNextWindow } from '@/lib/backfill/universe-sizing'
-import { TOPIC, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { LEASE_TTL_S, CONSUMER_MAX_DURATION_S, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+// ⛔ LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the drive EXECUTES its one unit through the same function
+// every queue delivery ran. It CASes the SAME (client, vendor) lease as the scheduled fire: a drive
+// overlapping a fire is exactly the overlap the lease exists to exclude, and 'lease-held' is a normal,
+// retryable answer to the operator, never an error.
+import { processMessage } from '@/lib/backfill/universe-v2-worker'
+import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { deriveAnchorEnd, deriveWindow, WINDOWS_PER_PUBLISHED_MESSAGE } from '@/lib/backfill/universe-resumer'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
-export const maxDuration = 300
+// ⛔ THE CEILING IS THE CONTRACT'S — these routes are now the walk's EXECUTION HOSTS, so their ceiling is
+// the one the budget reservation and the lease TTL are derived against. Never a literal (drive-ceiling-pin).
+export const maxDuration = CONSUMER_MAX_DURATION_S
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
@@ -183,13 +190,30 @@ export async function GET(request: Request) {
   }
   // The resumer's shape, scoped by runId — see the header for why the scope is required rather than optional.
   const idempotencyKey = `drive|${runId}|${clientId}|${entry.resource}|${entry.segment ?? ''}|${windowStart}|${windowEnd}`
-  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
-  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
-  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
-  if (!dryRun) await send(TOPIC, { ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ THE KEY RIDES ON THE UNIT — LORAMER_COMPLETION_SIGNAL_V1, unchanged: the producer-assigned
+  // identifier the terminal row persists, minted exactly as before.
+  if (!dryRun) {
+    // ⛔ THE SAME LEASE AS THE SCHEDULED FIRE — one lane, one lease. Held = a fire (or another drive) is
+    // running; the operator retries after it releases (or after TTL). No spend happened.
+    const lease = await acquireFireLease(clientId, 'google_ads', prov.invocationId as string, LEASE_TTL_S)
+    if (!lease.won) {
+      return NextResponse.json({
+        ok: true, published: 0, leaseHeld: true,
+        held: `FIRE LEASE HELD — the lane is running (holder ${lease.holder ?? 'unknown'} since ${lease.heldSince ?? 'unknown'}). Retry after release or TTL ${LEASE_TTL_S}s. Nothing spent.`,
+        window: `${windowStart}..${windowEnd}`,
+      })
+    }
+    try {
+      // No fire deadline on the drive's single unit: the worker's own WALK_BUDGET_MS bounds it, as it
+      // always has for one message under the 300s ceiling.
+      await processMessage({ ...msg, messageKey: idempotencyKey } satisfies UniverseMessageV2)
+    } finally {
+      await releaseFireLease(clientId, 'google_ads', prov.invocationId as string, LEASE_TTL_S)
+    }
+  }
 
   return NextResponse.json({
-    ok: true, published: dryRun ? 0 : 1, dryRun,
+    ok: true, published: dryRun ? 0 : 1, executed: dryRun ? 0 : 1, dryRun,
     window: `${windowStart}..${windowEnd}`, ranges: owed.ranges.length, owedDays: owed.coverage.uncovered.length,
     sizing: { days: sizing.days, basis: sizing.basis },
     anchorBasis: anchor.basis, receded: anchor.receded, stopBasis: stop.basis, stopDate: stop.stopDate, idempotencyKey,

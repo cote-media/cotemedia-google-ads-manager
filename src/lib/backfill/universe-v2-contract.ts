@@ -75,6 +75,29 @@ export const CONSUMER_MAX_DURATION_S = 300
  */
 export const LEASE_TTL_S = CONSUMER_MAX_DURATION_S + 30
 
+/**
+ * ⛔ THE INLINE FIRE'S TIME BUDGET — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1. Three constants, one
+ * identity, pinned by `inline-fire-fits-the-ceiling.guard.mjs`:
+ *   SCAN_ALLOWANCE_MS + CAPTURE_BUDGET_MS + UNIT_RESERVATION_FLOOR_MS ≤ CONSUMER_MAX_DURATION_S × 1000
+ *
+ * SCAN_ALLOWANCE_MS — what the selection scan may take before capture begins. DERIVED from the live
+ * pdx1 ledger 2026-08-22 (universe_fire_log, scanned=60, N=25): mean 47,489 · p50 47,410 · p99 50,434 ·
+ * max 50,692. 55,000 covers the observed max +8.5%. ⚠ Re-derive if the scan's shape changes (more
+ * clients per fire, coverage batching).
+ *
+ * CAPTURE_BUDGET_MS — what the unit loop may consume. (300 − 55)s minus ONE reservation floor: the
+ * floor IS the kill-margin — after the loop stops admitting, one worst-case unit plus the post-loop
+ * writes (heartbeat + lease release, measured ≤82ms at pdx1) still fit under the platform kill.
+ *
+ * UNIT_RESERVATION_FLOOR_MS — the reservation for a unit not yet measured this fire. DERIVED: all-time
+ * per-range p99 6,768ms (N=14,154) × 1.48 ≈ 10,000. ⚠ The ×1.48 is a DECLARED SAFETY FACTOR, not a
+ * measurement: the post-pin regime (N=277, max 2,221ms) is one afternoon old and the all-time tail
+ * spans the slow-write iad1 regime. Re-derive from pdx1-only data after ~7 days (≈2026-08-29).
+ */
+export const SCAN_ALLOWANCE_MS = 55_000
+export const UNIT_RESERVATION_FLOOR_MS = 10_000
+export const CAPTURE_BUDGET_MS = (CONSUMER_MAX_DURATION_S * 1000) - SCAN_ALLOWANCE_MS - UNIT_RESERVATION_FLOOR_MS
+
 
 export interface UniverseMessageV2 {
   clientId: string

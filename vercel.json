@@ -67,10 +67,6 @@
     {
       "path": "/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0",
       "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/universe-drain-poll",
-      "schedule": "1-56/5 * * * *"
     }
   ],
   "functions": {
@@ -85,13 +81,14 @@
       ]
     },
     "src/app/api/cron/universe-resume/route.ts": {
-      "regions": ["pdx1"]
-    },
-    "src/app/api/cron/universe-drain-poll/route.ts": {
-      "regions": ["pdx1"]
+      "regions": [
+        "pdx1"
+      ]
     },
     "src/app/api/backfill/universe-drive/route.ts": {
-      "regions": ["pdx1"]
+      "regions": [
+        "pdx1"
+      ]
     }
   }
 }

@@ -66,9 +66,9 @@
     "line_count": 1147
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "98492e351e052d0f96189425eaa7f791d4a946853ad3a6f4e28ff39ad967485b",
+    "content_hash": "727d9e6b155f8a1eb5badf95e65dbba30c5d966797b14a7762142cdd9cea575d",
     "last_reconciled_date": "2026-08-22",
-    "last_reconciled_head": "1cee7e8",
+    "last_reconciled_head": "5d81018",
     "line_count": 3278
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
@@ -90,10 +90,10 @@
     "line_count": 73
   },
   "ROADMAP.md": {
-    "content_hash": "7371bf48558b79984d51eda699459ea31f7d34c3cd05a935df1feb163fb6d0d4",
+    "content_hash": "882ff4f02c0f99ad132e31b38e99c92b805213f476ef6664407a999e1202817a",
     "last_reconciled_date": "2026-08-22",
-    "last_reconciled_head": "1cee7e8",
-    "line_count": 1583
+    "last_reconciled_head": "5d81018",
+    "line_count": 1584
   },
   "STRIPE_BILLING_PLAN.md": {
     "content_hash": "544cc9b4f99e5f2bce5d432f264d29fb5f864bda2e5820fd4a9941b63af2fb81",

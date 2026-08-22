@@ -39,7 +39,13 @@ const findings = []
 
 // The topics this repo delivers. A topic absent from here is not policed, which is stated rather than
 // implied — adding a topic is a decision, and so is leaving one out.
-const TOPICS = ['google-ads-universe', 'google-ads-universe-v2']
+// ⛔ RE-FOUNDED BY LORAMER_QUEUE_REMOVED_INLINE_WALK_V1: the v2 walk is INLINE — its fire executes its
+// own selection — so for 'google-ads-universe-v2' the correct lane count is ZERO queue lanes AND the
+// inline wiring must be PRESENT (the resume route calls processMessage; its cron entry exists). The v1
+// topic keeps the exactly-one-queue-lane law untouched.
+const QUEUE_TOPICS = ['google-ads-universe']
+const INLINE_TOPICS = ['google-ads-universe-v2']
+const TOPICS = QUEUE_TOPICS
 
 const read = (rel) => {
   try { return readFileSync(resolve(ROOT, rel), 'utf8') } catch { return null }
@@ -113,10 +119,37 @@ for (const topic of TOPICS) {
   }
 }
 
+// ── THE INLINE TOPICS — zero queue lanes, wiring present ────────────────────────────────────────────
+for (const topic of INLINE_TOPICS) {
+  // (c) NO queue lane may exist for an inline topic — a trigger or poller here is a SECOND lane beside
+  // the fire's own execution: every unit would run twice, and the vendor spend with it.
+  for (const [file, cfg] of Object.entries(parsed.functions || {})) {
+    for (const t of (cfg.experimentalTriggers || [])) {
+      if (String(t.type || '') === 'queue/v2beta' && String(t.topic || '') === topic) {
+        findings.push(`(c) ${file} registers a queue/v2beta trigger for INLINE topic '${topic}'. The fire executes this topic's work itself — a queue lane beside it doubles every unit and its vendor spend.`)
+      }
+    }
+  }
+  for (const f of files) {
+    if (!/^src\/app\/api\//.test(f)) continue
+    const src = nocomment(read(f) || '')
+    if (/\breceive\s*\(/.test(src) && (src.includes(`'${topic}'`) || src.includes(`"${topic}"`))) {
+      findings.push(`(c) ${f} polls INLINE topic '${topic}' — a second lane beside the fire's own execution.`)
+    }
+  }
+  // (d) THE INLINE WIRING MUST BE PRESENT — zero lanes with no inline executor is the dark-topic case
+  // wearing a third costume: the producer selects work and nothing anywhere runs it.
+  const resume = nocomment(read('src/app/api/cron/universe-resume/route.ts') || '')
+  const callsWorker = /\bprocessMessage\s*\(/.test(resume) && /universe-v2-worker/.test(resume)
+  const resumeScheduled = crons.some((p) => p.split('?')[0] === '/api/cron/universe-resume')
+  if (!callsWorker) findings.push(`(d) topic '${topic}' has no queue lane AND src/app/api/cron/universe-resume/route.ts does not call processMessage — nothing executes the walk. Zero lanes is only correct while the fire itself IS the lane.`)
+  if (!resumeScheduled) findings.push(`(d) topic '${topic}' relies on the inline fire, but /api/cron/universe-resume has NO cron entry in vercel.json — an unscheduled fire is a lane nobody calls.`)
+}
+
 if (findings.length) {
   console.error(`[one-delivery-lane-per-topic] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)
-  console.error('  ⇒ SPEC: DECISIONS LORAMER_POLL_MODE_CUTOVER_V1. Exactly one lane per topic: two double the vendor spend, zero delivers nothing while reading green.')
+  console.error('  ⇒ SPEC: LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 (the cutover commit) — v1: exactly one queue lane; v2: ZERO queue lanes and the fire IS the lane (inline wiring present + scheduled). Two lanes double vendor spend; zero-with-no-inline delivers nothing while reading green.')
   process.exitCode = 1
 } else {
   console.log(`[one-delivery-lane-per-topic] PASS — ${TOPICS.length} topic(s) checked, each claimed by exactly one delivery lane. ⛔ LIMIT: this proves the CONFIGURATION, never the deployed state; a deployment still serving an older binary can carry a lane this file cannot see.`)

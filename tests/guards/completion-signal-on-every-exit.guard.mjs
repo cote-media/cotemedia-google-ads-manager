@@ -100,24 +100,29 @@ if (roIdx === -1) {
   // must decide NOTHING of its own, because legs (a)-(d) inspect the wrapper and cannot see an exit added
   // above it. ⛔ ZERO LANES IS A FINDING: a wrapper nothing calls is a topic nothing reads.
   const wrapperName = (src.slice(hIdx).match(/^async function ([A-Za-z0-9_$]+)/) || [])[1] ?? null
-  const LANES = ['src/app/api/cron/universe-drain-poll/route.ts', 'src/app/api/queues/google-ads-universe-v2/route.ts']
+  // RE-ANCHORED BY LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 - the third consumer relocation this leg has
+  // survived. The queue lanes are gone; the callers are now the INLINE EXECUTION HOSTS: the scheduled
+  // fire and the operator drive (the worker's own mis-size continuation is internal, not a lane).
+  const LANES = ['src/app/api/cron/universe-resume/route.ts', 'src/app/api/backfill/universe-drive/route.ts']
   const live = []
   for (const lane of LANES) {
     let laneSrc = ''
     try { laneSrc = readFileSync(resolve(ROOT, lane), 'utf8') } catch { continue }
     if (!wrapperName || !new RegExp(`\\b${wrapperName}\\s*\\(`).test(laneSrc)) continue
     live.push(lane)
-    // The delegation is the arrow/callback that contains the wrapper call. Everything between that
-    // callback's opening `{` and the call is preamble, and a preamble that decides anything is a tenth exit.
-    const cIdx = laneSrc.indexOf(`${wrapperName}(`)
-    const openIdx = laneSrc.lastIndexOf('=> {', cIdx)
-    const preamble = openIdx === -1 ? '' : laneSrc.slice(openIdx, cIdx)
-    if (/\breturn\b/.test(preamble) || /\bcatch\s*\(/.test(preamble)) {
-      findings.push(`(e) the delivery lane ${lane} decides something before calling \`${wrapperName}\` (a \`return\` or \`catch\` sits between its callback opening and the call). A lane must be a PURE DELEGATION — control flow there is an exit that bypasses the wrapper's finally, and legs (a)-(d) would not see it.`)
+    // ⛔ THE PURE-DELEGATION TEST DIED WITH THE QUEUE, AND ITS SUCCESSOR IS STATED, NOT ASSUMED. Under
+    // push, the lane was handleCallback's closure: an early exit there bypassed the wrapper's finally, so
+    // preamble control flow was a tenth exit. INLINE, the finally lives INSIDE the wrapper itself — a host
+    // that returns before calling never STARTED a unit (no attempt_started, nothing to terminate), so
+    // caller-side control flow cannot orphan a terminal. What CAN: a call that is not awaited — a dropped
+    // promise detaches the unit from the fire's budget, its lease, and its heartbeat.
+    const callSites = [...laneSrc.matchAll(new RegExp(`(await\\s+)?${wrapperName}\\(`, 'g'))]
+    for (const m of callSites) {
+      if (!m[1]) findings.push(`(e) ${lane} calls \`${wrapperName}\` WITHOUT await — a dropped promise runs the unit outside the fire's budget, lease and heartbeat, and its throw lands on nobody.`)
     }
   }
   if (!live.length) {
-    findings.push(`(e) NO delivery lane calls \`${wrapperName ?? 'the wrapper'}\`. Looked in: ${LANES.join(', ')}. A wrapper nothing invokes is a topic nothing reads — the ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION shape, one layer up.`)
+    findings.push(`(e) NO delivery lane calls \`${wrapperName ?? 'the wrapper'}\`. Looked in: ${LANES.join(', ')}. A wrapper nothing invokes is a walk nothing executes — the ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION shape, one layer up.`)
   }
 }
 

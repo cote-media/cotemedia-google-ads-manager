@@ -81,7 +81,12 @@ if (/Date\.now\(\)\s*-\s*\w+\s*>\s*[A-Z_]*BUDGET/.test(src)) {
 // under is declared by whichever lane invokes it. THE PROPERTY IS UNCHANGED — the reservation must be
 // measured against the REAL ceiling — so the read follows the ceiling to the lane instead of assuming the
 // two share a file. A lane that declares no ceiling is still a finding, which is what keeps this strict.
-const LANE = 'src/app/api/cron/universe-drain-poll/route.ts'
+// RE-ANCHORED BY LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 - third relocation of this ceiling. The poll
+// lane is gone; the worker's ceiling is now declared by the INLINE EXECUTION HOST that invokes it
+// (the scheduled fire). The property is byte-identical: the reservation is measured against the REAL
+// ceiling, read from the lane that dies at it. The host's own CAPTURE budget is swept in below
+// exactly as the poll lane's POLL_BUDGET_MS was - a second budget under the same kill.
+const LANE = 'src/app/api/cron/universe-resume/route.ts'
 let laneSrc = ''
 try { laneSrc = readFileSync(resolve(ROOT, LANE), 'utf8') } catch { laneSrc = '' }
 const mdRef = /export\s+const\s+maxDuration\s*=\s*CONSUMER_MAX_DURATION_S\b/.test(laneSrc)

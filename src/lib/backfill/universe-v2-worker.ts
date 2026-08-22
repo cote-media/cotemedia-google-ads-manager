@@ -48,7 +48,6 @@
 //     much at once".
 //   · Spend is charged at `attempt_started`, before the vendor call — so a hard kill is still billed and the
 //     rate governor can see a poison loop forming.
-import { send } from '@vercel/queue'
 // ⛔ THE CATALOG LOADER IS DELIBERATELY NOT IMPORTED HERE, and the omission is load-bearing rather than
 // tidy. The entry rides on the MESSAGE, exactly as in v1, so this route never reads
 // docs/google-ads-capture-universe.json. A route that DOES read it must be listed in next.config's
@@ -76,7 +75,7 @@ import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 // any non-Route export from a route file ("TOPIC is not a valid Route export field") — and `tsc --noEmit`
 // passes it clean, so only `npm run build` catches it. It is also the right shape: a publisher needs the
 // topic and the message type without dragging a handler and its maxDuration into scope.
-import { TOPIC, VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, CONSUMER_MAX_DURATION_S, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
+import { VENDOR, MAX_ATTEMPTS_AT_MIN_SPAN, NARROW_AFTER_ATTEMPTS, EMPTY_STRETCH_REPORT_AFTER, CONSUMER_MAX_DURATION_S, UNIT_RESERVATION_FLOOR_MS, type UniverseMessageV2 } from '@/lib/backfill/universe-v2-contract'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate, imported, never re-derived. `holdGoogleWork`
 // and not `.paused`: LORAMER_QUOTA_READ_SPLIT_STATE_V1 exists because an UNREADABLE sentinel returns
 // paused:false, and a lane that tests `.paused` spends the fleet's quota against a pause it could not see.
@@ -93,19 +92,10 @@ import { randomUUID } from 'node:crypto'
 // would stop nothing. A range dispatched just under this can still finish before Vercel kills the function.
 const WALK_BUDGET_MS = 180_000
 
-// LORAMER_CONSUMER_META_PROBE_V1 — TEMPORARY DIAGNOSTIC, and it exists to answer two questions the tree
-// cannot: the CONSUMER GROUP the push trigger registered under, and the REGION these messages live in.
-// Both arrive on every delivery in the SDK's metadata (MessageMetadata.consumerGroup / .region) and this
-// route has discarded them since it was written — the parameter was `_metadata`, declared and unused. The
-// region is required to construct a PollingQueueClient (the SDK: "messages can only be received from the
-// region they were sent to"), and the group name decides whether a puller would COMPETE with the push
-// consumer or FAN OUT beside it and double-spend. Neither is knowable from the repo or from Vercel's
-// Queues dashboard, which reported "No data found" for a topic that provably delivered.
-// ⛔ ONCE PER FUNCTION INSTANCE, NOT PER DELIVERY. A per-delivery line is ~420/hour at the current cadence
-// for two values that never change within an instance. The flag is module scope, so it resets on every cold
-// start — which is what makes the line reappear after a deploy instead of being lost forever.
-// ⛔ REMOVE THIS ONCE THE VALUES ARE BANKED. It has no self-removal and nothing will fail if it is left.
-let consumerMetaLogged = false
+// LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the consumer-meta probe is GONE WITH THE QUEUE. It existed to
+// record the push trigger's consumer group and the topic's region; neither exists any more, and a probe
+// reporting synthetic values would be an instrument reporting fiction (the exact class the probe was
+// built to end). Its banked findings live in QUEUE ★CONSUMER-IS-COLD-ON-EVERY-INVOCATION (closed).
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
@@ -113,6 +103,7 @@ const addDays = (iso: string, n: number) => {
 
 async function publishGoverned(
   adapter: ReturnType<typeof googleAdsCaptureAdapter>, next: UniverseMessageV2, days: number, idempotencyKey: string,
+  opts: DeadlineOpts = {},
 ): Promise<{ published: boolean; reason: string }> {
   // ⛔ THE METER IS THE ADAPTER'S, IN THE ADAPTER'S OWN UNIT, AND AN UNREADABLE ONE HOLDS. There is no
   // shared constant on this path: `cap` and `costOf(days)` both come from the adapter, so nothing here can
@@ -120,10 +111,19 @@ async function publishGoverned(
   // percentage across three simultaneous meters.
   const gate = await mayFetch(adapter, days)
   if (!gate.ok) return { published: false, reason: gate.reason }
-  // ⛔ THE KEY RIDES ON THE MESSAGE — LORAMER_COMPLETION_SIGNAL_V1. It is already minted for the queue's
-  // own dedupe; writing it onto the payload is what makes it PERSISTABLE, and a durable row that cannot
-  // name its publisher is what let a scheduled fire's requests be counted as a drive's.
-  await send(TOPIC, { ...next, messageKey: idempotencyKey } satisfies UniverseMessageV2, { idempotencyKey } as any)
+  // ⛔ DIRECT CONTINUATION, NOT A PUBLISH — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 (seam (b) of the
+  // removal's step-0). The queue is gone; the narrowed halves run NOW, in this invocation, through the
+  // full normal path (processMessage → terminal row per unit, same key mint). THE NAME IS KEPT so every
+  // caller and guard anchored on it survives; "published" now means "the continuation ran".
+  // ⛔ WHY NOT DEFER-TO-REDERIVE, decided on evidence not preference: sizing reads ONLY rows_written
+  // history (universe-sizing.ts:40-47) and the NARROW_AFTER_ATTEMPTS verdict lives only in this file —
+  // the resumer never narrows (its own decideRepublish says "the consumer narrows"), so a dropped
+  // continuation re-derives the SAME full window forever: ★WALK-WEDGES-AT-COVERED-GROUND, rebuilt.
+  // ⛔ THE THREE BOUNDS, all still standing: (1) HALVING — planMisSizedSplit toward MIN_WINDOW_DAYS,
+  // depth ≤ ~log2(span/min), then BROKEN terminates; (2) THE DEADLINE — opts.deadlineAt rides into the
+  // continuation's own range admission, so a cascade cannot outrun the fire's ceiling; (3) THE METER —
+  // the mayFetch gate above, refused exactly as a publish was.
+  await processMessage({ ...next, messageKey: idempotencyKey } satisfies UniverseMessageV2, opts)
   return { published: true, reason: gate.reason }
 }
 
@@ -144,7 +144,14 @@ async function publishGoverned(
 // range, so a per-return write would have covered eight of nine — and the ninth is the one that matters,
 // because `appendAttemptStarted`/`appendAttemptFinished` throw BY DESIGN and the paths most likely to end
 // badly were the paths least likely to record it.
-async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Promise<void> {
+// ⛔ THE FIRE'S DEADLINE RIDES DOWN THE CALL — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1. The inline fire
+// admits units against CAPTURE_BUDGET_MS; a unit's own ranges (and any mis-size CONTINUATION it spawns)
+// must respect the SAME absolute deadline, or a narrowing cascade could run the fire into the platform
+// kill. `deadlineAt` is an epoch-ms ceiling; absent (the drive's single-unit path) only the worker's own
+// WALK_BUDGET_MS applies, exactly as before the cutover.
+export interface DeadlineOpts { deadlineAt?: number }
+
+async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts: DeadlineOpts = {}): Promise<void> {
   const started = Date.now() // LORAMER_V2_WALK_BUDGET_RESERVATION_V1 — the per-invocation clock the reservation reads
   const { clientId, userEmail, customerId, entry, startDate, endDate } = msg
   // ⛔ ABSENT MEANS 'descend' — LORAMER_TOP_EDGE_LANE_V1. Every message published before the field existed,
@@ -354,6 +361,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
       ? await publishGoverned(adapter,
           { ...msg, startDate: upperStart, endDate }, dayDiff(upperStart, endDate) + 1,
           `${clientId}|${entry.resource}|${entry.segment ?? ''}|${upperStart}|${endDate}|narrow-upper`,
+          opts,
         )
       : { published: true, reason: 'no upper half — the narrow consumed the whole window' }
     if (!upper.published) {
@@ -371,6 +379,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     const pub = await publishGoverned(adapter,
       { ...msg, startDate, endDate: narrowedEnd }, half,
       `${clientId}|${entry.resource}|${entry.segment ?? ''}|${startDate}|${narrowedEnd}|narrow`,
+      opts,
     )
     await appendAttemptFinished(key, attemptsHere + 1, 'skipped', {
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
@@ -414,7 +423,9 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     // consumer's own narrowing — a range that repeatedly fails at span is halved (MIS-SIZED), and at the
     // minimum span it becomes BROKEN and reportable rather than retried. The reservation removes the
     // dispatched-just-under-the-line class; it does not promise no range is ever too slow.
-    if (!shouldStartAnotherLap(Date.now() - started, maxRangeMs, WALK_BUDGET_MS)) {
+    const pastFireDeadline = opts.deadlineAt !== undefined &&
+      Date.now() + Math.max(maxRangeMs, UNIT_RESERVATION_FLOOR_MS) > opts.deadlineAt
+    if (!shouldStartAnotherLap(Date.now() - started, maxRangeMs, WALK_BUDGET_MS) || pastFireDeadline) {
       deferredForBudget = owed.ranges.length - owed.ranges.indexOf(range)
       break
     }
@@ -569,9 +580,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-export async function processMessage(msg: UniverseMessageV2, metadata: any): Promise<void> {
-  // LORAMER_CONSUMER_META_PROBE_V1 — see the flag's declaration for why this exists and when it goes.
-  if (!consumerMetaLogged) { consumerMetaLogged = true; console.log('[consumer-meta]', JSON.stringify({ consumerGroup: metadata?.consumerGroup ?? null, region: metadata?.region ?? null, topicName: metadata?.topicName ?? null, deliveryCount: metadata?.deliveryCount ?? null })); }
+export async function processMessage(msg: UniverseMessageV2, opts: DeadlineOpts = {}): Promise<void> {
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
   // riding on the message — the fact we already had and threw away. `invocationId` is THIS DELIVERY's, and it
   // is a second fact rather than a duplicate: a redelivery carries the SAME message key, so nothing keyed on
@@ -596,7 +605,7 @@ export async function processMessage(msg: UniverseMessageV2, metadata: any): Pro
   }
   let ended = 'returned'
   try {
-    await runOneMessage(msg, prov)
+    await runOneMessage(msg, prov, opts)
   } catch (e: any) {
     // ⛔ RECORD AND RETHROW. Swallowing here would convert a crash into a silent success and hand the queue a
     // 2xx for work that did not happen — the exact inversion of what this row exists to prevent.

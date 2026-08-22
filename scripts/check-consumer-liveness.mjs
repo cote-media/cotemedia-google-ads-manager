@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-// LORAMER_CONSUMER_LIVENESS_V1 — DELIVERY, WITNESSED FROM THE CONSUMER'S SIDE ONLY.
+// LORAMER_CONSUMER_LIVENESS_V1 — RE-FOUNDED BY LORAMER_QUEUE_REMOVED_INLINE_WALK_V1:
+// EXECUTION, WITNESSED FROM THE LEDGER'S SIDE ONLY. The queue is gone; the fire now executes its own
+// selection inline. The two independently-written halves this check compares SURVIVE the cutover:
+// the fire log is the SELECTION's account (what the fire chose to run) and `attempt_started` is the
+// EXECUTION's (only the execution path writes it) — so "selected work, zero attempts" is still a
+// one-sided failure only this check can see. THE 8h39m PRECEDENT: on 2026-08-22 delivery was dark for
+// 8.6 hours and the first detector to say so was a human running a query. This check's job is to make
+// that a same-hour red. NEW RED THIS CUTOVER ADDS: LEASE-WEDGED — the fire lease (migrations/085) can
+// wedge if acquisition fails closed repeatedly; every fire then exits 'lease-held' and nothing executes.
 //
 // ⛔ THE OUTAGE THIS EXISTS TO CATCH, AND IT IS NOT HYPOTHETICAL — IT IS RUNNING RIGHT NOW.
 // 2026-08-17 05:32:32Z the queue consumer stopped being invoked. The producer never faltered: it fired every
@@ -45,19 +53,34 @@ const MIN_PUBLISHING_FIRES = 2
 // `publishingFires` / `publishedRecent` — universe_fire_log. USED ONLY AS A PRECONDITION.
 // `consumerAttemptsRecent`            — universe_attempt_log, phase='attempt_started'. THE ONLY HEALTH INPUT.
 export function decideConsumerLiveness(a) {
-  const { publishingFires, publishedRecent, consumerAttemptsRecent, quotaHeld, lastConsumerAgoMin } = a
+  const { publishingFires, publishedRecent, consumerAttemptsRecent, quotaHeld, lastConsumerAgoMin,
+          leaseHeldFires = 0, wetFires = 0, leaseTtlS = 330 } = a
+
+  // ⛔ RED-2 — LEASE WEDGED, and it must be tested BEFORE the no-publish early return: a lease-held fire
+  // selects nothing and publishes nothing, so a wedged lane looks exactly like an idle one to every branch
+  // below. Three or more consecutive all-lease-held fires span ≥ ~15 minutes — nearly 3x the TTL — so a
+  // healthy TTL expiry would have released the lane inside the window; a lane still refusing is wedged
+  // (fail-closed acquire loop, or a holder row nothing can expire).
+  if (wetFires >= 3 && leaseHeldFires === wetFires) {
+    return {
+      ok: false, state: 'LEASE_WEDGED',
+      reason: `LEASE WEDGED — all ${wetFires} wet fire(s) in the trailing window exited 'lease-held' and nothing executed. ` +
+        `The TTL (${leaseTtlS}s) should have released the lane inside this window, so this is a wedged lease ` +
+        `(fail-closed acquires, or an unexpirable holder row), not an overlap. Read universe_fire_lease directly.`,
+    }
+  }
 
   // ⛔ NOTHING WAS HANDED TO THE QUEUE ⇒ ZERO CONSUMPTION IS THE CORRECT ANSWER, NOT A DARK ONE.
   // This is the idle case the brief calls "owed==0 fleet-wide": the resumer refuses with 'nothing-owed' and
   // publishes zero, so there is nothing for a consumer to have consumed. Whether the PRODUCER should have
   // published is walk-liveness's question and is deliberately left to it.
   if (publishingFires === 0 || publishedRecent === 0) {
-    return { ok: true, state: 'NO-PUBLISH', reason: `nothing published in the trailing ${WINDOW_MINUTES}m, so zero consumption is CORRECT rather than dark. This check asserts nothing about delivery today and says so instead of printing a pass it did not earn. (A dead SCHEDULER is walk-liveness's red, not this one's.)` }
+    return { ok: true, state: 'NO-PUBLISH', reason: `no fire selected any work in the trailing ${WINDOW_MINUTES}m, so zero execution is CORRECT rather than dark. This check asserts nothing about the execution path today and says so instead of printing a pass it did not earn. (A dead SCHEDULER is walk-liveness's red, not this one's.)` }
   }
 
   // ⛔ THE HEALTH BRANCH, AND IT READS EXACTLY ONE THING. Consumer-side evidence, present ⇒ delivery works.
   if (consumerAttemptsRecent > 0) {
-    return { ok: true, state: 'ALIVE', reason: `delivery alive — ${consumerAttemptsRecent} consumer attempt(s) opened in the trailing ${WINDOW_MINUTES}m against ${publishedRecent} message(s) published across ${publishingFires} fire(s).` }
+    return { ok: true, state: 'ALIVE', reason: `execution alive — ${consumerAttemptsRecent} attempt(s) opened in the trailing ${WINDOW_MINUTES}m against ${publishedRecent} unit(s) selected across ${publishingFires} fire(s).` }
   }
 
   // ⛔ THE CONSUMER'S OWN STEP 0 RETURNS **BEFORE** IT OPENS AN ATTEMPT. On an armed sentinel it records a
@@ -73,13 +96,13 @@ export function decideConsumerLiveness(a) {
   }
 
   return {
-    ok: false, state: 'DELIVERY_DARK',
-    reason: `DELIVERY IS DARK — ${publishedRecent} message(s) published across ${publishingFires} fire(s) in the trailing ${WINDOW_MINUTES}m and the consumer opened ZERO attempts. ` +
+    ok: false, state: 'EXECUTION_DARK',
+    reason: `EXECUTION IS DARK — ${publishedRecent} unit(s) selected across ${publishingFires} fire(s) in the trailing ${WINDOW_MINUTES}m and the execution path opened ZERO attempts. ` +
       (lastConsumerAgoMin === null
-        ? `The attempt log has NEVER recorded a consumer attempt. `
-        : `Last consumer attempt was ${lastConsumerAgoMin} minute(s) ago. `) +
-      `The producer is healthy and the quota sentinel is clear, so the messages are being accepted and NOT delivered. ` +
-      `⛔ DO NOT READ A GREEN walk-liveness AS A CONTRADICTION: it tests the PRODUCER (published>0), which stays true throughout exactly this failure — that is why this check exists.`,
+        ? `The attempt log has NEVER recorded an execution attempt. `
+        : `Last execution attempt was ${lastConsumerAgoMin} minute(s) ago. `) +
+      `The scan is healthy and the quota sentinel is clear, so units are being selected and NOT run — the inline execute loop, processMessage, or the ledger write path is broken. ` +
+      `⛔ DO NOT READ A GREEN walk-liveness AS A CONTRADICTION: it tests SELECTION (published>0), which stays true throughout exactly this failure — that is why this check exists.`,
   }
 }
 
@@ -115,11 +138,12 @@ async function main() {
   const enc = encodeURIComponent(since)
 
   // (1) PRECONDITION ONLY — was anything handed to the queue?
-  const firesRes = await get(`universe_fire_log?select=fired_at,dry_run,published&fired_at=gte.${enc}&order=fired_at.desc&limit=200`)
+  const firesRes = await get(`universe_fire_log?select=fired_at,dry_run,published,fire_outcome&fired_at=gte.${enc}&order=fired_at.desc&limit=200`)
   const fires = need(firesRes, 'fire-log'); if (!fires) return
   const wet = fires.filter((f) => !f.dry_run)
   const publishingFires = wet.filter((f) => Number(f.published ?? 0) > 0).length
   const publishedRecent = wet.reduce((s, f) => s + Number(f.published ?? 0), 0)
+  const leaseHeldFires = wet.filter((f) => f.fire_outcome === 'lease-held').length
 
   // (2) THE HEALTH SIGNAL — consumer-side evidence, and nothing else touches this number.
   const attemptsRes = await get(`universe_attempt_log?select=recorded_at&phase=eq.attempt_started&recorded_at=gte.${enc}&limit=200`)
@@ -143,9 +167,9 @@ async function main() {
   const quotaHeld = !!(q?.backfill_blocked) &&
     !(q?.backfill_block_window && Date.now() >= new Date(q.backfill_block_window).getTime())
 
-  const verdict = decideConsumerLiveness({ publishingFires, publishedRecent, consumerAttemptsRecent, quotaHeld, lastConsumerAgoMin })
+  const verdict = decideConsumerLiveness({ publishingFires, publishedRecent, consumerAttemptsRecent, quotaHeld, lastConsumerAgoMin, leaseHeldFires, wetFires: wet.length, leaseTtlS: 330 })
 
-  console.log(`[consumer-liveness] ${WINDOW_MINUTES}m: fires=${wet.length} publishing=${publishingFires} published=${publishedRecent} · consumer attempts=${consumerAttemptsRecent} · last consumer attempt=${lastConsumerAgoMin === null ? 'never' : lastConsumerAgoMin + 'm ago'} · quotaHeld=${quotaHeld} · state=${verdict.state}`)
+  console.log(`[consumer-liveness] ${WINDOW_MINUTES}m: fires=${wet.length} selecting=${publishingFires} selected=${publishedRecent} leaseHeld=${leaseHeldFires} · attempts=${consumerAttemptsRecent} · last consumer attempt=${lastConsumerAgoMin === null ? 'never' : lastConsumerAgoMin + 'm ago'} · quotaHeld=${quotaHeld} · state=${verdict.state}`)
   if (!verdict.ok) { console.error(`✗ CONSUMER-LIVENESS FAILED — ${verdict.reason}`); process.exitCode = 1; return }
   console.log(`✓ consumer-liveness OK — ${verdict.reason}`)
 }
