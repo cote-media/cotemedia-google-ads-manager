@@ -1,4 +1,60 @@
-╔═══ SESSION CLOSE 2026-08-21 — THE HEAD IS HALF-ANSWERED, AND THE REST NEEDS RUSS AT A DASHBOARD. READ FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-22 — DELIVERY IS PULLED, NOT PUSHED. THE WALK IS OFF THE TRANSPORT THAT KEPT DYING. ═══╗
+
+⛔ **SHIPPED: [[LORAMER_POLL_MODE_CUTOVER_V1]] — THE PUSH TRIGGER IS GONE AND A CRON POLLS THE TOPIC.** The
+push consumer decayed to zero every 3–6 hours and was restored ONLY by a deploy — **five dark spans in 41
+hours, five deploy-restores, measured from `universe_attempt_log` rather than from a dashboard.** Across the
+same 41 hours **THE CRON PATH NEVER MISSED A SINGLE FIRE** (12/hour, every hour, through every dark span).
+That asymmetry is the whole argument: delivery moved onto the transport that has never failed us.
+⛔ **THE ROOT CAUSE OF THE PUSH DECAY IS STILL UNKNOWN. THIS IS A ROUTE-AROUND, NOT A FIX**, and
+[[★DELIVERY-DECAY-CAUSE-UNKNOWN]] stays OPEN with everything the arc ruled out written into it.
+
+**WHAT WENT IN, TWO COMMITS.** `3636a1a` lifted the message body out of the push closure BYTE-IDENTICALLY.
+`fbe1c4b` moved the whole worker to `src/lib/backfill/universe-v2-worker.ts`, added
+`/api/cron/universe-drain-poll` (group `universe-v2-poll`, `limit: 1`, cron `1-56/5`), and REMOVED the
+`experimentalTriggers` entry in the same commit. **Never two lanes live** — two lanes are two consumer
+groups, each getting a COPY, processed CONCURRENTLY, and both read coverage before either commits, so the
+vendor ops double and the op meter doubles with them. `one-delivery-lane-per-topic.guard.mjs` now fails the
+build on TWO lanes and on ZERO.
+
+⛔ **THE SEAM WAS FOUR TIMES LARGER THAN THE BRIEF ASSUMED, AND THAT IS THE REUSABLE FINDING.** The plan
+named three guards. **FOURTEEN read the consumer route as their fixture and all fourteen went red on a move
+that changed no behaviour.** Twelve were a faithful path repoint; four needed real re-anchoring. They had
+encoded *"delivery is push"* where they meant *"delivery happens"* — the same defect class as
+`completion-signal-on-every-exit` anchoring on a variable name one commit earlier.
+
+⚠ **ONE GUARD IS HONESTLY WEAKER NOW AND SAYS SO ON ITS FACE.** `queue-drain-fits-the-interval` lost a
+static term: push declared `maxConcurrency: 48`, a number the PLATFORM enforced; a single-threaded poller's
+capacity is (budget ÷ per-message duration), and that is a RUNTIME fact. The identity now uses the lane's
+DECLARED `ASSUMED_MAX_MESSAGE_MS = 2_000` at parallelism 1. **An assumption where there was a guarantee** —
+with a runtime detector taking the weight: the poller reports `worstMessageMs` and `capacityAssumptionHeld`
+on every invocation. Banked as [[★POLLER-IS-SINGLE-THREADED-CAPACITY-IS-AN-ASSUMPTION]].
+
+⛔ **A BANKED MEASUREMENT WAS FALSIFIED: [[★CONSUMER-IS-COLD-ON-EVERY-INVOCATION]] IS CLOSED.** "40
+invocations, 40 probe lines, 1:1, no instance is ever reused" was an artifact of a **limit-capped log
+query** — 40 is a page size, and a capped query returns exactly as many probe lines as invocations BY
+CONSTRUCTION. Re-taken with GROUPED counts across four epochs: **≈9.4 messages per instance, and the reuse
+ratio itself varies 2×.** ⚠ In the same pass: `attempt_started` rows are opened PER RANGE, not per message
+(1.29 rows/message), so every "deliveries" number from the 08-21/22 arc is RANGE-ATTEMPTS.
+**`count(distinct message_key)` is the message-honest metric** and is invariant under double processing.
+
+── ⛔ WHAT IS STILL OPEN AND WHO OWNS IT ──
+**1. THE DRAIN LANE IS BLOCKED, DELIBERATELY** — [[★DRAIN-LANE-BLOCKED-NO-CONSUMER-SIDE-OP-GATE]]. The daily
+Google op cap is enforced at PUBLISH time only (`boundedSelection` at `universe-resume:419`), and **a replay
+does not publish.** `readAttemptLaneSpendToday` is imported by the worker and never called — that is exactly
+where the gate goes. The forward poll lane is safe because it inherits the producer's per-fire bound.
+**2. THE 3h AND 6h SURVIVAL CHECKS ARE SEPARATE READS**, not part of the shipping flight. Push cliffed at
+~1,000–1,200 range-attempts per deployment; that is the number the poller has to walk past.
+**3. THE META TOKEN IS FAILING NOW, AND IT IS NOT THE ~08-30 CLIFF** — client `2617b163`, OAuthException 190
+**subcode 460**, "session invalidated because the user changed their password", on eight capture steps.
+Subcode 460 is NOT expiry and **no admin-valve refresh fixes it** — it needs an OAuth reconnect in a browser.
+
+── THE 9/30 BOARD — **39 DAYS OUT** ──
+Unchanged, and still ranked above everything here: LORA-VOICE · [[★CHAT-STATUS-INDICATOR]] ·
+[[★CHAT-STREAMING]] · HOMEPAGE UNIFICATION (parked on the Google review) · the demo spine.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-21 ⛔ SUPERSEDED 2026-08-22 · HISTORY · DO NOT ACT ON ITS HEAD OR ITS DATES ═══╗
 
 ⛔ **THE HEAD REMAINS [[★DELIVERY-DECAY-CAUSE-UNKNOWN]] AND IT IS NOW HALF-ANSWERED: THE FAULT IS AT
 INSTANCE CREATION, UPSTREAM OF EVERY LINE OF CODE WE OWN.** Read taken 2026-08-21 05:25Z while delivery was
@@ -77,6 +133,7 @@ UNIFICATION** (⛔ parked until the Google reviews clear — Standard Access is 
 walk + voice-directed Lora). §F of the digest carries the clock as [[★9-30-IS-THE-GOVERNING-DATE]].
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 
 ╔═══ SESSION CLOSE 2026-08-19/20 ⛔ SUPERSEDED 2026-08-21 · HISTORY · DO NOT ACT ON ITS HEAD OR ITS DATES ═══╗
 
