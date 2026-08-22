@@ -566,7 +566,16 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
   return
 }
 
-const handler = handleCallback(async (msg: UniverseMessageV2, metadata: any) => {
+// ⛔ LORAMER_POLL_MODE_EXTRACT_V1 — THE MESSAGE BODY, LIFTED OUT OF THE PUSH HANDLER AND NOT OTHERWISE
+// TOUCHED. This is step 1 of moving delivery to cron-driven poll mode: the work a delivered message does
+// must be callable by BOTH the push callback and a future poller, so it can no longer live inside the
+// `handleCallback` closure. The body below was moved by slicing lines, not retyped — a byte-identical
+// move is the only kind that cannot change behaviour, and it was proven identical rather than reviewed.
+// ⛔ NOT EXPORTED, DELIBERATELY: Next's App Router validates the export surface of a `route.ts`, so an
+// extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
+// lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
+// not to this one.
+async function processMessage(msg: UniverseMessageV2, metadata: any): Promise<void> {
   // LORAMER_CONSUMER_META_PROBE_V1 — see the flag's declaration for why this exists and when it goes.
   if (!consumerMetaLogged) { consumerMetaLogged = true; console.log('[consumer-meta]', JSON.stringify({ consumerGroup: metadata?.consumerGroup ?? null, region: metadata?.region ?? null, topicName: metadata?.topicName ?? null, deliveryCount: metadata?.deliveryCount ?? null })); }
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
@@ -612,6 +621,10 @@ const handler = handleCallback(async (msg: UniverseMessageV2, metadata: any) => 
         `observer — it did not fail, it became unreadable. NOT rethrown: a throw from finally would replace the real error.`)
     }
   }
+}
+
+const handler = handleCallback(async (msg: UniverseMessageV2, metadata: any) => {
+  await processMessage(msg, metadata)
 })
 
 export const POST = handler as unknown as (req: Request) => Promise<Response>

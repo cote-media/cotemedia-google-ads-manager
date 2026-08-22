@@ -47,9 +47,19 @@ try { src = readFileSync(resolve(ROOT, ROUTE), 'utf8') } catch (e) {
 if (!/async function runOneMessage\s*\(/.test(src)) {
   findings.push(`(a) ${ROUTE} has no \`runOneMessage\` body function. The handler body must be a NAMED function so the handler can wrap it — with the body inline there is no single site every exit passes through, and the terminal row goes back to being remembered per-return.`)
 }
-const hIdx = src.indexOf('const handler = handleCallback(')
-if (hIdx === -1) {
-  findings.push(`(a) ${ROUTE} has no \`handleCallback\` handler — the subject moved and this guard is measuring nothing.`)
+// ⛔ THE SUBJECT IS THE WRAPPER, LOCATED BY WHAT IT DOES, NOT BY WHAT IT IS CALLED — LORAMER_POLL_MODE_EXTRACT_V1.
+// This guard used to anchor on the literal `const handler = handleCallback(` and slice to end-of-file, which
+// silently assumed the try/catch/finally lived inside the push callback itself. The moment the body was lifted
+// out so a POLL lane could call it too, the anchor pointed at a three-line delegation and the guard reported
+// the invariant broken while it was in fact intact. **THAT IS THE GUARD BEING COUPLED TO A VARIABLE NAME
+// RATHER THAN TO THE CLASS IT PROTECTS.** The wrapper is now found structurally: the enclosing function of the
+// `await runOneMessage(` call. Rename it, move it, or hand it to a second delivery lane — the guard follows.
+const roIdx = src.indexOf('await runOneMessage(')
+const hIdx = roIdx === -1 ? -1 : src.lastIndexOf('async function ', roIdx)
+if (roIdx === -1) {
+  findings.push(`(a) ${ROUTE} never calls \`await runOneMessage(\` — the body is no longer wrapped by anything and this guard is measuring nothing.`)
+} else if (hIdx === -1) {
+  findings.push(`(a) the \`await runOneMessage(\` call in ${ROUTE} is not inside an \`async function\` declaration — there is no named wrapper to carry the terminal row.`)
 } else {
   const handler = src.slice(hIdx)
   if (!/\btry\s*\{/.test(handler) || !/\}\s*finally\s*\{/.test(handler)) {
@@ -77,6 +87,25 @@ if (hIdx === -1) {
   // ── THE FINALLY'S OWN WRITE MUST NOT MASK THE ORIGINAL ERROR ────────────────────────────────────────────
   if (finallyBlock && !/try\s*\{[\s\S]{0,400}appendMessageFinished/.test(finallyBlock)) {
     findings.push(`(d) the terminal write inside \`finally\` is not itself wrapped in try/catch. A throw from a finally REPLACES the exception in flight, so a failed bookkeeping write would erase the real fault and send the next reader to the wrong subsystem.`)
+  }
+  // ── (e) THE PUSH CALLBACK IS A PURE DELEGATION ─────────────────────────────────────────────────────────
+  // ⛔ NEW WITH THE EXTRACTION, AND IT CLOSES A HOLE THE OLD SHAPE COULD NOT HAVE: now that the wrapper is a
+  // separate function, the push callback is a place where logic could be added ABOVE the wrapper — an early
+  // return, a swallow, a second try — and every leg above would still read green because it is inspecting the
+  // wrapper. A delivery lane that decides anything before the wrapper is a tenth exit outside the one site.
+  const wrapperName = (src.slice(hIdx).match(/^async function ([A-Za-z0-9_$]+)/) || [])[1] ?? null
+  const pIdx = src.indexOf('const handler = handleCallback(')
+  if (pIdx === -1) {
+    findings.push(`(e) ${ROUTE} has no \`handleCallback\` handler — the push lane is gone and nothing registers this consumer.`)
+  } else {
+    const endIdx = src.indexOf('\n})', pIdx)
+    const push = endIdx === -1 ? src.slice(pIdx) : src.slice(pIdx, endIdx + 3)
+    if (wrapperName && !new RegExp(`\\b${wrapperName}\\s*\\(`).test(push)) {
+      findings.push(`(e) the push callback does not call the wrapper \`${wrapperName}\`. The push lane must reach the terminal row through the same single site as every other lane.`)
+    }
+    if (/\breturn\b/.test(push) || /\btry\s*\{/.test(push) || /\bcatch\s*\(/.test(push)) {
+      findings.push(`(e) the push callback contains its own \`return\`/\`try\`/\`catch\`. It must be a PURE DELEGATION to \`${wrapperName ?? 'the wrapper'}\` — control flow here is an exit that bypasses the finally, and legs (a)-(d) inspect the wrapper and would not see it.`)
+    }
   }
 }
 
