@@ -1,4 +1,55 @@
-╔═══ SESSION CLOSE 2026-08-22 — DELIVERY IS PULLED, NOT PUSHED. THE WALK IS OFF THE TRANSPORT THAT KEPT DYING. ═══╗
+╔═══ SESSION CLOSE 2026-08-22 — THE POLL LANE IS LIVE AND UNPROVEN. READ THE ENDURANCE CLOCKS FIRST. ═══╗
+
+⛔ **THE WALK NOW PULLS ITS OWN WORK. `1cee7e8`, deployment `dpl_CW1VtYbKUiWBuw9Ts5QefeywZhHB`, READY.**
+Push delivery decayed to zero every 3–6h and was restored ONLY by a deploy — five dark spans in 41 hours,
+five deploy-restores. The cron path never missed a fire across the same window, so delivery moved onto it:
+`/api/cron/universe-drain-poll` polls the topic, the `experimentalTriggers` entry is GONE, and exactly one
+lane per topic is enforced by `one-delivery-lane-per-topic.guard.mjs` (red on two lanes AND on zero).
+**LAST OBSERVED RUN — 04:26:48Z: `processed:19 · stopped:"budget" · emptyPolls:13 · worstMessageMs:6338`.**
+It stopped on BUDGET, not on silence, working through 13 interleaved empty polls.
+
+⛔ **THE FIRST THING TO READ NEXT SESSION IS WHETHER IT SURVIVED, AND THE CLOCKS ARE FIXED:**
+**3h = 2026-08-22 07:22Z · 6h = 2026-08-22 10:22Z**, measured from the first poll on `1cee7e8`.
+**THE BENCHMARK TO BEAT: push always cliffed at ~1,000–1,200 ATTEMPT ROWS PER DEPLOYMENT** (1,004 / 1,181 /
+1,124 / 1,058 — CV 7.1%, a far tighter predictor than elapsed time at CV 28%). The question is not "is it
+running" — it is **"has this deployment passed ~1,200 attempt rows and still delivering."** One query:
+  `select count(*) from public.universe_attempt_log where phase='attempt_started' and recorded_at >= '2026-08-22T04:15:00Z';`
+⚠ **AND COUNT MESSAGES WITH `count(distinct message_key)`, NOT ROWS.** `attempt_started` rows are opened PER
+RANGE (1.29 rows per message measured), so a row count is not a message count. Every "deliveries" figure
+from the 08-21/22 arc is RANGE-ATTEMPTS.
+
+⛔ **MONDAY IS FOUR THINGS AND DELIVERY WAS ONLY ONE OF THEM.** The target is one-click forward+backward on
+an existing client AND a cold connect. Honest state:
+  1. **DELIVERY — routed around, NOT proven past 3h.** The cause of the push decay is still unknown.
+  2. **META / GA4 / SHOPIFY / WOO ARE UNPORTED.** Only Google Ads runs on the universe walk.
+  3. **THE COLD-CONNECT PATH HAS NEVER BEEN TESTED END TO END.**
+  4. **FORWARD + BACKWARD ON ONE CLICK HAS NEVER BEEN PROVEN TOGETHER.**
+⛔ **ITEMS 2–4 ARE UNMEASURED — no number in this repo says how far from done they are. SCOPING THEM IS THE
+FIRST TASK OF THE NEXT SESSION**, before any build. Guessing at them is how a Monday becomes a Thursday.
+
+── ⛔ WHAT IS OPEN, BANKED SO IT DOES NOT LIVE ONLY IN A CHAT LOG ──
+· [[★POLLER-CAPACITY-ASSUMPTION]] — declared 6,000ms; the first loaded run hit 6,338. Observed MAX 8,661
+  does NOT fit. **Above ~7s sustained the lane's SHAPE changes, never the constant.**
+· [[★CHECKDATA-PUSHED-OVER-RED]] — pushed TWICE tonight over a red check:data, disclosed both times.
+  **It is currently neither a gate nor advisory, and that is the thing to decide.**
+· [[★CHECKDATA-CHAIN-EXIT-LIES]] — a `| tail -6` returned 0 while the verdict said EXIT 1. Third instance.
+· [[★GOOGLE-QUERY-ERROR-49]] — two placement views cannot select clicks/conversions/cost. Pre-existing.
+· [[★DELIVERY-DECAY-CAUSE-UNKNOWN]] — routed around, still open, with tonight's evidence attached.
+· [[★DRAIN-LANE-BLOCKED-NO-CONSUMER-SIDE-OP-GATE]] — the backlog drain cannot ship until the op gate exists.
+
+── ⛔ TWO THINGS THAT NEED RUSS, NOT CODE ──
+**1. THE META TOKEN IS FAILING NOW AND IT IS NOT THE ~08-30 CLIFF.** Client `2617b163`, OAuthException 190
+**subcode 460** — "session invalidated because the user changed their password", on eight capture steps.
+Subcode 460 is NOT expiry: **no admin-valve refresh fixes it.** It needs an OAuth reconnect in a browser.
+**2. THE ~08-25 META RE-ARM still stands for the other accounts** — 12 ad accounts ride that token.
+
+── THE 9/30 BOARD — **39 DAYS OUT** ──
+LORA-VOICE · [[★CHAT-STATUS-INDICATOR]] · [[★CHAT-STREAMING]] · HOMEPAGE UNIFICATION (parked on the Google
+review) · the demo spine. All still ranked above everything above.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-22 (EARLIER) ⛔ SUPERSEDED · HISTORY · DO NOT ACT ON ITS HEAD OR ITS CLOCKS ═══╗
 
 ⛔ **SHIPPED: [[LORAMER_POLL_MODE_CUTOVER_V1]] — THE PUSH TRIGGER IS GONE AND A CRON POLLS THE TOPIC.** The
 push consumer decayed to zero every 3–6 hours and was restored ONLY by a deploy — **five dark spans in 41
@@ -53,6 +104,7 @@ Unchanged, and still ranked above everything here: LORA-VOICE · [[★CHAT-STATU
 [[★CHAT-STREAMING]] · HOMEPAGE UNIFICATION (parked on the Google review) · the demo spine.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 
 ╔═══ SESSION CLOSE 2026-08-21 ⛔ SUPERSEDED 2026-08-22 · HISTORY · DO NOT ACT ON ITS HEAD OR ITS DATES ═══╗
 
