@@ -59,13 +59,47 @@ const POLL_BUDGET_MS = 180_000
 // RUNTIME fact no guard can read. Rather than let the inequality quietly lose a term, the assumption is
 // written down here where `queue-drain-fits-the-interval.guard.mjs` can read it and fail the build when the
 // arithmetic stops holding.
-// THE NUMBER: messages measured on production 2026-08-21/22 ran 412ms–985ms end to end. 2,000ms is ~2x the
-// worst observed, which yields floor(180000/2000) = 90 messages per invocation against the resumer's ~35 per
-// fire — about 2.6x headroom on the same 5-minute cadence.
-// ⛔ AND IT IS AN ASSUMPTION, NOT A MEASUREMENT, SO IT HAS A DETECTOR: this route reports `worstMessageMs`
-// on every invocation. A run whose worst message exceeds this constant is the signal that the inequality is
-// no longer true in the field, and it is visible without anyone opening a dashboard.
-const ASSUMED_MAX_MESSAGE_MS = 2_000
+// ⛔ THE NUMBER WAS WRONG AND THE DETECTOR CAUGHT IT ON ITS FIRST LOADED RUN — 2026-08-22 03:41:02Z reported
+// `worstMessageMs: 5105` against an assumed 2,000, `capacityAssumptionHeld: false`. The first value had been
+// eyeballed from a handful of per-RANGE log lines (412–985ms), which are not message durations at all: the
+// mean message carries 5.07 range rows.
+// ⛔ THE REPLACEMENT IS A MEASURED PERCENTILE, NOT A NUMBER PICKED TO MAKE THE GUARD GREEN. Over 1,621 real
+// deliveries (`universe_attempt_log`, grouped by `invocation_id` — the per-DELIVERY id, because grouping by
+// message_key spans every republish and returns nonsense like 6.7 hours):
+//     mean 1,412ms · p50 1,024 · p90 2,565 · p95 4,366 · p99 5,824 · MAX 8,661
+// 6,000ms is p99 rounded up. The inequality then reads 40 × 6s ÷ 1 = 240s against a 300s interval — it holds
+// with 60s (20%) of headroom.
+// ⚠ AND THE RESIDUAL IS NAMED RATHER THAN HIDDEN: at the observed MAX of 8,661ms the arithmetic is
+// 40 × 8.661 = 346s and it does NOT fit the interval. A fire whose entire bite of 40 lands in the tail
+// overruns by ~46s and spills into the next invocation, which is a BACKLOG (safe — owed-ness is derived and
+// keys dedupe) rather than a loss. Choosing max instead of p99 would have failed the inequality outright and
+// forced a lane change; choosing p90 would have been tuning to pass. p99 is the honest middle and this
+// comment is what makes it auditable.
+// ⛔ IT REMAINS AN ASSUMPTION AND KEEPS ITS DETECTOR: `worstMessageMs` and `capacityAssumptionHeld` are
+// reported on EVERY invocation, so the next time reality moves past this number it says so out loud.
+const ASSUMED_MAX_MESSAGE_MS = 6_000
+
+// ── THE EMPTY-RECEIVE POLICY — LORAMER_POLL_DRAINS_BEFORE_EXITING_V1 ──────────────────────────────────────
+// ⛔ THE DEFECT THIS REPLACES, AND IT WAS MINE: the first cut did `if (empty) break`. On 2026-08-22 03:36:02Z
+// that ended the invocation in 102ms with 179.9 SECONDS OF BUDGET UNSPENT — 44 seconds after the producer
+// had published ~35 messages. A poller that quits in a tenth of a second is not a poller.
+// ⛔ AN EMPTY RECEIVE DOES NOT MEAN "DRAINED", IT MEANS "NOTHING VISIBLE RIGHT NOW", AND VERCEL'S OWN POLL
+// MODE EXAMPLE SAYS SO IN A COMMENT: `if (!result.ok && result.reason === 'empty') { // No messages
+// available, wait before polling again }`. The API returns immediately — there is NO long-poll / wait
+// parameter anywhere in the SDK or the HTTP surface (SQS has WaitTimeSeconds; Vercel Queues does not), so
+// the wait has to be ours.
+// ⛔ WHY THIS MATTERS HERE SPECIFICALLY: the producer is not a burst. Its fire takes ~106s and publishes
+// throughout, so gaps of seconds between messages are NORMAL mid-fire and are exactly what the old loop
+// mistook for an empty queue.
+// THE POLICY: on empty, wait and retry; exit only after MAX_CONSECUTIVE_EMPTIES quiet polls in a row, or on
+// budget. 15 × 2,000ms = 30s of CONTINUOUS silence before we believe it — comfortably longer than any
+// intra-fire gap, and still an exit rather than an idle spin. A genuinely drained topic costs at most 15
+// Receive operations per invocation (~4,320/day) before the run ends.
+const EMPTY_BACKOFF_MS = 2_000
+const MAX_CONSECUTIVE_EMPTIES = 15
+// The floor `poll-loop-drains-before-exiting.guard.mjs` enforces on (MAX_CONSECUTIVE_EMPTIES × backoff).
+// Stated as its own constant so the guard reads a decision rather than re-deriving one.
+const MIN_QUIET_WINDOW_MS = 20_000
 
 // ⛔ A NEW GROUP, NEVER THE PUSH GROUP. A consumer group tracks ONE position in the log, so polling the
 // group the push trigger registered under (`src_Sapp_Sapi_Squeues_Sgoogle-ads-universe-v2_Sroute_Dts`, read
@@ -90,10 +124,12 @@ export async function GET() {
   const { receive } = new PollingQueueClient({ region: REGION })
 
   let processed = 0
-  let empty = false
+  let emptyPolls = 0
+  let consecutiveEmpties = 0
   let worstMs = 0
   let stopped = 'budget'
   const errors: string[] = []
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
   // ⛔ THE RESERVATION, NOT A BARE ELAPSED CHECK. `shouldStartAnotherLap` reserves the WORST message observed
   // this invocation (90s before anything is measured) so we never START a message we cannot finish. A message
@@ -116,8 +152,18 @@ export async function GET() {
       stopped = 'threw'
       break
     }
+    // ⛔ AN EMPTY POLL IS NOT A MESSAGE AND MUST NOT ENTER THE DURATION SAMPLE. The first cut measured it and
+    // reported `worstMessageMs: 101` for a run that processed NOTHING — a number that described the latency
+    // of asking, dressed as the cost of working. Only a poll that ran the handler updates the reservation.
+    if (!result?.ok && result?.reason === 'empty') {
+      emptyPolls++
+      consecutiveEmpties++
+      if (consecutiveEmpties >= MAX_CONSECUTIVE_EMPTIES) { stopped = 'drained'; break }
+      await sleep(EMPTY_BACKOFF_MS)
+      continue
+    }
     worstMs = Math.max(worstMs, Date.now() - msgStartedAt)
-    if (!result?.ok && result?.reason === 'empty') { empty = true; stopped = 'empty'; break }
+    consecutiveEmpties = 0
     processed++
   }
 
@@ -129,7 +175,12 @@ export async function GET() {
   const body = {
     ok: errors.length === 0,
     topic: TOPIC, group: GROUP, region: REGION,
-    processed, stopped, empty, worstMessageMs: worstMs,
+    processed, stopped, emptyPolls, worstMessageMs: worstMs,
+    // ⛔ THE BUDGET LEFT ON THE TABLE, REPORTED. The defect this route was fixed for was an exit with 179.9s
+    // unspent, and nothing in the old output said so — `processed:0 · stopped:"empty"` read like a drained
+    // queue. A run that stops with most of its budget unused is now visible on its face.
+    budgetUnspentMs: Math.max(0, POLL_BUDGET_MS - (Date.now() - started)),
+    quietWindowMs: MAX_CONSECUTIVE_EMPTIES * EMPTY_BACKOFF_MS,
     // ⛔ THE ASSUMPTION, CHECKED AGAINST THE RUN THAT JUST HAPPENED. `queue-drain-fits-the-interval` proves
     // the arithmetic at build time from ASSUMED_MAX_MESSAGE_MS; this proves it against reality, on every
     // invocation, and names the breach instead of leaving it to be inferred from falling behind.
