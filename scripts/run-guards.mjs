@@ -163,6 +163,7 @@ const GUARDS = [
   // interval) EXECUTED rather than described. It lived in three comments across two deploys and nothing
   // asserted it; a cadence change alone passed all 133 guards on 2026-08-19. Hermetic — file reads only.
   'tests/guards/queue-drain-fits-the-interval.guard.mjs',
+  'tests/guards/one-delivery-lane-per-topic.guard.mjs',
   // LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 — every writer of universe_attempt_log must NAME the lane. The
   // column has a DEFAULT ('descend'), so an omitting writer lands a mis-stamped row that looks correct:
   // measured 2026-08-19, three terminal writers omitted it and a top-edge zero attested 12 surface-days.

@@ -24,7 +24,7 @@ const read = (rel) => {
 const stripped = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
 
 const CONTRACT = 'src/lib/backfill/universe-v2-contract.ts'
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 const contract = stripped(read(CONTRACT))
 const consumer = read(CONSUMER)
 const code = stripped(consumer)

@@ -53,7 +53,7 @@ const READ_ONLY = {
     'fetchGoogleDimensional, both of which arm at their own error boundary. A write here would be a second home ' +
     'for a rule that now lives at the boundary — precisely the duplication RULE-HOME LAW warns about.',
   // ── ADDED 2026-08-09, LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the two v2 walk entry points. ──
-  'src/app/api/queues/google-ads-universe-v2/route.ts':
+  'src/lib/backfill/universe-v2-worker.ts':
     'GATES on the sentinel before any vendor work (and before the ADVANCE publish, since publishing into an ' +
     'armed quota spends the fleet\'s tomorrow). Its only Google contact is universe-vendor-stream.ts, which IS ' +
     'boundary 5 below and arms there. A write here would be a second home for a rule that now lives at the ' +

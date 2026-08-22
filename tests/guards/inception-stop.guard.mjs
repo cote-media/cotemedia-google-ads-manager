@@ -257,7 +257,7 @@ const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|
     Module._resolveFilename = origResolve
   }
   // And the consumer's refusal branch must exist and be conditioned on the explicit operator flag.
-  const consumer = read('src/app/api/queues/google-ads-universe-v2/route.ts')
+  const consumer = read('src/lib/backfill/universe-v2-worker.ts')
     .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
   if (!/inceptionKnown\s*&&\s*remaining\s*===\s*undefined\s*&&\s*msg\.walkToEpoch\s*!==\s*true/.test(consumer.replace(/!stop\./g, 'stop.').replace(/stop\.inceptionKnown/g, 'inceptionKnown'))) {
     if (!/walkToEpoch/.test(consumer)) {

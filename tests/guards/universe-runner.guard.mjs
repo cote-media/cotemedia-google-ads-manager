@@ -66,7 +66,14 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
   // (one owner per fact). WHAT THIS LEG STILL REFUSES, unchanged: any cron pointing at the V1 universe path
   // (this guard's own subject — v1 is UNCHECKED, not proven, and must never be fired), and any OTHER universe
   // cron nobody decided. The lock was SEEN RED refusing the resumer entry before this rewrite.
-  const firing = crons.filter((c) => /universe/.test(String(c.path || '')) && !/^\/api\/cron\/universe-resume\?/.test(String(c.path || '')))
+  // ⛔ A SECOND DECIDED UNIVERSE CRON EXISTS AS OF LORAMER_POLL_MODE_CUTOVER_V1, AND IT IS NAMED, NOT PATTERNED.
+  // Delivery moved from a push trigger to `/api/cron/universe-drain-poll`, so the walk now has TWO scheduled
+  // entries by decision: the resumer (publishes) and the poller (consumes). THE REFUSAL IS UNCHANGED IN
+  // STRENGTH — this leg still fires on any universe cron nobody decided, and above all on any cron pointing
+  // at the V1 universe path, which is UNCHECKED and must never be fired. Widening a decision list by one
+  // named entry is a decision; widening the PATTERN would have been a loosening, and is not what happened.
+  const DECIDED = [/^\/api\/cron\/universe-resume\?/, /^\/api\/cron\/universe-drain-poll\b/]
+  const firing = crons.filter((c) => /universe/.test(String(c.path || '')) && !DECIDED.some((re) => re.test(String(c.path || ''))))
   if (firing.length) findings.push(`(c) vercel.json has ${firing.length} CRON entr(ies) pointing at a universe path OTHER than the decided v2 resumer (${firing.map((c) => c.path).join(', ')}). The v1 consumer must never be fired (it is UNCHECKED — see the route-validator note), and any additional universe cron is a scheduling decision nobody made.`)
   const trig = v.functions?.[CONSUMER]?.experimentalTriggers?.[0]
   if (!trig || trig.type !== 'queue/v2beta') findings.push(`(c) the consumer has no queue/v2beta trigger in vercel.json — without it the route is a PUBLIC endpoint rather than a private queue consumer.`)

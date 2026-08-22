@@ -34,7 +34,7 @@ const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catc
 // quota-sentinel-armed.guard.mjs learned the hard way.
 const strip = (s) => s.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n')
 
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 const RESUMER = 'src/app/api/cron/universe-resume/route.ts'
 const VENDOR = 'src/lib/backfill/universe-vendor-stream.ts'
 

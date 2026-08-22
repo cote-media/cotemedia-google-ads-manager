@@ -117,7 +117,7 @@ if (!opb || !adapter || !mig) {
   const SCAN = [
     'src/app/api/backfill/universe-start/route.ts',
     'src/app/api/queues/google-ads-universe/route.ts',
-    'src/app/api/queues/google-ads-universe-v2/route.ts',
+    'src/lib/backfill/universe-v2-worker.ts',
     'src/lib/backfill/universe-governor.ts',
     'src/lib/backfill/universe-resumer.ts',
     'src/lib/backfill/universe-window-log.ts',

@@ -18,7 +18,7 @@
 //
 //   · bite            — `MAX_REQUESTS_PER_RUN`, src/lib/backfill/universe-resumer.ts. One owed range is one
 //                       vendor request is one published message, so a fire publishes at most `bite` messages.
-//   · WALK_BUDGET_MS  — src/app/api/queues/google-ads-universe-v2/route.ts. The WORST case a single consumer
+//   · WALK_BUDGET_MS  — src/lib/backfill/universe-v2-worker.ts. The WORST case a single consumer
 //                       invocation may take before it defers. Not the typical case (~6s measured); the bound.
 //   · maxConcurrency  — vercel.json, the `queue/v2beta` trigger on the v2 consumer ROUTE. How many of those
 //                       invocations run at once.
@@ -44,7 +44,7 @@ import { resolve } from 'node:path'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const VERCEL = 'vercel.json'
 const RESUMER = 'src/lib/backfill/universe-resumer.ts'
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 const CRON_MATCH = /universe-resume/
 const findings = []
 
@@ -82,6 +82,10 @@ const resumerSrc = read(RESUMER)
 const consumerSrc = read(CONSUMER)
 
 let bite = null, walkBudgetMs = null, maxConcurrency = null, intervalMs = null, schedule = null
+// ⛔ PROVENANCE OF THE PER-MESSAGE TERM, CARRIED WITH THE VALUE. Under push it is the worker’s hard
+// WALK_BUDGET_MS ceiling; under poll it is the lane’s declared ASSUMED_MAX_MESSAGE_MS. Reporting one
+// label while having read the other is the adjacent-number class this guard exists to police.
+let perMsgLabel = 'WALK_BUDGET_MS', perMsgSource = CONSUMER
 
 if (resumerSrc) {
   const m = /export const MAX_REQUESTS_PER_RUN\s*=\s*([\d_]+)/.exec(resumerSrc)
@@ -106,11 +110,35 @@ if (vercelRaw) {
       intervalMs = cronIntervalMs(schedule)
       if (intervalMs === null) findings.push(`the universe-resume cron schedule "${schedule}" is not a form this guard can parse. ⛔ AN UNPARSED SCHEDULE IS NOT A PASS — teach the parser in the same commit that introduces the form, or the identity silently stops being checked.`)
     }
+    // ⛔ THE LANE MAY BE PUSH **OR** POLL, AND EXACTLY ONE OF THEM MUST EXIST — LORAMER_POLL_MODE_CUTOVER_V1.
+    // The registration half of this guard is UNCHANGED in strength: ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION
+    // is the failure of publishing into a topic nothing reads, and that is just as true when the missing
+    // reader is a cron poller as when it is a queue trigger. What changed is only WHICH declaration counts.
+    // ⚠ THE CAPACITY HALF IS HONESTLY WEAKER AND SAYS SO. Push declared `maxConcurrency` — a static number
+    // the platform enforced. A single-threaded poller has no such number: its parallelism is 1 and its
+    // per-message cost is a RUNTIME fact. So the poll form of the identity substitutes the poll route's
+    // DECLARED `ASSUMED_MAX_MESSAGE_MS` for the worker's hard `WALK_BUDGET_MS` ceiling, at parallelism 1.
+    // That is an assumption where there used to be a guarantee. It is not papered over: the poll route
+    // reports `worstMessageMs` and `capacityAssumptionHeld` on EVERY invocation, so the moment the
+    // assumption stops being true in the field it is visible without a dashboard. Static proof lost a term;
+    // a runtime detector took it. Both are named rather than one quietly standing in for the other.
     const fn = (parsed.functions || {})[CONSUMER]
     const trig = ((fn || {}).experimentalTriggers || []).find((t) => String(t.topic || '').endsWith('google-ads-universe-v2'))
-    if (!trig) findings.push(`${VERCEL} has no queue trigger for ${CONSUMER}. Without it the consumer is unregistered and the walk publishes into a topic nothing reads (★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION).`)
-    else if (typeof trig.maxConcurrency !== 'number') findings.push(`the v2 consumer's trigger declares no numeric maxConcurrency. It is one of the four terms of the identity; an absent one is UNKNOWN, and UNKNOWN is a finding.`)
-    else maxConcurrency = trig.maxConcurrency
+    const POLL_LANE = 'src/app/api/cron/universe-drain-poll/route.ts'
+    let pollSrc = ''
+    try { pollSrc = readFileSync(resolve(ROOT, POLL_LANE), 'utf8') } catch { pollSrc = '' }
+    const pollCron = (parsed.crons || []).some((c) => /^\/api\/cron\/universe-drain-poll\b/.test(String(c.path || '')))
+    const assumedMs = (pollSrc.match(/const\s+ASSUMED_MAX_MESSAGE_MS\s*=\s*([\d_]+)/) || [])[1]
+    if (trig && pollCron) {
+      findings.push(`${VERCEL} registers BOTH a queue trigger and the poll cron for this topic. Two lanes are two consumer groups, each receiving a COPY of every message and processing it CONCURRENTLY — the vendor ops double and the op meter doubles with them. (Owned in detail by one-delivery-lane-per-topic.guard.mjs; refused here too because this guard is where the registration is read.)`)
+    } else if (!trig && !pollCron) {
+      findings.push(`${VERCEL} registers NEITHER a queue trigger for ${CONSUMER} nor the poll cron ${POLL_LANE}. The consumer is unregistered and the walk publishes into a topic nothing reads (★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION).`)
+    } else if (pollCron) {
+      if (!assumedMs) findings.push(`${POLL_LANE} declares no ASSUMED_MAX_MESSAGE_MS. A single-threaded poller's capacity IS that number; without it the identity has an unknown term and this guard would be asserting nothing.`)
+      else { maxConcurrency = 1; walkBudgetMs = Number(String(assumedMs).replace(/_/g, '')); perMsgLabel = 'ASSUMED_MAX_MESSAGE_MS'; perMsgSource = POLL_LANE }
+    }
+    if (trig && typeof trig.maxConcurrency !== "number") findings.push(`the v2 consumer trigger declares no numeric maxConcurrency. It is one of the four terms of the identity; an absent one is UNKNOWN, not a pass.`)
+    else if (trig) maxConcurrency = trig.maxConcurrency
   }
 }
 
@@ -143,7 +171,7 @@ if (vercelRaw) {
 if (bite !== null && walkBudgetMs !== null && maxConcurrency !== null && intervalMs !== null) {
   const r = drainFits({ bite, walkBudgetMs, maxConcurrency, intervalMs })
   const fmt = (ms) => `${(ms / 1000).toFixed(0)}s`
-  console.log(`[queue-drain-fits-the-interval] read: bite=${bite} (${RESUMER}) · WALK_BUDGET_MS=${walkBudgetMs} (${CONSUMER}) · maxConcurrency=${maxConcurrency} (${VERCEL}) · schedule="${schedule}" = ${fmt(intervalMs)} interval. ` +
+  console.log(`[queue-drain-fits-the-interval] read: bite=${bite} (${RESUMER}) · ${perMsgLabel}=${walkBudgetMs} (${perMsgSource}) · maxConcurrency=${maxConcurrency} (${VERCEL}) · schedule="${schedule}" = ${fmt(intervalMs)} interval. ` +
     `worst-case drain ${bite} × ${fmt(walkBudgetMs)} ÷ ${maxConcurrency} = ${fmt(r.worstCaseMs)}.`)
   if (!r.fits) {
     findings.push(

@@ -48,8 +48,7 @@
 //     much at once".
 //   · Spend is charged at `attempt_started`, before the vendor call — so a hard kill is still billed and the
 //     rate governor can see a poison loop forming.
-import { NextResponse } from 'next/server'
-import { handleCallback, send } from '@vercel/queue'
+import { send } from '@vercel/queue'
 // ⛔ THE CATALOG LOADER IS DELIBERATELY NOT IMPORTED HERE, and the omission is load-bearing rather than
 // tidy. The entry rides on the MESSAGE, exactly as in v1, so this route never reads
 // docs/google-ads-capture-universe.json. A route that DOES read it must be listed in next.config's
@@ -87,15 +86,6 @@ import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_
 // "A BETWEEN-ITERATION BUDGET CHECK IS ONLY SAFE IF ONE ITERATION CANNOT EXCEED THE REMAINING CEILING."
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
 import { randomUUID } from 'node:crypto'
-
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
-// ⛔ THE CEILING IS THE CONTRACT'S, NOT A LITERAL — LORAMER_COMPLETION_SIGNAL_V1. An observer has to know how
-// long an invocation may live, and Vercel's guarantee is "if a function runs for longer than its set maximum
-// duration, Vercel will terminate it". Written as 300 here it was a number two other files had to guess at;
-// `drive-ceiling-pin.guard.mjs` now pins this export, the contract and the drive to ONE value, because Pro
-// permits 800s (1800s extended) and raising it is legal.
-export const maxDuration = CONSUMER_MAX_DURATION_S
 
 // ⛔ 120s OF HEADROOM UNDER THE 300s CEILING — the SAME margin the drain holds under its own
 // (cron/drain/route.ts: 1,680,000 under 1800s). This is the budget that stops the route TAKING ON a range;
@@ -525,7 +515,11 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
     await appendAttemptFinished(defKey, await nextAttemptNoWithoutCharging(defKey), 'skipped', {
       rowsWritten: 0, requestsSpent: 0, diskFreeBytes: floor.freeBytes,
       error: `BUDGET STOP, NOT A FAILURE: ${deferredForBudget} of ${owed.ranges.length} owed range(s) were not started — ` +
-        `${Date.now() - started}ms elapsed of a ${WALK_BUDGET_MS}ms budget under maxDuration ${maxDuration}s, worst range ${maxRangeMs}ms. ` +
+        // ⛔ WAS `${maxDuration}` — the ROUTE's exported const, which this module no longer has. It was
+        // declared `export const maxDuration = CONSUMER_MAX_DURATION_S`, so naming the contract constant
+        // directly is VALUE-IDENTICAL by definition rather than by coincidence, and it removes the last
+        // reason this worker needed to live inside a route file.
+        `${Date.now() - started}ms elapsed of a ${WALK_BUDGET_MS}ms budget under maxDuration ${CONSUMER_MAX_DURATION_S}s, worst range ${maxRangeMs}ms. ` +
         `The days stay UNCOVERED and owed-ness is DERIVED, so the resumer re-finds them without anyone naming a row id.`,
     }, prov)
     console.warn(`[universe-v2] BUDGET STOP ${clientId} ${label}: deferred ${deferredForBudget}/${owed.ranges.length} range(s) — NOT advancing; the resumer re-derives what is still owed.`)
@@ -575,7 +569,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance): Pro
 // extra named export here is a build risk in a step whose whole contract is "nothing changes". The poll
 // lane will need it, and the correct home is then a lib module — that relocation belongs to step 2,
 // not to this one.
-async function processMessage(msg: UniverseMessageV2, metadata: any): Promise<void> {
+export async function processMessage(msg: UniverseMessageV2, metadata: any): Promise<void> {
   // LORAMER_CONSUMER_META_PROBE_V1 — see the flag's declaration for why this exists and when it goes.
   if (!consumerMetaLogged) { consumerMetaLogged = true; console.log('[consumer-meta]', JSON.stringify({ consumerGroup: metadata?.consumerGroup ?? null, region: metadata?.region ?? null, topicName: metadata?.topicName ?? null, deliveryCount: metadata?.deliveryCount ?? null })); }
   // ⛔ THE PROVENANCE IS MINTED BEFORE ANYTHING CAN FAIL. `messageKey` is the PUBLISHER's idempotency key,
@@ -622,12 +616,6 @@ async function processMessage(msg: UniverseMessageV2, metadata: any): Promise<vo
     }
   }
 }
-
-const handler = handleCallback(async (msg: UniverseMessageV2, metadata: any) => {
-  await processMessage(msg, metadata)
-})
-
-export const POST = handler as unknown as (req: Request) => Promise<Response>
 
 /**
  * ⛔ THE ONLY PLACE THE WALK ADVANCES. Both callers use it — the nothing-owed path and the after-capture

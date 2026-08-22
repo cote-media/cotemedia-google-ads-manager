@@ -19,7 +19,7 @@ import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
-const CONSUMER = process.env.LORAMER_FLOOR_CONSUMER || 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = process.env.LORAMER_FLOOR_CONSUMER || 'src/lib/backfill/universe-v2-worker.ts'
 
 let src = ''
 try { src = readFileSync(resolve(ROOT, CONSUMER), 'utf8') }

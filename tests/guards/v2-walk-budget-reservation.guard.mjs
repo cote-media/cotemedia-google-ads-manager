@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 const findings = []
 
 let raw
@@ -75,11 +75,30 @@ if (/Date\.now\(\)\s*-\s*\w+\s*>\s*[A-Z_]*BUDGET/.test(src)) {
 // UNCHANGED — the reservation must be measured against the real ceiling — so the read follows the constant to
 // its declaration instead of demanding a digit. A literal is still accepted; both forms resolve to one value,
 // and `drive-ceiling-pin.guard.mjs` is what stops them disagreeing.
-const mdRef = /export\s+const\s+maxDuration\s*=\s*CONSUMER_MAX_DURATION_S\b/.test(src)
+// ⛔ THE CEILING NOW LIVES ON THE DELIVERY LANE, NOT ON THE WORKER — LORAMER_POLL_MODE_CUTOVER_V1. The
+// reservation and the ceiling used to sit in one file because the worker WAS the route. With delivery moved
+// to a cron-driven poller the worker is a library that declares no `maxDuration`, and the ceiling it runs
+// under is declared by whichever lane invokes it. THE PROPERTY IS UNCHANGED — the reservation must be
+// measured against the REAL ceiling — so the read follows the ceiling to the lane instead of assuming the
+// two share a file. A lane that declares no ceiling is still a finding, which is what keeps this strict.
+const LANE = 'src/app/api/cron/universe-drain-poll/route.ts'
+let laneSrc = ''
+try { laneSrc = readFileSync(resolve(ROOT, LANE), 'utf8') } catch { laneSrc = '' }
+const mdRef = /export\s+const\s+maxDuration\s*=\s*CONSUMER_MAX_DURATION_S\b/.test(laneSrc)
 const md = mdRef
   ? (readFileSync(resolve(ROOT, 'src/lib/backfill/universe-v2-contract.ts'), 'utf8').match(/export const CONSUMER_MAX_DURATION_S\s*=\s*(\d+)/))
-  : src.match(/export\s+const\s+maxDuration\s*=\s*(\d+)/)
-const budget = src.match(/const\s+[A-Z_]*BUDGET_MS\s*=\s*([\d_]+)/)
+  : laneSrc.match(/export\s+const\s+maxDuration\s*=\s*(\d+)/)
+// ⛔ EVERY BUDGET UNDER THAT CEILING IS CHECKED, NOT JUST THE WORKER'S. The cutover created a SECOND budget
+// — the poll lane's own `POLL_BUDGET_MS`, which decides when the poller stops taking on another MESSAGE the
+// way `WALK_BUDGET_MS` decides when the worker stops taking on another RANGE. Both run under the same
+// platform ceiling, so both are subject to the same rule, and a guard that checked only the first would
+// have let the new one sit at or above the ceiling unexamined. The strictest budget found is the one judged.
+const budgets = [
+  ...[...src.matchAll(/const\s+([A-Z_]*BUDGET_MS)\s*=\s*([\d_]+)/g)].map((m) => ({ name: m[1], v: Number(m[2].replace(/_/g, '')), from: CONSUMER })),
+  ...[...laneSrc.matchAll(/const\s+([A-Z_]*BUDGET_MS)\s*=\s*([\d_]+)/g)].map((m) => ({ name: m[1], v: Number(m[2].replace(/_/g, '')), from: LANE })),
+]
+const worstBudget = budgets.length ? budgets.reduce((a, b) => (b.v > a.v ? b : a)) : null
+const budget = worstBudget ? [null, String(worstBudget.v)] : null
 if (!md) {
   findings.push(`${CONSUMER} declares no maxDuration — the ceiling this reservation is measured against is unknown.`)
 } else if (budget) {

@@ -29,7 +29,7 @@ import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const CONTRACT = 'src/lib/backfill/universe-v2-contract.ts'
-const ROUTE = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const ROUTE = 'src/lib/backfill/universe-v2-worker.ts'
 const DRIVE = 'scripts/drive-one-surface.mjs'
 const findings = []
 const read = (rel) => {

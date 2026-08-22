@@ -33,7 +33,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const ROUTE = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const ROUTE = 'src/lib/backfill/universe-v2-worker.ts'
 const findings = []
 
 let src = ''
@@ -93,19 +93,31 @@ if (roIdx === -1) {
   // separate function, the push callback is a place where logic could be added ABOVE the wrapper — an early
   // return, a swallow, a second try — and every leg above would still read green because it is inspecting the
   // wrapper. A delivery lane that decides anything before the wrapper is a tenth exit outside the one site.
+  // ⛔ RE-ANCHORED AGAIN BY LORAMER_POLL_MODE_CUTOVER_V1, AND THE SUBJECT IS NOW THE LANE, NOT THE PUSH
+  // CALLBACK. This leg used to look for `const handler = handleCallback(` in the same file. Delivery has
+  // moved to a cron-driven poller, so the callback that hands a message to the wrapper lives in a DELIVERY
+  // LANE under src/app. The property is identical and the reason is identical: whatever calls the wrapper
+  // must decide NOTHING of its own, because legs (a)-(d) inspect the wrapper and cannot see an exit added
+  // above it. ⛔ ZERO LANES IS A FINDING: a wrapper nothing calls is a topic nothing reads.
   const wrapperName = (src.slice(hIdx).match(/^async function ([A-Za-z0-9_$]+)/) || [])[1] ?? null
-  const pIdx = src.indexOf('const handler = handleCallback(')
-  if (pIdx === -1) {
-    findings.push(`(e) ${ROUTE} has no \`handleCallback\` handler — the push lane is gone and nothing registers this consumer.`)
-  } else {
-    const endIdx = src.indexOf('\n})', pIdx)
-    const push = endIdx === -1 ? src.slice(pIdx) : src.slice(pIdx, endIdx + 3)
-    if (wrapperName && !new RegExp(`\\b${wrapperName}\\s*\\(`).test(push)) {
-      findings.push(`(e) the push callback does not call the wrapper \`${wrapperName}\`. The push lane must reach the terminal row through the same single site as every other lane.`)
+  const LANES = ['src/app/api/cron/universe-drain-poll/route.ts', 'src/app/api/queues/google-ads-universe-v2/route.ts']
+  const live = []
+  for (const lane of LANES) {
+    let laneSrc = ''
+    try { laneSrc = readFileSync(resolve(ROOT, lane), 'utf8') } catch { continue }
+    if (!wrapperName || !new RegExp(`\\b${wrapperName}\\s*\\(`).test(laneSrc)) continue
+    live.push(lane)
+    // The delegation is the arrow/callback that contains the wrapper call. Everything between that
+    // callback's opening `{` and the call is preamble, and a preamble that decides anything is a tenth exit.
+    const cIdx = laneSrc.indexOf(`${wrapperName}(`)
+    const openIdx = laneSrc.lastIndexOf('=> {', cIdx)
+    const preamble = openIdx === -1 ? '' : laneSrc.slice(openIdx, cIdx)
+    if (/\breturn\b/.test(preamble) || /\bcatch\s*\(/.test(preamble)) {
+      findings.push(`(e) the delivery lane ${lane} decides something before calling \`${wrapperName}\` (a \`return\` or \`catch\` sits between its callback opening and the call). A lane must be a PURE DELEGATION — control flow there is an exit that bypasses the wrapper's finally, and legs (a)-(d) would not see it.`)
     }
-    if (/\breturn\b/.test(push) || /\btry\s*\{/.test(push) || /\bcatch\s*\(/.test(push)) {
-      findings.push(`(e) the push callback contains its own \`return\`/\`try\`/\`catch\`. It must be a PURE DELEGATION to \`${wrapperName ?? 'the wrapper'}\` — control flow here is an exit that bypasses the finally, and legs (a)-(d) inspect the wrapper and would not see it.`)
-    }
+  }
+  if (!live.length) {
+    findings.push(`(e) NO delivery lane calls \`${wrapperName ?? 'the wrapper'}\`. Looked in: ${LANES.join(', ')}. A wrapper nothing invokes is a topic nothing reads — the ★V2-CONSUMER-HAS-NO-TRIGGER-REGISTRATION shape, one layer up.`)
   }
 }
 

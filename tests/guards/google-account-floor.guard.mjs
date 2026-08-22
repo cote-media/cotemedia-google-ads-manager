@@ -30,7 +30,7 @@ const read = (rel) => {
 }
 
 const ADAPTER = 'src/lib/backfill/capture-adapters/google-ads.adapter.ts'
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 
 // ── (a) BEHAVIOURAL — THE ADAPTER MUST DECLARE NO PRE-KNOWN WALL ─────────────────────────────────────
 // Driven, not grepped: the adapter is CONSTRUCTED and its declared retention floor is read. A structural

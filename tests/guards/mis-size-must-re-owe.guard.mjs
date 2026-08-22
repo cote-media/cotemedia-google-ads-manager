@@ -34,7 +34,7 @@ import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
-const ROUTE = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const ROUTE = 'src/lib/backfill/universe-v2-worker.ts'
 const out = mkdtempSync(join(tmpdir(), 'loramer-missize-'))
 const findings = []
 const dayList = (from, to) => {

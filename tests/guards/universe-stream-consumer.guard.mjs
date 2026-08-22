@@ -36,7 +36,7 @@ const walk = (dir, out = []) => {
 // ⛔ THE ROUTE UNDER TEST IS A PARAMETER so leg (d) can be pointed at the DEPLOYED v1 consumer and seen to
 // fail there. A bound-check that has only ever been run against code written to satisfy it has not been shown
 // to detect anything.
-const ROUTE = process.env.LORAMER_V2_ROUTE || 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const ROUTE = process.env.LORAMER_V2_ROUTE || 'src/lib/backfill/universe-v2-worker.ts'
 const CAPTURE = 'src/lib/backfill/universe-stream-capture.ts'
 const COVERAGE = 'src/lib/backfill/universe-coverage.ts'
 const ATTEMPT = 'src/lib/backfill/universe-attempt-log.ts'
@@ -170,7 +170,13 @@ if (route) {
   // ⛔ WHAT THE SET STILL MEANS: no file may reach this topic WITHOUT being named here. The list is the
   // decision. A third publisher is a third decision, not an edit.
   const DRIVE = 'src/app/api/backfill/universe-drive/route.ts'
-  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE])
+  // ⛔ THE DELIVERY LANE IS NAMED HERE THE SAME WAY THE PUSH ROUTE USED TO BE — LORAMER_POLL_MODE_CUTOVER_V1.
+  // This is a SUBSTITUTION, not a loosening: the set has always held exactly one delivery lane, and the lane
+  // changed transport from push to cron-driven poll. A file that reaches this topic without being named here
+  // is still a finding, and adding a SECOND lane here would now be caught independently by
+  // `one-delivery-lane-per-topic.guard.mjs`, which refuses two live lanes on one topic.
+  const POLL_LANE = 'src/app/api/cron/universe-drain-poll/route.ts'
+  const ALLOWED = new Set([ROUTE, CONTRACT, RESUMER, DRIVE, POLL_LANE])
   // ⛔ QUOTATION IS NOT ASSERTION — banked THREE times now (canonical-client-identity, ga-dim, and here on
   // 2026-08-11). This leg matched the topic literal ANYWHERE in a file, so `capture-adapter.ts` became a
   // "candidate publisher" by NAMING the v2 route in a doc comment explaining why its own charge model exists.

@@ -24,7 +24,7 @@ import Module from 'node:module'
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const findings = []
 const ADAPTER = 'src/lib/backfill/capture-adapters/google-ads.adapter.ts'
-const CONSUMER = 'src/app/api/queues/google-ads-universe-v2/route.ts'
+const CONSUMER = 'src/lib/backfill/universe-v2-worker.ts'
 let droveNotWalls = 0, droveWalls = 0
 
 // ── (a) BEHAVIOURAL — DRIVE THE DISCRIMINATOR WITH BOTH POLES AND THE NEAR-MISSES ────────────────────
