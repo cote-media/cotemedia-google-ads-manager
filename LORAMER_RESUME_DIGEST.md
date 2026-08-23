@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-22T23:55:12.757Z
-- built_from HEAD: fdc23aeb0b7a7749c34bad1c164d50bca7f4338f  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-23T00:42:52.781Z
+- built_from HEAD: 10a64a2154c28db4493fd9b0d289b6572f971a38  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: d6e88cdd0c6cfa1e453e6cbdbd7e44b2ef876abd8f16f9060104a4c2351d9b48
     - LORAMER_DECISIONS.md: 13b9914aa4a671abc3c136f73f439ae342cd29d050cb4024a57099324501556d
-    - LORAMER_QUEUE_OF_RECORD.md: cb6dbe109c07d0fdbb131df9c78592f0a1332793689f1a4ed5c133af00c56ce1
+    - LORAMER_QUEUE_OF_RECORD.md: edf848bb3cd31ca195f000d256ed9c96cd97c68833862af40e7ead623e613794
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1581,6 +1581,8 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★CLAUDE-MD-GATES-ARE-59-PERCENT — ⚠ **NEW 2026-08-20. MEASURED, AND THE MEASUREMENT IS THE ARGUMENT: 104 of CLAUDE.md's 176 lines are BEHAVIOURAL GATES rather than codebase guidance — 59%.** The vendor's own guidance is that longer memory files reduce adherence, so those 104 lines are simultaneously the most important instructions in the repo and the reason the whole file is followed less well. ⛔ **THE FIX IS TO SHORTEN THEM, NOT TO RELOCATE THEM — THIS IS SETTLED AND IS NOT A FORMATTING PREFERENCE.** [[LORAMER_HOOKS_OVER_PROSE_V1]] carries the compaction ruling: on compaction the project-root `CLAUDE.md` and UNSCOPED `.claude/rules/*.md` are re-injected, while a `paths:`-scoped rule is LOST until a matching file is read again — so the obvious tidy-up (move the gates into path-scoped rules) would delete them from context at exactly the moment the executor is most likely to freelance. ⇒ **THE WORK: compress each gate to its assertion plus ONE line of why, move the evidence and the incident histories into the docs that own them (DECISIONS, HANDOFF lessons), and leave a pointer.** ⚠ **AND THE COMPRESSION IS NOT THE ENFORCEMENT** — a shorter gate is still prose in the ~70% band; the repeat offenders still need hooks. src: measured against CLAUDE.md, 2026-08-20. open [LC]
 - ★PROVISIONED-DISK-IS-A-HUMAN-STEP — ⛔ **NEW 2026-08-18. THE WALK'S DISK FLOOR IS MEASURED AGAINST A HAND-TYPED CONSTANT, AND THE NUMBER HAS NOW BEEN FETCHED BY A HUMAN TWICE.** `universe_disk_headroom()` returns `provisioned_bytes − pg_database_size()` where `provisioned_bytes` is passed in by `readHeadroom()` from `PROVISIONED_BYTES = 280 * 1024**3` (universe-window-log.ts:26). ⇒ **`freeBytes` IS A DERIVATION PRESENTED AS AN OBSERVATION**, and five call sites gate on it (v2:264 · v1:127,:233 · universe-start:159-165). DERIVED FROM RUSS'S 2026-08-18 DASHBOARD READ (47% · 127.6 GiB db · 1 GiB WAL · 172.6 MiB system): true provisioned **~274 GiB (271-277)** against a constant of **280** ⇒ overstated by ~6 GiB, plus ~1.2 GiB more because `pg_database_size` cannot see WAL or system. Corrected walkable headroom **~89 GiB, not 96.4**. ✅ **A MACHINE PATH EXISTS AND ALWAYS DID:** `GET /v1/projects/{ref}/config/disk` + `/config/disk/util` + `/config/disk/autoscale`, auth `Bearer $SUPABASE_ACCESS_TOKEN` (PAT) or OAuth `projects:read` / fine-grained `project_admin_read`. ⚠ **THE SUPABASE MCP DOES NOT EXPOSE IT** — this is an HTTP call needing a NEW read-scoped credential, and the sibling `POST /config/disk` MODIFIES the disk, so the token must be read-only or a reader becomes a resizer. ⇒ **THE SHAPE, NOT BUILT:** read provisioned from the API, store it with a DATE and a SOURCE, and add a guard that FAILS when the stamp is older than N days OR when observed usage contradicts it (e.g. `pg_database_size` exceeding the stamped provisioned figure). The fallback if the credential is refused is the SAME stamped-constant shape minus the API — a dated, sourced number with an expiry is strictly better than an undated one either way. src: disk-truth flight, 2026-08-18, measured + vendor docs. open [LC]
 - ★COMPUTE-TIER-BELOW-DATA-SIZE — ⛔ **NEW 2026-08-18, CORRECTED SAME DAY. THE DATABASE IS 2.55× WHAT THE CURRENT TIER RECOMMENDS.** ⚠ **THE CORRECTION IS THE HONEST PART: my first draft framed the XL→Small round trip as an unrecorded drop. IT WAS INTENTIONAL — raised for the partition migration 2026-08-03, reverted after — and Russ said so. The round trip is NOT a finding and the item does not stand on it. It stands on ONE thing: current tier against current data size.** MEASURED LIVE from `pg_settings`: shared_buffers **512 MB** · effective_cache_size **1.5 GB** · maintenance_work_mem **128 MB** · work_mem 5 MB · max_parallel_maintenance_workers 1 — byte-for-byte the SMALL baseline banked as LORAMER_COMPUTE_BASELINE_2026_08_02_V1, while LORAMER_PARTITION_METRICS_DAILY_V1 (2026-08-03) recorded XL (shared_buffers 4 GB, maintenance_work_mem 1 GB, parallel maintenance 2) for the partition migration. ⇒ the tier is Small TODAY, which is the only fact this item needs. Vendor's own table: *"Small | 2 GB | 2-core (shared) | 50 GB"* recommended max DB size (https://supabase.com/docs/guides/platform/compute-and-disk); we hold **127.63 GiB** at **70% CPU / 69% memory SUSTAINED 2026-08-11..18** (Russ's dashboard read). ⛔ **THIS SITS UNDER EVERY DEPTH-RUN ESTIMATE AND UNDER THE 8s PostgREST CEILING WORK** — `shared_buffers` 512 MB against a 128 GiB database is the same arithmetic that made LORAMER_PARTITION_METRICS_DAILY_DESIGN_V1 call cache pressure "more urgent than the disk line", and the partition win was sized against XL. ⚠ NO MEASURED CEILING EXISTS: the vendor says performance degrades past the recommendation and promises no cliff, so "it is fine today" is an observation, not a bound. NOT A FIX AND NOT A TIER CHANGE — Russ's call, and it is a billing decision as much as an engineering one. src: disk-truth flight, 2026-08-18, pg_settings + vendor docs. open [LC]
+- ★RECONNECT-HAS-NO-STATE-MACHINE — ⛔ **NEW 2026-08-22, CROSS-PLATFORM, ISSUE ROUND COMPLETE (two independent research legs collided + adversary round settled the ranking). THE FIX DESIGN (SHAPE ROUND) HAS NOT BEEN RUN — this entry is the issue picture only; the walk owns today and tomorrow.** SYMPTOM (Russ, on -next client-profile, Veterinary mastermind f5fbe7e5): pressed RECONNECT on a HEALTHY Meta connection → OAuth → picker → completed → picker came back, repeatedly. EVERY PASS ACTUALLY SUCCEEDED — meta_tokens updated 16:45:44Z, the picked row written 16:46:13Z (29s later, act_735865779578613), data flowing (57,958 rows/30d, newest 2026-08-21), the shared token debug_token-VALID — and the UI gave no way to know. **THE FOUR DEFECTS, RANKED AS THE ADVERSARY ROUND SETTLED THEM:**
+- ★LOCAL-META-APP-ID-STALE — ⚠ **NEW 2026-08-22, SMALL, LOCAL-ONLY.** `.env.local`'s META_APP_ID does not match the app that minted the live token (app-token debug_token → "Invalid application ID"; self-inspection names app 1002539785664144). Prod (Vercel env) is unaffected — capture and the callback run fine. Cost today: local app-token Graph calls fail confusingly. Fix: copy the prod value into .env.local on the Air (and check the iMac). src: 2026-08-22 Meta read. open [LC]
 - ★PROTOCOL-GATE-ENFORCER — ⛔ **NEW 2026-08-22, RUSS'S RULING, BUILD TONIGHT — the enforcement mechanism for [[LORAMER_ROUNDS_AT_DECISION_POINTS_V1]].** Claude Code REFUSES a paste whose protocol boxes are UNCHECKED or CHECKED-BUT-HOLLOW — research claimed with no URLs · an adversary round that never collided (no independent second position, no withheld findings) · a constant inherited without a derivation. The refusal reports to Russ IN ENGLISH (one block, what was missing, what would satisfy it). OVERRIDE = a precise phrase Russ types, LOGGED with exactly what was skipped. ⛔ **THE RATIONALE ON ITS FACE: Russ does not read code blocks, so enforcement cannot live in a header he must inspect — and it cannot live in my judgment, which is the component that fails** (prose is 0-for-6 on repeat offences; the RULE-HOME LAW says repeat-offence rules get an ENFORCER or nothing). Shape: the gate lives where the executor reads instructions (CLAUDE.md refusal clause) + a wrap-time checker where mechanically possible; the honest limit — hollow-box detection is partly judgment — is stated, which is why the override is logged rather than argued. src: Russ ruling 2026-08-22. open [LC] — TONIGHT
 - ★QUEUE-TAG-BLIND-TO-TREE — ⛔ **NEW 2026-08-22, THE GUARD HOLE THAT COST A FULL ROUND TODAY.** `queue-tag-matches-text.guard.mjs` compares an entry's TAG to the entry's own TEXT — so an entry stale against the TREE is invisible to it. Measured: ★COMPLETION-SIGNAL-TERMINAL-ROW read "NOT BUILT · open" for FOUR DAYS after `d35ba8b` shipped the build, every gate green over it, and the 2026-08-22 removal flight burned a full read-round proving built-ness the tag should have carried. FIX SHAPE (not built): for entries naming a commit/marker, a leg that greps the tree/git for the named marker and flags tag-vs-tree divergence; the honest limit — most entries name no verifiable artifact — is why this is a leg, not a rewrite. src: 2026-08-22 removal flight step 1. open [LC]
 - ★TOPIC-INDEX-DECISIONS-ZERO — ⚠ **NEW 2026-08-22. §L OF THE DIGEST UNDERCOUNTS DECISIONS: `LORAMER_COMPLETION_SIGNAL_DESIGN_V1 — OPEN · decisions 0` while `## LORAMER_COMPLETION_SIGNAL_DESIGN_V1` is a full DECISIONS heading (DECISIONS:394).** The §L generator's token→decisions counter misses at least this class (token-as-heading vs token-in-body?). Cost: the do-not-relitigate search returns "decisions 0" for a banked decision — the exact wrong answer the index exists to prevent. Diagnose the generator (`build-resume-digest.mjs`) before trusting §L counts of the form "decisions 0". src: 2026-08-22 removal flight step 1. open [LC]
@@ -2316,8 +2318,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 969 tokens indexed · 347 resolve to BOTH a decision and a queue item ·
-136 decision-only · 486 queue-only.
+TOTALS: 971 tokens indexed · 347 resolve to BOTH a decision and a queue item ·
+136 decision-only · 488 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 265 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2589,6 +2591,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★LIVE-VS-CAPTURED-DUAL-RENDER-HISTORY — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★LIVENESS-PREDICATE-TOO-COARSE — OPEN · decisions 0 · queue 1 · last 2026-08-21
 - ★LM-MARK-LIVE — OPEN · decisions 0 · queue 3 · last 2026-09-30
+- ★LOCAL-META-APP-ID-STALE — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★LORA-ANSWER-EXPORT — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - ★LORA-ANSWERED-TWICE — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★LORA-BACK-BUTTON-DEAD — OPEN · decisions 0 · queue 1 · last 2026-08-04
@@ -2669,7 +2672,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★PERMANENCE-CLAIM-BOUNDARY — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★PERSONALIZED-LORA — OPEN · decisions 0 · queue 2 · last 2026-09-30
 - ★PINNED-ELEMENTS-FIXED-ONE-AT-A-TIME — DONE · decisions 1 · queue 1 · last 2026-08-07
-- ★PIPELINE-RESILIENCE-LAYER — OPEN · decisions 0 · queue 3 · last 2026-09-30
+- ★PIPELINE-RESILIENCE-LAYER — OPEN · decisions 0 · queue 4 · last 2026-09-30
 - ★PLATFORM-SURFACE-AUDIT — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - ★PLATFORM-VERSION-MAINTENANCE-PRACTICE — OPEN · decisions 0 · queue 2 · last 2027-01-21
 - ★PMAX-ASSET-LABEL-CONTESTED — OPEN · decisions 1 · queue 2 · last 2026-08-13
@@ -2694,6 +2697,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★RANGELAP-CLAIM-DEFECT — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - ★RANGELAP-RATCHET-SWEEP — OPEN · decisions 0 · queue 4 · last 2026-07-29
 - ★READINESS-SIGNALS-RPC-TIMEOUT — OPEN · decisions 0 · queue 1 · last 2026-08-13
+- ★RECONNECT-HAS-NO-STATE-MACHINE — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★REJUDGE-SET-PARITY — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★REPORTING-WITH-LORA-OVERLAY — OPEN · decisions 0 · queue 1 · last 2026-08-15
 - ★RESTATEMENT-SWEEP-FLEET — OPEN · decisions 2 · queue 2 · last 2026-07-25
@@ -2914,7 +2918,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CONN_FAILURE_STREAK_V1 — OPEN · decisions 2 · queue 1 · last 2026-07-23
 - LORAMER_CONNECTION_HEALTH_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-23
 - LORAMER_CONNECTION_OUTCOME_LEDGER_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-02
-- LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — DONE · decisions 1 · queue 1 · last 2026-06-24
+- LORAMER_CONNECTION_PROBE_BEFORE_FLIP_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-22
 - LORAMER_CONNECTION_PROBE_WOO_V1 — DONE · decisions 0 · queue 1 · last 2026-06-24
 - LORAMER_CONSUMER_LIVENESS_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-17
 - LORAMER_CONV_NEWEST_WINDOW_V1 — OPEN · decisions 0 · queue 4 · last 2026-09-30
@@ -3207,7 +3211,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_RESUME_MUST_ADVANCE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-05
 - LORAMER_RESUME_PROTOCOL_REPAIR_V1 — DONE · decisions 0 · queue 1 · last 2026-07-03
 - LORAMER_RESUMER_SCAN_ROTATES_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
-- LORAMER_ROUNDS_AT_DECISION_POINTS_V1 — OPEN · decisions 1 · queue 1 · last 2026-08-22
+- LORAMER_ROUNDS_AT_DECISION_POINTS_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-22
 - LORAMER_SCOPED_DRILLDOWN_FALSE_ZERO_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-28
 - LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_SEAMS_PROOF_V1 — OPEN · decisions 3 · queue 1 · last 2026-08-17
