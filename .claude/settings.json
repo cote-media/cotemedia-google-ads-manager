@@ -1,0 +1,15 @@
+{
+  "$comment": "LORAMER_PROTOCOL_GATE_ENFORCER_V1 — PROJECT-SCOPED AND COMMITTED ON PURPOSE. This file is the only reason the gate fires on both machines: .claude/settings.local.json is gitignored and does not travel, so a hook configured there would silently protect one machine and not the other. UserPromptSubmit has NO matcher support (vendor: 'always fires on every occurrence'), so the gate cannot be scoped away. The command passes LORAMER_GATE_ROOT explicitly rather than trusting cwd, because Claude Code changes directory during a session and the enforcer must still find LORAMER_DECISIONS.md and the override log. Blocking shape is TOP-LEVEL {\"decision\":\"block\"} and the script never exits 2 — on this event exit 2 erases the prompt. tests/guards/protocol-gate.guard.mjs asserts this wiring, so deleting it fails the build.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LORAMER_GATE_ROOT=\"$CLAUDE_PROJECT_DIR\" node \"$CLAUDE_PROJECT_DIR/scripts/protocol-gate.mjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

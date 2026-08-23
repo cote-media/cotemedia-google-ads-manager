@@ -352,6 +352,7 @@ const GUARDS = [
   // through the SHARED walk (scripts/lib/queue-walk.mjs), so it grades against the same statusIsDone the
   // digest's §H/§L use. Also ratchets the untokened-item count (§L can only find what carries a token).
   'tests/guards/queue-tag-matches-text.guard.mjs',
+  'tests/guards/protocol-gate.guard.mjs', // LORAMER_PROTOCOL_GATE_ENFORCER_V1 — the paste-receipt gate's own failure must fail the BUILD, because Claude Code hooks fail OPEN
   // LORAMER_DB_ENUM_MIRRORS_TS_V1 — a TS union and the CHECK constraint behind it must not diverge. Red-first
   // against the 2026-08-17 incident shape: 'nongrain' in the union, absent from the constraint, every write
   // rejected 23514 while build + 124 guards + check:data all read green.

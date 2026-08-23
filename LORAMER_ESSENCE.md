@@ -559,6 +559,32 @@ If a change makes Lora more confident but not more provable, it is wrong.
   ways: the vendor probe's VERIFY found six unledgered ops no governor could see, and a push made before
   `check:data` had to be confessed rather than verified.
 - **Every Claude Code instruction carries a `ROUND:` header naming its step.**
+
+⛔ **THE HEADER IS NOW SEVEN FIELDS AND IT IS MACHINE-ENFORCED AT PASTE-RECEIPT (LORAMER_PROTOCOL_GATE_ENFORCER_V1, 2026-08-23).**
+`ROUND: · QUESTION: · BLAST: · INFLIGHT: · RESEARCH: · ADVERSARY: · CONSTANTS:` — one block at the top of the paste.
+`scripts/protocol-gate.mjs` runs as a `UserPromptSubmit` hook and REFUSES the paste in plain English when a box
+is missing or empty. It is the FIRST protocol rule in this repo that can stop an action rather than merely be
+present in a document; every other one (this section included) guards PLACEMENT and says so.
+
+⛔ **THE PROPORTIONALITY RULE — RUSS, 2026-08-23: ROUNDS ATTACH TO CONSEQUENCE, NOT TO QUESTION-SHAPE.**
+- **read-only / lookup → NO rounds required.** The gate demands neither RESEARCH nor ADVERSARY. A lookup that
+  writes nothing cannot cost anything, and taxing it is how a protocol becomes theatre and then gets ignored.
+- **backend-writer · -next-UI · live-path → BOTH ROUNDS REQUIRED, NO COMPRESSION, EVER.** There is no
+  DECLARED-COMPRESSED escape on a class that writes. RESEARCH may be `NONE-APPLICABLE:` only with a ≥10-word
+  reason and only when no external or vendor fact is load-bearing; every use is logged and counted.
+- ⛔ **MISLABELLING BLAST TO DODGE THE ROUNDS IS A LOGGED LIE, NOT A LOOPHOLE.** The declared radius travels
+  into the override log beside the paste's hash, so a paste that claimed read-only and then wrote is
+  reconstructable after the fact. The gate cannot detect the lie in the moment; the record makes it visible later.
+⛔ **THIS AMENDS [[LORAMER_ROUNDS_AT_DECISION_POINTS_V1]]'s "NO PROPORTIONALITY CARVE-OUT" CLAUSE**, which
+attached full rounds to every decision point regardless of blast radius. Russ's own ruling, recorded so the two
+are not read as contradicting each other: the earlier clause was aimed at flights that WRITE, and it stands
+there unchanged.
+⛔ **THE ENFORCER'S LIMIT, STATED WITH THE LAW RATHER THAN BURIED IN THE CODE: IT IS AN ARTIFACT CHECK, NOT A
+PROCESS PROOF.** It sees one string. It cannot know whether a round happened, whether the two positions were
+formed independently, whether a cited URL was read, or whether the QUESTION was the right one — and a paste
+with all seven boxes correctly filled around a bad flight PASSES. The 2026-08-22 flagship failure (a complete,
+genuine round aimed at the WRONG QUESTION) would pass this gate today. That is the ceiling of a deterministic
+reader of one string, not a defect awaiting a patch.
 WHY IT EARNED LAW STATUS THE DAY IT WAS NAMED: the discovered-floor arc ran the full ladder — research
 (retention docs), adversary (six attacks, two designs killed), test (guards red-first), run (6 probe ops
 under a declared cap), verify (the meter hole) — and every round changed the next one's content.
