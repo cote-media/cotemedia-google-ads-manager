@@ -1,0 +1,2102 @@
+<!doctype html>
+<html lang="en" data-src-sha="5b763555e465">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>LoraMer UI Punch List</title>
+<style>
+  :root{
+    --ground:#f7f8f9; --card:#ffffff; --ink:#0f172a; --muted:#64748b; --border:#e2e8f0;
+    --accent:#b45309; --accent-bg:#fdeccc; --crit:#b91c1c; --crit-bg:#fde2e1;
+    --exp:#475569; --exp-bg:#eef1f5; --done:#94a3b8;
+    --shadow:0 1px 2px rgba(15,23,42,.06),0 1px 3px rgba(15,23,42,.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#0b1120; --card:#131c2e; --ink:#e8edf5; --muted:#94a3b8; --border:#243149;
+      --accent:#f0a35e; --accent-bg:#3a2510; --crit:#f28b82; --crit-bg:#3d1a1a;
+      --exp:#a8b6c8; --exp-bg:#1c2740; --done:#5a6b83;
+      --shadow:0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0b1120; --card:#131c2e; --ink:#e8edf5; --muted:#94a3b8; --border:#243149;
+    --accent:#f0a35e; --accent-bg:#3a2510; --crit:#f28b82; --crit-bg:#3d1a1a;
+    --exp:#a8b6c8; --exp-bg:#1c2740; --done:#5a6b83;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,system-ui,sans-serif;
+    padding:0 0 env(safe-area-inset-bottom); overflow-x:hidden;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 12px 48px}
+  header.top{
+    position:sticky;top:0;z-index:10;background:var(--ground);
+    padding:14px 12px 10px;margin:0 -12px;border-bottom:1px solid var(--border);
+  }
+  h1{margin:0;font-size:19px;line-height:1.2;letter-spacing:-.01em;font-weight:650;text-wrap:balance}
+  .totals{margin-top:5px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .totals b{color:var(--ink);font-weight:600}
+  .prog{margin-top:8px;height:4px;border-radius:99px;background:var(--border);overflow:hidden}
+  .prog span{display:block;height:100%;width:0;background:var(--accent);transition:width .18s ease}
+  .progtext{margin-top:5px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  .note{margin:14px 0 0;padding:11px 13px;background:var(--card);border:1px solid var(--border);
+        border-radius:10px;font-size:13px;line-height:1.5;color:var(--muted)}
+  .note b{color:var(--ink)}
+
+  h2.sec{margin:22px 0 8px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:650}
+
+  .danger{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--crit);
+          border-radius:10px;padding:4px 12px 8px;box-shadow:var(--shadow)}
+  .danger .items{margin:0}
+
+  .cat{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;
+       box-shadow:var(--shadow);overflow:hidden}
+  .cathead{
+    display:grid;grid-template-columns:16px 1fr auto;grid-template-areas:"chev name count" ". split split" ". lbl lbl";
+    gap:2px 8px;width:100%;padding:13px 13px;background:none;border:0;color:inherit;text-align:left;
+    font:inherit;font-size:16px;cursor:pointer;
+  }
+  .cathead:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .chev{grid-area:chev;align-self:center;width:0;height:0;border-left:6px solid currentColor;
+        border-top:5px solid transparent;border-bottom:5px solid transparent;color:var(--muted);
+        transition:transform .16s ease}
+  .cathead[aria-expanded="true"] .chev{transform:rotate(90deg)}
+  .catname{grid-area:name;font-weight:600;letter-spacing:-.01em;line-height:1.25}
+  .count{grid-area:count;align-self:center;font-size:13px;font-weight:650;color:var(--accent);
+         background:var(--accent-bg);padding:2px 8px;border-radius:99px;font-variant-numeric:tabular-nums}
+  .split{grid-area:split;display:block;height:3px;border-radius:99px;background:var(--exp-bg);overflow:hidden;margin-top:6px}
+  .splitc{display:block;height:100%;background:var(--crit)}
+  .splitlabel{grid-area:lbl;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:3px}
+
+  .blurb{margin:0 13px 4px;font-size:13px;color:var(--muted);line-height:1.45}
+  .items{list-style:none;margin:0;padding:0}
+  .item{display:grid;grid-template-columns:26px 1fr;gap:10px;padding:11px 13px;border-top:1px solid var(--border)}
+  .danger .item:first-child{border-top:0}
+  .tick{
+    appearance:none;-webkit-appearance:none;margin:2px 0 0;width:22px;height:22px;flex:0 0 22px;
+    border:1.5px solid var(--muted);border-radius:6px;background:var(--card);cursor:pointer;position:relative;
+  }
+  .tick:checked{background:var(--accent);border-color:var(--accent)}
+  .tick:checked::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;
+    border:solid var(--card);border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .tick:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .body{display:flex;flex-direction:column;gap:5px;min-width:0;cursor:pointer}
+  .desc{font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+  .why{font-size:13px;line-height:1.45;color:var(--crit)}
+  .tick:checked + .body .desc,.tick:checked + .body .why{color:var(--done);text-decoration:line-through}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+  .pill{font-size:11px;font-weight:650;letter-spacing:.02em;padding:2px 7px;border-radius:99px;white-space:nowrap}
+  .pill.c{color:var(--crit);background:var(--crit-bg)}
+  .pill.e{color:var(--exp);background:var(--exp-bg)}
+  .pill.u{color:var(--accent);background:var(--accent-bg)}
+  .surface{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+  .prov{font:12px/1.4 ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;color:var(--muted);overflow-wrap:anywhere}
+  code{font:12.5px/1.3 ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;background:var(--exp-bg);
+       padding:1px 4px;border-radius:4px}
+
+  .tools{display:flex;gap:8px;margin:14px 0 0}
+  .tools button{flex:1;font:inherit;font-size:16px;padding:11px 8px;border-radius:9px;border:1px solid var(--border);
+    background:var(--card);color:var(--ink);cursor:pointer}
+  .tools button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  footer{margin-top:26px;font:12px/1.6 ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;color:var(--muted);
+    border-top:1px solid var(--border);padding-top:12px;overflow-wrap:anywhere}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>LoraMer UI punch list</h1>
+    <div class="totals"><b>129</b> items · <b>22</b> show something untrue · <b>107</b> experience · <b>13</b> categories</div>
+    <div class="prog"><span id="bar"></span></div>
+    <div class="progtext" id="ptext">0 ticked</div>
+  </header>
+
+  <p class="note"><b>Rank the categories, not the items.</b> Everything is collapsed. Tap a category to open it.
+  Ticking is yours alone — it is stored on this device only and survives a reload; it changes nothing in the repo.</p>
+
+  <h2 class="sec">Dangerous — a customer acts and is wrong, with no signal</h2>
+  <div class="danger"><ul class="items">
+      <li class="item pinned">
+        <input type="checkbox" id="pib0b7ff1e9e5db85f" class="tick" data-key="ib0b7ff1e9e5db85f" />
+        <label for="pib0b7ff1e9e5db85f" class="body">
+          <span class="desc">Lora reports missing data as ZERO and partial coverage as COMPLETE on grain-absence questions</span>
+          <span class="why">She does not invent numbers — she reports absence as $0, with full confidence. 13 eval failures: 8 false-zero, 5 fabricated.</span>
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">all Lora surfaces</span>
+          </span>
+          <span class="prov">QUEUE:431 ★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE</span>
+        </label>
+      </li>
+      <li class="item pinned">
+        <input type="checkbox" id="pic80ed761d9ae2478" class="tick" data-key="ic80ed761d9ae2478" />
+        <label for="pic80ed761d9ae2478" class="body">
+          <span class="desc">Team page shows one client in the header while the URL says another, and Ask-Lora then answers about the WRONG client</span>
+          <span class="why">Proven in production: a spend row for one client while the URL said another. Nothing on screen says which client the answer is about.</span>
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next team</span>
+          </span>
+          <span class="prov">QUEUE:923 #2 TEAM WRONG-CLIENT — PROVEN IN PROD</span>
+        </label>
+      </li>
+      <li class="item pinned">
+        <input type="checkbox" id="pif9d0b83e282ea5cb" class="tick" data-key="if9d0b83e282ea5cb" />
+        <label for="pif9d0b83e282ea5cb" class="body">
+          <span class="desc">⛔ The completeness meter shows CONNECTED platforms as NOT_CONNECTED when the readiness RPC times out — on the surface built to prove capture honesty</span>
+          <span class="why">The one screen built to prove capture is real is the screen that lies when the query behind it times out.</span>
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:565 + QUEUE:1145 (same root cause, two entries)</span>
+        </label>
+      </li>
+      <li class="item pinned">
+        <input type="checkbox" id="pi6daf360eeca47681" class="tick" data-key="i6daf360eeca47681" />
+        <label for="pi6daf360eeca47681" class="body">
+          <span class="desc">⛔ The legacy dashboard's Shopify chart counts cancelled orders while Lora and metrics_daily exclude them — the same client reads two different revenues</span>
+          <span class="why">The same client has two revenues on two surfaces, and nothing indicates which one is right.</span>
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">AUDIT_FINDINGS:47 #6b</span>
+        </label>
+      </li>
+      <li class="item pinned">
+        <input type="checkbox" id="pi8628833f6042d7f1" class="tick" data-key="i8628833f6042d7f1" />
+        <label for="pi8628833f6042d7f1" class="body">
+          <span class="desc">Stale intelligence cache can serve an EMPTY Meta payload</span>
+          <span class="why">It reads as &quot;no spend&quot;, not as &quot;no data&quot; — a confident answer over a window we did not have.</span>
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:362</span>
+        </label>
+      </li></ul></div>
+
+  <h2 class="sec">All 129 items by category</h2>
+  
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat0">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">LAYOUT &amp; OVERFLOW</span>
+        <span class="count">16</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 16 experience</span>
+      </button>
+      <div class="catbody" id="cat0" hidden>
+        <p class="blurb">content that runs off the screen or clips</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i57164387b8288ccf" class="tick" data-key="i57164387b8288ccf" />
+        <label for="i57164387b8288ccf" class="body">
+          <span class="desc">Ask-Lora sheet pans sideways on a wide table; the send arrow leaves the screen and the dashboard shows through around the sheet</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat, iPhone Chrome+Safari</span>
+          </span>
+          <span class="prov">QUEUE:976 ★UI-OVERFLOW — ⛔ four theories wrong, two prod fixes did not resolve it</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i9302793627be0525" class="tick" data-key="i9302793627be0525" />
+        <label for="i9302793627be0525" class="body">
+          <span class="desc">Same wide-table/code-block overflow exists on the LEGACY chat, which is where the Shopify reviewer is pinned</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">QUEUE:986 ★LEGACY-CHAT-OVERFLOW</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i386ae697165a552c" class="tick" data-key="i386ae697165a552c" />
+        <label for="i386ae697165a552c" class="body">
+          <span class="desc">A fenced code block does not wrap on a phone, so tables lose columns off the right edge and prose is cut mid-sentence</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:117 ★FENCED-BLOCK-OVERFLOWS-ON-MOBILE</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i7899e897299875e2" class="tick" data-key="i7899e897299875e2" />
+        <label for="i7899e897299875e2" class="body">
+          <span class="desc">Lora's tables bleed out of their container on mobile AND desktop across every Lora surface</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">all Lora surfaces</span>
+          </span>
+          <span class="prov">QUEUE:720 #2</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i7be7a3dffd9d65ec" class="tick" data-key="i7be7a3dffd9d65ec" />
+        <label for="i7be7a3dffd9d65ec" class="body">
+          <span class="desc">Connection rows do not wrap at ~390px: the platform name breaks mid-word, badges overrun labels, the last button clips at the screen edge</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:78 ★RECONNECT-HAS-NO-STATE-MACHINE (iii) — PRE-EXISTING; <code>redesign.module.css:350</code> has no flex-wrap and every control is flex-shrink:0</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i60737d1047843b33" class="tick" data-key="i60737d1047843b33" />
+        <label for="i60737d1047843b33" class="body">
+          <span class="desc">Store breakdown card Y-axis labels truncate (&quot;FoamOh Original Pl&quot;)</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next store</span>
+          </span>
+          <span class="prov">QUEUE:681 STANDING UX BAR (1)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iae368694e50f2af9" class="tick" data-key="iae368694e50f2af9" />
+        <label for="iae368694e50f2af9" class="body">
+          <span class="desc">The value-model gate renders ON TOP of the open chat on any client with no value model set</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:987 ★CHAT-GATE-ZINDEX</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i250467534a997123" class="tick" data-key="i250467534a997123" />
+        <label for="i250467534a997123" class="body">
+          <span class="desc">Chat composer: content appears below the composer and a dead white gap opens during scroll</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat, Chrome iOS</span>
+          </span>
+          <span class="prov">QUEUE:1070 ★CHROME-IOS-COMPOSER (1)(2) — ACCEPTED as motion transients</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iedcfdded32c36f47" class="tick" data-key="iedcfdded32c36f47" />
+        <label for="iedcfdded32c36f47" class="body">
+          <span class="desc">The caret escapes the input while typing</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat, Chrome iOS</span>
+          </span>
+          <span class="prov">QUEUE:1070 ★CHROME-IOS-COMPOSER (3) — the one symptom still open</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ibd9091feabcc7562" class="tick" data-key="ibd9091feabcc7562" />
+        <label for="ibd9091feabcc7562" class="body">
+          <span class="desc">The chat lands scrolled to the bottom of an EMPTY thread, and the messages then load underneath it</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next Lora page</span>
+          </span>
+          <span class="prov">QUEUE:1177 ★CHAT-LANDING-FIRES-BEFORE-HYDRATION</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i9d5c888aceb56941" class="tick" data-key="i9d5c888aceb56941" />
+        <label for="i9d5c888aceb56941" class="body">
+          <span class="desc">Scrollbar thumb and the content being dragged belong to different elements</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1062 CHAT-UI DAY (b)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iffd319f7e0393ee3" class="tick" data-key="iffd319f7e0393ee3" />
+        <label for="iffd319f7e0393ee3" class="body">
+          <span class="desc"><code>layout.tsx</code> hard-codes <code>fontFamily: Georgia</code> inline on <code>&lt;body&gt;</code>, overriding globals.css — the root cause of every font fight</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:365</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i45e219a217783cc7" class="tick" data-key="i45e219a217783cc7" />
+        <label for="i45e219a217783cc7" class="body">
+          <span class="desc">Column picker menu escapes its clipping container — FIX BUILT, on-device Gate-B never run</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next platform page</span>
+          </span>
+          <span class="prov">QUEUE:671 P-PL#2</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i1dcdb7ac6ea824b4" class="tick" data-key="i1dcdb7ac6ea824b4" />
+        <label for="i1dcdb7ac6ea824b4" class="body">
+          <span class="desc">Chat as a sibling panel that SHRINKS the dashboard rather than covering it; panel width becomes a real breakpoint</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next desktop</span>
+          </span>
+          <span class="prov">QUEUE:1081 ★CHAT-DESKTOP-SIDE-PANEL</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i394f44e3c044b05d" class="tick" data-key="i394f44e3c044b05d" />
+        <label for="i394f44e3c044b05d" class="body">
+          <span class="desc">Landing-scroll probe compares two different origins (<code>scrollHeight</code> vs <code>innerHeight</code>) so its overflow readout cannot be trusted</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">instrumentation</span>
+          </span>
+          <span class="prov">QUEUE:1178 ★LANDING-PROBE-SPEC-IS-WRONG</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ie3258ca6987492e8" class="tick" data-key="ie3258ca6987492e8" />
+        <label for="ie3258ca6987492e8" class="body">
+          <span class="desc">Probe <code>y</code> flipped 0→763 while <code>sH</code> read 763 in the same tick — internally inconsistent, deliberately unexplained</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">instrumentation</span>
+          </span>
+          <span class="prov">QUEUE:1179 ★LANDING-PROBE-Y-FLIP-UNEXPLAINED</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat1">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">CHAT SURFACE</span>
+        <span class="count">17</span>
+        <span class="split"><span class="splitc" style="width:24%"></span></span>
+        <span class="splitlabel">4 untrue · 13 experience</span>
+      </button>
+      <div class="catbody" id="cat1" hidden>
+        <p class="blurb">the Ask-Lora experience itself</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="ibedb27092cd23ab6" class="tick" data-key="ibedb27092cd23ab6" />
+        <label for="ibedb27092cd23ab6" class="body">
+          <span class="desc">A 59-second answer shows a dead spinner instead of arriving progressively; the browser gives up on an answer that exists</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:989 ★CHAT-STREAMING + QUEUE:1061 5b</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i1d145f173273bf24" class="tick" data-key="i1d145f173273bf24" />
+        <label for="i1d145f173273bf24" class="body">
+          <span class="desc">No stop button; no status indicator; no working-state mark — all three are downstream of streaming</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1061 (★CHAT-STOP-BUTTON · ★CHAT-STATUS-INDICATOR · ★LM-MARK-LIVE)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3f08cf2757235f2f" class="tick" data-key="i3f08cf2757235f2f" />
+        <label for="i3f08cf2757235f2f" class="body">
+          <span class="desc">The whole answer re-parses on every streamed delta — the jank source</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1062 CHAT-UI DAY (a)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i9e73657f2d66814f" class="tick" data-key="i9e73657f2d66814f" />
+        <label for="i9e73657f2d66814f" class="body">
+          <span class="desc">Device shows &quot;Working…&quot; after the stream reported it was streaming — status frames never reach the render</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1087 ★CHAT-SURFACE-UNIFICATION-PLAN flight 3</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="if030fedcbe85724d" class="tick" data-key="if030fedcbe85724d" />
+        <label for="if030fedcbe85724d" class="body">
+          <span class="desc">Composer does not auto-grow with content; send can appear stuck</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1087 flight 2</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i704a4db3bcca2a6f" class="tick" data-key="i704a4db3bcca2a6f" />
+        <label for="i704a4db3bcca2a6f" class="body">
+          <span class="desc">The Ask-Lora input box is far too small on mobile; no auto-scroll to bottom, no full-height sheet</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat, mobile</span>
+          </span>
+          <span class="prov">QUEUE:673 P-PL#3</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="if5336094bcc4911b" class="tick" data-key="if5336094bcc4911b" />
+        <label for="if5336094bcc4911b" class="body">
+          <span class="desc">A copy button on code blocks exists; an EXPAND control does not</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:118 ★CHAT-BLOCK-EXPAND-CONTROL</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i0b1879c93f96d502" class="tick" data-key="i0b1879c93f96d502" />
+        <label for="i0b1879c93f96d502" class="body">
+          <span class="desc">No &quot;+&quot; affordance to attach a doc or screenshot from inside chat</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1078 ★CHAT-UPLOAD-IN-COMPOSER (V1 = docs only)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id7bdaf7fc8e0c81f" class="tick" data-key="id7bdaf7fc8e0c81f" />
+        <label for="id7bdaf7fc8e0c81f" class="body">
+          <span class="desc">No way to export an answer (PDF / Markdown / email)</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:793 N5.1 + ROADMAP:105-107</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i09e3b8d53377500d" class="tick" data-key="i09e3b8d53377500d" />
+        <label for="i09e3b8d53377500d" class="body">
+          <span class="desc">An answer written 10s after the mount read is never picked up — no refresh trigger fires</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1168 ★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="if6325237e016397e" class="tick" data-key="if6325237e016397e" />
+        <label for="if6325237e016397e" class="body">
+          <span class="desc">A user cancelling a turn can kill the close path that persists the answer and logs spend</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1102 ★VERCEL-CANCELLATION-KILLS-THE-CLOSE-PATH</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i4291b635cb410ef7" class="tick" data-key="i4291b635cb410ef7" />
+        <label for="i4291b635cb410ef7" class="body">
+          <span class="desc">The chat extraction and its follow-up were REVERTED the night they shipped; the unification is unstarted</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1158 ★CHAT-SURFACE-REVERTED-2026-08-05</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i84df3723f983546e" class="tick" data-key="i84df3723f983546e" />
+        <label for="i84df3723f983546e" class="body">
+          <span class="desc">The whole ChatLauncher scroll/layout/state surface needs ONE workstream, not one-off patches</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:459 ★CHAT-UI-DEDICATED-DAY</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i1b1376eac9290269" class="tick" data-key="i1b1376eac9290269" />
+        <label for="i1b1376eac9290269" class="body">
+          <span class="desc">No saved-chats browser</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~707 (CONTINUE_HERE QUEUED)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ida746b6ff251bee9" class="tick" data-key="ida746b6ff251bee9" />
+        <label for="ida746b6ff251bee9" class="body">
+          <span class="desc">Chat thread identity across surfaces is unsettled</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:1081 (★CHAT-THREAD-IDENTITY, points at the side-panel entry)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ie2bd00b088e9ce78" class="tick" data-key="ie2bd00b088e9ce78" />
+        <label for="ie2bd00b088e9ce78" class="body">
+          <span class="desc">At $0 Anthropic balance Lora does not degrade — she BLANKS, with no cap and no message anywhere in the product</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">all Lora surfaces</span>
+          </span>
+          <span class="prov">QUEUE:255 ★USAGE-CAP-ABSENT</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id52e3ddb1b2e282c" class="tick" data-key="id52e3ddb1b2e282c" />
+        <label for="id52e3ddb1b2e282c" class="body">
+          <span class="desc">Lora answered the same question twice in one turn</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:116 ★LORA-ANSWERED-TWICE</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat2">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">MOBILE &amp; VIEWPORT</span>
+        <span class="count">6</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 6 experience</span>
+      </button>
+      <div class="catbody" id="cat2" hidden>
+        <p class="blurb">iOS keyboard and visual-viewport behaviour</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i770a64f4384c9a5a" class="tick" data-key="i770a64f4384c9a5a" />
+        <label for="i770a64f4384c9a5a" class="body">
+          <span class="desc"><code>interactive-widget=resizes-content</code> would close this entire class outright; WebKit has not implemented it</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next, iOS</span>
+          </span>
+          <span class="prov">QUEUE:1147 ★IOS-NO-STANDARDS-FIX</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i421f52155a509ad9" class="tick" data-key="i421f52155a509ad9" />
+        <label for="i421f52155a509ad9" class="body">
+          <span class="desc"><code>visualViewport.offsetTop</code> never resets after the iOS keyboard dismisses; the Lora header stays displaced</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat, iOS</span>
+          </span>
+          <span class="prov">QUEUE:1148 ★IOS-VISUAL-VIEWPORT-OFFSETTOP-NEVER-RESETS</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i69ed4cb3b6694132" class="tick" data-key="i69ed4cb3b6694132" />
+        <label for="i69ed4cb3b6694132" class="body">
+          <span class="desc">The keyboard-inset detector computes structurally zero on Chrome iOS and cannot fire</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:1106 ★KB-INSET-DETECTOR-STRUCTURALLY-ZERO</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i493e94305a83f919" class="tick" data-key="i493e94305a83f919" />
+        <label for="i493e94305a83f919" class="body">
+          <span class="desc">The chat probe display live-updates forever because its freeze latch never engages</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">instrumentation</span>
+          </span>
+          <span class="prov">QUEUE:1071 ★CHAT-PROBE-DISPLAY-CANNOT-SHOW-DISMISSAL</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i29d89cf28b50ee3c" class="tick" data-key="i29d89cf28b50ee3c" />
+        <label for="i29d89cf28b50ee3c" class="body">
+          <span class="desc">No path from mobile to the all-clients card grid — the dropdown has no &quot;all clients&quot;</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next mobile nav</span>
+          </span>
+          <span class="prov">QUEUE:721 #3</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i0e7bf911ebbf460f" class="tick" data-key="i0e7bf911ebbf460f" />
+        <label for="i0e7bf911ebbf460f" class="body">
+          <span class="desc">Mobile can no longer author card arrangement; <code>view.layoutSm</code> is empty on all 17 stored rows</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next CardEngine</span>
+          </span>
+          <span class="prov">DECISIONS LORAMER_NEXT_MOBILE_LAYOUT_V1 status 2026-08-16</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat3">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">NAVIGATION &amp; ROUTING</span>
+        <span class="count">9</span>
+        <span class="split"><span class="splitc" style="width:11%"></span></span>
+        <span class="splitlabel">1 untrue · 8 experience</span>
+      </button>
+      <div class="catbody" id="cat3" hidden>
+        <p class="blurb">where a click lands</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="ic80ed761d9ae2478" class="tick" data-key="ic80ed761d9ae2478" />
+        <label for="ic80ed761d9ae2478" class="body">
+          <span class="desc">Team page shows one client in the header while the URL says another, and Ask-Lora then answers about the WRONG client</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next team</span>
+          </span>
+          <span class="prov">QUEUE:923 #2 TEAM WRONG-CLIENT — PROVEN IN PROD</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i05427aae8402ba08" class="tick" data-key="i05427aae8402ba08" />
+        <label for="i05427aae8402ba08" class="body">
+          <span class="desc">Team sits in the client-scoped rail but is an ORG-level surface; it belongs in the account menu</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next rail</span>
+          </span>
+          <span class="prov">QUEUE:924 #3</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ie83870c306ddf36b" class="tick" data-key="ie83870c306ddf36b" />
+        <label for="ie83870c306ddf36b" class="body">
+          <span class="desc">The per-platform drill pages do not exist as routes at all</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard-next/{google-ads,meta-ads,shopify,analytics}</span>
+          </span>
+          <span class="prov">QUEUE:663</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i9d18fbff3ff65cc4" class="tick" data-key="i9d18fbff3ff65cc4" />
+        <label for="i9d18fbff3ff65cc4" class="body">
+          <span class="desc"><code>/dashboard-next/clients</code> silently ignores <code>?clientId=</code> — the only -next page taking no props</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:1161 ★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i0aad453cedac340c" class="tick" data-key="i0aad453cedac340c" />
+        <label for="i0aad453cedac340c" class="body">
+          <span class="desc">The Lora back chevron's fallback lands on ALL CLIENTS rather than the client you came from</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next Lora page</span>
+          </span>
+          <span class="prov">QUEUE:1160 ★LORA-BACK-FALLBACK-TARGETS-ALL-CLIENTS</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i830fece3f46f2b63" class="tick" data-key="i830fece3f46f2b63" />
+        <label for="i830fece3f46f2b63" class="body">
+          <span class="desc">Switching clients keeps the previous scroll position instead of landing at the top</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next, all pages</span>
+          </span>
+          <span class="prov">QUEUE:936 SCROLL-TO-TOP ON CLIENT SWITCH</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i44118e1c8f677763" class="tick" data-key="i44118e1c8f677763" />
+        <label for="i44118e1c8f677763" class="body">
+          <span class="desc">Single-ad-platform clients are missing their platform tab in the dashboard rail</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">QUEUE:743 #11 + AUDIT_FINDINGS:64</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3690c4b44484dee4" class="tick" data-key="i3690c4b44484dee4" />
+        <label for="i3690c4b44484dee4" class="body">
+          <span class="desc">A carried-valid tab renders empty on an ad→ad platform switch</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">QUEUE:861 activePlatform sibling-axis</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id6970198ea921043" class="tick" data-key="id6970198ea921043" />
+        <label for="id6970198ea921043" class="body">
+          <span class="desc">The founder cannot reach <code>/dashboard-next/*</code> with his own working email — not in the allowlist</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:342 ★FOUNDER-EMAILS-NOT-ALLOWLISTED</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat4">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">DATA-DISPLAY CORRECTNESS</span>
+        <span class="count">12</span>
+        <span class="split"><span class="splitc" style="width:100%"></span></span>
+        <span class="splitlabel">12 untrue · 0 experience</span>
+      </button>
+      <div class="catbody" id="cat4" hidden>
+        <p class="blurb">the surface shows something untrue</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i66cbd4dd8060a740" class="tick" data-key="i66cbd4dd8060a740" />
+        <label for="i66cbd4dd8060a740" class="body">
+          <span class="desc">⛔ The Age (Meta) card renders an ERROR STRING as its body, where the data belongs</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next Overview, The Escential Group, seen in prod</span>
+          </span>
+          <span class="prov">QUEUE:1172 ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="if9d0b83e282ea5cb" class="tick" data-key="if9d0b83e282ea5cb" />
+        <label for="if9d0b83e282ea5cb" class="body">
+          <span class="desc">⛔ The completeness meter shows CONNECTED platforms as NOT_CONNECTED when the readiness RPC times out — on the surface built to prove capture honesty</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:565 + QUEUE:1145 (same root cause, two entries)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="icb2f9ae6e1d0fda6" class="tick" data-key="icb2f9ae6e1d0fda6" />
+        <label for="icb2f9ae6e1d0fda6" class="body">
+          <span class="desc">⛔ The readiness checklist stays empty and the % stays stuck at 61% while the fields say &quot;Saved&quot; — the checklist reads a different source than the field writes</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:925 #4</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i6daf360eeca47681" class="tick" data-key="i6daf360eeca47681" />
+        <label for="i6daf360eeca47681" class="body">
+          <span class="desc">⛔ The legacy dashboard's Shopify chart counts cancelled orders while Lora and metrics_daily exclude them — the same client reads two different revenues</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">AUDIT_FINDINGS:47 #6b</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ifd8af03bfebd5c87" class="tick" data-key="ifd8af03bfebd5c87" />
+        <label for="ifd8af03bfebd5c87" class="body">
+          <span class="desc">&quot;Meta is still importing history — no action needed&quot; may be false for BASE data</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~926 #5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia3037807b2614062" class="tick" data-key="ia3037807b2614062" />
+        <label for="ia3037807b2614062" class="body">
+          <span class="desc"><code>campaign.advertising_channel_type</code> renders as a raw enum NUMBER in front of a user</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">dashboard</span>
+          </span>
+          <span class="prov">QUEUE:231 ★CHANNEL-TYPE-ENUM-UNMAPPED</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i2a977da2095d985a" class="tick" data-key="i2a977da2095d985a" />
+        <label for="i2a977da2095d985a" class="body">
+          <span class="desc">Store compare legend labels BOTH windows with the same date range</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next store</span>
+          </span>
+          <span class="prov">QUEUE:~679 S-PL#5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia5c10c1b13393e1b" class="tick" data-key="ia5c10c1b13393e1b" />
+        <label for="ia5c10c1b13393e1b" class="body">
+          <span class="desc">Woo captured-READ display still caps products at top-10</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">QUEUE:~656</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i54915d4aa810db68" class="tick" data-key="i54915d4aa810db68" />
+        <label for="i54915d4aa810db68" class="body">
+          <span class="desc">Geo card params (geoGrain/geoScope) are not forwarded, so the card cannot ask for the grain it displays</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~955 ★G2.8</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ib0b7ff1e9e5db85f" class="tick" data-key="ib0b7ff1e9e5db85f" />
+        <label for="ib0b7ff1e9e5db85f" class="body">
+          <span class="desc">Lora reports missing data as ZERO and partial coverage as COMPLETE on grain-absence questions</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">all Lora surfaces</span>
+          </span>
+          <span class="prov">QUEUE:431 ★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i8628833f6042d7f1" class="tick" data-key="i8628833f6042d7f1" />
+        <label for="i8628833f6042d7f1" class="body">
+          <span class="desc">Stale intelligence cache can serve an EMPTY Meta payload</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:362</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ifbb55a3a831aa938" class="tick" data-key="ifbb55a3a831aa938" />
+        <label for="ifbb55a3a831aa938" class="body">
+          <span class="desc">Meta spend&gt;0 filter silently hides ad-set structure</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:364</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat5">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">LOADING / EMPTY / ERROR STATES</span>
+        <span class="count">9</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 9 experience</span>
+      </button>
+      <div class="catbody" id="cat5" hidden>
+        
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="iab55c793fafefa09" class="tick" data-key="iab55c793fafefa09" />
+        <label for="iab55c793fafefa09" class="body">
+          <span class="desc">Overview at Last 90 days shows &quot;Couldn't load data — the request failed&quot;; the same client/range loads fine on Analytics</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">AUDIT_FINDINGS:128</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i71d55f12da68abcd" class="tick" data-key="i71d55f12da68abcd" />
+        <label for="i71d55f12da68abcd" class="body">
+          <span class="desc">&quot;Loading...&quot; text instead of skeletons anywhere content is pending</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:255 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i9c8f544fdce7767e" class="tick" data-key="i9c8f544fdce7767e" />
+        <label for="i9c8f544fdce7767e" class="body">
+          <span class="desc">Empty states are thin and give no guidance about what to do next</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:260 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3aa87d78c12ca383" class="tick" data-key="i3aa87d78c12ca383" />
+        <label for="i3aa87d78c12ca383" class="body">
+          <span class="desc">No error boundaries with friendly messages — a client-side exception is a white screen</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">QUEUE:784 P8</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i20eec66cc31b30c9" class="tick" data-key="i20eec66cc31b30c9" />
+        <label for="i20eec66cc31b30c9" class="body">
+          <span class="desc">Portfolio-insights card on the all-clients page is a neutral PLACEHOLDER until the proactive engine lands</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            <span class="pill u">unbanked</span>
+            <span class="surface">-next clients</span>
+          </span>
+          <span class="prov"><b>UNBANKED</b> · MultiClientOverview.tsx:182</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ica9720826fcc5406" class="tick" data-key="ica9720826fcc5406" />
+        <label for="ica9720826fcc5406" class="body">
+          <span class="desc">Each client card shows a neutral status placeholder — no working / needs-attention signal</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            <span class="pill u">unbanked</span>
+            <span class="surface">-next clients</span>
+          </span>
+          <span class="prov"><b>UNBANKED</b> · MultiClientOverview.tsx:347</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i2a7f46be5aa1621f" class="tick" data-key="i2a7f46be5aa1621f" />
+        <label for="i2a7f46be5aa1621f" class="body">
+          <span class="desc">Backfill has no progress meter and needs a manual Resume</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next + /clients</span>
+          </span>
+          <span class="prov">QUEUE:~719 #1/#6</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ie5e3e3acd739caf5" class="tick" data-key="ie5e3e3acd739caf5" />
+        <label for="ie5e3e3acd739caf5" class="body">
+          <span class="desc">Onboarding has no post-connect nudge layer</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~708</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i40d1a7a4ed8ad437" class="tick" data-key="i40d1a7a4ed8ad437" />
+        <label for="i40d1a7a4ed8ad437" class="body">
+          <span class="desc">Encrypted-PDF rejection copy is harsh</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/api/knowledge surface</span>
+          </span>
+          <span class="prov">QUEUE:~711</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat6">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">FORMS &amp; INPUTS</span>
+        <span class="count">8</span>
+        <span class="split"><span class="splitc" style="width:13%"></span></span>
+        <span class="splitlabel">1 untrue · 7 experience</span>
+      </button>
+      <div class="catbody" id="cat6" hidden>
+        
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="ifddb8e72b85cb5d0" class="tick" data-key="ifddb8e72b85cb5d0" />
+        <label for="ifddb8e72b85cb5d0" class="body">
+          <span class="desc">The Meta ad-account picker renders all 199 accounts in one scrolling modal with no search or filter</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:522 ★META-PICKER-SCALE + ROADMAP:245 + QUEUE:779 P5 (three entries, one defect)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="icc9d7ae87754b6d4" class="tick" data-key="icc9d7ae87754b6d4" />
+        <label for="icc9d7ae87754b6d4" class="body">
+          <span class="desc">Bracket-prefixed names (&quot;[do not use] …&quot;) sort ABOVE the real accounts in that picker</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:522</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i31112744bc405fb7" class="tick" data-key="i31112744bc405fb7" />
+        <label for="i31112744bc405fb7" class="body">
+          <span class="desc">The NAICS picker is 6-digit only, so a 3-digit subsector cannot be selected</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:808 ★NAICS-PARENT-CODES</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i05512d815a62d7c1" class="tick" data-key="i05512d815a62d7c1" />
+        <label for="i05512d815a62d7c1" class="body">
+          <span class="desc">The value-model gate is hard and non-dismissable, yet 11 of 28 clients have no value model — they got in another way</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:804 ★VALUE-MODEL-COVERAGE-GAP</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i5d78d08a153ef086" class="tick" data-key="i5d78d08a153ef086" />
+        <label for="i5d78d08a153ef086" class="body">
+          <span class="desc">The value-model modal is a stub Russ wants fully built</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~710 VALUE-MODEL POPUP polish</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i0ad723fb701c5997" class="tick" data-key="i0ad723fb701c5997" />
+        <label for="i0ad723fb701c5997" class="body">
+          <span class="desc">Re-adding an existing team member silently OVERWRITES their grant with no warning</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next team</span>
+          </span>
+          <span class="prov">QUEUE:685 TEAM-MANAGEMENT V2 (b)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i8f585d036ebee124" class="tick" data-key="i8f585d036ebee124" />
+        <label for="i8f585d036ebee124" class="body">
+          <span class="desc">No way to edit an existing member's client access — invite/revoke only</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next team</span>
+          </span>
+          <span class="prov">QUEUE:685 (a)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i69f8579b4dcc0b01" class="tick" data-key="i69f8579b4dcc0b01" />
+        <label for="i69f8579b4dcc0b01" class="body">
+          <span class="desc">No address, business phone or business email fields exist on the client profile</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:806 ★CLIENT-PROFILE-BUSINESS-IDENTITY (= ★CLIENT-BIO, same item)</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat7">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">STATE PERSISTENCE &amp; CLIENT-SWITCH</span>
+        <span class="count">8</span>
+        <span class="split"><span class="splitc" style="width:25%"></span></span>
+        <span class="splitlabel">2 untrue · 6 experience</span>
+      </button>
+      <div class="catbody" id="cat7" hidden>
+        
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i37bcc395a59291f8" class="tick" data-key="i37bcc395a59291f8" />
+        <label for="i37bcc395a59291f8" class="body">
+          <span class="desc">Component state can survive a client switch — the server-side guard goes green while the bug is live</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:929 #7 SHELL CLIENT-CONTEXT GUARD (b)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id13dca5c4533f241" class="tick" data-key="id13dca5c4533f241" />
+        <label for="id13dca5c4533f241" class="body">
+          <span class="desc">Switching clients via the sidebar does not visibly refresh the client's data</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:258</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia58fce575dfbcb3a" class="tick" data-key="ia58fce575dfbcb3a" />
+        <label for="ia58fce575dfbcb3a" class="body">
+          <span class="desc">Chart metric selection does not persist</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:271</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i72c1a99247f1d126" class="tick" data-key="i72c1a99247f1d126" />
+        <label for="i72c1a99247f1d126" class="body">
+          <span class="desc">Chart granularity (Day/Week/Month) does not persist</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:272</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia5debbd8781fa43e" class="tick" data-key="ia5debbd8781fa43e" />
+        <label for="ia5debbd8781fa43e" class="body">
+          <span class="desc">Ad-group chart visible lines do not persist</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:273</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iff2a51c108919b8e" class="tick" data-key="iff2a51c108919b8e" />
+        <label for="iff2a51c108919b8e" class="body">
+          <span class="desc">Ad bar-chart metric selection does not persist</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:274</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ib4c4ee191751edcd" class="tick" data-key="ib4c4ee191751edcd" />
+        <label for="ib4c4ee191751edcd" class="body">
+          <span class="desc">Table sort column/direction does not persist per table per platform</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:275</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ib499b9c5bfce29f5" class="tick" data-key="ib499b9c5bfce29f5" />
+        <label for="ib499b9c5bfce29f5" class="body">
+          <span class="desc">51 <code>advar-</code> localStorage keys still carry the pre-rebrand prefix and need a migration</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:347 + QUEUE:784 P8</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat8">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">CROSS-TAB PATTERNS</span>
+        <span class="count">7</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 7 experience</span>
+      </button>
+      <div class="catbody" id="cat8" hidden>
+        <p class="blurb">one behaviour that must exist on every table/card</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i7e1452295c4c56b1" class="tick" data-key="i7e1452295c4c56b1" />
+        <label for="i7e1452295c4c56b1" class="body">
+          <span class="desc">Not every table is sortable on every column</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">redesign tables</span>
+          </span>
+          <span class="prov">QUEUE:~719 + AUDIT_FINDINGS:130</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id0eb030635ff0391" class="tick" data-key="id0eb030635ff0391" />
+        <label for="id0eb030635ff0391" class="body">
+          <span class="desc">Cards need an always-on 9-dot drag handle with no edit-mode toggle first — DESKTOP ONLY after the 2026-08-16 rescope</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next CardEngine</span>
+          </span>
+          <span class="prov">QUEUE:825 ALWAYS-ON DRAG</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="if4998ea709a1167d" class="tick" data-key="if4998ea709a1167d" />
+        <label for="if4998ea709a1167d" class="body">
+          <span class="desc">The platform page offers only Last 7/14/30/90 — no full preset set, no custom picker</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next platform pages</span>
+          </span>
+          <span class="prov">QUEUE:670 P-PL#1</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ic3d331c2b9f466e7" class="tick" data-key="ic3d331c2b9f466e7" />
+        <label for="ic3d331c2b9f466e7" class="body">
+          <span class="desc">Adding a column to a table does not make that metric available as a chart line</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:279</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia048607107cc2428" class="tick" data-key="ia048607107cc2428" />
+        <label for="ia048607107cc2428" class="body">
+          <span class="desc">The store card catalog exposes only product/variant/customer_mix</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next store</span>
+          </span>
+          <span class="prov">QUEUE:~678 S-PL#6</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ie6c5c01e81843230" class="tick" data-key="ie6c5c01e81843230" />
+        <label for="ie6c5c01e81843230" class="body">
+          <span class="desc">No user-defined Tier-2 dashboard cards</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:259</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="id65c7f91a40df1c9" class="tick" data-key="id65c7f91a40df1c9" />
+        <label for="id65c7f91a40df1c9" class="body">
+          <span class="desc">Agency client list cannot be sorted, filtered or drag-ordered</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/clients</span>
+          </span>
+          <span class="prov">ROADMAP:332</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat9">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">EXPLANATORY COPY &amp; TOOLTIPS</span>
+        <span class="count">7</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 7 experience</span>
+      </button>
+      <div class="catbody" id="cat9" hidden>
+        
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i246212768e36b3fd" class="tick" data-key="i246212768e36b3fd" />
+        <label for="i246212768e36b3fd" class="body">
+          <span class="desc">No site-wide (&quot;i&quot;) explainers where a metric or term may confuse</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:247 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i358350fa2e0d59aa" class="tick" data-key="i358350fa2e0d59aa" />
+        <label for="i358350fa2e0d59aa" class="body">
+          <span class="desc">Quick Tips are ad-hoc; no managed coachmark system and no in-app glossary</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">whole app</span>
+          </span>
+          <span class="prov">ROADMAP:246 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="idfa3ffb7c206afe5" class="tick" data-key="idfa3ffb7c206afe5" />
+        <label for="idfa3ffb7c206afe5" class="body">
+          <span class="desc">No per-platform revenue-basis tooltip (Shopify subtotal-excl vs Woo incl-shipping/tax)</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">QUEUE:~657</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="idc136b14718aed24" class="tick" data-key="idc136b14718aed24" />
+        <label for="idc136b14718aed24" class="body">
+          <span class="desc">Memory categories have no glossary popover</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next Mer</span>
+          </span>
+          <span class="prov">ROADMAP:442</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i20f4f660534c3bcd" class="tick" data-key="i20f4f660534c3bcd" />
+        <label for="i20f4f660534c3bcd" class="body">
+          <span class="desc">Landing page still says &quot;ads, reimagined&quot; / &quot;Google Ads management&quot; — outdated vs the BI repositioning</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/</span>
+          </span>
+          <span class="prov">ROADMAP:367</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia51f1516fe40382b" class="tick" data-key="ia51f1516fe40382b" />
+        <label for="ia51f1516fe40382b" class="body">
+          <span class="desc">Back nav reads &quot;← Cote Media Ads Manager&quot; instead of a clean &quot;← Back&quot;</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:294</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3ffe43ba7135d8e7" class="tick" data-key="i3ffe43ba7135d8e7" />
+        <label for="i3ffe43ba7135d8e7" class="body">
+          <span class="desc">Privacy / no-training copy is unwritten</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">homepage</span>
+          </span>
+          <span class="prov">QUEUE:~712</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat10">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">UNBUILT SURFACES &amp; AFFORDANCES</span>
+        <span class="count">16</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 16 experience</span>
+      </button>
+      <div class="catbody" id="cat10" hidden>
+        <p class="blurb">missing, not broken</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="i0844263529439a00" class="tick" data-key="i0844263529439a00" />
+        <label for="i0844263529439a00" class="body">
+          <span class="desc">Homepage unification — loramer.com ↔ app.loramer.com</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">marketing + app</span>
+          </span>
+          <span class="prov">QUEUE:~938 HOMEPAGE UNIFICATION ⚠ parked on the Google Standard Access review</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i7b571e0480bb2981" class="tick" data-key="i7b571e0480bb2981" />
+        <label for="i7b571e0480bb2981" class="body">
+          <span class="desc">Voice in and out, cross-checked</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:458 ★LORA-VOICE — 9/30 deadline</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i4a7c991c22458fdf" class="tick" data-key="i4a7c991c22458fdf" />
+        <label for="i4a7c991c22458fdf" class="body">
+          <span class="desc">The insight bar is a rebuild, not a model swap — a detect→drill tool loop</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard banner</span>
+          </span>
+          <span class="prov">QUEUE:1000 ★INSIGHT-INVESTIGATOR</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ifca8c0739f0b0b11" class="tick" data-key="ifca8c0739f0b0b11" />
+        <label for="ifca8c0739f0b0b11" class="body">
+          <span class="desc">While-You-Were-Sleeping digest window + scheduling model</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:1001 ★DIGEST-WINDOW-MODEL</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia30fcb250d0fd7a8" class="tick" data-key="ia30fcb250d0fd7a8" />
+        <label for="ia30fcb250d0fd7a8" class="body">
+          <span class="desc">One-click &quot;look at everything and tell me what to do&quot;</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:248 ★MERIDA</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i2b035cd2cbe6b365" class="tick" data-key="i2b035cd2cbe6b365" />
+        <label for="i2b035cd2cbe6b365" class="body">
+          <span class="desc">A reporting surface where every section carries Lora's narration of that section</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:1121 ★REPORTING-WITH-LORA-OVERLAY</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3639162b4cec6ddd" class="tick" data-key="i3639162b4cec6ddd" />
+        <label for="i3639162b4cec6ddd" class="body">
+          <span class="desc">Every figure Lora states should be traceable to the query behind it, checkable in seconds</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next chat</span>
+          </span>
+          <span class="prov">QUEUE:252 ★NUMBER-PROVENANCE-SPOT-CHECKABLE</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i549391f9bd9ae0ef" class="tick" data-key="i549391f9bd9ae0ef" />
+        <label for="i549391f9bd9ae0ef" class="body">
+          <span class="desc">A wasted-spend counter, clickable through to the terms</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:309 ★WASTED-SPEND-COUNTER</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i1e1e11d7f480fc8a" class="tick" data-key="i1e1e11d7f480fc8a" />
+        <label for="i1e1e11d7f480fc8a" class="body">
+          <span class="desc">Agency profile &amp; settings behind the top-right avatar</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~665</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ica10d12954d1204e" class="tick" data-key="ica10d12954d1204e" />
+        <label for="ica10d12954d1204e" class="body">
+          <span class="desc">Per-client profile card front — identity, thresholds, rules, logo upload + monogram</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next Mer</span>
+          </span>
+          <span class="prov">QUEUE:~666 + ROADMAP:18</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i325a4526942294ce" class="tick" data-key="i325a4526942294ce" />
+        <label for="i325a4526942294ce" class="body">
+          <span class="desc">Admin page for user management — today it is Supabase SQL only</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/admin</span>
+          </span>
+          <span class="prov">ROADMAP:348 + QUEUE:784 P8</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="idf3ff91ee226f0ad" class="tick" data-key="idf3ff91ee226f0ad" />
+        <label for="idf3ff91ee226f0ad" class="body">
+          <span class="desc">One-click &quot;Refresh connection&quot; affordance per platform</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">ROADMAP:349 + QUEUE:784 P8 (⇒ now owned by ★RECONNECT-HAS-NO-STATE-MACHINE)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iaed494f17f6ed20e" class="tick" data-key="iaed494f17f6ed20e" />
+        <label for="iaed494f17f6ed20e" class="body">
+          <span class="desc"><code>/demo</code> route with realistic fake data, no login</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/demo</span>
+          </span>
+          <span class="prov">ROADMAP:288 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="iea2269fc1617d356" class="tick" data-key="iea2269fc1617d356" />
+        <label for="iea2269fc1617d356" class="body">
+          <span class="desc">Explicit &quot;open client profile&quot; affordance — today only the Claude pill expands it</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/clients</span>
+          </span>
+          <span class="prov">ROADMAP:263 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="icf031d7f3abf50a2" class="tick" data-key="icf031d7f3abf50a2" />
+        <label for="icf031d7f3abf50a2" class="body">
+          <span class="desc">Metric-cards redesign on Overview + a general visual refresh</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">/dashboard</span>
+          </span>
+          <span class="prov">ROADMAP:261 + QUEUE:779 P5</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i3744d8b043d1142d" class="tick" data-key="i3744d8b043d1142d" />
+        <label for="i3744d8b043d1142d" class="body">
+          <span class="desc">Legacy /clients is still fuller than the -next clients surface; the cutover cannot complete until parity</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov">QUEUE:~692</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat11">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">UI INSTRUMENTATION &amp; GUARDS</span>
+        <span class="count">7</span>
+        <span class="split"><span class="splitc" style="width:0%"></span></span>
+        <span class="splitlabel">0 untrue · 7 experience</span>
+      </button>
+      <div class="catbody" id="cat11" hidden>
+        <p class="blurb">the things that watch the UI</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="ia3a1442f4dd210d9" class="tick" data-key="ia3a1442f4dd210d9" />
+        <label for="ia3a1442f4dd210d9" class="body">
+          <span class="desc">⛔ NOTHING in this repo renders a page and measures anything — every guard reads text, so &quot;every CSS rule is present and the layout is still wrong&quot; is invisible</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:1159 ★CHAT-RENDER-MEASUREMENT-MISSING</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia732159224658f01" class="tick" data-key="ia732159224658f01" />
+        <label for="ia732159224658f01" class="body">
+          <span class="desc">No whole-surface UI behaviour audit has ever been run; every UI bug found came from Russ clicking</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:993 ★WHOLE-SURFACE UI BEHAVIOR AUDIT</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i5c97d8b305102763" class="tick" data-key="i5c97d8b305102763" />
+        <label for="i5c97d8b305102763" class="body">
+          <span class="desc">No mobile horizontal-overflow guard — and a headless width-measurement guard would ship the bug GREEN</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:988 ★MOBILE-WIDTH-GUARD</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ibe9299498393d36d" class="tick" data-key="ibe9299498393d36d" />
+        <label for="ibe9299498393d36d" class="body">
+          <span class="desc">Three of four chat guards never assert that either container still mounts the component they check</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:1072 ★CHAT-GUARD-CONTAINER-MOUNT-UNASSERTED</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i243745568b525b4a" class="tick" data-key="i243745568b525b4a" />
+        <label for="i243745568b525b4a" class="body">
+          <span class="desc">A guard ignores <code>LORAMER_GUARD_ROOT</code> and silently reads the real tree — a red-proof that never happened</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:1171 ★GUARD-IGNORES-LORAMER-GUARD-ROOT</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i107ce13bf9086f73" class="tick" data-key="i107ce13bf9086f73" />
+        <label for="i107ce13bf9086f73" class="body">
+          <span class="desc">Guards pin today's literal call site, so a correct edit reports a structural failure</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:1176 ★GUARD-LOCATORS-PIN-TODAYS-CALL-SITE</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i4bf1bc818c66b428" class="tick" data-key="i4bf1bc818c66b428" />
+        <label for="i4bf1bc818c66b428" class="body">
+          <span class="desc">Any future -next page persisting card order outside CardEngine reintroduces the mobile-persist gap</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            
+          </span>
+          <span class="prov">QUEUE:698 MOBILE-PARITY WATCH — guardrail, no current gap</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+    <section class="cat">
+      <button class="cathead" aria-expanded="false" aria-controls="cat12">
+        <span class="chev" aria-hidden="true"></span>
+        <span class="catname">OTHER</span>
+        <span class="count">7</span>
+        <span class="split"><span class="splitc" style="width:29%"></span></span>
+        <span class="splitlabel">2 untrue · 5 experience</span>
+      </button>
+      <div class="catbody" id="cat12" hidden>
+        <p class="blurb">real items that fit no category above</p>
+        <ul class="items">
+      <li class="item">
+        <input type="checkbox" id="idcae9068e0172ed2" class="tick" data-key="idcae9068e0172ed2" />
+        <label for="idcae9068e0172ed2" class="body">
+          <span class="desc">⛔ An effect that refreshes on its own SUCCESS rather than on a state TRANSITION, with idempotence assumed from <code>[]</code> — the class that took the reconnect UI down</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">DECISIONS LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 + QUEUE:78 (1)(2)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i4424bc596260bb92" class="tick" data-key="i4424bc596260bb92" />
+        <label for="i4424bc596260bb92" class="body">
+          <span class="desc">The Google Ads connection row is rendered by a SECOND writer that never calls <code>badgeFor</code> and always shows a full-primary Reconnect</span>
+          
+          <span class="meta">
+            <span class="pill c">shows something untrue</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:78 (v) — ClientPage.tsx:548-568 vs :588-613</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i80a23e60f26948a9" class="tick" data-key="i80a23e60f26948a9" />
+        <label for="i80a23e60f26948a9" class="body">
+          <span class="desc">A live, clickable button wears the repo's disabled costume (<code>cursor: not-allowed</code>, grey)</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov">QUEUE:78 (ii)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i7abf492ddee8a897" class="tick" data-key="i7abf492ddee8a897" />
+        <label for="i7abf492ddee8a897" class="body">
+          <span class="desc">Two demo/reviewer fixtures are pinned to the LEGACY surface permanently, including the Shopify reviewer whose obligation requires the complete feature set</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">legacy</span>
+          </span>
+          <span class="prov">QUEUE:975 ★LEGACY-PIN vs -NEXT CUTOVER</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="ia46a77df8bfbb378" class="tick" data-key="ia46a77df8bfbb378" />
+        <label for="ia46a77df8bfbb378" class="body">
+          <span class="desc">Four <code>react-hooks/exhaustive-deps</code> suppressions live in the -next UI tree — each is a latent stale-closure or re-fire, which is exactly the class that caused the 2026-08-23 revert</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            <span class="pill u">unbanked</span>
+            <span class="surface">-next</span>
+          </span>
+          <span class="prov"><b>UNBANKED</b> · ClientPage.tsx:298, KnowledgePanel.tsx:29 (+2)</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i14133db195739ac4" class="tick" data-key="i14133db195739ac4" />
+        <label for="i14133db195739ac4" class="body">
+          <span class="desc">Two unreachable disabled Connect/Reconnect branches — every platform that reaches them is in <code>NEXT_CONNECTABLE</code>, so the code is dead</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            <span class="pill u">unbanked</span>
+            <span class="surface">-next client profile</span>
+          </span>
+          <span class="prov"><b>UNBANKED</b> · ClientPage.tsx:583, :606</span>
+        </label>
+      </li>
+      <li class="item">
+        <input type="checkbox" id="i1c2b83e485584144" class="tick" data-key="i1c2b83e485584144" />
+        <label for="i1c2b83e485584144" class="body">
+          <span class="desc">Legacy <code>/api/upload</code> (broken pdf-parse v1) and the /clients uploader must be removed at cutover</span>
+          
+          <span class="meta">
+            <span class="pill e">experience</span>
+            
+            <span class="surface">legacy</span>
+          </span>
+          <span class="prov">QUEUE:~711</span>
+        </label>
+      </li></ul>
+      </div>
+    </section>
+
+  <div class="tools">
+    <button type="button" id="expand">Open all</button>
+    <button type="button" id="collapse">Close all</button>
+    <button type="button" id="clear">Clear ticks</button>
+  </div>
+
+  <footer>
+    generated 2026-08-23 from docs/LORAMER_UI_INVENTORY.md<br />
+    source blob 5b763555e465 · repo HEAD cadd63d<br />
+    built by scripts/build-ui-inventory-html.mjs — do not hand-edit this file; edit the .md and re-run.<br />
+    the .md remains the source; the QUEUE and DECISIONS remain the owners of open/closed.
+  </footer>
+</div>
+<script>
+(function(){
+  var KEY='loramer-ui-punchlist-v1';
+  var store={};
+  try{ store=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ store={}; }
+  var ticks=[].slice.call(document.querySelectorAll('.tick'));
+  // The five pinned items also appear inside their own category, so two inputs share ONE item key.
+  // Count UNIQUE keys, never inputs, or a 129-item list reports 134.
+  var keys={}; ticks.forEach(function(t){ keys[t.getAttribute('data-key')]=1; });
+  var total=Object.keys(keys).length||1;
+  var bar=document.getElementById('bar'), ptext=document.getElementById('ptext');
+  function paint(){
+    var seen={},n=0;
+    ticks.forEach(function(t){ var k=t.getAttribute('data-key'); if(t.checked&&!seen[k]){ seen[k]=1; n++; } });
+    bar.style.width=Math.round(n/total*100)+'%';
+    ptext.textContent=n+' of '+total+' ticked';
+  }
+  function save(){
+    var out={};
+    ticks.forEach(function(t){ if(t.checked) out[t.getAttribute('data-key')]=1; });
+    try{ localStorage.setItem(KEY,JSON.stringify(out)); }catch(e){ /* private mode: ticks just do not persist */ }
+  }
+  ticks.forEach(function(t){
+    if(store[t.getAttribute('data-key')]) t.checked=true;
+    t.addEventListener('change',function(){
+      var k=t.getAttribute('data-key');
+      ticks.forEach(function(o){ if(o!==t&&o.getAttribute('data-key')===k) o.checked=t.checked; });
+      save(); paint();
+    });
+  });
+  paint();
+  function toggle(btn,force){
+    var panel=document.getElementById(btn.getAttribute('aria-controls'));
+    var open=(force===undefined)?btn.getAttribute('aria-expanded')!=='true':force;
+    btn.setAttribute('aria-expanded',String(open));
+    panel.hidden=!open;
+  }
+  var heads=[].slice.call(document.querySelectorAll('.cathead'));
+  heads.forEach(function(b){ b.addEventListener('click',function(){ toggle(b); }); });
+  document.getElementById('expand').addEventListener('click',function(){ heads.forEach(function(b){ toggle(b,true); }); });
+  document.getElementById('collapse').addEventListener('click',function(){ heads.forEach(function(b){ toggle(b,false); }); });
+  document.getElementById('clear').addEventListener('click',function(){
+    ticks.forEach(function(t){ t.checked=false; }); save(); paint();
+  });
+})();
+</script>
+
+</body>
+</html>
