@@ -73,20 +73,15 @@ const P = (over: Partial<CanonicalPlatforms>): CanonicalPlatforms =>
 // precise mechanism of both failures above. The guard verifies every id and owner against the DB, so a guessed
 // entry fails rather than propagating.
 //
-// ⛔ THIS REGISTRY IS INCOMPLETE, AND THE GAP IS RECORDED HERE RATHER THAN QUIETLY CLOSED. Four live, non-archived
-// clients under a loramer identity have NO entry (measured 2026-08-23):
-//   212dcb43-5f9b-4bcf-bafb-8c2f6af3ed4a  Cozy Foam Factory    shopify+cozy-sack@loramer.app          27,246 rows
-//   ddd3a3c7-8ae6-4ba8-b905-937f2940a006  Bertings Mech Store  shopify+dphutk-fs@loramer.app          0 rows
-//   d972202e-47d6-4ce7-8206-ae8bf305abbf  Reviewer Test Client demo@loramer.com                       0 rows
-//   6e5e441b-adc9-468b-bc8d-de8e4d5c7b71  Test 2               shopify-reviewer@loramer.app           0 rows
-// Their ids, owners and row counts ARE verifiable and are stated above. Their ROLE IS NOT: role is a business
-// fact, not a database fact, and every one of these arrived through the Shopify install callback, which mints
-// shopify+<shop>@loramer.app for REAL MERCHANTS too (src/app/api/shopify/callback/route.ts:157). Cozy Foam
-// Factory carries 1,757 orders back to 2016 on a healthy connection — inferring "fixture" from its email would
-// be exactly failure (2) with a different field. They stay unregistered until Russ rules on each.
-// ⛔ AND "UNREGISTERED" DELIBERATELY CARRIES NO MEANING IN CODE. Nothing below or downstream may treat absence
-// from this list as either cohort or fixture; the fixture-query gate keys on the ids that ARE here and is silent
-// about everything else. Giving absence a default is a design decision and it has not been made.
+// ⛔ THE FOUR ROWS THIS FILE RECORDED AS UNREGISTERED ON 2026-08-23 ARE NOW REGISTERED, AND HOW EACH ROLE WAS
+// SETTLED IS PART OF THE ENTRY. Three of them were resolved by TRACING A SIGN-IN PATH IN CODE, not by reading the
+// doc that already asserted an answer: QUEUE ★TEST-CLIENT-CLEANUP calls Bertings a "Shopify review fixture", and
+// that sentence is deliberately NOT the basis for its role here — a doc's assertion is what produced failures (1)
+// and (2) above. The basis is a live shopify_installs mapping plus the callback that reuses it.
+// ⛔ AND "UNREGISTERED" STILL CARRIES NO MEANING IN CODE. Nothing here or downstream may read absence from this
+// list as either cohort or fixture; the fixture-query gate keys on the ids that ARE here and is silent about
+// everything else. Giving absence a default is a design decision and it has not been made.
+
 export const CANONICAL_CLIENTS: CanonicalClient[] = [
   // ══ COLLISION 1: "Influential Drones" × 2 ══
   {
@@ -165,6 +160,61 @@ export const CANONICAL_CLIENTS: CanonicalClient[] = [
     // client by name — recorded here rather than quietly fixed.
     platforms: P({ shopify: true, woocommerce: true }),
     reason: 'Non-production (Russ-confirmed). WooCommerce host unreachable, so no woo backfill lap can ever advance; its woo cursors read backfill_complete=true. Holds 143 shopify + 57 woocommerce rows from install testing. Registered so the role claim in scripts/frozen-cursors.baseline.mjs is checkable.',
+  },
+
+  // ══ THE INSTALL-EMAIL FAMILY — every one of these wears `shopify+<shop>@loramer.app`, and THAT IS WHY THEY ARE
+  //    HERE. src/app/api/shopify/callback/route.ts:157 mints that address for EVERY App Store install, real
+  //    merchants included, so the email says HOW a row arrived and NOTHING about what it is. Registered 2026-08-23
+  //    (roles traced, not inferred) so no future reader has to guess from the address. ══
+  {
+    id: '212dcb43-5f9b-4bcf-bafb-8c2f6af3ed4a',
+    name: 'Cozy Foam Factory',
+    owner: 'shopify+cozy-sack@loramer.app',
+    role: 'cohort',
+    platforms: P({ shopify: true }),
+    // ⛔ THE ENTRY THIS FILE'S OWN HEADER PREDICTED: A REAL CLIENT WEARING THE INSTALL-FIXTURE EMAIL. Inferring
+    // 'fixture' from `shopify+cozy-sack@loramer.app` would be failure (2) with a different field, and the pattern
+    // was formally disqualified as a classification key on 2026-08-23. Its presence here is the thing that stops
+    // the next reader making that inference.
+    reason: 'REAL CLIENT — Russ-confirmed 2026-08-23, and the live DB corroborates independently: 27,246 shopify rows spanning 2016-05-01..2026-08-22, 1,757 account orders / $340,109.00, one HEALTHY shopify connection to cozy-sack.myshopify.com. Arrived through the App Store install flow (shopify_installs row 2026-07-12), which is why it carries an install email and why that email means nothing about its role.',
+  },
+  {
+    id: 'ddd3a3c7-8ae6-4ba8-b905-937f2940a006',
+    name: 'Bertings Mech Store',
+    owner: 'shopify+dphutk-fs@loramer.app',
+    role: 'fixture',
+    platforms: P({}),
+    // REACHABLE ⇒ FIXTURE, and the reach is a traced code path rather than a label: a LIVE shopify_installs row
+    // (dphutk-fs.myshopify.com → this email → this client, 2026-05-26) means callback/route.ts:162-169 REUSES this
+    // exact client on any re-install, signs the installer in via auth.ts's 'shopify-install' provider, and
+    // /api/clients/route.ts:16 then renders this row as their client list. Marking it 'non-production' would
+    // assert nothing can reach it, and something can.
+    reason: 'Shopify install-flow client with ZERO connections and ZERO metrics_daily rows of any platform, yet REACHABLE: shopify_installs still maps dphutk-fs.myshopify.com to it, so a re-install of that store resurfaces this exact client row for whoever installs. Treated as load-bearing for that reason alone. ⚠ QUEUE ★TEST-CLIENT-CLEANUP calls it a "Shopify review fixture"; that doc sentence is NOT the basis for this role — the install mapping and the callback are.',
+  },
+  {
+    id: 'd972202e-47d6-4ce7-8206-ae8bf305abbf',
+    name: 'Reviewer Test Client',
+    owner: 'demo@loramer.com',
+    role: 'fixture',
+    platforms: P({}),
+    // LOAD-BEARING UNDER AN OPEN EXTERNAL REVIEW. demo@loramer.com is pinned in legacy-cohort.ts:9, so it lands on
+    // the legacy surface, and /api/clients/route.ts:16 scopes by owner email — this row IS one of the cards the
+    // submitted Meta screencast promises ("Land on /clients (show the client cards)" … "On the target client card
+    // … click '+ Meta'", docs/META_APP_REVIEW_ANSWERS.md:177-179). An EMPTY client is exactly what a connect-flow
+    // demonstration needs.
+    reason: 'Meta/Google reviewer workspace fixture. ZERO connections, ZERO metrics_daily rows — deliberately empty: it is the card the submitted Meta review screencast connects a Meta ad account TO. CONTINUE_HERE carries the standing instruction "keep the Reviewer Test Client card until review closes", and Meta requires reviewer credentials to stay valid for ONE YEAR after submission. Do not delete while that review is open.',
+  },
+  {
+    id: '6e5e441b-adc9-468b-bc8d-de8e4d5c7b71',
+    name: 'Test 2',
+    owner: 'shopify-reviewer@loramer.app',
+    role: 'fixture',
+    platforms: P({}),
+    // ⛔ THIS ROW IS ON A SHOPIFY REVIEWER'S SCREEN TODAY. Its owner IS the reviewer-token login identity
+    // (auth.ts:37 returns exactly this email), pinned by legacy-cohort.ts:9 and honoured by both middleware.ts and
+    // preview-gate.ts. /api/clients/route.ts:16 scopes by owner email, and a live DB read confirms that identity
+    // owns EXACTLY TWO clients — efe036b4 and this one. Whatever a reviewer sees, this is half of it.
+    reason: 'Shopify reviewer-login fixture, and one of only TWO clients that login can see (the other is efe036b4). ZERO connections, ZERO metrics_daily rows — the measured reason a reviewer signing in today sees an app with no data. DECISIONS records the ONGOING Shopify obligation that submitted reviewer credentials stay valid and grant full access to the complete feature set, and that it does NOT end at approval. Never delete.',
   },
 ]
 
