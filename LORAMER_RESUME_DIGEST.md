@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-23T21:24:30.081Z
-- built_from HEAD: 17623e393bdf9a418fb30aba2e191ffb20c6a352  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-23T22:37:58.511Z
+- built_from HEAD: 99d77c82e9cc98b8d5724729e5757d1d295d270c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: 84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: e14989c685eef6759d34ab84d4602745663400f873b00d363861ffa43ddfcfb6
-    - LORAMER_DECISIONS.md: 13f1c66233a8fa36faf377fe9a7fa892de2c578885457b144b39dee499f296ec
-    - LORAMER_QUEUE_OF_RECORD.md: 3a725c55ac7f8cbcebcda1ae1468593f5e3fdea921b5622150e0f3e238b40679
+    - LORAMER_DECISIONS.md: e37e95c22e6b6a1045ec12b4b456e9e654ddb196b6b942c8f63d27799d4e6943
+    - LORAMER_QUEUE_OF_RECORD.md: d5a723fc8041e7b2fed28bd88d16df4a784872877a25049af5e1643582b12d9d
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1606,7 +1606,6 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★LOCAL-META-APP-ID-STALE — ⚠ **NEW 2026-08-22, SMALL, LOCAL-ONLY.** `.env.local`'s META_APP_ID does not match the app that minted the live token (app-token debug_token → "Invalid application ID"; self-inspection names app 1002539785664144). Prod (Vercel env) is unaffected — capture and the callback run fine. Cost today: local app-token Graph calls fail confusingly. Fix: copy the prod value into .env.local on the Air (and check the iMac). src: 2026-08-22 Meta read. open [LC]
 - ★UI-INVENTORY — ⚙ **BUILT 2026-08-23 AS AN INDEX, NOT A SECOND OWNER: `docs/LORAMER_UI_INVENTORY.md` (the ui-inventory doc) is the ONE deduplicated UI list — 153 harvested rows → 129 items in 13 categories, 22 of them showing a user something untrue.** It supersedes every prior partial list; this QUEUE and DECISIONS remain the owners of open/closed, and every line in it is a pointer carrying its provenance. A phone-readable build is generated FROM the .md by `scripts/build-ui-inventory-html.mjs` → `docs/ui-inventory.html`, stamped with the source blob it came from so a stale page announces itself. ⛔ **WHAT IS OPEN IS THE BURN-DOWN, NOT THE LIST:** Russ ranks CATEGORIES, then one category is emptied in order before the next is started. FLIGHT ONE is the dangerous five, of which two did not survive diagnosis (TEAM WRONG-CLIENT already fixed and guard-held; the Shopify chart is a COUNT/AOV divergence, not two revenues) — the three that stand are the failure-is-not-a-fact class (six sites), the Shopify chart filter, and the absence-taxonomy arc. ⚠ **THE HONEST DENOMINATOR IS ON THE DOC'S OWN FACE:** complete for ★-tokened and [LC]/[NP]/[EXT]/[DG]-tagged items, a FLOOR for ROADMAP's 275 unchecked boxes and for chat-only items never banked anywhere. ⛔ ACCESSIBILITY IS ZERO ITEMS AND THAT IS A COVERAGE GAP, NOT A CLEAN SURFACE — nobody has ever looked. src: 2026-08-23 UI audit. open [LC]
 - ★OVERVIEWSTATIC-IS-DEAD-CODE — ⛔ **NEW 2026-08-23, FOUND WHILE MAPPING PART 2'S CONSUMERS, AND IT IS A FALSE-GREEN GENERATOR RATHER THAN CLUTTER.** `src/components/redesign/OverviewStatic.tsx` is MOUNTED BY NOTHING: `dashboard-next/page.tsx:15` renders `<CardEngine pageKey="overview" />`, and CONTINUE_HERE:1339 records the swap verbatim — *"Wired CardEngine(pageKey='overview') into dashboard-next/page.tsx (replaced OverviewStatic)"*. An exhaustive tree search finds only its own `export default`. ⛔ **WHY IT MATTERS: IT READS AS A LIVE CONSUMER TO THE NEXT AUDITOR.** The 2026-08-23 dangerous-five brief listed four of its lines (:89 · :96 · :100 · :108) as sites to fix, including one of the two STRUCTURAL ones — the store-label flip. Fixing them would have been true of the file and false of the product, and the flight report would have claimed the Overview no longer says "not connected" when the Overview has not rendered that string since CardEngine replaced it. It compiles, it passes every guard, and it will do this again. ⚠ `cards/useCardData.ts` is the same class one step milder: it was also listed, and it never reads `hasDataEver` at all (grep: 0) — it filters on `revenue > 0`. ⇒ DECIDE: delete it, or mark it unmounted at the top of the file so the next reader is not misled. Not a typo fix — deleting a component is a decision. src: 2026-08-23 Part 2 consumer map. open [LC]
-- ★SHOPIFY-CANCELLED-CROSS-CHECK-OWED-WHERE-CAPTURE-HAS-NOT-REACHED — ⚠ **NEW 2026-08-23, banked as a DEBT rather than reported as a pass.** [[LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1]] proved its accounting identity on three stores and then cross-checked the corrected legacy chart against `metrics_daily` — the two paths now agree TO THE CENT on Foam OH 2025-02-01→03-31 (both **$46,412.30**; unfiltered read $46,728.30, exactly the one $316.00 non-zero cancellation). ⛔ **THE CROSS-CHECK COULD NOT RUN FOR INFLUENTIAL DRONES 2024 AND NO SUBSTITUTE WAS ACCEPTED: there are ZERO captured account rows for that client in 2024, and none in 2025 either.** A different client is not that client, and swapping one in would have made a gap look like a verification — the exact shape of a green check answering a narrower question than the reader assumes. ⇒ OWED: re-run `chart_revenue == Σ metrics_daily.revenue` for Influential Drones over a window the walk has actually captured, once it reaches that far. Blocked on capture, not on work. src: 2026-08-23 Gate-A. open [LC]
 - ★LEGACY-SHOPIFY-CHART-TRUNCATES-AT-1000-ORDERS-SILENTLY — ⚠ **NEW 2026-08-23, FOUND WHILE BUILDING THE CANCELLED-ORDER GATE-A AND DELIBERATELY NOT FIXED IN THAT FLIGHT.** `src/app/api/shopify/daily/route.ts:15` sets `MAX_ORDERS = 1000` and `:119` breaks the pager the moment `allOrders.length >= MAX_ORDERS` — **with no marker on the response and no note on the chart.** For a store with more than 1,000 orders in the requested window the chart is a PARTIAL SUM RENDERED AS A TOTAL. ⛔ **MEASURED, not inferred: the Gate-A probe asked Foam OH for all of 2025 and got exactly 1000 orders / $190,423.30 back, while `metrics_daily` holds $1,062,971.05 over 365 day rows — the chart would have shown 18% of the year's revenue as the year's revenue.** It is the same class as the cancelled-order defect and strictly larger, but it is a DIFFERENT defect and folding it into a filter commit would have made a one-line change unreviewable. ⇒ At minimum the response must carry a `truncated` flag the chart renders; the real fix is to page to the window's end. src: 2026-08-23 Gate-A. open [LC]
 - ★OVERRIDE-STALENESS-HAS-NO-CLOCK — ⛔ **NEW 2026-08-23, the unbuilt half of [[LORAMER_PROTOCOL_GATE_ENFORCER_V1]]'s burn-down.** The override log is monotonic and hash-chained, so an override cannot be DELETED or EDITED without failing the build — but nothing yet makes an override GO AWAY. An override older than N days with no dated RESOLUTIONS entry should fail the build; that is what turns the log from a record into a burn-down, and it is the mechanism that makes a reflexive override visible in aggregate. ⚠ **THE HONEST REASON IT IS NOT BUILT TODAY: the log is EMPTY, so any N would be a constant with no derivation** — precisely the defect the gate's own CONSTANTS box refuses. Derive N from the first month of real overrides, not from a guess. `STALENESS_DAYS = null` in `protocol-gate.baseline.mjs` says so on its face. src: the 2026-08-23 enforcer build. open [LC]
 - ★AGENTS-MD-IS-A-CORRUPTED-COPY — ⛔ **NEW 2026-08-23, found during the enforcer's read of what governs agent behaviour.** `AGENTS.md` at repo root is a find-and-replace of an OLD CLAUDE.md with "Claude"→"Codex" applied indiscriminately, and the replacement corrupted facts as well as names: it names MODEL IDS (`Codex-haiku-4-5`, `Codex-sonnet-4-6`) where CLAUDE.md's own banked rule is that model ids are OWNED BY THE CODE and never named in docs; it asserts "localhost:3000", "no test suite", "works on the iMac" and "Cursor terminal" — every one of them a fact CLAUDE.md explicitly retired. **Any agent reading it reads a contradicted doc**, and it is a SECOND agent-governing file at the repo root that no ownership map covers. ⚠ NOT FIXED HERE, deliberately: deciding whether AGENTS.md should be a pointer to CLAUDE.md, a real Codex brief, or deleted is a decision, not a typo fix. src: 2026-08-23 protocol-gate build. open [LC]
@@ -2344,8 +2343,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 985 tokens indexed · 354 resolve to BOTH a decision and a queue item ·
-138 decision-only · 493 queue-only.
+TOTALS: 986 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
+137 decision-only · 494 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 263 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2748,7 +2747,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★SEMANTIC-LAYER — OPEN · decisions 0 · queue 6 · last 2026-08-15
 - ★SHOPIFY-ABANDONED-CHECKOUT-SUSPECT — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★SHOPIFY-API-VERSION-SUNSET — OPEN · decisions 1 · queue 1 · last 2026-07-26
-- ★SHOPIFY-CANCELLED-CROSS-CHECK-OWED-WHERE-CAPTURE-HAS-NOT-REACHED — OPEN · decisions 0 · queue 1 · last 2026-08-23
+- ★SHOPIFY-CANCELLED-CROSS-CHECK-OWED-WHERE-CAPTURE-HAS-NOT-REACHED — DONE · decisions 0 · queue 1 · last 2026-08-23
 - ★SHOPIFY-CHANNELINFORMATION-MIGRATION — OPEN · decisions 0 · queue 1 · last 2026-07-26
 - ★SHOPIFY-OFFLINE-TOKENS — OPEN · decisions 0 · queue 1 · last 2026-07-26
 - ★SHOPIFY-STATUS-CORRECTION — OPEN · decisions 0 · queue 1 · last 2026-07-24
@@ -2883,7 +2882,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_BREAKDOWN_REGISTRY_V1 — DONE · decisions 1 · queue 1 · last 2026-07-16
 - LORAMER_BREAKDOWN_SQL_AGG_V1 — DONE · decisions 2 · queue 1 · last 2026-07-16
 - LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-01
-- LORAMER_CANONICAL_CLIENT_REGISTRY_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-29
+- LORAMER_CANONICAL_CLIENT_REGISTRY_V1 — DONE · decisions 1 · queue 1 · last 2026-08-23
 - LORAMER_CAPABILITY_DENOMINATOR_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-03
 - LORAMER_CAPTURE_FACTS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_CAPTURE_LIMIT_IS_MEASURED_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-06
@@ -2998,6 +2997,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_FAILURE_IS_NOT_A_FACT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-23
 - LORAMER_FALSE_ZERO_DIAG_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - LORAMER_FIRST_CLASS_DIMENSION_DEFAULT_V1 — OPEN · decisions 1 · queue 4 · last 2026-07-18
+- LORAMER_FIXTURE_ROW_MEASURED_AS_REAL_V1 — DONE · decisions 0 · queue 1 · last 2026-08-23
 - LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 — OPEN · decisions 3 · queue 2 · last 2026-08-09
 - LORAMER_FLEET_COMPLETENESS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-30
 - LORAMER_FLEET_METER_SEES_THE_WALK_V1 — OPEN · decisions 0 · queue 3 · last 2026-08-17
@@ -3262,7 +3262,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SHELL_CLIENT_CONTEXT_V1 — OPEN · decisions 4 · queue 2 · last 2026-07-16
 - LORAMER_SHOPIFY_ABANDONED_VALUE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-18
 - LORAMER_SHOPIFY_BATCH_A1_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-27
-- LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-23
+- LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-23
 - LORAMER_SHOPIFY_DEPTH_NOTNULL_FIX_V1 — OPEN · decisions 2 · queue 3 · last 2026-09-30
 - LORAMER_SHOPIFY_DISCOUNT_CODE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-18
 - LORAMER_SHOPIFY_MONEY_SURFACE_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27

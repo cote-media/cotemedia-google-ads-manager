@@ -355,7 +355,8 @@ const GUARDS = [
   'tests/guards/protocol-gate.guard.mjs',
   'tests/guards/failure-is-not-a-fact.guard.mjs',
   'tests/guards/unknown-renders-honestly.guard.mjs',
-  'tests/guards/shopify-cancelled-excluded.guard.mjs', // LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — every Shopify order aggregation excludes cancelled orders // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — part 2: the third state must survive the trip to the screen // LORAMER_FAILURE_IS_NOT_A_FACT_V1 — a failed read must never become a negative fact // LORAMER_PROTOCOL_GATE_ENFORCER_V1 — the paste-receipt gate's own failure must fail the BUILD, because Claude Code hooks fail OPEN
+  'tests/guards/shopify-cancelled-excluded.guard.mjs', // LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — every Shopify order aggregation excludes cancelled orders
+  'tests/guards/fixture-query-gate.guard.mjs', // LORAMER_FIXTURE_QUERY_GATE_V1 — the PreToolUse hook that names a fixture row at the moment a query is issued stays wired // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — part 2: the third state must survive the trip to the screen // LORAMER_FAILURE_IS_NOT_A_FACT_V1 — a failed read must never become a negative fact // LORAMER_PROTOCOL_GATE_ENFORCER_V1 — the paste-receipt gate's own failure must fail the BUILD, because Claude Code hooks fail OPEN
   // LORAMER_DB_ENUM_MIRRORS_TS_V1 — a TS union and the CHECK constraint behind it must not diverge. Red-first
   // against the 2026-08-17 incident shape: 'nongrain' in the union, absent from the constraint, every write
   // rejected 23514 while build + 124 guards + check:data all read green.

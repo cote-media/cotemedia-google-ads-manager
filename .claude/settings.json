@@ -1,5 +1,6 @@
 {
   "$comment": "LORAMER_PROTOCOL_GATE_ENFORCER_V1 — PROJECT-SCOPED AND COMMITTED ON PURPOSE. This file is the only reason the gate fires on both machines: .claude/settings.local.json is gitignored and does not travel, so a hook configured there would silently protect one machine and not the other. UserPromptSubmit has NO matcher support (vendor: 'always fires on every occurrence'), so the gate cannot be scoped away. The command passes LORAMER_GATE_ROOT explicitly rather than trusting cwd, because Claude Code changes directory during a session and the enforcer must still find LORAMER_DECISIONS.md and the override log. Blocking shape is TOP-LEVEL {\"decision\":\"block\"} and the script never exits 2 — on this event exit 2 erases the prompt. tests/guards/protocol-gate.guard.mjs asserts this wiring, so deleting it fails the build.",
+  "$comment2": "LORAMER_FIXTURE_QUERY_GATE_V1 — the PreToolUse entry below. DIFFERENT EVENT, DIFFERENT RULES, and the difference matters: on PreToolUse a NON-ZERO EXIT BLOCKS THE TOOL CALL, so fixture-query-gate.mjs never exits non-zero and never can — it sits in front of every database call in the session and must not be able to cut off DB access on its own mistake. It says things with JSON and nothing else. The matcher is an exact |-separated list of the two Supabase surfaces that carry SQL; a regex was avoided so it cannot silently widen. It emits `systemMessage` (no permission decision, so the normal permission flow is untouched and Russ is never prompted) for a fixture id, and escalates to `ask` ONLY for a client resolved by an ambiguous NAME, which canonical.ts's resolveClientByName already refuses to do. tests/guards/fixture-query-gate.guard.mjs asserts this wiring and the matcher's reach, so unwiring it fails the build.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,6 +8,17 @@
           {
             "type": "command",
             "command": "LORAMER_GATE_ROOT=\"$CLAUDE_PROJECT_DIR\" node \"$CLAUDE_PROJECT_DIR/scripts/protocol-gate.mjs\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__supabase__execute_sql|mcp__supabase__apply_migration",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LORAMER_GATE_ROOT=\"$CLAUDE_PROJECT_DIR\" node \"$CLAUDE_PROJECT_DIR/scripts/fixture-query-gate.mjs\""
           }
         ]
       }

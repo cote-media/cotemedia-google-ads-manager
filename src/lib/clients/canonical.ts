@@ -17,6 +17,22 @@
 // re-derived: PROSE IN A DOC IS NOT A GUARD, AND A RULE YOU CANNOT FAIL IS A WISH. So the rule now lives in code
 // with a guard that fails — tests/guards/canonical-client-identity.guard.mjs.
 //
+//  (3) 2026-08-23 — THE SAME ROW, THE OPPOSITE DIRECTION, AND THIS FILE DID NOT STOP IT EITHER. An ad-hoc
+//      cross-check queried 2617b163 for SHOPIFY data three times and reported "Influential Drones has zero
+//      captured rows for 2024 and none for 2025" as a real finding. It holds zero Shopify rows because it is
+//      the fixture; the cohort client 5bb9b2ff holds 366 day rows in 2024 alone, and the cross-check the
+//      finding said was impossible passes exactly (236 orders / $749,881.58 on both sides). The wrong UUID was
+//      hardcoded, lifted from an adjacent round where 2617b163 was legitimately in view.
+//      ⛔ WHY (1)/(2)'s FIX DID NOT REACH (3), AND IT IS THE USEFUL PART: entries (1) and (2) were made in
+//      COMMITTED FILES, where a build guard can see them. (3) was made in an AD-HOC DATABASE QUERY that never
+//      touched the filesystem — no commit, no build, nothing for a guard to read. resolveClientById() sat right
+//      here, unused, because nothing calls it from a query typed at the point of use.
+//      ⇒ THE ENFORCER FOR THAT SURFACE IS NOT A BUILD GUARD: scripts/fixture-query-gate.mjs runs as a
+//      PreToolUse hook on the Supabase MCP tools and names the fixture AT THE MOMENT THE QUERY IS ISSUED.
+//      ⚠ ITS HONEST LIMIT: it INFORMS, it does not prevent, and it only knows the ids registered BELOW — a
+//      wrong UUID for an unregistered client is invisible to it. See DECISIONS
+//      LORAMER_FIXTURE_ROW_MEASURED_AS_REAL_V1.
+//
 // ── EVERY FACT BELOW WAS READ FROM THE LIVE DB ON 2026-07-29, NOT FROM ANY DOC ──────────────────────────────────
 // Sources: clients, platform_connections, and per-platform count/min/max over metrics_daily. Where a banked doc
 // disagrees, the doc is stale and gets its own correction — this file does not inherit doc claims.
@@ -56,6 +72,21 @@ const P = (over: Partial<CanonicalPlatforms>): CanonicalPlatforms =>
 // ⚠ ENTRIES ARE ADDED ONLY FROM A LIVE DB READ. Adding one from a doc, a memory, or another entry's wording is the
 // precise mechanism of both failures above. The guard verifies every id and owner against the DB, so a guessed
 // entry fails rather than propagating.
+//
+// ⛔ THIS REGISTRY IS INCOMPLETE, AND THE GAP IS RECORDED HERE RATHER THAN QUIETLY CLOSED. Four live, non-archived
+// clients under a loramer identity have NO entry (measured 2026-08-23):
+//   212dcb43-5f9b-4bcf-bafb-8c2f6af3ed4a  Cozy Foam Factory    shopify+cozy-sack@loramer.app          27,246 rows
+//   ddd3a3c7-8ae6-4ba8-b905-937f2940a006  Bertings Mech Store  shopify+dphutk-fs@loramer.app          0 rows
+//   d972202e-47d6-4ce7-8206-ae8bf305abbf  Reviewer Test Client demo@loramer.com                       0 rows
+//   6e5e441b-adc9-468b-bc8d-de8e4d5c7b71  Test 2               shopify-reviewer@loramer.app           0 rows
+// Their ids, owners and row counts ARE verifiable and are stated above. Their ROLE IS NOT: role is a business
+// fact, not a database fact, and every one of these arrived through the Shopify install callback, which mints
+// shopify+<shop>@loramer.app for REAL MERCHANTS too (src/app/api/shopify/callback/route.ts:157). Cozy Foam
+// Factory carries 1,757 orders back to 2016 on a healthy connection — inferring "fixture" from its email would
+// be exactly failure (2) with a different field. They stay unregistered until Russ rules on each.
+// ⛔ AND "UNREGISTERED" DELIBERATELY CARRIES NO MEANING IN CODE. Nothing below or downstream may treat absence
+// from this list as either cohort or fixture; the fixture-query gate keys on the ids that ARE here and is silent
+// about everything else. Giving absence a default is a design decision and it has not been made.
 export const CANONICAL_CLIENTS: CanonicalClient[] = [
   // ══ COLLISION 1: "Influential Drones" × 2 ══
   {
