@@ -77,7 +77,7 @@ const DANGEROUS = [
   ['Lora reports missing data as ZERO', 'She does not invent numbers — she reports absence as $0, with full confidence. 13 eval failures: 8 false-zero, 5 fabricated.'],
   ['CLOSED 2026-08-23 — the Team page showed one client', '⚠ NO LONGER DANGEROUS — CLOSED. It was fixed and guard-held before the audit ran; the queue entry was merely stale. Kept here because a reader who saw the earlier list needs to know what happened to it, not to find it silently gone.'],
   ['completeness meter shows CONNECTED platforms as NOT_CONNECTED', 'The one screen built to prove capture is real is the screen that lies when the query behind it times out.'],
-  ["legacy dashboard's Shopify chart counts cancelled orders", '⚠ RESTATED 2026-08-23 and SMALLER than first reported: revenue AGREES on both paths — a cancelled order\u2019s subtotal is $0, measured. What diverges is the order count, so the chart understates average order value. Still a number an owner acts on.'],
+  ["legacy dashboard's Shopify chart counted cancelled orders", '✓ FIXED 2026-08-23 — and the THIRD statement of it is the measured one. First: “two revenues.” Second: “count and AOV only, revenue agrees — a cancelled order’s subtotal is $0.” Both wrong; the second was generalised from 7 orders. MEASURED across 162 cancelled orders on two stores: 160 carry $0 and TWO do not. So it was the order count, the average order value, AND a small revenue over-report. The chart now filters cancelled orders and equals the captured path to the cent.'],
   ['Stale intelligence cache can serve an EMPTY Meta payload', 'It reads as "no spend", not as "no data" — a confident answer over a window we did not have.'],
 ]
 const danger = DANGEROUS.map(([key, why]) => {

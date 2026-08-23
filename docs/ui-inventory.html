@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-src-sha="a2fd2d2b7bff">
+<html lang="en" data-src-sha="5e0125d7597c">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -163,16 +163,16 @@
         </label>
       </li>
       <li class="item pinned">
-        <input type="checkbox" id="pib38e8c44e34ef53a" class="tick" data-key="ib38e8c44e34ef53a" />
-        <label for="pib38e8c44e34ef53a" class="body">
-          <span class="desc">⛔ The legacy dashboard's Shopify chart counts cancelled orders, so it shows more orders than Lora and a LOWER average order value for the same client — revenue agrees, the order count and AOV do not</span>
-          <span class="why">⚠ RESTATED 2026-08-23 and SMALLER than first reported: revenue AGREES on both paths — a cancelled order’s subtotal is $0, measured. What diverges is the order count, so the chart understates average order value. Still a number an owner acts on.</span>
+        <input type="checkbox" id="pi14a02e5aff809627" class="tick" data-key="i14a02e5aff809627" />
+        <label for="pi14a02e5aff809627" class="body">
+          <span class="desc">⛔ The legacy dashboard's Shopify chart counted cancelled orders, so it showed more orders than Lora, a LOWER average order value, and a slightly HIGHER revenue for the same client</span>
+          <span class="why">✓ FIXED 2026-08-23 — and the THIRD statement of it is the measured one. First: “two revenues.” Second: “count and AOV only, revenue agrees — a cancelled order’s subtotal is $0.” Both wrong; the second was generalised from 7 orders. MEASURED across 162 cancelled orders on two stores: 160 carry $0 and TWO do not. So it was the order count, the average order value, AND a small revenue over-report. The chart now filters cancelled orders and equals the captured path to the cent.</span>
           <span class="meta">
             <span class="pill c">shows something untrue</span>
             
             <span class="surface">/dashboard</span>
           </span>
-          <span class="prov">AUDIT_FINDINGS:47 #6b — RESTATED 2026-08-23: not two revenues; a cancelled order's subtotal is $0 (measured, #6)</span>
+          <span class="prov">AUDIT_FINDINGS:47 #6b — FIXED 2026-08-23 (LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1, guard-held). THIRD AND MEASURED STATEMENT: count, AOV, <b>and a small revenue over-report</b> — the earlier &quot;revenue agrees, a cancelled order's subtotal is $0&quot; was generalised from 7 orders and is FALSE; across 162 cancelled orders on two stores, 160 are $0 and TWO are not ($325.00 and $316.00). Corrected chart now equals the captured path to the cent (Foam OH 2025-02-01→03-31: both $46,412.30; unfiltered read $46,728.30).</span>
         </label>
       </li>
       <li class="item pinned">
@@ -918,16 +918,16 @@
         </label>
       </li>
       <li class="item">
-        <input type="checkbox" id="ib38e8c44e34ef53a" class="tick" data-key="ib38e8c44e34ef53a" />
-        <label for="ib38e8c44e34ef53a" class="body">
-          <span class="desc">⛔ The legacy dashboard's Shopify chart counts cancelled orders, so it shows more orders than Lora and a LOWER average order value for the same client — revenue agrees, the order count and AOV do not</span>
+        <input type="checkbox" id="i14a02e5aff809627" class="tick" data-key="i14a02e5aff809627" />
+        <label for="i14a02e5aff809627" class="body">
+          <span class="desc">⛔ The legacy dashboard's Shopify chart counted cancelled orders, so it showed more orders than Lora, a LOWER average order value, and a slightly HIGHER revenue for the same client</span>
           
           <span class="meta">
             <span class="pill c">shows something untrue</span>
             
             <span class="surface">/dashboard</span>
           </span>
-          <span class="prov">AUDIT_FINDINGS:47 #6b — RESTATED 2026-08-23: not two revenues; a cancelled order's subtotal is $0 (measured, #6)</span>
+          <span class="prov">AUDIT_FINDINGS:47 #6b — FIXED 2026-08-23 (LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1, guard-held). THIRD AND MEASURED STATEMENT: count, AOV, <b>and a small revenue over-report</b> — the earlier &quot;revenue agrees, a cancelled order's subtotal is $0&quot; was generalised from 7 orders and is FALSE; across 162 cancelled orders on two stores, 160 are $0 and TWO are not ($325.00 and $316.00). Corrected chart now equals the captured path to the cent (Foam OH 2025-02-01→03-31: both $46,412.30; unfiltered read $46,728.30).</span>
         </label>
       </li>
       <li class="item">
@@ -2046,7 +2046,7 @@
 
   <footer>
     generated 2026-08-23 from docs/LORAMER_UI_INVENTORY.md<br />
-    source blob a2fd2d2b7bff · repo HEAD 734ea26<br />
+    source blob 5e0125d7597c · repo HEAD 17623e3<br />
     built by scripts/build-ui-inventory-html.mjs — do not hand-edit this file; edit the .md and re-run.<br />
     the .md remains the source; the QUEUE and DECISIONS remain the owners of open/closed.
   </footer>

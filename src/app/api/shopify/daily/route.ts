@@ -18,6 +18,9 @@ const MAX_ORDERS = 1000
 type OrderNode = {
   id: string
   createdAt: string
+  // LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — nullable BY THE VENDOR: null means the order stands. The type
+  // mirrors shopify-intelligence.ts's GraphQLOrderNode so the two paths cannot drift on the field's shape.
+  cancelledAt: string | null
   currentSubtotalPriceSet: { shopMoney: { amount: string } }
 }
 
@@ -84,6 +87,7 @@ export async function GET(request: Request) {
           node {
             id
             createdAt
+            cancelledAt
             currentSubtotalPriceSet { shopMoney { amount } }
           }
         }
@@ -126,7 +130,22 @@ export async function GET(request: Request) {
       byDate[key] = { date: key.slice(5), orders: 0, revenue: 0, avgOrderValue: 0 }
     }
 
-    allOrders.forEach((order) => {
+    // ⛔ LORAMER_SHOPIFY_CANCELLED_EXCLUDED_V1 — CANCELLED ORDERS ALWAYS INFLATE THE COUNT AND OCCASIONALLY
+    // THE REVENUE. MEASURED on live vendor data, 162 cancelled orders across two stores: 160 carry a $0
+    // `currentSubtotalPriceSet` and TWO DO NOT ($325.00, $316.00). The earlier claim in this file — "a
+    // cancelled order's subtotal is $0, so the inflation is COUNT-only" — was generalised from SEVEN orders
+    // over five days and is FALSE; AUDIT_FINDINGS:44 item 6 now carries the falsification. No mechanism is
+    // asserted for the two: 2 days and 26 days elapsed respectively, so "cancelled late" does not explain it.
+    // ⇒ THE GATE IS AN ACCOUNTING IDENTITY, NOT AN ASSERTION THAT REVENUE HOLDS STILL:
+    //     revenue_before − revenue_after == Σ(currentSubtotalPriceSet of the orders this filter excludes)
+    // exactly, to the cent. That identity is what proves the RIGHT field was touched; "revenue unchanged"
+    // would have been a green light on a false premise. Verified on three stores 2026-08-23, all exact.
+    // The casualty that matters to a reader is :137's `revenue / orders` — the right numerator over an
+    // inflated denominator understated average order value on every client with a cancellation.
+    // ⛔ BYTE-IDENTICAL SPELLING TO THE CAPTURED PATH (shopify-intelligence.ts:475, `orderNodes.filter(o =>
+    // !o.cancelledAt)`) ON PURPOSE: two spellings of one rule is how these two surfaces came to disagree.
+    const liveOrders = allOrders.filter((o) => !o.cancelledAt)
+    liveOrders.forEach((order) => {
       const key = order.createdAt.split('T')[0]
       if (byDate[key]) {
         byDate[key].orders += 1
