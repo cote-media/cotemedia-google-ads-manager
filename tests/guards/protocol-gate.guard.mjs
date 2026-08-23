@@ -27,7 +27,7 @@
 //  (f) FAIL-CLOSED — malformed stdin and a missing prompt field must not admit anything they cannot grade.
 //  (g) OVERRIDE BURN-DOWN — the log is monotonic against the baseline and its hash chain is intact.
 
-import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -41,11 +41,20 @@ const LOG = resolve(ROOT, 'docs/LORAMER_PROTOCOL_OVERRIDES.jsonl')
 const findings = []
 const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex')
 
+// ⛔ EVERY FIXTURE RUNS AGAINST A SCRATCH ROOT, NOT THE REPO. The enforcer now LOGS REFUSALS, and this guard
+// drives 14 must-block fixtures — on the real root `npm run guard` would append 14 refusal lines to the
+// repo's own append-only audit log on every single run, burying the false-positive signal it exists to
+// produce and making the monotonic baseline meaningless. LORAMER_DECISIONS.md is copied in because the
+// anti-rubber-stamp leg reads it. Never break-and-restore the live file (★GUARD-BREAK-AND-RESTORE-IS-UNSAFE).
+const SANDBOX = mkdtempSync(join(tmpdir(), 'loramer-gate-fixtures-'))
+mkdirSync(join(SANDBOX, 'docs'), { recursive: true })
+try { copyFileSync(resolve(ROOT, 'LORAMER_DECISIONS.md'), join(SANDBOX, 'LORAMER_DECISIONS.md')) } catch { /* leg reports it */ }
+
 // Run the enforcer exactly as the hook does: JSON on stdin, JSON on stdout.
-function runGate(payload) {
+function runGate(payload, root = SANDBOX) {
   const r = spawnSync(process.execPath, [SCRIPT], {
     input: JSON.stringify(payload), encoding: 'utf8',
-    env: { ...process.env, LORAMER_GATE_ROOT: ROOT },
+    env: { ...process.env, LORAMER_GATE_ROOT: root },
   })
   let out = null
   if (r.stdout && r.stdout.trim()) { try { out = JSON.parse(r.stdout) } catch { out = { __unparsable: r.stdout.slice(0, 200) } } }
@@ -103,6 +112,19 @@ const fixtures = [
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: live-path\n${GOOD_RESEARCH}\nADVERSARY: mine=ship it | other=ship it\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'RED ADVERSARY compression attempted on a writing blast', box: 'ADVERSARY-THAT-NEVER-COLLIDED', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_RESEARCH}\nADVERSARY: DECLARED-COMPRESSED: the change is small and obvious\n${GOOD_CONSTANTS}${PAD}` },
+  // ⛔ THE PAIR THAT MUST HOLD TOGETHER, AND THEY ARE ADJACENT ON PURPOSE: the gate must accept a NONE that
+  // carries its reason AND still refuse a bare number, IN THE SAME RUN. Split them apart and a future edit
+  // can satisfy one by breaking the other — which is exactly how an enforcer rots into a rubber stamp.
+  { name: 'GREEN justified NONE — em-dash (the real 2026-08-23 refusal)', expect: 'allow',
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE \u2014 skip-cache deliberately introduces no TTL; a number would have no derivation.${PAD}` },
+  { name: 'GREEN justified NONE — colon', expect: 'allow',
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE: this flight carries no numbers at all${PAD}` },
+  { name: 'GREEN justified NONE — comma', expect: 'allow',
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE, nothing numeric is asserted anywhere in this instruction${PAD}` },
+  { name: 'RED a bare number is STILL refused even though justified-NONE now passes', box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', expect: 'block',
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: TIMEOUT_MS=5000${PAD}` },
+  { name: 'RED "NONETHELESS" must not be read as a justified NONE', box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', expect: 'block',
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONETHELESS we set RETRY=3${PAD}` },
   { name: 'RED CONSTANT-INHERITED-WITHOUT-DERIVATION (bare number)', box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', expect: 'block',
     text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\nCONSTANTS: FIRST_LAP_MS=90000${PAD}` },
   { name: 'RED writing paste with NO research and NO adversary at all', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
@@ -129,19 +151,14 @@ const fixtures = [
 // (★GUARD-BREAK-AND-RESTORE-IS-UNSAFE): a crash mid-run would leave the repo's own audit log mutated.
 if (existsSync(SCRIPT)) {
   for (const f of fixtures) {
-    const r = f.mutatesLog
-      ? (() => { const tmp = process.env.TMPDIR || '/tmp'; return spawnSync(process.execPath, [SCRIPT], { input: JSON.stringify({ prompt: f.text, session_id: 'guard' }), encoding: 'utf8', env: { ...process.env, LORAMER_GATE_ROOT: tmp } }) })()
-      : null
-    const res = f.mutatesLog
-      ? { status: r.status, out: r.stdout && r.stdout.trim() ? (() => { try { return JSON.parse(r.stdout) } catch { return { __unparsable: r.stdout } } })() : null }
-      : runGate({ prompt: f.text, session_id: 'guard' })
+    const res = runGate({ prompt: f.text, session_id: 'guard' })
 
     if (res.status !== 0) findings.push(`(b) fixture "${f.name}" exited ${res.status}; the gate must always exit 0 (exit 2 erases the paste, other codes fail open).`)
     const blocked = res.out?.decision === 'block'
     if (f.expect === 'block') {
       if (!blocked) findings.push(`(d) fixture "${f.name}" was ADMITTED. It must be blocked — this check is not load-bearing.`)
       else if (f.box && !String(res.out.reason || '').includes(f.box)) findings.push(`(d) fixture "${f.name}" was blocked but the refusal never names ${f.box}; Russ cannot act on a refusal that does not say which box failed.`)
-      else if (!String(res.out.reason || '').includes('YOUR PASTE, VERBATIM')) findings.push(`(d) fixture "${f.name}" was blocked without echoing the paste back. decision:"block" is not documented to preserve the prompt, so the echo is the only guaranteed copy.`)
+      else if (!String(res.out.reason || '').includes('Original prompt')) findings.push(`(d) fixture "${f.name}" was blocked without pointing at where the paste survives. The harness reproduces it under "Original prompt:" (observed 2026-08-23); the refusal must SAY so, or Russ believes his instruction is gone.`)
     } else if (blocked) {
       findings.push(`(e) fixture "${f.name}" was BLOCKED and must not be — reason: ${String(res.out.reason || '').slice(0, 220)}`)
     }
@@ -166,11 +183,33 @@ if (existsSync(SCRIPT)) {
   }
 
   // ── (f) FAIL-CLOSED ─────────────────────────────────────────────────────────────────────────────────────
-  const bad = spawnSync(process.execPath, [SCRIPT], { input: 'this is not json', encoding: 'utf8', env: { ...process.env, LORAMER_GATE_ROOT: ROOT } })
+  const bad = spawnSync(process.execPath, [SCRIPT], { input: 'this is not json', encoding: 'utf8', env: { ...process.env, LORAMER_GATE_ROOT: SANDBOX } })
   let badOut = null
   try { badOut = JSON.parse(bad.stdout || 'null') } catch { /* handled below */ }
   if (badOut?.decision !== 'block') findings.push('(f) malformed stdin did NOT produce decision:block. The vendor default is to proceed, so an enforcer that cannot parse its input and stays quiet has silently stopped gating.')
   if (bad.status !== 0) findings.push(`(f) malformed stdin exited ${bad.status}; must be 0.`)
+}
+
+// ── (h) THE GATE RECORDS ITS OWN REFUSALS ────────────────────────────────────────────────────────────────
+// ⛔ THE LEG THAT EXISTS BECAUSE THE ABSENCE OF IT COST TWO ROUND TRIPS AND LEFT NOTHING BEHIND. Without a
+// refusal record the gate cannot report its own FALSE-POSITIVE RATE, so nobody can tell a gate that is
+// helping from one that is obstructing. Driven against the sandbox log the fixtures just filled.
+{
+  const sandboxLog = join(SANDBOX, 'docs/LORAMER_PROTOCOL_OVERRIDES.jsonl')
+  let lines = []
+  try { lines = readFileSync(sandboxLog, 'utf8').split('\n').filter((l) => l.trim()) } catch { /* reported below */ }
+  const recs = lines.map((l) => { try { return JSON.parse(l) } catch { return null } }).filter(Boolean)
+  const refused = recs.filter((r) => r.verdict === 'refused')
+  const overrides = recs.filter((r) => r.verdict === 'override')
+  const nones = recs.filter((r) => r.verdict === 'none_justified')
+  if (!refused.length) findings.push('(h) the fixtures produced NO verdict:"refused" records. Refusals are unlogged, so the gate cannot measure its own false-positive rate — the exact blind spot the 2026-08-23 double-refusal exposed.')
+  if (!overrides.length) findings.push('(h) no verdict:"override" record was written by the override fixture.')
+  if (!nones.length) findings.push('(h) no verdict:"none_justified" record — an accepted justification is being DISCARDED, so the gate learns nothing from the pastes it lets through.')
+  for (const r of refused) {
+    if (!Array.isArray(r.boxes_failed) || !r.boxes_failed.length) findings.push('(h) a refusal record carries no boxes_failed — a refusal that does not say WHICH box is not a measurement.')
+    if (!r.prompt_sha256) findings.push('(h) a refusal record carries no prompt_sha256 — the refusal cannot be tied to a paste.')
+  }
+  for (const r of recs) if (Object.prototype.hasOwnProperty.call(r, 'prompt')) findings.push('(h) a log record stores the PASTE. Only prompt_sha256 may be stored.')
 }
 
 // ── (g) OVERRIDE BURN-DOWN ────────────────────────────────────────────────────────────────────────────────

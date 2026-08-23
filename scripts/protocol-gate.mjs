@@ -67,6 +67,13 @@ export const MIN_COLLISION_WORDS = 8
 export const MIN_DERIVATION_WORDS = 8
 export const MIN_OVERRIDE_WORDS = 10
 export const MIN_NONE_APPLICABLE_WORDS = 10
+// QUOTE_CHARS ⇐ MEASURED 2026-08-23 over every legitimate CONSTANTS-shaped value available: the fixture set
+// (47 · 15 · 26) and the two real values seen in this session — Russ's justified NONE at 84 and the longest
+// genuinely-derived constant in LORAMER_DECISIONS.md, the walk's UNIT_RESERVATION_FLOOR_MS line, at 104.
+// Longest legitimate value = 104, so the quote is 104: the smallest length that cannot truncate any value
+// this repo has actually produced. The old 60 cut Russ's line mid-word at "a number w", hiding the part that
+// was rejected — an error message that hides the evidence costs a round trip, and it cost two.
+export const QUOTE_CHARS = 104
 
 export const BOXES = [
   'BLAST-UNDECLARED',
@@ -235,19 +242,36 @@ export function adversaryVerdict(value) {
 // Every number must be followed by `⇐` and a real derivation, or `⇐ measured <date> N=<n>`. A bare number
 // fails. This is the box that would have caught FIRST_LAP_MS = 90_000, "~67s fits in one cron fire", and the
 // "~08-25 / ~08-30" Meta clock retired on 2026-08-23 — three constants that entered briefs as facts.
+// ⛔ THE NONE FORMS. `/^NONE$/i` ALONE ACCEPTED THE HOLLOWEST ANSWER AND REFUSED A JUSTIFIED ONE — measured
+// 2026-08-23 17:56:09Z and again at 17:57:13Z, when `CONSTANTS: NONE — skip-cache deliberately introduces no
+// TTL; a number would have no derivation.` was refused while a bare `NONE` sailed through. That is the
+// hollow-box-passes / substantive-box-fails inversion this whole enforcer exists to prevent, shipped inside
+// the enforcer. ⛔ THE FIX ADDS AN ACCEPTED FORM; IT DOES NOT RELAX ANYTHING. The bare-number rule below is
+// byte-identical, and a fixture proves a bare number still fails IN THE SAME RUN as a justified NONE passing.
+// The separator must be real punctuation or a dash — `NONETHELESS we set RETRY=3` must NOT parse as a NONE,
+// which is why \b and an explicit separator class are both required rather than a bare prefix test.
+const NONE_RE = /^NONE\b\s*(?:[—–\-:,.]\s*(?<reason>.*))?$/is
 export function constantsVerdict(value) {
   const raw = String(value || '').trim()
   if (!raw) return { ok: false, why: 'CONSTANTS: is absent — write NONE if the paste carries no numbers' }
-  if (/^NONE$/i.test(raw)) return { ok: true, why: 'declared NONE' }
+  const none = raw.match(NONE_RE)
+  if (none) {
+    const reason = (none.groups?.reason || '').trim()
+    // The justification is EVIDENCE, not decoration: it is returned so the caller can LOG it. A gate that
+    // accepts a reason and discards it learns nothing from the pastes it lets through.
+    return reason
+      ? { ok: true, why: `declared NONE with a ${words(reason)}-word reason`, noneReason: reason }
+      : { ok: true, why: 'declared NONE' }
+  }
   const entries = raw.split('\n').map((s) => s.trim()).filter(Boolean)
   const bad = []
   for (const e of entries) {
     const parts = e.split(/⇐|<=/)
-    if (parts.length < 2) { bad.push(`"${e.slice(0, 60)}" has no ⇐ derivation`); continue }
+    if (parts.length < 2) { bad.push(`"${e.slice(0, QUOTE_CHARS)}" has no ⇐ derivation`); continue }
     const derivation = parts.slice(1).join(' ').trim()
     if (/^measured\s+\d{4}-\d{2}-\d{2}\s+N=\d+/i.test(derivation)) continue
     const n = words(derivation)
-    if (n < MIN_DERIVATION_WORDS) bad.push(`"${e.slice(0, 40)}" derivation is ${n} word(s); ${MIN_DERIVATION_WORDS} are required (or "measured <YYYY-MM-DD> N=<n>")`)
+    if (n < MIN_DERIVATION_WORDS) bad.push(`"${e.slice(0, QUOTE_CHARS)}" derivation is ${n} word(s); ${MIN_DERIVATION_WORDS} are required (or "measured <YYYY-MM-DD> N=<n>")`)
   }
   return bad.length ? { ok: false, why: bad.join(' · ') } : { ok: true, why: `${entries.length} constant(s), each derived` }
 }
@@ -270,26 +294,27 @@ export function evaluate({ text, transcriptPath, decisionsText }) {
   if (!isFlight) return { verdict: 'allow', reason: '', failures: [], overrides, exempt: 'short conversational paste, no schema declared' }
 
   if (!blast) {
-    failures.push({ box: 'BLAST-UNDECLARED', why: h.BLAST ? `BLAST: "${h.BLAST}" is not one of read-only | backend-writer | -next-only | live-path` : 'BLAST: is absent', fix: 'add `BLAST: read-only` (or backend-writer | -next-only | live-path)' })
+    failures.push({ box: 'BLAST-UNDECLARED', why: h.BLAST ? `BLAST: "${h.BLAST}" is not one of read-only | backend-writer | -next-only | live-path` : 'BLAST: is absent', fix: 'the FIRST word of the line must be exactly one of: read-only · backend-writer · -next-only · live-path. A parenthetical after it is fine — `BLAST: backend-writer (repo tooling only)` passes.' })
   }
 
   const q = (h.QUESTION || '').trim()
-  if (!q) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: 'QUESTION: is absent', fix: 'add `QUESTION: <one sentence naming what this flight must answer>?`' })
-  else if (!q.endsWith('?')) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: 'QUESTION: does not end in "?" — a statement is not a question', fix: 'end the QUESTION line with a question mark' })
-  else if (words(q) < MIN_QUESTION_WORDS) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: `QUESTION: is ${words(q)} word(s); ${MIN_QUESTION_WORDS} are required`, fix: 'state the question in a full sentence' })
+  const QFIX = `one line, at least ${MIN_QUESTION_WORDS} words, ending in a question mark — e.g. \`QUESTION: Does the fix hold across all six sites?\``
+  if (!q) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: 'QUESTION: is absent', fix: QFIX })
+  else if (!q.endsWith('?')) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: 'QUESTION: does not end in "?" — a statement is not a question', fix: QFIX })
+  else if (words(q) < MIN_QUESTION_WORDS) failures.push({ box: 'QUESTION-NEVER-FRAMED', why: `QUESTION: is ${words(q)} word(s); ${MIN_QUESTION_WORDS} are required`, fix: QFIX })
 
   const inf = inFlightVerdict(transcriptPath)
-  if (inf.outstanding) failures.push({ box: 'PASTE-WHILE-IN-FLIGHT', why: inf.why, fix: 'let the outstanding flight report first, then re-send this' })
+  if (inf.outstanding) failures.push({ box: 'PASTE-WHILE-IN-FLIGHT', why: inf.why, fix: 'nothing to type — let the outstanding flight report, then re-send this paste unchanged. This is the ONE box that reads the transcript rather than your paste, so re-wording will not clear it.' })
 
   const c = constantsVerdict(h.CONSTANTS)
-  if (!c.ok) failures.push({ box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', why: c.why, fix: 'write `CONSTANTS: NAME=value ⇐ <how it was derived>` or `CONSTANTS: NONE`' })
+  if (!c.ok) failures.push({ box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', why: c.why, fix: `THREE accepted forms: (1) \`CONSTANTS: NAME=value ⇐ <at least ${MIN_DERIVATION_WORDS} words of derivation>\` · (2) \`CONSTANTS: NAME=value ⇐ measured YYYY-MM-DD N=<n>\` · (3) \`CONSTANTS: NONE\` alone OR with a reason after a dash, colon or comma — \`CONSTANTS: NONE — this flight asserts no numbers\` passes.` })
 
   // THE PROPORTIONALITY RULE. Both rounds are demanded by CONSEQUENCE, never by question-shape.
   if (writesSomething(blast)) {
     const r = researchVerdict(h.RESEARCH, decisionsText)
-    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: 'add `RESEARCH: <url> · <url>` (2+ distinct hosts, 1+ not already in DECISIONS) or `RESEARCH: NONE-APPLICABLE: <10+ words>`' })
+    if (!r.ok) failures.push({ box: 'RESEARCH-WITH-NO-URLS', why: r.why, fix: `TWO accepted forms: (1) \`RESEARCH: <url> · <url>\` — at least 2 URLs on at least 2 DIFFERENT hostnames, at least one hostname not already cited in LORAMER_DECISIONS.md · (2) \`RESEARCH: NONE-APPLICABLE: <at least ${MIN_NONE_APPLICABLE_WORDS} words saying why no external fact is load-bearing>\`` })
     const a = adversaryVerdict(h.ADVERSARY)
-    if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: 'add `ADVERSARY: mine=<claim> | other=<claim> | collision=<what changed>`' })
+    if (!a.ok) failures.push({ box: 'ADVERSARY-THAT-NEVER-COLLIDED', why: a.why, fix: `ONE accepted form, all three parts on one line: \`ADVERSARY: mine=<your position> | other=<the opposing position> | collision=<what actually changed, ${MIN_COLLISION_WORDS}+ words>\`. mine= and other= must differ. There is NO compressed form on a writing blast radius.` })
   }
 
   // Apply per-box overrides. An INVALID override (unknown box or a short reason) does not lift anything.
@@ -300,16 +325,17 @@ export function evaluate({ text, transcriptPath, decisionsText }) {
     return true
   })
 
-  return { verdict: surviving.length ? 'block' : 'allow', failures: surviving, overrides, applied, blast, header: h, inFlight: inf }
+  return { verdict: surviving.length ? 'block' : 'allow', failures: surviving, overrides, applied, blast, header: h, inFlight: inf, noneReason: c.noneReason || null }
 }
 
 // ── THE REFUSAL, IN ENGLISH ───────────────────────────────────────────────────────────────────────────────
 // One line per failed box · one line saying what would satisfy it · one line with the exact override phrase.
-// ⛔ AND THE PASTE IS ECHOED BACK IN FULL. The docs state that EXIT 2 erases the prompt; they say NOTHING
-// about whether decision:"block" preserves it, and an unproven preservation is not a preservation. Losing a
-// phone-length instruction is worse than the defect this gate prevents, so the refusal carries the paste
-// back unconditionally. If the live behaviour turns out to preserve the prompt, this echo is redundant and
-// cheap; if it discards it, this echo is the only copy. Fail in the safe direction.
+// ⛔ THE ECHO IS GONE, AND IT WAS REMOVED ON A MEASUREMENT RATHER THAN A PREFERENCE. It was added because the
+// docs say EXIT 2 erases the prompt and say NOTHING about decision:"block" — an unproven preservation is not
+// a preservation, so it failed safe. OBSERVED 2026-08-23 17:56:09Z on a real refusal: Claude Code's own block
+// notice appends `Original prompt: <full text>` after the hook's reason. **The harness preserves the paste
+// itself.** The echo therefore doubled a phone-length instruction — that refusal ran to 8,891 characters,
+// most of it Russ's paste twice — which buries the one thing he needed to read. A one-line pointer replaces it.
 export function renderRefusal(res, meta) {
   const L = []
   L.push('⛔ PROTOCOL GATE — REFUSED. Nothing ran. Your paste is echoed at the bottom; copy it back up.')
@@ -334,9 +360,7 @@ export function renderRefusal(res, meta) {
   L.push('RESEARCH and ADVERSARY are required only when BLAST is not read-only — rounds attach to consequence.')
   if (meta?.promptKey) L.push(`[gate: read the paste from the "${meta.promptKey}" field]`)
   L.push('')
-  L.push('──────── YOUR PASTE, VERBATIM ────────')
-  L.push(meta?.text ?? '')
-  L.push('──────── END OF YOUR PASTE ────────')
+  L.push('YOUR PASTE IS NOT LOST — it is reproduced under "Original prompt:" directly below this refusal.')
   return L.join('\n')
 }
 
@@ -347,8 +371,18 @@ export function renderRefusal(res, meta) {
 // a rewritten line is just a diff. The chain makes an edited or removed line arithmetically detectable, and
 // the guard's monotonic baseline makes a deletion fail the build. Break-glass practice, verbatim: log the
 // activation, the actions and the reason in a tamper-evident store, and review every event afterwards.
-export function appendOverrides({ applied, header, sessionId, text, root }) {
-  if (!applied?.length) return 0
+// ⛔ IT LOGS REFUSALS NOW, NOT ONLY OVERRIDES — AND THAT WAS THE BLIND SPOT, NOT A NICETY. On 2026-08-23 the
+// gate refused Russ twice, 64 seconds apart, for a justified NONE it should have accepted, and left NO REPO
+// ARTIFACT AT ALL: the log was 0 lines because it recorded only ACCEPTED overrides. The only surviving trace
+// was the session transcript, which is not in the repo and dies with the session. **A gate that refuses
+// invisibly cannot report its own false-positive rate**, so the one number that would say whether it is
+// helping — refusals it should not have made — was structurally unmeasurable. Three record kinds now:
+//   'refused'        — every block, with the boxes that failed. THE FALSE-POSITIVE DENOMINATOR.
+//   'override'       — as before: a box skipped on purpose, with the reason that cost something to type.
+//   'none_justified' — an ACCEPTED paste whose CONSTANTS carried a reason. Evidence, kept rather than binned.
+// ⛔ prompt_sha256 ON ALL THREE, NEVER THE PASTE — a paste can carry a token or a customer's name.
+export function appendLog({ records, sessionId, text, root }) {
+  if (!records?.length) return 0
   const p = resolve(root, LOG_REL)
   try { mkdirSync(dirname(p), { recursive: true }) } catch { /* already there */ }
   let prev = 'genesis'
@@ -359,17 +393,13 @@ export function appendOverrides({ applied, header, sessionId, text, root }) {
     }
   } catch { /* an unreadable log must not stop the gate; the guard reports on the log itself */ }
   let n = 0
-  for (const a of applied) {
+  for (const r of records) {
     const rec = {
       ts: new Date().toISOString(),
       session_id: sessionId || null,
-      box: a.box,
-      reason: a.reason,
-      round: header?.ROUND || null,
-      question: header?.QUESTION || null,
-      blast: header?.BLAST || null,
       machine: hostname(),
       prompt_sha256: sha256(text),
+      ...r,
       prev,
     }
     const line = JSON.stringify(rec)
@@ -406,8 +436,21 @@ async function main() {
 
   const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText })
 
-  try { appendOverrides({ applied: res.applied, header: res.header, sessionId: input.session_id, text, root: ROOT }) }
-  catch (e) { return emitBlock(`⛔ PROTOCOL GATE — an override was accepted but COULD NOT BE LOGGED (${e.message}). An unlogged override is exactly the thing this gate exists to prevent, so it refuses instead.`) }
+  const common = { round: res.header?.ROUND || null, question: res.header?.QUESTION || null, blast: res.header?.BLAST || null }
+  const records = []
+  for (const a of res.applied || []) records.push({ verdict: 'override', box: a.box, reason: a.reason, ...common })
+  if (res.noneReason) records.push({ verdict: 'none_justified', reason: res.noneReason, ...common })
+  if (res.verdict === 'block') records.push({ verdict: 'refused', boxes_failed: res.failures.map((f) => f.box), ...common })
+
+  // ⛔ THE TWO FAILURE MODES ARE NOT THE SAME AND ARE NOT TREATED THE SAME. An unloggable OVERRIDE must refuse
+  // — an override nobody can audit is the thing this gate exists to prevent. An unloggable REFUSAL must NOT
+  // change the verdict: the paste is already being refused, and turning a logging fault into a second refusal
+  // would tell Russ his paste was wrong when it was the disk that failed.
+  try { appendLog({ records, sessionId: input.session_id, text, root: ROOT }) }
+  catch (e) {
+    if ((res.applied || []).length) return emitBlock(`⛔ PROTOCOL GATE — an override was accepted but COULD NOT BE LOGGED (${e.message}). An unlogged override is exactly the thing this gate exists to prevent, so it refuses instead.`)
+    console.error(`[protocol-gate] log write failed (verdict unchanged): ${e.message}`)
+  }
 
   if (res.verdict === 'block') return emitBlock(renderRefusal(res, { text, promptKey }))
   return emitAllow()
