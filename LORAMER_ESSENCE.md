@@ -132,6 +132,22 @@ absolution; it is a burn-down under Russ's approval, one live-path fix at a time
 ⛔ AND THE LIMIT THIS LAW INHERITS RATHER THAN REPAIRS: **no guard can observe Claude Code's chat output** —
 the one-block law and the terseness law remain UNENFORCEABLE by construction, and are stamped as such.
 
+## ⛔ CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD [LAW — RUSS, banked 2026-08-22]
+
+**CAPTURE IS FIRST. LORA IS SECOND. EVERYTHING ELSE IS THIRD.** All-data-from-all-sources-at-full-grain
+IS the product; Lora reasoning over that data is the point of capturing it; voice, chat status,
+streaming, homepage unification and the demo spine are POLISH and rank behind both — however close 9/30
+is. ⛔ **THIS OVERTURNS THE STANDING 9/30 BOARD RANKING**, which placed the five polish items "above
+everything" including the walk, and which nearly re-derived the wrong priority on 2026-08-22 (the session
+that banked this). The 9/30 CLOCK still stands (QUEUE ★9-30-IS-THE-GOVERNING-DATE owns it); what changed
+is what the clock ranks: a demo of a product whose capture is broken is a demo of nothing.
+⛔ **ENFORCEABILITY, STATED HONESTLY (per A LAW IS NOT BANKED UNTIL IT CAN FAIL A BUILD): NO GUARD CAN SEE
+THIS.** A priority ranking lives in plans and session heads, not in any build artifact a script can read —
+the same limit as the ONE-BLOCK LAW, and the same enforcer: PLACEMENT (this law in ESSENCE, the ranking in
+CONTINUE_HERE's head, the pointer in the QUEUE's date-gate line — all three re-read every resume) plus the
+protocol gate (QUEUE ★PROTOCOL-GATE-ENFORCER) once built. Obedience has exactly one enforcer and it is
+Russ saying so again.
+
 ## ⛔ WHAT LORAMER IS — BUSINESS INTELLIGENCE, NOT MARKETING ANALYTICS [LAW — RUSS, banked 2026-07-31]
 This is a SCOPE CORRECTION at law tier, and it governs the two laws above and every taxonomy below it.
 

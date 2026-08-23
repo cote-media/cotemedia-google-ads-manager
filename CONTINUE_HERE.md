@@ -1,4 +1,54 @@
-╔═══ SESSION CLOSE 2026-08-22 — THE POLL LANE IS LIVE AND UNPROVEN. READ THE ENDURANCE CLOCKS FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-22 (NIGHT) — THE QUEUE IS GONE. THE WALK RUNS INLINE. READ THE ENDURANCE CLOCK FIRST. ═══╗
+
+⛔ **THE PRIORITY LAW, BANKED TONIGHT AND IT RE-RANKS THIS WHOLE FILE (ESSENCE, Russ): CAPTURE FIRST,
+LORA SECOND, EVERYTHING ELSE THIRD.** Voice · chat status · streaming · homepage · demo spine are POLISH
+and rank BEHIND the walk and Lora, 9/30 notwithstanding. The old board said the opposite; it is overruled.
+**TODAY AND TOMORROW ARE WALK.**
+
+⛔ **SHIPPED TONIGHT — THREE COMMITS, ALL LIVE ON dpl_D86MygzTReC1e9n3sFscpAESYbZG:**
+· `4a5fc1b` LORAMER_WALK_REGION_PIN_PDX1_V1 — scan 118.5s → 47.5s (the DB was us-west-2, functions iad1;
+  ~900 cross-continent round trips/fire; nobody had ever pinned a region).
+· `5d81018` LORAMER_INLINE_FIRE_LEASE_V1 — universe_fire_lease (085 applied), CAS in DB time, TTL 330 >
+  ceiling 300 guard-pinned; proven under real concurrency before anything called it.
+· `fdc23ae` LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — **the queue is OUT; the cron executes its own
+  selection inline**, per-unit terminal rows intact, lease-gated, liveness re-founded same-commit
+  (EXECUTION_DARK + LEASE_WEDGED). Decision + why + flip conditions: DECISIONS owns it.
+  Gate-B 5-8 GREEN: inline fires ~86s · lease held-then-NULL observed live · liveness ALIVE
+  (200 attempts / 328 selected / 45m) · zero lease-held in steady state.
+
+⛔ **THE NEXT STEP IS A READ, NOT A BUILD — THE ENDURANCE CLOCK:**
+**+6h ≈ 2026-08-23 05:02Z · +24h ≈ 23:02Z** (from the first inline fire 23:02:05Z). THE QUESTION: attempts
+on THIS deployment vs the ~1,000-1,200 band where BOTH queue transports died (push 1,004/1,181/1,124/1,058 ·
+poll 1,002). At 23:12Z the count was 84; an hourly monitor alarms if it goes flat. THE ONE QUERY:
+  select count(*) from universe_attempt_log where phase='attempt_started' and recorded_at >= '2026-08-22T23:02:00Z';
+**PASS: >1,200 and still landing.** ⛔ **RED: execution stops in the band → the fault was NEVER the queue —
+`git revert fdc23ae && git push` (NOT Instant Rollback — vendor: it strands the cron table) and REOPEN
+★DELIVERY-DECAY-CAUSE-UNKNOWN with that evidence.**
+
+── BANKED TONIGHT, WHERE ──
+· ESSENCE: the PRIORITY LAW (with its honest no-guard-can-see-this limit).
+· DECISIONS: [[LORAMER_QUEUE_REMOVED_INLINE_WALK_V1]] (why + shape + flip conditions) ·
+  [[LORAMER_POLL_MODE_CUTOVER_V1]] (the missing entry a live guard cited — historical) ·
+  [[LORAMER_ROUNDS_AT_DECISION_POINTS_V1]] (Russ: full research/adversary ROUNDS at each decision point —
+  issue · whether · shape; TEST/RUN/VERIFY take gates; no proportionality carve-out; hollow boxes are
+  violations) · [[LORAMER_WALK_REGION_PIN_PDX1_V1]] (the measured pin, including the honest miss).
+· QUEUE: [[★PROTOCOL-GATE-ENFORCER]] — ⛔ **BUILD TONIGHT**: Code refuses hollow/unchecked protocol boxes,
+  refusal in English, override = a logged phrase from Russ · [[★QUEUE-TAG-BLIND-TO-TREE]] (the guard hole
+  that hid a built feature for four days) · [[★TOPIC-INDEX-DECISIONS-ZERO]] (§L undercount) ·
+  [[★WORKER-COMMENTS-SAY-20]] (lane understated 2x in two headers; next code commit).
+  CLOSED: ★COMPLETION-SIGNAL-TERMINAL-ROW (was built 08-18; tag was stale) · ★POLLER-CAPACITY-ASSUMPTION
+  (moot) · ★DELIVERY-DECAY-CAUSE-UNKNOWN (moot-unsolved; reopen condition = the endurance red) ·
+  ★DRAIN-LANE-BLOCKED (structurally closed — publish and consume are one act now).
+
+── ⛔ NOT TOMORROW'S WORK — said here so nobody re-derives it ──
+**THE SECOND WORKTREE IS OFF until tomorrow evening, and then ONLY if the walk needs more work.** The
+Monday four-part target and its unmeasured items stay parked behind the endurance verdict. Meta token:
+client 2617b163 still needs a browser OAuth reconnect (subcode 460 — not the ~08-25 re-arm, which also
+still stands for the other 12 accounts).
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-22 (MORNING) ⛔ SUPERSEDED SAME DAY · HISTORY · DO NOT ACT ON ITS HEAD OR CLOCKS ═══╗
 
 ⛔ **THE WALK NOW PULLS ITS OWN WORK. `1cee7e8`, deployment `dpl_CW1VtYbKUiWBuw9Ts5QefeywZhHB`, READY.**
 Push delivery decayed to zero every 3–6h and was restored ONLY by a deploy — five dark spans in 41 hours,
