@@ -359,6 +359,9 @@ export interface IntelligenceGaTransactionSource {
 
 export interface IntelligenceGa {
   connected: boolean
+  // LORAMER_FAILURE_IS_NOT_A_FACT_V1 — GA was the only platform type with no way to SAY the fetch failed,
+  // so its failure branch had nothing to set and collapsed to connected:false. The type was the constraint.
+  fetchFailed?: boolean
   propertyId?: string
   propertyName?: string
   sessions?: number

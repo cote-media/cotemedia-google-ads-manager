@@ -84,7 +84,7 @@ harvested — the sweep in §UNBANKED reaches only what left a trace in the tree
 
 ## 4. NAVIGATION & ROUTING — where a click lands (9)
 
-- [NAV] Team page shows one client in the header while the URL says another, and Ask-Lora then answers about the WRONG client · -next team · **CORRECTNESS** · QUEUE:923 #2 TEAM WRONG-CLIENT — PROVEN IN PROD
+- [NAV] ✅ CLOSED 2026-08-23 — the Team page showed one client while the URL said another and Ask-Lora answered about the wrong one; fixed and guard-held before this audit ran, and the entry was merely stale · -next team · **CORRECTNESS** · QUEUE:923 #2 — closed on the dangerous-five diagnosis
 - [NAV] Team sits in the client-scoped rail but is an ORG-level surface; it belongs in the account menu · -next rail · EXPERIENCE · QUEUE:924 #3
 - [NAV] The per-platform drill pages do not exist as routes at all · /dashboard-next/{google-ads,meta-ads,shopify,analytics} · EXPERIENCE · QUEUE:663
 - [NAV] `/dashboard-next/clients` silently ignores `?clientId=` — the only -next page taking no props · -next · EXPERIENCE · QUEUE:1161 ★NEXT-CLIENTS-PAGE-IGNORES-CLIENTID
@@ -99,7 +99,7 @@ harvested — the sweep in §UNBANKED reaches only what left a trace in the tree
 - [DATA] ⛔ The Age (Meta) card renders an ERROR STRING as its body, where the data belongs · -next Overview, The Escential Group, seen in prod · **CORRECTNESS** · QUEUE:1172 ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING
 - [DATA] ⛔ The completeness meter shows CONNECTED platforms as NOT_CONNECTED when the readiness RPC times out — on the surface built to prove capture honesty · -next client profile · **CORRECTNESS** · QUEUE:565 + QUEUE:1145 (same root cause, two entries)
 - [DATA] ⛔ The readiness checklist stays empty and the % stays stuck at 61% while the fields say "Saved" — the checklist reads a different source than the field writes · -next client profile · **CORRECTNESS** · QUEUE:925 #4
-- [DATA] ⛔ The legacy dashboard's Shopify chart counts cancelled orders while Lora and metrics_daily exclude them — the same client reads two different revenues · /dashboard · **CORRECTNESS** · AUDIT_FINDINGS:47 #6b
+- [DATA] ⛔ The legacy dashboard's Shopify chart counts cancelled orders, so it shows more orders than Lora and a LOWER average order value for the same client — revenue agrees, the order count and AOV do not · /dashboard · **CORRECTNESS** · AUDIT_FINDINGS:47 #6b — RESTATED 2026-08-23: not two revenues; a cancelled order's subtotal is $0 (measured, #6)
 - [DATA] "Meta is still importing history — no action needed" may be false for BASE data · -next · **CORRECTNESS** · QUEUE:~926 #5
 - [DATA] `campaign.advertising_channel_type` renders as a raw enum NUMBER in front of a user · dashboard · **CORRECTNESS** · QUEUE:231 ★CHANNEL-TYPE-ENUM-UNMAPPED
 - [DATA] Store compare legend labels BOTH windows with the same date range · -next store · **CORRECTNESS** · QUEUE:~679 S-PL#5

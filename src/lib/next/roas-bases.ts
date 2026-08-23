@@ -19,6 +19,7 @@
 // WINDOW HONESTY: `captured` is the ACTUAL omni_purchase data span in-window (action_type back-drain lags for some
 // clients), so the card labels the real captured range, not the nominal window edge.
 import { supabaseAdmin } from '@/lib/supabase'
+import { probeRead, isYes, isUnknown, reasonOf } from '@/lib/next/presence' // LORAMER_FAILURE_IS_NOT_A_FACT_V1
 
 export type RoasBasis = {
   key: string
@@ -51,11 +52,18 @@ export async function queryRoasBases(opts: { clientId: string; startDate: string
   const { clientId, startDate, endDate } = opts
 
   // Connection truth (honest "is it connected" proxy — ANY metrics_daily row ever). Gates the FALSE-ZERO guard.
+  // ⛔ LORAMER_FAILURE_IS_NOT_A_FACT_V1 — a failed read here became `metaConnected: false` became the
+  // absentReason "Meta not connected" on a ROAS card. Three states now; the boolean below is the narrowing,
+  // written out so "unknown counts as not-connected" is a visible choice rather than an accident of `!!`.
+  const everProbe = (pf: string) => probeRead(
+    `metrics_daily presence for ${pf}`,
+    () => supabaseAdmin.from('metrics_daily').select('platform').eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle(),
+    () => true,
+  )
   const ever = async (pf: string): Promise<boolean> => {
-    const { data } = await supabaseAdmin
-      .from('metrics_daily').select('platform')
-      .eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle()
-    return !!data
+    const p = await everProbe(pf)
+    if (isUnknown(p)) console.error(`[roas-bases] presence UNKNOWN for ${pf} (reported as not-connected until Part 2): ${reasonOf(p)}`)
+    return isYes(p)
   }
   const [metaConnected, shopifyEver, wooEver] = await Promise.all([ever('meta'), ever('shopify'), ever('woocommerce')])
   const storeConnected = shopifyEver || wooEver

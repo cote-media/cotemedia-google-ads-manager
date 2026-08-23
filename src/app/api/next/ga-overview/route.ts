@@ -91,10 +91,13 @@ export async function GET(request: Request) {
   // prove implication and the index is silently unusable — post GA-dimensional capture this client×platform holds
   // many breakdown rows to scan. Rests on the EMPIRICAL invariant that an account row exists on every captured day
   // (23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
-  const { data: latest } = await supabaseAdmin
+  const { data: latest, error: latestErr } = await supabaseAdmin
     .from('metrics_daily').select('date').eq('client_id', clientId).eq('platform', 'ga').eq('entity_level', 'account')
     .eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
+  // ⛔ `!!latest` on a swallowed error claims GA has NEVER captured — a stronger and more damaging statement
+  // than "no data in this window". Unchanged for consumers in Part 1; the failure is now visible.
+  if (latestErr) console.error('[ga-overview] hasGaEver read FAILED (UNKNOWN, reported as never-captured until Part 2):', latestErr.message)
   const hasGaEver = !!latest
   const hasSignalInRange = c.sessions > 0 || c.users > 0 || c.revenue > 0 || c.conversions > 0 || c.transactions > 0
 

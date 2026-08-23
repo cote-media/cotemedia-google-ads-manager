@@ -3,7 +3,14 @@
 // Every Claude call uses this as its data source.
 // Design principles:
 // - Never returns null — always returns a typed object
-// - Failed platform fetches return { connected: false } not null
+// - ⛔ FAILED PLATFORM FETCHES RETURN { connected: true, fetchFailed: true } — NEVER { connected: false }.
+//   A failure is not a disconnection and is not a zero. THIS LINE PREVIOUSLY DOCUMENTED THE OPPOSITE and was
+//   the propagation vector: google, shopify and woo were fixed to fetchFailed while meta, the woo FOCUSED
+//   path and ga were written from this sentence and inherited the defect. Every platform added from here
+//   follows the rule above, and tests/guards/failure-is-not-a-fact.guard.mjs fails the build if one does not.
+// - ⛔ A FAILED FETCH IS NEVER CACHED. hasFailedFetch() gates both cache writes and the cache read; a cached
+//   "all clear" outlives the outage it describes, which is the argument this file already makes about the
+//   quota sentinel below and never applied to platform payloads.
 // - All errors logged explicitly
 // - Cache per client+dateRange, invalidated on demand
 // - user_email always included in Supabase operations
@@ -42,6 +49,27 @@ function quotaOutageNote(detail: string): { paused: boolean; until: string | nul
 import type { ClientIntelligence, PlatformIntelligence } from '@/lib/intelligence/intelligence-types'
 
 const CACHE_TTL_MS = 15 * 60 * 1000 // 15 minutes
+
+// ⛔ LORAMER_FAILURE_IS_NOT_A_FACT_V1 — A FAILED READ IS NOT A FINDING, SO IT IS NOT CACHED.
+// ONE named predicate rather than three inline conditions, because three conditions drift apart and the one
+// that drifts is the one nobody re-reads. It is checked at BOTH writes and at the READ: an entry written by
+// an older deployment (or before this rule) must be treated as a miss rather than served as truth.
+// ⛔ SKIP, NOT A SHORTER TTL, AND THE TRADE IS ASYMMETRIC RATHER THAN A PREFERENCE: a wrong entry tells a
+// paying customer "Meta: not connected" for up to fifteen minutes and they act on it; a miss costs ONE extra
+// vendor fetch on the next request, which is exactly what a miss already costs today. The failure rate
+// bounds the extra load precisely — there is no new load beyond it. RFC 9111 says the same in the general
+// case: error responses are not served from cache and staleness-on-error is an explicit opt-in, never a
+// default (https://datatracker.ietf.org/doc/html/rfc9111). ⛔ AND IT INTRODUCES NO CONSTANT: no measurement
+// exists that says how long a vendor outage lasts, so any TTL would be a number with no derivation — the
+// exact defect this repo's own CONSTANTS rule refuses.
+// A named sentinel so the two existing catches can tell a DELIBERATE SKIP from a real cache fault. Logging
+// a correct decision as "Cache save error" would put a fabricated error in front of whoever debugs the
+// next outage — the same class of lie this whole flight is about, one layer down.
+class SkipCache extends Error { constructor() { super('cache skipped: a platform fetch failed this turn'); this.name = 'SkipCache' } }
+const FAILURE_MARKED = ['google', 'meta', 'shopify', 'woocommerce', 'ga'] as const
+function hasFailedFetch(intel: any): boolean {
+  return FAILURE_MARKED.some((p) => intel?.[p]?.fetchFailed === true)
+}
 // LORAMER_CONNECTION_HEALTH_V1 — single flag gates ALL dead-state UI (badge, dashboard banner,
 // Lora prompt block). Health WRITES are always on; only the user-facing surfacing is gated.
 const HEALTH_UI = process.env.NEXT_PUBLIC_SHOW_CONNECTION_HEALTH_UI === '1'
@@ -246,7 +274,10 @@ export async function GET(request: Request) {
     try {
       const cached = JSON.parse(context.intelligence_cache)
       const entry = cached[cacheKey]
-      if (entry && Date.now() - new Date(entry.fetchedAt).getTime() < CACHE_TTL_MS) {
+      // A cached failure is a MISS, not a hit — otherwise an entry written before this rule, or by an older
+      // deployment still running, is served as a finding for the rest of its TTL.
+      if (entry && hasFailedFetch(entry)) console.error('[intelligence] cached entry carries a failed fetch — treated as a MISS, refetching')
+      if (entry && !hasFailedFetch(entry) && Date.now() - new Date(entry.fetchedAt).getTime() < CACHE_TTL_MS) {
         // Always return fresh profile/conversations with cached platform data
         entry.profile = {
           businessType: context.business_type,
@@ -322,10 +353,13 @@ export async function GET(request: Request) {
         )
       } catch (e) {
         console.error('WooCommerce focused intelligence failed:', e)
-        intelligence.woocommerce = { connected: false }
+        // LORAMER_FAILURE_IS_NOT_A_FACT_V1 — the FOCUSED path had the old contract while the main path at
+        // :510 had the new one. Same platform, two branches, two answers to the same failure.
+        intelligence.woocommerce = { connected: true, fetchFailed: true }
       }
     }
     try {
+      if (hasFailedFetch(intelligence)) throw new SkipCache()
       const existingCache = context?.intelligence_cache ? JSON.parse(context.intelligence_cache) : {}
       existingCache[cacheKey] = intelligence
       const keys = Object.keys(existingCache)
@@ -339,7 +373,8 @@ export async function GET(request: Request) {
           updated_at: new Date().toISOString(),
         }, { onConflict: 'client_id,user_email' })
     } catch (e) {
-      console.error('Cache save error (focused woo):', e)
+      if (e instanceof SkipCache) console.error('[intelligence] cache SKIPPED (focused woo) — a platform fetch failed this turn; a failed read is not a finding')
+      else console.error('Cache save error (focused woo):', e)
     }
     return NextResponse.json({ intelligence })
   }
@@ -490,7 +525,11 @@ export async function GET(request: Request) {
     intelligence.meta = metaResult.value
   } else if (metaConn) {
     console.error('Meta intelligence failed:', metaResult.status === 'rejected' ? metaResult.reason?.message : 'unknown')
-    intelligence.meta = { ...EMPTY_PLATFORM, dateRange }
+    // ⛔ LORAMER_FAILURE_IS_NOT_A_FACT_V1 — was `{ ...EMPTY_PLATFORM, dateRange }`, and EMPTY_PLATFORM carries
+    // connected:false, so a failed Meta fetch reached Lora as NOT CONNECTED and was then cached for 15
+    // minutes. Meta was the only one of the five still on the old contract; google/shopify/woo were patched
+    // and Meta was missed because the header at the top of this file still documented the old rule.
+    intelligence.meta = { ...EMPTY_PLATFORM, connected: true, fetchFailed: true, dateRange }
   }
 
   if (shopifyResult.status === 'fulfilled' && shopifyResult.value) {
@@ -520,7 +559,8 @@ export async function GET(request: Request) {
         gaResult.reason?.message || gaResult.reason
       )
     }
-    intelligence.ga = { connected: false }
+    // LORAMER_FAILURE_IS_NOT_A_FACT_V1 — a failed GA fetch is not a disconnected GA.
+    intelligence.ga = { connected: true, fetchFailed: true }
   }
 
   // LORAMER_LIVE_VS_CAPTURED_SOURCE_PARITY_V1 — the REAL "settled through" date per platform, so Lora's
@@ -618,6 +658,7 @@ export async function GET(request: Request) {
 
   // ── Cache the result ───────────────────────────────────────────────────────
   try {
+    if (hasFailedFetch(intelligence)) throw new SkipCache()
     const existingCache = context?.intelligence_cache ? JSON.parse(context.intelligence_cache) : {}
     existingCache[cacheKey] = intelligence
     // Keep only last 5 cache entries
@@ -632,7 +673,8 @@ export async function GET(request: Request) {
         updated_at: new Date().toISOString(),
       }, { onConflict: 'client_id,user_email' })
   } catch (e) {
-    console.error('Cache save error:', e)
+    if (e instanceof SkipCache) console.error('[intelligence] cache SKIPPED — a platform fetch failed this turn; a failed read is not a finding')
+    else console.error('Cache save error:', e)
   }
 
   return NextResponse.json({ intelligence })

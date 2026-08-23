@@ -41,12 +41,17 @@ export async function resolveShellClient(
   const ids = await listAccessibleClients(email)
   if (!ids.length) return { client: null, clients: [], fellBack: false }
 
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('clients')
     .select('id, name')
     .in('id', ids)
     .is('deleted_at', null) // LORAMER_DELETE_CLIENT_V1 — an archived client is never selectable
     .order('created_at', { ascending: true })
+  // ⛔ A FAILED READ HERE RENDERS "No clients yet" TO A USER WHO HAS CLIENTS — the same class, on the one
+  // resolver every -next page calls. It is reported LOUD and NOT thrown: this runs on all 10 Shell pages, so
+  // turning a transient blip into a 500 across the whole surface is worse than today's behaviour. Part 2
+  // gives the page an honest "couldn't load your clients" state; Part 1 makes the failure visible in logs.
+  if (error) console.error('[shell-client] accessible-client read FAILED (rendering as no-clients until Part 2):', error.message)
   const clients = (data || []) as ShellClient[]
   if (!clients.length) return { client: null, clients: [], fellBack: false }
 

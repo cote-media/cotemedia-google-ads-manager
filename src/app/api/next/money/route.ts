@@ -25,13 +25,16 @@ const STORE_PLATFORMS = ['woocommerce', 'shopify'] as const
 // account row exists on every captured day (23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced).
 // Do not delete as redundant.
 async function latestMoneyDate(clientId: string, pf: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('metrics_daily')
     .select('date, extra')
     .eq('client_id', clientId).eq('platform', pf)
     .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false })
     .limit(90)
+  // ⛔ A failed read is NOT "no money data". Reported loud and returned as null only after saying so — the
+  // caller's contract is unchanged in Part 1, the truth is in the log until Part 2 wires the render.
+  if (error) { console.error(`[money] latestMoneyDate read FAILED for ${pf} (UNKNOWN, not absent):`, error.message); return null }
   const row = (data || []).find((r: any) => r?.extra && r.extra.money)
   return row ? (row.date as string) : null
 }

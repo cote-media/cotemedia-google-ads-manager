@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-23T18:18:39.738Z
-- built_from HEAD: cadd63d6bdcb34bb31a7b04275f078aa7e5a4af6  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-23T18:54:23.390Z
+- built_from HEAD: 734ea261518217e30cbfb5574031891b22e0ce20  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -17,8 +17,8 @@
     - LORAMER_ESSENCE.md: 84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: e14989c685eef6759d34ab84d4602745663400f873b00d363861ffa43ddfcfb6
-    - LORAMER_DECISIONS.md: 33c6820d132c1e301360b585fa3ded236446958e7fbc2822161f566953e2fc1f
-    - LORAMER_QUEUE_OF_RECORD.md: 1c15ae751385c5256451106952f10f1fe9a35e4268158753c4dddfceb6145e71
+    - LORAMER_DECISIONS.md: a99533a6d2ebe6d29d1608d5aa78306f5737a818971db9fba523c08ba2968d49
+    - LORAMER_QUEUE_OF_RECORD.md: fed70af8a6f323b1ca2937712ab5ed094910859ab2cbd75ba14533fa3333ce0f
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -1237,6 +1237,8 @@ DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | d
 ⛔ **WHY IT WAS REVERTED:** a perpetual refresh loop on the -next client profile (iPhone) — LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 owns the defect. **STAGE 2 SCOPE STANDS:** ga/shopify/woo callbacks (shopify = LIVE merchant path) · Shopify+GA probes · 'expiring' + the meta_tokens expiry column · the sweep (build in ★PIPELINE-RESILIENCE-LAYER). | LORAMER_RECONNECT_STATE_MACHINE_V1 | do not relitigate.
 ## LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 (2026-08-23) — MEASURED. The render-loop defect class, banked as ONE thing so the corrected build and the protocol gate are built against it.
 ⛔ **THE DEFECT, ONE SENTENCE: an effect that triggers `router.refresh()` on its own SUCCESS rather than on a state TRANSITION, with idempotence assumed from an empty dependency array instead of recorded.** Both shipped instances were this one defect: (1) the null-health background verify — PATCH → `verified:true` → refresh; but the heal answers `verified:true` on a HEALTHY credential too, so the design has NO FIXED POINT, and any remount-per-refresh environment (RSC error → full reload, iOS Safari history restore) loops it; (2) the auto-finalize on a restored `?meta_accounts=` URL — every restore re-ran finalize → refresh, no durable already-finalized marker. EVIDENCE: at observation time NO f5fbe7e5 row had NULL health (instance 1's precondition), and the Meta row ALONE was re-stamped 02:55:10 while the other 11 kept 01:49:52 — the per-row intelligence stamp, the fingerprint of repeated page loads. ⛔ **THE RULE FOR THE CORRECTED BUILD: refresh on TRANSITION (null→healthy), never on success; idempotence is RECORDED (a durable marker), never assumed from `[]`.** | LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1, 2026-08-23 | do not relitigate.
+## LORAMER_FAILURE_IS_NOT_A_FACT_V1 (2026-08-23) — SHIPPED, PART 1 of 2 (data layer + contract). A failed read may never become a negative fact. Do not relitigate the shape.
+⚠ **WHAT THIS DOES NOT REACH, stated so the green is not oversold:** leg (a) is a PROXY — it demands `error` on every read in two directories because "drives a user-visible negative" is judgment and not computable. Whether an unknown then RENDERS honestly is a browser question no guard here can see (★CHAT-RENDER-MEASUREMENT-MISSING), and it is exactly what Part 2 owns. | LORAMER_FAILURE_IS_NOT_A_FACT_V1, 2026-08-23 | do not relitigate.
 ## LORAMER_PROTOCOL_GATE_ENFORCER_V1 (2026-08-23) — SHIPPED, LAYER 1. The first protocol rule in this repo that can STOP an action. Do not relitigate the surface or the shape.
 ⛔ **AND THE CEILING, STATED ONCE MORE BECAUSE IT IS THE THING MOST LIKELY TO BE FORGOTTEN: THIS IS AN ARTIFACT CHECK, NOT A PROCESS PROOF.** A paste with all seven boxes correctly filled around a bad flight PASSES. **The 2026-08-22 flagship failure — a complete, genuine round aimed at the WRONG QUESTION — would pass this gate today.** The largest of the five failures is the one the gate is weakest on. (The COMMIT/PUSH GATE governing this build's own push was ALREADY BANKED at DECISIONS:63 + LORAMER_HANDOFF.md:831-838 — verified 2026-08-23 and deliberately NOT re-banked, per the RULE-HOME GATE: a rule banked twice is prose, not an enforcer.) | LORAMER_PROTOCOL_GATE_ENFORCER_V1, 2026-08-23 | do not relitigate.
 ## LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1 (2026-08-23) — RETIRED + MEASURED. The "~08-25 re-arm / ~08-30 cliff" clock is FALSE and is withdrawn; the estate's next credential trigger is measured from live rows.
@@ -2105,7 +2107,6 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - STANDING RULE — READ-FIRST EXISTENCE CHECK: before building any new writer/route/adapter, grep the repo for an existing one first (this session the Meta campaign writer ALREADY existed unwired; building fresh would have duplicated it). Promote to a Lesson at next wrap. src: this session. standing [process]
 - STANDING RULE — VERIFY-EXTERNAL-UI-BEFORE-INSTRUCTING: before telling Russ to do something in an external dashboard (Vercel/Supabase/Google/Meta), verify the actual current UI/state first; do not instruct from an assumed UI (this session: assumed the legacy JWT was the service key; the project had legacy keys disabled → needed the sb_secret_ key). Promote to a Lesson at next wrap. src: this session. standing [process]
 - 1. CLIENT-PROFILE STATE BLEED — CONFIRMED UI bleed across a soft client switch (NAICS search text and a NAICS number both observed carrying between clients). ✅ CLOSED 2026-07-16 — CAUSE FIXED + GATE-B PASSED (Russ's own eyeball on prod: blink visible · NAICS box clears across a switch · value-model gate arrives BLANK on fresh clients [Glenn Stearns + Inside] · Team header follows the URL). DATA: no cross-client NAICS or website existed in the stored data (22 rows read). The Champion/Glass Plus value_model ambiguity (both ['offline-sales','lead'], written 2 min apart in the pre-ticked-gate window) is CLOSED — RUSS CONFIRMED both are CORRECT for those businesses on their own merits. No cleanup needed. DO NOT RE-ASK. Historical note for the record only: Nothing structural prevented cross-client writes: /api/context/route.ts:54 is a generic spread that writes ANY key the UI sends, and the ownership gate at :41-45 is OWNER-scoped, not CLIENT-scoped, so it blocks cross-owner and never client-A-onto-client-B within one owner. Root cause is the same soft-switch pattern as items 2 and 7: TopBar.tsx:82 router.push(?clientId=) keeps the pathname → no remount → component state survives. Same class S-PL#1/aa357c7 fixed on the store page with a mount key 3 weeks ago; the profile page never got it. Severity: ranks below G1(b), above the cosmetic items. Sharpens item 7(b) — a server-only Shell guard goes GREEN through all of this. ✅ CAUSE FIXED 2026-07-16 (LORAMER_SHELL_CLIENT_CONTEXT_V1): ONE resolver + a Shell-level mount key on clientId + the /api/context 9-key allowlist (the generic spread is gone) + a both-halves guard in the pre-build gate. Items 2 and 7 are CLOSED by the same commit. NOTE ON EVIDENCE: a point-in-time read proves no corruption in the CURRENT stored data; it CANNOT prove no corruption ever occurred (VM's ctx_updated_at was minutes old, so a later [] write could have overwritten an earlier bled value). src: Russ live obs + read-only diagnostic 2026-07-15. open [LC]
-- 2. TEAM WRONG-CLIENT — team/page.tsx:22 `const first = (clients||[])[0]` resolves the FIRST accessible client (created_at asc) and NEVER reads searchParams; the page is the ONLY -next Shell-mounting client-context page that doesn't (the other six do). So the header shows one client while the URL says another, and Shell.tsx:52 hands ChatLauncher the WRONG clientId → Ask-Lora on Team answers about the wrong client. PROVEN IN PROD: the 23:28:38 spend row carries Ennis (1b7b073f) while the URL said Veterinary (f5fbe7e5). The dropdown is NOT inert — TopBar.tsx:82 updates the URL and the page recomputes `first`, so it snaps back. Regression of the 2026-06-20 fix. GRANT PATH VERIFIED UNAFFECTED: TeamPanel.tsx:44 takes client_ids ONLY from the explicit checkboxes and /api/org/invite:25-30 reads grants from the BODY only — a teammate cannot be granted access to a client other than the one shown. Fix = read+validate searchParams.clientId ∈ listAccessibleClients, else fall back (Lesson 53). ONE file. LIVE-PATH (-next is the default post-login surface, 9bdf4e7) → STOP-and-confirm. src: 2026-07-15. open [LC]
 - 3. TEAM NAV PLACEMENT — Team is an ORG-level surface; it belongs in the top-right account/profile menu, not the client-scoped rail. Russ's call, consistent with the banked avatar-as-brain design. src: Russ 2026-07-15. open [LC]
 - 4. READINESS CHECKLIST DOES NOT REFLECT SAVED STATE — website / service area / value model all flash "Saved" while their checklist bubbles stay empty and the % does not move (61% stuck). The checklist reads a DIFFERENT source than the field writes. Two-authorities shape (L64). src: Russ live obs 2026-07-15. open [LC]
 - 5. "META IS STILL IMPORTING HISTORY — NO ACTION NEEDED" MAY BE FALSE — true of the still-draining BREADTH, false of BASE. Influential Drones CANONICAL 5bb9b2ff-a1df-4d46-ac6b-0471ef543e15 base data ends 2025-09-02, PROVEN A REAL STOP by a live Graph delivery check (act_584246708329858, Oct 2025 = 0 days/$0/0 impressions). Telling a user "no action needed" about capture that stopped 10 months ago is a trust defect. (Demo twin = 2617b163-f392-427e-9a29-f134acc51406 — carry UUIDs; the name alone is ambiguous.) src: 2026-07-15. open [LC]
@@ -2338,8 +2339,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 979 tokens indexed · 353 resolve to BOTH a decision and a queue item ·
-136 decision-only · 490 queue-only.
+TOTALS: 980 tokens indexed · 353 resolve to BOTH a decision and a queue item ·
+137 decision-only · 490 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 263 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2418,7 +2419,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHAT-PROBE-DISPLAY-CANNOT-SHOW-DISMISSAL — OPEN · decisions 0 · queue 3 · last 2026-08-12
 - ★CHAT-PROMPT-ASSEMBLY-DOUBLE-FETCH — OPEN · decisions 3 · queue 7 · last 2026-08-14
 - ★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE — OPEN · decisions 1 · queue 4 · last 2026-08-20
-- ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 9 · queue 6 · last 2026-08-08
+- ★CHAT-RENDER-MEASUREMENT-MISSING — OPEN · decisions 10 · queue 6 · last 2026-08-23
 - ★CHAT-RETENTION-MARKETING — OPEN · decisions 0 · queue 3 · last 2026-07-26
 - ★CHAT-SHELF-IPAD-TAP — OPEN · decisions 0 · queue 1 · last 2026-08-11
 - ★CHAT-STATUS-INDICATOR — OPEN · decisions 3 · queue 4 · last 2026-09-30
@@ -2986,6 +2987,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_EVAL_V2_RUN2_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_EVENT_ATTRIBUTION_V1 — OPEN · decisions 0 · queue 4 · last 2026-08-16
 - LORAMER_EXTRA_METRIC_REACHABILITY_V1 — DONE · decisions 0 · queue 1 · last 2026-08-14
+- LORAMER_FAILURE_IS_NOT_A_FACT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-23
 - LORAMER_FALSE_ZERO_DIAG_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-15
 - LORAMER_FIRST_CLASS_DIMENSION_DEFAULT_V1 — OPEN · decisions 1 · queue 4 · last 2026-07-18
 - LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 — OPEN · decisions 3 · queue 2 · last 2026-08-09

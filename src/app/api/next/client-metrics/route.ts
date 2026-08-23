@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { probeRead, isYes, reasonOf } from '@/lib/next/presence' // LORAMER_FAILURE_IS_NOT_A_FACT_V1
 import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 // LORAMER_LORA_CANONICAL_SETTLE_V1 (Fix #1 B1) — the ONE canonical settle (extracted verbatim from this file).
@@ -95,17 +96,29 @@ export async function GET(request: Request) {
 
   // hasDataEver: does this client have ANY metrics_daily rows for the platform across all time (honest
   // "is it connected" proxy) — so an unconnected platform renders "not connected", never a fabricated $0.
-  const ever = async (pf: string) => {
-    const { data } = await supabaseAdmin.from('metrics_daily').select('platform').eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle()
-    return !!data
-  }
+  // ⛔ THREE STATES, NOT TWO. This read discarded `error`, so a statement timeout became `data: null` became
+  // `false` became the literal string "not connected" on the Overview for a platform holding years of rows.
+  // The comment 15 lines below already names the mechanism for its sibling query ("57014 → swallowed →
+  // silent null"); this one had the identical hole and no comment.
+  const ever = (pf: string) => probeRead(
+    `metrics_daily presence for ${pf}`,
+    () => supabaseAdmin.from('metrics_daily').select('platform').eq('client_id', clientId).eq('platform', pf).limit(1).maybeSingle(),
+    () => true,
+  )
   const [googleEver, metaEver, shopifyEver, wooEver, gaEver] = await Promise.all([ever('google'), ever('meta'), ever('shopify'), ever('woocommerce'), ever('ga')])
+  // ⛔ PART 1 IS DELIBERATELY LOSSY AT THE CONSUMER, AND IT IS SAID OUT LOUD RATHER THAN DISCOVERED: the
+  // payload now carries the truth (`presence` + `presenceReason`), but `hasDataEver` keeps TODAY'S semantics
+  // — isYes(), so an unknown still reads false and the UI still renders "not connected". Changing six render
+  // sites across the legacy live path in the same commit as the data layer is too much blast at once; the
+  // render contract is Part 2. Until then the lie persists on screen and the reason is in the payload.
+  const evers = { google: googleEver, meta: metaEver, shopify: shopifyEver, woocommerce: wooEver, ga: gaEver } as const
+  const pres = (pf: keyof typeof evers) => ({ presence: evers[pf].state, presenceReason: reasonOf(evers[pf]) })
   const channels = [
-    { platform: 'google', spend: Number(curByPlatform.google.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: googleEver },
-    { platform: 'meta', spend: Number(curByPlatform.meta.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: metaEver },
-    { platform: 'shopify', spend: null as number | null, revenue: Number(curStoreRev.shopify.toFixed(2)), conversions: null as number | null, hasDataEver: shopifyEver },
-    { platform: 'woocommerce', spend: null as number | null, revenue: Number(curStoreRev.woocommerce.toFixed(2)), conversions: null as number | null, hasDataEver: wooEver },
-    { platform: 'ga', spend: null as number | null, revenue: Number(curGaRev.toFixed(2)), conversions: Math.round(curGaConv), hasDataEver: gaEver },
+    { platform: 'google', spend: Number(curByPlatform.google.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: isYes(googleEver), ...pres('google') },
+    { platform: 'meta', spend: Number(curByPlatform.meta.toFixed(2)), revenue: null as number | null, conversions: null as number | null, hasDataEver: isYes(metaEver), ...pres('meta') },
+    { platform: 'shopify', spend: null as number | null, revenue: Number(curStoreRev.shopify.toFixed(2)), conversions: null as number | null, hasDataEver: isYes(shopifyEver), ...pres('shopify') },
+    { platform: 'woocommerce', spend: null as number | null, revenue: Number(curStoreRev.woocommerce.toFixed(2)), conversions: null as number | null, hasDataEver: isYes(wooEver), ...pres('woocommerce') },
+    { platform: 'ga', spend: null as number | null, revenue: Number(curGaRev.toFixed(2)), conversions: Math.round(curGaConv), hasDataEver: isYes(gaEver), ...pres('ga') },
   ]
 
   // True freshness for this client (unbounded by the window) so the captured basis is transparent.
@@ -114,10 +127,13 @@ export async function GET(request: Request) {
   // blows the 8s live statement_timeout → 57014 → swallowed → silent null). Rests on the EMPIRICAL invariant
   // that an account row exists on every captured day (23/23 fleet + per client×platform, 2026-07-15; NOT
   // schema-enforced). Do not delete as redundant.
-  const { data: latest } = await supabaseAdmin
+  // ⛔ THE COMMENT ABOVE HAS WARNED ABOUT `57014 → swallowed → silent null` SINCE IT WAS WRITTEN, AND THE
+  // READ STILL SWALLOWED IT. Knowing a failure mode and not destructuring the error is how it survives.
+  const { data: latest, error: latestErr } = await supabaseAdmin
     .from('metrics_daily').select('date').eq('client_id', clientId)
     .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
+  if (latestErr) console.error('[client-metrics] latestCapturedDate read FAILED (reported as unknown, not as absent):', latestErr.message)
 
   // LORAMER_QUERY_COMPLETENESS_V1 slice 2 — flag a CURRENT-window total that omits a failing/stale platform, so
   // the -next cards mark it partial instead of showing it as a whole number. Additive + best-effort (never breaks

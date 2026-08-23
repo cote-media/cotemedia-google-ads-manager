@@ -1473,7 +1473,12 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   // (or any platform) starts recording fetchErrors it is rendered with zero further work. Guarded by the class check.
   const mDeg = degradedCount(intelligence.meta)
   const mSuffix = mDeg > 0 ? ` — DEGRADED: ${mDeg} data ${mDeg === 1 ? 'family' : 'families'} FAILED to load live (NOT zero; see the PARTIAL/DEGRADED FETCH block and use the tools named there)` : ''
-  if (platformIsPopulated(intelligence.meta)) platformStatus.push(`Meta: populated${mSuffix}`)
+  // ⛔ LORAMER_FAILURE_IS_NOT_A_FACT_V1 — THE FAILED RUNG, ADDED 2026-08-23. Meta was the ONLY ad platform
+  // whose ladder had no failed rung, so a failed Meta fetch fell through to "connected but no spend" or
+  // "not connected" and Lora reported an outage as a fact about the account. Worded identically to the
+  // Shopify and WooCommerce rungs on purpose: same defect, same sentence, so the model reads one pattern.
+  if (intelligence.meta?.fetchFailed) platformStatus.push('Meta: CONNECTED but data fetch FAILED this turn (stale, not $0, not disconnected — use query_metrics)')
+  else if (platformIsPopulated(intelligence.meta)) platformStatus.push(`Meta: populated${mSuffix}`)
   else if (platformIsEmpty(intelligence.meta)) platformStatus.push(`Meta: connected but no spend in this date range${mSuffix}`)
   else platformStatus.push('Meta: not connected')
   // LORAMER_CONN_DEGRADED_STATE_V1 — a failed live store fetch is "connected, fetch failed", never "not connected" / $0.
@@ -1484,7 +1489,9 @@ If the user asks for a specific COUNT, the fence contains exactly that many line
   else if (intelligence.woocommerce?.connected) platformStatus.push('WooCommerce: populated')
   else platformStatus.push('WooCommerce: not connected')
   // LORAMER_GA_CLAUDE_CONTEXT_V1
-  if (intelligence.ga?.connected && (intelligence.ga.sessions ?? 0) > 0) {
+  if (intelligence.ga?.fetchFailed) {
+    platformStatus.push('GA: CONNECTED but data fetch FAILED this turn (stale, not $0, not disconnected — use query_metrics)')
+  } else if (intelligence.ga?.connected && (intelligence.ga.sessions ?? 0) > 0) {
     platformStatus.push('GA: populated')
   } else if (intelligence.ga?.connected) {
     platformStatus.push('GA: connected but no data')

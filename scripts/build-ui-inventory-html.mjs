@@ -75,9 +75,9 @@ for (const c of categories) {
 // ── THE DANGEROUS FIVE — matched by distinctive substring; the order IS the ranking ──────────────────────
 const DANGEROUS = [
   ['Lora reports missing data as ZERO', 'She does not invent numbers — she reports absence as $0, with full confidence. 13 eval failures: 8 false-zero, 5 fabricated.'],
-  ['Team page shows one client in the header', 'Proven in production: a spend row for one client while the URL said another. Nothing on screen says which client the answer is about.'],
+  ['CLOSED 2026-08-23 — the Team page showed one client', '⚠ NO LONGER DANGEROUS — CLOSED. It was fixed and guard-held before the audit ran; the queue entry was merely stale. Kept here because a reader who saw the earlier list needs to know what happened to it, not to find it silently gone.'],
   ['completeness meter shows CONNECTED platforms as NOT_CONNECTED', 'The one screen built to prove capture is real is the screen that lies when the query behind it times out.'],
-  ["legacy dashboard's Shopify chart counts cancelled orders", 'The same client has two revenues on two surfaces, and nothing indicates which one is right.'],
+  ["legacy dashboard's Shopify chart counts cancelled orders", '⚠ RESTATED 2026-08-23 and SMALLER than first reported: revenue AGREES on both paths — a cancelled order\u2019s subtotal is $0, measured. What diverges is the order count, so the chart understates average order value. Still a number an owner acts on.'],
   ['Stale intelligence cache can serve an EMPTY Meta payload', 'It reads as "no spend", not as "no data" — a confident answer over a window we did not have.'],
 ]
 const danger = DANGEROUS.map(([key, why]) => {
@@ -261,7 +261,7 @@ const inner = `<title>LoraMer UI Punch List</title>
   <p class="note"><b>Rank the categories, not the items.</b> Everything is collapsed. Tap a category to open it.
   Ticking is yours alone — it is stored on this device only and survives a reload; it changes nothing in the repo.</p>
 
-  <h2 class="sec">Dangerous — a customer acts and is wrong, with no signal</h2>
+  <h2 class="sec">Dangerous — a customer acts and is wrong, with no signal · 3 stand, 2 corrected on diagnosis</h2>
   <div class="danger"><ul class="items">${danger.map((d) => itemHtml(d, true)).join('')}</ul></div>
 
   <h2 class="sec">All ${all.length} items by category</h2>

@@ -98,10 +98,11 @@ export async function GET(request: Request) {
   // on heavy clients exceeds the 8s live statement_timeout → 57014 → swallowed → a silent null. Correctness
   // rests on the EMPIRICAL invariant that an account row is written on every day any grain is written
   // (verified 23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
-  const { data: latest } = await supabaseAdmin
+  const { data: latest, error: latestErr } = await supabaseAdmin
     .from('metrics_daily').select('date').in('client_id', clientIds)
     .eq('entity_level', 'account').eq('breakdown_type', '').eq('breakdown_value', '')
     .order('date', { ascending: false }).limit(1).maybeSingle()
 
+  if (latestErr) console.error('[portfolio-metrics] latestCapturedDate read FAILED (UNKNOWN, not absent):', latestErr.message)
   return NextResponse.json({ period, current, prior, latestCapturedDate: latest?.date || null, metrics })
 }

@@ -134,10 +134,14 @@ export function computeContribution(
 export async function readHealthForClients(clientIds: string[]): Promise<Map<string, Map<string, HealthRow>>> {
   const out = new Map<string, Map<string, HealthRow>>()
   if (!clientIds.length) return out
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('platform_connections')
     .select('client_id, platform, health, consecutive_failures, first_failure_at')
     .in('client_id', clientIds)
+  // An empty map from a FAILED read reads downstream as "every client has no health row" — indistinguishable
+  // from a healthy fleet. Reported loud; the map shape is unchanged (this function has no callers today, and
+  // fixing it now is cheaper than fixing it when it acquires one).
+  if (error) console.error('[query-completeness] readHealthForClients FAILED (empty map is UNKNOWN, not healthy):', error.message)
   for (const c of data || []) {
     const cid = (c as any).client_id as string
     if (!out.has(cid)) out.set(cid, new Map())
