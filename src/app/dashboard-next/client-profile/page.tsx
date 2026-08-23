@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import Shell from '@/components/redesign/Shell'
+import NoClients from '@/components/redesign/NoClients' // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — one component, two states
 import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1
 import ClientPage from '@/components/redesign/ClientPage'
 import { reconcile } from '@/lib/completeness/reconcile' // LORAMER_COMPLETENESS_GATE_V1 F(b) — data-capture verdict (REUSED)
@@ -24,12 +25,12 @@ export default async function DashboardNextClientProfilePage({ searchParams }: {
   // NOTE: this page previously resolved OWNER-ONLY via .eq('user_email', email) and was never swapped onto the
   // org-aware access layer (LORAMER_RBAC_ACCESS_ORG_V1) — so an org MEMBER with a valid grant saw "No clients
   // yet" here. resolveShellClient uses listAccessibleClients (owner ∪ org-grant ∪ legacy), which fixes that.
-  const { client: resolved } = await resolveShellClient(email, searchParams)
+  const { client: resolved, readFailed } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (
       <Shell active="clients">
-        <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: 24 }}>No clients yet.</p>
+        <NoClients readFailed={readFailed} />
       </Shell>
     )
   }

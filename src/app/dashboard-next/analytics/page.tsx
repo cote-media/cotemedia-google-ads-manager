@@ -6,6 +6,7 @@ import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Shell from '@/components/redesign/Shell'
+import NoClients from '@/components/redesign/NoClients' // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — one component, two states
 import GaOverview from '@/components/redesign/GaOverview'
 import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1 — the ONE client-context resolver
 
@@ -17,10 +18,10 @@ export default async function DashboardNextAnalyticsPage({ searchParams }: { sea
   const email = session?.user?.email || ''
   // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set,
   // fall back deterministically. One resolver for every Shell page (Lesson 53 / HANDOFF:847).
-  const { client: resolved } = await resolveShellClient(email, searchParams)
+  const { client: resolved, readFailed } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
-    return <Shell active="analytics"><p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: 24 }}>No clients yet.</p></Shell>
+    return <Shell active="analytics"><NoClients readFailed={readFailed} /></Shell>
   }
   return (
     <Shell active="analytics" clientName={resolved.name} clientId={resolved.id}>

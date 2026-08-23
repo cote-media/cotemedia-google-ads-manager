@@ -9,6 +9,7 @@ import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Shell from '@/components/redesign/Shell'
+import NoClients from '@/components/redesign/NoClients' // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — one component, two states
 import CardEngine from '@/components/redesign/cards/CardEngine'
 import { storeDefaultView } from '@/components/redesign/cards/card-types'
 import { resolveStorePlatform } from '@/lib/next/store-detect'
@@ -28,12 +29,12 @@ export default async function DashboardNextStorePage({ searchParams }: { searchP
   // (owner-agnostic), so a granted member sees the store they can access.
   // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set,
   // fall back deterministically. One resolver for every Shell page (Lesson 53 / HANDOFF:847).
-  const { client: resolved } = await resolveShellClient(email, searchParams)
+  const { client: resolved, readFailed } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (
       <Shell active="store">
-        <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: 24 }}>No clients yet.</p>
+        <NoClients readFailed={readFailed} />
       </Shell>
     )
   }

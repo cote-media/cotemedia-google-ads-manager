@@ -62,10 +62,15 @@ export async function queryRoasBases(opts: { clientId: string; startDate: string
   )
   const ever = async (pf: string): Promise<boolean> => {
     const p = await everProbe(pf)
-    if (isUnknown(p)) console.error(`[roas-bases] presence UNKNOWN for ${pf} (reported as not-connected until Part 2): ${reasonOf(p)}`)
+    if (isUnknown(p)) console.error(`[roas-bases] presence UNKNOWN for ${pf}: ${reasonOf(p)}`)
     return isYes(p)
   }
   const [metaConnected, shopifyEver, wooEver] = await Promise.all([ever('meta'), ever('shopify'), ever('woocommerce')])
+  // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — the ROAS card reports an ABSENT basis with a reason. "Meta not
+  // connected" is a claim about the customer's account; when the read failed we have not earned it.
+  const metaProbe = await everProbe('meta')
+  const metaUnknown = metaProbe.state === 'unknown'
+  const metaAbsentReason = metaUnknown ? 'Couldn’t check the Meta connection' : 'Meta not connected'
   const storeConnected = shopifyEver || wooEver
 
   // ── Read 1: per-day omni_purchase rows (Meta, account) — the ONLY purchase_roas carrier. Skip null/0 ROAS days.
@@ -141,7 +146,7 @@ export async function queryRoasBases(opts: { clientId: string; startDate: string
       bases.push({ key: 'meta_purchase_roas', label: 'Meta purchase ROAS (window)', basis, value: r2(purchaseValue / attributedSpend), absent: false })
     } else {
       bases.push({ key: 'meta_purchase_roas', label: 'Meta purchase ROAS (window)', basis, value: null, absent: true,
-        absentReason: !metaConnected ? 'Meta not connected' : 'No Meta purchase ROAS reported in the captured window' })
+        absentReason: !metaConnected ? metaAbsentReason : 'No Meta purchase ROAS reported in the captured window' })
     }
   }
 
@@ -152,7 +157,7 @@ export async function queryRoasBases(opts: { clientId: string; startDate: string
       bases.push({ key: 'value_per_meta_spend', label: 'Value ÷ total Meta spend', basis, value: r2(purchaseValue / metaSpend), absent: false })
     } else {
       bases.push({ key: 'value_per_meta_spend', label: 'Value ÷ total Meta spend', basis, value: null, absent: true,
-        absentReason: !metaConnected ? 'Meta not connected' : metaSpend <= 0 ? 'No Meta spend in the window' : 'No Meta purchase value captured' })
+        absentReason: !metaConnected ? metaAbsentReason : metaSpend <= 0 ? 'No Meta spend in the window' : 'No Meta purchase value captured' })
     }
   }
 

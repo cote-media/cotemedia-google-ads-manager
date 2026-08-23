@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
+import { probeRead, valueOf, reasonOf } from '@/lib/next/presence' // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1
 import { resolveAccess } from '@/lib/access/can-access'
 import { portfolioWindows, isPortfolioPeriod } from '@/lib/next/portfolio-windows'
 import { getCoverageForWindows } from '@/lib/next/coverage' // LORAMER_QUERY_COMPLETENESS_V1 slice 3
@@ -91,10 +92,19 @@ export async function GET(request: Request) {
   // prove implication and the index is silently unusable — post GA-dimensional capture this client×platform holds
   // many breakdown rows to scan. Rests on the EMPIRICAL invariant that an account row exists on every captured day
   // (23/23 fleet + per client×platform, 2026-07-15; NOT schema-enforced). Do not delete as redundant.
-  const { data: latest, error: latestErr } = await supabaseAdmin
-    .from('metrics_daily').select('date').eq('client_id', clientId).eq('platform', 'ga').eq('entity_level', 'account')
-    .eq('breakdown_type', '').eq('breakdown_value', '')
-    .order('date', { ascending: false }).limit(1).maybeSingle()
+  // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — Part 1 LOGGED this failure and sent nothing, so the component had
+  // no state to render. The presence rides the payload now; `hasGaEver` keeps its old semantics for anything
+  // that still reads the boolean.
+  const gaProbe = await probeRead<{ date: string }>(
+    'latest GA account-row date',
+    () => supabaseAdmin
+      .from('metrics_daily').select('date').eq('client_id', clientId).eq('platform', 'ga').eq('entity_level', 'account')
+      .eq('breakdown_type', '').eq('breakdown_value', '')
+      .order('date', { ascending: false }).limit(1).maybeSingle(),
+    () => true,
+  )
+  const latest = valueOf(gaProbe)
+  const latestErr = gaProbe.state === 'unknown' ? { message: gaProbe.reason } : null
   // ⛔ `!!latest` on a swallowed error claims GA has NEVER captured — a stronger and more damaging statement
   // than "no data in this window". Unchanged for consumers in Part 1; the failure is now visible.
   if (latestErr) console.error('[ga-overview] hasGaEver read FAILED (UNKNOWN, reported as never-captured until Part 2):', latestErr.message)
@@ -112,6 +122,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     clientId, period, current, prior,
     hasGaEver, hasSignalInRange,
+    // 'yes' | 'no' | 'unknown' — the third value is what GaOverview branches on. Never collapse it here.
+    presence: gaProbe.state, presenceReason: reasonOf(gaProbe),
     totals: c, priorTotals: p, series,
     latestCapturedDate: latest?.date || null,
     incompleteNote, // LORAMER_QUERY_COMPLETENESS_V1 slice 3

@@ -9,7 +9,20 @@ import { useEffect, useState } from 'react'
 import styles from './redesign.module.css'
 import { DEFAULT_PERIOD } from '@/lib/next/portfolio-windows'
 
-type Channel = { platform: string; spend: number | null; revenue: number | null; conversions: number | null; hasDataEver: boolean }
+// LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — `presence` is the three-state truth; `hasDataEver` is the legacy
+// boolean kept for anything not yet migrated. Branch on presence, never on the boolean.
+type Presence = 'yes' | 'no' | 'unknown'
+type Channel = { platform: string; spend: number | null; revenue: number | null; conversions: number | null; hasDataEver: boolean; presence?: Presence; presenceReason?: string | null }
+// A channel written before the payload carried presence falls back to its boolean — and an ABSENT presence
+// is treated as 'unknown', not as 'no'. Kubernetes' rule, and it is the safe direction: never invent a
+// negative from silence (api-conventions: "the absence of a condition should be interpreted the same as Unknown").
+// ⛔ TAKES A DEFINITE CHANNEL. "No channel row" is LOADING or "not in the response" — it is NOT a failed
+// read, and conflating the two is how the healthy baseline lit up. Callers handle the missing case first,
+// exactly as they did before this flight. A channel that EXISTS but predates the presence field falls back
+// to its boolean, and a false boolean there is 'unknown' rather than 'no' — never invent a negative from
+// silence (Kubernetes api-conventions: an absent condition reads as Unknown).
+const presenceOf = (c: Channel): Presence => c.presence ?? (c.hasDataEver ? 'yes' : 'unknown')
+const UNKNOWN_TEXT = 'couldn’t check'
 type Metrics = {
   spend: number; revenue: number | null; revenueSource: string; roas: number | null
   latestCapturedDate: string | null; current?: { startDate: string; endDate: string }; channels?: Channel[]
@@ -98,18 +111,37 @@ export default function MerView({ clientId, clientName }: { clientId: string; cl
           {[{ k: 'google', label: 'Google Ads', c: google }, { k: 'meta', label: 'Meta Ads', c: meta }].map(({ k, label, c }) => (
             <div key={k} style={cardStyle}>
               <div style={{ fontSize: 13, color: '#64748b' }}>{label}</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: '#0f172a' }}>{!c ? (loading ? '…' : '—') : c.hasDataEver ? money(c.spend ?? 0) : 'not connected'}</div>
-              {c?.hasDataEver && <div style={{ fontSize: 12, color: '#94a3b8' }}>{share(c.spend)} of ad spend</div>}
+              <div
+                style={{ fontSize: 18, fontWeight: 600, color: c && presenceOf(c) === 'unknown' ? '#b45309' : '#0f172a' }}
+                title={c?.presenceReason || undefined}
+              >
+                {!c ? (loading ? '…' : '—')
+                  : presenceOf(c) === 'yes' ? money(c.spend ?? 0)
+                  : presenceOf(c) === 'unknown' ? UNKNOWN_TEXT
+                  : 'not connected'}
+              </div>
+              {c && presenceOf(c) === 'yes' && <div style={{ fontSize: 12, color: '#94a3b8' }}>{share(c.spend)} of ad spend</div>}
+              {c && presenceOf(c) === 'unknown' && <div style={{ fontSize: 12, color: '#94a3b8' }}>a problem on our side, not your account</div>}
             </div>
           ))}
         </div>
         <div className={styles.secHead}><span className={styles.lbl}>Revenue sources</span> <span className={styles.metaLabel}>each stands on its own — MER uses store-wins precedence</span></div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-          {[{ label: 'Shopify', c: shopify }, { label: 'WooCommerce', c: woo }, { label: 'Analytics (GA)', c: ga }].filter(({ c }) => c?.hasDataEver).map(({ label, c }) => (
+          {/* ⛔ PARTITION, NEVER FILTER — A FILTER MAY DROP A NO; IT MAY NEVER DROP AN UNKNOWN. This line used
+              to be `.filter(({ c }) => c?.hasDataEver)`, so a FAILED read removed the card from the page
+              entirely: no text, no pixel, no way for the user to know anything broke. It is the only wrong
+              render in this whole arc that a text assertion cannot catch, which is why the browser Gate-A
+              asserts the CARD COUNT. A genuinely absent store is still dropped — that absence is real. */}
+          {[{ label: 'Shopify', c: shopify }, { label: 'WooCommerce', c: woo }, { label: 'Analytics (GA)', c: ga }].filter(({ c }) => !!c && presenceOf(c) !== 'no').map(({ label, c }) => (
             <div key={label} style={cardStyle}>
               <div style={{ fontSize: 13, color: '#64748b' }}>{label}</div>
-              <div style={{ fontSize: 18, fontWeight: 600, color: '#0f172a' }}>{money(c!.revenue ?? 0)}</div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>revenue</div>
+              <div
+                style={{ fontSize: 18, fontWeight: 600, color: presenceOf(c!) === 'unknown' ? '#b45309' : '#0f172a' }}
+                title={c?.presenceReason || undefined}
+              >
+                {presenceOf(c!) === 'unknown' ? UNKNOWN_TEXT : money(c!.revenue ?? 0)}
+              </div>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>{presenceOf(c!) === 'unknown' ? 'a problem on our side, not your account' : 'revenue'}</div>
             </div>
           ))}
           {![shopify, woo, ga].some((c) => c?.hasDataEver) && <div style={{ fontSize: 13, color: '#94a3b8', padding: '4px 2px' }}>{loading ? '…' : 'No store or Analytics revenue captured for this client.'}</div>}

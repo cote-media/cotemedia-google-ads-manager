@@ -25,6 +25,12 @@ export type ShellClientResult = {
   clients: ShellClient[]
   /** True when a ?clientId= was supplied but REJECTED (not accessible / unknown) and we fell back. */
   fellBack: boolean
+  /**
+   * LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — TRUE when the client read FAILED, so `clients: []` means
+   * "we could not find out", NOT "this user has none". ⛔ The two are indistinguishable without this flag,
+   * and the page rendered the second sentence for the first condition.
+   */
+  readFailed: boolean
 }
 
 /**
@@ -39,7 +45,7 @@ export async function resolveShellClient(
   searchParams?: { clientId?: string | string[] }
 ): Promise<ShellClientResult> {
   const ids = await listAccessibleClients(email)
-  if (!ids.length) return { client: null, clients: [], fellBack: false }
+  if (!ids.length) return { client: null, clients: [], fellBack: false, readFailed: false }
 
   const { data, error } = await supabaseAdmin
     .from('clients')
@@ -51,9 +57,11 @@ export async function resolveShellClient(
   // resolver every -next page calls. It is reported LOUD and NOT thrown: this runs on all 10 Shell pages, so
   // turning a transient blip into a 500 across the whole surface is worse than today's behaviour. Part 2
   // gives the page an honest "couldn't load your clients" state; Part 1 makes the failure visible in logs.
-  if (error) console.error('[shell-client] accessible-client read FAILED (rendering as no-clients until Part 2):', error.message)
+  // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — carried out to the page instead of only to the log. NOT thrown:
+  // this runs on all ten Shell pages, so a transient blip must not become a fleet-wide 500.
+  if (error) console.error('[shell-client] accessible-client read FAILED (rendered as "couldn\u2019t load"):', error.message)
   const clients = (data || []) as ShellClient[]
-  if (!clients.length) return { client: null, clients: [], fellBack: false }
+  if (!clients.length) return { client: null, clients: [], fellBack: false, readFailed: !!error }
 
   const raw = searchParams?.clientId
   const requested = Array.isArray(raw) ? raw[0] : raw
@@ -65,5 +73,5 @@ export async function resolveShellClient(
   if (requested && !match) {
     console.warn(`[shell-client] clientId=${requested} not accessible to ${email} — falling back to the first accessible client`)
   }
-  return { client: match || clients[0], clients, fellBack: Boolean(requested && !match) }
+  return { client: match || clients[0], clients, fellBack: Boolean(requested && !match), readFailed: false }
 }

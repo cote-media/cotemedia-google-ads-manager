@@ -7,6 +7,7 @@ import { requirePreviewUser } from '@/lib/preview-gate'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import Shell from '@/components/redesign/Shell'
+import NoClients from '@/components/redesign/NoClients' // LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — one component, two states
 import { resolveShellClient } from '@/lib/next/shell-client' // LORAMER_SHELL_CLIENT_CONTEXT_V1 — the ONE client-context resolver // LORAMER_RBAC_ACCESS_ORG_V1 — member-aware client set
 // LORAMER_NEXT_CARD_ENGINE_V1 — Overview now renders the page-agnostic card engine (pageKey='overview'); the
 // built-in default view = real captured stats + combined-perf timeseries + an age breakdown (query-exposed only).
@@ -25,12 +26,12 @@ export default async function DashboardNextPage({ searchParams }: { searchParams
   // so access is enforced there too; picking from the accessible set is the page-level gate.
   // LORAMER_SHELL_CLIENT_CONTEXT_V1 — read the URL param, VALIDATE it against the caller's accessible set,
   // fall back deterministically. One resolver for every Shell page (Lesson 53 / HANDOFF:847).
-  const { client: resolved } = await resolveShellClient(email, searchParams)
+  const { client: resolved, readFailed } = await resolveShellClient(email, searchParams)
 
   if (!resolved) {
     return (
       <Shell active="overview">
-        <p style={{ color: '#64748b', fontFamily: 'monospace', fontSize: 13, padding: 24 }}>No clients yet.</p>
+        <NoClients readFailed={readFailed} />
       </Shell>
     )
   }

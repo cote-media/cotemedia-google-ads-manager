@@ -9,7 +9,7 @@ import { deltaLabel, DEFAULT_PERIOD, type Delta } from '@/lib/next/portfolio-win
 
 type Totals = { sessions: number; users: number; newUsers: number; conversions: number; revenue: number; transactions: number; engagementRate: number | null }
 type Pt = { date: string; sessions: number; users: number; revenue: number }
-type Resp = { hasGaEver: boolean; hasSignalInRange: boolean; totals: Totals; priorTotals: Totals; series: Pt[]; latestCapturedDate: string | null; current?: { startDate: string; endDate: string }; incompleteNote?: string /* LORAMER_QUERY_COMPLETENESS_V1 slice 3 */ }
+type Resp = { hasGaEver: boolean; hasSignalInRange: boolean; presence?: 'yes' | 'no' | 'unknown'; presenceReason?: string | null; totals: Totals; priorTotals: Totals; series: Pt[]; latestCapturedDate: string | null; current?: { startDate: string; endDate: string }; incompleteNote?: string /* LORAMER_QUERY_COMPLETENESS_V1 slice 3 */ }
 
 const PERIOD_OPTIONS = [
   { value: 'TODAY', label: 'Today' }, { value: 'YESTERDAY', label: 'Yesterday' }, { value: 'THIS_WEEK', label: 'This week' },
@@ -76,6 +76,12 @@ export default function GaOverview({ clientId, clientName }: { clientId: string;
     </div>
   )
 
+  // ⛔ LORAMER_UNKNOWN_RENDERS_HONESTLY_V1 — THIS BRANCH SITS ABOVE THE ONE BELOW ON PURPOSE. The sentence
+  // below makes TWO claims — "isn't connected" AND "no GA data has been captured" — and it was reached from
+  // ONE swallowed database error. An absent presence is read as unknown, never as a negative.
+  if (d && (d.presence ? d.presence === 'unknown' : false)) {
+    return <>{header}<p title={d.presenceReason || undefined} style={{ color: '#b45309', fontSize: 14, padding: '24px 2px', maxWidth: 520 }}>Couldn’t check whether Analytics has data — this is a problem on our side, not a statement about your account. Reload to try again.</p></>
+  }
   // Honest empty states — never fabricate numbers for a property with no data / no activity.
   if (d && !d.hasGaEver) {
     return <>{header}<p style={{ color: '#64748b', fontSize: 14, padding: '24px 2px', maxWidth: 520 }}>Google Analytics isn’t connected for this client — no GA data has been captured. <a href="/clients" style={{ color: '#2563eb' }}>Connect a property →</a></p></>
