@@ -15,7 +15,7 @@
 // MEASURED 2026-08-20 against HEAD by the guard itself (`node tests/guards/queue-tag-matches-text.guard.mjs`).
 // Cross-check, independently computed at the 2026-08-19/20 wrap and printed in the digest's §L:
 //   "265 QUEUE items carry NO token at all, so they cannot be found this way."
-export const UNTOKENED_BASELINE = 265
+export const UNTOKENED_BASELINE = 263
 
 // ── CONTRADICTIONS AWAITING A HUMAN READ ──────────────────────────────────────────────────────────────────
 // ⛔ THIS IS NOT A MUTE AND IT IS NOT "THE GUARD IS TOO NOISY". It is eleven items whose tag and prose

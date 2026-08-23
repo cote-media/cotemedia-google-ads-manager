@@ -27,9 +27,16 @@ Gate-A) AND the three unresolved UI diagnoses (mobile overflow at ~390px · the 
 Google's divergent row shape) — **whose ISSUE ROUND was dispatched and NEVER REPORTED; it runs first.**
 
 ── STANDING ──
-· **META HUMAN-LIST: EMPTY.** The 2026-08-22 reconnect passes re-armed the token (valid · never-expires
-  · data-access to 2026-11-20). **The ~08-25 re-arm is DISCHARGED, not pending.** Next touch ≈ November.
-  All 12 real rows healthy.
+· **META HUMAN-LIST: EMPTY — RE-MEASURED 2026-08-23: 12/12 real rows healthy, last_ok 08:08–08:26Z.**
+  ⛔ **THE "~08-25 / ~08-30" META CLOCK IS RETIRED AS FALSE — AND SO IS EVERY OCCURRENCE OF IT BELOW THIS
+  LINE, IN THIS FILE AND IN THE DIGEST'S SESSION LOG, WITHOUT EXCEPTION. Those are dated records of what a
+  past session believed; NONE of them is a clock, and no session may act on one.** `meta_tokens` has no
+  expiry column, so no row ever sourced it. The estate's next credential trigger is the WEEK OF 2026-11-20/21 (earliest stored expiry
+  on a live connection: 2026-11-21 09:04:35Z, Influential Drones Shopify refresh token; Meta data-access
+  2026-11-20). **Standing reference is the LIVE HEALTH ROW, never a remembered date.** DECISIONS
+  [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]] owns it; QUEUE [DG] carries the clock.
+  · The one 'reconnect' row is the DEMO credential (demo@loramer.com · client 2617b163) — not capture, and
+    not a reason to promote the reconnect flight.
 · ★PROTOCOL-GATE-ENFORCER — build TONIGHT, against the written record of the five 08-22/23 failures
   now in its queue entry.
 · ⛔ **THE SECOND WORKTREE IS OFF until tomorrow evening, and only if the walk needs more work then.**

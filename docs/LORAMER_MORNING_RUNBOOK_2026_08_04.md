@@ -291,5 +291,10 @@ next restart.
 5. **`LORA_CHAT_STREAMING=1`** in Vercel Production — streaming shipped with the flag off.
 6. **Value models owed** — Cozy Foam Factory · Tri-Copy Office Equipment · skinregimen.com.
 7. **Ennis Exterminating** — no GA4↔Google Ads link. Fix in GA4 Admin → Product Links.
-8. **Meta token re-arm** — due around **2026-08-25**. Hard expiry ~2026-08-30. Twelve ad accounts ride
-   it, so this one has a real deadline.
+8. **Meta token re-arm** — ⛔ **RETIRED AS FALSE 2026-08-23. DO NOT ACT ON THIS ITEM.** The "~2026-08-25 /
+   ~2026-08-30" dates were never sourceable: `meta_tokens` has no expiry column. Measured 2026-08-23, all
+   12 real Meta rows are healthy and the estate's next credential trigger is the week of 2026-11-20/21.
+   DECISIONS LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1 owns the retirement; the live
+   `platform_connections.health` row is the standing reference, never a date written here.
+   (Original wording, tense-locked: "due around 2026-08-25. Hard expiry ~2026-08-30. Twelve ad accounts
+   ride it, so this one has a real deadline.")
