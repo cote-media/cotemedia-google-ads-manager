@@ -27,7 +27,18 @@ const PLATFORM_META: Record<string, { label: string; icon: string }> = {
   woocommerce: { label: 'WooCommerce', icon: 'ti-shopping-cart' },
 }
 
-type Conn = { id: string; platform: string; account_name: string | null; account_id: string | null; health: string | null }
+type Conn = { id: string; platform: string; account_name: string | null; account_id: string | null; health: string | null; last_ok_at?: string | null }
+
+// LORAMER_RECONNECT_STATE_MACHINE_V1 — a human-relative verified-time for the connected state's badge.
+function relTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.round(ms / 60000)
+  if (m < 2) return 'just now'
+  if (m < 90) return `${m}m ago`
+  const hrs = Math.round(m / 60)
+  if (hrs < 36) return `${hrs}h ago`
+  return `${Math.round(hrs / 24)}d ago`
+}
 
 // LORAMER_NEXT_CONNECT_V1 — the 5 platforms rendered with truthful per-platform state (connected rows + a
 // "not connected" row for any platform with no connection). Keys match PLATFORM_META + platform_connections.platform.
@@ -160,8 +171,11 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   // with returnTo = this client-profile, so the OAuth callback (Branch A / woo_return, validated) returns here.
   const [connectModal, setConnectModal] = useState<string | null>(null) // platform being connected: shopify | woocommerce
   const [connectShop, setConnectShop] = useState('')
-  function startConnect(platform: string, shop: string) {
-    const rt = encodeURIComponent('/dashboard-next/client-profile?clientId=' + clientId)
+  function startConnect(platform: string, shop: string, opts?: { chooseAccount?: boolean }) {
+    // LORAMER_RECONNECT_STATE_MACHINE_V1 — meta_choose survives the OAuth round-trip inside returnTo, so the
+    // return leg knows whether the user asked to CHANGE accounts (picker) or to repair (auto-finalize, no picker).
+    const rtRaw = '/dashboard-next/client-profile?clientId=' + clientId + (opts?.chooseAccount ? '&meta_choose=1' : '')
+    const rt = encodeURIComponent(rtRaw)
     const s = encodeURIComponent(shop.trim())
     const cid = encodeURIComponent(clientId)
     if (platform === 'shopify') window.location.href = `/api/shopify/auth?clientId=${cid}&shop=${s}&returnTo=${rt}`
@@ -181,6 +195,9 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   const [googleLoading, setGoogleLoading] = useState(false)
   const [pickerBusy, setPickerBusy] = useState(false)
   const [pickerError, setPickerError] = useState('')
+  // LORAMER_RECONNECT_STATE_MACHINE_V1 — the 'reconnecting' UI state + the explicit success toast.
+  const [verifying, setVerifying] = useState(false)
+  const [connectedToast, setConnectedToast] = useState('')
   // LORAMER_DELETE_CLIENT_V1 slice 1 — archive (soft-delete) danger zone. Owner-only by construction (the profile
   // page loads only caller-owned clients); the DELETE route re-checks owner server-side. Type-to-confirm guard.
   const [archiveOpen, setArchiveOpen] = useState(false)
@@ -193,8 +210,36 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
     const p = new URLSearchParams(window.location.search)
     const metaAccounts = p.get('meta_accounts')
     const gaOauth = p.get('ga_oauth')
+    // LORAMER_RECONNECT_STATE_MACHINE_V1 — the credential gates' refusals, in plain English. Each is an
+    // explicit no-op: the stored credential was NOT changed, and the message must say so.
+    const metaErr = p.get('meta_error')
+    if (metaErr === 'new_login_invalid') setPickerError('That login didn’t validate — your existing connection is untouched.')
+    else if (metaErr === 'verify_indeterminate') setPickerError('Couldn’t confirm the new login (network) — nothing was changed. Try again.')
+    else if (metaErr === 'identity_mismatch') setPickerError('That’s a different Facebook login than the one connected — nothing was changed. Use “Change account…” if you meant to switch.')
     if (metaAccounts) {
-      try { setMetaPicker(JSON.parse(metaAccounts) as MetaAccount[]) } catch { setPickerError('Could not read the Meta account list. Try reconnecting.') }
+      try {
+        const list = JSON.parse(metaAccounts) as MetaAccount[]
+        // ── THE PICKER SKIP (repair auto-finalize) + THE MANDATORY LOST-ACCESS FALLBACK ────────────────
+        // Repair (existing meta row, account still in the returned list, no explicit choose) finalizes
+        // AUTOMATICALLY with the STORED account — a credential repair has no account question to re-ask.
+        // ⛔ If the stored account is NOT in the returned list, the user has LOST ACCESS to it —
+        // auto-finalizing would bind a dead account; fall back to the picker with the plain-English line,
+        // and the pick then takes the REPLACEMENT path by account_id inequality.
+        const choose = p.get('meta_choose') === '1'
+        const existingMeta = connections.find((c) => c.platform === 'meta')
+        if (existingMeta?.account_id && !choose) {
+          const stored = list.find((a) => a.id === existingMeta.account_id)
+          if (stored) {
+            setVerifying(true)
+            void finalizeMeta(stored)
+          } else {
+            setPickerError('You no longer have access to ' + (existingMeta.account_name || existingMeta.account_id) + ' — pick its replacement.')
+            setMetaPicker(list)
+          }
+        } else {
+          setMetaPicker(list)
+        }
+      } catch { setPickerError('Could not read the Meta account list. Try reconnecting.') }
     } else if (gaOauth === 'success') {
       fetch('/api/ga/properties').then(r => r.json()).then(d => {
         if (Array.isArray(d.properties)) setGaPicker(d.properties as GaProperty[])
@@ -208,7 +253,24 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
     const gadsErr = p.get('gads_error')
     if (gadsErr) setPickerError('Google Ads authorization did not complete (' + gadsErr + '). Try again.')
     // Clean the connect params from the URL so a refresh doesn't re-trigger.
-    if (metaAccounts || gaOauth || p.get('gads_connected') || gadsErr) window.history.replaceState({}, '', '/dashboard-next/client-profile?clientId=' + clientId)
+    if (metaAccounts || gaOauth || p.get('gads_connected') || gadsErr || metaErr) window.history.replaceState({}, '', '/dashboard-next/client-profile?clientId=' + clientId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // LORAMER_RECONNECT_STATE_MACHINE_V1 — the 'unknown' state resolves itself: a health-NULL meta/google row
+  // (never stamped — e.g. freshly replaced) gets ONE background verify on first view, so "not yet verified"
+  // becomes a real verdict without waiting for the morning cron. Fire-and-forget; a failure leaves the
+  // honest neutral badge in place.
+  useEffect(() => {
+    const unknown = connections.filter((c) => (c.platform === 'meta' || c.platform === 'google') && c.health == null)
+    if (!unknown.length) return
+    const platforms = [...new Set(unknown.map((c) => c.platform))]
+    for (const pf of platforms) {
+      fetch('/api/clients/connections', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, platform: pf }),
+      }).then((r) => r.json()).then((j) => { if (j?.verified === true) router.refresh() }).catch(() => {})
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -219,9 +281,16 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ client_id: clientId, platform: 'meta', account_id: acct.id, account_name: acct.name }),
       })
-      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the Meta account. Try again.'); setPickerBusy(false); return }
-      setMetaPicker(null); setPickerBusy(false); router.refresh()
-    } catch { setPickerError('Could not connect the Meta account. Try again.'); setPickerBusy(false) }
+      if (!res.ok) { const j = await res.json().catch(() => ({} as any)); setPickerError(j.error || 'Could not connect the Meta account. Try again.'); setPickerBusy(false); setVerifying(false); return }
+      // LORAMER_RECONNECT_STATE_MACHINE_V1 — the finalize response carries the VERIFY verdict. true → the
+      // explicit success state; null → the honest not-confirmed line; false → the credential is dead and
+      // the row will read Reconnect. Never a silent return to the same screen.
+      const j = await res.json().catch(() => ({} as any))
+      if (j.verified === true) setConnectedToast('✓ Connected — verified just now')
+      else if (j.verified === null || j.verified === undefined) setConnectedToast('Connected — couldn’t confirm yet; it will verify at the next capture.')
+      else setPickerError('Connected the account, but the Meta login itself failed verification — use Reconnect.')
+      setMetaPicker(null); setPickerBusy(false); setVerifying(false); router.refresh()
+    } catch { setPickerError('Could not connect the Meta account. Try again.'); setPickerBusy(false); setVerifying(false) }
   }
 
   async function finalizeGa(p: GaProperty) {
@@ -587,10 +656,16 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
             }
             return rows.map((c) => {
               const h = c.health
-              // LORAMER_CONN_DEGRADED_STATE_V1 — label from the one source (badgeFor); 'degraded' = amber "Capture failing".
+              // ══ THE STATE MACHINE — LORAMER_RECONNECT_STATE_MACHINE_V1 ══════════════════════════════
+              // connected → green, NO primary CTA (re-auth is the small overflow action) · broken
+              // (reconnect/disconnected) → red, the ONLY state with the primary Reconnect · degraded →
+              // amber, capture (not login) is the problem, so no Reconnect CTA · unknown (health null,
+              // never stamped) → neutral "not yet verified" + a background probe resolves it on view.
+              const broken = h === 'reconnect' || h === 'disconnected'
               const hCls = h === 'healthy' ? styles.hHealthy : h === 'degraded' ? styles.hDegraded : h === 'reconnect' ? styles.hReconnect : h === 'disconnected' ? styles.hDisconnected : styles.hUnknown
-              const hLabel = badgeFor(h as Health).label
+              const hLabel = h === 'healthy' && c.last_ok_at ? `Healthy · verified ${relTime(c.last_ok_at)}` : h ? badgeFor(h as Health).label : 'Connected — not yet verified'
               const busy = disconnectingId === c.id
+              const canReauth = NEXT_CONNECTABLE.has(pf) && !!c.account_id
               return (
                 <div key={c.id} className={styles.connRow}>
                   {icon}
@@ -598,12 +673,15 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                     <span className={styles.connName}>{meta.label}</span>
                     {c.account_name && <span className={styles.connAcct}>{c.account_name}</span>}
                   </div>
-                  <span className={`${styles.healthBadge} ${hCls}`}>{hLabel}</span>
+                  <span className={`${styles.healthBadge} ${hCls}`}>{verifying && pf === 'meta' ? 'Verifying…' : hLabel}</span>
                   <CompletePill cp={completenessFor(pf)} />{/* LORAMER_COMPLETENESS_GATE_V1 F(b) */}
-                  {NEXT_CONNECTABLE.has(pf) ? (
-                    <button type="button" onClick={() => startConnect(pf, c.account_id || '')} disabled={!c.account_id} title="Re-authorize this connection" style={connectBtnActiveStyle}>Reconnect</button>
-                  ) : (
-                    <button type="button" disabled title="Reconnecting from here arrives in the next update" style={connectBtnStyle}>Reconnect</button>
+                  {broken && canReauth ? (
+                    <button type="button" onClick={() => startConnect(pf, c.account_id || '')} title="Reconnect this login" style={connectBtnActiveStyle}>Reconnect</button>
+                  ) : canReauth ? (
+                    <button type="button" onClick={() => startConnect(pf, c.account_id || '')} title="Re-authorize (login is fine — only needed if you want to refresh it)" style={connectBtnStyle}>Re-authorize</button>
+                  ) : null}
+                  {pf === 'meta' && canReauth && (
+                    <button type="button" onClick={() => startConnect(pf, c.account_id || '', { chooseAccount: true })} title="Connect a different ad account" style={connectBtnStyle}>Change account…</button>
                   )}
                   <button type="button" onClick={() => disconnect(c)} disabled={busy} style={{ ...disconnectBtnStyle, opacity: busy ? 0.5 : 1 }}>
                     {busy ? 'Disconnecting…' : 'Disconnect'}
@@ -670,6 +748,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
               <h3 style={{ fontSize: 18, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{metaPicker ? 'Choose a Meta ad account' : (googlePicker || googleLoading) ? 'Choose a Google Ads account' : 'Choose a Google Analytics property'}</h3>
               <p style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Connect one to this client.</p>
               {pickerError && <div style={{ fontSize: 13, color: '#b91c1c', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="alert">{pickerError}</div>}
+              {connectedToast && <div style={{ fontSize: 13, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '6px 10px', marginBottom: 10 }} role="status">{connectedToast}</div>}
               <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
                 {googleLoading && <p style={{ fontSize: 13, color: '#64748b' }}>Loading your Google Ads accounts…</p>}
                 {googlePicker && (googlePicker.length === 0

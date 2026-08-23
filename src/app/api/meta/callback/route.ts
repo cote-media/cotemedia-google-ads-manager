@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { safeReturnTo } from '@/lib/access/return-to' // LORAMER_NEXT_CONNECT_V1 F2b — same open-redirect guard as F2
+import { probeMeta } from '@/lib/connection-probe' // LORAMER_RECONNECT_STATE_MACHINE_V1 — probe-before-promote
 
 async function getAllMetaAccounts(accessToken: string): Promise<any[]> {
   const accounts: any[] = []
@@ -103,6 +104,40 @@ export async function GET(request: Request) {
       else console.error('Meta /me fetch failed:', { status: meRes.status, body: meData })
     } catch (e) {
       console.error('Meta /me fetch threw:', e)
+    }
+
+    // ══ CREDENTIAL GATES — LORAMER_RECONNECT_STATE_MACHINE_V1 (probe-before-promote) ═══════════════════
+    // ⛔ THE PRIMARY CORRECTNESS PROPERTY OF THE RECONNECT SHAPE, and it sits BEFORE the upsert on purpose:
+    // the upsert below OVERWRITES the stored token IN PLACE (UNIQUE(user_email), no history) — the prior
+    // credential is UNRECOVERABLE the moment it lands, and 12 live connections ride it. Until 2026-08-22
+    // one wrong-user or dead re-auth killed capture for all of them irreversibly (Google-class revocations
+    // are final). The field's rule verbatim (claude-code #29896): a failed refresh must PRESERVE the
+    // existing valid credential, never overwrite it with bad data.
+    // GATE 1 — LIVENESS: probe the NEW token with the module's cheapest check (/me?fields=id, 3-state).
+    //   'dead' → NO WRITE. The user's existing connection is untouched and the message says so.
+    //   'indeterminate' (timeout / 5xx / network) → ⛔ DO NOT PROMOTE. Unknown never overwrites known-good;
+    //   the user sees an explicit no-op ("nothing was changed"), never a silent maybe.
+    // GATE 2 — IDENTITY: a NEW fb_user_id that differs from the STORED one is a CREDENTIAL-LEVEL
+    //   replacement (a different human), the same class as the account-change discriminator — it promotes
+    //   only through explicit intent (returnTo carries meta_switch_login=1), never by accident. This
+    //   generalizes the admin valve's own mismatch refusal into the path customers actually use.
+    //   Stored fb_user_id may be null on pre-foundation rows — null stored = no identity claim = gate open.
+    const liveness = await probeMeta(finalToken)
+    if (liveness === 'dead') {
+      console.error('Meta reconnect REFUSED — new token probed dead; stored credential untouched.', { email: stateData.email })
+      return NextResponse.redirect(metaDest('meta_error=new_login_invalid'))
+    }
+    if (liveness === 'indeterminate') {
+      console.error('Meta reconnect NOT PROMOTED — probe indeterminate; stored credential retained.', { email: stateData.email })
+      return NextResponse.redirect(metaDest('meta_error=verify_indeterminate'))
+    }
+    const { data: storedTok } = await supabaseAdmin
+      .from('meta_tokens').select('fb_user_id').eq('user_email', stateData.email).maybeSingle()
+    const switchIntent = (stateData.returnTo ?? '').includes('meta_switch_login=1')
+    if (storedTok?.fb_user_id && fbUserId && storedTok.fb_user_id !== fbUserId && !switchIntent) {
+      console.error('Meta reconnect REFUSED — fb_user_id mismatch without switch intent; stored credential untouched.',
+        { email: stateData.email, stored: storedTok.fb_user_id, got: fbUserId })
+      return NextResponse.redirect(metaDest('meta_error=identity_mismatch'))
     }
 
     // Store token. LORAMER_META_CALLBACK_ONCONFLICT_V1: onConflict:'user_email' is REQUIRED — meta_tokens has

@@ -165,6 +165,7 @@ const GUARDS = [
   // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1: queue-drain-fits-the-interval RETIRED with the queue;
   // its successor asserts the inline fire's time identity + the lease TTL relationship.
   'tests/guards/inline-fire-fits-the-ceiling.guard.mjs',
+  'tests/guards/reconnect-preserves-history.guard.mjs',
   'tests/guards/one-delivery-lane-per-topic.guard.mjs',
   // LORAMER_TOP_EDGE_ATTESTS_BY_MESSAGE_V1 — every writer of universe_attempt_log must NAME the lane. The
   // column has a DEFAULT ('descend'), so an omitting writer lands a mis-stamped row that looks correct:

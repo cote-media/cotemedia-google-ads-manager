@@ -191,6 +191,32 @@ async function recordFailureStreak(
   }
 }
 
+// ══ LORAMER_RECONNECT_STATE_MACHINE_V1 — VERIFY-THE-CLAIM + HEAL BY CREDENTIAL KEY ══════════════════════
+// ⛔ THE FAN-OUT KEY IS THE CAPTURE PATH'S OWN CREDENTIAL-RESOLUTION KEY, NEVER A GUESSED COLUMN.
+// Meta and Google credentials are SINGLETON PER user_email BY SCHEMA (meta_tokens UNIQUE(user_email);
+// google_tokens onConflict 'user_email') — so one verified repair proves the token for EVERY row on that
+// email, and healing only the repaired row would leave the siblings' cached health stale. Shopify keys per
+// (user_email, shop_domain) and GA/Woo per client — they do NOT fan out by email and are NOT handled here
+// (stage 2). A platform not listed returns 'indeterminate' and heals nothing: unknown never heals.
+export async function verifyAndHealCredential(args: {
+  platform: string
+  userEmail: string
+}): Promise<{ verdict: ProbeResult; healed: number }> {
+  const { platform, userEmail } = args
+  if (platform !== 'meta' && platform !== 'google') return { verdict: 'indeterminate', healed: 0 }
+  const verdict = await probeCredentialCoalesced(platform, userEmail)
+  if (verdict !== 'alive') return { verdict, healed: 0 }
+  const nowIso = new Date().toISOString()
+  const { data, error } = await supabaseAdmin
+    .from('platform_connections')
+    .update({ health: 'healthy', last_ok_at: nowIso, last_error_code: null, consecutive_failures: 0, first_failure_at: null, last_failure_code: null })
+    .eq('platform', platform)
+    .eq('user_email', userEmail)
+    .select('id')
+  if (error) { console.error('[conn-health] credential heal failed:', error.message); return { verdict, healed: 0 } }
+  return { verdict, healed: (data ?? []).length }
+}
+
 // Success: this exact connection authenticated. Heal it (clears any stale 'reconnect').
 export async function recordConnectionSuccess(args: {
   clientId: string
