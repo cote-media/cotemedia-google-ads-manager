@@ -1,4 +1,42 @@
-╔═══ SESSION CLOSE 2026-08-22 (NIGHT) — THE QUEUE IS GONE. THE WALK RUNS INLINE. READ THE ENDURANCE CLOCK FIRST. ═══╗
+╔═══ SESSION CLOSE 2026-08-23 — THE WALK IS PAST THE DEATH BAND. THE RECONNECT UI SHIPPED AND WAS REVERTED THE SAME NIGHT. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+
+── THE WALK — WINNING, AND THE READS ARE NOW CONFIRMATION ──
+**THE QUEUE WAS THE DISEASE, MEASURED:** the inline lane passed the ~1,000-1,200 band that killed both
+queue transports — **1,560 attempts on dpl_D86Myg alone**, then straight through two deploy boundaries
+and the revert without a stumble: **2,061 attempts, ~490-500/hour, zero stalls, zero lease-held
+refusals** (monitor ticks, latest 2026-08-23 ~03:5xZ). DECISIONS LORAMER_QUEUE_REMOVED_INLINE_WALK_V1
+carries the evidence. **THE +6h READ (≈05:02Z) AND +24h READ (≈23:02Z) CONFIRM rather than decide —
+record each when it lands:**
+  select count(*) from universe_attempt_log where phase='attempt_started' and recorded_at >= '2026-08-22T23:02:00Z';
+RED (unchanged): execution stops → git revert fdc23ae && git push (never Instant Rollback) and reopen
+★DELIVERY-DECAY-CAUSE-UNKNOWN.
+
+── THE RECONNECT ARC — SHIPPED `b52c528`, REVERTED `98044c7` THE SAME NIGHT ──
+A perpetual refresh loop on the -next client profile (iPhone) — the page never finished loading and the
+form fields rendered blank. ⛔ **NO DATA WAS LOST** (client_context verified intact; the blanks were the
+loop). **THE SHAPE STANDS** (DECISIONS LORAMER_RECONNECT_STATE_MACHINE_V1, status-corrected): probe-
+before-promote, the write discriminator, the credential-key fan-out — the design was right; the
+CLIENT-RUNTIME PROOF was missing. The defect: LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 — refresh on
+success instead of on transition, idempotence assumed from []. The law it produced: **A UI FLIGHT'S
+GATE-A MOUNTS THE COMPONENT** (ESSENCE, 2026-08-23).
+⛔ **THE CORRECTED BUILD IS THE NAMED UI DEBT, RANKED BEHIND THE WALK** — one flight, ★RECONNECT-HAS-
+NO-STATE-MACHINE, with its three carries (transition-guard · durable finalize marker · browser-runtime
+Gate-A) AND the three unresolved UI diagnoses (mobile overflow at ~390px · the grey Re-authorize ·
+Google's divergent row shape) — **whose ISSUE ROUND was dispatched and NEVER REPORTED; it runs first.**
+
+── STANDING ──
+· **META HUMAN-LIST: EMPTY.** The 2026-08-22 reconnect passes re-armed the token (valid · never-expires
+  · data-access to 2026-11-20). **The ~08-25 re-arm is DISCHARGED, not pending.** Next touch ≈ November.
+  All 12 real rows healthy.
+· ★PROTOCOL-GATE-ENFORCER — build TONIGHT, against the written record of the five 08-22/23 failures
+  now in its queue entry.
+· ⛔ **THE SECOND WORKTREE IS OFF until tomorrow evening, and only if the walk needs more work then.**
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-22 (NIGHT) ⛔ SUPERSEDED 2026-08-23 · HISTORY · DO NOT ACT ON ITS HEAD ═══╗
 
 ⛔ **THE PRIORITY LAW, BANKED TONIGHT AND IT RE-RANKS THIS WHOLE FILE (ESSENCE, Russ): CAPTURE FIRST,
 LORA SECOND, EVERYTHING ELSE THIRD.** Voice · chat status · streaming · homepage · demo spine are POLISH

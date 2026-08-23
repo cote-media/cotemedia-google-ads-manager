@@ -132,6 +132,20 @@ absolution; it is a burn-down under Russ's approval, one live-path fix at a time
 ⛔ AND THE LIMIT THIS LAW INHERITS RATHER THAN REPAIRS: **no guard can observe Claude Code's chat output** —
 the one-block law and the terseness law remain UNENFORCEABLE by construction, and are stamped as such.
 
+## ⛔ A UI FLIGHT'S GATE-A MOUNTS THE COMPONENT [LAW — banked 2026-08-23, from the reconnect render-loop revert]
+
+**EVERY -NEXT UI FLIGHT REQUIRES A BROWSER-RUNTIME GATE-A: a real mounted render, at a phone-shaped
+viewport, watched for repeat requests — BEFORE the ship.** The stage-1 reconnect build (`b52c528`,
+reverted `98044c7` the same night) was proven entirely curl-shaped — API semantics, row states, live
+vendor probes, all green — and NOTHING EVER MOUNTED THE COMPONENT. A render loop lives in the client
+runtime (effects, router.refresh, history restore) and is INVISIBLE to curl-based proof BY
+CONSTRUCTION: the strongest possible API Gate-A cannot see it, and did not. The MOBILE-PARITY GATE
+already said this and was mis-read as a card-engine rule; it applies to EVERY UI flight, and this law
+is that generalization. ⛔ **ENFORCEABILITY, STATED HONESTLY: NO REPO GUARD CAN SEE WHETHER A BROWSER
+RUN HAPPENED** — proofs are not in the tree. The enforcers are PLACEMENT (this law, on the resume
+path) and the protocol gate (★PROTOCOL-GATE-ENFORCER): a UI-flight paste whose Gate-A carries no
+mounted-render evidence is a hollow box and gets refused.
+
 ## ⛔ CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD [LAW — RUSS, banked 2026-08-22]
 
 **CAPTURE IS FIRST. LORA IS SECOND. EVERYTHING ELSE IS THIRD.** All-data-from-all-sources-at-full-grain
