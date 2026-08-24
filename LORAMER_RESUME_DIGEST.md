@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-24T00:03:19.199Z
-- built_from HEAD: f17d8e98cd890dda85afc6e746ef05549b1f0973  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-24T01:58:58.676Z
+- built_from HEAD: 113fc4d9cfa262cc559900b54b261e118db001b2  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: e14989c685eef6759d34ab84d4602745663400f873b00d363861ffa43ddfcfb6
-    - LORAMER_DECISIONS.md: db8e2bfc839ded78195951acd7ef039941faa010a1eb81487aab6dea914ebafa
-    - LORAMER_QUEUE_OF_RECORD.md: 514944158fe53c3c97f0f68ab7e426e32980122e053ef7a61ae06d28f0b1f34f
+    - CONTINUE_HERE.md: 3b251607d43ccf0ca1206e7fdd05c8a2c2bbfa70d504e77058de6c74ea478f94
+    - LORAMER_DECISIONS.md: eb841e6e70b048b01133e7410fd2115dce8491cfc5a1ad1622befb03ad566dae
+    - LORAMER_QUEUE_OF_RECORD.md: ada494ca94ae95a35e67db021de47b523d452d7524e07ffc28709b2e48d2fed4
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -526,48 +526,63 @@ ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-08-23 — THE WALK IS PAST THE DEATH BAND. THE RECONNECT UI SHIPPED AND WAS REVERTED THE SAME NIGHT. ═══╗
+╔═══ SESSION CLOSE 2026-08-23/24 — THE WALK PASSED +24h. THE UI LIST IS A HYPOTHESIS, NOT A QUEUE. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
 
-── THE WALK — WINNING, AND THE READS ARE NOW CONFIRMATION ──
-**THE QUEUE WAS THE DISEASE, MEASURED:** the inline lane passed the ~1,000-1,200 band that killed both
-queue transports — **1,560 attempts on dpl_D86Myg alone**, then straight through two deploy boundaries
-and the revert without a stumble: **2,061 attempts, ~490-500/hour, zero stalls, zero lease-held
-refusals** (monitor ticks, latest 2026-08-23 ~03:5xZ). DECISIONS LORAMER_QUEUE_REMOVED_INLINE_WALK_V1
-carries the evidence. **THE +6h READ (≈05:02Z) AND +24h READ (≈23:02Z) CONFIRM rather than decide —
-record each when it lands:**
-  select count(*) from universe_attempt_log where phase='attempt_started' and recorded_at >= '2026-08-22T23:02:00Z';
-RED (unchanged): execution stops → git revert fdc23ae && git push (never Instant Rollback) and reopen
-★DELIVERY-DECAY-CAUSE-UNKNOWN.
+── THE WALK — +24h PASSED, READ ON THE CLOCK AT 2026-08-24T01:55:40Z (2h53m LATE, not early) ──
+**8,456 `attempt_started` since cutover 2026-08-22T23:02Z — 7.2× the ~1,000-1,200 band that killed BOTH
+queue transports — AND STILL LANDING: last attempt 01:55:47Z, seven seconds after the clock read.**
+NOT ONE HOUR since cutover has zero attempts, across 27 hours and TEN deployments. ZERO lease-held;
+the lease is FREE right now. ⇒ **THE QUEUE WAS THE DISEASE — CONFIRMED.** ★DELIVERY-DECAY-CAUSE-UNKNOWN
+stays closed-as-moot; reopen condition unchanged: execution stops ⇒ `git revert fdc23ae && git push`.
+⚠ **`day_committed` has not advanced since 2026-08-23T23:35Z and that is NOT a stall** — the trailing 3h
+ran 84 `zero` outcomes against 13 `ok`, and only `ok` commits a day. The lane is descending through
+ground that holds nothing. DECISIONS [[LORAMER_ENDURANCE_24H_READ_V1]] owns the full read.
 
-── THE RECONNECT ARC — SHIPPED `b52c528`, REVERTED `98044c7` THE SAME NIGHT ──
-A perpetual refresh loop on the -next client profile (iPhone) — the page never finished loading and the
-form fields rendered blank. ⛔ **NO DATA WAS LOST** (client_context verified intact; the blanks were the
-loop). **THE SHAPE STANDS** (DECISIONS LORAMER_RECONNECT_STATE_MACHINE_V1, status-corrected): probe-
-before-promote, the write discriminator, the credential-key fan-out — the design was right; the
-CLIENT-RUNTIME PROOF was missing. The defect: LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 — refresh on
-success instead of on transition, idempotence assumed from []. The law it produced: **A UI FLIGHT'S
-GATE-A MOUNTS THE COMPONENT** (ESSENCE, 2026-08-23).
-⛔ **THE CORRECTED BUILD IS THE NAMED UI DEBT, RANKED BEHIND THE WALK** — one flight, ★RECONNECT-HAS-
-NO-STATE-MACHINE, with its three carries (transition-guard · durable finalize marker · browser-runtime
-Gate-A) AND the three unresolved UI diagnoses (mobile overflow at ~390px · the grey Re-authorize ·
-Google's divergent row shape) — **whose ISSUE ROUND was dispatched and NEVER REPORTED; it runs first.**
+── THE WALK'S NEXT CAPTURE STEP — QUOTED FROM THE QUEUE'S RANKED HEAD, NOT FROM MEMORY ──
+**TOP-UNBLOCKED: ★BACKFILL-DONE-DONE-ACCOUNT-WIDE** — "RE-RANKED 2026-08-19 AT SATISFACTION:
+[[★THREE-CLEAN-RUNS-BEFORE-FAMILY]] is ✅ SATISFIED 3 of 3 … so the head it was standing in front of is
+now the head." It inherits one scope fact before it starts: **[[★TOP-EDGE-HAS-NO-LANE]] — "walked to its
+floor" is a claim about the BOTTOM only, and 342 of Foam OH's 346 surfaces hold nothing above 2026-08-12
+under any key. A done-done measurement that reads floor-reached as covered would be wrong on its first
+line.** Capture stays priority one.
+
+── TOMORROW'S HEAD, AFTER CAPTURE — THE TWO -NEXT ITEMS THAT SURVIVED VERIFICATION ──
+Thirteen -next correctness items were checked against the tree. **TWO are confirmed real. Work only these:**
+· **TEAM GRANT OVERWRITE** — `src/app/api/org/invite/route.ts:46-62`. The code says it on its own face:
+  "grants (delete-then-insert = idempotent replace)". Re-inviting an existing teammate with a narrower
+  client list SILENTLY NARROWS their access; :49 upserts `org_members` so a lower role silently DEMOTES
+  them. No warning, no diff, no confirmation. ONE FLIGHT.
+· **THE STALE-clientId EFFECT** — `src/components/redesign/ClientPage.tsx:191-213`. `}, [])`, reads
+  `window.location.search` on mount, uses `clientId` inside at :211, and its only idempotence is
+  `history.replaceState` cleaning the URL after itself. After a client switch that keeps the component
+  mounted, the connect callback rewrites the URL with a STALE clientId. Same class as
+  LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1, which took the reconnect UI down. ONE FLIGHT.
+⛔ **FIVE MORE ARE INCONCLUSIVE AND NEED A LIVE SESSION, NOT MORE READING** — readiness checklist stuck
+at 61% · the alleged second Google-row writer · and all three chat items (late-answer refresh, cancel
+killing the close path, Lora answering twice). Reading cannot settle any of them. Do not plan a flight on
+one until it has been reproduced.
+⛔ **THE OTHER SIX MOVED ON CONTACT:** 2 already fixed (Age card, client-switch remount), 2 mis-stated and
+smaller (the meter VANISHES rather than lying; the importing-history line is imprecise, not false), 1 real
+but unreachable (geo card is `coming: true` and disabled), 1 whose surface cannot be found at all.
+
+── THE LIST'S STATUS — READ THIS BEFORE PICKING ANYTHING OFF IT ──
+129 items: **77 -next · 25 LEGACY-ONLY · 15 both · 12 backend. ⛔ LEGACY-ONLY IS NOT FOR REPAIR — those
+die at cutover; two hours went into one of them today before Russ stopped it.** Of the 18 items ever
+verified against the tree, **roughly half moved.** ⇒ **EVERY UNVERIFIED SEVERITY IS A HYPOTHESIS. CHECK IT
+AGAINST THE TREE BEFORE YOU WORK IT.**
 
 ── STANDING ──
-· **META HUMAN-LIST: EMPTY — RE-MEASURED 2026-08-23: 12/12 real rows healthy, last_ok 08:08–08:26Z.**
-  ⛔ **THE "~08-25 / ~08-30" META CLOCK IS RETIRED AS FALSE — AND SO IS EVERY OCCURRENCE OF IT BELOW THIS
-  LINE, IN THIS FILE AND IN THE DIGEST'S SESSION LOG, WITHOUT EXCEPTION. Those are dated records of what a
-  past session believed; NONE of them is a clock, and no session may act on one.** `meta_tokens` has no
-  expiry column, so no row ever sourced it. The estate's next credential trigger is the WEEK OF 2026-11-20/21 (earliest stored expiry
-  on a live connection: 2026-11-21 09:04:35Z, Influential Drones Shopify refresh token; Meta data-access
-  2026-11-20). **Standing reference is the LIVE HEALTH ROW, never a remembered date.** DECISIONS
-  [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]] owns it; QUEUE [DG] carries the clock.
-  · The one 'reconnect' row is the DEMO credential (demo@loramer.com · client 2617b163) — not capture, and
-    not a reason to promote the reconnect flight.
-· ★PROTOCOL-GATE-ENFORCER — build TONIGHT, against the written record of the five 08-22/23 failures
-  now in its queue entry.
-· ⛔ **THE SECOND WORKTREE IS OFF until tomorrow evening, and only if the walk needs more work then.**
+· **META HUMAN-LIST: EMPTY.** The "~08-25 / ~08-30" clock is RETIRED AS FALSE wherever it appears below
+  this line. Next credential trigger: WEEK OF 2026-11-20/21. Standing reference is the LIVE HEALTH ROW.
+· ⛔ **THERE ARE FIVE CAPTURE LANES, NOT ONE** (`sync`, `catchup`, `drain`, `order-grain`,
+  `universe-resume`), and the v2 walk is pinned by its cron URL to ONE client, 957d484e. The older
+  sync/catchup/drain engine wrote most of the warehouse and is running now. I spent part of today
+  reasoning as if the walk were the only engine. It is not.
+· ⛔ **RESOLVE EVERY CLIENT BY ID, NEVER BY NAME**, and never report ROW ABSENCE as DATA ABSENCE — ask
+  whether the client transacted first. Those two errors produced six false claims in one day.
+· The one 'reconnect' row is the DEMO credential (demo@loramer.com · client `2617b163`) — not capture.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1606,7 +1621,9 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★LOCAL-META-APP-ID-STALE — ⚠ **NEW 2026-08-22, SMALL, LOCAL-ONLY.** `.env.local`'s META_APP_ID does not match the app that minted the live token (app-token debug_token → "Invalid application ID"; self-inspection names app 1002539785664144). Prod (Vercel env) is unaffected — capture and the callback run fine. Cost today: local app-token Graph calls fail confusingly. Fix: copy the prod value into .env.local on the Air (and check the iMac). src: 2026-08-22 Meta read. open [LC]
 - ★UI-INVENTORY — ⚙ **BUILT 2026-08-23 AS AN INDEX, NOT A SECOND OWNER: `docs/LORAMER_UI_INVENTORY.md` (the ui-inventory doc) is the ONE deduplicated UI list — 153 harvested rows → 129 items in 13 categories, 22 of them showing a user something untrue.** It supersedes every prior partial list; this QUEUE and DECISIONS remain the owners of open/closed, and every line in it is a pointer carrying its provenance. A phone-readable build is generated FROM the .md by `scripts/build-ui-inventory-html.mjs` → `docs/ui-inventory.html`, stamped with the source blob it came from so a stale page announces itself. ⛔ **WHAT IS OPEN IS THE BURN-DOWN, NOT THE LIST:** Russ ranks CATEGORIES, then one category is emptied in order before the next is started. FLIGHT ONE is the dangerous five, of which two did not survive diagnosis (TEAM WRONG-CLIENT already fixed and guard-held; the Shopify chart is a COUNT/AOV divergence, not two revenues) — the three that stand are the failure-is-not-a-fact class (six sites), the Shopify chart filter, and the absence-taxonomy arc. ⚠ **THE HONEST DENOMINATOR IS ON THE DOC'S OWN FACE:** complete for ★-tokened and [LC]/[NP]/[EXT]/[DG]-tagged items, a FLOOR for ROADMAP's 275 unchecked boxes and for chat-only items never banked anywhere. ⛔ ACCESSIBILITY IS ZERO ITEMS AND THAT IS A COVERAGE GAP, NOT A CLEAN SURFACE — nobody has ever looked. src: 2026-08-23 UI audit. open [LC]
 - ★OVERVIEWSTATIC-IS-DEAD-CODE — ⛔ **NEW 2026-08-23, FOUND WHILE MAPPING PART 2'S CONSUMERS, AND IT IS A FALSE-GREEN GENERATOR RATHER THAN CLUTTER.** `src/components/redesign/OverviewStatic.tsx` is MOUNTED BY NOTHING: `dashboard-next/page.tsx:15` renders `<CardEngine pageKey="overview" />`, and CONTINUE_HERE:1339 records the swap verbatim — *"Wired CardEngine(pageKey='overview') into dashboard-next/page.tsx (replaced OverviewStatic)"*. An exhaustive tree search finds only its own `export default`. ⛔ **WHY IT MATTERS: IT READS AS A LIVE CONSUMER TO THE NEXT AUDITOR.** The 2026-08-23 dangerous-five brief listed four of its lines (:89 · :96 · :100 · :108) as sites to fix, including one of the two STRUCTURAL ones — the store-label flip. Fixing them would have been true of the file and false of the product, and the flight report would have claimed the Overview no longer says "not connected" when the Overview has not rendered that string since CardEngine replaced it. It compiles, it passes every guard, and it will do this again. ⚠ `cards/useCardData.ts` is the same class one step milder: it was also listed, and it never reads `hasDataEver` at all (grep: 0) — it filters on `revenue > 0`. ⇒ DECIDE: delete it, or mark it unmounted at the top of the file so the next reader is not misled. Not a typo fix — deleting a component is a decision. src: 2026-08-23 Part 2 consumer map. open [LC]
-- ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — ⛔ **NEW 2026-08-23, AND IT IS THE ONE THAT SURVIVED THE CANCELLATION — the legacy chart defect's twin, ON THE SURFACE WE ARE SHIPPING.** `src/app/api/next/client-timeseries/route.ts:39-43` pre-fills `days[d] = { google: zero(), meta: zero() }` for EVERY day of the requested window and then overlays whatever rows exist, so a day capture has not reached draws as a confident $0 rather than a gap. Its own comment says it: *"Zero-filled day map across the window."* This violates [[LORAMER_A_BOUNDED_READ_MUST_RETURN_ITS_BOUND_V1]]'s companion rule — RENDER EXACTLY THE DAYS YOU HOLD, NEVER SYNTHESIZE A DAY. ⛔ **LIVE ON A REAL CLIENT INSIDE A PRESET, MEASURED AND RESOLVED BY ID (never by name): Influential Drones `5bb9b2ff` holds meta account rows for 35 of the last 90 days, first held 2026-07-19 ⇒ 55 DAYS OF HARD ZERO META SPEND at "Last 90 days".** ⚠ NOT the same item as [[★DRONES-META-CAPTURE-CLIFF-2026-08]]: that one owns the DATA GAP, this one owns the RENDER that states the gap as a fact. Fixing capture closes one client; fixing the render closes the class. ⚠ Google is 90/90 on the same window and Shopify capture is contiguous fleet-wide (8,443 rows, zero interior holes), so today it expresses as Meta — the code is platform-blind. src: 2026-08-23 surface re-sort. open [LC]
+- ★VET-MASTERMIND-META-HAS-MORE-ROWS-THAN-DAYS — ⚠ **NEW 2026-08-24, OBSERVATION ONLY, NOT DIAGNOSED.** Client `f5fbe7e5-7b22-4a17-9681-6fab7fbeddb2` (Veterinary mastermind) holds 205 meta ACCOUNT rows across a span of 202 days — **three more rows than there are days**, i.e. duplicate account rows at the (client, platform, account, date) grain. Nothing else in the fleet does this; every other client×platform reads zero or positive. ⚠ The account-row-per-day invariant is what `npm run check:data` exists to hold, so this is either a real duplicate or an invariant the check does not cover at this grain — I did not determine which and did not look further. src: 2026-08-24 verify pass. open [LC]
+- ★NO-ROW-DAYS-INSIDE-ACTIVE-SPEND-ARE-UNKNOWABLE — ⚠ **NEW 2026-08-24, OBSERVATION, AND ITS LIMIT IS THE POINT.** In 2026 there are **71 days with NO captured row that sit between two days which BOTH carry spend > 0**: Ennis Exterminating `1b7b073f` google 34 days (2026-03-19→05-11) · BusyBee `07aa6cdb` meta 23 · Shelley Kyle `23c697bb` meta 5 · Veterinary mm `f5fbe7e5` meta 5 · BusyBee google 2 · The Escential Group `c39ee088` meta 1 · Veterinary mm google 1. ⛔ **SPENDING ON BOTH SIDES DOES NOT PROVE THEY SPENT ON THE GAP DAY** — a 23-day run could be a genuine campaign pause, and from `metrics_daily` alone these days are UNKNOWABLE. That unknowability is the whole observation; it is not a defect claim and must not be promoted into one without vendor evidence. src: 2026-08-24 verify pass. open [LC]
+- ★UI-INVENTORY-ITEM-9-SURFACE-CANNOT-BE-LOCATED — ⚠ **NEW 2026-08-24.** Inventory item "store compare legend labels BOTH windows with the same date range" (-next store, CORRECTNESS): `src/app/dashboard-next/store/` contains only `page.tsx`, and no legend / compareLabel / windowLabel code matched there or anywhere in `src/components/redesign/`. ⛔ **AN INVENTORY ITEM WHOSE SURFACE CANNOT BE FOUND IS NOT A SMALL PROBLEM WITH THAT ITEM — it is a reason to distrust its neighbours**, and it is the fourth harvested item in one day to fail on contact. Either the surface was renamed, or the item describes the CardEngine compare path, or it is stale. src: 2026-08-24 verify pass. open [LC]
 - ★OVERRIDE-STALENESS-HAS-NO-CLOCK — ⛔ **NEW 2026-08-23, the unbuilt half of [[LORAMER_PROTOCOL_GATE_ENFORCER_V1]]'s burn-down.** The override log is monotonic and hash-chained, so an override cannot be DELETED or EDITED without failing the build — but nothing yet makes an override GO AWAY. An override older than N days with no dated RESOLUTIONS entry should fail the build; that is what turns the log from a record into a burn-down, and it is the mechanism that makes a reflexive override visible in aggregate. ⚠ **THE HONEST REASON IT IS NOT BUILT TODAY: the log is EMPTY, so any N would be a constant with no derivation** — precisely the defect the gate's own CONSTANTS box refuses. Derive N from the first month of real overrides, not from a guess. `STALENESS_DAYS = null` in `protocol-gate.baseline.mjs` says so on its face. src: the 2026-08-23 enforcer build. open [LC]
 - ★AGENTS-MD-IS-A-CORRUPTED-COPY — ⛔ **NEW 2026-08-23, found during the enforcer's read of what governs agent behaviour.** `AGENTS.md` at repo root is a find-and-replace of an OLD CLAUDE.md with "Claude"→"Codex" applied indiscriminately, and the replacement corrupted facts as well as names: it names MODEL IDS (`Codex-haiku-4-5`, `Codex-sonnet-4-6`) where CLAUDE.md's own banked rule is that model ids are OWNED BY THE CODE and never named in docs; it asserts "localhost:3000", "no test suite", "works on the iMac" and "Cursor terminal" — every one of them a fact CLAUDE.md explicitly retired. **Any agent reading it reads a contradicted doc**, and it is a SECOND agent-governing file at the repo root that no ownership map covers. ⚠ NOT FIXED HERE, deliberately: deciding whether AGENTS.md should be a pointer to CLAUDE.md, a real Codex brief, or deleted is a decision, not a typo fix. src: 2026-08-23 protocol-gate build. open [LC]
 - ★CREDENTIAL-DEADLINES-HAVE-NO-SOURCE-GUARD — ⛔ **NEW 2026-08-23, the queued mechanical half of [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]].** A resume-path doc asserted a live Meta credential deadline ("~08-25 re-arm / ~08-30 cliff") for twelve days while **`meta_tokens` has no expiry column** — no row could ever have sourced it, and nothing in the build could see that. THE CHECK: for every date a resume-path doc (CONTINUE_HERE head · QUEUE [DG] · DECISIONS) states as a LIVE credential deadline, a column must exist that could hold it; a deadline with no possible source column, or one that contradicts the live row, fails the build. ⚠ **HONEST LIMIT, stated so the guard is not oversold: it can check SOURCEABILITY (does a column exist) mechanically; it CANNOT check that a stated date equals a vendor-side fact this database does not store — Meta's data-access window is exactly that case, and stays a human-read debug_token probe.** Cross-ref the stage-2 item "'expiring' + the meta_tokens expiry column" inside [[★RECONNECT-HAS-NO-STATE-MACHINE]]: adding that column is what would make the Meta half sourceable at all. src: the 2026-08-23 reconnect issue round measurement. open [LC]
@@ -2343,8 +2360,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 988 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
-137 decision-only · 496 queue-only.
+TOTALS: 991 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
+137 decision-only · 499 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 263 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2496,7 +2513,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DRAIN-STEP-DONE-AND-CURSOR-INCOMPLETE-DIVERGE — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★DRIVE-QUIESCE-BLIND-ON-A-DENSE-DAY — DONE · decisions 0 · queue 1 · last 2026-08-19
 - ★DRIVE-VERDICT-NOT-PERSISTED — OPEN · decisions 0 · queue 2 · last 2026-08-19
-- ★DRONES-META-CAPTURE-CLIFF-2026-08 — OPEN · decisions 0 · queue 2 · last 2026-08-23
+- ★DRONES-META-CAPTURE-CLIFF-2026-08 — OPEN · decisions 0 · queue 2 · last 2026-08-24
 - ★DRYRUN-EQUALS-TRUE-TRAP — DECIDED · decisions 1 · queue 0 · last 2026-08-11
 - ★DRYRUN-EQUALS-TRUE-TRAP-ON-SYNC-AND-DRAIN — OPEN · decisions 0 · queue 1 · last 2026-08-09
 - ★DRYRUN-IS-NOT-ZERO-WRITE — OPEN · decisions 0 · queue 1 · last 2026-07-27
@@ -2678,9 +2695,10 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★NEXT-LANDING-SCROLL-PREMISE-CORRECTED — DONE · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-OVERVIEW-AGE-CARD-SHOWS-ERROR-STRING — OPEN · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-SCROLL-LANDING — DONE · decisions 0 · queue 1 · last 2026-08-07
-- ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — OPEN · decisions 0 · queue 1 · last 2026-08-23
+- ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-24
 - ★NO-CONNECTION-OUTCOME-LEDGER-IDENTITY-IN-V2 — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★NO-PROGRESS-BOUND-KEYED-ON-THE-WRONG-SHAPE — OPEN · decisions 1 · queue 2 · last 2026-08-19
+- ★NO-ROW-DAYS-INSIDE-ACTIVE-SPEND-ARE-UNKNOWABLE — OPEN · decisions 0 · queue 1 · last 2026-08-24
 - ★NO-SHARED-FAILURE-PREDICATE-IN-V2 — OPEN · decisions 0 · queue 1 · last 2026-08-09
 - ★NON-METRIC-STORAGE-SHAPE — OPEN · decisions 1 · queue 2 · last 2026-07-31
 - ★NUMBER-ACCURACY-IS-100-NOT-95 — OPEN · decisions 0 · queue 4 · last 2026-08-14
@@ -2789,6 +2807,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TWO-OF-THREE-RESUMER-REFUSALS-ARE-NOT-DURABLE — OPEN · decisions 1 · queue 2 · last 2026-08-11
 - ★UI-BRANCH-IS-PERMANENT — OPEN · decisions 1 · queue 1 · last 2026-08-05
 - ★UI-INVENTORY — OPEN · decisions 0 · queue 1 · last 2026-08-23
+- ★UI-INVENTORY-ITEM-9-SURFACE-CANNOT-BE-LOCATED — OPEN · decisions 0 · queue 1 · last 2026-08-24
 - ★UI-OVERFLOW — OPEN · decisions 7 · queue 6 · last 2026-08-11
 - ★UNCERTAINTY-PAGES-A-HUMAN — OPEN · decisions 0 · queue 3 · last 2026-07-31
 - ★UNGROUNDED-EVENT-ATTRIBUTION — DONE · decisions 1 · queue 4 · last 2026-08-16
@@ -2829,6 +2848,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VERCEL-CANCELLATION-KILLS-THE-CLOSE-PATH — OPEN · decisions 1 · queue 2 · last 2026-08-08
 - ★VERCEL-SILENT-NO-DEPLOY — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★VERDICT-ENFORCER-BEFORE-PUSH — OPEN · decisions 0 · queue 2 · last 2026-08-22
+- ★VET-MASTERMIND-META-HAS-MORE-ROWS-THAN-DAYS — OPEN · decisions 0 · queue 1 · last 2026-08-24
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★VETMASTERMIND-META-PRODUCT-CLAIM-EXCEEDS-ROWS — OPEN · decisions 0 · queue 1 · last 2026-08-08
 - ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 4 · last 2026-09-30
@@ -2864,7 +2884,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★WORKER-COMMENTS-SAY-20 — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★WRAP-HARD-KILL-STILL-ADVANCES-THE-STAMP — OPEN · decisions 1 · queue 1 · last 2026-08-17
 - LORAMER_8S_CEILING_AUDIT_V1 — DONE · decisions 10 · queue 2 · last 2026-07-31
-- LORAMER_A_BOUNDED_READ_MUST_RETURN_ITS_BOUND_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-23
+- LORAMER_A_BOUNDED_READ_MUST_RETURN_ITS_BOUND_V1 — DONE · decisions 0 · queue 2 · last 2026-08-24
 - LORAMER_A_DETECTOR_READS_ITS_SUBJECTS_ROWS_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - LORAMER_A_LAW_IS_NOT_BANKED_UNTIL_IT_CAN_FAIL_A_BUILD_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-16
 - LORAMER_ACCOUNT_ROW_INVARIANT_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-23

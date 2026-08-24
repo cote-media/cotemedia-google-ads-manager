@@ -1,4 +1,64 @@
-╔═══ SESSION CLOSE 2026-08-23 — THE WALK IS PAST THE DEATH BAND. THE RECONNECT UI SHIPPED AND WAS REVERTED THE SAME NIGHT. ═══╗
+╔═══ SESSION CLOSE 2026-08-23/24 — THE WALK PASSED +24h. THE UI LIST IS A HYPOTHESIS, NOT A QUEUE. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+
+── THE WALK — +24h PASSED, READ ON THE CLOCK AT 2026-08-24T01:55:40Z (2h53m LATE, not early) ──
+**8,456 `attempt_started` since cutover 2026-08-22T23:02Z — 7.2× the ~1,000-1,200 band that killed BOTH
+queue transports — AND STILL LANDING: last attempt 01:55:47Z, seven seconds after the clock read.**
+NOT ONE HOUR since cutover has zero attempts, across 27 hours and TEN deployments. ZERO lease-held;
+the lease is FREE right now. ⇒ **THE QUEUE WAS THE DISEASE — CONFIRMED.** ★DELIVERY-DECAY-CAUSE-UNKNOWN
+stays closed-as-moot; reopen condition unchanged: execution stops ⇒ `git revert fdc23ae && git push`.
+⚠ **`day_committed` has not advanced since 2026-08-23T23:35Z and that is NOT a stall** — the trailing 3h
+ran 84 `zero` outcomes against 13 `ok`, and only `ok` commits a day. The lane is descending through
+ground that holds nothing. DECISIONS [[LORAMER_ENDURANCE_24H_READ_V1]] owns the full read.
+
+── THE WALK'S NEXT CAPTURE STEP — QUOTED FROM THE QUEUE'S RANKED HEAD, NOT FROM MEMORY ──
+**TOP-UNBLOCKED: ★BACKFILL-DONE-DONE-ACCOUNT-WIDE** — "RE-RANKED 2026-08-19 AT SATISFACTION:
+[[★THREE-CLEAN-RUNS-BEFORE-FAMILY]] is ✅ SATISFIED 3 of 3 … so the head it was standing in front of is
+now the head." It inherits one scope fact before it starts: **[[★TOP-EDGE-HAS-NO-LANE]] — "walked to its
+floor" is a claim about the BOTTOM only, and 342 of Foam OH's 346 surfaces hold nothing above 2026-08-12
+under any key. A done-done measurement that reads floor-reached as covered would be wrong on its first
+line.** Capture stays priority one.
+
+── TOMORROW'S HEAD, AFTER CAPTURE — THE TWO -NEXT ITEMS THAT SURVIVED VERIFICATION ──
+Thirteen -next correctness items were checked against the tree. **TWO are confirmed real. Work only these:**
+· **TEAM GRANT OVERWRITE** — `src/app/api/org/invite/route.ts:46-62`. The code says it on its own face:
+  "grants (delete-then-insert = idempotent replace)". Re-inviting an existing teammate with a narrower
+  client list SILENTLY NARROWS their access; :49 upserts `org_members` so a lower role silently DEMOTES
+  them. No warning, no diff, no confirmation. ONE FLIGHT.
+· **THE STALE-clientId EFFECT** — `src/components/redesign/ClientPage.tsx:191-213`. `}, [])`, reads
+  `window.location.search` on mount, uses `clientId` inside at :211, and its only idempotence is
+  `history.replaceState` cleaning the URL after itself. After a client switch that keeps the component
+  mounted, the connect callback rewrites the URL with a STALE clientId. Same class as
+  LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1, which took the reconnect UI down. ONE FLIGHT.
+⛔ **FIVE MORE ARE INCONCLUSIVE AND NEED A LIVE SESSION, NOT MORE READING** — readiness checklist stuck
+at 61% · the alleged second Google-row writer · and all three chat items (late-answer refresh, cancel
+killing the close path, Lora answering twice). Reading cannot settle any of them. Do not plan a flight on
+one until it has been reproduced.
+⛔ **THE OTHER SIX MOVED ON CONTACT:** 2 already fixed (Age card, client-switch remount), 2 mis-stated and
+smaller (the meter VANISHES rather than lying; the importing-history line is imprecise, not false), 1 real
+but unreachable (geo card is `coming: true` and disabled), 1 whose surface cannot be found at all.
+
+── THE LIST'S STATUS — READ THIS BEFORE PICKING ANYTHING OFF IT ──
+129 items: **77 -next · 25 LEGACY-ONLY · 15 both · 12 backend. ⛔ LEGACY-ONLY IS NOT FOR REPAIR — those
+die at cutover; two hours went into one of them today before Russ stopped it.** Of the 18 items ever
+verified against the tree, **roughly half moved.** ⇒ **EVERY UNVERIFIED SEVERITY IS A HYPOTHESIS. CHECK IT
+AGAINST THE TREE BEFORE YOU WORK IT.**
+
+── STANDING ──
+· **META HUMAN-LIST: EMPTY.** The "~08-25 / ~08-30" clock is RETIRED AS FALSE wherever it appears below
+  this line. Next credential trigger: WEEK OF 2026-11-20/21. Standing reference is the LIVE HEALTH ROW.
+· ⛔ **THERE ARE FIVE CAPTURE LANES, NOT ONE** (`sync`, `catchup`, `drain`, `order-grain`,
+  `universe-resume`), and the v2 walk is pinned by its cron URL to ONE client, 957d484e. The older
+  sync/catchup/drain engine wrote most of the warehouse and is running now. I spent part of today
+  reasoning as if the walk were the only engine. It is not.
+· ⛔ **RESOLVE EVERY CLIENT BY ID, NEVER BY NAME**, and never report ROW ABSENCE as DATA ABSENCE — ask
+  whether the client transacted first. Those two errors produced six false claims in one day.
+· The one 'reconnect' row is the DEMO credential (demo@loramer.com · client `2617b163`) — not capture.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ SESSION CLOSE 2026-08-23 (EARLIER) ⛔ SUPERSEDED · HISTORY · DO NOT ACT ON ITS HEAD ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
 
