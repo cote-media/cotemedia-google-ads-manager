@@ -381,6 +381,12 @@ const GUARDS = [
   // writes a heartbeat on all four return paths, and the wedge signal goes RED on 24h-no-progress while
   // staying GREEN at the all-surfaces-at-inception-floor DONE state.
   'tests/guards/walk-unwedge-heartbeat.guard.mjs',
+  // LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1 — CLASS-LEVEL sibling of the unwedge: EVERY non-publishing
+  // decision branch (floor-reached, implausible, nothing-owed, broken/no-progress) must advance the rotation
+  // or be excluded once-sealed; bookkeeping rows stay invisible to decideRepublish; the floor seal re-admits
+  // on any stop change. ★WALK-WEDGES-AT-FLOOR-REACHED, measured 2026-08-24: top-60 = 60/60 floor-reached,
+  // 268 owing surfaces starved, descend silent ~15h.
+  'tests/guards/nonpublishing-branch-must-advance-rotation.guard.mjs',
   // LORAMER_LORA_NAMED_ENTITY_READ_V1 — every grain Lora is OFFERED must have a path that returns its NAME,
   // the tool must be dispatched and attached to BOTH loops, the writer/reader column disagreement must stay
   // DECLARED, and the description must keep teaching THINGS-vs-DIMENSION-VALUES + the Meta asset trap.

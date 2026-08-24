@@ -514,6 +514,44 @@ export function deriveWindow(a: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE FLOOR SEAL — LORAMER_WALK_FLOOR_SEAL_V1
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+/**
+ * ⛔ WHY A SEAL EXISTS. ★WALK-WEDGES-AT-FLOOR-REACHED, measured 2026-08-24: the floor-reached branch wrote
+ * NOTHING, so a finished surface's rotation recency froze, it rose to the FRONT of the least-recently-asked
+ * order and stayed there — at ≥60 such surfaces every scan slot was monopolised and the 268 still-owing
+ * surfaces starved (descend lane silent ~15h; fire log scanned=60/candidates=0/refusals={"floor-reached":60}
+ * every fire). The seal is the durable EVIDENCE (one started(0)+finished('floor_stop') pair, written ONCE)
+ * and the EXCLUSION key: a sealed surface leaves the scan set instead of re-fronting forever.
+ *
+ * ⛔ THE SEAL IS KEYED TO THE STOP FACTS, NOT TO A STORED BOOLEAN. The pair's error text carries
+ * `stop=<date> basis=«<basis>»` — the exact resolved stop the seal was written against. Every fire re-derives
+ * the current stop through the ONE composition site (resolveWalkStop) and compares: SAME stop ⇒ the seal
+ * holds and the surface is skipped without a slot; ANY difference (date, basis, unparseable, or a stop that
+ * now resolves UNKNOWN) ⇒ the surface RE-ENTERS the scan automatically. No manual un-seal exists to forget.
+ *
+ * ⛔ FAIL-OPEN DIRECTION IS DELIBERATE AND ASYMMETRIC: an unparseable or mismatched seal falls open to
+ * SCANNING (the surface is re-derived, worst case re-sealed for two 0-request rows), never to EXCLUSION —
+ * excluding on a seal we cannot read would be sealing on silence, the defect class
+ * LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 exists to end.
+ */
+export function parseFloorSeal(error: string | null | undefined): { stopDate: string; basis: string } | null {
+  if (!error) return null
+  const m = /stop=(\d{4}-\d{2}-\d{2}) basis=«([^»]+)»/.exec(error)
+  if (!m) return null
+  return { stopDate: m[1], basis: m[2] }
+}
+
+export function floorSealHolds(
+  seal: { stopDate: string; basis: string } | null,
+  current: { stopDate: string | null; basis: string },
+): boolean {
+  if (seal === null) return false             // unparseable ⇒ re-admit (fail-open to scanning)
+  if (current.stopDate === null) return false // stop now UNKNOWN ⇒ an unknown floor cannot hold a seal
+  return seal.stopDate === current.stopDate && seal.basis === current.basis
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 // THE ROTATION — LORAMER_RESUMER_SCAN_ROTATES_V1
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 /**

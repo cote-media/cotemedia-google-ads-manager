@@ -68,6 +68,8 @@ import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_
 import {
   assessCoverage, decideRepublish, boundedSelection,
   deriveAnchorEnd, deriveWindow, orderForRotation, deriveTopStrip,
+  parseFloorSeal, floorSealHolds, // LORAMER_WALK_FLOOR_SEAL_V1 — the seal's pure deciders
+
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   TOP_EDGE_REQUESTS_PER_RUN,
   type LastAttempt,
@@ -254,6 +256,33 @@ export async function GET(request: Request) {
   for (const [k, r] of rotation) lastAttemptedAt.set(k, String(r.last_attempt_at))
   const rotated = orderForRotation(entries, (e) => `${e.resource}|${e.segment ?? ''}`, lastAttemptedAt)
 
+  // ── ⛔ THE FLOOR SEALS — LORAMER_WALK_FLOOR_SEAL_V1 (★WALK-WEDGES-AT-FLOOR-REACHED) ──────────────────
+  // ONE read per fire: the newest descend 'floor_stop' seal per surface. A surface whose seal (i) is its
+  // latest descend action AND (ii) was written against the SAME resolved stop it resolves to now is skipped
+  // WITHOUT consuming a scan slot — that is what frees the 60 slots for the surfaces that still owe.
+  // Ordered newest-first and reduced to first-per-key so the comparison always runs against the newest seal.
+  // ⛔ A FAILED SEAL READ FAILS OPEN TO SCANNING (empty map): one fire behaves exactly like today — sealed
+  // surfaces are re-derived and re-refused — which is wedge-shaped but write-free and self-heals next fire.
+  // Failing open to EXCLUSION would seal surfaces on an unreadable instrument.
+  const floorSeals = new Map<string, { error: string | null; recordedAt: string }>()
+  let sealReadFailed: string | null = null
+  {
+    const { data: sealRows, error: sealErr } = await supabaseAdmin.from('universe_attempt_log')
+      .select('resource, segment, error, recorded_at')
+      .eq('client_id', clientId).eq('vendor', adapter.platform)
+      .eq('phase', 'attempt_finished').eq('outcome', 'floor_stop').eq('lane', 'descend')
+      .order('recorded_at', { ascending: false }).limit(2000)
+    if (sealErr) {
+      sealReadFailed = sealErr.message
+      console.error(`[universe-resume] floor-seal read failed — scanning WITHOUT exclusion this fire (fail-open to scanning): ${sealErr.message}`)
+    } else {
+      for (const r of sealRows ?? []) {
+        const k = `${r.resource}|${r.segment ?? ''}`
+        if (!floorSeals.has(k)) floorSeals.set(k, { error: r.error ?? null, recordedAt: String(r.recorded_at) })
+      }
+    }
+  }
+
   type Candidate = {
     entry: UniverseEntry; label: string; ranges: number; owedDays: number
     windowStart: string; windowEnd: string; sizingBasis: string
@@ -271,9 +300,50 @@ export async function GET(request: Request) {
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
   let scanned = 0
   let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
+  let sealedHeld = 0     // LORAMER_WALK_FLOOR_SEAL_V1 — sealed surfaces skipped WITHOUT a scan slot this fire
+  let sealedThisFire = 0 // LORAMER_WALK_FLOOR_SEAL_V1 — seals WRITTEN this fire (each is once-only evidence)
 
   for (const entry of rotated) {
     if (scanned >= MAX_ENTRIES_SCANNED_PER_RUN) break
+
+    // ── ⛔ SEALED SURFACES LEAVE THE SCAN SET — LORAMER_WALK_FLOOR_SEAL_V1 ──────────────────────────────
+    // BEFORE the slot is consumed, on purpose: the seal's whole point is that a finished surface stops
+    // spending the 60-entry budget. The seal holds ONLY when (i) it is the surface's latest descend action
+    // (the pair's own started row stamps the rotation ms before the seal, so a NEWER rotation timestamp
+    // means a real attempt landed after it) and (ii) the stop it was written against is the stop the ONE
+    // composition site resolves to now. Anything else — stop moved, basis changed, seal unparseable, stop
+    // now UNKNOWN, resolver threw — falls through to the normal scan: RE-ADMISSION IS AUTOMATIC AND
+    // DERIVED, never a manual un-seal.
+    // ⚠ NAMED RESIDUAL: a sealed surface's TOP STRIP is no longer derived by this loop (deriveTopStrip runs
+    // below the slot). Acceptable today — strips were only ever derived for scanned surfaces, and a
+    // top-edge zero never attests — but at fleet-terminal (ALL surfaces sealed) the scan goes empty and no
+    // strip candidates are derived at all; the strip scan needs its own bounded pass by then (queued).
+    const sealKey = `${entry.resource}|${entry.segment ?? ''}`
+    const priorSeal = floorSeals.get(sealKey)
+    if (priorSeal) {
+      const rotPrior = rotation.get(sealKey) ?? null
+      const sealIsLatest = rotPrior === null ||
+        Date.parse(String(rotPrior.last_attempt_at)) <= Date.parse(priorSeal.recordedAt)
+      if (sealIsLatest) {
+        try {
+          const currentStop = await resolveWalkStop({
+            clientId, vendor: adapter.platform, resource: entry.resource, segment: entry.segment ?? '', facts: stopFacts,
+          })
+          if (floorSealHolds(parseFloorSeal(priorSeal.error), { stopDate: currentStop.stopDate, basis: currentStop.basis })) {
+            sealedHeld++
+            refusals.push({
+              label: `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`, verdict: 'floor-sealed',
+              reason: `sealed at stop ${currentStop.stopDate} (${currentStop.basis}) — skipped without a scan slot; re-admits the moment the stop facts change`,
+            })
+            continue
+          }
+        } catch {
+          // A stop that cannot resolve must not hold a seal — fall through to the normal scan, whose own
+          // stop-error branch records the failure durably.
+        }
+      }
+    }
+
     scanned++
     const surface = surfaceOfEntry(entry)
     const label = `${surface.resource}${surface.segment ? ' / ' + surface.segment : ''}`
@@ -363,7 +433,34 @@ export async function GET(request: Request) {
     if (win === null) {
       // ⛔ NOT A FAILURE — THE SURFACE IS DONE. The anchor has receded below the RESOLVED stop, so there is no
       // ground left to ask for. Recorded so a completion can be told apart from a silence.
-      refusals.push({ label, verdict: 'floor-reached', reason: `anchor ${anchor.anchorEnd} is below the resolved stop (${stop.basis}) — this surface has been walked to its floor` })
+      // ── ⛔ THE SEAL — LORAMER_WALK_FLOOR_SEAL_V1 (★WALK-WEDGES-AT-FLOOR-REACHED, measured 2026-08-24:
+      // top-60 = 60/60 floor-reached, best owing rank 61, descend silent ~15h). This branch used to write
+      // NOTHING, so a finished surface's recency froze at the FRONT of the rotation and monopolised the
+      // scan forever. The seal is UNWEDGE_V1's proven pair shape with a terminal outcome:
+      //  · RE-STAMPS rot's existing last window — NEVER a synthesized stop-day window, because
+      //    deriveTopStrip reads rot.last_window_end as descendTopEnd and a new bottom window would drag the
+      //    top-edge strip derivation to 2022. The re-stamp holds the anchor AND the strip; only recency moves.
+      //  · outcome 'floor_stop' (already in AttemptOutcome and universe_attempt_log_outcome_ck via 081 —
+      //    NO migration) — attestedEmptyDays filters outcome='zero' only, so a seal can NEVER attest a day.
+      //  · requestsSpent 0 (spend meters sum requests_spent — a seal adds nothing) and rowsWritten OMITTED
+      //    (null keeps it out of sizing history, whose read filters `.not('rows_written','is',null)`).
+      //  · the error text carries `stop=<date> basis=«<basis>»` — the machine half the exclusion above
+      //    compares against, which is what makes the seal ONCE-ONLY and the re-admission DERIVED.
+      // ⛔ rot === null → plain refusal, NO pair: a never-asked surface has no window to re-stamp, and
+      // sealing on silence is the LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 defect class.
+      if (!dryRun && rot) {
+        const key: AttemptKey = {
+          clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment,
+          windowStart: String(rot.last_window_start), windowEnd: String(rot.last_window_end),
+        }
+        const opened = await appendAttemptStarted(key, 0, { startDate: key.windowStart, endDate: key.windowEnd }, prov)
+        await appendAttemptFinished(key, opened.attemptNo, 'floor_stop', {
+          requestsSpent: 0,
+          error: `FLOOR_STOP — LORAMER_WALK_FLOOR_SEAL_V1: anchor ${anchor.anchorEnd} below resolved stop stop=${stop.stopDate} basis=«${stop.basis}»; sealed — excluded from the descend scan until the stop facts change. NOT a vendor attestation — attestedEmptyDays filters outcome='zero' only.`,
+        }, prov)
+        sealedThisFire++
+      }
+      refusals.push({ label, verdict: 'floor-reached', reason: `anchor ${anchor.anchorEnd} is below the resolved stop (${stop.basis}) — this surface has been walked to its floor${!dryRun && rot ? '; SEALED (floor_stop pair) and excluded from the scan until the stop facts change' : ''}` })
       continue
     }
     const { windowStart, windowEnd } = win
@@ -398,8 +495,18 @@ export async function GET(request: Request) {
       // record so the reporting surface can name it.
       const key: AttemptKey = { clientId, vendor: adapter.platform, resource: surface.resource, segment: surface.segment, windowStart, windowEnd }
       if (!dryRun) {
-        await appendAttemptFinished(key, (await readAttemptsAtSpan(key)) + 1, 'skipped', {
-          rowsWritten: 0, requestsSpent: 0,
+        // ⛔ LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1 — a PAIR now, not a finished-only append: 064's rotation
+        // reads phase='attempt_started' ONLY, so the old finished-only skip provably advanced nothing (two
+        // live rows on ad_group, 2026-08-12) and an implausible surface pinned its scan slot every fire.
+        // ⛔ PARENT DELIBERATELY OMITTED: parent_known=false makes deriveAnchorEnd HOLD (:434 — UNKNOWN is
+        // "do not move"), so recency advances but the anchor can NEVER recede past coverage this branch just
+        // refused to trust — receding here would be the silent all-clear the refusal exists to prevent.
+        // ⛔ rowsWritten OMITTED (null) — walk-unwedge leg (b): sizeNextWindow filters
+        // `.not('rows_written','is',null)`; a 0 here would feed "the vendor served nothing" into sizing
+        // from a call that never happened.
+        const opened = await appendAttemptStarted(key, 0, undefined, prov)
+        await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
+          requestsSpent: 0,
           error: `RESUMER REFUSED — IMPLAUSIBLE COVERAGE: ${plaus.reason}`,
         }, prov)
       }
@@ -447,7 +554,25 @@ export async function GET(request: Request) {
       refusals.push({ label, verdict: 'advanced-covered', reason: `window ${windowStart}..${windowEnd} owes nothing — ${dryRun ? 'DRY: would advance' : 'advanced'} past covered ground (0 vendor ops); the anchor recedes below it next fire` })
       continue
     }
-    if (!verdict.publish) { refusals.push({ label, verdict: verdict.verdict, reason: verdict.reason }); continue }
+    if (!verdict.publish) {
+      // ⛔ LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1 — the ROTATION KICK. broken/no-progress used to write
+      // NOTHING, which is the identical wedge shape one branch over: a refused surface's recency froze and it
+      // pinned a scan slot every fire. The kick is a 0-request pair that ONLY moves recency:
+      //  · PARENT OMITTED → parent_known=false → deriveAnchorEnd HOLDS (:434) — the anchor cannot move on a
+      //    refusal, so no ground is skipped and the same window is re-derived (and re-judged) next cycle.
+      //  · decideRepublish CANNOT see the kick: readAttemptsAtSpan counts requests_spent>0 only and
+      //    readLastAttempt excludes 'skipped'/'floor_stop' — bookkeeping rows never enter vendor-behavior
+      //    decisions, so the verdict next cycle is judged on the same vendor evidence as today.
+      //  · one pair per rotation cycle while the refusal persists — bounded, and each carries its verdict.
+      if (!dryRun) {
+        const opened = await appendAttemptStarted(key, 0, undefined, prov)
+        await appendAttemptFinished(key, opened.attemptNo, 'skipped', {
+          requestsSpent: 0,
+          error: `ROTATION_KICK — LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1: verdict '${verdict.verdict}' (${verdict.reason.slice(0, 300)}). Recency advanced with ZERO vendor ops so this refusal cannot pin a scan slot; parent omitted so the anchor HOLDS. NOT a vendor attestation.`,
+        }, prov)
+      }
+      refusals.push({ label, verdict: verdict.verdict, reason: verdict.reason }); continue
+    }
 
     candidates.push({
       entry, label, ranges: owed.ranges.length, owedDays: owed.coverage.uncovered.length,
@@ -605,6 +730,9 @@ export async function GET(request: Request) {
     // (~75-125s typical) where it used to span scan+publish (~48s). Same columns, wider meaning.
     executedOf: executed.length, unitErrorCount: unitErrors.length, deferredUnits,
     advancedCovered, // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances (0 vendor ops each)
+    // LORAMER_WALK_FLOOR_SEAL_V1 — sealedHeld = sealed surfaces skipped WITHOUT a slot; sealedThisFire =
+    // seals WRITTEN (once-only evidence pairs). sealReadFailed non-null = exclusion failed open to scanning.
+    sealedHeld, sealedThisFire, sealReadFailed,
     receded: published.filter((p) => p.receded).length,
     oldestWindowStart: published.reduce<string | null>((m, p) => {
       const s = String(p.window).slice(0, 10); return m === null || s < m ? s : m
@@ -648,6 +776,11 @@ async function readLastAttempt(k: AttemptKey): Promise<LastAttempt> {
     .select('attempt_no, outcome')
     .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('resource', k.resource).eq('segment', k.segment)
     .eq('window_start', k.windowStart).eq('window_end', k.windowEnd).eq('phase', 'attempt_finished')
+    // ⛔ LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1 — VENDOR ANSWERS ONLY. 'skipped' and 'floor_stop' are OUR
+    // bookkeeping (covered-skips, seals, rotation kicks). Returning one as "the last attempt" flips
+    // decideRepublish's `completed` to false and it REPUBLISHES a known-stalled window — vendor spend
+    // re-bought on the exact ground the refusal existed to protect.
+    .not('outcome', 'in', '("skipped","floor_stop")')
     .order('attempt_no', { ascending: false }).limit(1)
   const row = data?.[0]
   if (!row) return { outcome: null, attemptNo: null, daysCommitted: 0 }

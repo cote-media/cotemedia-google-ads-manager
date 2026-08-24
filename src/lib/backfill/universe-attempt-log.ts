@@ -308,6 +308,10 @@ export async function readAttemptsAtSpan(k: AttemptKey): Promise<number> {
     .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('resource', k.resource)
     .eq('segment', k.segment).eq('phase', 'attempt_started')
     .eq('window_start', k.windowStart).eq('window_end', k.windowEnd)
+    // ⛔ LORAMER_NONPUBLISH_ADVANCES_ROTATION_V1 — VENDOR ASKS ONLY. The 0-request bookkeeping pairs
+    // (covered-skip, floor seal, rotation kicks) are facts about OUR scheduling, not about the vendor;
+    // counting them here would let decideRepublish flip a surface to BROKEN on evidence of our own rows.
+    .gt('requests_spent', 0)
   if (error) fail('readAttemptsAtSpan', error)
   // ⛔ THE COUNT ARRIVES ON THE RESPONSE, NOT IN `data` — a head request returns no rows at all, so reading
   // `data.length` here would silently return 0 and the bound would NEVER fire. A bound that cannot fire is a
