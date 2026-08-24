@@ -202,6 +202,47 @@ harvested — the sweep in §UNBANKED reaches only what left a trace in the tree
 - [OTHER] Two unreachable disabled Connect/Reconnect branches — every platform that reaches them is in `NEXT_CONNECTABLE`, so the code is dead · -next client profile · EXPERIENCE · **UNBANKED** · ClientPage.tsx:583, :606
 - [OTHER] Legacy `/api/upload` (broken pdf-parse v1) and the /clients uploader must be removed at cutover · legacy · EXPERIENCE · QUEUE:~711
 
+## ⛔ SURFACE SPLIT — ADDED 2026-08-23, AND IT REORDERS EVERYTHING ABOVE
+
+⛔ **WHY THIS SECTION EXISTS: THE LIST WAS BUILT WITHOUT ASKING WHICH SURFACE EACH ITEM LIVES ON, AND ITEMS
+WERE BEING PICKED OFF IT WITHOUT THAT CHECK.** `-next` is the primary UI surface for go-forward work; legacy
+`/dashboard` is frozen pending Google's RMF reply and is being replaced. An item that lives only on legacy is
+work that gets thrown away at cutover, however dangerous it reads. Tagged from each item's own recorded
+surface field, not re-guessed. ⚠ NO ITEM TEXT ABOVE WAS EDITED — this is a lens over the same 129.
+
+    -NEXT ......... 77    the go-forward surface — this is the real queue
+    LEGACY-ONLY ... 25    dies at cutover; NOT repair debt (see the truncation item for the worked case)
+    BOTH .......... 15    whole-app, marketing, and all-Lora-surface items
+    NEITHER ....... 12    backend / instrumentation / guards — they watch a surface, they are not one
+    total ......... 129
+
+    -NEXT, CORRECTNESS vs EXPERIENCE ....... 14 correctness · 63 experience
+    of the 14 correctness, already closed ... 1  (the Team-page item, fixed before the audit ran)
+    ⇒ THE REAL WORK QUEUE IS 13 OPEN -NEXT CORRECTNESS ITEMS.
+
+    -NEXT by category
+      cat 1  LAYOUT & OVERFLOW ................ 11
+      cat 2  CHAT SURFACE ..................... 16
+      cat 3  MOBILE & VIEWPORT ................  5
+      cat 4  NAVIGATION & ROUTING .............  7
+      cat 5  DATA-DISPLAY CORRECTNESS ......... 18
+      cat 9  CROSS-TAB PATTERNS ...............  5
+      cat11  UNBUILT SURFACES & AFFORDANCES ... 10
+      cat13  OTHER ............................  5
+
+    ALL 22 CORRECTNESS ITEMS, by surface: 14 -NEXT · 6 LEGACY-ONLY · 2 BOTH.
+    ⇒ SIX OF THE 22 "the surface shows something untrue" ITEMS ARE ON A SURFACE BEING RETIRED.
+
+⛔ **SEVERITY IS UNVERIFIED FOR ALMOST ALL OF THESE, AND THE ONLY SAMPLE WE HAVE SAYS THAT MATTERS.**
+124 of 129 items cite a banked doc line (QUEUE / ROADMAP / AUDIT_FINDINGS / CONTINUE_HERE) as their source —
+they were HARVESTED, not re-checked against the tree. Exactly FIVE have been checked on contact, the
+dangerous five, and THREE OF THE FIVE MOVED:
+  · the Team-page item was ALREADY FIXED and guard-held — the queue entry was merely stale ⇒ dissolved
+  · the Shopify cancelled-order item was RESTATED THREE TIMES and finished SMALLER than first reported
+  · the AUDIT_FINDINGS "$0 delta" premise under it was FALSIFIED outright (7 rows generalised to a law)
+A 3-of-5 correction rate on the only items anyone verified is not a reason to distrust the list — it is a
+reason to treat every ranking on it as a HYPOTHESIS until the tree is read. Rank nothing off this file alone.
+
 ## ⛔ ACCESSIBILITY — ZERO ITEMS, AND THAT IS THE FINDING
 
 There is **not one banked accessibility item** anywhere in the QUEUE, AUDIT_FINDINGS, DECISIONS or ROADMAP.
