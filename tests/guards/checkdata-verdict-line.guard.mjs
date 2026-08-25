@@ -108,6 +108,8 @@ const EXPECTED_ROSTER = [
   // leg (b)'s own failure text instructs. The check writes to the database (synthetic client, wiped on entry
   // and exit), which is why it is on this roster and not in `npm run guard`.
   'scripts/check-restate-prune-live.mjs',
+  // LORAMER_ORDINAL_DEVICE_RESPELL_V1 — pin moved deliberately, in the same commit as the registration.
+  'tests/guards/device-respell-scope.guard.mjs',
   'scripts/check-nongrain-window-resolves.mjs',
   'tests/guards/anchor-recedes-by-window.guard.mjs',
   'tests/guards/no-owed-day-left-behind.guard.mjs',

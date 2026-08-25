@@ -100,6 +100,13 @@ const CHECKS = [
   // uses, and it wipes them on entry and on exit — a client's rows are never at risk. The static scope half
   // (five legs on the delete's predicates) is the build guard `google-restate-prune-capped`.
   { name: 'check-restate-prune-live', cmd: ['scripts/check-restate-prune-live.mjs'] },
+  // LORAMER_ORDINAL_DEVICE_RESPELL_V1 — registered ONLY AFTER the Russ-authorized execution flipped it
+  // green (it was designed-red before that, and registering a designed-red check would have painted the
+  // board red for a state that was awaiting his word). Leg (a) holds the repaired state — zero ordinal
+  // device rows at detail_placement_view; legs (b1)/(b2) pin the repair's scope: the script must carry
+  // every predicate, and no OUT-OF-SCOPE ordinal population (group_placement_view, the legacy levels,
+  // search_term_view, same-level other-bt) may ever SHRINK against its pinned baseline.
+  { name: 'device-respell-scope', cmd: ['tests/guards/device-respell-scope.guard.mjs'] },
   // LORAMER_NONGRAIN_ATTESTS_V1 — the FIX-WITH-GUARD half. It asserts the PROPERTY, not the remedy: a window a
   // completed pass has answered must end up COVERED or ATTESTED, never still owed. ⛔ IT SHIPS RED AND STAYS
   // RED UNTIL THE FIX IS DEPLOYED — the attesting rows cannot exist until the fixed consumer runs, so this is
