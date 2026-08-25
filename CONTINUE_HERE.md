@@ -1,3 +1,67 @@
+╔═══ SESSION CLOSE 2026-08-24/25 — THE WALL WAS OURS. THREE COMMITS, TWO ROWS DELETED, SIX LAWS. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+
+── WHAT SHIPPED ──
+`21220af` walk floor-seal (rotation starvation ended) · `6b9a3fa` a window past captured-through can no
+longer read COMPLETE · `e4f5e0c` `servesMetrics: []` means measured-none and SKIPS, never asks the default
+five. Plus **TWO FALSE VENDOR-REFUSAL WALLS DELETED** — and on the next scheduled fire the two sealed
+surfaces captured **182,660 rows in 5 requests with 0 errors**, where 144 consecutive refusals had been.
+DECISIONS [[LORAMER_SESSION_2026_08_24_V1]] owns the full record INCLUDING THE VERBATIM RESTORE ROWS.
+
+── ▶▶ TOMORROW, IN THIS ORDER ──
+
+**(1) THE THREE GUARDS THIS SESSION EARNED.** Two of the six laws are codeable and neither is built:
+  · **NO METRIC-SHAPE REFUSAL MAY BECOME A DATE WALL.** The citation said "date-independent" in its own
+    words and `recordAccountWall` stored it as a date floor anyway. Guard: refuse a wall whose citation
+    carries a metric-incompatibility code (query_error 49) rather than a date-range refusal.
+  · **NO IRREVERSIBLE EXCLUSION.** `universe_account_floor` had NO delete path in src/, migrations/ or
+    scripts/, and walls could only RISE (`greatest()`). A wrong wall was permanent by construction.
+    Guard: every exclusion mechanism must have a documented reversal.
+  · **NARROWEST-FORM-BEFORE-A-NEGATIVE** is the third law and is only PARTIALLY guardable — the shipped
+    `metric-set-never-asks-a-refused-metric.guard.mjs` covers the metric instance behaviourally; the
+    general "narrow the test before believing the negative" is test DESIGN and no static check sees it.
+    ⛔ Do not let the shipped guard read as coverage of the law.
+
+**(2) THE GOOGLE LOOKBACK COMMIT, AGAINST THE 08:08Z FIRE.** ★GOOGLE-FORWARD-RESTATE is BUILT, GREEN and
+UNCOMMITTED in the tree (its run-guards registration line is held out of the last three commits on
+purpose). Gate-A needs a real forward fire: prove a multi-day range is requested and a previously
+captured day UPDATES. Google forward fires ONCE a day at ~08:08Z — that is the only window.
+
+**(3) THE 200-PLUS REMAINING FAMILIES — RUSS NEEDS TO FULLY UNDERSTAND WHAT THEY ARE.** Of Google's 559
+catalogue entries, **346 are walked and 213 are excluded — and ZERO of the 213 are excluded on vendor
+evidence.** The split: **201 derived time segments · 12 deferred under a disk constraint.**
+⛔ **RUSS'S OWN READ, AND THE EVIDENCE SUPPORTS IT: time-delineated families we can derive ourselves from
+raw daily data and a date picker are NOT a gap.** That is precisely what the 201 are — 37 of them ARE the
+base family byte-for-byte (`segments.date`, measured at EXACTLY ZERO saving, proven lossless on three
+resources covering 219,155 of 308,488 rows, zero metric-value mismatches), and the other 164
+(week/month/quarter/year/day_of_week) are COMPUTED LOCALLY and LANDED, stamped PROVENANCE_COMPUTED.
+▶ **FRAME TOMORROW'S WORK AS SEPARATING THOSE FROM ANYTHING GENUINELY UNCAPTURED.** On the evidence so
+far the genuinely-unexamined set is **12 entries, ≈68 GB per walk** ([[★DEFERRED-12-DISK-CONSTRAINT-NEVER-RE-EVALUATED]]) —
+and the larger hole found tonight is NOT in the 213 at all: it is the **942 entries whose refusal status
+was never measured and which two live paths treat as "refuses nothing"**
+([[★REFUSAL-STATUS-UNMEASURED-READ-AS-CLEAN]]), sitting INSIDE the 346 we do walk.
+
+── WHAT IS SETTLED AND MUST NOT BE RE-DERIVED (DECISIONS owns the proofs) ──
+Foam OH Google capture is **COMPLETE TO INCEPTION** at the account grain — 1,446 days of a 1,633-day span;
+the 187 unheld days are genuine dormancy, five confirmed $0 by Russ in the vendor UI and December 2024
+reconciled at **$1,673.32 held vs $1,673.33 vendor**. On an active month (March 2026): **274 of 346
+surfaces hold data, 70 attested empty, 2 were the false wall.** The top strip is **2,523 owed days and
+ZERO days of real data** — every strip day carries its own $0 account row.
+
+⛔ **THE CORRECTION THAT COST THE MOST TIME TODAY, banked as law (e):** I reported "187 genuinely missing
+days" and "the attestation is not credible" from spend on the day BEFORE each gap. Six for six, every gap
+opened after an active day and every one was real dormancy. **AN ACTIVITY READING ON DAY N−1 IS EVIDENCE
+ABOUT DAY N−1 AND NOTHING ELSE.** The check that settled it — sum what we hold, compare to the vendor's
+own total — was available from the start and should be the FIRST move.
+
+── EXTERNAL STATUS — TWO STALE FACTS CORRECTED TODAY (DECISIONS owns them; this is a pointer) ──
+Legacy `/dashboard` is frozen because **it is the EXHIBIT in the open Google Ads Standard Access RMF
+review** — screen recording plus five annotated screenshots submitted **2026-08-15** from the legacy
+dashboard as `demo@loramer.com`. Not stale Meta or Shopify language. And **Google OAuth `adwords`
+verification is a DOMAIN PREREQUISITE for the -next flip, NOT a review hold** — the sequence is: Standard
+Access closes → OAuth works on loramer.com → reviewers see -next → the legacy pin comes off.
+
 ╔═══ SESSION CLOSE 2026-08-23/24 — THE WALK PASSED +24h. THE UI LIST IS A HYPOTHESIS, NOT A QUEUE. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
