@@ -8191,10 +8191,15 @@
       "refusesMetrics": [
         "metrics.clicks",
         "metrics.conversions",
-        "metrics.conversions_value"
+        "metrics.conversions_value",
+        "metrics.cost_micros"
       ],
       "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions_value'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'cost_mi || narrowed retry also refused: {\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'cost_micros'(could not support requested resources: 'DETAIL_CONTENT_SUITABILITY_PLACEMENT_VIEW'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.\"}",
-      "servesMetrics": []
+      "servesMetrics": [
+        "metrics.impressions"
+      ],
+      "servesMetricsMeasuredAt": "2026-08-25",
+      "servesMetricsMeasuredBy": "LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — live ranged query through googleAdsCustomerFor() against client 957d484e-d0c4-4dd0-b382-d8499d556252 (customer 7688521852), 2026-03-01..2026-03-31, asking ONLY <resource>.resource_name, segments.date, metrics.impressions. Returned on the FIRST attempt with no error: detail 86,005 rows / 31 of 31 days / 2,000,260 impressions; group 77,052 rows / 31 of 31 days / 2,200,882 impressions. The prior [] was the probe recording 'serves none of our FIVE'; buildGaql read it as 'no information' and asked all five, refused every time (query_error 49), and composeWalkStop promoted those refusals into a vendor-refusal wall that SEALED both surfaces. cost_micros is added to refusesMetrics because metricSetReason's narrowed-retry half names it explicitly."
     },
     {
       "resource": "detail_content_suitability_placement_view",
@@ -10035,10 +10040,15 @@
       "refusesMetrics": [
         "metrics.clicks",
         "metrics.conversions",
-        "metrics.conversions_value"
+        "metrics.conversions_value",
+        "metrics.cost_micros"
       ],
       "metricSetReason": "{\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'clicks'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'conversions_value'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), 'cost_micro || narrowed retry also refused: {\"error_code\":{\"query_error\":49},\"message\":\"Cannot select or filter on the following metrics: 'cost_micros'(could not support requested resources: 'GROUP_CONTENT_SUITABILITY_PLACEMENT_VIEW'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.\"}",
-      "servesMetrics": []
+      "servesMetrics": [
+        "metrics.impressions"
+      ],
+      "servesMetricsMeasuredAt": "2026-08-25",
+      "servesMetricsMeasuredBy": "LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — live ranged query through googleAdsCustomerFor() against client 957d484e-d0c4-4dd0-b382-d8499d556252 (customer 7688521852), 2026-03-01..2026-03-31, asking ONLY <resource>.resource_name, segments.date, metrics.impressions. Returned on the FIRST attempt with no error: detail 86,005 rows / 31 of 31 days / 2,000,260 impressions; group 77,052 rows / 31 of 31 days / 2,200,882 impressions. The prior [] was the probe recording 'serves none of our FIVE'; buildGaql read it as 'no information' and asked all five, refused every time (query_error 49), and composeWalkStop promoted those refusals into a vendor-refusal wall that SEALED both surfaces. cost_micros is added to refusesMetrics because metricSetReason's narrowed-retry half names it explicitly."
     },
     {
       "resource": "group_content_suitability_placement_view",

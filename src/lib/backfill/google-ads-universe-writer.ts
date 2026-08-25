@@ -536,6 +536,26 @@ export const DEFERRED_ENTRIES: Record<string, DeferralNote> = {
   'group_placement_view|segments.device':     { reason: 'placement × device cross-product at 3.1% fill; device stays reachable at many other grains',     measuredRowsPerRequest: 92_222, measuredGBPerWalk: 3.57, loraLoses: PLACEMENT_LOSS },
   'group_placement_view|segments.click_type': { reason: 'placement × click_type cross-product at 1.8% fill; click_type stays reachable at other grains',  measuredRowsPerRequest: 75_440, measuredGBPerWalk: 2.92, loraLoses: PLACEMENT_LOSS },
 }
+
+// ── LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — AN EMPTY MEASURED SET IS A MEASUREMENT, NOT A BLANK ───────────
+/**
+ * ⛔ `servesMetrics: []` MEANS "MEASURED: THIS ENTRY SERVES NONE OF OUR FIVE METRICS". The UniverseEntry
+ * contract above has said exactly that since it was written — "a CAPABILITY LIMIT, recorded and skipped
+ * before a request is spent" — and the CODE DID NOT HONOUR IT. buildGaql resolved the metric list with
+ * `entry.servesMetrics && entry.servesMetrics.length`, so `[]` was FALSY and fell through to
+ * DEFAULT_METRICS: the writer asked for the exact five the probe had just proven were refused.
+ *
+ * ⛔ WHAT THAT COST, measured 2026-08-25. Both content-suitability views errored on EVERY window
+ * (73 and 71 attempts, query_error 49). composeWalkStop promoted those refusals into a
+ * `vendor refusal wall 2026-08-06`, the anchor sat below it, and both surfaces SEALED as floor_stop —
+ * permanently out of the scan. Asked correctly (impressions only) they return 86,005 and 77,052 rows for
+ * March 2026 alone: 4.2 million impressions recorded as an unwalkable wall, built from our own SELECT.
+ *
+ * The type said skip. The code asked. This is the code agreeing with the type.
+ */
+export const servesNoMetrics = (e: UniverseEntry): boolean =>
+  Array.isArray(e.servesMetrics) && e.servesMetrics.length === 0
+
 export const deferralKey = (e: UniverseEntry): string => `${e.resource}|${e.segment ?? ''}`
 export function deferralFor(e: UniverseEntry): DeferralNote | null {
   return DEFERRED_ENTRIES[deferralKey(e)] ?? null
@@ -552,7 +572,11 @@ export function deferralFor(e: UniverseEntry): DeferralNote | null {
 export function selectableEntries(doc: UniverseDoc): UniverseEntry[] {
   return doc.entries.filter((e) => e.delivers === true && (e.segment === null || e.dateCombinable === true)
     && !(e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment))
-    && !deferralFor(e))
+    && !deferralFor(e)
+    // LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — skipped BEFORE a request is spent, exactly as the
+    // UniverseEntry contract says. Asking a surface for metrics it is measured not to serve spends a
+    // request to be refused, and a refusal is what composeWalkStop turns into a floor.
+    && !servesNoMetrics(e))
 }
 
 /**
@@ -571,8 +595,8 @@ export function catalogEligibleEntries(doc: UniverseDoc): UniverseEntry[] {
  * "213 excluded" is a number nobody can act on; "these 213, for these two reasons" is a work list. This is
  * what makes a completion notice honest: it states the vendor's total, ours, and the gap ITEMISED.
  */
-export function excludedFromWalk(doc: UniverseDoc): Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' }> {
-  const out: Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' }> = []
+export function excludedFromWalk(doc: UniverseDoc): Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' | 'serves_no_metrics' }> {
+  const out: Array<{ resource: string; segment: string | null; reason: 'derived_time_segment' | 'deferred_under_disk_constraint' | 'serves_no_metrics' }> = []
   for (const e of catalogEligibleEntries(doc)) {
     if (e.segment !== null && e.segment !== undefined && DERIVED_TIME_SEGMENTS.has(e.segment)) {
       // Computed locally from segments.date rather than requested — PROVENANCE_COMPUTED, not a capture gap.
@@ -580,6 +604,9 @@ export function excludedFromWalk(doc: UniverseDoc): Array<{ resource: string; se
     } else if (deferralFor(e)) {
       // LORAMER_UNIVERSE_NARROWED_SET_V1 — sequencing under a disk constraint. DEFERRED, NOT DROPPED.
       out.push({ resource: e.resource, segment: e.segment ?? null, reason: 'deferred_under_disk_constraint' })
+    } else if (servesNoMetrics(e)) {
+      // LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — a MEASURED capability limit. Visible as debt, never as an absence.
+      out.push({ resource: e.resource, segment: e.segment ?? null, reason: 'serves_no_metrics' })
     }
   }
   return out
@@ -650,6 +677,17 @@ export function buildGaql(entry: UniverseEntry, startDate: string, endDate: stri
   // same question. Before this, the probe tested ONE metric and the writer requested FIVE, and 55 of 559
   // entries (9.8%) came back delivers:true and then errored on every single window. It is data on the entry,
   // exactly like metricShape — there is still no `if (resource === …)` anywhere in this file.
+  // ⛔ LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — DEFENCE IN DEPTH. selectableEntries already skips these, so
+  // reaching here means a NEW caller bypassed the request list. Throwing is right and falling back is not:
+  // the one thing we know about this entry is that the default five are refused, so building a query from
+  // them spends a request to manufacture the refusal that becomes a floor. Loud beats plausible.
+  if (servesNoMetrics(entry)) {
+    throw new Error(
+      `[universe-writer] ${entry.resource}${entry.segment ? ' / ' + entry.segment : ''} records servesMetrics: [] ` +
+      `— MEASURED as serving none of the writer's five metrics. It must be skipped before a request is spent, ` +
+      `never asked with DEFAULT_METRICS (that is LORAMER_METRIC_SET_HONOURS_REFUSAL_V1).`,
+    )
+  }
   const metrics = entry.servesMetrics && entry.servesMetrics.length
     ? entry.servesMetrics
     : entry.metricShape ? [entry.metricShape] : DEFAULT_METRICS

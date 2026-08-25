@@ -69,6 +69,12 @@ const GUARDS = [
   // 'covered'. THIS_MONTH and THIS_WEEK are TO-DATE (date-range.ts:81, :92) and end at TODAY, which forward
   // capture never writes — so they were verdicted COMPLETE every day with today silently absent.
   'tests/guards/window-past-capture-is-not-complete.guard.mjs',
+  // LORAMER_METRIC_SET_HONOURS_REFUSAL_V1 — an entry that RECORDS a refusal may never be asked for the
+  // metric it records as refused, and a measured-empty servesMetrics may never resolve to the default five.
+  // `[]` meant "measured: none of our metrics work here"; buildGaql read it as "no information" and asked
+  // all five, which the vendor refused, which composeWalkStop promoted into a floor, which sealed two
+  // surfaces holding 4.2M impressions in one month.
+  'tests/guards/metric-set-never-asks-a-refused-metric.guard.mjs',
   // LORAMER_NO_CACHED_DB_READ_V1 — a read that gates a write, or reports live state, may never be served from
   // Next's Data Cache. Enforced at the ONE source (supabaseAdmin) rather than across 105 route files.
   'tests/guards/no-cached-live-state-read.guard.mjs',
