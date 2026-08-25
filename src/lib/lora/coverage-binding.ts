@@ -72,7 +72,7 @@ export function bindWindow(w: any, opts: BindOpts): any {
       answerable: false,
       withheld: {
         reason: 'PARTIAL COVERAGE: at least one platform in this window is not fully captured (see contribution[] for which and why).',
-        mustSay: 'State that this total is PARTIAL and NAME the platform and the reason from contribution[]. You may report partialTotals as the COVERED PORTION — never as the window total, and never as a whole number. A platform whose status is capture_failing / trailing_gap / predates_capture is NOT $0.',
+        mustSay: 'State that this total is PARTIAL and NAME the platform and the reason from contribution[]. You may report partialTotals as the COVERED PORTION — never as the window total, and never as a whole number. A platform whose status is capture_failing / stale_tail / trailing_gap / extends_past_capture / predates_capture is NOT $0.',
       },
     }
   }

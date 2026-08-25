@@ -17,6 +17,10 @@ import type { CoverageResult } from './coverage'
 
 export type ContributionStatus =
   | 'ok' | 'capture_failing' | 'stale_tail' | 'trailing_gap' | 'predates_capture' | 'draining' | 'not_connected'
+  // LORAMER_WINDOW_PAST_CAPTURE_V1 — the window's TAIL reaches past the newest day we hold (a to-date range:
+  // THIS_MONTH / THIS_WEEK / a custom range ending today). Distinct from stale_tail, which asks whether
+  // CAPTURE IS BEHIND the frontier; this asks whether the QUESTION reaches past what any capture could hold.
+  | 'extends_past_capture'
 export type PlatformContribution = { platform: string; status: ContributionStatus; contributed: boolean; detail: string; since?: string }
 export type HealthRow = { health: string | null; consecutive_failures: number; first_failure_at: string | null }
 export type CompletenessResult = {
@@ -30,7 +34,7 @@ const STORE_PLATFORMS: ReadonlySet<string> = new Set(['shopify', 'woocommerce'])
 // A total is INCOMPLETE iff a platform is actively failing, has a stale tail, or a trailing gap — the understatement
 // cases. predates_capture / not_connected / draining are honest absence (already in coverage.state) and do NOT alone
 // make a total a wrong number.
-const INCOMPLETE: ReadonlySet<ContributionStatus> = new Set<ContributionStatus>(['capture_failing', 'stale_tail', 'trailing_gap'])
+const INCOMPLETE: ReadonlySet<ContributionStatus> = new Set<ContributionStatus>(['capture_failing', 'stale_tail', 'trailing_gap', 'extends_past_capture'])
 
 // LORAMER_QUERY_COMPLETENESS_V1 slice 3 — the STALE-TAIL threshold. A platform whose last captured day is >= this many
 // days behind the window's end is understated, INDEPENDENT of any failure streak (the slice-2 gate required a streak,
@@ -102,6 +106,15 @@ export function computeContribution(
         return { platform: p, status: 'stale_tail', contributed: true,
           detail: `${p} is captured only through ${c.lastCaptured}, but the last capturable day is ${staleEnd} — its most recent ${daysBetween(c.lastCaptured!, staleEnd)} capturable day(s) are missing, so the ${p} total is UNDERSTATED (not $0). This is a stale tail (capture is behind), distinct from a failing connection.` }
       }
+      // LORAMER_WINDOW_PAST_CAPTURE_V1 — AFTER stale_tail ON PURPOSE. A connection that is genuinely BEHIND
+      // keeps its stale_tail label (that is the actionable fault); this branch is what remains — a healthy
+      // connection asked a question that reaches past the newest day anyone could hold. Carries the span.
+      if (c.state === 'extends_past_capture') {
+        const from = c.uncoveredFrom, to = c.uncoveredTo
+        const days = from && to ? daysBetween(from, to) + 1 : null
+        return { platform: p, status: 'extends_past_capture', contributed: true,
+          detail: `this window runs to ${w.endDate} but ${p} is captured only through ${c.lastCaptured ?? 'an unknown day'}${from && to ? ` — ${days} day(s) (${from}..${to}) are NOT in the ${p} figure` : ''}. The ${p} total is UNDERSTATED by that tail, not $0. Today is never captured (forward capture writes yesterday), so any to-date range lands here; say which days the number covers.` }
+      }
       if (c.state === 'trailing_gap') {
         return { platform: p, status: 'trailing_gap', contributed: false,
           detail: `${p} capture stops before this window ends${c.lastCaptured ? ` (last captured ${c.lastCaptured})` : ''}, so the ${p} total is understated. Not $0.` }
@@ -122,6 +135,7 @@ export function computeContribution(
     for (const r of row) {
       if (r.status === 'capture_failing') noteSet.add(`${r.platform} capture is CURRENTLY FAILING${r.since ? ' (since ' + String(r.since).slice(0, 10) + ')' : ''} — any total that includes ${r.platform} is INCOMPLETE. State it AS partial and NAME ${r.platform}; never present it as a whole number and never as $0 for ${r.platform} (its recent data simply has not been captured — not $0, not disconnected).`)
       if (r.status === 'trailing_gap') noteSet.add(`${r.platform} has no captured data for the most recent part of the window — the ${r.platform} total is understated; say so and do not present it as complete.`)
+      if (r.status === 'extends_past_capture') noteSet.add(`${r.platform}: this window reaches past the last day we have captured — the ${r.platform} figure covers only the captured days and is UNDERSTATED for the rest. Name the covered span and the uncovered one from contribution[].detail; never present it as the whole period and never as $0 for the uncovered tail.`)
       if (r.status === 'stale_tail') noteSet.add(`${r.platform} capture is BEHIND (its most recent days in this window are not yet captured) — the ${r.platform} total is understated. Say the ${r.platform} figure covers only through the last captured day; do NOT present it as complete and never as $0 for the missing tail.`)
     }
   })

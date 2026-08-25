@@ -65,6 +65,10 @@ const GUARDS = [
   'tests/guards/capture-limit-is-measured.guard.mjs',
   'tests/guards/entity-state-scd2.guard.mjs',
   'tests/guards/google-op-budget.guard.mjs',
+  // LORAMER_WINDOW_PAST_CAPTURE_V1 — a window whose TAIL runs past the newest captured day may never read
+  // 'covered'. THIS_MONTH and THIS_WEEK are TO-DATE (date-range.ts:81, :92) and end at TODAY, which forward
+  // capture never writes — so they were verdicted COMPLETE every day with today silently absent.
+  'tests/guards/window-past-capture-is-not-complete.guard.mjs',
   // LORAMER_NO_CACHED_DB_READ_V1 — a read that gates a write, or reports live state, may never be served from
   // Next's Data Cache. Enforced at the ONE source (supabaseAdmin) rather than across 105 route files.
   'tests/guards/no-cached-live-state-read.guard.mjs',

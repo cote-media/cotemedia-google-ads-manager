@@ -20,7 +20,12 @@ import { isConnectedForCoverage, type Health } from '@/lib/connection-health-vie
 // ★ATTESTED-EMPTY-UNREACHABLE-FROM-LORA). Acyclic: universe-coverage imports only supabase + universe-surfaces.
 import { attestedEmptyDays, dayList } from '@/lib/backfill/universe-coverage'
 
-export type CoverageState = 'not_connected' | 'predates_capture' | 'covered' | 'draining_unknown' | 'trailing_gap'
+// LORAMER_WINDOW_PAST_CAPTURE_V1 — 'extends_past_capture' is the sixth state and the newest: the window's
+// TAIL runs past the newest day we hold. It is NOT trailing_gap (that is the WHOLE window past capture) and
+// NOT stale_tail (that lives in query-completeness and asks whether CAPTURE IS BEHIND the frontier, clamping
+// its comparison end to the frontier so a healthy client does not false-alarm nightly). This asks the one
+// question neither could: does the window REACH FOR DAYS WE DO NOT HAVE?
+export type CoverageState = 'not_connected' | 'predates_capture' | 'covered' | 'draining_unknown' | 'trailing_gap' | 'extends_past_capture'
 export type CoverageResult = {
   platform: string
   connected: boolean
@@ -29,6 +34,11 @@ export type CoverageResult = {
   floorConfirmed: boolean       // account-grain backfill_complete === true (only this licenses a confirmed-floor claim)
   coversWindow: boolean
   state: CoverageState
+  // LORAMER_WINDOW_PAST_CAPTURE_V1 — the SPAN that is not covered, present only for 'extends_past_capture'.
+  // A flag she cannot quantify is a flag she cannot state: "part of this is missing" is not an answer, and
+  // "we hold through the 23rd, you asked through the 24th" is. Both are YYYY-MM-DD, inclusive.
+  uncoveredFrom?: string
+  uncoveredTo?: string
   lastCaptured: string | null   // LORAMER_QUERY_COMPLETENESS_V1 (slice 2) — most recent captured day for this platform (null=none). The failing-window test uses THIS, not only first_failure_at, so a window that ends past the last captured day while capture is failing is flagged even before the streak clock (07-19→07-23 sliver).
 }
 
@@ -38,13 +48,20 @@ const ACCOUNT_STEP: Record<string, string> = { google: 'account', meta: 'account
 // isConnectedForCoverage(h) = !(reconnect||disconnected). 'degraded' is STILL connected (it IS connected, just
 // failing) so it is not dropped from the coverage scope — its staleness is surfaced by readiness, not here.
 
+// LORAMER_WINDOW_PAST_CAPTURE_V1 — local, deliberately NOT imported from date-range.ts: this file is driven
+// by a guard that stubs every '@/' import so it can test the classifier in isolation, and a real import here
+// would make the pure function untestable without the stub lying about it.
+function addIsoDay(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
+}
+
 // Pure window classifier — the ONLY new logic here. Everything upstream is reconcile's.
 export function resolveCoverageState(
   step: StepResult | null,
   minDate: string | null,
   maxDate: string | null,
   win: { startDate: string; endDate: string },
-): Pick<CoverageResult, 'captureFloor' | 'floorConfirmed' | 'coversWindow' | 'state'> {
+): Pick<CoverageResult, 'captureFloor' | 'floorConfirmed' | 'coversWindow' | 'state' | 'uncoveredFrom' | 'uncoveredTo'> {
   const floorConfirmed = step?.cursorComplete === true
   const captureFloor = minDate
   if (!minDate || !maxDate) {
@@ -57,6 +74,17 @@ export function resolveCoverageState(
     if (floorConfirmed) return { captureFloor, floorConfirmed, coversWindow: false, state: 'predates_capture' }
     if (step?.status === 'DRAINING') return { captureFloor, floorConfirmed, coversWindow: false, state: 'draining_unknown' }
     return { captureFloor, floorConfirmed, coversWindow: false, state: 'predates_capture' } // inert cursor: MIN is our de-facto floor
+  }
+  // LORAMER_WINDOW_PAST_CAPTURE_V1 — THE BRANCH THAT WAS MISSING. Reaching here means the window OVERLAPS
+  // our captured span; the two tests above only catch a window entirely past it or entirely before it. A
+  // window whose END runs past maxDate was falling straight through to 'covered' — which is how THIS_MONTH
+  // and THIS_WEEK (date-range.ts:81 and :92, both TO-DATE, both ending TODAY) read COMPLETE every day while
+  // today was absent from the sum. Report the SPAN, not just the fact: maxDate+1 .. win.endDate.
+  if (win.endDate > maxDate) {
+    return {
+      captureFloor, floorConfirmed, coversWindow: false, state: 'extends_past_capture',
+      uncoveredFrom: addIsoDay(maxDate, 1), uncoveredTo: win.endDate,
+    }
   }
   return { captureFloor, floorConfirmed, coversWindow: true, state: 'covered' }
 }
