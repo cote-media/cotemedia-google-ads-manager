@@ -1,12 +1,12 @@
 // LORAMER_BACKFILL_ADAPTERS_V2
 // Per-platform adapters for the shared backfill engine (run-backfill.ts).
-// Google + Meta use the default path; GA uses the V3 optional hooks
-// (resolveContext + buildRows + floorDate) because its token/property live in
-// ga_tokens and its metrics_daily row shape differs from the ads shape.
+// Meta uses the default path; Google and GA use the V3 optional hooks — GA because its token/property
+// live in ga_tokens and its metrics_daily row shape differs from the ads shape, Google because its
+// account row has exactly ONE producer (see below).
 // The registry is the allowlist the session-authed trigger consults.
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { getDailyMetrics } from '@/lib/google-ads'
+import { fetchGoogleAccountWindow, buildGoogleAccountRows, type GoogleAccountDay } from '@/lib/intelligence/google-account-row' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — the ONE account-row producer
 import { fetchMetaDailyMetrics } from '@/lib/meta-ads'
 import { getValidGaToken } from '@/lib/ga-token'
 import { fetchGaDailyMetrics, type GaDailySlice } from '@/lib/intelligence/ga-intelligence'
@@ -14,7 +14,29 @@ import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { withGoogleRetry, fetchMetaDailyWithRetryNarrow } from './retry' // LORAMER_BACKFILL_RETRY_V1 — transient backoff at the backfill boundary
 import type { BackfillAdapter, DailyRow } from './run-backfill'
 
-export const googleBackfillAdapter: BackfillAdapter = {
+// LORAMER_GOOGLE_FORWARD_RESTATE_V1 — GOOGLE ROUTES THROUGH THE SINGLE ACCOUNT-ROW PRODUCER.
+//
+// ⛔ WHAT THIS FIXES, AND IT WAS LIVE. This adapter declared NO buildRows, so google fell through to the
+// SHARED DEFAULT row builder in run-backfill.ts — which writes platform:'google' + entity_level:'account'
+// + breakdown_type:'' on the IDENTICAL 7-column conflict key as the producer. Two writers, one key:
+//   · it wrote `extra: {}`, BLANKING the six ratio keys (ctr/cpc/cpm/roas/cpa/convRate) the producer and
+//     the retired builder both carry;
+//   · getDailyMetrics rounded conversions to ONE decimal (`toFixed(1)`) before we ever saw them.
+// It is reachable from /api/backfill/google, /api/backfill/run, the drain's tier-1 'account' step and the
+// one-click Backfill button — i.e. the COLD path a new customer takes, which is exactly the path
+// LORAMER_BACKFILL_DONE_DONE_V1 is proven on. run-backfill descends from `backfill_earliest_date - 1` in
+// 365-day chunks starting at yesterday, so the first lap on any client whose google backfill is not
+// complete overlaps the producer's whole 30-day restate window.
+//
+// ⛔ BOTH HOOKS MOVE, NOT JUST buildRows. Routing only the BUILD would leave getDailyMetrics' `toFixed(1)`
+// upstream, so the row would still not be byte-identical to forward and the divergence would survive a
+// green guard — the exact false-green this flight exists to close.
+// NO BEHAVIOUR CHANGE BEYOND THE ROW: `getDailyMetrics(customerId, no campaignId)` already queried
+// `FROM customer` over the same `segments.date BETWEEN` (google-ads.ts), which is the producer's own
+// source, so the SPEND is identical at 2dp and nothing about which days are asked for moves. The retry
+// wrapper is preserved. googleAdsCustomerFor is the same construction as google-ads.ts's getCustomer
+// (same customer_id / refresh_token / login_customer_id) and is the declared choke point for new code.
+export const googleBackfillAdapter: BackfillAdapter<GoogleAccountDay> = {
   platform: 'google',
   accountIdKey: 'customerId',
   chunkDays: 365,
@@ -29,15 +51,9 @@ export const googleBackfillAdapter: BackfillAdapter = {
     return { token: data?.refresh_token, error: error?.message }
   },
   fetchDaily: async (token, accountId, windowStart, windowEnd) =>
-    (await withGoogleRetry(() => getDailyMetrics(
-      token,
-      accountId,
-      'LAST_30_DAYS',
-      undefined,
-      'day',
-      windowStart,
-      windowEnd
-    ))) as DailyRow[], // LORAMER_BACKFILL_RETRY_V1 — backoff was the missing per-source guard here
+    await withGoogleRetry(() => fetchGoogleAccountWindow(token, accountId, windowStart, windowEnd)), // LORAMER_BACKFILL_RETRY_V1 — backoff was the missing per-source guard here
+  buildRows: (daily, ctx) =>
+    buildGoogleAccountRows(ctx.clientId, ctx.userEmail, ctx.accountId, ctx.accountName, daily),
 }
 
 export const metaBackfillAdapter: BackfillAdapter = {

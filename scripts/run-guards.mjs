@@ -65,6 +65,11 @@ const GUARDS = [
   'tests/guards/capture-limit-is-measured.guard.mjs',
   'tests/guards/entity-state-scd2.guard.mjs',
   'tests/guards/google-op-budget.guard.mjs',
+  // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — Google forward may not ask for one day. Google numbers restate
+  // AFTER capture (spend and clicks, not only conversions), so a single-day fetch stores a value that is
+  // already wrong the next morning and nothing ever re-asks it. Also holds the account grain to exactly
+  // ONE producer with no campaign-status filter, per Russ's ruling that deleted campaigns' spend counts.
+  'tests/guards/google-forward-must-restate.guard.mjs',
   // LORAMER_WINDOW_PAST_CAPTURE_V1 — a window whose TAIL runs past the newest captured day may never read
   // 'covered'. THIS_MONTH and THIS_WEEK are TO-DATE (date-range.ts:81, :92) and end at TODAY, which forward
   // capture never writes — so they were verdicted COMPLETE every day with today silently absent.

@@ -18,6 +18,7 @@ import { fetchShopifyIntelligence } from '@/lib/intelligence/shopify-intelligenc
 import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row'
 import { buildMetaMetricsRows } from '@/lib/intelligence/meta-metrics-row'
 import { buildGoogleMetricsRows } from '@/lib/intelligence/google-metrics-row'
+import { fetchGoogleAccountWindow, buildGoogleAccountRows } from '@/lib/intelligence/google-account-row' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — the ONE account-row producer
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchMetaIntelligence } from '@/lib/intelligence/meta-intelligence'
@@ -663,7 +664,16 @@ export async function GET(request: Request) {
             console.error(`[cron/catchup] client=${client.id} entity-state ${d} FAILED (non-fatal): ${serializeCaughtError(esErr)}`)
           }
 
-          const rows = buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)
+          // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — the ACCOUNT row no longer comes from buildGoogleMetricsRows
+          // (which derived it from campaigns filtered `status != 'REMOVED'`). Catchup fills interior gaps a
+          // day at a time, so it asks the SAME single producer for the single day d — one ranged query with
+          // start === end === d. Missing this caller would have left the retired derivation alive on the
+          // same conflict key, writing the opposite semantics into the rows forward had just corrected.
+          const acctRows = buildGoogleAccountRows(
+            client.id, userEmail, customerId, conn.account_name,
+            await fetchGoogleAccountWindow(refreshToken, customerId, d, d)
+          )
+          const rows = [...acctRows, ...buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)]
           const { error: metricsError } = await supabaseAdmin
             .from('metrics_daily')
             .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })

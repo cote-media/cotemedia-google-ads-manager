@@ -57,7 +57,17 @@ export function buildGoogleMetricsRows(
     rows.push(row)
   }
 
-  pushRow('account', customerId, accountName || customerId, data.totals)
+  // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — THE ACCOUNT ROW IS NO LONGER BUILT HERE.
+  // It was `pushRow('account', customerId, accountName || customerId, data.totals)`, and data.totals is a
+  // reduce over the campaign query filtered `campaign.status != 'REMOVED'` (google-intelligence.ts:283).
+  // Two reasons it moved to google-account-row.ts, both measured 2026-08-24:
+  //   · this builder stamps ONE captureDate for the whole payload, so the account grain could never be
+  //     range-widened — and Google numbers restate after capture (spend moved -15.5% at age 31 on
+  //     5103888507; +394% at age 1 on 6474303109). A grain that cannot be re-asked stays wrong forever.
+  //   · the REMOVED filter drops spend that genuinely occurred. Russ's ruling: it counts.
+  // `accountName` is kept in the signature because callers pass it and the campaign/ad rows below are
+  // unaffected; it is simply no longer consumed here.
+  void accountName
 
   for (const campaign of data.campaigns || []) {
     pushRow('campaign', campaign.id, campaign.name, campaign.metrics, customerId)

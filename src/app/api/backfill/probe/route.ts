@@ -1,8 +1,14 @@
 // LORAMER_BACKFILL_PROBE_V1
 // Read-only diagnostic: does the Google Ads API still return DAILY data for a
 // given window on a client's account? CRON_SECRET-bearer GET. No DB writes.
-// Reuses the exact getDailyMetrics call the backfill uses, so the answer
-// reflects what LoraMer can actually capture.
+// Asks Google's own account report (`FROM customer`, per-day) over the window — the SAME source the
+// backfill and forward capture both read, so the answer reflects what LoraMer can actually capture.
+// ⛔ CORRECTED 2026-08-25 (LORAMER_GOOGLE_FORWARD_RESTATE_V1): this line used to read "the exact
+// getDailyMetrics call the backfill uses". The backfill now routes through fetchGoogleAccountWindow
+// (adapters.ts), so that sentence became false the moment the adapter moved. Same vendor report, same
+// date filter, different function — and this probe reads only the returned DATES, so its answer is
+// unchanged. Left on getDailyMetrics deliberately: swapping a read-only diagnostic is not this flight's
+// blast radius, and the claim it makes is now accurate as written.
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'

@@ -41,7 +41,7 @@ const HELPER = 'src/lib/metrics-upsert.ts'
 // absent below). Total at HEAD = 53; after Flight 1 = 52 unmigrated + 1 in the helper.
 const ALLOWLIST = {
   'src/app/api/cron/catchup/route.ts': 13,                  // FLIGHT 2 — pending
-  'src/app/api/cron/sync/route.ts': 13,                     // FLIGHT 2 — pending
+  'src/app/api/cron/sync/route.ts': 12,                     // FLIGHT 2 — pending (13 -> 12: LORAMER_GOOGLE_FORWARD_RESTATE_V1 routed the Google account + dimensional writes through upsertMetricsChunked; the ratchet may only fall)
   // LORAMER_GA_RECOVER_SUBMONTH_WINDOW_V1 — 2 → 1. The RECOVER path's raw upsert is migrated to
   // upsertMetricsChunked (it now flushes per family, so the one-statement-per-window shape is gone). The remaining
   // site is the DRAIN path (runGaDimensionalBackfill), deliberately untouched: that is FLIGHT 2's blast radius, not

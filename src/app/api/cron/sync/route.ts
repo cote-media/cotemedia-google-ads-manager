@@ -8,16 +8,18 @@ import { fetchShopifyIntelligenceByDay } from '@/lib/intelligence/shopify-intell
 import { buildShopifyMetricsRows, buildShopifyDepthRows } from '@/lib/intelligence/shopify-metrics-row' // LORAMER_SHOPIFY_DEPTH_2A_V1
 import { runMetaCampaignBackfill } from '@/lib/backfill/meta-campaign-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
 import { runMetaAdSetAdBackfill } from '@/lib/backfill/meta-adset-ad-backfill' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1)
-import { buildGoogleMetricsRows } from '@/lib/intelligence/google-metrics-row'
+import { fetchGoogleAccountWindow, buildGoogleAccountRows } from '@/lib/intelligence/google-account-row' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — the ONE account-row producer
+import { runGoogleCampaignBackfill } from '@/lib/backfill/google-campaign-backfill' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 (Google base Tier-1, mirrors Meta)
+import { runGoogleAdGroupAdBackfill } from '@/lib/backfill/google-adgroup-ad-backfill' // LORAMER_GOOGLE_FORWARD_RESTATE_V1
 import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaDailyMetrics } from '@/lib/meta-ads' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1 account grain)
 import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dims (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
-import { fetchGoogleDimensional, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1
-import { DEVICE_GRAINS, fetchDeviceGrainDay, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
-import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainDay, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
-import { HOUR_GRAINS, fetchHourGrainDay, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
-import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicDay, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
+import { fetchGoogleDimensional, fetchGoogleDimensionalWindow, bucketWindowByDate, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1 + LORAMER_GOOGLE_FORWARD_RESTATE_V1
+import { DEVICE_GRAINS, fetchDeviceGrainWindow, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
+import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainWindow, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
+import { HOUR_GRAINS, fetchHourGrainWindow, buildHourGrainRows } from '@/lib/intelligence/google-hour' // LORAMER_GOOGLE_HOUR_CAPTURE_V1
+import { DEMO_DIMENSIONS, DEMO_GRAINS, fetchDemographicWindow, buildDemographicGrainRows } from '@/lib/intelligence/google-demographic' // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3)
 import { buildGoogleConversionActionRows } from '@/lib/intelligence/google-conversion-action' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { buildGoogleImpressionShareRows } from '@/lib/intelligence/google-impression-share' // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1
 import { fetchWooCommerceIntelligence } from '@/lib/intelligence/woocommerce-intelligence'
@@ -28,6 +30,7 @@ import { buildGaMetricsRows } from '@/lib/intelligence/ga-metrics-row'
 import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' // LORAMER_GA_DIMENSIONAL_CAPTURE_V1 — forward dimensional breadth
 import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
+import { upsertMetricsChunked } from '@/lib/metrics-upsert' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — a 31-day pass can exceed the PostgREST statement ceiling; new sites pay the debt rather than joining the allowlist
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 import type {
   IntelligenceGa,
@@ -100,6 +103,27 @@ const GA_FORWARD_DIM_LOOKBACK_DAYS = 7
 // conflict key, so re-walking a day overwrites it — never additive. BASE rows are NOT covered by this (see the note
 // at the dim loop): the base path aggregates a period and stamps one date, so it needs a separate per-day change.
 const META_RESTATE_LOOKBACK_DAYS = 9
+// LORAMER_GOOGLE_FORWARD_RESTATE_V1 — Google forward restatement window. THE ONE NAMED SOURCE for this depth.
+//
+// ⛔ DERIVED FROM MEASURED DRIFT, NOT FROM A PUBLISHED FIGURE. 2026-08-24, three clients × 90 days, what
+// forward capture stored at T+1 versus what the vendor returns today, pooled by day age:
+//   share of client-days still changing   1-3 / 4-7 / 8-14 / 15-30 / 31-60 / 61-90
+//     conversions                          78%   58%   62%    60%    32%     30%
+//     spend                                22%   33%   29%    52%    20%     17%
+//   median size among changing days (conv) 10.5% 150%  85.7%  50%    14.3%   7.9%
+// THE KNEE IS AT 30 AND IT IS SHARP: crossing day 30 the share of moving days HALVES (60% -> 32%) and the
+// typical size drops 3.5x (50% -> 14.3%). Every bucket at or below 30 has >=50% of days still moving.
+// AGAINST MEASURED WRITE COST: forward writes ~81,132 Google rows/day fleet-wide at depth 1, one completed
+// pass per client per day. Depth 30 ~= 2.43M row-writes/day; 60 doubles it to recover days moving by a
+// median 14.3%; 90 triples it for 7.9%. 30 buys the whole high-movement band at a third of the ceiling.
+// NOT chosen because 90 was available.
+// ⛔ THE DEPTH IS A PLATFORM PROPERTY, NEVER A PER-ACCOUNT ONE. Spend and clicks restate on accounts with
+// ZERO counting conversion actions (6679594156 has 13 enabled actions, not one counting), so a depth
+// derived from conversion windows would never re-ask them and would leave their spend wrong.
+// google-forward-must-restate.guard.mjs fails the build if anyone ever gates this on conversion setup.
+// VENDOR COST: zero added requests for the six breadth families — a ranged GAQL costs the same as a single
+// day. The account writer adds ONE ranged query per client per fire (18/day against a 15,000/day lane).
+const GOOGLE_RESTATE_LOOKBACK_DAYS = 30
 const addDaysUTC = (iso: string, n: number): string => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 
 // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — forward paging: the clients CONNECTED to `platform` whose forward cursor
@@ -677,30 +701,82 @@ export async function GET(request: Request) {
           }
         }
 
-        const rows = buildGoogleMetricsRows(
-          client.id,
-          userEmail,
-          captureDate,
-          customerId,
-          conn.account_name,
-          intel
-        )
+        // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — BASE GRAINS OVER THE RESTATE WINDOW, mirroring the Meta shape
+        // above (sync Meta base + campaign/adset/ad backfills over metaRestateStart..captureDate).
+        // This REPLACES the single-shot buildGoogleMetricsRows(intel) write: that builder stamps ONE
+        // captureDate for a payload fetchGoogleIntelligence AGGREGATED over the range, so it could not be
+        // widened without writing a multi-day sum onto one day. `intel` is still fetched at captureDate
+        // above and still used below for conversionsByCampaign / impressionShares / fetchErrors.
+        //
+        // ⛔ ORDER IS LOAD-BEARING, exactly as it is for Meta. The ACCOUNT rows go FIRST: both
+        // google-campaign-backfill (posture 'block') and google-adgroup-ad-backfill anchor their per-day
+        // reconcile on that day's account row. Writing them out of order reconciles against a stale or
+        // absent anchor and silently skips days.
+        const googleRestateStart = addDaysUTC(captureDate, -GOOGLE_RESTATE_LOOKBACK_DAYS)
 
-        const { error: metricsError } = await supabaseAdmin
-          .from('metrics_daily')
-          .upsert(normalizeMetricsRows(rows), { onConflict: METRICS_DAILY_CONFLICT })
-
-        if (metricsError) {
-          throw metricsError
-        }
-
+        // (1) ACCOUNT grain — the ONE producer, from Google's own account report. Independent of the
+        // campaign fetch by design, which is what keeps the two reconcilers below meaningful.
+        const acctDays = await fetchGoogleAccountWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+        const rows = buildGoogleAccountRows(client.id, userEmail, customerId, conn.account_name, acctDays)
+        // Chunked: 31 days x every Google connection is materially more rows per statement than the
+        // single-day write this replaced, and an unchunked upsert fails at the PostgREST ceiling by SIZE.
+        if (rows.length > 0) await upsertMetricsChunked(rows)
         summary.rowsWritten += rows.length
+
+        // (2) CAMPAIGN and (3) AD_GROUP/AD grains — the existing range writers, over the same window.
+        // Own try/catch each: a base-grain restatement failure must not drop the account rows already
+        // written or the breadth families below. Same posture as the Meta calls at sync:533/538.
+        try {
+          const rCamp = await runGoogleCampaignBackfill(client.id, googleRestateStart, captureDate, {})
+          if (rCamp.status >= 400) {
+            console.error(`[cron/sync] client=${client.id} platform=google campaign restate ${rCamp.status}:`, JSON.stringify(rCamp.body).slice(0, 300))
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `campaign restate ${rCamp.status}` })
+          } else {
+            summary.rowsWritten += Number((rCamp.body as any)?.written ?? 0)
+          }
+        } catch (campErr) {
+          const message = serializeCaughtError(campErr)
+          console.error(`[cron/sync] client=${client.id} platform=google campaign restate FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `campaign restate: ${message}` })
+        }
+        try {
+          const rAga = await runGoogleAdGroupAdBackfill(client.id, googleRestateStart, captureDate, {})
+          if (rAga.status >= 400) {
+            console.error(`[cron/sync] client=${client.id} platform=google adgroup/ad restate ${rAga.status}:`, JSON.stringify(rAga.body).slice(0, 300))
+            summary.errors.push({ clientId: client.id, platform: 'google', message: `adgroup/ad restate ${rAga.status}` })
+          } else {
+            summary.rowsWritten += Number((rAga.body as any)?.written ?? 0)
+          }
+        } catch (agaErr) {
+          const message = serializeCaughtError(agaErr)
+          console.error(`[cron/sync] client=${client.id} platform=google adgroup/ad restate FAILED:`, message)
+          summary.errors.push({ clientId: client.id, platform: 'google', message: `adgroup/ad restate: ${message}` })
+        }
 
         // LORAMER_SEARCH_TERMS_CAPTURE_V1 — dimensional capture (search terms + keywords) as
         // breakdown rows. Own try/catch: a dimensional failure logs LOUD and is recorded, but never
         // drops the platform's main rows or its sync_state write. 0 rows = logged empty, not error.
         try {
-          const dim = await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)
+          // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged window + per-day buckets. bucketWindowByDate applies
+          // the SAME per-day top-N (by cost) as the single-day path, so each day's rows are shape-identical
+          // to what forward used to write; a re-pull REPLACES that day rather than interleaving a
+          // range-wide top-N. On WINDOW_ROW_CAP overflow the window is refused and we fall back to the
+          // single captureDate rather than storing a silently truncated range.
+          const dimWin = await fetchGoogleDimensionalWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+          const dimBuckets = dimWin.overflow ? new Map() : bucketWindowByDate(dimWin)
+          if (dimWin.overflow) {
+            console.warn(`[cron/sync] client=${client.id} platform=google dimensional WINDOW OVERFLOW (>= row cap) over ${googleRestateStart}..${captureDate} — falling back to captureDate only`)
+          }
+          const dim = dimWin.overflow
+            ? await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)
+            : (dimBuckets.get(captureDate) ?? { searchTerms: [], keywords: [], searchTermsTruncated: false, keywordsTruncated: false })
+          for (const [dimDate, dimDay] of dimBuckets) {
+            if (dimDate === captureDate) continue
+            const built = buildGoogleDimensionalRows(client.id, userEmail, dimDate, customerId, dimDay)
+            if (built.length === 0) continue
+            await upsertMetricsChunked(built)
+            summary.rowsWritten += built.length
+          }
           if (dim.searchTermsTruncated || dim.keywordsTruncated) {
             console.warn(
               `[cron/sync] client=${client.id} platform=google dimensional capture TRUNCATED — searchTerms@cap=${dim.searchTermsTruncated} keywords@cap=${dim.keywordsTruncated} (lower-spend rows dropped)`
@@ -736,13 +812,19 @@ export async function GET(request: Request) {
         try {
           let devRows = 0
           for (const grain of DEVICE_GRAINS) {
-            const built = buildDeviceGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchDeviceGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+            // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — one RANGED query (same cost as one day), bucketed per day.
+            const win = await fetchDeviceGrainWindow(grain, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const byDate = new Map<string, typeof win>()
+            for (const r of win) { if (!byDate.has(r.date)) byDate.set(r.date, [] as any); byDate.get(r.date)!.push(r) }
+            for (const [d, dayRows] of byDate) {
+            const built = buildDeviceGrainRows(grain, client.id, userEmail, d, customerId, dayRows)
             if (built.length > 0) {
               const { error: devError } = await supabaseAdmin
                 .from('metrics_daily')
                 .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
               if (devError) throw devError
               summary.rowsWritten += built.length; devRows += built.length
+            }
             }
           }
           if (devRows === 0) {
@@ -789,13 +871,19 @@ export async function GET(request: Request) {
             let famRows = 0
             for (const grain of grains) {
               for (const entity of GEO_ENTITIES) {
-                const built = buildGeoGrainRows(grain, entity, client.id, userEmail, captureDate, customerId, await fetchGeoGrainDay(grain, entity, tokenRow.refresh_token, customerId, captureDate))
+                // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day.
+                const gwin = await fetchGeoGrainWindow(grain, entity, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+                const gByDate = new Map<string, typeof gwin>()
+                for (const r of gwin) { if (!gByDate.has(r.date)) gByDate.set(r.date, [] as any); gByDate.get(r.date)!.push(r) }
+                for (const [gd, gRows] of gByDate) {
+                const built = buildGeoGrainRows(grain, entity, client.id, userEmail, gd, customerId, gRows)
                 if (built.length > 0) {
                   const { error: geoError } = await supabaseAdmin
                     .from('metrics_daily')
                     .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
                   if (geoError) throw geoError
                   summary.rowsWritten += built.length; famRows += built.length
+                }
                 }
               }
             }
@@ -815,13 +903,19 @@ export async function GET(request: Request) {
         try {
           let hourRows = 0
           for (const grain of HOUR_GRAINS) {
-            const built = buildHourGrainRows(grain, client.id, userEmail, captureDate, customerId, await fetchHourGrainDay(grain, tokenRow.refresh_token, customerId, captureDate))
+            // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day.
+            const hwin = await fetchHourGrainWindow(grain, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const hByDate = new Map<string, typeof hwin>()
+            for (const r of hwin) { if (!hByDate.has(r.date)) hByDate.set(r.date, [] as any); hByDate.get(r.date)!.push(r) }
+            for (const [hd, hRows] of hByDate) {
+            const built = buildHourGrainRows(grain, client.id, userEmail, hd, customerId, hRows)
             if (built.length > 0) {
               const { error: hourError } = await supabaseAdmin
                 .from('metrics_daily')
                 .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
               if (hourError) throw hourError
               summary.rowsWritten += built.length; hourRows += built.length
+            }
             }
           }
           if (hourRows === 0) {
@@ -841,9 +935,13 @@ export async function GET(request: Request) {
         try {
           let demoRows = 0
           for (const dim of DEMO_DIMENSIONS) {
-            const dayRows = await fetchDemographicDay(dim, tokenRow.refresh_token, customerId, captureDate)
+            // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day. ONE fetch per dimension feeds both grains.
+            const dwin = await fetchDemographicWindow(dim, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const dByDate = new Map<string, typeof dwin>()
+            for (const r of dwin) { if (!dByDate.has(r.date)) dByDate.set(r.date, [] as any); dByDate.get(r.date)!.push(r) }
+            for (const [dd, dayRows] of dByDate) {
             for (const grain of DEMO_GRAINS) {
-              const built = buildDemographicGrainRows(dim, grain, client.id, userEmail, captureDate, customerId, dayRows)
+              const built = buildDemographicGrainRows(dim, grain, client.id, userEmail, dd, customerId, dayRows)
               if (built.length > 0) {
                 const { error: demoError } = await supabaseAdmin
                   .from('metrics_daily')
@@ -851,6 +949,7 @@ export async function GET(request: Request) {
                 if (demoError) throw demoError
                 summary.rowsWritten += built.length; demoRows += built.length
               }
+            }
             }
           }
           if (demoRows === 0) {
