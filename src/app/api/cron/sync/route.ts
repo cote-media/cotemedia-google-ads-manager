@@ -31,6 +31,7 @@ import { fetchGaDimensionalRows } from '@/lib/backfill/ga-dimensional-backfill' 
 import { recordConnectionResult, recordConnectionAuthFailure, classifyConnectionError } from '@/lib/connection-health' // LORAMER_CONNECTION_HEALTH_V1
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import { upsertMetricsChunked } from '@/lib/metrics-upsert' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — a 31-day pass can exceed the PostgREST statement ceiling; new sites pay the debt rather than joining the allowlist
+import { pruneCappedDimensionalRows, cappedRowKey } from '@/lib/intelligence/google-dimensional-prune' // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — upsert-then-prune, the only destructive write in the Google capture path
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
 import type {
   IntelligenceGa,
@@ -759,9 +760,15 @@ export async function GET(request: Request) {
         try {
           // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged window + per-day buckets. bucketWindowByDate applies
           // the SAME per-day top-N (by cost) as the single-day path, so each day's rows are shape-identical
-          // to what forward used to write; a re-pull REPLACES that day rather than interleaving a
-          // range-wide top-N. On WINDOW_ROW_CAP overflow the window is refused and we fall back to the
-          // single captureDate rather than storing a silently truncated range.
+          // to what forward used to write. On WINDOW_ROW_CAP overflow the window is refused and we fall back
+          // to the single captureDate rather than storing a silently truncated range.
+          // ⛔ CORRECTED 2026-08-25 (LORAMER_GOOGLE_RESTATE_PRUNE_V1): this comment used to end "a re-pull
+          // REPLACES that day rather than interleaving a range-wide top-N". The top-N BASIS claim was true;
+          // the REPLACES claim was not. upsertMetricsChunked replaces only keys that RECUR, so a term that
+          // fell out of the moved top-N kept its first-pull row and the day read as old ∪ new. The prune
+          // below is what makes the word "replaces" true, and it runs AFTER the writes, never before.
+          const dimFreshKeys = new Set<string>()
+          const dimPrunableDates: string[] = []
           const dimWin = await fetchGoogleDimensionalWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
           const dimBuckets = dimWin.overflow ? new Map() : bucketWindowByDate(dimWin)
           if (dimWin.overflow) {
@@ -776,6 +783,10 @@ export async function GET(request: Request) {
             if (built.length === 0) continue
             await upsertMetricsChunked(built)
             summary.rowsWritten += built.length
+            // Only a day that PRODUCED rows becomes prunable — see google-dimensional-prune.ts's
+            // conservatism note. A day the vendor answered with nothing keeps what it holds.
+            dimPrunableDates.push(dimDate)
+            for (const b of built) dimFreshKeys.add(cappedRowKey(b as any))
           }
           if (dim.searchTermsTruncated || dim.keywordsTruncated) {
             console.warn(
@@ -793,6 +804,19 @@ export async function GET(request: Request) {
               .upsert(normalizeMetricsRows(dimRows), { onConflict: METRICS_DAILY_CONFLICT })
             if (dimError) throw dimError
             summary.rowsWritten += dimRows.length
+            dimPrunableDates.push(captureDate)
+            for (const b of dimRows) dimFreshKeys.add(cappedRowKey(b as any))
+          }
+          // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — THE PRUNE HALF, AND IT RUNS LAST ON PURPOSE. Everything above
+          // has already been written, so the only state this can produce is "the day equals the fresh
+          // payload"; a failure here leaves a SUPERSET, which is the direction DECISIONS:2094 chose.
+          const dimPruned = await pruneCappedDimensionalRows({
+            clientId: client.id,
+            dates: dimPrunableDates,
+            freshKeys: dimFreshKeys,
+          })
+          if (dimPruned.pruned > 0) {
+            console.log(`[cron/sync] client=${client.id} platform=google dimensional PRUNED ${dimPruned.pruned} stale row(s) of ${dimPruned.examined} examined across ${dimPruned.days} day(s) — keys the fresh pull no longer carries`)
           }
         } catch (dimErr) {
           const message = serializeCaughtError(dimErr)

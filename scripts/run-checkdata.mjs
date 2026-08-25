@@ -94,6 +94,12 @@ const CHECKS = [
   // consumer because `published > 0` is the producer's own count; this reads universe_attempt_log and
   // nothing else, and goes red inside 45 minutes.
   { name: 'check-consumer-liveness', cmd: ['scripts/check-consumer-liveness.mjs', '--guard'] },
+  // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the BEHAVIOURAL half: a re-pulled day must equal the fresh payload.
+  // It lives HERE rather than in `npm run guard` because IT WRITES TO THE DATABASE, and guards run on Vercel
+  // during every deploy. Every row it writes is keyed to a synthetic client and an account_id no capture
+  // uses, and it wipes them on entry and on exit — a client's rows are never at risk. The static scope half
+  // (five legs on the delete's predicates) is the build guard `google-restate-prune-capped`.
+  { name: 'check-restate-prune-live', cmd: ['scripts/check-restate-prune-live.mjs'] },
   // LORAMER_NONGRAIN_ATTESTS_V1 — the FIX-WITH-GUARD half. It asserts the PROPERTY, not the remedy: a window a
   // completed pass has answered must end up COVERED or ATTESTED, never still owed. ⛔ IT SHIPS RED AND STAYS
   // RED UNTIL THE FIX IS DEPLOYED — the attesting rows cannot exist until the fixed consumer runs, so this is

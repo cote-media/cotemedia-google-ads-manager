@@ -104,6 +104,10 @@ const EXPECTED_ROSTER = [
   'scripts/check-fleet-meter-visibility.mjs --guard',
   'scripts/check-topwindow-frontier.mjs',
   'scripts/check-consumer-liveness.mjs --guard',
+  // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — pin moved DELIBERATELY, in the same commit as the addition, exactly as
+  // leg (b)'s own failure text instructs. The check writes to the database (synthetic client, wiped on entry
+  // and exit), which is why it is on this roster and not in `npm run guard`.
+  'scripts/check-restate-prune-live.mjs',
   'scripts/check-nongrain-window-resolves.mjs',
   'tests/guards/anchor-recedes-by-window.guard.mjs',
   'tests/guards/no-owed-day-left-behind.guard.mjs',

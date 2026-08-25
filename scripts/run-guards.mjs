@@ -70,6 +70,10 @@ const GUARDS = [
   // already wrong the next morning and nothing ever re-asks it. Also holds the account grain to exactly
   // ONE producer with no campaign-status filter, per Russ's ruling that deleted campaigns' spend counts.
   'tests/guards/google-forward-must-restate.guard.mjs',
+  // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the STATIC half of the only destructive write in the Google capture
+  // path. Source-only, so it is safe in a Vercel build; the BEHAVIOURAL half writes to the database and
+  // therefore lives in check:data as `check-restate-prune-live`, outside the deploy path.
+  'tests/guards/google-restate-prune-capped.guard.mjs',
   // LORAMER_WINDOW_PAST_CAPTURE_V1 — a window whose TAIL runs past the newest captured day may never read
   // 'covered'. THIS_MONTH and THIS_WEEK are TO-DATE (date-range.ts:81, :92) and end at TODAY, which forward
   // capture never writes — so they were verdicted COMPLETE every day with today silently absent.
