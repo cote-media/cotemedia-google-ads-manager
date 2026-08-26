@@ -246,8 +246,12 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
 
     const notes = w.DEFERRED_ENTRIES || {}
     const keys = Object.keys(notes)
-    if (keys.length !== 12) {
-      findings.push(`(g) DEFERRED_ENTRIES holds ${keys.length} entries, expected 12 (LORAMER_UNIVERSE_NARROWED_SET_V1). A deferral list that drifts from its own record in ★UNIVERSE-NARROW-ON-MEASURED-YIELD is how "deferred" quietly becomes "dropped".`)
+    // ⛔ PIN MOVED 12 → 9 on 2026-08-25 (LORAMER_UNDEFER_3_V1, Russ): user_location_view city + county and
+    // detail_placement_view device left the deferral table DELIBERATELY, in the same commit as this line —
+    // exactly the discipline this leg's own failure text demands. The pin still exists for the same reason:
+    // the remaining 9 may only leave by a decision that moves this number with them.
+    if (keys.length !== 9) {
+      findings.push(`(g) DEFERRED_ENTRIES holds ${keys.length} entries, expected 9 (LORAMER_UNIVERSE_NARROWED_SET_V1 as amended by LORAMER_UNDEFER_3_V1). A deferral list that drifts from its own record is how "deferred" quietly becomes "dropped".`)
     }
     for (const k of keys) {
       const n = notes[k] || {}
@@ -271,8 +275,8 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
     if (leaked.length) {
       findings.push(`(g) ${leaked.length} DEFERRED entries are still in the REQUEST set returned by selectableEntries(). The narrowing is not in effect and the walk would spend the disk it was narrowed to save.`)
     }
-    if (def.length !== 12) {
-      findings.push(`(g) deferredEntries() returns ${def.length}, expected 12 — the deferred set is not reportable, so a narrowed walk cannot state what it narrowed.`)
+    if (def.length !== 9) {
+      findings.push(`(g) deferredEntries() returns ${def.length}, expected 9 — the deferred set is not reportable, so a narrowed walk cannot state what it narrowed.`)
     }
     // ⛔ STILL DECLARED. Deferral touches the REQUEST list only. Dropping a deferred entry from the
     // DECLARED set would make its already-landed rows unreachable to Lora — turning a storage

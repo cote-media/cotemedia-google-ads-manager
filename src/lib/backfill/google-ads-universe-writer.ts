@@ -522,17 +522,26 @@ export interface DeferralNote {
 const GEO_LOSS = 'presence-vs-target geography — "where the user actually WAS" as distinct from "where we TARGETED" — at this grain. The targeting answer survives in full via geographic_view; the presence answer survives only at region/state/metro.'
 const LP_LOSS = 'landing-page performance SPLIT BY this segment. Landing-page totals and landing_page_source survive.'
 const PLACEMENT_LOSS = 'placement performance split by this segment. Placement totals survive.'
+// ⛔ UN-DEFERRED 2026-08-25 BY RUSS (LORAMER_UNDEFER_3_V1) — THREE ENTRIES LEFT THIS TABLE, 12 → 9:
+//   · user_location_view|segments.geo_target_city    (was 9.07 GB/walk at 0.5% fill)
+//   · user_location_view|segments.geo_target_county  (was 2.71 GB/walk at 4.2% fill — best value/GB of the 12)
+//   · detail_placement_view|segments.device          (was 3.58 GB/walk at 2.6% fill; ordinal history respelled
+//     canonical FIRST — LORAMER_ORDINAL_DEVICE_RESPELL_V1, 92,509 rows — so the re-walk upserts onto the
+//     same keys instead of writing twins)
+// His ruling: below metro, presence-vs-target geography is genuinely dark (GEO_LOSS), and "which exact
+// site/app converts, on what device" is the placement question that moves spend — real data, cost accepted.
+// Scoped to Foam OH by structure, not by flag: the ONLY cron touching the walk is pinned to
+// clientId=957d484e (vercel.json), and selectableEntries has no other importer. Derived cost for this one
+// client ≈ 15.36 GB against 92.54 GB usable headroom at decision time; the per-message disk floor
+// (universe-v2-worker.ts step 2 · checkDiskFloor · 56 GiB) gates every window regardless.
 export const DEFERRED_ENTRIES: Record<string, DeferralNote> = {
   'user_location_view|segments.geo_target_most_specific_location': { reason: 'geographic_view serves the SAME declared family at 19.9% fill vs 0.3% here — 66× denser for the same row count', measuredRowsPerRequest: 427_020, measuredGBPerWalk: 16.54, loraLoses: GEO_LOSS },
   'user_location_view|segments.geo_target_postal_code':            { reason: 'geographic_view serves the same family at 24.7% fill vs 1.3% here', measuredRowsPerRequest: 327_676, measuredGBPerWalk: 12.70, loraLoses: GEO_LOSS },
-  'user_location_view|segments.geo_target_city':                   { reason: 'geographic_view serves the same family at 24.1% fill vs 0.5% here', measuredRowsPerRequest: 234_007, measuredGBPerWalk: 9.07,  loraLoses: GEO_LOSS },
-  'user_location_view|segments.geo_target_county':                 { reason: 'geographic_view serves the same family at 39.5% fill vs 4.2% here', measuredRowsPerRequest: 69_968,  measuredGBPerWalk: 2.71,  loraLoses: GEO_LOSS },
   'expanded_landing_page_view|segments.click_type':          { reason: 'landing-page × click_type cross-product at 0.7% fill; click_type stays reachable at many other grains', measuredRowsPerRequest: 118_948, measuredGBPerWalk: 4.61, loraLoses: LP_LOSS },
   'expanded_landing_page_view|segments.device':              { reason: 'landing-page × device cross-product at 1.0% fill; device stays reachable at many other grains',        measuredRowsPerRequest: 85_871,  measuredGBPerWalk: 3.33, loraLoses: LP_LOSS },
   'expanded_landing_page_view|segments.slot':                { reason: 'landing-page × slot cross-product at 1.0% fill; slot stays reachable at other grains',                 measuredRowsPerRequest: 80_140,  measuredGBPerWalk: 3.10, loraLoses: LP_LOSS },
   'expanded_landing_page_view|segments.ad_sub_network_type': { reason: 'landing-page × ad_sub_network_type at 1.2% fill; the segment stays reachable at other grains',          measuredRowsPerRequest: 79_120,  measuredGBPerWalk: 3.07, loraLoses: LP_LOSS },
   'expanded_landing_page_view|segments.ad_network_type':     { reason: 'landing-page × ad_network_type at 0.8% fill; the segment stays reachable at other grains',              measuredRowsPerRequest: 78_300,  measuredGBPerWalk: 3.03, loraLoses: LP_LOSS },
-  'detail_placement_view|segments.device':    { reason: 'placement × device cross-product at 2.6% fill; device stays reachable at many other grains',     measuredRowsPerRequest: 92_509, measuredGBPerWalk: 3.58, loraLoses: PLACEMENT_LOSS },
   'group_placement_view|segments.device':     { reason: 'placement × device cross-product at 3.1% fill; device stays reachable at many other grains',     measuredRowsPerRequest: 92_222, measuredGBPerWalk: 3.57, loraLoses: PLACEMENT_LOSS },
   'group_placement_view|segments.click_type': { reason: 'placement × click_type cross-product at 1.8% fill; click_type stays reachable at other grains',  measuredRowsPerRequest: 75_440, measuredGBPerWalk: 2.92, loraLoses: PLACEMENT_LOSS },
 }
