@@ -140,6 +140,31 @@ export const WINDOWS_PER_PUBLISHED_MESSAGE = 1
 export const TOP_EDGE_REQUESTS_PER_RUN = 2
 
 /**
+ * ⛔ LORAMER_SEALED_STRIP_PASS_V1 — THE BOUND ON STRIP DERIVATIONS FOR FLOOR-SEALED SURFACES, per fire.
+ *
+ * WHY IT EXISTS: at fleet-terminal (ALL surfaces floor-sealed — Foam OH reached it 2026-08-25 ~20:00Z,
+ * 349/349 by 06:00Z the next morning) the seal-skip removed every surface from the scan BEFORE the strip
+ * was derived, the scan went empty, and the top-edge lane published ZERO for 24+ hours while its backlog
+ * grew 349 days/day — the exact death the seal branch's own residual comment predicted and called
+ * "(queued)" without any queue item existing. This bound caps the sealed-branch derivations so the pass
+ * can never starve the fire that runs it.
+ *
+ * ⛔ DERIVED FROM MEASUREMENT, NOT CHOSEN (both bases dated 2026-08-26):
+ *   · DIRECT PRIOR MEASUREMENT at 30× this scale: on 2026-08-23/24 the scan loop ran deriveTopStrip +
+ *     rangesStillOwed for up to 60 scanned surfaces per fire at 49-68s average elapsed, 288/288 and
+ *     290/290 fires completed. 8 is >7× under that directly-observed safe level.
+ *   · PER-CALL COST, EXPLAIN ANALYZE on the heaviest sealed surface (detail_placement_view): the
+ *     attested-empty read 0.970 ms and the covered read 0.129 ms, both single index seeks — so 8
+ *     derivations add ~16 round-trips ≈ well under one second against today's 18.7s average fire.
+ *   · WHY 8 AND NOT 2: publication is bounded by TOP_EDGE_REQUESTS_PER_RUN (=2) regardless, so the pass
+ *     only needs to DERIVE enough rotation-ordered candidates that both slots fill even when some front
+ *     surfaces are momentarily un-owed or error out — 4× the slot count is that margin. Publishing drains
+ *     the rotation front 2/fire, so all 349 sealed surfaces are asked within ~175 fires ≈ 14.6h — the
+ *     lane's own 14.4h tolerance, with publication (by design) the binding constraint, not derivation.
+ */
+export const SEALED_STRIP_DERIVATIONS_PER_RUN = 8
+
+/**
  * ⛔ THE STRIP — the ground between the DESCENT's top window and the newest day the vendor can answer for.
  * Pure, so the guard drives it with no clock and no DB.
  *

@@ -72,6 +72,7 @@ import {
 
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
   TOP_EDGE_REQUESTS_PER_RUN,
+  SEALED_STRIP_DERIVATIONS_PER_RUN,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
 
@@ -302,6 +303,7 @@ export async function GET(request: Request) {
   let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
   let sealedHeld = 0     // LORAMER_WALK_FLOOR_SEAL_V1 — sealed surfaces skipped WITHOUT a scan slot this fire
   let sealedThisFire = 0 // LORAMER_WALK_FLOOR_SEAL_V1 — seals WRITTEN this fire (each is once-only evidence)
+  let sealedStripDerived = 0 // LORAMER_SEALED_STRIP_PASS_V1 — bounded strip derivations for floor-sealed surfaces this fire
 
   for (const entry of rotated) {
     if (scanned >= MAX_ENTRIES_SCANNED_PER_RUN) break
@@ -314,10 +316,23 @@ export async function GET(request: Request) {
     // composition site resolves to now. Anything else — stop moved, basis changed, seal unparseable, stop
     // now UNKNOWN, resolver threw — falls through to the normal scan: RE-ADMISSION IS AUTOMATIC AND
     // DERIVED, never a manual un-seal.
-    // ⚠ NAMED RESIDUAL: a sealed surface's TOP STRIP is no longer derived by this loop (deriveTopStrip runs
-    // below the slot). Acceptable today — strips were only ever derived for scanned surfaces, and a
-    // top-edge zero never attests — but at fleet-terminal (ALL surfaces sealed) the scan goes empty and no
-    // strip candidates are derived at all; the strip scan needs its own bounded pass by then (queued).
+    // ⛔ LORAMER_SEALED_STRIP_PASS_V1 — THE RESIDUAL THAT KILLED THE LANE, NOW CLOSED. The comment that
+    // stood here predicted this branch's failure verbatim — "at fleet-terminal (ALL surfaces sealed) the
+    // scan goes empty and no strip candidates are derived at all; the strip scan needs its own bounded
+    // pass by then (queued)" — AND THE "(queued)" WAS FALSE: no queue item existed, fleet-terminal arrived
+    // unwatched on 2026-08-25 ~20:00Z (349/349 floor-sealed by 06:00Z next morning), and the top-edge lane
+    // published ZERO for 24+ hours while its backlog grew 349 days/day. The bounded pass now lives INSIDE
+    // the sealed branch, before its `continue`, so the strip block's own placement law (below: "computed
+    // BEFORE every `continue` the descent can take") finally holds for the branch that finished surfaces
+    // actually take. Same catalog, same deriveTopStrip, same rangesStillOwed, same topEdge selection, same
+    // writer, same meter — no second engine. Bound: SEALED_STRIP_DERIVATIONS_PER_RUN (measured basis on the
+    // constant). Rotation order carries through `rotated`, and each published ask advances the surface's
+    // rotation, so the front drains at the publication rate exactly like the scanned path.
+    // ⚠ KNOWN CHURN, accepted and self-healing: a top-edge ask stamps the rotation NEWER than the seal, so
+    // that surface's NEXT fire fails `sealIsLatest`, falls through to the normal scan, is re-refused at the
+    // floor and RE-SEALED — one scan slot and one append-only seal row per asked surface per day, no vendor
+    // ops. The alternative (teaching sealIsLatest about lanes) touches the rotation contract and is not the
+    // smallest change.
     const sealKey = `${entry.resource}|${entry.segment ?? ''}`
     const priorSeal = floorSeals.get(sealKey)
     if (priorSeal) {
@@ -335,6 +350,34 @@ export async function GET(request: Request) {
               label: `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}`, verdict: 'floor-sealed',
               reason: `sealed at stop ${currentStop.stopDate} (${currentStop.basis}) — skipped without a scan slot; re-admits the moment the stop facts change`,
             })
+            // THE BOUNDED SEALED-STRIP PASS — before the `continue`, per the placement law above.
+            if (sealedStripDerived < SEALED_STRIP_DERIVATIONS_PER_RUN) {
+              const sealedSurface = surfaceOfEntry(entry)
+              const sealedLabel = `${sealedSurface.resource}${sealedSurface.segment ? ' / ' + sealedSurface.segment : ''}`
+              const sealedStrip = deriveTopStrip({
+                descendTopEnd: rotPrior ? String(rotPrior.last_window_end) : null,
+                newestServable: yesterday,
+                maxSpanDays: adapter.sizing.maxDays,
+              })
+              if (sealedStrip) {
+                sealedStripDerived++
+                try {
+                  const sealedKey = { clientId, platform: adapter.platform, entityLevel: sealedSurface.entityLevel, breakdownType: sealedSurface.breakdownType }
+                  const sealedOwed = await rangesStillOwed(sealedKey, sealedStrip.windowStart, sealedStrip.windowEnd)
+                  if (sealedOwed.ranges.length > 0) {
+                    topEdge.push({
+                      entry, label: sealedLabel, ranges: sealedOwed.ranges.length, owedDays: sealedOwed.coverage.uncovered.length,
+                      windowStart: sealedStrip.windowStart, windowEnd: sealedStrip.windowEnd, sizingBasis: 'top-edge-strip',
+                      anchorBasis: `strip above the SEALED descent's last window ${rotPrior ? String(rotPrior.last_window_end) : '(none)'} , clamped to ${adapter.sizing.maxDays} day(s) — sealed-strip pass`,
+                      receded: false, stopBasis: 'n/a — the top edge has no floor',
+                      rangeSpans: sealedOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+                    })
+                  }
+                } catch (e: any) {
+                  refusals.push({ label: sealedLabel, verdict: 'top-edge-coverage-error', reason: String(e?.message ?? e) })
+                }
+              }
+            }
             continue
           }
         } catch {

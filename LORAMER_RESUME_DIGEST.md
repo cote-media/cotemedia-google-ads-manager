@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-26T16:13:00.838Z
-- built_from HEAD: c2ce0a310768e4aaae8e947f42d3f5bc8d6d5c9c  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-26T22:41:05.677Z
+- built_from HEAD: 257cee2baea7aa467c5419da40b0da48443a2fc4  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: b9a98de278d0c26cc3e3665e999e696b7f776effa7602fe695a2f798ba86ba37
     - LORAMER_DECISIONS.md: a6e09772d006d12234f2706ac824966b2c06858eca4ced77b7f5dcf74b1ba325
-    - LORAMER_QUEUE_OF_RECORD.md: 51bcff56c2a06d4c3ed0e3cbbe2e4a551fc24202aee83c2e824b581ab7175e43
+    - LORAMER_QUEUE_OF_RECORD.md: 03bb6b81bc40584eec021c135fe1e66aa85ca6368f00c8747bf0b23e80d35636
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -2262,6 +2262,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★CHAT-LANDING-FIRES-BEFORE-HYDRATION — ⛔ **NEW 2026-08-07, AND IT IS THE ACTUAL DEFECT UNDER THREE FLIGHTS OF SCROLL WORK. DIAGNOSED, NOT FIXED.** The arrival effect in `use-stick-to-bottom` fires on `[active]`, and on the -next Lora PAGE `active` is `true` at mount. So **shots 1 (0ms), 2 (rAF), 3 (+250ms) and REST (+800ms) ALL RUN BEFORE THE THREAD HYDRATES** from the async `/api/conversations` fetch. ⇒ **THE LANDING SCROLLS TO THE BOTTOM OF AN EMPTY DOCUMENT, AND THE MESSAGES THEN LOAD UNDERNEATH IT.** ⚠ **THE DEVICE EVIDENCE IS UNAMBIGUOUS ONCE READ CORRECTLY: an un-hydrated thread is EXACTLY ONE VIEWPORT TALL, which is why every probe line on a long Foam OH thread read `sH 763 · vp 763` (2026-08-07 ~06:31Z).** Not a container error — a TIMING error. ⛔ **AND IT RECONCILES THE THING THAT LOOKED CONTRADICTORY: the chevron and jump-to-bottom WORK.** They run the same `bottom()` → `window.scrollTo({top: documentElement.scrollHeight})`, but they fire on a USER TAP, seconds later, when `scrollHeight` really is thousands. **Same code, different moment.** ▶ **FIX DIRECTION, NOT A DESIGN: LAND AFTER THE THREAD EXISTS, NOT ON A TIMER.** Do NOT build it from this entry — the shape (await hydration? observe first paint of a non-empty list? key the arrival off the messages array rather than off `active`?) is unchosen and choosing it from prose is the failure mode this repo has banked repeatedly. ⛔ **THE SECOND HALF IS UNANSWERED AND IS THE MORE INTERESTING QUESTION: the ResizeObserver at `use-stick-to-bottom` already calls `followBottom('instant')` ON CONTENT GROWTH, and `pin` read `Y` throughout. IT EXISTS, IT WAS ARMED, AND IT DID NOT SAVE THE LANDING. WHY NOT IS UNKNOWN.** Candidates not yet separated: it fires but `stillFollowing()` refuses; it fires before the growth it should catch; `contentRef` observes a node whose box does not change when children are added. **Anyone fixing the timing must answer this too, or the fix will appear to work and regress silently.** src: 2026-08-07, diagnosed from the device probe. open [LC]
 - ★LANDING-PROBE-SPEC-IS-WRONG — ⛔ **NEW 2026-08-07. TWO DEFECTS, BOTH MINE, IN THE INSTRUMENT SHIPPED BY LORAMER_NEXT_LANDING_PROBE_VISIBLE_V1 (1602e63).** **(a) MISMATCHED BASES.** `sH` is `document.documentElement.scrollHeight`; `vp` is `window.innerHeight`. **"No overflow" is `scrollHeight === documentElement.clientHeight`, and the readout never prints `clientHeight`.** On Chrome iOS those diverge — already banked as [[LORAMER_LAYOUT_VIEWPORT_TRACKS_VISUAL_ON_CHROME_IOS_V1]], where `documentElement.clientHeight` tracks `visualViewport.height` (763→424 across 15 samples). ⇒ **THE PROBE COMPARES TWO DIFFERENT OBJECTS AND CANNOT ESTABLISH THE THING IT WAS BUILT TO ESTABLISH.** **(b) THE ARMING WINDOW CLOSES AT `ARRIVAL_GRACE_MS + 400` = 800ms** — before the thread hydrates, and before every ResizeObserver-driven `bottom()` that would show `scrollHeight` jumping to thousands. **The instrument stops watching before the interesting thing happens.** ⛔ **THE CONSEQUENCE, STATED PLAINLY BECAUSE IT IS WHY THIS IS A DEFECT AND NOT A NIT: while `sH == vp` the maximum scroll offset is ZERO, so TOP AND BOTTOM ARE THE SAME POSITION, and a reading of `y 0` CANNOT DISTINGUISH SUCCESS FROM FAILURE. In exactly the regime it was built to diagnose, it is blind by construction.** ⚠ **AND I TOLD RUSS IT WOULD DECIDE THE HEIGHT-RACE-vs-ROUTER FORK. IT CANNOT, AS BUILT — that claim was wrong when I made it.** ▶ **NEUTERED 2026-08-07, NOT DELETED**, and the reasoning is on the face of it: the VISIBILITY plumbing (on-screen readout, arming, per-landing reset, the render path) is correct and was the hard part; only the SPEC is wrong. The gate moved from `loramer:debug-chat` to **`loramer:debug-landing`, which nothing sets** — so it is INERT in production, Russ cannot meet it again through the flag he actually opens for the FRAME probe, and whoever repairs it can re-arm it by hand. Both defects are written into the file header at the gate. `router-scroll-off.guard.mjs` leg (f) now PINS the neutering. src: 2026-08-07. open [NP]
 - ★LANDING-PROBE-Y-FLIP-UNEXPLAINED — ⛔ **NEW 2026-08-07. OPEN AND DELIBERATELY UNEXPLAINED — NO MECHANISM IS OFFERED HERE, ON RUSS'S INSTRUCTION AND ON THE ★UI-OVERFLOW METHOD-FAILURE PRECEDENT.** On the device readout of 2026-08-07 ~06:31Z (Foam OH, long thread), **`y` flipped 0 → 763 across shots 1, 2 and 3 while every line reported `sH 763`.** ⚠ **THOSE TWO NUMBERS ARE READ IN THE SAME TEMPLATE LITERAL, IN THE SAME TICK.** If `sH` is 763 then the maximum scroll offset is `scrollHeight − clientHeight`, and `window.scrollY` cannot reach 763. **The reading is internally inconsistent and I could not explain it from the code.** ▶ **EVIDENCE REQUIRED BEFORE ANY THEORY: the screenshot itself.** Do not reason about it further from prose — three flights were spent on a container assumption that a single correct reading would have settled. src: 2026-08-07, device screenshot referenced. open [NP]
+- ★FOAM-OH-DESCENT-FLOOR-COMPLETE — ⛔ **MILESTONE, BANKED 2026-08-26: THE FOAM OH GOOGLE ADS DESCENT IS DONE — 349/349 surfaces floor-sealed at their inception floor** (first seal 2026-08-24 16:11:35Z, the 346 originals all sealed by 2026-08-25 ~20:00Z, the three LORAMER_UNDEFER_3_V1 families sealed 2026-08-26 06:00:32Z — they walked to floor in under a day). This is LORAMER_BACKFILL_DONE_DONE_V1 **condition-2 ground truth** for the proof account: the frontier reaches the floor with no surface pinned short. ⚠ WHAT IT IS NOT, stated so the milestone is not oversold: it does NOT prove every interior day is filled-or-attested (condition 2's second half — the interior-hole audit reads the warehouse, not the seals), and the walk's own DONE state was reached SILENTLY — the liveness instrument's "refusals dominated by floor-reached is the DONE state" fired no celebration and no notification, which is how fleet-terminal starved the strip lane unnoticed the same night. src: universe_attempt_log floor_stop seals, measured 2026-08-26. open [LC]
 - ★GATE-A-GOOGLE-FORWARD-RESTATE — ⛔ **NEW 2026-08-25, DUE ~08:08Z 2026-08-26 — THE ONLY WINDOW, ONCE DAILY, ALREADY SLIPPED ONE CYCLE.** 02e79b7 is deployed; the proof it still owes: on the fire, a MULTI-DAY range is REQUESTED (googleRestateStart..captureDate, 30 days) AND a previously captured day UPDATES with restated values. ⛔ Rows written ≠ days restated (LORAMER_ADJACENT_NUMBER_V1) — the Gate-A read is a BEFORE/AFTER diff on an already-held day, not a row count. src: 2026-08-25 flight hold. open [DG]
 - ★DEFERRED-9-REMAIN — ⛔ **NEW 2026-08-25, the successor of [[★DEFERRED-12-DISK-CONSTRAINT-NEVER-RE-EVALUATED]] (closed by the 08-25 ruling).** The 9 still-deferred families, each with its measured GB/walk and the ruling that its ANSWER SURVIVES AT ANOTHER GRAIN: user_location_view most_specific 16.54 + postal 12.70 · expanded_landing_page_view click_type 4.61 / device 3.33 / slot 3.10 / ad_sub_network 3.07 / ad_network 3.03 · group_placement_view device 3.57 / click_type 2.92. Guard pin holds the count at 9 (universe-window-log leg g). ⛔ RE-OPEN ONLY IF THE COLD-TIER ARCHIVE LANDS — headroom, not desire, is the gate (DECISIONS LORAMER_UNDEFER_3_V1 extension). src: 2026-08-25 decision sheet. open
 - ★LORA-CANNOT-REACH-VENDOR-GRAINS — ⛔ **NEW 2026-08-25 — WIRE PHASE HEAD (LORAMER_GET_THEN_WIRE_V1: opens when GET closes; do NOT work it before the gate).** **Of 346 walked surfaces Lora reaches 52 (38 native + 14 alias/twin); 294 DARK; 126 of those FAMILY-dark — no reachable level holds the bt, she cannot answer AT ALL, including the entire shopping/merchant-feed surface.** Measured through the real compiled selection + live probes, 2026-08-25. **(1) THE CONTRACT BREACH:** claude-tools.ts:143 builds the entityLevel enum from breakdownEntityLevels() including vendor levels and :109 instructs "pass the resource name as entityLevel" — while metrics-query.ts:651 SILENTLY DISCARDS any level outside its hardcoded six. The schema accepts exactly what the resolver drops; shipped that way since 2026-08-03. **(2) THE SILENT-WRONG-GRAIN SET:** 21 breakdown_types exist at BOTH a legacy and a vendor level (device 112 legacy / 12,565 vendor rows on one measured day), so a grain-specific ask resolves to campaign and answers confidently while the vendor-grain rows are never read — correct numbers, wrong grain, no note; LAW-6 shape without a false number. **(3) ROWS AT STAKE:** 225,275 of 398,167 google rows on one measured day (56.6%) at unreachable levels; millions all-time; Foam OH only (17/18 probed FALSE). **(4) FIX SHAPE, CONTAINED:** LEVEL_ORDER has exactly 4 readers, all in one function (metrics-query.ts:637-661): :651 accept any level the registry declares (entryFor already imported at :19); :655 APPEND declared vendor levels AFTER the six — coarsest-first ordering is LOAD-BEARING (the $3,945 hour double-count) and survives. probeAt rides idx_mdp_client_platform_bt_lvl_date, level-agnostic. ⛔ **EVAL-GATED: metrics-query.ts is on the CLAUDE.md eval list — ships behind `npm run evals` (~$4-5, dev server), scorecard in the ship report.** src: 2026-08-25 reach measurement. open [WIRE]
@@ -2355,8 +2356,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1016 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
-138 decision-only · 523 queue-only.
+TOTALS: 1019 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
+138 decision-only · 526 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 263 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2549,8 +2550,10 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FLEET-METER-DRIFT-FLICKERS — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FLEET-ROLLOUT-BLOCKED-ON-THREE-THINGS — OPEN · decisions 0 · queue 2 · last 2026-08-17
 - ★FLEET-SPEND-OMITS-INTELLIGENCE-LANE — OPEN · decisions 1 · queue 2 · last 2026-08-11
+- ★FLEET-TERMINAL-STRIP-PASS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-WIDE-REMEASURE-BEFORE-SCHEDULING — OPEN · decisions 1 · queue 3 · last 2026-08-10
 - ★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS — OPEN · decisions 3 · queue 5 · last 2026-09-30
+- ★FOAM-OH-DESCENT-FLOOR-COMPLETE — OPEN · decisions 0 · queue 2 · last 2026-08-26
 - ★FOAM-OH-GA-CREDENTIAL-REJECTED — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★FOAMOH-2026-05-HOLE — OPEN · decisions 1 · queue 2 · last 2026-07-30
 - ★FOAMOH-GEO-NOT-TIME-BOUND — OPEN · decisions 0 · queue 1 · last 2026-08-02
@@ -2808,7 +2811,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★TOKEN-THE-UNTOKENED — OPEN · decisions 1 · queue 2 · last 2026-07-31
 - ★TOOL-INSTALL-PERMISSIONS-LOCKDOWN — OPEN · decisions 1 · queue 1 · last 2026-08-12
 - ★TOP-EDGE-HAS-NO-LANE — OPEN · decisions 0 · queue 2 · last 2026-08-21
-- ★TOP-EDGE-LANE-AT-42-PERCENT — DONE · decisions 0 · queue 1 · last 2026-08-25
+- ★TOP-EDGE-LANE-AT-42-PERCENT — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★TOP-EDGE-STRIP-NEVER-NARROWS — OPEN · decisions 0 · queue 1 · last 2026-08-19
 - ★TOPIC-INDEX-DECISIONS-ZERO — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★TOPLEVEL-COMPLETE-IGNORES-DENSITY — OPEN · decisions 0 · queue 1 · last 2026-08-15
@@ -2908,7 +2911,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_AGENCY_SCOPE_LORA_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-24
 - LORAMER_ARGUMENT_IS_NOT_EVIDENCE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_ASSET_LAYER_SCOPE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-15
-- LORAMER_BACKFILL_DONE_DONE_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-22
+- LORAMER_BACKFILL_DONE_DONE_V1 — OPEN · decisions 1 · queue 4 · last 2026-08-26
 - LORAMER_BACKFILL_PROBE_GA_V1 — DONE · decisions 0 · queue 1 · last 2026-08-07
 - LORAMER_BACKFILL_YIELDS_TO_PRODUCT_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-09
 - LORAMER_BINDING_COVERAGE_V1 — OPEN · decisions 0 · queue 6 · last 2026-08-16
@@ -3291,6 +3294,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_RESUMER_SCAN_ROTATES_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - LORAMER_ROUNDS_AT_DECISION_POINTS_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-23
 - LORAMER_SCOPED_DRILLDOWN_FALSE_ZERO_V1 — OPEN · decisions 2 · queue 2 · last 2026-07-28
+- LORAMER_SEALED_STRIP_PASS_V1 — DONE · decisions 0 · queue 2 · last 2026-08-26
 - LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_SEAMS_PROOF_V1 — OPEN · decisions 3 · queue 1 · last 2026-08-17
 - LORAMER_SEARCH_TERM_UNCAPPED_V1 — OPEN · decisions 1 · queue 2 · last 2026-09-28
@@ -3330,7 +3334,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_UI_DEFECTS_SHIP_IN_FILE_BATCHES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_UNATTESTED_ABSENCE_V1 — OPEN · decisions 0 · queue 3 · last 2026-08-16
 - LORAMER_UNBANKED_CROSSREF_LESSON_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-03
-- LORAMER_UNDEFER_3_V1 — OPEN · decisions 0 · queue 4 · last 2026-08-25
+- LORAMER_UNDEFER_3_V1 — OPEN · decisions 0 · queue 5 · last 2026-08-26
 - LORAMER_UNIVERSE_ARTIFACT_EMITS_EVERY_SLOT_V1 — DONE · decisions 1 · queue 1 · last 2026-08-03
 - LORAMER_UNIVERSE_ARTIFACT_MUST_BE_TRACED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-03
 - LORAMER_UNIVERSE_DERIVED_TIME_V1 — DONE · decisions 2 · queue 1 · last 2026-08-04

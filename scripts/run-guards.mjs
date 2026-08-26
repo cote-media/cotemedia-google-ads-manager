@@ -71,6 +71,7 @@ const GUARDS = [
   // ONE producer with no campaign-status filter, per Russ's ruling that deleted campaigns' spend counts.
   'tests/guards/google-forward-must-restate.guard.mjs',
   'tests/guards/google-campaign-anchor-missing.guard.mjs', // LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — absent account anchor refuses; present zero anchor writes
+  'tests/guards/top-edge-sealed-strip.guard.mjs', // LORAMER_SEALED_STRIP_PASS_V1 — a floor-sealed surface still gets its top strip derived
 
   // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the STATIC half of the only destructive write in the Google capture
   // path. Source-only, so it is safe in a Vercel build; the BEHAVIOURAL half writes to the database and
