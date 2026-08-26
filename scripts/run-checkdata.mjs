@@ -100,6 +100,11 @@ const CHECKS = [
   // uses, and it wipes them on entry and on exit — a client's rows are never at risk. The static scope half
   // (five legs on the delete's predicates) is the build guard `google-restate-prune-capped`.
   { name: 'check-restate-prune-live', cmd: ['scripts/check-restate-prune-live.mjs'] },
+  // LORAMER_GOOGLE_ACCOUNT_ZERO_DAY_V1 — every cursor-stamped google forward day holds an account row,
+  // dormant or not. Registered RED on 2026-08-26 (9 of 18 connections missing 2026-08-25, the 02e79b7
+  // producer's first fire) — the fixed producer's 30-day restate window self-heals the hole on its next
+  // fire, so this leg is the Gate-B that proves it; a red here after that fire is a live regression.
+  { name: 'google-forward-account-day', cmd: ['scripts/check-google-forward-account-day.mjs'] },
   // LORAMER_ORDINAL_DEVICE_RESPELL_V1 — registered ONLY AFTER the Russ-authorized execution flipped it
   // green (it was designed-red before that, and registering a designed-red check would have painted the
   // board red for a state that was awaiting his word). Leg (a) holds the repaired state — zero ordinal

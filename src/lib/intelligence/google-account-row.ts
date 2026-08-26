@@ -46,7 +46,25 @@ const fin = (v: unknown): number => { const n = Number(v); return Number.isFinit
 const ratio = (num: number, den: number, mult = 1): number => (den > 0 ? (num / den) * mult : 0)
 
 /** ONE ranged query against Google's own account report. Per-day rows, no campaign filter, no status
- *  filter — there is none to apply at this grain, which is exactly why this is the right source. */
+ *  filter — there is none to apply at this grain, which is exactly why this is the right source.
+ *
+ *  ⛔ LORAMER_GOOGLE_ACCOUNT_ZERO_DAY_V1 — EVERY DAY IN THE ASKED RANGE COMES BACK, ZEROS INCLUDED.
+ *  Measured live 2026-08-26 on three dormant accounts, both query shapes: GAQL with a segment in the
+ *  SELECT omits zero-metric rows ALWAYS (single-day and ranged identically), so `FROM customer` returns
+ *  NOTHING for a dormant day — Google never serves a dated zero row in any form. The retired producer's
+ *  zero days had come from the UNSEGMENTED campaign entity query, not from the vendor; this producer's
+ *  first fire therefore silently dropped 9 of 18 connections' 2026-08-25 account rows, and with them the
+ *  anchor google-campaign-backfill's posture:'block' reconciler reads (`fin(acctRow?.spend)` maps a
+ *  missing row to $0.00, so the gate can never fire on exactly the days it cannot see).
+ *  THE FILL IS OURS AND IT IS A RECORDING, NOT AN INVENTION: the vendor was asked about this exact day and
+ *  answered "no activity"; the account entity is the customerId itself, so no listing and no extra op is
+ *  needed. This restores the pre-02e79b7 series byte-for-byte (verified against a held dormant-day row:
+ *  zeros + extra{ctr:0,cpc:0,cpm:0,roas:null,cpa:null,convRate:null}), for BOTH lanes at once — forward
+ *  (sync:720) and catchup (catchup:674) and the backfill adapter (adapters.ts:54) all take their days from
+ *  this one function, which is the point of having one producer.
+ *  check:data leg: scripts/check-google-forward-account-day.mjs (registered red against the 9, 2026-08-26). */
+const addDayUTC = (iso: string): string => { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10) }
+
 export async function fetchGoogleAccountWindow(
   refreshToken: string, customerId: string, startDate: string, endDate: string
 ): Promise<GoogleAccountDay[]> {
@@ -56,11 +74,11 @@ export async function fetchGoogleAccountWindow(
            metrics.conversions, metrics.conversions_value
     FROM customer WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
   `)
-  const out: GoogleAccountDay[] = []
+  const byDate = new Map<string, GoogleAccountDay>()
   for (const r of rows as any[]) {
     const date = String(r.segments?.date || '')
     if (!date) continue
-    out.push({
+    byDate.set(date, {
       date,
       spend: fin(r.metrics?.cost_micros) / 1e6,
       impressions: fin(r.metrics?.impressions),
@@ -68,6 +86,13 @@ export async function fetchGoogleAccountWindow(
       conversions: fin(r.metrics?.conversions),
       conversionValue: fin(r.metrics?.conversions_value),
     })
+  }
+  // The zero-fill. Bounded to the asked range, so a caller that asks one day gets one day (catchup) and a
+  // caller that asks 31 gets 31 (forward restate) — and the forward window self-heals recent holes on its
+  // first post-deploy fire, because absent days INSIDE the window now come back as zeros and upsert.
+  const out: GoogleAccountDay[] = []
+  for (let d = startDate; d <= endDate; d = addDayUTC(d)) {
+    out.push(byDate.get(d) ?? { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0 })
   }
   return out
 }
