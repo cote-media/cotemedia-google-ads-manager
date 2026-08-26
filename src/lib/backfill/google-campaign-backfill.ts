@@ -13,7 +13,7 @@
 //  • month chunks, resumable by range, transient (429/RESOURCE_EXHAUSTED) backoff, loud failures (no fabrication).
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeMetricsRows } from '@/lib/metrics-normalize'
-import { reconcileDay } from './reconcile-day'
+import { reconcileDayAgainstAnchorRow } from './reconcile-day'
 import { gaqlWithRetry } from './gaql-with-retry'
 import { GoogleAdsApi } from 'google-ads-api'
 
@@ -122,11 +122,14 @@ export async function runGoogleCampaignBackfill(
         .from('metrics_daily').select('spend,clicks,impressions,conversions')
         .eq('client_id', clientId).eq('platform', 'google').eq('entity_level', 'account')
         .eq('breakdown_type', '').eq('breakdown_value', '').eq('date', date).maybeSingle()
-      const acctSpend = fin(acctRow?.spend)
-      const { within, delta } = reconcileDay(bucket.spend, acctSpend, { posture: 'block' })
+      // LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — the ROW goes in, not fin(acctRow?.spend): that collapse
+      // read a MISSING anchor as $0.00 and let this block gate pass 0-vs-0 on exactly the days it could not
+      // see (9 of 18 connections on 2026-08-25). Absent anchor → anchorMissing=1 → skip + flagged, same as
+      // the guarded four one anchor-grain up. Posture and tolerance unchanged.
+      const { within, delta, anchorMissing, anchorMetric: acctSpend } = reconcileDayAgainstAnchorRow(bucket.spend, acctRow, { posture: 'block' })
       if (!within) {
         daysSkipped++; skipped += bucket.rows.length
-        flagged.push({ date, campaign_spend: Number(bucket.spend.toFixed(2)), account_spend: Number(acctSpend.toFixed(2)), delta: Number(delta.toFixed(2)) })
+        flagged.push({ date, campaign_spend: Number(bucket.spend.toFixed(2)), account_spend: Number(acctSpend.toFixed(2)), delta: Number(delta.toFixed(2)), anchor_missing_account: anchorMissing })
         continue
       }
       otherDeltas.clicks += bucket.clicks - fin(acctRow?.clicks)

@@ -25,3 +25,30 @@ export function reconcileDay(
   const action: ReconcileResult['action'] = within ? 'write' : posture === 'block' ? 'skip' : posture === 'halt' ? 'halt' : 'write'
   return { within, delta, action }
 }
+
+// LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — the ACCOUNT-ANCHORED variant of the caller-kept anchorMissing
+// rule, collapsed to ONE source per FIX-WITH-GUARD (we fix files, we do not enforce conventions).
+//
+// ⛔ THE DEFECT THIS ENDS, measured live 2026-08-26: google-campaign-backfill — the only posture:'block'
+// caller in the fleet — read its single account-row anchor as `fin(acctRow?.spend)`, which maps BOTH
+// "no row" and "$0.00" to 0. On exactly the days the anchor was MISSING (9 of 18 google connections on
+// 2026-08-25), the block gate compared 0-vs-0, reported within, and wrote campaign rows against an anchor
+// that did not exist. Every campaign-anchored caller (adgroup-ad :187, device :95, demographic :121,
+// hour :95) already ANDs `anchorMissing === 0` into within; the account-anchored caller was the one without
+// the rule. For a single anchor row the count is 0 or 1 — absent row ≠ $0.00 row, and only the caller's
+// fetch (maybeSingle → null) can tell them apart, which is why this takes the ROW, not a number.
+// Tolerance and posture semantics are reconcileDay's own, unchanged — this wraps, it does not re-derive.
+export function reconcileDayAgainstAnchorRow(
+  grainMetric: number,
+  anchorRow: { spend?: unknown } | null | undefined,
+  opts?: { abs?: number; pct?: number | null; posture?: ReconcilePosture }
+): ReconcileResult & { anchorMissing: number; anchorMetric: number } {
+  const anchorMissing = anchorRow == null ? 1 : 0
+  const n = Number(anchorRow?.spend)
+  const anchorMetric = Number.isFinite(n) ? n : 0
+  const base = reconcileDay(grainMetric, anchorMetric, opts)
+  const within = anchorMissing === 0 && base.within
+  const posture = opts?.posture ?? 'flag'
+  const action: ReconcileResult['action'] = within ? 'write' : posture === 'block' ? 'skip' : posture === 'halt' ? 'halt' : 'write'
+  return { within, delta: base.delta, action, anchorMissing, anchorMetric }
+}
