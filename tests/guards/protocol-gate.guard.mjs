@@ -49,6 +49,15 @@ const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex
 const SANDBOX = mkdtempSync(join(tmpdir(), 'loramer-gate-fixtures-'))
 mkdirSync(join(SANDBOX, 'docs'), { recursive: true })
 try { copyFileSync(resolve(ROOT, 'LORAMER_DECISIONS.md'), join(SANDBOX, 'LORAMER_DECISIONS.md')) } catch { /* leg reports it */ }
+// LORAMER_CITED_GATE_V1 — the CITED box resolves ★tokens against the record docs and re-reads cited files,
+// so the sandbox carries the same corpus the live hook reads: QUEUE + digest for token resolution, and the
+// one source file the morning-failure fixtures cite (google-account-row.ts, the un-banked-ruling precedent).
+try { copyFileSync(resolve(ROOT, 'LORAMER_QUEUE_OF_RECORD.md'), join(SANDBOX, 'LORAMER_QUEUE_OF_RECORD.md')) } catch { /* leg reports it */ }
+try { copyFileSync(resolve(ROOT, 'LORAMER_RESUME_DIGEST.md'), join(SANDBOX, 'LORAMER_RESUME_DIGEST.md')) } catch { /* leg reports it */ }
+try {
+  mkdirSync(join(SANDBOX, 'src/lib/intelligence'), { recursive: true })
+  copyFileSync(resolve(ROOT, 'src/lib/intelligence/google-account-row.ts'), join(SANDBOX, 'src/lib/intelligence/google-account-row.ts'))
+} catch { /* leg reports it */ }
 
 // Run the enforcer exactly as the hook does: JSON on stdin, JSON on stdout.
 function runGate(payload, root = SANDBOX) {
@@ -94,6 +103,10 @@ const GOOD_RESEARCH = 'RESEARCH: https://example.com/vendor-doc · https://examp
 const GOOD_ADVERSARY = 'ADVERSARY: mine=gate at paste-receipt | other=gate at commit time | collision=a commit-time gate cannot see paste-while-in-flight at all, so receipt wins'
 const GOOD_CONSTANTS = 'CONSTANTS: FLIGHT_MIN_CHARS=400 ⇐ measured 2026-08-23 N=12'
 const GOOD_QUESTION = 'QUESTION: where does the protocol gate have to live to fire every time?'
+// LORAMER_CITED_GATE_V1 — CITED is required on every flight paste exactly as CONSTANTS is, with a justified
+// NONE as the cheap honest form. Every pre-existing GREEN fixture carries this line for the same reason every
+// fixture carries CONSTANTS: the box is unconditional.
+const GOOD_CITED = 'CITED: NONE — no prior decision, law or token is load-bearing to this fixture paste'
 
 const fixtures = [
   { name: 'RED BLAST-UNDECLARED', box: 'BLAST-UNDECLARED', expect: 'block',
@@ -116,11 +129,11 @@ const fixtures = [
   // carries its reason AND still refuse a bare number, IN THE SAME RUN. Split them apart and a future edit
   // can satisfy one by breaking the other — which is exactly how an enforcer rots into a rubber stamp.
   { name: 'GREEN justified NONE — em-dash (the real 2026-08-23 refusal)', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE \u2014 skip-cache deliberately introduces no TTL; a number would have no derivation.${PAD}` },
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE \u2014 skip-cache deliberately introduces no TTL; a number would have no derivation.${PAD}` },
   { name: 'GREEN justified NONE — colon', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE: this flight carries no numbers at all${PAD}` },
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE: this flight carries no numbers at all${PAD}` },
   { name: 'GREEN justified NONE — comma', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE, nothing numeric is asserted anywhere in this instruction${PAD}` },
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE, nothing numeric is asserted anywhere in this instruction${PAD}` },
   { name: 'RED a bare number is STILL refused even though justified-NONE now passes', box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: TIMEOUT_MS=5000${PAD}` },
   { name: 'RED "NONETHELESS" must not be read as a justified NONE', box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', expect: 'block',
@@ -130,19 +143,66 @@ const fixtures = [
   { name: 'RED writing paste with NO research and NO adversary at all', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: live-path\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN compliant writing paste', expect: 'allow',
-    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: SHAPE\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN BLAST carrying a parenthetical qualifier (how Russ actually writes it)', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer (repo tooling only \u2014 no app code, no schema, no live path)\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}` },
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer (repo tooling only \u2014 no app code, no schema, no live path)\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}${PAD}` },
   { name: 'GREEN read-only paste needs NO rounds (proportionality)', expect: 'allow',
-    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE${PAD}` },
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}` },
   { name: 'GREEN short conversational paste is not a flight', expect: 'allow', text: 'go' },
   { name: 'GREEN override lifts exactly its own box', expect: 'allow',
-    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: the vendor documentation host is down right now and the walk read is time boxed${PAD}`,
+    text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CITED}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: the vendor documentation host is down right now and the walk read is time boxed${PAD}`,
     mutatesLog: true },
   { name: 'RED override with a too-short reason does NOT lift its box', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}\nOVERRIDE RESEARCH-WITH-NO-URLS: docs down${PAD}` },
   { name: 'RED override of an unknown box name does NOT lift anything', box: 'RESEARCH-WITH-NO-URLS', expect: 'block',
     text: `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}\nOVERRIDE EVERYTHING: I would like to skip all of the boxes on this particular paste please${PAD}` },
+
+  // ── LORAMER_CITED_GATE_V1 — THE CITED BOX. The failure it exists for, verbatim from 2026-08-26: a paste
+  // asserted "the predicate was dropped for a REMOVED ruling" and routed three read-only rounds on it; no
+  // such ruling had ever been read — it existed only as google-account-row.ts:8-10 saying something
+  // different. These fixtures drive all four accepted forms plus the unconditional ★-token scan.
+  { name: 'GREEN CITED real token resolves in the record (QUEUE)', expect: 'allow',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★UNDEFER-3-SIZE-READ ⇐ QUEUE\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED CITED fabricated token resolves nowhere', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: ★TOTALLY-FABRICATED-TOKEN-XYZZY ⇐ QUEUE\nCONSTANTS: NONE${PAD}` },
+  { name: 'GREEN CITED file:line quote present (paraphrase words all in window)', expect: 'allow',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: src/lib/intelligence/google-account-row.ts:10 "because the money was really spent"\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED CITED file:line quote absent from the cited window', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: src/lib/intelligence/google-account-row.ts:10 "this text appears nowhere in that entire file whatsoever"\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED CITED NEW on a token that already exists must fail naming where it lives', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: NEW ★UNDEFER-3-SIZE-READ\nCONSTANTS: NONE${PAD}` },
+  { name: 'GREEN CITED NEW on a genuinely novel token (the §L miss is the hook own proof)', expect: 'allow',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: NEW ★GENUINELY-NOVEL-TOKEN-QQQQQ\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED CITED bare NONE with no reason (unlike CONSTANTS, the citation NONE must say why)', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCITED: NONE\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED CITED absent entirely on a flight paste', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE${PAD}` },
+  { name: 'RED unconditional scan: a ★token in the BODY that resolves nowhere fails even with CITED: NONE', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: ISSUE\n${GOOD_QUESTION}\nBLAST: read-only\nINFLIGHT: clear\n${GOOD_CITED}\nCONSTANTS: NONE\nthe fix rides ★ANOTHER-INVENTED-THING-ABCDE per the prior session${PAD}` },
+  // THE MORNING-FAILURE PAIR (STEP 5) — the dishonest paste refuses, the honest one passes.
+  { name: 'RED morning-failure: premise asserts a ruling, nothing cited', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `ROUND: 0\nQUESTION: Why was the predicate dropped for the REMOVED ruling in the four writers?\nBLAST: read-only\nINFLIGHT: clear\nCONSTANTS: NONE — this fixture asserts no numbers anywhere in its body${PAD}` },
+  { name: 'GREEN morning-failure honest form: the ruling cited at its real home with its real words', expect: 'allow',
+    text: `ROUND: 0\nQUESTION: Why was the predicate dropped for the REMOVED ruling in the four writers?\nBLAST: read-only\nINFLIGHT: clear\nCITED: src/lib/intelligence/google-account-row.ts:8-10 "account total INCLUDES campaigns that were later deleted, because the money was really spent"\nCONSTANTS: NONE — this fixture asserts no numbers anywhere in its body${PAD}` },
+
+  // ── LORAMER_GATE_NONHUMAN_ENVELOPE_V1 — THE CHANNEL IS NOT HUMAN-ONLY. Found live 2026-08-26: a
+  // background task's completion notification (>FLIGHT_MIN_CHARS, no protocol keys, opens with a
+  // <task-notification> tag) arrived on UserPromptSubmit and was REFUSED, wedging the session — the report
+  // it carried never reached the executor, and because a blocked prompt never enters the transcript, the
+  // refusal left no trace there either. The defect PREDATES the CITED box (the pre-CITED gate fails the
+  // same shape on BLAST/QUESTION/CONSTANTS — proven by driving both versions); CITED added a fourth box,
+  // not the block. THE RULE: a submission whose first non-space characters open an XML-ish lowercase tag is
+  // a NON-HUMAN ENVELOPE and passes through — UNLESS it carries any protocol KEY: line, in which case it is
+  // graded as a flight exactly as before. That is the anti-smuggle half: wrapping a real flight paste in
+  // notification tags changes nothing, because the paste's own schema keys mark it for grading.
+  { name: 'GREEN task-notification passes through untouched (no protocol keys, over flight length)', expect: 'allow',
+    text: `<task-notification>Background task bbbe8fiza completed with exit code 0. Output tail: [check:data] VERDICT — quoted here. This block exists to re-invoke the agent after background work; it is not a human paste and carries no protocol header of any kind whatsoever.${PAD}</task-notification>` },
+  { name: 'GREEN system-reminder envelope passes through untouched', expect: 'allow',
+    text: `<system-reminder>Recalled memories and background context are listed below for this session. None of this is a human instruction and none of it carries a protocol header; the gate must not demand ROUND or BLAST of it.${PAD}</system-reminder>` },
+  { name: 'GREEN local-command output envelope passes through untouched', expect: 'allow',
+    text: `<local-command-stdout>total 96\ndrwxr-xr-x 14 russ staff 448 Aug 26 12:00 .\n-rw-r--r-- 1 russ staff 1686 Jul 24 02:00 .env.local\nThe output of a bang-command the user ran lands here verbatim and is never a flight instruction.${PAD}</local-command-stdout>` },
+  { name: 'RED smuggle: a schema-carrying flight paste wrapped in notification tags is STILL graded (CITED absent)', box: 'CITATION-NEVER-READ', expect: 'block',
+    text: `<task-notification>\nROUND: RUN\n${GOOD_QUESTION}\nBLAST: backend-writer\nINFLIGHT: clear\n${GOOD_RESEARCH}\n${GOOD_ADVERSARY}\n${GOOD_CONSTANTS}${PAD}\n</task-notification>` },
 ]
 
 // ── (b)(d)(e) DRIVE THE FIXTURES ──────────────────────────────────────────────────────────────────────────
@@ -172,7 +232,7 @@ if (existsSync(SCRIPT)) {
   {
     const tdir = mkdtempSync(join(tmpdir(), 'loramer-gate-'))
     const mk = (roles) => { const f = join(tdir, `t${roles.join('')}.jsonl`); writeFileSync(f, roles.map((r) => JSON.stringify({ type: r, message: { role: r } })).join('\n') + '\n'); return f }
-    const flightText = `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\nCONSTANTS: NONE${PAD}`
+    const flightText = `ROUND: RUN\n${GOOD_QUESTION}\nBLAST: read-only\n${GOOD_CITED}\nCONSTANTS: NONE${PAD}`
     const twoUsers = runGate({ prompt: flightText, session_id: 'guard', transcript_path: mk(['user', 'assistant', 'user', 'user']) })
     if (twoUsers.out?.decision !== 'block') findings.push('(d2) two consecutive user messages in the transcript did NOT trigger PASTE-WHILE-IN-FLIGHT — the only box that checks reality is not load-bearing.')
     else if (!String(twoUsers.out.reason).includes('PASTE-WHILE-IN-FLIGHT')) findings.push('(d2) blocked on a two-user transcript but the refusal does not name PASTE-WHILE-IN-FLIGHT.')

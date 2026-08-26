@@ -44,9 +44,14 @@ One block was necessary and never sufficient: a block full of padding fails for 
 
 `scripts/protocol-gate.mjs` runs as a `UserPromptSubmit` hook (wired in `.claude/settings.json`, committed so it
 travels to both machines) and REFUSES a paste whose protocol header is missing or empty — **before you process
-it.** Seven fields: `ROUND · QUESTION · BLAST · INFLIGHT · RESEARCH · ADVERSARY · CONSTANTS`. RESEARCH and
+it.** Eight fields: `ROUND · QUESTION · BLAST · INFLIGHT · RESEARCH · ADVERSARY · CONSTANTS · CITED`. RESEARCH and
 ADVERSARY are demanded only when BLAST is not `read-only` — **rounds attach to CONSEQUENCE, not to
-question-shape** (Russ, 2026-08-23). ESSENCE owns the schema and the proportionality rule; do not restate them here.
+question-shape** (Russ, 2026-08-23). CITED (LORAMER_CITED_GATE_V1, 2026-08-26) is required on EVERY flight paste
+and is HOOK-VERIFIED, never trusted: `★TOKEN ⇐ home` (re-read from QUEUE/DECISIONS/digest) · `file:line "quote"`
+(every ≥4-letter word must really be within ±10 lines) · `NEW ★TOKEN` (passes only on a genuine §L miss — law 7
+made mechanical) · `NONE — <10+ words>`. Pasted grep output is never proof; the hook runs its own read. A ★token
+anywhere in the paste that resolves nowhere fails even beside `CITED: NONE`. ESSENCE owns the schema and the
+proportionality rule; do not restate them here.
 Override is per-box and logged: `OVERRIDE <BOX-NAME>: <≥10-word reason>` → `docs/LORAMER_PROTOCOL_OVERRIDES.jsonl`.
 ⛔ **WHAT THIS CHANGES FOR YOU: nothing you may skip.** The gate is an ARTIFACT check — it proves the paste
 carries the round's artifacts, never that a round happened or that the question was right. A green gate is not

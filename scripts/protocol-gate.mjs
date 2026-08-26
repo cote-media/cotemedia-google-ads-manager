@@ -82,6 +82,7 @@ export const BOXES = [
   'RESEARCH-WITH-NO-URLS',
   'ADVERSARY-THAT-NEVER-COLLIDED',
   'CONSTANT-INHERITED-WITHOUT-DERIVATION',
+  'CITATION-NEVER-READ',
 ]
 
 // ⛔ THE PROPORTIONALITY RULE — RUSS'S RULING 2026-08-23, and it is the schema's spine.
@@ -107,7 +108,7 @@ const sha256 = (s) => createHash('sha256').update(String(s), 'utf8').digest('hex
 // Claude Code instruction carries a `ROUND:` header naming its step"). Keys may appear anywhere in the
 // paste, including inside a fence, because Russ pastes from a phone and a leading fence is normal. A value
 // continues across lines until the next KEY: line, so a wrapped ADVERSARY line is not truncated.
-export const KEYS = ['ROUND', 'QUESTION', 'BLAST', 'INFLIGHT', 'RESEARCH', 'ADVERSARY', 'CONSTANTS']
+export const KEYS = ['ROUND', 'QUESTION', 'BLAST', 'INFLIGHT', 'RESEARCH', 'ADVERSARY', 'CONSTANTS', 'CITED']
 export function parseHeader(text) {
   const out = {}
   const lines = String(text || '').split('\n')
@@ -276,8 +277,117 @@ export function constantsVerdict(value) {
   return bad.length ? { ok: false, why: bad.join(' · ') } : { ok: true, why: `${entries.length} constant(s), each derived` }
 }
 
+// ── CHECK 5 — CITATION-NEVER-READ (LORAMER_CITED_GATE_V1) ─────────────────────────────────────────────────
+// ⛔ THE FAILURE THIS PREVENTS, 2026-08-26, verbatim shape: a paste asserted "the predicate was dropped for
+// a REMOVED ruling" and routed THREE read-only rounds on it. No such ruling had ever been read — it existed
+// only as a source comment (google-account-row.ts:8-10) saying something different. One grep would have
+// replaced the invention with the real text. This box makes that grep MANDATORY AND HOOK-VERIFIED: the paste
+// never carries grep output, because pasted output can be fabricated — the hook re-reads the repo itself.
+// It also mechanizes ESSENCE JUDGMENT LAW 7 (claim-of-novelty) via the NEW form: §L's own header says
+// "a token collision is DECIDABLE; a topic match is not", and this is exactly the decidable half.
+// COST, measured 2026-08-26 before wiring: QUEUE + DECISIONS + digest = 4.47 MB, read 16.7 ms, a 20-token
+// scan 33.8 ms — against the 30,000 ms UserPromptSubmit budget. Both halves fit with ~600x headroom.
+// ⛔ THE CEILING, same as the file's own header (:11-16): the hook proves a quote EXISTS at the cited home,
+// never that the interpretation of it is right. An honest quote honestly cited can still be misread.
+//
+// TOKEN GRAMMAR — ★tokens only for the UNCONDITIONAL scan. LORAMER_*_V\d markers are checked only when
+// explicitly cited with a home, because markers legitimately live in CODE files the record docs never
+// mention (e.g. LORAMER_RECONCILE_DAY_V1 lives in reconcile-day.ts alone) — an unconditional marker scan
+// would false-block real citations. ★tokens are minted in QUEUE/DECISIONS by construction, so for them
+// absence from the record IS the finding.
+export const STAR_TOKEN_RE = /★[A-Z0-9][A-Z0-9-]{2,}/g
+const MARKER_RE = /LORAMER_[A-Z0-9_]+_V\d+/
+const trimTok = (t) => t.replace(/-+$/, '')
+const QUOTE_WINDOW_LINES = 10 // ±lines of drift tolerated around a cited line before the quote is "absent"
+
+function resolveInDocs(token, docs) {
+  for (const [name, body] of Object.entries(docs)) if (body && body.includes(token)) return name
+  return null
+}
+
+export function citedVerdict(value, { docs = {}, root = ROOT } = {}) {
+  const raw = String(value || '').trim()
+  const declaredNew = new Set()
+  const docsEmpty = !Object.values(docs).some((b) => b && b.length)
+  if (!raw) return { ok: false, declaredNew, why: 'CITED: is absent — every flight paste names its prior art or says NONE with a reason' }
+  const none = raw.match(NONE_RE)
+  if (none) {
+    const reason = (none.groups?.reason || '').trim()
+    const n = words(reason)
+    // ⛔ UNLIKE CONSTANTS, a bare NONE is refused here: "nothing numeric" is checkable by reading the paste,
+    // but "no prior art is load-bearing" is exactly the claim that was false this morning — it costs a reason.
+    return n >= MIN_NONE_APPLICABLE_WORDS
+      ? { ok: true, declaredNew, why: `NONE with a ${n}-word reason` }
+      : { ok: false, declaredNew, why: `CITED: NONE carries only ${n} word(s); ${MIN_NONE_APPLICABLE_WORDS} are required — say why no prior decision, law or token is load-bearing` }
+  }
+  const bad = []
+  const entries = raw.split('\n').map((s) => s.trim()).filter(Boolean)
+  for (const e of entries) {
+    // FORM NEW — the novelty half. The hook's own miss of the token is the proof; the paste carries nothing.
+    const mNew = e.match(/^NEW\s+(.+)$/i)
+    if (mNew) {
+      const toks = [...mNew[1].matchAll(STAR_TOKEN_RE)].map((m) => trimTok(m[0]))
+      const marker = mNew[1].match(MARKER_RE)
+      if (marker) toks.push(marker[0])
+      if (!toks.length) { bad.push(`"${e.slice(0, QUOTE_CHARS)}" — NEW names no ★token or LORAMER_*_V<n> marker`); continue }
+      for (const t of toks) {
+        const home = resolveInDocs(t, docs)
+        if (home) bad.push(`${t} is declared NEW but already lives in ${home} — grep it before minting (ESSENCE law 7)`)
+        else declaredNew.add(t)
+      }
+      continue
+    }
+    // FORM file:line "quote" — for untokened rulings and source comments. Optional :end range, optional
+    // trailing ⇐ annotation. Every ≥4-char word of the quote must appear (case-insensitive) within
+    // ±QUOTE_WINDOW_LINES of the cited line(s) — verbatim quotes pass trivially; a paraphrase passes only
+    // when its content words are all really there, which is the fidelity bar that separates quoting from
+    // inventing ("dropped for a REMOVED ruling" fails on 'dropped' and 'predicate'; the real words pass).
+    const mQuote = e.match(/^(\S+?):(\d+)(?:\s*-\s*(\d+))?\s+"(.+?)"(?:\s*(?:⇐|<=)[\s\S]*)?$/)
+    if (mQuote) {
+      const [, file, l1, l2, quote] = mQuote
+      let body = null
+      try { body = readFileSync(resolve(root, file), 'utf8') } catch { /* fall through */ }
+      if (body === null) { bad.push(`${file} cannot be read from the repo root — a citation to an unreadable file verifies nothing`); continue }
+      const lines = body.split('\n')
+      const start = Math.max(0, Number(l1) - 1 - QUOTE_WINDOW_LINES)
+      const end = Math.min(lines.length, Number(l2 || l1) + QUOTE_WINDOW_LINES)
+      const windowText = lines.slice(start, end).join('\n').toLowerCase()
+      const contentWords = quote.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4)
+      const ok = contentWords.length
+        ? contentWords.every((w) => windowText.includes(w))
+        : windowText.includes(quote.toLowerCase())
+      if (!ok) {
+        const missing = contentWords.filter((w) => !windowText.includes(w))
+        bad.push(`the quote is NOT at ${file}:${l1}${l2 ? '-' + l2 : ''} (±${QUOTE_WINDOW_LINES} lines)${missing.length ? ` — missing word(s): ${missing.join(', ')}` : ''}. Read the file and quote what it actually says`)
+      }
+      continue
+    }
+    // FORM token ⇐ home — a ★token or LORAMER marker with its claimed home. A path-like home is re-read;
+    // otherwise the record docs are the corpus.
+    if (/⇐|<=/.test(e)) {
+      const [left, right] = e.split(/⇐|<=/).map((s) => s.trim())
+      const toks = [...left.matchAll(STAR_TOKEN_RE)].map((m) => trimTok(m[0]))
+      const marker = left.match(MARKER_RE)
+      if (marker) toks.push(marker[0])
+      if (!toks.length) { bad.push(`"${e.slice(0, QUOTE_CHARS)}" cites no ★token or LORAMER_*_V<n> marker — for prose rulings use the file:line "quote" form`); continue }
+      for (const t of toks) {
+        let found = resolveInDocs(t, docs)
+        if (!found && right && /[/.]/.test(right)) {
+          const homeFile = right.split(/[\s:]/)[0]
+          try { if (readFileSync(resolve(root, homeFile), 'utf8').includes(t)) found = homeFile } catch { /* stays unfound */ }
+        }
+        if (!found && !docsEmpty) bad.push(`${t} resolves NOWHERE — not in QUEUE, DECISIONS or the digest${right ? `, and not in "${right.slice(0, 40)}"` : ''}. A citation that cannot be found was never read`)
+      }
+      continue
+    }
+    bad.push(`"${e.slice(0, QUOTE_CHARS)}" is not a recognized CITED form`)
+  }
+  if (bad.length) return { ok: false, declaredNew, why: bad.join(' · ') }
+  return { ok: true, declaredNew, why: `${entries.length} citation(s), each verified against the repo${docsEmpty ? ' (record docs unreadable — token legs indeterminate, treated as clear)' : ''}` }
+}
+
 // ── THE EVALUATOR ─────────────────────────────────────────────────────────────────────────────────────────
-export function evaluate({ text, transcriptPath, decisionsText }) {
+export function evaluate({ text, transcriptPath, decisionsText, queueText = '', digestText = '', root = ROOT }) {
   const h = parseHeader(text)
   const overrides = parseOverrides(text)
   const failures = []
@@ -289,6 +399,26 @@ export function evaluate({ text, transcriptPath, decisionsText }) {
   const blastRaw = (h.BLAST || '').trim().toLowerCase().replace(/\(.*$/s, '').split(/[\s,;:]+/)[0] || ''
   const blast = BLAST_VALUES.get(blastRaw) ?? null
   const isFlight = String(text || '').length >= FLIGHT_MIN_CHARS || 'BLAST' in h || 'ROUND' in h
+
+  // LORAMER_GATE_NONHUMAN_ENVELOPE_V1 — THE CHANNEL IS NOT HUMAN-ONLY, measured 2026-08-26: a background
+  // task's completion notification (over FLIGHT_MIN_CHARS, zero protocol keys, opening with a
+  // <task-notification> tag) arrived on UserPromptSubmit and was refused — wedging the session, because the
+  // report it carried never reached the executor, and leaving no transcript trace, because a blocked prompt
+  // never enters the transcript. The defect PREDATES the CITED box: the pre-CITED gate fails the identical
+  // shape on BLAST/QUESTION/CONSTANTS (both versions driven side by side); FLIGHT_MIN_CHARS was derived
+  // from Russ's traffic alone and non-human submissions were never in its measurement set.
+  // THE RULE, the widest that cannot smuggle: first non-space characters open an XML-ish lowercase tag
+  // (<task-notification>, <system-reminder>, <local-command-stdout>, and whatever kind arrives next) AND the
+  // text carries NO protocol key — then it is a machine envelope and passes through. A real flight paste
+  // wrapped in such tags still carries its own KEY: lines, so it is graded exactly as before — the
+  // anti-smuggle half is the schema itself, which is the one thing a flight paste cannot shed and remain
+  // actionable. RESIDUAL, stated: a notification whose BODY happens to quote a `QUESTION:`-shaped line would
+  // be graded and refused; that is fail-closed in the safe direction and the guard pins the common shapes.
+  const isSystemEnvelope = /^\s*<[a-z][a-z0-9_-]*[\s>]/.test(String(text || ''))
+  const hasSchemaKeys = KEYS.some((k) => k in h)
+  if (isSystemEnvelope && !hasSchemaKeys) {
+    return { verdict: 'allow', reason: '', failures: [], overrides, exempt: 'non-human system envelope (opens with a machine tag, carries no protocol keys)' }
+  }
 
   // A short paste carrying no schema is conversation ("go", "push", "stop") and the gate has no opinion on it.
   if (!isFlight) return { verdict: 'allow', reason: '', failures: [], overrides, exempt: 'short conversational paste, no schema declared' }
@@ -308,6 +438,22 @@ export function evaluate({ text, transcriptPath, decisionsText }) {
 
   const c = constantsVerdict(h.CONSTANTS)
   if (!c.ok) failures.push({ box: 'CONSTANT-INHERITED-WITHOUT-DERIVATION', why: c.why, fix: `THREE accepted forms: (1) \`CONSTANTS: NAME=value ⇐ <at least ${MIN_DERIVATION_WORDS} words of derivation>\` · (2) \`CONSTANTS: NAME=value ⇐ measured YYYY-MM-DD N=<n>\` · (3) \`CONSTANTS: NONE\` alone OR with a reason after a dash, colon or comma — \`CONSTANTS: NONE — this flight asserts no numbers\` passes.` })
+
+  // LORAMER_CITED_GATE_V1 — the CITED box + the unconditional ★-token scan. Required on every flight paste,
+  // like CONSTANTS; the token scan runs regardless of the box so a fabricated ★token in the BODY cannot hide
+  // behind CITED: NONE.
+  const docs = { QUEUE: queueText, DECISIONS: decisionsText, digest: digestText }
+  const CITED_FIX = `FOUR accepted forms, one per line: (1) \`CITED: ★TOKEN ⇐ QUEUE\` (or a LORAMER_*_V<n> marker with its home file) — the hook re-reads the record itself · (2) \`CITED: <file>:<line> "<quote>"\` — every ≥4-letter word of the quote must really be within ±${QUOTE_WINDOW_LINES} lines · (3) \`CITED: NEW ★TOKEN\` — passes only if the token is genuinely absent from QUEUE/DECISIONS/digest · (4) \`CITED: NONE — <at least ${MIN_NONE_APPLICABLE_WORDS} words>\`. Pasted grep output is never accepted as proof; the hook runs its own read.`
+  const cited = citedVerdict(h.CITED, { docs, root })
+  if (!cited.ok) failures.push({ box: 'CITATION-NEVER-READ', why: cited.why, fix: CITED_FIX })
+  {
+    const docsEmpty = !Object.values(docs).some((b) => b && b.length)
+    if (!docsEmpty) {
+      const bodyToks = [...new Set([...String(text).matchAll(STAR_TOKEN_RE)].map((m) => trimTok(m[0])))]
+      const unresolved = bodyToks.filter((t) => !cited.declaredNew.has(t) && !resolveInDocs(t, docs))
+      if (unresolved.length) failures.push({ box: 'CITATION-NEVER-READ', why: `★token(s) in this paste resolve NOWHERE in QUEUE, DECISIONS or the digest: ${unresolved.join(', ')} — a token nobody minted was never read`, fix: `either the token is misspelled (grep §L for the real one), or it is genuinely new — declare it: \`CITED: NEW ${unresolved[0]}\`` })
+    }
+  }
 
   // THE PROPORTIONALITY RULE. Both rounds are demanded by CONSEQUENCE, never by question-shape.
   if (writesSomething(blast)) {
@@ -358,6 +504,7 @@ export function renderRefusal(res, meta) {
   L.push('')
   L.push(`THE SCHEMA (top of the paste): ${KEYS.join(' · ')}`)
   L.push('RESEARCH and ADVERSARY are required only when BLAST is not read-only — rounds attach to consequence.')
+  L.push('CITED is required on every flight paste: ★TOKEN ⇐ home · file:line "quote" · NEW ★TOKEN · NONE — <10+ words>.')
   if (meta?.promptKey) L.push(`[gate: read the paste from the "${meta.promptKey}" field]`)
   L.push('')
   L.push('YOUR PASTE IS NOT LOST — it is reproduced under "Original prompt:" directly below this refusal.')
@@ -433,8 +580,15 @@ async function main() {
 
   let decisionsText = ''
   try { decisionsText = readFileSync(resolve(ROOT, 'LORAMER_DECISIONS.md'), 'utf8') } catch { decisionsText = '' }
+  // LORAMER_CITED_GATE_V1 — the citation corpus. Measured 2026-08-26: all three docs = 4.47 MB, 16.7 ms to
+  // read — noise against the 30s hook budget. Unreadable docs degrade the token legs to indeterminate-clear
+  // (the inFlightVerdict posture), never to a refusal Russ cannot act on.
+  let queueText = ''
+  try { queueText = readFileSync(resolve(ROOT, 'LORAMER_QUEUE_OF_RECORD.md'), 'utf8') } catch { queueText = '' }
+  let digestText = ''
+  try { digestText = readFileSync(resolve(ROOT, 'LORAMER_RESUME_DIGEST.md'), 'utf8') } catch { digestText = '' }
 
-  const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText })
+  const res = evaluate({ text, transcriptPath: input.transcript_path, decisionsText, queueText, digestText, root: ROOT })
 
   const common = { round: res.header?.ROUND || null, question: res.header?.QUESTION || null, blast: res.header?.BLAST || null }
   const records = []

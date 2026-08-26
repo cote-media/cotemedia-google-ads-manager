@@ -6,10 +6,10 @@
     "line_count": 131
   },
   "CLAUDE.md": {
-    "content_hash": "75cd63e3c5a91cd96556158bc1b8eb2cdfb1bb24eac15bfb83d6f54121c3ebdf",
+    "content_hash": "410a4a8615a5154b9993064e18dd11c917e0b21a0b96cce19a92ff778851a005",
     "last_reconciled_date": "2026-08-26",
-    "last_reconciled_head": "3418df6",
-    "line_count": 190
+    "last_reconciled_head": "c2ce0a3",
+    "line_count": 195
   },
   "CONTINUE_HERE.md": {
     "content_hash": "b9a98de278d0c26cc3e3665e999e696b7f776effa7602fe695a2f798ba86ba37",
@@ -66,9 +66,9 @@
     "line_count": 1210
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "f246fba89f593e0ad8d6cfa4cf80559e53162a221ef43103aa6ad648d208fd07",
+    "content_hash": "070104cf5725b4777211d68b9a83f7df2cbe273a72a3c54bb9ff09663f101742",
     "last_reconciled_date": "2026-08-26",
-    "last_reconciled_head": "3418df6",
+    "last_reconciled_head": "c2ce0a3",
     "line_count": 3394
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
