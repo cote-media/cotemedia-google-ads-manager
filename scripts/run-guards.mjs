@@ -74,6 +74,10 @@ const GUARDS = [
   // path. Source-only, so it is safe in a Vercel build; the BEHAVIOURAL half writes to the database and
   // therefore lives in check:data as `check-restate-prune-live`, outside the deploy path.
   'tests/guards/google-restate-prune-capped.guard.mjs',
+  // LORAMER_DEPLOY_POLL_UNTIL_TERMINAL_V1 — PLACEMENT guard only (the one-block-output posture): the
+  // deploy-poll rule must live in CLAUDE.md's push section. Obedience is chat conduct and unenforceable
+  // by construction; the guard says so on its own green line.
+  'tests/guards/deploy-poll-terminal.guard.mjs',
   // LORAMER_WINDOW_PAST_CAPTURE_V1 — a window whose TAIL runs past the newest captured day may never read
   // 'covered'. THIS_MONTH and THIS_WEEK are TO-DATE (date-range.ts:81, :92) and end at TODAY, which forward
   // capture never writes — so they were verdicted COMPLETE every day with today silently absent.

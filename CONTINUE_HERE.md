@@ -1,3 +1,53 @@
+╔═══ SESSION CLOSE 2026-08-25/26 — FOUR SHIPS, ONE EXECUTED REPAIR, AND THE ARC NOW HAS A SHAPE: GET, THEN WIRE. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+⛔ **AND IT NOW HAS A PHASE STRUCTURE — LORAMER_GET_THEN_WIRE_V1 (Russ, 2026-08-25, DECISIONS owns it):**
+**GET** = the walk to one-click cold-client done-done, every grain, correctly — Lora's reach is NOT a GET
+condition. **WIRE** = Lora wired to all of it, then perfection/evals/95%. GET closes → WIRE opens.
+DONE-DONE's "LORA-WIRED" condition MOVED to WIRE and is named REMAINING, not dropped.
+
+── WHAT SHIPPED (DECISIONS LORAMER_SESSION_2026_08_25_V1 owns the full record) ──
+`02e79b7` forward restate (30-day range, ONE account-row producer — the seams proof caught a second
+producer on the one-click cold path that the guard's own four-file list read green over) · `8134806`
+capped-grain prune (a re-pulled day EQUALS the fresh payload; red→green on live rows) · `cb43bcb`
+ordinal respell EXECUTED (92,509 rows, 0 lost, 0 collisions, manifest-reversible) · `3418df6` UNDEFER-3
+(12→9, selectable 346→349; **all three families fired and ledgered on the FIRST post-deploy cron tick**,
+outcome `zero` = dormancy measurement, rows land when descend reaches ≤2026-04 ground).
+
+── ▶▶ NEXT STEP, AND IT HAS A CLOCK ──
+**★GATE-A-GOOGLE-FORWARD-RESTATE — ~08:08Z 2026-08-26. THE ONLY WINDOW. ONCE DAILY. ALREADY SLIPPED ONE
+CYCLE.** Prove on the fire: a MULTI-DAY range is REQUESTED and a PREVIOUSLY CAPTURED DAY UPDATES with
+restated values. ⛔ Rows written ≠ days restated — the read is a BEFORE/AFTER diff on an already-held day.
+
+── THE GET QUEUE, IN ORDER (all tokens live in QUEUE_OF_RECORD with their measured numbers) ──
+1 ★GATE-A-GOOGLE-FORWARD-RESTATE (above) · 2 ★UNDEFER-3-SIZE-READ (Gate-B: real GB when the three reach
+active ground — the fleet decision waits on this figure + the cold-tier archive, 276 GB vs 92.54 GB
+headroom) · 3 ★FALSE-WALL-SURFACES-REWALK (to inception; 182,660 rows already recaptured) ·
+4 ★TOP-EDGE-LANE-AT-42-PERCENT (now /349) · 5 ★FORWARD-CAPTURE-COVERS-217-FEWER-SURFACES (now 220/349) ·
+6 ★ORDINAL-CLASS-REMAINDER (4,092,303 rows, 30 levels; 3,751 LEGACY-level rows render as "2"/"3"/"4" to
+Lora TODAY — small, shipped repair shape) · 7 ★ORDINAL-HOUR-CLASS-UNMEASURED (one query) ·
+8 ★REFUSAL-STATUS-UNMEASURED-READ-AS-CLEAN (942 entries) · 9 ★DEFERRED-9-REMAIN (re-open only on the
+cold-tier archive).
+
+── THE WIRE QUEUE — SCOPED THIS SESSION, DO NOT RE-DERIVE AND DO NOT WORK BEFORE THE GATE ──
+★LORA-CANNOT-REACH-VENDOR-GRAINS — Lora reaches 52 of 346 walked surfaces; 294 dark, 126 FAMILY-dark
+(cannot answer at all, incl. all shopping/merchant-feed). The tool's schema PROMISES vendor entityLevels
+while metrics-query.ts:651 silently discards them. Fix is contained (one function, 4 readers,
+append-after-six preserves anti-double-count ordering) and EVAL-GATED. ★GEO-PRESENCE-LABEL-UNSPECIFIED
+folds into the same flight (~5 lines): presence-vs-target — the whole point of the un-deferred geo
+families — currently labels 'unspecified'.
+
+── STANDING, UNCHANGED ──
+· Five capture lanes, walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
+· The 8 standing check:data reds are queue-owned; the verdict line is quoted on every push per CLAUDE.md.
+· NEW conduct rule with a placement guard: a push report is INCOMPLETE until the deploy is TERMINAL
+  (LORAMER_DEPLOY_POLL_UNTIL_TERMINAL_V1, CLAUDE.md push section — two stalls today bought it).
+· NEW LIVING DOC: docs/LORAMER_WALK_PROVENANCE.md — the walk's hard-won method, indexed (10 entries);
+  every future walk flight appends its own.
+· Meta human-list empty; next credential trigger week of 2026-11-20/21. Reference = the LIVE HEALTH ROW.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 ╔═══ SESSION CLOSE 2026-08-24/25 — THE WALL WAS OURS. THREE COMMITS, TWO ROWS DELETED, SIX LAWS. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
