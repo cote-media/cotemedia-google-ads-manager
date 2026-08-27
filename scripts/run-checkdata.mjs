@@ -105,6 +105,9 @@ const CHECKS = [
   // producer's first fire) — the fixed producer's 30-day restate window self-heals the hole on its next
   // fire, so this leg is the Gate-B that proves it; a red here after that fire is a live regression.
   { name: 'google-forward-account-day', cmd: ['scripts/check-google-forward-account-day.mjs'] },
+  // LORAMER_ORDINAL_HOUR_RESPELL_V1 — registered AFTER the approved merge flipped it green (designed-red
+  // before execution, per the device-respell precedent): zero single-digit hour rows, no two-spelling keys.
+  { name: 'hour-spelling-merge', cmd: ['scripts/check-hour-spelling-merge.mjs'] },
   // LORAMER_ORDINAL_DEVICE_RESPELL_V1 — registered ONLY AFTER the Russ-authorized execution flipped it
   // green (it was designed-red before that, and registering a designed-red check would have painted the
   // board red for a state that was awaiting his word). Leg (a) holds the repaired state — zero ordinal

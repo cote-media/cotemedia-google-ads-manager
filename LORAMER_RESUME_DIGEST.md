@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-26T22:41:05.677Z
-- built_from HEAD: 257cee2baea7aa467c5419da40b0da48443a2fc4  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-27T01:58:43.354Z
+- built_from HEAD: 8bf225aae118386efc630e537fba11de38e7fc39  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -18,7 +18,7 @@
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
     - CONTINUE_HERE.md: b9a98de278d0c26cc3e3665e999e696b7f776effa7602fe695a2f798ba86ba37
     - LORAMER_DECISIONS.md: a6e09772d006d12234f2706ac824966b2c06858eca4ced77b7f5dcf74b1ba325
-    - LORAMER_QUEUE_OF_RECORD.md: 03bb6b81bc40584eec021c135fe1e66aa85ca6368f00c8747bf0b23e80d35636
+    - LORAMER_QUEUE_OF_RECORD.md: a05527480b70758a86dfdecc46961f1ab6f62666f4430d344eaa1d99e45b79a2
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -989,7 +989,7 @@ EVERYTHING ELSE IS OWNED ELSEWHERE, NOT RESTATED IN THIS OPENER: external-gate +
 - [DG] META TOKEN — ✅ **RE-ARM DISCHARGED 2026-08-22: the reconnect passes refreshed the token (debug_token: valid · token expiry NEVER · data-access to 2026-11-20). Next human touch ≈ NOVEMBER 2026. All 12 real rows healthy (re-measured 2026-08-23: 12/12, last_ok 08:08:41Z–08:26:10Z).** ⛔ **THE "~08-25 RE-ARM / ~08-30 CLIFF" CLOCK IS RETIRED AS FALSE — `meta_tokens` HAS NO EXPIRY COLUMN and never did, so no row could ever have sourced it: [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]] owns the retirement, the measured replacement (estate-wide next trigger = the week of 2026-11-20/21) and the standing rule that the reference is the LIVE HEALTH ROW, never a remembered date.** The ~08-25/~08-30 strings below are TENSE-LOCKED HISTORY and are not a clock. HISTORICAL ENTRY FOLLOWS. — [DG] META TOKEN — ⛔ **RANK: T0-CLASS WHEN THE CLOCK ARRIVES — re-arm ~2026-08-25, cliff ~2026-08-30, 12 ad accounts ride it; ranked 2026-08-10 so open-item filters return it (it previously carried status 're-armed' and no rank).** ⛔ **RE-ARM RESEARCH DESCOPED — RUSS, 2026-08-13: no research flight runs for this clock; the cliff ~08-30 stands unresearched, and the plan is exactly the proven admin-valve refresh (~08-25) that worked on 2026-07-01. Recorded so the absence of a research flight reads as a decision, not an omission.** ✅ REFRESHED 2026-07-01 via /api/admin/meta-token-write (updated_at 07-01, new cliff ~2026-08-30; 12 ad accounts ride it — the earlier "7" was stale). Verified stored + live-valid (fb_user_id 10242550452717848). Re-armed: next deliberate refresh ~2026-08-25 via the admin valve. NOTE the app's self-serve reconnect is REPAIRED 2026-07-02 (LORAMER_META_CALLBACK_ONCONFLICT_V1 — callback onConflict fix shipped; Meta review approved, freeze lifted for that file). src: CONTINUE_HERE date-gated#1, 2026-07-01. re-armed
 - [DG] cote@ META TOKEN early-refresh — ⛔ **RETIRED 2026-08-23 AS FALSE, not completed.** This item existed only to "early-verify" a hard expiry of ~2026-08-30 that was never confirmable, because **`meta_tokens` has no expiry column** — the timeline it verified was invented, so verifying it early could only ever have confirmed a guess. [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]] owns the retirement and the measured replacement; the Meta boundary that IS real (data-access 2026-11-20, from a live debug_token read) is owned by the [DG] META TOKEN line ABOVE — pointer, not a copy. Standing reference: the live `platform_connections.health` row, never a remembered date. src: 2026-07-09 remote-control bank; retired on the 2026-08-23 reconnect issue round's measurement. closed [DG]
 - [DG] META GRAPH v21.0 SUNSET 2027-01-21 — the code's pinned Graph version dies then (measured 2026-08-10; current head v26.0). Re-pin within the year; rides ★PLATFORM-VERSION-MAINTENANCE-PRACTICE. src: 2026-08-10 stack-currency verify. open
-- [DG] google-ads-api v23 SUNSET ~2027-02 — the installed library speaks API v23 (quarterly majors, one year of support from v23 on). Upgrade window per DECISIONS: AFTER Gate-B proves the walk, with a green baseline to diff. src: 2026-08-10 stack-currency verify. open
+- [DG] google-ads-api v23 SUNSET ~2027-02 — the installed library speaks API v23 (quarterly majors, one year of support from v23 on). Upgrade window per DECISIONS: AFTER Gate-B proves the walk, with a green baseline to diff. src: 2026-08-10 stack-currency verify. ⛔ **RIDER 2026-08-26 (LORAMER_ORDINAL_HOUR_RESPELL_V1 round 2): the upgrade flight MUST re-run the hourly deep probe as its own Gate-A** — SELECT with segments.hour for a date >37 months back (the 2026-08-26 probe shape: 2022-06 week, 225 rows on v23). The segmentation doc's 37-month hourly wall was FALSIFIED on v23 by live probe, but its error classes are version-split (v24+ REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED), so v24 may begin to enforce — if the probe errors on the new major, deep hourly re-fetch is gone and any hour-history repair must precede the upgrade. open
 - [DG] GOOGLE ADS Tool Change Form submitted 2026-06-19 (permissible-use external/reporting); MONITOR russ@; if no reply by 2026-06-26 resubmit/escalate; GATE: no external self-serve Google until API Center reads external. src: CONTINUE_HERE#3. open
 - [DG] GOOGLE ADS STANDARD ACCESS ESCALATION — form FILED 2026-08-12 (Russ; DECISIONS owns the record). ⛔ DO-NOT-REAPPLY while pending — a duplicate application resets the queue. FOLLOW-UP TRIGGER ~2026-08-19: if no response, follow up via the adwords-api forum citing the MCC ID (Russ holds the ID + receipt). The 15,000 ops/day Basic cap binds every Google lane until granted. src: Russ paste 2026-08-12. open [DG]
 - Influential Drones Meta probe — SETTLED alive-but-empty (optional unfiltered confirm). src: CONTINUE_HERE#2. open(optional)
@@ -2077,7 +2077,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - [DG] ★9-30-IS-THE-GOVERNING-DATE — ⛔ **2026-09-30 IS THE DATE EVERY OTHER ITEM ON THIS BOARD IS RANKED AGAINST, AND UNTIL 2026-08-21 IT WAS THE ONE CLOCK THIS SECTION DID NOT CARRY** — the Meta cliff, the Graph sunset and the Google forms were all here; the date that governs them was not, so a session reading §F got every deadline except the one that decides what is worth doing. **MEASURED 2026-08-21: 40 days out.** ⛔ **WHAT IT GATES: the five 9/30-blocking items, named by token rather than re-listed so this line cannot drift from them** — LORA-VOICE, [[★CHAT-STATUS-INDICATOR]], [[★CHAT-STREAMING]], HOMEPAGE UNIFICATION (⚠ parked while the Google Standard Access review is pending — it would change the very surface Google asked us to clarify), and the demo spine (dashboard walk + voice-directed Lora). CONTINUE_HERE's head block owns the narrative and the ranking; this line owns the CLOCK. ⚠ **THE COUNTDOWN IS A DATED MEASUREMENT, NOT A LIVE VALUE** — recompute it from the date, never read the number off this line. ⛔ **RE-RANKED 2026-08-22 BY THE PRIORITY LAW (ESSENCE: CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD, Russ):** the five items this line gates are POLISH and now rank BEHIND capture (the walk) and Lora — the CLOCK stands, the ranking it used to imply does not. CONTINUE_HERE's head carries the corrected ranking. src: 2026-08-21 resume-flow audit; the five-item list is Russ's, 2026-08-21. open [LC]
 - [DG] META TOKEN — ✅ **RE-ARM DISCHARGED 2026-08-22: the reconnect passes refreshed the token (debug_token: valid · token expiry NEVER · data-access to 2026-11-20). Next human touch ≈ NOVEMBER 2026. All 12 real rows healthy (re-measured 2026-08-23: 12/12, last_ok 08:08:41Z–08:26:10Z).** ⛔ **THE "~08-25 RE-ARM / ~08-30 CLIFF" CLOCK IS RETIRED AS FALSE — `meta_tokens` HAS NO EXPIRY COLUMN and never did, so no row could ever have sourced it: [[LORAMER_META_CLIFF_WAS_A_SELF_INVENTED_CONSTANT_V1]] owns the retirement, the measured replacement (estate-wide next trigger = the week of 2026-11-20/21) and the standing rule that the reference is the LIVE HEALTH ROW, never a remembered date.** The ~08-25/~08-30 strings below are TENSE-LOCKED HISTORY and are not a clock. HISTORICAL ENTRY FOLLOWS. — [DG] META TOKEN — ⛔ **RANK: T0-CLASS WHEN THE CLOCK ARRIVES — re-arm ~2026-08-25, cliff ~2026-08-30, 12 ad accounts ride it; ranked 2026-08-10 so open-item filters return it (it previously carried status 're-armed' and no rank).** ⛔ **RE-ARM RESEARCH DESCOPED — RUSS, 2026-08-13: no research flight runs for this clock; the cliff ~08-30 stands unresearched, and the plan is exactly the proven admin-valve refresh (~08-25) that worked on 2026-07-01. Recorded so the absence of a research flight reads as a decision, not an omission.** ✅ REFRESHED 2026-07-01 via /api/admin/meta-token-write (updated_at 07-01, new cliff ~2026-08-30; 12 ad accounts ride it — the earlier "7" was stale). Verified stored + live-valid (fb_user_id 10242550452717848). Re-armed: next deliberate refresh ~2026-08-25 via the admin valve. NOTE the app's self-serve reconnect is REPAIRED 2026-07-02 (LORAMER_META_CALLBACK_ONCONFLICT_V1 — callback onConflict fix shipped; Meta review approved, freeze lifted for that file). src: CONTINUE_HERE date-gated#1, 2026-07-01. re-armed
 - [DG] META GRAPH v21.0 SUNSET 2027-01-21 — the code's pinned Graph version dies then (measured 2026-08-10; current head v26.0). Re-pin within the year; rides ★PLATFORM-VERSION-MAINTENANCE-PRACTICE. src: 2026-08-10 stack-currency verify. open
-- [DG] google-ads-api v23 SUNSET ~2027-02 — the installed library speaks API v23 (quarterly majors, one year of support from v23 on). Upgrade window per DECISIONS: AFTER Gate-B proves the walk, with a green baseline to diff. src: 2026-08-10 stack-currency verify. open
+- [DG] google-ads-api v23 SUNSET ~2027-02 — the installed library speaks API v23 (quarterly majors, one year of support from v23 on). Upgrade window per DECISIONS: AFTER Gate-B proves the walk, with a green baseline to diff. src: 2026-08-10 stack-currency verify. ⛔ **RIDER 2026-08-26 (LORAMER_ORDINAL_HOUR_RESPELL_V1 round 2): the upgrade flight MUST re-run the hourly deep probe as its own Gate-A** — SELECT with segments.hour for a date >37 months back (the 2026-08-26 probe shape: 2022-06 week, 225 rows on v23). The segmentation doc's 37-month hourly wall was FALSIFIED on v23 by live probe, but its error classes are version-split (v24+ REQUESTED_DATE_GRANULARITY_NOT_SUPPORTED), so v24 may begin to enforce — if the probe errors on the new major, deep hourly re-fetch is gone and any hour-history repair must precede the upgrade. open
 - [DG] GOOGLE ADS Tool Change Form submitted 2026-06-19 (permissible-use external/reporting); MONITOR russ@; if no reply by 2026-06-26 resubmit/escalate; GATE: no external self-serve Google until API Center reads external. src: CONTINUE_HERE#3. open
 - [DG] GOOGLE ADS STANDARD ACCESS ESCALATION — form FILED 2026-08-12 (Russ; DECISIONS owns the record). ⛔ DO-NOT-REAPPLY while pending — a duplicate application resets the queue. FOLLOW-UP TRIGGER ~2026-08-19: if no response, follow up via the adwords-api forum citing the MCC ID (Russ holds the ID + receipt). The 15,000 ops/day Basic cap binds every Google lane until granted. src: Russ paste 2026-08-12. open [DG]
 - Woo revenue reconciliation (TOP-OF-QUEUE) — repo-verified 2026-06-22: (a) order-count-vs-items labeling FIXED (4ba1bf9 LORAMER_WOO_ORDERS_VS_ITEMS_LABEL_V1 + 218d091; totalOrders=saleOrders.length distinct); (b) product-net CLOSED by Fix-1b (3e74e0b, Σproduct≡account o.total basis). REMAINING = the WC-Analytics-API exact-subtotal-net-to-match-her-admin path (no wc-analytics code exists in repo) = the BANKED Path-1 subtotal re-base (near-zero likelihood). src: CONTINUE_HERE TOP-OF-QUEUE(1) + commits. mostly-closed; WC-Analytics path banked [LC]
@@ -2356,10 +2356,10 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1019 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
-138 decision-only · 526 queue-only.
+TOTALS: 1023 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
+138 decision-only · 530 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
-263 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
+262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
   · [decision] - GOVERNING LAW: capture EVERYTHING from EVERYWHERE, store FOREVER (until cancel), at FULL grain…
   · [decision] - BEDROCK — TOTAL DATA CAPTURE: on connecting ANY source, auto-capture+backfill every grain/dime…
@@ -2547,6 +2547,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FILLDONE-TOLERATES-ONE-WORD-TITLES — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FIRST-FAILURE-AT-UNDERREPORTS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★FIVE-MEASURED-FIELDS-NO-CONSUMER — DONE · decisions 0 · queue 1 · last 2026-08-25
+- ★FLEET-METER-BLIND-TO-SEALED-STRIP-ASKS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-METER-DRIFT-FLICKERS — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FLEET-ROLLOUT-BLOCKED-ON-THREE-THINGS — OPEN · decisions 0 · queue 2 · last 2026-08-17
 - ★FLEET-SPEND-OMITS-INTELLIGENCE-LANE — OPEN · decisions 1 · queue 2 · last 2026-08-11
@@ -2721,7 +2722,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★ORDER-GRAIN-STEP-2-BACKFILL — OPEN · decisions 0 · queue 1 · last 2026-07-26
 - ★ORDER-LEVEL-STORAGE — OPEN · decisions 3 · queue 9 · last 2026-09-30
 - ★ORDINAL-CLASS-REMAINDER — DONE · decisions 0 · queue 1 · last 2026-08-25
-- ★ORDINAL-HOUR-CLASS-UNMEASURED — DONE · decisions 0 · queue 1 · last 2026-08-25
+- ★ORDINAL-HOUR-CLASS-UNMEASURED — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★ORPHAN-SHOPIFY-TOKEN-ROWS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★ORPHANED-CURSOR-CLEANUP — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★OVER-REFUSAL-ON-CAPTURED-DISCONTINUITY — DONE · decisions 0 · queue 1 · last 2026-08-16
@@ -2924,6 +2925,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_BREAKDOWN_SQL_AGG_V1 — DONE · decisions 2 · queue 1 · last 2026-07-16
 - LORAMER_CAMPAIGN_TYPE_MATRIX_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-01
 - LORAMER_CANONICAL_CLIENT_REGISTRY_V1 — DONE · decisions 1 · queue 1 · last 2026-08-23
+- LORAMER_CANONICAL_KEY_SPELLING_V1 — DONE · decisions 0 · queue 1 · last 2026-08-26
 - LORAMER_CAPABILITY_DENOMINATOR_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-03
 - LORAMER_CAPTURE_FACTS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_CAPTURE_LIMIT_IS_MEASURED_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-06
@@ -3078,6 +3080,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_GOOGLE_DRAIN_THROTTLE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-19
 - LORAMER_GOOGLE_GEO_IS_WRITE_PATH_NOT_QUOTA_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
+- LORAMER_GOOGLE_HOUR_CAPTURE_V1 — DONE · decisions 0 · queue 1 · last 2026-08-26
 - LORAMER_GOOGLE_HOUR0_NOTE_V1 — DONE · decisions 1 · queue 2 · last 2026-07-10
 - LORAMER_GOOGLE_LANE_ALLOCATION_V1 — OPEN · decisions 2 · queue 2 · last 2026-08-11
 - LORAMER_GOOGLE_OP_BUDGET_BACKFILL_LANE_COUNTED_V3 — DONE · decisions 1 · queue 1 · last 2026-08-06
@@ -3241,6 +3244,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_OPUS5_MIGRATION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-24
 - LORAMER_ORDER_GRAIN_NOSTORE_READ_V1 — OPEN · decisions 3 · queue 2 · last 2026-07-31
 - LORAMER_ORDER_LEVEL_STORAGE_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-25
+- LORAMER_ORDINAL_HOUR_RESPELL_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-26
 - LORAMER_ORG_TYPE_PERSIST_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-12
 - LORAMER_OUTSIDE_SHELL_LOSES_WHAT_SHELL_PROVIDES_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-27
 - LORAMER_PARENT_ANALYZE_SCHEDULED_V1 — DONE · decisions 0 · queue 1 · last 2026-08-04

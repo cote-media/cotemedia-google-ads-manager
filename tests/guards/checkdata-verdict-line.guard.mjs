@@ -109,6 +109,7 @@ const EXPECTED_ROSTER = [
   // and exit), which is why it is on this roster and not in `npm run guard`.
   'scripts/check-restate-prune-live.mjs',
   'scripts/check-google-forward-account-day.mjs', // LORAMER_GOOGLE_ACCOUNT_ZERO_DAY_V1 — pinned in the same commit that registered it
+  'scripts/check-hour-spelling-merge.mjs', // LORAMER_ORDINAL_HOUR_RESPELL_V1 — pinned in the same commit that registered it (post-execution green)
   // LORAMER_ORDINAL_DEVICE_RESPELL_V1 — pin moved deliberately, in the same commit as the registration.
   'tests/guards/device-respell-scope.guard.mjs',
   'scripts/check-nongrain-window-resolves.mjs',
