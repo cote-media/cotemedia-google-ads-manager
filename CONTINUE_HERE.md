@@ -1,3 +1,75 @@
+╔═══ SESSION CLOSE 2026-08-26 — FIVE SHIPS, THE HOUR AXIS DONE-DONE, AND THE DEVICE MERGE APPROVED: TOMORROW OPENS AT EXECUTE. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+GET → WIRE phase structure unchanged (DECISIONS LORAMER_GET_THEN_WIRE_V1); this is all GET.
+
+── ▶▶ NEXT STEP — ★ORDINAL-CLASS-REMAINDER LEGACY DEVICE MERGE: **APPROVED 2026-08-26, AWAITING EXECUTION ONLY** ──
+Three rounds ran (research → adversary → manifest, all read-only); every number below is measured and survived
+attack. ⛔ DO NOT RE-DERIVE ANY OF IT. Open the flight at EXECUTE.
+- ⛔ **RE-MEASURE GATE, ONE LINE FIRST:** re-measure legacy_total=3,751 · twins=143 · pure=3,608 live — **STOP
+  on any difference.** (Zero ordinal writers remain, the class cannot GROW — but the NAMED side has live
+  writers (they touched the span as recently as 2026-08-23/24), so twins can grow and pure can convert.)
+- CANON, adversary-verified: 2→MOBILE 3→TABLET 4→DESKTOP 5→OTHER 6→CONNECTED_TV. Proof = the warehouse's own
+  143 twins (2/3/4 direct, 6 direct ×3, 5 by bijective elimination) + the installed decode table
+  (google-ads-api 23.0.0, google-ads-node protos.json: OTHER:5, CONNECTED_TV:6). The docs page lists
+  declaration order with numbers hidden — that was the "docs reading" the canon comment overrode; canon is RIGHT.
+- MANIFEST (Foam OH only, 2022-03-05→2023-06-27): **PURE RESPELL 3,608** (campaign 1,938 · ad_group 1,670;
+  $98,885.88 / 8,743,118 impr) + **TWIN MERGE 143** (campaign 79 · ad_group 64; $3,391.32 / 442,712 impr —
+  the double-counted excess). All 143 twins IDENTICAL across all 21 non-key non-lineage columns (re-proven
+  per-row, 0 divergent).
+- LINEAGE RULING (settled by reading, not preference): the NAMED row survives the key and INHERITS the
+  ordinal's account_id at BOTH levels (zero readers of account_id on metrics rows — but don't ship a poorer
+  row) and the ordinal's parent_entity_id at CAMPAIGN only (= the documented customer-id semantic,
+  metrics-query.ts:623-624; makes 79 rows drillable). The 64 ad_group named rows KEEP NULL parent — the
+  ordinal's parent there is the ACCOUNT id, wrong-shaped vs the campaign-id convention; absence over a wrong fact.
+- MECHANICS (hour-merge shape): manifest table `metrics_daily_device_legacy_respell_manifest_20260826`, FULL
+  copies of all 3,894 touched rows (3,608 respell + 143 twin ordinals + 143 surviving named), action-tagged.
+  Twins: UPDATE named lineage from ordinal → DELETE ordinal with identity re-proved INSIDE the DELETE's own
+  predicate (all 21 columns). Pure: keyed UPDATE breakdown_value → name. ROLLBACK: respell → UPDATE-back to
+  the digit · deleted twin → re-INSERT · lineage → UPDATE-back to NULL.
+- ACCEPTANCE (span 2022-03-01→2023-06-30, both EXACT): buckets 10 → **EXACTLY 5** at EACH level; campaign
+  impr 6,981,529 → **6,611,237** / spend $73,364.86 → $70,948.85; ad_group impr 2,655,939 → **2,583,519** /
+  spend $32,394.29 → $31,418.98.
+- GUARD, ALREADY SEEN RED AT THE TRUE COUNTS: `scripts/check-device-legacy-spelling-merge.mjs` (ships in this
+  wrap UNREGISTERED — the device-respell-scope precedent for a designed-red check) — red quoted: (a) 3751
+  ordinal rows, (b) 143 twins. Registration in run-checkdata + verdict pin 32→33 belong to the EXECUTION commit.
+- GUARD AMENDMENT, SAME EXECUTION COMMIT: `.device-respell-scope-baseline.json` legacy_campaign 2017→0 ·
+  legacy_ad_group 1734→0 (leg b2 must not blame the ruled fix for the shrink). Leg b1 stays untouched — the
+  legacy repair is its OWN gated script; `respell-device-ordinals.mjs` may not name the legacy levels.
+
+── GATE-B CLOCKS, BOTH AT TOMORROW'S ~08:08Z GOOGLE FORWARD FIRE (2026-08-27) ──
+- **google-forward-account-day** (check:data leg, red 8/18): the 30-day restate window heals the 8 remaining
+  clients' account rows at the fire — the leg flips green on its own; read it after the fire.
+- **★GATE-A-GOOGLE-FORWARD-RESTATE**: one-query BEFORE/AFTER diff of already-held Bath Fitter days against
+  the baseline taken this morning — **repo copy `.google-restate-baseline-bathfitter-20260826.tsv`** (the
+  scratchpad original dies with the 08-26 session; the repo copy is the one to diff).
+
+── WHAT SHIPPED 2026-08-26 (git owns the full messages) ──
+`ff2140a` account zero-day — dormant days hold an account row again at the ONE producer, catchup inherits,
+30-day restate self-heals the fleet · `257cee2` anchor-missing guard — an absent account anchor now REFUSES
+the campaign write instead of passing silently as zero · `8bf225a` sealed-strip pass — a floor-sealed surface
+still gets its top strip, the top-edge lane publishes at fleet-terminal (349/349 descent-floor milestone
+banked) · `05016df` hour merge EXECUTED — 18,073 rows one spelling, 695 twins deleted identity-proven,
+manifest-reversible · `4c5782a` CITED gate — 8th protocol field, hook-verified citations + non-human envelope
+exemption.
+
+── THE GET QUEUE — STATE AT WRAP (tokens live in QUEUE_OF_RECORD) ──
+1 forward-restate: **proving at the 08:08Z fire** (clock above) · 2 undefer-3 size: **MEASURED 4.31 GB/client
+— the fleet-rollout call is RUSS'S**, with the cold-tier archive · 3 false-wall rewalk: untouched ·
+4 top-edge lane: closed-pending-Gate-B (owed 3,186 draining at the sealed-strip cadence) · 5 forward-writer
+coverage: closed-pending-Gate-B · 6 legacy device merge: **APPROVED — the next-step block above** · 7 hour
+class: **DONE-DONE** · 8 refusal-status: measured LATENT (0 walked-unprobed refusals) · 9 deferred-9:
+unchanged, cold-tier gated.
+
+── STANDING ──
+· Five capture lanes, walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
+· The standing check:data reds are queue-owned (at wrap: 10 red + 1 crashed; hour leg GREEN as designed;
+  fleet-meter and the two Gate-B clocks are the movers). Verdict line quoted verbatim on every push.
+· Deploy-poll-until-terminal + one-block output + CITED gate all bind as before; wait-commands rule and the
+  CITED governance loophole are now QUEUE tokens (★WAIT-COMMANDS-ARE-INSTRUMENTS · ★CITED-GOVERNANCE-LOOPHOLE).
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
 ╔═══ SESSION CLOSE 2026-08-25/26 — FOUR SHIPS, ONE EXECUTED REPAIR, AND THE ARC NOW HAS A SHAPE: GET, THEN WIRE. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**

@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-08-27T01:58:43.354Z
-- built_from HEAD: 8bf225aae118386efc630e537fba11de38e7fc39  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-08-28T10:59:49.996Z
+- built_from HEAD: 05016df55de640587d146cdf42c5700ffc35f308  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: b9a98de278d0c26cc3e3665e999e696b7f776effa7602fe695a2f798ba86ba37
-    - LORAMER_DECISIONS.md: a6e09772d006d12234f2706ac824966b2c06858eca4ced77b7f5dcf74b1ba325
-    - LORAMER_QUEUE_OF_RECORD.md: a05527480b70758a86dfdecc46961f1ab6f62666f4430d344eaa1d99e45b79a2
+    - CONTINUE_HERE.md: 5cb386a4dfe7a5e23631e6415118f975ec51fc72746e4a607dcf8642f9fc9264
+    - LORAMER_DECISIONS.md: 32874a3c0e5bf45b7a1d62165bfc77cc1b5d3bf3a1d0d22c98301e6164428d33
+    - LORAMER_QUEUE_OF_RECORD.md: 01e372c82835a81fca18caae680f460cdfb1223d0bec6f155d919d8ecfa60b21
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -522,57 +522,79 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
-═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-08-25). THIS IS THE NEXT STEP. ═══
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-08-26). THIS IS THE NEXT STEP. ═══
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-08-25/26 — FOUR SHIPS, ONE EXECUTED REPAIR, AND THE ARC NOW HAS A SHAPE: GET, THEN WIRE. ═══╗
+╔═══ SESSION CLOSE 2026-08-26 — FIVE SHIPS, THE HOUR AXIS DONE-DONE, AND THE DEVICE MERGE APPROVED: TOMORROW OPENS AT EXECUTE. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
-⛔ **AND IT NOW HAS A PHASE STRUCTURE — LORAMER_GET_THEN_WIRE_V1 (Russ, 2026-08-25, DECISIONS owns it):**
-**GET** = the walk to one-click cold-client done-done, every grain, correctly — Lora's reach is NOT a GET
-condition. **WIRE** = Lora wired to all of it, then perfection/evals/95%. GET closes → WIRE opens.
-DONE-DONE's "LORA-WIRED" condition MOVED to WIRE and is named REMAINING, not dropped.
+GET → WIRE phase structure unchanged (DECISIONS LORAMER_GET_THEN_WIRE_V1); this is all GET.
 
-── WHAT SHIPPED (DECISIONS LORAMER_SESSION_2026_08_25_V1 owns the full record) ──
-`02e79b7` forward restate (30-day range, ONE account-row producer — the seams proof caught a second
-producer on the one-click cold path that the guard's own four-file list read green over) · `8134806`
-capped-grain prune (a re-pulled day EQUALS the fresh payload; red→green on live rows) · `cb43bcb`
-ordinal respell EXECUTED (92,509 rows, 0 lost, 0 collisions, manifest-reversible) · `3418df6` UNDEFER-3
-(12→9, selectable 346→349; **all three families fired and ledgered on the FIRST post-deploy cron tick**,
-outcome `zero` = dormancy measurement, rows land when descend reaches ≤2026-04 ground).
+── ▶▶ NEXT STEP — ★ORDINAL-CLASS-REMAINDER LEGACY DEVICE MERGE: **APPROVED 2026-08-26, AWAITING EXECUTION ONLY** ──
+Three rounds ran (research → adversary → manifest, all read-only); every number below is measured and survived
+attack. ⛔ DO NOT RE-DERIVE ANY OF IT. Open the flight at EXECUTE.
+- ⛔ **RE-MEASURE GATE, ONE LINE FIRST:** re-measure legacy_total=3,751 · twins=143 · pure=3,608 live — **STOP
+  on any difference.** (Zero ordinal writers remain, the class cannot GROW — but the NAMED side has live
+  writers (they touched the span as recently as 2026-08-23/24), so twins can grow and pure can convert.)
+- CANON, adversary-verified: 2→MOBILE 3→TABLET 4→DESKTOP 5→OTHER 6→CONNECTED_TV. Proof = the warehouse's own
+  143 twins (2/3/4 direct, 6 direct ×3, 5 by bijective elimination) + the installed decode table
+  (google-ads-api 23.0.0, google-ads-node protos.json: OTHER:5, CONNECTED_TV:6). The docs page lists
+  declaration order with numbers hidden — that was the "docs reading" the canon comment overrode; canon is RIGHT.
+- MANIFEST (Foam OH only, 2022-03-05→2023-06-27): **PURE RESPELL 3,608** (campaign 1,938 · ad_group 1,670;
+  $98,885.88 / 8,743,118 impr) + **TWIN MERGE 143** (campaign 79 · ad_group 64; $3,391.32 / 442,712 impr —
+  the double-counted excess). All 143 twins IDENTICAL across all 21 non-key non-lineage columns (re-proven
+  per-row, 0 divergent).
+- LINEAGE RULING (settled by reading, not preference): the NAMED row survives the key and INHERITS the
+  ordinal's account_id at BOTH levels (zero readers of account_id on metrics rows — but don't ship a poorer
+  row) and the ordinal's parent_entity_id at CAMPAIGN only (= the documented customer-id semantic,
+  metrics-query.ts:623-624; makes 79 rows drillable). The 64 ad_group named rows KEEP NULL parent — the
+  ordinal's parent there is the ACCOUNT id, wrong-shaped vs the campaign-id convention; absence over a wrong fact.
+- MECHANICS (hour-merge shape): manifest table `metrics_daily_device_legacy_respell_manifest_20260826`, FULL
+  copies of all 3,894 touched rows (3,608 respell + 143 twin ordinals + 143 surviving named), action-tagged.
+  Twins: UPDATE named lineage from ordinal → DELETE ordinal with identity re-proved INSIDE the DELETE's own
+  predicate (all 21 columns). Pure: keyed UPDATE breakdown_value → name. ROLLBACK: respell → UPDATE-back to
+  the digit · deleted twin → re-INSERT · lineage → UPDATE-back to NULL.
+- ACCEPTANCE (span 2022-03-01→2023-06-30, both EXACT): buckets 10 → **EXACTLY 5** at EACH level; campaign
+  impr 6,981,529 → **6,611,237** / spend $73,364.86 → $70,948.85; ad_group impr 2,655,939 → **2,583,519** /
+  spend $32,394.29 → $31,418.98.
+- GUARD, ALREADY SEEN RED AT THE TRUE COUNTS: `scripts/check-device-legacy-spelling-merge.mjs` (ships in this
+  wrap UNREGISTERED — the device-respell-scope precedent for a designed-red check) — red quoted: (a) 3751
+  ordinal rows, (b) 143 twins. Registration in run-checkdata + verdict pin 32→33 belong to the EXECUTION commit.
+- GUARD AMENDMENT, SAME EXECUTION COMMIT: `.device-respell-scope-baseline.json` legacy_campaign 2017→0 ·
+  legacy_ad_group 1734→0 (leg b2 must not blame the ruled fix for the shrink). Leg b1 stays untouched — the
+  legacy repair is its OWN gated script; `respell-device-ordinals.mjs` may not name the legacy levels.
 
-── ▶▶ NEXT STEP, AND IT HAS A CLOCK ──
-**★GATE-A-GOOGLE-FORWARD-RESTATE — ~08:08Z 2026-08-26. THE ONLY WINDOW. ONCE DAILY. ALREADY SLIPPED ONE
-CYCLE.** Prove on the fire: a MULTI-DAY range is REQUESTED and a PREVIOUSLY CAPTURED DAY UPDATES with
-restated values. ⛔ Rows written ≠ days restated — the read is a BEFORE/AFTER diff on an already-held day.
+── GATE-B CLOCKS, BOTH AT TOMORROW'S ~08:08Z GOOGLE FORWARD FIRE (2026-08-27) ──
+- **google-forward-account-day** (check:data leg, red 8/18): the 30-day restate window heals the 8 remaining
+  clients' account rows at the fire — the leg flips green on its own; read it after the fire.
+- **★GATE-A-GOOGLE-FORWARD-RESTATE**: one-query BEFORE/AFTER diff of already-held Bath Fitter days against
+  the baseline taken this morning — **repo copy `.google-restate-baseline-bathfitter-20260826.tsv`** (the
+  scratchpad original dies with the 08-26 session; the repo copy is the one to diff).
 
-── THE GET QUEUE, IN ORDER (all tokens live in QUEUE_OF_RECORD with their measured numbers) ──
-1 ★GATE-A-GOOGLE-FORWARD-RESTATE (above) · 2 ★UNDEFER-3-SIZE-READ (Gate-B: real GB when the three reach
-active ground — the fleet decision waits on this figure + the cold-tier archive, 276 GB vs 92.54 GB
-headroom) · 3 ★FALSE-WALL-SURFACES-REWALK (to inception; 182,660 rows already recaptured) ·
-4 ★TOP-EDGE-LANE-AT-42-PERCENT (now /349) · 5 ★FORWARD-CAPTURE-COVERS-217-FEWER-SURFACES (now 220/349) ·
-6 ★ORDINAL-CLASS-REMAINDER (4,092,303 rows, 30 levels; 3,751 LEGACY-level rows render as "2"/"3"/"4" to
-Lora TODAY — small, shipped repair shape) · 7 ★ORDINAL-HOUR-CLASS-UNMEASURED (one query) ·
-8 ★REFUSAL-STATUS-UNMEASURED-READ-AS-CLEAN (942 entries) · 9 ★DEFERRED-9-REMAIN (re-open only on the
-cold-tier archive).
+── WHAT SHIPPED 2026-08-26 (git owns the full messages) ──
+`ff2140a` account zero-day — dormant days hold an account row again at the ONE producer, catchup inherits,
+30-day restate self-heals the fleet · `257cee2` anchor-missing guard — an absent account anchor now REFUSES
+the campaign write instead of passing silently as zero · `8bf225a` sealed-strip pass — a floor-sealed surface
+still gets its top strip, the top-edge lane publishes at fleet-terminal (349/349 descent-floor milestone
+banked) · `05016df` hour merge EXECUTED — 18,073 rows one spelling, 695 twins deleted identity-proven,
+manifest-reversible · `4c5782a` CITED gate — 8th protocol field, hook-verified citations + non-human envelope
+exemption.
 
-── THE WIRE QUEUE — SCOPED THIS SESSION, DO NOT RE-DERIVE AND DO NOT WORK BEFORE THE GATE ──
-★LORA-CANNOT-REACH-VENDOR-GRAINS — Lora reaches 52 of 346 walked surfaces; 294 dark, 126 FAMILY-dark
-(cannot answer at all, incl. all shopping/merchant-feed). The tool's schema PROMISES vendor entityLevels
-while metrics-query.ts:651 silently discards them. Fix is contained (one function, 4 readers,
-append-after-six preserves anti-double-count ordering) and EVAL-GATED. ★GEO-PRESENCE-LABEL-UNSPECIFIED
-folds into the same flight (~5 lines): presence-vs-target — the whole point of the un-deferred geo
-families — currently labels 'unspecified'.
+── THE GET QUEUE — STATE AT WRAP (tokens live in QUEUE_OF_RECORD) ──
+1 forward-restate: **proving at the 08:08Z fire** (clock above) · 2 undefer-3 size: **MEASURED 4.31 GB/client
+— the fleet-rollout call is RUSS'S**, with the cold-tier archive · 3 false-wall rewalk: untouched ·
+4 top-edge lane: closed-pending-Gate-B (owed 3,186 draining at the sealed-strip cadence) · 5 forward-writer
+coverage: closed-pending-Gate-B · 6 legacy device merge: **APPROVED — the next-step block above** · 7 hour
+class: **DONE-DONE** · 8 refusal-status: measured LATENT (0 walked-unprobed refusals) · 9 deferred-9:
+unchanged, cold-tier gated.
 
-── STANDING, UNCHANGED ──
+── STANDING ──
 · Five capture lanes, walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
-· The 8 standing check:data reds are queue-owned; the verdict line is quoted on every push per CLAUDE.md.
-· NEW conduct rule with a placement guard: a push report is INCOMPLETE until the deploy is TERMINAL
-  (LORAMER_DEPLOY_POLL_UNTIL_TERMINAL_V1, CLAUDE.md push section — two stalls today bought it).
-· NEW LIVING DOC: docs/LORAMER_WALK_PROVENANCE.md — the walk's hard-won method, indexed (10 entries);
-  every future walk flight appends its own.
-· Meta human-list empty; next credential trigger week of 2026-11-20/21. Reference = the LIVE HEALTH ROW.
+· The standing check:data reds are queue-owned (at wrap: 10 red + 1 crashed; hour leg GREEN as designed;
+  fleet-meter and the two Gate-B clocks are the movers). Verdict line quoted verbatim on every push.
+· Deploy-poll-until-terminal + one-block output + CITED gate all bind as before; wait-commands rule and the
+  CITED governance loophole are now QUEUE tokens (★WAIT-COMMANDS-ARE-INSTRUMENTS · ★CITED-GOVERNANCE-LOOPHOLE).
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1590,6 +1612,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - [SHIPPED 2026-08-17 — THE MECHANICAL HALF OF THE SEAMS LAW; guards only, no src/, no deploy behaviour] THREE-SOURCE — PRIOR CHATS: today's own nongrain-constraint incident and the DECISIONS entry it produced, plus the earlier flight in the SAME session where I quoted LORAMER_SEAMS_PROOF_V1 and then broke it. WEB: NONE NEEDED, and the reason is that the question is about THIS repo's own type-to-column mapping — no vendor doc or external practice bears on which of our unions reach which of our columns. REPO: `pg_constraint` enumerated live (24 value-list CHECK constraints), all 44 string-literal unions in `src/`, the 13 that sit in files performing a supabase write, `db-enum-mirrors-ts.guard.mjs` (the equality leg it complements), and `universe-window-log.ts:182` + `universe_window_log_outcome_check_v2` for the containment case. — /THREE-SOURCE **LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1 — `db-enum-mirrors-ts` CAN ONLY CHECK PAIRS SOMEBODY REMEMBERED TO REGISTER, AND "SOMEBODY REMEMBERED" IS EXACTLY WHAT FAILED.** This guard owns the DISCOVERY half: every string-literal union declared in a file that also writes to supabase must be either REGISTERED as a pair or ALLOWLISTED **with a reason that names where the value goes** — "it probably isn't a column" is not a reason. The dataflow test is a stated PROXY, not analysis: union-in-a-writer-file. Measured 2026-08-17: 270 TS files, 78 writers, 44 unions, 13 in scope. ⛔ **IT DELIBERATELY DOES NOT BULK-REGISTER WHAT IT DISCOVERS, AND REFUSING WAS THE FINDING:** `WindowOutcome` (7 values) maps to `universe_window_log_outcome_check_v2` (8), and the extra `'running'` is legitimately DB-ONLY — a window is OPENED as running and the TS type is for CLOSING it. A mechanical registration would have shipped a FALSE RED on day one. **That pair needs a CONTAINMENT rule, not an equality rule**, and three allowlist entries say REGISTRATION PENDING rather than pretending to coverage ([[★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR]]). ⚠ **AND THE LOCATOR WAS WRONG TWICE BEFORE IT WAS TRUSTED, BOTH CAUGHT BY DRIVING IT AGAINST KNOWN CASES:** it first returned `['nongrain']` for `AttemptOutcome` — matching from a COMMENT LINE that quoted the new value, so it would have missed the very union whose divergence caused the incident — and then invented `GoogleOpBudget`, an OBJECT type, because a TRAILING comment on one of its fields quotes three literals. Fixed by requiring the first meaningful character after `=` to be `'` or `|`, and by stripping trailing comments. **A guard that invents a subject is worse than one that misses one.** RED-PROVEN BOTH WAYS: green on the current tree, red on an unhandled union added to a writer file. | LORAMER_SEAMS_PROOF_INCLUDES_THE_DATABASE_V1, 2026-08-17 | do not relitigate the proxy; real dataflow analysis is not tractable here and the proxy is stated as one.
 - [FINDING 2026-08-17 — VENDOR OUTAGE, RESOLVED; and a second vendor fault still OPEN] **VERCEL QUEUES v2beta STOPPED DELIVERING FOR 11 HOURS WHILE PUBLICATION KEPT SUCCEEDING, AND EVERY LAYER WE OWN WAS PROVEN CORRECT BEFORE THE VENDOR WAS BLAMED.** The consumer `/api/queues/google-ads-universe-v2` last ran 2026-08-17 05:32:32Z (HTTP 200, clean exit) and was not invoked again for 11h; the producer fired every 15 minutes throughout and Vercel returned 2xx for **1,548+ messages**, which by their own durability contract means each was replicated to three availability zones before the call returned. PROVEN OURS-IS-CORRECT, in order: ONE deployment in play and none since 03:10:04Z · producer and consumer on that same deployment · the topic name a single shared constant imported by both · the `experimentalTriggers` block byte-for-byte in the deployed vercel.json · exactly one subscriber · zero consumer errors in 3h of error-level logs · **the stall began 2h22m AFTER the last deploy with ~78 successful invocations in between, so it was NOT a build-time registration failure**. ⛔ **THE DEDUPE HYPOTHESIS WAS RAISED AND FALSIFIED BY MEASUREMENT** — the same stable idempotency key was delivered at 03:02:25Z and again at 05:16:45Z, 2h14m apart, and 325 owed-ranges ran twice inside 16h; Vercel releases the key on ACK, not at TTL. RESOLVED BY REDEPLOY at 20:49:28Z READY — **delivery resumed 2 SECONDS after the first fire on the new deployment** (17:02:07.296Z fire → 17:02:09.291Z first attempt row, on the earlier of the two deploys). Redeploy is the vendor's sanctioned re-arm; beta features are barred from private ticketing on non-Enterprise, so the support artifact was written and the root cause is theirs to give. ⛔ **A SECOND VENDOR FAULT REMAINS OPEN AND UNEXPLAINED: the Queues observability tab reported "No data found" for this topic over the last 3 days, in a window where it PROVABLY delivered 78 messages** (runtime logs, 05:00-05:45Z, one entry quoted verbatim). Their telemetry cannot see the topic. That also removed the instrument that would have distinguished "not delivered" from "delivered and not acknowledged", which is why this entry cannot narrow further. ⇒ THE LESSON THAT IS OURS RATHER THAN THEIRS: the outage ran 11 hours because `check-walk-liveness` tested the PRODUCER, and the only instrument that saw it (`check-fleet-meter-visibility`) **detected it and MISDIAGNOSED it** as a fleet-meter accounting fault. [[LORAMER_CONSUMER_LIVENESS_V1]] is the repair; [[LORAMER_ADJACENT_NUMBER_V1]] is the species. | 2026-08-17 | do not relitigate the dedupe theory; it was falsified on measured data.
   | LORAMER_SESSION_2026_08_25_V1, 2026-08-25/26 | do not relitigate.
+  | LORAMER_SESSION_2026_08_26_V1, 2026-08-26/27 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -1686,7 +1709,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★BACKFILL-LANE-ALLOCATION-IS-10500-AND-UNCALLED — **SUPERSEDED (sweep W5) — latent, and wrong the moment it is used.** `google-op-budget.ts:88` includes `'backfill'` in `BudgetLane`; `:199` hands any non-catchup lane `reserve` = 10,500. `getGoogleOpBudget` is called with `'drain'` (`cron/drain/route.ts:140`) and `'catchup'` (`cron/catchup/route.ts:281`) and **nothing else** (grep). So the first caller ever to ask for `'backfill'` is authorised 10,500 against the 6,000 that `universe-governor.ts:42` calls its allowance. NEXT ACTION: make `'backfill'` resolve to the backfill allowance, or remove it from the lane union until it has a caller. ✅ **RE-CONFIRMED STILL TRUE 2026-08-09 by the W2 read:** `grep` over `src/` finds `getGoogleOpBudget` called exactly twice in production — `cron/drain/route.ts:140` with `'drain'` and `cron/catchup/route.ts:281` with `'catchup'` — and nowhere with `'backfill'` or `'forward'`. So `decideBudget:199` would still hand a first `'backfill'` caller RANKED_RESERVE = 10,500 against the 6,000 that `universe-governor.ts:42` calls its allowance. Latent, unchanged, and it disappears on its own if the ★TWO-LIVE-GOOGLE-ALLOCATION-MODELS-DISAGREE-BY-5500 proposal lands with one table naming all four lanes. src: 2026-08-09 ★SWEEP finding W5, re-confirmed by the W2 read. open [LC]
 - ★MATH-MAX-CONNS-DAYS-BANNED-BY-ITS-OWN-FILE-STILL-USED — **SUPERSEDED (sweep W6). THE FILE THAT BANS THE EXPRESSION BY NAME STILL EXECUTES IT ONE BRANCH OVER.** `google-op-budget.ts:20-23`: *"⛔ NO `Math.max(conns, days)` ANYWHERE. That expression was v1's hedge against under-counting and it is what made catchup's 421 connection-units outrank its real 207 gap-days. A hedge that picks the larger of two units is not conservative, it is wrong in a direction nobody can audit."* `google-op-budget.ts:330`, the unattributed branch: `unattributedUnits += Math.max(conns, days)`. Removed from the three named lanes, RETAINED here. It over-counts, so it fails safe — **and the rule is broken inside the file that states it**, which is the RULE-HOME shape. NEXT ACTION: pick the unit an unattributed row is actually in, or count it in a unit that is declared; either way stop picking the larger of two. src: 2026-08-09 ★SWEEP finding W6. open [LC]
 - ★DRYRUN-EQUALS-TRUE-TRAP-ON-SYNC-AND-DRAIN — **LEFT IN PLACE (sweep W7) — and v2 already fixed the CLASS by inverting the default, which is why this is worth closing rather than tolerating.** `cron/sync/route.ts:212` `const gDryRun = gForwardParams.get('dryRun') === 'true'` and `cron/drain/route.ts:105` `const dryRun = searchParams.get('dryRun') === 'true'` — so `?dryRun=1` RUNS LIVE on both. `cron/universe-resume/route.ts:60` `const dryRun = url.searchParams.get('dryRun') !== '0'` makes DRY-RUN THE DEFAULT. ⚠ The cron/sync half is ALREADY BANKED (CONTINUE_HERE 2026-07-27 opener) and is restated here only to keep the sweep's inventory complete — the NEW half is the drain and the v2 precedent. NEXT ACTION: accept any truthy dry-run token on both production routes, or invert both defaults as v2 did. src: 2026-08-09 ★SWEEP finding W7. open [LC]
-- ★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — **LEFT IN PLACE (sweep W8) — a live invariant violation closed only by a schedule.** `cron/drain/route.ts:31-40` records it against itself: *"the invariant to preserve is LEASE > maxDuration, and it is NOT true at 1800s either. Do not restore a frequent cadence for google without fixing the lease."* The lease is 480s (migration 021); `maxDuration = 1800` (`:57`). Today the only thing preventing two invocations holding the same connection is the 4×/day google cadence (LORAMER_GOOGLE_DRAIN_THROTTLE_V1). ⚠ It becomes live the moment anyone raises the google drain cadence — and the resumer will be running beside this lane. NEXT ACTION: raise the lease past `maxDuration`, or bind the cadence to the lease mechanically rather than by comment. src: 2026-08-09 ★SWEEP finding W8. open [LC]
+- ★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — **LEFT IN PLACE (sweep W8) — a live invariant violation closed only by a schedule.** `cron/drain/route.ts:31-40` records it against itself: *"the invariant to preserve is LEASE > maxDuration, and it is NOT true at 1800s either. Do not restore a frequent cadence for google without fixing the lease."* The lease is 480s (migration 021); `maxDuration = 1800` (`:57`). Today the only thing preventing two invocations holding the same connection is the 4×/day google cadence (LORAMER_GOOGLE_DRAIN_THROTTLE_V1). ⚠ It becomes live the moment anyone raises the google drain cadence — and the resumer will be running beside this lane. NEXT ACTION: raise the lease past `maxDuration`, or bind the cadence to the lease mechanically rather than by comment. src: 2026-08-09 ★SWEEP finding W8. ⚠ **2026-08-26, SAME CLASS, SECOND LANE (banked at wrap, not diagnosed): the 480s lease also sits under the resumer lane's ~680s per-fire capture budget (CAPTURE_BUDGET_MS, universe-v2-contract.ts:99) — LEASE > budget is false there too.** open [LC]
 - ★POSITION-VS-ROWS-COMPLETION-TWO-DESIGNS — **LEFT IN PLACE (sweep W9) — two defensible resolutions of ONE hazard, and neither file knows about the other.** `drain-registry.ts:218-230` keeps completion POSITION-based deliberately and writes down why: requiring rows would create *"a GUARANTEED INFINITE RE-WALK"* against the cap because it conflicts with the anomalous-cursor restart at `:211-216`; the honest split is that position decides `complete` and ROWS decide `rowsCovered`, a loud separate signal `check:data` triages. v2 resolves the same hazard the other way: `universe-resumer.ts:186-194` lets the no-progress case occur once and then REFUSES with verdict `no-progress`. Not a defect in either; a divergence nobody has reconciled. NEXT ACTION: put the drain's own worked case — a family whose FLOOR WINDOW IS HONESTLY EMPTY — in front of step 12's Gate-B and record which design v2 keeps. src: 2026-08-09 ★SWEEP finding W9. open [LC]
 - ★QUOTA-CLASSIFIER-CONFLATES-DAILY-EXHAUSTION-WITH-RATE-LIMITING — ⛔ **FOUND BY THE WEB-FIRST STEP OF THE C2 FIX, 2026-08-09, AND DELIBERATELY NOT FIXED IN THAT FLIGHT.** `classifyGoogleAdsError` (`google-quota.ts:39-45`) treats **ANY** `error_code.quota_error` as a developer-scope exhaustion and arms a FLEET-WIDE pause until the reported reset. **Google documents TWO distinct quota errors and they want opposite responses:** `RESOURCE_EXHAUSTED` = the DAILY operation limit is gone (do not retry until reset — the pause is correct) · `RESOURCE_TEMPORARILY_EXHAUSTED` = short-term QPS throttling (retry with exponential backoff — a pause is an over-reaction that idles every Google lane for hours over a burst). Sources: developers.google.com/google-ads/api/docs/best-practices/quotas · /docs/productionize/rate-limits · /samples/handle-rate-exceeded-error. ⚠ **IT FAILS SAFE** (over-pausing, never under-pausing) and it is **shared by all five arming boundaries**, so the walk inherits exactly the behaviour the other four already had — this is not a v2 regression. ⛔ **WHY IT WAS NOT FIXED WITH C2: changing that predicate changes live behaviour for the drain, catchup and the live answer path**, which is a STOP-and-confirm outside a v2-only flight's ceiling. NEXT ACTION: split the two subcodes — `RESOURCE_EXHAUSTED` → arm the sentinel; `RESOURCE_TEMPORARILY_EXHAUSTED` → classify transient and let the existing backoff ladders run — with a guard proving both branches, and a stated blast radius across all five boundaries. src: 2026-08-09 C2 web-first step. open [LC]
 - ★RETENTION-FLOORS-RE-DERIVED-IN-SEVEN-PLACES — **SUPERSEDED-CLASS, AND IT WAS FOUND BY A GUARD ON ITS FIRST RUN RATHER THAN BY ANY READ.** `single-owner-vendor-facts.guard.mjs` went red on seven hand-rolled copies of two VENDOR RETENTION WALLS — facts that belong to Google and to GA4, not to us, and that every one of these files is free to drift from. **THE 36-MONTH GRANULAR FLOOR** is owned by `drain-registry.ts:76-80` (`floor36()`, with the reason written beside it) and is re-derived as a bare `d.setUTCMonth(d.getUTCMonth() - 36)` in SIX routes: `api/backfill/google-adgroup-ad/route.ts:32` · `google-campaign/route.ts:33` · `meta-adset-ad/route.ts:31` · `meta-asset/route.ts:73` · `meta-campaign/route.ts:34` · `meta-product-id/route.ts:65`. **THE GA4 FLOOR** `2015-08-14` is owned by `adapters.ts:75` and re-declared at `ga-dimensional-backfill.ts:51` (`const HARD_FLOOR`). ⚠ **WHY IT MATTERS MORE THAN IT LOOKS:** a retention wall is exactly the kind of fact that MOVES — Google's is documented at 37 months and this repo already carries a measured account serving 53 months back — and seven copies means a vendor change is seven edits, six of which nobody will remember. ⛔ NOT a bug today: all seven currently compute the same date. This is drift-in-waiting, frozen in the guard's REMOVE-ONLY baseline. NEXT ACTION: export the floor from its owner and import it in the six routes and the GA writer; one fact, one home. src: 2026-08-09 single-owner-vendor-facts.guard first red run. open [LC]
@@ -2267,6 +2290,7 @@ DATA COMPLETENESS ONBOARDING (customer-facing surface): non-blocking progress me
 - ★DEFERRED-9-REMAIN — ⛔ **NEW 2026-08-25, the successor of [[★DEFERRED-12-DISK-CONSTRAINT-NEVER-RE-EVALUATED]] (closed by the 08-25 ruling).** The 9 still-deferred families, each with its measured GB/walk and the ruling that its ANSWER SURVIVES AT ANOTHER GRAIN: user_location_view most_specific 16.54 + postal 12.70 · expanded_landing_page_view click_type 4.61 / device 3.33 / slot 3.10 / ad_sub_network 3.07 / ad_network 3.03 · group_placement_view device 3.57 / click_type 2.92. Guard pin holds the count at 9 (universe-window-log leg g). ⛔ RE-OPEN ONLY IF THE COLD-TIER ARCHIVE LANDS — headroom, not desire, is the gate (DECISIONS LORAMER_UNDEFER_3_V1 extension). src: 2026-08-25 decision sheet. open
 - ★LORA-CANNOT-REACH-VENDOR-GRAINS — ⛔ **NEW 2026-08-25 — WIRE PHASE HEAD (LORAMER_GET_THEN_WIRE_V1: opens when GET closes; do NOT work it before the gate).** **Of 346 walked surfaces Lora reaches 52 (38 native + 14 alias/twin); 294 DARK; 126 of those FAMILY-dark — no reachable level holds the bt, she cannot answer AT ALL, including the entire shopping/merchant-feed surface.** Measured through the real compiled selection + live probes, 2026-08-25. **(1) THE CONTRACT BREACH:** claude-tools.ts:143 builds the entityLevel enum from breakdownEntityLevels() including vendor levels and :109 instructs "pass the resource name as entityLevel" — while metrics-query.ts:651 SILENTLY DISCARDS any level outside its hardcoded six. The schema accepts exactly what the resolver drops; shipped that way since 2026-08-03. **(2) THE SILENT-WRONG-GRAIN SET:** 21 breakdown_types exist at BOTH a legacy and a vendor level (device 112 legacy / 12,565 vendor rows on one measured day), so a grain-specific ask resolves to campaign and answers confidently while the vendor-grain rows are never read — correct numbers, wrong grain, no note; LAW-6 shape without a false number. **(3) ROWS AT STAKE:** 225,275 of 398,167 google rows on one measured day (56.6%) at unreachable levels; millions all-time; Foam OH only (17/18 probed FALSE). **(4) FIX SHAPE, CONTAINED:** LEVEL_ORDER has exactly 4 readers, all in one function (metrics-query.ts:637-661): :651 accept any level the registry declares (entryFor already imported at :19); :655 APPEND declared vendor levels AFTER the six — coarsest-first ordering is LOAD-BEARING (the $3,945 hour double-count) and survives. probeAt rides idx_mdp_client_platform_bt_lvl_date, level-agnostic. ⛔ **EVAL-GATED: metrics-query.ts is on the CLAUDE.md eval list — ships behind `npm run evals` (~$4-5, dev server), scorecard in the ship report.** src: 2026-08-25 reach measurement. open [WIRE]
 - ★GEO-PRESENCE-LABEL-UNSPECIFIED — ⛔ **NEW 2026-08-25 — WIRE, fold into [[★LORA-CANNOT-REACH-VENDOR-GRAINS]]'s flight (same function family, ~5 lines).** metrics-query.ts:508 derives geoLocationType from a `user_geo_*` bt prefix or a `:TYPE` value suffix; the walk writes bt `geo_target_city`/`geo_target_county` at entity_level `user_location_view` with a BARE value — neither trigger — so presence-vs-target, the entire reason the city/county families were ruled indispensable, labels as **'unspecified'**. entity_level=user_location_view IS the presence signal; teach the labeler to read it. src: 2026-08-25 un-defer seams read. open [WIRE]
+- ★CITED-GOVERNANCE-LOOPHOLE — ⛔ **NEW 2026-08-26 (banked, not fixed — found the day the gate shipped).** The CITED box verifies a `★TOKEN ⇐ home` EXISTS at its claimed home, NOT that it GOVERNS the paste's topic — a real-but-unrelated token passes the gate, and that novelty loophole let a duplicate be minted this session. The `NEW ★TOKEN` §L-miss check only fires when the paste CLAIMS novelty; relevance is unenforced. Fix shape open (topical match is judgment, not grep) — [[★DECISION-TOPIC-INDEX]] may be the mechanical half. src: 2026-08-26 wrap. open
 
 ## I. LESSONS INDEX 1–60 (+ dated)  (source: LORAMER_DECISIONS.md)
 1 Silent-skip via shared marker — use content-based idempotency, not marker-presence.
@@ -2356,8 +2380,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1023 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
-138 decision-only · 530 queue-only.
+TOTALS: 1035 tokens indexed · 355 resolve to BOTH a decision and a queue item ·
+139 decision-only · 541 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 163 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2378,6 +2402,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★A19-QUOTA-CAVEAT-CONTAMINATION — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★A2-NEGATION-HANDLING — OPEN · decisions 2 · queue 1 · last 2026-07-31
 - ★A6-NEVER-COUNT-WHAT-YOU-ONLY-NEED-TO-EXIST — OPEN · decisions 0 · queue 1 · last 2026-08-08
+- ★ABSENT-EQUALS-CLEAN-AT-UNIVERSE-WRITER-830 — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★ACTIVE-DAY-PREDICATE-HIDES-FREE-DELIVERY — OPEN · decisions 0 · queue 1 · last 2026-07-30
 - ★ADVAR-NON-PRODUCTION — OPEN · decisions 0 · queue 1 · last 2026-07-25
 - ★AGENTS-MD-IS-A-CORRUPTED-COPY — OPEN · decisions 0 · queue 1 · last 2026-08-23
@@ -2458,6 +2483,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CHECKDATA-PUSHED-OVER-RED — OPEN · decisions 0 · queue 1 · last 2026-08-22
 - ★CHECKDATA-STANDING-REDS-OWNED — OPEN · decisions 2 · queue 3 · last 2026-08-15
 - ★CHROME-IOS-COMPOSER-THREE-SYMPTOMS — OPEN · decisions 3 · queue 1 · last 2026-08-11
+- ★CITED-GOVERNANCE-LOOPHOLE — OPEN · decisions 0 · queue 1 · last 2026-08-26
 - ★CLAUDE-MD-GATES-ARE-59-PERCENT — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★CLIENT-PROFILE-BUSINESS-IDENTITY — OPEN · decisions 0 · queue 2 · last 2026-07-24
 - ★CLIENT-PROFILE-SERVICE-AREA-GRANULAR — OPEN · decisions 0 · queue 2 · last 2026-07-24
@@ -2482,7 +2508,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★CUSTOM-RANGE-SILENTLY-OVERRIDES-PRESET — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★DB-ENUM-MIRRORS-TS-ONLY-COVERS-ONE-PAIR — OPEN · decisions 2 · queue 2 · last 2026-08-18
 - ★DEBUG-FLAG-DID-NOT-SURVIVE-CAPTURE — DONE · decisions 0 · queue 1 · last 2026-08-07
-- ★DECISION-TOPIC-INDEX — OPEN · decisions 0 · queue 3 · last 2026-07-31
+- ★DECISION-TOPIC-INDEX — OPEN · decisions 0 · queue 4 · last 2026-08-26
 - ★DECISIONS-464-STALE — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★DECISIONS-NOT-BANKED-HAS-NO-DETECTOR — OPEN · decisions 0 · queue 2 · last 2026-08-17
 - ★DECLARED-VS-LANDED-CHECK — OPEN · decisions 1 · queue 1 · last 2026-07-27
@@ -2508,7 +2534,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★DRAIN-DURATION-ELIGIBILITY-PIN — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★DRAIN-EXTENDED-DURATION-TEST — OPEN · decisions 0 · queue 2 · last 2026-08-02
 - ★DRAIN-LANE-BLOCKED-NO-CONSUMER-SIDE-OP-GATE — DONE · decisions 0 · queue 1 · last 2026-08-22
-- ★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — OPEN · decisions 0 · queue 1 · last 2026-08-09
+- ★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — OPEN · decisions 0 · queue 1 · last 2026-08-26
 - ★DRAIN-META-CAP-NO-RATIONALE — OPEN · decisions 0 · queue 1 · last 2026-07-28
 - ★DRAIN-SEQUENCING-VS-DERIVED-COVERAGE — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★DRAIN-STEP-DONE-AND-CURSOR-INCOMPLETE-DIVERGE — OPEN · decisions 1 · queue 1 · last 2026-08-07
@@ -2547,12 +2573,14 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FILLDONE-TOLERATES-ONE-WORD-TITLES — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FIRST-FAILURE-AT-UNDERREPORTS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★FIVE-MEASURED-FIELDS-NO-CONSUMER — DONE · decisions 0 · queue 1 · last 2026-08-25
+- ★FLEET-47562-DARK-INTERIOR-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-METER-BLIND-TO-SEALED-STRIP-ASKS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-METER-DRIFT-FLICKERS — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★FLEET-ROLLOUT-BLOCKED-ON-THREE-THINGS — OPEN · decisions 0 · queue 2 · last 2026-08-17
 - ★FLEET-SPEND-OMITS-INTELLIGENCE-LANE — OPEN · decisions 1 · queue 2 · last 2026-08-11
 - ★FLEET-TERMINAL-STRIP-PASS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLEET-WIDE-REMEASURE-BEFORE-SCHEDULING — OPEN · decisions 1 · queue 3 · last 2026-08-10
+- ★FLIGHT-MIN-CHARS-HUMAN-BASIS-ONLY — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★FLIGHT-REPORT-NAMES-ASSERTED-MECHANISMS — OPEN · decisions 3 · queue 5 · last 2026-09-30
 - ★FOAM-OH-DESCENT-FLOOR-COMPLETE — OPEN · decisions 0 · queue 2 · last 2026-08-26
 - ★FOAM-OH-GA-CREDENTIAL-REJECTED — OPEN · decisions 0 · queue 1 · last 2026-07-30
@@ -2600,6 +2628,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GOOGLE-FORWARD-ALL-ERRORED — OPEN · decisions 0 · queue 2 · last 2026-09-30
 - ★GOOGLE-FORWARD-ONLY-FAMILIES — OPEN · decisions 0 · queue 2 · last 2026-07-30
 - ★GOOGLE-FORWARD-RESTATE — DONE · decisions 0 · queue 1 · last 2026-08-24
+- ★GOOGLE-FORWARD-WRITES-NO-PASS-LOG — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★GOOGLE-GEO-DEPTH — OPEN · decisions 0 · queue 1 · last 2026-07-24
 - ★GOOGLE-GEO-DIRECT-ROUTE — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★GOOGLE-GEO-STATEMENT-TIMEOUTS — OPEN · decisions 1 · queue 7 · last 2026-08-02
@@ -2626,6 +2655,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★GUARD-SUITE-SWEEP-FOR-FALSE-GREENS — OPEN · decisions 2 · queue 1 · last 2026-08-11
 - ★HONESTY-ENFORCERS-MISS-GRAIN-ABSENCE — OPEN · decisions 1 · queue 3 · last 2026-08-01
 - ★HOUR-GRAIN-CAPTURE-HOLE — OPEN · decisions 1 · queue 2 · last 2026-07-19
+- ★IMPRESSION-SHARE-VS-BASE-DORMANT-DAY-DISAGREEMENT — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR — OPEN · decisions 0 · queue 3 · last 2026-08-13
 - ★INFLUENTIAL-SHOPIFY-ZERO-COMPLETE-MONTHS — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★INSIGHT-INVESTIGATOR — OPEN · decisions 1 · queue 2 · last 2026-07-17
@@ -2634,12 +2664,14 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★IOS-VISUAL-VIEWPORT-OFFSETTOP-NEVER-RESETS — OPEN · decisions 2 · queue 1 · last 2026-08-07
 - ★JUNE-PROPERTIES-ALREADY-CARRIED-DO-NOT-RE-BANK — DONE · decisions 0 · queue 1 · last 2026-08-09
 - ★KB-INSET-DETECTOR-STRUCTURALLY-ZERO-ON-CHROME-IOS — OPEN · decisions 0 · queue 1 · last 2026-08-07
+- ★KILLED-RUN-LEDGER-ROWS-ALL-ZEROS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★L4-DETERMINISM — OPEN · decisions 0 · queue 1 · last 2026-07-24
 - ★LANDING-PROBE-SPEC-IS-WRONG — OPEN · decisions 2 · queue 1 · last 2026-08-07
 - ★LANDING-PROBE-STICKY-UNFIXED — DONE · decisions 1 · queue 1 · last 2026-08-13
 - ★LANDING-PROBE-Y-FLIP-UNEXPLAINED — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT — OPEN · decisions 3 · queue 2 · last 2026-08-15
 - ★LAST-RECONCILED-HEAD-IS-VALIDATED-BY-NOTHING — OPEN · decisions 0 · queue 1 · last 2026-08-17
+- ★LEGACY-ADGROUP-DEVICE-PARENT-SHAPE — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★LEGACY-CHAT-OVERFLOW — DECIDED · decisions 1 · queue 0 · last 2026-08-05
 - ★LEGACY-PIN — OPEN · decisions 0 · queue 1 · last 2026-07-16
 - ★LEGACY-SHOPIFY-CHART-TRUNCATES-AT-1000-ORDERS-SILENTLY — DONE · decisions 0 · queue 1 · last 2026-08-23
@@ -2709,6 +2741,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★NEXT-SCROLL-LANDING — DONE · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-24
 - ★NO-CONNECTION-OUTCOME-LEDGER-IDENTITY-IN-V2 — OPEN · decisions 0 · queue 2 · last 2026-08-09
+- ★NO-OWED-DAY-CHECK-CRASHES — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★NO-PROGRESS-BOUND-KEYED-ON-THE-WRONG-SHAPE — OPEN · decisions 1 · queue 2 · last 2026-08-19
 - ★NO-QUARTER-TO-DATE-PRESET — DONE · decisions 0 · queue 1 · last 2026-08-25
 - ★NO-ROW-DAYS-INSIDE-ACTIVE-SPEND-ARE-UNKNOWABLE — OPEN · decisions 0 · queue 1 · last 2026-08-24
@@ -2721,7 +2754,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★OPUS-EVERYWHERE — OPEN · decisions 1 · queue 1 · last 2026-07-17
 - ★ORDER-GRAIN-STEP-2-BACKFILL — OPEN · decisions 0 · queue 1 · last 2026-07-26
 - ★ORDER-LEVEL-STORAGE — OPEN · decisions 3 · queue 9 · last 2026-09-30
-- ★ORDINAL-CLASS-REMAINDER — DONE · decisions 0 · queue 1 · last 2026-08-25
+- ★ORDINAL-CLASS-REMAINDER — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★ORDINAL-HOUR-CLASS-UNMEASURED — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★ORPHAN-SHOPIFY-TOKEN-ROWS — OPEN · decisions 0 · queue 2 · last 2026-07-31
 - ★ORPHANED-CURSOR-CLEANUP — OPEN · decisions 0 · queue 2 · last 2026-07-31
@@ -2797,7 +2830,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★SUPPORT-BOT — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - ★SURFACE-PERMANENTLY-UNASKABLE-ERROR-49 — OPEN · decisions 0 · queue 2 · last 2026-08-21
 - ★SURFACE-TRUNCATION-TO-THE-USER — OPEN · decisions 0 · queue 1 · last 2026-08-16
-- ★SWEEP — OPEN · decisions 0 · queue 18 · last 2026-08-09
+- ★SWEEP — OPEN · decisions 0 · queue 18 · last 2026-08-26
 - ★SWEEP-THE-WALK-AND-DRAIN-PATHS — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★SYNCED-AT-UNINDEXED-BLOCKS-THE-ROW-TOUCH-QUESTION — OPEN · decisions 0 · queue 1 · last 2026-08-17
 - ★TEST-CLIENT-CLEANUP — OPEN · decisions 0 · queue 3 · last 2026-07-31
@@ -2808,7 +2841,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★THREE-STATE-READ-COLLAPSED-AT-THE-REPORTING-BOUNDARY — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★TIER1-WIDEN-HELD — DECIDED · decisions 1 · queue 0 · last 2026-08-03
 - ★TO-DATE-MUST-INCLUDE-TODAY — DONE · decisions 0 · queue 1 · last 2026-08-25
-- ★TOKEN — OPEN · decisions 2 · queue 3 · last 2026-09-30
+- ★TOKEN — OPEN · decisions 2 · queue 4 · last 2026-09-30
 - ★TOKEN-THE-UNTOKENED — OPEN · decisions 1 · queue 2 · last 2026-07-31
 - ★TOOL-INSTALL-PERMISSIONS-LOCKDOWN — OPEN · decisions 1 · queue 1 · last 2026-08-12
 - ★TOP-EDGE-HAS-NO-LANE — OPEN · decisions 0 · queue 2 · last 2026-08-21
@@ -2872,6 +2905,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★VETERINARY-GEO-FROZEN — OPEN · decisions 0 · queue 1 · last 2026-07-29
 - ★VETMASTERMIND-META-PRODUCT-CLAIM-EXCEEDS-ROWS — OPEN · decisions 0 · queue 1 · last 2026-08-08
 - ★VOICE-RESPONSE-LENGTH — OPEN · decisions 0 · queue 4 · last 2026-09-30
+- ★WAIT-COMMANDS-ARE-INSTRUMENTS — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★WALK-AT-90-PERCENT-OF-LANE — OPEN · decisions 0 · queue 1 · last 2026-08-20
 - ★WALK-BASE-SPELLING-SPLIT — DONE · decisions 2 · queue 2 · last 2026-08-21
 - ★WALK-DISK-PROJECTION-CONTRADICTS-ITSELF-35X — OPEN · decisions 0 · queue 3 · last 2026-08-19
@@ -2892,6 +2926,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★WALK-WEDGES-AT-COVERED-GROUND — DONE · decisions 0 · queue 1 · last 2026-08-14
 - ★WALK-YIELDS-TO-PRODUCT-NOT-CALLED-ON-V2-PATH — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★WALKDUPE-UNTWINNED-NEED-NORMALISING — DONE · decisions 1 · queue 4 · last 2026-08-21
+- ★WALKED-SURFACES-WITHOUT-ATTEMPT-ROW — DONE · decisions 0 · queue 1 · last 2026-08-26
 - ★WALL-HELPERS-STILL-NAMED-ACCOUNT — OPEN · decisions 0 · queue 1 · last 2026-08-10
 - ★WASTED-SPEND-COUNTER — OPEN · decisions 0 · queue 1 · last 2026-07-31
 - ★WHITE-LABEL-AGENCY — OPEN · decisions 0 · queue 3 · last 2026-08-15
@@ -3077,7 +3112,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_GOOGLE_CONV_ACTION_CATEGORY_NAME_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-05
 - LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 — OPEN · decisions 0 · queue 2 · last 2026-07-30
 - LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 — DONE · decisions 0 · queue 1 · last 2026-07-18
-- LORAMER_GOOGLE_DRAIN_THROTTLE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-09
+- LORAMER_GOOGLE_DRAIN_THROTTLE_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-26
 - LORAMER_GOOGLE_FWD_WIDEN_PARKED_V1 — OPEN · decisions 0 · queue 2 · last 2026-08-19
 - LORAMER_GOOGLE_GEO_IS_WRITE_PATH_NOT_QUOTA_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_GOOGLE_HOUR_CAPTURE_V1 — DONE · decisions 0 · queue 1 · last 2026-08-26
@@ -3305,6 +3340,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_SEARCH_TERMS_CAPTURE_V1 — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - LORAMER_SEGMENT_PAIR_COMPOSITE_ENCODING_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_SESSION_2026_08_25_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-25
+- LORAMER_SESSION_2026_08_26_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-26
 - LORAMER_SESSION_CLOSE_2026_08_07_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_SESSION_WRAP_2026_08_03_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_SHELF_DVH_RETIRED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-11
