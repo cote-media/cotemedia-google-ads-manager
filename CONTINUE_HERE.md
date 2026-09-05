@@ -22,7 +22,7 @@ Both READY on app.loramer.com. **NEITHER IS PROVEN ON A FIRE YET.**
 
 ── ▶▶ NEXT STEP 1 — OPEN-VERIFY at 2026-09-06T08:08Z (the window opens ~08:20Z). READ-ONLY. STOP on any deviation: quote
    it, fix nothing. Nothing below builds on either commit until a live fire proves it. ──
-The six queries, VERBATIM from the 1415cfd report, plus (6) from the 1d40b74 report:
+The seven queries — (1)-(5) VERBATIM from the 1415cfd report, (6) from the 1d40b74 report, (7) from amendment 2 (ruling r):
 (1) observations per client: `select client_id, producer, outcome, count(*) rows, sum(requests_spent) req from
     forward_observation_log where vendor='google' and window_end='2026-09-05' group by 1,2,3 order by 1,2,3` → expect 35
     rows per connection (53 requests), 18 connections; per producer 1·1·2·2·4·1·1·19·2·2; outcome split zero vs ok by
@@ -42,6 +42,10 @@ The six queries, VERBATIM from the 1415cfd report, plus (6) from the 1d40b74 rep
     target_date='2026-09-05'` → attempted = 18 (no client claimed twice; >18 = a re-claim, a retry shows in
     connections_errored); every fire has finished_at OR connections_attempted > 0; per client
     `sync_state.updated_at <= backfill_claimed_at + interval '900 seconds'` on the '__fwd_google' row.
+(7) the RPC's other callers (ruling r — the default path is ALREADY PROVEN on 9 live drain claims, ga·woo·shopify·meta,
+    lease = claimed_at + 480 s exactly, no PGRST202/203): `select platform, mode, started_at, finished_at, errors from
+    cron_runs where mode='catchup' and started_at > '2026-09-06T00:00Z'` → every row finished, no "claim_backfill_cursor"
+    in errors. The google drain is declined at the lane gate by design (the walk holds the budget) — not a deviation.
 Then `npm run check:data` — google-forward-account-day and the fleet-meter forward leg green; quote the verdict.
 
 ── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE — BUILD (research + adversary DONE 2026-09-05; the shape is settled in QUEUE
@@ -55,9 +59,12 @@ Foam OH backlog sweep 2026-08-13..T−B. The terminal is undifferentiated — co
 Until it lands, a forward observation is positive evidence and never a seal.
 
 ── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
-   lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration); per
-   B6 one client per fire fits at p90 (349 × 1.075 s = 375 s), 18 clients need ≥7 parallel invocations or the existing
-   10-minute cadence at one client per fire. Cannot replace the producers until the lookback carries the restate. ──
+   lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration). The
+   bound is rows written, not latency — Escential's 52-key pass already brushes 680 s; the unit is (client, family-slice, D)
+   under the 900 s CAS lease, one invocation loops pending units until budget; Gate-A: measure rows-per-family on Escential
+   for the 297 new surfaces first (ruling m). Research + adversary DONE 2026-09-05; shape in QUEUE ★FORWARD-DRIVER-SHAPE.
+   One writer per surface, two spellings, no row twice (ruling n). Completeness read from the ledger at 12:00Z with make-up
+   fires (ruling q). Cannot replace the producers until the lookback carries the restate. ──
 
 ── BEHIND, IN ORDER ──
 · the filler (guard B now reads readForwardObservations; ★CATCHUP-OK-MARK-IGNORES-DEGRADED-SUBFETCH first)
@@ -75,7 +82,14 @@ and MEASURED: 90 on 15 of 17 accounts, 60 on 2, cost moving to age 96 — the 30
 account; a fleet constant is only the floor the read is checked against · (j) the lookback lane is the top-edge lane
 converted; its retirement is inside the lookback commit · (k) the lookback terminal is undifferentiated — condition 2's
 "stated reason" waits on state (B) after it · (l) the rolling restate is the driver's ranged request; a driver that asks
-yesterday alone ships condition 3 broken.
+yesterday alone ships condition 3 broken · (m) the driver's bound is rows written, not vendor latency — the "one client per
+fire fits" figure is WRONG; unit = (client, family-slice, D) under the 900 s CAS lease, budget checked per unit · (n) one
+writer per surface, two spellings across the set, no row written twice — neither one-vocabulary-at-ship (darkens 48 of 52
+for Lora and /next) nor permanent dual-write · (o) condition-1 finding, banked not decided: the catalogue's geo views carry
+no ad_group axis (17 forward keys do) · (p) route calls: uniform 31-day restate width; the 6 provable-now twins enter
+DRAIN_ALIAS only on a live-account per-client proof · (q) completeness is read from the ledger at 12:00Z, never the
+schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · (r) RPC half-proof: 9 live drain claims at
+the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
 
 ── STANDING ──
 · check:data at wrap: 23 green · 8 red · 1 crashed — red-for-red the 09-04 set, all queue-owned (claims 12+8 · throttle ·
@@ -92,6 +106,10 @@ yesterday alone ships condition 3 broken.
   hotfix — at 91 days the measured 644 s pass exceeds maxDuration 800. The lookback lane is the fix.
 · entity_state_history holds 0 conversion_action rows — the config capture is DARK (★CONVERSION-ACTION-CAPTURE-DARK);
   the lookback commit's daily `FROM conversion_action` read replaces it.
+· Escential reconcile figures banked 2026-09-05 (Aug: 3,706.13 / 332,092 / 7,156 / 720 / 131,700.20 · Sep 1–4: 312.33 /
+  20,968 / 321 / 34 / 13,046.98) — awaiting Russ's Google Ads UI read; record beside them in DECISIONS (ruling r).
+· condition-1 finding: the catalogue lacks an ad_group axis on the geo views (★CATALOGUE-LACKS-AD-GROUP-AXIS) — banked,
+  not decided.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
