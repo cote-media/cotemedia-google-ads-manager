@@ -64,6 +64,19 @@ const PAIRS = [
     tsFile: 'src/lib/backfill/universe-attempt-log.ts',
     tsAnchor: 'export type AttemptLane',
   },
+  // LORAMER_FORWARD_OBSERVATION_LOG_V1 — the forward lane's own ledger (migrations/087), its own two enums.
+  {
+    label: 'forward_observation_log.lane ↔ ForwardObservationLane',
+    constraint: 'forward_observation_log_lane_chk',
+    tsFile: 'src/lib/backfill/forward-observation-log.ts',
+    tsAnchor: 'export type ForwardObservationLane',
+  },
+  {
+    label: 'forward_observation_log.outcome ↔ ForwardObservationOutcome',
+    constraint: 'forward_observation_log_outcome_chk',
+    tsFile: 'src/lib/backfill/forward-observation-log.ts',
+    tsAnchor: 'export type ForwardObservationOutcome',
+  },
 ]
 
 // ⛔ THE LAST MIGRATION THAT DEFINES THE CONSTRAINT WINS — migrations are applied in filename order and a

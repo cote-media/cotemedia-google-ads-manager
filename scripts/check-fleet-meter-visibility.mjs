@@ -144,8 +144,50 @@ async function main() {
   if (windowLog === 0) {
     console.log(`[fleet-meter-visibility] universe_window_log contributes 0 — EXPECTED, not a fault: the v1 consumer is retired (last row 2026-08-12 18:16:46Z). Its term stays in the sum because a retired consumer that comes back must not be invisible.`)
   }
-  if (!verdict.ok) { console.error(`✗ FLEET-METER-VISIBILITY FAILED — ${verdict.reason}`); process.exitCode = 1; return }
-  console.log(`✓ fleet-meter-visibility OK — ${verdict.reason}`)
+  let failed = false
+  if (!verdict.ok) { console.error(`✗ FLEET-METER-VISIBILITY FAILED — ${verdict.reason}`); failed = true }
+  else console.log(`✓ fleet-meter-visibility OK — ${verdict.reason}`)
+
+  // LORAMER_FORWARD_OBSERVATION_LOG_V1 — THE FORWARD WITNESS. The fleet meter now reads forward's requests from
+  // forward_observation_log instead of deriving connections × 67. A ledger that goes quiet reads as "nothing
+  // spent" — the exact defect this check exists for, one lane over — so the ledger is compared against a SECOND
+  // witness: cron_runs.connections_attempted on forward google fires (progress-stamped per client since
+  // LORAMER_FORWARD_LANE_HYGIENE_V1). Expected observations ≈ attempted × SURFACES_PER_CONNECTION (35 catalogue
+  // surfaces across the ten producers; a killed connection may leave fewer). Pre-ledger fires are exempt by date.
+  // ⚠ This script reads the ledger over REST (row count) because it cannot import the TS module; src/ code reads it
+  // only through src/lib/backfill/forward-observation-log.ts (forward-observation-boundary.guard).
+  const OBSERVATION_LEDGER_LIVE_FROM = '2026-09-06T00:00:00Z' // first forward fire after the 087 deploy is 2026-09-06 08:08Z
+  const fwdSince = sinceIso > OBSERVATION_LEDGER_LIVE_FROM ? sinceIso : OBSERVATION_LEDGER_LIVE_FROM
+  const fwdEnc = encodeURIComponent(fwdSince)
+  const fwdFires = await get(`cron_runs?select=connections_attempted,finished_at&mode=eq.forward&platform=eq.google&started_at=gte.${fwdEnc}&limit=500`)
+  const obsHead = await fetch(`${SB}/rest/v1/forward_observation_log?select=id&vendor=eq.google&observed_at=gte.${fwdEnc}`, { method: 'HEAD', headers: { apikey: K, Authorization: `Bearer ${K}`, Prefer: 'count=exact' } })
+  const obsCount = Number((obsHead.headers.get('content-range') || '').split('/')[1])
+  if (fwdFires.status !== 200 || !Array.isArray(fwdFires.body) || obsHead.status >= 400 || !Number.isFinite(obsCount)) {
+    console.error(`✗ fleet-meter-visibility CANNOT RUN — forward witness unreadable (cron_runs HTTP ${fwdFires.status}, ledger HTTP ${obsHead.status}, content-range ${obsHead.headers.get('content-range')}). A broken instrument is not a pass.`)
+    process.exitCode = 2; return
+  }
+  const attempted = fwdFires.body.reduce((s, f) => s + Number(f.connections_attempted ?? 0), 0)
+  const unfinished = fwdFires.body.filter((f) => f.finished_at == null).length
+  const fwd = decideForwardLedgerVisibility({ attempted, observations: obsCount, unfinished, fires: fwdFires.body.length })
+  console.log(`[fleet-meter-visibility] forward since ${fwdSince}: fires=${fwdFires.body.length} attempted=${attempted} (unfinished ${unfinished}) · observations=${obsCount} · state=${fwd.state}`)
+  if (!fwd.ok) { console.error(`✗ FLEET-METER-VISIBILITY FAILED — ${fwd.reason}`); failed = true }
+  else console.log(`✓ fleet-meter-visibility forward OK — ${fwd.reason}`)
+  if (failed) process.exitCode = 1
+}
+
+const SURFACES_PER_CONNECTION = 35 // customer 1 · campaign 1 · ad_group + ad_group_ad 2 · dim 2 · device 4 · conv-action 1 · IS 1 · geo 19 · hour 2 · demo 2
+export function decideForwardLedgerVisibility(a) {
+  const { attempted, observations, unfinished, fires } = a
+  if (fires === 0) return { ok: true, state: 'NO-FORWARD-FIRES', reason: 'no google forward fire since the observation ledger went live — nothing to witness yet; asserted nothing and said so.' }
+  if (attempted > 0 && observations === 0) {
+    return { ok: false, state: 'QUIET', reason: `FORWARD LEDGER IS QUIET — ${fires} forward fire(s) attempted ${attempted} connection(s) and forward_observation_log recorded 0 observations. The producers ran and recorded nothing; the fleet meter is billing forward as if it spent nothing.` }
+  }
+  const expected = attempted * SURFACES_PER_CONNECTION
+  const ratio = expected > 0 ? observations / expected : 1
+  if (expected > 0 && ratio < 0.5) {
+    return { ok: false, state: 'DRIFT', reason: `FORWARD LEDGER UNDER-RECORDS — ${observations} observation(s) against ~${expected} expected (${attempted} connections × ${SURFACES_PER_CONNECTION} surfaces; ${unfinished} unfinished fire(s) may account for a partial set, not for ${(ratio * 100).toFixed(0)}%).` }
+  }
+  return { ok: true, state: 'VISIBLE', reason: `forward ledger sees its producers — ${observations} observation(s) for ${attempted} attempted connection(s) (~${expected} expected, ${(ratio * 100).toFixed(0)}%).` }
 }
 
 // Import-safe: a guard may import decideFleetMeterVisibility without running the live read.

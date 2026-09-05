@@ -81,6 +81,24 @@ for (const m of [...code.matchAll(/Math\.max\(\s*conns\s*,\s*days\s*\)/g)]) {
     `(e) lane 'forward' is billing days_filled — forward bills per connection-day.`)
 }
 
+// ── (j) FORWARD IS WITNESSED FROM ITS OWN LEDGER — LORAMER_FORWARD_OBSERVATION_LOG_V1 ─────────────────
+// Until 2026-09-05 forward's requests were DERIVED: connections_attempted × GAQL_REQUESTS_PER_CONNECTION_DAY
+// (603 = 9 × 67 on the day it was measured), and a killed fire — 26 of 541 in 30 days — never wrote its
+// connection count at all, so the derivation under-billed exactly the fires that spent the most. The forward
+// lane now RECORDS every vendor call in forward_observation_log; the fleet meter reads that sum (same `since`
+// as the other ledgers) and the cron_runs connection count survives only as the cross-witness (units.forward,
+// leg (e)) that check-fleet-meter-visibility compares it against.
+{
+  check(!/forward:\s*units\.forward\s*\*\s*GAQL_REQUESTS_PER_CONNECTION_DAY/.test(code),
+    `(j) byLane.forward is still DERIVED as units.forward × GAQL_REQUESTS_PER_CONNECTION_DAY — forward writes its own ledger now (forward_observation_log); a derived figure beside a measured one is the drift the fleet meter exists to catch.`)
+  check(/forward:\s*forwardObservationRequests\b/.test(code),
+    `(j) byLane.forward does not come from forwardObservationRequests (the observation ledger's sum).`)
+  check(/import\s*\{[^}]*\breadForwardObservationSpendToday\b[^}]*\}\s*from\s*['"]\.\/forward-observation-log['"]/.test(code),
+    `(j) google-op-budget.ts does not import readForwardObservationSpendToday from ./forward-observation-log — the one reader module is the only lawful path to the table.`)
+  check(/readForwardObservationSpendToday\(\s*WALK_ATTEMPT_LOG_VENDOR\s*,\s*since\s*\)/.test(code),
+    `(j) the forward ledger is not read with the SAME vendor literal and the SAME \`since\` as the walk's ledgers — two windows would make the fleet total a sum of two different days.`)
+}
+
 // ── (g) THE FLEET-CAP BACKSTOP ─────────────────────────────────────────────────────────────────────────
 {
   check(/fleetRemaining\s*=\s*Math\.max\(\s*0\s*,\s*cap\s*-\s*fleetOps\s*\)/.test(code),
@@ -449,7 +467,11 @@ if (WITH_DB) {
       // AND v2 ledgers; a stub that answers only the first turns the second call into a throw → null →
       // leg (k) reporting UNREADABLE, which is this harness failing, not the reader. (Seen live 2026-08-15,
       // the day the second read shipped.)
-      if (fn !== 'universe_lane_spend_today' && fn !== 'universe_attempt_lane_spend_today') {
+      // ⛔ AND THE FORWARD LEDGER — LORAMER_FORWARD_OBSERVATION_LOG_V1, 2026-09-05. The reader now measures forward
+      // from forward_observation_spend_today instead of deriving it; this stub answered only the two walk
+      // aggregates and turned the third call into a throw → null → (k) UNREADABLE on the day it shipped — the
+      // harness failing, exactly as the comment above predicted for the second read. Same fix, same shape.
+      if (fn !== 'universe_lane_spend_today' && fn !== 'universe_attempt_lane_spend_today' && fn !== 'forward_observation_spend_today') {
         return { data: null, error: { message: `unexpected rpc ${fn}` } }
       }
       const rows = await q(`select public.${fn}($1, $2::timestamptz) as v`, [args.p_vendor, args.p_since])
@@ -482,12 +504,22 @@ if (WITH_DB) {
               where vendor = 'google' and phase = 'attempt_started' and recorded_at >= $1))::int
             as walk_rows`, [since.toISOString()])
   const walk = Number(walkRequests)
+  // LORAMER_FORWARD_OBSERVATION_LOG_V1 — the forward witness: the reader's forward term must equal the ledger's own
+  // sum over the same window (it is that sum, read through the RPC; a mismatch means the RPC and the table
+  // disagree, or a reader multiplied a measured number). Zero is the NORMAL state until the first fire after
+  // the 087 deploy (2026-09-06 08:08Z) and is said out loud rather than passed silently.
+  const [{ fwd_requests: fwdRequests, fwd_rows: fwdRows }] = await q(
+    `select coalesce(sum(requests_spent),0)::bigint as fwd_requests, count(*)::int as fwd_rows
+       from public.forward_observation_log where vendor = 'google' and observed_at >= $1`, [since.toISOString()])
+  const fwd = Number(fwdRequests)
 
   globalThis.__SB__ = makeSb()
   const live = await mod.readGoogleSpendToday(since)
 
   if (live === null) {
     findings.push(`(k) readGoogleSpendToday returned NULL over the trailing 24h — the fleet read is UNREADABLE, so every google lane is holding right now. That is fail-closed and therefore safe, but it is not a pass.`)
+  } else if (Number(live.byLane.forward) !== fwd) {
+    findings.push(`(k) the forward lane reports ${live.byLane.forward} against ${fwd} request(s) across ${fwdRows} forward_observation_log row(s) over the same window — the reader's forward term is no longer the ledger's own sum.`)
   } else if (walk > 0 && Number(live.byLane.backfill) === 0) {
     findings.push(`(k) STRUCTURAL ZERO: the walk ledgers record ${walk} vendor requests across ${walkRows} row(s) in the trailing 24h, and the backfill lane reports 0. The walk's spend is invisible to the fleet ceiling — forward, catchup and drain are all measuring against a denominator missing the largest single spender.`)
   } else if (walk > 0 && Number(live.byLane.backfill) !== walk) {
@@ -495,6 +527,7 @@ if (WITH_DB) {
   }
   // ⛔ EMPTY CARRIES ITS DENOMINATOR. A quiet walk is the NORMAL state while it is halted, and this leg must
   // say so out loud rather than printing a bare PASS that a reader mistakes for "the counting works".
+  console.log(`[google-op-budget] (k) live forward witness: forward_observation_log holds ${fwd} request(s) across ${fwdRows} row(s) in the window; the reader's forward term reports ${live?.byLane?.forward}${fwdRows === 0 ? ' — ZERO is the normal state until the first forward fire after the 087 deploy (2026-09-06 08:08Z)' : ''}.`)
   console.log(
     walk > 0
       ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} ledger row(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`

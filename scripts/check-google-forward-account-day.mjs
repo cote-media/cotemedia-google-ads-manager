@@ -111,4 +111,27 @@ if (!fireStartedAt) {
   }
   console.log(`  provenance leg OK — every ${day} account row carries lane='forward', observedAt ≥ ${fireStartedAt}, provenance ∈ {VENDOR_REPORTED, ZERO_FILLED_VENDOR_OMITTED}.`)
 }
+// 5. LORAMER_FORWARD_OBSERVATION_LOG_V1 — THE ASK IS RECORDED, NOT ONLY THE ROW. Since the observation ledger went
+//    live, the account producer records every ask on the catalogue surface customer|'' (forward_observation_log,
+//    migrations/087). A stamped day whose connection holds a row but no observation is a producer that wrote
+//    without recording — the "didn't ask" class re-entering through the ledger's own absence. Pre-ledger fires are
+//    exempt by date, exactly like leg 4.
+//    ⚠ This script reads the ledger over REST because it cannot import the TS module; src/ code reads it only
+//    through src/lib/backfill/forward-observation-log.ts (forward-observation-boundary.guard).
+const OBSERVATION_LEDGER_LIVE_FROM = '2026-09-06T00:00:00Z' // first forward fire after the 087 deploy is 2026-09-06 08:08Z
+const ledgerFires = stampedFires.filter((f) => f.startedAt >= OBSERVATION_LEDGER_LIVE_FROM)
+if (!ledgerFires.length) {
+  console.log(`  observation leg SKIPPED — none of the ${fires.length} forward fire(s) targeting ${day} started after the observation ledger went live (${OBSERVATION_LEDGER_LIVE_FROM}).`)
+} else {
+  const sinceEnc = encodeURIComponent(ledgerFires[0].startedAt)
+  const obsRows = await rest(`forward_observation_log?select=client_id&vendor=eq.google&resource=eq.customer&segment=eq.&window_start=lte.${day}&window_end=gte.${day}&observed_at=gte.${sinceEnc}&limit=1000`)
+  const have = new Set(obsRows.map((r) => r.client_id))
+  const unobserved = owed.filter((c) => !have.has(c.client_id))
+  if (unobserved.length) {
+    console.error(`✗ GOOGLE-ACCOUNT-ZERO-DAY FAILED — ${unobserved.length} of ${owed.length} cursor-stamped connection(s) hold an account row for ${day} but NO customer/'' observation since ${ledgerFires[0].startedAt} — the producer wrote without recording its ask:`)
+    for (const c of unobserved) console.error(`  - ${c.clients?.name || c.client_id} (client ${c.client_id}, account ${c.account_id})`)
+    process.exit(1)
+  }
+  console.log(`  observation leg OK — every one of ${owed.length} owed connection(s) carries a customer/'' observation covering ${day} since ${ledgerFires[0].startedAt}.`)
+}
 console.log(`✓ google-forward-account-day OK — ${owed.length}/${owed.length} cursor-stamped google connection(s) hold an account row for ${day} (${live.length - owed.length} not yet stamped to that day, not judged).`)

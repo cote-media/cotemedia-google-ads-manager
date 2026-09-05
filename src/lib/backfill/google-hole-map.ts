@@ -48,6 +48,7 @@ import {
 import { surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { MAX_ENTRIES_SCANNED_PER_RUN } from '@/lib/backfill/universe-resumer'
 import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
+import { readForwardObservations } from '@/lib/backfill/forward-observation-log' // LORAMER_FORWARD_OBSERVATION_LOG_V1 — a LABEL over coverage's answer, never an input to it
 import { supabaseAdmin } from '@/lib/supabase'
 
 const VENDOR = 'google'
@@ -111,6 +112,10 @@ export interface SurfaceTally {
   /** Covered by rows alone — pre-stamp, UNKNOWN-provenance. Stated, never inferred. */
   presenceOnly: number
   attestedEmpty: number
+  /** LORAMER_FORWARD_OBSERVATION_LOG_V1 — uncovered days a forward observation covers: ASKED, empty or unknown,
+   *  and still inside the vendor's restatement window so nothing may seal them. Not holes; not attests. */
+  observedUnsealed: number
+  /** never asked by any lane — the residual, and the only thing the spans are built from */
   uncovered: number
   spans: number
   probes: number
@@ -136,7 +141,7 @@ export interface HoleMapPage {
   elapsedMs: number
   /** Surfaces whose resolved stop sits above the requested end — nothing to ask, nothing inferred. */
   belowFloor: number
-  tiers: { ledgerAttested: number; rowAttested: number; presenceOnly: number; attestedEmpty: number; uncovered: number }
+  tiers: { ledgerAttested: number; rowAttested: number; presenceOnly: number; attestedEmpty: number; observedUnsealed: number; uncovered: number }
   /** Oldest span first, then by surface — the fill order. ONLY `uncovered` days appear here. */
   uncovered: HoleSpan[]
   perSurface: SurfaceTally[]
@@ -184,7 +189,7 @@ export async function enumerateGoogleHoles(input: {
   const fromEntry = Math.max(0, input.fromEntry ?? 0)
   const perSurface: SurfaceTally[] = []
   const uncovered: HoleSpan[] = []
-  const tiers = { ledgerAttested: 0, rowAttested: 0, presenceOnly: 0, attestedEmpty: 0, uncovered: 0 }
+  const tiers = { ledgerAttested: 0, rowAttested: 0, presenceOnly: 0, attestedEmpty: 0, observedUnsealed: 0, uncovered: 0 }
   let belowFloor = 0
   let i = fromEntry
   for (; i < entries.length; i++) {
@@ -217,7 +222,18 @@ export async function enumerateGoogleHoles(input: {
     const rowAttested = await rowAttestedDays(clientId, s.entityLevel, s.breakdownType, cov.covered.filter((d) => !committed.has(d)))
     const presenceOnly = cov.covered.length - ledgerAttested - rowAttested
 
-    const spans = toRanges(cov.uncovered).map((r) => ({
+    // LORAMER_FORWARD_OBSERVATION_LOG_V1 — THE FOURTH TIER, OVER THE UNCOVERED HALF. A day windowCoverage calls
+    // uncovered may still have been ASKED by forward and answered empty (or answered by a producer that reports
+    // only a window total). That day is not a hole — ruling (F)'s positive evidence exists — and it is not an
+    // attest either: it sits inside the vendor's restatement window, and only the lookback lane may seal it.
+    // ⛔ THIS READ LABELS DAYS ALREADY DECIDED UNCOVERED BY windowCoverage; IT NEVER DECIDES COVERAGE, and it
+    // reaches the observation ledger only through its one reader module, never the walk's attempt log.
+    const obs = await readForwardObservations({ clientId, vendor: VENDOR, resource: s.resource, segment: s.segment, from: effectiveStart, to: end })
+    const askedSet = new Set(obs.asked)
+    const observedUnsealed = cov.uncovered.filter((d) => askedSet.has(d))
+    const residualUncovered = cov.uncovered.filter((d) => !askedSet.has(d))
+
+    const spans = toRanges(residualUncovered).map((r) => ({
       clientId, surface, start: r.start, end: r.end,
       days: Math.round((Date.parse(r.end) - Date.parse(r.start)) / 86_400_000) + 1,
     }))
@@ -226,10 +242,12 @@ export async function enumerateGoogleHoles(input: {
     tiers.rowAttested += rowAttested
     tiers.presenceOnly += presenceOnly
     tiers.attestedEmpty += cov.attestedEmpty.length
-    tiers.uncovered += cov.uncovered.length
+    tiers.observedUnsealed += observedUnsealed.length
+    tiers.uncovered += residualUncovered.length
     perSurface.push({
       surface, effectiveStart, stopDate: stop.stopDate, basis: stop.basis,
-      ledgerAttested, rowAttested, presenceOnly, attestedEmpty: cov.attestedEmpty.length, uncovered: cov.uncovered.length,
+      ledgerAttested, rowAttested, presenceOnly, attestedEmpty: cov.attestedEmpty.length,
+      observedUnsealed: observedUnsealed.length, uncovered: residualUncovered.length,
       spans: spans.length, probes: cov.probes, ms: cov.ms,
     })
   }

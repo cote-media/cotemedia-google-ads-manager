@@ -62,6 +62,8 @@ import { readLaneSpendToday } from './universe-window-log'
 // it. `google-ads.adapter.ts:142` has summed both since LORAMER_V2_METER_CHARGES_THE_PROGRAM_V1; this reader
 // was never given the second half. (Acyclic: universe-attempt-log imports only @/lib/supabase.)
 import { readAttemptLaneSpendToday } from './universe-attempt-log'
+// LORAMER_FORWARD_OBSERVATION_LOG_V1 — forward's requests are MEASURED from its own ledger, not derived ×67.
+import { readForwardObservationSpendToday } from './forward-observation-log'
 // ⛔ THE WINDOW IS SHARED, NOT COPIED — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. The fleet total is assembled
 // from BOTH readers, so two independently-computed windows would measure one fleet over two different
 // periods. It lives one level below both because this file imports universe-window-log (acyclicity is
@@ -482,14 +484,23 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
     // `adapter.platform`, which is 'google' (capture-adapter.ts:192-193, google-ads.adapter.ts:167). Passing
     // the wrong spelling returns a clean 0 — the same silent-zero failure this whole fix is about — so the
     // literal is pinned against the adapter's own value by guard leg (e) rather than trusted.
-    const [v1WindowLogRequests, v2AttemptLogRequests] = await Promise.all([
+    // ⛔ LORAMER_FORWARD_OBSERVATION_LOG_V1 — FORWARD IS MEASURED, NOT DERIVED. Until 2026-09-05 forward's term was
+    // connections_attempted × 67 (603 = 9 × 67 on the day it was measured), and a killed fire — 26 of 541 in 30
+    // days — never wrote its connection count at all, so the derivation under-billed exactly the fires that spent
+    // the most. Every google producer now records each vendor call in forward_observation_log (migrations/087);
+    // its sum since the SAME `since` is the forward term, in REQUESTS, never multiplied. units.forward (the
+    // cron_runs connection count, progress-stamped per client since LORAMER_FORWARD_LANE_HYGIENE_V1) survives as
+    // the CROSS-WITNESS check-fleet-meter-visibility compares the ledger against — a ledger that goes quiet is
+    // indistinguishable from a lane that spent nothing, and only a second witness can tell them apart.
+    const [v1WindowLogRequests, v2AttemptLogRequests, forwardObservationRequests] = await Promise.all([
       readLaneSpendToday(since),
       readAttemptLaneSpendToday(WALK_ATTEMPT_LOG_VENDOR, since),
+      readForwardObservationSpendToday(WALK_ATTEMPT_LOG_VENDOR, since),
     ])
     const backfillRequests = v1WindowLogRequests + v2AttemptLogRequests
     return {
       byLane: {
-        forward: units.forward * GAQL_REQUESTS_PER_CONNECTION_DAY,
+        forward: forwardObservationRequests,
         catchup: units.catchup * GAQL_REQUESTS_PER_CONNECTION_DAY,
         drain: units.drain * GAQL_REQUESTS_PER_CONNECTION_DAY,
         backfill: backfillRequests,

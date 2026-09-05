@@ -78,6 +78,14 @@ const GUARDS = [
   // progress row; no instrument judges a day by the newest or the completed fire alone.
   'tests/guards/forward-claim-lease-covers-max-duration.guard.mjs',
   'tests/guards/cron-runs-progress-on-kill.guard.mjs',
+  // LORAMER_FORWARD_OBSERVATION_LOG_V1 — forward's per-surface records are OBSERVATIONS in their own append-only
+  // store: every producer records what it asked and what came back, the walk's readers cannot see them by
+  // construction, the hole map tells asked-and-empty from never-asked, and the fleet meter reads forward's
+  // requests from the ledger instead of deriving them.
+  'tests/guards/forward-observation-append-only.guard.mjs',
+  'tests/guards/forward-producers-are-observed.guard.mjs',
+  'tests/guards/forward-observation-boundary.guard.mjs',
+  'tests/guards/hole-map-observed-unsealed-tier.guard.mjs',
 
   // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the STATIC half of the only destructive write in the Google capture
   // path. Source-only, so it is safe in a Vercel build; the BEHAVIOURAL half writes to the database and

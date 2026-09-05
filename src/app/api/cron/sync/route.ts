@@ -33,6 +33,7 @@ import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRIC
 import { upsertMetricsChunked } from '@/lib/metrics-upsert' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — a 31-day pass can exceed the PostgREST statement ceiling; new sites pay the debt rather than joining the allowlist
 import { pruneCappedDimensionalRows, cappedRowKey } from '@/lib/intelligence/google-dimensional-prune' // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — upsert-then-prune, the only destructive write in the Google capture path
 import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun, progressCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1 + LORAMER_FORWARD_LANE_HYGIENE_V1
+import { appendForwardObservation, FORWARD_PRODUCER_SURFACES, DEVICE_SURFACE_BY_ENTITY_LEVEL, observationOutcome } from '@/lib/backfill/forward-observation-log' // LORAMER_FORWARD_OBSERVATION_LOG_V1 — every google producer records what it asked and what came back
 import type {
   IntelligenceGa,
 } from '@/lib/intelligence/intelligence-types'
@@ -299,6 +300,29 @@ export async function GET(request: Request) {
       rowsWritten: t.rows,
       errorCount: t.errsForP.length,
     })
+  }
+  // LORAMER_FORWARD_OBSERVATION_LOG_V1 — THE ASK IS RECORDED, NOT ONLY THE ROW. Each Google producer hands its
+  // catalogue surfaces here after its vendor call (or from its catch) and one observation row lands per surface:
+  // window, requests, rows per day, ok|zero|nongrain|error. Ruling (F): never a "didn't ask" day — before this
+  // an empty grain left NO row and a fire's 16 vendor errors left nothing durable.
+  // ⛔ A FAILED APPEND NEVER THROWS INTO CAPTURE. It is pushed into summary.errors (DEGRADED, counted in
+  // cron_runs.error_count) so the fire's own ledger says an observation is missing — the rows still land.
+  type ObservedSurface = { resource: string; segment: string; requests: number; rowsByDay: Record<string, number>; rowsWritten: number; apiRows: number; error?: string | null }
+  async function observeForward(producer: string, clientId: string, window: { start: string; end: string }, surfaces: ObservedSurface[]) {
+    for (const s of surfaces) {
+      try {
+        await appendForwardObservation({
+          clientId, vendor: 'google', resource: s.resource, segment: s.segment, lane: 'forward', producer,
+          cronRunId: cronRunIds.google ?? null, windowStart: window.start, windowEnd: window.end,
+          requestsSpent: s.requests, rowsByDay: s.rowsByDay, rowsWritten: s.rowsWritten,
+          outcome: observationOutcome(s), error: s.error ?? null,
+        })
+      } catch (obsErr) {
+        const message = serializeCaughtError(obsErr)
+        console.error(`[cron/sync] client=${clientId} platform=google observation ${producer} ${s.resource}/${s.segment || '(base)'} NOT RECORDED: ${message}`)
+        summary.errors.push({ clientId, platform: 'google', message: `observation ${producer} ${s.resource}/${s.segment || '(base)'}: ${message}` })
+      }
+    }
   }
   async function finalizeSection(p: string, snap: { rows: number; errs: number }) {
     const { errsForP, erroredConns, degradedConns, attempted, rows } = sectionTallies(p, snap)
@@ -762,41 +786,68 @@ export async function GET(request: Request) {
 
         // (1) ACCOUNT grain — the ONE producer, from Google's own account report. Independent of the
         // campaign fetch by design, which is what keeps the two reconcilers below meaningful.
-        const acctDays = await fetchGoogleAccountWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+        const obsWindow = { start: googleRestateStart, end: captureDate } // LORAMER_FORWARD_OBSERVATION_LOG_V1 — the window every restating producer below actually asks
+        let acctDays: Awaited<ReturnType<typeof fetchGoogleAccountWindow>>
+        try {
+          acctDays = await fetchGoogleAccountWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+        } catch (acctErr) {
+          // The account fetch is the connection's spine (the outer catch marks the connection failed); record the
+          // ask as an error observation first, then let it propagate exactly as before.
+          await observeForward('google-account-row', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-account-row'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: serializeCaughtError(acctErr) })))
+          throw acctErr
+        }
         const rows = buildGoogleAccountRows(client.id, userEmail, customerId, conn.account_name, acctDays, 'forward') // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the lane, as a literal
         // Chunked: 31 days x every Google connection is materially more rows per statement than the
         // single-day write this replaced, and an unchunked upsert fails at the PostgREST ceiling by SIZE.
         if (rows.length > 0) await upsertMetricsChunked(rows)
         summary.rowsWritten += rows.length
+        // The vendor's own answer per day: vendorRow true = a dated row came back; false = the zero the producer wrote itself.
+        await observeForward('google-account-row', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-account-row'].map((s) => ({
+          ...s, requests: 1, rowsByDay: Object.fromEntries(acctDays.map((d) => [d.date, d.vendorRow ? 1 : 0])),
+          rowsWritten: rows.length, apiRows: acctDays.filter((d) => d.vendorRow).length,
+        })))
 
         // (2) CAMPAIGN and (3) AD_GROUP/AD grains — the existing range writers, over the same window.
         // Own try/catch each: a base-grain restatement failure must not drop the account rows already
         // written or the breadth families below. Same posture as the Meta calls at sync:533/538.
         try {
           const rCamp = await runGoogleCampaignBackfill(client.id, googleRestateStart, captureDate, {})
+          const cb = (rCamp.body ?? {}) as any
           if (rCamp.status >= 400) {
             console.error(`[cron/sync] client=${client.id} platform=google campaign restate ${rCamp.status}:`, JSON.stringify(rCamp.body).slice(0, 300))
             summary.errors.push({ clientId: client.id, platform: 'google', message: `campaign restate ${rCamp.status}` })
+            await observeForward('google-campaign-backfill', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-campaign-backfill'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: `campaign restate ${rCamp.status}: ${JSON.stringify(rCamp.body).slice(0, 200)}` })))
           } else {
-            summary.rowsWritten += Number((rCamp.body as any)?.written ?? 0)
+            summary.rowsWritten += Number(cb.written ?? 0)
+            // The range writer reports a window TOTAL (written, campaignDayRows) — per-day counts arrive with the driver.
+            await observeForward('google-campaign-backfill', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-campaign-backfill'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: Number(cb.written ?? 0), apiRows: Number(cb.campaignDayRows ?? cb.written ?? 0) })))
           }
         } catch (campErr) {
           const message = serializeCaughtError(campErr)
           console.error(`[cron/sync] client=${client.id} platform=google campaign restate FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `campaign restate: ${message}` })
+          await observeForward('google-campaign-backfill', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-campaign-backfill'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
         try {
           const rAga = await runGoogleAdGroupAdBackfill(client.id, googleRestateStart, captureDate, {})
+          const ab = (rAga.body ?? {}) as any
           if (rAga.status >= 400) {
             console.error(`[cron/sync] client=${client.id} platform=google adgroup/ad restate ${rAga.status}:`, JSON.stringify(rAga.body).slice(0, 300))
             summary.errors.push({ clientId: client.id, platform: 'google', message: `adgroup/ad restate ${rAga.status}` })
+            await observeForward('google-adgroup-ad-backfill', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-adgroup-ad-backfill'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: `adgroup/ad restate ${rAga.status}: ${JSON.stringify(rAga.body).slice(0, 200)}` })))
           } else {
-            summary.rowsWritten += Number((rAga.body as any)?.written ?? 0)
+            summary.rowsWritten += Number(ab.written ?? 0)
+            // Two surfaces, one call each; the writer reports per-grain totals (adGroup.written / ad.written), not per day.
+            await observeForward('google-adgroup-ad-backfill', client.id, obsWindow, [
+              { resource: 'ad_group', segment: '', requests: 1, rowsByDay: {}, rowsWritten: Number(ab.adGroup?.written ?? 0), apiRows: Number(ab.adGroup?.written ?? 0) },
+              { resource: 'ad_group_ad', segment: '', requests: 1, rowsByDay: {}, rowsWritten: Number(ab.ad?.written ?? 0), apiRows: Number(ab.ad?.written ?? 0) },
+            ])
           }
         } catch (agaErr) {
           const message = serializeCaughtError(agaErr)
           console.error(`[cron/sync] client=${client.id} platform=google adgroup/ad restate FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `adgroup/ad restate: ${message}` })
+          await observeForward('google-adgroup-ad-backfill', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-adgroup-ad-backfill'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         // LORAMER_SEARCH_TERMS_CAPTURE_V1 — dimensional capture (search terms + keywords) as
@@ -814,10 +865,23 @@ export async function GET(request: Request) {
           // below is what makes the word "replaces" true, and it runs AFTER the writes, never before.
           const dimFreshKeys = new Set<string>()
           const dimPrunableDates: string[] = []
+          // LORAMER_FORWARD_OBSERVATION_LOG_V1 — two catalogue surfaces ride the two dimensional queries.
+          const dimObs = {
+            st: { resource: 'search_term_view', segment: '', requests: 1, rowsByDay: {} as Record<string, number>, rowsWritten: 0, apiRows: 0 },
+            kw: { resource: 'keyword_view', segment: '', requests: 1, rowsByDay: {} as Record<string, number>, rowsWritten: 0, apiRows: 0 },
+          }
+          const dimObserve = (date: string, day: { searchTerms: unknown[]; keywords: unknown[] }, built: Array<{ breakdown_type?: string }>) => {
+            dimObs.st.apiRows += day.searchTerms.length; dimObs.kw.apiRows += day.keywords.length
+            for (const b of built) {
+              const e = b.breakdown_type === 'keyword' ? dimObs.kw : dimObs.st
+              e.rowsByDay[date] = (e.rowsByDay[date] ?? 0) + 1; e.rowsWritten += 1
+            }
+          }
           const dimWin = await fetchGoogleDimensionalWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
           const dimBuckets = dimWin.overflow ? new Map() : bucketWindowByDate(dimWin)
           if (dimWin.overflow) {
             console.warn(`[cron/sync] client=${client.id} platform=google dimensional WINDOW OVERFLOW (>= row cap) over ${googleRestateStart}..${captureDate} — falling back to captureDate only`)
+            dimObs.st.requests += 1; dimObs.kw.requests += 1 // the single-day fallback is a second pair of queries
           }
           const dim = dimWin.overflow
             ? await fetchGoogleDimensional(tokenRow.refresh_token, customerId, captureDate, captureDate)
@@ -825,6 +889,7 @@ export async function GET(request: Request) {
           for (const [dimDate, dimDay] of dimBuckets) {
             if (dimDate === captureDate) continue
             const built = buildGoogleDimensionalRows(client.id, userEmail, dimDate, customerId, dimDay)
+            dimObserve(dimDate, dimDay, built as any)
             if (built.length === 0) continue
             await upsertMetricsChunked(built)
             summary.rowsWritten += built.length
@@ -839,6 +904,7 @@ export async function GET(request: Request) {
             )
           }
           const dimRows = buildGoogleDimensionalRows(client.id, userEmail, captureDate, customerId, dim)
+          dimObserve(captureDate, dim, dimRows as any)
           if (dimRows.length === 0) {
             console.log(
               `[cron/sync] client=${client.id} platform=google dimensional capture: 0 search-term/keyword rows (empty, not an error)`
@@ -863,6 +929,7 @@ export async function GET(request: Request) {
           if (dimPruned.pruned > 0) {
             console.log(`[cron/sync] client=${client.id} platform=google dimensional PRUNED ${dimPruned.pruned} stale row(s) of ${dimPruned.examined} examined across ${dimPruned.days} day(s) — keys the fresh pull no longer carries`)
           }
+          await observeForward('google-dimensional', client.id, obsWindow, [dimObs.st, dimObs.kw])
         } catch (dimErr) {
           const message = serializeCaughtError(dimErr)
           console.error(
@@ -870,6 +937,7 @@ export async function GET(request: Request) {
             message
           )
           summary.errors.push({ clientId: client.id, platform: 'google', message: `dimensional: ${message}` })
+          await observeForward('google-dimensional', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-dimensional'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         // LORAMER_GOOGLE_DEVICE_CAPTURE_V1 — device breakdown capture (campaign × device) as breakdown
@@ -878,11 +946,14 @@ export async function GET(request: Request) {
         // 0 rows = logged empty, not error. No forward reconcile (the backfill/drain + catchup carry it).
         // 4 entity grains (campaign/ad_group/ad/keyword × device). Writes all grains; no forward reconcile
         // (backfill/drain carry FLAG-NOT-BLOCK).
+        const devObs: Record<string, ObservedSurface> = {} // LORAMER_FORWARD_OBSERVATION_LOG_V1 — one surface per grain
         try {
           let devRows = 0
           for (const grain of DEVICE_GRAINS) {
             // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — one RANGED query (same cost as one day), bucketed per day.
             const win = await fetchDeviceGrainWindow(grain, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const devEntry = (devObs[grain.entityLevel] ??= { ...DEVICE_SURFACE_BY_ENTITY_LEVEL[grain.entityLevel], requests: 0, rowsByDay: {}, rowsWritten: 0, apiRows: 0 })
+            devEntry.requests += 1; devEntry.apiRows += win.length
             const byDate = new Map<string, typeof win>()
             for (const r of win) { if (!byDate.has(r.date)) byDate.set(r.date, [] as any); byDate.get(r.date)!.push(r) }
             for (const [d, dayRows] of byDate) {
@@ -893,16 +964,19 @@ export async function GET(request: Request) {
                 .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
               if (devError) throw devError
               summary.rowsWritten += built.length; devRows += built.length
+              devEntry.rowsByDay[d] = (devEntry.rowsByDay[d] ?? 0) + built.length; devEntry.rowsWritten += built.length
             }
             }
           }
           if (devRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google device capture: 0 rows (empty, not an error)`)
           }
+          await observeForward('google-device', client.id, obsWindow, Object.values(devObs))
         } catch (devErr) {
           const message = serializeCaughtError(devErr)
           console.error(`[cron/sync] client=${client.id} platform=google device capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `device: ${message}` })
+          await observeForward('google-device', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-device'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         // LORAMER_GOOGLE_CONV_ACTION_IS_PERSIST_V1 (T0.1 + T0.2) — persist the conversion-action segmentation +
@@ -911,11 +985,11 @@ export async function GET(request: Request) {
         // live-intel GAQL; the data was fetched for the Lora prompt and otherwise dropped). campaign grain only;
         // WRITE-ONLY (conversion_action Σ ≠ account by design; IS is a ratio, not a partition). HISTORY backfill
         // = T2.3 (quota-gated). Own try/catch: NEVER drops the platform's main / dimensional / device rows.
+        const t0Window = { start: captureDate, end: captureDate } // LORAMER_FORWARD_OBSERVATION_LOG_V1 — these two ride the single-day intel fetch, never the restate window
         try {
-          const t0Rows = [
-            ...buildGoogleConversionActionRows(client.id, userEmail, captureDate, customerId, intel.conversionsByCampaign),
-            ...buildGoogleImpressionShareRows(client.id, userEmail, captureDate, customerId, intel.impressionShares),
-          ]
+          const convRows = buildGoogleConversionActionRows(client.id, userEmail, captureDate, customerId, intel.conversionsByCampaign)
+          const isRows = buildGoogleImpressionShareRows(client.id, userEmail, captureDate, customerId, intel.impressionShares)
+          const t0Rows = [...convRows, ...isRows]
           if (t0Rows.length > 0) {
             const { error: t0Error } = await supabaseAdmin
               .from('metrics_daily')
@@ -925,10 +999,15 @@ export async function GET(request: Request) {
           } else {
             console.log(`[cron/sync] client=${client.id} platform=google conv-action/IS persist: 0 rows (empty, not an error)`)
           }
+          // conv-action: one GAQL inside the intel fetch; IS: zero — it rides the same payload.
+          await observeForward('google-conversion-action', client.id, t0Window, FORWARD_PRODUCER_SURFACES['google-conversion-action'].map((s) => ({ ...s, requests: 1, rowsByDay: { [captureDate]: convRows.length }, rowsWritten: convRows.length, apiRows: (intel.conversionsByCampaign ?? []).length })))
+          await observeForward('google-impression-share', client.id, t0Window, FORWARD_PRODUCER_SURFACES['google-impression-share'].map((s) => ({ ...s, requests: 0, rowsByDay: { [captureDate]: isRows.length }, rowsWritten: isRows.length, apiRows: (intel.impressionShares ?? []).length })))
         } catch (t0Err) {
           const message = serializeCaughtError(t0Err)
           console.error(`[cron/sync] client=${client.id} platform=google conv-action/IS persist FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `conv-action/IS: ${message}` })
+          await observeForward('google-conversion-action', client.id, t0Window, FORWARD_PRODUCER_SURFACES['google-conversion-action'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
+          await observeForward('google-impression-share', client.id, t0Window, FORWARD_PRODUCER_SURFACES['google-impression-share'].map((s) => ({ ...s, requests: 0, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         // LORAMER_GOOGLE_GEO_CAPTURE_V1 — geo breakdown FAMILY (per-grain, both resources: 10 geographic_view +
@@ -936,12 +1015,19 @@ export async function GET(request: Request) {
         // geo failure logs LOUD and is recorded, but NEVER drops base/dimensional/device rows or sync_state.
         // WRITE-ONLY — no reconcile (geo is non-partitioning: location_type overlap + multi-grain).
         for (const [famLabel, grains] of [['geo', GEOGRAPHIC_GRAINS], ['user_geo', USER_GRAINS]] as const) {
+          // LORAMER_FORWARD_OBSERVATION_LOG_V1 — one catalogue surface per grain (the VIEW + its segment; the country grain
+          // reads a resource field and is the view's base surface), accumulated across the two entity queries.
+          const geoSurfaceOf = (g: { resource: string; select: string }) => ({ resource: g.resource, segment: g.select.startsWith('segments.') ? g.select : '' })
+          const geoObs: Record<string, ObservedSurface> = {}
           try {
             let famRows = 0
             for (const grain of grains) {
               for (const entity of GEO_ENTITIES) {
                 // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day.
                 const gwin = await fetchGeoGrainWindow(grain, entity, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+                const gSurface = geoSurfaceOf(grain)
+                const gEntry = (geoObs[`${gSurface.resource}|${gSurface.segment}`] ??= { ...gSurface, requests: 0, rowsByDay: {}, rowsWritten: 0, apiRows: 0 })
+                gEntry.requests += 1; gEntry.apiRows += gwin.length
                 const gByDate = new Map<string, typeof gwin>()
                 for (const r of gwin) { if (!gByDate.has(r.date)) gByDate.set(r.date, [] as any); gByDate.get(r.date)!.push(r) }
                 for (const [gd, gRows] of gByDate) {
@@ -952,6 +1038,7 @@ export async function GET(request: Request) {
                     .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
                   if (geoError) throw geoError
                   summary.rowsWritten += built.length; famRows += built.length
+                  gEntry.rowsByDay[gd] = (gEntry.rowsByDay[gd] ?? 0) + built.length; gEntry.rowsWritten += built.length
                 }
                 }
               }
@@ -959,21 +1046,26 @@ export async function GET(request: Request) {
             if (famRows === 0) {
               console.log(`[cron/sync] client=${client.id} platform=google ${famLabel} capture: 0 rows (empty, not an error)`)
             }
+            await observeForward('google-geo', client.id, obsWindow, Object.values(geoObs))
           } catch (geoErr) {
             const message = serializeCaughtError(geoErr)
             console.error(`[cron/sync] client=${client.id} platform=google ${famLabel} capture FAILED:`, message)
             summary.errors.push({ clientId: client.id, platform: 'google', message: `${famLabel}: ${message}` })
+            await observeForward('google-geo', client.id, obsWindow, grains.map((g) => ({ ...geoSurfaceOf(g), requests: GEO_ENTITIES.length, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
           }
         }
 
         // LORAMER_GOOGLE_HOUR_CAPTURE_V1 — hour breakdown (campaign×hour + ad_group×hour). Own try/catch: an hour
         // failure logs LOUD and is recorded, but NEVER drops base/dimensional/device/geo rows or sync_state.
         // Writes both grains; no forward reconcile (matches device/geo — the backfill carries FLAG-NOT-BLOCK).
+        const hourObs: Record<string, ObservedSurface> = {} // LORAMER_FORWARD_OBSERVATION_LOG_V1 — campaign|segments.hour · ad_group|segments.hour
         try {
           let hourRows = 0
           for (const grain of HOUR_GRAINS) {
             // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day.
             const hwin = await fetchHourGrainWindow(grain, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const hEntry = (hourObs[grain.entityLevel] ??= { resource: grain.entityLevel, segment: 'segments.hour', requests: 0, rowsByDay: {}, rowsWritten: 0, apiRows: 0 })
+            hEntry.requests += 1; hEntry.apiRows += hwin.length
             const hByDate = new Map<string, typeof hwin>()
             for (const r of hwin) { if (!hByDate.has(r.date)) hByDate.set(r.date, [] as any); hByDate.get(r.date)!.push(r) }
             for (const [hd, hRows] of hByDate) {
@@ -984,16 +1076,19 @@ export async function GET(request: Request) {
                 .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
               if (hourError) throw hourError
               summary.rowsWritten += built.length; hourRows += built.length
+              hEntry.rowsByDay[hd] = (hEntry.rowsByDay[hd] ?? 0) + built.length; hEntry.rowsWritten += built.length
             }
             }
           }
           if (hourRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google hour capture: 0 rows (empty, not an error)`)
           }
+          await observeForward('google-hour', client.id, obsWindow, Object.values(hourObs))
         } catch (hourErr) {
           const message = serializeCaughtError(hourErr)
           console.error(`[cron/sync] client=${client.id} platform=google hour capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `hour: ${message}` })
+          await observeForward('google-hour', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-hour'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         // LORAMER_GOOGLE_DEMOGRAPHIC_CAPTURE_V1 (G-FILL#3) — age + gender breakdown (campaign + ad_group grains,
@@ -1001,11 +1096,14 @@ export async function GET(request: Request) {
         // dropped; now persisted. Own try/catch: a demographic failure logs LOUD and is recorded, but NEVER drops
         // base/dimensional/device/geo/hour rows or sync_state. ONE view fetch per dimension → both grains. No
         // forward reconcile (matches device/geo/hour — the backfill/drain carries FLAG-NOT-BLOCK).
+        const demoObs: Record<string, ObservedSurface> = {} // LORAMER_FORWARD_OBSERVATION_LOG_V1 — age_range_view|'' · gender_view|''
         try {
           let demoRows = 0
           for (const dim of DEMO_DIMENSIONS) {
             // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — ranged, bucketed per day. ONE fetch per dimension feeds both grains.
             const dwin = await fetchDemographicWindow(dim, tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
+            const dEntry = (demoObs[dim.resource] ??= { resource: dim.resource, segment: '', requests: 0, rowsByDay: {}, rowsWritten: 0, apiRows: 0 })
+            dEntry.requests += 1; dEntry.apiRows += dwin.length
             const dByDate = new Map<string, typeof dwin>()
             for (const r of dwin) { if (!dByDate.has(r.date)) dByDate.set(r.date, [] as any); dByDate.get(r.date)!.push(r) }
             for (const [dd, dayRows] of dByDate) {
@@ -1017,6 +1115,7 @@ export async function GET(request: Request) {
                   .upsert(normalizeMetricsRows(built), { onConflict: METRICS_DAILY_CONFLICT })
                 if (demoError) throw demoError
                 summary.rowsWritten += built.length; demoRows += built.length
+                dEntry.rowsByDay[dd] = (dEntry.rowsByDay[dd] ?? 0) + built.length; dEntry.rowsWritten += built.length
               }
             }
             }
@@ -1024,10 +1123,12 @@ export async function GET(request: Request) {
           if (demoRows === 0) {
             console.log(`[cron/sync] client=${client.id} platform=google demographic capture: 0 rows (empty, not an error)`)
           }
+          await observeForward('google-demographic', client.id, obsWindow, Object.values(demoObs))
         } catch (demoErr) {
           const message = serializeCaughtError(demoErr)
           console.error(`[cron/sync] client=${client.id} platform=google demographic capture FAILED:`, message)
           summary.errors.push({ clientId: client.id, platform: 'google', message: `demographic: ${message}` })
+          await observeForward('google-demographic', client.id, obsWindow, FORWARD_PRODUCER_SURFACES['google-demographic'].map((s) => ({ ...s, requests: 1, rowsByDay: {}, rowsWritten: 0, apiRows: 0, error: message })))
         }
 
         const { error: syncError } = await supabaseAdmin
