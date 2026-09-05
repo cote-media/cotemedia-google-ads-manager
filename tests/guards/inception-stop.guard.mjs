@@ -269,6 +269,37 @@ const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|
   }
 }
 
+// ── (f) THE HOLE ENUMERATOR IS A CALLER OF THE ONE RESOLVER — LORAMER_GOOGLE_HOLE_MAP_DETECTOR_V1 ─────
+// ⛔ THE SECOND NON-FETCHING CALLER, SHAPED TO FIT LEG (c) EXACTLY AS THE RESUMER WAS. The hole enumerator
+// needs the same floor the walk uses — and the only way to get it without becoming a second composition
+// site is to CALL resolveWalkStop. Three things would let a floor drift into this module and every one is
+// red here: composing the stop itself (a second site, leg (c)'s two-owners shape), carrying an ISO date
+// literal (a computed wall — there is no 37-month wall, the floor is DISCOVERED), or never testing
+// stopDate === null (UNKNOWN must REFUSE the whole enumeration, never trim to a partial list).
+// ⛔ ABSENCE OF THE MODULE IS RED, not a pass — read() pushes UNREADABLE — so deleting it cannot green this.
+{
+  const ENUM = 'src/lib/backfill/google-hole-map.ts'
+  const src = read(ENUM)
+  if (src) {
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    if (!/import\s*\{[^}]*\bresolveWalkStop\b[^}]*\}\s*from\s*['"]@\/lib\/backfill\/google-ads-universe-writer['"]/.test(code)) {
+      findings.push(`(f) ${ENUM} does not import resolveWalkStop from ${WRITER} — its floor comes from somewhere else, or from nowhere.`)
+    }
+    if (!/\bresolveWalkStop\s*\(/.test(code)) {
+      findings.push(`(f) ${ENUM} never CALLS resolveWalkStop — importing the resolver is not flooring on it.`)
+    }
+    if (/\bcomposeWalkStop\b/.test(code)) {
+      findings.push(`(f) ${ENUM} references composeWalkStop — a SECOND composition site. The stop is composed in exactly one place (leg (c)); every other caller goes through resolveWalkStop.`)
+    }
+    if (/'\d{4}-\d{2}-\d{2}'|"\d{4}-\d{2}-\d{2}"/.test(code)) {
+      findings.push(`(f) ${ENUM} carries an ISO date literal — a computed wall or a fallback epoch. The floor is DISCOVERED (inception + vendor refusal) and never a clock; discovered_walls_recorded was 0 fleet-wide on 2026-09-04.`)
+    }
+    if (!/stopDate\s*===\s*null/.test(code)) {
+      findings.push(`(f) ${ENUM} never tests stopDate === null — UNKNOWN must REFUSE the whole enumeration and return nothing else; a partial list on UNKNOWN is a silent walk-to-epoch wearing a hole map.`)
+    }
+  }
+}
+
 if (findings.length) {
   console.error(`[inception-stop] FAIL — ${findings.length} finding(s):`)
   for (const f of findings) console.error(`  - ${f}`)

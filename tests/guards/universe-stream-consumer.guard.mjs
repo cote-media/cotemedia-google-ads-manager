@@ -272,6 +272,42 @@ if (route) {
   }
 }
 
+// ── (g) THE HOLE ENUMERATOR'S ONLY COVERAGE INPUT IS THE COVERAGE MODULE — LORAMER_GOOGLE_HOLE_MAP_DETECTOR_V1
+// ⛔ LEG (c)'s MODULE-BOUNDARY SHAPE, ONE PAIR OVER. Measured 2026-09-04: 221 account-days on two clients
+// (Glenn Stearns 24, skinregimen 197) read COVERED to every account-grain instrument while holding ZERO
+// breakdown families — the account row is the signal those instruments key on, and a hole map that reads
+// it inherits the blindness. So the enumerator may take coverage from windowCoverage (per-surface key) and
+// from nothing else: not the account-grain density RPC, not catchup's presence detector, not the base-grain
+// diff RPC, and never the spend-and-failure API. The banned names live ONLY in this leg's table, and the leg
+// comment-strips the subject before matching — so the enumerator may not even name them in prose.
+// ⛔ ABSENCE OF THE MODULE IS RED (read() pushes UNREADABLE); deleting it cannot green this.
+{
+  const ENUM = 'src/lib/backfill/google-hole-map.ts'
+  const src = read(ENUM)
+  if (src) {
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+    const BANNED = [
+      ['coverage_density_days', 'the account-grain density RPC (migrations/069) — keyed entity_level=account, blind to 348 surfaces'],
+      ['breakdown_coverage_days', 'the base-grain family diff RPC (migrations/047) — its denominator is the account row'],
+      ['computeFillDays', "catchup's presence detector — keyed on the account row, 35-day window, grain-blind"],
+      ['check-coverage-density', 'the check:data density leg — a monitor over the same account-grain read'],
+      ['cron/catchup', "the catchup route — importing the filler's lane into the detector"],
+    ]
+    for (const [name, why] of BANNED) {
+      if (code.includes(name)) findings.push(`(g) ${ENUM} reaches ${name} — ${why}. The enumerator's only coverage input is windowCoverage.`)
+    }
+    if (!/import\s*\{[^}]*\bwindowCoverage\b[^}]*\}\s*from\s*['"]@\/lib\/backfill\/universe-coverage['"]/.test(code)) {
+      findings.push(`(g) ${ENUM} does not import windowCoverage from ${COVERAGE} — its coverage decision comes from somewhere else.`)
+    }
+    if (/\.eq\(\s*['"]entity_level['"]\s*,\s*['"]account['"]\s*\)/.test(code)) {
+      findings.push(`(g) ${ENUM} issues its own entity_level=account read — that IS the account-grain signal, one query away from the banned RPCs.`)
+    }
+    if (new RegExp(`from\\s+['"]@/lib/backfill/universe-attempt-log['"]`).test(code)) {
+      findings.push(`(g) ${ENUM} imports the attempt-log MODULE — the spend-and-failure API reaching a coverage decision, the exact boundary leg (c) holds for ${COVERAGE}. Tier the ledger through committedDays instead.`)
+    }
+  }
+}
+
 // ── (b) BEHAVIOURAL — DRIVE THE REAL COMPILED MODULES ────────────────────────────────────────────────
 // The commit boundary and the strict-coverage predicate are the two things that cannot be checked by reading.
 const out = mkdtempSync(join(tmpdir(), 'loramer-stream-guard-'))
