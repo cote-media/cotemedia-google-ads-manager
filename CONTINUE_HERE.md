@@ -1,97 +1,85 @@
-╔═══ SESSION CLOSE 2026-09-04/05 — DETECTOR AND PROVENANCE SHIPPED, VERIFY WAITS ON THE 08:08Z FIRE, THE FILLER OPENS AFTER. ═══╗
+╔═══ SESSION CLOSE 2026-09-05 — TWO FORWARD-LANE COMMITS SHIPPED, NEITHER PROVEN ON A FIRE: THE 08:08Z VERIFY IS THE HEAD, THE LOOKBACK LANE OPENS AFTER. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+⛔ **CORRECTION CARRIED: THE DESCENT COMPLETED ON FOAM OH ONLY** — 349/349 surfaces floor-sealed on 957d484e; `universe_attempt_log`
+holds no other client but 2 Glenn Stearns rows. Any plan assuming 17 descended accounts is wrong (DECISIONS
+LORAMER_SESSION_2026_09_05_RULINGS (a)).
 
-── ▶▶ NEXT STEP, IN THIS ORDER ──
-**(1) OPEN-VERIFY on `959d988` — after 2026-09-05 08:20Z, and not before.** The first stamped google forward fire is
-08:08Z (vercel.json `8-58/10 8-10 * * *`); the last fire before it started 2026-09-04T10:58:11Z and is pre-stamp.
-Run the banked read-back (QUEUE ★NUMBER-PROVENANCE-SPOT-CHECKABLE holds the SQL verbatim): Champion 366afedc
-2026-09-04 account row → VENDOR_REPORTED · vendorRow true · observedAt ≥ 08:08Z · lane forward · spend > 0;
-Glenn Stearns 3111c7e1 same row → ZERO_FILLED_VENDOR_OMITTED · false · spend 0; all 18 connections split by
-lane/provenance/vendorRow with ZERO provenance-null rows for that date; then `npm run check:data` with
-google-forward-account-day's leg 4 JUDGED, not SKIPPED (the judged fire must have started after
-PROVENANCE_STAMP_LIVE_FROM 2026-09-05T04:30:00Z). ⛔ STOP on any deviation — quote it, fix nothing. Nothing
-below builds on the stamp until a live row proves it; a failed stamp would send the filler onto rows that lie.
-**(2) THE FILLER — one proportionate research+adversary round, then build.** The shape is SETTLED by rounds
-1/2/2b/3 of 2026-09-04 and is not re-derived: consumes (client, surface, CONTIGUOUS SPAN) from
-`enumerateGoogleHoles`; REFUSES a bare (client, day); never a per-day fan-out (one GAQL request per (surface,
-span) — ~35× cheaper per surface-day than catchup's ~60-request day) · catchup restore mode
-(`?clientId=&since=`) is the range mechanism, extended to take days+surfaces · guard A written RED-FIRST
-against the LIVE subject (1,363 `customer|customer` rows beside 1,457 `account|''` on Foam OH) · guard B scoped
-`lane='fill'` (the stamp exists for exactly this) · the lookback half — a permanent trailing re-ask, dbt
-microbatch `lookback`, because Google restates after capture · captureFloor protection decided in build (see
-BANKED (a)) · inception discovery for the other 16 accounts FIRST, one metered+ledgered op each via
-`discoverAccountInception`, skinregimen 5769471601 first (243 held days below the computed wall, 1,033-day hole
-abutting them). ⛔ PREREQUISITE, banked: catchup marks the connection `'ok'` at catchup/route.ts:683 AFTER the
-account upsert regardless of the DEGRADED sub-fetch marks above it — guard B cannot trust the catchup ledger
-until that mark honours the earlier error (QUEUE ★CATCHUP-OK-MARK-IGNORES-DEGRADED-SUBFETCH).
-**(3) Fill EXECUTION on Glenn Stearns is LIVE-PATH** — metrics_daily rows for a real client. STOP-and-confirm
-before the first written row, with the manifest/rollback shape the hour and device merges used.
+── SHIPPED 2026-09-05 ──
+· `1d40b74` LORAMER_FORWARD_LANE_HYGIENE_V1 — the claim lease is a PARAMETER (migration 086, `claim_backfill_cursor(…,
+  p_lease_seconds default 480)`) and forward passes `FORWARD_CLAIM_LEASE_S = maxDuration + 100` derived beside its
+  maxDuration; every platform section stamps a progress row per client (a killed fire keeps its tallies) and finalizes in
+  a finally; check-google-forward-account-day judges EVERY fire that targeted the day; /api/cron/status reads the trailing
+  26 h with a 'killed' verdict. Drain/catchup/Woo callers untouched at the default; the drain's 1800 s lane KNOWN-RED.
+· `1415cfd` LORAMER_FORWARD_OBSERVATION_LOG_V1 — forward's per-surface records are OBSERVATIONS in their OWN append-only
+  store (`forward_observation_log`, migration 087): all ten producers bracketed by observeForward — 35 catalogue surfaces
+  / 53 requests per connection, window, rows per day, ok|zero|nongrain|error, error text; one reader module; the hole map's
+  `observedUnsealed` tier; the op-budget's forward term MEASURED from the ledger, not ×67; two check legs. The walk's
+  readers (rotation · windowCoverage/attestedEmptyDays/resolveTerminalLane · resumer · lane-spend RPC · five check legs)
+  have ZERO diffs — a forward zero cannot seal a day by construction.
+Both READY on app.loramer.com. **NEITHER IS PROVEN ON A FIRE YET.**
 
-── RULINGS FROM RUSS THIS SESSION (2026-09-04) — verbatim intent, BINDING; DECISIONS LORAMER_SESSION_2026_09_04_RULINGS ──
-(A) ALL 349 surfaces asked EVERY day for EVERY active customer, indefinitely. Campaign type is never a reason
-    to skip a surface.
-(B) THREE STATES distinguishable IN THE WAREHOUSE, never inferred: has data · asked-empty-no-spend ·
-    asked-empty-channel-not-running. Lora must be able to say "zero because you ran PMax, not Search."
-(C) The 3,568 pre-June account-days GET FILLED, and the filler is PERMANENT MACHINERY proven on them — not a
-    script. (Bounded by account ACTIVITY, never by a wall: `universe_account_floor` held 0 vendor refusals.)
-(D) Design for STANDARD ACCESS with NO daily cap. Basic 15k/day is a rollout constraint, never a design input.
-    The surviving caps are system rate limits, the 64 MB response, and our 300s function.
-(E) Foam OH stays the done-done PROOF VEHICLE (re-confirmed settled 08-26). Glenn Stearns is a fine test subject.
-(F) NEVER a "didn't ask" day — a dormant day leaves POSITIVE evidence (a row or an attestation), never silence.
+── ▶▶ NEXT STEP 1 — OPEN-VERIFY at 2026-09-06T08:08Z (the window opens ~08:20Z). READ-ONLY. STOP on any deviation: quote
+   it, fix nothing. Nothing below builds on either commit until a live fire proves it. ──
+The six queries, VERBATIM from the 1415cfd report, plus (6) from the 1d40b74 report:
+(1) observations per client: `select client_id, producer, outcome, count(*) rows, sum(requests_spent) req from
+    forward_observation_log where vendor='google' and window_end='2026-09-05' group by 1,2,3 order by 1,2,3` → expect 35
+    rows per connection (53 requests), 18 connections; per producer 1·1·2·2·4·1·1·19·2·2; outcome split zero vs ok by
+    dormancy, error rows carrying text.
+(2) hole map on Escential c39ee088 over 2026-09-05..2026-09-05: enumerateGoogleHoles({clientId:
+    'c39ee088-c635-4bfe-b308-43fe9640f1ca', start:'2026-09-05', end:'2026-09-05', bounds:{allowanceMs:120000}}) →
+    tiers.observedUnsealed and tiers.uncovered reported apart; uncovered = the surfaces forward does not ask.
+(3) op-budget forward term: `select public.forward_observation_spend_today('google', now() - interval '24 hours')` = the
+    ledger sum, and readGoogleSpendToday().byLane.forward equals it — no ×67 anywhere (guard (j) holds the code; leg (k)
+    holds the number).
+(4) fleet-meter forward leg: `node scripts/check-fleet-meter-visibility.mjs` → "forward since …: fires=N attempted=18 …
+    observations≈630 · state=VISIBLE"; QUIET or DRIFT is the finding.
+(5) account-day leg 5 JUDGED: `node scripts/check-google-forward-account-day.mjs` → "observation leg OK — every one of
+    18 owed connection(s) carries a customer/'' observation covering 2026-09-05".
+(6) the lease proof (1d40b74): `select count(*) fires, sum(connections_attempted) attempted, sum(case when finished_at
+    is null then 1 else 0 end) unfinished from cron_runs where platform='google' and mode='forward' and
+    target_date='2026-09-05'` → attempted = 18 (no client claimed twice; >18 = a re-claim, a retry shows in
+    connections_errored); every fire has finished_at OR connections_attempted > 0; per client
+    `sync_state.updated_at <= backfill_claimed_at + interval '900 seconds'` on the '__fwd_google' row.
+Then `npm run check:data` — google-forward-account-day and the fleet-meter forward leg green; quote the verdict.
 
-── SHIPPED THIS SESSION ──
-· `93256b1` LORAMER_GOOGLE_HOLE_MAP_DETECTOR_V1 — `src/lib/backfill/google-hole-map.ts`: (client, surface, span)
-  enumerator floored by `resolveWalkStop` (UNKNOWN refuses), grained by `windowCoverage` over all 349
-  surfaces, coverage in labelled tiers, spans not days; guards inception-stop (f) + stream-consumer (g)
-  red-first. PROOF, one vendor op: Glenn Stearns inception DISCOVERED `"2023-04-12 08:00:39"` — six days BELOW
-  earliest held 2023-04-18, so the 1,033-day void is above inception and REAL. On 2023-04-18..05-22 every
-  account-grain detector read 71% covered; the enumerator found 12,191 of 12,215 surface-days UNCOVERED — the
-  account row accounted for 24 (0.2%). THE DIVERGENCE IS THE DEFINITION: a hole is per surface.
-· `959d988` LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the one account producer keeps the served-vs-filled bit its
-  zero-fill discarded: `extra` gains four FLAT keys beside the six unchanged ratios — `provenance` TEXT
-  (VENDOR_REPORTED | ZERO_FILLED_VENDOR_OMITTED, owned by the walk writer) · `vendorRow` · `observedAt` ·
-  `lane` REQUIRED as a literal at all three callers (forward · catchup · backfill; the drain's account step is
-  backfill by construction). Rejected on evidence: an object under `provenance`, a per-row invocation_id.
-  Guard `google-account-row-provenance.guard.mjs` red-first (20) then green; 152/152. Enumerator gained a
-  `rowAttested` tier; forward-day check gained leg 4 ("this fire wrote it"). OPEN-VERIFY = step (1).
+── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE: one research+adversary round (argument only; the build is its own commit and the
+   084 CHECK migration for 'lookback' is that commit's). ──
+Shape per DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (c) and QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION. Three asks per
+surface-day must be named and owned: the one-day forward ask · the rolling restate inside the vendor window · the terminal
+ask at the boundary that seals (written where attestedEmptyDays reads, under an ATTESTING lane; refuses any window that
+ends inside the restatement window). Until it exists, a forward observation is positive evidence and never a seal.
 
-── DEVICE MERGE (★ORDINAL-CLASS-REMAINDER) — STILL APPROVED, RE-MEASURE GATE PASSED 2026-09-04 ──
-legacy_total 3,751 · twins 143 · pure 3,608 — EXACT match to the 08-26 manifest. Stable by construction: the
-ordinal span ends 2023-06-27, three years below the restate window, so it cannot grow or convert. Executes any
-time AFTER the filler; both write metrics_daily, so ONE AT A TIME. The 08-26 head block below still holds the
-lineage ruling, mechanics and acceptance verbatim — read it there, do not re-derive.
+── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
+   lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration); per
+   B6 one client per fire fits at p90 (349 × 1.075 s = 375 s), 18 clients need ≥7 parallel invocations or the existing
+   10-minute cadence at one client per fire. Cannot replace the producers until the lookback carries the restate. ──
 
-── BANKED THIS SESSION, DO NOT LOSE (each is a QUEUE token or a dated note on one) ──
-(a) ★NEXT-RANGE-TEST-READS-VOID-AS-COVERED — five `/api/next` routes (money · card-roas · client-metrics ·
-    store-stats · ga-overview) import `getCoverageForWindows` only, a MIN/MAX range test; Glenn Stearns'
-    1,033 void days read `covered` there TODAY (coverage.ts:176-186 documents the defect). Lora is protected
-    via `getDensityForWindow` (claude-tools.ts:229/371/450). Read-side; a fill lowering MIN(date) widens it.
-(b) ★TOP-EDGE-HAS-NO-LANE — the top-edge rotation has been FROZEN since the descent completed 2026-08-26
-    because migration 084 filters `lane='descend'`; ~574 req/day burned re-asking. It RETIRES under ruling (A)
-    — do not fix it.
-(c) ★CONTENT-SUITABILITY-CLICKS-INCOMPATIBLE — two content_suitability surfaces carry a permanent `clicks`
-    metric incompatibility; 3,308 abandoned attempts. Narrow their metric set under (A), never skip them.
-(d) ★META-CAPTURE-HOLE-INFLUENTIAL-DRONES — Influential Drones/meta L7 and L30 read 0 days (check:data
-    coverage-density). Meta scope; after Google done-done.
-(e) ★PROTOCOL-GATE-REFUSES-CLOCK-WALL-CONSTANTS — a protocol-gate leg that REFUSES any CONSTANTS entry carrying
-    a clock-derived retention date or the phrase "37 month". The fallacy re-broke seven times; prose stopped
-    none of them; only a guard stops the eighth.
-(f) ★CHANNEL-TYPE-ENUM-UNMAPPED is a PREREQUISITE for ruling (B)'s third state (asked-empty-channel-not-running).
-(g) ★TOP-EDGE-HAS-NO-LANE's "forward captures 5 grains" was a DORMANCY measurement (Foam OH); forward writes
-    52 grains on a live account. Corrected on the token; the 52-vs-349 divergence argument stands.
+── BEHIND, IN ORDER ──
+· the filler (guard B now reads readForwardObservations; ★CATCHUP-OK-MARK-IGNORES-DEGRADED-SUBFETCH first)
+· the device merge (★ORDINAL-CLASS-REMAINDER — APPROVED, held at EXECUTE; one metrics_daily writer at a time)
+· the top-edge retirement (retires when the driver runs; its rows stay as history)
+· the drain lease (★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — KNOWN-RED, its own flight)
+· the content-suitability metric set (★CONTENT-SUITABILITY-CLICKS-INCOMPATIBLE — narrow, never skip)
+
+── RULINGS THIS SESSION (2026-09-05) — DECISIONS LORAMER_SESSION_2026_09_05_RULINGS owns the text ──
+(a) descent on FOAM OH ONLY · (b) forward records are observations in their own table, never attests · (c) promotion is
+the lookback lane's · (d) a lease is derived from its lane's maxDuration, guarded; renewal and fencing rejected here ·
+(e) a segmented empty grain is never a zero row · (f) the top-edge lane froze by sharing the walk's ledger and anchor; the
+driver is forward-shaped · (g) forward-shaped routes run at 800 s, the queue route at 300 · (h) the 31-day restate is the
+restatement-aware carve-out, not a violation of condition 3.
 
 ── STANDING ──
-· Five capture lanes; walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name
-  (two client rows share account 3699173394 "Influential Drones").
-· check:data at wrap: 23 green · 8 red · 1 crashed — identical red-for-red on both pushes today; all queue-owned
-  (claims 12+8 · throttle · geo_city/geo_postal ±1-impression alias drift · (d) above · five Foam OH walk-state
-  legs incl. the no-owed-day-left-behind crash). Verdict line quoted verbatim on every push.
+· check:data at wrap: 23 green · 8 red · 1 crashed — red-for-red the 09-04 set, all queue-owned (claims 12+8 · throttle ·
+  geo_city/geo_postal ±1-impression alias drift · Influential Drones/meta density · five Foam OH walk-state legs incl. the
+  no-owed-day-left-behind crash). google-forward-account-day GREEN (its :46 instrument defect fixed). Verdict quoted
+  verbatim on every push.
+· Five capture lanes; walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
 · Deploy-poll-until-terminal · one-block output · CITED gate · wait-commands rule all bind as before.
-· No 37-month wall anywhere in a plan: the floor is `resolveWalkStop` (max(vendor refusal, min(inception,
-  earliest held))); `discovered_walls_recorded=0`; the fact registry's probes served rows 53 months back and a
-  clean empty at 128.
+· No clock-derived retention wall anywhere in a plan: the floor is `resolveWalkStop` (max(vendor refusal, min(inception,
+  earliest held))); `universe_account_floor` holds 0 vendor refusals.
+· GET queue #5 (forward-writer coverage) reads OPEN on its token; the 08-26 wrap's "closed-pending-Gate-B" was wrong.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
