@@ -44,12 +44,15 @@ The six queries, VERBATIM from the 1415cfd report, plus (6) from the 1d40b74 rep
     `sync_state.updated_at <= backfill_claimed_at + interval '900 seconds'` on the '__fwd_google' row.
 Then `npm run check:data` — google-forward-account-day and the fleet-meter forward leg green; quote the verdict.
 
-── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE: one research+adversary round (argument only; the build is its own commit and the
-   084 CHECK migration for 'lookback' is that commit's). ──
-Shape per DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (c) and QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION. Three asks per
-surface-day must be named and owned: the one-day forward ask · the rolling restate inside the vendor window · the terminal
-ask at the boundary that seals (written where attestedEmptyDays reads, under an ATTESTING lane; refuses any window that
-ends inside the restatement window). Until it exists, a forward observation is positive evidence and never a seal.
+── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE — BUILD (research + adversary DONE 2026-09-05; the shape is settled in QUEUE
+   ★LOOKBACK-LANE-OWNS-PROMOTION and DECISIONS rulings (i)-(l); LIVE-PATH THROUGHOUT — the walk's ledger CHECK, the
+   coverage predicate, the walk's publish route, cron/sync; TWO STOP-and-confirms: before the 084 migration and before
+   the first attesting terminal lands). GATED ON STEP 1 PASSING. ──
+The boundary is PER ACCOUNT and MEASURED (90 on 15 of 17 accounts, 60 on 2; cost moves to age 96) — never a typed
+constant; `boundaryDaysFor` refuses UNKNOWN. The lane is the top-edge lane CONVERTED (retirement inside this commit):
+strip anchored to the boundary, terminal ATTESTS, each (surface, window) asked once; W=7 under Basic, W=1 under Standard;
+Foam OH backlog sweep 2026-08-13..T−B. The terminal is undifferentiated — condition 2's "stated reason" waits on state (B).
+Until it lands, a forward observation is positive evidence and never a seal.
 
 ── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
    lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration); per
@@ -59,7 +62,6 @@ ends inside the restatement window). Until it exists, a forward observation is p
 ── BEHIND, IN ORDER ──
 · the filler (guard B now reads readForwardObservations; ★CATCHUP-OK-MARK-IGNORES-DEGRADED-SUBFETCH first)
 · the device merge (★ORDINAL-CLASS-REMAINDER — APPROVED, held at EXECUTE; one metrics_daily writer at a time)
-· the top-edge retirement (retires when the driver runs; its rows stay as history)
 · the drain lease (★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — KNOWN-RED, its own flight)
 · the content-suitability metric set (★CONTENT-SUITABILITY-CLICKS-INCOMPATIBLE — narrow, never skip)
 
@@ -68,7 +70,12 @@ ends inside the restatement window). Until it exists, a forward observation is p
 the lookback lane's · (d) a lease is derived from its lane's maxDuration, guarded; renewal and fencing rejected here ·
 (e) a segmented empty grain is never a zero row · (f) the top-edge lane froze by sharing the walk's ledger and anchor; the
 driver is forward-shaped · (g) forward-shaped routes run at 800 s, the queue route at 300 · (h) the 31-day restate is the
-restatement-aware carve-out, not a violation of condition 3.
+restatement-aware carve-out, not a violation of condition 3 — QUALIFIED by (i) · (i) the restatement window is PER ACCOUNT
+and MEASURED: 90 on 15 of 17 accounts, 60 on 2, cost moving to age 96 — the 30-day default under-asks conversions on every
+account; a fleet constant is only the floor the read is checked against · (j) the lookback lane is the top-edge lane
+converted; its retirement is inside the lookback commit · (k) the lookback terminal is undifferentiated — condition 2's
+"stated reason" waits on state (B) after it · (l) the rolling restate is the driver's ranged request; a driver that asks
+yesterday alone ships condition 3 broken.
 
 ── STANDING ──
 · check:data at wrap: 23 green · 8 red · 1 crashed — red-for-red the 09-04 set, all queue-owned (claims 12+8 · throttle ·
@@ -80,6 +87,11 @@ restatement-aware carve-out, not a violation of condition 3.
 · No clock-derived retention wall anywhere in a plan: the floor is `resolveWalkStop` (max(vendor refusal, min(inception,
   earliest held))); `universe_account_floor` holds 0 vendor refusals.
 · GET queue #5 (forward-writer coverage) reads OPEN on its token; the 08-26 wrap's "closed-pending-Gate-B" was wrong.
+· EXPOSURE, STATED FOR LORA: any Google conversion figure older than 30 days may be STALE on every client until the
+  lookback ships (★RESTATEMENT-WINDOW-UNDER-ASKS-CONVERSIONS). ⛔ GOOGLE_RESTATE_LOOKBACK_DAYS must NOT be widened as a
+  hotfix — at 91 days the measured 644 s pass exceeds maxDuration 800. The lookback lane is the fix.
+· entity_state_history holds 0 conversion_action rows — the config capture is DARK (★CONVERSION-ACTION-CAPTURE-DARK);
+  the lookback commit's daily `FROM conversion_action` read replaces it.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
