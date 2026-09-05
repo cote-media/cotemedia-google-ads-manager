@@ -73,6 +73,11 @@ const GUARDS = [
   'tests/guards/google-campaign-anchor-missing.guard.mjs', // LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — absent account anchor refuses; present zero anchor writes
   'tests/guards/google-account-row-provenance.guard.mjs', // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the one account producer stamps lane · vendorRow · observedAt · provenance (text) on every row; line 95's bit is kept
   'tests/guards/top-edge-sealed-strip.guard.mjs', // LORAMER_SEALED_STRIP_PASS_V1 — a floor-sealed surface still gets its top strip derived
+  // LORAMER_FORWARD_LANE_HYGIENE_V1 — the forward claim lease is DERIVED from maxDuration (a Vercel holder cannot
+  // outlive its ceiling, so lease = maxDuration + margin cannot lapse under a live holder); a killed fire leaves a
+  // progress row; no instrument judges a day by the newest or the completed fire alone.
+  'tests/guards/forward-claim-lease-covers-max-duration.guard.mjs',
+  'tests/guards/cron-runs-progress-on-kill.guard.mjs',
 
   // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the STATIC half of the only destructive write in the Google capture
   // path. Source-only, so it is safe in a Vercel build; the BEHAVIOURAL half writes to the database and

@@ -74,6 +74,40 @@ export async function startCronRuns(opts: {
   return ids
 }
 
+// LORAMER_FORWARD_LANE_HYGIENE_V1 — PROGRESS, NOT COMPLETION. Stamp the tallies-so-far on a started row WITHOUT
+// finished_at, after every client a section processes. A maxDuration kill cannot run any code, so the ONLY record
+// a killed fire can leave is whatever was written before the kill — measured 2026-09-05: 26 of 541 google forward
+// fires in 30 days were killed, every one had written rows and stamped cursors, and every one read attempted 0 /
+// rows 0 / errors 0 because the single tally write sat after the whole loop. finished_at stays NULL on purpose:
+// a progress row is evidence of work, never a claim the fire completed. No-op on a null id. Never throws.
+export async function progressCronRun(
+  id: number | null,
+  fields: {
+    connectionsAttempted?: number
+    connectionsSucceeded?: number
+    connectionsErrored?: number
+    rowsWritten?: number
+    errorCount?: number
+  }
+): Promise<void> {
+  if (id == null) return
+  try {
+    const { error } = await supabaseAdmin
+      .from('cron_runs')
+      .update({
+        connections_attempted: fields.connectionsAttempted ?? 0,
+        connections_succeeded: fields.connectionsSucceeded ?? 0,
+        connections_errored: fields.connectionsErrored ?? 0,
+        rows_written: fields.rowsWritten ?? 0,
+        error_count: fields.errorCount ?? 0,
+      })
+      .eq('id', id)
+    if (error) console.error(`[cron-runs] progress update FAILED id=${id}:`, error.message)
+  } catch (e) {
+    console.error(`[cron-runs] progress update THREW id=${id}:`, e)
+  }
+}
+
 // Stamp finished_at + tallies on a started row (clean-exit only). No-op on a null id. Never throws.
 export async function finishCronRun(
   id: number | null,

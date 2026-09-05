@@ -41,11 +41,15 @@ async function rest(path) {
   return r.json()
 }
 
-// 1. The day under test = the newest COMPLETED google forward fire's target_date. An unfinished fire proves
-//    nothing about coverage and must not move the goalpost (finished_at NULL is the crash sentinel).
-const fires = await rest(`cron_runs?select=target_date,finished_at,started_at&mode=eq.forward&platform=eq.google&finished_at=not.is.null&order=started_at.desc&limit=1`)
-if (!fires.length || !fires[0].target_date) { console.log('✓ google-forward-account-day OK — no completed google forward fire in cron_runs to judge (nothing stamped, nothing owed).'); process.exit(0) }
-const day = fires[0].target_date
+// 1. The day under test = the newest google forward fire's target_date, finished or not, and the fires judged are
+//    EVERY forward fire that targeted that day. LORAMER_FORWARD_LANE_HYGIENE_V1: this used to take "the newest
+//    COMPLETED fire" — on 2026-09-05 that was a 10:58Z no-op that ran 110 minutes after the last row was written,
+//    while seven fires had written the day and three of them were killed at maxDuration and never finished. The
+//    goalpost is the DAY; a single fire's finish is an adjacent number.
+const newest = await rest(`cron_runs?select=target_date&mode=eq.forward&platform=eq.google&order=id.desc&limit=1`)
+if (!newest.length || !newest[0].target_date) { console.log('✓ google-forward-account-day OK — no google forward fire in cron_runs to judge (nothing stamped, nothing owed).'); process.exit(0) }
+const day = newest[0].target_date
+const fires = await rest(`cron_runs?select=started_at,finished_at&mode=eq.forward&platform=eq.google&target_date=eq.${day}&order=started_at.asc`)
 
 // 2. The denominator: live google connections on non-deleted clients whose forward cursor REACHED that day.
 //    (Cursor short of the day = the fire has not processed that client yet — not a violation, just pending.)
@@ -71,17 +75,24 @@ if (missing.length) {
   console.error(`  The producer (google-account-row.ts fetchGoogleAccountWindow) must yield a zero day for every date the vendor omits — Google never serves dated zero rows (measured 2026-08-26, both query shapes).`)
   process.exit(1)
 }
-// 4. LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — "THIS FIRE WROTE IT", NOT "A ROW IS THERE". Since the stamp deployed, every
-//    account row the forward lane writes carries extra.lane='forward' and extra.observedAt (the fetch time). So the
-//    target-date row must say lane='forward' and must have been observed at or after this fire's started_at — a row
-//    that predates the fire is a row the fire did NOT write, however present it is.
+// 4. LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — "A FIRE FOR THIS DAY WROTE IT", NOT "A ROW IS THERE". Since the stamp deployed,
+//    every account row the forward lane writes carries extra.lane='forward' and extra.observedAt (the fetch time). So the
+//    target-date row must say lane='forward' and must have been observed at or after the EARLIEST stamped fire that
+//    targeted the day — a row that predates every such fire is a row none of them wrote, however present it is.
+//    LORAMER_FORWARD_LANE_HYGIENE_V1: the clock is the earliest fire for the day, finished or not, never "the newest
+//    completed fire" — killed fires wrote 11 of 18 rows on 2026-09-04 and a no-op fire ran 110 minutes later.
 //    ⛔ EXEMPTION BY DATE, STATED: fires that started before the stamp deployed wrote un-stamped rows and are judged by
 //    presence only (leg 3 above). PROVENANCE_STAMP_LIVE_FROM is the deploy of LORAMER_ACCOUNT_ROW_PROVENANCE_V1.
 const PROVENANCE_STAMP_LIVE_FROM = '2026-09-05T04:30:00Z'
-const fireStartedAt = fires[0].started_at ? new Date(fires[0].started_at).toISOString() : null
-if (!fireStartedAt || fireStartedAt < PROVENANCE_STAMP_LIVE_FROM) {
-  console.log(`  provenance leg SKIPPED — the judged fire started ${fireStartedAt ?? 'unknown'}, before the stamp went live (${PROVENANCE_STAMP_LIVE_FROM}); its rows are pre-stamp and UNKNOWN-provenance by design.`)
+const stampedFires = fires
+  .map((f) => ({ startedAt: f.started_at ? new Date(f.started_at).toISOString() : null, finished: f.finished_at != null }))
+  .filter((f) => f.startedAt && f.startedAt >= PROVENANCE_STAMP_LIVE_FROM)
+const fireStartedAt = stampedFires.length ? stampedFires[0].startedAt : null
+if (!fireStartedAt) {
+  console.log(`  provenance leg SKIPPED — none of the ${fires.length} forward fire(s) targeting ${day} started after the stamp went live (${PROVENANCE_STAMP_LIVE_FROM}); their rows are pre-stamp and UNKNOWN-provenance by design.`)
 } else {
+  const unfinished = stampedFires.filter((f) => !f.finished).length
+  console.log(`  provenance leg JUDGED — ${stampedFires.length} stamped fire(s) targeted ${day} (earliest ${fireStartedAt}; ${unfinished} never recorded finished_at — killed or still running); every row must carry observedAt ≥ that earliest start.`)
   const bad = []
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)

@@ -32,7 +32,7 @@ import { recordConnectionResult, recordConnectionAuthFailure, classifyConnection
 import { normalizeMetricsRows } from '@/lib/metrics-normalize' // LORAMER_METRICS_NORMALIZE_V1
 import { upsertMetricsChunked } from '@/lib/metrics-upsert' // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — a 31-day pass can exceed the PostgREST statement ceiling; new sites pay the debt rather than joining the allowlist
 import { pruneCappedDimensionalRows, cappedRowKey } from '@/lib/intelligence/google-dimensional-prune' // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — upsert-then-prune, the only destructive write in the Google capture path
-import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1
+import { detectTrigger, cronRunPlatforms, startCronRuns, finishCronRun, progressCronRun } from '@/lib/cron-runs' // LORAMER_CRON_RUNS_SENTINEL_V1 + LORAMER_FORWARD_LANE_HYGIENE_V1
 import type {
   IntelligenceGa,
 } from '@/lib/intelligence/intelligence-types'
@@ -164,13 +164,18 @@ async function pendingForwardClients(
 
 // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — atomic per-client claim under a DISTINCT '__fwd_'+platform namespace (never
 // collides with the drain's '__drain_'+platform or the real '<platform>' cursor row; sync_state PK = client_id,platform).
-// Reuses the migration-014/021 CAS RPC (480s self-healing lease). Loser/error → skip (client stays pending, retried next fire).
+// Reuses the migration-014/021 CAS RPC; LORAMER_FORWARD_LANE_HYGIENE_V1 (migration 086) made the self-healing lease a
+// parameter and forward passes FORWARD_CLAIM_LEASE_S (= maxDuration + 100, declared beside maxDuration below) — the
+// 480 s default was sized for a ~340 s Woo lap and lapsed under a 644-662 s google pass (measured 2026-09-05 on
+// client c39ee088, registry src/lib/clients/canonical.ts), letting the next fire re-claim a client mid-pass.
+// Loser/error → skip (client stays pending, retried next fire).
 async function claimForward(platform: string, clientId: string): Promise<boolean> {
   const token = `fwd-${platform}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const { data: claimRows, error } = await supabaseAdmin.rpc('claim_backfill_cursor', {
     p_client_id: clientId,
     p_platform: '__fwd_' + platform,
     p_token: token,
+    p_lease_seconds: FORWARD_CLAIM_LEASE_S, // LORAMER_FORWARD_LANE_HYGIENE_V1 — migration 086; 3-arg callers keep the 480 s default
   })
   if (error) {
     console.error(`[cron/sync] forward claim failed platform=${platform} client=${clientId}: ${error.message}`)
@@ -185,6 +190,13 @@ async function claimForward(platform: string, clientId: string): Promise<boolean
 // windowed */10 cadence — so a maxDuration kill can no longer drop the tail (the next fire resumes it). 800s = the
 // verified Pro-Fluid ceiling already run in prod by the drain route (LORAMER_DRAIN_FREEMAX_V1). LORAMER_WS1C_WIDE_FORWARD_PAGING_V1.
 export const maxDuration = 800
+// LORAMER_FORWARD_LANE_HYGIENE_V1 — THE FORWARD CLAIM LEASE IS DERIVED FROM maxDuration, HERE, NEVER A LITERAL.
+// A Vercel invocation is terminated at maxDuration, so a holder's hold from its claim is ≤ maxDuration; a lease of
+// maxDuration + margin therefore cannot lapse under a live holder. The 100 s margin covers a write issued in the
+// last second before the kill landing at PostgREST. MEASURED 2026-09-05: the RPC's 480 s default (migration 021,
+// sized for a ~340 s Woo lap) lapsed under a 644-662 s google pass on Escential, and the 08:58Z and 09:08Z fires
+// wrote the same client concurrently. Guard: tests/guards/forward-claim-lease-covers-max-duration.guard.mjs.
+const FORWARD_CLAIM_LEASE_S = maxDuration + 100
 
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
@@ -260,7 +272,12 @@ export async function GET(request: Request) {
   // comes from a family/sub-fetch try/catch that exists SPECIFICALLY so a partial failure never drops the
   // connection — those are DEGRADATIONS and must not be reported as connection failures.
   const connFailed = new Set<string>()
-  async function finalizeSection(p: string, snap: { rows: number; errs: number }) {
+  // LORAMER_FORWARD_LANE_HYGIENE_V1 — ONE arithmetic for a section's tallies, read at two moments: after every
+  // client (progressSection → progressCronRun, no finished_at) and at the end (finalizeSection → finishCronRun).
+  // A maxDuration kill runs no code, so the progress row is the ONLY record a killed fire can leave — measured
+  // 2026-09-05: 26 of 541 google forward fires in 30 days were killed after writing rows and stamping cursors, and
+  // every one read attempted 0 / rows 0 because the single tally write sat after the whole loop.
+  function sectionTallies(p: string, snap: { rows: number; errs: number }) {
     const errsForP = summary.errors.slice(snap.errs)
     // THE BUG THIS FIXES, measured 2026-07-27: the google 08:08 run reported 17 attempted / 0 succeeded / 17
     // errored WHILE WRITING 77,647 ROWS. Every client logged two DEGRADED sub-fetches (audience, conversion_action),
@@ -270,6 +287,21 @@ export async function GET(request: Request) {
     const erroredConns = clientsWithEntries.filter((id) => connFailed.has(`${p}|${id}`)).length
     const degradedConns = clientsWithEntries.filter((id) => !connFailed.has(`${p}|${id}`)).length
     const attempted = (summary[ATTEMPT_KEYS[p]] as number) ?? 0
+    return { errsForP, erroredConns, degradedConns, attempted, rows: summary.rowsWritten - snap.rows }
+  }
+  // Per-client progress stamp. NEVER sets finished_at — a progress row is evidence of work, not a completion claim.
+  async function progressSection(p: string, snap: { rows: number; errs: number }) {
+    const t = sectionTallies(p, snap)
+    await progressCronRun(cronRunIds[p], {
+      connectionsAttempted: t.attempted,
+      connectionsErrored: t.erroredConns,
+      connectionsSucceeded: Math.max(0, t.attempted - t.erroredConns),
+      rowsWritten: t.rows,
+      errorCount: t.errsForP.length,
+    })
+  }
+  async function finalizeSection(p: string, snap: { rows: number; errs: number }) {
+    const { errsForP, erroredConns, degradedConns, attempted, rows } = sectionTallies(p, snap)
     // DEGRADED IS SURFACED, NEVER HIDDEN — it is why conversion_action and audience are thin. It rides the JSON
     // summary + the log rather than cron_runs, because cron_runs has no column for it and this flight adds no schema.
     summary.degraded[p] = degradedConns
@@ -280,7 +312,7 @@ export async function GET(request: Request) {
       connectionsAttempted: attempted,
       connectionsErrored: erroredConns,
       connectionsSucceeded: Math.max(0, attempted - erroredConns),
-      rowsWritten: summary.rowsWritten - snap.rows,
+      rowsWritten: rows,
       errorCount: errsForP.length,
     })
   }
@@ -306,11 +338,16 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'shopify') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
+  const sStart = addDaysUTC(captureDate, -SHOPIFY_FWD_RESTATE_DAYS) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — trailing 21-day re-sum window start (declared before the try: the dry-run report below reads it)
+  // LORAMER_FORWARD_LANE_HYGIENE_V1 — finalizeSection runs in the finally: a THROW anywhere in the section stamps
+  // finished_at. A maxDuration kill still cannot — no code runs after it — and the per-client progressSection stamp
+  // inside the loop is what survives a kill (26 of 541 google forward fires in 30 days read attempted 0 / rows 0
+  // after writing rows and stamping cursors, measured 2026-09-05).
+  try {
   // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a dry-run scopes to the requested clients (no cursor dependence) and never claims.
   const __pending = gDryRun
     ? clientRows.filter((c) => gOnlyClients.includes(c.id))
     : await pendingForwardClients('shopify', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
-  const sStart = addDaysUTC(captureDate, -SHOPIFY_FWD_RESTATE_DAYS) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — trailing 21-day re-sum window start
   for (const client of __pending) {
     if (!gDryRun && Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
     if (!gDryRun && !(await claimForward('shopify', client.id))) continue // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — '__fwd_' claim
@@ -449,8 +486,11 @@ export async function GET(request: Request) {
         if (!gDryRun) await recordConnectionResult({ platform: 'shopify', clientId: client.id, accountId: shopDomain, userEmail, error: err }) // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — no health write in dry-run
       }
     }
+    await progressSection('shopify', __snap) // LORAMER_FORWARD_LANE_HYGIENE_V1 — tallies so far; the only record a kill leaves
   }
-  await finalizeSection('shopify', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  } finally {
+    await finalizeSection('shopify', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  }
   // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 — a Shopify dry-run short-circuits here with the per-day re-sum report (no meta/google/woo; no writes anywhere above).
   if (gDryRun) {
     return NextResponse.json({
@@ -469,6 +509,7 @@ export async function GET(request: Request) {
 
   if (platform === 'all' || platform === 'meta') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
+  try { // LORAMER_FORWARD_LANE_HYGIENE_V1 — finalize in the finally (a throw stamps; a kill cannot — the per-client progressSection stamp is what survives it)
   const __pending = await pendingForwardClients('meta', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
   for (const client of __pending) {
     if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
@@ -645,12 +686,16 @@ export async function GET(request: Request) {
         await recordConnectionResult({ platform: 'meta', clientId: client.id, accountId, userEmail, error: err })
       }
     }
+    await progressSection('meta', __snap) // LORAMER_FORWARD_LANE_HYGIENE_V1 — tallies so far; the only record a kill leaves
   }
-  await finalizeSection('meta', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  } finally {
+    await finalizeSection('meta', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end meta guard
 
   if (platform === 'all' || platform === 'google') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
+  try { // LORAMER_FORWARD_LANE_HYGIENE_V1 — finalize in the finally (a throw stamps; a kill cannot — the per-client progressSection stamp is what survives it)
   const __pending = await pendingForwardClients('google', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
   for (const client of __pending) {
     if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
@@ -1020,12 +1065,16 @@ export async function GET(request: Request) {
         await recordConnectionResult({ platform: 'google', clientId: client.id, accountId: customerId, userEmail, error: err })
       }
     }
+    await progressSection('google', __snap) // LORAMER_FORWARD_LANE_HYGIENE_V1 — tallies so far; the only record a kill leaves
   }
-  await finalizeSection('google', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  } finally {
+    await finalizeSection('google', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end google guard
 
   if (platform === 'all' || platform === 'woocommerce') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
+  try { // LORAMER_FORWARD_LANE_HYGIENE_V1 — finalize in the finally (a throw stamps; a kill cannot — the per-client progressSection stamp is what survives it)
   const __pending = await pendingForwardClients('woocommerce', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
   for (const client of __pending) {
     if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
@@ -1121,12 +1170,16 @@ export async function GET(request: Request) {
         await recordConnectionResult({ platform: 'woocommerce', clientId: client.id, accountId: conn.account_id, userEmail, error: err })
       }
     }
+    await progressSection('woocommerce', __snap) // LORAMER_FORWARD_LANE_HYGIENE_V1 — tallies so far; the only record a kill leaves
   }
-  await finalizeSection('woocommerce', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  } finally {
+    await finalizeSection('woocommerce', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end woocommerce guard
 
   if (platform === 'all' || platform === 'ga') {
   const __snap = { rows: summary.rowsWritten, errs: summary.errors.length } // LORAMER_CRON_RUNS_SENTINEL_V1
+  try { // LORAMER_FORWARD_LANE_HYGIENE_V1 — finalize in the finally (a throw stamps; a kill cannot — the per-client progressSection stamp is what survives it)
   const __pending = await pendingForwardClients('ga', clientRows, captureDate) // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1
   for (const client of __pending) {
     if (Date.now() - started > FORWARD_BUDGET_MS) break // LORAMER_WS1C_WIDE_FORWARD_PAGING_V1 — per-fire budget
@@ -1243,8 +1296,11 @@ export async function GET(request: Request) {
       // (only reached when the token was valid, so gaPropertyIdForHealth is set).
       await recordConnectionResult({ platform: 'ga', clientId: client.id, accountId: gaPropertyIdForHealth, userEmail, error: err })
     }
+    await progressSection('ga', __snap) // LORAMER_FORWARD_LANE_HYGIENE_V1 — tallies so far; the only record a kill leaves
   }
-  await finalizeSection('ga', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  } finally {
+    await finalizeSection('ga', __snap) // LORAMER_CRON_RUNS_SENTINEL_V1
+  }
   } // LORAMER_CRON_PLATFORM_SPLIT_V1 — end ga guard
 
   summary.clientsProcessed = processedClientIds.size // FIX 5: distinct clients, not per-platform sum

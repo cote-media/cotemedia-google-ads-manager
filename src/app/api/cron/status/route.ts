@@ -1,9 +1,16 @@
 // LORAMER_CRON_RUNS_SENTINEL_V1 (WS1b-1)
 // Read-side verdicts over cron_runs. CRON_SECRET-authed (like the other cron routes).
-// For each (mode, platform) it reads the latest row and classifies it. This is the durable
+// For each (mode, platform) it reads the TRAILING WINDOW of fires and classifies it. This is the durable
 // answer to "did each platform's cron complete its most recent expected run?" — the inference
 // the maxDuration kill forces (the dying function can't self-report; we read started-vs-finished).
 // WS1b-2 (deferred) turns these verdicts into a real alert channel + optional monitor cron.
+//
+// LORAMER_FORWARD_LANE_HYGIENE_V1 — THE LATEST FIRE IS AN ADJACENT NUMBER. This route used to read ONE row per
+// (mode, platform) — the newest — and on 2026-09-05 the newest google forward fire was a 10:58Z no-op that ran
+// 110 minutes after three earlier fires had been killed at maxDuration while writing 11 of 18 account rows. The
+// route read 'healthy'. A killed fire can only ever be seen by looking at EVERY fire in the window, and it is
+// its own verdict — 'killed' — distinct from 'running' (unfinished, inside the ceiling) and from a fire that
+// finished with errors ('degraded'). 'healthy' is reserved for a window with no kill in it.
 
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -12,8 +19,12 @@ import { CRON_PLATFORMS } from '@/lib/cron-runs'
 export const dynamic = 'force-dynamic'
 
 const MODES = ['forward', 'catchup'] as const
-const FRESH_WINDOW_HOURS = 26 // expected nightly cadence; older latest run = "didn't fire this window"
-const RUNNING_GRACE_MIN = 6 // > maxDuration (300s); finished_at NULL within this = likely still running
+const FRESH_WINDOW_HOURS = 26 // expected nightly cadence; no fire inside this window = "didn't fire this window"
+// The ceiling each route runs under — the value each route EXPORTS as maxDuration (cron/sync/route.ts and
+// cron/catchup/route.ts). Pinned equal by tests/guards/cron-runs-progress-on-kill.guard.mjs leg (e), so a
+// maxDuration change that leaves this map behind fails the build instead of mis-classifying kills.
+const ROUTE_MAX_DURATION_S: Record<(typeof MODES)[number], number> = { forward: 800, catchup: 800 }
+const KILL_GRACE_S = 60 // an unfinished fire older than maxDuration + this is a kill, not a run in flight
 
 export async function GET(request: Request) {
   const envSecret = (process.env.CRON_SECRET ?? '').trim()
@@ -26,6 +37,7 @@ export async function GET(request: Request) {
   }
 
   const nowMs = Date.now()
+  const sinceIso = new Date(nowMs - FRESH_WINDOW_HOURS * 3_600_000).toISOString()
   const runs: Record<string, unknown>[] = []
 
   for (const mode of MODES) {
@@ -37,30 +49,36 @@ export async function GET(request: Request) {
         )
         .eq('mode', mode)
         .eq('platform', platform)
+        .gte('started_at', sinceIso)
         .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .limit(200)
 
       if (error) {
         runs.push({ mode, platform, verdict: 'error', detail: error.message })
         continue
       }
-      if (!data) {
-        runs.push({ mode, platform, verdict: 'never-fired', startedAt: null })
+      const fires = data ?? []
+      if (fires.length === 0) {
+        runs.push({ mode, platform, verdict: 'never-fired', startedAt: null, firesInWindow: 0 })
         continue
       }
 
-      const ageMs = nowMs - new Date(data.started_at as string).getTime()
-      const ageMinutes = ageMs / 60_000
+      const latest = fires[0]
+      const ageMs = nowMs - new Date(latest.started_at as string).getTime()
       const ageHours = Math.round((ageMs / 3_600_000) * 10) / 10
-      const finished = data.finished_at != null
-      const errorCount = (data.error_count as number) ?? 0
+      const ceilingMs = (ROUTE_MAX_DURATION_S[mode] + KILL_GRACE_S) * 1000
+      // A fire that never stamped finished_at and is older than its ceiling was killed by the platform. Its
+      // progress row (LORAMER_FORWARD_LANE_HYGIENE_V1, progressCronRun) carries the work it did before the kill.
+      const killed = fires.filter(
+        (f) => f.finished_at == null && nowMs - new Date(f.started_at as string).getTime() > ceilingMs
+      )
+      const errorCount = (latest.error_count as number) ?? 0
 
       let verdict: string
-      if (ageHours > FRESH_WINDOW_HOURS) {
-        verdict = 'never-fired' // no run within the expected window — last seen older than 26h
-      } else if (!finished) {
-        verdict = ageMinutes <= RUNNING_GRACE_MIN ? 'running' : 'crashed-or-timed-out'
+      if (killed.length > 0) {
+        verdict = 'killed'
+      } else if (latest.finished_at == null) {
+        verdict = 'running' // unfinished and inside its ceiling — transient by construction
       } else if (errorCount > 0) {
         verdict = 'degraded'
       } else {
@@ -72,28 +90,36 @@ export async function GET(request: Request) {
         platform,
         verdict,
         ageHours,
-        startedAt: data.started_at,
-        finishedAt: data.finished_at,
-        trigger: data.trigger_source,
+        firesInWindow: fires.length,
+        killedFires: killed.map((f) => ({
+          startedAt: f.started_at,
+          connectionsAttempted: f.connections_attempted,
+          rowsWritten: f.rows_written,
+          errorCount: f.error_count,
+        })),
+        startedAt: latest.started_at,
+        finishedAt: latest.finished_at,
+        trigger: latest.trigger_source,
         errorCount,
-        connectionsAttempted: data.connections_attempted,
-        connectionsSucceeded: data.connections_succeeded,
-        connectionsErrored: data.connections_errored,
-        rowsWritten: data.rows_written,
+        connectionsAttempted: latest.connections_attempted,
+        connectionsSucceeded: latest.connections_succeeded,
+        connectionsErrored: latest.connections_errored,
+        rowsWritten: latest.rows_written,
         ...(mode === 'catchup'
-          ? { accountsWithGaps: data.accounts_with_gaps, daysFilled: data.days_filled }
-          : { targetDate: data.target_date }),
-        ...(mode === 'catchup' ? { windowStart: data.window_start, windowEnd: data.window_end } : {}),
+          ? { accountsWithGaps: latest.accounts_with_gaps, daysFilled: latest.days_filled }
+          : { targetDate: latest.target_date }),
+        ...(mode === 'catchup' ? { windowStart: latest.window_start, windowEnd: latest.window_end } : {}),
       })
     }
   }
 
-  // "running" is transient/expected; everything else off-healthy is actionable.
+  // "running" is transient/expected; everything else off-healthy is actionable — a 'killed' most of all.
   const unhealthy = runs.filter(r => r.verdict !== 'healthy' && r.verdict !== 'running')
 
   return NextResponse.json({
     checkedAt: new Date(nowMs).toISOString(),
     freshWindowHours: FRESH_WINDOW_HOURS,
+    routeMaxDurationS: ROUTE_MAX_DURATION_S,
     allHealthy: unhealthy.length === 0,
     unhealthy: unhealthy.map(r => `${r.mode}:${r.platform}=${r.verdict}`),
     runs,
