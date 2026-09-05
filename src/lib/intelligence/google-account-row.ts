@@ -32,6 +32,18 @@
 // campaigns across all 18 connections, so the ruling ships at a measured $0.00 delta today — and the
 // first client to delete a campaign is the first day the two derivations would have diverged.
 import { googleAdsCustomerFor } from '@/lib/google-ads-client'
+// LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the provenance vocabulary has ONE owner (the walk writer) and this
+// producer borrows two of its three text values. PROVENANCE_VENDOR was defined there on 2026-08 and never
+// stamped by anything until this line; PROVENANCE_ZERO_FILLED names the fill below.
+import { PROVENANCE_VENDOR, PROVENANCE_ZERO_FILLED } from '@/lib/backfill/google-ads-universe-writer'
+
+/** Which WRITER produced the row. REQUIRED at every call site as a string literal (google-account-row-
+ *  provenance.guard.mjs leg (b)) — an unknown lane is a build error, never 'forward'. 'fill' is reserved for
+ *  the hole filler (LORAMER_GOOGLE_HOLE_MAP_DETECTOR_V1's next commit) and has no caller yet by design. The
+ *  drain's tier-1 account step reaches this producer THROUGH the backfill adapter and is therefore
+ *  'backfill': the row's origin is the run-backfill engine's ranged fetch; who scheduled it (drain vs manual)
+ *  is a cron_runs / sync_state fact, not a row fact, and BackfillRowContext does not carry it. */
+export type AccountRowLane = 'forward' | 'catchup' | 'backfill' | 'fill'
 
 export interface GoogleAccountDay {
   date: string
@@ -40,6 +52,15 @@ export interface GoogleAccountDay {
   clicks: number
   conversions: number
   conversionValue: number
+  /** LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — TRUE when Google returned a dated row; FALSE when this producer
+   *  zero-filled the date. This is the bit the `??` at the zero-fill used to branch on and discard. It does
+   *  NOT mean "the vendor asserted zero": segmented GAQL omits zero-metric rows ALWAYS (measured 2026-08-26),
+   *  so "served nothing" and "served a zero" are the same response. It means exactly what it says — a row was
+   *  present, or it was not and we recorded the omission as zero under that measured rule. */
+  vendorRow: boolean
+  /** ISO-8601 UTC of the fetch that observed (or omitted) this date — one value per window, Fivetran's
+   *  `_fivetran_synced` shape. It changes on every restate because a restate IS a re-observation. */
+  observedAt: string
 }
 
 const fin = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
@@ -58,8 +79,11 @@ const ratio = (num: number, den: number, mult = 1): number => (den > 0 ? (num / 
  *  missing row to $0.00, so the gate can never fire on exactly the days it cannot see).
  *  THE FILL IS OURS AND IT IS A RECORDING, NOT AN INVENTION: the vendor was asked about this exact day and
  *  answered "no activity"; the account entity is the customerId itself, so no listing and no extra op is
- *  needed. This restores the pre-02e79b7 series byte-for-byte (verified against a held dormant-day row:
- *  zeros + extra{ctr:0,cpc:0,cpm:0,roas:null,cpa:null,convRate:null}), for BOTH lanes at once — forward
+ *  needed. When this shipped (2026-08-26) it restored the pre-02e79b7 series byte-for-byte (verified against
+ *  a held dormant-day row: zeros + extra{ctr:0,cpc:0,cpm:0,roas:null,cpa:null,convRate:null}); since
+ *  LORAMER_ACCOUNT_ROW_PROVENANCE_V1 (2026-09-05) the SIX RATIOS are still byte-identical but every row ALSO
+ *  carries provenance · vendorRow · observedAt · lane, so byte-for-byte parity with pre-stamp rows no longer
+ *  holds and is not claimed — a pre-stamp row is UNKNOWN-provenance, stated as such by its readers. BOTH lanes at once — forward
  *  (sync:720) and catchup (catchup:674) and the backfill adapter (adapters.ts:54) all take their days from
  *  this one function, which is the point of having one producer.
  *  check:data leg: scripts/check-google-forward-account-day.mjs (registered red against the 9, 2026-08-26). */
@@ -74,6 +98,8 @@ export async function fetchGoogleAccountWindow(
            metrics.conversions, metrics.conversions_value
     FROM customer WHERE segments.date BETWEEN '${startDate}' AND '${endDate}'
   `)
+  // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — one observation time per window: the moment the vendor answered.
+  const observedAt = new Date().toISOString()
   const byDate = new Map<string, GoogleAccountDay>()
   for (const r of rows as any[]) {
     const date = String(r.segments?.date || '')
@@ -85,22 +111,32 @@ export async function fetchGoogleAccountWindow(
       clicks: fin(r.metrics?.clicks),
       conversions: fin(r.metrics?.conversions),
       conversionValue: fin(r.metrics?.conversions_value),
+      vendorRow: true, // the vendor named this date
+      observedAt,
     })
   }
   // The zero-fill. Bounded to the asked range, so a caller that asks one day gets one day (catchup) and a
   // caller that asks 31 gets 31 (forward restate) — and the forward window self-heals recent holes on its
   // first post-deploy fire, because absent days INSIDE the window now come back as zeros and upsert.
+  // ⛔ LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — THE BIT THIS `??` BRANCHES ON IS NOW KEPT. Before 2026-09-05 the
+  // filled object was indistinguishable from a vendor row; `vendorRow: false` is the fill saying so itself.
   const out: GoogleAccountDay[] = []
   for (let d = startDate; d <= endDate; d = addDayUTC(d)) {
-    out.push(byDate.get(d) ?? { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0 })
+    out.push(byDate.get(d) ?? { date: d, spend: 0, impressions: 0, clicks: 0, conversions: 0, conversionValue: 0, vendorRow: false, observedAt })
   }
   return out
 }
 
-/** metrics_daily rows, one per day. Shape is byte-compatible with the account row buildGoogleMetricsRows
- *  used to emit (same conflict key, same extra{} keys), so a re-pull REPLACES rather than duplicates. */
+/** metrics_daily rows, one per day. The CONFLICT KEY is unchanged from the account row buildGoogleMetricsRows
+ *  used to emit, so a re-pull REPLACES rather than duplicates. The six ratio keys in `extra` are byte-identical
+ *  to before; LORAMER_ACCOUNT_ROW_PROVENANCE_V1 adds four ADDITIVE keys beside them (provenance · vendorRow ·
+ *  observedAt · lane) — `extra` is nullable jsonb with no key pin, no reader on this grain selects them, and
+ *  migration 067's jsonb_typeof guards filter the non-numeric ones out of every sum.
+ *  `lane` is REQUIRED — the producer cannot know its caller, and an unknown lane is a build error, not a
+ *  default (google-account-row-provenance.guard.mjs legs (a)/(b)/(e)). */
 export function buildGoogleAccountRows(
-  clientId: string, userEmail: string, customerId: string, accountName: string | null | undefined, days: GoogleAccountDay[]
+  clientId: string, userEmail: string, customerId: string, accountName: string | null | undefined, days: GoogleAccountDay[],
+  lane: AccountRowLane,
 ): Record<string, unknown>[] {
   return days.map((d) => {
     const spend = Number(d.spend.toFixed(2))
@@ -129,6 +165,14 @@ export function buildGoogleAccountRows(
         roas: spend > 0 && convValue > 0 ? convValue / spend : null,
         cpa: d.conversions > 0 ? spend / d.conversions : null,
         convRate: d.clicks > 0 ? (d.conversions / d.clicks) * 100 : null,
+        // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the row states its own origin. TEXT under `provenance` (the walk's
+        // key and type), the kept bit as a boolean, the observation time, and the writer's lane. Never an
+        // object under `provenance`, never a run id on the row (the ledger owns the run link; a per-row id
+        // would churn every restated row — the Airbyte raw_id defect).
+        provenance: d.vendorRow ? PROVENANCE_VENDOR : PROVENANCE_ZERO_FILLED,
+        vendorRow: d.vendorRow,
+        observedAt: d.observedAt,
+        lane,
       },
     }
   })

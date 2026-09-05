@@ -718,7 +718,7 @@ export async function GET(request: Request) {
         // (1) ACCOUNT grain — the ONE producer, from Google's own account report. Independent of the
         // campaign fetch by design, which is what keeps the two reconcilers below meaningful.
         const acctDays = await fetchGoogleAccountWindow(tokenRow.refresh_token, customerId, googleRestateStart, captureDate)
-        const rows = buildGoogleAccountRows(client.id, userEmail, customerId, conn.account_name, acctDays)
+        const rows = buildGoogleAccountRows(client.id, userEmail, customerId, conn.account_name, acctDays, 'forward') // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the lane, as a literal
         // Chunked: 31 days x every Google connection is materially more rows per statement than the
         // single-day write this replaced, and an unchunked upsert fails at the PostgREST ceiling by SIZE.
         if (rows.length > 0) await upsertMetricsChunked(rows)

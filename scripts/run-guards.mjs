@@ -71,6 +71,7 @@ const GUARDS = [
   // ONE producer with no campaign-status filter, per Russ's ruling that deleted campaigns' spend counts.
   'tests/guards/google-forward-must-restate.guard.mjs',
   'tests/guards/google-campaign-anchor-missing.guard.mjs', // LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — absent account anchor refuses; present zero anchor writes
+  'tests/guards/google-account-row-provenance.guard.mjs', // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the one account producer stamps lane · vendorRow · observedAt · provenance (text) on every row; line 95's bit is kept
   'tests/guards/top-edge-sealed-strip.guard.mjs', // LORAMER_SEALED_STRIP_PASS_V1 — a floor-sealed surface still gets its top strip derived
 
   // LORAMER_GOOGLE_RESTATE_PRUNE_V1 — the STATIC half of the only destructive write in the Google capture

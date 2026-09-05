@@ -47,8 +47,31 @@ import {
 } from '@/lib/backfill/google-ads-universe-writer'
 import { surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { MAX_ENTRIES_SCANNED_PER_RUN } from '@/lib/backfill/universe-resumer'
+import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
+import { supabaseAdmin } from '@/lib/supabase'
 
 const VENDOR = 'google'
+
+/**
+ * LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — how many of these already-covered days carry a provenance stamp on the
+ * row itself. Only the walk's base account surface aliases onto the stamped legacy key; every other surface
+ * returns 0 without a read. Keyed by the alias object, never by a literal. A failed read is 0 rowAttested —
+ * the days stay presenceOnly (the honest, weaker claim), and coverage itself is untouched.
+ */
+async function rowAttestedDays(clientId: string, entityLevel: string, breakdownType: string, days: string[]): Promise<number> {
+  if (!days.length) return 0
+  const alias = drainAliasFor(entityLevel, breakdownType)
+  if (!alias || alias.breakdownType !== '' || entityLevel !== 'customer') return 0
+  const { data, error } = await supabaseAdmin
+    .from('metrics_daily')
+    .select('date')
+    .eq('client_id', clientId).eq('platform', VENDOR)
+    .eq('entity_level', alias.entityLevel).eq('breakdown_type', alias.breakdownType)
+    .in('date', days)
+    .not('extra->>provenance', 'is', null)
+  if (error) return 0
+  return new Set((data ?? []).map((r) => String((r as { date: string }).date))).size
+}
 
 /** The page bounds. `allowanceMs` is REQUIRED — the execution host owns the clock budget (see the header);
  *  `maxEntries` defaults to the resumer's own scan bound. */
@@ -83,6 +106,9 @@ export interface SurfaceTally {
   stopDate: string
   basis: string
   ledgerAttested: number
+  /** LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — covered, not ledgered, but the row states its own origin (stamped). */
+  rowAttested: number
+  /** Covered by rows alone — pre-stamp, UNKNOWN-provenance. Stated, never inferred. */
   presenceOnly: number
   attestedEmpty: number
   uncovered: number
@@ -110,7 +136,7 @@ export interface HoleMapPage {
   elapsedMs: number
   /** Surfaces whose resolved stop sits above the requested end — nothing to ask, nothing inferred. */
   belowFloor: number
-  tiers: { ledgerAttested: number; presenceOnly: number; attestedEmpty: number; uncovered: number }
+  tiers: { ledgerAttested: number; rowAttested: number; presenceOnly: number; attestedEmpty: number; uncovered: number }
   /** Oldest span first, then by surface — the fill order. ONLY `uncovered` days appear here. */
   uncovered: HoleSpan[]
   perSurface: SurfaceTally[]
@@ -158,7 +184,7 @@ export async function enumerateGoogleHoles(input: {
   const fromEntry = Math.max(0, input.fromEntry ?? 0)
   const perSurface: SurfaceTally[] = []
   const uncovered: HoleSpan[] = []
-  const tiers = { ledgerAttested: 0, presenceOnly: 0, attestedEmpty: 0, uncovered: 0 }
+  const tiers = { ledgerAttested: 0, rowAttested: 0, presenceOnly: 0, attestedEmpty: 0, uncovered: 0 }
   let belowFloor = 0
   let i = fromEntry
   for (; i < entries.length; i++) {
@@ -181,7 +207,15 @@ export async function enumerateGoogleHoles(input: {
     const committed = new Set(await committedDays(key, effectiveStart, end))
     let ledgerAttested = 0
     for (const d of cov.covered) if (committed.has(d)) ledgerAttested += 1
-    const presenceOnly = cov.covered.length - ledgerAttested
+    // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — THE THIRD TIER, ON THE ONE SURFACE THAT CARRIES A STAMP. A covered day
+    // that no attempt committed can still STATE ITS OWN ORIGIN if the account producer wrote it after
+    // 2026-09-05 (extra.provenance = VENDOR_REPORTED | ZERO_FILLED_VENDOR_OMITTED). That is `rowAttested`.
+    // What remains is `presenceOnly`: pre-stamp rows, UNKNOWN-provenance, said so rather than inferred.
+    // ⛔ THIS READ LABELS DAYS ALREADY DECIDED COVERED BY windowCoverage; IT NEVER DECIDES COVERAGE. It is keyed
+    // by the surface's read-side alias (the walk's base surface → the legacy account key), never by a literal
+    // — leg (g) bars the account-grain key as a coverage input, and this is not one. One probe, one surface.
+    const rowAttested = await rowAttestedDays(clientId, s.entityLevel, s.breakdownType, cov.covered.filter((d) => !committed.has(d)))
+    const presenceOnly = cov.covered.length - ledgerAttested - rowAttested
 
     const spans = toRanges(cov.uncovered).map((r) => ({
       clientId, surface, start: r.start, end: r.end,
@@ -189,12 +223,13 @@ export async function enumerateGoogleHoles(input: {
     }))
     uncovered.push(...spans)
     tiers.ledgerAttested += ledgerAttested
+    tiers.rowAttested += rowAttested
     tiers.presenceOnly += presenceOnly
     tiers.attestedEmpty += cov.attestedEmpty.length
     tiers.uncovered += cov.uncovered.length
     perSurface.push({
       surface, effectiveStart, stopDate: stop.stopDate, basis: stop.basis,
-      ledgerAttested, presenceOnly, attestedEmpty: cov.attestedEmpty.length, uncovered: cov.uncovered.length,
+      ledgerAttested, rowAttested, presenceOnly, attestedEmpty: cov.attestedEmpty.length, uncovered: cov.uncovered.length,
       spans: spans.length, probes: cov.probes, ms: cov.ms,
     })
   }

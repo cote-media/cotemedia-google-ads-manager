@@ -149,6 +149,11 @@ export const DERIVED_TIME_SEGMENTS = new Set<string>(['segments.date', ...DERIVE
  *  violation, not a storage optimisation — Lora must be able to say which it is looking at. */
 export const PROVENANCE_COMPUTED = 'COMPUTED_FROM_DATE'
 export const PROVENANCE_VENDOR = 'VENDOR_REPORTED'
+// LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the THIRD value, for the one producer that writes a zero row the vendor
+// omitted (google-account-row.ts). The walk never writes such a row (an observed zero goes to the ledger), so
+// it never needs this; it is defined HERE because the provenance vocabulary has one owner. TEXT, like the two
+// above — migration 067 and universe-derived-time.guard.mjs read `extra.provenance` as text.
+export const PROVENANCE_ZERO_FILLED = 'ZERO_FILLED_VENDOR_OMITTED'
 
 /**
  * ⛔⛔ DO NOT USE THIS AS AN ACCOUNT FLOOR. IT IS ONE ACCOUNT'S MEASUREMENT, KEPT ONLY FOR THE v1 CONSUMER.

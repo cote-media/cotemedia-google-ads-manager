@@ -52,8 +52,13 @@ export const googleBackfillAdapter: BackfillAdapter<GoogleAccountDay> = {
   },
   fetchDaily: async (token, accountId, windowStart, windowEnd) =>
     await withGoogleRetry(() => fetchGoogleAccountWindow(token, accountId, windowStart, windowEnd)), // LORAMER_BACKFILL_RETRY_V1 — backoff was the missing per-source guard here
+  // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — 'backfill' for EVERY path that reaches this adapter, including the
+  // drain's tier-1 account step: the row's origin is the run-backfill engine's ranged fetch, and who scheduled
+  // it (drain vs /api/backfill/google vs /api/backfill/run) is a cron_runs / sync_state fact that
+  // BackfillRowContext does not carry. Giving the drain its own value would need a run-backfill contract
+  // change and would put a scheduler fact on a data row.
   buildRows: (daily, ctx) =>
-    buildGoogleAccountRows(ctx.clientId, ctx.userEmail, ctx.accountId, ctx.accountName, daily),
+    buildGoogleAccountRows(ctx.clientId, ctx.userEmail, ctx.accountId, ctx.accountName, daily, 'backfill'),
 }
 
 export const metaBackfillAdapter: BackfillAdapter = {

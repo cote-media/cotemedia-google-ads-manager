@@ -671,7 +671,8 @@ export async function GET(request: Request) {
           // same conflict key, writing the opposite semantics into the rows forward had just corrected.
           const acctRows = buildGoogleAccountRows(
             client.id, userEmail, customerId, conn.account_name,
-            await fetchGoogleAccountWindow(refreshToken, customerId, d, d)
+            await fetchGoogleAccountWindow(refreshToken, customerId, d, d),
+            'catchup', // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the lane, as a literal
           )
           const rows = [...acctRows, ...buildGoogleMetricsRows(client.id, userEmail, d, customerId, conn.account_name, intel)]
           const { error: metricsError } = await supabaseAdmin

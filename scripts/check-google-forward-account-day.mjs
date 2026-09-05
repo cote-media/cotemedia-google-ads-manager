@@ -43,7 +43,7 @@ async function rest(path) {
 
 // 1. The day under test = the newest COMPLETED google forward fire's target_date. An unfinished fire proves
 //    nothing about coverage and must not move the goalpost (finished_at NULL is the crash sentinel).
-const fires = await rest(`cron_runs?select=target_date,finished_at&mode=eq.forward&platform=eq.google&finished_at=not.is.null&order=started_at.desc&limit=1`)
+const fires = await rest(`cron_runs?select=target_date,finished_at,started_at&mode=eq.forward&platform=eq.google&finished_at=not.is.null&order=started_at.desc&limit=1`)
 if (!fires.length || !fires[0].target_date) { console.log('✓ google-forward-account-day OK — no completed google forward fire in cron_runs to judge (nothing stamped, nothing owed).'); process.exit(0) }
 const day = fires[0].target_date
 
@@ -70,5 +70,34 @@ if (missing.length) {
   for (const c of missing) console.error(`  - ${c.clients?.name || c.client_id} (client ${c.client_id}, account ${c.account_id})`)
   console.error(`  The producer (google-account-row.ts fetchGoogleAccountWindow) must yield a zero day for every date the vendor omits — Google never serves dated zero rows (measured 2026-08-26, both query shapes).`)
   process.exit(1)
+}
+// 4. LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — "THIS FIRE WROTE IT", NOT "A ROW IS THERE". Since the stamp deployed, every
+//    account row the forward lane writes carries extra.lane='forward' and extra.observedAt (the fetch time). So the
+//    target-date row must say lane='forward' and must have been observed at or after this fire's started_at — a row
+//    that predates the fire is a row the fire did NOT write, however present it is.
+//    ⛔ EXEMPTION BY DATE, STATED: fires that started before the stamp deployed wrote un-stamped rows and are judged by
+//    presence only (leg 3 above). PROVENANCE_STAMP_LIVE_FROM is the deploy of LORAMER_ACCOUNT_ROW_PROVENANCE_V1.
+const PROVENANCE_STAMP_LIVE_FROM = '2026-09-05T04:30:00Z'
+const fireStartedAt = fires[0].started_at ? new Date(fires[0].started_at).toISOString() : null
+if (!fireStartedAt || fireStartedAt < PROVENANCE_STAMP_LIVE_FROM) {
+  console.log(`  provenance leg SKIPPED — the judged fire started ${fireStartedAt ?? 'unknown'}, before the stamp went live (${PROVENANCE_STAMP_LIVE_FROM}); its rows are pre-stamp and UNKNOWN-provenance by design.`)
+} else {
+  const bad = []
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50)
+    const rows = await rest(`metrics_daily?select=client_id,extra&platform=eq.google&entity_level=eq.account&breakdown_type=eq.&breakdown_value=eq.&date=eq.${day}&client_id=in.(${chunk.join(',')})`)
+    for (const r of rows) {
+      const x = r.extra || {}
+      if (x.lane !== 'forward') bad.push(`${r.client_id}: lane=${JSON.stringify(x.lane ?? null)} (expected 'forward')`)
+      else if (!x.observedAt || String(x.observedAt) < fireStartedAt) bad.push(`${r.client_id}: observedAt=${JSON.stringify(x.observedAt ?? null)} is before the fire's started_at ${fireStartedAt} — present, but this fire did not write it`)
+      else if (x.provenance !== 'VENDOR_REPORTED' && x.provenance !== 'ZERO_FILLED_VENDOR_OMITTED') bad.push(`${r.client_id}: provenance=${JSON.stringify(x.provenance ?? null)} is not one of the two text values`)
+    }
+  }
+  if (bad.length) {
+    console.error(`✗ GOOGLE-ACCOUNT-ZERO-DAY FAILED — ${bad.length} of ${owed.length} account row(s) for ${day} do not say the forward fire (started ${fireStartedAt}) wrote them:`)
+    for (const b of bad) console.error(`  - ${b}`)
+    process.exit(1)
+  }
+  console.log(`  provenance leg OK — every ${day} account row carries lane='forward', observedAt ≥ ${fireStartedAt}, provenance ∈ {VENDOR_REPORTED, ZERO_FILLED_VENDOR_OMITTED}.`)
 }
 console.log(`✓ google-forward-account-day OK — ${owed.length}/${owed.length} cursor-stamped google connection(s) hold an account row for ${day} (${live.length - owed.length} not yet stamped to that day, not judged).`)

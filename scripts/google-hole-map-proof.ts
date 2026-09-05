@@ -95,7 +95,7 @@ const main = async () => {
   for (const s of spans) {
     const t0 = Date.now()
     let from: number | null = 0, pages = 0, scanned = 0, belowFloor = 0, totalEntries = 0
-    const tiers = { ledgerAttested: 0, presenceOnly: 0, attestedEmpty: 0, uncovered: 0 }
+    const tiers = { ledgerAttested: 0, rowAttested: 0, presenceOnly: 0, attestedEmpty: 0, uncovered: 0 }
     const uncovered: any[] = []
     const surfacesUncovered = new Set<string>()
     let refused: string | null = null
@@ -118,7 +118,7 @@ const main = async () => {
     const acctPresent = dErr || !drow ? null : ((drow.present_days as string[] | null)?.length ?? 0)
     const acctHoles = acctPresent === null ? null : spanDays - acctPresent
     console.log(`\n${s.label} ${s.start}..${s.end} (${spanDays} days) — ${pages} page(s), ${scanned}/${totalEntries} entries scanned, ${belowFloor} below floor, ${Date.now() - t0}ms`)
-    console.log(`  covered — ledger-attested ${tiers.ledgerAttested} · presence-only ${tiers.presenceOnly}`)
+    console.log(`  covered — ledger-attested ${tiers.ledgerAttested} · row-attested ${tiers.rowAttested} · presence-only ${tiers.presenceOnly}`)
     console.log(`  attestedEmpty ${tiers.attestedEmpty}`)
     console.log(`  UNCOVERED surface-days ${tiers.uncovered} in ${uncovered.length} contiguous span(s) across ${surfacesUncovered.size} distinct surface(s) (span-days ${uncoveredDays})`)
     console.log(`  SIDE BY SIDE — account-grain holes on this span: ${acctHoles === null ? `UNREADABLE (${dErr?.message ?? 'no row'})` : `${acctHoles} of ${spanDays} days (present ${acctPresent})`} · grain-aware uncovered surface-days: ${tiers.uncovered} across ${surfacesUncovered.size} surfaces`)
