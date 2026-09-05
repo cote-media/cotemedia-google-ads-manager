@@ -107,7 +107,9 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
 · entity_state_history holds 0 conversion_action rows — the config capture is DARK (★CONVERSION-ACTION-CAPTURE-DARK);
   the lookback commit's daily `FROM conversion_action` read replaces it.
 · Escential reconcile figures banked 2026-09-05 (Aug: 3,706.13 / 332,092 / 7,156 / 720 / 131,700.20 · Sep 1–4: 312.33 /
-  20,968 / 321 / 34 / 13,046.98) — awaiting Russ's Google Ads UI read; record beside them in DECISIONS (ruling r).
+  20,968 / 321 / 34 / 13,046.98) — RECONCILED 2026-09-05 by Russ against the Google Ads app — all visible figures match,
+  CPA to the cent on both windows; conv value not on screen (DECISIONS (s)).
+· state (B) first proof account: Escential — Display and PMax-April '26 at $0 while the account was live (DECISIONS (t)).
 · condition-1 finding: the catalogue lacks an ad_group axis on the geo views (★CATALOGUE-LACKS-AD-GROUP-AXIS) — banked,
   not decided.
 
