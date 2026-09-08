@@ -1,4 +1,4 @@
-╔═══ SESSION CLOSE 2026-09-05 — TWO FORWARD-LANE COMMITS SHIPPED, NEITHER PROVEN ON A FIRE: THE 08:08Z VERIFY IS THE HEAD, THE LOOKBACK LANE OPENS AFTER. ═══╗
+╔═══ SESSION CLOSE 2026-09-08 — STEP 1 OPEN-VERIFY PASSED: 1d40b74 AND 1415cfd PROVEN ON THE 2026-09-06 FIRE. THE LOOKBACK LANE IS THE HEAD. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -18,40 +18,49 @@ LORAMER_SESSION_2026_09_05_RULINGS (a)).
   `observedUnsealed` tier; the op-budget's forward term MEASURED from the ledger, not ×67; two check legs. The walk's
   readers (rotation · windowCoverage/attestedEmptyDays/resolveTerminalLane · resumer · lane-spend RPC · five check legs)
   have ZERO diffs — a forward zero cannot seal a day by construction.
-Both READY on app.loramer.com. **NEITHER IS PROVEN ON A FIRE YET.**
+Both READY on app.loramer.com. **BOTH PROVEN ON THE 2026-09-06 08:08Z FIRE — STEP 1 PASSED 2026-09-08 (DECISIONS (u)).**
 
-── ▶▶ NEXT STEP 1 — OPEN-VERIFY at 2026-09-06T08:08Z (the window opens ~08:20Z). READ-ONLY. STOP on any deviation: quote
-   it, fix nothing. Nothing below builds on either commit until a live fire proves it. ──
+── ✅ STEP 1 — OPEN-VERIFY PASSED 2026-09-08 (three read-only rounds against the 2026-09-06 08:08Z fire, target 2026-09-05;
+   DECISIONS (u) owns the per-check record). The seven checks, corrected where the spec was wrong. ──
 The seven queries — (1)-(5) VERBATIM from the 1415cfd report, (6) from the 1d40b74 report, (7) from amendment 2 (ruling r):
 (1) observations per client: `select client_id, producer, outcome, count(*) rows, sum(requests_spent) req from
     forward_observation_log where vendor='google' and window_end='2026-09-05' group by 1,2,3 order by 1,2,3` → expect 35
     rows per connection (53 requests), 18 connections; per producer 1·1·2·2·4·1·1·19·2·2; outcome split zero vs ok by
-    dormancy, error rows carrying text.
-(2) hole map on Escential c39ee088 over 2026-09-05..2026-09-05: enumerateGoogleHoles({clientId:
-    'c39ee088-c635-4bfe-b308-43fe9640f1ca', start:'2026-09-05', end:'2026-09-05', bounds:{allowanceMs:120000}}) →
-    tiers.observedUnsealed and tiers.uncovered reported apart; uncovered = the surfaces forward does not ask.
+    dormancy, error rows carrying text. PASSED: 18/18 at 35/53; Escential c39ee088 47/64 over 2 runs (an 800 s kill mid-geo
+    + the lease-expiry re-claim, both by design).
+(2) hole map on Foam OH 957d484e over 2026-09-05..2026-09-05: enumerateGoogleHoles({clientId:
+    '957d484e-d0c4-4dd0-b382-d8499d556252', start:'2026-09-05', end:'2026-09-05', bounds:{allowanceMs:120000}}) →
+    refused:false; tiers.observedUnsealed and tiers.uncovered reported apart. PASSED: page 1 scanned 60/349, observedUnsealed 6 ·
+    uncovered 54; whole catalogue observedUnsealed 30 · uncovered 319, every other tier 0. ⛔ Escential c39ee088 holds NO
+    universe_account_inception row and REFUSES by design — not provable read-only; the two rows are 957d484e and 3111c7e1.
 (3) op-budget forward term: `select public.forward_observation_spend_today('google', now() - interval '24 hours')` = the
     ledger sum, and readGoogleSpendToday().byLane.forward equals it — no ×67 anywhere (guard (j) holds the code; leg (k)
-    holds the number).
+    holds the number). PASSED: 1027 = 1027 = 1027 (686 rows); ×67 absent.
 (4) fleet-meter forward leg: `node scripts/check-fleet-meter-visibility.mjs` → "forward since …: fires=N attempted=18 …
-    observations≈630 · state=VISIBLE"; QUIET or DRIFT is the finding.
+    observations≈630 · state=VISIBLE"; QUIET or DRIFT is the finding. PASSED: VISIBLE, 686 observations / 18 attempted.
 (5) account-day leg 5 JUDGED: `node scripts/check-google-forward-account-day.mjs` → "observation leg OK — every one of
-    18 owed connection(s) carries a customer/'' observation covering 2026-09-05".
+    18 owed connection(s) carries a customer/'' observation covering 2026-09-05". PASSED: 18/18.
 (6) the lease proof (1d40b74): `select count(*) fires, sum(connections_attempted) attempted, sum(case when finished_at
     is null then 1 else 0 end) unfinished from cron_runs where platform='google' and mode='forward' and
-    target_date='2026-09-05'` → attempted = 18 (no client claimed twice; >18 = a re-claim, a retry shows in
-    connections_errored); every fire has finished_at OR connections_attempted > 0; per client
-    `sync_state.updated_at <= backfill_claimed_at + interval '900 seconds'` on the '__fwd_google' row.
+    target_date='2026-09-05'` → 18 · 18 · 1 unfinished — but ⛔ attempted=18 is VOID as a re-claim signal: the killed client
+    is never stamped, so killed (−1) + re-claim (+1) = the distinct count (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT).
+    THE DETECTOR: `select client_id, count(distinct cron_run_id) runs from forward_observation_log where vendor='google' and
+    window_end='2026-09-05' group by 1 having count(distinct cron_run_id) > 1` → c39ee088 = 2, nothing else. The lease itself:
+    every '__fwd_google' row reads `updated_at = backfill_claimed_at` (≤ +900 s). PASSED.
 (7) the RPC's other callers (ruling r — the default path is ALREADY PROVEN on 9 live drain claims, ga·woo·shopify·meta,
-    lease = claimed_at + 480 s exactly, no PGRST202/203): `select platform, mode, started_at, finished_at, errors from
-    cron_runs where mode='catchup' and started_at > '2026-09-06T00:00Z'` → every row finished, no "claim_backfill_cursor"
-    in errors. The google drain is declined at the lane gate by design (the walk holds the budget) — not a deviation.
-Then `npm run check:data` — google-forward-account-day and the fleet-meter forward leg green; quote the verdict.
+    lease = claimed_at + 480 s exactly, no PGRST202/203): `select platform, count(*) fires, count(*) filter (where finished_at
+    is null) unfinished, sum(connections_errored) err, sum(error_count) error_count from cron_runs where mode='catchup' and
+    started_at > '2026-09-06T00:00Z' group by platform` → 72 fires per platform, unfinished 0, err 0, error_count 0. ⛔ There is
+    NO cron_runs.errors column and no durable error text (DECISIONS (u) corrects (r)); google/woocommerce all-skipped is the
+    lane gate, not a deviation. PASSED.
+check:data 2026-09-08, verbatim: "[check:data] VERDICT — EXIT 2 · 32 checks: 23 green · 8 red (…) · 1 crashed (no-owed-day-left-behind:
+signal=SIGTERM)" — red-for-red the 09-05 wrap; google-forward-account-day GREEN; the fleet-meter FORWARD leg GREEN (its red
+is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
 
 ── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE — BUILD (research + adversary DONE 2026-09-05; the shape is settled in QUEUE
    ★LOOKBACK-LANE-OWNS-PROMOTION and DECISIONS rulings (i)-(l); LIVE-PATH THROUGHOUT — the walk's ledger CHECK, the
    coverage predicate, the walk's publish route, cron/sync; TWO STOP-and-confirms: before the 084 migration and before
-   the first attesting terminal lands). GATED ON STEP 1 PASSING. ──
+   the first attesting terminal lands). GATE OPEN — STEP 1 PASSED 2026-09-08. ──
 The boundary is PER ACCOUNT and MEASURED (90 on 15 of 17 accounts, 60 on 2; cost moves to age 96) — never a typed
 constant; `boundaryDaysFor` refuses UNKNOWN. The lane is the top-edge lane CONVERTED (retirement inside this commit):
 strip anchored to the boundary, terminal ATTESTS, each (surface, window) asked once; W=7 under Basic, W=1 under Standard;
@@ -92,10 +101,10 @@ schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · 
 the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
 
 ── STANDING ──
-· check:data at wrap: 23 green · 8 red · 1 crashed — red-for-red the 09-04 set, all queue-owned (claims 12+8 · throttle ·
-  geo_city/geo_postal ±1-impression alias drift · Influential Drones/meta density · five Foam OH walk-state legs incl. the
-  no-owed-day-left-behind crash). google-forward-account-day GREEN (its :46 instrument defect fixed). Verdict quoted
-  verbatim on every push.
+· check:data 2026-09-08: 23 green · 8 red · 1 crashed — red-for-red the 09-05 wrap, all queue-owned (claims 12+8 · throttle ·
+  geo_city/geo_postal alias drift · Influential Drones/meta density · five Foam OH walk-state legs). The crash is a SIGTERM
+  sent to a leg hung 35 min on a socket orphaned by the 16:13:41Z restart (★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT).
+  google-forward-account-day GREEN. Verdict quoted verbatim on every push.
 · Five capture lanes; walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
 · Deploy-poll-until-terminal · one-block output · CITED gate · wait-commands rule all bind as before.
 · No clock-derived retention wall anywhere in a plan: the floor is `resolveWalkStop` (max(vendor refusal, min(inception,
@@ -112,6 +121,12 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
 · state (B) first proof account: Escential — Display and PMax-April '26 at $0 while the account was live (DECISIONS (t)).
 · condition-1 finding: the catalogue lacks an ad_group axis on the geo views (★CATALOGUE-LACKS-AD-GROUP-AXIS) — banked,
   not decided.
+· 2026-09-08 16:09:04Z → 16:13:41Z: production Postgres INTERRUPTED and crash-recovered (instance-level; cause not in
+  postgres_logs; no cron fire in the window; capture lost nothing). Supabase compute-event read owed by Russ (DECISIONS (u)).
+· attempted=18 is not a re-claim detector; distinct cron_run_id per (client, window_end) is
+  (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT). Escential is killed and re-claimed DAILY (09-05/06/07) — ruling m's
+  class, the driver's fix.
+· 4 forward asks sit outside the 349 selectable set (7 req/connection/day, 126/day) — ★FORWARD-DRIVER-SHAPE carries the four.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
