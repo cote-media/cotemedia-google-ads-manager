@@ -1,4 +1,4 @@
-╔═══ SESSION 2026-09-09 — INTEL-QUERY SPLIT SHIPPED (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1); NEXT: MIGRATION 088 IN THE SUPABASE SQL EDITOR = STOP-AND-CONFIRM 1 ═══╗
+╔═══ SESSION 2026-09-09 — 088 APPLIED; NEXT: GATE-B AT THE 2026-09-10 08:08Z FORWARD FIRE (conversion_action rows 18/18, error_count 36→18, Foam OH tick boundary=90d), THEN THE 'PUBLISH' FLIP = STOP-AND-CONFIRM 2 ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -65,8 +65,9 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
   UNKNOWN) · the resume route's second slot derives boundary windows and LOGS them — `LOOKBACK_SLOT_MODE = 'observe'`, sends
   nothing, charges nothing — top-edge publish RETIRED on deploy (ruling j) · the worker's third lane · conversion_action
   lookback windows on slice 1 + cron/sync persists slice 1 every forward fire. Six guards red-then-green; check:data leg
-  conversion-action-config-captured 18/18 RED BY DESIGN. ⛔ migrations/088_universe_attempt_lane_lookback.sql is IN-REPO
-  AND UNAPPLIED — it alters the constraint 084 created; no writer can produce a 'lookback' row in observe mode.
+  conversion-action-config-captured 18/18 RED BY DESIGN. migrations/088_universe_attempt_lane_lookback.sql was IN-REPO
+  AND UNAPPLIED at this commit (✅ APPLIED 2026-09-09 20:51Z via Supabase MCP, ledger 20260909205132) — it alters the
+  constraint 084 created; no writer can produce a 'lookback' row in observe mode.
 · ⛔ GATE-A (round 8, 1 of 2 requests): `metrics.conversions FROM conversion_action` → query_error 49. The intel query has
   failed on EVERY forward fire since ≥ 2026-07-27 (error_count = 2 × attempted, daily) and is the CAUSE of
   ★CONVERSION-ACTION-CAPTURE-DARK; the round-7 widening rides it and is UNVERIFIED. Sibling: the audience sub-fetch
@@ -81,8 +82,11 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
     the "view 30" expectation was unmeasured and wrong). QUEUE ★CONVERSION-ACTION-CAPTURE-DARK carries the record, five
     pointers and GATE-B (next 08:08Z fire: conversion_action rows > 0 on 18/18, error_count 2×attempted → 1×attempted).
     DECISIONS (w) owns the ruling over all_conversions.
-(2) 088 IN THE SUPABASE SQL EDITOR = STOP-and-confirm 1 — apply BEFORE any 'publish' deploy; verify the notice line
-    "088 OK — universe_attempt_log_lane_chk = …" carries all three lanes.
+(2) ✅ APPLIED 2026-09-09 20:51Z — 088 via Supabase MCP apply_migration (STOP-and-confirm 1 given on the round-4 paste; ledger
+    20260909205132 = 088_universe_attempt_lane_lookback); read-back: universe_attempt_log_lane_chk carries descend · top-edge ·
+    lookback, convalidated true; descend 121,844 · top-edge 40,791 · lookback 0. First tick on the applied constraint
+    (20:55:43Z): mode=observe · boundary=UNKNOWN · candidates 0 · selected 0 · requests_selected 0 · refusals {floor-sealed 349,
+    lookback-boundary-unknown 1} · 0 attempt rows · 0 lookback rows — unchanged. DECISIONS (x) owns the record.
 (3) SESSION-OPEN VERIFY of the observe tick (vercel.json: universe-resume every 5 min on Foam OH): universe_fire_log reads
     mode observe · refusals carry 'lookback-boundary-unknown' ×1 · candidates 0 · selected 0 · requests_selected 0 · no
     top-edge message; universe_attempt_log holds 0 rows with lane='lookback'; the 08:08Z forward fire persists slice 1
@@ -156,9 +160,10 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
   (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT). Escential is killed and re-claimed DAILY (09-05/06/07) — ruling m's
   class, the driver's fix.
 · 4 forward asks sit outside the 349 selectable set (7 req/connection/day, 126/day) — ★FORWARD-DRIVER-SHAPE carries the four.
-· ⛔ MIGRATION 088 IS IN-REPO AND UNAPPLIED (universe_attempt_log_lane_chk still holds two values on the live database). Apply it
-  in the Supabase SQL Editor BEFORE any deploy that flips LOOKBACK_SLOT_MODE to 'publish'. In observe mode no writer can
-  produce a 'lookback' row, so the two-value CHECK is never met.
+· ✅ MIGRATION 088 APPLIED 2026-09-09 20:51Z via Supabase MCP apply_migration (ledger supabase_migrations.schema_migrations
+  20260909205132 = 088_universe_attempt_lane_lookback): universe_attempt_log_lane_chk = descend · top-edge · lookback,
+  convalidated true; descend 121,844 · top-edge 40,791 · lookback 0. LOOKBACK_SLOT_MODE stays 'observe' (route.ts:90) — no
+  writer can produce a 'lookback' row until STOP-and-confirm 2. DECISIONS (x) owns the record.
 · LOOKBACK_SLOT_MODE = 'observe' (universe-resume/route.ts:90): the second slot derives and logs, sends nothing, charges
   nothing. The top-edge lane is RETIRED as of this deploy — Foam OH's strip [T−B+1 .. T−1] is held by nothing until the driver
   (ruling j); top-edge-is-held (check:data) stays red on it, queue-owned.
