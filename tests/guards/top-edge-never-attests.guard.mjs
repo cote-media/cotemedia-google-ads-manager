@@ -123,6 +123,38 @@ if (typeof C.resolveTerminalLane !== 'function') {
   console.log(`[top-edge-never-attests] self-test PASS — 7/7 provenance fixtures: NULL-key ⇒ descend · exact match wins · a redelivery whose starts are all descending stays descending · a redelivery that ever asked at the top edge REFUSES · an orphan key is UNKNOWN and therefore refuses.`)
 }
 
+// ── LORAMER_LOOKBACK_LANE_V1 — THE DRIVEN TABLE: 'lookback' ATTESTS, 'top-edge' NEVER, AND THE REFUSAL STILL WINS ──
+// The lookback lane is the top-edge lane converted (DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (j)); its terminal
+// ATTESTS because its window ends at or below the account's restatement boundary by construction. The resolver
+// must therefore name a third lane, and a redelivery that EVER asked at the top edge must still resolve to the
+// refusal — a key with one top-edge start and one lookback start is the shape whose zero must not be trusted.
+// Findings here are FINDINGS (exit 1), not CANNOT-RUN: the instrument works; the property is what is being judged.
+if (typeof C.resolveTerminalLane === 'function') {
+  const L = new Map([
+    ['k-look', [{ invocationId: 'inv-l', lane: 'lookback' }]],
+    ['k-redelivered-look', [{ invocationId: 'inv-a', lane: 'lookback' }, { invocationId: 'inv-b', lane: 'lookback' }]],
+    ['k-mixed-look-descend', [{ invocationId: 'inv-a', lane: 'descend' }, { invocationId: 'inv-b', lane: 'lookback' }]],
+    ['k-mixed-look-top', [{ invocationId: 'inv-a', lane: 'lookback' }, { invocationId: 'inv-b', lane: 'top-edge' }]],
+  ])
+  const table = [
+    { name: 'exact key+invocation, LOOKBACK', r: { message_key: 'k-look', invocation_id: 'inv-l' }, want: 'lookback' },
+    { name: 'REDELIVERY — all starts lookback', r: { message_key: 'k-redelivered-look', invocation_id: 'inv-zzz' }, want: 'lookback' },
+    { name: 'REDELIVERY — descend + lookback starts, invocation unknown → lookback (both attest; the more specific lane names the row)', r: { message_key: 'k-mixed-look-descend', invocation_id: 'inv-zzz' }, want: 'lookback' },
+    { name: 'REDELIVERY — lookback + TOP-EDGE starts, invocation unknown → the refusal wins', r: { message_key: 'k-mixed-look-top', invocation_id: 'inv-zzz' }, want: 'top-edge' },
+    { name: 'exact invocation on the mixed key → lookback', r: { message_key: 'k-mixed-look-top', invocation_id: 'inv-a' }, want: 'lookback' },
+  ]
+  for (const c of table) {
+    const got = C.resolveTerminalLane(c.r, L)
+    if (got !== c.want) findings.push(`LOOKBACK TABLE — ${c.name}: resolveTerminalLane → ${JSON.stringify(got)}, expected ${JSON.stringify(c.want)}. ⛔ A lookback terminal that resolves as anything but 'lookback' either cannot attest (the lane observes and never seals — the top-edge cost again) or attests under the wrong name.`)
+  }
+  // the attesting set is exactly {descend, lookback}: read from the compiled module's own filter, never re-derived
+  const covSrc = readFileSync(resolve(ROOT, COVERAGE), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1')
+  if (!/lane\s*!==\s*'descend'\s*&&\s*lane\s*!==\s*'lookback'/.test(covSrc) && !/\['descend',\s*'lookback'\]/.test(covSrc)) {
+    findings.push(`LOOKBACK TABLE — attestedEmptyDays in ${COVERAGE} does not admit BOTH 'descend' and 'lookback' as attesting lanes (and only those). Expected a filter of the shape \`lane !== 'descend' && lane !== 'lookback'\`.`)
+  }
+  if (!findings.some((f) => f.startsWith('LOOKBACK TABLE'))) console.log('[top-edge-never-attests] LOOKBACK TABLE PASS — 5/5: a lookback terminal resolves as lookback, a redelivery that ever touched the top edge still refuses, and attestedEmptyDays admits exactly {descend, lookback}.')
+}
+
 // ── LIVE — WHAT ACTUALLY LANDED ──────────────────────────────────────────────────────────────────────
 const get = async (p) => {
   const r = await fetch(`${SB}/rest/v1/${p}`, { headers: { apikey: K, Authorization: `Bearer ${K}` } })

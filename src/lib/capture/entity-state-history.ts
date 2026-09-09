@@ -138,10 +138,14 @@ export function resolveEntityStateAsOf(
 
 // ── SLICE-1 EXTRACTOR. Pure: an intelligence payload in, observed facts out. No DB, no network. ──
 // The DECLARED SET for slice 1 lives here and nowhere else, so widening it is one visible edit.
-export const SLICE1_DECLARED_KEYS = ['advertising_channel_type', 'campaign_status', 'include_in_conversions'] as const
+// LORAMER_LOOKBACK_LANE_V1 (2026-09-08) — the two conversion_action lookback windows join the declared set. They are
+// the STORE the lookback lane's boundary is read from (lookback-boundary.ts; DECISIONS (i)): boundary(account) =
+// max(click-through, view-through, COST_HORIZON_DAYS). Both are already selected on the same GAQL that carries
+// include_in_conversions_metric (google-intelligence.ts), so this widening adds ZERO vendor requests.
+export const SLICE1_DECLARED_KEYS = ['advertising_channel_type', 'campaign_status', 'include_in_conversions', 'click_through_lookback_window_days', 'view_through_lookback_window_days'] as const
 
 type CampaignLike = { id?: string; campaignId?: string; name?: string; campaignName?: string; channelType?: string; status?: string }
-type ConvActionLike = { id?: string; name?: string; includeInConversions?: boolean; category?: string }
+type ConvActionLike = { id?: string; name?: string; includeInConversions?: boolean; category?: string; clickThroughLookbackWindowDays?: number; viewThroughLookbackWindowDays?: number }
 
 export function extractGoogleSlice1(intel: {
   campaigns?: CampaignLike[]
@@ -171,6 +175,13 @@ export function extractGoogleSlice1(intel: {
       entityLevel: 'conversion_action', entityId: id, entityName: String(a.name || ''),
       stateKey: 'include_in_conversions', stateValue: a.includeInConversions ? 'true' : 'false',
     })
+    // LORAMER_LOOKBACK_LANE_V1 — the lookback windows, one fact each, only when the vendor served a number.
+    // An absent value writes NOTHING (an absent row reads UNKNOWN downstream — never a default of 30 or 90).
+    for (const [key, v] of [['click_through_lookback_window_days', a.clickThroughLookbackWindowDays], ['view_through_lookback_window_days', a.viewThroughLookbackWindowDays]] as const) {
+      if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+        out.push({ entityLevel: 'conversion_action', entityId: id, entityName: String(a.name || ''), stateKey: key, stateValue: String(Math.round(v)) })
+      }
+    }
   }
   return out
 }

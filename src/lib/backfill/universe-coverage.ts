@@ -314,7 +314,11 @@ export async function attestedEmptyDays(k: CoverageKey, windowStart: string, win
 
   const attested = new Set<string>()
   for (const r of scoped) {
-    if (resolveTerminalLane(r, startsByKey) !== 'descend') continue
+    // LORAMER_LOOKBACK_LANE_V1 — TWO lanes attest: the descent, and the lookback (its window ends ≤ T−B, the
+    // account's MEASURED restatement boundary — DECISIONS (i)/(j) — so its zero is final). 'top-edge' still never
+    // attests (its 20k+ historical rows resolve exactly as before), and 'unknown' still refuses.
+    const lane = resolveTerminalLane(r, startsByKey)
+    if (lane !== 'descend' && lane !== 'lookback') continue
     for (const d of dayList(String(r.window_start), String(r.window_end))) {
       if (d >= windowStart && d <= windowEnd) attested.add(d)
     }
@@ -360,14 +364,21 @@ export interface TerminalRow {
 export function resolveTerminalLane(
   r: { message_key?: string | null; invocation_id?: string | null },
   startsByKey: Map<string, Array<{ invocationId: string | null; lane: string | null }>>,
-): 'descend' | 'top-edge' | 'unknown' {
+): 'descend' | 'top-edge' | 'lookback' | 'unknown' {
   const key = r.message_key ?? null
   if (key === null) return 'descend'
   const starts = startsByKey.get(key)
   if (!starts || starts.length === 0) return 'unknown'
+  // LORAMER_LOOKBACK_LANE_V1 — the third lane, named rather than folded into 'descend': a lookback terminal
+  // ATTESTS like a descend one (its window ends at or below the measured boundary by construction), but a reader
+  // that wants to tell "the descent answered" from "the lookback sealed" must be able to. The REFUSAL still wins:
+  // a redelivery that EVER asked at the top edge resolves 'top-edge' whatever else it asked.
+  const nameOf = (lane: string | null): 'descend' | 'top-edge' | 'lookback' =>
+    lane === 'top-edge' ? 'top-edge' : lane === 'lookback' ? 'lookback' : 'descend'
   const exact = starts.find((s) => (s.invocationId ?? '') === (r.invocation_id ?? ''))
-  if (exact) return exact.lane === 'top-edge' ? 'top-edge' : 'descend'
-  return starts.some((s) => s.lane === 'top-edge') ? 'top-edge' : 'descend'
+  if (exact) return nameOf(exact.lane)
+  if (starts.some((s) => s.lane === 'top-edge')) return 'top-edge'
+  return starts.some((s) => s.lane === 'lookback') ? 'lookback' : 'descend'
 }
 
 /**

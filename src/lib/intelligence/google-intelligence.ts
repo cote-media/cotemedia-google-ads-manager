@@ -461,9 +461,14 @@ export async function fetchGoogleIntelligence(
   })
 
   // ── Conversion Actions ─────────────────────────────────────────────────────
+  // LORAMER_LOOKBACK_LANE_V1 — the two lookback windows ride the SAME query (attributes on the resource; zero added
+  // requests). ⚠ ADAPTER CHANGE GATE (HANDOFF): the widened SELECT is a HYPOTHESIS until Gate-A runs it against the
+  // real API — this commit fires no vendor request; the proof is owed before apply (STOP-and-confirm 1).
   const convRows = await safeQuery('conversion_action', () => customer.query(`
     SELECT conversion_action.id, conversion_action.name, conversion_action.category,
     conversion_action.include_in_conversions_metric,
+    conversion_action.click_through_lookback_window_days,
+    conversion_action.view_through_lookback_window_days,
     metrics.conversions
     FROM conversion_action
     WHERE ${dateFilter}
@@ -477,6 +482,9 @@ export async function fetchGoogleIntelligence(
     platform: 'google' as const,
     includeInConversions: Boolean(row.conversion_action?.include_in_conversions_metric),
     count: Number(row.metrics?.conversions || 0),
+    // LORAMER_LOOKBACK_LANE_V1 — absent or non-numeric stays undefined (the extractor writes nothing for it).
+    clickThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.click_through_lookback_window_days)) && row.conversion_action?.click_through_lookback_window_days != null ? Number(row.conversion_action.click_through_lookback_window_days) : undefined,
+    viewThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.view_through_lookback_window_days)) && row.conversion_action?.view_through_lookback_window_days != null ? Number(row.conversion_action.view_through_lookback_window_days) : undefined,
   }))
 
   // ── Conversions × Campaign (LORAMER_PROJECT_3_STEP_2B_V1) ──────────────────

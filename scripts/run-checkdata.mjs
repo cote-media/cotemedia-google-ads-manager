@@ -105,6 +105,8 @@ const CHECKS = [
   // producer's first fire) — the fixed producer's 30-day restate window self-heals the hole on its next
   // fire, so this leg is the Gate-B that proves it; a red here after that fire is a live regression.
   { name: 'google-forward-account-day', cmd: ['scripts/check-google-forward-account-day.mjs'] },
+  // LORAMER_LOOKBACK_LANE_V1 — the boundary is read from conversion_action state; red by design until the capture lands.
+  { name: 'conversion-action-config-captured', cmd: ['scripts/check-conversion-action-config-captured.mjs'] },
   // LORAMER_ORDINAL_HOUR_RESPELL_V1 — registered AFTER the approved merge flipped it green (designed-red
   // before execution, per the device-respell precedent): zero single-digit hour rows, no two-spelling keys.
   { name: 'hour-spelling-merge', cmd: ['scripts/check-hour-spelling-merge.mjs'] },

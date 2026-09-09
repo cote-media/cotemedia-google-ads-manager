@@ -15,6 +15,7 @@ import { buildWooMetricsRows } from '@/lib/intelligence/woocommerce-metrics-row'
 import { fetchMetaDailyMetrics } from '@/lib/meta-ads' // LORAMER_RESTATEMENT_SWEEP_FLEET_V1 (Meta base Tier-1 account grain)
 import { META_BREADTH_FORWARD } from '@/lib/backfill/meta-breadth-forward' // LORAMER_META_BREADTH_FORWARD_V1 — forward capture for the 10 Meta breadth dims (G1)
 import { fetchGoogleIntelligence } from '@/lib/intelligence/google-intelligence'
+import { extractGoogleSlice1, persistEntityState } from '@/lib/capture/entity-state-history' // LORAMER_LOOKBACK_LANE_V1 — the daily config read (conversion_action lookback windows) on the forward fire
 import { fetchGoogleDimensional, fetchGoogleDimensionalWindow, bucketWindowByDate, buildGoogleDimensionalRows } from '@/lib/intelligence/google-dimensional' // LORAMER_SEARCH_TERMS_CAPTURE_V1 + LORAMER_GOOGLE_FORWARD_RESTATE_V1
 import { DEVICE_GRAINS, fetchDeviceGrainWindow, buildDeviceGrainRows } from '@/lib/intelligence/google-device' // LORAMER_GOOGLE_DEVICE_CAPTURE_V1
 import { GEOGRAPHIC_GRAINS, USER_GRAINS, GEO_ENTITIES, fetchGeoGrainWindow, buildGeoGrainRows } from '@/lib/intelligence/google-geo' // LORAMER_GOOGLE_GEO_CAPTURE_V1
@@ -769,6 +770,23 @@ export async function GET(request: Request) {
             console.error(`[cron/sync] client=${client.id} platform=google DEGRADED sub-fetch ${fe.label}: ${fe.message}`)
             summary.errors.push({ clientId: client.id, platform: 'google', message: `google fetch ${fe.label}: ${fe.message}` })
           }
+        }
+
+        // LORAMER_LOOKBACK_LANE_V1 — THE DAILY CONFIG READ, ONCE PER ACCOUNT PER FORWARD FIRE (DECISIONS (i): the
+        // boundary is "read from conversion_action, stored, guarded, re-read every forward fire"). The payload above
+        // ALREADY carries every enabled conversion action's click_through / view_through lookback windows (the widened
+        // GAQL in google-intelligence.ts) — ZERO added requests. It is persisted as SCD2 state; an unchanged value
+        // writes nothing. catchup carried this call alone since slice 1 and its google role is declined at the lane
+        // gate every fire, which is why entity_state_history held 0 conversion_action rows (★CONVERSION-ACTION-
+        // CAPTURE-DARK). Never throws into the capture lane.
+        try {
+          const observed = extractGoogleSlice1(intel as any)
+          if (observed.length) {
+            const r = await persistEntityState({ clientId: client.id, platform: 'google', accountId: customerId, observed, observationDate: captureDate, mode: 'forward' })
+            if (r.opened || r.closed || r.outcome !== 'ok') console.warn(`[cron/sync] client=${client.id} entity-state ${captureDate}: opened=${r.opened} closed=${r.closed} unchanged=${r.unchanged} outcome=${r.outcome}${r.skipped ? ` skip=${r.skipped}` : ''}`)
+          }
+        } catch (esErr) {
+          console.error(`[cron/sync] client=${client.id} entity-state ${captureDate} FAILED (non-fatal): ${serializeCaughtError(esErr)}`)
         }
 
         // LORAMER_GOOGLE_FORWARD_RESTATE_V1 — BASE GRAINS OVER THE RESTATE WINDOW, mirroring the Meta shape

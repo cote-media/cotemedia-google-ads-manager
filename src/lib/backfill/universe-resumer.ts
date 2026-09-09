@@ -115,29 +115,25 @@ export const MAX_ENTRIES_SCANNED_PER_RUN = 60
 export const WINDOWS_PER_PUBLISHED_MESSAGE = 1
 
 /**
- * ⛔ THE TOP-EDGE BITE — LORAMER_TOP_EDGE_LANE_V1, 2026-08-19. DERIVED FROM DEMAND, NOT CHOSEN.
+ * ⛔ THE LOOKBACK BITE — LORAMER_LOOKBACK_LANE_V1, 2026-09-08 (the top-edge bite of 2026-08-19, converted with the
+ * lane under DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (j)). DERIVED FROM DEMAND, NOT CHOSEN.
  *
- * THE DEMAND IS EXACT AND IT IS NOT AN ESTIMATE: the strip grows by ONE DAY PER SURFACE PER DAY, forever,
- * because the descent's anchor only moves down (★TOP-EDGE-HAS-NO-LANE). Foam OH's catalogue holds 346
- * selectable surfaces ⇒ **346 owed strip-days/day**, and one contiguous strip is ONE vendor request at any
- * span (a `segments.date BETWEEN` query is one operation — vendor-settled), so demand is **346 requests/day**.
- *
- * THE ARITHMETIC:
+ * THE DEMAND: every surface owes ONE boundary window per W days — the days that crossed the account's
+ * restatement boundary since it was last asked, in one contiguous window of width W (one vendor request at any
+ * span). Foam OH's catalogue holds 349 selectable surfaces, so demand is 349/W requests per day:
+ *   · W = 7 (Basic access)    → ~50 requests/day
+ *   · W = 1 (Standard access) → 349 requests/day — the SAME demand the top-edge strip carried
+ * THE ARITHMETIC (unchanged from the strip, which is why the value is unchanged):
  *   · the cadence is 288 fires/day (5-minute cron; the token lives in vercel.json, not here)
- *   · at k slots/fire the lane can publish 288k/day
- *   · k = 1 → 288/day, BELOW the 346/day demand — the strip would grow faster than it is held. REFUSED.
- *   · k = 2 → 576/day = 1.66× demand. **This is the smallest k that meets demand at all**, which is why it
- *     is the value and not a preference.
- *   · every surface is therefore reached within 346/576 of a day = **14.4 hours worst case**
- *   · FIRST FULL CLOSURE of the standing 2,076-day strip (346 surfaces × 6 days): 346 requests at 2/fire =
- *     173 fires × 5 minutes = **~14.4 hours**
- *   · CEILING 288 × 2 = 576/day against the ~3,100/day headroom under the 13,500 lane = 19% of headroom;
- *     ACTUAL ~346/day = 11%. The walk's descent keeps its own MAX_REQUESTS_PER_RUN = 40 untouched.
- * ⛔ IT IS A SEPARATE BOUND RATHER THAN A SHARE OF THE 40, AND THAT IS THE POINT: folding the strip into the
- * descending bite would let a fragmented descent starve the top edge, or the top edge starve the descent,
- * depending only on scan order. Two lanes, two bounds, one meter.
+ *   · at k slots/fire the lane can publish 288k/day; k = 1 → 288 < 349 under W = 1. REFUSED.
+ *   · k = 2 → 576/day = 1.65× the W = 1 demand and ~11× the W = 7 demand. The smallest k that meets demand
+ *     under EITHER access tier, which is why it is the value and not a preference.
+ * ⛔ IT IS A SEPARATE BOUND RATHER THAN A SHARE OF THE 40, AND THAT IS THE POINT: folding the boundary strip
+ * into the descending bite would let a fragmented descent starve the lookback, or the lookback starve the
+ * descent, depending only on scan order. Two lanes, two bounds, one meter.
+ * ⛔ OBSERVE-ONLY UNTIL THE FLIP: the route's LOOKBACK_SLOT_MODE gates whether the selected windows are sent.
  */
-export const TOP_EDGE_REQUESTS_PER_RUN = 2
+export const LOOKBACK_REQUESTS_PER_RUN = 2
 
 /**
  * ⛔ LORAMER_SEALED_STRIP_PASS_V1 — THE BOUND ON STRIP DERIVATIONS FOR FLOOR-SEALED SURFACES, per fire.
@@ -150,13 +146,13 @@ export const TOP_EDGE_REQUESTS_PER_RUN = 2
  * can never starve the fire that runs it.
  *
  * ⛔ DERIVED FROM MEASUREMENT, NOT CHOSEN (both bases dated 2026-08-26):
- *   · DIRECT PRIOR MEASUREMENT at 30× this scale: on 2026-08-23/24 the scan loop ran deriveTopStrip +
+ *   · DIRECT PRIOR MEASUREMENT at 30× this scale: on 2026-08-23/24 the scan loop ran deriveTopStrip (now deriveBoundaryStrip) +
  *     rangesStillOwed for up to 60 scanned surfaces per fire at 49-68s average elapsed, 288/288 and
  *     290/290 fires completed. 8 is >7× under that directly-observed safe level.
  *   · PER-CALL COST, EXPLAIN ANALYZE on the heaviest sealed surface (detail_placement_view): the
  *     attested-empty read 0.970 ms and the covered read 0.129 ms, both single index seeks — so 8
  *     derivations add ~16 round-trips ≈ well under one second against today's 18.7s average fire.
- *   · WHY 8 AND NOT 2: publication is bounded by TOP_EDGE_REQUESTS_PER_RUN (=2) regardless, so the pass
+ *   · WHY 8 AND NOT 2: publication is bounded by LOOKBACK_REQUESTS_PER_RUN (=2; was TOP_EDGE_REQUESTS_PER_RUN) regardless, so the pass
  *     only needs to DERIVE enough rotation-ordered candidates that both slots fill even when some front
  *     surfaces are momentarily un-owed or error out — 4× the slot count is that margin. Publishing drains
  *     the rotation front 2/fire, so all 349 sealed surfaces are asked within ~175 fires ≈ 14.6h — the
@@ -164,50 +160,100 @@ export const TOP_EDGE_REQUESTS_PER_RUN = 2
  */
 export const SEALED_STRIP_DERIVATIONS_PER_RUN = 8
 
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// THE LOOKBACK LANE — LORAMER_LOOKBACK_LANE_V1 (2026-09-08). Pure, so the guards drive it with no clock and no DB.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 /**
- * ⛔ THE STRIP — the ground between the DESCENT's top window and the newest day the vendor can answer for.
- * Pure, so the guard drives it with no clock and no DB.
- *
- * ⛔ `newestServable` IS AN INPUT AND IS NOT DEFAULTED HERE, DELIBERATELY. Google's own retention doc states
- * a 37-month lookback but publishes NOTHING about how far behind "today" a granular `segments.date` row
- * becomes available, and it may differ per resource. The caller supplies the value it can defend — the
- * resumer supplies YESTERDAY, which forward capture demonstrates daily for the four base grains and which is
- * an ASSUMPTION for the other 342. ⚠ THAT ASSUMPTION IS RECORDED AS ONE: it was NOT measured, and the flight
- * that measures it changes this call site, not this function.
- * ⛔ AND THE ASSUMPTION IS MADE HARMLESS RATHER THAN TRUSTED: a top-edge `zero` DOES NOT ATTEST
- * (universe-coverage.ts filters attestation to the descending lane), so a day that was merely LAGGING can
- * never be sealed as empty. It is re-asked on the next pass for the same one request. That is
- * LORAMER_ZERO_ROWS_IS_NOT_EXHAUSTION_V1 applied where the ambiguity actually lives.
- *
- * Returns null when there is no strip — the descent's top already reaches the newest servable day.
+ * ⛔ THE COST HORIZON — the age past which Google no longer restates COST. A MEASURED term, never a policy:
+ * Escential 5103888507, ages 32–96 (64 days read live on 2026-09-05): spend moved on 12 of 64 days, conversions
+ * on 7 (e.g. 2026-06-02 spend 64.45→64.11 conv 8→9; 06-04 79.24→76.32 conv 5→6) — the billing-cycle adjustments
+ * the vendor documents. 90 is the seed; the lookback lane's own deltas re-measure it (DECISIONS (i)).
+ * ⛔ IT IS ONE TERM OF max(), NOT THE BOUNDARY. The boundary is per account: max(click-through, view-through,
+ * this) — `deriveBoundaryDays` below; the store read lives in lookback-boundary.ts.
  */
-export function deriveTopStrip(a: {
-  /** The newest `window_end` the DESCENDING lane asked for on this surface (the rotation's `last_window_end`). */
+export const COST_HORIZON_DAYS = 90 // ⇐ measured 2026-09-05 N=64 (Escential, ages 32–96; spend moved on 12 of 64 days)
+
+/**
+ * ⛔ THE FLEET FLOOR — what a READ is CHECKED AGAINST, never the boundary itself. 15 of 17 accounts carry a
+ * 90-day click-through lookback, 2 carry 60, view-through maxes at 30, and cost restates to ≥ 96 (DECISIONS (i)).
+ * A derived boundary BELOW this floor means the read is suspect (a truncated row, a mis-keyed state), and the
+ * derivation REFUSES rather than asking too early.
+ */
+export const LOOKBACK_FLEET_FLOOR_DAYS = 90 // ⇐ DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (i), 2026-09-05 — the floor the read is checked against
+
+/** Window width per access tier — QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION (4). Basic: one window a week per surface. */
+export const LOOKBACK_WINDOW_DAYS_BASIC = 7
+/** Standard access (pending — DECISIONS/QUEUE own its status): every past-boundary day is its own window. */
+export const LOOKBACK_WINDOW_DAYS_STANDARD = 1
+
+/** What the store holds for one account — the maxima across its ENABLED conversion actions. null = no row (UNKNOWN). */
+export interface BoundaryFacts {
+  clickThroughMaxDays: number | null
+  viewThroughMaxDays: number | null
+  /** How many conversion_action lookback rows were read — the denominator, so an empty answer can say what it examined. */
+  rowsRead: number
+}
+
+/**
+ * ⛔ THE BOUNDARY, DERIVED — DECISIONS (i): boundary(account) = max(click-through, view-through, COST_HORIZON_DAYS).
+ * REFUSES (null) when the store holds no row for the account — UNKNOWN never defaults (the inception posture) —
+ * and when the derived value sits below the fleet floor (a suspect read must not ask too early).
+ * No day literal lives here: `lookback-boundary-is-measured.guard.mjs` reads this body.
+ */
+export function deriveBoundaryDays(facts: BoundaryFacts | null): { days: number; basis: string } | null {
+  if (facts === null) return null
+  const click = facts.clickThroughMaxDays, view = facts.viewThroughMaxDays
+  if (click === null && view === null) return null
+  const days = Math.max(click ?? 0, view ?? 0, COST_HORIZON_DAYS)
+  if (days < LOOKBACK_FLEET_FLOOR_DAYS) return null
+  const basis = `max(click-through ${click ?? 'none'}, view-through ${view ?? 'none'}, cost horizon ${COST_HORIZON_DAYS}) over ${facts.rowsRead} conversion_action row(s)`
+  return { days, basis }
+}
+
+export type BoundaryStrip =
+  | { kind: 'window'; windowStart: string; windowEnd: string; days: number; boundaryEnd: string }
+  | { kind: 'waiting'; nextStart: string; boundaryEnd: string; askableOn: string }
+  | { kind: 'none'; reason: string; boundaryEnd: string }
+
+/**
+ * ⛔ THE BOUNDARY STRIP — the next FULL window of past-boundary ground on one surface, or the day it becomes one.
+ * Replaces deriveTopStrip (deleted 2026-09-08, ruling (j)): the strip anchors to the restatement BOUNDARY, not to
+ * yesterday, and every (surface, window) is asked ONCE — the lane's own finished windows (`lastLookbackEnd`) are
+ * the frontier, so an errored window is re-derived and a finished one never is.
+ *
+ * T is today (newestServable + 1); the boundary day is T−B. A window is produced only when it is FULL (width W)
+ * and ends ≤ T−B; a partial window is never asked early (that would ask inside the boundary — the false-seal
+ * class), so the lane WAITS and says on which day the window becomes askable. A surface the descent never asked
+ * has no strip: its whole history is the descending lane's.
+ * Pure; `lookback-window-ends-at-boundary.guard.mjs` sweeps it and refuses any window ending after T−B.
+ */
+export function deriveBoundaryStrip(a: {
+  /** The newest `window_end` the DESCENDING lane asked on this surface (the rotation's last_window_end). */
   descendTopEnd: string | null
-  /** The newest day the vendor can answer for, in the caller's frame. */
+  /** The newest `window_end` the LOOKBACK lane FINISHED (ok|zero|nongrain) on this surface, or null. */
+  lastLookbackEnd: string | null
+  /** Yesterday in the caller's frame — the newest day the vendor can answer for; T = this + 1. */
   newestServable: string
-  /**
-   * ⛔ THE PROBE CEILING, AND IT IS THE ADAPTER'S OWN `sizing.maxDays` — NOT A NEW CONSTANT. Without it the
-   * strip is `[rotationsLastWindowEnd + 1 … yesterday]`, and the rotation returns the descent's MOST RECENT
-   * window rather than its TOP — so on a surface that has receded four months the strip would span ~112 days
-   * and `windowCoverage` fires ONE INDEXED PROBE PER DAY. At 60 entries × 288 fires that is ~1.9M probes/day
-   * for ground the descent has already covered. Clamping to the same span the descent itself uses keeps the
-   * probe cost identical to one descending window, and the lane still CONVERGES: it closes the newest
-   * `maxSpanDays` per pass while the unheld gap grows one day per day.
-   */
-  maxSpanDays: number
-}): { windowStart: string; windowEnd: string; days: number } | null {
-  const { descendTopEnd, newestServable, maxSpanDays } = a
-  // ⛔ A SURFACE THE DESCENT HAS NEVER ASKED HAS NO STRIP TO HOLD — it has a WHOLE HISTORY, and that is the
-  // descending lane's job. Publishing a strip here would put the first-ever attempt on a surface into the
-  // lane the rotation ignores, and the descent would then anchor at the newest ground and re-walk it.
-  if (descendTopEnd === null) return null
-  const rawStart = addDaysISO(descendTopEnd, 1)
-  if (rawStart > newestServable) return null
-  const clamped = addDaysISO(newestServable, -(Math.max(1, maxSpanDays) - 1))
-  const windowStart = rawStart > clamped ? rawStart : clamped
-  const days = Math.round((Date.parse(newestServable + 'T00:00:00Z') - Date.parse(windowStart + 'T00:00:00Z')) / 86_400_000) + 1
-  return { windowStart, windowEnd: newestServable, days }
+  /** The account's derived boundary (deriveBoundaryDays), in days. */
+  boundaryDays: number
+  /** Window width: LOOKBACK_WINDOW_DAYS_BASIC or _STANDARD. */
+  widthDays: number
+}): BoundaryStrip {
+  const { descendTopEnd, lastLookbackEnd, newestServable, boundaryDays, widthDays } = a
+  const width = Math.max(1, Math.floor(widthDays))
+  const today = addDaysISO(newestServable, 1)
+  const boundaryEnd = addDaysISO(today, -Math.max(1, Math.floor(boundaryDays)))
+  if (descendTopEnd === null) return { kind: 'none', reason: 'the descent has never asked this surface — its history is the descending lane\'s', boundaryEnd }
+  const afterDescend = addDaysISO(descendTopEnd, 1)
+  const afterLookback = lastLookbackEnd === null ? afterDescend : addDaysISO(lastLookbackEnd, 1)
+  const nextStart = afterLookback > afterDescend ? afterLookback : afterDescend
+  const fullEnd = addDaysISO(nextStart, width - 1)
+  if (fullEnd > boundaryEnd) {
+    // the window [nextStart .. fullEnd] is askable on the first day T' with T' − B ≥ fullEnd, i.e. T' = fullEnd + B
+    return { kind: 'waiting', nextStart, boundaryEnd, askableOn: addDaysISO(fullEnd, Math.max(1, Math.floor(boundaryDays))) }
+  }
+  return { kind: 'window', windowStart: nextStart, windowEnd: fullEnd, days: width, boundaryEnd }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────────────────

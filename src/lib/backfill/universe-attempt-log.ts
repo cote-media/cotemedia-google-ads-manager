@@ -99,8 +99,13 @@ export interface ParentWindow {
  * ⛔ THE DEFAULT IS THE SAFE DIRECTION, NOT THE COMMON ONE. A caller that forgets the lane writes `'descend'`,
  * which can only make the descent HOLD on ground it has seen; the reverse default would hide a real window
  * from the anchor.
+ * ⛔ `'lookback'` — LORAMER_LOOKBACK_LANE_V1, 2026-09-08 (DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (c)(j)): the
+ * top-edge lane CONVERTED. Its window ends at or below the account's measured restatement boundary (T−B) by
+ * construction (deriveBoundaryStrip refuses otherwise), so its terminal ATTESTS — the one lane besides 'descend'
+ * that may seal a day. The rotation still reads ONLY 'descend' (migrations/084:197); a lookback attempt never
+ * moves the descending anchor. The CHECK constraint gained the value in migrations/088 (alters what 084 created).
  */
-export type AttemptLane = 'descend' | 'top-edge'
+export type AttemptLane = 'descend' | 'top-edge' | 'lookback'
 
 export interface WriteProvenance {
   messageKey?: string | null

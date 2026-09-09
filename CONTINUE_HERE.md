@@ -1,4 +1,4 @@
-╔═══ SESSION CLOSE 2026-09-08 — STEP 1 OPEN-VERIFY PASSED: 1d40b74 AND 1415cfd PROVEN ON THE 2026-09-06 FIRE. THE LOOKBACK LANE IS THE HEAD. ═══╗
+╔═══ SESSION CLOSE 2026-09-08 — STEP 2 PART A COMMITTED IN OBSERVE-ONLY; MIGRATION 088 WRITTEN, NOT APPLIED; GATE-A FOUND THE CONVERSION_ACTION QUERY BROKEN SINCE ≥07-27. THE QUERY SPLIT IS THE HEAD. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -57,15 +57,40 @@ check:data 2026-09-08, verbatim: "[check:data] VERDICT — EXIT 2 · 32 checks: 
 signal=SIGTERM)" — red-for-red the 09-05 wrap; google-forward-account-day GREEN; the fleet-meter FORWARD leg GREEN (its red
 is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
 
-── ▶▶ NEXT STEP 2 — THE LOOKBACK LANE — BUILD (research + adversary DONE 2026-09-05; the shape is settled in QUEUE
-   ★LOOKBACK-LANE-OWNS-PROMOTION and DECISIONS rulings (i)-(l); LIVE-PATH THROUGHOUT — the walk's ledger CHECK, the
-   coverage predicate, the walk's publish route, cron/sync; TWO STOP-and-confirms: before the 084 migration and before
-   the first attesting terminal lands). GATE OPEN — STEP 1 PASSED 2026-09-08. ──
-The boundary is PER ACCOUNT and MEASURED (90 on 15 of 17 accounts, 60 on 2; cost moves to age 96) — never a typed
-constant; `boundaryDaysFor` refuses UNKNOWN. The lane is the top-edge lane CONVERTED (retirement inside this commit):
-strip anchored to the boundary, terminal ATTESTS, each (surface, window) asked once; W=7 under Basic, W=1 under Standard;
-Foam OH backlog sweep 2026-08-13..T−B. The terminal is undifferentiated — condition 2's "stated reason" waits on state (B).
-Until it lands, a forward observation is positive evidence and never a seal.
+── COMMITTED 2026-09-08 (this session, rounds 6–9) — LORAMER_LOOKBACK_LANE_V1, STEP 2 PART A, OBSERVE-ONLY ──
+· lane 'lookback' on AttemptLane + the contract union · resolveTerminalLane names it (refusal still wins) · attestedEmptyDays
+  admits {descend, lookback} (ruling (v.1)) · universe-resumer.ts: COST_HORIZON_DAYS 90 ⇐ measured 2026-09-05 N=64 ·
+  LOOKBACK_FLEET_FLOOR_DAYS 90 ⇐ (i) · deriveBoundaryDays · deriveBoundaryStrip (window | waiting | none, full windows only,
+  windowEnd ≤ T−B) · LOOKBACK_REQUESTS_PER_RUN 2 · deriveTopStrip DELETED · lookback-boundary.ts (boundaryDaysFor, refuses
+  UNKNOWN) · the resume route's second slot derives boundary windows and LOGS them — `LOOKBACK_SLOT_MODE = 'observe'`, sends
+  nothing, charges nothing — top-edge publish RETIRED on deploy (ruling j) · the worker's third lane · conversion_action
+  lookback windows on slice 1 + cron/sync persists slice 1 every forward fire. Six guards red-then-green; check:data leg
+  conversion-action-config-captured 18/18 RED BY DESIGN. ⛔ migrations/088_universe_attempt_lane_lookback.sql is IN-REPO
+  AND UNAPPLIED — it alters the constraint 084 created; no writer can produce a 'lookback' row in observe mode.
+· ⛔ GATE-A (round 8, 1 of 2 requests): `metrics.conversions FROM conversion_action` → query_error 49. The intel query has
+  failed on EVERY forward fire since ≥ 2026-07-27 (error_count = 2 × attempted, daily) and is the CAUSE of
+  ★CONVERSION-ACTION-CAPTURE-DARK; the round-7 widening rides it and is UNVERIFIED. Sibling: the audience sub-fetch
+  (★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE, query_error 45). DECISIONS (v) owns the record.
+
+── ▶▶ NEXT STEPS 2026-09-08, IN ORDER (DECISIONS (v); QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION · ★CONVERSION-ACTION-CAPTURE-DARK) ──
+(1) THE INTEL-QUERY SPLIT — google-intelligence.ts:467: an ATTRIBUTE-ONLY conversion_action read (id · name · category ·
+    status · type · include_in_conversions_metric · click_through_lookback_window_days · view_through_lookback_window_days;
+    no segments.date, no metrics) feeding the extractor; the `count` seam (build-claude-context.ts:736, the single consumer)
+    summed from conv_by_campaign (:494) or rendered without a count — decide in the paste. Gate-A on the real API: 2 requests
+    (Foam OH 957d484e, Escential c39ee088 — expected click 90 / view 30 → boundary 90). Bath Fitter never a test account.
+(2) 088 IN THE SUPABASE SQL EDITOR = STOP-and-confirm 1 — apply BEFORE any 'publish' deploy; verify the notice line
+    "088 OK — universe_attempt_log_lane_chk = …" carries all three lanes.
+(3) SESSION-OPEN VERIFY of the observe tick (vercel.json: universe-resume every 5 min on Foam OH): universe_fire_log reads
+    mode observe · refusals carry 'lookback-boundary-unknown' ×1 · candidates 0 · selected 0 · requests_selected 0 · no
+    top-edge message; universe_attempt_log holds 0 rows with lane='lookback'; the 08:08Z forward fire persists slice 1
+    (entity_state_history conversion_action rows appear only AFTER (1) ships — the query is broken until then) and adds no
+    new error class (error_count stays 2 × attempted until (1) and the audience fix land).
+(4) FLIP `LOOKBACK_SLOT_MODE` TO 'publish' WITH A DATED RULING CITE ON THE LINE = STOP-and-confirm 2 (the guard refuses the
+    flip without it); the first attesting terminal lands on the first surface whose window is past T−B.
+(5) READ THE SIX DONE-DONE CONDITIONS (LORAMER_BACKFILL_DONE_DONE_V1) against the first-seal date: at B=90 Foam OH's first
+    window [2026-08-13..08-19] becomes askable 2026-11-17 — condition 2's "attested-empty" on that ground cannot be earlier.
+Then STEP 3 (the driver) as below; the lookback commit is what lets it carry the restate.
+
 
 ── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
    lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration). The
@@ -127,6 +152,18 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
   (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT). Escential is killed and re-claimed DAILY (09-05/06/07) — ruling m's
   class, the driver's fix.
 · 4 forward asks sit outside the 349 selectable set (7 req/connection/day, 126/day) — ★FORWARD-DRIVER-SHAPE carries the four.
+· ⛔ MIGRATION 088 IS IN-REPO AND UNAPPLIED (universe_attempt_log_lane_chk still holds two values on the live database). Apply it
+  in the Supabase SQL Editor BEFORE any deploy that flips LOOKBACK_SLOT_MODE to 'publish'. In observe mode no writer can
+  produce a 'lookback' row, so the two-value CHECK is never met.
+· LOOKBACK_SLOT_MODE = 'observe' (universe-resume/route.ts:90): the second slot derives and logs, sends nothing, charges
+  nothing. The top-edge lane is RETIRED as of this deploy — Foam OH's strip [T−B+1 .. T−1] is held by nothing until the driver
+  (ruling j); top-edge-is-held (check:data) stays red on it, queue-owned.
+· At B=90 Foam OH's first lookback window [2026-08-13..08-19] becomes askable 2026-11-17; until then every surface reads
+  'waiting' (QUEUE (4)'s "already past the boundary" was false as written). Before slice 1 lands rows, every fire records
+  one 'lookback-boundary-unknown' refusal — the correct answer, not a defect.
+· The conversion_action intel query is BROKEN on main (query_error 49, since ≥ 07-27) and the audience sub-fetch beside it
+  (query_error 45); error_count on google forward fires reads 2 × attempted by construction until both are fixed.
+· Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption still owed by Russ.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 

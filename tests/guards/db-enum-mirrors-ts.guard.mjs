@@ -64,6 +64,16 @@ const PAIRS = [
     tsFile: 'src/lib/backfill/universe-attempt-log.ts',
     tsAnchor: 'export type AttemptLane',
   },
+  // LORAMER_LOOKBACK_LANE_V1 — THE SAME CONSTRAINT MIRRORED BY A SECOND UNION. universe-v2-contract.ts:125 spells the
+  // message's lane inline (`lane?: 'descend' | 'top-edge' | …`) rather than importing AttemptLane, so it can drift
+  // from the CHECK on its own — round 6 of 2026-09-08 found it absent from the reader list. Registered so BOTH
+  // unions must carry every value the constraint carries; the pair reads the inline annotation by its anchor.
+  {
+    label: "universe-v2-contract.lane ↔ universe_attempt_log_lane_chk (the message's inline union)",
+    constraint: 'universe_attempt_log_lane_chk',
+    tsFile: 'src/lib/backfill/universe-v2-contract.ts',
+    tsAnchor: "lane?: 'descend'",
+  },
   // LORAMER_FORWARD_OBSERVATION_LOG_V1 — the forward lane's own ledger (migrations/087), its own two enums.
   {
     label: 'forward_observation_log.lane ↔ ForwardObservationLane',

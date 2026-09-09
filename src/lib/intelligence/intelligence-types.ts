@@ -133,6 +133,10 @@ export interface IntelligenceConversionAction {
   platform: 'google' | 'meta'
   includeInConversions: boolean
   count: number
+  // LORAMER_LOOKBACK_LANE_V1 — the vendor's restatement windows for this action (Google only; undefined on Meta and
+  // when the field was not served). The lookback lane's boundary is derived from these (DECISIONS (i)).
+  clickThroughLookbackWindowDays?: number
+  viewThroughLookbackWindowDays?: number
 }
 
 // LORAMER_PROJECT_3_STEP_2B_V1

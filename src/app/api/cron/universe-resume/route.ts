@@ -67,20 +67,27 @@ import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quot
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 import {
   assessCoverage, decideRepublish, boundedSelection,
-  deriveAnchorEnd, deriveWindow, orderForRotation, deriveTopStrip,
+  deriveAnchorEnd, deriveWindow, orderForRotation, deriveBoundaryStrip, // LORAMER_LOOKBACK_LANE_V1 — deriveTopStrip is gone (ruling j)
   parseFloorSeal, floorSealHolds, // LORAMER_WALK_FLOOR_SEAL_V1 — the seal's pure deciders
 
   MAX_REQUESTS_PER_RUN, MAX_ENTRIES_SCANNED_PER_RUN, WINDOWS_PER_PUBLISHED_MESSAGE,
-  TOP_EDGE_REQUESTS_PER_RUN,
+  LOOKBACK_REQUESTS_PER_RUN, LOOKBACK_WINDOW_DAYS_BASIC,
   SEALED_STRIP_DERIVATIONS_PER_RUN,
   type LastAttempt,
 } from '@/lib/backfill/universe-resumer'
+import { boundaryDaysFor } from '@/lib/backfill/lookback-boundary' // LORAMER_LOOKBACK_LANE_V1 — the boundary, read from the store per account per fire
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
 // ⛔ THE CEILING IS THE CONTRACT'S — these routes are now the walk's EXECUTION HOSTS, so their ceiling is
 // the one the budget reservation and the lease TTL are derived against. Never a literal (drive-ceiling-pin).
 export const maxDuration = CONSUMER_MAX_DURATION_S
+
+// ⛔ LORAMER_LOOKBACK_LANE_V1 — THE SECOND SLOT'S MODE. 'observe': derive the boundary windows, LOG them, send NOTHING,
+// charge nothing. 'publish': execute them under lane 'lookback' — the first attesting terminal lands. The flip is
+// STOP-and-confirm 2 (QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION (7)); lookback-slot-mode-is-gated.guard.mjs refuses a
+// 'publish' value without a dated ruling cite on this line or the line above it.
+const LOOKBACK_SLOT_MODE = 'observe' as 'observe' | 'publish'
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
@@ -210,6 +217,38 @@ export async function GET(request: Request) {
   // that triggers a discovery vendor call. First-touch discovery stays the consumer's, on the message path.
   const stopFacts = await readWalkStopAccountFacts({ clientId, vendor: adapter.platform, discover: null })
 
+  // ── ⛔ THE LOOKBACK BOUNDARY — LORAMER_LOOKBACK_LANE_V1, PER ACCOUNT, READ EVERY FIRE, NEVER TYPED ──────────
+  // DECISIONS (i): boundary(account) = max(click-through, view-through, COST_HORIZON_DAYS) from stored conversion_action
+  // state. UNKNOWN REFUSES: an account with no row gets no lookback windows this fire (recorded below as a refusal,
+  // once), never a default. The width is the access tier's (QUEUE (4)): Basic → one 7-day window per surface per week;
+  // Standard (pending) → one day per window, by ruling when it clears.
+  const boundary = await boundaryDaysFor(clientId, customerId)
+  const lookbackWidth = LOOKBACK_WINDOW_DAYS_BASIC
+  // THE LOOKBACK FRONTIER — the lane's own FINISHED windows per surface, newest first, one read per fire. A window
+  // finished ok|zero|nongrain is asked once and never again; 'skipped' (the consumer's COVERED_SKIP) is finished too
+  // — every day of it was already covered or attested — so the frontier moves past it; 'error' is NOT finished and
+  // is re-derived. Terminal rows carry the lane on the provenance (attempt-writers-carry-the-lane), so the filter
+  // reads the row's own column here. A failed read fails OPEN to "never asked" (the frontier is re-derived from the
+  // descent's top), which can only re-ask, never skip.
+  const lookbackFrontier = new Map<string, string>()
+  let lookbackFrontierReadFailed: string | null = null
+  {
+    const { data: lbRows, error: lbErr } = await supabaseAdmin.from('universe_attempt_log')
+      .select('resource, segment, window_end')
+      .eq('client_id', clientId).eq('vendor', adapter.platform)
+      .eq('phase', 'attempt_finished').eq('lane', 'lookback').in('outcome', ['ok', 'zero', 'nongrain', 'skipped'])
+      .order('window_end', { ascending: false }).limit(2000)
+    if (lbErr) {
+      lookbackFrontierReadFailed = lbErr.message
+      console.error(`[universe-resume] lookback-frontier read failed — deriving from the descent's top this fire (fail-open to re-asking): ${lbErr.message}`)
+    } else {
+      for (const r of lbRows ?? []) {
+        const k = `${r.resource}|${r.segment ?? ''}`
+        if (!lookbackFrontier.has(k)) lookbackFrontier.set(k, String(r.window_end))
+      }
+    }
+  }
+
   // ══ SCAN — LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 marker; the resumer guard splits the file HERE. ═════
   // ⛔ NOTHING BETWEEN THIS MARKER AND `EXECUTE` MAY REACH THE VENDOR. The scan derives and selects; the
   // vendor is reached only inside processMessage, below the EXECUTE marker, behind the meter and the lease.
@@ -294,11 +333,16 @@ export async function GET(request: Request) {
     rangeSpans: number[]
   }
   const candidates: Candidate[] = []
-  // ⛔ THE SECOND LANE — LORAMER_TOP_EDGE_LANE_V1. Same scan, same catalog, same coverage module, same
-  // fetcher, same writer, same meter. What differs is ONE flag on the message and TWO bounds instead of one.
-  // A second catalog or a second engine is exactly what this shape refuses to become.
-  const topEdge: Candidate[] = []
+  // ⛔ THE SECOND LANE — LORAMER_LOOKBACK_LANE_V1 (the top-edge lane of LORAMER_TOP_EDGE_LANE_V1 CONVERTED, ruling
+  // (j)). Same scan, same catalog, same coverage module, same fetcher, same writer, same meter. What differs is ONE
+  // flag on the message and TWO bounds instead of one — and now the strip anchors to the BOUNDARY, not to yesterday,
+  // so its terminal may attest. A second catalog or a second engine is exactly what this shape refuses to become.
+  const lookback: Candidate[] = []
+  let lookbackWaiting = 0      // surfaces whose next full window still ends inside the boundary
+  let lookbackNone = 0         // surfaces the descent never asked (no strip — the descending lane's history)
+  let earliestAskable: string | null = null
   const refusals: Array<{ label: string; verdict: string; reason: string }> = []
+  if (!boundary.known) refusals.push({ label: '(lookback lane)', verdict: 'lookback-boundary-unknown', reason: boundary.reason })
   let scanned = 0
   let advancedCovered = 0 // LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 — covered-ground advances this fire (0 vendor ops each)
   let sealedHeld = 0     // LORAMER_WALK_FLOOR_SEAL_V1 — sealed surfaces skipped WITHOUT a scan slot this fire
@@ -324,7 +368,7 @@ export async function GET(request: Request) {
     // published ZERO for 24+ hours while its backlog grew 349 days/day. The bounded pass now lives INSIDE
     // the sealed branch, before its `continue`, so the strip block's own placement law (below: "computed
     // BEFORE every `continue` the descent can take") finally holds for the branch that finished surfaces
-    // actually take. Same catalog, same deriveTopStrip, same rangesStillOwed, same topEdge selection, same
+    // actually take. Same catalog, same strip derivation (deriveTopStrip then, deriveBoundaryStrip since 2026-09-08), same rangesStillOwed, same second-lane selection, same
     // writer, same meter — no second engine. Bound: SEALED_STRIP_DERIVATIONS_PER_RUN (measured basis on the
     // constant). Rotation order carries through `rotated`, and each published ask advances the surface's
     // rotation, so the front drains at the publication rate exactly like the scanned path.
@@ -351,30 +395,38 @@ export async function GET(request: Request) {
               reason: `sealed at stop ${currentStop.stopDate} (${currentStop.basis}) — skipped without a scan slot; re-admits the moment the stop facts change`,
             })
             // THE BOUNDED SEALED-STRIP PASS — before the `continue`, per the placement law above.
-            if (sealedStripDerived < SEALED_STRIP_DERIVATIONS_PER_RUN) {
+            // LORAMER_LOOKBACK_LANE_V1: the strip is the BOUNDARY strip (deriveBoundaryStrip), never yesterday's.
+            // 'waiting'/'none' cost no DB read and no derivation slot; only a real window consumes the bound.
+            if (boundary.known && sealedStripDerived < SEALED_STRIP_DERIVATIONS_PER_RUN) {
               const sealedSurface = surfaceOfEntry(entry)
               const sealedLabel = `${sealedSurface.resource}${sealedSurface.segment ? ' / ' + sealedSurface.segment : ''}`
-              const sealedStrip = deriveTopStrip({
+              const sealedStrip = deriveBoundaryStrip({
                 descendTopEnd: rotPrior ? String(rotPrior.last_window_end) : null,
-                newestServable: yesterday,
-                maxSpanDays: adapter.sizing.maxDays,
+                lastLookbackEnd: lookbackFrontier.get(sealKey) ?? null,
+                newestServable: yesterday, boundaryDays: boundary.days, widthDays: lookbackWidth,
               })
-              if (sealedStrip) {
+              if (sealedStrip.kind === 'waiting') {
+                lookbackWaiting++
+                if (earliestAskable === null || sealedStrip.askableOn < earliestAskable) earliestAskable = sealedStrip.askableOn
+              } else if (sealedStrip.kind === 'none') {
+                lookbackNone++
+              } else {
                 sealedStripDerived++
                 try {
                   const sealedKey = { clientId, platform: adapter.platform, entityLevel: sealedSurface.entityLevel, breakdownType: sealedSurface.breakdownType }
                   const sealedOwed = await rangesStillOwed(sealedKey, sealedStrip.windowStart, sealedStrip.windowEnd)
-                  if (sealedOwed.ranges.length > 0) {
-                    topEdge.push({
-                      entry, label: sealedLabel, ranges: sealedOwed.ranges.length, owedDays: sealedOwed.coverage.uncovered.length,
-                      windowStart: sealedStrip.windowStart, windowEnd: sealedStrip.windowEnd, sizingBasis: 'top-edge-strip',
-                      anchorBasis: `strip above the SEALED descent's last window ${rotPrior ? String(rotPrior.last_window_end) : '(none)'} , clamped to ${adapter.sizing.maxDays} day(s) — sealed-strip pass`,
-                      receded: false, stopBasis: 'n/a — the top edge has no floor',
-                      rangeSpans: sealedOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
-                    })
-                  }
+                  // ⛔ PUSHED EVEN WHEN NOTHING IS OWED (ranges 0, free under the bound): a fully covered/attested window
+                  // must still be SENT when published so the consumer writes its COVERED_SKIP pair and the frontier
+                  // moves past it — otherwise this surface re-derives the same window every fire (the wedge class).
+                  lookback.push({
+                    entry, label: sealedLabel, ranges: sealedOwed.ranges.length, owedDays: sealedOwed.coverage.uncovered.length,
+                    windowStart: sealedStrip.windowStart, windowEnd: sealedStrip.windowEnd, sizingBasis: 'lookback-boundary',
+                    anchorBasis: `boundary window above the SEALED descent's last window ${rotPrior ? String(rotPrior.last_window_end) : '(none)'} / lookback frontier ${lookbackFrontier.get(sealKey) ?? '(none)'}; ends ≤ T−${boundary.days} = ${sealedStrip.boundaryEnd}`,
+                    receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
+                    rangeSpans: sealedOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
+                  })
                 } catch (e: any) {
-                  refusals.push({ label: sealedLabel, verdict: 'top-edge-coverage-error', reason: String(e?.message ?? e) })
+                  refusals.push({ label: sealedLabel, verdict: 'lookback-coverage-error', reason: String(e?.message ?? e) })
                 }
               }
             }
@@ -412,39 +464,40 @@ export async function GET(request: Request) {
     const sizing = await sizeNextWindow(adapter, { clientId, resource: surface.resource, segment: surface.segment })
     const rot = rotation.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null
 
-    // ── ⛔ THE TOP STRIP — LORAMER_TOP_EDGE_LANE_V1 ────────────────────────────────────────────────────
-    // The descent's anchor only ever moves DOWN, so the ground between its top window and yesterday is held
-    // by NOTHING (★TOP-EDGE-HAS-NO-LANE): measured 2026-08-19, 346 of 346 surfaces topped out at 2026-08-12
-    // with a 6-day strip each — 2,076 owed days, growing 346/day forever.
-    // ⛔ IT IS COMPUTED HERE, BEFORE EVERY `continue` THE DESCENT CAN TAKE, and that placement is the point:
-    // a surface whose DESCENT is floor-reached, wedged, refused as implausible or bounded still has a top
-    // strip, and hanging the strip off the descent's success would leave exactly the finished surfaces
-    // unheld. `newestServable` is YESTERDAY — the one value this route can defend (forward capture
-    // demonstrates it daily for the four base grains) and an ASSUMPTION for the other 342, recorded as one
-    // in deriveTopStrip's header. The assumption is made HARMLESS rather than trusted: a top-edge `zero`
-    // does not attest (universe-coverage.ts), so a merely-LAGGING day can never be sealed empty.
-    const strip = deriveTopStrip({
-      descendTopEnd: rot ? String(rot.last_window_end) : null,
-      newestServable: yesterday,
-      maxSpanDays: adapter.sizing.maxDays,
-    })
-    if (strip) {
-      try {
-        const stripOwed = await rangesStillOwed(coverageKey, strip.windowStart, strip.windowEnd)
-        if (stripOwed.ranges.length > 0) {
-          topEdge.push({
+    // ── ⛔ THE BOUNDARY STRIP — LORAMER_LOOKBACK_LANE_V1 (the top strip of LORAMER_TOP_EDGE_LANE_V1, converted) ──
+    // The descent's anchor only ever moves DOWN, so the ground between its top window and the restatement boundary
+    // is held by NOTHING once the descent has passed it. The lookback lane asks each surface's past-boundary ground
+    // ONCE, in full windows of `lookbackWidth` days ending ≤ T−B, and its terminal ATTESTS (universe-coverage.ts).
+    // The live strip [T−B+1 … yesterday] is the DRIVER's under ruling (A) — not this lane's, not any lane's today.
+    // ⛔ COMPUTED HERE, BEFORE EVERY `continue` THE DESCENT CAN TAKE, and that placement is the point: a surface
+    // whose DESCENT is floor-reached, wedged, refused as implausible or bounded still has past-boundary ground.
+    if (boundary.known) {
+      const strip = deriveBoundaryStrip({
+        descendTopEnd: rot ? String(rot.last_window_end) : null,
+        lastLookbackEnd: lookbackFrontier.get(`${entry.resource}|${entry.segment ?? ''}`) ?? null,
+        newestServable: yesterday, boundaryDays: boundary.days, widthDays: lookbackWidth,
+      })
+      if (strip.kind === 'waiting') {
+        lookbackWaiting++
+        if (earliestAskable === null || strip.askableOn < earliestAskable) earliestAskable = strip.askableOn
+      } else if (strip.kind === 'none') {
+        lookbackNone++
+      } else {
+        try {
+          const stripOwed = await rangesStillOwed(coverageKey, strip.windowStart, strip.windowEnd)
+          lookback.push({
             entry, label, ranges: stripOwed.ranges.length, owedDays: stripOwed.coverage.uncovered.length,
-            windowStart: strip.windowStart, windowEnd: strip.windowEnd, sizingBasis: 'top-edge-strip',
-            anchorBasis: `strip above the descent's last window ${rot ? String(rot.last_window_end) : '(none)'} , clamped to ${adapter.sizing.maxDays} day(s)`,
-            receded: false, stopBasis: 'n/a — the top edge has no floor',
+            windowStart: strip.windowStart, windowEnd: strip.windowEnd, sizingBasis: 'lookback-boundary',
+            anchorBasis: `boundary window above the descent's last window ${rot ? String(rot.last_window_end) : '(none)'} / lookback frontier ${lookbackFrontier.get(`${entry.resource}|${entry.segment ?? ''}`) ?? '(none)'}; ends ≤ T−${boundary.days} = ${strip.boundaryEnd}`,
+            receded: false, stopBasis: `boundary T−${boundary.days} — ${boundary.basis}`,
             rangeSpans: stripOwed.ranges.map((r) => dayDiff(r.start, r.end) + 1),
           })
+        } catch (e: any) {
+          // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY STRIP. Record it and let the DESCENT continue — the
+          // two lanes fail independently on purpose; a strip probe that cannot answer must not cost the
+          // descent its pass.
+          refusals.push({ label, verdict: 'lookback-coverage-error', reason: String(e?.message ?? e) })
         }
-      } catch (e: any) {
-        // ⛔ A COVERAGE READ THAT THREW IS NOT AN EMPTY STRIP. Record it and let the DESCENT continue — the
-        // two lanes fail independently on purpose; a strip probe that cannot answer must not cost the
-        // descent its pass.
-        refusals.push({ label, verdict: 'top-edge-coverage-error', reason: String(e?.message ?? e) })
       }
     }
 
@@ -481,7 +534,7 @@ export async function GET(request: Request) {
       // NOTHING, so a finished surface's recency froze at the FRONT of the rotation and monopolised the
       // scan forever. The seal is UNWEDGE_V1's proven pair shape with a terminal outcome:
       //  · RE-STAMPS rot's existing last window — NEVER a synthesized stop-day window, because
-      //    deriveTopStrip reads rot.last_window_end as descendTopEnd and a new bottom window would drag the
+      //    the strip derivation (deriveBoundaryStrip; deriveTopStrip before 2026-09-08) reads rot.last_window_end as descendTopEnd and a new bottom window would drag the
       //    top-edge strip derivation to 2022. The re-stamp holds the anchor AND the strip; only recency moves.
       //  · outcome 'floor_stop' (already in AttemptOutcome and universe_attempt_log_outcome_ck via 081 —
       //    NO migration) — attestedEmptyDays filters outcome='zero' only, so a seal can NEVER attest a day.
@@ -629,12 +682,15 @@ export async function GET(request: Request) {
 
   // ── BOUNDED BY CONSTRUCTION, IN THE UNIT THAT GETS SPENT ────────────────────────────────────────────
   const sel = boundedSelection(candidates, MAX_REQUESTS_PER_RUN)
-  // ⛔ A SEPARATE BOUND, NOT A SHARE OF THE 40 — LORAMER_TOP_EDGE_LANE_V1. Folding the strip into the
-  // descending bite would let a fragmented descent starve the top edge, or the top edge starve the descent,
-  // depending only on scan order. Two lanes, two bounds, ONE meter (the program below sums both).
-  // Derivation of the 2 lives beside the constant in universe-resumer.ts: demand is 346 strip-days/day = 346
-  // requests/day, capacity is 288 fires × k, and k=1 is BELOW demand.
-  const selTop = boundedSelection(topEdge, TOP_EDGE_REQUESTS_PER_RUN)
+  // ⛔ A SEPARATE BOUND, NOT A SHARE OF THE 40 — LORAMER_LOOKBACK_LANE_V1 (was LORAMER_TOP_EDGE_LANE_V1). Folding the
+  // boundary strip into the descending bite would let a fragmented descent starve the lookback, or the lookback
+  // starve the descent, depending only on scan order. Two lanes, two bounds, ONE meter (the program below sums both).
+  // Derivation of the 2 lives beside the constant in universe-resumer.ts: demand is 349/W requests/day, capacity is
+  // 288 fires × k, and k=1 is below demand under W=1.
+  const selLook = boundedSelection(lookback, LOOKBACK_REQUESTS_PER_RUN)
+  // ⛔ OBSERVE-ONLY (LOOKBACK_SLOT_MODE): the selected windows are LOGGED, not sent, and the meter is charged
+  // for the descent alone — nothing is asked, so nothing is spent.
+  const lookbackToSend = LOOKBACK_SLOT_MODE === 'publish' ? selLook.taken : []
 
   // ── THE METER — THE ADAPTER'S, IN ITS OWN UNIT, AND IT HOLDS WHEN UNREADABLE ────────────────────────
   // ⛔ THE PRODUCT RESERVE IS RESPECTED BECAUSE THE METER'S CAP *IS* THE BACKFILL ALLOWANCE: 6,000 = the
@@ -654,7 +710,7 @@ export async function GET(request: Request) {
   // governor over the same pool — the shape LORAMER_GOOGLE_LANE_ALLOCATION_V1 replaced.
   // ⛔ AND THE QUOTA SENTINEL NEEDS NO CHANGE AT ALL: it is checked at :125-126, BEFORE the catalog load, so
   // a vendor pause holds BOTH lanes for free and neither can publish into an armed quota.
-  const gate = await mayFetchProgram(adapter, [...sel.taken, ...selTop.taken].flatMap((c) => c.rangeSpans))
+  const gate = await mayFetchProgram(adapter, [...sel.taken, ...lookbackToSend].flatMap((c) => c.rangeSpans))
   if (!gate.ok) {
     const hbErr = await fireHeartbeat({
       fireOutcome: 'meter-held', scanned, scanCompleted: scanned >= MAX_ENTRIES_SCANNED_PER_RUN || scanned === entries.length,
@@ -663,7 +719,7 @@ export async function GET(request: Request) {
     })
     return NextResponse.json({
       ok: true, published: 0, held: gate.reason, scanned, heartbeatError: hbErr,
-      wouldHavePublished: [...sel.taken.map((c) => c.label), ...selTop.taken.map((c) => `${c.label} [top-edge]`)], refusals,
+      wouldHavePublished: [...sel.taken.map((c) => c.label), ...lookbackToSend.map((c) => `${c.label} [lookback]`)], refusals,
     })
   }
 
@@ -671,7 +727,7 @@ export async function GET(request: Request) {
   // ⛔ THE FIRE RUNS ITS OWN SELECTION, unit by unit, where it used to publish. `processMessage` is the
   // queue consumer's function, byte-for-byte — terminal row per unit, per-range capture, the meter, the
   // quota sentinel — with ONE addition: the fire's absolute deadline rides down so a mis-size continuation
-  // can never outrun the ceiling. THE DESCENT EXECUTES FIRST AND THE TOP EDGE SECOND, same reason as when
+  // can never outrun the ceiling. THE DESCENT EXECUTES FIRST AND THE LOOKBACK SECOND, same reason as when
   // this loop published: what gets deferred is the newest work (re-derived from scratch every fire), not
   // the deepest (which costs the pass).
   const published: any[] = []
@@ -683,9 +739,21 @@ export async function GET(request: Request) {
   // ⛔ THE DEADLINE IS ABSOLUTE AND SHARED: capture start + CAPTURE_BUDGET_MS. Unit admission here, range
   // admission inside the unit, and every mis-size continuation all reserve against THIS one number.
   const unitOpts: DeadlineOpts = { deadlineAt: captureStartedAt + CAPTURE_BUDGET_MS }
-  const toSend: Array<{ c: Candidate; lane: 'descend' | 'top-edge' }> = [
+  // ── ⛔ THE LOOKBACK SLOT — LORAMER_LOOKBACK_LANE_V1, OBSERVE-ONLY UNTIL STOP-AND-CONFIRM 2 ─────────────────
+  // Every derived window is logged with the boundary it was derived against and where that boundary came from, so
+  // a real tick can be read against the docs before anything is sent. The instrument below carries the tallies.
+  const lookbackObserved = selLook.taken.map((c) => ({
+    label: c.label, window: `${c.windowStart}..${c.windowEnd}`, ranges: c.ranges, owedDays: c.owedDays,
+    boundaryDays: boundary.known ? boundary.days : null, boundarySource: boundary.known ? boundary.basis : boundary.reason,
+    wouldBe: c.ranges === 0 ? 'covered-skip (0 requests)' : `${c.ranges} request(s)`,
+  }))
+  for (const o of lookbackObserved) {
+    console.log(`[universe-resume] LOOKBACK ${LOOKBACK_SLOT_MODE === 'observe' ? 'OBSERVE' : 'PUBLISH'} ${clientId}: ${o.label} ${o.window} owed ${o.owedDays} day(s) → ${o.wouldBe} · boundary T−${o.boundaryDays ?? '?'} (${o.boundarySource})`)
+  }
+  console.log(`[universe-resume] LOOKBACK ${clientId}: mode=${LOOKBACK_SLOT_MODE} boundary=${boundary.known ? `${boundary.days}d` : 'UNKNOWN'} width=${lookbackWidth} frontier=${lookbackFrontier.size}${lookbackFrontierReadFailed ? ' (READ FAILED)' : ''} candidates=${lookback.length} selected=${selLook.taken.length} waiting=${lookbackWaiting} (earliest askable ${earliestAskable ?? 'n/a'}) none=${lookbackNone}`)
+  const toSend: Array<{ c: Candidate; lane: 'descend' | 'lookback' }> = [
     ...sel.taken.map((c) => ({ c, lane: 'descend' as const })),
-    ...selTop.taken.map((c) => ({ c, lane: 'top-edge' as const })),
+    ...lookbackToSend.map((c) => ({ c, lane: 'lookback' as const })),
   ]
   for (let unitIdx = 0; unitIdx < toSend.length; unitIdx++) {
     const { c, lane } = toSend[unitIdx]
@@ -762,11 +830,13 @@ export async function GET(request: Request) {
     rotationKnown: rotation.size, neverAttempted: entries.length - rotation.size,
     candidates: candidates.length, publishedOf: published.length,
     requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
-    // LORAMER_TOP_EDGE_LANE_V1 — the second lane reports its own numbers rather than being summed into the
+    // LORAMER_LOOKBACK_LANE_V1 — the second lane reports its own numbers rather than being summed into the
     // descent's, so a report can never say "the walk spent N" and mean two different things.
-    topEdgeCandidates: topEdge.length, topEdgePublished: selTop.taken.length,
-    topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound,
-    topEdgeOwedDays: topEdge.reduce((n, c) => n + c.owedDays, 0),
+    lookbackMode: LOOKBACK_SLOT_MODE, lookbackBoundaryDays: boundary.known ? boundary.days : null,
+    lookbackCandidates: lookback.length, lookbackSelected: selLook.taken.length, lookbackSent: lookbackToSend.length,
+    lookbackRequestsSelected: selLook.requests, lookbackDroppedForBound: selLook.droppedForBound,
+    lookbackOwedDays: lookback.reduce((n, c) => n + c.owedDays, 0),
+    lookbackWaiting, lookbackEarliestAskable: earliestAskable, lookbackNone,
     // LORAMER_QUEUE_REMOVED_INLINE_WALK_V1 — the fire now EXECUTES: these three are the execution half.
     // ⚠ COLUMN-SEMANTICS NOTE for readers of universe_fire_log: `published` now means UNITS SELECTED FOR
     // EXECUTION (the wet ones all execute or error in-fire), and `elapsed_ms` now spans SCAN + CAPTURE
@@ -795,10 +865,11 @@ export async function GET(request: Request) {
     ok: true, dryRun, clientId, scanned, heartbeatError: hbErr,
     entriesInCatalog: entries.length,
     bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
-      topEdgeRequestsPerRun: TOP_EDGE_REQUESTS_PER_RUN, topEdgeRequestsSelected: selTop.requests, topEdgeDroppedForBound: selTop.droppedForBound },
+      lookbackRequestsPerRun: LOOKBACK_REQUESTS_PER_RUN, lookbackRequestsSelected: selLook.requests, lookbackDroppedForBound: selLook.droppedForBound, lookbackMode: LOOKBACK_SLOT_MODE },
     meter: gate.reason,
     instrument,
     published, executed, unitErrors, deferredUnits, refusals,
+    lookback: { mode: LOOKBACK_SLOT_MODE, boundary, width: lookbackWidth, observed: lookbackObserved, waiting: lookbackWaiting, earliestAskable, none: lookbackNone },
   })
 
   } finally {

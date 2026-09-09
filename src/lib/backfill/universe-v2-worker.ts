@@ -159,7 +159,7 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   // rotation reads, the lane that may attest, the lane that self-chains. A forgotten field can therefore
   // only ever produce the OLD behaviour, never a silently-unchained or silently-unattesting one.
   const lane: NonNullable<UniverseMessageV2['lane']> = msg.lane ?? 'descend'
-  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}${lane === 'top-edge' ? ' [top-edge]' : ''}`
+  const label = `${entry.resource}${entry.segment ? ' / ' + entry.segment : ''}${lane === 'top-edge' ? ' [top-edge]' : lane === 'lookback' ? ' [lookback]' : ''}`
 
   // ══ 0 · THE VENDOR'S OWN REFUSAL, BEFORE ANYTHING ELSE ════════════════════════════════════════════════
   // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 (★WALK-DOES-NOT-READ-OR-ARM-THE-QUOTA-SENTINEL). Placed FIRST, the
@@ -293,6 +293,12 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
     // not need a chain and must not have one.
     if (lane === 'top-edge') {
       console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a top-edge message never self-chains).`)
+      return
+    }
+    // LORAMER_LOOKBACK_LANE_V1 — the same refusal for the third lane: a lookback window is re-derived from the
+    // lane's own frontier every fire (deriveBoundaryStrip); a chained successor would start a second descent.
+    if (lane === 'lookback') {
+      console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: window ${startDate}..${endDate} already covered — NOT advancing (a lookback message never self-chains).`)
       return
     }
     const adv = await advance(msg, adapter, { stopDate: floorDate, inceptionKnown: walkStop.inceptionKnown }, 'already covered — nothing owed in this window')
@@ -563,6 +569,11 @@ async function runOneMessage(msg: UniverseMessageV2, prov: WriteProvenance, opts
   // pass that matters. `universe-stream-consumer.guard.mjs` leg (f) drives BOTH and was seen red on each.
   if (lane === 'top-edge') {
     console.log(`[universe-v2] TOP-EDGE ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a top-edge message never self-chains).`)
+    return
+  }
+  // LORAMER_LOOKBACK_LANE_V1 — both advance() exits carry the refusal for the lookback lane too.
+  if (lane === 'lookback') {
+    console.log(`[universe-v2] LOOKBACK ${clientId} ${label}: walked ${owed.ranges.length} range(s), ${totalRows} rows, ${daysCommitted.length} day(s) committed — NOT advancing (a lookback message never self-chains).`)
     return
   }
   const adv = await advance({ ...msg, emptyStretch }, adapter, { stopDate: effectiveFloor, inceptionKnown: walkStop.inceptionKnown },

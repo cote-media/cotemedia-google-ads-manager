@@ -72,7 +72,7 @@ const GUARDS = [
   'tests/guards/google-forward-must-restate.guard.mjs',
   'tests/guards/google-campaign-anchor-missing.guard.mjs', // LORAMER_GOOGLE_CAMPAIGN_ANCHOR_MISSING_V1 — absent account anchor refuses; present zero anchor writes
   'tests/guards/google-account-row-provenance.guard.mjs', // LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — the one account producer stamps lane · vendorRow · observedAt · provenance (text) on every row; line 95's bit is kept
-  'tests/guards/top-edge-sealed-strip.guard.mjs', // LORAMER_SEALED_STRIP_PASS_V1 — a floor-sealed surface still gets its top strip derived
+  'tests/guards/lookback-sealed-strip.guard.mjs', // LORAMER_LOOKBACK_LANE_V1 — top-edge-sealed-strip converted with the lane (ruling j) // LORAMER_SEALED_STRIP_PASS_V1 — a floor-sealed surface still gets its top strip derived
   // LORAMER_FORWARD_LANE_HYGIENE_V1 — the forward claim lease is DERIVED from maxDuration (a Vercel holder cannot
   // outlive its ceiling, so lease = maxDuration + margin cannot lapse under a live holder); a killed fire leaves a
   // progress row; no instrument judges a day by the newest or the completed fire alone.
@@ -459,6 +459,11 @@ const GUARDS = [
   // Both loops driven against a model that never stops asking for tools; forced tools-free final answer, the
   // clock gate, and unconditional `truncated` telemetry on both route paths.
   'tests/guards/tool-loop-exhaustion.guard.mjs',
+  // LORAMER_LOOKBACK_LANE_V1 — the lookback lane's four guards, red-first 2026-09-08
+  'tests/guards/resume-route-publishes-no-top-strip.guard.mjs',
+  'tests/guards/lookback-slot-mode-is-gated.guard.mjs',
+  'tests/guards/lookback-window-ends-at-boundary.guard.mjs',
+  'tests/guards/lookback-boundary-is-measured.guard.mjs',
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

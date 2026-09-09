@@ -121,8 +121,13 @@ export interface UniverseMessageV2 {
    *      strip and start a SECOND descent through ground the walk has already covered.
    * ⛔ ABSENT MEANS `'descend'`, so every in-flight message published before this field existed consumes
    * with byte-identical behaviour.
+   * ⛔ `'lookback'` — LORAMER_LOOKBACK_LANE_V1 (2026-09-08): the top-edge lane converted. Same two consumer effects
+   * as 'top-edge' (stamped on attempt_started; never self-chains) with ONE difference the consumer does not see:
+   * its terminal ATTESTS (universe-coverage.ts resolveTerminalLane). Spelled inline here rather than imported so
+   * this module stays a pure contract; db-enum-mirrors-ts registers THIS union against the CHECK (migrations/088)
+   * beside AttemptLane, so the two spellings cannot drift.
    */
-  lane?: 'descend' | 'top-edge'
+  lane?: 'descend' | 'top-edge' | 'lookback'
   /**
    * ⛔ THE PRODUCER-ASSIGNED MESSAGE IDENTIFIER — LORAMER_COMPLETION_SIGNAL_V1, and it is REQUIRED prior art
    * rather than a convenience. Enterprise Integration Patterns: *"Use a producer-assigned message identifier
