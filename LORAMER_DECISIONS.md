@@ -1055,6 +1055,23 @@ across a platform boundary. Each covers the other's blind spot. **Neither is sat
 ground that was already walked.**
 ⚠ THE ORDER IS NOT A DECISION YET: this sits behind [[★THREE-CLEAN-RUNS-BEFORE-FAMILY]] and
 [[★BACKFILL-DONE-DONE-ACCOUNT-WIDE]], and which of (a)/(b) goes first is open.
+⇒ **POINTERS 2026-09-09 (round-5 read, banked here, nothing minted):** (b) path (a) delete-and-rerun needs the delete
+primitive on the WALK's tables (universe_attempt_log · the rotation · the floor_stop seals · universe_fire_log · the
+account's metrics_daily rows) — proven once on legacy tables only (LORAMER_CLEANUP_DELETE_RENEE_JASON_V1, manifest-first,
+children-first), never on these; every one of Foam OH's 349 surfaces holds a rotation row and a floor_stop seal, so the
+walk's first-pass branch is unreachable without it ([[★TOP-EDGE-HAS-NO-LANE]]). (c) path (b) — the second Meta account —
+cannot prove the WALK: Meta is unported ([[★MONDAY-GAP-LIST-IS-UNMEASURED]] (2)); it proves the June engine's one-click
+(BackfillControl.tsx:66 → /api/backfill/run). The 9/30 proof's SCOPE is [[LORAMER_PROOF_SCOPE_9_30_V1]]
+(★NINE-THIRTY-PROOF-SCOPE) below.
+
+## LORAMER_PROOF_SCOPE_9_30_V1 (2026-09-09) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]] for the 9/30 run; token ★NINE-THIRTY-PROOF-SCOPE.
+
+THREE-SOURCE — PRIOR CHATS: Russ, 2026-09-09, ruling on the round-5 DONE-DONE read (the six conditions against the 2026-11-17 first seal; the read's per-condition verdicts and per-class seal dates are the evidence, QUEUE [[★BACKFILL-DONE-DONE-ACCOUNT-WIDE]] status 2026-09-09). · WEB: https://ppc.land/lookback-window/ (what a conversion lookback window is and why a recent day's figure still moves) · https://developers.google.com/google-ads/api/fields/v23/conversion_action (click_through_lookback_window_days / view_through_lookback_window_days are attributes of the action — read daily by LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1). · REPO: LORAMER_ESSENCE.md:309-349 (the six conditions), DECISIONS:2452 (condition 5 moved to WIRE), src/lib/backfill/universe-resumer.ts deriveBoundaryStrip (a window is askable only when it ends ≤ T−B; askableOn = fullEnd + B).
+⛔ **THE 9/30 PROOF RUN ON FOAM OH / GOOGLE ADS PROVES THE MECHANISM, NOT THE FINALS.** It passes when every served grain is captured (condition 1); every day is CORRECT AS OF ITS LAST ASK with no rewriting of committed days (condition 3, first two halves); and every day inside the vendor's restatement window is LEGIBLY LABELED "held, inside the restatement window" — distinct from "final" — in the warehouse and on any surface that shows it. **RESTATEMENT-FINAL IS NOT A 9/30 CONDITION.** The lookback lane in publish mode stamps each day final AUTOMATICALLY as its window expires — Foam OH's earliest class (221 surfaces, newest asked 2026-08-12) becomes askable 2026-11-17, its last class (2 surfaces, newest asked 2026-09-08) on 2026-12-14 (round 5, derived from the live ledger through deriveBoundaryStrip at B = 90, W = 7) — with no human act. Condition 3's restatement half is satisfied on 9/30 by the LANE RUNNING AND LABELING, not by finals existing.
+· **Condition 5 (LORA-WIRED) stays in WIRE** per DECISIONS:2452 — confirmed, not relitigated.
+· **The user-facing "i" that explains the restatement label is a UX item** — appended to the existing site-wide info-tooltips roadmap entry (ROADMAP.md:247, LORAMER_ROADMAP_INFO_TOOLTIPS_V1); no new token.
+· WHAT THIS DOES NOT DECIDE: the cold-connect path ((a) delete-and-rerun vs (b) the second Meta account — [[LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1]] above) and the driver's build order, which CONTINUE_HERE's head sequences.
+Evidence tier: the seal dates and ledger counts are VERIFIED (round 5, 2026-09-09, live reads); the ruling itself is Russ's — DESTINATION.
 
 ## LORAMER_WEB_ROUND_GOES_WIDER_THAN_PRIMARIES_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. AMENDS the WEB leg of [[LORAMER_THREE_SOURCE_PRECONDITION_V1]].
 

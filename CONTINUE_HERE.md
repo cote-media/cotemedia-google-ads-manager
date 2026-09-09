@@ -1,4 +1,4 @@
-╔═══ SESSION 2026-09-09 — 088 APPLIED; NEXT: GATE-B AT THE 2026-09-10 08:08Z FORWARD FIRE (conversion_action rows 18/18, error_count 36→18, Foam OH tick boundary=90d), THEN THE 'PUBLISH' FLIP = STOP-AND-CONFIRM 2 ═══╗
+╔═══ SESSION CLOSE 2026-09-09 — INTEL-QUERY SPLIT SHIPPED (7a44948) · 088 APPLIED (60a343f) · 9/30 PROOF SCOPE RULED (★NINE-THIRTY-PROOF-SCOPE). NEXT: GATE-B AT THE 2026-09-10 08:08Z FORWARD FIRE. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -73,7 +73,7 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
   ★CONVERSION-ACTION-CAPTURE-DARK; the round-7 widening rides it and is UNVERIFIED. Sibling: the audience sub-fetch
   (★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE, query_error 45). DECISIONS (v) owns the record.
 
-── ▶▶ NEXT STEPS 2026-09-08, IN ORDER (DECISIONS (v); QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION · ★CONVERSION-ACTION-CAPTURE-DARK) ──
+── ✅ DONE 2026-09-09 — the 2026-09-08 head, (1)–(3) (DECISIONS (v)(w)(x); QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION · ★CONVERSION-ACTION-CAPTURE-DARK) ──
 (1) ✅ SHIPPED 2026-09-09 — THE INTEL-QUERY SPLIT (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1): the conversion_action read is
     ATTRIBUTE-ONLY (ten attributes, status = 'ENABLED', no metrics / segments / interpolation); count = Σ conv_by_campaign by
     action name, labelled in the prompt header (line :736 unchanged; Escential's rendered prompt differs by that header only);
@@ -87,16 +87,25 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
     lookback, convalidated true; descend 121,844 · top-edge 40,791 · lookback 0. First tick on the applied constraint
     (20:55:43Z): mode=observe · boundary=UNKNOWN · candidates 0 · selected 0 · requests_selected 0 · refusals {floor-sealed 349,
     lookback-boundary-unknown 1} · 0 attempt rows · 0 lookback rows — unchanged. DECISIONS (x) owns the record.
-(3) SESSION-OPEN VERIFY of the observe tick (vercel.json: universe-resume every 5 min on Foam OH): universe_fire_log reads
-    mode observe · refusals carry 'lookback-boundary-unknown' ×1 · candidates 0 · selected 0 · requests_selected 0 · no
-    top-edge message; universe_attempt_log holds 0 rows with lane='lookback'; the 08:08Z forward fire persists slice 1
-    (entity_state_history conversion_action rows appear only AFTER (1) ships — the query is broken until then) and adds no
-    new error class (error_count stays 2 × attempted until (1) and the audience fix land).
-(4) FLIP `LOOKBACK_SLOT_MODE` TO 'publish' WITH A DATED RULING CITE ON THE LINE = STOP-and-confirm 2 (the guard refuses the
-    flip without it); the first attesting terminal lands on the first surface whose window is past T−B.
-(5) READ THE SIX DONE-DONE CONDITIONS (LORAMER_BACKFILL_DONE_DONE_V1) against the first-seal date: at B=90 Foam OH's first
-    window [2026-08-13..08-19] becomes askable 2026-11-17 — condition 2's "attested-empty" on that ground cannot be earlier.
-Then STEP 3 (the driver) as below; the lookback commit is what lets it carry the restate.
+(3) ✅ READ 2026-09-09 (round 5) — the six DONE-DONE conditions against the first-seal date; Russ ruled the 9/30 scope the
+    same day: DECISIONS LORAMER_PROOF_SCOPE_9_30_V1 (★NINE-THIRTY-PROOF-SCOPE); QUEUE ★BACKFILL-DONE-DONE-ACCOUNT-WIDE carries
+    the per-condition status 2026-09-09; three findings banked as pointers (one-click = the June engine; delete-and-rerun needs
+    the delete primitive on the walk's tables; the second Meta account cannot prove the walk).
+
+── ▶▶ NEXT STEPS 2026-09-09, IN ORDER (★NINE-THIRTY-PROOF-SCOPE — DECISIONS LORAMER_PROOF_SCOPE_9_30_V1) ──
+(1) GATE-B READ at 2026-09-10 08:20Z (read-only): entity_state_history conversion_action rows > 0 on 18/18 google connections
+    (check leg conversion-action-config-captured flips green) · cron_runs google forward error_count 36 → 18 (the audience half
+    remains — ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE) · the first Foam OH tick after the fire logs boundary=90d instead of
+    UNKNOWN (the runtime LOOKBACK line; universe_fire_log refusals lose 'lookback-boundary-unknown').
+(2) FLIP `LOOKBACK_SLOT_MODE` TO 'publish' WITH A DATED RULING CITE ON THE LINE = STOP-and-confirm 2 (the guard refuses the
+    flip without it). In publish mode the lane stamps each day final automatically as its window expires — Foam OH's earliest
+    class (221 surfaces) on 2026-11-17, the last (2 surfaces) on 2026-12-14 — no human act; that is the 9/30 posture.
+(3) THE FORWARD DRIVER (★FORWARD-DRIVER-SHAPE; research + adversary done 2026-09-05; ruling A) — NEXT STEP 3 below.
+(4) INSTRUMENTS, condition 6: ★LIVENESS-PREDICATE-TOO-COARSE · the fleet-meter −190 disagreement · no-owed-day-left-behind
+    BROKEN (check:data 2026-09-09).
+(5) THE WALK BEHIND THE ONE-CLICK BUTTON + delete-and-rerun on the walk's tables (LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1
+    path (a); pointers banked 2026-09-09 under it and under ★MONDAY-GAP-LIST-IS-UNMEASURED (3)).
+(6) THE COLD PROOF RUN, scoped by ★NINE-THIRTY-PROOF-SCOPE.
 
 
 ── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
@@ -133,6 +142,12 @@ schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · 
 the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
 
 ── STANDING ──
+· 9/30 PROOF SCOPE RULED 2026-09-09 (★NINE-THIRTY-PROOF-SCOPE, DECISIONS LORAMER_PROOF_SCOPE_9_30_V1): mechanism +
+  correctness-as-of-last-ask + legible in-window labeling; restatement-final lands automatically — Foam OH first seal
+  2026-11-17 (221-surface class) · 11-23 (14) · 11-28 (106) · 11-29 / 11-30 (3 + 3) · 12-14 (2); C5 stays in WIRE; the "i"
+  explainer is a ROADMAP.md:248 tooltips sub-item, no new token.
+· check:data 2026-09-09 (this session): 33 checks · 23 green · 9 red · 1 crashed — 2026-09-08's 32/8 plus the by-design
+  conversion-action-config-captured leg (green after Gate-B). Verdict quoted verbatim in the round-2 report.
 · check:data 2026-09-08: 23 green · 8 red · 1 crashed — red-for-red the 09-05 wrap, all queue-owned (claims 12+8 · throttle ·
   geo_city/geo_postal alias drift · Influential Drones/meta density · five Foam OH walk-state legs). The crash is a SIGTERM
   sent to a leg hung 35 min on a socket orphaned by the 16:13:41Z restart (★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT).

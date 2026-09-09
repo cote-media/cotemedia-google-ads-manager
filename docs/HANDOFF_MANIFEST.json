@@ -12,10 +12,10 @@
     "line_count": 195
   },
   "CONTINUE_HERE.md": {
-    "content_hash": "6ea15bf45e3c4207ec6eb36797d6561651cd7476a795a1c78761482bf02987c3",
+    "content_hash": "1f78c15cf125913e9c81093cef3da323030ef524b5b10f771db45d3c9519ac51",
     "last_reconciled_date": "2026-09-09",
-    "last_reconciled_head": "7a44948",
-    "line_count": 2872
+    "last_reconciled_head": "60a343f",
+    "line_count": 2887
   },
   "LAUNCH_PARKING.md": {
     "content_hash": "ba7cdb85b424b2ae91ce94c44af1a362aebc85beb3718a285e1fba5b36a6de08",
@@ -30,10 +30,10 @@
     "line_count": 145
   },
   "LORAMER_DECISIONS.md": {
-    "content_hash": "d0c95396ab9e7ee6f690b7b62e5ed035ad89ea4bd951d5801d5f9966b9ef3fb0",
+    "content_hash": "df418cf40028714d602df75dbe5194f20fb7b6a532b491209584d0dd5531a6d1",
     "last_reconciled_date": "2026-09-09",
-    "last_reconciled_head": "7a44948",
-    "line_count": 2552
+    "last_reconciled_head": "60a343f",
+    "line_count": 2569
   },
   "LORAMER_ESSENCE.md": {
     "content_hash": "84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06",
@@ -60,16 +60,16 @@
     "line_count": 16
   },
   "LORAMER_QUEUE_OF_RECORD.md": {
-    "content_hash": "ee79891edf8e054f89ead155f57b2f5c812e664bc28575dc6b29df78a39338c9",
+    "content_hash": "e801805c666cca4930f8ddf7417a296d9ab44ba0ba49677ce691c14a93da7a66",
     "last_reconciled_date": "2026-09-09",
-    "last_reconciled_head": "7a44948",
+    "last_reconciled_head": "60a343f",
     "line_count": 1238
   },
   "LORAMER_RESUME_DIGEST.md": {
-    "content_hash": "393d96d0833dca99591d33780c49c70954e28a600fd34ea3fc8b02f10ef92abe",
+    "content_hash": "59cdaa928128918101592b990de92d4d02ac7ec9d0c67ac899e8a9cdaf26eee0",
     "last_reconciled_date": "2026-09-09",
-    "last_reconciled_head": "7a44948",
-    "line_count": 3478
+    "last_reconciled_head": "60a343f",
+    "line_count": 3605
   },
   "LORAMER_WOO_CAPTURED_E1_V1.md": {
     "content_hash": "31ec61bce2866fc8b4368ee370e92f5ee415c41c45080da068e3447caf3d813e",
@@ -90,10 +90,10 @@
     "line_count": 73
   },
   "ROADMAP.md": {
-    "content_hash": "882ff4f02c0f99ad132e31b38e99c92b805213f476ef6664407a999e1202817a",
-    "last_reconciled_date": "2026-08-22",
-    "last_reconciled_head": "5d81018",
-    "line_count": 1584
+    "content_hash": "b9e84760875d714cc774aa710a9926587134b6177cc5d4ebf66741f88b520537",
+    "last_reconciled_date": "2026-09-09",
+    "last_reconciled_head": "60a343f",
+    "line_count": 1585
   },
   "STRIPE_BILLING_PLAN.md": {
     "content_hash": "544cc9b4f99e5f2bce5d432f264d29fb5f864bda2e5820fd4a9941b63af2fb81",
