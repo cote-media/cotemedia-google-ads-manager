@@ -126,17 +126,31 @@ export interface IntelligenceSearchTerm {
   metrics: IntelligenceMetrics
 }
 
+// LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the ONE owner of conv_by_campaign's pair cap. google-intelligence.ts
+// interpolates it into the GAQL LIMIT and stamps conversionsByCampaignCapped; build-claude-context.ts names it in the
+// Conversion Actions header when the cap was hit. A second literal anywhere is the drift class.
+export const CONV_BY_CAMPAIGN_LIMIT = 200
+
 export interface IntelligenceConversionAction {
   id: string
   name: string
   category: string        // PURCHASE, LEAD, SIGNUP, PAGE_VIEW, etc.
   platform: 'google' | 'meta'
   includeInConversions: boolean
+  // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — Google: Σ conv_by_campaign metrics.conversions by action name
+  // (campaign-attributed, window-scoped, a LOWER bound when the 200-pair cap is hit; ✗ NOT-included actions read 0
+  // by definition). The conversion_action resource itself serves no `conversions` metric.
   count: number
   // LORAMER_LOOKBACK_LANE_V1 — the vendor's restatement windows for this action (Google only; undefined on Meta and
   // when the field was not served). The lookback lane's boundary is derived from these (DECISIONS (i)).
   clickThroughLookbackWindowDays?: number
   viewThroughLookbackWindowDays?: number
+  // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the rest of the attribute read (Google only). Carried on the
+  // payload; persisted by nothing yet — SLICE1_DECLARED_KEYS (entity-state-history.ts) is unchanged this flight.
+  status?: string
+  type?: string
+  primaryForGoal?: boolean
+  countingType?: string
 }
 
 // LORAMER_PROJECT_3_STEP_2B_V1
@@ -568,6 +582,9 @@ export interface PlatformIntelligence {
   conversionActions?: IntelligenceConversionAction[]
   // LORAMER_PROJECT_3_STEP_2B_V1
   conversionsByCampaign?: IntelligenceConversionByCampaign[]
+  // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — true when conv_by_campaign returned its full LIMIT: the per-action
+  // counts summed from it are then LOWER bounds, and the prompt header says so. Set by the producer, which owns the cap.
+  conversionsByCampaignCapped?: boolean
   // LORAMER_PROJECT_3_STEP_2C_V1
   audiences?: IntelligenceAudience[]
   // LORAMER_PROJECT_3_STEP_2D_V1

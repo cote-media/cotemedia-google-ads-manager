@@ -1,4 +1,4 @@
-╔═══ SESSION CLOSE 2026-09-08 — STEP 2 PART A COMMITTED IN OBSERVE-ONLY; MIGRATION 088 WRITTEN, NOT APPLIED; GATE-A FOUND THE CONVERSION_ACTION QUERY BROKEN SINCE ≥07-27. THE QUERY SPLIT IS THE HEAD. ═══╗
+╔═══ SESSION 2026-09-09 — INTEL-QUERY SPLIT SHIPPED (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1); NEXT: MIGRATION 088 IN THE SUPABASE SQL EDITOR = STOP-AND-CONFIRM 1 ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -73,11 +73,14 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
   (★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE, query_error 45). DECISIONS (v) owns the record.
 
 ── ▶▶ NEXT STEPS 2026-09-08, IN ORDER (DECISIONS (v); QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION · ★CONVERSION-ACTION-CAPTURE-DARK) ──
-(1) THE INTEL-QUERY SPLIT — google-intelligence.ts:467: an ATTRIBUTE-ONLY conversion_action read (id · name · category ·
-    status · type · include_in_conversions_metric · click_through_lookback_window_days · view_through_lookback_window_days;
-    no segments.date, no metrics) feeding the extractor; the `count` seam (build-claude-context.ts:736, the single consumer)
-    summed from conv_by_campaign (:494) or rendered without a count — decide in the paste. Gate-A on the real API: 2 requests
-    (Foam OH 957d484e, Escential c39ee088 — expected click 90 / view 30 → boundary 90). Bath Fitter never a test account.
+(1) ✅ SHIPPED 2026-09-09 — THE INTEL-QUERY SPLIT (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1): the conversion_action read is
+    ATTRIBUTE-ONLY (ten attributes, status = 'ENABLED', no metrics / segments / interpolation); count = Σ conv_by_campaign by
+    action name, labelled in the prompt header (line :736 unchanged; Escential's rendered prompt differs by that header only);
+    enum ordinals mapped (category · status · type · counting_type); guard conversion-action-attribute-only RED on d4eab64 →
+    GREEN; Gate-A 2/2 — Foam OH 22 rows (click 90 / view 30 → boundary 90), Escential 10 rows (click 90 / view 1 → boundary 90;
+    the "view 30" expectation was unmeasured and wrong). QUEUE ★CONVERSION-ACTION-CAPTURE-DARK carries the record, five
+    pointers and GATE-B (next 08:08Z fire: conversion_action rows > 0 on 18/18, error_count 2×attempted → 1×attempted).
+    DECISIONS (w) owns the ruling over all_conversions.
 (2) 088 IN THE SUPABASE SQL EDITOR = STOP-and-confirm 1 — apply BEFORE any 'publish' deploy; verify the notice line
     "088 OK — universe_attempt_log_lane_chk = …" carries all three lanes.
 (3) SESSION-OPEN VERIFY of the observe tick (vercel.json: universe-resume every 5 min on Foam OH): universe_fire_log reads
@@ -138,8 +141,9 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
 · EXPOSURE, STATED FOR LORA: any Google conversion figure older than 30 days may be STALE on every client until the
   lookback ships (★RESTATEMENT-WINDOW-UNDER-ASKS-CONVERSIONS). ⛔ GOOGLE_RESTATE_LOOKBACK_DAYS must NOT be widened as a
   hotfix — at 91 days the measured 644 s pass exceeds maxDuration 800. The lookback lane is the fix.
-· entity_state_history holds 0 conversion_action rows — the config capture is DARK (★CONVERSION-ACTION-CAPTURE-DARK);
-  the lookback commit's daily `FROM conversion_action` read replaces it.
+· entity_state_history holds 0 conversion_action rows UNTIL the first 08:08Z forward fire after the 2026-09-09 deploy — the
+  attribute-only read (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1) is what lands them; Gate-B is that fire
+  (★CONVERSION-ACTION-CAPTURE-DARK, "open — Gate-B pending").
 · Escential reconcile figures banked 2026-09-05 (Aug: 3,706.13 / 332,092 / 7,156 / 720 / 131,700.20 · Sep 1–4: 312.33 /
   20,968 / 321 / 34 / 13,046.98) — RECONCILED 2026-09-05 by Russ against the Google Ads app — all visible figures match,
   CPA to the cent on both windows; conv value not on screen (DECISIONS (s)).
@@ -161,8 +165,10 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
 · At B=90 Foam OH's first lookback window [2026-08-13..08-19] becomes askable 2026-11-17; until then every surface reads
   'waiting' (QUEUE (4)'s "already past the boundary" was false as written). Before slice 1 lands rows, every fire records
   one 'lookback-boundary-unknown' refusal — the correct answer, not a defect.
-· The conversion_action intel query is BROKEN on main (query_error 49, since ≥ 07-27) and the audience sub-fetch beside it
-  (query_error 45); error_count on google forward fires reads 2 × attempted by construction until both are fixed.
+· The conversion_action intel query was BROKEN on main (query_error 49, since ≥ 07-27) — FIXED 2026-09-09 (attribute-only,
+  LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1). The audience sub-fetch beside it remains broken (query_error 45,
+  ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE); error_count on google forward fires reads 1 × attempted after Gate-B, by
+  construction, until that one is fixed.
 · Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption still owed by Russ.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝

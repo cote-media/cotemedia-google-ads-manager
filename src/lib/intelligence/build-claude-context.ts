@@ -17,6 +17,7 @@ import type {
   IntelligenceShopify,
   PlatformIntelligence,
 } from './intelligence-types'
+import { CONV_BY_CAMPAIGN_LIMIT } from './intelligence-types' // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — named in the Conversion Actions header when the cap is hit
 import { resolveNaicsBlock } from '../naics/resolve-definitions' // LORAMER_NAICS_V1 — server-only resolver
 import { CLIENT_WORD_BUDGET, AGENCY_WORD_BUDGET } from '../knowledge/budgets' // LORAMER_KNOWLEDGE_INGEST_V1
 // LORAMER_WALK_TAKES_THE_LANE_V1 — the disclosure is DERIVED FROM THE ALLOCATION TABLE, never from a separate
@@ -731,7 +732,10 @@ function buildPlatformSection(
   }
 
   if (platform.conversionActions && platform.conversionActions.length > 0) {
-    lines.push(`\nConversion Actions:`)
+    // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the count is Σ of the attribution pairs below (the Conversions
+    // column), never a metric read from conversion_action (the resource serves none). Header only; the line
+    // shape below is unchanged.
+    lines.push(`\nConversion Actions (count = campaign-attributed 'conversions' in window, summed from the attribution pairs below; ✗ NOT-included actions read 0.0 by definition${platform.conversionsByCampaignCapped ? `; attribution capped at ${CONV_BY_CAMPAIGN_LIMIT} pairs, sums are lower bounds` : ''}):`)
     platform.conversionActions.forEach(ca => {
       lines.push(`  • ${ca.name} [${ca.category}] — ${ca.count.toFixed(1)} conv — ${ca.includeInConversions ? '✓ INCLUDED in conversions column' : '✗ NOT included'}`)
     })

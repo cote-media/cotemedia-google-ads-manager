@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-09T02:50:15.151Z
-- built_from HEAD: eab4af838bddd7b97f29986a9bc04c3603d9c2fe  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-09T18:20:48.564Z
+- built_from HEAD: d4eab64ceee69c87b6ef5e8d11a4606097e623ac  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: 84bf1f3a67198822bc784f105253a803e755094fbeae289dc3ac37b0c33bbe06
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: ba47525643633e3a1b31b9e76112affe45eb4c1227d62c5d057af4b8eb93c3a6
-    - LORAMER_DECISIONS.md: 16721ef21582b285d32b34e7baa03ca806fd2b49ba701be5d2fcfb083410e080
-    - LORAMER_QUEUE_OF_RECORD.md: bcf8a023e50219ff719f3aa3ad818d6c491256af071bbf2d3a4e95ab8f6ebb81
+    - CONTINUE_HERE.md: 27341bf3114de96bf13b2d4ccc327c603ada101fa0fa90736a40e21fec60c41f
+    - LORAMER_DECISIONS.md: a04ea81a8cbae72580c4d562ecdad137dd29b9416cac35bce80c787b39d23213
+    - LORAMER_QUEUE_OF_RECORD.md: a6fded48318a3d61bbfc6a6bd41eec1f0121f9693e138164e3c846e5cb6f90ff
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -522,176 +522,79 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
-═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-09-08). THIS IS THE NEXT STEP. ═══
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 176, 2026-08-26). THIS IS THE NEXT STEP. ═══
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-09-08 — STEP 2 PART A COMMITTED IN OBSERVE-ONLY; MIGRATION 088 WRITTEN, NOT APPLIED; GATE-A FOUND THE CONVERSION_ACTION QUERY BROKEN SINCE ≥07-27. THE QUERY SPLIT IS THE HEAD. ═══╗
+╔═══ SESSION CLOSE 2026-08-26 — FIVE SHIPS, THE HOUR AXIS DONE-DONE, AND THE DEVICE MERGE APPROVED: TOMORROW OPENS AT EXECUTE. ═══╗
 
-⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
-Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
-⛔ **CORRECTION CARRIED: THE DESCENT COMPLETED ON FOAM OH ONLY** — 349/349 surfaces floor-sealed on 957d484e; `universe_attempt_log`
-holds no other client but 2 Glenn Stearns rows. Any plan assuming 17 descended accounts is wrong (DECISIONS
-LORAMER_SESSION_2026_09_05_RULINGS (a)).
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.**
+GET → WIRE phase structure unchanged (DECISIONS LORAMER_GET_THEN_WIRE_V1); this is all GET.
 
-── SHIPPED 2026-09-05 ──
-· `1d40b74` LORAMER_FORWARD_LANE_HYGIENE_V1 — the claim lease is a PARAMETER (migration 086, `claim_backfill_cursor(…,
-  p_lease_seconds default 480)`) and forward passes `FORWARD_CLAIM_LEASE_S = maxDuration + 100` derived beside its
-  maxDuration; every platform section stamps a progress row per client (a killed fire keeps its tallies) and finalizes in
-  a finally; check-google-forward-account-day judges EVERY fire that targeted the day; /api/cron/status reads the trailing
-  26 h with a 'killed' verdict. Drain/catchup/Woo callers untouched at the default; the drain's 1800 s lane KNOWN-RED.
-· `1415cfd` LORAMER_FORWARD_OBSERVATION_LOG_V1 — forward's per-surface records are OBSERVATIONS in their OWN append-only
-  store (`forward_observation_log`, migration 087): all ten producers bracketed by observeForward — 35 catalogue surfaces
-  / 53 requests per connection, window, rows per day, ok|zero|nongrain|error, error text; one reader module; the hole map's
-  `observedUnsealed` tier; the op-budget's forward term MEASURED from the ledger, not ×67; two check legs. The walk's
-  readers (rotation · windowCoverage/attestedEmptyDays/resolveTerminalLane · resumer · lane-spend RPC · five check legs)
-  have ZERO diffs — a forward zero cannot seal a day by construction.
-Both READY on app.loramer.com. **BOTH PROVEN ON THE 2026-09-06 08:08Z FIRE — STEP 1 PASSED 2026-09-08 (DECISIONS (u)).**
+── ▶▶ NEXT STEP — ★ORDINAL-CLASS-REMAINDER LEGACY DEVICE MERGE: **APPROVED 2026-08-26, AWAITING EXECUTION ONLY** ──
+Three rounds ran (research → adversary → manifest, all read-only); every number below is measured and survived
+attack. ⛔ DO NOT RE-DERIVE ANY OF IT. Open the flight at EXECUTE.
+- ⛔ **RE-MEASURE GATE, ONE LINE FIRST:** re-measure legacy_total=3,751 · twins=143 · pure=3,608 live — **STOP
+  on any difference.** (Zero ordinal writers remain, the class cannot GROW — but the NAMED side has live
+  writers (they touched the span as recently as 2026-08-23/24), so twins can grow and pure can convert.)
+- CANON, adversary-verified: 2→MOBILE 3→TABLET 4→DESKTOP 5→OTHER 6→CONNECTED_TV. Proof = the warehouse's own
+  143 twins (2/3/4 direct, 6 direct ×3, 5 by bijective elimination) + the installed decode table
+  (google-ads-api 23.0.0, google-ads-node protos.json: OTHER:5, CONNECTED_TV:6). The docs page lists
+  declaration order with numbers hidden — that was the "docs reading" the canon comment overrode; canon is RIGHT.
+- MANIFEST (Foam OH only, 2022-03-05→2023-06-27): **PURE RESPELL 3,608** (campaign 1,938 · ad_group 1,670;
+  $98,885.88 / 8,743,118 impr) + **TWIN MERGE 143** (campaign 79 · ad_group 64; $3,391.32 / 442,712 impr —
+  the double-counted excess). All 143 twins IDENTICAL across all 21 non-key non-lineage columns (re-proven
+  per-row, 0 divergent).
+- LINEAGE RULING (settled by reading, not preference): the NAMED row survives the key and INHERITS the
+  ordinal's account_id at BOTH levels (zero readers of account_id on metrics rows — but don't ship a poorer
+  row) and the ordinal's parent_entity_id at CAMPAIGN only (= the documented customer-id semantic,
+  metrics-query.ts:623-624; makes 79 rows drillable). The 64 ad_group named rows KEEP NULL parent — the
+  ordinal's parent there is the ACCOUNT id, wrong-shaped vs the campaign-id convention; absence over a wrong fact.
+- MECHANICS (hour-merge shape): manifest table `metrics_daily_device_legacy_respell_manifest_20260826`, FULL
+  copies of all 3,894 touched rows (3,608 respell + 143 twin ordinals + 143 surviving named), action-tagged.
+  Twins: UPDATE named lineage from ordinal → DELETE ordinal with identity re-proved INSIDE the DELETE's own
+  predicate (all 21 columns). Pure: keyed UPDATE breakdown_value → name. ROLLBACK: respell → UPDATE-back to
+  the digit · deleted twin → re-INSERT · lineage → UPDATE-back to NULL.
+- ACCEPTANCE (span 2022-03-01→2023-06-30, both EXACT): buckets 10 → **EXACTLY 5** at EACH level; campaign
+  impr 6,981,529 → **6,611,237** / spend $73,364.86 → $70,948.85; ad_group impr 2,655,939 → **2,583,519** /
+  spend $32,394.29 → $31,418.98.
+- GUARD, ALREADY SEEN RED AT THE TRUE COUNTS: `scripts/check-device-legacy-spelling-merge.mjs` (ships in this
+  wrap UNREGISTERED — the device-respell-scope precedent for a designed-red check) — red quoted: (a) 3751
+  ordinal rows, (b) 143 twins. Registration in run-checkdata + verdict pin 32→33 belong to the EXECUTION commit.
+- GUARD AMENDMENT, SAME EXECUTION COMMIT: `.device-respell-scope-baseline.json` legacy_campaign 2017→0 ·
+  legacy_ad_group 1734→0 (leg b2 must not blame the ruled fix for the shrink). Leg b1 stays untouched — the
+  legacy repair is its OWN gated script; `respell-device-ordinals.mjs` may not name the legacy levels.
 
-── ✅ STEP 1 — OPEN-VERIFY PASSED 2026-09-08 (three read-only rounds against the 2026-09-06 08:08Z fire, target 2026-09-05;
-   DECISIONS (u) owns the per-check record). The seven checks, corrected where the spec was wrong. ──
-The seven queries — (1)-(5) VERBATIM from the 1415cfd report, (6) from the 1d40b74 report, (7) from amendment 2 (ruling r):
-(1) observations per client: `select client_id, producer, outcome, count(*) rows, sum(requests_spent) req from
-    forward_observation_log where vendor='google' and window_end='2026-09-05' group by 1,2,3 order by 1,2,3` → expect 35
-    rows per connection (53 requests), 18 connections; per producer 1·1·2·2·4·1·1·19·2·2; outcome split zero vs ok by
-    dormancy, error rows carrying text. PASSED: 18/18 at 35/53; Escential c39ee088 47/64 over 2 runs (an 800 s kill mid-geo
-    + the lease-expiry re-claim, both by design).
-(2) hole map on Foam OH 957d484e over 2026-09-05..2026-09-05: enumerateGoogleHoles({clientId:
-    '957d484e-d0c4-4dd0-b382-d8499d556252', start:'2026-09-05', end:'2026-09-05', bounds:{allowanceMs:120000}}) →
-    refused:false; tiers.observedUnsealed and tiers.uncovered reported apart. PASSED: page 1 scanned 60/349, observedUnsealed 6 ·
-    uncovered 54; whole catalogue observedUnsealed 30 · uncovered 319, every other tier 0. ⛔ Escential c39ee088 holds NO
-    universe_account_inception row and REFUSES by design — not provable read-only; the two rows are 957d484e and 3111c7e1.
-(3) op-budget forward term: `select public.forward_observation_spend_today('google', now() - interval '24 hours')` = the
-    ledger sum, and readGoogleSpendToday().byLane.forward equals it — no ×67 anywhere (guard (j) holds the code; leg (k)
-    holds the number). PASSED: 1027 = 1027 = 1027 (686 rows); ×67 absent.
-(4) fleet-meter forward leg: `node scripts/check-fleet-meter-visibility.mjs` → "forward since …: fires=N attempted=18 …
-    observations≈630 · state=VISIBLE"; QUIET or DRIFT is the finding. PASSED: VISIBLE, 686 observations / 18 attempted.
-(5) account-day leg 5 JUDGED: `node scripts/check-google-forward-account-day.mjs` → "observation leg OK — every one of
-    18 owed connection(s) carries a customer/'' observation covering 2026-09-05". PASSED: 18/18.
-(6) the lease proof (1d40b74): `select count(*) fires, sum(connections_attempted) attempted, sum(case when finished_at
-    is null then 1 else 0 end) unfinished from cron_runs where platform='google' and mode='forward' and
-    target_date='2026-09-05'` → 18 · 18 · 1 unfinished — but ⛔ attempted=18 is VOID as a re-claim signal: the killed client
-    is never stamped, so killed (−1) + re-claim (+1) = the distinct count (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT).
-    THE DETECTOR: `select client_id, count(distinct cron_run_id) runs from forward_observation_log where vendor='google' and
-    window_end='2026-09-05' group by 1 having count(distinct cron_run_id) > 1` → c39ee088 = 2, nothing else. The lease itself:
-    every '__fwd_google' row reads `updated_at = backfill_claimed_at` (≤ +900 s). PASSED.
-(7) the RPC's other callers (ruling r — the default path is ALREADY PROVEN on 9 live drain claims, ga·woo·shopify·meta,
-    lease = claimed_at + 480 s exactly, no PGRST202/203): `select platform, count(*) fires, count(*) filter (where finished_at
-    is null) unfinished, sum(connections_errored) err, sum(error_count) error_count from cron_runs where mode='catchup' and
-    started_at > '2026-09-06T00:00Z' group by platform` → 72 fires per platform, unfinished 0, err 0, error_count 0. ⛔ There is
-    NO cron_runs.errors column and no durable error text (DECISIONS (u) corrects (r)); google/woocommerce all-skipped is the
-    lane gate, not a deviation. PASSED.
-check:data 2026-09-08, verbatim: "[check:data] VERDICT — EXIT 2 · 32 checks: 23 green · 8 red (…) · 1 crashed (no-owed-day-left-behind:
-signal=SIGTERM)" — red-for-red the 09-05 wrap; google-forward-account-day GREEN; the fleet-meter FORWARD leg GREEN (its red
-is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
+── GATE-B CLOCKS, BOTH AT TOMORROW'S ~08:08Z GOOGLE FORWARD FIRE (2026-08-27) ──
+- **google-forward-account-day** (check:data leg, red 8/18): the 30-day restate window heals the 8 remaining
+  clients' account rows at the fire — the leg flips green on its own; read it after the fire.
+- **★GATE-A-GOOGLE-FORWARD-RESTATE**: one-query BEFORE/AFTER diff of already-held Bath Fitter days against
+  the baseline taken this morning — **repo copy `.google-restate-baseline-bathfitter-20260826.tsv`** (the
+  scratchpad original dies with the 08-26 session; the repo copy is the one to diff).
 
-── COMMITTED 2026-09-08 (this session, rounds 6–9) — LORAMER_LOOKBACK_LANE_V1, STEP 2 PART A, OBSERVE-ONLY ──
-· lane 'lookback' on AttemptLane + the contract union · resolveTerminalLane names it (refusal still wins) · attestedEmptyDays
-  admits {descend, lookback} (ruling (v.1)) · universe-resumer.ts: COST_HORIZON_DAYS 90 ⇐ measured 2026-09-05 N=64 ·
-  LOOKBACK_FLEET_FLOOR_DAYS 90 ⇐ (i) · deriveBoundaryDays · deriveBoundaryStrip (window | waiting | none, full windows only,
-  windowEnd ≤ T−B) · LOOKBACK_REQUESTS_PER_RUN 2 · deriveTopStrip DELETED · lookback-boundary.ts (boundaryDaysFor, refuses
-  UNKNOWN) · the resume route's second slot derives boundary windows and LOGS them — `LOOKBACK_SLOT_MODE = 'observe'`, sends
-  nothing, charges nothing — top-edge publish RETIRED on deploy (ruling j) · the worker's third lane · conversion_action
-  lookback windows on slice 1 + cron/sync persists slice 1 every forward fire. Six guards red-then-green; check:data leg
-  conversion-action-config-captured 18/18 RED BY DESIGN. ⛔ migrations/088_universe_attempt_lane_lookback.sql is IN-REPO
-  AND UNAPPLIED — it alters the constraint 084 created; no writer can produce a 'lookback' row in observe mode.
-· ⛔ GATE-A (round 8, 1 of 2 requests): `metrics.conversions FROM conversion_action` → query_error 49. The intel query has
-  failed on EVERY forward fire since ≥ 2026-07-27 (error_count = 2 × attempted, daily) and is the CAUSE of
-  ★CONVERSION-ACTION-CAPTURE-DARK; the round-7 widening rides it and is UNVERIFIED. Sibling: the audience sub-fetch
-  (★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE, query_error 45). DECISIONS (v) owns the record.
+── WHAT SHIPPED 2026-08-26 (git owns the full messages) ──
+`ff2140a` account zero-day — dormant days hold an account row again at the ONE producer, catchup inherits,
+30-day restate self-heals the fleet · `257cee2` anchor-missing guard — an absent account anchor now REFUSES
+the campaign write instead of passing silently as zero · `8bf225a` sealed-strip pass — a floor-sealed surface
+still gets its top strip, the top-edge lane publishes at fleet-terminal (349/349 descent-floor milestone
+banked) · `05016df` hour merge EXECUTED — 18,073 rows one spelling, 695 twins deleted identity-proven,
+manifest-reversible · `4c5782a` CITED gate — 8th protocol field, hook-verified citations + non-human envelope
+exemption.
 
-── ▶▶ NEXT STEPS 2026-09-08, IN ORDER (DECISIONS (v); QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION · ★CONVERSION-ACTION-CAPTURE-DARK) ──
-(1) THE INTEL-QUERY SPLIT — google-intelligence.ts:467: an ATTRIBUTE-ONLY conversion_action read (id · name · category ·
-    status · type · include_in_conversions_metric · click_through_lookback_window_days · view_through_lookback_window_days;
-    no segments.date, no metrics) feeding the extractor; the `count` seam (build-claude-context.ts:736, the single consumer)
-    summed from conv_by_campaign (:494) or rendered without a count — decide in the paste. Gate-A on the real API: 2 requests
-    (Foam OH 957d484e, Escential c39ee088 — expected click 90 / view 30 → boundary 90). Bath Fitter never a test account.
-(2) 088 IN THE SUPABASE SQL EDITOR = STOP-and-confirm 1 — apply BEFORE any 'publish' deploy; verify the notice line
-    "088 OK — universe_attempt_log_lane_chk = …" carries all three lanes.
-(3) SESSION-OPEN VERIFY of the observe tick (vercel.json: universe-resume every 5 min on Foam OH): universe_fire_log reads
-    mode observe · refusals carry 'lookback-boundary-unknown' ×1 · candidates 0 · selected 0 · requests_selected 0 · no
-    top-edge message; universe_attempt_log holds 0 rows with lane='lookback'; the 08:08Z forward fire persists slice 1
-    (entity_state_history conversion_action rows appear only AFTER (1) ships — the query is broken until then) and adds no
-    new error class (error_count stays 2 × attempted until (1) and the audience fix land).
-(4) FLIP `LOOKBACK_SLOT_MODE` TO 'publish' WITH A DATED RULING CITE ON THE LINE = STOP-and-confirm 2 (the guard refuses the
-    flip without it); the first attesting terminal lands on the first surface whose window is past T−B.
-(5) READ THE SIX DONE-DONE CONDITIONS (LORAMER_BACKFILL_DONE_DONE_V1) against the first-seal date: at B=90 Foam OH's first
-    window [2026-08-13..08-19] becomes askable 2026-11-17 — condition 2's "attested-empty" on that ground cannot be earlier.
-Then STEP 3 (the driver) as below; the lookback commit is what lets it carry the restate.
-
-
-── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
-   lane forward, writes forward_observation_log, NEVER universe_attempt_log; 800 s budget (sync route maxDuration). The
-   bound is rows written, not latency — Escential's 52-key pass already brushes 680 s; the unit is (client, family-slice, D)
-   under the 900 s CAS lease, one invocation loops pending units until budget; Gate-A: measure rows-per-family on Escential
-   for the 297 new surfaces first (ruling m). Research + adversary DONE 2026-09-05; shape in QUEUE ★FORWARD-DRIVER-SHAPE.
-   One writer per surface, two spellings, no row twice (ruling n). Completeness read from the ledger at 12:00Z with make-up
-   fires (ruling q). Cannot replace the producers until the lookback carries the restate. ──
-
-── BEHIND, IN ORDER ──
-· the filler (guard B now reads readForwardObservations; ★CATCHUP-OK-MARK-IGNORES-DEGRADED-SUBFETCH first)
-· the device merge (★ORDINAL-CLASS-REMAINDER — APPROVED, held at EXECUTE; one metrics_daily writer at a time)
-· the drain lease (★DRAIN-LEASE-IS-SHORTER-THAN-MAXDURATION — KNOWN-RED, its own flight)
-· the content-suitability metric set (★CONTENT-SUITABILITY-CLICKS-INCOMPATIBLE — narrow, never skip)
-
-── RULINGS THIS SESSION (2026-09-05) — DECISIONS LORAMER_SESSION_2026_09_05_RULINGS owns the text ──
-(a) descent on FOAM OH ONLY · (b) forward records are observations in their own table, never attests · (c) promotion is
-the lookback lane's · (d) a lease is derived from its lane's maxDuration, guarded; renewal and fencing rejected here ·
-(e) a segmented empty grain is never a zero row · (f) the top-edge lane froze by sharing the walk's ledger and anchor; the
-driver is forward-shaped · (g) forward-shaped routes run at 800 s, the queue route at 300 · (h) the 31-day restate is the
-restatement-aware carve-out, not a violation of condition 3 — QUALIFIED by (i) · (i) the restatement window is PER ACCOUNT
-and MEASURED: 90 on 15 of 17 accounts, 60 on 2, cost moving to age 96 — the 30-day default under-asks conversions on every
-account; a fleet constant is only the floor the read is checked against · (j) the lookback lane is the top-edge lane
-converted; its retirement is inside the lookback commit · (k) the lookback terminal is undifferentiated — condition 2's
-"stated reason" waits on state (B) after it · (l) the rolling restate is the driver's ranged request; a driver that asks
-yesterday alone ships condition 3 broken · (m) the driver's bound is rows written, not vendor latency — the "one client per
-fire fits" figure is WRONG; unit = (client, family-slice, D) under the 900 s CAS lease, budget checked per unit · (n) one
-writer per surface, two spellings across the set, no row written twice — neither one-vocabulary-at-ship (darkens 48 of 52
-for Lora and /next) nor permanent dual-write · (o) condition-1 finding, banked not decided: the catalogue's geo views carry
-no ad_group axis (17 forward keys do) · (p) route calls: uniform 31-day restate width; the 6 provable-now twins enter
-DRAIN_ALIAS only on a live-account per-client proof · (q) completeness is read from the ledger at 12:00Z, never the
-schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · (r) RPC half-proof: 9 live drain claims at
-the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
+── THE GET QUEUE — STATE AT WRAP (tokens live in QUEUE_OF_RECORD) ──
+1 forward-restate: **proving at the 08:08Z fire** (clock above) · 2 undefer-3 size: **MEASURED 4.31 GB/client
+— the fleet-rollout call is RUSS'S**, with the cold-tier archive · 3 false-wall rewalk: untouched ·
+4 top-edge lane: closed-pending-Gate-B (owed 3,186 draining at the sealed-strip cadence) · 5 forward-writer
+coverage: closed-pending-Gate-B · 6 legacy device merge: **APPROVED — the next-step block above** · 7 hour
+class: **DONE-DONE** · 8 refusal-status: measured LATENT (0 walked-unprobed refusals) · 9 deferred-9:
+unchanged, cold-tier gated.
 
 ── STANDING ──
-· check:data 2026-09-08: 23 green · 8 red · 1 crashed — red-for-red the 09-05 wrap, all queue-owned (claims 12+8 · throttle ·
-  geo_city/geo_postal alias drift · Influential Drones/meta density · five Foam OH walk-state legs). The crash is a SIGTERM
-  sent to a leg hung 35 min on a socket orphaned by the 16:13:41Z restart (★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT).
-  google-forward-account-day GREEN. Verdict quoted verbatim on every push.
-· Five capture lanes; walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
-· Deploy-poll-until-terminal · one-block output · CITED gate · wait-commands rule all bind as before.
-· No clock-derived retention wall anywhere in a plan: the floor is `resolveWalkStop` (max(vendor refusal, min(inception,
-  earliest held))); `universe_account_floor` holds 0 vendor refusals.
-· GET queue #5 (forward-writer coverage) reads OPEN on its token; the 08-26 wrap's "closed-pending-Gate-B" was wrong.
-· EXPOSURE, STATED FOR LORA: any Google conversion figure older than 30 days may be STALE on every client until the
-  lookback ships (★RESTATEMENT-WINDOW-UNDER-ASKS-CONVERSIONS). ⛔ GOOGLE_RESTATE_LOOKBACK_DAYS must NOT be widened as a
-  hotfix — at 91 days the measured 644 s pass exceeds maxDuration 800. The lookback lane is the fix.
-· entity_state_history holds 0 conversion_action rows — the config capture is DARK (★CONVERSION-ACTION-CAPTURE-DARK);
-  the lookback commit's daily `FROM conversion_action` read replaces it.
-· Escential reconcile figures banked 2026-09-05 (Aug: 3,706.13 / 332,092 / 7,156 / 720 / 131,700.20 · Sep 1–4: 312.33 /
-  20,968 / 321 / 34 / 13,046.98) — RECONCILED 2026-09-05 by Russ against the Google Ads app — all visible figures match,
-  CPA to the cent on both windows; conv value not on screen (DECISIONS (s)).
-· state (B) first proof account: Escential — Display and PMax-April '26 at $0 while the account was live (DECISIONS (t)).
-· condition-1 finding: the catalogue lacks an ad_group axis on the geo views (★CATALOGUE-LACKS-AD-GROUP-AXIS) — banked,
-  not decided.
-· 2026-09-08 16:09:04Z → 16:13:41Z: production Postgres INTERRUPTED and crash-recovered (instance-level; cause not in
-  postgres_logs; no cron fire in the window; capture lost nothing). Supabase compute-event read owed by Russ (DECISIONS (u)).
-· attempted=18 is not a re-claim detector; distinct cron_run_id per (client, window_end) is
-  (★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT). Escential is killed and re-claimed DAILY (09-05/06/07) — ruling m's
-  class, the driver's fix.
-· 4 forward asks sit outside the 349 selectable set (7 req/connection/day, 126/day) — ★FORWARD-DRIVER-SHAPE carries the four.
-· ⛔ MIGRATION 088 IS IN-REPO AND UNAPPLIED (universe_attempt_log_lane_chk still holds two values on the live database). Apply it
-  in the Supabase SQL Editor BEFORE any deploy that flips LOOKBACK_SLOT_MODE to 'publish'. In observe mode no writer can
-  produce a 'lookback' row, so the two-value CHECK is never met.
-· LOOKBACK_SLOT_MODE = 'observe' (universe-resume/route.ts:90): the second slot derives and logs, sends nothing, charges
-  nothing. The top-edge lane is RETIRED as of this deploy — Foam OH's strip [T−B+1 .. T−1] is held by nothing until the driver
-  (ruling j); top-edge-is-held (check:data) stays red on it, queue-owned.
-· At B=90 Foam OH's first lookback window [2026-08-13..08-19] becomes askable 2026-11-17; until then every surface reads
-  'waiting' (QUEUE (4)'s "already past the boundary" was false as written). Before slice 1 lands rows, every fire records
-  one 'lookback-boundary-unknown' refusal — the correct answer, not a defect.
-· The conversion_action intel query is BROKEN on main (query_error 49, since ≥ 07-27) and the audience sub-fetch beside it
-  (query_error 45); error_count on google forward fires reads 2 × attempted by construction until both are fixed.
-· Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption still owed by Russ.
+· Five capture lanes, walk pinned to Foam OH 957d484e by its cron URL; resolve clients by ID, never name.
+· The standing check:data reds are queue-owned (at wrap: 10 red + 1 crashed; hour leg GREEN as designed;
+  fleet-meter and the two Gate-B clocks are the movers). Verdict line quoted verbatim on every push.
+· Deploy-poll-until-terminal + one-block output + CITED gate all bind as before; wait-commands rule and the
+  CITED governance loophole are now QUEUE tokens (★WAIT-COMMANDS-ARE-INSTRUMENTS · ★CITED-GOVERNANCE-LOOPHOLE).
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
@@ -1712,7 +1615,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
   | LORAMER_SESSION_2026_08_26_V1, 2026-08-26/27 | do not relitigate.
   | LORAMER_SESSION_2026_09_04_RULINGS, 2026-09-04/05 | do not relitigate.
   **(v) STEP 2 PART A COMMITTED 2026-09-08 IN OBSERVE-ONLY — LORAMER_LOOKBACK_LANE_V1.** The tree: lane `'lookback'` on AttemptLane and the contract's inline union (both registered in db-enum-mirrors-ts, red→red→green on the third value); resolveTerminalLane names the third lane and a redelivery that ever touched the top edge still refuses; universe-resumer.ts carries COST_HORIZON_DAYS = 90 ⇐ measured 2026-09-05 N=64, LOOKBACK_FLEET_FLOOR_DAYS = 90 ⇐ ruling (i), deriveBoundaryDays (refuses UNKNOWN, no day literal), deriveBoundaryStrip (window | waiting-with-askableOn | none; full windows only; windowEnd ≤ T−B by construction, swept by guard), LOOKBACK_REQUESTS_PER_RUN = 2; deriveTopStrip DELETED; the resume route's second slot derives boundary windows in the sealed branch and the main scan, `LOOKBACK_SLOT_MODE = 'observe'` — derives and LOGS, sends nothing, charges nothing; the worker's third lane never self-chains; the conversion_action lookback windows join slice 1 and cron/sync persists slice 1 once per account per forward fire (catchup's copy never ran for google — declined at the lane gate — the dark capture's plumbing half). migrations/088_universe_attempt_lane_lookback.sql WRITTEN, IN-REPO, **NOT APPLIED** — it alters the constraint 084 created; "084" in the 2026-09-05 record was a mis-cite of the constraint's origin (round 6). Six guards red-then-green + the check:data leg conversion-action-config-captured (18/18 red by design). RULINGS INSIDE THE BUILD, ACCEPTED: (v.1) attestedEmptyDays' filter changed by ONE condition (`lane !== 'descend' && lane !== 'lookback'`) — the settled shape said both "resolveTerminalLane gains 'lookback' → attesting" and "attestedEmptyDays — no code" and those contradict with the old `!== 'descend'` filter; LOOKBACK ATTESTS GOVERNS, the resolver names the lane, the filter decides, the driven table pins the admitted set to exactly {descend, lookback}. (v.2) `boundaryDaysFor(clientId, accountId)` lives in src/lib/backfill/lookback-boundary.ts (imports the store) with the pure derivation in universe-resumer.ts — the resumer is compiled standalone by three guards with every '@/' import stubbed, so the store read cannot live there. (v.3) lookback-boundary-is-measured's body-finder read a return-type annotation's braces as the function body on its first live run (three false findings) — found and fixed in-tree the same round; the fixture now carries a return type. (v.4) THE GATE-A FINDING (round 8, 1 of 2 requests): `metrics.conversions FROM conversion_action` is refused (query_error 49) — the intel query has failed on every forward fire since ≥ 2026-07-27 and is the CAUSE of ★CONVERSION-ACTION-CAPTURE-DARK; the round-7 widening rides it and is UNVERIFIED; the fix is the attribute-only read plus the `count` seam (build-claude-context.ts:736) — banked at the QUEUE item, not built. (v.5) The arithmetic the observe tick will show: at B=90 Foam OH's first window [2026-08-13..08-19] becomes askable 2026-11-17; QUEUE (4)'s "already past the boundary" was false as written. THE HEAD MOVES to the intel-query split (Gate-A, 2 requests) → 088 in the SQL Editor (STOP 1) → session-open verify of the observe tick → the 'publish' flip (STOP 2). Evidence: rounds 6–9 of 2026-09-08 (this session), guard runs quoted in the round-7 and round-9 reports. | do not relitigate.
-  | LORAMER_SESSION_2026_09_05_RULINGS, 2026-09-05 | do not relitigate.
+  | LORAMER_SESSION_2026_09_05_RULINGS, 2026-09-05; (w) 2026-09-09 | do not relitigate.
 
 ## H. OPEN-QUEUE INDEX — still-open items only (DONE appendix excluded)  (source: LORAMER_QUEUE_OF_RECORD.md)
 - ★CHECKDATA-PUSHED-OVER-RED — ⛔ **NEW 2026-08-22. I PUSHED TO MAIN TWICE TONIGHT OVER A RED `check:data`, DISCLOSED BOTH TIMES, AND THAT IS EXACTLY WHY THIS NEEDS A DECISION RATHER THAN A HABIT.** CLAUDE.md requires the gate to be RUN and REPORTED before any push to origin main; it does not say whether a red BLOCKS. So the gate is currently **NEITHER A GATE NOR ADVISORY** — it is whatever the executor argues in the moment, which is the weakest possible state for a check that exists to stop bad data. THE READS: 13 red before the cutover, **9 red after**, and FOUR cleared *because delivery resumed* (`check-consumer-liveness` had been reading "DELIVERY IS DARK", plus check-capture-landing, check-frozen-cursors, check-parent-analyze). ⚠ **THE COUNT ALSO MOVED 11 → 13 BETWEEN TWO RUNS TWENTY MINUTES APART ON IDENTICAL CODE** — proof these track warehouse STATE, not the diff, which is precisely what makes a blanket block wrong AND a blanket pass wrong. **THE WORK IS A DECISION RUSS OWNS:** (a) hard gate with a named baseline of accepted reds, (b) advisory with the verdict quoted in every push report, or (c) split it — the state checks advisory, the correctness checks blocking. Until one is chosen, every push over a red is a judgement call re-litigated from scratch. src: the 2026-08-22 cutover pushes. open [LC]
@@ -1764,7 +1667,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★FORWARD-DRIVER-SHAPE — ⛔ **NEW 2026-09-05 (DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (m)(n)(p)(q)) — STEP 3 BEHIND THE LOOKBACK; RESEARCH + ADVERSARY DONE, SHAPE SETTLED, NOT BUILT.** §L carried no owner: the driver lived only as a CONTINUE_HERE step-3 paragraph whose fit figure was wrong (ruling m). THE SHAPE (LORAMER_FORWARD_DRIVER_V1, one commit): (1) driver module — units (client, family-slice, D) claimed by CAS at the 900 s lease (migration 086's parameter); one invocation loops pending units until FORWARD_BUDGET_MS, budget checked per unit ([[★BUDGET-CHECKED-ONCE-PER-FIRE-NOT-PER-UNIT-OF-WORK]]); catalogue loop over selectableEntries (google-ads-universe-writer.ts:586) MINUS the 20 identity/alias-covered surfaces (4 identity keys + the 16 DRAIN_ALIAS entries, universe-surfaces.ts:133-175); the legacy family = the ten builders moved out of sync/route.ts byte-identical (one writer per surface, ruling n); restate width UNIFORM 31 days (ruling p.1); inception clamp via readWalkStopAccountFacts (google-ads-universe-writer.ts:465) — resolveWalkStop (:482) NOT used, no descent. (2) observeForward extracted from sync/route.ts into forward-observation-log.ts, producer = slice name, writes forward_observation_log and NEVER universe_attempt_log (ruling f). (3) two make-up cron entries 12:30Z / 18:30Z running only the pending predicate (ruling q). (4) check:data leg "connection-day complete at 12:00Z — observations per active connection ≥ 364". (5) guards red-first: driver-never-writes-attempt-log · driver-skips-alias-covered · every-unit-observed · unit-lease-covers-max-duration · legacy-rows-byte-identical. REUSE VERIFIED BY READ 2026-09-05: captureSurfaceStreaming (universe-stream-capture.ts:109; apiRows :46 · observedZero :50/:186 · nonGrainOnly :75/:191 map 1:1 onto observationOutcome, forward-observation-log.ts:107) · buildUniverseRowsAtGrain via google-ads.adapter.ts:174 (catalogue spelling + grain stamp) · canonicalEntityId/canonicalBreakdownValue (universe-surfaces.ts:47/:71) · appendForwardObservation (:83) / readForwardObservations (:138) · googleAccountRow + provenance stamp. NOT reusable as-is: observeForward (route-local) · FORWARD_PRODUCER_SURFACES (:28 — becomes the legacy family's manifest, not the driver's) · the resumer's rotation (walk-only). BUDGET: 329 catalogue asks + 53 legacy requests = 382 per connection-day, ~6,900/day fleet under Basic 15k — NOT the binding constraint; rows written are (ruling m: Escential's 52-key pass is 1.07M rows in 644–762 s at 1,448–1,756 rows/s). GATE-A PRECONDITION: rows-per-family measured on Escential c39ee088 for the 297 new surfaces BEFORE the slice map is fixed. SEQUENCED AFTER the lookback commit (ruling c — a driver observation never seals; [[★LOOKBACK-LANE-OWNS-PROMOTION]]); retires the top-edge lane's live strip ([[★TOP-EDGE-HAS-NO-LANE]]). Live-path throughout (cron/sync on every google client). ⇒ MEASURED 2026-09-08 (hole map on Foam OH 957d484e, 2026-09-05, whole catalogue paged to exhaustion): forward asks 34 distinct (resource, segment) per connection (campaign/base is asked twice, by campaign-backfill and impression-share); 30 land on catalogue surfaces (observedUnsealed 30 · uncovered 319 · every other tier 0); 4 asks are OUTSIDE the 349 selectable set and the hole map cannot label them — campaign×segments.conversion_action_name (artifact delivers=false, query_error 53 on the catalogue's metric set) · geographic_view×segments.geo_target_province (delivers=false, observed zero on the probe account) · user_location_view×segments.geo_target_most_specific_location and ×segments.geo_target_postal_code (DEFERRED_ENTRIES, google-ads-universe-writer.ts:39-40). 7 requests per connection per day, 126/day fleet-wide, on surfaces the walk never asks — the one-writer-per-surface pass (ruling n) decides each: catalogue spelling, alias, or a stated deferral. src: 2026-09-05 driver research round C1–C7; 2026-09-08 hole-map measurement. open [LC]
 - ★CATALOGUE-LACKS-AD-GROUP-AXIS — ⚠ **NEW 2026-09-05 (DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (o)) — CONDITION-1 FINDING, BANKED NOT DECIDED.** §L greps (driver · fan-out · unit · slice · ad_group axis · geo by ad group · catalogue denominator) found no owner; [[★TWO-AXIS-VOCABULARY-COLLISION]] is the entity-vs-segment REPORTING axis (decided (b)), not this. THE FINDING: forward's 17 keys ad_group|geo_{city,country,county,metro,most_specific,postal,region,state} and ad_group|user_geo_{city,county,district,metro,most_specific,postal,province,region,state} ask geographic_view / user_location_view WITH ad_group.id added to the SELECT — a grain the 349-surface catalogue does not contain: its view rows have no ad_group axis, and the sums are not the same fact (Foam OH 2026-03: ad_group-keyed sums 8,351 vs the view's 14,354 — PMax spend has no ad group). A read-side alias would answer "geo by ad group" with account-wide roll-ups — the catastrophic direction. Under LORAMER_VENDOR_CATALOG_IS_THE_DENOMINATOR_V1 the denominator may be missing an axis, which is a CONDITION-1 question (every surface). ⚠ THE SAME READ MUST ANSWER FOR THE CAMPAIGN AXIS: the 12 campaign-keyed DRAIN_ALIAS entries passed on month-TOTAL equality (every spend has a campaign), which does not prove the catalogue row carries campaign.id — if it does not, "geo by campaign" through the alias is the same roll-up defect. WHAT CLOSES IT: (1) a read of the vendor's field catalog for geographic_view and user_location_view selectability with ad_group.id / campaign.id, and a row-level check that the catalogue rows carry the id; (2) if confirmed, a registry axis concept — surface × entity axis — and the 17 keys become catalogue spellings with an axis qualifier; until then they stay legacy (ruling n). Not the driver commit's. src: 2026-09-05 driver research round C1. open [LC]
 - ★RESTATEMENT-WINDOW-UNDER-ASKS-CONVERSIONS — ⛔ **NEW 2026-09-05 (DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (i)). THE LAW'S 30-DAY DEFAULT IS TOO SHORT ON EVERY GOOGLE ACCOUNT, MEASURED.** THE EXPOSURE, STATED FOR LORA: any Google conversion figure older than 30 days may be STALE on every client — late conversions land inside each action's click-through lookback, and forward re-asks only 31 days — until the lookback lane ships; cost is exposed too (Escential 5103888507: spend moved on 12 of 64 days aged 32-96, conversions on 7 — e.g. 2026-06-02 spend 64.45→64.11 conv 8→9; 2026-06-04 79.24→76.32 conv 5→6; billing-cycle adjustments, vendor-documented). THE MEASURED TABLE (live read 2026-09-05, enabled actions; account · max click-through · max view-through · the action carrying the max, COUNTING marked): Champion 6474303109 · 60 · 30 · local_services_phone_lead COUNTING — Marathon 9172645431 · 60 · 30 · local_services_phone_lead COUNTING — BusyBee 2369765237 · 90 · 30 · GA4 page_view COUNTING — Glenn Stearns 3987172917 · 90 · 30 · Form COUNTING — Inside 6679594156 · 90 · 1 · GA4 purchase (no counting action on the account) — The Escential Group 5103888507 · 90 · 1 · Website purchase — Ogmentor 5117368291 · 90 · 30 · Deposit Paid COUNTING — My Vacation Network 3386977311 · 90 · 30 · Purchase COUNTING — Glass Plus 5274299907 · 90 · 30 · Contact Us COUNTING — Thought Streams 8273465547 · 90 · 30 · website purchase COUNTING — Influential Drones 3699173394 · 90 · 30 · Google Shopping App Page View — Ennis 2102961791 · 90 · 30 · Submit Lead Form COUNTING — Veterinary mastermind 3110968443 · 90 · 30 · generate_lead — skinregimen 5769471601 · 90 · 30 · Google Shopping App Page View — Bath Fitter 6871055643 · 90 · 30 · GA4 contact_form_submission COUNTING — Tri-Copy 8289851425 · 90 · 30 · Submit lead form COUNTING — Foam OH 7688521852 · 90 · 30 · Website purchase. FLEET MAX 90 on 15 of 17 (11 on a COUNTING action); no account inside 30. ⛔ **THE HOTFIX IS REFUSED, WRITTEN HERE SO NOBODY PROPOSES IT: widening GOOGLE_RESTATE_LOOKBACK_DAYS (cron/sync/route.ts:122) to 91 is NOT the fix — at 91 days the measured 644 s heaviest pass (Escential, 52 grains × 31 days) exceeds maxDuration 800 and the fire is killed; the write volume, not the request count, is the ceiling. The lookback lane is the fix (★LOOKBACK-LANE-OWNS-PROMOTION).** Related, not the same item: ★RESTATEMENT-SWEEP-FLEET (single-shot capture fleet-wide; its "build to the law's windows" instruction is qualified by this measurement for Google). CLOSES when the lookback's first attesting terminal lands on a conversion-serving surface at that account's measured boundary. src: 2026-09-05 lookback round, Part 1. open [LC]
-- ★CONVERSION-ACTION-CAPTURE-DARK — ⛔ **NEW 2026-09-05.** entity_state_history holds 0 conversion_action rows against 497 campaign rows: the capture at src/lib/capture/entity-state-history.ts:167-175 (include_in_conversions from `intel.conversionActions`) has NEVER fired — the input it rides is empty on the live payload, so the one config family JUDGMENT LAW 1 named first ("conversion window, attribution setting … ARE DATA") is the one not held. Consequence: the restatement boundary (ruling (i)) has no store to read today. FIX = the lookback commit's daily `SELECT conversion_action.click_through_lookback_window_days, view_through_lookback_window_days, status, type, include_in_conversions_metric FROM conversion_action` — one request per account per forward fire (18/day) — persisted as conversion_action state keys, replacing the dark path; check:data leg conversion-action-config-captured (rows > 0 per google account) RED today by design until it ships. ⇒ **AMENDED 2026-09-08 (STEP 2 Gate-A, round 8 — THE CAUSE, FOUND ON THE FIRST REQUEST): the intel query that feeds the extractor is INVALID. `metrics.conversions FROM conversion_action` → `{"query_error":49} Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'CONVERSION_ACTION'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.` (verbatim, Foam OH 7688521852, 1 request). The 2026-08-03 catalogue pull recorded the same class for `impressions` on all five conversion_action entries (docs/google-ads-capture-universe.json, delivers:false). It has failed on EVERY forward fire since at least 2026-07-27 — sync/route.ts:285 "two DEGRADED sub-fetches (audience, conversion_action)"; cron_runs google forward error_count = 2 × attempted on every day 09-01..09-07 (24/12 · 24/12 · 18/9 · 16/8 · 36/18 · 36/18 · 36/18); 8 clients carry the error in client_context.intelligence_cache (oldest 2026-08-06, Escential 2026-08-20 verbatim). safeQuery swallows it to [] (google-intelligence.ts:166-186), so intel.conversionActions has been EMPTY on every payload and the extractor never saw a row — that is this item's cause, and it dates from the query's birth (df58e8a, 2026-05-20) if the resource never served metrics. The round-7 widening (the two lookback attributes on the same query) RIDES THE BROKEN QUERY AND IS UNVERIFIED — the API refuses at validation before the new fields are reached. FIX SHAPE, not built: (a) this item's own FIX line — an ATTRIBUTE-ONLY read (`SELECT conversion_action.id, name, category, status, type, include_in_conversions_metric, click_through_lookback_window_days, view_through_lookback_window_days FROM conversion_action WHERE conversion_action.status = 'ENABLED'`, no segments.date, no metrics); (b) the `count` seam — build-claude-context.ts:736 is the SINGLE consumer of conversionActions[].count (`${ca.count.toFixed(1)} conv` in the Conversion Actions prompt block); sum per action from the existing conv_by_campaign query (google-intelligence.ts:494, campaign × segments.conversion_action_name) or render the block without a count — named, undecided. Gate-A on (a): 2 requests (Foam OH, Escential), the ones round 8 did not spend. The sibling failure in the same swallow is [[★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE]].** src: 2026-09-05 lookback round, Part 1b; 2026-09-08 Gate-A round 8. open [LC]
+- ★CONVERSION-ACTION-CAPTURE-DARK — ⛔ **NEW 2026-09-05.** entity_state_history holds 0 conversion_action rows against 497 campaign rows: the capture at src/lib/capture/entity-state-history.ts:167-175 (include_in_conversions from `intel.conversionActions`) has NEVER fired — the input it rides is empty on the live payload, so the one config family JUDGMENT LAW 1 named first ("conversion window, attribution setting … ARE DATA") is the one not held. Consequence: the restatement boundary (ruling (i)) has no store to read today. FIX = the lookback commit's daily `SELECT conversion_action.click_through_lookback_window_days, view_through_lookback_window_days, status, type, include_in_conversions_metric FROM conversion_action` — one request per account per forward fire (18/day) — persisted as conversion_action state keys, replacing the dark path; check:data leg conversion-action-config-captured (rows > 0 per google account) RED today by design until it ships. ⇒ **AMENDED 2026-09-08 (STEP 2 Gate-A, round 8 — THE CAUSE, FOUND ON THE FIRST REQUEST): the intel query that feeds the extractor is INVALID. `metrics.conversions FROM conversion_action` → `{"query_error":49} Cannot select or filter on the following metrics: 'conversions'(could not support requested resources: 'CONVERSION_ACTION'), since metric is incompatible with the resource in the FROM clause or other selected segmenting resources.` (verbatim, Foam OH 7688521852, 1 request). The 2026-08-03 catalogue pull recorded the same class for `impressions` on all five conversion_action entries (docs/google-ads-capture-universe.json, delivers:false). It has failed on EVERY forward fire since at least 2026-07-27 — sync/route.ts:285 "two DEGRADED sub-fetches (audience, conversion_action)"; cron_runs google forward error_count = 2 × attempted on every day 09-01..09-07 (24/12 · 24/12 · 18/9 · 16/8 · 36/18 · 36/18 · 36/18); 8 clients carry the error in client_context.intelligence_cache (oldest 2026-08-06, Escential 2026-08-20 verbatim). safeQuery swallows it to [] (google-intelligence.ts:166-186), so intel.conversionActions has been EMPTY on every payload and the extractor never saw a row — that is this item's cause, and it dates from the query's birth (df58e8a, 2026-05-20) if the resource never served metrics. The round-7 widening (the two lookback attributes on the same query) RIDES THE BROKEN QUERY AND IS UNVERIFIED — the API refuses at validation before the new fields are reached. FIX SHAPE, not built: (a) this item's own FIX line — an ATTRIBUTE-ONLY read (`SELECT conversion_action.id, name, category, status, type, include_in_conversions_metric, click_through_lookback_window_days, view_through_lookback_window_days FROM conversion_action WHERE conversion_action.status = 'ENABLED'`, no segments.date, no metrics); (b) the `count` seam — build-claude-context.ts:736 is the SINGLE consumer of conversionActions[].count (`${ca.count.toFixed(1)} conv` in the Conversion Actions prompt block); sum per action from the existing conv_by_campaign query (google-intelligence.ts:494, campaign × segments.conversion_action_name) or render the block without a count — named, undecided. Gate-A on (a): 2 requests (Foam OH, Escential), the ones round 8 did not spend. The sibling failure in the same swallow is [[★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE]].** ⇒ **BUILT 2026-09-09 (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1) — GATE-B PENDING on the next 08:08Z forward fire.** The read is ATTRIBUTE-ONLY (ten attributes: id · name · category · status · type · include_in_conversions_metric · click_through_lookback_window_days · view_through_lookback_window_days · primary_for_goal · counting_type; `WHERE conversion_action.status = 'ENABLED'`; no metrics, no segments, no interpolation) at google-intelligence.ts; the count is Σ conv_by_campaign `metrics.conversions` by action name (campaign-attributed, window-scoped, a LOWER bound when the pair cap CONV_BY_CAMPAIGN_LIMIT is hit; ✗ NOT-included actions read 0.0 by definition) — the prompt header says so, the per-line shape at build-claude-context.ts:736 is unchanged, and the rendered prompt for Escential differs by that one header line only. ENFORCER: tests/guards/conversion-action-attribute-only.guard.mjs (template-scoped /FROM\s+conversion_action\b/, any metrics. / segments. / ${ is red, zero templates is red, the ten attributes pinned, denominator verdict, five self-tests; RED on d4eab64, GREEN after). GATE-A 2026-09-09, 2 requests: Foam OH 957d484e 22 rows (click max 90 / view max 30 → boundary 90) · Escential c39ee088 10 rows (click max 90 / view max 1 → boundary 90 — the round-1 "view 30" expectation was unmeasured and wrong; the derived boundary is unchanged); the real extractGoogleSlice1 + deriveBoundaryDays ran over both responses. THE WIRE CARRIES ENUM ORDINALS (LORAMER_CHANNEL_TYPE_ENUM_V1): category / status / type / counting_type are mapped through the library's enum tables, never a bare ordinal to the prompt. BANKED AS POINTERS, NOT FIXED: (a) the SCD2 planner closes a SCALAR row only on value change (entity-state-history.ts:88-98) and closes on absence for SET members only (:101-107), so an action that leaves ENABLED keeps its open lookback rows — the boundary can only OVER-ask; fix = status as a state key, next slice; (b) `limits.conversionActions = 50` is declared (build-claude-context.ts:74/:90) and applied nowhere; (c) the conv_by_campaign `all_conversions` widening is its own flight — it changes the Attribution block's row set (DECISIONS (w)); (d) the enforcer for the attribute-only shape is the guard file above; (e) PRE-EXISTING, found beside Gate-A: the Attribution block ALREADY renders `segments.conversion_action_category` as a raw ordinal (Escential cache 2026-08-20: conversionActionCategory "8" = ADD_TO_CART) at build-claude-context.ts:745 — the LORAMER_CHANNEL_TYPE_ENUM_V1 class, own flight. GATE-B: entity_state_history conversion_action rows > 0 on 18/18 (check leg conversion-action-config-captured flips green) · cron_runs google forward error_count 2×attempted → 1×attempted (the audience half remains, [[★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE]]). src: 2026-09-05 lookback round, Part 1b; 2026-09-08 Gate-A round 8; 2026-09-09 rounds 1–2. open — Gate-B pending [LC]
 - ★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT — ⛔ **NEW 2026-09-08 (STEP 1 open-verify, round 1). `cron_runs.connections_attempted` IS VOID AS A RE-CLAIM DETECTOR.** sync/route.ts:737 increments `summary.googleConnections` in memory and :1169 `progressSection('google')` writes the tally AFTER each client; a maxDuration kill never writes the in-progress client, so the killed client is −1 and its re-claim is +1 — the sum lands on exactly the distinct count. MEASURED on the 2026-09-06 fire (target 2026-09-05): fires 18 · attempted 18 · unfinished 1 while 19 claims happened — run 13620 (08:28:01Z) killed at 800 s mid-Escential geo with connections_attempted 5 and 6 clients in the observation log; run 13650 (08:58:01Z) re-claimed Escential after the 900 s lease. The 1d40b74 report's ">18 = a re-claim" reading is false for the one case it exists for. THE DETECTOR: `select client_id, count(distinct cron_run_id) from forward_observation_log where vendor='google' and window_end=<D> group by 1 having count(distinct cron_run_id) > 1` — 09-05 c39ee088=2 · 09-06 c39ee088=2 · 09-07 c39ee088=3, 60e6dd99=2. Recurs daily on Escential: FORWARD_BUDGET_MS (sync/route.ts:90/:725) admits any client under 680 s elapsed and the pass needs ~680 s (ruling m). The driver ([[★FORWARD-DRIVER-SHAPE]]) is the fix, never a wider budget; the counter itself (stamp the attempt BEFORE the client's work, or count from the observation log) rides that commit. src: 2026-09-08 STEP 1 rounds 1–3. open [LC]
 - ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT — ⛔ **NEW 2026-09-08. AN INSTRUMENT THAT CAN HANG REPORTS NOTHING, AND NOTHING READS LIKE GREEN (LORAMER_BACKFILL_DONE_DONE_V1 condition 6).** scripts/run-checkdata.mjs:180 `spawnSync` carries no `timeout`; tests/guards/no-owed-day-left-behind.guard.mjs:97 `new pg.Client(...)` carries no connectionTimeoutMillis / query_timeout. 2026-09-08: leg 29 of 32 sat 35 min at 0.62 s CPU on an ESTABLISHED socket to the session pooler with NO server backend (pg_stat_activity empty for it) after the 16:13:41Z instance restart orphaned its connection; the verdict line would never have printed. Terminated by SIGTERM at 16:48:11Z after a fresh pooler connection proved healthy (801 ms); the runner recorded CRASHED (signal=SIGTERM) and finished the last 3 legs. Second non-green of the same leg in two sessions (09-05: crashed on its own). FIX SHAPE, not built: per-leg `timeout` in spawnSync classified CRASHED with reason 'timeout' + connect/query timeouts on every guard's pg.Client, both red-first. src: 2026-09-08 STEP 1 round 3. open [LC]
 - ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE — ⚠ **NEW 2026-09-08 (found beside the Gate-A cause; PRE-EXISTING, NOT THE LOOKBACK LANE'S).** The intelligence layer's `audience` sub-fetch (google-intelligence.ts:521, safeQuery label 'audience') fails on every call with `{"query_error":45} Error in audience_view: is not a valid resource` — the OTHER half of the daily error pair recorded at sync/route.ts:285 and the second entry in every client's cached fetchErrors (client_context, Escential 2026-08-20 verbatim). Swallowed to [] by safeQuery (google-intelligence.ts:166-186), so the prompt's audience block has been silently empty since at least 2026-07-27. CONSEQUENCE BEYOND THE BLOCK: every google forward fire's error_count reads exactly 2 × attempted BY CONSTRUCTION (this + [[★CONVERSION-ACTION-CAPTURE-DARK]]), so a real third error is invisible in the count — the adjacent-number class (LORAMER_ADJACENT_NUMBER_V1) on an instrument the fleet reads daily. FIX SHAPE, not built: the resources that serve audience rows are `ad_group_audience_view` / `campaign_audience_view` (G-FILL#8 names them); re-point the query at the one that carries the selected fields, Gate-A against the real API (1 request), and the standing error pair drops to zero so error_count means something again. Ranked WITH the intel-query split (same file, same swallow), behind the lookback lane. src: 2026-09-08 Gate-A round 8 (cache read + sync/route.ts:285). open [LC]
@@ -2494,8 +2397,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1056 tokens indexed · 357 resolve to BOTH a decision and a queue item ·
-139 decision-only · 560 queue-only.
+TOTALS: 1058 tokens indexed · 357 resolve to BOTH a decision and a queue item ·
+139 decision-only · 562 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2780,7 +2683,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★INCEPTION-DISCOVERY-HAS-NO-EXECUTOR — OPEN · decisions 0 · queue 3 · last 2026-08-13
 - ★INFLUENTIAL-SHOPIFY-ZERO-COMPLETE-MONTHS — OPEN · decisions 0 · queue 1 · last 2026-08-01
 - ★INSIGHT-INVESTIGATOR — OPEN · decisions 1 · queue 2 · last 2026-07-17
-- ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE — OPEN · decisions 0 · queue 2 · last 2026-09-08
+- ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE — OPEN · decisions 0 · queue 2 · last 2026-09-09
 - ★INVALID-PAGE-TOKEN-REQUESTS-COUNT-AGAINST-QUOTA — OPEN · decisions 1 · queue 1 · last 2026-08-09
 - ★IOS-NO-STANDARDS-FIX-FOR-KEYBOARD-VIEWPORT — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★IOS-VISUAL-VIEWPORT-OFFSETTOP-NEVER-RESETS — OPEN · decisions 2 · queue 1 · last 2026-08-07
@@ -3098,6 +3001,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CARD_PLATFORM_RESOLUTION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_CATCHUP_CACHE_AMPLIFICATION_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_CATCHUP_QUOTA_PAUSE_V1 — OPEN · decisions 1 · queue 1 · last 2026-09-30
+- LORAMER_CHANNEL_TYPE_ENUM_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-09
 - LORAMER_CHAT_ANSWER_RECOVERY_V1 — DONE · decisions 2 · queue 1 · last 2026-09-30
 - LORAMER_CHAT_ASSISTANT_FULL_BLEED_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-07
 - LORAMER_CHAT_CLIENT_ABORT_V1 — OPEN · decisions 2 · queue 2 · last 2026-09-30
@@ -3161,6 +3065,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_CONNECTION_PROBE_WOO_V1 — DONE · decisions 0 · queue 1 · last 2026-06-24
 - LORAMER_CONSUMER_LIVENESS_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-17
 - LORAMER_CONV_NEWEST_WINDOW_V1 — OPEN · decisions 0 · queue 4 · last 2026-09-30
+- LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-09
 - LORAMER_COVERAGE_ANCHOR_WINDOWS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-01
 - LORAMER_COVERAGE_BREAKDOWN_GRAIN_V1 — OPEN · decisions 1 · queue 3 · last 2026-07-31
 - LORAMER_COVERAGE_DENSITY_V1 — OPEN · decisions 0 · queue 5 · last 2026-08-15

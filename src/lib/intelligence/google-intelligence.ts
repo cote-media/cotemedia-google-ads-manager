@@ -9,6 +9,7 @@ import { composeGoogleAdName } from '@/lib/google-ad-display-name' // LORAMER_GO
 import { noteGoogleQuotaError, readGoogleQuotaPause } from '@/lib/backfill/google-quota-store' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import { GoogleQuotaError } from '@/lib/backfill/google-quota' // LORAMER_QUOTA_ARM_AT_ERROR_BOUNDARY_V1
 import type { PlatformIntelligence, IntelligenceMetrics, IntelligenceCampaign, IntelligenceAdGroup, IntelligenceAd, IntelligenceKeyword, IntelligenceSearchTerm, IntelligenceConversionAction, IntelligenceConversionByCampaign, IntelligenceAudience, IntelligenceDemographic, IntelligenceAdAsset, IntelligenceAssetGroup, IntelligenceAssetGroupAsset, IntelligenceAssetCombination, IntelligenceGeographic, IntelligenceDeviceSplit, IntelligenceHourly, IntelligenceImpressionShare, IntelligenceRecommendation } from './intelligence-types'
+import { CONV_BY_CAMPAIGN_LIMIT } from './intelligence-types' // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the one owner of the pair cap
 
 // LORAMER_GAQL_DATE_WINDOW_V1 — was per-file date math with a `DURING ${dateRange}` tail (a hard GAQL error
 // for any non-enum string; this helper feeds ELEVEN intelligence queries, so one bad preset killed them all
@@ -460,32 +461,28 @@ export async function fetchGoogleIntelligence(
     }
   })
 
-  // ── Conversion Actions ─────────────────────────────────────────────────────
-  // LORAMER_LOOKBACK_LANE_V1 — the two lookback windows ride the SAME query (attributes on the resource; zero added
-  // requests). ⚠ ADAPTER CHANGE GATE (HANDOFF): the widened SELECT is a HYPOTHESIS until Gate-A runs it against the
-  // real API — this commit fires no vendor request; the proof is owed before apply (STOP-and-confirm 1).
+  // ── Conversion Actions — ATTRIBUTE-ONLY (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1) ─────────────────────
+  // ⛔ NO metrics, NO segments, NO interpolation of any kind on this resource. `metrics.conversions FROM
+  // conversion_action` was refused by Google at validation from the query's birth (query_error 49 — the resource
+  // serves only all_conversions / all_conversions_value / conversion_last_* — v23 field reference), safeQuery
+  // swallowed it to [] on every forward fire since ≥ 2026-07-27, and entity_state_history held 0 conversion_action
+  // rows (★CONVERSION-ACTION-CAPTURE-DARK). The lookback lane's boundary is READ from the rows this query feeds
+  // (entity-state-history.ts slice 1 → lookback-boundary.ts), so the read carries nothing a compat rule can refuse.
+  // The per-action COUNT is no longer read here: it is Σ conv_by_campaign by action name, below.
+  // status = 'ENABLED' only: ENABLED is the one status that RECORDS conversions (v23 ConversionActionStatus), so
+  // only ENABLED actions can restate a past day; a REMOVED/HIDDEN action's window governs nothing that can still
+  // arrive. Guard: tests/guards/conversion-action-attribute-only.guard.mjs. Gate-A 2026-09-09: 2 requests
+  // (Foam OH 957d484e, Escential c39ee088 — client ids per src/lib/clients/canonical.ts) accepted.
   const convRows = await safeQuery('conversion_action', () => customer.query(`
     SELECT conversion_action.id, conversion_action.name, conversion_action.category,
+    conversion_action.status, conversion_action.type,
     conversion_action.include_in_conversions_metric,
     conversion_action.click_through_lookback_window_days,
     conversion_action.view_through_lookback_window_days,
-    metrics.conversions
+    conversion_action.primary_for_goal, conversion_action.counting_type
     FROM conversion_action
-    WHERE ${dateFilter}
-    AND conversion_action.status = 'ENABLED'
+    WHERE conversion_action.status = 'ENABLED'
   `), fetchErrors)
-
-  const conversionActions: IntelligenceConversionAction[] = convRows.map((row: any) => ({
-    id: String(row.conversion_action?.id || ''),
-    name: String(row.conversion_action?.name || ''),
-    category: String(row.conversion_action?.category || ''),
-    platform: 'google' as const,
-    includeInConversions: Boolean(row.conversion_action?.include_in_conversions_metric),
-    count: Number(row.metrics?.conversions || 0),
-    // LORAMER_LOOKBACK_LANE_V1 — absent or non-numeric stays undefined (the extractor writes nothing for it).
-    clickThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.click_through_lookback_window_days)) && row.conversion_action?.click_through_lookback_window_days != null ? Number(row.conversion_action.click_through_lookback_window_days) : undefined,
-    viewThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.view_through_lookback_window_days)) && row.conversion_action?.view_through_lookback_window_days != null ? Number(row.conversion_action.view_through_lookback_window_days) : undefined,
-  }))
 
   // ── Conversions × Campaign (LORAMER_PROJECT_3_STEP_2B_V1) ──────────────────
   // Per-campaign breakdown of which conversion actions fired where.
@@ -500,7 +497,7 @@ export async function fetchGoogleIntelligence(
     AND campaign.status != 'REMOVED'
     AND metrics.conversions > 0
     ORDER BY metrics.conversions DESC
-    LIMIT 200
+    LIMIT ${CONV_BY_CAMPAIGN_LIMIT}
   `), fetchErrors)
 
   const conversionsByCampaign: IntelligenceConversionByCampaign[] = convByCampaignRows.map((row: any) => ({
@@ -510,6 +507,39 @@ export async function fetchGoogleIntelligence(
     conversionActionCategory: String(row.segments?.conversion_action_category || ''),
     count: Number(row.metrics?.conversions || 0),
     value: Number(row.metrics?.conversions_value || 0),
+  }))
+
+  // ── Conversion Actions × campaign-attributed count (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1) ──────────
+  // count = Σ conv_by_campaign metrics.conversions by conversion_action_name: the Conversions column, window-scoped,
+  // over non-REMOVED campaigns, top CONV_BY_CAMPAIGN_LIMIT pairs (a LOWER bound when capped — the prompt header says
+  // so). ✗ NOT-included actions read 0 by definition (metrics.conversions excludes them). ZERO added requests: both
+  // queries already ran per account per fire. Joined by NAME — segments.conversion_action_name is the same string
+  // as conversion_action.name; same-named actions merge.
+  // Enum attributes arrive as ORDINALS on the wire (LORAMER_CHANNEL_TYPE_ENUM_V1, measured 2026-08-01) — mapped
+  // through the library's own enum tables (the google-ads.ts:158 precedent). Never a bare ordinal to the prompt,
+  // never dropped: an unrecognised value reads UNKNOWN(v).
+  const enumName = (table: Record<string | number, string | number>, raw: unknown): string | undefined => {
+    if (raw === null || raw === undefined || raw === '') return undefined
+    const v = String(raw).trim()
+    const name = /^\d+$/.test(v) ? table[Number(v)] : (table[v.toUpperCase()] !== undefined ? v.toUpperCase() : undefined)
+    return typeof name === 'string' ? name : `UNKNOWN(${v})`
+  }
+  const attributedByAction = new Map<string, number>()
+  for (const c of conversionsByCampaign) attributedByAction.set(c.conversionActionName, (attributedByAction.get(c.conversionActionName) ?? 0) + c.count)
+  const conversionActions: IntelligenceConversionAction[] = convRows.map((row: any) => ({
+    id: String(row.conversion_action?.id || ''),
+    name: String(row.conversion_action?.name || ''),
+    category: enumName(enums.ConversionActionCategory as any, row.conversion_action?.category) ?? '',
+    platform: 'google' as const,
+    includeInConversions: Boolean(row.conversion_action?.include_in_conversions_metric),
+    count: attributedByAction.get(String(row.conversion_action?.name || '')) ?? 0,
+    // LORAMER_LOOKBACK_LANE_V1 — absent or non-numeric stays undefined (the extractor writes nothing for it).
+    clickThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.click_through_lookback_window_days)) && row.conversion_action?.click_through_lookback_window_days != null ? Number(row.conversion_action.click_through_lookback_window_days) : undefined,
+    viewThroughLookbackWindowDays: Number.isFinite(Number(row.conversion_action?.view_through_lookback_window_days)) && row.conversion_action?.view_through_lookback_window_days != null ? Number(row.conversion_action.view_through_lookback_window_days) : undefined,
+    status: enumName(enums.ConversionActionStatus as any, row.conversion_action?.status),
+    type: enumName(enums.ConversionActionType as any, row.conversion_action?.type),
+    primaryForGoal: typeof row.conversion_action?.primary_for_goal === 'boolean' ? row.conversion_action.primary_for_goal : undefined,
+    countingType: enumName(enums.ConversionActionCountingType as any, row.conversion_action?.counting_type),
   }))
 
   // ── Audience Segments (LORAMER_PROJECT_3_STEP_2C_V1) ───────────────────────
@@ -1001,6 +1031,7 @@ export async function fetchGoogleIntelligence(
     searchTerms,  // LORAMER_PROJECT_3_STEP_2A_V1
     conversionActions,
     conversionsByCampaign,  // LORAMER_PROJECT_3_STEP_2B_V1
+    conversionsByCampaignCapped: convByCampaignRows.length >= CONV_BY_CAMPAIGN_LIMIT,  // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1
     audiences,              // LORAMER_PROJECT_3_STEP_2C_V1
     demographics,           // LORAMER_PROJECT_3_STEP_2D_V1
     adAssets,               // LORAMER_PROJECT_3_STEP_2E_V1
