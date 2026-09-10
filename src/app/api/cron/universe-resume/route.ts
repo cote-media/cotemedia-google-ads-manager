@@ -865,7 +865,12 @@ export async function GET(request: Request) {
     // across BOTH slots (descent + lookback). The per-lane split stays in the response body above. A witness that
     // carries one slot while the meter counts both is the 2026-09-09 −190 drift, and would return on the first
     // publish-mode fire.
-    candidates: candidates.length, published: published.length + lookbackToSend.length, requestsSelected: sel.requests + lookbackRequestsToSend,
+    // ⛔ ★FIRE-LOG-PUBLISHED-DOUBLE-COUNTS-LOOKBACK (fixed 2026-09-10): `published` ALREADY holds every executed unit of
+    // BOTH lanes — the lookback units enter the executed set at the `...lookbackToSend.map(…)` spread above and are
+    // pushed at `published.push(…)` with its lane — so the f75d8aa sum `published.length + lookbackToSend.length` counted
+    // each lookback unit twice (fire 6688: published 4 vs publishedOf 2; the 24 h witness 68 vs 34 attempts → a FALSE
+    // EXECUTION-DARK in check-walk-liveness). ONE addend: the witness equals publishedOf by construction.
+    candidates: candidates.length, published: published.length, requestsSelected: sel.requests + lookbackRequestsToSend,
     advanced: advancedCovered, refusals, elapsedMs,
   })
 

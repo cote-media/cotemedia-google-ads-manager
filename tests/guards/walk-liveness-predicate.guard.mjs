@@ -61,6 +61,16 @@ if (mod) {
   const v5 = d({ fires: 288, publishedTotal: 0, rowsWritten24h: 0, advancedTotal: 0, attemptsStarted24h: 0, latestCompleted: { ...sealedRow, refusals: { 'floor-sealed': 348, 'nothing-owed': 1, 'lookback-boundary-unknown': 1 } }, latestCompletedRefusals: { 'floor-sealed': 348, 'nothing-owed': 1, 'lookback-boundary-unknown': 1 }, scannedLatest: 0 })
   if (v5.ok) findings.push(`(5) 348 sealed + 1 'nothing-owed' reads ${v5.state} — an idle that is not fully explained by seals must read WEDGED`)
 
+  // (8) THE 2026-09-10 DOUBLE-COUNT SIGNATURE (★FIRE-LOG-PUBLISHED-DOUBLE-COUNTS-LOOKBACK): the f75d8aa heartbeat wrote
+  //     published = 2 × the executed lookback units (fire 6688: 4 vs publishedOf 2), so the 24 h witness read 68 published
+  //     against 34 attempts (16:0xZ check:data). The predicate is RIGHT to call that EXECUTION-DARK — it is the witness that
+  //     lied — and this fixture pins the signature so the false red is recognisable: attempts == published/2 exactly.
+  const v8 = d({ fires: 200, publishedTotal: 68, rowsWritten24h: 68735, advancedTotal: 0, attemptsStarted24h: 34, latestCompleted: { ...publishedRow, published: 4 }, latestCompletedRefusals: publishedRow.refusals, scannedLatest: 0 })
+  if (v8.ok || v8.state !== 'EXECUTION-DARK') findings.push(`(8) the double-count signature (68 published / 34 attempts, latest 4) reads ${v8.state} — expected EXECUTION-DARK (the predicate must not be loosened to hide a lying witness)`)
+  // (8b) the same 24 h with the heartbeat fixed (each lookback unit counted once): published == attempts → ALIVE 34/34
+  const v8b = d({ fires: 200, publishedTotal: 34, rowsWritten24h: 68735, advancedTotal: 0, attemptsStarted24h: 34, latestCompleted: { ...publishedRow, published: 2 }, latestCompletedRefusals: publishedRow.refusals, scannedLatest: 0 })
+  if (!v8b.ok || v8b.state !== 'ALIVE') findings.push(`(8b) 34 published / 34 attempts (latest 2 in flight) reads ${v8b.state} — expected ALIVE`)
+  else if (!/34\/34/.test(v8b.reason)) findings.push(`(8b) ALIVE reason does not print 34/34: ${String(v8b.reason).slice(0, 140)}`)
   // (6) published > 0 with attempts unmeasured → red
   const v6 = d({ fires: 60, publishedTotal: 118, rowsWritten24h: 0, advancedTotal: 0, latestCompleted: publishedRow, latestCompletedRefusals: publishedRow.refusals, scannedLatest: 0 })
   if (v6.ok) findings.push(`(6) published > 0 with attemptsStarted24h UNMEASURED reads ${v6.state} — an instrument that cannot read consumption may not claim life`)

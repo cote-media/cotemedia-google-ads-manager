@@ -38,7 +38,13 @@ else {
   if (!hb) findings.push("(a) no fireHeartbeat({ fireOutcome: 'completed' … }) call found — the fire's completion heartbeat is gone")
   else {
     const call = hb[0]
-    if (!/published:\s*published\.length\s*\+\s*lookbackToSend\.length/.test(call)) findings.push("(a) the completion heartbeat's `published` does not sum both slots (expected `published.length + lookbackToSend.length`) — lookback units would be metered and unwitnessed.")
+    // ★FIRE-LOG-PUBLISHED-DOUBLE-COUNTS-LOOKBACK (2026-09-10): the publish path pushes EVERY executed unit — descent AND lookback —
+    // into `published` (route.ts :760 → :805), so `published.length` already carries both slots. The f75d8aa sum
+    // `published.length + lookbackToSend.length` counted each lookback unit TWICE (fire 6688: published 4 vs publishedOf 2; the
+    // 24 h witness 68 vs 34 attempts → walk-liveness read a FALSE EXECUTION-DARK). ONE addend, no second term.
+    if (/published:\s*published\.length\s*\+/.test(call)) findings.push("(a) the completion heartbeat's `published` adds a second term to `published.length` — every executed unit (both lanes) is already pushed into `published` at :805, so a second addend counts each lookback unit twice (fire 6688: 4 vs publishedOf 2).")
+    if (!/published:\s*published\.length\s*,/.test(call)) findings.push("(a) the completion heartbeat's `published` is not `published.length` — the witness must equal the FIRE line's publishedOf (the executed set, both lanes).")
+    if (!/published\.push\(\{\s*lane/.test(src)) findings.push("(a) the executed set no longer pushes `{ lane, … }` into `published` — if lookback units stop entering `published`, the single-addend witness under-counts them (the −190 shape)")
     if (!/requestsSelected:\s*sel\.requests\s*\+\s*lookbackRequestsToSend/.test(call)) findings.push("(a) the completion heartbeat's `requestsSelected` does not sum both slots (expected `sel.requests + lookbackRequestsToSend`) — the 2026-09-09 −190 shape returns on the first publish fire.")
   }
   if (!/const lookbackRequestsToSend\s*=\s*LOOKBACK_SLOT_MODE === 'publish'\s*\?\s*selLook\.requests\s*:\s*0/.test(src)) findings.push("(b) `lookbackRequestsToSend` is not derived from the same LOOKBACK_SLOT_MODE switch as `lookbackToSend` — the two halves of the second slot could disagree.")
@@ -59,4 +65,4 @@ if (findings.length) {
   console.error(`[fire-log-witness-covers-both-slots] FAIL — ${findings.length} finding(s):\n  - ${findings.join('\n  - ')}`)
   process.exit(1)
 }
-console.log('[fire-log-witness-covers-both-slots] PASS — the completion heartbeat sums published and requestsSelected across the descent and lookback slots, both derived from the one mode switch; the check reads VISIBLE on the summed witness and DRIFT on the omitted one (STUB shapes).')
+console.log('[fire-log-witness-covers-both-slots] PASS — the completion heartbeat witnesses both slots ONCE: published = published.length (every executed unit of either lane is pushed there), requestsSelected = sel.requests + lookbackRequestsToSend, both derived from the one mode switch; the check reads VISIBLE on the summed witness and DRIFT on the omitted one (STUB shapes).')
