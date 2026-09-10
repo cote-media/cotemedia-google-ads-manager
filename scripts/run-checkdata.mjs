@@ -36,6 +36,24 @@
 // instrument outranks a finding because it bounds what the run can claim.
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
+// LORAMER_CHECKDATA_LEG_BUDGET_V1 — every leg runs under a budget DERIVED from its own recorded history
+// (scripts/lib/checkdata-durations.json, written by this runner; BUDGET_MULTIPLE × the trailing max of its completed
+// runs). A leg with no history is UNBUDGETED and printed as such. ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT: on 2026-09-08 a
+// leg sat 35 min on an orphaned socket and no verdict line ever printed.
+// ⛔ LOADED BY PATH, WITH A NAMED FALLBACK: checkdata-verdict-line.guard.mjs copies this runner alone into a sandbox
+// and drives it; a static relative import would fail there and print no verdict. Outside the repo tree the runner
+// says so, runs every leg UNBUDGETED, and records nothing — never a silent cap, never a silent skip.
+import { pathToFileURL, fileURLToPath } from 'node:url'
+const budgetLib = await (async () => {
+  const candidates = [
+    path.resolve(process.env.LORAMER_GUARD_ROOT || process.cwd(), 'scripts/lib/checkdata-budget.mjs'),
+    fileURLToPath(new URL('./lib/checkdata-budget.mjs', import.meta.url)),
+  ]
+  for (const p of candidates) { try { return await import(pathToFileURL(p).href) } catch { /* try the next */ } }
+  console.error('[run-checkdata] budget library unavailable (scripts/lib/checkdata-budget.mjs not found beside this runner) — every leg runs UNBUDGETED and nothing is recorded')
+  return { BUDGET_MULTIPLE: null, loadLedger: () => ({ legs: {} }), saveLedger: () => {}, budgetFor: () => ({ budgetMs: null, basis: 'UNBUDGETED — budget library unavailable' }), recordDuration: (l) => l }
+})()
+const { loadLedger, saveLedger, budgetFor, recordDuration, BUDGET_MULTIPLE } = budgetLib
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 
@@ -178,20 +196,32 @@ function printVerdict(line) { verdictPrinted = true; console.log(line) }
 
 try {
   const results = []
+  const ledger = loadLedger(ROOT)
   for (const c of CHECKS) {
+    const { budgetMs: budget, basis } = budgetFor(ledger, c.name)
+    const started = Date.now()
     const res = spawnSync(process.execPath, [path.join(ROOT, c.cmd[0]), ...c.cmd.slice(1)], {
       cwd: ROOT, env: process.env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+      timeout: budget ?? undefined, killSignal: 'SIGTERM',
     })
+    const ms = Date.now() - started
     const stdout = String(res.stdout || '')
     const stderr = String(res.stderr || '')
     // Re-emit verbatim, in order, as each check finishes — the per-check output stays the evidence.
     if (stdout) process.stdout.write(stdout)
     if (stderr) process.stderr.write(stderr)
+    const budgetKilled = res.error?.code === 'ETIMEDOUT' || (budget !== null && res.signal === 'SIGTERM' && ms >= budget - 50)
+    const bucket = classify(res)
+    console.log(`[run-checkdata] leg ${c.name}: ${ms} ms · budget ${budget === null ? 'UNBUDGETED' : `${budget} ms`} (${basis})${budgetKilled ? ' · KILLED — budget exceeded' : ''}`)
     results.push({
-      name: c.name, bucket: classify(res),
-      status: res.status, signal: res.signal, spawnError: res.error ? String(res.error.message) : null,
+      name: c.name, bucket,
+      status: res.status, signal: res.signal,
+      spawnError: budgetKilled ? `budget exceeded — ${ms} ms against ${budget} ms (${BUDGET_MULTIPLE} × trailing max; ${basis})` : (res.error ? String(res.error.message) : null),
       reds: redLines(stdout + '\n' + stderr),
     })
+    recordDuration(ledger, c.name, ms, bucket)
+    // Written after EVERY leg so a killed run still leaves the legs that completed on record.
+    try { saveLedger(ROOT, ledger) } catch (e) { console.error(`[run-checkdata] durations ledger not written: ${e.message}`) }
   }
 
   const red = results.filter((r) => r.bucket === 'FAILED' || (r.bucket === 'PASSED' && r.reds.length > 0))

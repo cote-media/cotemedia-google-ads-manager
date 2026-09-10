@@ -464,6 +464,7 @@ const GUARDS = [
   'tests/guards/lookback-slot-mode-is-gated.guard.mjs',
   'tests/guards/lookback-window-ends-at-boundary.guard.mjs',
   'tests/guards/lookback-boundary-is-measured.guard.mjs',
+  'tests/guards/checkdata-legs-carry-budget.guard.mjs', // LORAMER_CHECKDATA_LEG_BUDGET_V1 — per-leg budgets derived from the durations ledger
   'tests/guards/fire-log-witness-covers-both-slots.guard.mjs', // LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — the heartbeat sums both slots
   'tests/guards/walk-liveness-predicate.guard.mjs', // LORAMER_WALK_LIVENESS_RECUT_V1 — six states on real fire-log rows; SEALED-IDLE ≠ WEDGED
   'tests/guards/push-gate.guard.mjs', // LORAMER_PUSH_GATE_V1 — git push blocked on any non-green or unparseable guard verdict (PreToolUse Bash)

@@ -1,0 +1,4 @@
+{
+  "$comment": "LORAMER_CHECKDATA_LEG_BUDGET_V1 — per-leg wall-clock ms of the last completed check:data runs; the ONLY source of each leg's spawn/pg budget (BUDGET_MULTIPLE × trailing max). Written by scripts/run-checkdata.mjs; never hand-edited. Empty until the first run after 2026-09-10 records it — every leg is UNBUDGETED and printed as such until then.",
+  "legs": {}
+}

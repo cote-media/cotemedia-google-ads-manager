@@ -47,14 +47,19 @@ import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
+import { loadLedger, budgetFor } from '../../scripts/lib/checkdata-budget.mjs'
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const CLIENT = '957d484e-d0c4-4dd0-b382-d8499d556252'   // Foam OH — the only client the walk has ever run for
 const VENDOR = 'google'
 
-// The skip traced BY HAND on 2026-08-18 from the attempt log + metrics_daily. If the detector cannot see this,
-// it is broken. Asked once as part of [2026-07-14..2026-08-12], errored, never asked again; zero rows held.
-const KNOWN = { resource: 'group_content_suitability_placement_view', segment: '', from: '2026-07-29', to: '2026-08-12' }
+// ⛔ THE KNOWN-LIVE SKIP IS DERIVED FROM THE LEDGER AT RUN TIME, NEVER TYPED (LORAMER_NO_OWED_DAY_DERIVED_FIXTURE_V1).
+// The hand-traced fixture of 2026-08-18 (group_content_suitability_placement_view (base) 2026-07-29..08-12) was
+// ATTESTED on 2026-08-25 by the top-edge lane (attempt_finished 'zero' over 2026-07-26..08-24), so the detector
+// correctly stopped reporting it — and this guard-on-guard read "BROKEN" on a healthy detector for three runs
+// (09-05, 09-08, 09-09). A hand fixture dies the next time the walk attests it. The candidates are now every
+// error/skipped window on this client with NO later ok/zero/nongrain window covering it; the detector must see
+// at least one of them, and the report prints which and how many. Zero candidates → CANNOT-SELF-TEST, exit 2.
 
 const findings = []
 const out = mkdtempSync(join(tmpdir(), 'loramer-owed-'))
@@ -94,9 +99,17 @@ if (typeof S.breakdownTypeForSurface !== 'function' || typeof S.drainAliasFor !=
 }
 
 const pg = (await import('pg')).default
-const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+// LORAMER_CHECKDATA_LEG_BUDGET_V1 — the pg timeouts are this leg's own budget from scripts/lib/checkdata-durations.json
+// (BUDGET_MULTIPLE × the trailing max of its completed runs), never a typed number. On 2026-09-08 this client sat
+// 35 min on a socket the instance restart had orphaned; with no history the leg runs unbudgeted and says so.
+const OWN_BUDGET = budgetFor(loadLedger(ROOT), 'no-owed-day-left-behind')
+console.log(`[no-owed-day-left-behind] pg budget: ${OWN_BUDGET.budgetMs === null ? 'unbudgeted' : `${OWN_BUDGET.budgetMs} ms`} (${OWN_BUDGET.basis})`)
+const db = new pg.Client({
+  connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: OWN_BUDGET.budgetMs ?? undefined, query_timeout: OWN_BUDGET.budgetMs ?? undefined,
+})
 const iso = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10))
-let rot = [], frontiers = [], skipped = [], rotHasParentKnown = false
+let rot = [], frontiers = [], skipped = [], candidates = [], rotHasParentKnown = false
 try {
   await db.connect()
   const q = async (s, p = []) => (await db.query(s, p)).rows
@@ -219,6 +232,25 @@ try {
     from verdict where not has_rows and not attested
     group by resource, segment order by count(*) desc, resource, segment`,
     [CLIENT, JSON.stringify(frontiers.map((f) => ({ resource: f.resource, segment: f.segment, bt: f.bt, a_el: f.a_el, a_bt: f.a_bt, frontier: f.frontier }))), VENDOR])
+
+  // ── 5 · THE KNOWN-LIVE SKIP CANDIDATES, DERIVED — error/skipped windows nothing later attested or filled ──
+  candidates = await q(`
+    with bad as (
+      select resource, segment, window_start, window_end, outcome, recorded_at
+      from public.universe_attempt_log
+      where client_id = $1::uuid and vendor = $2::text and phase = 'attempt_finished'
+        and outcome in ('error','skipped') and resource <> '__account_inception'
+    )
+    select b.resource, b.segment, b.window_start, b.window_end, b.outcome, b.recorded_at
+    from bad b
+    where not exists (
+      select 1 from public.universe_attempt_log a
+      where a.client_id = $1::uuid and a.vendor = $2::text and a.phase = 'attempt_finished'
+        and a.outcome in ('ok','zero','nongrain')
+        and a.resource = b.resource and a.segment = b.segment
+        and a.window_start <= b.window_start and a.window_end >= b.window_end
+    )
+    order by b.recorded_at desc`, [CLIENT, VENDOR])
 } catch (e) {
   try { await db.end() } catch { /* the throw below is the report */ }
   broken(e.message)
@@ -226,23 +258,33 @@ try {
 await db.end()
 rmSync(out, { recursive: true, force: true })
 
-// ── GUARD-ON-GUARD — can this detector see the skip we already traced by hand? ────────────────────────────
-const known = skipped.find((s) => s.resource === KNOWN.resource && (s.segment ?? '') === KNOWN.segment)
-const knownInBand = known && iso(known.oldest) <= KNOWN.to && iso(known.newest) >= KNOWN.from
-if (!knownInBand) {
+// ── GUARD-ON-GUARD — can this detector see a skip the LEDGER says is live right now? ─────────────────────
+// LORAMER_NO_OWED_DAY_DERIVED_FIXTURE_V1: a candidate is an error/skipped window nothing later attested or filled;
+// the detector must report skipped days on at least one candidate's surface overlapping that window. Zero
+// candidates = nothing to self-test against — CANNOT-SELF-TEST, exit 2, with the count.
+if (candidates.length === 0) {
+  console.error(`[no-owed-day-left-behind] CANNOT-SELF-TEST — the ledger holds 0 error/skipped windows without a later attest on ${CLIENT}/${VENDOR}; there is no known-live skip to prove the detector against. Not a pass, not a fail: exit 2 with the count.`)
+  process.exitCode = 2
+  process.exit()
+}
+const seen = candidates.find((c) => {
+  const s = skipped.find((x) => x.resource === c.resource && (x.segment ?? '') === (c.segment ?? ''))
+  return s && iso(s.oldest) <= iso(c.window_end) && iso(s.newest) >= iso(c.window_start)
+})
+if (!seen) {
+  const c0 = candidates[0]
   console.error(
-    `[no-owed-day-left-behind] BROKEN — the detector does NOT see the known-live skip.\n` +
-    `  expected ${KNOWN.resource} segment '${KNOWN.segment}' to report >=1 skipped day overlapping ${KNOWN.from}..${KNOWN.to}\n` +
-    `  got: ${known ? `${known.days} day(s) ${iso(known.oldest)}..${iso(known.newest)} — outside the band` : 'that surface reported NO skipped days at all'}\n` +
-    `  ⛔ A DETECTOR THAT CANNOT SEE THE SKIP WE TRACED BY HAND IS WORSE THAN NONE: it would read as a clean bill of health.\n` +
+    `[no-owed-day-left-behind] BROKEN — the detector sees NONE of the ${candidates.length} ledger-derived known-live skip candidate(s).\n` +
+    `  newest candidate: ${c0.resource} segment '${c0.segment ?? ''}' ${iso(c0.window_start)}..${iso(c0.window_end)} (${c0.outcome}, ${new Date(c0.recorded_at).toISOString()})\n` +
+    `  ⛔ A DETECTOR THAT CANNOT SEE A SKIP THE LEDGER HOLDS IS WORSE THAN NONE: it would read as a clean bill of health.\n` +
     `  Re-derive it against the attempt log before trusting any verdict from it.`)
   process.exitCode = 2
   process.exit()
 }
-
+const known = skipped.find((x) => x.resource === seen.resource && (x.segment ?? '') === (seen.segment ?? ''))
 const totalDays = skipped.reduce((n, s) => n + s.days, 0)
 console.log(`[no-owed-day-left-behind] measured ${rot.length} surface(s) of ${CLIENT}/${VENDOR} · frontier from the live rotation + the real deriveAnchorEnd (parent_known ${rotHasParentKnown ? 'READ FROM THE ROTATION — 082 is applied' : 'ABSENT — pre-082 rotation, modelling the deployed resumer'}) · ` +
-            `guard-on-guard OK (${KNOWN.resource} reports ${known.days} skipped day(s), ${iso(known.oldest)}..${iso(known.newest)}).`)
+            `guard-on-guard OK — known skip = ${seen.resource} segment '${seen.segment ?? ''}' ${iso(seen.window_start)}..${iso(seen.window_end)} (${seen.outcome}), derived from ${candidates.length} live candidate(s); the detector reports ${known.days} skipped day(s) there, ${iso(known.oldest)}..${iso(known.newest)}.`)
 
 if (skipped.length) {
   findings.push(`${totalDays} owed day(s) sit ABOVE the walk's own frontier across ${skipped.length} surface(s) — asked for, held by nothing, attested by nobody, and below no future window because the anchor only moves DOWN.`)
