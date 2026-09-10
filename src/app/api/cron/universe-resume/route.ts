@@ -87,7 +87,7 @@ export const maxDuration = CONSUMER_MAX_DURATION_S
 // charge nothing. 'publish': execute them under lane 'lookback' — the first attesting terminal lands. The flip is
 // STOP-and-confirm 2 (QUEUE ★LOOKBACK-LANE-OWNS-PROMOTION (7)); lookback-slot-mode-is-gated.guard.mjs refuses a
 // 'publish' value without a dated ruling cite on this line or the line above it.
-const LOOKBACK_SLOT_MODE = 'observe' as 'observe' | 'publish'
+const LOOKBACK_SLOT_MODE = 'publish' as 'observe' | 'publish' // ruling: DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (c) 2026-09-05 (:2539) — STOP-and-confirm 2 given by Russ 2026-09-10
 
 const addDays = (iso: string, n: number) => {
   const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10)
