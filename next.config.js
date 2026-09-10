@@ -24,6 +24,12 @@ const nextConfig = {
       // reads the same artifact. Same ENOENT trap, same fix; `universe-runner.guard.mjs` leg (d) caught it
       // within minutes of this route existing, exactly as it caught the resumer.
       '/api/backfill/universe-drive': ['./docs/google-ads-capture-universe.json'],
+      // LORAMER_FORWARD_DRIVER_V1 (2/2) — the driver's caller. The route never names loadUniverse — forward-driver.ts does
+      // (driverCatalogue → selectableEntries(loadUniverse())) — so universe-runner.guard leg (d), keyed on the route's own
+      // text, could not see it. MEASURED IN PRODUCTION 2026-09-10 20:52:19Z on the first smoke fire (cron_runs 14714):
+      //   ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
+      // driver-caller-is-cron-only.guard leg (e) now pins this entry.
+      '/api/cron/forward-driver': ['./docs/google-ads-capture-universe.json'],
     },
   },
 }

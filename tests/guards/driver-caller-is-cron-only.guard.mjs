@@ -16,6 +16,7 @@
 //      after google sync 8-58/10 8-10 and catchup 9-59/10 8-11 end), "30 17 * * *" and "30 21 * * *" (ruling q's make-ups,
 //      shifted to sit after the window) — and NO other file's entries changed shape (count 17 → 20)
 //  (d) registered in scripts/run-guards.mjs
+//  (e) next.config.js outputFileTracingIncludes carries the route → docs/google-ads-capture-universe.json (the ENOENT trap)
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 
@@ -58,6 +59,14 @@ try {
   if (mine.some((c) => String(c.path).includes('?'))) findings.push('(c) a forward-driver cron entry carries a query string — the caller takes no client filter on the schedule (DRIVER_EXCLUDED_CLIENTS is the only filter)')
   if (crons.length !== 20) findings.push(`(c) vercel.json holds ${crons.length} cron entries; 17 before this commit + 3 driver entries = 20 — something else moved`)
 } catch (e) { findings.push(`(c) vercel.json unreadable: ${e.message}`) }
+
+// (e) THE ENOENT TRAP, indirect edition — measured on the first smoke fire 2026-09-10 20:52:19Z (cron_runs 14714, HTTP 500):
+//     "ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'". The route never names
+//     loadUniverse — forward-driver.ts does — so universe-runner.guard leg (d), which keys on the route's own text, could
+//     not see it. Next's tracer cannot see a computed readFileSync path; the route needs its own outputFileTracingIncludes
+//     entry exactly like universe-resume (next.config.js:15-27).
+const cfg = read('next.config.js')
+if (!/['"]\/api\/cron\/forward-driver['"]\s*:\s*\[\s*['"]\.\/docs\/google-ads-capture-universe\.json['"]\s*\]/.test(cfg)) findings.push("(e) next.config.js outputFileTracingIncludes has no '/api/cron/forward-driver': ['./docs/google-ads-capture-universe.json'] entry — the driver's loadUniverse() ENOENTs on Vercel (measured 2026-09-10 20:52Z, HTTP 500) while passing every local check")
 
 const roster = read('scripts/run-guards.mjs')
 if (roster && !roster.includes('tests/guards/driver-caller-is-cron-only.guard.mjs')) findings.push('(d) this guard is not registered in scripts/run-guards.mjs — an unregistered guard never runs')
