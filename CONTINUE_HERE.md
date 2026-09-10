@@ -1,4 +1,56 @@
-╔═══ SESSION CLOSE 2026-09-10 — C6 INSTRUMENTS + PUSH-GATE SHIPPED (4 SHAs: dd28ae9 · 9da6853 · f75d8aa · fa36a60). NEXT: GATE-B AT THE 08:08Z FORWARD FIRE, THEN THE 'PUBLISH' FLIP = STOP-AND-CONFIRM 2 ═══╗
+╔═══ SESSION CLOSE 2026-09-10 (EVENING) — PUBLISH FLIP LIVE (69f6448) · DRIVER 1/2 (ff3efe5) · HEARTBEAT FIX (a451d46) · DRIVER 2/2 LIVE (c299208 + a5db7a5) · LEGACY FREEZE IN THE DAILY HANDOFF. NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z. ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── SHIPPED 2026-09-10 (five commits, every one through the push gate; the morning's four instrument commits sit in the block below) ──
+· `69f6448` PUBLISH FLIP — LOOKBACK_SLOT_MODE = 'publish' (STOP-and-confirm 2; cite DECISIONS (c) 2026-09-05 on route.ts:90). Gate-B on the
+  08:08Z forward fire passed first (conversion_action 18/18 · error_count 36 → 18 · Foam OH boundary 90d). First publish tick 14:41:07Z asked
+  2 owed days at the floor (2022-03); the "waiting until 2026-11-17" expectation was the TOP strip's only — the sealed branch fills owed floor
+  days now. Russ ruled KEEP. ≤ 2 requests per 5-min tick on Foam OH.
+· `ff3efe5` LORAMER_FORWARD_DRIVER_V1 (1/2) — the catalogue-only driver, isolated: HEAVY 50 (search-term/landing resources, 485,336 rows on
+  Escential) + REST 269 (236,924) = the 319 surfaces the frozen legacy family never asks; units (client, slice, D) under `__fwd_google:<slice>`
+  at DRIVER_CLAIM_LEASE_S = 800 + 100; pending read from forward_observation_log; DRIVER_EXCLUDED_CLIENTS = [2617b163]. Gate-A measured
+  2026-09-10 N=319 rows=722,260 write-free. Five guards red→green. The legacy copy (round 6) was DELETED by ruling.
+· `a451d46` HEARTBEAT FIX — universe_fire_log.published = published.length (f75d8aa counted each lookback unit twice: 4 vs publishedOf 2,
+  68 vs 34 attempts → a false EXECUTION-DARK). Proven on fire 6754: published 8 = publishedOf 8.
+· `c299208` + `a5db7a5` LORAMER_FORWARD_DRIVER_V1 (2/2) — the caller: src/app/api/cron/forward-driver/route.ts (Bearer CRON_SECRET · maxDuration
+  800 · cron_runs mode 'driver') + vercel.json `*/10 11-16 * * *` and make-ups `30 17` / `30 21` (17 → 20 entries) + check:data leg
+  forward-driver-connection-day-complete (≥ 319 driver-observed surfaces per eligible connection at the 17:00Z cutoff) + guard
+  driver-caller-is-cron-only. Smoke fire 1 hit the tracing trap INDIRECTLY (ENOENT on the catalogue artifact; the route never names
+  loadUniverse) → a5db7a5 adds the outputFileTracingIncludes entry, guard leg (e). Smoke fire 2 (21:01Z, Escential, D=2026-09-09):
+  HTTP 200 in 527 s · HEAVY 50/50 ran · 476,200 rows · 46 ok / 4 zero · REST skipped over budget (the door working) · legacy rows for the
+  day UNCHANGED 27,736 → 27,736 · stamped rows 0 → 10,731 · cron_runs 14715 err 0.
+· THE FREEZE IN THE DAILY HANDOFF — ESSENCE governing law (digest §C) + this block's STANDING carry: legacy is frozen for Google Standard
+  Access (DECISIONS:2461); the driver is catalogue-only; ruling (n) holds by disjointness. Ruling (q) AMENDED: cutoff 17:00Z, make-ups
+  17:30Z/21:30Z (QUEUE ★FORWARD-DRIVER-SHAPE owns the text).
+
+── ▶▶ NEXT STEP — OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z ──
+OPEN-VERIFY the first driver window 2026-09-11 11:00–16:50Z: forward_observation_log driver-% rows ≥ 319 per eligible google connection by
+17:00Z (check:data leg forward-driver-connection-day-complete flips green); metrics_daily stamped rows land for HEAVY+REST; legacy row
+counts per client unchanged; sync fires unaffected (cron_runs mode=forward same shape as 2026-09-10). THE THREE READ-BACKS, IN ORDER:
+(a) at ~17:05Z: `node scripts/check-forward-driver-connection-day-complete.mjs` reads green, or names the short connections with their counts.
+(b) cron_runs mode='driver' for the window: `select count(*) fires, count(*) filter (where finished_at is null) killed, sum(rows_written) rows,
+    sum(error_count) errors from cron_runs where mode='driver' and started_at >= '2026-09-11T11:00Z'` — and the per-fire write rate
+    (rows_written ÷ (finished_at − started_at) after the ~1 s/surface latency term) against the two readings on record: 1,060 rows/s (smoke
+    fire 2, one fire, shared host) and 1,448 (ruling m's floor, the estimate's default). 17 eligible connections × 2 units = 34 units over 36 slots.
+(c) `node scripts/check-walk-liveness.mjs` reads ALIVE after ~20:07Z (the old-build double-counted ticks age out of the 24 h window).
+THEN, in order (QUEUE ★FORWARD-DRIVER-SHAPE owns the list): the walk behind the one-click button + delete-and-rerun on Foam OH's walk tables
+(live merchant path = STOP-and-confirm 4) → the cold proof run on Foam OH → the descent on the 17, heaviest last, Bath Fitter never a test account.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The forward driver owns the 319 catalogue surfaces only and has its own caller.
+· Foam OH's first lookback seal stays 2026-11-17 (earliest class; the sealed-branch floor fill runs now and is a different thing); Russ still
+  owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
+· check:data 21:0xZ (clean run on the committed tree): "[check:data] VERDICT — EXIT 1 · 34 checks: 24 green · 10 red (…) · 0 crashed" —
+  the queue-owned 8 + check-walk-liveness (trailing window, clears ~20:07Z 09-11) + forward-driver-connection-day-complete (RED by design).
+· Device merge gate re-measured: 4,221 legacy-level stamped device rows vs the banked 3,751 — DECISIONS:2505 STOP applies; re-manifest first.
+· Legacy coverage measured (round 10): all 81.2M legacy rows (52 keys) reachable on -next directly; 18 keys twin-less; 34 twins Foam OH only.
+· Pushes gated (scripts/push-gate.mjs); deploy-poll-until-terminal; one-block output; CITED gate — all bind as before.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-10 evening · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-10 (MORNING) — C6 INSTRUMENTS + PUSH-GATE SHIPPED (4 SHAs: dd28ae9 · 9da6853 · f75d8aa · fa36a60). NEXT: GATE-B AT THE 08:08Z FORWARD FIRE, THEN THE 'PUBLISH' FLIP = STOP-AND-CONFIRM 2 ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
