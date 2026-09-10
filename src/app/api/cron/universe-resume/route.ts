@@ -691,6 +691,10 @@ export async function GET(request: Request) {
   // ⛔ OBSERVE-ONLY (LOOKBACK_SLOT_MODE): the selected windows are LOGGED, not sent, and the meter is charged
   // for the descent alone — nothing is asked, so nothing is spent.
   const lookbackToSend = LOOKBACK_SLOT_MODE === 'publish' ? selLook.taken : []
+  // LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — the second slot's request count, from the SAME mode switch, so the
+  // heartbeat can witness what this fire actually sends. Measured 2026-09-09: the heartbeat carried the descent
+  // slot only, the meter counted both, and check-fleet-meter-visibility read DRIFT −190 on 190 real top-edge asks.
+  const lookbackRequestsToSend = LOOKBACK_SLOT_MODE === 'publish' ? selLook.requests : 0
 
   // ── THE METER — THE ADAPTER'S, IN ITS OWN UNIT, AND IT HOLDS WHEN UNREADABLE ────────────────────────
   // ⛔ THE PRODUCT RESERVE IS RESPECTED BECAUSE THE METER'S CAP *IS* THE BACKFILL ALLOWANCE: 6,000 = the
@@ -857,7 +861,11 @@ export async function GET(request: Request) {
   // from the attempt log; the heartbeat records the FIRE's decisions, not the consumer's results.
   const hbErr = await fireHeartbeat({
     fireOutcome: 'completed', scanned, scanCompleted: instrument.scanCompleted, catalogSize: entries.length,
-    candidates: candidates.length, published: published.length, requestsSelected: sel.requests,
+    // LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — ONE integer, ONE meaning: units / requests this fire selected to SEND,
+    // across BOTH slots (descent + lookback). The per-lane split stays in the response body above. A witness that
+    // carries one slot while the meter counts both is the 2026-09-09 −190 drift, and would return on the first
+    // publish-mode fire.
+    candidates: candidates.length, published: published.length + lookbackToSend.length, requestsSelected: sel.requests + lookbackRequestsToSend,
     advanced: advancedCovered, refusals, elapsedMs,
   })
 

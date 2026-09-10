@@ -464,6 +464,7 @@ const GUARDS = [
   'tests/guards/lookback-slot-mode-is-gated.guard.mjs',
   'tests/guards/lookback-window-ends-at-boundary.guard.mjs',
   'tests/guards/lookback-boundary-is-measured.guard.mjs',
+  'tests/guards/fire-log-witness-covers-both-slots.guard.mjs', // LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — the heartbeat sums both slots
   'tests/guards/walk-liveness-predicate.guard.mjs', // LORAMER_WALK_LIVENESS_RECUT_V1 — six states on real fire-log rows; SEALED-IDLE ≠ WEDGED
   'tests/guards/push-gate.guard.mjs', // LORAMER_PUSH_GATE_V1 — git push blocked on any non-green or unparseable guard verdict (PreToolUse Bash)
   'tests/guards/conversion-action-attribute-only.guard.mjs', // LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1 — the conversion_action read is attribute-only; template-scoped, denominator verdict

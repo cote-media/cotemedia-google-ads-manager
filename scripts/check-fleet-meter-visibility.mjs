@@ -191,4 +191,17 @@ export function decideForwardLedgerVisibility(a) {
 }
 
 // Import-safe: a guard may import decideFleetMeterVisibility without running the live read.
+// ── SELF-TEST — the pure core on the two witness shapes of 2026-09-09 (STUB fire shapes) ─────────────────
+// LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1: the −190 drift of 2026-09-09 was the heartbeat carrying the DESCENT slot's
+// requests only while the meter counted both slots. With both slots summed in the witness the same fires read
+// VISIBLE; with the second slot omitted they read DRIFT. Runs on every invocation before the live read.
+{
+  const summed = decideFleetMeterVisibility({ selected: 190, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288 })
+  const omitted = decideFleetMeterVisibility({ selected: 0, meterBackfill: 190, attemptStarted: 190, windowLog: 0, fires: 288 })
+  if (summed.state !== 'VISIBLE' || omitted.state !== 'DRIFT') {
+    console.error(`✗ fleet-meter-visibility SELF-TEST FAILED — summed witness reads ${summed.state} (want VISIBLE), omitted second slot reads ${omitted.state} (want DRIFT).`)
+    process.exit(2)
+  }
+}
+
 if (process.argv[1] && process.argv[1].endsWith('check-fleet-meter-visibility.mjs')) await main()
