@@ -112,6 +112,11 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
 Guards 163 → 167. QUEUE: ★LIVENESS-PREDICATE-TOO-COARSE ✅ · ★VERDICT-ENFORCER-BEFORE-PUSH ✅ (hook form) ·
 ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT ✅ · ★FLEET-METER-DRIFT-FLICKERS and ★NO-OWED-DAY-CHECK-CRASHES amended.
 
+── ▶▶ NEXT STEP (set 2026-09-10 ~20:30Z, after LORAMER_FORWARD_DRIVER_V1 2/2 shipped) ──
+OPEN-VERIFY the first driver window 2026-09-11 11:00–16:50Z: forward_observation_log driver-% rows ≥ 319 per eligible google connection by
+17:00Z (check:data leg forward-driver-connection-day-complete flips green); metrics_daily stamped rows land for HEAVY+REST; legacy row
+counts per client unchanged; sync fires unaffected (cron_runs mode=forward same shape as 2026-09-10). Then the steps below, in order.
+
 ── ▶▶ NEXT STEPS 2026-09-10, IN ORDER (★NINE-THIRTY-PROOF-SCOPE — DECISIONS LORAMER_PROOF_SCOPE_9_30_V1) ──
 (1) GATE-B READ at 2026-09-10 08:20Z (read-only): entity_state_history conversion_action rows > 0 on 18/18 google connections
     (check leg conversion-action-config-captured flips green) · cron_runs google forward error_count 36 → 18 (the audience half

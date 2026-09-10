@@ -41,6 +41,18 @@
       "schedule": "9-59/10 8-11 * * *"
     },
     {
+      "path": "/api/cron/forward-driver",
+      "schedule": "*/10 11-16 * * *"
+    },
+    {
+      "path": "/api/cron/forward-driver",
+      "schedule": "30 17 * * *"
+    },
+    {
+      "path": "/api/cron/forward-driver",
+      "schedule": "30 21 * * *"
+    },
+    {
       "path": "/api/cron/drain?platform=ga",
       "schedule": "0 0,6,12,18 * * *"
     },

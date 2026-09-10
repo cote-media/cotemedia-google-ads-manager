@@ -15,7 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 // ONLY constraint on the table is cron_runs_pkey. The banked "avoid ... an enum migration" reason for skipping
 // this wiring was FALSE. The one mode-filtered reader (/api/cron/status) iterates its own MODES list, so drain
 // rows are additive and invisible to it until that list opts in.
-export type CronMode = 'forward' | 'catchup' | 'drain'
+export type CronMode = 'forward' | 'catchup' | 'drain' | 'driver' // LORAMER_FORWARD_DRIVER_V1 (2/2) — the catalogue driver's fires; cron_runs.mode is text with no CHECK (migration 011), so no migration
 export type CronTrigger = 'cron' | 'manual'
 
 // Canonical platform order (matches the section order in both cron routes).

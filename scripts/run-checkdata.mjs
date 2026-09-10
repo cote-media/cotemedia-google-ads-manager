@@ -125,6 +125,7 @@ const CHECKS = [
   { name: 'google-forward-account-day', cmd: ['scripts/check-google-forward-account-day.mjs'] },
   // LORAMER_LOOKBACK_LANE_V1 — the boundary is read from conversion_action state; red by design until the capture lands.
   { name: 'conversion-action-config-captured', cmd: ['scripts/check-conversion-action-config-captured.mjs'] },
+  { name: 'forward-driver-connection-day-complete', cmd: ['scripts/check-forward-driver-connection-day-complete.mjs'] }, // LORAMER_FORWARD_DRIVER_V1 (2/2) — ruling (q): ≥ 319 driver-observed surfaces per eligible google connection by 17:00Z
   // LORAMER_ORDINAL_HOUR_RESPELL_V1 — registered AFTER the approved merge flipped it green (designed-red
   // before execution, per the device-respell precedent): zero single-digit hour rows, no two-spelling keys.
   { name: 'hour-spelling-merge', cmd: ['scripts/check-hour-spelling-merge.mjs'] },
