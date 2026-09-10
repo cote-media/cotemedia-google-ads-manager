@@ -195,6 +195,9 @@ the 480 s default, no PGRST202/203; the google drain declined at the lane gate; 
 · entity_state_history holds 0 conversion_action rows UNTIL the first 08:08Z forward fire after the 2026-09-09 deploy — the
   attribute-only read (LORAMER_CONVERSION_ACTION_ATTRIBUTE_ONLY_V1) is what lands them; Gate-B is that fire
   (★CONVERSION-ACTION-CAPTURE-DARK, "open — Gate-B pending").
+· Foam OH reconcile ✅ 2026-09-09 (Dec 2–17 2024, six figures at display precision — 5.19K / $1.67K / 174K / 2.99% / 1.07K /
+  $1.57 on Sales-Performance Max-BF '24 #2, the only campaign with rows; 12-02/03 ledger-attested zero; conversion value not on
+  screen). QUEUE ★RECONCILE-TO-VENDOR-UI-UNRECORDED holds the record; condition 3's reconcile half ✅ for Foam OH.
 · Escential reconcile figures banked 2026-09-05 (Aug: 3,706.13 / 332,092 / 7,156 / 720 / 131,700.20 · Sep 1–4: 312.33 /
   20,968 / 321 / 34 / 13,046.98) — RECONCILED 2026-09-05 by Russ against the Google Ads app — all visible figures match,
   CPA to the cent on both windows; conv value not on screen (DECISIONS (s)).
