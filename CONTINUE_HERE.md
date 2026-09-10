@@ -162,6 +162,7 @@ schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · 
 the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
 
 ── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The forward driver owns the 319 catalogue surfaces only and has its own caller.
 · check:data 2026-09-10 01:37Z (the close run, on the four shipped instruments): "[check:data] VERDICT — EXIT 1 · 33 checks:
   24 green · 9 red (…) · 0 crashed" — vs 2026-09-09's 23 green · 9 red · 1 crashed: walk-liveness reads SEALED-IDLE
   ("fires=200 published=0 attempts=34 rows=0 advanced=0 sealed=349/349"), fleet-meter-visibility reads VISIBLE (meter 34

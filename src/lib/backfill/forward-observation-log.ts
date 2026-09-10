@@ -174,3 +174,59 @@ export async function readForwardObservationSpendToday(vendor: string, since: Da
   if (!Number.isFinite(n)) fail('spend_today', `non-numeric sum: ${JSON.stringify(data)}`)
   return n
 }
+
+// ── LORAMER_FORWARD_DRIVER_V1 — observeForward EXTRACTED HERE (copied from cron/sync/route.ts's route-local copy) ──
+// The producer hands its catalogue surfaces here after its vendor call (or from its catch) and one observation row
+// lands per surface. ⛔ A FAILED APPEND NEVER THROWS INTO CAPTURE: it is reported through `onError` (the caller pushes
+// it into its summary / cron_runs.error_count) so the fire's own ledger says an observation is missing — the rows
+// still land. The route keeps its own copy until commit 2 re-points it; both copies have this exact contract.
+export type ObservedSurface = { resource: string; segment: string; requests: number; rowsByDay: Record<string, number>; rowsWritten: number; apiRows: number; error?: string | null }
+
+export async function observeForward(
+  producer: string, clientId: string, window: { start: string; end: string }, surfaces: ObservedSurface[],
+  opts: { cronRunId: number | null; onError: (message: string, surface: ObservedSurface) => void },
+): Promise<void> {
+  for (const s of surfaces) {
+    try {
+      await appendForwardObservation({
+        clientId, vendor: 'google', resource: s.resource, segment: s.segment, lane: 'forward', producer,
+        cronRunId: opts.cronRunId, windowStart: window.start, windowEnd: window.end,
+        requestsSpent: s.requests, rowsByDay: s.rowsByDay, rowsWritten: s.rowsWritten,
+        outcome: observationOutcome(s), error: s.error ?? null,
+      })
+    } catch (obsErr) {
+      const message = obsErr instanceof Error ? obsErr.message : String(obsErr)
+      console.error(`[forward-observation-log] client=${clientId} platform=google observation ${producer} ${s.resource}/${s.segment || '(base)'} NOT RECORDED: ${message}`)
+      opts.onError(`observation ${producer} ${s.resource}/${s.segment || '(base)'}: ${message}`, s)
+    }
+  }
+}
+
+/**
+ * THE DRIVER'S PENDING PREDICATE + ESTIMATE, READ HERE (the one reader module — forward-observation-boundary.guard).
+ * Ruling (q): a unit is pending until every surface in its slice holds an observation with window_end = D — read
+ * from the ledger, never the schedule. `lastRowsBySurface` is the NEWEST observation's rows_written per surface,
+ * any window — the per-unit estimate's rows term (ruling m: the bound is rows written).
+ */
+export async function readSliceObservationState(k: { clientId: string; vendor: string; windowEnd: string }): Promise<{
+  observedAtWindowEnd: Set<string>
+  lastRowsBySurface: Map<string, number>
+}> {
+  const { data: atEnd, error: e1 } = await supabaseAdmin
+    .from('forward_observation_log').select('resource, segment')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('window_end', k.windowEnd)
+  if (e1) fail('read at window_end', e1)
+  const observedAtWindowEnd = new Set<string>((atEnd ?? []).map((r: any) => `${r.resource}|${r.segment ?? ''}`))
+  // newest first, bounded: 349 surfaces × a few observations each is well inside 4,000 rows
+  const { data: recent, error: e2 } = await supabaseAdmin
+    .from('forward_observation_log').select('resource, segment, rows_written, observed_at')
+    .eq('client_id', k.clientId).eq('vendor', k.vendor)
+    .order('observed_at', { ascending: false }).limit(4000)
+  if (e2) fail('read recent', e2)
+  const lastRowsBySurface = new Map<string, number>()
+  for (const r of (recent ?? []) as Array<{ resource: string; segment: string | null; rows_written: number }>) {
+    const key = `${r.resource}|${r.segment ?? ''}`
+    if (!lastRowsBySurface.has(key)) lastRowsBySurface.set(key, Number(r.rows_written ?? 0))
+  }
+  return { observedAtWindowEnd, lastRowsBySurface }
+}
