@@ -1,4 +1,236 @@
 {
-  "$comment": "LORAMER_CHECKDATA_LEG_BUDGET_V1 — per-leg wall-clock ms of the last completed check:data runs; the ONLY source of each leg's spawn/pg budget (BUDGET_MULTIPLE × trailing max). Written by scripts/run-checkdata.mjs; never hand-edited. Empty until the first run after 2026-09-10 records it — every leg is UNBUDGETED and printed as such until then.",
-  "legs": {}
+  "$comment": "LORAMER_CHECKDATA_LEG_BUDGET_V1 — per-leg wall-clock ms of the last completed check:data runs; the ONLY source of each leg's spawn/pg budget (BUDGET_MULTIPLE × trailing max). Written by scripts/run-checkdata.mjs; never hand-edited.",
+  "legs": {
+    "check-capture-landing": [
+      {
+        "ms": 55335,
+        "ts": "2026-09-10T01:22:59.003Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-frozen-cursors": [
+      {
+        "ms": 1370,
+        "ts": "2026-09-10T01:23:00.376Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "canonical-client-identity": [
+      {
+        "ms": 11107,
+        "ts": "2026-09-10T01:23:11.483Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "breakdown-reachability": [
+      {
+        "ms": 31803,
+        "ts": "2026-09-10T01:23:43.295Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-completion-claims": [
+      {
+        "ms": 349411,
+        "ts": "2026-09-10T01:29:32.709Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "check-doc-ownership-data": [
+      {
+        "ms": 1617,
+        "ts": "2026-09-10T01:29:34.328Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-drain-throttle": [
+      {
+        "ms": 998,
+        "ts": "2026-09-10T01:29:35.327Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "check-parent-analyze": [
+      {
+        "ms": 1154,
+        "ts": "2026-09-10T01:29:36.482Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-rpc-grant-posture": [
+      {
+        "ms": 898,
+        "ts": "2026-09-10T01:29:37.381Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "google-op-budget": [
+      {
+        "ms": 3690,
+        "ts": "2026-09-10T01:29:41.073Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "universe-failure-is-durable": [
+      {
+        "ms": 1789,
+        "ts": "2026-09-10T01:29:42.863Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "universe-attempt-append-only": [
+      {
+        "ms": 1521,
+        "ts": "2026-09-10T01:29:44.385Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "canonical-key-spelling": [
+      {
+        "ms": 115512,
+        "ts": "2026-09-10T01:31:39.897Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "drain-alias-coverage": [
+      {
+        "ms": 8519,
+        "ts": "2026-09-10T01:31:48.418Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "check-extra-metrics-serving": [
+      {
+        "ms": 2986,
+        "ts": "2026-09-10T01:31:51.404Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-walk-liveness": [
+      {
+        "ms": 1356,
+        "ts": "2026-09-10T01:31:52.761Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-lora-named-entity": [
+      {
+        "ms": 7167,
+        "ts": "2026-09-10T01:31:59.928Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-binding-coverage": [
+      {
+        "ms": 3100,
+        "ts": "2026-09-10T01:32:03.030Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-coverage-density": [
+      {
+        "ms": 62009,
+        "ts": "2026-09-10T01:33:05.039Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "check-fleet-meter-visibility": [
+      {
+        "ms": 1560,
+        "ts": "2026-09-10T01:33:06.601Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-topwindow-frontier": [
+      {
+        "ms": 3696,
+        "ts": "2026-09-10T01:33:10.317Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-consumer-liveness": [
+      {
+        "ms": 1023,
+        "ts": "2026-09-10T01:33:11.341Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-restate-prune-live": [
+      {
+        "ms": 4655,
+        "ts": "2026-09-10T01:33:15.997Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "google-forward-account-day": [
+      {
+        "ms": 1622,
+        "ts": "2026-09-10T01:33:17.620Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "conversion-action-config-captured": [
+      {
+        "ms": 663,
+        "ts": "2026-09-10T01:33:18.283Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "hour-spelling-merge": [
+      {
+        "ms": 88669,
+        "ts": "2026-09-10T01:34:46.953Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "device-respell-scope": [
+      {
+        "ms": 9737,
+        "ts": "2026-09-10T01:34:56.692Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "check-nongrain-window-resolves": [
+      {
+        "ms": 3732,
+        "ts": "2026-09-10T01:35:00.426Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "anchor-recedes-by-window": [
+      {
+        "ms": 11840,
+        "ts": "2026-09-10T01:35:12.267Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "no-owed-day-left-behind": [
+      {
+        "ms": 78405,
+        "ts": "2026-09-10T01:36:30.672Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "parent-window-check-rejects": [
+      {
+        "ms": 3436,
+        "ts": "2026-09-10T01:36:34.109Z",
+        "bucket": "PASSED"
+      }
+    ],
+    "top-edge-is-held": [
+      {
+        "ms": 10520,
+        "ts": "2026-09-10T01:36:44.630Z",
+        "bucket": "FAILED"
+      }
+    ],
+    "top-edge-never-attests": [
+      {
+        "ms": 23946,
+        "ts": "2026-09-10T01:37:08.578Z",
+        "bucket": "PASSED"
+      }
+    ]
+  }
 }

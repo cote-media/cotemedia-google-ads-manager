@@ -1,4 +1,4 @@
-╔═══ SESSION CLOSE 2026-09-09 — INTEL-QUERY SPLIT SHIPPED (7a44948) · 088 APPLIED (60a343f) · 9/30 PROOF SCOPE RULED (★NINE-THIRTY-PROOF-SCOPE). NEXT: GATE-B AT THE 2026-09-10 08:08Z FORWARD FIRE. ═══╗
+╔═══ SESSION CLOSE 2026-09-10 — C6 INSTRUMENTS + PUSH-GATE SHIPPED (4 SHAs: dd28ae9 · 9da6853 · f75d8aa · fa36a60). NEXT: GATE-B AT THE 08:08Z FORWARD FIRE, THEN THE 'PUBLISH' FLIP = STOP-AND-CONFIRM 2 ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
@@ -92,7 +92,27 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
     the per-condition status 2026-09-09; three findings banked as pointers (one-click = the June engine; delete-and-rerun needs
     the delete primitive on the walk's tables; the second Meta account cannot prove the walk).
 
-── ▶▶ NEXT STEPS 2026-09-09, IN ORDER (★NINE-THIRTY-PROOF-SCOPE — DECISIONS LORAMER_PROOF_SCOPE_9_30_V1) ──
+── ✅ SHIPPED 2026-09-10 (00:26Z → 01:22Z) — C6 INSTRUMENTS + PUSH-GATE, four commits, every push through the new gate ──
+· `dd28ae9` LORAMER_PUSH_GATE_V1 — scripts/push-gate.mjs, a PreToolUse hook on the Bash tool (.claude/settings.json, committed):
+  a push command runs `npm run guard`, the verdict line is PARSED, ALLOW only on `[run-guards] ALL GREEN — N/N`; EXIT n, no
+  parseable verdict, spawn error and a run past 2× the suite's measured wall-clock (209 s) all BLOCK. Never runs check:data;
+  DECISIONS:2086 stands (not a git hook). Proven before its commit against a planted red guard (block logged 00:32:18Z); the
+  live hook then refused two real Bash calls while that guard was in the tree. Log: docs/LORAMER_PUSH_GATE_LOG.jsonl.
+· `9da6853` LORAMER_WALK_LIVENESS_RECUT_V1 — six states on the subject's own rows; SEALED-IDLE (349/349 sealed, candidates 0)
+  distinct from WEDGED; ALIVE requires CONSUMPTION (attempts/published with its denominator). Live: "sealed=349/349 ·
+  state=SEALED-IDLE". Guard on two REAL fire-log rows (RED on dd28ae9 → GREEN).
+· `f75d8aa` LORAMER_FIRE_LOG_WITNESS_BOTH_SLOTS_V1 — the completion heartbeat sums published + requestsSelected across both
+  slots from the one LOOKBACK_SLOT_MODE switch; the −190 was 190 real, METERED top-edge requests the witness omitted
+  (self-clearing in observe mode: −190 → −48 by 01:0xZ; structural on the first publish fire). Precedes the flip.
+· `fa36a60` LORAMER_NO_OWED_DAY_DERIVED_FIXTURE_V1 + LORAMER_CHECKDATA_LEG_BUDGET_V1 — the known-live skip is derived from the
+  ledger at run time (the hand fixture had been attested 08-25); per-leg check:data budgets = 3 × each leg's trailing max
+  from scripts/lib/checkdata-durations.json (written by the runner; UNBUDGETED and printed until history exists); the
+  no-owed-day guard's pg timeouts come from the same ledger. First run: guard-on-guard OK, exit 1 with a REAL finding —
+  677 owed day(s) above the frontier across 14 surface(s).
+Guards 163 → 167. QUEUE: ★LIVENESS-PREDICATE-TOO-COARSE ✅ · ★VERDICT-ENFORCER-BEFORE-PUSH ✅ (hook form) ·
+★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT ✅ · ★FLEET-METER-DRIFT-FLICKERS and ★NO-OWED-DAY-CHECK-CRASHES amended.
+
+── ▶▶ NEXT STEPS 2026-09-10, IN ORDER (★NINE-THIRTY-PROOF-SCOPE — DECISIONS LORAMER_PROOF_SCOPE_9_30_V1) ──
 (1) GATE-B READ at 2026-09-10 08:20Z (read-only): entity_state_history conversion_action rows > 0 on 18/18 google connections
     (check leg conversion-action-config-captured flips green) · cron_runs google forward error_count 36 → 18 (the audience half
     remains — ★INTEL-AUDIENCE-SUBFETCH-INVALID-RESOURCE) · the first Foam OH tick after the fire logs boundary=90d instead of
@@ -101,11 +121,11 @@ is the backfill leg). The crash: ★CHECKDATA-HAS-NO-PER-LEG-TIMEOUT.
     flip without it). In publish mode the lane stamps each day final automatically as its window expires — Foam OH's earliest
     class (221 surfaces) on 2026-11-17, the last (2 surfaces) on 2026-12-14 — no human act; that is the 9/30 posture.
 (3) THE FORWARD DRIVER (★FORWARD-DRIVER-SHAPE; research + adversary done 2026-09-05; ruling A) — NEXT STEP 3 below.
-(4) INSTRUMENTS, condition 6: ★LIVENESS-PREDICATE-TOO-COARSE · the fleet-meter −190 disagreement · no-owed-day-left-behind
-    BROKEN (check:data 2026-09-09).
-(5) THE WALK BEHIND THE ONE-CLICK BUTTON + delete-and-rerun on the walk's tables (LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1
+    (The condition-6 instruments that sat here shipped 2026-09-10 — see SHIPPED above; the no-owed-day leg's 677 owed
+    days across 14 surfaces are the driver's and the re-walk's to clear, not an instrument defect.)
+(4) THE WALK BEHIND THE ONE-CLICK BUTTON + delete-and-rerun on the walk's tables (LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1
     path (a); pointers banked 2026-09-09 under it and under ★MONDAY-GAP-LIST-IS-UNMEASURED (3)).
-(6) THE COLD PROOF RUN, scoped by ★NINE-THIRTY-PROOF-SCOPE.
+(5) THE COLD PROOF RUN, scoped by ★NINE-THIRTY-PROOF-SCOPE.
 
 
 ── ▶▶ NEXT STEP 3 — THE DRIVER (ruling A): replaces the ten producers' membership loops with selectableEntries × one day ×
@@ -142,6 +162,18 @@ schedule; two make-up fires (12:30Z, 18:30Z); catchup's google role subsumed · 
 the 480 s default, no PGRST202/203; the google drain declined at the lane gate; catchup and the Woo backfill not yet exercised.
 
 ── STANDING ──
+· check:data 2026-09-10 01:37Z (the close run, on the four shipped instruments): "[check:data] VERDICT — EXIT 1 · 33 checks:
+  24 green · 9 red (…) · 0 crashed" — vs 2026-09-09's 23 green · 9 red · 1 crashed: walk-liveness reads SEALED-IDLE
+  ("fires=200 published=0 attempts=34 rows=0 advanced=0 sealed=349/349"), fleet-meter-visibility reads VISIBLE (meter 34
+  vs selected 0, inside the in-flight allowance — the retired lane's asks rolled out of the window sooner than the
+  ~03:00Z arithmetic), no-owed-day-left-behind is a RED (exit 1, 677 owed days / 14 surfaces above the frontier, guard-on-
+  guard OK on the ledger-derived known skip) instead of CRASHED; check-completion-claims 17 → 18 unbaselined claims (new: My Vacation Network 965c77ff meta.meta_product_id CLAIM_EXCEEDS_ROWS —
+  claim covers 2023-09-10, rows begin 2025-11-24; a data-side change, not this session's);
+  top-edge-is-held 7,752 → 8,099 owed days (+347, one day of the 349-surface strip). Every red is queue-owned. The
+  durations ledger is seeded (33 legs; longest check-completion-claims 349 s) — every leg is budgeted from its next run.
+· PUSHES ARE GATED: every `git push` from Claude Code runs `npm run guard` and is refused on any non-green or unparseable
+  verdict (scripts/push-gate.mjs, .claude/settings.json PreToolUse Bash, log docs/LORAMER_PUSH_GATE_LOG.jsonl). A command whose
+  TEXT contains a push at a command position triggers it — commit messages go through the Write tool, not a heredoc.
 · 9/30 PROOF SCOPE RULED 2026-09-09 (★NINE-THIRTY-PROOF-SCOPE, DECISIONS LORAMER_PROOF_SCOPE_9_30_V1): mechanism +
   correctness-as-of-last-ask + legible in-window labeling; restatement-final lands automatically — Foam OH first seal
   2026-11-17 (221-surface class) · 11-23 (14) · 11-28 (106) · 11-29 / 11-30 (3 + 3) · 12-14 (2); C5 stays in WIRE; the "i"
