@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-11T02:46:22.023Z
-- built_from HEAD: 7773a874e06ad8dafe04e3526444dc32a73f6196  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-11T03:17:13.870Z
+- built_from HEAD: 5d0ae38b603faf1abf414a8f5ec59aa921fb84af  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,9 +16,9 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: f5047b1702afe312eea1e36ba12179e72e3072584fbb23a46300e22a6f17bc5a
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: ec797955e326f2b5c9294c0bcbbc6630177e4167b0029b35fb67baab995ed13b
+    - CONTINUE_HERE.md: e976160c80e7eb2213483f25b3767da9b1fdfeaaf4f966603f688856d7268a36
     - LORAMER_DECISIONS.md: 0f4290ee1ac0aaf778df288452741862e5badfbd8d226e37daa06c77bca9b81a
-    - LORAMER_QUEUE_OF_RECORD.md: bc2ddd3600d4f0574bad8beec53e91a1f5b64a220c25b6d34ea00309d7c546b6
+    - LORAMER_QUEUE_OF_RECORD.md: b73fd72330d57d233643b57f23b546978105e55b3524231bea85f0ad2d4cf41a
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
     - docs/LORAMER_ASSET_LAYER_SCOPE_V1.md: 5550c754b2bf30624360a47cb54bbfd190bf8fc3cda958ab9b843497eb61050d
@@ -523,65 +523,58 @@ a line of it was built.
 ## E. ACTIVE WORKSTREAM + NEXT STEP  (source: CONTINUE_HERE.md)
 ACTIVE WORKSTREAM = **DATA COMPLETENESS PROGRAM** (governing plan: docs/LORAMER_DATA_COMPLETENESS.md). GOVERNING RULE: retrieve ALL data from everywhere + store it FOREVER (until the customer cancels). Wave 0 audit DONE; Woo Fix-1a (8377b97) + Fix-1b (3e74e0b) SHIPPED; Meta placement fwd (c06d1c7)+history (9cb038a) SHIPPED; Meta account+placement backfill Inside/Glenn/Ogmentor SHIPPED (2026-06-23, LORAMER_DATA_COMPLETENESS_META_BACKFILL_INSIDE_GLENN_OGMENTOR_V1). Google campaign backfill WIRED+SCALED (2026-06-24) + Google ad_group+ad backfill WIRED+draining (2026-06-26, LORAMER_GOOGLE_ADGROUP_AD_BACKFILL_V1/V2 — drain step 'google_adgroup_ad') + Meta campaign backfill WIRED+draining (2026-06-26, LORAMER_META_CAMPAIGN_BACKFILL_FLAG_NOT_BLOCK_V2 — drain step 'meta_campaign') + Meta adset+ad backfill WIRED+draining (2026-06-26, LORAMER_META_ADSET_AD_BACKFILL_V1 — drain step 'meta_adset_ad'). ALL Google + Meta DEPTH grains (campaign/ad_group/ad/adset) now have writers + drain steps — the DEPTH ARC IS COMPLETE. The workstream advances under the **UNIFIED LIVE + BREADTH design (docs/LORAMER_LIVE_BREADTH_UNIFIED_DESIGN.md, LOCKED 2026-06-26)**: Direction B (captured metrics_daily = system-of-record; SEPARATE sibling live store keyed by as_of; Lora reconciles across + always labels which store). **CURRENT STATE (2026-06-28): Phase 1 CONSOLIDATION ✅; Phase 2 BREADTH well underway; SELF-SERVE SPINE ✅ LIVE+VERIFIED.** Registry = **docs/LORAMER_BREAKDOWN_REGISTRY.md** (per-dimension {entity_level, encoding, reconcile} + governing rules). LIVE+PUSHED (origin/main=d995acf, all auto-deployed + prod-verified): DEVICE breadth (4-entity-grain family) + GEO (campaign+ad_group) + HOUR breadth; GEO entity expansion + FREE-MAX drain config (*/5 cron, 800s, cap 18); the FULL SELF-SERVE BACKFILL SPINE (**LORAMER_SELFSERVE_SPINE_V1** — (1) priority lane [new-client backfill_priority=10, decays on onboard-complete], (2) connect-kickoff [every insert site sets priority=10 + waitUntil()→/api/cron/drain?clientId=], (3) bounded-concurrency runner [BACKFILL_CONCURRENCY=2, hard memory cap clampConcurrency N×peak≤2GB−256, runPool], (4) free dial [window 40d / N=2 / lease 360→480]); + BUDGET_MS 750→680 (504 fix); migrations 020 (backfill_priority col) + 021 (lease 480, CAS byte-identical) APPLIED; @vercel/functions live. VERIFIED IN PROD: concurrency:2 in the live drain JSON, clean 200 ticks, NO missing-column/lease/OOM; a new connection → priority=10 + immediate kickoff → ~3.7hr concurrent backfill to the 36-mo floor, holds at customer #5 AND #500. Design + findings: **docs/LORAMER_SELFSERVE_BACKFILL_DESIGN_V1.md** + **_FINDINGS.md**. DISK FINDING (banked, NOT a bug): Supabase disk 2→8→12GB = transient WAL spikes from heavy geo write bursts, NOT data (~1.9GB used of 12GB; metrics_daily ~1.5M rows, real geo, 5:1 ins:upd, no over-write); geo backfill is EARLY → metrics_daily grows toward ~5-30GB as it floors. **COST MODEL UPDATED 2026-06-28:** the cost-per-customer line is COMPUTE TIER (Supabase Small, ≥2GB RAM, swap=0 verified), NOT storage — the 2→12GB was transient WAL spikes, not data; on Pro, Nano billed at Micro's rate so the headroom was free all along. **NEXT FOCUS (2026-07-24 — FRONTIER MOVED FROM BREADTH TO CORRECTNESS-OVER-TIME): all 5 platforms are mapped AND captured at the daily-aggregate grain (91 families — google 27 · meta 25 · shopify 15 · woo 12 · ga 12; the 2026-07-19 never-started list closed for Shopify/Meta/Woo). GA is unfrozen (dedup fix f1c41d1 + Bath Fitter recovery). The remaining law-gap is no longer WIDTH, it is TIME + GRAIN: single-shot T+1 capture never re-fetches, so Google/Meta conversion history is UNDERSTATED on every captured day and store revenue is WRONG for any post-capture refund/edit (★RESTATEMENT-SWEEP-FLEET); the ORDER grain is fetched, summed, and DISCARDED (★ORDER-LEVEL-STORAGE); and the deep Google geo backfill STARVES forward capture at the ~04:03 ET quota reset (★GOOGLE-QUOTA-PRIORITY-INVERSION). BUILD ORDER is owned by LORAMER_QUEUE_OF_RECORD.md ## RANKED COMPLETION ORDER (T3 CAPTURE COMPLETENESS is the active tier) and external status by LORAMER_DECISIONS.md — NOT restated here per LORAMER_DOCS_SINGLE_OWNER_V1. NEXT = per that ranking; the three ★ items above are the top of T3. Restatement windows are banked in DECISIONS LORAMER_RESTATEMENT_WINDOW_LAW_V1.** Remaining LIVE+BREADTH phases: live spine → live UI (-next) → intelligence reshape (freeze-gated, last). (Influential Drones Meta = RESOLVED 2026-06-24 — connection ALIVE, reconciles to the penny; NOT blocked.) AUDIT_FINDINGS.md = master punch-list; LORAMER_CATCHUP_LOOP_PLAN.md = closed record of WS1c STEP 2.
 
-═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-09-10). THIS IS THE NEXT STEP. ═══
+═══ HEAD — THE NEWEST BLOCK IN CONTINUE_HERE.md (line 1, 2026-09-11). THIS IS THE NEXT STEP. ═══
 ⛔ CORROBORATION ONLY: the resume flow reads this block FROM CONTINUE_HERE.md directly. If what follows differs
 from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop and say so.
 
-╔═══ SESSION CLOSE 2026-09-10 (EVENING) — PUBLISH FLIP LIVE (69f6448) · DRIVER 1/2 (ff3efe5) · HEARTBEAT FIX (a451d46) · DRIVER 2/2 LIVE (c299208 + a5db7a5) · LEGACY FREEZE IN THE DAILY HANDOFF. NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z. ═══╗
+╔═══ SESSION CLOSE 2026-09-11 (LATE) — ONE-CLICK 2/2 A LIVE (7773a87 · 5d0ae38): BUTTON → RESUMER PROVEN ON ESCENTIAL, WALK METER-HELD BY RULING (WAIT). NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z, THEN 2/2 B (RESUMER UN-PIN = STOP-AND-CONFIRM 4) ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
 
-── SHIPPED 2026-09-10 (five commits, every one through the push gate; the morning's four instrument commits sit in the block below) ──
-· `69f6448` PUBLISH FLIP — LOOKBACK_SLOT_MODE = 'publish' (STOP-and-confirm 2; cite DECISIONS (c) 2026-09-05 on route.ts:90). Gate-B on the
-  08:08Z forward fire passed first (conversion_action 18/18 · error_count 36 → 18 · Foam OH boundary 90d). First publish tick 14:41:07Z asked
-  2 owed days at the floor (2022-03); the "waiting until 2026-11-17" expectation was the TOP strip's only — the sealed branch fills owed floor
-  days now. Russ ruled KEEP. ≤ 2 requests per 5-min tick on Foam OH.
-· `ff3efe5` LORAMER_FORWARD_DRIVER_V1 (1/2) — the catalogue-only driver, isolated: HEAVY 50 (search-term/landing resources, 485,336 rows on
-  Escential) + REST 269 (236,924) = the 319 surfaces the frozen legacy family never asks; units (client, slice, D) under `__fwd_google:<slice>`
-  at DRIVER_CLAIM_LEASE_S = 800 + 100; pending read from forward_observation_log; DRIVER_EXCLUDED_CLIENTS = [2617b163]. Gate-A measured
-  2026-09-10 N=319 rows=722,260 write-free. Five guards red→green. The legacy copy (round 6) was DELETED by ruling.
-· `a451d46` HEARTBEAT FIX — universe_fire_log.published = published.length (f75d8aa counted each lookback unit twice: 4 vs publishedOf 2,
-  68 vs 34 attempts → a false EXECUTION-DARK). Proven on fire 6754: published 8 = publishedOf 8.
-· `c299208` + `a5db7a5` LORAMER_FORWARD_DRIVER_V1 (2/2) — the caller: src/app/api/cron/forward-driver/route.ts (Bearer CRON_SECRET · maxDuration
-  800 · cron_runs mode 'driver') + vercel.json `*/10 11-16 * * *` and make-ups `30 17` / `30 21` (17 → 20 entries) + check:data leg
-  forward-driver-connection-day-complete (≥ 319 driver-observed surfaces per eligible connection at the 17:00Z cutoff) + guard
-  driver-caller-is-cron-only. Smoke fire 1 hit the tracing trap INDIRECTLY (ENOENT on the catalogue artifact; the route never names
-  loadUniverse) → a5db7a5 adds the outputFileTracingIncludes entry, guard leg (e). Smoke fire 2 (21:01Z, Escential, D=2026-09-09):
-  HTTP 200 in 527 s · HEAVY 50/50 ran · 476,200 rows · 46 ok / 4 zero · REST skipped over budget (the door working) · legacy rows for the
-  day UNCHANGED 27,736 → 27,736 · stamped rows 0 → 10,731 · cron_runs 14715 err 0.
-· `7773a87` (pushed 2026-09-11 00:35Z) + THIS COMMIT — LORAMER_ONE_CLICK_WALK_V1 1/2 + 2/2 A: the -next Backfill button kicks the
-  resumer for its google client (kickoffWalk, beside the June-engine kick — ruling n); the 1/2 publish branch (it fed the V1 topic
-  consumer, not the v2 walk — round 16 correction) is retired; readout answers from the walk floor; Connections row wraps. 'driver' is
-  the fifth op-budget lane (6,900; backfill 6,600; migration 089 producer-split read — the driver's requests were counted twice).
-  QUEUE ★MONDAY-GAP-LIST-IS-UNMEASURED + ★FORWARD-DRIVER-SHAPE own the text. vercel.json untouched (resumer still pinned → 2/2 B).
-· THE FREEZE IN THE DAILY HANDOFF — ESSENCE governing law (digest §C) + this block's STANDING carry: legacy is frozen for Google Standard
-  Access (DECISIONS:2461); the driver is catalogue-only; ruling (n) holds by disjointness. Ruling (q) AMENDED: cutoff 17:00Z, make-ups
-  17:30Z/21:30Z (QUEUE ★FORWARD-DRIVER-SHAPE owns the text).
+── SHIPPED 2026-09-11 (two commits, both through the push gate) ──
+· `7773a87` LORAMER_ONE_CLICK_WALK_V1 (1/2) — Data-history readout answers from the walk floor (not-started · partial back to the earliest
+  descend window · complete back to the account floor); Connections row wraps; the button's v1 publish branch (since RETIRED by 5d0ae38 —
+  it fed the V1 topic consumer, not the v2 walk; round 16 correction).
+· `5d0ae38` LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the Backfill button kicks the resumer for its google client (kickoffWalk →
+  /api/cron/universe-resume?clientId=…&dryRun=0, CRON_SECRET server-side, waitUntil; June-engine drain + gap kicks kept, ruling n);
+  'driver' is the fifth op-budget lane (driver 6,900 · backfill 6,600 · forward 1,500; forward > driver > drain > catchup > backfill);
+  migration 089 forward_observation_spend_split reads forward/driver from the observation ledger in ONE producer-split read — the
+  driver's requests had been counted twice (byLane.forward via 087's unsplit sum + unattributed × 67); guards driver-spend-counted-once
+  (new) · one-click-starts-walk re-pointed · google-op-budget (k)(j)(p) · backfill-yields-to-product driver day. Push gate 177/177.
+· PROVEN (Gate-A, Russ pressed 03:11:49Z): POST /api/clients/backfill 200 → universe_fire_log 6838 on Escential (c39ee088,
+  src/lib/clients/canonical.ts) at 03:12:12Z, dry=false, catalog 349, scanned 60, candidates 60 — fire_outcome meter-held:
+  "google: 6584 + 40 (40 fetches) would exceed 6600 operations/day". THE MECHANISM WORKS; THE LANE WAS FULL. inception none ·
+  attempt rows 0 · legacy rows 2026-09-09 (no grainSource stamp) 27,669 unchanged · op-budget split 24 h forward 1,045 · driver 514 ·
+  unattributed 0.
+· RULING (Russ, round 18): WAIT — no ledger delete, no lane change. The lane frees as Escential's v1 rows leave the rolling 24 h window,
+  from ~00:41Z 2026-09-12. Adversary collision carried: the meter's 24 h sum is the only instrument between the fleet and Google's
+  real cap, and those requests were genuinely spent — a ledger the meter can be made to forget is not a meter.
+· check:data on the 5d0ae38 tree (03:xxZ): "[check:data] VERDICT — EXIT 1 · 34 checks: 22 green · 12 red · 0 crashed" = the prior 10 +
+  google-op-budget --db leg (k) (the producer-split seam; fixed in 5d0ae38, direct re-run PASS) + check-fleet-meter-visibility
+  DOUBLE-COUNTED (v1 chain alive; witness is v2-only — QUEUE ★FLEET-METER-DRIFT-FLICKERS, false red while any v1 chain runs).
 
-── ▶▶ NEXT STEP — OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z ──
-OPEN-VERIFY the first driver window 2026-09-11 11:00–16:50Z: forward_observation_log driver-% rows ≥ 319 per eligible google connection by
-17:00Z (check:data leg forward-driver-connection-day-complete flips green); metrics_daily stamped rows land for HEAVY+REST; legacy row
-counts per client unchanged; sync fires unaffected (cron_runs mode=forward same shape as 2026-09-10). THE THREE READ-BACKS, IN ORDER:
-(a) at ~17:05Z: `node scripts/check-forward-driver-connection-day-complete.mjs` reads green, or names the short connections with their counts.
-(b) cron_runs mode='driver' for the window: `select count(*) fires, count(*) filter (where finished_at is null) killed, sum(rows_written) rows,
-    sum(error_count) errors from cron_runs where mode='driver' and started_at >= '2026-09-11T11:00Z'` — and the per-fire write rate
-    (rows_written ÷ (finished_at − started_at) after the ~1 s/surface latency term) against the two readings on record: 1,060 rows/s (smoke
-    fire 2, one fire, shared host) and 1,448 (ruling m's floor, the estimate's default). 17 eligible connections × 2 units = 34 units over 36 slots.
-(c) `node scripts/check-walk-liveness.mjs` reads ALIVE after ~20:07Z (the old-build double-counted ticks age out of the 24 h window).
-THEN, in order (QUEUE ★FORWARD-DRIVER-SHAPE owns the list): the walk behind the one-click button + delete-and-rerun on Foam OH's walk tables
-(live merchant path = STOP-and-confirm 4) → the cold proof run on Foam OH → the descent on the 17, heaviest last, Bath Fitter never a test account.
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) OPEN-VERIFY the first driver window 2026-09-11 11:00–16:50Z: at ~17:05Z `node scripts/check-forward-driver-connection-day-complete.mjs`
+    reads green or names the short connections; cron_runs mode='driver' for the window (fires · killed · rows · errors · per-fire write
+    rate vs 1,060 smoke / 1,448 ruling m); the lane spend split for 2026-09-11 (forward · driver · lookback · Escential's v1 tail · Foam OH
+    v2) against 15,000 — driver rows must show unattributed 0; `node scripts/check-walk-liveness.mjs` ALIVE after ~20:07Z.
+(2) 2/2 B — the resumer enumerates eligible google clients (shape (a) one enumerating route, or (b) N cron entries — decide in the
+    read-first), vercel.json un-pinned from Foam OH, universe-stream-consumer.guard leg (e) re-pinned = STOP-AND-CONFIRM 4 (live-path).
+(3) After ~00:41Z 2026-09-12 Russ presses Backfill history on Escential once more → expect universe_account_inception 2022-08-13,
+    universe_attempt_log descend rows, readout "Partial — back to <first window start>", legacy rows 27,669 unchanged.
 
 ── STANDING ──
-· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The forward driver owns the 319 catalogue surfaces only and has its own caller.
-· Escential's (c39ee088, src/lib/clients/canonical.ts) V1 chain runs GOVERNED since 2026-09-11 00:40Z by ruling (round 15c): the 1/2 button
-  press started the v1 topic consumer on it; arm nothing, edit nothing, do not arm the quota hold; its rows are universe_window_log only.
-· Foam OH's first lookback seal stays 2026-11-17 (earliest class; the sealed-branch floor fill runs now and is a different thing); Russ still
-  owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
-· check:data 21:0xZ (clean run on the committed tree): "[check:data] VERDICT — EXIT 1 · 34 checks: 24 green · 10 red (…) · 0 crashed" —
-  the queue-owned 8 + check-walk-liveness (trailing window, clears ~20:07Z 09-11) + forward-driver-connection-day-complete (RED by design).
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The driver is catalogue-only; ruling (n) holds by disjointness.
+· Escential's (c39ee088, src/lib/clients/canonical.ts) V1 chain (round-15 press, 00:41Z 09-11) quota-stops itself entry by entry once its
+  v1-only governor reads 6,600 (~03:17Z 09-11; google-ads-universe/route.ts:126-129 records quota_stop and does not re-publish); its
+  universe_window_log rows STAY (6,359 at 03:12Z) and the v2 walk counts them covered; arm nothing, edit nothing, no quota hold.
+· Foam OH's lookback (2 requests / 5-min tick) is held at the 6,600 lane until the v1 rows roll off (~00:41Z 09-12 onward); the first
+  lookback seal stays 2026-11-17.
+· Delete-and-rerun on Foam OH's walk tables (attempt log + stamped rows; postgres role; manifest-first; STOP-and-confirm) stays THE COLD
+  PROOF by ruling 2026-09-10 — Standard Access discounts the calendar cost — and comes AFTER 2/2 B (QUEUE ★NINE-THIRTY-PROOF-SCOPE line).
+· Russ still owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
 · Device merge gate re-measured: 4,221 legacy-level stamped device rows vs the banked 3,751 — DECISIONS:2505 STOP applies; re-manifest first.
-· Legacy coverage measured (round 10): all 81.2M legacy rows (52 keys) reachable on -next directly; 18 keys twin-less; 34 twins Foam OH only.
 · Pushes gated (scripts/push-gate.mjs); deploy-poll-until-terminal; one-block output; CITED gate — all bind as before.
 
 ╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
@@ -1639,6 +1632,7 @@ The 2026-06-29 inventory pre-dates 6 shipped writers and was NOT trusted. | do n
 - ★CHECKDATA-OVERLAPPING-A-DRIVE-READS-AS-A-CRASH — ⛔ **NEW 2026-08-19, MEASURED TWICE. `npm run check:data` run CONCURRENTLY with a drive returns EXIT 2 with `canonical-key-spelling: exit=1` and a `57014 canceling statement due to statement timeout`.** It reads as a CRASHED check — the most alarming bucket the verdict has — and it is pure lock/IO contention with the rows the drive is landing. **RE-RUN IN ISOLATION IMMEDIATELY AFTER: PASS.** ⇒ **THE HAZARD IS NOT THE TIMEOUT, IT IS THE MISREAD:** a crashed check:data is the one signal this repo treats as never-a-clean-gate, so a contention artifact can either block a legitimate push or — worse — train the reader to wave at EXIT 2. ⇒ FIX SHAPE (not built): either serialise the gate against live drives, or have the runner RETRY a 57014 once in isolation before classifying it as CRASHED and say so in the verdict line. ⛔ UNTIL THEN THE OPERATOR RULE IS: **never run check:data while a drive is in flight, and if EXIT 2 names a timeout, re-run that check alone before believing it.** src: 2026-08-19, observed on runs #2 and #3. open [LC]
 - ★LORAMER-R2-BACKUPS-ARE-INVISIBLE-TO-THE-CLOUDFLARE-CONNECTOR — ⛔ **NEW 2026-08-19, AND IT MATTERS THE DAY SOMEBODY AUDITS CLOUDFLARE.** LoraMer's off-site database backups live in R2 bucket **`loramer-db-backups`** (`.github/workflows/db-backup.yml`, nightly `pg_dump -Fc -Z9` → R2 via the S3 API, 30-day prune; 74 runs, last twelve all green, most recent 2026-08-18 04:07Z with the upload step confirmed success). **`r2_bucket_get("loramer-db-backups")` against the Cloudflare MCP connector returns 404 (code 10006) — the bucket is NOT in the account that connector is authenticated to**, whose only bucket is `signforge-avatars`. ⇒ **AN INVENTORY TAKEN FROM THAT CONNECTOR IS NOT LORAMER'S CLOUDFLARE FOOTPRINT**, and reasoning about "what Cloudflare holds for us" from it will be wrong in the most dangerous direction. **THE FULL FOOTPRINT, MEASURED: (1) `loramer-db-backups` — off-site DR, load-bearing, removal re-opens the gap ROADMAP:346 records as closed; (2) Cloudflare DNS for `loramer.com` and `app.loramer.com` (DNS-only, Vercel SSL) — removal takes the product offline; (3) Cloudflare named to Meta as a declared data processor — a compliance statement.** ⛔ **THE APP RUNTIME READS ZERO CLOUDFLARE/R2 VARIABLES** — the four R2 credentials are GitHub Actions secrets, not Vercel env vars, and `src/` contains no SDK, no import and no reference (the only `r2` in the tree is a round-to-2-decimals helper). NEXT ACTION: record the backup account id somewhere findable, or add a Management-API token so the account can be enumerated without a human — see [[★PROVISIONED-DISK-IS-A-HUMAN-STEP]], which is the same missing credential. src: 2026-08-19 read-only audit. open [LC]
 - ★BACKFILL-DONE-DONE-ACCOUNT-WIDE — ⛔ **THE HEAD, RANKED 2026-08-19 the moment [[★PROVE-ONE-SURFACE-TO-INCEPTION]] was satisfied.** [[LORAMER_BACKFILL_DONE_DONE_V1]] defines a finished backfill by six conditions and this arc discharged the ENGINE half only: one surface arrives ([[LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1]]). **THE REMAINING CONDITIONS ARE ACCOUNT-WIDE AND CANNOT BE ANSWERED ONE SURFACE AT A TIME: all grains captured · reconciles to the vendor UI · Lora-wired** — on Foam OH / Google first, delivered as ONE pass/fail proof from a COLD connection, which is the law's own shape. ⇒ FIRST ACTION IS A MEASUREMENT, NOT A BUILD: enumerate Foam OH's selectable google surfaces and read, per surface, how far each has actually walked — the reference surface is at inception and the rest are not, and nobody has read the distribution. ⛔ **DO NOT SUBSTITUTE WIDTH FOR DEPTH:** rolling to eight connections before Foam OH answers done-done is exactly what [[LORAMER_PROVE_ONE_SURFACE_FIRST_V1]] was banked to prevent, and it cost a session once. ⚠ COST IS MEASURED NOW, NOT ESTIMATED: **53 requests bought 1,623 days on ONE surface**; every fleet number should be re-derived from that and the ~1,427-pass estimate retired. src: 2026-08-19 inception run. **CONDITION STATUS 2026-09-09 (round-5 read on Foam OH 957d484e, supersedes the 2026-09-05 status; the six conditions are OWNED by ESSENCE:316-331; the 9/30 proof SCOPE is ★NINE-THIRTY-PROOF-SCOPE — DECISIONS LORAMER_PROOF_SCOPE_9_30_V1: mechanism, correctness-as-of-last-ask and legible in-window labeling; restatement-final is NOT a 9/30 condition):** 1 ALL GRAINS — CANNOT on anything built (349 selectable; 9 deferred ★DEFERRED-9-REMAIN; 315 of 349 with no daily writer; the ad_group axis open on the denominator ★CATALOGUE-LACKS-AD-GROUP-AXIS; the driver ★FORWARD-DRIVER-SHAPE is the closer) · 2 FLOOR TO INCEPTION — SPLIT (floor PASSES: 349/349 sealed by 2026-08-26, inception 2022-03-04, 0 vendor refusals; interior + top strip CANNOT: newest-asked 221 surfaces at 2026-08-12 · 106 at 08-23 · 14 at 08-18 · 3 + 3 at 08-24/25 · 2 at 09-08; check:data 2026-09-09 top-edge-is-held "347 carrying a strip … 7752 owed day(s) beyond tolerance, growing by 349 day(s) per day"; "with a stated reason" has no column — ruling (k)) · 3 CORRECT, NOT JUST PRESENT — no-rewrite PASSES (8134806); the restatement half is satisfied on 9/30 by the lookback lane RUNNING AND LABELING (★NINE-THIRTY-PROOF-SCOPE), finals landing automatically from 2026-11-17 (earliest class) to 2026-12-14 (last class); the reconcile half ✅ Foam OH 2026-09-09 — Dec 2–17 2024, six figures at display precision on the only campaign with rows (★RECONCILE-TO-VENDOR-UI-UNRECORDED, second evidence banked 2026-09-10; conversion value still unverified, the token open on the fleet) · 4 EXPEDITIOUS — UNRECORDED; closes on the cold run's measured connect→all-349-surfaces-hold-yesterday wall-clock, after 3 · 5 LORA-WIRED — in WIRE (DECISIONS:2452; ★LORA-CANNOT-REACH-VENDOR-GRAINS, 52 of 346 reachable), confirmed 2026-09-09, not relitigated · 6 HONEST INSTRUMENTS — CANNOT now (check:data 2026-09-09: 33 checks · 23 green · 9 red · 1 crashed; walk-liveness prints ALIVE at rows=0 — ★LIVENESS-PREDICATE-TOO-COARSE; fleet-meter disagrees with the fire log by −190; no-owed-day-left-behind BROKEN). The one-click path finding is banked under ★MONDAY-GAP-LIST-IS-UNMEASURED (3); the delete-and-rerun and second-Meta-account findings under DECISIONS LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1. open [LC]
+- ★NINE-THIRTY-PROOF-SCOPE — **POINTER + THE PROOF PATH AS RULED 2026-09-11.** The SCOPE is owned by DECISIONS LORAMER_PROOF_SCOPE_9_30_V1 (2026-09-09) — not restated here. THE PATH, in order (Russ, round 18; sequenced after [[★FORWARD-DRIVER-SHAPE]]'s driver-window open-verify and LORAMER_ONE_CLICK_WALK_V1 2/2 B, the resumer un-pin = STOP-and-confirm 4): (1) Foam OH (957d484e) DELETE-AND-RERUN as THE COLD PROOF — the walk's attempt log + the 77.4M stamped metrics_daily rows, postgres role, manifest-first (a re-manifest before any delete), STOP-and-confirm on the live merchant path; the button (2/2 A) starts it; ruling 2026-09-10: Standard Access discounts the calendar cost, so the cold proof stays on Foam OH rather than a cheaper account; (2) then Bath Fitter and the 17 descend, heaviest last, Bath Fitter never a test account. ⛔ UNDER STANDARD ACCESS the descent's own pacing — the resumer at */5, MAX_REQUESTS_PER_RUN 40, queue concurrency 2, and the lane allocations (backfill 6,600 since 5d0ae38) — must be RE-TUNED or a day is still weeks: sized when the cap flips, not before (the Basic-cap arithmetic is [[★FORWARD-DRIVER-SHAPE]]'s and does not carry over). src: round 18 close 2026-09-11. open [LC]
 - ★LORA-ANSWERED-TWICE — ⛔ **NEW 2026-08-20 ~01:05Z, RUSS ON DEVICE, AND IT IS THE HEAD FOR TOMORROW BECAUSE THE EXPENSIVE READING IS CHEAP TO RULE OUT.** The Escential Group, prompt "best actionable meta ad task": **TWO IDENTICAL ASSISTANT TURNS RENDERED**, and the duplicate was **GONE ON RELOAD**. ⚠ **THAT POINTS TO A RENDER DUPLICATE RATHER THAN A SECOND BILLED COMPLETION — AND IT IS NOT CONFIRMED.** A turn that vanishes on reload was never persisted, and a completion that was never persisted may still have been PAID FOR. The two readings differ by real money on every affected turn and by nothing on the screen. ⇒ **TOMORROW, FIRST: count the assistant rows in the conversation store for that thread and the completions actually ISSUED (spend log / Anthropic request ids) for that turn, and return a verdict RENDER vs BILLED.** Both are read-only. Candidate mechanisms already banked and worth checking before theorising: [[★CHAT-MESSAGES-REPLACED-WHOLESALE]], [[★CHAT-REFRESH-TRIGGERS-MISS-THE-WRITE]], [[★CHAT-USER-TURN-ORPHAN]] (client-side turn writes), and the streaming path's `answer` event vs the persisted finalResp. src: Russ, 2026-08-20. open [LC]
 - ★FENCED-BLOCK-OVERFLOWS-ON-MOBILE — ⛔ **NEW 2026-08-20. THE PASTE-ABLE FORMAT AND THE READABLE FORMAT ARE IN DIRECT CONFLICT, AND THE PROMPT RULE PICKED ONE WITHOUT NAMING THE COST.** A fenced block preserves whitespace and does not wrap, so on a phone the block runs off-screen: a table's columns disappear to the right and prose is cut mid-sentence. **Paste-able but unreadable is not a win** — and the whole justification of [[★CHAT-COPY-BLOCKS]]'s prompt half is that the user will paste it somewhere. `.md pre` already scrolls internally (`overflow-x: auto`, `-webkit-overflow-scrolling: touch`, `max-width: 100%`), so the block does not widen the surface — the content is reachable by horizontal scroll and NOT lost. ⚠ THE REAL QUESTION IS THEREFORE NOT OVERFLOW BUT **WHICH ANSWERS SHOULD BE FENCED AT ALL**: the prompt rule (build-claude-context.ts:1390-1400) already says "when a list is genuinely NOT paste-able — a ranked table with metrics the user asked to see, or a comparison — use normal markdown, not a fence", so a fenced TABLE is the rule being MISAPPLIED rather than the rule being wrong. Settle by looking at the real answers before changing prompt text. src: Russ on device, 2026-08-20. open [LC]
 - ★CHAT-BLOCK-EXPAND-CONTROL — ⚠ **NEW 2026-08-20, RUSS'S REFERENCE. NOT SCOPED, AND THE MISSING HALF IS NOT THE BUTTON.** His reference shows copy AND expand on a block; only copy is built ([[★CHAT-COPY-BLOCKS]] flight A, f88e313). **Expand needs a surface to expand INTO**, and this repo has no such surface: the phone page is already full-bleed, and the desktop shelf is a portaled panel whose width is the constraint. It therefore lands on top of [[★CHAT-DESKTOP-SIDE-PANEL]] (the Sidekick sibling-panel pattern) rather than beside it, and GRID-NATIVE law applies to whatever it expands into. Do not build the control before the surface exists. src: Russ, 2026-08-20. open [LC]
@@ -2605,7 +2599,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT — OPEN · decisions 0 · queue 2 · last 2026-09-11
 - ★FORWARD-BUDGET-CAP-SUSPICION — OPEN · decisions 0 · queue 2 · last 2026-09-30
 - ★FORWARD-CAPTURE-COVERS-217-FEWER-SURFACES — OPEN · decisions 0 · queue 1 · last 2026-09-05
-- ★FORWARD-DRIVER-SHAPE — OPEN · decisions 0 · queue 4 · last 2026-12-14
+- ★FORWARD-DRIVER-SHAPE — OPEN · decisions 0 · queue 5 · last 2026-12-14
 - ★FOUNDER-EMAILS-NOT-ALLOWLISTED — OPEN · decisions 0 · queue 3 · last 2026-08-04
 - ★FROZEN-DETECTOR-READS-UPDATED-AT-AS-FREEZE — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★G2 — OPEN · decisions 0 · queue 3 · last 2026-07-16
@@ -2757,7 +2751,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★NEXT-RANGE-TEST-READS-VOID-AS-COVERED — OPEN · decisions 0 · queue 1 · last 2026-09-04
 - ★NEXT-SCROLL-LANDING — DONE · decisions 0 · queue 1 · last 2026-08-07
 - ★NEXT-TIMESERIES-SYNTHESIZES-DAYS — DONE · decisions 0 · queue 1 · last 2026-08-24
-- ★NINE-THIRTY-PROOF-SCOPE — OPEN · decisions 0 · queue 3 · last 2026-12-14
+- ★NINE-THIRTY-PROOF-SCOPE — OPEN · decisions 0 · queue 4 · last 2026-12-14
 - ★NO-CONNECTION-OUTCOME-LEDGER-IDENTITY-IN-V2 — OPEN · decisions 0 · queue 2 · last 2026-08-09
 - ★NO-OWED-DAY-CHECK-CRASHES — DONE · decisions 0 · queue 1 · last 2026-09-10
 - ★NO-PROGRESS-BOUND-KEYED-ON-THE-WRONG-SHAPE — OPEN · decisions 1 · queue 2 · last 2026-08-19
@@ -3307,7 +3301,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_OBJECTIVE_RULES_PRIORITIZE_NOT_DENY_V1 — DECIDED · decisions 6 · queue 0 · last 2026-07-15
 - LORAMER_ONBOARD_DRAIN_V1 — OPEN · decisions 0 · queue 3 · last 2026-06-25
 - LORAMER_ONE_BLOCK_OUTPUT_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-05
-- LORAMER_ONE_CLICK_WALK_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-11
+- LORAMER_ONE_CLICK_WALK_V1 — OPEN · decisions 0 · queue 3 · last 2026-09-11
 - LORAMER_ONE_LORA_ONE_MODEL_V1 — DECIDED · decisions 1 · queue 0 · last 2026-07-17
 - LORAMER_ONE_SURFACE_PROVEN_TO_INCEPTION_V1 — OPEN · decisions 0 · queue 2 · last 2026-12-14
 - LORAMER_ONE_WORKING_INDICATOR_PER_TURN_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-05
@@ -3331,7 +3325,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_POST_WIRING_MEASURE_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-16
 - LORAMER_POSTGREST_READ_CEILINGS_ARE_ONE_CLASS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_PRESCHEDULING_GATE_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-11
-- LORAMER_PROOF_SCOPE_9_30_V1 — OPEN · decisions 0 · queue 2 · last 2026-12-14
+- LORAMER_PROOF_SCOPE_9_30_V1 — OPEN · decisions 0 · queue 3 · last 2026-12-14
 - LORAMER_PROOF_TARGET_FOAMOH_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-18
 - LORAMER_PROTOCOL_GATE_ENFORCER_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-23
 - LORAMER_PROVE_ONE_SURFACE_FIRST_V1 — OPEN · decisions 0 · queue 2 · last 2026-12-14

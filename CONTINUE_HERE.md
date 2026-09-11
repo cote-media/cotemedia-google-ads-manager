@@ -1,4 +1,56 @@
-╔═══ SESSION CLOSE 2026-09-10 (EVENING) — PUBLISH FLIP LIVE (69f6448) · DRIVER 1/2 (ff3efe5) · HEARTBEAT FIX (a451d46) · DRIVER 2/2 LIVE (c299208 + a5db7a5) · LEGACY FREEZE IN THE DAILY HANDOFF. NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z. ═══╗
+╔═══ SESSION CLOSE 2026-09-11 (LATE) — ONE-CLICK 2/2 A LIVE (7773a87 · 5d0ae38): BUTTON → RESUMER PROVEN ON ESCENTIAL, WALK METER-HELD BY RULING (WAIT). NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z, THEN 2/2 B (RESUMER UN-PIN = STOP-AND-CONFIRM 4) ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── SHIPPED 2026-09-11 (two commits, both through the push gate) ──
+· `7773a87` LORAMER_ONE_CLICK_WALK_V1 (1/2) — Data-history readout answers from the walk floor (not-started · partial back to the earliest
+  descend window · complete back to the account floor); Connections row wraps; the button's v1 publish branch (since RETIRED by 5d0ae38 —
+  it fed the V1 topic consumer, not the v2 walk; round 16 correction).
+· `5d0ae38` LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the Backfill button kicks the resumer for its google client (kickoffWalk →
+  /api/cron/universe-resume?clientId=…&dryRun=0, CRON_SECRET server-side, waitUntil; June-engine drain + gap kicks kept, ruling n);
+  'driver' is the fifth op-budget lane (driver 6,900 · backfill 6,600 · forward 1,500; forward > driver > drain > catchup > backfill);
+  migration 089 forward_observation_spend_split reads forward/driver from the observation ledger in ONE producer-split read — the
+  driver's requests had been counted twice (byLane.forward via 087's unsplit sum + unattributed × 67); guards driver-spend-counted-once
+  (new) · one-click-starts-walk re-pointed · google-op-budget (k)(j)(p) · backfill-yields-to-product driver day. Push gate 177/177.
+· PROVEN (Gate-A, Russ pressed 03:11:49Z): POST /api/clients/backfill 200 → universe_fire_log 6838 on Escential (c39ee088,
+  src/lib/clients/canonical.ts) at 03:12:12Z, dry=false, catalog 349, scanned 60, candidates 60 — fire_outcome meter-held:
+  "google: 6584 + 40 (40 fetches) would exceed 6600 operations/day". THE MECHANISM WORKS; THE LANE WAS FULL. inception none ·
+  attempt rows 0 · legacy rows 2026-09-09 (no grainSource stamp) 27,669 unchanged · op-budget split 24 h forward 1,045 · driver 514 ·
+  unattributed 0.
+· RULING (Russ, round 18): WAIT — no ledger delete, no lane change. The lane frees as Escential's v1 rows leave the rolling 24 h window,
+  from ~00:41Z 2026-09-12. Adversary collision carried: the meter's 24 h sum is the only instrument between the fleet and Google's
+  real cap, and those requests were genuinely spent — a ledger the meter can be made to forget is not a meter.
+· check:data on the 5d0ae38 tree (03:xxZ): "[check:data] VERDICT — EXIT 1 · 34 checks: 22 green · 12 red · 0 crashed" = the prior 10 +
+  google-op-budget --db leg (k) (the producer-split seam; fixed in 5d0ae38, direct re-run PASS) + check-fleet-meter-visibility
+  DOUBLE-COUNTED (v1 chain alive; witness is v2-only — QUEUE ★FLEET-METER-DRIFT-FLICKERS, false red while any v1 chain runs).
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) OPEN-VERIFY the first driver window 2026-09-11 11:00–16:50Z: at ~17:05Z `node scripts/check-forward-driver-connection-day-complete.mjs`
+    reads green or names the short connections; cron_runs mode='driver' for the window (fires · killed · rows · errors · per-fire write
+    rate vs 1,060 smoke / 1,448 ruling m); the lane spend split for 2026-09-11 (forward · driver · lookback · Escential's v1 tail · Foam OH
+    v2) against 15,000 — driver rows must show unattributed 0; `node scripts/check-walk-liveness.mjs` ALIVE after ~20:07Z.
+(2) 2/2 B — the resumer enumerates eligible google clients (shape (a) one enumerating route, or (b) N cron entries — decide in the
+    read-first), vercel.json un-pinned from Foam OH, universe-stream-consumer.guard leg (e) re-pinned = STOP-AND-CONFIRM 4 (live-path).
+(3) After ~00:41Z 2026-09-12 Russ presses Backfill history on Escential once more → expect universe_account_inception 2022-08-13,
+    universe_attempt_log descend rows, readout "Partial — back to <first window start>", legacy rows 27,669 unchanged.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The driver is catalogue-only; ruling (n) holds by disjointness.
+· Escential's (c39ee088, src/lib/clients/canonical.ts) V1 chain (round-15 press, 00:41Z 09-11) quota-stops itself entry by entry once its
+  v1-only governor reads 6,600 (~03:17Z 09-11; google-ads-universe/route.ts:126-129 records quota_stop and does not re-publish); its
+  universe_window_log rows STAY (6,359 at 03:12Z) and the v2 walk counts them covered; arm nothing, edit nothing, no quota hold.
+· Foam OH's lookback (2 requests / 5-min tick) is held at the 6,600 lane until the v1 rows roll off (~00:41Z 09-12 onward); the first
+  lookback seal stays 2026-11-17.
+· Delete-and-rerun on Foam OH's walk tables (attempt log + stamped rows; postgres role; manifest-first; STOP-and-confirm) stays THE COLD
+  PROOF by ruling 2026-09-10 — Standard Access discounts the calendar cost — and comes AFTER 2/2 B (QUEUE ★NINE-THIRTY-PROOF-SCOPE line).
+· Russ still owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
+· Device merge gate re-measured: 4,221 legacy-level stamped device rows vs the banked 3,751 — DECISIONS:2505 STOP applies; re-manifest first.
+· Pushes gated (scripts/push-gate.mjs); deploy-poll-until-terminal; one-block output; CITED gate — all bind as before.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-11 late · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-10 (EVENING) — PUBLISH FLIP LIVE (69f6448) · DRIVER 1/2 (ff3efe5) · HEARTBEAT FIX (a451d46) · DRIVER 2/2 LIVE (c299208 + a5db7a5) · LEGACY FREEZE IN THE DAILY HANDOFF. NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z. ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
