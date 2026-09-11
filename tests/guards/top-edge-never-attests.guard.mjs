@@ -29,6 +29,7 @@ import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import Module from 'node:module'
+import { restAll } from '../../scripts/lib/rest-all.mjs' // LORAMER_REST_ROW_CAP_READER_V1 — pages from the server total, throws on a partial set
 
 const ROOT = process.env.LORAMER_GUARD_ROOT || process.cwd()
 const COVERAGE = process.env.LORAMER_COVERAGE || 'src/lib/backfill/universe-coverage.ts'
@@ -156,12 +157,11 @@ if (typeof C.resolveTerminalLane === 'function') {
 }
 
 // ── LIVE — WHAT ACTUALLY LANDED ──────────────────────────────────────────────────────────────────────
-const get = async (p) => {
-  const r = await fetch(`${SB}/rest/v1/${p}`, { headers: { apikey: K, Authorization: `Bearer ${K}` } })
-  const body = await r.json().catch(() => null)
-  if (r.status !== 200 || !Array.isArray(body)) throw new Error(`read failed (HTTP ${r.status}) on ${p.slice(0, 90)}: ${JSON.stringify(body).slice(0, 200)}`)
-  return body
-}
+// ⛔ LORAMER_REST_ROW_CAP_READER_V1 — the first cut read `…&limit=1000` through a bare fetch and examined 1,000 of 9,097
+// top-edge starts (measured 2026-09-11): 8,097 were never looked at and the verdict read PASS. Every read here now pages
+// from the server's own total and THROWS on a partial set. The terminal join is sent in chunks of IN_CHUNK keys per
+// in.() request — 9,097 quoted keys in one URL is unsendable — the pattern check-google-forward-account-day.mjs:66 uses.
+const IN_CHUNK = 50 // ⇐ the house in.() chunk at check-google-forward-account-day.mjs:66,98, in production today
 const dayList = (a, b) => {
   const outD = []; const d = new Date(a + 'T00:00:00Z'), end = new Date(b + 'T00:00:00Z')
   while (d <= end) { outD.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1) }
@@ -170,35 +170,55 @@ const dayList = (a, b) => {
 
 try {
   // every message the TOP-EDGE lane ever started
-  const topStarts = await get(`universe_attempt_log?select=client_id,vendor,resource,segment,message_key&phase=eq.attempt_started&lane=eq.top-edge&limit=1000`)
+  const topStarts = await restAll(`universe_attempt_log?select=client_id,vendor,resource,segment,message_key&phase=eq.attempt_started&lane=eq.top-edge`)
   if (topStarts.length === 0) {
     console.log(`[top-edge-never-attests] LIVE LEG VACUOUS — no top-edge attempt_started rows exist yet, so there is nothing that COULD have attested. This is not a green for the property; it is the absence of a subject, and it is said out loud rather than counted as a pass.`)
   } else {
     const keys = [...new Set(topStarts.map((r) => r.message_key).filter(Boolean))]
-    // the terminals those messages wrote, whatever lane column they happen to carry
-    const terms = keys.length
-      ? await get(`universe_attempt_log?select=client_id,vendor,resource,segment,window_start,window_end,outcome,lane,message_key&phase=eq.attempt_finished&outcome=in.(zero,nongrain)&message_key=in.(${keys.map((k) => `"${k}"`).join(',')})&limit=1000`)
-      : []
+    const keySet = new Set(keys)
+    // the terminals those messages wrote, whatever lane column they happen to carry — IN_CHUNK keys per request, concatenated
+    const terms = []
+    for (let i = 0; i < keys.length; i += IN_CHUNK) {
+      const chunk = keys.slice(i, i + IN_CHUNK)
+      terms.push(...await restAll(`universe_attempt_log?select=client_id,vendor,resource,segment,window_start,window_end,outcome,lane,message_key&phase=eq.attempt_finished&outcome=in.(zero,nongrain)&message_key=in.(${chunk.map((k) => `"${k}"`).join(',')})`))
+    }
     let checkedSurfaces = 0, checkedDays = 0
+    // one entry per distinct terminal window, in first-seen order (the same dedupe the sequential loop performed)
     const seen = new Set()
-    for (const t of terms) {
+    const windows = terms.filter((t) => {
       const sk = `${t.client_id}|${t.vendor}|${t.resource}|${t.segment ?? ''}|${t.window_start}|${t.window_end}`
-      if (seen.has(sk)) continue
-      seen.add(sk)
+      if (seen.has(sk)) return false
+      seen.add(sk); return true
+    })
+    // ⛔ LORAMER_REST_ROW_CAP_READER_V1 (resume) — WINDOWS_IN_FLIGHT windows examined concurrently. The honest set is 292
+    // windows (9× what the 1,000-row page showed) at ~0.66 s each sequentially = 194 s, over the 130,104 ms check:data
+    // budget. Same predicate, same compiled attestedEmptyDays call per window; results land by index so counters and
+    // findings are order-independent and the report reads identically. A rejected window rejects the leg (CANNOT RUN).
+    const WINDOWS_IN_FLIGHT = 6 // ⇐ 292 × 0.66 s / 6 ≈ 35 s, under a third of the budget; six short reads do not stack statement time
+    const pool = async (items, size, fn) => {
+      const out = new Array(items.length); let next = 0
+      const worker = async () => { for (;;) { const i = next++; if (i >= items.length) return; out[i] = await fn(items[i]) } }
+      await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker))
+      return out
+    }
+    const results = await pool(windows, WINDOWS_IN_FLIGHT, async (t) => {
       // days that a DESCENDING message also attests are legitimately attested — exclude them, or this leg
       // would red on ground the descent answered for itself.
-      const descend = await get(`universe_attempt_log?select=window_start,window_end,message_key&phase=eq.attempt_finished&outcome=in.(zero,nongrain)&client_id=eq.${t.client_id}&vendor=eq.${t.vendor}&resource=eq.${encodeURIComponent(t.resource)}&window_start=lte.${t.window_end}&window_end=gte.${t.window_start}&limit=1000`)
+      const descend = await restAll(`universe_attempt_log?select=window_start,window_end,message_key&phase=eq.attempt_finished&outcome=in.(zero,nongrain)&client_id=eq.${t.client_id}&vendor=eq.${t.vendor}&resource=eq.${encodeURIComponent(t.resource)}&window_start=lte.${t.window_end}&window_end=gte.${t.window_start}`)
       const descendDays = new Set()
       for (const d of descend) {
-        if (keys.includes(d.message_key)) continue // that is a top-edge message's row
+        if (keySet.has(d.message_key)) continue // that is a top-edge message's row
         for (const day of dayList(String(d.window_start), String(d.window_end))) descendDays.add(day)
       }
       const bt = t.segment ? String(t.segment).replace(/^segments\./, '').replace(/\./g, '_') : String(t.resource)
       const k = { clientId: t.client_id, platform: t.vendor, entityLevel: t.resource, breakdownType: bt }
       const attested = await C.attestedEmptyDays(k, String(t.window_start), String(t.window_end))
       const sealed = attested.filter((d) => !descendDays.has(d))
+      return { t, sealed, days: dayList(String(t.window_start), String(t.window_end)).length }
+    })
+    for (const { t, sealed, days } of results) {
       checkedSurfaces++
-      checkedDays += dayList(String(t.window_start), String(t.window_end)).length
+      checkedDays += days
       if (sealed.length) {
         findings.push(
           `${t.resource}/${t.segment || '(base)'} ${t.window_start}..${t.window_end}: ${sealed.length} day(s) are ATTESTED EMPTY on the evidence of a TOP-EDGE message alone (${sealed.slice(0, 8).join(', ')}${sealed.length > 8 ? ', …' : ''}). ` +

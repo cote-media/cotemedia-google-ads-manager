@@ -11,6 +11,7 @@
 // and queue-owned by ★FORWARD-DRIVER-SHAPE.
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { restAll, restAllCounted } from './lib/rest-all.mjs' // LORAMER_REST_ROW_CAP_READER_V1 — pages from the server total, throws on a partial set
 
 const ROOT = process.cwd()
 if (existsSync(resolve(ROOT, '.env.local'))) {
@@ -22,11 +23,10 @@ if (existsSync(resolve(ROOT, '.env.local'))) {
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!SB || !KEY) { console.error('✗ forward-driver-connection-day-complete: no Supabase credentials (needs .env.local)'); process.exit(1) }
-async function rest(path) {
-  const r = await fetch(`${SB}/rest/v1/${path}`, { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } })
-  if (!r.ok) throw new Error(`${path} → HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`)
-  return r.json()
-}
+// ⛔ LORAMER_REST_ROW_CAP_READER_V1 — the first cut fetched `…&limit=100000` through a bare fetch and received 1,000 of 5,423
+// rows (HTTP 206, Content-Range 0-999/5423, measured 2026-09-11 17:02Z): 16 of 17 connections read SHORT while every one
+// held 319/319. A client limit= cannot raise the server's max-rows. Every read here now pages from the server's own total
+// and THROWS on a partial set; the denominator printed below is the server's, not the page's.
 const REQUIRED = 319 // HEAVY 50 + REST 269 (forward-driver-slices.ts; Gate-A 2026-09-10 N=319)
 const EXCLUDED = new Set(['2617b163-f392-427e-9a29-f134acc51406']) // DRIVER_EXCLUDED_CLIENTS — the RMF-frozen demo twin (DECISIONS:2461); identity per the registry, src/lib/clients/canonical.ts
 
@@ -34,14 +34,15 @@ const now = new Date()
 const dayShift = now.getUTCHours() >= 17 ? 1 : 2
 const D = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dayShift)).toISOString().slice(0, 10)
 
-const conns = await rest(`platform_connections?select=client_id,account_id,clients!inner(id,name,deleted_at)&platform=eq.google`)
+// clients!inner(…) is a 1:1 embed (one client per connection) — the embedded-resource cap (PostgREST #2776) cannot bite a 1:1 join.
+const conns = await restAll(`platform_connections?select=client_id,account_id,clients!inner(id,name,deleted_at)&platform=eq.google`)
 const eligible = conns.filter((c) => !c.clients?.deleted_at && !EXCLUDED.has(c.client_id))
-const obs = await rest(`forward_observation_log?select=client_id,resource,segment&vendor=eq.google&producer=like.driver-*&window_end=eq.${D}&limit=100000`)
+const { rows: obs, total: obsTotal } = await restAllCounted(`forward_observation_log?select=client_id,resource,segment&vendor=eq.google&producer=like.driver-*&window_end=eq.${D}`)
 const perClient = new Map()
 for (const o of obs) { const k = `${o.resource}|${o.segment ?? ''}`; if (!perClient.has(o.client_id)) perClient.set(o.client_id, new Set()); perClient.get(o.client_id).add(k) }
 const short = eligible.map((c) => ({ ...c, n: perClient.get(c.client_id)?.size ?? 0 })).filter((c) => c.n < REQUIRED)
 
-console.log(`[forward-driver-connection-day-complete] judged day ${D} (cutoff 17:00Z) · ${eligible.length} eligible google connection(s) (${conns.length - eligible.length} excluded/deleted) · ${obs.length} driver observation row(s) · ${eligible.length - short.length} complete at ≥ ${REQUIRED} surfaces · ${short.length} short.`)
+console.log(`[forward-driver-connection-day-complete] judged day ${D} (cutoff 17:00Z) · ${eligible.length} eligible google connection(s) (${conns.length - eligible.length} excluded/deleted) · ${obs.length} driver observation row(s) held of ${obsTotal} server total · ${eligible.length - short.length} complete at ≥ ${REQUIRED} surfaces · ${short.length} short.`)
 if (short.length) {
   console.error(`✗ FORWARD-DRIVER CONNECTION-DAY INCOMPLETE — ${short.length} of ${eligible.length} eligible google connection(s) hold fewer than ${REQUIRED} driver-observed surfaces for ${D}:`)
   for (const c of short) console.error(`  ${c.client_id} ${c.clients?.name ?? ''} · ${c.account_id} · ${c.n}/${REQUIRED}`)

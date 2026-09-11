@@ -479,6 +479,7 @@ const GUARDS = [
   'tests/guards/readout-reads-walk-floor.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — the Data-history google line answers from the walk floor, never a cursor
   'tests/guards/connections-row-wraps.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — .connRow wraps on a phone
   'tests/guards/driver-spend-counted-once.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the driver's requests land in one lane, once (089 split read)
+  'tests/guards/rest-row-cap-readers.guard.mjs', // LORAMER_REST_ROW_CAP_READER_V1 — a raw /rest/v1/ read in scripts/ or tests/guards/ pages (Range / rest-all.mjs), counts (HEAD) or aggregates (rpc/); remove-only allowlist
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 
