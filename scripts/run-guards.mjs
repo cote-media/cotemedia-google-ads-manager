@@ -475,6 +475,9 @@ const GUARDS = [
   'tests/guards/unit-lease-covers-max-duration.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — DRIVER_CLAIM_LEASE_S = DRIVER_MAX_DURATION_S + N, pinned to the sync route's maxDuration
   'tests/guards/driver-never-touches-legacy.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 — the legacy path is frozen (DECISIONS:2461); the driver is catalogue-only and excludes the demo twin
   'tests/guards/driver-caller-is-cron-only.guard.mjs', // LORAMER_FORWARD_DRIVER_V1 (2/2) — one caller (the bearer-checked cron route), three decided vercel.json entries
+  'tests/guards/one-click-starts-walk.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — the Backfill button publishes the walk's first-touch messages (idempotent), June-engine kick kept
+  'tests/guards/readout-reads-walk-floor.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — the Data-history google line answers from the walk floor, never a cursor
+  'tests/guards/connections-row-wraps.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — .connRow wraps on a phone
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

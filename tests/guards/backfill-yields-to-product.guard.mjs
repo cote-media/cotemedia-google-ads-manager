@@ -152,7 +152,8 @@ if (G) {
   if (/quota_stop/.test(settleLine)) {
     findings.push('(b) quota_stop counts toward isClientComplete() — a walk that stood down all day would report as FINISHED. A yield is not a completion.')
   }
-  if (!/decidePublishFleetAware/.test(src) || !/decidePublishFleetAware/.test(read(STARTER))) {
+  // LORAMER_ONE_CLICK_WALK_V1 — the starter's publish core (and its governor call) lives in universe-start-publish.ts; pin the union.
+  if (!/decidePublishFleetAware/.test(src) || !/decidePublishFleetAware/.test(read(STARTER) + read('src/lib/backfill/universe-start-publish.ts'))) {
     findings.push('(c) a publish site still calls the own-lane-only decidePublish — every publish point must consult the fleet, or the one that does not becomes the hole.')
   }
 }

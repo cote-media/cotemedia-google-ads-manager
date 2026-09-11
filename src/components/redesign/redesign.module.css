@@ -347,7 +347,7 @@
 
 /* Connections */
 .connList { display: flex; flex-direction: column; gap: 8px; }
-.connRow { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--surface); }
+.connRow { display: flex; flex-wrap: wrap; row-gap: 6px; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--surface); } /* LORAMER_ONE_CLICK_WALK_V1 — wraps on a phone: the badge + two flex-shrink:0 buttons exceed ~360–410 px */
 .connRow:last-child { border-bottom: none; }
 .connIcon { font-size: 20px; color: var(--muted); }
 .connMeta { display: flex; flex-direction: column; min-width: 0; }

@@ -94,7 +94,7 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
   // kicks the deep-history drain (+ interior-gap repair) for every connected platform; we then POLL
   // /api/backfill/status for per-platform captured depth. NOT a synchronous watch — the drain runs for minutes/hours
   // on its own invocations; polling shows the earliest captured day advancing, then backs off to background.
-  const [bfStatus, setBfStatus] = useState<Record<string, { earliestDate: string | null; complete: boolean }>>({})
+  const [bfStatus, setBfStatus] = useState<Record<string, { earliestDate: string | null; complete: boolean; state?: string }>>({})
   const [bfLoading, setBfLoading] = useState(false)
   const [bfKicked, setBfKicked] = useState(false)
   const [bfError, setBfError] = useState('')
@@ -105,8 +105,8 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
       if (!r.ok) return
       const d = await r.json()
       if (d && d.platforms) {
-        const next: Record<string, { earliestDate: string | null; complete: boolean }> = {}
-        for (const [pf, v] of Object.entries<any>(d.platforms)) next[pf] = { earliestDate: v?.earliestDate ?? null, complete: !!v?.complete }
+        const next: Record<string, { earliestDate: string | null; complete: boolean; state?: string }> = {}
+        for (const [pf, v] of Object.entries<any>(d.platforms)) next[pf] = { earliestDate: v?.earliestDate ?? null, complete: !!v?.complete, state: typeof v?.state === 'string' ? v.state : undefined }
         setBfStatus(next)
       }
     } catch { /* non-fatal — depth is best-effort */ }
@@ -643,7 +643,12 @@ export default function ClientPage({ clientId, clientName, connections, hasGoogl
                   const st = bfStatus[pf]
                   let text: string
                   let color = '#64748b'
-                  if (st?.complete) { text = 'Complete back to ' + (st.earliestDate || 'start'); color = '#16a34a' }
+                  // LORAMER_ONE_CLICK_WALK_V1 — google's line is the WALK's answer (state from /api/backfill/status googleWalkStatus):
+                  // not-started · complete (floor-sealed on every catalogue surface, back to the account floor) · partial (back to the
+                  // walk's earliest window). Other platforms keep the June-engine cursor + earliest-row readout below.
+                  if (st?.state === 'not-started') { text = bfKicked ? 'Starting…' : 'Not started'; color = bfKicked ? '#d97706' : '#64748b' }
+                  else if (st?.state === 'partial') { text = 'Partial — back to ' + (st.earliestDate || 'start'); color = bfKicked ? '#d97706' : '#64748b' }
+                  else if (st?.complete) { text = 'Complete back to ' + (st.earliestDate || 'start'); color = '#16a34a' }
                   else if (bfKicked) { text = st?.earliestDate ? 'Importing… back to ' + st.earliestDate : 'Importing…'; color = '#d97706' }
                   else if (st?.earliestDate) { text = 'Partial — back to ' + st.earliestDate }
                   else { text = 'Not imported yet' }

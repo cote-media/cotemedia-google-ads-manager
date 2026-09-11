@@ -31,7 +31,10 @@ const MIG = 'migrations/060_universe_window_attempts.sql'
 
 const logSrc = strip(read(LOG))
 const routeSrc = strip(read(ROUTE))
-const startSrc = strip(read(START))
+// LORAMER_ONE_CLICK_WALK_V1 — the starter's publish core moved to src/lib/backfill/universe-start-publish.ts (one core shared with
+// the -next Backfill button); the shell keeps auth + query parsing. Every leg below pins the UNION so the property is found where it lives.
+const CORE = 'src/lib/backfill/universe-start-publish.ts'
+const startSrc = strip(read(START)) + '\n' + strip(read(CORE))
 const stateSrc = strip(read(STATE))
 const migSrc = read(MIG) // comments are the evidence here, do NOT strip
 

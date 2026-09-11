@@ -59,11 +59,15 @@ const MIGRATION = 'migrations/054_universe_window_log.sql'
 }
 
 // ── (c) THE DEFECTIVE CUMULATIVE COUNTER MUST NOT COME BACK ───────────────────────────────────────
+// LORAMER_ONE_CLICK_WALK_V1 — the starter's publish core (its governor input included) lives in universe-start-publish.ts;
+// the STARTER entry reads the shell + core as one text so the property is pinned where it lives.
+const STARTER_CORE = 'src/lib/backfill/universe-start-publish.ts'
+const readStarterUnion = (f) => f === STARTER ? read(STARTER) + '\n' + read(STARTER_CORE) : read(f)
 for (const f of [CONSUMER, STARTER]) {
-  if (/readBackfillRequestsToday/.test(read(f))) {
+  if (/readBackfillRequestsToday/.test(readStarterUnion(f))) {
     findings.push(`(c) ${f} imports/uses readBackfillRequestsToday — the CUMULATIVE per-entry counter. It sums each entry's LIFETIME spend for every entry touched today, so from day 2 the governor bills the walk for day 1 and stops publishing while reporting "allowance EXHAUSTED". Use readLaneSpendToday() from universe-window-log.`)
   }
-  if (!/readLaneSpendToday/.test(read(f))) {
+  if (!/readLaneSpendToday/.test(readStarterUnion(f))) {
     findings.push(`(c) ${f} does not use readLaneSpendToday() — the governor has no honest spend input.`)
   }
 }
@@ -289,7 +293,7 @@ let boundMod = null   // set by leg (f)'s compile; leg (h) drives shouldRepublis
   } catch (e) {
     findings.push(`(g) could not drive ${W}: ${String(e.stdout || '').trim() || e.message}`)
   }
-  if (!/deferredEntries/.test(read('src/app/api/backfill/universe-start/route.ts'))) {
+  if (!/deferredEntries/.test(read('src/app/api/backfill/universe-start/route.ts') + read('src/lib/backfill/universe-start-publish.ts'))) {
     findings.push('(g) the starter route no longer reports deferredEntries(). A narrowed walk that does not state what it narrowed reads, from the outside, exactly like a walk that silently lost 12 slots.')
   }
 }
