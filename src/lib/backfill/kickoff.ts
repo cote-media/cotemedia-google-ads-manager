@@ -63,3 +63,34 @@ export function kickoffGapBackfill(origin: string, clientId: string, sinceDate: 
       })
   )
 }
+
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE WALK'S FIRST TOUCH, FIRED THE SAME WAY. The -next Backfill button fires the
+// resumer ONCE for its client. The resumer executes the worker INLINE (universe-resume/route.ts processMessage) and the
+// worker discovers the account's inception on first touch (universe-v2-worker.ts discoverAccountInception), so one fire
+// on a cold client writes universe_account_inception + the first descend attempts — the v2 ledgers the readout reads.
+// (Round 15's publish through universe-start's core fed the V1 topic consumer instead: universe_window_log, no
+// inception, no attempt rows — corrected round 16.) Same contract as kickoffBackfill: CRON_SECRET never leaves the
+// server, waitUntil + 8 s abort, never throws; the resumer's own lease (universe_fire_lease per client/vendor, TTL 330)
+// makes a repeat click a no-op against an active fire. `dryRun=0` is REQUIRED — the resumer's default is dry.
+// vercel.json still schedules only the pinned client; per-client scheduling is 2/2 B (STOP-and-confirm 4).
+export function kickoffWalk(origin: string, clientId: string): void {
+  const secret = process.env.CRON_SECRET
+  if (!secret) {
+    console.error(`[kickoff-walk] CRON_SECRET missing — skipping walk kick (client=${clientId}); the scheduled resumer is the only fallback`)
+    return
+  }
+  const url = `${origin}/api/cron/universe-resume?clientId=${encodeURIComponent(clientId)}&dryRun=0`
+  waitUntil(
+    fetch(url, {
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(8000),
+    })
+      .then((r) => {
+        if (!r.ok) console.error(`[kickoff-walk] universe-resume returned ${r.status} (client=${clientId})`)
+      })
+      .catch((err: any) => {
+        if (err?.name === 'TimeoutError') return
+        console.error(`[kickoff-walk] failed (client=${clientId}):`, err?.message ?? err)
+      })
+  )
+}

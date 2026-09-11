@@ -21,6 +21,11 @@ Recompute days-to-2026-09-30 at resume from the clock; never read it off this bl
   loadUniverse) → a5db7a5 adds the outputFileTracingIncludes entry, guard leg (e). Smoke fire 2 (21:01Z, Escential, D=2026-09-09):
   HTTP 200 in 527 s · HEAVY 50/50 ran · 476,200 rows · 46 ok / 4 zero · REST skipped over budget (the door working) · legacy rows for the
   day UNCHANGED 27,736 → 27,736 · stamped rows 0 → 10,731 · cron_runs 14715 err 0.
+· `7773a87` (pushed 2026-09-11 00:35Z) + THIS COMMIT — LORAMER_ONE_CLICK_WALK_V1 1/2 + 2/2 A: the -next Backfill button kicks the
+  resumer for its google client (kickoffWalk, beside the June-engine kick — ruling n); the 1/2 publish branch (it fed the V1 topic
+  consumer, not the v2 walk — round 16 correction) is retired; readout answers from the walk floor; Connections row wraps. 'driver' is
+  the fifth op-budget lane (6,900; backfill 6,600; migration 089 producer-split read — the driver's requests were counted twice).
+  QUEUE ★MONDAY-GAP-LIST-IS-UNMEASURED + ★FORWARD-DRIVER-SHAPE own the text. vercel.json untouched (resumer still pinned → 2/2 B).
 · THE FREEZE IN THE DAILY HANDOFF — ESSENCE governing law (digest §C) + this block's STANDING carry: legacy is frozen for Google Standard
   Access (DECISIONS:2461); the driver is catalogue-only; ruling (n) holds by disjointness. Ruling (q) AMENDED: cutoff 17:00Z, make-ups
   17:30Z/21:30Z (QUEUE ★FORWARD-DRIVER-SHAPE owns the text).
@@ -40,6 +45,8 @@ THEN, in order (QUEUE ★FORWARD-DRIVER-SHAPE owns the list): the walk behind th
 
 ── STANDING ──
 · ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The forward driver owns the 319 catalogue surfaces only and has its own caller.
+· Escential's (c39ee088, src/lib/clients/canonical.ts) V1 chain runs GOVERNED since 2026-09-11 00:40Z by ruling (round 15c): the 1/2 button
+  press started the v1 topic consumer on it; arm nothing, edit nothing, do not arm the quota hold; its rows are universe_window_log only.
 · Foam OH's first lookback seal stays 2026-11-17 (earliest class; the sealed-branch floor fill runs now and is a different thing); Russ still
   owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
 · check:data 21:0xZ (clean run on the committed tree): "[check:data] VERDICT — EXIT 1 · 34 checks: 24 green · 10 red (…) · 0 crashed" —

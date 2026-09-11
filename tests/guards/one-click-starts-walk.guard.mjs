@@ -1,21 +1,20 @@
 #!/usr/bin/env node
-// LORAMER_ONE_CLICK_WALK_V1 (1/2) — THE "BACKFILL HISTORY" BUTTON STARTS THE WALK, ONCE, BESIDE THE JUNE-ENGINE KICK.
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE "BACKFILL HISTORY" BUTTON FIRES THE RESUMER FOR ITS CLIENT, BESIDE THE JUNE-ENGINE KICK.
 //
-// ESSENCE LORAMER_BACKFILL_DONE_DONE_V1: done is proven "through the REAL entry path" — one Backfill button. Round 14
-// (2026-09-10) read that the button reached the June engine only (/api/clients/backfill → kickoffBackfill → /api/cron/drain)
-// and that nothing but a manual, unscheduled universe-start ever published the walk's first-touch message. This commit
-// makes the button publish it — for THIS client, most recent window, every selectable entry — through the SAME publish
-// universe-start uses (extracted to src/lib/backfill/universe-start-publish.ts; universe-start keeps its shell).
-// Ruling (n) keeps the drain kick: the legacy family stays the one writer of the 52 keys; the surfaces are disjoint.
+// Round 15 (2026-09-10) had the button publish through universe-start's core — which feeds the V1 topic consumer
+// (/api/queues/google-ads-universe: universe_window_log, no inception, no attempt rows). Round 16 read the v2 path: the
+// resumer's fire executes the worker INLINE (universe-resume/route.ts:812 processMessage) and the worker discovers the
+// account's inception on first touch (universe-v2-worker.ts:234). So the button now fires the resumer once for that
+// client — the same server-side CRON_SECRET kick pattern kickoffBackfill uses — and the v1 publish branch is gone.
+// Ruling (n) keeps the drain kick: the legacy family stays the one writer of the 52 keys.
 //
 // LEGS
-//  (a) src/app/api/clients/backfill/route.ts imports publishWalkStart from @/lib/backfill/universe-start-publish and calls it
-//      for a google connection, AFTER the existing kickoffBackfill / kickoffGapBackfill calls (both must remain)
-//  (b) the publish core refuses a client that already holds an inception row or attempt rows: universe-start-publish.ts reads
-//      universe_account_inception (readAccountInception) and universe_attempt_log before send(, and carries the literal
-//      'already-started'
-//  (c) universe-start/route.ts still calls publishWalkStart (the shell) — the two callers share one core
-//  (d) vercel.json is untouched by this commit: the universe-resume entry count is still exactly 1 (round 16 is per-client)
+//  (a) src/lib/backfill/kickoff.ts exports kickoffWalk(origin, clientId) that fetches /api/cron/universe-resume?clientId=…&dryRun=0
+//      with `Authorization: Bearer ${secret}` (CRON_SECRET server-side) inside waitUntil, like kickoffBackfill
+//  (b) src/app/api/clients/backfill/route.ts calls kickoffWalk AFTER kickoffBackfill / kickoffGapBackfill (both kept), gated on
+//      a google connection, and no longer imports or calls publishWalkStart (the v1 publish branch is retired)
+//  (c) universe-start/route.ts still calls publishWalkStart( — the manual v1 path is untouched
+//  (d) vercel.json holds exactly one universe-resume entry (the pin is 2/2 B's, live-path)
 //  (e) registered in scripts/run-guards.mjs
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -25,48 +24,39 @@ const findings = []
 const read = (p) => { try { return readFileSync(resolve(ROOT, p), 'utf8') } catch { return '' } }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
 
+const KICK = 'src/lib/backfill/kickoff.ts'
 const BTN = 'src/app/api/clients/backfill/route.ts'
-const CORE = 'src/lib/backfill/universe-start-publish.ts'
 const START = 'src/app/api/backfill/universe-start/route.ts'
 
-const btn = strip(read(BTN))
-if (!btn) findings.push(`(a) ${BTN} missing`)
+const kick = strip(read(KICK))
+if (!/export function kickoffWalk\s*\(/.test(kick)) findings.push(`(a) ${KICK} does not export kickoffWalk`)
 else {
-  if (!/from\s+['"]@\/lib\/backfill\/universe-start-publish['"]/.test(btn)) findings.push(`(a) ${BTN} does not import @/lib/backfill/universe-start-publish — the button does not start the walk`)
-  const pub = btn.indexOf('publishWalkStart(')
-  const kick = btn.indexOf('kickoffBackfill(')
-  const gap = btn.indexOf('kickoffGapBackfill(')
-  if (pub === -1) findings.push(`(a) ${BTN} never calls publishWalkStart( — the button reaches the June engine only`)
-  if (kick === -1 || gap === -1) findings.push(`(a) ${BTN} dropped kickoffBackfill( or kickoffGapBackfill( — ruling (n): the legacy family keeps filling on the same click`)
-  if (pub !== -1 && kick !== -1 && pub < kick) findings.push(`(a) ${BTN} publishes the walk BEFORE the June-engine kick — the order is kick, then walk`)
-  if (!/['"]google['"]/.test(btn)) findings.push(`(a) ${BTN} does not gate the walk publish on a google connection`)
+  const body = kick.slice(kick.indexOf('export function kickoffWalk'))
+  if (!/\/api\/cron\/universe-resume\?clientId=/.test(body)) findings.push(`(a) kickoffWalk does not fetch /api/cron/universe-resume?clientId=…`)
+  if (!/dryRun=0/.test(body)) findings.push(`(a) kickoffWalk omits dryRun=0 — the resumer's default is DRY, the kick would fire nothing`)
+  if (!/Authorization:\s*`Bearer \$\{secret\}`/.test(body)) findings.push(`(a) kickoffWalk does not send the CRON_SECRET bearer`)
+  if (!/waitUntil\s*\(/.test(body)) findings.push(`(a) kickoffWalk is not fire-and-forget under waitUntil — the button would block on a 300 s fire`)
 }
-const core = strip(read(CORE))
-if (!core) findings.push(`(b) ${CORE} missing — the publish core was not extracted`)
+const btn = strip(read(BTN))
+if (!btn) findings.push(`(b) ${BTN} missing`)
 else {
-  if (!/export async function publishWalkStart\s*\(/.test(core)) findings.push(`(b) ${CORE} does not export publishWalkStart`)
-  const incep = core.indexOf('readAccountInception(')
-  const attempts = core.indexOf("from('universe_attempt_log')")
-  const sendIdx = core.indexOf('send(')
-  if (incep === -1) findings.push(`(b) ${CORE} never reads universe_account_inception (readAccountInception) — a second click would re-publish a walked client`)
-  if (attempts === -1) findings.push(`(b) ${CORE} never reads universe_attempt_log — a client with rotation rows must not be re-started`)
-  if (sendIdx === -1) findings.push(`(b) ${CORE} never calls send( — nothing is published`)
-  if (incep !== -1 && sendIdx !== -1 && incep > sendIdx) findings.push(`(b) ${CORE} reads the inception row AFTER send( — the idempotency check must precede the publish`)
-  if (!/already-started/.test(core)) findings.push(`(b) ${CORE} carries no 'already-started' outcome`)
+  const walk = btn.indexOf('kickoffWalk(')
+  const kickI = btn.indexOf('kickoffBackfill(')
+  const gap = btn.indexOf('kickoffGapBackfill(')
+  if (walk === -1) findings.push(`(b) ${BTN} never calls kickoffWalk( — the button does not fire the resumer`)
+  if (kickI === -1 || gap === -1) findings.push(`(b) ${BTN} dropped kickoffBackfill( or kickoffGapBackfill( — ruling (n): the legacy family keeps filling on the same click`)
+  if (walk !== -1 && kickI !== -1 && walk < kickI) findings.push(`(b) ${BTN} fires the walk BEFORE the June-engine kick — the order is kick, then walk`)
+  if (/publishWalkStart|universe-start-publish/.test(btn)) findings.push(`(b) ${BTN} still imports or calls publishWalkStart — the v1 publish branch must be gone (it feeds the v1 topic consumer, not the v2 walk)`)
+  if (!/['"]google['"]/.test(btn)) findings.push(`(b) ${BTN} does not gate the walk kick on a google connection`)
 }
 const start = strip(read(START))
-if (start && !/publishWalkStart\s*\(/.test(start)) findings.push(`(c) ${START} does not call publishWalkStart( — two publish cores would drift`)
+if (start && !/publishWalkStart\s*\(/.test(start)) findings.push(`(c) ${START} no longer calls publishWalkStart( — the manual v1 path moved`)
 try {
   const crons = (JSON.parse(read('vercel.json')).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
-  if (crons.length !== 1) findings.push(`(d) vercel.json holds ${crons.length} universe-resume entr(ies) — this commit must not touch the resumer's schedule (round 16, live-path)`)
+  if (crons.length !== 1) findings.push(`(d) vercel.json holds ${crons.length} universe-resume entr(ies) — the un-pin is 2/2 B (live-path)`)
 } catch (e) { findings.push(`(d) vercel.json unreadable: ${e.message}`) }
-// (f) THE ENOENT TRAP, indirect edition (measured 2026-09-10 20:52Z on the driver route): the button route reaches loadUniverse()
-//     through the publish core, so it needs its own outputFileTracingIncludes entry.
-const cfg = read('next.config.js')
-if (!/['"]\/api\/clients\/backfill['"]\s*:\s*\[\s*['"]\.\/docs\/google-ads-capture-universe\.json['"]\s*\]/.test(cfg)) findings.push("(f) next.config.js outputFileTracingIncludes has no '/api/clients/backfill': ['./docs/google-ads-capture-universe.json'] entry — the walk publish ENOENTs on Vercel while passing every local check")
-
 const roster = read('scripts/run-guards.mjs')
 if (roster && !roster.includes('tests/guards/one-click-starts-walk.guard.mjs')) findings.push('(e) this guard is not registered in scripts/run-guards.mjs — an unregistered guard never runs')
 
 if (findings.length) { console.error('✗ one-click-starts-walk FAILED:'); for (const f of findings) console.error('  ' + f); process.exit(1) }
-console.log('[one-click-starts-walk] PASS — /api/clients/backfill keeps the June-engine kick and then publishes the walk\'s first-touch messages for a google connection through the one extracted core (idempotent on inception/attempt rows); universe-start shares that core; the resumer entry is untouched.')
+console.log("[one-click-starts-walk] PASS — /api/clients/backfill keeps the June-engine kick and then fires the resumer for its google client (kickoffWalk → universe-resume?clientId=…&dryRun=0, bearer, waitUntil); the v1 publish branch is gone; universe-start's manual path and the resumer's pin are untouched.")

@@ -175,6 +175,22 @@ export async function readForwardObservationSpendToday(vendor: string, since: Da
   return n
 }
 
+/**
+ * LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the SAME sum, SPLIT by producer family, in ONE read (migration 089
+ * forward_observation_spend_split): `forward` = every producer NOT like 'driver-%' (the legacy family's ten producers),
+ * `driver` = producers like 'driver-%' (the catalogue driver's HEAVY/REST slices). The fleet meter takes BOTH lanes from
+ * this one row so the driver's requests are counted exactly once — readForwardObservationSpendToday above sums all
+ * producers and must not be added beside either half. Same fail posture: unreadable THROWS, never a clean 0.
+ */
+export async function readForwardObservationSpendSplit(vendor: string, since: Date): Promise<{ forward: number; driver: number }> {
+  const { data, error } = await supabaseAdmin.rpc('forward_observation_spend_split', { p_vendor: vendor, p_since: since.toISOString() })
+  if (error) fail('spend_split', `${error.message} — migrations/089_forward_observation_spend_split.sql creates forward_observation_spend_split(); apply it before running.`)
+  const row = Array.isArray(data) ? data[0] : data
+  const forward = Number((row as any)?.forward), driver = Number((row as any)?.driver)
+  if (!Number.isFinite(forward) || !Number.isFinite(driver)) fail('spend_split', `non-numeric split: ${JSON.stringify(data)}`)
+  return { forward, driver }
+}
+
 // ── LORAMER_FORWARD_DRIVER_V1 — observeForward EXTRACTED HERE (copied from cron/sync/route.ts's route-local copy) ──
 // The producer hands its catalogue surfaces here after its vendor call (or from its catch) and one observation row
 // lands per surface. ⛔ A FAILED APPEND NEVER THROWS INTO CAPTURE: it is reported through `onError` (the caller pushes

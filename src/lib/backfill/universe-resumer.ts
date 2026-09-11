@@ -39,7 +39,7 @@ export type ResumeVerdict =
  * ⛔ RE-DERIVED 2026-08-12 (LORAMER_WALK_BITE_40_V1) — the original block cited the RETIRED 6,000 allowance
  * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
  * constant and this derivation TOGETHER so they cannot drift apart again:
- *   · the walk's lane is LANE_ALLOCATIONS.backfill = 13,500 ops/day (LORAMER_WALK_TAKES_THE_LANE_V1)
+ *   · the walk's lane is LANE_ALLOCATIONS.backfill = 6,600 ops/day since 2026-09-10 (was 13,500, LORAMER_WALK_TAKES_THE_LANE_V1; the driver lane took 6,900 — LORAMER_ONE_CLICK_WALK_V1 2/2 A)
  *   · ⛔ RE-DERIVED AGAIN 2026-08-19 (DEPLOY 3) — the cadence is now every 5 minutes, i.e. 288 fires/day,
  *     and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
  *     asterisk-slash form would CLOSE THIS COMMENT BLOCK and turn the rest of the header into code. It cost

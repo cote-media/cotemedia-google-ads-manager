@@ -709,7 +709,7 @@ export async function GET(request: Request) {
   // ⛔ THE PROGRAM IS THE UNIT: one entry per vendor request, each with its own span, summed by the
   // ADAPTER'S OWN costOf. Nothing here is expressed in operations (capture-adapter.ts:354-357).
   // ⛔ ONE METER FOR BOTH LANES, AND THE PROGRAM IS THEIR UNION. The top edge is not a new budget line: it
-  // spends from LANE_ALLOCATIONS.backfill exactly as the descent does, so the four-lane table still sums to
+  // spends from LANE_ALLOCATIONS.backfill exactly as the descent does, so the lane table (five lanes since the driver, 2/2 A) still sums to
   // the cap and FORWARD_UNGATED_RESERVE is untouched. A second allocation key would have been a second
   // governor over the same pool — the shape LORAMER_GOOGLE_LANE_ALLOCATION_V1 replaced.
   // ⛔ AND THE QUOTA SENTINEL NEEDS NO CHANGE AT ALL: it is checked at :125-126, BEFORE the catalog load, so

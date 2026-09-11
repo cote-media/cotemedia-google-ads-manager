@@ -60,7 +60,8 @@ try {
 if (G) {
   const CAP = G.GOOGLE_DAILY_OP_CAP        // 15,000
   const RESERVE = G.PRODUCT_RESERVE_OPS    // 9,000
-  const fleet = (fwd, ctu, drn, un = 0) => ({ byLane: { forward: fwd, catchup: ctu, drain: drn }, unattributedRaw: un })
+  // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the fleet reading carries a fifth key, driver (the catalogue driver's lane).
+  const fleet = (fwd, ctu, drn, un = 0, drv = 0) => ({ byLane: { forward: fwd, driver: drv, catchup: ctu, drain: drn }, unattributedRaw: un })
 
   if (typeof G.decidePublishFleetAware !== 'function') {
     findings.push('(a) decidePublishFleetAware() is gone — the governor is back to reading only its own lane, which is the defect itself.')
@@ -84,6 +85,11 @@ if (G) {
     // ⛔ AND ONE STEP BEYOND IT MUST ALSO HOLD — the boundary is not the only place this can fail.
     const past = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(noHeadroom + 500, 0, 0), want: 346 })
     if (past.mayPublish) findings.push(`(a) the governor published with the fleet ${noHeadroom + 500} PAST the point where the reserve leaves it nothing.`)
+    // LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE DRIVER IS PRODUCT-SIDE SPEND. A no-headroom day reached by the driver alone
+    // must hold the walk exactly as one reached by forward alone; a governor that ignores byLane.driver lends the walk
+    // the driver's 6,900.
+    const drvDay = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(0, 0, 0, 0, noHeadroom), want: 346 })
+    if (drvDay.mayPublish || drvDay.allowance !== 0) findings.push(`(a) NO-HEADROOM DAY VIA THE DRIVER: byLane.driver=${noHeadroom} leaves the walk nothing and the governor allowed ${drvDay.allowance} — the driver's lane is invisible to the product-spent sum.`)
     // Cap already blown outright.
     const over = G.decidePublishFleetAware({ spentRequestsToday: 0, fleet: fleet(9000, 3000, 4000), want: 10 })
     if (over.mayPublish) findings.push('(a) the governor published with the fleet already OVER the daily cap.')

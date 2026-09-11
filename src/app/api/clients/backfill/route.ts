@@ -1,6 +1,6 @@
 // LORAMER_NEXT_FULL_BACKFILL_AFFORDANCE_V1 — owner-gated manual "Backfill history" trigger for -next.
-// THIN WRAPPER over the existing self-serve spine — ZERO new backfill logic (+ LORAMER_ONE_CLICK_WALK_V1: the walk's
-// first-touch publish for google rides the same click, step (3) below):
+// THIN WRAPPER over the existing self-serve spine — ZERO new backfill logic (+ LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the
+// walk's first touch for google rides the same click, step (3) below — a kick, like (1) and (2)):
 //   (1) kickoffBackfill per connected platform → the deep-history DRAIN (all registry grains, deepest-first, to the
 //       retention floor). Rides the SAME /api/cron/drain the cron rides, so every guard is inherited intact:
 //       readGoogleQuotaPause (global Google dev-token pause), the __drain_<platform> 360s claim/lease (= server-side
@@ -13,10 +13,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { kickoffBackfill, kickoffGapBackfill } from '@/lib/backfill/kickoff'
+import { kickoffBackfill, kickoffGapBackfill, kickoffWalk } from '@/lib/backfill/kickoff'
 import { resolveDateWindow, addDaysIso } from '@/lib/date-range'
-import { publishWalkStart } from '@/lib/backfill/universe-start-publish' // LORAMER_ONE_CLICK_WALK_V1 — the walk's first-touch publish, one core with universe-start
-import { WINDOW_DAYS } from '@/app/api/queues/google-ads-universe/route'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -54,35 +52,15 @@ export async function POST(request: Request) {
   for (const p of platforms) kickoffBackfill(origin, id, p)
   kickoffGapBackfill(origin, id, since)
 
-  // (3) LORAMER_ONE_CLICK_WALK_V1 — THE WALK STARTS ON THE SAME CLICK. For a google connection, publish the walk's
-  // first-touch messages (every selectable catalogue surface, the most recent window, THIS client) through the one
-  // core universe-start uses. Ruling (n): the drain kick above stays — the legacy family remains the one writer of the
-  // 52 legacy keys; the walk owns the catalogue spelling; disjoint surfaces, no row written twice. Idempotent: a client
-  // that already holds an inception row or attempt rows publishes nothing ('already-started'). The first window ends
-  // at the account's last ACTIVE day (the core's dead-ground rule), else yesterday. The worker's first message writes
-  // universe_account_inception; the resumer advances the descent only for the client(s) vercel.json schedules (round 16).
-  let walk: Record<string, unknown> = { walk: 'not-google' }
-  if (platforms.includes('google')) {
-    try {
-      const { data: activeRow } = await supabaseAdmin.from('metrics_daily').select('date')
-        .eq('client_id', id).eq('platform', 'google').eq('entity_level', 'account').eq('breakdown_type', '')
-        .gt('impressions', 0).order('date', { ascending: false }).limit(1).maybeSingle()
-      const endDate = (activeRow as { date?: string } | null)?.date ?? resolveDateWindow('YESTERDAY').startDate
-      const r = await publishWalkStart({
-        clientId: id, endDate, dryRun: false, onlyResource: null, onlySegment: null, windowDays: WINDOW_DAYS,
-        windowsRemaining: undefined, rewalkParam: null, allEntries: true, allowDeadStart: false, idempotent: true,
-      })
-      const b = r.body as { walk?: string; started?: boolean; published?: number; reason?: string; error?: string; window?: unknown }
-      walk = b.walk === 'already-started'
-        ? { walk: 'already-started', inception: (b as any).inception ?? null }
-        : b.started ? { walk: 'started', published: b.published ?? 0, window: b.window ?? null }
-          : { walk: 'held', published: 0, reason: b.reason ?? b.error ?? `status ${r.status}` }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e)
-      console.error(`[clients/backfill] walk publish FAILED client=${id}: ${message}`)
-      walk = { walk: 'error', error: message }
-    }
-  }
+  // (3) LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE WALK STARTS ON THE SAME CLICK, AS A KICK. For a google connection, fire
+  // the resumer once for THIS client (kickoffWalk → /api/cron/universe-resume?clientId=…&dryRun=0). The resumer runs the
+  // v2 worker inline; on a cold client the worker discovers the account's inception (first touch) and the first descend
+  // attempts land in universe_attempt_log — the ledgers the Data-history readout reads. Ruling (n): the drain kick above
+  // stays — the legacy family remains the one writer of the 52 legacy keys; the walk owns the catalogue spelling;
+  // disjoint surfaces, no row written twice. A repeat click no-ops against the resumer's own lease. The v1 publish
+  // (round 15: universe-start's core → the V1 topic consumer, universe_window_log, no inception) is RETIRED here.
+  const walk = platforms.includes('google') ? 'fired' : 'not-google'
+  if (walk === 'fired') kickoffWalk(origin, id)
 
-  return NextResponse.json({ kicked: platforms, gapRepairSince: since, ...walk })
+  return NextResponse.json({ kicked: platforms, gapRepairSince: since, walk })
 }

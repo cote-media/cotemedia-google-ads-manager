@@ -478,6 +478,7 @@ const GUARDS = [
   'tests/guards/one-click-starts-walk.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — the Backfill button publishes the walk's first-touch messages (idempotent), June-engine kick kept
   'tests/guards/readout-reads-walk-floor.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — the Data-history google line answers from the walk floor, never a cursor
   'tests/guards/connections-row-wraps.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 — .connRow wraps on a phone
+  'tests/guards/driver-spend-counted-once.guard.mjs', // LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — the driver's requests land in one lane, once (089 split read)
   'tests/guards/resume-digest-freshness.guard.mjs',
 ]
 

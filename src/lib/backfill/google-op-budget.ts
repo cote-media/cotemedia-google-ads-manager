@@ -63,7 +63,8 @@ import { readLaneSpendToday } from './universe-window-log'
 // was never given the second half. (Acyclic: universe-attempt-log imports only @/lib/supabase.)
 import { readAttemptLaneSpendToday } from './universe-attempt-log'
 // LORAMER_FORWARD_OBSERVATION_LOG_V1 — forward's requests are MEASURED from its own ledger, not derived ×67.
-import { readForwardObservationSpendToday } from './forward-observation-log'
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — ONE read, SPLIT by producer: forward (legacy family) / driver (catalogue driver).
+import { readForwardObservationSpendSplit } from './forward-observation-log'
 // ⛔ THE WINDOW IS SHARED, NOT COPIED — LORAMER_GOOGLE_ROLLING_QUOTA_WINDOW_V1. The fleet total is assembled
 // from BOTH readers, so two independently-computed windows would measure one fleet over two different
 // periods. It lives one level below both because this file imports universe-window-log (acyclicity is
@@ -148,8 +149,13 @@ export const OPS_PER_REQUEST = 1
 // stable measurement rather than a guess. ⚠ THE ×67 IS ITSELF UNMEASURED
 // ([[★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT]]), which is exactly why the reserve carries
 // headroom above 1,206 instead of matching it.
-// ⇒ THE WALK TAKES 13,500 OF 15,000 — 90% of the lane, and 100% of what is actually available.
+// ⇒ THE WALK TOOK 13,500 OF 15,000 — 90% of the lane, and 100% of what was actually available — UNTIL 2026-09-10.
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the catalogue driver (LORAMER_FORWARD_DRIVER_V1) is a fifth lane. It is sized from
+// ★FORWARD-DRIVER-SHAPE's own budget line — 382 requests per connection-day × 18 connections ≈ 6,900/day — and comes OUT
+// OF THE WALK'S SHARE so the table still sums to the cap: backfill 13,500 → 6,600. Both lanes bill in REQUESTS from
+// their own ledgers (forward_observation_log producer-split · universe_attempt_log); neither is ever multiplied by 67.
 export const FORWARD_UNGATED_RESERVE = 1_500
+export const DRIVER_ALLOCATION = 6_900
 export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   // ⛔ NOT A LANE FORWARD SPENDS FROM — a slice HELD BACK FROM THE WALK for a spender this table cannot gate.
   // ⛔ SET THIS TO 0 ONLY IN THE SAME COMMIT THAT GENUINELY GATES cron/sync. Then, and only then, is
@@ -157,7 +163,8 @@ export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   forward: FORWARD_UNGATED_RESERVE,
   drain: 0,         // ZERO BY DECISION — was 3,000. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
   catchup: 0,       // ZERO BY DECISION — was 4,000. Declines cleanly at cron/catchup/route.ts:281-286.
-  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE, // 13,500 — was 6,000
+  driver: DRIVER_ALLOCATION, // 6,900 — the catalogue driver's 319 surfaces per connection-day (2026-09-10)
+  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 6,600 — was 13,500, was 6,000
 }
 
 // ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the
@@ -197,8 +204,8 @@ export const RANKED_RESERVE = GOOGLE_DAILY_OP_CAP - CATCHUP_ALLOCATION
 // (connections, gap-days) and multiply by GAQL_REQUESTS_PER_CONNECTION_DAY to reach requests.
 // `universe_window_log.requests_spent` IS ALREADY IN REQUESTS — it counts vendor calls, one row per window.
 // Multiplying it by 67 would over-state the walk by 67× and refuse every lane on a fabricated ceiling.
-export type BudgetLane = 'catchup' | 'drain' | 'forward' | 'backfill'
-export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain', 'backfill'] as const
+export type BudgetLane = 'catchup' | 'drain' | 'forward' | 'driver' | 'backfill'
+export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'driver', 'catchup', 'drain', 'backfill'] as const
 
 // ⛔ LORAMER_FLEET_CEILING_HAS_A_PRIORITY_ORDER_V1 — WHO GETS REFUSED WHEN THE CEILING BINDS.
 // HIGHEST priority first. The refusal falls on the LOWEST-priority lane holding spend in the window, never on
@@ -216,7 +223,10 @@ export const BUDGET_LANES: readonly BudgetLane[] = ['forward', 'catchup', 'drain
 // LORAMER_RESTATEMENT_WINDOW_LAW_V1 was checked and does NOT reverse this: a day captured once and never
 // re-walked is permanently WRONG, not permanently GONE — it stays repairable anywhere inside retention. A lost
 // day is not repairable at any price. Wrong-and-fixable ranks below gone-forever.
-export const LANE_PRIORITY: readonly BudgetLane[] = ['forward', 'drain', 'catchup', 'backfill'] as const
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A): 'driver' sits DIRECTLY BESIDE forward — it is yesterday's capture too (the 319
+// catalogue surfaces the legacy family never asks), on the same window, so it outranks the deep lanes for the same reason
+// forward does: a connection-day it defers is today's customer data, not history that can wait.
+export const LANE_PRIORITY: readonly BudgetLane[] = ['forward', 'driver', 'drain', 'catchup', 'backfill'] as const
 
 /**
  * Rank of a lane, 0 = highest. ⛔ FAIL-CLOSED ON AN UNKNOWN LANE: anything not in the table sorts LAST, so a
@@ -316,7 +326,7 @@ export function decideBudget(
   const catchupAllocation = LANE_ALLOCATIONS.catchup
   const reserve = cap - catchupAllocation
   const allocation = allocationFor(lane)
-  const zero: Record<BudgetLane, number> = { forward: 0, catchup: 0, drain: 0, backfill: 0 }
+  const zero: Record<BudgetLane, number> = { forward: 0, driver: 0, catchup: 0, drain: 0, backfill: 0 }
   const base = {
     lane, allocation, cap, reserve, catchupAllocation,
     safetyMultiplier: mult, isLowerBound: true as const,
@@ -433,7 +443,8 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
     // looks like a measurement is worse than no measurement. Its spend is read below from the walk's own
     // ledger, in the walk's own unit. A cron_runs row that somehow claimed mode='backfill' falls through to
     // the UNATTRIBUTED branch, where it is counted against the fleet and blamed on no lane.
-    const units: Record<Exclude<BudgetLane, 'backfill'>, number> = { forward: 0, catchup: 0, drain: 0 }
+    // ⛔ 'driver' IS ALSO ABSENT, FOR THE SAME REASON — its spend is read from the observation ledger's producer split.
+    const units: Record<Exclude<BudgetLane, 'backfill' | 'driver'>, number> = { forward: 0, catchup: 0, drain: 0 }
     let unattributedUnits = 0
     for (const r of data || []) {
       const mode = String((r as any).mode ?? '')
@@ -447,6 +458,11 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
         units.forward += conns
       } else if (mode === 'drain') {
         units.drain += conns
+      } else if (mode === 'driver') {
+        // LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — RECOGNISED, AND ADDS NOTHING HERE. The driver's every vendor call is already
+        // a forward_observation_log row under producer 'driver-<slice>' (byLane.driver below, in requests). Counting its
+        // cron_runs row as connections × 67 on top was the double count measured 2026-09-11 00:41Z ("UNRECOGNISED
+        // mode='driver' — counted against the fleet cap, attributed to no lane" on every consumer message).
       } else {
         // ⛔ An unrecognised mode still SPENT. Count it against the FLEET and against no lane, and say so —
         // silently dropping it would under-count the cap, which is the direction that causes the outage.
@@ -492,15 +508,21 @@ export async function readGoogleSpendToday(sinceOverride?: Date): Promise<Google
     // cron_runs connection count, progress-stamped per client since LORAMER_FORWARD_LANE_HYGIENE_V1) survives as
     // the CROSS-WITNESS check-fleet-meter-visibility compares the ledger against — a ledger that goes quiet is
     // indistinguishable from a lane that spent nothing, and only a second witness can tell them apart.
-    const [v1WindowLogRequests, v2AttemptLogRequests, forwardObservationRequests] = await Promise.all([
+    // ⛔ LORAMER_ONE_CLICK_WALK_V1 (2/2 A) — THE FORWARD LEDGER HOLDS TWO LANES AND IS READ ONCE, SPLIT BY PRODUCER.
+    // The catalogue driver writes the same ledger under producer 'driver-<slice>'. The unsplit sum
+    // (readForwardObservationSpendToday) contains BOTH families; reading it into byLane.forward while ALSO counting the
+    // driver's cron_runs rows counted every driver request twice. forward = producers NOT like 'driver-%';
+    // driver = producers like 'driver-%'; one RPC (migrations/089), one `since`.
+    const [v1WindowLogRequests, v2AttemptLogRequests, split] = await Promise.all([
       readLaneSpendToday(since),
       readAttemptLaneSpendToday(WALK_ATTEMPT_LOG_VENDOR, since),
-      readForwardObservationSpendToday(WALK_ATTEMPT_LOG_VENDOR, since),
+      readForwardObservationSpendSplit(WALK_ATTEMPT_LOG_VENDOR, since),
     ])
     const backfillRequests = v1WindowLogRequests + v2AttemptLogRequests
     return {
       byLane: {
-        forward: forwardObservationRequests,
+        forward: split.forward,
+        driver: split.driver,
         catchup: units.catchup * GAQL_REQUESTS_PER_CONNECTION_DAY,
         drain: units.drain * GAQL_REQUESTS_PER_CONNECTION_DAY,
         backfill: backfillRequests,

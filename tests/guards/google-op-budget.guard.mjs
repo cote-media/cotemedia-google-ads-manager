@@ -91,11 +91,12 @@ for (const m of [...code.matchAll(/Math\.max\(\s*conns\s*,\s*days\s*\)/g)]) {
 {
   check(!/forward:\s*units\.forward\s*\*\s*GAQL_REQUESTS_PER_CONNECTION_DAY/.test(code),
     `(j) byLane.forward is still DERIVED as units.forward × GAQL_REQUESTS_PER_CONNECTION_DAY — forward writes its own ledger now (forward_observation_log); a derived figure beside a measured one is the drift the fleet meter exists to catch.`)
-  check(/forward:\s*forwardObservationRequests\b/.test(code),
-    `(j) byLane.forward does not come from forwardObservationRequests (the observation ledger's sum).`)
-  check(/import\s*\{[^}]*\breadForwardObservationSpendToday\b[^}]*\}\s*from\s*['"]\.\/forward-observation-log['"]/.test(code),
-    `(j) google-op-budget.ts does not import readForwardObservationSpendToday from ./forward-observation-log — the one reader module is the only lawful path to the table.`)
-  check(/readForwardObservationSpendToday\(\s*WALK_ATTEMPT_LOG_VENDOR\s*,\s*since\s*\)/.test(code),
+  // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the ledger is read ONCE, SPLIT by producer (089) — forward = split.forward.
+  check(/forward:\s*split\.forward\b/.test(code),
+    `(j) byLane.forward does not come from the producer-split read (split.forward — the observation ledger's non-driver sum).`)
+  check(/import\s*\{[^}]*\breadForwardObservationSpendSplit\b[^}]*\}\s*from\s*['"]\.\/forward-observation-log['"]/.test(code),
+    `(j) google-op-budget.ts does not import readForwardObservationSpendSplit from ./forward-observation-log — the one reader module is the only lawful path to the table.`)
+  check(/readForwardObservationSpendSplit\(\s*WALK_ATTEMPT_LOG_VENDOR\s*,\s*since\s*\)/.test(code),
     `(j) the forward ledger is not read with the SAME vendor literal and the SAME \`since\` as the walk's ledgers — two windows would make the fleet total a sum of two different days.`)
 }
 
@@ -160,7 +161,36 @@ check(typeof mod.readGoogleSpendToday === 'function',
 
 const { decideBudget, holdForBudget, CATCHUP_ALLOCATION, RANKED_RESERVE, GOOGLE_DAILY_OP_CAP, OPS_PER_REQUEST, LANE_ALLOCATIONS, allocationFor } = mod
 // Helper: build the per-lane spend shape the fixed reader returns.
-const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfill: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
+const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfill: 0, driver: 0, ...o }, unattributedRaw: o.unattributedRaw || 0 })
+
+// ── (k) THE DRIVER LANE — LORAMER_ONE_CLICK_WALK_V1 (2/2 A) ─────────────────────────────────────────────
+// Measured 2026-09-11 00:41Z: mode='driver' rows were "counted against the fleet cap, attributed to no lane" while the
+// driver's requests already sat inside byLane.forward — counted twice. The lane exists so every refusal can be read.
+{
+  check((mod.BUDGET_LANES || []).includes('driver'), `(k) 'driver' is not in BUDGET_LANES`)
+  check((mod.LANE_PRIORITY || []).includes('driver'), `(k) 'driver' is not in LANE_PRIORITY`)
+  const pf = (mod.LANE_PRIORITY || []).indexOf('forward'), pd = (mod.LANE_PRIORITY || []).indexOf('driver')
+  check(pd !== -1 && pd - pf === 1, `(k) 'driver' is not ranked directly beside forward (forward ${pf}, driver ${pd}) — both are yesterday's capture and outrank the deep lanes`)
+  check(LANE_ALLOCATIONS.driver === 6900, `(k) driver allocation is ${LANE_ALLOCATIONS.driver}; decided 6,900 ⇐ 382 requests/connection-day × 18 (★FORWARD-DRIVER-SHAPE)`)
+  check(LANE_ALLOCATIONS.backfill === 6600, `(k) backfill allocation is ${LANE_ALLOCATIONS.backfill}; decided 6,600 = 13,500 − 6,900 so the sum invariant holds`)
+  const sumAll = Object.values(LANE_ALLOCATIONS).reduce((a, b) => a + b, 0)
+  check(sumAll === GOOGLE_DAILY_OP_CAP, `(k) LANE_ALLOCATIONS sum to ${sumAll}, not the cap ${GOOGLE_DAILY_OP_CAP}`)
+  // a driver cron_runs row adds NOTHING to units or unattributed — pinned on the source (the reader's branch)
+  const drvIdx = code.indexOf("mode === 'driver'")
+  check(drvIdx !== -1, `(k) the cron_runs reader has no mode === 'driver' branch`)
+  if (drvIdx !== -1) {
+    const branch = code.slice(drvIdx, drvIdx + 240).split('} else')[0]
+    check(!/units\.[a-z]+\s*\+=|unattributedUnits\s*\+=/.test(branch), `(k) the mode === 'driver' branch adds to units/unattributed — its spend is the ledger's producer split, never units × 67`)
+  }
+  check(/forward:\s*split\.forward\b/.test(code) && /driver:\s*split\.driver\b/.test(code), `(k) byLane.forward / byLane.driver are not both taken from the ONE producer-split read (split.forward / split.driver)`)
+  // the decision arithmetic: a driver at its allocation blocks the driver lane only; the fleet sum counts it once
+  const s = spend({ driver: 6900 })
+  const dLane = decideBudget('driver', s)
+  check(dLane.state === 'blocked' && dLane.blockedBy === 'lane_allocation', `(k) driver at 6,900 resolved '${dLane.state}/${dLane.blockedBy}' — expected blocked/lane_allocation`)
+  check(dLane.fleetRawRequestsToday === 6900, `(k) fleet raw with driver 6,900 reads ${dLane.fleetRawRequestsToday} — the driver's requests must count exactly once`)
+  const fwd = decideBudget('forward', s)
+  check(fwd.state === 'not_blocked', `(k) forward is '${fwd.state}' while only the driver spent — lanes must not bleed into each other`)
+}
 
 // ── (d) UNREADABLE MUST NOT BE HEADROOM ────────────────────────────────────────────────────────────────
 {
@@ -471,6 +501,12 @@ if (WITH_DB) {
       // from forward_observation_spend_today instead of deriving it; this stub answered only the two walk
       // aggregates and turned the third call into a throw → null → (k) UNREADABLE on the day it shipped — the
       // harness failing, exactly as the comment above predicted for the second read. Same fix, same shape.
+      // ⛔ AND THE PRODUCER SPLIT — LORAMER_ONE_CLICK_WALK_V1 (2/2 A), 2026-09-10. Same shape a third time: the reader
+      // now takes forward AND driver from forward_observation_spend_split (a table-returning function → one row).
+      if (fn === 'forward_observation_spend_split') {
+        const rows = await q(`select forward, driver from public.${fn}($1, $2::timestamptz)`, [args.p_vendor, args.p_since])
+        return { data: rows, error: null }
+      }
       if (fn !== 'universe_lane_spend_today' && fn !== 'universe_attempt_lane_spend_today' && fn !== 'forward_observation_spend_today') {
         return { data: null, error: { message: `unexpected rpc ${fn}` } }
       }
@@ -508,10 +544,15 @@ if (WITH_DB) {
   // sum over the same window (it is that sum, read through the RPC; a mismatch means the RPC and the table
   // disagree, or a reader multiplied a measured number). Zero is the NORMAL state until the first fire after
   // the 087 deploy (2026-09-06 08:08Z) and is said out loud rather than passed silently.
-  const [{ fwd_requests: fwdRequests, fwd_rows: fwdRows }] = await q(
-    `select coalesce(sum(requests_spent),0)::bigint as fwd_requests, count(*)::int as fwd_rows
+  // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the ledger holds TWO lanes by producer family — forward (the legacy family's
+  // producers) and driver ('driver-%'). The witness sums each family straight off the table; the reader must report
+  // each in its own lane and NEITHER twice. (Seen RED on the 2/2 A tree before this split: 1,045 against 1,559.)
+  const [{ fwd_requests: fwdRequests, drv_requests: drvRequests, fwd_rows: fwdRows }] = await q(
+    `select coalesce(sum(requests_spent) filter (where producer not like 'driver-%'),0)::bigint as fwd_requests,
+            coalesce(sum(requests_spent) filter (where producer like 'driver-%'),0)::bigint as drv_requests,
+            count(*)::int as fwd_rows
        from public.forward_observation_log where vendor = 'google' and observed_at >= $1`, [since.toISOString()])
-  const fwd = Number(fwdRequests)
+  const fwd = Number(fwdRequests), drv = Number(drvRequests)
 
   globalThis.__SB__ = makeSb()
   const live = await mod.readGoogleSpendToday(since)
@@ -519,7 +560,9 @@ if (WITH_DB) {
   if (live === null) {
     findings.push(`(k) readGoogleSpendToday returned NULL over the trailing 24h — the fleet read is UNREADABLE, so every google lane is holding right now. That is fail-closed and therefore safe, but it is not a pass.`)
   } else if (Number(live.byLane.forward) !== fwd) {
-    findings.push(`(k) the forward lane reports ${live.byLane.forward} against ${fwd} request(s) across ${fwdRows} forward_observation_log row(s) over the same window — the reader's forward term is no longer the ledger's own sum.`)
+    findings.push(`(k) the forward lane reports ${live.byLane.forward} against ${fwd} NON-driver request(s) (${fwdRows} forward_observation_log row(s), driver ${drv} excluded) over the same window — the reader's forward term is no longer the ledger's own sum.`)
+  } else if (Number(live.byLane.driver) !== drv) {
+    findings.push(`(k) the driver lane reports ${live.byLane.driver} against ${drv} driver-% request(s) in forward_observation_log over the same window — the producer split is not reaching byLane.driver (LORAMER_ONE_CLICK_WALK_V1 2/2 A).`)
   } else if (walk > 0 && Number(live.byLane.backfill) === 0) {
     findings.push(`(k) STRUCTURAL ZERO: the walk ledgers record ${walk} vendor requests across ${walkRows} row(s) in the trailing 24h, and the backfill lane reports 0. The walk's spend is invisible to the fleet ceiling — forward, catchup and drain are all measuring against a denominator missing the largest single spender.`)
   } else if (walk > 0 && Number(live.byLane.backfill) !== walk) {
@@ -527,7 +570,7 @@ if (WITH_DB) {
   }
   // ⛔ EMPTY CARRIES ITS DENOMINATOR. A quiet walk is the NORMAL state while it is halted, and this leg must
   // say so out loud rather than printing a bare PASS that a reader mistakes for "the counting works".
-  console.log(`[google-op-budget] (k) live forward witness: forward_observation_log holds ${fwd} request(s) across ${fwdRows} row(s) in the window; the reader's forward term reports ${live?.byLane?.forward}${fwdRows === 0 ? ' — ZERO is the normal state until the first forward fire after the 087 deploy (2026-09-06 08:08Z)' : ''}.`)
+  console.log(`[google-op-budget] (k) live forward witness: forward_observation_log holds ${fwd} non-driver + ${drv} driver request(s) across ${fwdRows} row(s) in the window; the reader reports forward ${live?.byLane?.forward} · driver ${live?.byLane?.driver}${fwdRows === 0 ? ' — ZERO is the normal state until the first forward fire after the 087 deploy (2026-09-06 08:08Z)' : ''}.`)
   console.log(
     walk > 0
       ? `[google-op-budget] (k) live: walk spent ${walk} requests across ${walkRows} ledger row(s) in the trailing 24h; backfill lane reports ${live?.byLane?.backfill}.`
@@ -624,8 +667,9 @@ if (WITH_DB) {
     if (Number(alloc.drain) !== 0 || Number(alloc.catchup) !== 0) {
       findings.push(`(p) drain=${alloc.drain} catchup=${alloc.catchup} — LORAMER_WALK_TAKES_THE_LANE_V1 sets BOTH to 0. If the engine is now complete and Russ has called the reversal, delete this leg in the same commit; if not, a lane was restored without a decision.`)
     }
-    if (Number(alloc.backfill) !== mod.GOOGLE_DAILY_OP_CAP - Number(mod.FORWARD_UNGATED_RESERVE)) {
-      findings.push(`(p) backfill=${alloc.backfill}, expected cap ${mod.GOOGLE_DAILY_OP_CAP} − forward reserve ${mod.FORWARD_UNGATED_RESERVE}. The walk takes everything that is ACTUALLY available, and the reserve is the only subtrahend.`)
+    // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the driver lane (DRIVER_ALLOCATION, 6,900) is the second subtrahend since 2026-09-10.
+    if (Number(alloc.backfill) !== mod.GOOGLE_DAILY_OP_CAP - Number(mod.FORWARD_UNGATED_RESERVE) - Number(mod.DRIVER_ALLOCATION)) {
+      findings.push(`(p) backfill=${alloc.backfill}, expected cap ${mod.GOOGLE_DAILY_OP_CAP} − forward reserve ${mod.FORWARD_UNGATED_RESERVE} − driver ${mod.DRIVER_ALLOCATION}. The walk takes everything that is ACTUALLY available; the reserve and the driver lane are the only subtrahends.`)
     }
     // ⛔ THE RESERVE MAY NOT BE ZEROED WHILE cron/sync IS UNGATED, AND THIS IS THE LEG THAT MATTERS MOST.
     // `backfill: 15_000` with forward still spending ~1,206/day un-metered and unseen by the walk's own meter

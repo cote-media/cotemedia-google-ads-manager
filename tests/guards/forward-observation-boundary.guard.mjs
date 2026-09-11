@@ -39,7 +39,7 @@ const walk = (dir, out = []) => {
 const MODULE = 'src/lib/backfill/forward-observation-log.ts'
 const SELF = 'tests/guards/forward-observation-boundary.guard.mjs'
 const TABLE_READ = /\.from\(\s*['"`]forward_observation_log['"`]\s*\)/
-const RPC_READ = /rpc\(\s*['"`]forward_observation_spend_today['"`]/
+const RPC_READ = /rpc\(\s*['"`]forward_observation_spend_(today|split)['"`]/ // (2/2 A): the producer-split RPC (089) is bound the same way
 
 // (a) exactly one reader module
 const readers = []

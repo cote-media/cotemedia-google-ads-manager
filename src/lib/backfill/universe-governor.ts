@@ -48,7 +48,7 @@ export const ASSUMED_OPS_PER_REQUEST = OPS_PER_REQUEST
 // LORAMER_GOOGLE_LANE_ALLOCATION_V1 and moved with it (forward 4,000→2,000, drain 5,000→3,000).
 export const RESERVED_FOR_FORWARD_OPS = LANE_ALLOCATIONS.forward
 export const RESERVED_FOR_DRAIN_OPS = LANE_ALLOCATIONS.drain
-// ⛔ 13,500 AS OF 2026-08-11 (LORAMER_WALK_TAKES_THE_LANE_V1) — was 6,000. The value is DERIVED from the one
+// ⛔ 6,600 AS OF 2026-09-10 (LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the driver lane takes 6,900) — was 13,500 (LORAMER_WALK_TAKES_THE_LANE_V1), was 6,000. The value is DERIVED from the one
 // table and moved on its own; this line has never held a literal and must not start.
 export const BACKFILL_OP_ALLOWANCE = LANE_ALLOCATIONS.backfill
 
@@ -87,7 +87,7 @@ export const PRODUCT_RESERVE_OPS = CAP - LANE_ALLOCATIONS.backfill
 
 /** Shape of google-op-budget's reading, restated structurally so this module stays drivable with no DB. */
 export interface FleetReading {
-  byLane: { forward: number; catchup: number; drain: number }
+  byLane: { forward: number; driver: number; catchup: number; drain: number }
   unattributedRaw: number
 }
 
@@ -189,7 +189,8 @@ export function decidePublishFleetAware(args: {
   }
 
   const f = args.fleet
-  const productSpent = f.byLane.forward + f.byLane.catchup + f.byLane.drain + f.unattributedRaw
+  // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the catalogue driver is product-side spend too (yesterday's capture, its own lane).
+  const productSpent = f.byLane.forward + f.byLane.driver + f.byLane.catchup + f.byLane.drain + f.unattributedRaw
   const backfillSpent = Math.max(0, args.spentRequestsToday) * ASSUMED_OPS_PER_REQUEST
   // ⛔ THE RESERVE IS HELD IN FULL, ALWAYS — IT IS NOT DRAWN DOWN AS THE PRODUCT SPENDS.
   // The first version of this line computed `reserveLeft = RESERVE − productSpent` and let the backfill

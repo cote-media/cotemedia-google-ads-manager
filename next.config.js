@@ -30,10 +30,8 @@ const nextConfig = {
       //   ENOENT: no such file or directory, open '/var/task/docs/google-ads-capture-universe.json'
       // driver-caller-is-cron-only.guard leg (e) now pins this entry.
       '/api/cron/forward-driver': ['./docs/google-ads-capture-universe.json'],
-      // LORAMER_ONE_CLICK_WALK_V1 — the Backfill button now publishes the walk's first-touch messages through
-      // universe-start-publish.ts (loadUniverse inside), so /api/clients/backfill reads the artifact too. Same
-      // indirect trap as the forward-driver route; one-click-starts-walk.guard leg (f) pins this entry.
-      '/api/clients/backfill': ['./docs/google-ads-capture-universe.json'],
+      // LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the '/api/clients/backfill' entry added in 1/2 is GONE — the button no longer
+      // imports universe-start-publish.ts (it kicks the resumer, which carries its own entry above).
     },
   },
 }
