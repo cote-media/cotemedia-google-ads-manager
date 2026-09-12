@@ -256,7 +256,12 @@ if (route) {
   // (DEPLOY 2, 2026-08-17, had moved '30 * * * *' → '*/15 * * * *' after a fire with rows_written > 0 was met
   // at 88,140 rows/24h.) The client, dryRun=0 and the ONE-entry rule are untouched: this raises the RATE on
   // one proven account, nothing else.
-  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0', schedule: '*/5 * * * *' }
+  // ⛔ LORAMER_PROOF_LANE_V1, 2026-09-12 — THE ONE ENTRY MOVES FROM FOAM OH TO ESCENTIAL (c39ee088), the cold-proof vehicle
+  // (★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE): Foam OH is sealed 349/349 and its only ask is the 2-request lookback, while
+  // Escential's descent needs the */5 entry pointed at it to continue past the button's single fire (kickoff.ts:82 fires
+  // once; nothing self-chains). Cadence, dryRun=0 and the ONE-entry rule are untouched. Foam OH's lookback resumes when the
+  // entry returns (2/2 B's rotation, held on hold/rotation-2-2b) — its first seal date is a calendar fact, not a fire count.
+  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=c39ee088-c635-4bfe-b308-43fe9640f1ca&dryRun=0', schedule: '*/5 * * * *' }
   if (vercelJson) {
     const crons = (JSON.parse(vercelJson).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
     if (crons.length !== 1) {

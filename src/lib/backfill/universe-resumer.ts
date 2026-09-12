@@ -39,7 +39,7 @@ export type ResumeVerdict =
  * ⛔ RE-DERIVED 2026-08-12 (LORAMER_WALK_BITE_40_V1) — the original block cited the RETIRED 6,000 allowance
  * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
  * constant and this derivation TOGETHER so they cannot drift apart again:
- *   · the walk's lane is LANE_ALLOCATIONS.backfill = 6,600 ops/day since 2026-09-10 (was 13,500, LORAMER_WALK_TAKES_THE_LANE_V1; the driver lane took 6,900 — LORAMER_ONE_CLICK_WALK_V1 2/2 A)
+ *   · the walk's lane is LANE_ALLOCATIONS.backfill = 8,077 ops/day since 2026-09-12 (LORAMER_PROOF_LANE_V1: 15,000 − 1,500 forward reserve − 5,423 measured driver ask; was 6,600 under 2/2 A, was 13,500 under LORAMER_WALK_TAKES_THE_LANE_V1)
  *   · ⛔ RE-DERIVED AGAIN 2026-08-19 (DEPLOY 3) — the cadence is now every 5 minutes, i.e. 288 fires/day,
  *     and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
  *     asterisk-slash form would CLOSE THIS COMMENT BLOCK and turn the rest of the header into code. It cost
@@ -55,9 +55,13 @@ export type ResumeVerdict =
  *     already binding, a bigger bite has nothing to bite. (DEPLOY 2, 2026-08-17, had moved hourly → 15 min
  *     on its own gate — a measured fire with rows_written > 0, met at 88,140 rows/24h against the
  *     migration-070 RPC counter, which read a structural zero until 2026-08-15.)
- *   · 40 requests/fire × 288 = **11520/day = 85.3% of the lane**, leaving ~15% headroom — still deliberately
- *     unsized-to-the-brim, so variance, re-walks and anything a human starts are absorbed retry-free.
- *     (Was 3840/day = 28.4% at 96 fires, and 960/day = 7.1% hourly.)
+ *   · 40 requests/fire × 288 = **11520/day** — the bite's WORST CASE, and it EXCEEDS the 8,077 lane (142.6%; it was
+ *     85.3% of the 13,500 lane this line was derived against, and 174.5% of 2/2 A's 6,600). ⛔ THE BITE DOES NOT BOUND
+ *     THE WALK'S SPEND — THE METER DOES: every fire asks mayFetchProgram against LANE_ALLOCATIONS.backfill (the adapter's
+ *     cap, capture-adapters/google-ads.adapter.ts) and is meter-held the moment the rolling-24h lane is full, as the
+ *     2026-09-11 holds showed ("… would exceed 6600 operations/day"). The bite is the per-fire ceiling; the lane is the
+ *     per-day ceiling; no headroom is claimed here (LORAMER_PROOF_LANE_V1, 2026-09-12).
+ *     (Was 3840/day = 28.4% of 13,500 at 96 fires, and 960/day = 7.1% hourly.)
  *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN, AND IT IS WHY THE TWO
  *     DEPLOY TOKENS ARE ONE DECISION RATHER THAN TWO KNOBS: each published message is one consumer
  *     invocation bounded by WALK_BUDGET_MS = 180s, delivered at maxConcurrency 24 (vercel.json), so a fire of

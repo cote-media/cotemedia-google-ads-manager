@@ -150,12 +150,19 @@ export const OPS_PER_REQUEST = 1
 // ([[★LANE-VOLUME-IS-ESTIMATED-FROM-AN-UNMEASURED-CONSTANT]]), which is exactly why the reserve carries
 // headroom above 1,206 instead of matching it.
 // ⇒ THE WALK TOOK 13,500 OF 15,000 — 90% of the lane, and 100% of what was actually available — UNTIL 2026-09-10.
-// LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the catalogue driver (LORAMER_FORWARD_DRIVER_V1) is a fifth lane. It is sized from
-// ★FORWARD-DRIVER-SHAPE's own budget line — 382 requests per connection-day × 18 connections ≈ 6,900/day — and comes OUT
-// OF THE WALK'S SHARE so the table still sums to the cap: backfill 13,500 → 6,600. Both lanes bill in REQUESTS from
-// their own ledgers (forward_observation_log producer-split · universe_attempt_log); neither is ever multiplied by 67.
+// LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the catalogue driver (LORAMER_FORWARD_DRIVER_V1) is a fifth lane. It was first sized
+// from ★FORWARD-DRIVER-SHAPE's own budget line — 382 requests per connection-day × 18 connections ≈ 6,900/day — and comes
+// OUT OF THE WALK'S SHARE so the table still sums to the cap. Both lanes bill in REQUESTS from their own ledgers
+// (forward_observation_log producer-split · universe_attempt_log); neither is ever multiplied by 67.
+// ⛔ LORAMER_PROOF_LANE_V1 (2026-09-12) — THE DRIVER'S ALLOCATION IS ITS MEASURED ASK, BECAUSE NOTHING GATES THE DRIVER ON IT.
+// forward-driver.ts consults no budget (its only bound is time, DRIVER_BUDGET_MS); this number is ACCOUNTING so the walk's
+// governors see the driver's spend. An allocation above the real ask reserves requests nobody spends; one below it lets the
+// walk's meter authorise requests the driver has already spent — the 2026-09-11 over-run (18,330 asked of 15,000). So it
+// equals the measured ask: 17 google connections × 319 catalogue surfaces = 5,423 per day (measured 2026-09-11, the first
+// full driver window: 17/17 at 319/319). The walk's lane derives to 15,000 − 1,500 − 5,423 = 8,077 — the proof vehicle
+// (Escential, ★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE) takes it. Re-measure when a google connection is added or removed.
 export const FORWARD_UNGATED_RESERVE = 1_500
-export const DRIVER_ALLOCATION = 6_900
+export const DRIVER_ALLOCATION = 5_423 // ⇐ measured 2026-09-11 N=17: 17 connections × 319 catalogue surfaces (LORAMER_PROOF_LANE_V1); was 6,900 (382 × 18 estimate)
 export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   // ⛔ NOT A LANE FORWARD SPENDS FROM — a slice HELD BACK FROM THE WALK for a spender this table cannot gate.
   // ⛔ SET THIS TO 0 ONLY IN THE SAME COMMIT THAT GENUINELY GATES cron/sync. Then, and only then, is
@@ -163,8 +170,8 @@ export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   forward: FORWARD_UNGATED_RESERVE,
   drain: 0,         // ZERO BY DECISION — was 3,000. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
   catchup: 0,       // ZERO BY DECISION — was 4,000. Declines cleanly at cron/catchup/route.ts:281-286.
-  driver: DRIVER_ALLOCATION, // 6,900 — the catalogue driver's 319 surfaces per connection-day (2026-09-10)
-  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 6,600 — was 13,500, was 6,000
+  driver: DRIVER_ALLOCATION, // 5,423 — the catalogue driver's measured ask, 17 connections × 319 surfaces (LORAMER_PROOF_LANE_V1, 2026-09-12); was 6,900
+  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 8,077 — was 6,600 (2/2 A), was 13,500, was 6,000
 }
 
 // ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the

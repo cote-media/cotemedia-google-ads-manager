@@ -3,10 +3,12 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ⛔ SCHEDULED AS OF 2026-08-11 — LORAMER_WALK_SCHEDULED_V1, RUSS'S EXPLICIT GO. THE SEPARATE ACT HAPPENED.
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EXACTLY ONE cron entry exists: Foam OH (957d484e), `dryRun=0`, `30 * * * *` — pinned byte-for-byte by
+// EXACTLY ONE cron entry exists: Escential (c39ee088; identity per the registry, src/lib/clients/canonical.ts), `dryRun=0`, every 5 minutes — pinned byte-for-byte by
 // `universe-stream-consumer.guard.mjs` leg (e), so a second entry, a faster cadence, a different client or a
-// dropped `dryRun=0` is a red build. It was added only after all three pre-scheduling gates closed (meter ·
-// lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and the Foam OH dormancy eyeball.
+// dropped `dryRun=0` is a red build. LORAMER_PROOF_LANE_V1 (2026-09-12) moved it from Foam OH (957d484e — sealed
+// 349/349, asking only its 2-request lookback) to the cold-proof vehicle; Foam OH's entry was added on 2026-08-11
+// only after all three pre-scheduling gates closed (meter · lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and
+// the Foam OH dormancy eyeball. The button (kickoff.ts:82) fires a client ONCE; only this entry continues it.
 // ⛔ THE UNATTENDED-SPEND ARITHMETIC, derived from constants below rather than invented: 24 fires/day ×
 // MAX_REQUESTS_PER_RUN (20, exact by boundedSelection) = worst case 480 requests/day of the 13,500 lane
 // (3.6%). Vercel sends `Bearer $CRON_SECRET` on cron fires by its own contract; a manual hit WITHOUT

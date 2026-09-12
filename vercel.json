@@ -77,7 +77,7 @@
       "schedule": "9-59/10 8-11 * * *"
     },
     {
-      "path": "/api/cron/universe-resume?clientId=957d484e-d0c4-4dd0-b382-d8499d556252&dryRun=0",
+      "path": "/api/cron/universe-resume?clientId=c39ee088-c635-4bfe-b308-43fe9640f1ca&dryRun=0",
       "schedule": "*/5 * * * *"
     }
   ],

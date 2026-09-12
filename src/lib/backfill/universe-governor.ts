@@ -48,7 +48,7 @@ export const ASSUMED_OPS_PER_REQUEST = OPS_PER_REQUEST
 // LORAMER_GOOGLE_LANE_ALLOCATION_V1 and moved with it (forward 4,000→2,000, drain 5,000→3,000).
 export const RESERVED_FOR_FORWARD_OPS = LANE_ALLOCATIONS.forward
 export const RESERVED_FOR_DRAIN_OPS = LANE_ALLOCATIONS.drain
-// ⛔ 6,600 AS OF 2026-09-10 (LORAMER_ONE_CLICK_WALK_V1 (2/2 A): the driver lane takes 6,900) — was 13,500 (LORAMER_WALK_TAKES_THE_LANE_V1), was 6,000. The value is DERIVED from the one
+// ⛔ 8,077 AS OF 2026-09-12 (LORAMER_PROOF_LANE_V1: the driver lane is its measured ask, 5,423) — was 6,600 (2/2 A, driver 6,900), was 13,500 (LORAMER_WALK_TAKES_THE_LANE_V1), was 6,000. The value is DERIVED from the one
 // table and moved on its own; this line has never held a literal and must not start.
 export const BACKFILL_OP_ALLOWANCE = LANE_ALLOCATIONS.backfill
 
@@ -78,7 +78,9 @@ export const BACKFILL_OP_ALLOWANCE = LANE_ALLOCATIONS.backfill
 // catchup did not exist in this model at all — yet catchup is the DOMINANT spender (~82% of mean fleet
 // volume), so a "product reserve" that omitted it was reserving for the two smallest lanes and calling it
 // the product. Expressed as cap − backfill so it cannot drift from the table.
-// ⛔ IT IS NOW 1,500, NOT 9,000 (LORAMER_WALK_TAKES_THE_LANE_V1, 2026-08-11), AND THE MEANING NARROWED WITH IT.
+// ⛔ IT WAS 1,500, NOT 9,000 (LORAMER_WALK_TAKES_THE_LANE_V1, 2026-08-11), AND THE MEANING NARROWED WITH IT; since the driver
+// lane exists it is cap − backfill = forward reserve + driver allocation (8,400 under 2/2 A; 6,923 = 1,500 + 5,423 under
+// LORAMER_PROOF_LANE_V1, 2026-09-12) — the driver's spend is product-side too, and the value stays derived, never a literal.
 // Drain and catchup are ZERO by decision, so there is nothing to reserve for them; what remains is the slice
 // held back from the walk for FORWARD, which this table cannot gate (cron/sync consults no budget) and whose
 // spend the walk's own meter cannot see. So the "product reserve" is now precisely the un-gated-forward
