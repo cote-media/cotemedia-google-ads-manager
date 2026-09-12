@@ -256,18 +256,50 @@ if (route) {
   // (DEPLOY 2, 2026-08-17, had moved '30 * * * *' → '*/15 * * * *' after a fire with rows_written > 0 was met
   // at 88,140 rows/24h.) The client, dryRun=0 and the ONE-entry rule are untouched: this raises the RATE on
   // one proven account, nothing else.
-  // ⛔ LORAMER_PROOF_LANE_V1, 2026-09-12 — THE ONE ENTRY MOVES FROM FOAM OH TO ESCENTIAL (c39ee088), the cold-proof vehicle
-  // (★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE): Foam OH is sealed 349/349 and its only ask is the 2-request lookback, while
-  // Escential's descent needs the */5 entry pointed at it to continue past the button's single fire (kickoff.ts:82 fires
-  // once; nothing self-chains). Cadence, dryRun=0 and the ONE-entry rule are untouched. Foam OH's lookback resumes when the
-  // entry returns (2/2 B's rotation, held on hold/rotation-2-2b) — its first seal date is a calendar fact, not a fire count.
-  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?clientId=c39ee088-c635-4bfe-b308-43fe9640f1ca&dryRun=0', schedule: '*/5 * * * *' }
+  // ⛔ LORAMER_PROOF_LANE_V1, 2026-09-12 — THE ONE ENTRY MOVED FROM FOAM OH TO ESCENTIAL (c39ee088), the cold-proof vehicle,
+  // while Escential's descent needed the */5 entry pointed at it to continue past the button's single fire (kickoff.ts:82
+  // fires once; nothing self-chains). Escential sealed 349/349 by 2026-09-13 (LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1).
+  // ⛔ 2/2 B, LORAMER_ONE_CLICK_WALK_V1 (2026-09-13; RESUMER-ROTATES-ELIGIBLE-CLIENTS-LEAST-RECENTLY-SERVED) — the entry is
+  // UN-PINNED: no clientId in the path, ONE entry, same cadence, dryRun=0 kept. The route enumerates the eligible google
+  // clients (the driver's predicate) and takes ONE per fire, least-recently-served, never-served first — so the
+  // 40 × 288 = 11520/day derivation above is unchanged: it was always per FIRE, and a fire is still one client. All four
+  // lanes (descend · lookback · missed · top-edge) ride the same fire for the picked client; Foam OH's lookback and every
+  // other client's lanes resume on their turns.
+  const DECIDED_ENTRY = { path: '/api/cron/universe-resume?dryRun=0', schedule: '*/5 * * * *' }
   if (vercelJson) {
     const crons = (JSON.parse(vercelJson).crons || []).filter((c) => /universe-resume/.test(String(c.path || '')))
     if (crons.length !== 1) {
       findings.push(`(e) vercel.json holds ${crons.length} universe-resume cron entr(ies); the 2026-08-11 decision authorises EXACTLY ONE. Zero means the walk was silently un-scheduled; more than one multiplies unattended spend without a decision.`)
     } else if (crons[0].path !== DECIDED_ENTRY.path || crons[0].schedule !== DECIDED_ENTRY.schedule) {
       findings.push(`(e) the universe-resume cron entry drifted from the decided shape.\n      decided: ${JSON.stringify(DECIDED_ENTRY)}\n      found:   ${JSON.stringify(crons[0])}\n      Client, dryRun=0 and cadence are each load-bearing for the unattended-spend arithmetic (11,520/day of 13,500 at */5 x bite 40); changing any of them is a NEW scheduling decision, not an edit.`)
+    }
+  }
+  // ── (e2) THE UN-PINNED ROUTE ENUMERATES WITH THE DRIVER'S PREDICATE AND PICKS NEVER-SERVED FIRST ──────────────
+  // ⛔ Postgres sorts NULLS LAST on ascending order (postgresql.org queries-order: "NULLS FIRST is the default for DESC
+  // order, and NULLS LAST otherwise"), so a rotation ordered by last fire ASC without an explicit never-served-first
+  // rule would serve Foam OH and Escential forever and the fifteen never-served clients never. The route executes the
+  // rule in `pickLeastRecentlyServed` (universe-resumer.ts, fixture-driven by universe-resumer.guard.mjs leg (i)); this
+  // leg pins that the route USES it, that its eligibility list is the driver's constant (never a second list), and
+  // that the picker's own source still carries the NULLS FIRST rule.
+  {
+    const routeSrc = read('src/app/api/cron/universe-resume/route.ts') || ''
+    const deciderSrc = read('src/lib/backfill/universe-resumer.ts') || ''
+    const stripped = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
+    const rc = stripped(routeSrc), dc = stripped(deciderSrc)
+    if (!/import\s*\{[^}]*\bDRIVER_EXCLUDED_CLIENTS\b[^}]*\}\s*from\s*['"]@\/lib\/backfill\/forward-driver['"]/.test(rc)) {
+      findings.push('(e2) universe-resume/route.ts does not import DRIVER_EXCLUDED_CLIENTS from forward-driver — the eligible set must be the driver\'s predicate, never a second list (DECISIONS:2461, the frozen twin).')
+    }
+    if (!/pickLeastRecentlyServed\s*\(/.test(rc)) {
+      findings.push('(e2) universe-resume/route.ts does not call pickLeastRecentlyServed — the un-pinned entry has no rotation, so one fire could serve the same client every five minutes.')
+    }
+    if (!/\.is\(\s*['"]deleted_at['"]\s*,\s*null\s*\)/.test(rc) || !/platform\s*===\s*['"]google['"]/.test(rc)) {
+      findings.push('(e2) the route\'s enumeration does not carry the driver\'s predicate (clients.deleted_at null · platform_connections platform === \'google\').')
+    }
+    if (!/dry_run['"]?\s*,\s*false\)|\.eq\(\s*['"]dry_run['"]\s*,\s*false\s*\)/.test(rc)) {
+      findings.push('(e2) the route\'s last-served read does not filter universe_fire_log to dry_run=false — a dry diagnostic fire would count as service.')
+    }
+    if (!/NULLS FIRST/.test(deciderSrc) || !/lastFiredAt\s*===\s*null/.test(dc)) {
+      findings.push('(e2) universe-resumer.ts pickLeastRecentlyServed no longer carries the NULLS FIRST rule (never-served clients sort first) — the fifteen never-served clients would never be picked.')
     }
   }
   // and the contract module must declare, not send
@@ -540,4 +572,4 @@ if (findings.length) {
   for (const f of findings) console.error(`  - ${f}`)
   process.exit(1)
 }
-console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · Foam OH · dryRun=0 · every 5 minutes — LORAMER_WALK_SCHEDULED_V1 as raised by DEPLOY 3, 2026-08-19, paired with maxConcurrency 24 and executed by queue-drain-fits-the-interval.guard.mjs).`)
+console.log(`[universe-stream-consumer] PASS — every vendor call is preceded by a charged attempt_started · a day is covered only when a later day closes it or an explicit commit says so (proven with a synthetic mid-day kill) · covered and attested-empty PARTITION the window — a day with rows yields the attestation, so an aliased row can never double-count into an implausible-coverage refusal (driven through the real compiled windowCoverage) · an out-of-order stream is detected · the coverage module never imports the attempt-log module and the walk decision reads only coverage · the terminal bound is evaluated at the MINIMUM span · the ONLY publisher to the v2 topic is the resumer, and the resumer's schedule is EXACTLY the decided one (ONE entry · UN-PINNED, one eligible google client per fire, least-recently-served, never-served first — LORAMER_ONE_CLICK_WALK_V1 2/2 B · dryRun=0 · every 5 minutes — LORAMER_WALK_SCHEDULED_V1 as raised by DEPLOY 3, 2026-08-19, paired with maxConcurrency 24 and executed by queue-drain-fits-the-interval.guard.mjs).`)

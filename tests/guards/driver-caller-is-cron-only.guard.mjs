@@ -45,8 +45,18 @@ const files = []
 const walk = (d) => { for (const e of readdirSync(resolve(ROOT, d))) { const p = join(d, e); const st = statSync(resolve(ROOT, p)); if (st.isDirectory()) walk(p); else if (/\.(ts|tsx)$/.test(e)) files.push(p) } }
 walk('src')
 const importers = files.filter((f) => /from\s+['"]@\/lib\/backfill\/forward-driver['"]/.test(strip(read(f))))
-const foreign = importers.filter((f) => f !== ROUTE)
-if (foreign.length) findings.push(`(b) ${foreign.join(', ')} import(s) @/lib/backfill/forward-driver — the driver has exactly one caller (the cron route); a second importer is a second writer with no lease`)
+// ⛔ 2/2 B (LORAMER_ONE_CLICK_WALK_V1): the resumer route imports DRIVER_EXCLUDED_CLIENTS from the driver so the walk's
+// eligible set and the driver's are ONE list (never a copy). That is a CONSTANT-ONLY import — it names nothing but the
+// exclusion list and the file never references runForwardDriver — so it is not a second caller. Any import that names
+// anything else from the driver, or any reference to runForwardDriver outside the cron route, is still the finding.
+const constantOnly = (src) => {
+  const specs = [...src.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s+['"]@\/lib\/backfill\/forward-driver['"]/g)]
+  if (!specs.length) return false
+  const names = specs.flatMap((m) => m[1].split(',').map((s) => s.trim().replace(/^type\s+/, '').split(/\s+as\s+/)[0]).filter(Boolean))
+  return names.length > 0 && names.every((n) => n === 'DRIVER_EXCLUDED_CLIENTS') && !/runForwardDriver/.test(src)
+}
+const foreign = importers.filter((f) => f !== ROUTE && !constantOnly(strip(read(f))))
+if (foreign.length) findings.push(`(b) ${foreign.join(', ')} import(s) more than DRIVER_EXCLUDED_CLIENTS from @/lib/backfill/forward-driver (or references runForwardDriver) — the driver has exactly one caller (the cron route); a second importer is a second writer with no lease`)
 
 // (c) vercel.json
 try {

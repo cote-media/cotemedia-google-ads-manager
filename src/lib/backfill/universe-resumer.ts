@@ -60,7 +60,11 @@ export type ResumeVerdict =
  *     THE WALK'S SPEND — THE METER DOES: every fire asks mayFetchProgram against LANE_ALLOCATIONS.backfill (the adapter's
  *     cap, capture-adapters/google-ads.adapter.ts) and is meter-held the moment the rolling-24h lane is full, as the
  *     2026-09-11 holds showed ("… would exceed 6600 operations/day"). The bite is the per-fire ceiling; the lane is the
- *     per-day ceiling; no headroom is claimed here (LORAMER_PROOF_LANE_V1, 2026-09-12).
+ *     per-day ceiling; no headroom is claimed here (LORAMER_PROOF_LANE_V1, 2026-09-12). Since 2/2 B
+ *     (LORAMER_ONE_CLICK_WALK_V1, 2026-09-13) both are FLEET figures, not per-client ones: the un-pinned entry serves ONE
+ *     client per fire, least-recently-served (never-served first), so 288 fires/day is still 288 fires/day whether one
+ *     client or seventeen share them — and the 8,009 lane is shared first-come in rotation order, a meter-held day
+ *     holding every client's turn until the window rolls.
  *     (Was 3840/day = 28.4% of 13,500 at 96 fires, and 960/day = 7.1% hourly.)
  *   · ⛔ THE REAL LIMITER IS NOT THE LANE, IT IS THE CONSUMER QUEUE'S WORST-CASE DRAIN, AND IT IS WHY THE TWO
  *     DEPLOY TOKENS ARE ONE DECISION RATHER THAN TWO KNOBS: each published message is one consumer
@@ -696,6 +700,38 @@ export function floorSealHolds(
  * append-only attempt log for "when did we last ask", which is the same table `sizeNextWindow` already reads
  * for "what came back last time". Owed-ness is still recomputed from `metrics_daily` and from nothing else.
  */
+// ── 2/2 B — ONE CLIENT PER FIRE, LEAST-RECENTLY-SERVED, NEVER-SERVED FIRST — LORAMER_ONE_CLICK_WALK_V1 ─────────────
+// The un-pinned cron entry (vercel.json, no clientId) enumerates every eligible google client with the DRIVER'S predicate
+// and takes ONE per fire: the client whose most recent wet fire (universe_fire_log, dry_run=false) is oldest, with clients
+// that have NEVER fired first. ⛔ EVERY fire outcome counts as service — completed, meter-held, lease-held, quota-hold,
+// rotation-error — because a held fleet must still CYCLE: if only completed fires counted, a meter-held day would re-pick
+// the same never-completed client every five minutes and the other sixteen would never even be attempted. A lap of the
+// fleet is 17 fires ≈ 85 min at the 5-minute cadence; the first unheld fire lands on the longest-waiting client.
+// ⛔ "NULLS FIRST" IS WRITTEN HERE ON PURPOSE. Postgres sorts NULLS LAST on ascending order (postgresql.org
+// queries-order.html: "NULLS FIRST is the default for DESC order, and NULLS LAST otherwise"), so an ORDER BY last-fire ASC
+// without an explicit never-served-first rule would serve Foam OH and Escential forever and the fifteen never-served
+// clients never (measured 2026-09-11 21:06Z: 15 of 17 eligible clients hold no wet fire row). The rule is executed here,
+// in TypeScript, so the guard can drive it with no database; ties break on the lowest clientId so the order is total.
+export interface ServedRow { clientId: string; lastFiredAt: string | null }
+const firedMs = (iso: string): number => { const t = Date.parse(iso); return Number.isFinite(t) ? t : NaN }
+export function orderLeastRecentlyServed(rows: ServedRow[]): ServedRow[] {
+  return [...rows].sort((a, b) => {
+    const an = a.lastFiredAt === null, bn = b.lastFiredAt === null
+    if (an && !bn) return -1
+    if (!an && bn) return 1
+    if (!an && !bn) {
+      const at = firedMs(a.lastFiredAt as string), bt = firedMs(b.lastFiredAt as string)
+      const cmp = Number.isFinite(at) && Number.isFinite(bt) ? at - bt : String(a.lastFiredAt).localeCompare(String(b.lastFiredAt))
+      if (cmp !== 0) return cmp < 0 ? -1 : 1
+    }
+    return a.clientId < b.clientId ? -1 : a.clientId > b.clientId ? 1 : 0
+  })
+}
+/** The client the next fire serves: never-served first, then oldest last fire, ties by lowest clientId; empty → null. */
+export function pickLeastRecentlyServed(rows: ServedRow[]): ServedRow | null {
+  return orderLeastRecentlyServed(rows)[0] ?? null
+}
+
 export function orderForRotation<T>(
   entries: T[],
   keyOf: (e: T) => string,

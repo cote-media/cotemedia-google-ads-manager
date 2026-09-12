@@ -3,12 +3,21 @@
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
 // ⛔ SCHEDULED AS OF 2026-08-11 — LORAMER_WALK_SCHEDULED_V1, RUSS'S EXPLICIT GO. THE SEPARATE ACT HAPPENED.
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════
-// EXACTLY ONE cron entry exists: Escential (c39ee088; identity per the registry, src/lib/clients/canonical.ts), `dryRun=0`, every 5 minutes — pinned byte-for-byte by
-// `universe-stream-consumer.guard.mjs` leg (e), so a second entry, a faster cadence, a different client or a
-// dropped `dryRun=0` is a red build. LORAMER_PROOF_LANE_V1 (2026-09-12) moved it from Foam OH (957d484e — sealed
-// 349/349, asking only its 2-request lookback) to the cold-proof vehicle; Foam OH's entry was added on 2026-08-11
-// only after all three pre-scheduling gates closed (meter · lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and
-// the Foam OH dormancy eyeball. The button (kickoff.ts:82) fires a client ONCE; only this entry continues it.
+// EXACTLY ONE cron entry exists: `/api/cron/universe-resume?dryRun=0`, every 5 minutes — pinned byte-for-byte by
+// `universe-stream-consumer.guard.mjs` leg (e), so a second entry, a faster cadence, a re-pinned client or a
+// dropped `dryRun=0` is a red build. ⛔ 2/2 B (LORAMER_ONE_CLICK_WALK_V1, 2026-09-13): the entry carries NO clientId — the
+// fire ENUMERATES the eligible google clients with the driver's predicate (clients.deleted_at null · minus
+// DRIVER_EXCLUDED_CLIENTS · a google platform_connection) and serves ONE per fire, least-recently-served, never-
+// served first (`pickLeastRecentlyServed`, leg (e2)). EVERY lane rides that one fire for the picked client — the
+// descent, the lookback (LORAMER_LOOKBACK_LANE_V1), the missed lane (LORAMER_MISSED_DAY_WALK_V1, its cursor per
+// (client, vendor) in universe_missed_cursor) and the top-edge strip — so a client's lookback and missed sweeps run on
+// its turns and pause between them; nothing is pinned to one account any more. History: Foam OH only
+// (`?clientId=957d484e…`) from LORAMER_WALK_SCHEDULED_V1 (2026-08-11), after all three pre-scheduling gates closed
+// (meter · lane · cleanup; LORAMER_PRESCHEDULING_GATE_V1) and the Foam OH dormancy eyeball; Escential only
+// (`?clientId=c39ee088…`; identity per the registry, src/lib/clients/canonical.ts) from LORAMER_PROOF_LANE_V1
+// (2026-09-12) until its cold proof completed 349/349
+// (LORAMER_COLD_PROOF_ESCENTIAL_COMPLETE_V1, 2026-09-13). A `?clientId=` fire (the Backfill button, kickoff.ts:82)
+// is byte-identical to before: one client, named by the caller, ONCE; the entry continues it on rotation.
 // ⛔ THE UNATTENDED-SPEND ARITHMETIC, derived from constants below rather than invented: 24 fires/day ×
 // MAX_REQUESTS_PER_RUN (20, exact by boundedSelection) = worst case 480 requests/day of the 13,500 lane
 // (3.6%). Vercel sends `Bearer $CRON_SECRET` on cron fires by its own contract; a manual hit WITHOUT
@@ -64,11 +73,16 @@ import {
 import { processMessage, type DeadlineOpts } from '@/lib/backfill/universe-v2-worker'
 import { acquireFireLease, releaseFireLease } from '@/lib/backfill/universe-fire-lease'
 import { shouldStartAnotherLap } from '@/lib/backfill/lap-budget'
+// ⛔ 2/2 B — THE ONE EXCLUSION LIST, imported, never copied (DECISIONS:2461, the RMF-frozen demo twin). This is a
+// constant-only import: driver-caller-is-cron-only.guard leg (b) admits it precisely because nothing here calls
+// runForwardDriver — the driver still has exactly one caller.
+import { DRIVER_EXCLUDED_CLIENTS } from '@/lib/backfill/forward-driver'
 // ⛔ LORAMER_V2_QUOTA_SENTINEL_WIRED_V1 — the SHARED predicate. `holdGoogleWork`, never `.paused`.
 import { readGoogleQuotaPause, holdGoogleWork } from '@/lib/backfill/google-quota-store'
 import { recordQuotaHold } from '@/lib/backfill/universe-quota-hold' // LORAMER_V2_QUOTA_HOLD_IS_DURABLE_V1
 import {
   assessCoverage, decideRepublish, boundedSelection,
+  orderLeastRecentlyServed, pickLeastRecentlyServed, type ServedRow, // 2/2 B — one client per fire, never-served first
   deriveAnchorEnd, deriveWindow, orderForRotation, deriveBoundaryStrip, // LORAMER_LOOKBACK_LANE_V1 — deriveTopStrip is gone (ruling j)
   parseFloorSeal, floorSealHolds, // LORAMER_WALK_FLOOR_SEAL_V1 — the seal's pure deciders
 
@@ -114,9 +128,51 @@ export async function GET(request: Request) {
   if (!envSecret || got !== envSecret) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const url = new URL(request.url)
-  const clientId = url.searchParams.get('clientId')
   const dryRun = url.searchParams.get('dryRun') !== '0'   // ⛔ DRY-RUN IS THE DEFAULT. `?dryRun=0` publishes.
-  if (!clientId) return NextResponse.json({ error: 'clientId required' }, { status: 400 })
+  const requestedClientId = url.searchParams.get('clientId')
+  let clientId: string
+  let rotation: { eligible: number; pick: ServedRow; order: string[] } | null = null
+  if (requestedClientId) {
+    clientId = requestedClientId // the button's path (kickoff.ts) — one client, named by the caller, byte-identical to before 2/2 B
+  } else {
+    // ⛔ 2/2 B — THE UN-PINNED CRON FIRE: enumerate with the DRIVER'S predicate (forward-driver.ts runForwardDriver —
+    // clients.deleted_at null · minus DRIVER_EXCLUDED_CLIENTS · a google platform_connection) and serve ONE client:
+    // least-recently-served by its newest WET fire row, never-served first (NULLS FIRST — executed in
+    // pickLeastRecentlyServed, universe-resumer.ts). The last-served read is one indexed LIMIT-1 read per client
+    // (universe_fire_log_client_fired_idx) rather than one fleet-wide page: the fleet's fire rows outrun PostgREST's
+    // max-rows (6,957 on 2026-09-11, 288 more per day) and a page ordered by fired_at would show Foam OH's rows only.
+    // A read that fails HOLDS the fire and says so — nothing picked, nothing spent, no fire row (there is no client to
+    // attribute one to); owed-ness is derived, so the next fire recomputes the same answer.
+    const { data: clientRows, error: clientsErr } = await supabaseAdmin
+      .from('clients').select('id, platform_connections(platform)').is('deleted_at', null)
+    if (clientsErr) {
+      console.error(`[universe-resume] ROTATION UNREADABLE — clients read failed: ${clientsErr.message}`)
+      return NextResponse.json({ ok: false, published: 0, executed: 0, scanned: 0, eligible: 0, held: `ROTATION UNREADABLE — clients read failed: ${clientsErr.message}. Nothing picked, nothing spent.`, refusals: [] })
+    }
+    const excluded = new Set(DRIVER_EXCLUDED_CLIENTS)
+    const eligibleIds = ((clientRows ?? []) as Array<{ id: string; platform_connections: Array<{ platform: string }> | null }>)
+      .filter((c) => !excluded.has(c.id) && (c.platform_connections ?? []).some((p) => p.platform === 'google'))
+      .map((c) => c.id)
+    const served: ServedRow[] = []
+    for (const id of eligibleIds) {
+      const { data: last, error: fireErr } = await supabaseAdmin
+        .from('universe_fire_log').select('fired_at').eq('client_id', id).eq('dry_run', false)
+        .order('fired_at', { ascending: false }).limit(1)
+      if (fireErr) {
+        console.error(`[universe-resume] ROTATION UNREADABLE — fire log read failed for ${id}: ${fireErr.message}`)
+        return NextResponse.json({ ok: false, published: 0, executed: 0, scanned: 0, eligible: eligibleIds.length, held: `ROTATION UNREADABLE — fire log read failed for ${id}: ${fireErr.message}. Nothing picked, nothing spent.`, refusals: [] })
+      }
+      served.push({ clientId: id, lastFiredAt: (last?.[0] as { fired_at?: string } | undefined)?.fired_at ?? null })
+    }
+    const order = orderLeastRecentlyServed(served)
+    const pick = pickLeastRecentlyServed(served)
+    console.log(`[universe-resume] ROTATION: ${eligibleIds.length} eligible google client(s) · pick ${pick?.clientId ?? 'none'} (last wet fire ${pick?.lastFiredAt ?? 'never'}) · order ${order.map((r) => `${r.clientId.slice(0, 8)}@${r.lastFiredAt ?? 'never'}`).join(' → ')}`)
+    if (!pick) {
+      return NextResponse.json({ ok: true, published: 0, executed: 0, scanned: 0, eligible: 0, held: `NO ELIGIBLE GOOGLE CLIENT — ${clientRows?.length ?? 0} live client(s), none with a google connection outside DRIVER_EXCLUDED_CLIENTS. Nothing picked, nothing spent, no fire row.`, refusals: [] })
+    }
+    clientId = pick.clientId
+    rotation = { eligible: eligibleIds.length, pick, order: order.map((r) => r.clientId) }
+  }
 
   // ── THE HEARTBEAT — LORAMER_WALK_UNWEDGE_AND_HEARTBEAT_V1 ──────────────────────────────────────────────
   // ⛔ ONE DURABLE ROW PER FIRE, ON EVERY RETURN PATH — including held and errored fires. The wedge ran 21+
@@ -960,6 +1016,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ok: true, dryRun, clientId, scanned, heartbeatError: hbErr,
+    ...(rotation ? { rotation } : {}), // 2/2 B — present ONLY on an un-pinned (cron) fire; a ?clientId= response is byte-identical to before
     entriesInCatalog: entries.length,
     bound: { maxRequestsPerRun: MAX_REQUESTS_PER_RUN, maxEntriesScanned: MAX_ENTRIES_SCANNED_PER_RUN, requestsSelected: sel.requests, droppedForBound: sel.droppedForBound,
       lookbackRequestsPerRun: LOOKBACK_REQUESTS_PER_RUN, lookbackRequestsSelected: selLook.requests, lookbackDroppedForBound: selLook.droppedForBound, lookbackMode: LOOKBACK_SLOT_MODE },

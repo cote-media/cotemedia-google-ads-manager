@@ -222,6 +222,31 @@ try {
   }
   const empty = R.boundedSelection([], 20)
   if (empty.taken.length !== 0 || empty.requests !== 0) findings.push(`(c) boundedSelection invented work from an empty candidate list.`)
+
+  // ── (i) 2/2 B — ONE CLIENT PER FIRE, LEAST-RECENTLY-SERVED, NEVER-SERVED FIRST ────────────────────────
+  // Drives the pure picker the un-pinned cron fire uses (route.ts enumerates, this decides). The four fixtures
+  // are the four rules: never-served first (NULLS FIRST — Postgres would sort them LAST on ASC), oldest wet fire
+  // next, ties by lowest clientId, empty → null. universe-stream-consumer.guard leg (e2) pins that the route calls it.
+  if (typeof R.pickLeastRecentlyServed !== 'function' || typeof R.orderLeastRecentlyServed !== 'function') {
+    findings.push('(i) universe-resumer.ts exports no pickLeastRecentlyServed / orderLeastRecentlyServed — the un-pinned entry has no rotation to drive.')
+  } else {
+    const rows = [
+      { clientId: 'cccc', lastFiredAt: '2026-09-11T21:05:56.859Z' },
+      { clientId: 'bbbb', lastFiredAt: null },
+      { clientId: 'aaaa', lastFiredAt: '2026-09-11T03:12:12.559Z' },
+      { clientId: 'dddd', lastFiredAt: null },
+    ]
+    const order = R.orderLeastRecentlyServed(rows).map((r) => r.clientId)
+    if (order.join(',') !== 'bbbb,dddd,aaaa,cccc') findings.push(`(i) rotation order was ${order.join(',')}, expected bbbb,dddd,aaaa,cccc — never-served first (by id), then oldest wet fire, then newest.`)
+    const pick = R.pickLeastRecentlyServed(rows)
+    if (!pick || pick.clientId !== 'bbbb') findings.push(`(i) pick was ${pick?.clientId ?? 'null'}, expected bbbb (a never-served client outranks every served one — NULLS FIRST).`)
+    const oldest = R.pickLeastRecentlyServed([{ clientId: 'zzzz', lastFiredAt: '2026-09-10T00:00:00Z' }, { clientId: 'aaaa', lastFiredAt: '2026-09-11T00:00:00Z' }])
+    if (!oldest || oldest.clientId !== 'zzzz') findings.push(`(i) among served clients the OLDEST last fire must win (got ${oldest?.clientId ?? 'null'}, expected zzzz) — id order must not outrank age.`)
+    const tie = R.pickLeastRecentlyServed([{ clientId: 'bbbb', lastFiredAt: '2026-09-11T00:00:00Z' }, { clientId: 'aaaa', lastFiredAt: '2026-09-11T00:00:00Z' }])
+    if (!tie || tie.clientId !== 'aaaa') findings.push(`(i) an exact tie must break on the lowest clientId (got ${tie?.clientId ?? 'null'}, expected aaaa) so the order is total and a duplicated fire picks the same client.`)
+    if (R.pickLeastRecentlyServed([]) !== null) findings.push('(i) an empty eligible set must pick null, never invent a client.')
+    if (rows.map((r) => r.clientId).join(',') !== 'cccc,bbbb,aaaa,dddd') findings.push('(i) orderLeastRecentlyServed mutated its input — the route logs the original rows after ordering.')
+  }
 } catch (e) {
   findings.push(`behavioural legs could not run — ${e.message}. A guard that cannot execute its subject FAILS; it does not pass quietly.`)
 } finally {
