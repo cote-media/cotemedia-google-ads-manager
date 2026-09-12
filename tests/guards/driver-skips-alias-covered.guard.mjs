@@ -17,6 +17,8 @@
 //      change and must be re-measured, never silently absorbed)
 //  (d) forward-driver.ts wires the alias predicate to drainAliasFor(surfaceOfEntry(e)) and the legacy predicate to
 //      FORWARD_PRODUCER_SURFACES — the pure module never guesses at either
+//  (f) the driver's pending-set read (forward-observation-log.ts readSliceObservationState) counts only producers
+//      like 'driver-%' — never another family's observations (LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1)
 //  (e) registered in scripts/run-guards.mjs
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -72,6 +74,16 @@ else {
       if (missingBase.length) findings.push(`(b) the de-aliased base surface(s) ${missingBase.join(' · ')} are NOT selected — the driver would leave them to forward's '' writer and the lookback lane would have no walk rows to restate (LORAMER_WALK_BASE_DEALIAS_V1)`)
       const driverSrc = strip(read(DRIVER))
       if (!/DEALIASED_BASE_SURFACES/.test(driverSrc)) findings.push(`(d) ${DRIVER} does not subtract DEALIASED_BASE_SURFACES from its legacy exclusion — the four bases would stay legacy-only (LORAMER_WALK_BASE_DEALIAS_V1)`)
+      // LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (2026-09-12) — the pending-set read counts ONLY the driver's own producers. Seen live:
+      // the 21:30Z fire read the legacy family's window_end observations of the four bases as its own ("273/273 observed") while
+      // the ledger held 0 driver-observed bases. The filter must sit on the window_end read inside readSliceObservationState.
+      const OBS_MODULE = 'src/lib/backfill/forward-observation-log.ts'
+      const obsSrc = strip(read(OBS_MODULE))
+      const fnStart = obsSrc.indexOf('export async function readSliceObservationState')
+      const fnBody = fnStart >= 0 ? obsSrc.slice(fnStart, obsSrc.indexOf('return { observedAtWindowEnd', fnStart)) : ''
+      const atEndRead = fnBody.slice(fnBody.indexOf(".eq('window_end'"), fnBody.indexOf("if (e1)"))
+      if (fnStart < 0) findings.push(`(f) ${OBS_MODULE} no longer exports readSliceObservationState — the driver's pending predicate moved`)
+      else if (!/\.like\('producer',\s*`\$\{DRIVER_PRODUCER_PREFIX\}%`\)/.test(atEndRead)) findings.push(`(f) ${OBS_MODULE} readSliceObservationState's window_end read carries no producer filter — the driver derives "already observed" from other families' records and skips its own catalogue (LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1)`)
       const heavy = sel.filter((e) => M.sliceOf(e) === 'HEAVY').length, rest = sel.filter((e) => M.sliceOf(e) === 'REST').length
       const other = sel.length - heavy - rest
       if (other) findings.push(`(c) ${other} selected surface(s) fall in neither HEAVY nor REST — every driver surface belongs to exactly one slice`)

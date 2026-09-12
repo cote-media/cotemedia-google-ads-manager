@@ -223,7 +223,17 @@ export async function observeForward(
  * Ruling (q): a unit is pending until every surface in its slice holds an observation with window_end = D — read
  * from the ledger, never the schedule. `lastRowsBySurface` is the NEWEST observation's rows_written per surface,
  * any window — the per-unit estimate's rows term (ruling m: the bound is rows written).
+ *
+ * ⛔ LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (2026-09-12) — THE PENDING SET IS THE DRIVER'S OWN PRODUCER'S RECORD,
+ * NEVER ANOTHER FAMILY'S. Measured: after LORAMER_WALK_BASE_DEALIAS_V1 put the four base surfaces into the driver's
+ * catalogue, the 21:30Z fire logged "REST: complete for 2026-09-11 (273/273 observed)" on 16 of 17 connections while
+ * the ledger held 319 driver-observed surfaces and 0 bases — this read counted the legacy family's observations
+ * (google-account-row · google-campaign-backfill · google-adgroup-ad-backfill · google-impression-share, all at
+ * window_end = captureDate) as the driver's own position. A consumer derives its position from ITS OWN commits;
+ * the driver's producers are `driver-<slice>` (the 089 split reads the same prefix). The ESTIMATE read below stays
+ * producer-blind on purpose: it is a prior on rows, not a position.
  */
+export const DRIVER_PRODUCER_PREFIX = 'driver-'
 export async function readSliceObservationState(k: { clientId: string; vendor: string; windowEnd: string }): Promise<{
   observedAtWindowEnd: Set<string>
   lastRowsBySurface: Map<string, number>
@@ -231,6 +241,7 @@ export async function readSliceObservationState(k: { clientId: string; vendor: s
   const { data: atEnd, error: e1 } = await supabaseAdmin
     .from('forward_observation_log').select('resource, segment')
     .eq('client_id', k.clientId).eq('vendor', k.vendor).eq('window_end', k.windowEnd)
+    .like('producer', `${DRIVER_PRODUCER_PREFIX}%`) // LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 — own producer only
   if (e1) fail('read at window_end', e1)
   const observedAtWindowEnd = new Set<string>((atEnd ?? []).map((r: any) => `${r.resource}|${r.segment ?? ''}`))
   // newest first, bounded: 349 surfaces × a few observations each is well inside 4,000 rows

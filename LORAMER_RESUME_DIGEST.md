@@ -7,8 +7,8 @@
 > replacement. On ANY doubt or hash mismatch, the source docs win and the full tiered read takes over.
 
 ## A. FRESHNESS STAMP — the staleness detector
-- generated_at: 2026-09-12T20:51:45.577Z
-- built_from HEAD: 265f10ab971e99d59d1c9ebc3c6b9c131a544e8e  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
+- generated_at: 2026-09-12T22:53:10.851Z
+- built_from HEAD: a7743cdf5a8d2e321e1709fadd3263516bc604ef  (informational — do NOT gate on this; unrelated commits change HEAD without changing the digest's sources)
 - FRESHNESS GATE (authoritative, deterministic): this digest is CURRENT iff EVERY source-doc content_hash
   below MATCHES the live docs/HANDOFF_MANIFEST.json. ALL match → read + use this digest. ANY mismatch (or
   this file missing) → FALL BACK to the full tiered read (the 10-file SESSION START GATE). The digest is
@@ -16,8 +16,8 @@
   Source-doc content_hash at build time:
     - LORAMER_ESSENCE.md: f5047b1702afe312eea1e36ba12179e72e3072584fbb23a46300e22a6f17bc5a
     - LORAMER_HANDOFF.md: 9f349d7d232366b1bb0b29f797f7225540b3ff6c8b43fbbea32eb0db4e761680
-    - CONTINUE_HERE.md: 5775a12d9f6e9dd3c4d2667283f471764c0e57bfa6de1e61fe093cafc292ce6d
-    - LORAMER_DECISIONS.md: 2661be93d9fff08c4232fb939d856d298768fb1d3a07361a61cbb970b7a62c2e
+    - CONTINUE_HERE.md: 1c21ede27c518feafc9fb0e7aaf002baf9aad6eda62671439972ef8624b6630f
+    - LORAMER_DECISIONS.md: e452682c094e979de897e1c3d980fe5f43be4ac849e6158fc69c13ff9adb46d9
     - LORAMER_QUEUE_OF_RECORD.md: 6e18ca736e249b9e3cf0e77a7abfbe52c36d6b9a08fbeeb71f8d4ae0a172a289
     - docs/LORAMER_BREAKDOWN_REGISTRY.md: f4bef31497a46984a3a54acc5be044d48000688ba74ed59689e7c4bfafca21a1
     - RESUME_INSTRUCTIONS.md: 2f317be8a48fcd7767dad447cebcaa417cae0e8d8cd5bc5a01cc3939fb9f994a
@@ -533,6 +533,15 @@ from the top of that file, CONTINUE_HERE WINS and this digest is stale — stop 
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
 
 ── SHIPPED 2026-09-11/12 (two commits through the push gate; every figure below is quoted from the report named) ──
+· `a7743cd` LORAMER_WALK_BASE_DEALIAS_V1 (BUILD 178/178 · PUSHED 21:05Z · dpl_383PZCksFjNtTzEQUTMGF7crMBZS READY 21:08Z 09-12) — the four base
+  spellings left DRAIN_ALIAS (WALK_ONLY now); driver catalogue 323 = 50 + 273, DRIVER_ALLOCATION 5,491, backfill lane 8,009; DECISIONS
+  LORAMER_WALK_BASE_DEALIAS_V1 owns the measured case (294 Escential / 114 Foam OH sealed-unasked base days; fleet owed set 58,528 days ≈
+  1,995 requests under the alias-blind read, READ-FIRST ~22:40Z). check:data after it: 25 green · 9 red — no-owed-day-left-behind now names
+  Foam OH's four bases (29 days each) = the TRUE red commit 2 heals; forward-driver-connection-day-complete reads REQUIRED 323.
+· COMMIT 1b LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (this commit) — the driver's pending-set read (forward-observation-log.ts
+  readSliceObservationState) counted the LEGACY family's window_end observations of the four bases as its own: the 21:30Z 09-12 fire logged
+  "REST: complete for 2026-09-11 (273/273 observed)" on 16/17 connections while the ledger held 319 driver-observed surfaces and 0 bases.
+  Fixed with producer like 'driver-%' on that one read; guard leg (f) in driver-skips-alias-covered seen RED against the pre-fix module.
 · `bf910f1` LORAMER_REST_ROW_CAP_READER_V1 (BUILD 20:33Z) — scripts/lib/rest-all.mjs pages from the server's Content-Range total and THROWS on a
   partial set (216, `*` total, held ≠ total); check-forward-driver-connection-day-complete and top-edge-never-attests read the full row set
   (5,423 of 5,423 · 9,097 of 9,097 — both had judged a 1,000-row page: HTTP 206, Content-Range 0-999/5423); top-edge-never-attests runs
@@ -576,6 +585,10 @@ returned zero rows; the earliest v1 'ok' window with rows starts 2026-02-12; met
 (earliest campaign start ≠ earliest served day), not the data.
 
 ── ▶▶ NEXT STEP, IN ORDER ──
+(0) PENDING CHECK (commit 1b): the FIRST driver fire after its deploy (*/10 11-16Z, or 17:30Z / 21:30Z) must show 323/connection
+    driver-observed surfaces for its window_end (forward_observation_log producer like 'driver-%', 4 base keys present), and
+    check-forward-driver-connection-day-complete must read GREEN the morning after (REQUIRED 323). If a fire still logs "273/273
+    observed" with 0 driver-observed bases, the pending read is still reading another family — do not re-pin the allocation.
 (1) MORNING READ of Escential's overnight walk, read-only: surfaces asked of 349 (81 attempts / 77 surfaces at 03:22Z); earliest descend
     window_start receding BELOW 2026-09-05 once all 349 have a top (≈ 9 fires); errors and held reasons in universe_fire_log (every held
     reason must name 8077); the adapter meter (v1 + v2) against 8,077; `node scripts/check-walk-liveness.mjs` ALIVE; Foam OH silent
@@ -1267,7 +1280,7 @@ DECISIONS banks in TWO formats — the `- [TAG …] … | LORAMER_X_V1, date | d
 ## LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1 (2026-08-19) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]], does not replace it.
 ## LORAMER_PROOF_SCOPE_9_30_V1 (2026-09-09) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_BACKFILL_DONE_DONE_V1]] for the 9/30 run; token ★NINE-THIRTY-PROOF-SCOPE.
 ## LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12) — DECIDED (ADVERSARY ~21:20Z), SHIPPED commit 1 of 2. SUPERSEDES [[LORAMER_WALK_BASE_ALIAS_V1]] (2026-08-12) for the FOUR BASE entries; the 12 geo aliases stand. Backend writer.
-Evidence tier: items 1-4 are VERIFIED (live ledger + warehouse reads 2026-09-12); the cold-account claim in 2 is code-read (DESTINATION for the writers, ROUTE for the timing race). | src/lib/backfill/universe-surfaces.ts, forward-driver.ts, forward-driver-slices.ts, google-op-budget.ts, google-hole-map.ts, universe-resumer.ts, universe-governor.ts, scripts/check-forward-driver-connection-day-complete.mjs, tests/guards/{drain-alias-coverage,driver-skips-alias-covered,google-op-budget}.guard.mjs | ★WALK-BASE-SPELLING-SPLIT (re-opened as this shape), ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS (narrowed to geo), ★MISSED-DAY-WALK (commit 2) | do not relitigate.
+⛔ **COMMIT 1b — LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 (2026-09-12, the seam commit 1 did not walk).** The driver's pending-set read (forward-observation-log.ts readSliceObservationState) selected every observation at window_end = D REGARDLESS OF PRODUCER, and the legacy family observes the four bases at window_end = captureDate every morning (google-account-row · google-campaign-backfill · google-adgroup-ad-backfill · google-impression-share). MEASURED on the first post-deploy fire (21:30:50Z, dpl_383PZCksFjNtTzEQUTMGF7crMBZS): 16 of 17 connections logged "REST: complete for 2026-09-11 (273/273 observed) — not pending" while forward_observation_log held 319 driver-observed surfaces per connection and 0 bases (any-producer 353 keys vs driver-only 319 on Escential). So a7743cd's DRIVER_ALLOCATION 5,491 sat 68 ABOVE the real ask — the allocation-above-ask [[LORAMER_PROOF_LANE_V1]] forbids — for one fire. THE RULE, one line: a producer's pending set is derived from ITS OWN records, never another family's (a consumer group commits and reads its own offsets). FIX: `.like('producer', 'driver-%')` on that one read (DRIVER_PRODUCER_PREFIX; the 089 split reads the same prefix); the rows ESTIMATE read stays producer-blind by design (a prior, not a position). Guard: driver-skips-alias-covered leg (f), seen RED against the pre-fix module. The single caller (forward-driver.ts:179) wanted exactly this; no split. PENDING CHECK: the first driver fire after deploy shows 323/connection driver-observed for its window_end; day-complete green the morning after. | src/lib/backfill/forward-observation-log.ts, tests/guards/driver-skips-alias-covered.guard.mjs | ★FORWARD-DRIVER-SHAPE (rider), ★MISSED-DAY-WALK (commit 2 unchanged) | do not relitigate. | src/lib/backfill/universe-surfaces.ts, forward-driver.ts, forward-driver-slices.ts, google-op-budget.ts, google-hole-map.ts, universe-resumer.ts, universe-governor.ts, scripts/check-forward-driver-connection-day-complete.mjs, tests/guards/{drain-alias-coverage,driver-skips-alias-covered,google-op-budget}.guard.mjs | ★WALK-BASE-SPELLING-SPLIT (re-opened as this shape), ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS (narrowed to geo), ★MISSED-DAY-WALK (commit 2) | do not relitigate.
 ## LORAMER_PROOF_VEHICLE_ESCENTIAL_V1 (2026-09-12) — GOVERNING, RUSS. SETTLED. SHARPENS [[LORAMER_PROOF_SCOPE_9_30_V1]] and [[LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1]]; token ★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE.
 ## LORAMER_PROOF_LANE_V1 (2026-09-12) — DECIDED (ADVERSARY 02:12Z), SHIPPED ab48975 (PUSHED 03:23Z, dpl_FQfnAacEEz9HYghWHcYZ9RjFEWgV READY 03:17Z). Live-path.
 ## LORAMER_RESUMER_ROTATION_SHAPE_V1 (2026-09-11) — DECIDED (ADVERSARY 21:09Z), BUILT AND HELD (BUILD-HELD 21:46Z; WIP b9ef257 on hold/rotation-2-2b). Ships after the proof; token ★RESUMER-ROTATES-ELIGIBLE-CLIENTS-LEAST-RECENTLY-SERVED.
@@ -2438,8 +2451,8 @@ HOW TO USE: before writing "NEW" on any finding, gap or correction, GREP THIS SE
 LORAMER_*_V* marker you are about to mint. A token collision is DECIDABLE; a topic match is not. This is
 ESSENCE law 7 made mechanical — the law is a rule about behaviour, and on 2026-07-31 four already-decided
 topics were discussed as open while it was in force.
-TOTALS: 1090 tokens indexed · 361 resolve to BOTH a decision and a queue item ·
-139 decision-only · 590 queue-only.
+TOTALS: 1091 tokens indexed · 363 resolve to BOTH a decision and a queue item ·
+140 decision-only · 588 queue-only.
 ⛔ UNINDEXABLE — THIS COUNT IS THE BACKLOG, NOT A DISCLAIMER: 165 DECISIONS entries and
 262 QUEUE items carry NO token at all, so they cannot be found this way. An untokened decision
 is invisible to the enforcer; the fix is to mint a token when banking, not to widen the matcher. Samples —
@@ -2663,7 +2676,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - ★FORWARD-ATTEMPTED-COUNT-MISSES-THE-KILLED-CLIENT — OPEN · decisions 0 · queue 2 · last 2026-09-11
 - ★FORWARD-BUDGET-CAP-SUSPICION — OPEN · decisions 0 · queue 2 · last 2026-09-30
 - ★FORWARD-CAPTURE-COVERS-217-FEWER-SURFACES — OPEN · decisions 0 · queue 1 · last 2026-09-05
-- ★FORWARD-DRIVER-SHAPE — OPEN · decisions 0 · queue 5 · last 2026-12-14
+- ★FORWARD-DRIVER-SHAPE — OPEN · decisions 1 · queue 5 · last 2026-12-14
 - ★FOUNDER-EMAILS-NOT-ALLOWLISTED — OPEN · decisions 0 · queue 3 · last 2026-08-04
 - ★FROZEN-DETECTOR-READS-UPDATED-AT-AS-FREEZE — OPEN · decisions 1 · queue 1 · last 2026-08-07
 - ★FROZEN-PATH-WROTE-67-UNSTAMPED-ROWS — OPEN · decisions 0 · queue 1 · last 2026-09-12
@@ -3154,6 +3167,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_DRAIN_EXTENDED_DURATION_V1 — OPEN · decisions 1 · queue 2 · last 2026-08-03
 - LORAMER_DRAIN_FAIR_SHARE_STEP_ORDER_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-03
 - LORAMER_DRAIN_FREEMAX_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-28
+- LORAMER_DRIVER_PENDING_OWN_PRODUCER_V1 — DECIDED · decisions 1 · queue 0 · last 2026-09-12
 - LORAMER_DROP_REASON_IS_A_FACT_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-17
 - LORAMER_ECOM_MONEY_SURFACE_V1 — OPEN · decisions 0 · queue 1 · last 2026-07-27
 - LORAMER_EFFECT_REFRESH_ON_SUCCESS_V1 — OPEN · decisions 2 · queue 1 · last 2026-08-23
@@ -3401,7 +3415,7 @@ is invisible to the enforcer; the fix is to mint a token when banking, not to wi
 - LORAMER_POST_WIRING_MEASURE_V1 — OPEN · decisions 1 · queue 3 · last 2026-08-16
 - LORAMER_POSTGREST_READ_CEILINGS_ARE_ONE_CLASS_V1 — DECIDED · decisions 1 · queue 0 · last 2026-08-16
 - LORAMER_PRESCHEDULING_GATE_V1 — DECIDED · decisions 2 · queue 0 · last 2026-08-11
-- LORAMER_PROOF_LANE_V1 — OPEN · decisions 0 · queue 1 · last 2026-09-12
+- LORAMER_PROOF_LANE_V1 — OPEN · decisions 1 · queue 1 · last 2026-09-12
 - LORAMER_PROOF_SCOPE_9_30_V1 — OPEN · decisions 0 · queue 3 · last 2026-12-14
 - LORAMER_PROOF_TARGET_FOAMOH_V1 — OPEN · decisions 1 · queue 1 · last 2026-07-18
 - LORAMER_PROOF_VEHICLE_ESCENTIAL_V1 — OPEN · decisions 0 · queue 2 · last 2026-09-12
