@@ -1,4 +1,96 @@
-╔═══ SESSION CLOSE 2026-09-11 (LATE) — ONE-CLICK 2/2 A LIVE (7773a87 · 5d0ae38): BUTTON → RESUMER PROVEN ON ESCENTIAL, WALK METER-HELD BY RULING (WAIT). NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z, THEN 2/2 B (RESUMER UN-PIN = STOP-AND-CONFIRM 4) ═══╗
+╔═══ SESSION CLOSE 2026-09-12 (EARLY) — PROOF LANE LIVE (ab48975): CRON → ESCENTIAL, BACKFILL 8,077, DRIVER WHOLE · ROW-CAP READERS FIXED (bf910f1) · ESCENTIAL PRESS CLOSED 03:02Z · 2/2 B PARKED ON hold/rotation-2-2b. NEXT: MORNING READ OF ESCENTIAL'S OVERNIGHT WALK, THEN RUSS'S START DATE, THEN THE HONEST-INSTRUMENT FIXES ═══╗
+
+⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
+Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
+
+── SHIPPED 2026-09-11/12 (two commits through the push gate; every figure below is quoted from the report named) ──
+· `bf910f1` LORAMER_REST_ROW_CAP_READER_V1 (BUILD 20:33Z) — scripts/lib/rest-all.mjs pages from the server's Content-Range total and THROWS on a
+  partial set (216, `*` total, held ≠ total); check-forward-driver-connection-day-complete and top-edge-never-attests read the full row set
+  (5,423 of 5,423 · 9,097 of 9,097 — both had judged a 1,000-row page: HTTP 206, Content-Range 0-999/5423); top-edge-never-attests runs
+  six windows in flight (37,610 ms vs the 130,104 ms check:data budget; sequential was 193,700); guard rest-row-cap-readers freezes the 18
+  remaining raw /rest/v1/ sites remove-only. Push gate 178/178. DECISIONS LORAMER_REST_ROW_CAP_READER_V1 owns the class.
+· `ab48975` LORAMER_PROOF_LANE_V1 (BUILD-HELD 02:41Z · PUSHED 03:23Z) — DRIVER_ALLOCATION 6,900 → 5,423 ⇐ measured 2026-09-11 N=17 (17 google
+  connections × 319 catalogue surfaces; the driver is UNGATED by its allocation — forward-driver.ts consults no budget — so the number is
+  accounting and must equal the real ask); backfill derives to 8,077 (15,000 − 1,500 − 5,423); the ONE universe-resume cron entry moved from
+  Foam OH to Escential (c39ee088, src/lib/clients/canonical.ts) `?clientId=…&dryRun=0` at */5; google-op-budget.guard :174/:175 and
+  universe-stream-consumer leg (e) SEEN RED then re-pinned; headers re-derived (the bite's 11,520/day is 142.6% of the lane — the METER, not the
+  bite, bounds the walk). Deploy dpl_FQfnAacEEz9HYghWHcYZ9RjFEWgV READY 03:17Z. Read-back (PUSHED 03:23Z): Escential's first cron fire 03:21:26Z
+  completed · published 37 of 40 selected · held null · descend attempts 81 (77 surfaces asked) · meter 5,073 of 8,077 · walk-liveness ALIVE ·
+  Foam OH's last wet fire 03:16:00Z, 0 after READY, 0 errored. DECISIONS LORAMER_PROOF_LANE_V1 owns the ruling and the 13,500 rejection.
+· STEP (1) OPEN-VERIFY CLOSED GREEN (INTERIM 16:50Z · VERDICT 17:20Z): 17/17 connections × 319/319 · 36 fires, killed 0, errors 0, unattributed 0 ·
+  2,613,749 rows · complete by 13:59:30Z with 2h51m of window unused. The verdict script had read RED — the instrument, not the window (the
+  row-cap class above). The Google day reached 18,330 against 15,000 because Escential's v1 chain (11,783) ran on the 7773a87 deployment
+  (backfill 13,500, reserve 1,500, pre-089 meter) for hours after 5d0ae38 was READY — 178/178 of its stand-down log lines on dpl_A7oE513…:
+  a deploy does not re-govern an in-flight self-chaining chain (DECISIONS LORAMER_DEPLOY_PINNED_CHAIN_V1).
+· STEP (3) ESCENTIAL PRESS CLOSED (POST-PRESS 03:04Z): wet fire 7129 at 03:02:13Z COMPLETED · 40 units, 41 requests (40 + the inception probe) ·
+  descend attempts 41 (terminals ok 30 / zero 11) · 2,851 rows · 59 day commits 2026-09-09..09-11 · readout state 'partial',
+  earliestDate 2026-09-05 → "Partial — back to 2026-09-05" · legacy rows 2026-09-09 (no grainSource) 27,736 = the PRE-PRESS baseline. The lane
+  freed at 02:51Z (40) / 03:00Z (≥ 500 headroom), NOT ~00:41Z — that was the v1 chain's START; its spend was 01:00–04:59Z 09-11.
+· 2/2 B BUILT AND PARKED (BUILD-HELD 21:46Z): one enumerating route, one client per fire, least-recently-served, never-served FIRST (explicit —
+  Postgres sorts NULLS LAST on ASC), every fire outcome counts as served; pure pickLeastRecentlyServed + guard legs (e2)/(i); dry un-pinned fire
+  picked 07aa6cdb… (15 never-served first, Escential 16th, Foam OH 17th); the button path byte-identical. Committed as WIP b9ef257 on
+  `hold/rotation-2-2b`; its rebase onto main conflicts on vercel.json, universe-stream-consumer.guard.mjs, universe-resumer.ts:58 and
+  route.ts:6-9 — resolve all four to the rotation versions with the proof-lane numbers folded in. Ships AFTER the proof.
+
+── RULINGS (Russ, 2026-09-11/12; DECISIONS LORAMER_PROOF_VEHICLE_ESCENTIAL_V1 owns them) ──
+· The PROOF takes the lane over forward walking; time and cap math are not a concern for the ruling — the lane is sized honestly, not maximally.
+· ESCENTIAL (c39ee088) is the cold-proof vehicle. Foam OH's delete-and-rerun is OFF the critical path (still path (a) of
+  LORAMER_DONE_DONE_PROVEN_TO_ONE_CLICK_V1, not retired).
+· A MISSED-DAY WALK is a 9/30 requirement (QUEUE ★MISSED-DAY-WALK): re-ask any day the ledger shows never asked or failed, any age, any client,
+  past the restatement boundary, on the same meter — distinct from the lookback lane.
+
+── ⛔ CORRECTION — the previous head's "inception 2022-08-13" was UNSOURCED AND WRONG ──
+The first-touch discovery wrote universe_account_inception c39ee088 = 2026-02-23 (source 'earliest-campaign' = MIN(campaign.start_date_time),
+no status filter; raw "2026-02-23 11:36:59"). Three reads agree: the v1 chain's 9,791 windows below 2026-02-12 (2022-03-05..2026-02-11) all
+returned zero rows; the earliest v1 'ok' window with rows starts 2026-02-12; metrics_daily google rows (account and stamped) begin 2026-02-23.
+▶ Russ supplies the account's actual start date as the record's number. If it differs from 2026-02-23, the DISCOVERY DEFINITION is the finding
+(earliest campaign start ≠ earliest served day), not the data.
+
+── ▶▶ NEXT STEP, IN ORDER ──
+(1) MORNING READ of Escential's overnight walk, read-only: surfaces asked of 349 (81 attempts / 77 surfaces at 03:22Z); earliest descend
+    window_start receding BELOW 2026-09-05 once all 349 have a top (≈ 9 fires); errors and held reasons in universe_fire_log (every held
+    reason must name 8077); the adapter meter (v1 + v2) against 8,077; `node scripts/check-walk-liveness.mjs` ALIVE; Foam OH silent
+    (no wet fire after 03:16:00Z 09-12). Rotation-error fires: any on Escential would be LOAD, not depth (its attempt log is small).
+(2) RUSS'S ESCENTIAL START DATE vs 2026-02-23 (the CORRECTION above).
+(3) THE HONEST-INSTRUMENT FIXES the proof's greens depend on (condition 6): the fleet-meter witness (★FLEET-METER-DRIFT-FLICKERS —
+    v2-only against a meter that correctly holds v1 rows), backfill/status/route.ts:45's unfiltered dry_run read (★BACKFILL-STATUS-READS-DRY-FIRES),
+    the rotation-index heap fetch (★ROTATION-INDEX-HEAP-FETCH — 34,293 buffers per call, 7 timeouts in 24 h; a migration).
+(4) THE MISSED-DAY WALK (★MISSED-DAY-WALK) — the 9/30 requirement.
+(5) Escential reaches its floor → the proof verdict on the 9/30 scope (DECISIONS LORAMER_PROOF_SCOPE_9_30_V1): mechanism · correct-as-of-last-ask ·
+    legible in-window label; the six conditions' colours per COLD-PROOF READ 01:24Z.
+(6) A second cold account; then 2/2 B from hold/rotation-2-2b.
+
+── CLOCKS ──
+· Press-after time was 03:00Z 09-12, not 00:41Z (the 00:41Z was the v1 chain's start). Escential's descent needs the */5 entry pointed at it —
+  the button fires a client ONCE (kickoff.ts:82; windowsRemaining: 1 is terminal; nothing self-chains).
+· Foam OH's first lookback seal stays 2026-11-17 (a calendar fact); its lookback is PAUSED while Escential holds the cron and resumes when the
+  entry returns (2/2 B).
+· Under the deployed cap the walk's lane is 8,077; the driver keeps asking 5,423/day; forward ~1,047 ungated; the Google day sums to ~14,547 at
+  full use — under 15,000 by construction for the first time.
+
+── STANDING ──
+· ⛔ LEGACY IS FROZEN FOR GOOGLE STANDARD ACCESS (DECISIONS:2461, 2026-08-14/15; Russ 2026-09-10): nothing is built, moved, split or re-pointed on
+  the legacy path — /dashboard, the session Google routes, the cron/sync google builders, client 2617b163; useful work is COPIED to new. The
+  frozen forward path wrote 67 more unstamped 2026-09-09 rows for Escential after 03:xxZ 09-11 (27,669 → 27,736; ★FROZEN-PATH-WROTE-67-UNSTAMPED-ROWS
+  — observed, not diagnosed).
+· Escential's v1 chain is DEAD (last universe_window_log row 07:23:21Z 09-11; held successors recorded quota_stop and never re-publish); its
+  11,961 window_log rows STAY. Its wet fires now come from the cron entry only.
+· check:data evicts the cache (its metrics_daily scans) and times out live rotation reads — do not run it beside a press or a proof read
+  (★CHECKDATA-EVICTS-THE-CACHE). Its last verdict (04:06Z 09-12, the docs-wrap run on the ab48975 tree): "[check:data] VERDICT — EXIT 1 ·
+  34 checks: 25 green · 9 red · 0 crashed" — the 8 pre-existing reds since bf910f1 (completion-claims · drain-throttle · coverage-density ·
+  fleet-meter-visibility · nongrain-window-resolves · anchor-recedes-by-window · no-owed-day-left-behind · top-edge-is-held) PLUS ONE NEW:
+  check-capture-landing "ACCOUNT-ROW-INVARIANT GUARD FAILED — 1 violation(s) NOT covered by the baseline: The Escential Group (c39ee088)
+  google 2026-09-11" — the walk's first fires wrote 35,404 stamped rows for 2026-09-11 at 03:01Z before the legacy forward cron (08:08Z) writes
+  that day's account row (2026-09-09 and 09-10 hold 1 account row each). EXPECTED TO CLEAR after the 08:08Z 09-12 forward fire; if the
+  morning read still shows 0 account rows for 09-11, it is a hole, not a race (★WALK-WRITES-YESTERDAY-BEFORE-THE-ACCOUNT-ROW). NOT baselined.
+· Russ still owes the Supabase compute-event read for the 2026-09-08 16:09–16:13Z interruption.
+· Device merge gate re-measured: 4,221 legacy-level stamped device rows vs the banked 3,751 — DECISIONS:2505 STOP applies; re-manifest first.
+· Vercel runtime logs were readable 12+ hours back today — CLAUDE.md's "1 hour" line is wrong (★CLAUDE-MD-LOG-RETENTION-IS-WRONG); not edited here.
+· Pushes gated (scripts/push-gate.mjs); deploy-poll-until-terminal; one-block output; CITED gate — all bind as before.
+
+╚═══════════════════════════════════════════════════════════════════════════════════════════════════════════╝
+
+╔═══ ⛔ SUPERSEDED 2026-09-12 early · HISTORY · DO NOT ACT ON ITS DATES — SESSION CLOSE 2026-09-11 (LATE) — ONE-CLICK 2/2 A LIVE (7773a87 · 5d0ae38): BUTTON → RESUMER PROVEN ON ESCENTIAL, WALK METER-HELD BY RULING (WAIT). NEXT: OPEN-VERIFY THE FIRST DRIVER WINDOW 2026-09-11 11:00–16:50Z, THEN 2/2 B (RESUMER UN-PIN = STOP-AND-CONFIRM 4) ═══╗
 
 ⛔ **THE PRIORITY LAW GOVERNS (ESSENCE, Russ): CAPTURE FIRST, LORA SECOND, EVERYTHING ELSE THIRD.** All GET.
 Recompute days-to-2026-09-30 at resume from the clock; never read it off this block.
