@@ -144,34 +144,21 @@ export const DRAIN_ALIAS: Record<string, DrainAlias> = {
   'user_location_view|geo_target_district': { entityLevel: 'campaign', breakdownType: 'user_geo_district' },
   'user_location_view|geo_target_province': { entityLevel: 'campaign', breakdownType: 'user_geo_province' },
 
-  // ── ★WALK-BASE-SPELLING-SPLIT, RESOLVED 2026-08-12 — THE BASE TWINS ─────────────────────────────────────
-  // ⛔ SAME FACT, TWO KEYS, ONE AXIS OVER FROM GEO: the walk asks a BASE surface at
-  // `breakdown_type = <resource>` (breakdownTypeFor: base → resource name) while FORWARD capture stores the
-  // same per-entity-per-day fact at the LEGACY entity level with `breakdown_type = ''`. Found by wet run #2
-  // (986 held ad_group days re-asked) and it RECURRED UNATTENDED on the first scheduled night — the 23:30Z
-  // fire spent a request on ad_group_ad base 07-12..08-03 while forward held 920 `ad`/'' rows in that window.
-  //
-  // ⛔ THE TWIN SET WAS ENUMERATED FROM THE WAREHOUSE, NOT FROM MEMORY: exactly FOUR google entity_levels
-  // hold ''-spelled rows fleet-wide (ad 47,969 · ad_group 42,637 · campaign 33,897 · account 14,524 — read
-  // 2026-08-12). Four walk base surfaces map onto them; there is no fifth.
-  //
-  // ⛔ EVERY ENTRY PROVEN AGAINST LIVE ROWS BEFORE IT WAS WRITTEN, per this map's own standing discipline
-  // (Foam OH, overlap window 2023-10-17..2023-12-17, vendor-additive counters):
-  //     campaign|campaign       → campaign/''   124 per-entity pairs, 124 identical, 0 divergent
-  //     ad_group|ad_group       → ad_group/''    62 per-entity pairs,  62 identical, 0 divergent
-  //     customer|customer       → account/''     62 per-entity pairs,  62 identical, 0 divergent
-  //     ad_group_ad|ad_group_ad → ad/''          62 overlap DAYS: day-sums identical AND per-day row counts
-  //                                              equal, 0 divergent. ⚠ PER-ENTITY join is impossible here BY
-  //                                              KEY SHAPE — the walk's entity_id tail is the composite
-  //                                              `<agId>~<adId>` while forward stores the bare ad id — and
-  //                                              leg (v)'s own comparator is DAY-SUM grain, so the proof is
-  //                                              at exactly the grain the guard re-checks.
-  // The walk WRITER is unchanged — canonical spelling stays canonical; this is a READ-side coverage alias
-  // only, and ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS is inherited here exactly as it is on geo.
-  'campaign|campaign': { entityLevel: 'campaign', breakdownType: '' },
-  'ad_group|ad_group': { entityLevel: 'ad_group', breakdownType: '' },
-  'ad_group_ad|ad_group_ad': { entityLevel: 'ad', breakdownType: '' },
-  'customer|customer': { entityLevel: 'account', breakdownType: '' },
+  // ── ★WALK-BASE-SPELLING-SPLIT — THE BASE TWINS WERE ALIASED HERE 2026-08-12 AND DE-ALIASED 2026-09-12 ──
+  // LORAMER_WALK_BASE_DEALIAS_V1. Four entries lived here (campaign|campaign → campaign/'' · ad_group|ad_group →
+  // ad_group/'' · ad_group_ad|ad_group_ad → ad/'' · customer|customer → account/''), each proven on live rows
+  // (LORAMER_WALK_BASE_ALIAS_V1). They are GONE, deliberately, and the four keys sit in WALK_ONLY_SURFACES below:
+  //   · the alias made every 30-day parent an ONE-DAY ASK — coveredDaysStrict (universe-coverage.ts:75-76) drops
+  //     the newest day-with-rows unless the walk committed it, and legacy ''-rows carry no commit, so the walk
+  //     asked the parent's top day, committed it, and receded past the other 29 (Escential: ten asks, 294 days
+  //     sealed unasked; Foam OH 57 × 2). MEASURED 2026-09-12, DECISIONS LORAMER_WALK_BASE_DEALIAS_V1.
+  //   · the ''-rows are planted on EVERY customer by three live crons (sync 30 d, catchup 35 d, drain 36 months at
+  //     365 days/lap), so the shape is not a legacy accident — it is the cold-account shape.
+  //   · the lookback lane restates at the WALK spelling only (google-ads-universe-writer.ts breakdownTypeFor);
+  //     an alias-covered day is never re-asked, so ''-held base days had a restatement reach of 35 days.
+  // The re-buy bill was measured before removal: 32,150 days · 1,318 requests fleet-wide (0.16 of one 8,009
+  // lane-day). The 12 geo entries above STAY — different economics (63k rows/day) — and keep
+  // ★ALIAS-PROVES-PRESENCE-NOT-COMPLETENESS. Sealed base surfaces are re-walked by ★MISSED-DAY-WALK (commit 2).
 }
 
 /**
@@ -191,12 +178,26 @@ export const DRAIN_ALIAS: Record<string, DrainAlias> = {
 export const UNPROVEN_ALIAS_CANDIDATES = new Set(['geographic_view|geo_target_district'])
 
 export const WALK_ONLY_SURFACES = new Set([
+  // LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12) — the four base spellings: stored by BOTH engines (walk at
+  // <resource>/<resource>, legacy forward at <level>/'') and WALK-ONLY on purpose; see the DRAIN_ALIAS note above.
+  'campaign|campaign',
+  'ad_group|ad_group',
+  'ad_group_ad|ad_group_ad',
+  'customer|customer',
   'geographic_view|geo_target_airport',
   'user_location_view|geo_target_airport',
   'user_location_view|geo_target_canton',
   'geographic_view|geographic_view',
   'user_location_view|user_location_view',
 ])
+
+/**
+ * LORAMER_WALK_BASE_DEALIAS_V1 — the four base surfaces as `resource|segment` catalogue keys. They appear in the
+ * legacy family's manifest (FORWARD_PRODUCER_SURFACES) because forward writes them at ''; since 2026-09-12 the
+ * driver ALSO asks them at the walk spelling — two writers, two keys, by ruling (n)'s 2026-09-12 amendment. The
+ * driver subtracts this set from its legacy exclusion (forward-driver.ts driverCatalogue).
+ */
+export const DEALIASED_BASE_SURFACES = new Set(['campaign|', 'ad_group|', 'ad_group_ad|', 'customer|'])
 
 /** The drain's key for this walk surface, or null when there is none. */
 export function drainAliasFor(entityLevel: string, breakdownType: string): DrainAlias | null {

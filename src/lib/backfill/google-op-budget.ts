@@ -159,10 +159,12 @@ export const OPS_PER_REQUEST = 1
 // governors see the driver's spend. An allocation above the real ask reserves requests nobody spends; one below it lets the
 // walk's meter authorise requests the driver has already spent — the 2026-09-11 over-run (18,330 asked of 15,000). So it
 // equals the measured ask: 17 google connections × 319 catalogue surfaces = 5,423 per day (measured 2026-09-11, the first
-// full driver window: 17/17 at 319/319). The walk's lane derives to 15,000 − 1,500 − 5,423 = 8,077 — the proof vehicle
-// (Escential, ★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE) takes it. Re-measure when a google connection is added or removed.
+// full driver window: 17/17 at 319/319), and since LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12) 17 × 323 = 5,491 — the four
+// de-aliased base surfaces joined the driver catalogue (forward-driver-slices.ts: 50 HEAVY + 273 REST). The walk's lane
+// derives to 15,000 − 1,500 − 5,491 = 8,009 — the proof vehicle (Escential, ★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE)
+// takes it. Re-measure when a google connection is added or removed.
 export const FORWARD_UNGATED_RESERVE = 1_500
-export const DRIVER_ALLOCATION = 5_423 // ⇐ measured 2026-09-11 N=17: 17 connections × 319 catalogue surfaces (LORAMER_PROOF_LANE_V1); was 6,900 (382 × 18 estimate)
+export const DRIVER_ALLOCATION = 5_491 // ⇐ 17 connections × 323 catalogue surfaces (LORAMER_WALK_BASE_DEALIAS_V1, 2026-09-12); was 5,423 (17 × 319, LORAMER_PROOF_LANE_V1), was 6,900 (382 × 18 estimate)
 export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   // ⛔ NOT A LANE FORWARD SPENDS FROM — a slice HELD BACK FROM THE WALK for a spender this table cannot gate.
   // ⛔ SET THIS TO 0 ONLY IN THE SAME COMMIT THAT GENUINELY GATES cron/sync. Then, and only then, is
@@ -170,8 +172,8 @@ export const LANE_ALLOCATIONS: Record<BudgetLane, number> = {
   forward: FORWARD_UNGATED_RESERVE,
   drain: 0,         // ZERO BY DECISION — was 3,000. Declines cleanly at cron/drain/route.ts:139-160, HTTP 200.
   catchup: 0,       // ZERO BY DECISION — was 4,000. Declines cleanly at cron/catchup/route.ts:281-286.
-  driver: DRIVER_ALLOCATION, // 5,423 — the catalogue driver's measured ask, 17 connections × 319 surfaces (LORAMER_PROOF_LANE_V1, 2026-09-12); was 6,900
-  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 8,077 — was 6,600 (2/2 A), was 13,500, was 6,000
+  driver: DRIVER_ALLOCATION, // 5,491 — the catalogue driver's ask, 17 connections × 323 surfaces (LORAMER_WALK_BASE_DEALIAS_V1, 2026-09-12); was 5,423 (× 319), was 6,900
+  backfill: GOOGLE_DAILY_OP_CAP - FORWARD_UNGATED_RESERVE - DRIVER_ALLOCATION, // 8,009 — was 8,077 (proof lane), was 6,600 (2/2 A), was 13,500, was 6,000
 }
 
 // ⛔ KEPT AS DERIVED ALIASES so existing readers and guard legs keep their meaning; they are no longer the

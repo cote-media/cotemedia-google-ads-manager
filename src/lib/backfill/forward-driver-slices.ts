@@ -17,9 +17,12 @@
 //            catalogue's rows on 16% of its surfaces; expanded_landing_page_view alone ~3,700 rows/day ×3).
 //            (Gate-A's family table read 41/437,312 because it filed search_term_view's 9 segments under
 //            "same-resource"; the slice is BY RESOURCE, so they ride HEAVY — 48,024 rows.)
-//   REST   — the remaining 269 catalogue surfaces, 236,924 rows; 254 of the 319 under 1,000 rows per 31 days.
-// The 16 alias-covered keys (DRAIN_ALIAS: 4 identity + 12 geo aliases) and the 14 catalogue surfaces the legacy
-// family already asks are EXCLUDED — one writer per surface (ruling n). 349 − 16 − 14 = 319 = 50 + 269.
+//   REST   — the remaining 273 catalogue surfaces (269 + the four de-aliased bases), 236,924 rows measured on the
+//            269; 254 of the 319 under 1,000 rows per 31 days.
+// The 12 alias-covered keys (DRAIN_ALIAS: the geo aliases) and the 14 catalogue surfaces the legacy family already
+// asks are EXCLUDED — one writer per surface (ruling n). LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): the four base
+// spellings (campaign| · ad_group| · ad_group_ad| · customer|) left the alias map and are asked by the driver at the
+// walk spelling beside forward's '' rows — two writers, two keys. 349 − 12 − 14 = 323 = 50 + 273.
 
 export type DriverSlice = 'HEAVY' | 'REST'
 export const DRIVER_SLICES: DriverSlice[] = ['HEAVY', 'REST']

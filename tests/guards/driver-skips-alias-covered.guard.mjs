@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 // LORAMER_FORWARD_DRIVER_V1 — THE DRIVER ASKS THE CATALOGUE MINUS THE ALIAS-COVERED AND THE LEGACY-ASKED SURFACES.
 //
-// DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (n): ONE WRITER PER SURFACE, no row written twice. The 16 DRAIN_ALIAS
-// keys (4 identity + 12 geo aliases, universe-surfaces.ts) and the 14 catalogue surfaces the legacy family asks
+// DECISIONS LORAMER_SESSION_2026_09_05_RULINGS (n): ONE WRITER PER SURFACE, no row written twice. The 12 DRAIN_ALIAS
+// keys (the geo aliases, universe-surfaces.ts) and the 14 catalogue surfaces the legacy family asks
 // (FORWARD_PRODUCER_SURFACES) already have a writer; the driver's catalogue slices exclude both. MEASURED 2026-09-10
 // (Gate-A, Escential): selectable 349 − 16 alias-covered − 14 legacy-asked = 319 = HEAVY 50 + REST 269.
+// LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): the four base spellings (campaign| · ad_group| · ad_group_ad| · customer|)
+// left the alias map; ruling (n) amended — they are TWO-WRITER-TWO-KEY (forward at '', the driver at the walk
+// spelling), so the driver subtracts DEALIASED_BASE_SURFACES from its legacy exclusion: 349 − 12 − 14 = 323 = 50 + 273.
 //
 // LEGS — the pure selection is driven with the REAL catalogue artifact and stubbed alias/legacy predicates:
 //  (a) src/lib/backfill/forward-driver-slices.ts compiles standalone and exports selectDriverSurfaces + sliceOf
-//  (b) with 16 alias keys and the 14 legacy keys stubbed in, the selection excludes every one of them
-//  (c) the counts are 50 HEAVY + 269 REST on docs/google-ads-capture-universe.json (N=319) (a drift here is a catalogue
+//  (b) with the 12 alias keys and the 14 legacy keys stubbed in, the selection excludes every one of them — and the
+//      four de-aliased bases are SELECTED (a base that still hides behind the legacy exclusion is the 2026-09-12 defect)
+//  (c) the counts are 50 HEAVY + 273 REST on docs/google-ads-capture-universe.json (N=323) (a drift here is a catalogue
 //      change and must be re-measured, never silently absorbed)
 //  (d) forward-driver.ts wires the alias predicate to drainAliasFor(surfaceOfEntry(e)) and the legacy predicate to
 //      FORWARD_PRODUCER_SURFACES — the pure module never guesses at either
@@ -27,8 +31,8 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter((l) =
 
 const SLICES = 'src/lib/backfill/forward-driver-slices.ts'
 const DRIVER = 'src/lib/backfill/forward-driver.ts'
+const DEALIASED_BASE_KEYS = ['campaign|', 'ad_group|', 'ad_group_ad|', 'customer|'] // LORAMER_WALK_BASE_DEALIAS_V1
 const ALIAS_KEYS = [
-  'campaign|', 'ad_group|', 'ad_group_ad|', 'customer|',
   'geographic_view|segments.geo_target_city', 'geographic_view|segments.geo_target_metro', 'geographic_view|segments.geo_target_region',
   'geographic_view|segments.geo_target_state', 'geographic_view|segments.geo_target_county', 'geographic_view|segments.geo_target_postal_code',
   'geographic_view|segments.geo_target_most_specific_location', 'user_location_view|segments.geo_target_metro',
@@ -62,6 +66,12 @@ else {
       const sel = M.selectDriverSurfaces(entries, (e) => alias.has(key(e)), legacy)
       const leaked = sel.filter((e) => alias.has(key(e)) || legacy.has(key(e))).map(key)
       if (leaked.length) findings.push(`(b) selectDriverSurfaces let ${leaked.length} alias-covered / legacy-asked surface(s) through: ${leaked.slice(0, 6).join(' · ')}${leaked.length > 6 ? ' …' : ''} — a second writer on a surface (ruling n)`)
+      // LORAMER_WALK_BASE_DEALIAS_V1 — the four bases must be SELECTED once the driver subtracts them from its legacy exclusion.
+      const selKeys = new Set(sel.map(key))
+      const missingBase = DEALIASED_BASE_KEYS.filter((k) => !selKeys.has(k))
+      if (missingBase.length) findings.push(`(b) the de-aliased base surface(s) ${missingBase.join(' · ')} are NOT selected — the driver would leave them to forward's '' writer and the lookback lane would have no walk rows to restate (LORAMER_WALK_BASE_DEALIAS_V1)`)
+      const driverSrc = strip(read(DRIVER))
+      if (!/DEALIASED_BASE_SURFACES/.test(driverSrc)) findings.push(`(d) ${DRIVER} does not subtract DEALIASED_BASE_SURFACES from its legacy exclusion — the four bases would stay legacy-only (LORAMER_WALK_BASE_DEALIAS_V1)`)
       const heavy = sel.filter((e) => M.sliceOf(e) === 'HEAVY').length, rest = sel.filter((e) => M.sliceOf(e) === 'REST').length
       const other = sel.length - heavy - rest
       if (other) findings.push(`(c) ${other} selected surface(s) fall in neither HEAVY nor REST — every driver surface belongs to exactly one slice`)
@@ -76,7 +86,7 @@ else {
       const strict = sel.filter((e) => (e.segment === null || e.dateCombinable === true) && !(e.segment && DERIVED.has(e.segment))
         && !DEFERRED.has(key(e)) && !(Array.isArray(e.servesMetrics) && e.servesMetrics.length === 0))
       const hv = strict.filter((e) => M.sliceOf(e) === 'HEAVY').length, rs = strict.filter((e) => M.sliceOf(e) === 'REST').length
-      if (hv !== 50 || rs !== 269) findings.push(`(c) the driver catalogue reads HEAVY ${hv} · REST ${rs} on the current artifact; Gate-A 2026-09-10 measured 50 · 269 (N=319: the five search-term/landing resources incl. search_term_view's 9 segments) — the catalogue moved; re-measure before trusting the slice map`)
+      if (hv !== 50 || rs !== 273) findings.push(`(c) the driver catalogue reads HEAVY ${hv} · REST ${rs} on the current artifact; Gate-A 2026-09-10 measured 50 · 269 (N=319) and LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 re-measured 50 · 273 (N=323: + the four de-aliased bases, all REST) — the catalogue moved; re-measure before trusting the slice map`)
     }
   } catch (e) { findings.push(`(a) ${SLICES} could not be compiled or driven: ${e.message}`) }
   finally { rmSync(out, { recursive: true, force: true }) }
@@ -99,4 +109,4 @@ if (findings.length) {
   for (const f of findings) console.error('  ' + f)
   process.exit(1)
 }
-console.log('[driver-skips-alias-covered] PASS — selectDriverSurfaces excludes all 16 alias-covered and 14 legacy-asked keys on the real catalogue; HEAVY 50 · REST 269 (N=319, Gate-A 2026-09-10); the driver wires the predicate through surfaceOfEntry → drainAliasFor and FORWARD_PRODUCER_SURFACES.')
+console.log('[driver-skips-alias-covered] PASS — selectDriverSurfaces excludes all 12 alias-covered and 14 legacy-asked keys and selects the 4 de-aliased bases on the real catalogue; HEAVY 50 · REST 273 (N=323, LORAMER_WALK_BASE_DEALIAS_V1 2026-09-12 over Gate-A 2026-09-10 at 50 · 269); the driver wires the predicate through surfaceOfEntry → drainAliasFor and FORWARD_PRODUCER_SURFACES.')

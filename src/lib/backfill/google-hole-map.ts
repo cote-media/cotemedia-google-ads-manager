@@ -37,42 +37,25 @@
 // as a decision, not slipped past it) owns the clock budget and hands it in, exactly as the route owns
 // `maxDuration = CONSUMER_MAX_DURATION_S` rather than the worker.
 //
-// ⛔ THE ALIAS QUESTION IS ANSWERED INSIDE windowCoverage, not here: drain-written and forward-written rows at
-// the legacy spelling count as coverage for the walk's surface through the read-side alias map in
-// universe-surfaces.ts, proven from rows by drain-alias-coverage.guard.mjs leg (v). This module asks at the
-// walk's own key and inherits that proof; it does not invent a third spelling.
+// ⛔ THE ALIAS QUESTION IS ANSWERED INSIDE windowCoverage, not here: drain-written geo rows at the legacy spelling
+// count as coverage for the walk's geo surfaces through the read-side alias map in universe-surfaces.ts (12 geo
+// entries; the four base entries were removed by LORAMER_WALK_BASE_DEALIAS_V1 on 2026-09-12), proven from rows by
+// drain-alias-coverage.guard.mjs leg (v). This module asks at the walk's own key and inherits that answer; it does
+// not invent a third spelling.
 import { windowCoverage, committedDays, toRanges, type CoverageKey } from '@/lib/backfill/universe-coverage'
 import {
   loadUniverse, selectableEntries, readWalkStopAccountFacts, resolveWalkStop, type UniverseEntry,
 } from '@/lib/backfill/google-ads-universe-writer'
 import { surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
 import { MAX_ENTRIES_SCANNED_PER_RUN } from '@/lib/backfill/universe-resumer'
-import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
 import { readForwardObservations } from '@/lib/backfill/forward-observation-log' // LORAMER_FORWARD_OBSERVATION_LOG_V1 — a LABEL over coverage's answer, never an input to it
-import { supabaseAdmin } from '@/lib/supabase'
 
 const VENDOR = 'google'
 
-/**
- * LORAMER_ACCOUNT_ROW_PROVENANCE_V1 — how many of these already-covered days carry a provenance stamp on the
- * row itself. Only the walk's base account surface aliases onto the stamped legacy key; every other surface
- * returns 0 without a read. Keyed by the alias object, never by a literal. A failed read is 0 rowAttested —
- * the days stay presenceOnly (the honest, weaker claim), and coverage itself is untouched.
- */
-async function rowAttestedDays(clientId: string, entityLevel: string, breakdownType: string, days: string[]): Promise<number> {
-  if (!days.length) return 0
-  const alias = drainAliasFor(entityLevel, breakdownType)
-  if (!alias || alias.breakdownType !== '' || entityLevel !== 'customer') return 0
-  const { data, error } = await supabaseAdmin
-    .from('metrics_daily')
-    .select('date')
-    .eq('client_id', clientId).eq('platform', VENDOR)
-    .eq('entity_level', alias.entityLevel).eq('breakdown_type', alias.breakdownType)
-    .in('date', days)
-    .not('extra->>provenance', 'is', null)
-  if (error) return 0
-  return new Set((data ?? []).map((r) => String((r as { date: string }).date))).size
-}
+// LORAMER_ACCOUNT_ROW_PROVENANCE_V1's `rowAttested` tier keyed off the customer→account/'' read-side alias. That alias
+// was removed by LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): the walk's base surfaces no longer read legacy '' rows as
+// coverage, so no covered day can carry a legacy provenance stamp — the tier is 0 by construction and its reader is
+// gone. The field stays in the shape (scripts/google-hole-map-proof.ts prints it) so every reader sees 0, not undefined.
 
 /** The page bounds. `allowanceMs` is REQUIRED — the execution host owns the clock budget (see the header);
  *  `maxEntries` defaults to the resumer's own scan bound. */
@@ -219,7 +202,7 @@ export async function enumerateGoogleHoles(input: {
     // ⛔ THIS READ LABELS DAYS ALREADY DECIDED COVERED BY windowCoverage; IT NEVER DECIDES COVERAGE. It is keyed
     // by the surface's read-side alias (the walk's base surface → the legacy account key), never by a literal
     // — leg (g) bars the account-grain key as a coverage input, and this is not one. One probe, one surface.
-    const rowAttested = await rowAttestedDays(clientId, s.entityLevel, s.breakdownType, cov.covered.filter((d) => !committed.has(d)))
+    const rowAttested = 0 // LORAMER_WALK_BASE_DEALIAS_V1 — no base alias, no legacy-stamped covered day; see the note above
     const presenceOnly = cov.covered.length - ledgerAttested - rowAttested
 
     // LORAMER_FORWARD_OBSERVATION_LOG_V1 — THE FOURTH TIER, OVER THE UNCOVERED HALF. A day windowCoverage calls

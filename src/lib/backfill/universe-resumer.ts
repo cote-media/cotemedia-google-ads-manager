@@ -39,7 +39,7 @@ export type ResumeVerdict =
  * ⛔ RE-DERIVED 2026-08-12 (LORAMER_WALK_BITE_40_V1) — the original block cited the RETIRED 6,000 allowance
  * and the retired 4,000/5,000 reserves; the numbers below are the ones in force, and the guard pins the
  * constant and this derivation TOGETHER so they cannot drift apart again:
- *   · the walk's lane is LANE_ALLOCATIONS.backfill = 8,077 ops/day since 2026-09-12 (LORAMER_PROOF_LANE_V1: 15,000 − 1,500 forward reserve − 5,423 measured driver ask; was 6,600 under 2/2 A, was 13,500 under LORAMER_WALK_TAKES_THE_LANE_V1)
+ *   · the walk's lane is LANE_ALLOCATIONS.backfill = 8,009 ops/day since 2026-09-12 (LORAMER_WALK_BASE_DEALIAS_V1: 15,000 − 1,500 forward reserve − 5,491 driver ask = 17 × 323; was 8,077 under LORAMER_PROOF_LANE_V1 at 5,423; was 6,600 under 2/2 A, was 13,500 under LORAMER_WALK_TAKES_THE_LANE_V1)
  *   · ⛔ RE-DERIVED AGAIN 2026-08-19 (DEPLOY 3) — the cadence is now every 5 minutes, i.e. 288 fires/day,
  *     and the BITE IS UNCHANGED at 40. (The cron token itself is not written here: the
  *     asterisk-slash form would CLOSE THIS COMMENT BLOCK and turn the rest of the header into code. It cost
@@ -55,7 +55,7 @@ export type ResumeVerdict =
  *     already binding, a bigger bite has nothing to bite. (DEPLOY 2, 2026-08-17, had moved hourly → 15 min
  *     on its own gate — a measured fire with rows_written > 0, met at 88,140 rows/24h against the
  *     migration-070 RPC counter, which read a structural zero until 2026-08-15.)
- *   · 40 requests/fire × 288 = **11520/day** — the bite's WORST CASE, and it EXCEEDS the 8,077 lane (142.6%; it was
+ *   · 40 requests/fire × 288 = **11520/day** — the bite's WORST CASE, and it EXCEEDS the 8,009 lane (143.8%; it was
  *     85.3% of the 13,500 lane this line was derived against, and 174.5% of 2/2 A's 6,600). ⛔ THE BITE DOES NOT BOUND
  *     THE WALK'S SPEND — THE METER DOES: every fire asks mayFetchProgram against LANE_ALLOCATIONS.backfill (the adapter's
  *     cap, capture-adapters/google-ads.adapter.ts) and is meter-held the moment the rolling-24h lane is full, as the

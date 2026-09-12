@@ -98,6 +98,35 @@ const coverage = read(COVERAGE)
   }
 }
 
+// ── (t) BY KEY, FOR THE FOUR BASE SPELLINGS — LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12) ─────────────────
+// The resource-name test above cannot see a base twin: 'campaign' appears in the file whatever the map says. The
+// four base surfaces forward writes at '' (its own manifest: forward-observation-log.ts FORWARD_PRODUCER_SURFACES,
+// producers google-account-row · google-campaign-backfill · google-adgroup-ad-backfill) must each be EITHER an
+// alias entry OR a WALK_ONLY_SURFACES key at the walk spelling `<resource>|<resource>` — never neither. Seen RED
+// 2026-09-12 with the four alias entries deleted and the walk-only keys not yet written.
+{
+  const OBS = 'src/lib/backfill/forward-observation-log.ts'
+  const obs = strip(read(OBS))
+  const baseProducers = ['google-account-row', 'google-campaign-backfill', 'google-adgroup-ad-backfill']
+  const dualBase = []
+  for (const prod of baseProducers) {
+    const m = obs.match(new RegExp(`'${prod}'\\s*:\\s*\\[([^\\]]*)\\]`))
+    if (!m) { findings.push(`(t) ${OBS} no longer declares producer '${prod}' in FORWARD_PRODUCER_SURFACES — the base-twin set cannot be read from the legacy manifest`); continue }
+    for (const e of m[1].matchAll(/resource:\s*'([a-z_]+)'\s*,\s*segment:\s*''/g)) dualBase.push(e[1])
+  }
+  if (dualBase.length !== 4) findings.push(`(t) expected 4 base producers' surfaces in ${OBS}, read ${dualBase.length} (${dualBase.join(', ')})`)
+  const aliasBlock = strip(surfaces).match(/DRAIN_ALIAS[^=]*=\s*\{([\s\S]*?)\n\}/)
+  const aliasKeys = new Set(aliasBlock ? [...aliasBlock[1].matchAll(/'([^']+)'\s*:\s*\{\s*entityLevel/g)].map((x) => x[1]) : [])
+  const walkOnlyBlock = strip(surfaces).match(/WALK_ONLY_SURFACES\s*=\s*new Set\(\[([\s\S]*?)\]\)/)
+  const walkOnly = new Set(walkOnlyBlock ? [...walkOnlyBlock[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [])
+  for (const r of dualBase) {
+    const key = `${r}|${r}`
+    if (!aliasKeys.has(key) && !walkOnly.has(key)) {
+      findings.push(`(t) '${key}' is stored by BOTH engines under different keys (forward writes ${r} at breakdown_type '' — ${OBS} FORWARD_PRODUCER_SURFACES) and appears in neither DRAIN_ALIAS nor WALK_ONLY_SURFACES in ${SURFACES}. A base twin in neither list is a silent third state: not aliased, not declared walk-only, re-bought or skipped on nobody's decision.`)
+    }
+  }
+}
+
 // ── (u) THE PROBE ACTUALLY ASKS THE ALIAS ─────────────────────────────────────────────────────────────────
 {
   if (!/drainAliasFor|DRAIN_ALIAS/.test(body(coverage))) {

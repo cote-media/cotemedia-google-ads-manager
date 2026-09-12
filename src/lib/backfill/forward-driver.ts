@@ -29,7 +29,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { loadUniverse, selectableEntries, readWalkStopAccountFacts, type UniverseEntry } from '@/lib/backfill/google-ads-universe-writer'
 import { googleAdsCaptureAdapter, surfaceOfEntry } from '@/lib/backfill/capture-adapters/google-ads.adapter'
-import { drainAliasFor } from '@/lib/backfill/universe-surfaces'
+import { drainAliasFor, DEALIASED_BASE_SURFACES } from '@/lib/backfill/universe-surfaces' // LORAMER_WALK_BASE_DEALIAS_V1 — the four bases are two-writer-two-key
 import { captureSurfaceStreaming } from '@/lib/backfill/universe-stream-capture'
 import { googleAdsStreamFor } from '@/lib/backfill/universe-vendor-stream'
 import { FORWARD_PRODUCER_SURFACES, observeForward, readSliceObservationState } from '@/lib/backfill/forward-observation-log'
@@ -130,12 +130,18 @@ export function legacySurfaceKeys(): Set<string> {
   return new Set(Object.values(FORWARD_PRODUCER_SURFACES).flat().map((s) => surfaceKey(s)))
 }
 
-/** The driver's catalogue: selectable − alias-covered (drainAliasFor) − legacy-asked (FORWARD_PRODUCER_SURFACES). */
+/**
+ * The driver's catalogue: selectable − alias-covered (drainAliasFor) − legacy-asked (FORWARD_PRODUCER_SURFACES)
+ * + the four DE-ALIASED base surfaces. LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): forward keeps writing those four
+ * at '' (its manifest is read, never edited), and the driver now ALSO asks them at the walk spelling so the
+ * lookback lane has walk rows to restate — two writers, two keys (ruling (n), amended 2026-09-12). 17 × 323.
+ */
 export function driverCatalogue(root = process.cwd()): { heavy: UniverseEntry[]; rest: UniverseEntry[] } {
+  const legacyMinusDealiased = new Set([...legacySurfaceKeys()].filter((k) => !DEALIASED_BASE_SURFACES.has(k)))
   const all = selectDriverSurfaces(
     selectableEntries(loadUniverse(root)),
     (e) => { const s = surfaceOfEntry(e); return drainAliasFor(s.entityLevel, s.breakdownType) !== null },
-    legacySurfaceKeys(),
+    legacyMinusDealiased,
   )
   return { heavy: all.filter((e) => sliceOf(e) === 'HEAVY'), rest: all.filter((e) => sliceOf(e) === 'REST') }
 }

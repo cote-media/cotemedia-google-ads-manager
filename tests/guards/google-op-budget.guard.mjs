@@ -174,9 +174,10 @@ const spend = (o = {}) => ({ byLane: { forward: 0, catchup: 0, drain: 0, backfil
   // LORAMER_PROOF_LANE_V1 (2026-09-12): the driver is UNGATED by its allocation (forward-driver.ts consults no budget — its only
   // bound is time), so the allocation must equal the driver's MEASURED daily ask or the cap is fiction: 17 google connections ×
   // 319 catalogue surfaces = 5,423 (measured 2026-09-11, the first full driver window). Was 6,900 (382 × 18, the pre-measurement
-  // estimate). The walk's lane derives to 15,000 − 1,500 − 5,423 = 8,077 — the proof vehicle takes it (★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE).
-  check(LANE_ALLOCATIONS.driver === 5423, `(k) driver allocation is ${LANE_ALLOCATIONS.driver}; decided 5,423 ⇐ measured 2026-09-11: 17 connections × 319 surfaces (LORAMER_PROOF_LANE_V1)`)
-  check(LANE_ALLOCATIONS.backfill === 8077, `(k) backfill allocation is ${LANE_ALLOCATIONS.backfill}; decided 8,077 = 15,000 − 1,500 − 5,423 so the sum invariant holds (LORAMER_PROOF_LANE_V1)`)
+  // estimate). LORAMER_WALK_BASE_DEALIAS_V1 (2026-09-12): the four de-aliased base surfaces joined the catalogue — 17 × 323 = 5,491.
+  // The walk's lane derives to 15,000 − 1,500 − 5,491 = 8,009 — the proof vehicle takes it (★PROOF-VEHICLE-TAKES-THE-BACKFILL-LANE).
+  check(LANE_ALLOCATIONS.driver === 5491, `(k) driver allocation is ${LANE_ALLOCATIONS.driver}; decided 5,491 ⇐ 17 connections × 323 surfaces (LORAMER_WALK_BASE_DEALIAS_V1; was 5,423 = 17 × 319 under LORAMER_PROOF_LANE_V1)`)
+  check(LANE_ALLOCATIONS.backfill === 8009, `(k) backfill allocation is ${LANE_ALLOCATIONS.backfill}; decided 8,009 = 15,000 − 1,500 − 5,491 so the sum invariant holds (LORAMER_WALK_BASE_DEALIAS_V1)`)
   const sumAll = Object.values(LANE_ALLOCATIONS).reduce((a, b) => a + b, 0)
   check(sumAll === GOOGLE_DAILY_OP_CAP, `(k) LANE_ALLOCATIONS sum to ${sumAll}, not the cap ${GOOGLE_DAILY_OP_CAP}`)
   // a driver cron_runs row adds NOTHING to units or unattributed — pinned on the source (the reader's branch)
